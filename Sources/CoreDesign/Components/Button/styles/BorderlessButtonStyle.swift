@@ -39,7 +39,7 @@ public struct BorderlessButtonStyle: PrimitiveButtonStyle {
     }
 }
 
-extension PrimitiveButtonStyle where Self == SolidButtonStyle {
+extension PrimitiveButtonStyle where Self == BorderlessButtonStyle {
     public static func borderless(role: ButtonRoleStyleRole = .primary) -> BorderlessButtonStyle {
         BorderlessButtonStyle(role: role)
     }

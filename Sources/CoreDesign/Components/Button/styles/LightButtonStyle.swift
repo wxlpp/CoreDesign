@@ -66,7 +66,7 @@ public struct LightButtonStyle: PrimitiveButtonStyle {
     }
 }
 
-extension PrimitiveButtonStyle where Self == SolidButtonStyle {
+extension PrimitiveButtonStyle where Self == LightButtonStyle {
     public static func lightButton(role: ButtonRoleStyleRole = .primary) -> LightButtonStyle {
         LightButtonStyle(role: role)
     }
@@ -79,6 +79,7 @@ extension PrimitiveButtonStyle where Self == SolidButtonStyle {
         }) {
             Text("Login")
         }
+//        .buttonStyle(.plain)
         .buttonStyle(.lightButton(role: .primary))
         .controlSize(.mini)
 

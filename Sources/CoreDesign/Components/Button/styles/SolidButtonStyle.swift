@@ -81,6 +81,7 @@ extension PrimitiveButtonStyle where Self == SolidButtonStyle {
         }
         .buttonStyle(.solidButton(role: .primary))
         .controlSize(.mini)
+        .disabled(true)
 
         Button(action: {
             // 注册按钮的操作

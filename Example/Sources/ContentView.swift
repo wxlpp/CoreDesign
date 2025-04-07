@@ -8,19 +8,16 @@
 import CoreDesign
 import SwiftUI
 
-struct SwiftUICoreDesign: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        CoreDesign()
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {}
-}
-
 struct ContentView: View {
     var body: some View {
-        VStack(alignment: .center) {
-            SwiftUICoreDesign()
-        }
+        VStack {
+            Group {
+                Text("11111111111111211111111111111111111111111111112111")
+                Text("22222").frame(maxWidth: .infinity)
+                Text("3333333")
+            }.border(Color.red)
+        }.frame(width: 300)
+            .border(Color.green)
     }
 }
 
