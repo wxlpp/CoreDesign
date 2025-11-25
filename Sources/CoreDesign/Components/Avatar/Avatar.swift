@@ -23,7 +23,12 @@ public struct Avatar: View {
                 Path(CGRect(origin: .zero, size: size)),
                 with: .color(Color(text: self.name))
             )
-            context.draw(Text(firstCharacter).font(.system(size: 30, weight: .bold)).foregroundStyle(Color.white), at: CGPoint(x: size.width / 2, y: size.height / 2))
+            context.draw(
+                Text(firstCharacter)
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(Color.white),
+                at: CGPoint(x: size.width / 2, y: size.height / 2)
+            )
         }
         .resizable()
         .aspectRatio(contentMode: .fill)
@@ -77,7 +82,7 @@ extension Avatar {
         }
         .frame(width: 40, height: 40)
         .clipShape(Circle())
-        .overlay(Circle().stroke(Color.systemBackground, lineWidth: 2))
+        .overlay(Circle().stroke(Color.white, lineWidth: 2))
     }
     Avatar.HStack(spacing: 20) {
         Group {
@@ -88,6 +93,6 @@ extension Avatar {
         }
         .frame(width: 40, height: 40)
         .clipShape(Circle())
-        .overlay(Circle().stroke(Color.systemBackground, lineWidth: 2))
+        .overlay(Circle().stroke(Color.white, lineWidth: 2))
     }
 }

@@ -10,7 +10,7 @@ import SwiftUI
 
 extension Color {
     private static let predefinedColors: [Color] = [
-        .red, .green, .blue, .orange, .purple, .pink, .yellow, .cyan, .mint, .indigo,
+        .red, .green, .blue, .orange, .purple, .pink, .yellow, .cyan, .mint, .indigo
     ]
 
     public init(text: String) {

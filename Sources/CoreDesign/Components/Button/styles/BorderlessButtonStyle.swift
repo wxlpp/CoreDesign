@@ -11,7 +11,6 @@ import SwiftUI
 public struct BorderlessButtonStyle: PrimitiveButtonStyle {
     @GestureState private var isPressed = false
     @Environment(\.isEnabled) private var isEnabled
-
     let role: ButtonRoleStyleRole
 
     private var pressedStateGesture: some Gesture {
@@ -47,37 +46,27 @@ extension PrimitiveButtonStyle where Self == BorderlessButtonStyle {
 
 #Preview {
     VStack {
-        Button(action: {
-            // 登录按钮的操作
-        }) {
+        Button {} label: {
             Text("Login")
         }
         .buttonStyle(.borderless(role: .primary))
 
-        Button(action: {
-            // 注册按钮的操作
-        }) {
+        Button {} label: {
             Text("Register")
         }
         .buttonStyle(.borderless(role: .secondary))
 
-        Button(action: {
-            // 忘记密码按钮的操作
-        }) {
+        Button {} label: {
             Text("Forgot Password")
         }
         .buttonStyle(.borderless(role: .warning))
 
-        Button(action: {
-            // 提交按钮的操作
-        }) {
+        Button {} label: {
             Text("Submit")
         }
         .buttonStyle(.borderless(role: .danger))
 
-        Button(action: {
-            // 取消按钮的操作
-        }) {
+        Button {} label: {
             Text("Cancel")
         }
         .buttonStyle(.borderless(role: .tertiary))

@@ -74,42 +74,32 @@ extension PrimitiveButtonStyle where Self == SolidButtonStyle {
 
 #Preview {
     VStack {
-        Button(action: {
-            // 登录按钮的操作
-        }) {
+        Button {} label: {
             Text("Login")
         }
         .buttonStyle(.solidButton(role: .primary))
         .controlSize(.mini)
         .disabled(true)
 
-        Button(action: {
-            // 注册按钮的操作
-        }) {
+        Button {} label: {
             Text("Register")
         }
         .buttonStyle(.solidButton(role: .secondary))
         .controlSize(.small)
 
-        Button(action: {
-            // 忘记密码按钮的操作
-        }) {
+        Button {} label: {
             Text("Forgot Password")
         }
         .buttonStyle(.solidButton(role: .warning))
         .controlSize(.regular)
 
-        Button(action: {
-            // 提交按钮的操作
-        }) {
+        Button {} label: {
             Text("Submit")
         }
         .buttonStyle(.solidButton(role: .danger))
         .controlSize(.large)
 
-        Button(action: {
-            // 取消按钮的操作
-        }) {
+        Button {} label: {
             Text("Cancel")
         }
         .buttonStyle(.solidButton(role: .tertiary))

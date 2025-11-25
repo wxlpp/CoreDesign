@@ -13,7 +13,7 @@ struct CheckBoxToggleStyle: ToggleStyle {
             if configuration.isOn {
                 Image(systemName: "checkmark.square.fill").foregroundStyle(Color.primary)
             } else {
-                Image(systemName: "square").foregroundStyle(Color.tertiaryLabel)
+                Image(systemName: "square").foregroundStyle(Color.gray)
             }
             configuration.label
         }

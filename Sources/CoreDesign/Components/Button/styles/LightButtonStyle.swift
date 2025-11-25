@@ -74,42 +74,31 @@ extension PrimitiveButtonStyle where Self == LightButtonStyle {
 
 #Preview {
     VStack {
-        Button(action: {
-            // 登录按钮的操作
-        }) {
+        Button {} label: {
             Text("Login")
         }
-//        .buttonStyle(.plain)
         .buttonStyle(.lightButton(role: .primary))
         .controlSize(.mini)
 
-        Button(action: {
-            // 注册按钮的操作
-        }) {
+        Button {} label: {
             Text("Register")
         }
         .buttonStyle(.lightButton(role: .secondary))
         .controlSize(.small)
 
-        Button(action: {
-            // 忘记密码按钮的操作
-        }) {
+        Button {} label: {
             Text("Forgot Password")
         }
         .buttonStyle(.lightButton(role: .warning))
         .controlSize(.regular)
 
-        Button(action: {
-            // 提交按钮的操作
-        }) {
+        Button {} label: {
             Text("Submit")
         }
         .buttonStyle(.lightButton(role: .danger))
         .controlSize(.large)
 
-        Button(action: {
-            // 取消按钮的操作
-        }) {
+        Button {} label: {
             Text("Cancel")
         }
         .buttonStyle(.lightButton(role: .tertiary))
