@@ -10,11 +10,38 @@
 //
 //  - iOS / iPadOS / visionOS: 完整实现 — `.overlay(RoundedRectangle().stroke())`
 //    纯视觉焦点环，由 SwiftUI `@FocusState` 等外部状态驱动 `visible` 入参。
-//  - macOS: 当前是占位实现（与 iOS 相同的视觉 overlay 兜底）。
-//    完整 NSFocusRing 系统集成由 issue #9 (Task 8 in epic) 填充——
-//    见 `.claude/epics/coredesign-v2-tokens/9.md`。届时 macOS 分支会替换为
-//    `NSViewRepresentable` 包装 + `focusRingType = .exterior` + `becomeFirstResponder`
-//    同步路径，使 Accessibility Inspector 识别为系统 focus ring。
+//  - macOS: 同样走 SwiftUI overlay 兜底（与 iOS 一致），即 PRD/epic 描述的
+//    "spike fallback"。**这是 issue #9 的最终决策**，不是占位。
+//
+//  ## 为什么不走 NSFocusRing 系统集成（issue #9 spike 结论，2026-05-09）
+//
+//  原方案要把 macOS 分支换成 `NSViewRepresentable` 包装 `NSView` 子类
+//  （`focusRingType = .exterior`、`drawFocusRingMask()` 渲染圆角 mask），
+//  通过 `window.makeFirstResponder(nsView)` 同步 SwiftUI 的 `visible` 状态，
+//  让 Accessibility Inspector 把焦点环识别为系统 focus indicator
+//  （PRD SC #11 主路径）。
+//
+//  实施时编译 + Swift 6 严格并发都干净，但 Copilot 第二轮 review 抓到一个
+//  **架构正确性问题**：`makeFirstResponder(nsView)` 会从真实 focused 控件
+//  （TextField / NSTextView 等）**抢走** first responder，破坏键盘输入；
+//  并且会和 SwiftUI 的 `@FocusState` 形成"焦点拉锯"——SwiftUI 把焦点设到
+//  field，本 modifier 又立刻挪到 wrapper view。
+//
+//  这不是 Swift 6 并发问题，而是 NSFocusRing 这条 AppKit 路径与 SwiftUI
+//  焦点模型的根本不兼容（first-responder 是单点资源）。绕开此问题需要
+//  Copilot 列出的 3 条路径之一：
+//
+//  1. **本仓采用** — macOS 也走纯 overlay。代价：Accessibility Inspector
+//     不识别为 system focus ring，但视觉仍在；PRD SC #11 标记为"已回退、
+//     限制已记录"。
+//  2. 用 AppKit 的 focus-ring 绘制 API（`NSGraphicsContext` + draw routine）
+//     在不夺取 first responder 的情况下手绘系统样式 — 工作量大，且仍要
+//     处理 secondary key view 的语义。
+//  3. 限制本桥的使用范围到非交互 view（不会被 first responder 的元素），
+//     用强约束方式规避问题 — 调用面被严重收窄，实用性差。
+//
+//  PRD Assumptions 与 epic Implementation Strategy 都预先写好了 fallback
+//  条款；本次落到 fallback 是预期内的 spike 收益（"知道哪条路径不可行"）。
 //
 //  调用方两端写法完全一致；`#if` 仅出现在 modifier 内部。
 //
@@ -78,13 +105,16 @@ public extension View {
         width: CGFloat = CoreBorderWidth.thick,
         cornerRadius: CGFloat = CoreRadius.medium
     ) -> some View {
-        // 双平台分支当前共享同一 overlay 实现——macOS 是占位，待 issue #9 替换为
-        // NSViewRepresentable + NSFocusRing（`focusRingType = .exterior`）+
-        // becomeFirstResponder bridge。届时把 macOS 分支单独 return 一个
-        // NSViewRepresentable wrapper，与 iOS 共享 modifier API 不变。
-        #if canImport(AppKit) && !targetEnvironment(macCatalyst)
-        // TODO(issue #9 / Task 8 in epic): replace with NSViewRepresentable + NSFocusRing.
-        #endif
+        // 双平台共享同一 SwiftUI overlay 实现。macOS 不再尝试 NSFocusRing
+        // 系统集成——issue #9 spike 最终决议为 fallback path（详见文件顶部
+        // doc-comment 的 spike 结论）。NSFocusRing 的 first-responder 需求与
+        // SwiftUI `@FocusState` 焦点模型不兼容，故 macOS 也走纯 overlay。
+        //
+        // Both platforms share the same SwiftUI overlay path. macOS does not
+        // attempt NSFocusRing system integration—the issue #9 spike landed
+        // on fallback (see file-level doc-comment for the spike conclusion).
+        // NSFocusRing's first-responder requirement is incompatible with
+        // SwiftUI `@FocusState`'s focus model, so macOS also uses the overlay.
         return self.modifier(
             FocusRingModifier(
                 visible: visible,
