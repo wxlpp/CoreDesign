@@ -30,7 +30,7 @@ Browse the locked snapshot: https://github.com/primer/primitives/tree/v11.8.0/sr
 
 ## Decision log
 
-- **2026-05-09** — Locked to `v11.8.0` (latest stable as of issue #2 implementation date) per `.claude/prds/coredesign-v2-tokens.md` Architecture Decision #5.
+- **2026-05-09** — Locked to `v11.8.0` (latest stable as of issue #2 implementation date) per `.claude/epics/coredesign-v2-tokens/epic.md` Architecture Decision #5 ("Primer Primitives 版本锁定").
 
 ## Re-locking procedure
 
