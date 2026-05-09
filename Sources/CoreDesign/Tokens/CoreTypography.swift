@@ -30,8 +30,9 @@ import SwiftUI
 ///   `lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize)`
 ///   等价于 `fontSize * max(0, lineHeightMultiplier - 1)`。
 ///   （SwiftUI `lineSpacing` 是「行间距」而非「行高」，需把 Primer 行高减去字号才是补偿值。）
-/// - Primer 当前 v11.8.0 typography 文件**未定义** letter-spacing token，
-///   故所有档位 `*Tracking = 0`；保留接口以便未来 Primer 引入字距时无破坏式扩展。
+/// - Primer 当前锁定版本（见 `docs/PRIMER_VERSION.md`）的 typography 文件**未定义**
+///   letter-spacing token，故所有档位 `*Tracking = 0`；保留接口以便未来 Primer
+///   引入字距时无破坏式扩展。
 ///
 /// > Important: 单行容器（按钮 label、SegmentedControl 选项、ListRow 单行文本、
 /// > Toolbar item 等）观察不到 `lineSpacing` 的视觉效果——`lineSpacing` 只作用于
