@@ -11,9 +11,10 @@ import SwiftUI
 // MARK: - CoreControlMetrics
 
 /// 控件尺寸 token，按 SwiftUI `ControlSize`（mini / small / regular / large / extraLarge）
-/// 暴露 height / horizontalPadding / verticalPadding / font / iconSize 五项查询表 helper。
+/// 暴露 5 个主查询 helper（height / horizontalPadding / verticalPadding / font / iconSize）
+/// + 1 个严格 Primer 高度用的 escape hatch（`primerVerticalPadding`）。
 ///
-/// 调用方式（caseless enum + 5 个 `static func`）：
+/// 调用方式（caseless enum + 6 个 `static func`，5 主查询 + 1 escape hatch）：
 ///
 /// ```swift
 /// // SegmentedControl / SearchField / SolidButtonStyle 内部
@@ -32,8 +33,10 @@ import SwiftUI
 /// > 用 `frame(height:)` 会裁切 / 压缩 label。
 /// >
 /// > 若设计上必须严格命中 Primer 控件高度（譬如对接现有视觉 spec），改用
-/// > `primerVerticalPadding(for:)`（返回 Primer `paddingBlock` 精确值 6/10/14）配
-/// > `frame(height:)` 钳制——padding 数值仍集中在本 token 内，不在调用方散落字面量。
+/// > `primerVerticalPadding(for:)`（返回 Primer `paddingBlock` 精确值
+/// > 2/4/6/10/14——其中 6/10/14 不在 CoreSpacing scale 上，是本 helper
+/// > 存在的全部理由）配 `frame(height:)` 钳制；padding 数值仍集中在本 token
+/// > 内，不在调用方散落字面量。
 ///
 /// ## 取值依据
 ///
