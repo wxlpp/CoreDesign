@@ -18,8 +18,8 @@ import CoreGraphics
 ///     .padding(CoreSpacing.lg)
 /// ```
 ///
-/// 取值参考：v11.8.0 functional `space.*` token。`xxs`–`xl` 与 Primer 一一对应；
-/// `xxl`–`huge` 是本仓库扩展，对应 Primer base.size.32 / .40 / .48 / .64。
+/// 取值参考：见 `Tokens/PRIMER_VERSION.md` 中锁定的 Primer 版本下 functional `space.*` token。
+/// `xxs`–`xl` 与 Primer 一一对应；`xxl`–`huge` 是本仓库扩展，对应 Primer `base.size.32` / `.40` / `.48` / `.64`。
 ///
 /// > Important: 不要在组件中引入与本表无关的字面量（譬如 `padding(13)`），
 /// > 这会破坏 token 化的初衷。需要新粒度时优先扩展本枚举。

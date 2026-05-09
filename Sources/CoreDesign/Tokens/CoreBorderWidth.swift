@@ -18,7 +18,8 @@ import CoreGraphics
 ///     .stroke(.borderDefault, lineWidth: CoreBorderWidth.thin)
 /// ```
 ///
-/// `.thick` (2pt) **必须** 用于交互元素的 focus ring（Primer LLM 规则强制要求）。
+/// `.thick` (2pt) 推荐用于交互元素的 focus ring；这与 Primer `borderWidth.thick` 文档中
+/// "focus indicator / selected state / emphasis border" 的用法分类一致。
 public enum CoreBorderWidth {
     /// 无描边 (0pt)。**CoreDesign 扩展**。零值占位。
     public static let none: CGFloat = 0
