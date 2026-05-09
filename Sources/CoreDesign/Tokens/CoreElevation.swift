@@ -26,7 +26,8 @@ import SwiftUI
 /// 调用方式：
 ///
 /// ```swift
-/// Card { ... }
+/// RoundedRectangle(cornerRadius: CoreRadius.medium)
+///     .fill(Color.systemBackground)
 ///     .coreShadow(.medium)
 /// ```
 public enum CoreElevation {
@@ -60,7 +61,10 @@ public enum CoreElevation {
         /// 阴影颜色。来自 `Resources.xcassets/shadow/shadow-*.colorset`，自动 light/dark。
         public let color: Color
 
-        /// SwiftUI `.shadow` blur radius。对应 Primer `blur` 字段（单位 pt ≈ px）。
+        /// SwiftUI `.shadow` blur radius，单位 **pt**（点）。Primer 上游以 px 给出对应数值，
+        /// 本仓库直接以同名数值在 SwiftUI 中以 pt 使用——pt 与 px 在 Apple 平台上**不等价**
+        /// （差一个屏幕 scale 因子），但视觉上 1pt 对应 N 个物理像素的渲染体验在常见 scale 下
+        /// 仍接近 Primer 设计意图。
         public let radius: CGFloat
 
         /// 水平偏移。对应 Primer `offsetX`。
@@ -82,7 +86,8 @@ public enum CoreElevation {
     /// 查询给定 `Level` 的视觉规格。
     ///
     /// - Parameter level: elevation 档位。
-    /// - Returns: 对应的 `(color, radius, x, y)` 元组式规格。
+    /// - Returns: 对应档位的 `Spec` 结构体（含 `color` / `radius` / `x` / `y` 四个字段，
+    ///   直接对应 SwiftUI `.shadow(color:radius:x:y:)` 的四个参数）。
     public static func spec(for level: Level) -> Spec {
         switch level {
         case .none:
@@ -128,7 +133,7 @@ public extension View {
     ///
     /// ```swift
     /// VStack { ... }
-    ///     .background(Color.surfaceCard)
+    ///     .background(Color.systemBackground)
     ///     .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
     ///     .coreShadow(.medium)
     /// ```
