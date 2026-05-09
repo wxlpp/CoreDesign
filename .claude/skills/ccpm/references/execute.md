@@ -1,6 +1,8 @@
 # Execute — Start Building with Parallel Agents
 
-This phase covers analyzing GitHub issues for parallel work streams and launching agents to execute them.
+This phase covers analyzing GitHub issues for parallel work streams, **planning each stream**, and launching agents to execute them.
+
+This phase integrates with **superpowers** methodology: every stream must have an approved plan before any code is written. No vibe coding, even at the stream level.
 
 ---
 
