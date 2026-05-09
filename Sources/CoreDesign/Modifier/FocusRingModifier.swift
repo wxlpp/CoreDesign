@@ -78,30 +78,21 @@ public extension View {
         width: CGFloat = CoreBorderWidth.thick,
         cornerRadius: CGFloat = CoreRadius.medium
     ) -> some View {
-        // 双平台分支：当前 iOS / macOS 实现一致；macOS 是占位，等 issue #9 替换。
-        // Dual-platform branch: iOS and macOS share the same overlay today;
-        // the macOS branch is a placeholder pending issue #9.
+        // 双平台分支当前共享同一 overlay 实现——macOS 是占位，待 issue #9 替换为
+        // NSViewRepresentable + NSFocusRing（`focusRingType = .exterior`）+
+        // becomeFirstResponder bridge。届时把 macOS 分支单独 return 一个
+        // NSViewRepresentable wrapper，与 iOS 共享 modifier API 不变。
         #if canImport(AppKit) && !targetEnvironment(macCatalyst)
-        // TODO(issue #9 / Task 8 in epic): replace with NSViewRepresentable +
-        // NSFocusRing (`focusRingType = .exterior`) + becomeFirstResponder bridge.
-        return self.modifier(
-            FocusRingModifier(
-                visible: visible,
-                color: color,
-                width: width,
-                cornerRadius: cornerRadius
-            )
-        )
-        #else
-        return self.modifier(
-            FocusRingModifier(
-                visible: visible,
-                color: color,
-                width: width,
-                cornerRadius: cornerRadius
-            )
-        )
+        // TODO(issue #9 / Task 8 in epic): replace with NSViewRepresentable + NSFocusRing.
         #endif
+        return self.modifier(
+            FocusRingModifier(
+                visible: visible,
+                color: color,
+                width: width,
+                cornerRadius: cornerRadius
+            )
+        )
     }
 }
 
