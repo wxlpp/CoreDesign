@@ -18,11 +18,11 @@ public enum ButtonRoleStyleRole {
     var color: Color {
         switch self {
         case .primary:
-            .primary
+            .accent
         case .secondary:
-            .secondary
+            .secondaryAccent
         case .tertiary:
-            .tertiary
+            .neutralAccent
         case .warning:
             .warning
         case .danger:
@@ -33,11 +33,11 @@ public enum ButtonRoleStyleRole {
     var activeColor: Color {
         switch self {
         case .primary:
-            .primaryActive
+            .accentPressed
         case .secondary:
-            .secondaryActive
+            .secondaryAccentPressed
         case .tertiary:
-            .tertiaryActive
+            .neutralAccentPressed
         case .warning:
             .warningActive
         case .danger:
@@ -48,11 +48,11 @@ public enum ButtonRoleStyleRole {
     var disabledColor: Color {
         switch self {
         case .primary:
-            .primaryDisable
+            .accentDisabled
         case .secondary:
-            .secondaryDisable
+            .secondaryAccentDisabled
         case .tertiary:
-            .tertiaryDisable
+            .neutralAccentDisabled
         case .warning:
             .warningDisable
         case .danger:

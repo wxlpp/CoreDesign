@@ -8,21 +8,27 @@
 import Foundation
 import SwiftUI
 
+// MARK: - BorderModifier
+
 struct BorderModifier: ViewModifier {
-    var color: Color
+    var style: AnyShapeStyle
     var width: CGFloat
 
     func body(content: Content) -> some View {
         content
             .overlay(
                 RoundedRectangle(cornerRadius: 0)
-                    .stroke(self.color, lineWidth: self.width)
+                    .stroke(self.style, lineWidth: self.width)
             )
     }
 }
 
-extension View {
-    public func bordered(color: Color = .red, width: CGFloat = 1) -> some View {
-        self.modifier(BorderModifier(color: color, width: width))
+public extension View {
+    func bordered(style: some ShapeStyle = Color.borderDefault, width: CGFloat = 1) -> some View {
+        self.modifier(BorderModifier(style: AnyShapeStyle(style), width: width))
+    }
+
+    func bordered(color: Color = .borderDefault, width: CGFloat = 1) -> some View {
+        self.modifier(BorderModifier(style: AnyShapeStyle(color), width: width))
     }
 }

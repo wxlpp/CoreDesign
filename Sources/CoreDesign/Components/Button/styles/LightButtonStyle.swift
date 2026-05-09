@@ -1,5 +1,5 @@
 //
-//  SolidButtonStyle.swift
+//  LightButtonStyle.swift
 //  CoreDesign
 //
 //  Created by 王晓龙 on 2025/2/1.
@@ -8,31 +8,51 @@
 import Foundation
 import SwiftUI
 
-public struct LightButtonStyle: PrimitiveButtonStyle {
-    @GestureState private var isPressed = false
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.controlSize) private var controlSize
+// MARK: - LightButtonStyle
 
-    let role: ButtonRoleStyleRole
-
-    private var pressedStateGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .updating(self.$isPressed) { _, isPressed, _ in
-                isPressed = true
-            }
-    }
-
+public struct LightButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(self.textFont)
+            .foregroundStyle(self.textColor(isPressed: configuration.isPressed))
             .padding(self.edgeInsets)
-            .foregroundStyle(self.textColor)
-            .background(Color.tertiaryFill)
-            .clipShape(Capsule(style: .continuous))
-            .animation(.easeInOut, value: self.isPressed)
-            .simultaneousGesture(self.pressedStateGesture)
-            .onTapGesture(count: 1, perform: configuration.trigger)
+            .contentShape(Capsule(style: .continuous))
+            .background {
+                if self.colorScheme == .dark {
+                    Capsule(style: .continuous)
+                        .fill(Color.surfaceInteractive)
+                        .padding(1)
+                        .glassEffect()
+                } else {
+                    Capsule(style: .continuous)
+                        .fill(Color.surfaceInteractive)
+                        .shadow(
+                            color: .black.opacity(configuration.isPressed ? 0.04 : 0.08),
+                            radius: configuration.isPressed ? 2 : 6,
+                            x: 0,
+                            y: configuration.isPressed ? 1 : 2
+                        )
+                }
+            }
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(
+                        self.colorScheme == .dark
+                            ? Color.white.opacity(0.2)
+                            : Color.borderSubtle,
+                        lineWidth: 0.8
+                    )
+            )
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(.snappy(duration: 0.16), value: configuration.isPressed)
     }
+
+    let role: ButtonRoleStyleRole
+
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
+    @Environment(\.colorScheme) private var colorScheme
 
     private var edgeInsets: EdgeInsets {
         switch self.controlSize {
@@ -48,60 +68,47 @@ public struct LightButtonStyle: PrimitiveButtonStyle {
 
     private var textFont: Font {
         switch self.controlSize {
-        case .mini: .systemCaption
-        case .small: .systemCallout
-        case .regular: .systemBody
-        case .large: .systemTitle3
-        case .extraLarge: .systemTitle
+        case .mini: .caption
+        case .small: .callout
+        case .regular: .body
+        case .large: .title3
+        case .extraLarge: .title
         @unknown default:
-            .systemBody
+            .body
         }
     }
 
-    private var textColor: Color {
+    private func textColor(isPressed: Bool) -> Color {
         if !self.isEnabled {
             return self.role.disabledColor
         }
-        return self.isPressed ? self.role.activeColor : self.role.color
+        return isPressed ? self.role.activeColor : self.role.color
     }
 }
 
-extension PrimitiveButtonStyle where Self == LightButtonStyle {
-    public static func lightButton(role: ButtonRoleStyleRole = .primary) -> LightButtonStyle {
+public extension ButtonStyle where Self == LightButtonStyle {
+    static func lightButton(role: ButtonRoleStyleRole = .primary) -> LightButtonStyle {
         LightButtonStyle(role: role)
     }
 }
 
 #Preview {
-    VStack {
-        Button {} label: {
-            Text("Login")
-        }
-        .buttonStyle(.lightButton(role: .primary))
-        .controlSize(.mini)
+    VStack(spacing: 12) {
+        Button {} label: { Text("Login") }
+            .buttonStyle(.lightButton(role: .primary))
 
-        Button {} label: {
-            Text("Register")
-        }
-        .buttonStyle(.lightButton(role: .secondary))
-        .controlSize(.small)
+        Button {} label: { Text("Secondary") }
+            .buttonStyle(.lightButton(role: .secondary))
 
-        Button {} label: {
-            Text("Forgot Password")
-        }
-        .buttonStyle(.lightButton(role: .warning))
-        .controlSize(.regular)
+        Button {} label: { Text("Warning") }
+            .buttonStyle(.lightButton(role: .warning))
 
-        Button {} label: {
-            Text("Submit")
-        }
-        .buttonStyle(.lightButton(role: .danger))
-        .controlSize(.large)
+        Button {} label: { Text("Danger") }
+            .buttonStyle(.lightButton(role: .danger))
 
-        Button {} label: {
-            Text("Cancel")
-        }
-        .buttonStyle(.lightButton(role: .tertiary))
-        .controlSize(.extraLarge)
+        Button {} label: { Text("Disabled") }
+            .buttonStyle(.lightButton(role: .primary))
+            .disabled(true)
     }
+    .padding()
 }

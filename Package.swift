@@ -1,11 +1,14 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
 let package = Package(
     name: "CoreDesign",
-    platforms: [.iOS(.v18), .macOS(.v15)],
+    platforms: [
+        .iOS("26.0"),
+        .macOS("26.0"),
+    ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
@@ -13,16 +16,23 @@ let package = Package(
             targets: ["CoreDesign"]
         ),
     ],
+    dependencies: [
+        .package(path: "../PlatformHub"),
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "CoreDesign",
+            dependencies: [
+                .product(name: "PlatformHub", package: "PlatformHub"),
+            ],
             resources: [.process("Resources")]
         ),
         .testTarget(
             name: "CoreDesignTests",
             dependencies: ["CoreDesign"]
         ),
-    ]
+    ],
+    swiftLanguageModes: [.v6]
 )

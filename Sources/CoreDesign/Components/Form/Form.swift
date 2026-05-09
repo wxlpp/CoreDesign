@@ -7,40 +7,54 @@
 
 import SwiftUI
 
-public struct LabelIcon: View {
-    private let systemName: String
-    private let backgroundColor: Color
-    private let variableValue: Double?
+// MARK: - LabelIcon
 
+public struct LabelIcon: View {
     public init(systemName: String, backgroundColor: Color, variableValue: Double? = nil) {
         self.systemName = systemName
-        self.backgroundColor = backgroundColor
+        self.backgroundStyle = AnyShapeStyle(backgroundColor)
+        self.variableValue = variableValue
+    }
+
+    public init(systemName: String, backgroundStyle: some ShapeStyle, variableValue: Double? = nil) {
+        self.systemName = systemName
+        self.backgroundStyle = AnyShapeStyle(backgroundStyle)
         self.variableValue = variableValue
     }
 
     public var body: some View {
         Image(systemName: "app.fill")
             .font(.system(size: 26))
-            .foregroundColor(self.backgroundColor)
+            .foregroundStyle(self.backgroundStyle)
             .overlay(alignment: .center) {
                 Image(systemName: self.systemName, variableValue: self.variableValue)
                     .font(.system(size: 16))
-                    .foregroundColor(.white)
+                    .foregroundStyle(Color.contentInverse)
             }
     }
+
+    private let systemName: String
+    private let backgroundStyle: AnyShapeStyle
+    private let variableValue: Double?
 }
+
+// MARK: - ChevronRightIcon
 
 public struct ChevronRightIcon: View {
     public init() {}
+
     public var body: some View {
         Image(systemName: "chevron.right")
     }
 }
 
+// MARK: - DangerIcon
+
 public struct DangerIcon: View {
     public init() {}
+
     public var body: some View {
-        Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.danger)
+        Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.dangerForeground)
     }
 }
 

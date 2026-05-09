@@ -7,9 +7,9 @@
 
 import SwiftUI
 
-public struct Avatar: View {
-    let name: String
+// MARK: - Avatar
 
+public struct Avatar: View {
     public init(name: String) {
         self.name = name
     }
@@ -33,66 +33,10 @@ public struct Avatar: View {
         .resizable()
         .aspectRatio(contentMode: .fill)
     }
-}
 
-extension Avatar {
-    public struct VStack<Content: View>: View {
-        var spacing: CGFloat = 0
-
-        var content: () -> Content
-
-        public init(spacing: CGFloat, @ViewBuilder content: @escaping () -> Content) {
-            self.spacing = spacing
-            self.content = content
-        }
-
-        public var body: some View {
-            OverlayVStack(spacing: self.spacing) {
-                self.content()
-            }
-        }
-    }
-
-    public struct HStack<Content: View>: View {
-        var spacing: CGFloat = 0
-
-        var content: () -> Content
-
-        public init(spacing: CGFloat, @ViewBuilder content: @escaping () -> Content) {
-            self.spacing = spacing
-            self.content = content
-        }
-
-        public var body: some View {
-            OverlayHStack(spacing: self.spacing) {
-                self.content()
-            }
-        }
-    }
+    let name: String
 }
 
 #Preview {
-    Avatar(name: "A").frame(width: 100, height: 100).clipShape(StarShape())
-    Avatar.VStack(spacing: 20) {
-        Group {
-            Avatar(name: "A")
-            Avatar(name: "b")
-            Avatar(name: "王")
-            Avatar(name: "abcd")
-        }
-        .frame(width: 40, height: 40)
-        .clipShape(Circle())
-        .overlay(Circle().stroke(Color.white, lineWidth: 2))
-    }
-    Avatar.HStack(spacing: 20) {
-        Group {
-            Avatar(name: "A")
-            Avatar(name: "b")
-            Avatar(name: "王")
-            Avatar(name: "abcd")
-        }
-        .frame(width: 40, height: 40)
-        .clipShape(Circle())
-        .overlay(Circle().stroke(Color.white, lineWidth: 2))
-    }
+    Avatar(name: "A").frame(width: 100, height: 100).clipShape(Circle())
 }

@@ -8,18 +8,9 @@
 import Foundation
 import SwiftUI
 
+// MARK: - BorderlessButtonStyle
+
 public struct BorderlessButtonStyle: PrimitiveButtonStyle {
-    @GestureState private var isPressed = false
-    @Environment(\.isEnabled) private var isEnabled
-    let role: ButtonRoleStyleRole
-
-    private var pressedStateGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .updating(self.$isPressed) { _, isPressed, _ in
-                isPressed = true
-            }
-    }
-
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .padding(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
@@ -30,6 +21,18 @@ public struct BorderlessButtonStyle: PrimitiveButtonStyle {
             .onTapGesture(count: 1, perform: configuration.trigger)
     }
 
+    let role: ButtonRoleStyleRole
+
+    @GestureState private var isPressed = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    private var pressedStateGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .updating(self.$isPressed) { _, isPressed, _ in
+                isPressed = true
+            }
+    }
+
     private var textColor: Color {
         if !self.isEnabled {
             return self.role.disabledColor
@@ -38,8 +41,8 @@ public struct BorderlessButtonStyle: PrimitiveButtonStyle {
     }
 }
 
-extension PrimitiveButtonStyle where Self == BorderlessButtonStyle {
-    public static func borderless(role: ButtonRoleStyleRole = .primary) -> BorderlessButtonStyle {
+public extension PrimitiveButtonStyle where Self == BorderlessButtonStyle {
+    static func borderless(role: ButtonRoleStyleRole = .primary) -> BorderlessButtonStyle {
         BorderlessButtonStyle(role: role)
     }
 }

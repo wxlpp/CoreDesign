@@ -7,8 +7,11 @@
 
 import SwiftUI
 
+// MARK: - CheckBoxToggleStyle
+
 struct CheckBoxToggleStyle: ToggleStyle {
-    @MainActor @preconcurrency public func makeBody(configuration: ButtonToggleStyle.Configuration) -> some View {
+    @MainActor @preconcurrency
+    func makeBody(configuration: ButtonToggleStyle.Configuration) -> some View {
         HStack(alignment: .top) {
             if configuration.isOn {
                 Image(systemName: "checkmark.square.fill").foregroundStyle(Color.primary)
@@ -24,8 +27,11 @@ struct CheckBoxToggleStyle: ToggleStyle {
     }
 }
 
+// MARK: - CheckBox
+
 struct CheckBox: View {
     @State var isOn = false
+
     var body: some View {
         Toggle("哈哈哈哈哈", isOn: self.$isOn).toggleStyle(CheckBoxToggleStyle())
     }

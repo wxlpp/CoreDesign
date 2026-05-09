@@ -7,6 +7,16 @@
 
 import SwiftUI
 
+// MARK: - BannerPalette
+
+private struct BannerPalette {
+    let foreground: Color
+    let background: Color
+    let border: Color
+}
+
+// MARK: - MessageLevel
+
 public enum MessageLevel {
     case info
     case warning
@@ -14,11 +24,9 @@ public enum MessageLevel {
     case success
 }
 
+// MARK: - Banner
+
 public struct Banner<Label: View>: View {
-    let configuration: BannerStyleConfiguration
-
-    @Environment(\.bannerStyle) var style
-
     public init(level: MessageLevel, @ViewBuilder label: () -> Label) {
         self.configuration = .init(label: .init(label()), level: level)
     }
@@ -28,26 +36,51 @@ public struct Banner<Label: View>: View {
 
         AnyView(self.style.makeBody(configuration: self.configuration))
     }
+
+    @Environment(\.bannerStyle) var style
+
+    let configuration: BannerStyleConfiguration
 }
+
+// MARK: - BannerStyle
 
 public protocol BannerStyle {
     associatedtype Body: View
 
     @ViewBuilder
-    @MainActor @preconcurrency func makeBody(configuration: Self.Configuration) -> Body
+    @MainActor @preconcurrency
+    func makeBody(configuration: Self.Configuration) -> Body
 
     typealias Configuration = BannerStyleConfiguration
 }
 
+// MARK: - BannerStyleConfiguration
+
 public struct BannerStyleConfiguration {
+    public typealias Label = AnyView
+
     public let label: Label
     public let level: MessageLevel
-
-    public typealias Label = AnyView
 }
+
+// MARK: - PlainBannerStyle
 
 public struct PlainBannerStyle: BannerStyle {
     public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        let icon = self.makeIcon(configuration: configuration)
+        let palette = self.palette(configuration: configuration)
+        HStack(content: {
+            icon.foregroundStyle(palette.foreground)
+            configuration.label
+        })
+        .foregroundStyle(palette.foreground)
+        .padding()
+        .background {
+            Rectangle().fill(palette.background)
+        }
+    }
 
     func makeIcon(configuration: Configuration) -> Image {
         switch configuration.level {
@@ -62,59 +95,47 @@ public struct PlainBannerStyle: BannerStyle {
         }
     }
 
-    func getTintColor(configuration: Configuration) -> Color {
+    private func palette(configuration: Configuration) -> BannerPalette {
         switch configuration.level {
         case .info:
-            .primary
+            BannerPalette(foreground: .infoForeground, background: .infoBackground, border: .infoBorder)
         case .warning:
-            .warning
+            BannerPalette(foreground: .warningForeground, background: .warningBackground, border: .warningBorder)
         case .danger:
-            .danger
+            BannerPalette(foreground: .dangerForeground, background: .dangerBackground, border: .dangerBorder)
         case .success:
-            .success
-        }
-    }
-
-    public func makeBody(configuration: Configuration) -> some View {
-        let icon = self.makeIcon(configuration: configuration)
-        let tintColor = self.getTintColor(configuration: configuration)
-        HStack(content: {
-            icon.foregroundStyle(tintColor)
-            configuration.label
-        })
-        .foregroundStyle(Color.white)
-        .padding()
-        .background {
-            Rectangle().fill(tintColor.opacity(0.4))
+            BannerPalette(foreground: .successForeground, background: .successBackground, border: .successBorder)
         }
     }
 }
 
+// MARK: - BorderedBannerStyle
+
 public struct BorderedBannerStyle: BannerStyle {
     public init() {}
 
-    func getTintColor(configuration: Configuration) -> Color {
-        switch configuration.level {
-        case .info:
-            .primary
-        case .warning:
-            .warning
-        case .danger:
-            .danger
-        case .success:
-            .success
-        }
-    }
-
     public func makeBody(configuration: Configuration) -> some View {
-        let tintColor = self.getTintColor(configuration: configuration)
+        let palette = self.palette(configuration: configuration)
         HStack(content: {
             configuration.label
         })
-        .foregroundStyle(Color.white)
+        .foregroundStyle(palette.foreground)
         .padding()
         .background {
-            Rectangle().fill(tintColor.opacity(0.4)).bordered(color: tintColor)
+            Rectangle().fill(palette.background).bordered(style: palette.border)
+        }
+    }
+
+    private func palette(configuration: Configuration) -> BannerPalette {
+        switch configuration.level {
+        case .info:
+            BannerPalette(foreground: .infoForeground, background: .infoBackground, border: .infoBorder)
+        case .warning:
+            BannerPalette(foreground: .warningForeground, background: .warningBackground, border: .warningBorder)
+        case .danger:
+            BannerPalette(foreground: .dangerForeground, background: .dangerBackground, border: .dangerBorder)
+        case .success:
+            BannerPalette(foreground: .successForeground, background: .successBackground, border: .successBorder)
         }
     }
 }
@@ -123,8 +144,8 @@ extension EnvironmentValues {
     @Entry var bannerStyle: any BannerStyle = PlainBannerStyle()
 }
 
-extension View {
-    public func bannerStyle(_ style: some BannerStyle) -> some View {
+public extension View {
+    func bannerStyle(_ style: some BannerStyle) -> some View {
         self.environment(\.bannerStyle, style)
     }
 }

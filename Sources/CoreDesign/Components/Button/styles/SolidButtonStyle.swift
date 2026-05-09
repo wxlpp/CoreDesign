@@ -8,38 +8,34 @@
 import Foundation
 import SwiftUI
 
-public struct SolidButtonStyle: PrimitiveButtonStyle {
-    @GestureState private var isPressed = false
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.controlSize) private var controlSize
+// MARK: - SolidButtonStyle
 
-    let role: ButtonRoleStyleRole
-
-    private var pressedStateGesture: some Gesture {
-        DragGesture(minimumDistance: 0)
-            .updating(self.$isPressed) { _, isPressed, _ in
-                isPressed = true
-            }
-    }
-
+public struct SolidButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(self.textFont)
+            .foregroundStyle(Color.contentOnAccent)
             .padding(self.edgeInsets)
-            .foregroundStyle(Color.white)
-            .background(self.backgroundColor)
-            .clipShape(Capsule(style: .continuous))
-            .animation(.easeInOut, value: self.isPressed)
-            .simultaneousGesture(self.pressedStateGesture)
-            .onTapGesture(count: 1, perform: configuration.trigger)
+            .contentShape(Capsule(style: .continuous))
+            .background(
+                Capsule(style: .continuous)
+                    .fill(self.backgroundColor(isPressed: configuration.isPressed))
+                    .padding(1)
+                    .glassEffect()
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(.white.opacity(0.2), lineWidth: 0.8)
+            )
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(.snappy(duration: 0.16), value: configuration.isPressed)
     }
 
-    private var backgroundColor: Color {
-        if !self.isEnabled {
-            return self.role.disabledColor
-        }
-        return self.isPressed ? self.role.activeColor : self.role.color
-    }
+    let role: ButtonRoleStyleRole
+
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
 
     private var edgeInsets: EdgeInsets {
         switch self.controlSize {
@@ -55,54 +51,47 @@ public struct SolidButtonStyle: PrimitiveButtonStyle {
 
     private var textFont: Font {
         switch self.controlSize {
-        case .mini: .systemCaption
-        case .small: .systemCallout
-        case .regular: .systemBody
-        case .large: .systemTitle3
-        case .extraLarge: .systemTitle
+        case .mini: .caption
+        case .small: .callout
+        case .regular: .body
+        case .large: .title3
+        case .extraLarge: .title
         @unknown default:
-            .systemBody
+            .body
         }
+    }
+
+    private func backgroundColor(isPressed: Bool) -> Color {
+        if !self.isEnabled {
+            return self.role.disabledColor
+        }
+        return isPressed ? self.role.activeColor : self.role.color
     }
 }
 
-extension PrimitiveButtonStyle where Self == SolidButtonStyle {
-    public static func solidButton(role: ButtonRoleStyleRole = .primary) -> SolidButtonStyle {
+public extension ButtonStyle where Self == SolidButtonStyle {
+    static func solidButton(role: ButtonRoleStyleRole = .primary) -> SolidButtonStyle {
         SolidButtonStyle(role: role)
     }
 }
 
 #Preview {
-    VStack {
-        Button {} label: {
-            Text("Login")
-        }
-        .buttonStyle(.solidButton(role: .primary))
-        .controlSize(.mini)
-        .disabled(true)
+    VStack(spacing: 12) {
+        Button {} label: { Text("Login") }
+            .buttonStyle(.solidButton(role: .primary))
 
-        Button {} label: {
-            Text("Register")
-        }
-        .buttonStyle(.solidButton(role: .secondary))
-        .controlSize(.small)
+        Button {} label: { Text("Register") }
+            .buttonStyle(.solidButton(role: .secondary))
 
-        Button {} label: {
-            Text("Forgot Password")
-        }
-        .buttonStyle(.solidButton(role: .warning))
-        .controlSize(.regular)
+        Button {} label: { Text("Warning") }
+            .buttonStyle(.solidButton(role: .warning))
 
-        Button {} label: {
-            Text("Submit")
-        }
-        .buttonStyle(.solidButton(role: .danger))
-        .controlSize(.large)
+        Button {} label: { Text("Danger") }
+            .buttonStyle(.solidButton(role: .danger))
 
-        Button {} label: {
-            Text("Cancel")
-        }
-        .buttonStyle(.solidButton(role: .tertiary))
-        .controlSize(.extraLarge)
+        Button {} label: { Text("Disabled") }
+            .buttonStyle(.solidButton(role: .primary))
+            .disabled(true)
     }
+    .padding()
 }
