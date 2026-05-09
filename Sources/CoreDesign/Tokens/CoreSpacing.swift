@@ -2,7 +2,7 @@
 //  CoreSpacing.swift
 //  CoreDesign
 //
-//  Source of truth: Tokens/PRIMER_VERSION.md
+//  Source of truth: docs/PRIMER_VERSION.md
 //
 
 import CoreGraphics
@@ -18,7 +18,7 @@ import CoreGraphics
 ///     .padding(CoreSpacing.lg)
 /// ```
 ///
-/// 取值参考：见 `Tokens/PRIMER_VERSION.md` 中锁定的 Primer 版本下 functional `space.*` token。
+/// 取值参考：见 `docs/PRIMER_VERSION.md` 中锁定的 Primer 版本下 functional `space.*` token。
 /// `xxs`–`xl` 与 Primer 一一对应；`xxl`–`huge` 是本仓库扩展，对应 Primer `base.size.32` / `.40` / `.48` / `.64`。
 ///
 /// > Important: 不要在组件中引入与本表无关的字面量（譬如 `padding(13)`），

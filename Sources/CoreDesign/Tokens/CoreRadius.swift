@@ -2,7 +2,7 @@
 //  CoreRadius.swift
 //  CoreDesign
 //
-//  Source of truth: Tokens/PRIMER_VERSION.md
+//  Source of truth: docs/PRIMER_VERSION.md
 //
 
 import CoreGraphics

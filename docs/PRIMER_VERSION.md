@@ -12,7 +12,7 @@
 
 CoreDesign v2 takes GitHub's [Primer Primitives](https://github.com/primer/primitives) as its visual north star. To prevent drift across parallel implementation tasks (where different agents could query Primer at different times and get different values), this file pins one specific Primer release as the canonical source.
 
-All Swift token files in `Sources/CoreDesign/Tokens/` reference this file in their header (`// Source of truth: Tokens/PRIMER_VERSION.md`) instead of inlining a version string. Single source = no drift.
+All Swift token files in `Sources/CoreDesign/Tokens/` reference this file in their header (`// Source of truth: docs/PRIMER_VERSION.md`) instead of inlining a version string. Single source = no drift.
 
 ## Token source mapping
 
@@ -40,4 +40,4 @@ If a future epic needs to update Primer alignment:
 2. Diff token files between the two versions: `gh api repos/primer/primitives/compare/v11.8.0...vX.Y.Z`.
 3. Update this file: `Version` / `Released` / `Reference` / `Locked at` / append a Decision Log entry.
 4. Audit each consuming Swift token file for value changes.
-5. **Do not change** the `// Source of truth: Tokens/PRIMER_VERSION.md` header in token files — the indirection is the whole point.
+5. **Do not change** the `// Source of truth: docs/PRIMER_VERSION.md` header in token files — the indirection is the whole point.
