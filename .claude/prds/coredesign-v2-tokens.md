@@ -239,7 +239,7 @@ public extension View {
 - Swift 6 严格并发不变
 
 **假设：**
-- Primer Primitives 的具体版本（git tag / npm release）将在 **epic 创建阶段** 锁定。**唯一权威来源**是 `Sources/CoreDesign/Tokens/PRIMER_VERSION.md`（含版本号、ref 链接、锁定日期）；各 token 文件顶部注释**仅引用**该文件路径（如 `// Source of truth: Tokens/PRIMER_VERSION.md`），不重复声明版本字符串，避免多处版本号漂移。所有 token 实施任务共享同一版本基准。
+- Primer Primitives 的具体版本（git tag / npm release）将在 **epic 创建阶段** 锁定。**唯一权威来源**是 `docs/PRIMER_VERSION.md`（含版本号、ref 链接、锁定日期）；各 token 文件顶部注释**仅引用**该文件路径（如 `// Source of truth: docs/PRIMER_VERSION.md`），不重复声明版本字符串，避免多处版本号漂移。所有 token 实施任务共享同一版本基准。
 - CoreDesign 当前没有外部消费者依赖具体的 spacing/radius 数值，也没有依赖 `Color.focusRing` 这一具体 token 名（PRD 阶段已确认可直接重命名）。
 - SwiftUI `Font` API 足以表达 Primer typography；Primer 中的 letter-spacing / line-height 等属性通过 `lineSpacing` 与 `tracking` 近似，无须自定义 `Font.Descriptor`。
 - macOS `NSFocusRing` 与 SwiftUI `@FocusState` 的同步路径：在 epic 阶段验证 `NSViewRepresentable` 包装 + `becomeFirstResponder` + `focusRingType = .exterior` 的方案可行；若验证失败则回退为"macOS 仅视觉近似"，但需在 epic 中记录原因。
