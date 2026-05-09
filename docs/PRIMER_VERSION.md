@@ -23,7 +23,7 @@ All Swift token files in `Sources/CoreDesign/Tokens/` reference this file in the
 | `CoreBorderWidth` | `functional/size/border.json5` (`borderWidth.*`) |
 | `CoreTypography` (issue #3) | `functional/typography/` |
 | `CoreElevation` (issue #4) | `functional/shadow/shadow.json5` |
-| `CoreControlMetrics` (issue #5) | derived from above; no direct Primer source |
+| `CoreControlMetrics` (issue #5) | `functional/size/size.json5` (`control.{xsmall,small,medium,large,xlarge}` 表) — height 直接取自该表；padding / font 通过 `CoreSpacing` / `CoreTypography` 间接对齐到 Primer scale |
 | Surface / Border / Content semantic colors (issue #6) | `functional/color/` |
 
 Browse the locked snapshot: https://github.com/primer/primitives/tree/v11.8.0/src/tokens
