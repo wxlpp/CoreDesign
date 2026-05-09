@@ -15,7 +15,7 @@ import SwiftUI
 ///
 /// - **4 档语义**：`.none` / `.small` / `.medium` / `.large`，对应 Primer
 ///   `resting` 与 `floating` 两组的代表性档位（详见 `docs/PRIMER_VERSION.md`）。
-/// - **暗色模式自适应**：`shadowColor` 通过 `Resources.xcassets/shadow/shadow-*.colorset`
+/// - **暗色模式自适应**：`Spec.color` 通过 `Resources.xcassets/shadow/shadow-*.colorset`
 ///   提供 light / dark 双取值；dark 模式不透明度 ≥ light 的 2 倍——这是 Primer 与
 ///   Apple HIG 的共识（深色背景下的低对比阴影会"消失"，必须靠加深浓度补回 elevation 视觉）。
 /// - **单层近似**：Primer 上游用 1–5 层叠加；SwiftUI `.shadow(...)` 一次只渲染一层，
@@ -83,6 +83,15 @@ public enum CoreElevation {
 
     // MARK: - Specs
 
+    // MARK: - Asset-backed colors
+
+    /// 集中管理 shadow colorset 的字符串引用，避免 stringly-typed 调用点散落在各 case，
+    /// 重命名 colorset 时只需要改这里。命名约定见 `Resources.xcassets/shadow/`。
+    private static let shadowNoneColor = Color("shadow-none", bundle: .module)
+    private static let shadowSmallColor = Color("shadow-small", bundle: .module)
+    private static let shadowMediumColor = Color("shadow-medium", bundle: .module)
+    private static let shadowLargeColor = Color("shadow-large", bundle: .module)
+
     /// 查询给定 `Level` 的视觉规格。
     ///
     /// - Parameter level: elevation 档位。
@@ -93,7 +102,7 @@ public enum CoreElevation {
         case .none:
             // 占位规格：radius = 0 时 SwiftUI 不渲染阴影，color/y 实际不参与绘制。
             return Spec(
-                color: Color("shadow-none", bundle: .module),
+                color: Self.shadowNoneColor,
                 radius: 0,
                 x: 0,
                 y: 0
@@ -101,7 +110,7 @@ public enum CoreElevation {
         case .small:
             // Primer resting.small 单层近似：alpha 0.07 (light) / 0.6 (dark)，y=1, blur=2。
             return Spec(
-                color: Color("shadow-small", bundle: .module),
+                color: Self.shadowSmallColor,
                 radius: 2,
                 x: 0,
                 y: 1
@@ -109,7 +118,7 @@ public enum CoreElevation {
         case .medium:
             // Primer resting.medium 单层近似：alpha 0.15 (light) / 0.4 (dark)，y=3, blur=6。
             return Spec(
-                color: Color("shadow-medium", bundle: .module),
+                color: Self.shadowMediumColor,
                 radius: 6,
                 x: 0,
                 y: 3
@@ -117,7 +126,7 @@ public enum CoreElevation {
         case .large:
             // Primer floating.medium 主导层近似：alpha 0.20 (light) / 0.5 (dark)，y=8, blur=16。
             return Spec(
-                color: Color("shadow-large", bundle: .module),
+                color: Self.shadowLargeColor,
                 radius: 16,
                 x: 0,
                 y: 8
