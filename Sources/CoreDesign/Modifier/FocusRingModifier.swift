@@ -43,7 +43,9 @@
 //  PRD Assumptions 与 epic Implementation Strategy 都预先写好了 fallback
 //  条款；本次落到 fallback 是预期内的 spike 收益（"知道哪条路径不可行"）。
 //
-//  调用方两端写法完全一致；`#if` 仅出现在 modifier 内部。
+//  调用方两端写法完全一致——`focusRing(...)` 在 iOS / macOS 共享同一 SwiftUI
+//  overlay 实现，无需调用方写 `#if`。本文件内的条件编译只保留在 `#Preview`
+//  上（`#if canImport(UIKit)` 用来区分 SwiftUI 平台 SDK），不涉及 modifier 主体。
 //
 
 import SwiftUI
