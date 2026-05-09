@@ -31,9 +31,9 @@ import SwiftUI
 /// > titleMedium 20pt），padding × 2 + font 会超过 `height(for:)` 的 Primer 精确值，
 /// > 用 `frame(height:)` 会裁切 / 压缩 label。
 /// >
-/// > 若设计上必须严格命中 Primer 控件高度（譬如对接现有视觉 spec），调用方需要
-/// > 同时收紧 padding（建议直接用 Primer paddingBlock 字面量 6/10/14）或换更小
-/// > 字号；本 token 不会替你做这个权衡。
+/// > 若设计上必须严格命中 Primer 控件高度（譬如对接现有视觉 spec），改用
+/// > `primerVerticalPadding(for:)`（返回 Primer `paddingBlock` 精确值 6/10/14）配
+/// > `frame(height:)` 钳制——padding 数值仍集中在本 token 内，不在调用方散落字面量。
 ///
 /// ## 取值依据
 ///
@@ -119,6 +119,36 @@ public enum CoreControlMetrics {
         case .extraLarge: return CoreSpacing.lg  // 16pt — Primer xlarge 为 14，CoreSpacing 就近上调
         @unknown default:
             return CoreSpacing.sm
+        }
+    }
+
+    // MARK: - primerVerticalPadding (escape hatch)
+
+    /// **严格 Primer 高度路径**专用：返回 Primer `control.{size}.paddingBlock` 的精确值
+    /// （xsmall=2 / small=4 / medium=6 / large=10 / xlarge=14）。
+    ///
+    /// 与 `verticalPadding(for:)` 的差别：本 helper 不上调到 `CoreSpacing` 档位——
+    /// regular / large / extraLarge 三档分别返回 6 / 10 / 14（**这三档 Primer 取值不在
+    /// CoreSpacing scale 上**）。代价是：调用方必须明确意图是"装得下 Primer 精确高度"，
+    /// 否则默认仍应使用 `verticalPadding(for:)` 命中 CoreSpacing 标度。
+    ///
+    /// 仅当组件需要严格命中 `height(for:)` 的 Primer 精确值（搭配 `frame(height:)`
+    /// 而非 `frame(minHeight:)`）时才用。一般场景默认 `verticalPadding(for:)`。
+    ///
+    /// 字面量集中在本 helper 的语义：避免组件层散落 6/10/14 这种非 token scale 的
+    /// 魔法数字（与 `CoreSpacing` "组件不引入 padding 魔法数字"约定一致）。
+    ///
+    /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
+    /// - Returns: 该尺寸下 Primer `paddingBlock` 精确值（pt）。
+    public static func primerVerticalPadding(for controlSize: ControlSize) -> CGFloat {
+        switch controlSize {
+        case .mini: return 2         // Primer xsmall.paddingBlock
+        case .small: return 4        // Primer small.paddingBlock
+        case .regular: return 6      // Primer medium.paddingBlock
+        case .large: return 10       // Primer large.paddingBlock
+        case .extraLarge: return 14  // Primer xlarge.paddingBlock
+        @unknown default:
+            return 6
         }
     }
 
