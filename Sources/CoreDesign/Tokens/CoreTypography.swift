@@ -25,8 +25,10 @@ import SwiftUI
 /// ## SwiftUI ↔ Primer 对应关系
 ///
 /// - Primer `fontSize` (rem → pt @1rem=16pt) → SwiftUI `Font.system(size:weight:)`
-/// - Primer `lineHeight` (multiplier) → SwiftUI `lineSpacing` 形式：
-///   `lineSpacing = max(0, primerLineHeight - fontSize)`
+/// - Primer `lineHeight`（**multiplier**，如 1.5 / 1.625）→ SwiftUI `lineSpacing` 形式：
+///   先把 multiplier 还原成绝对 pt（`fontSize * lineHeightMultiplier`），再减字号本身：
+///   `lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize)`
+///   等价于 `fontSize * max(0, lineHeightMultiplier - 1)`。
 ///   （SwiftUI `lineSpacing` 是「行间距」而非「行高」，需把 Primer 行高减去字号才是补偿值。）
 /// - Primer 当前 v11.8.0 typography 文件**未定义** letter-spacing token，
 ///   故所有档位 `*Tracking = 0`；保留接口以便未来 Primer 引入字距时无破坏式扩展。
@@ -49,7 +51,7 @@ public enum CoreTypography {
     /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
     public static let displayLargeFont: Font = .system(size: 40, weight: .medium)
 
-    // lineSpacing = max(0, primerLineHeight - fontSize) = max(0, 40 * 1.375 - 40) = 15
+    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 40 * 1.375 - 40) = 15
     public static let displayLargeLineSpacing: CGFloat = 15
 
     public static let displayLargeTracking: CGFloat = 0
@@ -63,7 +65,7 @@ public enum CoreTypography {
     /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
     public static let titleLargeFont: Font = .system(size: 32, weight: .semibold)
 
-    // lineSpacing = max(0, primerLineHeight - fontSize) = max(0, 32 * 1.5 - 32) = 16
+    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 32 * 1.5 - 32) = 16
     public static let titleLargeLineSpacing: CGFloat = 16
 
     public static let titleLargeTracking: CGFloat = 0
@@ -75,7 +77,7 @@ public enum CoreTypography {
     /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
     public static let titleMediumFont: Font = .system(size: 20, weight: .semibold)
 
-    // lineSpacing = max(0, primerLineHeight - fontSize) = max(0, 20 * 1.625 - 20) = 12.5
+    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 20 * 1.625 - 20) = 12.5
     public static let titleMediumLineSpacing: CGFloat = 12.5
 
     public static let titleMediumTracking: CGFloat = 0
@@ -87,7 +89,7 @@ public enum CoreTypography {
     /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
     public static let titleSmallFont: Font = .system(size: 16, weight: .semibold)
 
-    // lineSpacing = max(0, primerLineHeight - fontSize) = max(0, 16 * 1.5 - 16) = 8
+    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 16 * 1.5 - 16) = 8
     public static let titleSmallLineSpacing: CGFloat = 8
 
     public static let titleSmallTracking: CGFloat = 0
@@ -101,7 +103,7 @@ public enum CoreTypography {
     /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
     public static let subtitleFont: Font = .system(size: 20, weight: .regular)
 
-    // lineSpacing = max(0, primerLineHeight - fontSize) = max(0, 20 * 1.625 - 20) = 12.5
+    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 20 * 1.625 - 20) = 12.5
     public static let subtitleLineSpacing: CGFloat = 12.5
 
     public static let subtitleTracking: CGFloat = 0
@@ -115,7 +117,7 @@ public enum CoreTypography {
     /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
     public static let bodyLargeFont: Font = .system(size: 16, weight: .regular)
 
-    // lineSpacing = max(0, primerLineHeight - fontSize) = max(0, 16 * 1.5 - 16) = 8
+    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 16 * 1.5 - 16) = 8
     public static let bodyLargeLineSpacing: CGFloat = 8
 
     public static let bodyLargeTracking: CGFloat = 0
@@ -127,7 +129,7 @@ public enum CoreTypography {
     /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
     public static let bodyMediumFont: Font = .system(size: 14, weight: .regular)
 
-    // lineSpacing = max(0, primerLineHeight - fontSize) = max(0, 14 * 1.5 - 14) = 7
+    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 14 * 1.5 - 14) = 7
     public static let bodyMediumLineSpacing: CGFloat = 7
 
     public static let bodyMediumTracking: CGFloat = 0
@@ -139,7 +141,7 @@ public enum CoreTypography {
     /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
     public static let bodySmallFont: Font = .system(size: 12, weight: .regular)
 
-    // lineSpacing = max(0, primerLineHeight - fontSize) = max(0, 12 * 1.625 - 12) = 7.5
+    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 12 * 1.625 - 12) = 7.5
     public static let bodySmallLineSpacing: CGFloat = 7.5
 
     public static let bodySmallTracking: CGFloat = 0
@@ -154,7 +156,7 @@ public enum CoreTypography {
     /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
     public static let captionFont: Font = .system(size: 12, weight: .regular)
 
-    // lineSpacing = max(0, primerLineHeight - fontSize) = max(0, 12 * 1.25 - 12) = 3
+    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 12 * 1.25 - 12) = 3
     public static let captionLineSpacing: CGFloat = 3
 
     public static let captionTracking: CGFloat = 0
