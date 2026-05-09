@@ -1,6 +1,6 @@
 //
 //  View+SizeReader.swift
-//  any-writer
+//  CoreDesign
 //
 //  Created by GitHub Copilot on 2026/3/31.
 //

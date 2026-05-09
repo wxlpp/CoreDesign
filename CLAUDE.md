@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-CoreDesign 是一个以 Swift Package 形式分发的 SwiftUI 设计系统库。目标平台为 iOS 26+ / macOS 26+，采用 Swift 6 语言模式（`swiftLanguageModes: [.v6]`，开启完整严格并发检查），并通过本地路径 `../PlatformHub` 依赖同级的 `PlatformHub` 包（在当前工作区中实际解析到 `~/Repositories/any-writer/Local Packages/PlatformHub`，单独克隆时需相应调整）。
+CoreDesign 是一个以 Swift Package 形式分发的 SwiftUI 设计系统库。目标平台为 iOS 26+ / macOS 26+，采用 Swift 6 语言模式（`swiftLanguageModes: [.v6]`，开启完整严格并发检查。
 
 ## 常用命令
 
