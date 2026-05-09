@@ -55,5 +55,5 @@ baseline_ts=$BASELINE
 
 Monitor 模板（直接复制到 Monitor tool call 的 command 字段，timeout 1800000ms）：
 
-LAST="$BASELINE"; while true; do OUT=$(gh api "repos/$OWNER_REPO/pulls/$PR/reviews" --paginate --jq "[.[] | select(.user.login == \"copilot-pull-request-reviewer[bot]\") | select(.submitted_at > \"\$LAST\")] | .[0] | select(. != null) | \"\(.submitted_at) commit=\(.commit_id[0:7]) state=\(.state) body=\(.body[0:200] | gsub(\"\\n\"; \" \"))\"" 2>/dev/null || true); if [ -n "$OUT" ]; then echo "$OUT"; exit 0; fi; sleep 30; done
+LAST="$BASELINE"; while true; do OUT=\$(gh api "repos/$OWNER_REPO/pulls/$PR/reviews" --paginate --jq "[.[] | select(.user.login == \"copilot-pull-request-reviewer[bot]\") | select(.submitted_at > \"\$LAST\")] | .[0] | select(. != null) | \"\(.submitted_at) commit=\(.commit_id[0:7]) state=\(.state) body=\(.body[0:200] | gsub(\"\\n\"; \" \"))\"" 2>/dev/null || true); if [ -n "\$OUT" ]; then echo "\$OUT"; exit 0; fi; sleep 30; done
 MSG
