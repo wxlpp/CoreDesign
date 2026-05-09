@@ -1,44 +1,29 @@
 # Execution Status — coredesign-v2-tokens epic
 
-**Last update**: 2026-05-09T18:14:00Z (Layer 2 PRs opened, awaiting Copilot Round 1)
+**Status**: ✅ COMPLETED (9/9 tasks merged, 2026-05-09)
 
-## Active PRs (Round 1 review pending)
+## Completed PRs
 
-| Issue | Task | PR | Branch | Commit | Round 1 status |
-|---|---|---|---|---|---|
-| #3 | CoreTypography | [#13](https://github.com/wxlpp/CoreDesign/pull/13) | `task/3-typography` | `ddd7ed4` | polling |
-| #4 | CoreElevation + shadows | [#14](https://github.com/wxlpp/CoreDesign/pull/14) | `task/4-elevation` | `d4e2162` | polling |
-| #6 | 语义色 + focusRing rename | [#15](https://github.com/wxlpp/CoreDesign/pull/15) | `task/6-semantic-colors` | `c875375` | polling |
-| #10 | BorderModifier canary | [#12](https://github.com/wxlpp/CoreDesign/pull/12) | `task/10-bordermodifier-canary` | `1d3ac1d` | polling |
-
-## Queued (still blocked)
-
-| Issue | Task | Blocked on |
-|---|---|---|
-| #5 | CoreControlMetrics | #3 |
-| #7 | SurfaceModifier | #6 |
-| #8 | FocusRingModifier 文件骨架 + iOS | #6 |
-| #9 | FocusRingModifier macOS NSFocusRing | #6, #8 |
-
-## Completed
-
-| Issue | Task | PR | Merged |
+| Issue | Task | PR | Merge SHA |
 |---|---|---|---|
-| #2 | Primer 版本锁定 + 标量 token | #11 (squash `b3b0f81`) | 2026-05-09T18:02:58Z |
+| #2 | Primer 版本锁定 + 标量 token | #11 | b3b0f81 |
+| #3 | CoreTypography | #13 | 99d35bc |
+| #4 | CoreElevation + dark-adaptive shadow colorset | #14 | (squash) |
+| #5 | CoreControlMetrics | #18 | 2146726 |
+| #6 | 语义色补全 + Color.focusRing 重命名 | #15 | b5af509 |
+| #7 | SurfaceModifier | #16 | (squash) |
+| #8 | FocusRingModifier 文件骨架 + iOS | #17 | (squash) |
+| #9 | FocusRingModifier macOS NSFocusRing | #19 | b794b21 |
+| #10 | BorderModifier canary | #12 | e3ed641 |
 
-## Worktrees
+## Notable outcomes
 
-```
-/Users/evan/Repositories/CoreDesign              [main]
-/Users/evan/Repositories/task-3-typography       [task/3-typography]
-/Users/evan/Repositories/task-4-elevation        [task/4-elevation]
-/Users/evan/Repositories/task-6-semantic-colors  [task/6-semantic-colors]
-/Users/evan/Repositories/task-10-bordermodifier  [task/10-bordermodifier-canary]
-```
+- **#9 spike fallback**: NSFocusRing system integration on macOS was technically clean (Swift 6 + build) but architecturally incompatible with SwiftUI `@FocusState` (first-responder hijack). Fell back to overlay; PRD SC #11 limitation documented in file header.
+- **#5 escape hatch added**: `primerVerticalPadding(for:)` (returns Primer paddingBlock 2/4/6/10/14) added on top of the default `verticalPadding(for:)` (CoreSpacing-rounded 2/4/8/12/16) — enables strict-Primer-height path without forcing magic numbers into call sites.
+- **Total PR rounds**: ~22 Copilot premium requests across 9 PRs (avg ~2.5 rounds per PR).
 
-## Agent execution notes (deviations to follow up in fix-pr)
+## Epic close-out actions remaining
 
-- **#13 CoreTypography**: 9 archives (≥7 AC); `*Tracking = 0` because Primer v11.8.0 has no letter-spacing tokens; skipped `codeBlock` / `codeInline` (no caller yet)
-- **#14 CoreElevation**: `.large` mapped to Primer `floating.medium`; single-layer SwiftUI `.shadow()` approximation of Primer multi-layer composite
-- **#15 Semantic colors**: `borderSelected` uses `.brand5` (project brand) rather than Primer `accent.blue.5`; 10/14 tokens reuse system colors instead of new colorsets
-- **#10 BorderModifier**: 3 line swap, no deviations
+- [ ] Close epic GitHub issue #1
+- [ ] Optionally archive `.claude/epics/coredesign-v2-tokens/` to `.claude/epics/archived/`
+- [ ] Notify downstream consumers (any-writer) that v2-tokens are now on main
