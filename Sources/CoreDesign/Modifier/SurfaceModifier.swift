@@ -92,9 +92,11 @@ struct SurfaceModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: self.kind.cornerRadius, style: .continuous)
+        // strokeBorder 内描边（路径在形状内部），避免后续 clipShape 把居中描边的外侧一半裁掉
+        // 导致视觉上 1pt 变细。strokeBorder + clipShape 组合保证边框完整可见。
         return content
             .background(shape.fill(self.kind.background))
-            .overlay(shape.stroke(self.kind.border, lineWidth: CoreBorderWidth.thin))
+            .overlay(shape.strokeBorder(self.kind.border, lineWidth: CoreBorderWidth.thin))
             .clipShape(shape)
     }
 }
