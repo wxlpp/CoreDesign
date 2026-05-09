@@ -19,14 +19,21 @@ import SwiftUI
 /// // SegmentedControl / SearchField / SolidButtonStyle 内部
 /// @Environment(\.controlSize) private var controlSize
 /// ...
-/// // 顺序很重要：先 padding 增加内容外缘，再用 frame(height:) 把外缘高度
-/// // 钳制到 token 取值。frame 在 padding 之前会被 padding 撑大，与 height(for:)
-/// // 的"外框总高度"语义不一致。
 /// .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: controlSize))
 /// .padding(.vertical, CoreControlMetrics.verticalPadding(for: controlSize))
 /// .font(CoreControlMetrics.font(for: controlSize))
-/// .frame(height: CoreControlMetrics.height(for: controlSize))
+/// .frame(minHeight: CoreControlMetrics.height(for: controlSize))
 /// ```
+///
+/// > Important: 默认推荐用 **`frame(minHeight:)`**（地板）而非 `frame(height:)`（钳制）。
+/// > 原因：本仓库 padding 取值贴 CoreSpacing scale（8/12/16），与 Primer 原始
+/// > paddingBlock（6/10/14）有 2–4pt 上抬；当字体偏大时（譬如 extraLarge 用
+/// > titleMedium 20pt），padding × 2 + font 会超过 `height(for:)` 的 Primer 精确值，
+/// > 用 `frame(height:)` 会裁切 / 压缩 label。
+/// >
+/// > 若设计上必须严格命中 Primer 控件高度（譬如对接现有视觉 spec），调用方需要
+/// > 同时收紧 padding（建议直接用 Primer paddingBlock 字面量 6/10/14）或换更小
+/// > 字号；本 token 不会替你做这个权衡。
 ///
 /// ## 取值依据
 ///
