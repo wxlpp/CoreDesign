@@ -17,18 +17,18 @@ struct BorderModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay(
-                RoundedRectangle(cornerRadius: 0)
+                RoundedRectangle(cornerRadius: CoreRadius.none)
                     .stroke(self.style, lineWidth: self.width)
             )
     }
 }
 
 public extension View {
-    func bordered(style: some ShapeStyle = Color.borderDefault, width: CGFloat = 1) -> some View {
+    func bordered(style: some ShapeStyle = Color.borderDefault, width: CGFloat = CoreBorderWidth.thin) -> some View {
         self.modifier(BorderModifier(style: AnyShapeStyle(style), width: width))
     }
 
-    func bordered(color: Color = .borderDefault, width: CGFloat = 1) -> some View {
+    func bordered(color: Color = .borderDefault, width: CGFloat = CoreBorderWidth.thin) -> some View {
         self.modifier(BorderModifier(style: AnyShapeStyle(color), width: width))
     }
 }
