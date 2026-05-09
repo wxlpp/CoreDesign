@@ -16,17 +16,11 @@ let package = Package(
             targets: ["CoreDesign"]
         ),
     ],
-    dependencies: [
-        .package(path: "../PlatformHub"),
-    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "CoreDesign",
-            dependencies: [
-                .product(name: "PlatformHub", package: "PlatformHub"),
-            ],
             resources: [.process("Resources")]
         ),
         .testTarget(
