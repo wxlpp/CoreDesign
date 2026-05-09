@@ -19,10 +19,13 @@ import SwiftUI
 /// // SegmentedControl / SearchField / SolidButtonStyle 内部
 /// @Environment(\.controlSize) private var controlSize
 /// ...
-/// .frame(height: CoreControlMetrics.height(for: controlSize))
+/// // 顺序很重要：先 padding 增加内容外缘，再用 frame(height:) 把外缘高度
+/// // 钳制到 token 取值。frame 在 padding 之前会被 padding 撑大，与 height(for:)
+/// // 的"外框总高度"语义不一致。
 /// .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: controlSize))
 /// .padding(.vertical, CoreControlMetrics.verticalPadding(for: controlSize))
 /// .font(CoreControlMetrics.font(for: controlSize))
+/// .frame(height: CoreControlMetrics.height(for: controlSize))
 /// ```
 ///
 /// ## 取值依据
