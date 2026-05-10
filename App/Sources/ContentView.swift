@@ -14,6 +14,7 @@ struct ContentView: View {
                 PlaceholderView()
             }
         }
+        .toastHost(edge: .top)
     }
 }
 

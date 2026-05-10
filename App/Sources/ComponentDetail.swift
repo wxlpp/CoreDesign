@@ -67,17 +67,16 @@ struct ComponentDetail: View {
                         }
                         .preferredColorScheme(.dark)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
                     .overlay(
                         RoundedRectangle(cornerRadius: CoreRadius.medium)
                             .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
                     )
+                    .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
                 }
             }
             .padding(CoreSpacing.lg)
         }
         .background(Color.surfaceCanvas)
         .navigationTitle(component.name)
-        .toastHost(edge: .top)
     }
 }

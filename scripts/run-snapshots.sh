@@ -6,9 +6,9 @@ set -euo pipefail
 DEVICE="${SIMULATOR_DEVICE:-iPhone 16 Pro}"
 
 cd "$(dirname "$0")/.."
+# Start fresh: remove all stale output (PNGs + metadata sidecars)
+rm -rf docs/snapshots/
 mkdir -p docs/snapshots
-# Remove stale PNGs from prior runs to avoid inflating the count
-rm -f docs/snapshots/*.png
 
 TEST_RUNNER_SNAPSHOTS_EXPORT_DIR=docs/snapshots \
 xcodebuild test \

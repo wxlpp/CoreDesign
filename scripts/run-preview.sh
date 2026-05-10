@@ -19,7 +19,7 @@ echo "Build succeeded. Opening Simulator..."
 
 # Resolve human-readable device name to UDID
 SIM_UDID=$(xcrun simctl list devices available \
-  | grep -F "${DEVICE}" \
+  | grep -F "${DEVICE} (" \
   | head -1 \
   | sed 's/.*(\([A-F0-9-]*\)).*/\1/')
 if [[ -z "${SIM_UDID}" ]]; then
