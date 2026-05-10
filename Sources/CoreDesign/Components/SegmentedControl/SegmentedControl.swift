@@ -31,9 +31,10 @@ import SwiftUI
 /// - thumb 阴影通过 `View.coreShadow(.small)` 应用，`shadow-small` colorset
 ///   在 dark 模式下会自动加深 alpha 以保持 elevation 视觉。
 ///
-/// **不使用 `.glassEffect`**——本组件属于"嵌入页面内容"的 chrome，per PRD §US-3
-/// glass 仅用于浮层 UI（`BottomInputBar` / `MenuButton` / `CircularGlassButtonStyle`），
-/// 容器类组件统一走实色 + 阴影。
+/// **不使用 `.glassEffect`**——本组件属于"嵌入页面内容"的基础 chrome，按
+/// CoreDesign 设计原则，glass 效果仅用于浮层 UI（如 `BottomInputBar` /
+/// `MenuButton` / `CircularGlassButtonStyle` 这类悬浮于内容之上的元素），
+/// 嵌入式容器组件统一走实色 + 阴影以保持视觉层级清晰。
 public struct SegmentedControl<Item: Hashable>: View {
     /// 创建分段控件。
     ///
