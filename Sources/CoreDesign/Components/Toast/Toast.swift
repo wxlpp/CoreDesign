@@ -87,6 +87,9 @@ public enum ToastDefaults {
 
     /// 反方向拖拽阻尼系数。非 edge 方向拖拽时位移乘以 0.5，避免 toast 被拽到屏幕中央。
     static let reverseDragDamping: CGFloat = 0.5
+
+    /// dismiss 动画滑出距离（pt）。朝 edge 方向滑出 60pt 后与 opacity 淡出叠加。
+    static let dismissSlideDistance: CGFloat = 60
 }
 
 // MARK: - ToastHost
@@ -483,11 +486,11 @@ private struct ToastView: View {
         }
     }
 
-    /// dismiss 动画的目标偏移量：朝 edge 方向滑出 60pt。
+    /// dismiss 动画的目标偏移量：朝 edge 方向滑出。
     private var dismissOffset: CGFloat {
         switch self.edge {
-        case .top: -60
-        case .bottom: 60
+        case .top: -ToastDefaults.dismissSlideDistance
+        case .bottom: ToastDefaults.dismissSlideDistance
         }
     }
 }
