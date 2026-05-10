@@ -18,6 +18,7 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      - path: Assets.xcassets
     dependencies:
       - package: CoreDesign
       - package: SnapshotPreviews
