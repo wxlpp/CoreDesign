@@ -8,6 +8,9 @@ options:
 packages:
   CoreDesign:
     path: ../
+  SnapshotPreviews:
+    url: https://github.com/EmergeTools/SnapshotPreviews
+    exactVersion: "0.14.0"
 
 targets:
   CoreDesignPreview:
@@ -23,3 +26,18 @@ targets:
         INFOPLIST_FILE: ""
         GENERATE_INFOPLIST_FILE: "YES"
         TARGETED_DEVICE_FAMILY: "1"
+
+  SnapshotTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: CoreDesignPreview
+      - package: SnapshotPreviews
+        product: SnapshottingTests
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        INFOPLIST_FILE: ""
+        GENERATE_INFOPLIST_FILE: "YES"

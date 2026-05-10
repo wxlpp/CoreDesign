@@ -7,10 +7,11 @@ DEVICE="${SIMULATOR_DEVICE:-iPhone 17 Pro}"
 
 cd "$(dirname "$0")/.."
 # Start fresh: remove all stale output (PNGs + metadata sidecars)
-rm -rf docs/snapshots/
-mkdir -p docs/snapshots
+SNAPSHOT_DIR="$(pwd)/docs/snapshots"
+rm -rf "${SNAPSHOT_DIR}"
+mkdir -p "${SNAPSHOT_DIR}"
 
-TEST_RUNNER_SNAPSHOTS_EXPORT_DIR=docs/snapshots \
+TEST_RUNNER_SNAPSHOTS_EXPORT_DIR="${SNAPSHOT_DIR}" \
 xcodebuild test \
   -project App/CoreDesignPreview.xcodeproj \
   -scheme SnapshotTests \

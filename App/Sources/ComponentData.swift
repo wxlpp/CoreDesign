@@ -101,11 +101,11 @@ extension ComponentMeta {
         },
 
         // Feedback
-        ComponentMeta(id: "toast", name: "Toast", description: "Scene-scoped toast host + 队列状态机。attach `.toastHost(edge:)` 到 WindowGroup 根级别，从任意子 view 触发", category: .feedback, demoAction: { AnyView(ToastDemoButton()) }) {
-            Text("Toast 通过 `.toastHost(edge:)` modifier 挂载到 WindowGroup 根级别，从任意子 view 触发")
+        ComponentMeta(id: "toast", name: "Toast", description: "Scene-scoped toast host + 队列状态机", category: .feedback, preview: {
+            Text("Toast 通过 `.toastHost(edge:)` modifier 挂载到 WindowGroup 根级别")
                 .font(CoreTypography.bodySmallFont)
                 .foregroundStyle(Color.contentMuted)
-        },
+        }, demoAction: { AnyView(ToastDemoButton()) }),
     ]
 }
 
