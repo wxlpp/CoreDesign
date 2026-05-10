@@ -171,10 +171,11 @@ public enum BookCoverRenderer {
         let content = BookCoverPlaceholder(title: title)
             .frame(width: size.width, height: size.height)
         let renderer = ImageRenderer(content: content)
-        renderer.scale = 1
         #if canImport(UIKit)
+            renderer.scale = UIScreen.main.scale
             return renderer.uiImage?.pngData()
         #elseif canImport(AppKit)
+            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
             guard let cg = renderer.cgImage else {
                 return nil
             }
