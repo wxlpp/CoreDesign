@@ -110,6 +110,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "../" */,
+				B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9392F6A38887FD9DFEA291A2 /* Products */;
@@ -326,6 +327,17 @@
 			relativePath = "../";
 		};
 /* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/EmergeTools/SnapshotPreviews";
+			requirement = {
+				kind = exactVersion;
+				version = 0.14.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = 1DDFCE66E44CEA5C5BA41392 /* Project object */;
 }
