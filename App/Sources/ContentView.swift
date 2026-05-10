@@ -32,7 +32,9 @@ private struct ComponentList: View {
                         ForEach(items) { comp in
                             ComponentRow(component: comp)
                                 .tag(comp)
-                                .onTapGesture { self.selection = comp }
+                                Button { self.selection = comp } label: { ComponentRow(component: comp) }
+                                    .tag(comp)
+                                    .buttonStyle(.plain)
                         }
                     }
                 }
