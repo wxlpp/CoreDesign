@@ -4,6 +4,10 @@ import CoreDesign
 struct ComponentDetail: View {
     let component: ComponentMeta
 
+    private var previewBorder: RoundedRectangle {
+        RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CoreSpacing.lg) {
@@ -62,11 +66,8 @@ struct ComponentDetail: View {
                         }
                         .preferredColorScheme(.dark)
                     }
-                    .overlay(
-                        RoundedRectangle(cornerRadius: CoreRadius.medium)
-                            .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
+                    .overlay(self.previewBorder)
+                    .clipShape(self.previewBorder)
                 }
             }
             .padding(CoreSpacing.lg)
