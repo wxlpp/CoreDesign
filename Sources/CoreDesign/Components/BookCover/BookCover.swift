@@ -13,6 +13,16 @@ import SwiftUI
     import AppKit
 #endif
 
+// MARK: - Shared helpers
+
+/// 统一书名兜底逻辑 / Unified title fallback.
+///
+/// `BookCover` 与 `BookCoverPlaceholder` 共用同一份 a11y label 兜底语义：
+/// 空标题朗读为 "未命名"。集中在此避免双处分叉。
+private func bookCoverDisplayTitle(_ title: String) -> String {
+    title.isEmpty ? "未命名" : title
+}
+
 // MARK: - BookCover
 
 /// 书籍封面容器视图 / Book cover container.
@@ -66,7 +76,7 @@ public struct BookCover: View {
         .coreShadow(.medium)
         // a11y: 让 VoiceOver 朗读书名而非默认 unlabeled 容器；isImage trait 反映"封面是一张图"语义。
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(self.title))
+        .accessibilityLabel(Text(bookCoverDisplayTitle(self.title)))
         .accessibilityAddTraits(.isImage)
     }
 
@@ -117,7 +127,7 @@ public struct BookCoverPlaceholder: View {
     }
 
     public var body: some View {
-        let displayTitle = self.title.isEmpty ? "未命名" : self.title
+        let displayTitle = bookCoverDisplayTitle(self.title)
         GeometryReader { proxy in
             let base = Color(text: displayTitle)
             ZStack {
@@ -146,7 +156,7 @@ public struct BookCoverPlaceholder: View {
         .aspectRatio(BookCover.aspectRatio, contentMode: .fit)
         // a11y: 占位封面是文本视觉，朗读标题即可；不加 isImage trait（占位本质是 text-based 渲染）。
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(self.title.isEmpty ? "未命名" : self.title))
+        .accessibilityLabel(Text(displayTitle))
     }
 
     private let title: String
