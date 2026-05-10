@@ -18,7 +18,7 @@ xcodebuild build \
 echo "Build succeeded. Opening Simulator..."
 
 xcrun simctl boot "${DEVICE}" 2>/dev/null || true
-xcrun simctl bootstatus "${DEVICE}" -b 2>/dev/null || true
+xcrun simctl bootstatus "${DEVICE}" -b
 open -a Simulator
 
 APP_PATH=$(find "${DERIVED_DATA}" -name "CoreDesignPreview.app" -path "*/Debug-iphonesimulator/*" | head -1)

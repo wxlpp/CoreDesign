@@ -6,6 +6,7 @@ set -euo pipefail
 DEVICE="${SIMULATOR_DEVICE:-iPhone 17 Pro}"
 
 cd "$(dirname "$0")/.."
+rm -f docs/snapshots/*.png
 mkdir -p docs/snapshots
 
 TEST_RUNNER_SNAPSHOTS_EXPORT_DIR=docs/snapshots \
