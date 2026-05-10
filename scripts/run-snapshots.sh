@@ -14,5 +14,5 @@ xcodebuild test \
   -quiet
 
 echo "Snapshots saved to docs/snapshots/"
-ls -la docs/snapshots/*.png | wc -l
-echo "PNGs generated"
+count=$(find docs/snapshots -name "*.png" -type f | wc -l)
+echo "${count} PNGs generated"

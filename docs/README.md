@@ -1,6 +1,6 @@
 # CoreDesign 组件库 / Component Library
 
-iOS 26+ SwiftUI 设计系统，含 15 个 Primer 对齐组件。
+iOS 26+ SwiftUI 设计系统，含 16 个 Primer 对齐组件。
 
 ## 组件索引 / Component Index
 
@@ -8,40 +8,41 @@ iOS 26+ SwiftUI 设计系统，含 15 个 Primer 对齐组件。
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| Button | [<img src="../snapshots/CoreDesignPreview_Previews.swift_Button.png" width="200" alt="Button">](components/button.md) | [button.md](components/button.md) |
+| Button | [<img src="snapshots/CoreDesignPreview_Previews.swift_Button.png" width="200" alt="Button">](components/button.md) | [button.md](components/button.md) |
 
 ### Form 表单
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| SegmentedControl | [<img src="../snapshots/CoreDesignPreview_Previews.swift_SegmentedControl.png" width="200" alt="SegmentedControl">](components/segmented-control.md) | [segmented-control.md](components/segmented-control.md) |
-| SearchField | [<img src="../snapshots/CoreDesignPreview_Previews.swift_SearchField.png" width="200" alt="SearchField">](components/search-field.md) | [search-field.md](components/search-field.md) |
+| SegmentedControl | [<img src="snapshots/CoreDesignPreview_Previews.swift_SegmentedControl.png" width="200" alt="SegmentedControl">](components/segmented-control.md) | [segmented-control.md](components/segmented-control.md) |
+| SearchField | [<img src="snapshots/CoreDesignPreview_Previews.swift_SearchField.png" width="200" alt="SearchField">](components/search-field.md) | [search-field.md](components/search-field.md) |
 | BottomInputBar | — | [bottom-input-bar.md](components/bottom-input-bar.md) |
-| LabelIcon / ChevronRightIcon / DangerIcon | [<img src="../snapshots/CoreDesignPreview_Previews.swift_Form%20Icons.png" width="200" alt="Form Icons">](components/form-icons.md) | [form-icons.md](components/form-icons.md) |
+| CheckBox | — | [checkbox.md](components/checkbox.md) |
+| LabelIcon / ChevronRightIcon / DangerIcon | [<img src="snapshots/CoreDesignPreview_Previews.swift_Form%20Icons.png" width="200" alt="Form Icons">](components/form-icons.md) | [form-icons.md](components/form-icons.md) |
 
 ### Indicator 指示器
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| Badge | [<img src="../snapshots/CoreDesignPreview_Previews.swift_Badge.png" width="200" alt="Badge">](components/badge.md) | [badge.md](components/badge.md) |
-| Tag | [<img src="../snapshots/CoreDesignPreview_Previews.swift_Tag.png" width="200" alt="Tag">](components/tag.md) | [tag.md](components/tag.md) |
-| Banner | [<img src="../snapshots/CoreDesignPreview_Previews.swift_Banner.png" width="200" alt="Banner">](components/banner.md) | [banner.md](components/banner.md) |
+| Badge | [<img src="snapshots/CoreDesignPreview_Previews.swift_Badge.png" width="200" alt="Badge">](components/badge.md) | [badge.md](components/badge.md) |
+| Tag | [<img src="snapshots/CoreDesignPreview_Previews.swift_Tag.png" width="200" alt="Tag">](components/tag.md) | [tag.md](components/tag.md) |
+| Banner | [<img src="snapshots/CoreDesignPreview_Previews.swift_Banner.png" width="200" alt="Banner">](components/banner.md) | [banner.md](components/banner.md) |
 
 ### Layout 布局
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| Avatar | [<img src="../snapshots/CoreDesignPreview_Previews.swift_Avatar.png" width="200" alt="Avatar">](components/avatar.md) | [avatar.md](components/avatar.md) |
-| BookCover | [<img src="../snapshots/CoreDesignPreview_Previews.swift_BookCover.png" width="200" alt="BookCover">](components/book-cover.md) | [book-cover.md](components/book-cover.md) |
-| EmptyState | [<img src="../snapshots/CoreDesignPreview_Previews.swift_EmptyState.png" width="200" alt="EmptyState">](components/empty-state.md) | [empty-state.md](components/empty-state.md) |
-| ListRow | [<img src="../snapshots/CoreDesignPreview_Previews.swift_ListRow.png" width="200" alt="ListRow">](components/list-row.md) | [list-row.md](components/list-row.md) |
+| Avatar | [<img src="snapshots/CoreDesignPreview_Previews.swift_Avatar.png" width="200" alt="Avatar">](components/avatar.md) | [avatar.md](components/avatar.md) |
+| BookCover | [<img src="snapshots/CoreDesignPreview_Previews.swift_BookCover.png" width="200" alt="BookCover">](components/book-cover.md) | [book-cover.md](components/book-cover.md) |
+| EmptyState | [<img src="snapshots/CoreDesignPreview_Previews.swift_EmptyState.png" width="200" alt="EmptyState">](components/empty-state.md) | [empty-state.md](components/empty-state.md) |
+| ListRow | [<img src="snapshots/CoreDesignPreview_Previews.swift_ListRow.png" width="200" alt="ListRow">](components/list-row.md) | [list-row.md](components/list-row.md) |
 
 ### Navigation 导航
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| SidebarRow | [<img src="../snapshots/CoreDesignPreview_Previews.swift_SidebarRow.png" width="200" alt="SidebarRow">](components/sidebar-row.md) | [sidebar-row.md](components/sidebar-row.md) |
-| UnderlinedTabBar | [<img src="../snapshots/CoreDesignPreview_Previews.swift_UnderlinedTabBar.png" width="200" alt="UnderlinedTabBar">](components/underlined-tab-bar.md) | [underlined-tab-bar.md](components/underlined-tab-bar.md) |
+| SidebarRow | [<img src="snapshots/CoreDesignPreview_Previews.swift_SidebarRow.png" width="200" alt="SidebarRow">](components/sidebar-row.md) | [sidebar-row.md](components/sidebar-row.md) |
+| UnderlinedTabBar | [<img src="snapshots/CoreDesignPreview_Previews.swift_UnderlinedTabBar.png" width="200" alt="UnderlinedTabBar">](components/underlined-tab-bar.md) | [underlined-tab-bar.md](components/underlined-tab-bar.md) |
 
 ### Feedback 反馈
 
