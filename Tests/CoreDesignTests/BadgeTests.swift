@@ -11,8 +11,8 @@ struct BadgeTests {
         }
         #expect(badge.variant == .info)
         #expect(badge.outlined == true)
-        // Compile-time verification that Label == Text (not erased to AnyView).
-        let _: Badge<Text> = badge
+        // Verify Label type at compile time (label stored as Text, not erased to AnyView).
+        let _: Text = badge.label
     }
 
     @Test("convenience text init defaults variant to neutral and outlined to false")
