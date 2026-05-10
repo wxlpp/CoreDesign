@@ -60,8 +60,8 @@ struct BottomInputBar: View {
 
     var body: some View {
         self.mainRow
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, CoreSpacing.md)
+            .padding(.vertical, CoreSpacing.sm)
             .animation(.snappy(duration: 0.18), value: self.canSend)
             .animation(.snappy(duration: 0.18), value: self.isRunning)
             .animation(.snappy(duration: 0.2), value: self.isShowingSuggestions)
@@ -86,7 +86,7 @@ struct BottomInputBar: View {
     }
 
     private var mainRow: some View {
-        HStack(alignment: .bottom, spacing: 10) {
+        HStack(alignment: .bottom, spacing: CoreSpacing.sm) {
             if self.showMenuButton {
                 self.menuButton
             }
@@ -117,17 +117,17 @@ struct BottomInputBar: View {
     }
 
     private var textFieldContainer: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+        HStack(alignment: .bottom, spacing: CoreSpacing.sm) {
             TextField(self.placeholder, text: self.$inputText, axis: .vertical)
                 .lineLimit(1...5)
-                .padding(.vertical, 8)
-                .padding(.leading, 10)
+                .padding(.vertical, CoreSpacing.sm)
+                .padding(.leading, CoreSpacing.sm)
                 .focused(self.$isInputFocused)
                 .focusedExternally(self.externalFocus)
                 .simultaneousGesture(TapGesture().onEnded { self.activateInput() })
                 .getSize(self.$textFieldSize)
         }
-        .padding(.horizontal, 2)
+        .padding(.horizontal, CoreSpacing.xxs)
         .glassEffect(.regular, in: BottomInputBarGlassEffectShape())
     }
 
@@ -138,7 +138,7 @@ struct BottomInputBar: View {
             }
         } label: {
             Image(systemName: "wand.and.sparkles.inverse")
-                .font(.system(size: 16, weight: .semibold))
+                .font(CoreTypography.titleSmallFont)
         }
         .buttonStyle(.circularGlass)
     }
@@ -148,7 +148,7 @@ struct BottomInputBar: View {
             self.submitMessage()
         } label: {
             Image(systemName: "paperplane")
-                .font(.system(size: 16, weight: .semibold))
+                .font(CoreTypography.titleSmallFont)
         }
         .foregroundStyle(.white)
         .backgroundStyle(.green)
@@ -160,7 +160,7 @@ struct BottomInputBar: View {
             self.onStop?()
         } label: {
             Image(systemName: "stop.fill")
-                .font(.system(size: 16, weight: .semibold))
+                .font(CoreTypography.titleSmallFont)
         }
         .foregroundStyle(.white)
         .backgroundStyle(.red)
@@ -205,7 +205,7 @@ private extension View {
 
 struct BottomInputBarGlassEffectShape: Shape {
     func path(in rect: CGRect) -> Path {
-        let cornerRadius: CGFloat = rect.height <= 44 ? rect.height / 2 : 14
+        let cornerRadius: CGFloat = rect.height <= 44 ? rect.height / 2 : CoreRadius.large
         return Path(roundedRect: rect, cornerRadius: cornerRadius)
     }
 }
@@ -224,32 +224,32 @@ struct BottomInputBarSuggestionsView: View {
             Group {
                 if hasLongText {
                     ScrollView(.vertical, showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                             ForEach(self.suggestions, id: \.self) { self.suggestionChip($0) }
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, CoreSpacing.md)
+                        .padding(.vertical, CoreSpacing.xs)
                     }
                     .frame(maxHeight: 200)
                 } else if hasMany {
                     ScrollView(.vertical, showsIndicators: false) {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: CoreSpacing.sm) {
                             ForEach(self.suggestions, id: \.self) {
                                 self.suggestionChip($0)
                                     .frame(maxWidth: .infinity)
                             }
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, CoreSpacing.md)
+                        .padding(.vertical, CoreSpacing.xs)
                     }
                     .frame(maxHeight: 160)
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: CoreSpacing.sm) {
                             ForEach(self.suggestions, id: \.self) { self.suggestionChip($0) }
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, CoreSpacing.md)
+                        .padding(.vertical, CoreSpacing.xs)
                     }
                 }
             }
@@ -262,8 +262,8 @@ struct BottomInputBarSuggestionsView: View {
         } label: {
             Text(suggestion)
                 .font(.subheadline)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .padding(.horizontal, CoreSpacing.md)
+                .padding(.vertical, CoreSpacing.sm)
                 .glassEffect(.regular, in: Capsule())
         }
         .foregroundStyle(.primary)
@@ -327,7 +327,7 @@ struct BottomInputBarModifier: ViewModifier {
             // 区（Liquid Glass 内容渐隐 / 模糊），后者只 inset 不带边缘效果，导致内容滑到
             // 底时硬切到 bar 边缘。
             .safeAreaBar(edge: .bottom, content: {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                     if self.isShowingSuggestions, self.showShuffleButton {
                         HStack {
                             Spacer()
@@ -336,13 +336,13 @@ struct BottomInputBarModifier: ViewModifier {
                             } label: {
                                 Label("换一批", systemImage: "arrow.clockwise")
                                     .font(.subheadline)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 7)
+                                    .padding(.horizontal, CoreSpacing.md)
+                                    .padding(.vertical, CoreSpacing.sm)
                                     .glassEffect(.regular, in: Capsule())
                             }
                             .foregroundStyle(.primary)
                         }
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, CoreSpacing.xl)
                     }
 
                     BottomInputBarSuggestionsView(

@@ -57,7 +57,10 @@ private struct MenuIconView: View, @MainActor Animatable {
         .frame(width: self.size, height: self.size)
     }
 
-    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 17
+    /// 图标基线尺寸（pt），随 Dynamic Type 缩放。对齐 `CoreControlMetrics.iconSize(for: .regular)`
+    /// (16pt)——与 `MenuButtonStyleModifier.controlSize` (`.large` = 40pt) 同档，icon 边长约为
+    /// 外框的 0.4，符合 SF Symbol "icon ≈ 容器 40%" 的 Apple HIG 推荐。
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = CoreControlMetrics.iconSize(for: .regular)
 
     private var lineWidth: CGFloat {
         self.size / 12
@@ -81,18 +84,18 @@ private struct MenuButtonStyleModifier: ViewModifier {
         switch self.style {
         case .labeled:
             content
-                .padding(.horizontal, 10)
+                .padding(.horizontal, CoreSpacing.sm)
                 .frame(height: self.controlSize)
                 .contentShape(Capsule())
                 .background(
                     Capsule()
                         .fill(.background)
-                        .padding(2)
+                        .padding(CoreSpacing.xxs)
                         .glassEffect()
                 )
                 .overlay(
                     Capsule()
-                        .strokeBorder(.white.opacity(0.2), lineWidth: 0.8)
+                        .strokeBorder(.white.opacity(0.2), lineWidth: CoreBorderWidth.hairline)
                 )
         case .circular:
             content
@@ -101,17 +104,19 @@ private struct MenuButtonStyleModifier: ViewModifier {
                 .background(
                     Circle()
                         .fill(.background)
-                        .padding(2)
+                        .padding(CoreSpacing.xxs)
                         .glassEffect()
                 )
                 .overlay(
                     Circle()
-                        .strokeBorder(.white.opacity(0.2), lineWidth: 0.8)
+                        .strokeBorder(.white.opacity(0.2), lineWidth: CoreBorderWidth.hairline)
                 )
         }
     }
 
-    private let controlSize: CGFloat = 38
+    /// 控件外框尺寸。匹配 SwiftUI `ControlSize.large` 的 Primer 规格
+    /// (`CoreControlMetrics.height(for: .large)` = 40pt)，与输入栏 trailing 圆形按钮保持视觉等高。
+    private let controlSize: CGFloat = CoreControlMetrics.height(for: .large)
 }
 
 // MARK: - MenuButton
@@ -165,6 +170,13 @@ struct MenuButton: View {
     @State private var longPressTriggered = false
 }
 
+/// 触觉反馈助手——`UIImpactFeedbackGenerator` 的 `init(style:)` / `prepare()` /
+/// `impactOccurred()` 在 iOS 上都标记为 `@MainActor`（Swift 6 strict concurrency 下
+/// 是硬性约束，main 上的 build 之前就因此失败）。`MenuButton` 的两处调用点
+/// （`onLongPressGesture` / `onTapGesture` 闭包）本身就是 SwiftUI gesture 回调、
+/// 在 MainActor 上跑，故把整个 helper 标 `@MainActor` 是 zero-cost 的精确隔离——
+/// 无 Task hop、无 await、调用语义不变。
+@MainActor
 private func triggerMenuFeedback() {
     #if canImport(UIKit)
         let generator = UIImpactFeedbackGenerator(style: .light)
