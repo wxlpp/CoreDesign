@@ -9,13 +9,29 @@ import SwiftUI
 
 // MARK: - Avatar
 
+/// 头像 / Avatar：根据姓名生成圆形彩色占位头像。
+///
+/// 使用场景：用户列表 / 评论作者 / 登录态指示器等需要在缺图情景下给出可视化身份提示
+/// 的位置。Primer 概念上对应 `Avatar` 组件的"无图占位"分支——本组件不渲染外部图片，
+/// 仅按姓名首字符 + 由姓名稳定哈希出的色相填充背景。
+///
+/// 视觉规格：
+/// - 内部位图边长 `CoreSpacing.xxxxl`（48pt）。`.resizable()` + `.aspectRatio(.fill)`
+///   暴露给调用方，调用方决定外框尺寸；圆形语义由调用方 `.clipShape(Circle())` 保证。
+/// - 首字符字号 `CoreTypography.titleLargeFont`（32pt semibold）+ `.weight(.bold)`
+///   保留原有 bold 视觉权重；颜色固定 `Color.white` 与彩色背景对比。
+/// - light / dark 行为一致：背景由 `Color(text:)` 哈希派生，前景始终白色。
 public struct Avatar: View {
     public init(name: String) {
         self.name = name
     }
 
+    /// 内部位图边长。Avatar 圆角语义由调用方 `clipShape(Circle())` 保证（对应
+    /// `CoreRadius.full` 的 pill / 头像意图），本结构不在内部 `cornerRadius` 字面量上做约束。
+    private static let canvasSide: CGFloat = CoreSpacing.xxxxl
+
     public var body: some View {
-        let size = CGSize(width: 50, height: 50)
+        let size = CGSize(width: Self.canvasSide, height: Self.canvasSide)
         let firstCharacter = String(name.prefix(1).uppercased())
 
         Image(size: size, label: Text(self.name)) { context in
@@ -25,7 +41,7 @@ public struct Avatar: View {
             )
             context.draw(
                 Text(firstCharacter)
-                    .font(.system(size: 30, weight: .bold))
+                    .font(CoreTypography.titleLargeFont.weight(.bold))
                     .foregroundStyle(Color.white),
                 at: CGPoint(x: size.width / 2, y: size.height / 2)
             )
