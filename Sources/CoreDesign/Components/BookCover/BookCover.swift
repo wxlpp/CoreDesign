@@ -32,7 +32,7 @@ import SwiftUI
 ///
 /// **Light / Dark 行为**：
 /// - 边框颜色走 `Color.borderMuted`（基于 `.separator.opacity(0.5)`），随系统外观自适应。
-/// - 阴影走 `View.coreShadow(.medium)`，由 shadow-medium colorset
+/// - 阴影走 `.coreShadow(.medium)`，由 shadow-medium colorset
 ///   提供 light / dark 双取值，dark 模式下浓度自动加深以补偿 elevation 视觉。
 ///
 /// **比例约束**：`aspectRatio = 2.0 / 3.0` 是书籍封面行业标准比例，不可配置。
@@ -47,7 +47,11 @@ public struct BookCover: View {
     public static let aspectRatio: CGFloat = 2.0 / 3.0
 
     public var body: some View {
-        Group {
+        let shape = RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+        // strokeBorder 内描边（路径在形状内部），避免 stroke 居中描边的外侧一半被
+        // 后续 clipShape 裁掉导致 hairline 半像素丢失/模糊。clipShape 必须在 overlay
+        // 之后，与 SurfaceModifier 模式保持一致。
+        return Group {
             if let data, let image = Self.image(from: data) {
                 image
                     .resizable()
@@ -57,11 +61,8 @@ public struct BookCover: View {
             }
         }
         .aspectRatio(Self.aspectRatio, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
-                .stroke(Color.borderMuted, lineWidth: CoreBorderWidth.hairline)
-        )
+        .overlay(shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.hairline))
+        .clipShape(shape)
         .coreShadow(.medium)
     }
 
