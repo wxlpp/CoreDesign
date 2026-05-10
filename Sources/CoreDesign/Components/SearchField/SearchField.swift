@@ -84,6 +84,7 @@ public struct SearchField: View {
                     .textFieldStyle(.plain)
                     .font(CoreControlMetrics.font(for: .regular))
                     .foregroundStyle(Color.contentPrimary)
+                    .accessibilityLabel(self.placeholder.isEmpty ? "Search" : self.placeholder)
                     .focused(self.$isFocused)
                     .onSubmit {
                         self.onSubmit?(self.text)
@@ -111,13 +112,14 @@ public struct SearchField: View {
         .padding(.vertical, CoreControlMetrics.verticalPadding(for: .regular))
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .background(
-            RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+            RoundedRectangle(cornerRadius: CoreRadius.medium)
                 .fill(Color.surfaceCanvasInset)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
-                .stroke(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
+            RoundedRectangle(cornerRadius: CoreRadius.medium)
+                .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
         )
+        .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
         .focusRing(
             visible: self.isFocused,
             color: .borderFocus,
