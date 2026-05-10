@@ -30,11 +30,9 @@ private struct ComponentList: View {
                 if !items.isEmpty {
                     Section(category.rawValue) {
                         ForEach(items) { comp in
-                            ComponentRow(component: comp)
+                            Button { self.selection = comp } label: { ComponentRow(component: comp) }
                                 .tag(comp)
-                                Button { self.selection = comp } label: { ComponentRow(component: comp) }
-                                    .tag(comp)
-                                    .buttonStyle(.plain)
+                                .buttonStyle(.plain)
                         }
                     }
                 }
