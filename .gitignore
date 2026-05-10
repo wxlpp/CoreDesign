@@ -31,6 +31,12 @@ playground.xcworkspace
 
 .build/
 
+# Xcode derived data from run-preview.sh
+App/.derivedData/
+
+# Snapshot PNGs from run-snapshots.sh
+docs/snapshots/
+
 # CocoaPods
 #
 # We recommend against adding the Pods directory to your .gitignore. However
