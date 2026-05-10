@@ -15,7 +15,7 @@
 | isRunning | Bool | false | 是否正在运行 |
 | showShuffleButton | Bool | true | 是否显示换一批按钮 |
 | autoFocus | Bool | false | mount 时自动聚焦 |
-| externalFocus | FocusState\<Bool\>.Binding? | nil | 外部 FocusState 绑定，用于外部控制聚焦 |
+| externalFocus | FocusState<Bool>.Binding? | nil | 外部 FocusState 绑定，用于外部控制聚焦 |
 | onActivate | (() -> Void)? | nil | 激活输入回调 |
 | onStop | (() -> Void)? | nil | 停止回调 |
 | onSubmit | (String) -> Void | - | 提交回调 |

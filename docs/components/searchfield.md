@@ -6,7 +6,7 @@
 
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| text | Binding\<String\> | - | 搜索文本的双向绑定 |
+| text | Binding<String> | - | 搜索文本的双向绑定 |
 | placeholder | String | "Search" | 空文本占位提示 |
 | onSubmit | ((String) -> Void)? | nil | Return 提交回调 |
 

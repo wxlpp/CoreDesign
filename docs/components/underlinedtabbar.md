@@ -7,7 +7,7 @@
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | items | [Item] | - | tab 数据源，Item 需 Hashable |
-| selection | Binding\<Item\> | - | 受控选中态 |
+| selection | Binding<Item> | - | 受控选中态 |
 | title | (Item) -> String | - | 从 Item 抽取展示文字 |
 | trailing | () -> Trailing | — | 右侧固定视图（仅 `UnderlinedTabBar(items:selection:title:trailing:)` 需此参数） |
 

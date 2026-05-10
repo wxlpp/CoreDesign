@@ -7,7 +7,7 @@ Token 化的分段控件 / Token-styled segmented control.
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | items | [Item] | - | 选项数据源，Item 需 Hashable |
-| selection | Binding\<Item\> | - | 当前选中项的双向绑定 |
+| selection | Binding<Item> | - | 当前选中项的双向绑定 |
 | title | (Item) -> String | - | 选项到显示文字的映射 |
 
 ## 预览 / Preview
