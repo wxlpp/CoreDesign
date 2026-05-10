@@ -20,8 +20,6 @@ targets:
       - path: Sources
     dependencies:
       - package: CoreDesign
-      - package: SnapshotPreviews
-        product: PreviewGallery
     settings:
       base:
         SWIFT_VERSION: "6.0"
@@ -43,3 +41,4 @@ targets:
         SWIFT_VERSION: "6.0"
         INFOPLIST_FILE: ""
         GENERATE_INFOPLIST_FILE: "YES"
+        TARGETED_DEVICE_FAMILY: "1"
