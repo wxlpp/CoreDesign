@@ -19,6 +19,10 @@
 | onStop | (() -> Void)? | nil | 停止回调 |
 | onSubmit | (String) -> Void | - | 提交回调 |
 
+## 预览 / Preview
+
+此组件依赖键盘交互，需运行 App 后在界面中触发。运行 `scripts/run-preview.sh` 启动预览 App 体验效果。
+
 ## 使用示例 / Usage
 
 ```swift

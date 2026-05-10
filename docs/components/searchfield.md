@@ -12,7 +12,7 @@
 
 ## 预览 / Preview
 
-![Light](../snapshots/CoreDesignPreview_Previews.swift_SearchField.png)
+运行 `scripts/run-snapshots.sh` 后，预览图将生成于 `docs/snapshots/`。
 
 ## 使用示例 / Usage
 
@@ -34,4 +34,4 @@ SearchField(text: $query, placeholder: "Filter issues") { submitted in
 - 字号 / padding / 高度：`CoreControlMetrics` for `.regular`
 - 放大镜：`magnifyingglass`，16pt
 - 清除按钮：`xmark.circle.fill`
-- 焦点环：`.focusRing(visible:color: .borderFocus, width: CoreBorderWidth.thick, cornerRadius: CoreRadius.medium)`
+- 焦点环：`.focusRing(visible: true, color: .borderFocus, width: CoreBorderWidth.thick, cornerRadius: CoreRadius.medium)`

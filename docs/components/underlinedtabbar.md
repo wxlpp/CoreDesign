@@ -9,13 +9,13 @@
 | items | [Item] | - | tab 数据源，Item 需 Hashable |
 | selection | Binding\<Item\> | - | 受控选中态 |
 | title | (Item) -> String | - | 从 Item 抽取展示文字 |
-| trailing | () -> Trailing | {} | 右侧固定视图 |
+| trailing | () -> Trailing | — | 右侧固定视图（仅 `UnderlinedTabBar(items:selection:title:trailing:)` 需此参数） |
 
-无 trailing 版本：`UnderlinedTabBar(items:selection:title:)`。
+另提供无 trailing 便利 init：`UnderlinedTabBar(items:selection:title:)`（此时 trailing 默认为 `EmptyView`）。
 
 ## 预览 / Preview
 
-![Light](../snapshots/CoreDesignPreview_Previews.swift_UnderlinedTabBar.png)
+运行 `scripts/run-snapshots.sh` 后，预览图将生成于 `docs/snapshots/`。
 
 ## 使用示例 / Usage
 

@@ -11,7 +11,7 @@
 
 ## 预览 / Preview
 
-![Light](../snapshots/CoreDesignPreview_Previews.swift_BookCover.png)
+运行 `scripts/run-snapshots.sh` 后，预览图将生成于 `docs/snapshots/`。
 
 ## 使用示例 / Usage
 

@@ -18,6 +18,10 @@ ToastHost()
 
 ToastLevel: info / success / warning / danger。
 
+## 预览 / Preview
+
+此组件依赖 Scene 级 context，需运行 App 后在界面中触发。运行 `scripts/run-preview.sh` 启动预览 App 体验效果。
+
 ### View Modifier
 
 | 方法 | 说明 |

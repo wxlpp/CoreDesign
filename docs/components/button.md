@@ -18,7 +18,7 @@ Primer 风格按钮样式 / Primer-styled button styles.
 
 ## 预览 / Preview
 
-![Light](../snapshots/CoreDesignPreview_Previews.swift_Button.png)
+运行 `scripts/run-snapshots.sh` 后，预览图将生成于 `docs/snapshots/`。
 
 ## 使用示例 / Usage
 
