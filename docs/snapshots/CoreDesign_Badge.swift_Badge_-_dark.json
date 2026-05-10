@@ -1,0 +1,21 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Badge",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0016Badgeswift_eCJAcfMX164_0_33_EB9EA2BEBA46461F254EBB65BE71BA30Ll7PreviewfMf0_15PreviewRegistryfMu_",
+      "display_name" : "Badge - dark",
+      "index" : 0,
+      "line" : 165,
+      "orientation" : "portrait",
+      "preferred_color_scheme" : "dark"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Badge-0-15]"
+  },
+  "display_name" : "Badge - dark",
+  "group" : "CoreDesign\/Badge.swift"
+}

@@ -1,0 +1,21 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Tag",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0014Tagswift_IwJBbfMX156_0_33_676A07CB0CF475AB5D641FF1274C868CLl7PreviewfMf_15PreviewRegistryfMu_",
+      "display_name" : "Tag · light",
+      "index" : 0,
+      "line" : 157,
+      "orientation" : "portrait",
+      "preferred_color_scheme" : "light"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Tag-0-41]"
+  },
+  "display_name" : "Tag · light",
+  "group" : "CoreDesign\/Tag.swift"
+}

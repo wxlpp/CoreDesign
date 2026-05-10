@@ -1,0 +1,21 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Core Elevation",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0024CoreElevationswift_ynAHffMX159_0_33_C6A3302E26782B53B115CDE10389DDABLl7PreviewfMf_15PreviewRegistryfMu_",
+      "display_name" : "Light",
+      "index" : 0,
+      "line" : 160,
+      "orientation" : "portrait",
+      "preferred_color_scheme" : "light"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Core Elevation-0-49]"
+  },
+  "display_name" : "Light",
+  "group" : "CoreDesign\/CoreElevation.swift"
+}

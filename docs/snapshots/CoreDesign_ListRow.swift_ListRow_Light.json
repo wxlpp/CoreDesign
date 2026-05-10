@@ -1,0 +1,21 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "List Row",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0018ListRowswift_jHJJcfMX158_0_33_E2961F69CD2041E29C4C7920F6EC4C93Ll7PreviewfMf_15PreviewRegistryfMu_",
+      "display_name" : "ListRow — Light",
+      "index" : 0,
+      "line" : 159,
+      "orientation" : "portrait",
+      "preferred_color_scheme" : "light"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-List Row-0-33]"
+  },
+  "display_name" : "ListRow — Light",
+  "group" : "CoreDesign\/ListRow.swift"
+}

@@ -1,0 +1,21 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Empty State",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0021EmptyStateswift_IfFDefMX263_0_33_8B7163C95AB9744E52915F2D57C819EDLl7PreviewfMf5_15PreviewRegistryfMu_",
+      "display_name" : "Light - hero size",
+      "index" : 0,
+      "line" : 264,
+      "orientation" : "portrait",
+      "preferred_color_scheme" : "light"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Empty State-0-31]"
+  },
+  "display_name" : "Light - hero size",
+  "group" : "CoreDesign\/EmptyState.swift"
+}

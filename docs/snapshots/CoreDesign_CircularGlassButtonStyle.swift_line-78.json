@@ -1,0 +1,19 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Circular Glass Button Style",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0035CircularGlassButtonStyleswift_IgGGkfMX77_0_33_6E4566B1662A69A5C8D9771906C89332Ll7PreviewfMf_15PreviewRegistryfMu_",
+      "index" : 0,
+      "line" : 78,
+      "orientation" : "portrait"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Circular Glass Button Style-0-21]"
+  },
+  "display_name" : "At line #78",
+  "group" : "CoreDesign\/CircularGlassButtonStyle.swift"
+}

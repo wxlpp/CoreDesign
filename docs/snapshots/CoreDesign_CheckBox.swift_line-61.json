@@ -1,0 +1,19 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Check Box",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0019CheckBoxswift_DJEEdfMX60_0_33_32D48F11B6EEF00589438F0BBA445763Ll7PreviewfMf_15PreviewRegistryfMu_",
+      "index" : 0,
+      "line" : 61,
+      "orientation" : "portrait"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Check Box-0-24]"
+  },
+  "display_name" : "At line #61",
+  "group" : "CoreDesign\/CheckBox.swift"
+}

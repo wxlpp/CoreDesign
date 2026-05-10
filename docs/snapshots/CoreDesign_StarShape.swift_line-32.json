@@ -1,0 +1,19 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Star Shape",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0020StarShapeswift_odAJdfMX31_0_33_6EB766B5DEE245E4E79F0B9B563D4F9ALl7PreviewfMf_15PreviewRegistryfMu_",
+      "index" : 0,
+      "line" : 32,
+      "orientation" : "portrait"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Star Shape-0-48]"
+  },
+  "display_name" : "At line #32",
+  "group" : "CoreDesign\/StarShape.swift"
+}

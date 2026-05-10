@@ -1,0 +1,19 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Underlined Tab Bar",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0027UnderlinedTabBarswift_ovFAhfMX165_0_33_B7FDEC5D7013FF1853D6BBD767F8D163Ll7PreviewfMf_15PreviewRegistryfMu_",
+      "index" : 0,
+      "line" : 166,
+      "orientation" : "portrait"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Underlined Tab Bar-0-40]"
+  },
+  "display_name" : "At line #166",
+  "group" : "CoreDesign\/UnderlinedTabBar.swift"
+}

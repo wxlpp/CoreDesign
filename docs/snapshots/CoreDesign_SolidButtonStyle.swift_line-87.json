@@ -1,0 +1,19 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Solid Button Style",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0027SolidButtonStyleswift_ovFAhfMX86_0_33_BD127EC959D44F4CB37B53AF662419ECLl7PreviewfMf_15PreviewRegistryfMu_",
+      "index" : 0,
+      "line" : 87,
+      "orientation" : "portrait"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Solid Button Style-0-23]"
+  },
+  "display_name" : "At line #87",
+  "group" : "CoreDesign\/SolidButtonStyle.swift"
+}

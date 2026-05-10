@@ -1,0 +1,19 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Light Button Style",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0027LightButtonStyleswift_ovFAhfMX103_0_33_9663C56FAFA495C95D402CA79ACA6F8BLl7PreviewfMf_15PreviewRegistryfMu_",
+      "index" : 0,
+      "line" : 104,
+      "orientation" : "portrait"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Light Button Style-0-22]"
+  },
+  "display_name" : "At line #104",
+  "group" : "CoreDesign\/LightButtonStyle.swift"
+}

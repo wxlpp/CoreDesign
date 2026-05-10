@@ -1,0 +1,21 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Surface Modifier",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0026SurfaceModifierswift_DsAGgfMX131_0_33_6B956BC4EDDCF1507C61BAD2F14D192ALl7PreviewfMf0_15PreviewRegistryfMu_",
+      "display_name" : "Surface — Dark",
+      "index" : 0,
+      "line" : 132,
+      "orientation" : "portrait",
+      "preferred_color_scheme" : "dark"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Surface Modifier-0-47]"
+  },
+  "display_name" : "Surface — Dark",
+  "group" : "CoreDesign\/SurfaceModifier.swift"
+}

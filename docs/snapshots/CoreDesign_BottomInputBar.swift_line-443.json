@@ -1,0 +1,19 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Bottom Input Bar",
+      "container_type_name" : "CoreDesign.$s10CoreDesign0025BottomInputBarswift_jqFBgfMX442_0_33_0E4EAFBA0167593C61F9F5191CC9294CLl7PreviewfMf_15PreviewRegistryfMu_",
+      "index" : 0,
+      "line" : 443,
+      "orientation" : "portrait"
+    },
+    "simulator" : {
+      "device_name" : "iPhone 17 Pro",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Bottom Input Bar-0-18]"
+  },
+  "display_name" : "At line #443",
+  "group" : "CoreDesign\/BottomInputBar.swift"
+}
