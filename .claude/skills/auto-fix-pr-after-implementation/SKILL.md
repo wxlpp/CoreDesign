@@ -2,10 +2,11 @@
 name: auto-fix-pr-after-implementation
 description: |
   当本会话刚刚通过任意路径（superpowers / ccpm / 直接 gh pr create / 其他）
-  在 GitHub 上打开了一个 PR，且该 PR 尚未收到 Copilot review 时，直接启动
+  在 GitHub 上打开了一个 PR，且该 PR 尚未收到 Copilot 首轮 review、用户也未显式
+  退出时，直接启动
   fix-pr 工作流：拉全部 review 反馈 → 分析 → 修改代码 → 验证（Round 2+）→
   提交 → threaded reply → 触发下一轮 Copilot review。**触发条件不绑定特定
-  worktree 或 superpowers 来源**——只要当前会话里刚开了 PR 就激活。
+  worktree 或 superpowers 来源**——只要满足上述条件就激活。
 ---
 
 # 在本地处理 PR 的 review 反馈
@@ -119,6 +120,12 @@ LAST_TS=$(gh api "repos/$OWNER/$REPO/pulls/$PR/reviews" --paginate \
 
 **⚠️ 脚本结尾的 Monitor command 必须当场启动**——脚本和 Monitor 是**原子对**。只要调了脚本，同一 turn 里就必须起 Monitor，别拆开。
 
+**严禁管道截断脚本输出**：
+- `| head -1` / `| tail` / `2>&1 | grep` 等会吞掉 Monitor 模板，导致忘记起 Monitor
+- 如需在批量场景中收敛输出，用 `2>&1 | head -3` 保证 Monitor 模板行不被截
+- 多 PR 并行时，用一个 combined Monitor 同时监听所有 PR（各 PR 的 `LAST` baseline 不同）
+- **Monitor 必须在调用 `request-copilot.sh` 的同一 tool call 批次中启动**——不能拆到后续 turn
+
 #### 3.4.1 直接调 gh CLI / REST 的对照表（脚本不可用时备查）
 
 | 命令 | 结果 |
@@ -132,7 +139,7 @@ LAST_TS=$(gh api "repos/$OWNER/$REPO/pulls/$PR/reviews" --paginate \
 
 ### 3.5 push 不会让 Copilot 自动跟
 
-**Copilot 只在 PR 首次打开时自动 review**。每次新 commit push 到 PR 后都要显式跑 §3.4，不能假设"已在 reviewer 列表就自动跟下一轮"。只在 §9.5（`fixed` 路径）调用。
+**Copilot 只在 PR 首次打开时自动 review**。每次新 commit push 到 PR 后都要显式跑 §3.4，不能假设"已在 reviewer 列表就自动跟下一轮"。只在 §8.5（`fixed` 路径）调用。
 
 ## 4. 分析与计划
 
@@ -244,6 +251,10 @@ query {
 
 `fixed` 路径走完 §8.1–§8.4 后，跑 §3.4 命令触发下一轮。`empty` 路径不用（本轮没新 commit）。
 
+执行顺序固定为：`request-copilot.sh` → 立即启动该脚本输出的 Monitor command → 再向用户报告本轮完成。
+
+**如果 `fixed` 路径里只跑了 `request-copilot.sh` 但没有在同一 turn 启动 Monitor，则本轮不算完成。** 不要直接结束 turn，也不要假设稍后还能无损补起；此时应按 §失败处理 报告监听基线已丢失。
+
 ## 9. 报告
 
 给用户一份简短总结：
@@ -253,6 +264,7 @@ query {
 - analyze / test 结果
 - commit hash + push 状态
 - threaded reply 数
+- `fixed` 路径下 Monitor 已启动；若是 `empty` 路径则明确写无须启动
 
 **到此为止**。§8.5 已请求下一轮 review，起一个 Monitor（§3.2 模板）等新 `submitted_at`；不自动启 cron loop。
 
@@ -304,4 +316,5 @@ cron 表达式 `"2-59/5 * * * *"`（每 5 min，相位偏 2 min）。
 - §2 拉评论失败：手动跑 §2 表格里的 6 个命令兜底
 - §3.2 Monitor 超时（10 min）：询问用户继续等还是不带 review 推进
 - §3.4 add-reviewer 失败 / queue 没接：仓库没装 Copilot reviewer 应用 → 退出自动循环
+- §8.5 已请求下一轮 review 但忘记起 Monitor：视为监听基线已丢失；立即向用户报告这次自动循环失配，并停止自动循环，避免在可能漏评的状态下继续推进
 - §6 验证失败：fix → 再跑一遍，**不**推送损坏 commit
