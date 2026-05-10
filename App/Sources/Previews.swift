@@ -109,6 +109,31 @@ import CoreDesign
     .padding()
 }
 
+#Preview("Toast") {
+    ToastSnapshotHarness()
+        .toastHost(edge: .top)
+}
+
+/// Toast snapshot demo：按钮点击触发 toast 显示，初始状态展示场景脚手架。
+private struct ToastSnapshotHarness: View {
+    @Environment(\.toastHost) private var toast
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.md) {
+            Text("Tap button to show a toast.")
+                .font(CoreTypography.bodyMediumFont)
+                .foregroundStyle(Color.contentMuted)
+            Button("Info") { self.toast?.show("Info: demo", level: .info) }
+            Button("Success") { self.toast?.show("Success: demo", level: .success) }
+            Button("Warning") { self.toast?.show("Warning: demo", level: .warning) }
+            Button("Danger") { self.toast?.show("Danger: demo", level: .danger) }
+        }
+        .padding(CoreSpacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.surfaceCanvas)
+    }
+}
+
 #Preview("BottomInputBar") {
     Text("BottomInputBar 通过 `.bottomInputBar` modifier 使用，非独立 View。")
         .font(CoreTypography.bodySmallFont)
