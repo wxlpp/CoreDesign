@@ -4,8 +4,6 @@ import CoreDesign
 struct ComponentDetail: View {
     let component: ComponentMeta
 
-    @Environment(\.toastHost) private var toast
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CoreSpacing.lg) {
@@ -19,10 +17,7 @@ struct ComponentDetail: View {
                         .foregroundStyle(Color.contentMuted)
 
                     if component.id == "toast" {
-                        Button("Show Demo Toast") {
-                            self.toast?.show("Toast message", level: .info)
-                        }
-                        .buttonStyle(.solidButton(role: .primary))
+                        ToastDemoButton()
                     }
                 }
 
@@ -67,11 +62,11 @@ struct ComponentDetail: View {
                         }
                         .preferredColorScheme(.dark)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
                     .overlay(
                         RoundedRectangle(cornerRadius: CoreRadius.medium)
                             .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
                     )
+                    .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
                 }
             }
             .padding(CoreSpacing.lg)
@@ -79,5 +74,19 @@ struct ComponentDetail: View {
         .background(Color.surfaceCanvas)
         .navigationTitle(component.name)
         .toastHost(edge: .top)
+    }
+}
+
+// MARK: - ToastDemoButton
+
+/// Subview to read `\.toastHost` inside the scope where `.toastHost(edge:)` is applied.
+private struct ToastDemoButton: View {
+    @Environment(\.toastHost) private var toast
+
+    var body: some View {
+        Button("Show Demo Toast") {
+            self.toast?.show("Toast message", level: .info)
+        }
+        .buttonStyle(.solidButton(role: .primary))
     }
 }

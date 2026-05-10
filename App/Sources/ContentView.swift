@@ -38,6 +38,9 @@ private struct ComponentList: View {
             }
         }
         .navigationTitle("CoreDesign")
+        .navigationDestination(for: ComponentMeta.self) { comp in
+            ComponentDetail(component: comp)
+        }
         .background(Color.surfaceCanvas)
     }
 }
