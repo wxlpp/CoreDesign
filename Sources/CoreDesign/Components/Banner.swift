@@ -168,8 +168,10 @@ public struct PlainBannerStyle: BannerStyle {
         let palette = bannerPalette(for: configuration.level)
         HStack(spacing: CoreSpacing.sm) {
             icon.foregroundStyle(palette.foreground)
+                .accessibilityHidden(true)
             configuration.label
         }
+        .accessibilityElement(children: .combine)
         .font(CoreTypography.bodyMediumFont)
         .foregroundStyle(palette.foreground)
         .padding(CoreSpacing.md)
@@ -199,8 +201,10 @@ public struct BorderedBannerStyle: BannerStyle {
         let palette = bannerPalette(for: configuration.level)
         HStack(spacing: CoreSpacing.sm) {
             icon.foregroundStyle(palette.foreground)
+                .accessibilityHidden(true)
             configuration.label
         }
+        .accessibilityElement(children: .combine)
         .font(CoreTypography.bodyMediumFont)
         .foregroundStyle(palette.foreground)
         .padding(CoreSpacing.md)
