@@ -66,7 +66,7 @@ struct ComponentDetail: View {
                         }
                         .preferredColorScheme(.dark)
                     }
-                    .overlay(self.previewBorder)
+                    .overlay(self.previewBorder.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline))
                     .clipShape(self.previewBorder)
                 }
             }

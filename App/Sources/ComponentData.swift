@@ -242,7 +242,7 @@ private struct UnderlinedTabBarPreview: View {
 
 /// Subview to read `\.toastHost` inside the scope where `.toastHost(edge:)` is applied.
 /// Referenced by `ComponentMeta.all` via `demoAction` closure.
-struct ToastDemoButton: View {
+private struct ToastDemoButton: View {
     @Environment(\.toastHost) private var toast
 
     var body: some View {
