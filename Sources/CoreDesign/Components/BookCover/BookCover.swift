@@ -64,6 +64,10 @@ public struct BookCover: View {
         .overlay(shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.hairline))
         .clipShape(shape)
         .coreShadow(.medium)
+        // a11y: 让 VoiceOver 朗读书名而非默认 unlabeled 容器；isImage trait 反映"封面是一张图"语义。
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(self.title))
+        .accessibilityAddTraits(.isImage)
     }
 
     private let data: Data?
@@ -140,6 +144,9 @@ public struct BookCoverPlaceholder: View {
             }
         }
         .aspectRatio(BookCover.aspectRatio, contentMode: .fit)
+        // a11y: 占位封面是文本视觉，朗读标题即可；不加 isImage trait（占位本质是 text-based 渲染）。
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(self.title.isEmpty ? "未命名" : self.title))
     }
 
     private let title: String
