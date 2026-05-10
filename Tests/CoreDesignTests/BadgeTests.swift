@@ -11,6 +11,8 @@ struct BadgeTests {
         }
         #expect(badge.variant == .info)
         #expect(badge.outlined == true)
+        // Generic Label parameter is preserved (not erased to AnyView).
+        #expect(String(describing: type(of: badge)) == "Badge<Text>")
     }
 
     @Test("convenience text init defaults variant to neutral and outlined to false")
@@ -37,14 +39,3 @@ struct BadgeTests {
     }
 }
 
-extension BadgeVariant: @retroactive Equatable {
-    public static func == (lhs: BadgeVariant, rhs: BadgeVariant) -> Bool {
-        switch (lhs, rhs) {
-        case (.info, .info), (.success, .success), (.warning, .warning),
-             (.danger, .danger), (.neutral, .neutral):
-            true
-        default:
-            false
-        }
-    }
-}

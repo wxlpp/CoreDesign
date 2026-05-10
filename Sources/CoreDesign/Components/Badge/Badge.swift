@@ -21,7 +21,7 @@ import SwiftUI
 /// - `warning`：警告（橙）。例："草稿"、"即将过期"。
 /// - `danger`：错误 / 风险（红）。例："已废弃"、"已关闭未合并"。
 /// - `neutral`：默认中性（灰）。例：版本号、计数、未指定状态。
-public enum BadgeVariant: Sendable {
+public enum BadgeVariant: Sendable, Equatable {
     case info
     case success
     case warning
