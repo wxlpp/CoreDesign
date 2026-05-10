@@ -21,7 +21,7 @@ echo "Build succeeded. Opening Simulator..."
 SIM_UDID=$(xcrun simctl list devices available \
   | grep -F "${DEVICE} (" \
   | head -1 \
-  | sed 's/.*(\([A-F0-9-]*\)).*/\1/')
+  | sed 's/.*(\([A-F0-9-]*\)).*/\1/' || true)
 if [[ -z "${SIM_UDID}" ]]; then
   echo "Error: No available simulator found for '${DEVICE}'" >&2
   exit 1
