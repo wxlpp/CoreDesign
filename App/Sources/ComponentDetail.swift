@@ -4,8 +4,6 @@ import CoreDesign
 struct ComponentDetail: View {
     let component: ComponentMeta
 
-    @Environment(\.toastHost) private var toast
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CoreSpacing.lg) {
@@ -19,10 +17,7 @@ struct ComponentDetail: View {
                         .foregroundStyle(Color.contentMuted)
 
                     if component.id == "toast" {
-                        Button("Show Demo Toast") {
-                            self.toast?.show("Toast message", level: .info)
-                        }
-                        .buttonStyle(.solidButton(role: .primary))
+                        ToastDemoButton()
                     }
                 }
 
@@ -31,6 +26,8 @@ struct ComponentDetail: View {
                     Text("Preview")
                         .font(.headline)
                         .foregroundStyle(Color.contentPrimary)
+
+                    let roundedRect = RoundedRectangle(cornerRadius: CoreRadius.medium)
 
                     HStack(alignment: .top, spacing: 0) {
                         // Light
@@ -68,10 +65,10 @@ struct ComponentDetail: View {
                         .preferredColorScheme(.dark)
                     }
                     .overlay(
-                        RoundedRectangle(cornerRadius: CoreRadius.medium)
+                        roundedRect
                             .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
+                    .clipShape(roundedRect)
                 }
             }
             .padding(CoreSpacing.lg)
@@ -79,5 +76,19 @@ struct ComponentDetail: View {
         .background(Color.surfaceCanvas)
         .navigationTitle(component.name)
         .toastHost(edge: .top)
+    }
+}
+
+// MARK: - ToastDemoButton
+
+/// 子视图，确保在 `.toastHost(edge:)` 生效的环境中读取 `\.toastHost`。
+private struct ToastDemoButton: View {
+    @Environment(\.toastHost) private var toast
+
+    var body: some View {
+        Button("Show Demo Toast") {
+            self.toast?.show("Toast message", level: .info)
+        }
+        .buttonStyle(.solidButton(role: .primary))
     }
 }
