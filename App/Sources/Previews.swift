@@ -108,3 +108,10 @@ import CoreDesign
     )
     .padding()
 }
+
+#Preview("BottomInputBar") {
+    Text("BottomInputBar 通过 `.bottomInputBar` modifier 使用，非独立 View。")
+        .font(CoreTypography.bodySmallFont)
+        .foregroundStyle(Color.contentMuted)
+        .padding()
+}
