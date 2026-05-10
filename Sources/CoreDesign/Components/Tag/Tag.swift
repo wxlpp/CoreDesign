@@ -87,7 +87,7 @@ public struct Tag<Label: View>: View {
                 .font(CoreTypography.bodySmallFont)
                 .foregroundStyle(self.color)
 
-            if self.removable, self.onRemove != nil {
+            if self.removable {
                 Button {
                     self.onRemove?()
                 } label: {
@@ -96,6 +96,9 @@ public struct Tag<Label: View>: View {
                         .foregroundStyle(self.color)
                 }
                 .buttonStyle(.plain)
+                .disabled(self.onRemove == nil)
+                .contentShape(Rectangle())
+                .padding(CoreSpacing.xxs)
                 .accessibilityLabel(Text("Remove"))
             }
         }
@@ -111,6 +114,7 @@ public struct Tag<Label: View>: View {
 
     /// 衬底不透明度。GitHub label 视觉常用的 ~12% 基线不饱和值——可识别但不抢戏，
     /// 在 light / dark 两端都能维持足够的文字对比。集中常量避免在 body 内出现魔法数字。
+    // 泛型类型不支持 static stored property；computed var 是唯一的常量表达方式。
     private static var backgroundOpacity: Double { 0.12 }
 
     /// 关闭按钮 icon 边长。走 `CoreControlMetrics.iconSize(for: .small)` = 14pt，
