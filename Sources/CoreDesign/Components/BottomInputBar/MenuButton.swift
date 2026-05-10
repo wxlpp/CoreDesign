@@ -57,9 +57,13 @@ private struct MenuIconView: View, @MainActor Animatable {
         .frame(width: self.size, height: self.size)
     }
 
-    /// 图标基线尺寸（pt），随 Dynamic Type 缩放。对齐 `CoreControlMetrics.iconSize(for: .regular)`
-    /// (16pt)——与 `MenuButtonStyleModifier.controlSize` (`.large` = 40pt) 同档，icon 边长约为
-    /// 外框的 0.4，符合 SF Symbol "icon ≈ 容器 40%" 的 Apple HIG 推荐。
+    /// 图标基线尺寸（pt），随 Dynamic Type 缩放。
+    ///
+    /// 刻意使用 `CoreControlMetrics.iconSize(for: .regular)` (16pt)——而非与外框
+    /// `MenuButtonStyleModifier.controlSize` (`.large` = 40pt) 同档的 `.large` (20pt)——
+    /// 是为了维持 16/40 ≈ 0.4 的 icon-to-button-height 比例，匹配 SF Symbol 在容器内的
+    /// 视觉重量预期（Apple HIG "icon ≈ 容器 40%"）。若改用 `.large` (20pt)，icon 将占
+    /// 按钮 50%，视觉过重、破坏与输入栏 trailing 圆形按钮的平衡。
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = CoreControlMetrics.iconSize(for: .regular)
 
     private var lineWidth: CGFloat {
@@ -85,7 +89,7 @@ private struct MenuButtonStyleModifier: ViewModifier {
         case .labeled:
             content
                 .padding(.horizontal, CoreSpacing.sm)
-                .frame(height: self.controlSize)
+                .frame(minHeight: self.controlSize)
                 .contentShape(Capsule())
                 .background(
                     Capsule()
