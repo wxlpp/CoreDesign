@@ -43,8 +43,15 @@ public struct SidebarRow<Label: View>: View {
 
     public var body: some View {
         HStack(spacing: CoreSpacing.none) {
-            // 左侧 accent 条：仅在 selected 时可见。厚度走 `CoreBorderWidth.thick`
-            // token，避免 inline 字面量 2（per epic ADR #7 / PRD FR-B-5）。
+            // 左侧 accent 条：2pt 宽度始终保留（unselected 时显式 `Color.clear`），
+            // 切换到 `borderFocus` 只发生在 isSelected==true。厚度走
+            // `CoreBorderWidth.thick` token，避免 inline 字面量 2
+            // （per epic ADR #7 / PRD FR-B-5）。
+            //
+            // 为何始终保留 2pt 宽度而非条件渲染：sidebar 列表中选中/非选中行
+            // 共存，若条件渲染会让选中态发生 2pt 水平位移，破坏 label 对齐。
+            // 当前方案保证所有行 content x-offset 一致；`Color.clear` 在
+            // 视觉上等价于不绘制。
             Rectangle()
                 .fill(self.isSelected ? Color.borderFocus : Color.clear)
                 .frame(width: CoreBorderWidth.thick)
