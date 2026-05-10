@@ -2,8 +2,9 @@ import SwiftUI
 import CoreDesign
 
 // MARK: - Snapshot Previews
-// 每个组件至少一个 #Preview 宏，供 SnapshotTest 自动收编生成 PNG。
-// 命名规则：<ComponentName>_<variant>（Light / Dark 由 SnapshotPreviews 自动处理）。
+// 供 SnapshotTest 自动收编生成 PNG 的 #Preview 宏。
+// 当前覆盖 13 个组件；BottomInputBar / CheckBox / Toast 无预览宏。
+// 命名由 SnapshotPreviews 自动追加 _Light / _Dark。
 
 #Preview("Badge") {
     HStack(spacing: CoreSpacing.sm) {

@@ -170,7 +170,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */,
-				8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "..//" */,
+				8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "../" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9392F6A38887FD9DFEA291A2 /* Products */;
@@ -441,9 +441,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "..//" */ = {
+		8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "../" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "..//";
+			relativePath = "../";
 		};
 /* End XCLocalSwiftPackageReference section */
 

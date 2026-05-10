@@ -1,5 +1,4 @@
 import SwiftUI
-import CoreDesign
 
 @main
 struct CoreDesignPreviewApp: App {
