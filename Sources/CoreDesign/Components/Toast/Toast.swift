@@ -256,6 +256,7 @@ public final class ToastHost {
                 self.queue.removeFirst()
             }
             self.isDismissing = false
+            self.dismissTask = nil  // 先置空避免 advance → scheduleDismiss 自 cancel
             self.advance()
         }
     }
@@ -441,10 +442,10 @@ private struct ToastView: View {
 
     private var icon: Image {
         switch self.item.level {
-        case .info: Image(systemName: "info.circle.fill")
-        case .success: Image(systemName: "checkmark.circle.fill")
-        case .warning: Image(systemName: "exclamationmark.triangle.fill")
-        case .danger: Image(systemName: "exclamationmark.octagon.fill")
+        case .info: Image(systemName: "info.circle")
+        case .success: Image(systemName: "checkmark.circle")
+        case .warning: Image(systemName: "exclamationmark.triangle")
+        case .danger: Image(systemName: "exclamationmark.octagon")
         }
     }
 
