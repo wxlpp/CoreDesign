@@ -98,6 +98,7 @@ public struct Badge<Label: View>: View {
                 }
             }
             .accessibilityElement(children: .combine)
+            .clipShape(shape)
     }
 
     let variant: BadgeVariant
@@ -193,12 +194,14 @@ private struct BadgePreviewMatrix: View {
                 Badge(variant: .success) {
                     HStack(spacing: 2) {
                         Image(systemName: "checkmark")
+                            .accessibilityHidden(true)
                         Text("Merged")
                     }
                 }
                 Badge(variant: .danger, outlined: true) {
                     HStack(spacing: 2) {
                         Image(systemName: "xmark")
+                            .accessibilityHidden(true)
                         Text("Closed")
                     }
                 }
