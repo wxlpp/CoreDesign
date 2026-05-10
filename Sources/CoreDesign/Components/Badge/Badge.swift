@@ -2,9 +2,6 @@
 //  Badge.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//
-
 import SwiftUI
 
 // MARK: - BadgeVariant
@@ -34,9 +31,9 @@ public enum BadgeVariant: Sendable, Equatable {
 /// GitHub 风格的状态指示器，对应 Primer 的 `Label` 组件。
 ///
 /// 用于在列表项 / 标题 / 按钮旁标注一个固定 level 的语义状态（如 "Beta" / "Draft" /
-/// "Deprecated" / "v1.0"）。形态固定为 pill：`Color.surfaceCanvasSubtle` /
-/// status background token + 可选 `CoreBorderWidth.thin` 描边 + `CoreRadius.full`
-/// 圆角，内部为调用方传入的 label。
+/// "Deprecated" / "v1.0"）。形态固定为 pill：`Capsule(style: .continuous)` 圆角
+/// （等价于 `CoreRadius.full`）+ status background token + 可选 `CoreBorderWidth.thin`
+/// 描边，内部为调用方传入的 label。
 ///
 /// ## 与 Tag 的边界
 ///
@@ -85,22 +82,20 @@ public struct Badge<Label: View>: View {
     }
 
     public var body: some View {
-        self.label
+        let shape = Capsule(style: .continuous)
+        return self.label
             .font(CoreTypography.bodySmallFont)
             .tracking(CoreTypography.bodySmallTracking)
             .padding(.horizontal, CoreSpacing.sm)
             .padding(.vertical, CoreSpacing.xs)
             .background {
-                Capsule(style: .continuous)
-                    .fill(Self.backgroundColor(for: self.variant))
+                shape.fill(Self.backgroundColor(for: self.variant))
             }
             .overlay {
                 if self.outlined {
-                    Capsule(style: .continuous)
-                        .strokeBorder(Self.borderColor(for: self.variant), lineWidth: CoreBorderWidth.thin)
+                    shape.strokeBorder(Self.borderColor(for: self.variant), lineWidth: CoreBorderWidth.thin)
                 }
             }
-            .clipShape(Capsule(style: .continuous))
     }
 
     let variant: BadgeVariant
