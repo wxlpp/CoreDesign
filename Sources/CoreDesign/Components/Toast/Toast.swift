@@ -160,6 +160,10 @@ public final class ToastHost {
     private var dismissTask: Task<Void, Never>?
 
     /// 创建一个新的 ToastHost。每个 scene 应持有独立实例；不要共享。
+    ///
+    /// host 释放时，pending 的 scheduleDismiss / beginDismissCurrent task 通过
+    /// `[weak self]` 捕获自动变为 nil，guard 会提前返回。短 duration toast 下
+    /// `Task.sleep` 的短暂残留开销可忽略。
     public init() {}
 
     // MARK: Public API
@@ -262,7 +266,7 @@ public final class ToastHost {
 
 // MARK: - EnvironmentValues
 
-public extension EnvironmentValues {
+extension EnvironmentValues {
     /// 当前 scene 的 `ToastHost`；未挂 `.toastHost(edge:)` modifier 时为 `nil`。
     ///
     /// 调用方读取后建议链式可选调用：
@@ -276,7 +280,11 @@ public extension EnvironmentValues {
     /// 设计取舍：默认 `nil` 而非懒加载 stub host——
     /// scene 没挂 host 时调用方应"无声忽略"，避免 stub 静默吞掉 toast 让人误以为
     /// host 已生效。Debug 构建可在调用点显式 `assert(toast != nil)` 提前发现错配。
-    @Entry var toastHost: ToastHost? = nil
+    ///
+    /// R1 fix：显式 `public` 标注在 var 上（而不是仅靠 `public extension` 推导）；
+    /// 后者由 `@Entry` 宏展开时是否继承公开访问级别，是一个易被 reviewer 质疑的
+    /// 隐式行为，显式声明消除歧义并保证下游模块可访问 `@Environment(\.toastHost)`。
+    @Entry public var toastHost: ToastHost? = nil
 }
 
 // MARK: - View.toastHost
@@ -334,13 +342,15 @@ private struct ToastHostModifier: ViewModifier {
 // MARK: - ToastOverlay
 
 /// 监听 `host.queue` 与 `host.isDismissing`，按状态机渲染当前显示项；空队列时
-/// 渲染零尺寸占位以维持 `safeAreaInset` 不抢占布局空间。
+/// 返回零尺寸 view，避免 `safeAreaInset` 永久抢占 16pt 内边距导致内容被挤压
+/// （R1 fix：原实现无论队列是否为空都施加 `.padding(.top/.bottom, lg)`，
+/// 引发视觉回归）。
 private struct ToastOverlay: View {
     @Bindable var host: ToastHost
     let edge: VerticalEdge
 
     var body: some View {
-        ZStack {
+        Group {
             if let current = self.host.queue.first {
                 ToastView(
                     item: current,
@@ -350,11 +360,14 @@ private struct ToastOverlay: View {
                 )
                 .transition(self.transition)
                 .id(current.id)
+                .padding(.horizontal, CoreSpacing.lg)
+                .padding(self.edge == .top ? .top : .bottom, CoreSpacing.lg)
+                .frame(maxWidth: .infinity)
+            } else {
+                // 空队列 → 零尺寸占位，让 safeAreaInset 不抢占布局空间。
+                Color.clear.frame(height: 0)
             }
         }
-        .padding(.horizontal, CoreSpacing.lg)
-        .padding(self.edge == .top ? .top : .bottom, CoreSpacing.lg)
-        .frame(maxWidth: .infinity)
         .animation(.easeInOut(duration: ToastDefaults.dismissAnimationDuration), value: self.host.queue.first?.id)
         .animation(.easeInOut(duration: ToastDefaults.dismissAnimationDuration), value: self.host.isDismissing)
     }
@@ -398,10 +411,15 @@ private struct ToastView: View {
                 .font(CoreTypography.bodyMediumFont)
                 .foregroundStyle(Color.contentPrimary)
                 .multilineTextAlignment(.leading)
+                .lineLimit(1)
             Spacer(minLength: CoreSpacing.none)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isStaticText)
+        // R1 fix：toast 整体可点击 dismiss，应当对 VoiceOver 暴露为 button +
+        // hint，而不是误标 `.isStaticText`（原实现告诉 VO 元素不可交互，
+        // 但实际 onTapGesture 会触发 dismiss）。
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("点击关闭")
         .padding(CoreSpacing.md)
         .surface(.card)
         .coreShadow(.medium)
@@ -409,6 +427,7 @@ private struct ToastView: View {
         .contentShape(Rectangle())
         .onTapGesture { self.onDismiss() }
         .gesture(self.swipeGesture)
+        .allowsHitTesting(!self.isDismissing)
     }
 
     // MARK: visuals
@@ -418,7 +437,7 @@ private struct ToastView: View {
         case .info: Image(systemName: "info.circle.fill")
         case .success: Image(systemName: "checkmark.circle.fill")
         case .warning: Image(systemName: "exclamationmark.triangle.fill")
-        case .danger: Image(systemName: "exclamationmark.circle.fill")
+        case .danger: Image(systemName: "exclamationmark.octagon.fill")
         }
     }
 
