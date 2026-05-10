@@ -19,7 +19,7 @@ echo "Build succeeded. Opening Simulator..."
 
 # Resolve human-readable device name to UDID
 SIM_UDID=$(xcrun simctl list devices available \
-  | grep "${DEVICE}" \
+  | grep -F "${DEVICE}" \
   | head -1 \
   | sed 's/.*(\([A-F0-9-]*\)).*/\1/')
 if [[ -z "${SIM_UDID}" ]]; then
@@ -36,7 +36,7 @@ if [[ -z "$APP_PATH" ]]; then
     echo "Error: Could not find CoreDesignPreview.app in ${DERIVED_DATA}" >&2
     exit 1
 fi
-xcrun simctl install booted "$APP_PATH"
-xcrun simctl launch booted com.coredesign.CoreDesignPreview
+xcrun simctl install "${SIM_UDID}" "$APP_PATH"
+xcrun simctl launch "${SIM_UDID}" com.coredesign.CoreDesignPreview
 
 echo "CoreDesignPreview installed and launched in Simulator."
