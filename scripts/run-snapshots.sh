@@ -15,6 +15,7 @@ xcodebuild test \
   -project App/CoreDesignPreview.xcodeproj \
   -scheme CoreDesignPreview \
   -destination "platform=iOS Simulator,name=${DEVICE}" \
+  CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
   -quiet
 
 echo "Snapshots saved to docs/snapshots/"

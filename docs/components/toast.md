@@ -4,10 +4,12 @@ Scene 级 Toast 通知 / Scene-scoped toast notification.
 
 ## API
 
-### ToastHost
+### ToastHost (通过 Environment 获取)
+
+`ToastHost` 是 `@Observable` 类，非 View，通过 `@Environment(\.toastHost)` 获取，不直接放入视图层级。
 
 ```swift
-ToastHost()
+@Observable final class ToastHost { ... }
 ```
 
 | 方法 | 说明 |
