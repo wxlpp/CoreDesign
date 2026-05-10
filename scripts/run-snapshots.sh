@@ -18,4 +18,7 @@ xcodebuild test \
 
 echo "Snapshots saved to docs/snapshots/"
 count=$(find docs/snapshots -name "*.png" -type f | wc -l)
+if [[ "$count" -eq 0 ]]; then
+    echo "Warning: 0 PNGs generated. Check that #Preview macros exist and the scheme builds correctly." >&2
+fi
 echo "${count} PNGs generated"
