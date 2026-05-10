@@ -27,12 +27,12 @@ import SwiftUI
 /// - `title`：书名；同时作为 placeholder 的文字内容与算法生成色的种子。
 ///
 /// **Primer 对应**：Primer 库无对应"书籍封面"概念，本组件是 CoreDesign 自有抽象，
-/// 复用 v2 容器 token（`CoreRadius.large` 圆角 + `CoreBorderWidth.hairline` 边框 +
-/// `CoreElevation.medium` 阴影）落地视觉。
+/// 复用 v2 容器 token（`CoreRadius.medium` 圆角 + `CoreBorderWidth.hairline` 边框 +
+/// 通过 `.coreShadow(.medium)` (CoreElevation.Level.medium) 提供阴影）落地视觉。
 ///
 /// **Light / Dark 行为**：
 /// - 边框颜色走 `Color.borderMuted`（基于 `.separator.opacity(0.5)`），随系统外观自适应。
-/// - 阴影走 `View.coreShadow(.medium)`，由 `Resources.xcassets/shadow/shadow-medium.colorset`
+/// - 阴影走 `View.coreShadow(.medium)`，由 shadow-medium colorset
 ///   提供 light / dark 双取值，dark 模式下浓度自动加深以补偿 elevation 视觉。
 ///
 /// **比例约束**：`aspectRatio = 2.0 / 3.0` 是书籍封面行业标准比例，不可配置。
@@ -57,9 +57,9 @@ public struct BookCover: View {
             }
         }
         .aspectRatio(Self.aspectRatio, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous)
+            RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
                 .stroke(Color.borderMuted, lineWidth: CoreBorderWidth.hairline)
         )
         .coreShadow(.medium)
@@ -97,8 +97,7 @@ public struct BookCover: View {
 /// **Primer 对应**：无；占位封面的 "彩色块 + 居中标题" 视觉为本仓自有约定。
 ///
 /// **Light / Dark 行为**：
-/// - 背景色由 `Color(text:)` 哈希到固定调色板（red / green / blue / ... 10 色），
-///   随 SwiftUI 系统色自动调整 light / dark 表现。
+/// - 占位背景从一组固定色 (.red/.green/.blue/...) 中根据文字哈希取色。
 /// - 文字固定使用 `Color.contentOnEmphasis`（白色）——彩色饱和背景上的对比文本，
 ///   语义对齐 Primer `fgColor.onEmphasis`。
 ///
@@ -124,6 +123,9 @@ public struct BookCoverPlaceholder: View {
                 )
                 VStack {
                     Spacer(minLength: CoreSpacing.none)
+                    // MARK: - Typography metrics (借用 spacing token)
+                    // 暂借 CoreSpacing tokens 作为字号下限与 lineSpacing 数值；本 epic 不新增 token (ADR #8)。
+                    // 后续 epic 引入 CoreTypography.{minFontSize,lineSpacing} CGFloats 后替换。
                     Text(displayTitle)
                         .font(.system(size: max(proxy.size.width * 0.13, CoreSpacing.md), weight: .bold))
                         .foregroundStyle(Color.contentOnEmphasis)
