@@ -8,14 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		08FD9FD72EBF1F75D4B406D2 /* CoreDesign in Frameworks */ = {isa = PBXBuildFile; productRef = EBA00C473491FA57B29E5630 /* CoreDesign */; };
-		0D7CFC19347AF2C82B089A33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C2552B6331EA6505F98EE2 /* Assets.xcassets */; };
+		27EB033D8AD7A9B5099297D5 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68F69BA38AFE90DFB4E401E0 /* ContentView.swift */; };
+		715BEAF4F28D020CADC620E9 /* ComponentData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 890B70C2CB6F53C36F98AE2F /* ComponentData.swift */; };
+		B6336A1BB6321900BC76B295 /* ComponentDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 457D5F18DBF5AA8DBFC6F21D /* ComponentDetail.swift */; };
 		DF465E35F74B3080C9B7FBEF /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A29E7FA95EC2FF845D0D21 /* App.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		03A29E7FA95EC2FF845D0D21 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
-		BFCDD5E35989A50BF6256CCE /* CoreDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CoreDesign; path = ..; sourceTree = SOURCE_ROOT; };
-		F2C2552B6331EA6505F98EE2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		457D5F18DBF5AA8DBFC6F21D /* ComponentDetail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentDetail.swift; sourceTree = "<group>"; };
+		68F69BA38AFE90DFB4E401E0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		890B70C2CB6F53C36F98AE2F /* ComponentData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentData.swift; sourceTree = "<group>"; };
+		BDEFC276261F858020414726 /* CoreDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CoreDesign; path = ..; sourceTree = SOURCE_ROOT; };
 		F7DAB2075D696E1C1D349E93 /* CoreDesignPreview.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CoreDesignPreview.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -25,7 +29,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				08FD9FD72EBF1F75D4B406D2 /* CoreDesign in Frameworks */,
-			);
+		);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -34,7 +38,6 @@
 		4CDEB2A18BA29C834E1CA521 = {
 			isa = PBXGroup;
 			children = (
-				F2C2552B6331EA6505F98EE2 /* Assets.xcassets */,
 				69D5BF84801C7F3EC8E8DC37 /* Packages */,
 				A49A759B2219280919F68518 /* Sources */,
 				9392F6A38887FD9DFEA291A2 /* Products */,
@@ -44,7 +47,7 @@
 		69D5BF84801C7F3EC8E8DC37 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				BFCDD5E35989A50BF6256CCE /* CoreDesign */,
+				BDEFC276261F858020414726 /* CoreDesign */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -61,6 +64,9 @@
 			isa = PBXGroup;
 			children = (
 				03A29E7FA95EC2FF845D0D21 /* App.swift */,
+				890B70C2CB6F53C36F98AE2F /* ComponentData.swift */,
+				457D5F18DBF5AA8DBFC6F21D /* ComponentDetail.swift */,
+				68F69BA38AFE90DFB4E401E0 /* ContentView.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -73,7 +79,6 @@
 			buildConfigurationList = 69733071D9395C76B7894EBB /* Build configuration list for PBXNativeTarget "CoreDesignPreview" */;
 			buildPhases = (
 				76C9AC6426CA057446C003A3 /* Sources */,
-				C978B8BD33F33FA82E4EE4DA /* Resources */,
 				B31DA78954E075605F8640B5 /* Frameworks */,
 			);
 			buildRules = (
@@ -109,8 +114,7 @@
 			mainGroup = 4CDEB2A18BA29C834E1CA521;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "../" */,
-				B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */,
+				8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference .. */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9392F6A38887FD9DFEA291A2 /* Products */;
@@ -122,23 +126,15 @@
 		};
 /* End PBXProject section */
 
-/* Begin PBXResourcesBuildPhase section */
-		C978B8BD33F33FA82E4EE4DA /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				0D7CFC19347AF2C82B089A33 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		76C9AC6426CA057446C003A3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				DF465E35F74B3080C9B7FBEF /* App.swift in Sources */,
+				715BEAF4F28D020CADC620E9 /* ComponentData.swift in Sources */,
+				B6336A1BB6321900BC76B295 /* ComponentDetail.swift in Sources */,
+				27EB033D8AD7A9B5099297D5 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -204,14 +200,14 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 6.0;
+					SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
 		2F001C57C3AF183CA1ED554A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -228,7 +224,7 @@
 		AD2A4C75B686554716D826A1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -294,7 +290,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SWIFT_VERSION = 6.0;
+					SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -322,22 +318,19 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "../" */ = {
+		8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference .. */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../";
+			relativePath = ..;
 		};
 /* End XCLocalSwiftPackageReference section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/EmergeTools/SnapshotPreviews";
-			requirement = {
-				kind = exactVersion;
-				version = 0.14.0;
-			};
+
+/* Begin XCSwiftPackageProductDependency section */
+		EBA00C473491FA57B29E5630 /* CoreDesign */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CoreDesign;
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1DDFCE66E44CEA5C5BA41392 /* Project object */;
 }

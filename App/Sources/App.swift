@@ -1,32 +1,12 @@
-import SwiftUI
 import CoreDesign
+import SwiftUI
 
 @main
 struct CoreDesignPreviewApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .toastHost(edge: .top)
         }
     }
-}
-
-struct ContentView: View {
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("CoreDesign Components") {
-                    Text("Hello, CoreDesign!")
-                        .font(CoreTypography.bodyMediumFont)
-                        .foregroundStyle(Color.contentPrimary)
-                }
-            }
-            .navigationTitle("CoreDesign Preview")
-            .scrollContentBackground(.hidden)
-            .background(Color.surfaceCanvas)
-        }
-    }
-}
-
-#Preview {
-    ContentView()
 }

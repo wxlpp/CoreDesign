@@ -8,9 +8,6 @@ options:
 packages:
   CoreDesign:
     path: ../
-  SnapshotPreviews:
-    url: https://github.com/EmergeTools/SnapshotPreviews
-    exactVersion: "0.14.0"
 
 targets:
   CoreDesignPreview:
@@ -18,7 +15,6 @@ targets:
     platform: iOS
     sources:
       - path: Sources
-      - path: Assets.xcassets
     dependencies:
       - package: CoreDesign
     settings:
@@ -27,4 +23,3 @@ targets:
         INFOPLIST_FILE: ""
         GENERATE_INFOPLIST_FILE: "YES"
         TARGETED_DEVICE_FAMILY: "1"
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
