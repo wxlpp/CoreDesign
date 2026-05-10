@@ -113,13 +113,52 @@ public struct BannerStyleConfiguration {
     public let level: MessageLevel
 }
 
+// MARK: - Banner shared helpers
+
+/// 由 `MessageLevel` 映射到对应的 SF Symbol 图标。
+///
+/// 抽取为 file-private 自由函数以便 `PlainBannerStyle` / `BorderedBannerStyle` 复用，
+/// 保证两种 style 在同一 level 下渲染一致的图标语义。新增 style 时直接调用此函数，
+/// 不要在各自 style 中再次 switch `MessageLevel`。
+private func bannerIcon(for level: MessageLevel) -> Image {
+    switch level {
+    case .info:
+        Image(systemName: "info.circle.fill")
+    case .warning:
+        Image(systemName: "exclamationmark.triangle.fill")
+    case .danger:
+        Image(systemName: "exclamationmark.circle.fill")
+    case .success:
+        Image(systemName: "checkmark.circle.fill")
+    }
+}
+
+/// 由 `MessageLevel` 映射到完整的 status color 三元组（前景 / 背景 / 描边）。
+///
+/// 抽取为 file-private 自由函数以便所有内置 style 共用同一份 token 映射；新增 level
+/// 或调整 token 名称时只需改一处。
+private func bannerPalette(for level: MessageLevel) -> BannerPalette {
+    switch level {
+    case .info:
+        BannerPalette(foreground: .infoForeground, background: .infoBackground, border: .infoBorder)
+    case .warning:
+        BannerPalette(foreground: .warningForeground, background: .warningBackground, border: .warningBorder)
+    case .danger:
+        BannerPalette(foreground: .dangerForeground, background: .dangerBackground, border: .dangerBorder)
+    case .success:
+        BannerPalette(foreground: .successForeground, background: .successBackground, border: .successBorder)
+    }
+}
+
 // MARK: - PlainBannerStyle
 
 /// 默认的 Banner 外观：纯色背景 + 同色系前景，无描边。
 ///
 /// 对应 Primer `Flash` 默认 variant。背景 / 前景按 `MessageLevel` 走 status color token
 /// （`Color.infoBackground` / `.infoForeground` 等），随 light / dark 自动适配；padding
-/// 走 `CoreSpacing.md`（12pt），`HStack` 默认 spacing 与 SwiftUI system 一致。
+/// 走 `CoreSpacing.md`（12pt），`HStack` spacing 显式固定为 `CoreSpacing.sm`（8pt，与
+/// SwiftUI system default 接近但显式化以避免依赖系统默认值，保证 icon 与 label 之间
+/// 的视觉间距在所有平台上稳定一致）。
 ///
 /// 适合页面顶部、表单上方等需要"嵌入式"提示的场景；若希望与背景拉开层次，使用
 /// `BorderedBannerStyle`。
@@ -127,8 +166,8 @@ public struct PlainBannerStyle: BannerStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
-        let icon = self.makeIcon(configuration: configuration)
-        let palette = self.palette(configuration: configuration)
+        let icon = bannerIcon(for: configuration.level)
+        let palette = bannerPalette(for: configuration.level)
         HStack(spacing: CoreSpacing.sm) {
             icon.foregroundStyle(palette.foreground)
             configuration.label
@@ -138,32 +177,6 @@ public struct PlainBannerStyle: BannerStyle {
         .padding(CoreSpacing.md)
         .background {
             Rectangle().fill(palette.background)
-        }
-    }
-
-    func makeIcon(configuration: Configuration) -> Image {
-        switch configuration.level {
-        case .info:
-            Image(systemName: "info.circle.fill")
-        case .warning:
-            Image(systemName: "exclamationmark.triangle.fill")
-        case .danger:
-            Image(systemName: "exclamationmark.circle.fill")
-        case .success:
-            Image(systemName: "checkmark.circle.fill")
-        }
-    }
-
-    private func palette(configuration: Configuration) -> BannerPalette {
-        switch configuration.level {
-        case .info:
-            BannerPalette(foreground: .infoForeground, background: .infoBackground, border: .infoBorder)
-        case .warning:
-            BannerPalette(foreground: .warningForeground, background: .warningBackground, border: .warningBorder)
-        case .danger:
-            BannerPalette(foreground: .dangerForeground, background: .dangerBackground, border: .dangerBorder)
-        case .success:
-            BannerPalette(foreground: .successForeground, background: .successBackground, border: .successBorder)
         }
     }
 }
@@ -176,15 +189,18 @@ public struct PlainBannerStyle: BannerStyle {
 /// 接近时使用，描边帮助 banner 与周围内容拉开层次；颜色按 `MessageLevel` 走 status
 /// color token（`Color.infoBorder` 等）。
 ///
-/// padding 与 spacing 与 `PlainBannerStyle` 保持一致（`CoreSpacing.md` 内边距），
+/// padding / spacing / icon 渲染与 `PlainBannerStyle` 保持一致（`CoreSpacing.md` 内边距，
+/// `CoreSpacing.sm` icon-to-label 间距，由 `MessageLevel` 决定的 SF Symbol 图标），
 /// 描边宽度由 `View.bordered(...)` 默认值 `CoreBorderWidth.thin`（1pt）提供。light / dark
 /// 自动适配，无需额外配置。
 public struct BorderedBannerStyle: BannerStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
-        let palette = self.palette(configuration: configuration)
+        let icon = bannerIcon(for: configuration.level)
+        let palette = bannerPalette(for: configuration.level)
         HStack(spacing: CoreSpacing.sm) {
+            icon.foregroundStyle(palette.foreground)
             configuration.label
         }
         .font(CoreTypography.bodyMediumFont)
@@ -192,19 +208,6 @@ public struct BorderedBannerStyle: BannerStyle {
         .padding(CoreSpacing.md)
         .background {
             Rectangle().fill(palette.background).bordered(style: palette.border)
-        }
-    }
-
-    private func palette(configuration: Configuration) -> BannerPalette {
-        switch configuration.level {
-        case .info:
-            BannerPalette(foreground: .infoForeground, background: .infoBackground, border: .infoBorder)
-        case .warning:
-            BannerPalette(foreground: .warningForeground, background: .warningBackground, border: .warningBorder)
-        case .danger:
-            BannerPalette(foreground: .dangerForeground, background: .dangerBackground, border: .dangerBorder)
-        case .success:
-            BannerPalette(foreground: .successForeground, background: .successBackground, border: .successBorder)
         }
     }
 }
