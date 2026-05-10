@@ -30,9 +30,9 @@ private struct ComponentList: View {
                 if !items.isEmpty {
                     Section(category.rawValue) {
                         ForEach(items) { comp in
-                            NavigationLink(value: comp) {
-                                ComponentRow(component: comp)
-                            }
+                            ComponentRow(component: comp)
+                                .tag(comp)
+                                .onTapGesture { self.selection = comp }
                         }
                     }
                 }

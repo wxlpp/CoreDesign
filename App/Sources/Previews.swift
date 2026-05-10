@@ -131,6 +131,7 @@ private struct ToastSnapshotHarness: View {
         .padding(CoreSpacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.surfaceCanvas)
+        .task { self.toast?.show("Toast snapshot", level: .info) }
     }
 }
 
