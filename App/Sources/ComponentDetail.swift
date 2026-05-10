@@ -5,7 +5,6 @@ struct ComponentDetail: View {
     let component: ComponentMeta
 
     @Environment(\.toastHost) private var toast
-    @State private var showToastDemo = false
 
     var body: some View {
         ScrollView {
