@@ -106,7 +106,7 @@ public struct SearchField: View {
                 }
                 .buttonStyle(.plain)
                 .contentShape(Rectangle())
-                .padding(CoreSpacing.xs)
+                .padding(.horizontal, CoreSpacing.xs)
                 .accessibilityLabel(Text("Clear \(self.placeholder.isEmpty ? "search" : self.placeholder)"))
             }
         }
@@ -160,10 +160,10 @@ private struct SearchFieldPreviewHost: View {
             }
 
             VStack(alignment: .leading, spacing: CoreSpacing.xs) {
-                Text("Tap to focus → focus ring 2pt borderFocus overlay")
+                Text("Filled + focused (tap field → focus ring 2pt + clear button)")
                     .font(CoreTypography.captionFont)
                     .foregroundStyle(Color.contentMuted)
-                SearchField(text: self.$emptyText, placeholder: "Filter issues")
+                SearchField(text: self.$filledText, placeholder: "Filter items")
             }
 
             Spacer()
