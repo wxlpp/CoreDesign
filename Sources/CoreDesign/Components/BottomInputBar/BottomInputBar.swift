@@ -86,7 +86,7 @@ struct BottomInputBar: View {
     }
 
     private var mainRow: some View {
-        HStack(alignment: .bottom, spacing: CoreSpacing.sm) {
+        HStack(alignment: .bottom, spacing: CoreSpacing.sm + CoreSpacing.xxs) {
             if self.showMenuButton {
                 self.menuButton
             }
@@ -228,7 +228,7 @@ struct BottomInputBarSuggestionsView: View {
                             ForEach(self.suggestions, id: \.self) { self.suggestionChip($0) }
                         }
                         .padding(.horizontal, CoreSpacing.md)
-                        .padding(.vertical, CoreSpacing.xs)
+                        .padding(.vertical, CoreSpacing.xs + CoreSpacing.xxs)
                     }
                     .frame(maxHeight: 200)
                 } else if hasMany {
@@ -240,7 +240,7 @@ struct BottomInputBarSuggestionsView: View {
                             }
                         }
                         .padding(.horizontal, CoreSpacing.md)
-                        .padding(.vertical, CoreSpacing.xs)
+                        .padding(.vertical, CoreSpacing.xs + CoreSpacing.xxs)
                     }
                     .frame(maxHeight: 160)
                 } else {
@@ -249,7 +249,7 @@ struct BottomInputBarSuggestionsView: View {
                             ForEach(self.suggestions, id: \.self) { self.suggestionChip($0) }
                         }
                         .padding(.horizontal, CoreSpacing.md)
-                        .padding(.vertical, CoreSpacing.xs)
+                        .padding(.vertical, CoreSpacing.xs + CoreSpacing.xxs)
                     }
                 }
             }
@@ -327,7 +327,7 @@ struct BottomInputBarModifier: ViewModifier {
             // 区（Liquid Glass 内容渐隐 / 模糊），后者只 inset 不带边缘效果，导致内容滑到
             // 底时硬切到 bar 边缘。
             .safeAreaBar(edge: .bottom, content: {
-                VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                VStack(alignment: .leading, spacing: CoreSpacing.xs + CoreSpacing.xxs) {
                     if self.isShowingSuggestions, self.showShuffleButton {
                         HStack {
                             Spacer()
