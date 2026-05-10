@@ -22,11 +22,14 @@ struct ContentView: View {
 private struct ComponentList: View {
     @Binding var selection: ComponentMeta?
 
+    private let grouped: [ComponentCategory: [ComponentMeta]] = {
+        Dictionary(grouping: ComponentMeta.all, by: \.category)
+    }()
+
     var body: some View {
         List(selection: self.$selection) {
             ForEach(ComponentCategory.allCases, id: \.self) { category in
-                let items = ComponentMeta.all.filter { $0.category == category }
-                if !items.isEmpty {
+                if let items = self.grouped[category], !items.isEmpty {
                     Section(category.rawValue) {
                         ForEach(items) { comp in
                             NavigationLink(value: comp) {
@@ -70,6 +73,7 @@ private struct PlaceholderView: View {
             Image(systemName: "square.grid.2x2")
                 .font(.system(size: 48))
                 .foregroundStyle(Color.contentMuted)
+                .accessibilityHidden(true)
             Text("Select a component")
                 .font(CoreTypography.bodyMediumFont)
                 .foregroundStyle(Color.contentMuted)

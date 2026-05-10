@@ -16,8 +16,8 @@ struct ComponentDetail: View {
                         .font(CoreTypography.bodyLargeFont)
                         .foregroundStyle(Color.contentMuted)
 
-                    if component.id == "toast" {
-                        ToastDemoButton()
+                    if let demo = component.demoAction {
+                        demo()
                     }
                 }
 
@@ -73,20 +73,6 @@ struct ComponentDetail: View {
         }
         .background(Color.surfaceCanvas)
         .navigationTitle(component.name)
-        .toastHost(edge: .top)
     }
 }
 
-// MARK: - ToastDemoButton
-
-/// Subview to read `\.toastHost` inside the scope where `.toastHost(edge:)` is applied.
-private struct ToastDemoButton: View {
-    @Environment(\.toastHost) private var toast
-
-    var body: some View {
-        Button("Show Demo Toast") {
-            self.toast?.show("Toast message", level: .info)
-        }
-        .buttonStyle(.solidButton(role: .primary))
-    }
-}
