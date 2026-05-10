@@ -8,9 +8,6 @@ options:
 packages:
   CoreDesign:
     path: ../
-  SnapshotPreviews:
-    url: https://github.com/EmergeTools/SnapshotPreviews
-    revision: ee45c68cd1b7576890c4f1bc54bbee7d5fcf3fed
 
 targets:
   CoreDesignPreview:
@@ -20,22 +17,6 @@ targets:
       - path: Sources
     dependencies:
       - package: CoreDesign
-    settings:
-      base:
-        SWIFT_VERSION: "6.0"
-        INFOPLIST_FILE: ""
-        GENERATE_INFOPLIST_FILE: "YES"
-        TARGETED_DEVICE_FAMILY: "1"
-
-  SnapshotTests:
-    type: bundle.unit-test
-    platform: iOS
-    sources:
-      - path: Tests
-    dependencies:
-      - target: CoreDesignPreview
-      - package: SnapshotPreviews
-        product: SnapshottingTests
     settings:
       base:
         SWIFT_VERSION: "6.0"

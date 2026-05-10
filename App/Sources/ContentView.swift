@@ -14,7 +14,6 @@ struct ContentView: View {
                 PlaceholderView()
             }
         }
-        .toastHost(edge: .top)
     }
 }
 
@@ -23,22 +22,28 @@ struct ContentView: View {
 private struct ComponentList: View {
     @Binding var selection: ComponentMeta?
 
+    private let grouped: [ComponentCategory: [ComponentMeta]] = {
+        Dictionary(grouping: ComponentMeta.all, by: \.category)
+    }()
+
     var body: some View {
         List(selection: self.$selection) {
             ForEach(ComponentCategory.allCases, id: \.self) { category in
-                let items = ComponentMeta.all.filter { $0.category == category }
-                if !items.isEmpty {
+                if let items = self.grouped[category], !items.isEmpty {
                     Section(category.rawValue) {
                         ForEach(items) { comp in
-                            Button { self.selection = comp } label: { ComponentRow(component: comp) }
-                                .tag(comp)
-                                .buttonStyle(.plain)
+                            NavigationLink(value: comp) {
+                                ComponentRow(component: comp)
+                            }
                         }
                     }
                 }
             }
         }
         .navigationTitle("CoreDesign")
+        .navigationDestination(for: ComponentMeta.self) { comp in
+            ComponentDetail(component: comp)
+        }
         .background(Color.surfaceCanvas)
     }
 }
