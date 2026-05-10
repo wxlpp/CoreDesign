@@ -54,12 +54,12 @@ public struct ListRow<Leading: View, Trailing: View, Label: View>: View {
     ///
     /// - Parameters:
     ///   - leading: 左侧装饰位 view builder（icon / Avatar / status dot）。
-    ///   - trailing: 右侧附件位 view builder（chevron / Badge / 时间戳）。
     ///   - label: 中间内容主体 view builder（标题 / 标题 + 副标题）。
+    ///   - trailing: 右侧附件位 view builder（chevron / Badge / 时间戳）。
     public init(
         @ViewBuilder leading: () -> Leading,
-        @ViewBuilder trailing: () -> Trailing,
-        @ViewBuilder label: () -> Label
+        @ViewBuilder label: () -> Label,
+        @ViewBuilder trailing: () -> Trailing
     ) {
         self.leading = leading()
         self.trailing = trailing()
@@ -113,13 +113,13 @@ public extension ListRow where Leading == EmptyView {
     /// 仅补齐缺省槽位，不引入无标签闭包重载（per epic ADR #15）。
     ///
     /// - Parameters:
-    ///   - trailing: 右侧附件位 view builder。
     ///   - label: 中间内容主体 view builder。
+    ///   - trailing: 右侧附件位 view builder。
     init(
-        @ViewBuilder trailing: () -> Trailing,
-        @ViewBuilder label: () -> Label
+        @ViewBuilder label: () -> Label,
+        @ViewBuilder trailing: () -> Trailing
     ) {
-        self.init(leading: { EmptyView() }, trailing: trailing, label: label)
+        self.init(leading: { EmptyView() }, label: label, trailing: trailing)
     }
 }
 
@@ -135,7 +135,7 @@ public extension ListRow where Trailing == EmptyView {
         @ViewBuilder leading: () -> Leading,
         @ViewBuilder label: () -> Label
     ) {
-        self.init(leading: leading, trailing: { EmptyView() }, label: label)
+        self.init(leading: leading, label: label, trailing: { EmptyView() })
     }
 }
 
@@ -148,8 +148,8 @@ public extension ListRow where Leading == EmptyView, Trailing == EmptyView {
     init(@ViewBuilder label: () -> Label) {
         self.init(
             leading: { EmptyView() },
-            trailing: { EmptyView() },
-            label: label
+            label: label,
+            trailing: { EmptyView() }
         )
     }
 }
@@ -180,14 +180,6 @@ private struct ListRowPreviewGallery: View {
                                 )
                                 .foregroundStyle(Color.contentMuted)
                         },
-                        trailing: {
-                            Image(systemName: "chevron.right")
-                                .frame(
-                                    width: CoreControlMetrics.iconSize(for: .regular),
-                                    height: CoreControlMetrics.iconSize(for: .regular)
-                                )
-                                .foregroundStyle(Color.contentMuted)
-                        },
                         label: {
                             VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                                 Text("README.md")
@@ -197,12 +189,7 @@ private struct ListRowPreviewGallery: View {
                                     .font(CoreTypography.bodySmallFont)
                                     .foregroundStyle(Color.contentMuted)
                             }
-                        }
-                    )
-                }
-
-                Self.section(title: "no leading (label + trailing)") {
-                    ListRow(
+                        },
                         trailing: {
                             Image(systemName: "chevron.right")
                                 .frame(
@@ -210,11 +197,24 @@ private struct ListRowPreviewGallery: View {
                                     height: CoreControlMetrics.iconSize(for: .regular)
                                 )
                                 .foregroundStyle(Color.contentMuted)
-                        },
+                        }
+                    )
+                }
+
+                Self.section(title: "no leading (label + trailing)") {
+                    ListRow(
                         label: {
                             Text("Notification settings")
                                 .font(CoreTypography.bodyMediumFont)
                                 .foregroundStyle(Color.contentPrimary)
+                        },
+                        trailing: {
+                            Image(systemName: "chevron.right")
+                                .frame(
+                                    width: CoreControlMetrics.iconSize(for: .regular),
+                                    height: CoreControlMetrics.iconSize(for: .regular)
+                                )
+                                .foregroundStyle(Color.contentMuted)
                         }
                     )
                 }
