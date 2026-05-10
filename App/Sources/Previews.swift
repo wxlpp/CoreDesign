@@ -3,7 +3,7 @@ import CoreDesign
 
 // MARK: - Snapshot Previews
 // 每个组件至少一个 #Preview 宏，供 SnapshotTest 自动收编生成 PNG。
-// 命名规则：<ComponentName>_<variant>（Light / Dark 由 SnapshotPreviews 自动处理）。
+// 命名为简单组件名称即可——SnapshotPreviews 会自动追加 _Light / _Dark 变体后缀。
 
 #Preview("Badge") {
     HStack(spacing: CoreSpacing.sm) {

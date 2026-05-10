@@ -67,6 +67,7 @@ private struct PlaceholderView: View {
             Image(systemName: "square.grid.2x2")
                 .font(.system(size: 48))
                 .foregroundStyle(Color.contentMuted)
+                .accessibilityHidden(true)
             Text("Select a component")
                 .font(CoreTypography.bodyMediumFont)
                 .foregroundStyle(Color.contentMuted)
