@@ -69,7 +69,7 @@ public struct ListRow<Leading: View, Trailing: View, Label: View>: View {
     // MARK: - Body
 
     public var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: CoreSpacing.none) {
             if Leading.self != EmptyView.self {
                 self.leading
                 Spacer().frame(width: CoreSpacing.md)
