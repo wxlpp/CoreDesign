@@ -7,7 +7,7 @@ import SwiftUI
 
 // MARK: - Tag
 
-/// 任意分类标签 / Tag：GitHub issue label 风格的 chip / pill，颜色由调用方传入。
+/// 任意分类标签 / Tag：GitHub issue label 风格的 chip，颜色由调用方传入。
 ///
 /// 使用场景：issue / PR 分类（`bug` / `enhancement` / `documentation` 等）、文章标签、
 /// 任意需要"调用方决定调色板"的归类视觉。Primer 概念上对应 `Label`（标签 / chip），
