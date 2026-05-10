@@ -31,11 +31,8 @@ playground.xcworkspace
 
 .build/
 
-# Xcode derived data from run-preview.sh
+# Xcode DerivedData for App target
 App/.derivedData/
-
-# Snapshot PNGs from run-snapshots.sh
-docs/snapshots/
 
 # CocoaPods
 #

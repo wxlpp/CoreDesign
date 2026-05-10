@@ -2,9 +2,8 @@ import SwiftUI
 import CoreDesign
 
 // MARK: - Snapshot Previews
-// 供 SnapshotTest 自动收编生成 PNG 的 #Preview 宏。
-// 当前覆盖 13 个组件；BottomInputBar / CheckBox / Toast 无预览宏。
-// 命名由 SnapshotPreviews 自动追加 _Light / _Dark。
+// 每个组件至少一个 #Preview 宏，供 SnapshotTest 自动收编生成 PNG。
+// 命名为简单组件名称即可——SnapshotPreviews 会自动追加 _Light / _Dark 变体后缀。
 
 #Preview("Badge") {
     HStack(spacing: CoreSpacing.sm) {
@@ -108,4 +107,37 @@ import CoreDesign
         title: { $0 }
     )
     .padding()
+}
+
+#Preview("Toast") {
+    ToastSnapshotHarness()
+        .toastHost(edge: .top)
+}
+
+/// Toast snapshot demo：按钮点击触发 toast 显示，初始状态展示场景脚手架。
+private struct ToastSnapshotHarness: View {
+    @Environment(\.toastHost) private var toast
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.md) {
+            Text("Tap button to show a toast.")
+                .font(CoreTypography.bodyMediumFont)
+                .foregroundStyle(Color.contentMuted)
+            Button("Info") { self.toast?.show("Info: demo", level: .info) }
+            Button("Success") { self.toast?.show("Success: demo", level: .success) }
+            Button("Warning") { self.toast?.show("Warning: demo", level: .warning) }
+            Button("Danger") { self.toast?.show("Danger: demo", level: .danger) }
+        }
+        .padding(CoreSpacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.surfaceCanvas)
+        .task { self.toast?.show("Toast snapshot", level: .info) }
+    }
+}
+
+#Preview("BottomInputBar") {
+    Text("BottomInputBar 通过 `.bottomInputBar` modifier 使用，非独立 View。")
+        .font(CoreTypography.bodySmallFont)
+        .foregroundStyle(Color.contentMuted)
+        .padding()
 }

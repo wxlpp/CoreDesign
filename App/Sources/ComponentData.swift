@@ -22,6 +22,7 @@ struct ComponentMeta: Identifiable, Hashable {
     let description: String
     let category: ComponentCategory
     let preview: () -> AnyView
+    let demoAction: (() -> AnyView)?
 
     static func == (lhs: ComponentMeta, rhs: ComponentMeta) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(self.id) }
@@ -31,13 +32,15 @@ struct ComponentMeta: Identifiable, Hashable {
         name: String,
         description: String,
         category: ComponentCategory,
-        @ViewBuilder preview: @escaping () -> some View
+        @ViewBuilder preview: @escaping () -> some View,
+        demoAction: (() -> AnyView)? = nil
     ) {
         self.id = id
         self.name = name
         self.description = description
         self.category = category
         self.preview = { AnyView(preview()) }
+        self.demoAction = demoAction
     }
 }
 
@@ -62,10 +65,6 @@ extension ComponentMeta {
         },
         ComponentMeta(id: "bottom-input-bar", name: "BottomInputBar", description: "底部输入栏 modifier，带自动补全 + 提交逻辑", category: .form) {
             BottomInputBarPreview()
-        },
-
-        ComponentMeta(id: "checkbox", name: "CheckBox", description: "复选框 — CheckBoxToggleStyle + 便利封装", category: .form) {
-            CheckBoxPreview()
         },
 
         // Indicator
@@ -102,8 +101,8 @@ extension ComponentMeta {
         },
 
         // Feedback
-        ComponentMeta(id: "toast", name: "Toast", description: "Scene-scoped toast host + 队列状态机。进入详情页后点击按钮触发", category: .feedback) {
-            Text("Toast 需 scene-scoped host——请在详情页使用按钮触发")
+        ComponentMeta(id: "toast", name: "Toast", description: "Scene-scoped toast host + 队列状态机。attach `.toastHost(edge:)` 到 WindowGroup 根级别，从任意子 view 触发", category: .feedback, demoAction: { AnyView(ToastDemoButton()) }) {
+            Text("Toast 通过 `.toastHost(edge:)` modifier 挂载到 WindowGroup 根级别，从任意子 view 触发")
                 .font(CoreTypography.bodySmallFont)
                 .foregroundStyle(Color.contentMuted)
         },
@@ -239,8 +238,17 @@ private struct UnderlinedTabBarPreview: View {
     }
 }
 
-private struct CheckBoxPreview: View {
+// MARK: - ToastDemoButton
+
+/// Subview to read `\.toastHost` inside the scope where `.toastHost(edge:)` is applied.
+/// Referenced by `ComponentMeta.all` via `demoAction` closure.
+private struct ToastDemoButton: View {
+    @Environment(\.toastHost) private var toast
+
     var body: some View {
-        CheckBox()
+        Button("Show Demo Toast") {
+            self.toast?.show("Toast message", level: .info)
+        }
+        .buttonStyle(.solidButton(role: .primary))
     }
 }

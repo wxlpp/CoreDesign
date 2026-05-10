@@ -4,36 +4,38 @@ import CoreDesign
 struct ComponentDetail: View {
     let component: ComponentMeta
 
+    private var previewBorder: RoundedRectangle {
+        RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CoreSpacing.lg) {
                 // Header
                 VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                     Text(component.name)
-                        .font(.title)
+                        .font(CoreTypography.titleMediumFont)
                         .foregroundStyle(Color.contentPrimary)
                     Text(component.description)
-                        .font(.body)
+                        .font(CoreTypography.bodyLargeFont)
                         .foregroundStyle(Color.contentMuted)
 
-                    if component.id == "toast" {
-                        ToastDemoButton()
+                    if let demo = component.demoAction {
+                        demo()
                     }
                 }
 
                 // Light + Dark side-by-side
                 VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                     Text("Preview")
-                        .font(.headline)
+                        .font(CoreTypography.titleSmallFont)
                         .foregroundStyle(Color.contentPrimary)
-
-                    let roundedRect = RoundedRectangle(cornerRadius: CoreRadius.medium)
 
                     HStack(alignment: .top, spacing: 0) {
                         // Light
                         VStack(spacing: 0) {
                             Text("Light")
-                                .font(.caption)
+                                .font(CoreTypography.captionFont)
                                 .foregroundStyle(Color.contentMuted)
                                 .padding(.vertical, CoreSpacing.xs)
                                 .frame(maxWidth: .infinity)
@@ -51,7 +53,7 @@ struct ComponentDetail: View {
                         // Dark
                         VStack(spacing: 0) {
                             Text("Dark")
-                                .font(.caption)
+                                .font(CoreTypography.captionFont)
                                 .foregroundStyle(Color.contentMuted)
                                 .padding(.vertical, CoreSpacing.xs)
                                 .frame(maxWidth: .infinity)
@@ -64,11 +66,8 @@ struct ComponentDetail: View {
                         }
                         .preferredColorScheme(.dark)
                     }
-                    .overlay(
-                        roundedRect
-                            .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
-                    )
-                    .clipShape(roundedRect)
+                    .overlay(self.previewBorder.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline))
+                    .clipShape(self.previewBorder)
                 }
             }
             .padding(CoreSpacing.lg)
@@ -78,16 +77,3 @@ struct ComponentDetail: View {
     }
 }
 
-// MARK: - ToastDemoButton
-
-/// 子视图，确保在 `.toastHost(edge:)` 生效的环境中读取 `\.toastHost`。
-private struct ToastDemoButton: View {
-    @Environment(\.toastHost) private var toast
-
-    var body: some View {
-        Button("Show Demo Toast") {
-            self.toast?.show("Toast message", level: .info)
-        }
-        .buttonStyle(.solidButton(role: .primary))
-    }
-}
