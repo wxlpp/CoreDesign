@@ -109,7 +109,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */,
-				8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "..//" */,
+				8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "../" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9392F6A38887FD9DFEA291A2 /* Products */;
@@ -200,7 +200,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -218,7 +217,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -323,8 +321,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/EmergeTools/SnapshotPreviews";
 			requirement = {
-				branch = main;
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.14.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
