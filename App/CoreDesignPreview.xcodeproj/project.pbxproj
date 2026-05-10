@@ -19,7 +19,7 @@
 		457D5F18DBF5AA8DBFC6F21D /* ComponentDetail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentDetail.swift; sourceTree = "<group>"; };
 		68F69BA38AFE90DFB4E401E0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		890B70C2CB6F53C36F98AE2F /* ComponentData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentData.swift; sourceTree = "<group>"; };
-		BDEFC276261F858020414726 /* epic-storybook-app */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CoreDesign; path = ..; sourceTree = SOURCE_ROOT; };
+		BDEFC276261F858020414726 /* CoreDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CoreDesign; path = ..; sourceTree = SOURCE_ROOT; };
 		F7DAB2075D696E1C1D349E93 /* CoreDesignPreview.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CoreDesignPreview.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -47,7 +47,7 @@
 		69D5BF84801C7F3EC8E8DC37 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				BDEFC276261F858020414726 /* epic-storybook-app */,
+				BDEFC276261F858020414726 /* CoreDesign */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -207,7 +207,6 @@
 		2F001C57C3AF183CA1ED554A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
@@ -225,7 +224,6 @@
 		AD2A4C75B686554716D826A1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
