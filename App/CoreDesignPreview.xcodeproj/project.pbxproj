@@ -13,7 +13,6 @@
 		6B076051E4E7C45A0255CC10 /* SnapshottingTests in Frameworks */ = {isa = PBXBuildFile; productRef = B3CAFA69E662260D31144800 /* SnapshottingTests */; };
 		715BEAF4F28D020CADC620E9 /* ComponentData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 890B70C2CB6F53C36F98AE2F /* ComponentData.swift */; };
 		B6336A1BB6321900BC76B295 /* ComponentDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 457D5F18DBF5AA8DBFC6F21D /* ComponentDetail.swift */; };
-		BBDB515B8F5BD300BC6A32D3 /* PreviewGallery in Frameworks */ = {isa = PBXBuildFile; productRef = 56925BEFC9EC2086F85D8DEB /* PreviewGallery */; };
 		D00A0DCAF78B65FAC4A7C3E2 /* SnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C97FE730CB5504ABEE89CB4C /* SnapshotTests.swift */; };
 		DF465E35F74B3080C9B7FBEF /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A29E7FA95EC2FF845D0D21 /* App.swift */; };
 /* End PBXBuildFile section */
@@ -35,7 +34,7 @@
 		68F69BA38AFE90DFB4E401E0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		890B70C2CB6F53C36F98AE2F /* ComponentData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentData.swift; sourceTree = "<group>"; };
 		B59D812CBA2BDD39DDD346DF /* Previews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Previews.swift; sourceTree = "<group>"; };
-		BDEFC276261F858020414726 /* epic-storybook-app */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "epic-storybook-app"; path = ..; sourceTree = SOURCE_ROOT; };
+		BDEFC276261F858020414726 /* CoreDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "epic-storybook-app"; path = ..; sourceTree = SOURCE_ROOT; };
 		C97FE730CB5504ABEE89CB4C /* SnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotTests.swift; sourceTree = "<group>"; };
 		F7DAB2075D696E1C1D349E93 /* CoreDesignPreview.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CoreDesignPreview.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -54,8 +53,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				08FD9FD72EBF1F75D4B406D2 /* CoreDesign in Frameworks */,
-				BBDB515B8F5BD300BC6A32D3 /* PreviewGallery in Frameworks */,
-			);
+				);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -82,7 +80,7 @@
 		69D5BF84801C7F3EC8E8DC37 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				BDEFC276261F858020414726 /* epic-storybook-app */,
+				BDEFC276261F858020414726 /* CoreDesign */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -145,8 +143,7 @@
 			name = CoreDesignPreview;
 			packageProductDependencies = (
 				EBA00C473491FA57B29E5630 /* CoreDesign */,
-				56925BEFC9EC2086F85D8DEB /* PreviewGallery */,
-			);
+				);
 			productName = CoreDesignPreview;
 			productReference = F7DAB2075D696E1C1D349E93 /* CoreDesignPreview.app */;
 			productType = "com.apple.product-type.application";
@@ -462,11 +459,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		56925BEFC9EC2086F85D8DEB /* PreviewGallery */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */;
-			productName = PreviewGallery;
-		};
 		B3CAFA69E662260D31144800 /* SnapshottingTests */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */;

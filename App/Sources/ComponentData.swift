@@ -64,6 +64,10 @@ extension ComponentMeta {
             BottomInputBarPreview()
         },
 
+        ComponentMeta(id: "checkbox", name: "CheckBox", description: "复选框 — CheckBoxToggleStyle + 便利封装", category: .form) {
+            CheckBoxPreview()
+        },
+
         // Indicator
         ComponentMeta(id: "badge", name: "Badge", description: "5 状态等级指示器：info / success / warning / danger / neutral", category: .indicator) {
             BadgePreview()
@@ -232,5 +236,11 @@ private struct UnderlinedTabBarPreview: View {
     @State private var selection = "Tab 1"
     var body: some View {
         UnderlinedTabBar(items: self.items, selection: self.$selection, title: { $0 })
+    }
+}
+
+private struct CheckBoxPreview: View {
+    var body: some View {
+        CheckBox()
     }
 }

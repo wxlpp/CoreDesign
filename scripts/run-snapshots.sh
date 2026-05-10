@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Generate snapshot PNGs for all components
+# Generate snapshot PNGs for components with #Preview macros
 
 DEVICE="${SIMULATOR_DEVICE:-iPhone 17 Pro}"
 
