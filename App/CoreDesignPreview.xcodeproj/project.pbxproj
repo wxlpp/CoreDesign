@@ -15,7 +15,7 @@
 
 /* Begin PBXFileReference section */
 		03A29E7FA95EC2FF845D0D21 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
-		BFCDD5E35989A50BF6256CCE /* CoreDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = pr58; path = ..; sourceTree = SOURCE_ROOT; };
+		BFCDD5E35989A50BF6256CCE /* CoreDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CoreDesign; path = ..; sourceTree = SOURCE_ROOT; };
 		F2C2552B6331EA6505F98EE2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F7DAB2075D696E1C1D349E93 /* CoreDesignPreview.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CoreDesignPreview.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
