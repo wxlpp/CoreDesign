@@ -67,8 +67,6 @@ public struct Banner<Label: View>: View {
     }
 
     public var body: some View {
-        Button {} label: {}
-
         AnyView(self.style.makeBody(configuration: self.configuration))
     }
 
