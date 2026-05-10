@@ -80,6 +80,7 @@ public struct SearchField: View {
                     .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
                     .foregroundStyle(Color.contentMuted)
                     .accessibilityHidden(true)
+                    .onTapGesture { self.isFocused = true }
 
                 TextField(self.placeholder, text: self.$text)
                     .textFieldStyle(.plain)
@@ -90,10 +91,6 @@ public struct SearchField: View {
                     .onSubmit {
                         self.onSubmit?(self.text)
                     }
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                self.isFocused = true
             }
 
             if self.text.isEmpty == false {
@@ -120,7 +117,6 @@ public struct SearchField: View {
         .overlay {
             shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
         }
-        .clipShape(shape)
         .focusRing(
             visible: self.isFocused,
             color: .borderFocus,
