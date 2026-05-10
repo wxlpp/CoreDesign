@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		08FD9FD72EBF1F75D4B406D2 /* CoreDesign in Frameworks */ = {isa = PBXBuildFile; productRef = EBA00C473491FA57B29E5630 /* CoreDesign */; };
 		0D7CFC19347AF2C82B089A33 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2C2552B6331EA6505F98EE2 /* Assets.xcassets */; };
-		BBDB515B8F5BD300BC6A32D3 /* PreviewGallery in Frameworks */ = {isa = PBXBuildFile; productRef = 56925BEFC9EC2086F85D8DEB /* PreviewGallery */; };
 		DF465E35F74B3080C9B7FBEF /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A29E7FA95EC2FF845D0D21 /* App.swift */; };
 /* End PBXBuildFile section */
 
@@ -26,7 +25,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				08FD9FD72EBF1F75D4B406D2 /* CoreDesign in Frameworks */,
-				BBDB515B8F5BD300BC6A32D3 /* PreviewGallery in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -85,7 +83,6 @@
 			name = CoreDesignPreview;
 			packageProductDependencies = (
 				EBA00C473491FA57B29E5630 /* CoreDesign */,
-				56925BEFC9EC2086F85D8DEB /* PreviewGallery */,
 			);
 			productName = CoreDesignPreview;
 			productReference = F7DAB2075D696E1C1D349E93 /* CoreDesignPreview.app */;
@@ -112,7 +109,6 @@
 			mainGroup = 4CDEB2A18BA29C834E1CA521;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */,
 				8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "../" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -330,29 +326,6 @@
 			relativePath = "../";
 		};
 /* End XCLocalSwiftPackageReference section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/EmergeTools/SnapshotPreviews";
-			requirement = {
-				kind = exactVersion;
-				version = 0.14.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		56925BEFC9EC2086F85D8DEB /* PreviewGallery */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */;
-			productName = PreviewGallery;
-		};
-		EBA00C473491FA57B29E5630 /* CoreDesign */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = CoreDesign;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1DDFCE66E44CEA5C5BA41392 /* Project object */;
 }
