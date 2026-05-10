@@ -23,7 +23,7 @@ import SwiftUI
 /// - light / dark 行为：`Color.primary` / `Color.gray` 自动适配系统外观。
 struct CheckBoxToggleStyle: ToggleStyle {
     @MainActor @preconcurrency
-    func makeBody(configuration: ButtonToggleStyle.Configuration) -> some View {
+    func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
             if configuration.isOn {
                 Image(systemName: "checkmark.square.fill")
