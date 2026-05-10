@@ -2,8 +2,6 @@
 //  Tag.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//
 
 import SwiftUI
 
@@ -99,7 +97,7 @@ public struct Tag<Label: View>: View {
                 .disabled(self.onRemove == nil)
                 .contentShape(Rectangle())
                 .padding(CoreSpacing.xxs)
-                .accessibilityLabel(Text("Remove"))
+                .accessibilityLabel(Text("Remove tag"))
             }
         }
         .padding(.horizontal, CoreSpacing.sm)
