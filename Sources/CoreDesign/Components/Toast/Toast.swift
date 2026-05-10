@@ -84,6 +84,9 @@ public enum ToastDefaults {
     /// 滑动手势触发 dismiss 的位移阈值（pt）。
     /// 用 `CoreSpacing.xxl` (32) 而非裸 32：与设计 token 一致。
     static let swipeDismissThreshold: CGFloat = CoreSpacing.xxl
+
+    /// 反方向拖拽阻尼系数。非 edge 方向拖拽时位移乘以 0.5，避免 toast 被拽到屏幕中央。
+    static let reverseDragDamping: CGFloat = 0.5
 }
 
 // MARK: - ToastHost
@@ -419,7 +422,7 @@ private struct ToastView: View {
         // hint，而不是误标 `.isStaticText`（原实现告诉 VO 元素不可交互，
         // 但实际 onTapGesture 会触发 dismiss）。
         .accessibilityAddTraits(.isButton)
-        .accessibilityHint("点击关闭")
+        .accessibilityHint(Text("点击关闭"))
         .padding(CoreSpacing.md)
         .surface(.card)
         .coreShadow(.medium)
@@ -458,8 +461,8 @@ private struct ToastView: View {
         DragGesture()
             .onChanged { value in
                 let dy = value.translation.height
-                // 只允许朝 edge 方向跟手；反方向用 0.5 的阻尼避免拽到屏幕中央。
-                self.dragOffset = self.allowsDrag(dy) ? dy : dy * 0.5
+                // 只允许朝 edge 方向跟手；反方向用 damping 避免拽到屏幕中央。
+                self.dragOffset = self.allowsDrag(dy) ? dy : dy * ToastDefaults.reverseDragDamping
             }
             .onEnded { value in
                 let dy = value.translation.height
