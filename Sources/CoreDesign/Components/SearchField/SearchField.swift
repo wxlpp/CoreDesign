@@ -71,7 +71,8 @@ public struct SearchField: View {
     }
 
     public var body: some View {
-        HStack(spacing: CoreSpacing.sm) {
+        let shape = RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+        return HStack(spacing: CoreSpacing.sm) {
             // 聚焦命中区 / Focus hit-test region：点击放大镜 + TextField 区域才聚焦，
             // 不包含尾部 clear button——避免清空时容器 tap 立即重新聚焦的交互冲突。
             HStack(spacing: CoreSpacing.sm) {
@@ -114,14 +115,12 @@ public struct SearchField: View {
         .padding(.vertical, CoreControlMetrics.verticalPadding(for: .regular))
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .background {
-            let shape = RoundedRectangle(cornerRadius: CoreRadius.medium)
             shape.fill(Color.surfaceCanvasInset)
         }
         .overlay {
-            let shape = RoundedRectangle(cornerRadius: CoreRadius.medium)
             shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
         }
-        .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
+        .clipShape(shape)
         .focusRing(
             visible: self.isFocused,
             color: .borderFocus,
