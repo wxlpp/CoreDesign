@@ -14,9 +14,9 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 15 个 Primer 对齐组件。
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| SegmentedControl | — | [segmentedcontrol.md](components/segmentedcontrol.md) |
-| SearchField | — | [searchfield.md](components/searchfield.md) |
-| BottomInputBar | — | [bottominputbar.md](components/bottominputbar.md) |
+| SegmentedControl | — | [segmented-control.md](components/segmented-control.md) |
+| SearchField | — | [search-field.md](components/search-field.md) |
+| BottomInputBar | — | [bottom-input-bar.md](components/bottom-input-bar.md) |
 | LabelIcon / ChevronRightIcon / DangerIcon | — | [form-icons.md](components/form-icons.md) |
 
 ### Indicator 指示器
@@ -32,16 +32,16 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 15 个 Primer 对齐组件。
 | 组件 | 预览 | 文档 |
 |---|---|---|
 | Avatar | — | [avatar.md](components/avatar.md) |
-| BookCover | — | [bookcover.md](components/bookcover.md) |
-| EmptyState | — | [emptystate.md](components/emptystate.md) |
-| ListRow | — | [listrow.md](components/listrow.md) |
+| BookCover | — | [book-cover.md](components/book-cover.md) |
+| EmptyState | — | [empty-state.md](components/empty-state.md) |
+| ListRow | — | [list-row.md](components/list-row.md) |
 
 ### Navigation 导航
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| SidebarRow | — | [sidebarrow.md](components/sidebarrow.md) |
-| UnderlinedTabBar | — | [underlinedtabbar.md](components/underlinedtabbar.md) |
+| SidebarRow | — | [sidebar-row.md](components/sidebar-row.md) |
+| UnderlinedTabBar | — | [underlined-tab-bar.md](components/underlined-tab-bar.md) |
 
 ### Feedback 反馈
 

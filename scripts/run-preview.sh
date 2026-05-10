@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Build and launch CoreDesignPreview app in Simulator
 
-DEVICE="${SIMULATOR_DEVICE:-iPhone 16 Pro}"
+DEVICE="${SIMULATOR_DEVICE:-iPhone 17 Pro}"
 DERIVED_DATA="$(dirname "$0")/../App/.derivedData"
 
 cd "$(dirname "$0")/.."
