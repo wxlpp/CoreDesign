@@ -72,19 +72,27 @@ public struct SearchField: View {
 
     public var body: some View {
         HStack(spacing: CoreSpacing.sm) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
-                .foregroundStyle(Color.contentMuted)
-                .accessibilityHidden(true)
+            // 聚焦命中区 / Focus hit-test region：点击放大镜 + TextField 区域才聚焦，
+            // 不包含尾部 clear button——避免清空时容器 tap 立即重新聚焦的交互冲突。
+            HStack(spacing: CoreSpacing.sm) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
+                    .foregroundStyle(Color.contentMuted)
+                    .accessibilityHidden(true)
 
-            TextField(self.placeholder, text: self.$text)
-                .textFieldStyle(.plain)
-                .font(CoreControlMetrics.font(for: .regular))
-                .foregroundStyle(Color.contentPrimary)
-                .focused(self.$isFocused)
-                .onSubmit {
-                    self.onSubmit?(self.text)
-                }
+                TextField(self.placeholder, text: self.$text)
+                    .textFieldStyle(.plain)
+                    .font(CoreControlMetrics.font(for: .regular))
+                    .foregroundStyle(Color.contentPrimary)
+                    .focused(self.$isFocused)
+                    .onSubmit {
+                        self.onSubmit?(self.text)
+                    }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                self.isFocused = true
+            }
 
             if self.text.isEmpty == false {
                 Button {
@@ -96,7 +104,7 @@ public struct SearchField: View {
                         .foregroundStyle(Color.contentMuted)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Clear search")
+                .accessibilityLabel(Text("Clear \(self.placeholder.isEmpty ? "search" : self.placeholder)"))
             }
         }
         .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: .regular))
@@ -116,10 +124,6 @@ public struct SearchField: View {
             width: CoreBorderWidth.thick,
             cornerRadius: CoreRadius.medium
         )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            self.isFocused = true
-        }
     }
 
     @Binding private var text: String
