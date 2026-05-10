@@ -21,6 +21,7 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("CoreDesign Preview")
+            .scrollContentBackground(.hidden)
             .background(Color.surfaceCanvas)
         }
     }
