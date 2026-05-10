@@ -11,7 +11,6 @@
 		27EB033D8AD7A9B5099297D5 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68F69BA38AFE90DFB4E401E0 /* ContentView.swift */; };
 		715BEAF4F28D020CADC620E9 /* ComponentData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 890B70C2CB6F53C36F98AE2F /* ComponentData.swift */; };
 		B6336A1BB6321900BC76B295 /* ComponentDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 457D5F18DBF5AA8DBFC6F21D /* ComponentDetail.swift */; };
-		BBDB515B8F5BD300BC6A32D3 /* PreviewGallery in Frameworks */ = {isa = PBXBuildFile; productRef = 56925BEFC9EC2086F85D8DEB /* PreviewGallery */; };
 		DF465E35F74B3080C9B7FBEF /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A29E7FA95EC2FF845D0D21 /* App.swift */; };
 /* End PBXBuildFile section */
 
@@ -30,8 +29,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				08FD9FD72EBF1F75D4B406D2 /* CoreDesign in Frameworks */,
-				BBDB515B8F5BD300BC6A32D3 /* PreviewGallery in Frameworks */,
-			);
+		);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -90,7 +88,6 @@
 			name = CoreDesignPreview;
 			packageProductDependencies = (
 				EBA00C473491FA57B29E5630 /* CoreDesign */,
-				56925BEFC9EC2086F85D8DEB /* PreviewGallery */,
 			);
 			productName = CoreDesignPreview;
 			productReference = F7DAB2075D696E1C1D349E93 /* CoreDesignPreview.app */;
@@ -117,7 +114,6 @@
 			mainGroup = 4CDEB2A18BA29C834E1CA521;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */,
 				8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "..//" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -204,7 +200,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.0;
+					SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -296,7 +292,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SWIFT_VERSION = 5.0;
+					SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -330,23 +326,8 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/EmergeTools/SnapshotPreviews";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		56925BEFC9EC2086F85D8DEB /* PreviewGallery */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B73458327784462E022339B9 /* XCRemoteSwiftPackageReference "SnapshotPreviews" */;
-			productName = PreviewGallery;
-		};
 		EBA00C473491FA57B29E5630 /* CoreDesign */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CoreDesign;

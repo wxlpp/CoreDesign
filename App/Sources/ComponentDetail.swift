@@ -5,7 +5,6 @@ struct ComponentDetail: View {
     let component: ComponentMeta
 
     @Environment(\.toastHost) private var toast
-    @State private var showToastDemo = false
 
     var body: some View {
         ScrollView {
@@ -13,10 +12,10 @@ struct ComponentDetail: View {
                 // Header
                 VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                     Text(component.name)
-                        .font(.title)
+                        .font(CoreTypography.titleMediumFont)
                         .foregroundStyle(Color.contentPrimary)
                     Text(component.description)
-                        .font(.body)
+                        .font(CoreTypography.bodyLargeFont)
                         .foregroundStyle(Color.contentMuted)
 
                     if component.id == "toast" {
@@ -30,14 +29,14 @@ struct ComponentDetail: View {
                 // Light + Dark side-by-side
                 VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                     Text("Preview")
-                        .font(.headline)
+                        .font(CoreTypography.titleSmallFont)
                         .foregroundStyle(Color.contentPrimary)
 
                     HStack(alignment: .top, spacing: 0) {
                         // Light
                         VStack(spacing: 0) {
                             Text("Light")
-                                .font(.caption)
+                                .font(CoreTypography.captionFont)
                                 .foregroundStyle(Color.contentMuted)
                                 .padding(.vertical, CoreSpacing.xs)
                                 .frame(maxWidth: .infinity)
@@ -55,7 +54,7 @@ struct ComponentDetail: View {
                         // Dark
                         VStack(spacing: 0) {
                             Text("Dark")
-                                .font(.caption)
+                                .font(CoreTypography.captionFont)
                                 .foregroundStyle(Color.contentMuted)
                                 .padding(.vertical, CoreSpacing.xs)
                                 .frame(maxWidth: .infinity)

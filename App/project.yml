@@ -8,9 +8,6 @@ options:
 packages:
   CoreDesign:
     path: ../
-  SnapshotPreviews:
-    url: https://github.com/EmergeTools/SnapshotPreviews
-    branch: main
 
 targets:
   CoreDesignPreview:
@@ -20,8 +17,6 @@ targets:
       - path: Sources
     dependencies:
       - package: CoreDesign
-      - package: SnapshotPreviews
-        product: PreviewGallery
     settings:
       base:
         SWIFT_VERSION: "6.0"
