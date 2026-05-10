@@ -12,6 +12,15 @@ packages:
     url: https://github.com/EmergeTools/SnapshotPreviews
     from: "0.14.0"
 
+schemes:
+  CoreDesignPreview:
+    build:
+      targets:
+        CoreDesignPreview: all
+    test:
+      targets:
+        - SnapshotTests
+
 targets:
   CoreDesignPreview:
     type: application
@@ -22,6 +31,8 @@ targets:
       - package: CoreDesign
       - package: SnapshotPreviews
         product: PreviewGallery
+        # PreviewGallery links #Preview macros into the app for discovery
+        # by SnapshottingTests via runtime registration (no import needed).
     settings:
       base:
         SWIFT_VERSION: "6.0"
