@@ -1,0 +1,30 @@
+name: CoreDesignPreview
+options:
+  bundleIdPrefix: com.coredesign
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "16.0"
+
+packages:
+  CoreDesign:
+    path: ../
+  SnapshotPreviews:
+    url: https://github.com/EmergeTools/SnapshotPreviews
+    branch: main
+
+targets:
+  CoreDesignPreview:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    dependencies:
+      - package: CoreDesign
+      - package: SnapshotPreviews
+        product: PreviewGallery
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        INFOPLIST_FILE: ""
+        GENERATE_INFOPLIST_FILE: "YES"
+        TARGETED_DEVICE_FAMILY: "1"
