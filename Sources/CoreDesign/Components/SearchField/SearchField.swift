@@ -105,20 +105,22 @@ public struct SearchField: View {
                         .foregroundStyle(Color.contentMuted)
                 }
                 .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .padding(CoreSpacing.xs)
                 .accessibilityLabel(Text("Clear \(self.placeholder.isEmpty ? "search" : self.placeholder)"))
             }
         }
         .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: .regular))
         .padding(.vertical, CoreControlMetrics.verticalPadding(for: .regular))
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
-        .background(
-            RoundedRectangle(cornerRadius: CoreRadius.medium)
-                .fill(Color.surfaceCanvasInset)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: CoreRadius.medium)
-                .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
-        )
+        .background {
+            let shape = RoundedRectangle(cornerRadius: CoreRadius.medium)
+            shape.fill(Color.surfaceCanvasInset)
+        }
+        .overlay {
+            let shape = RoundedRectangle(cornerRadius: CoreRadius.medium)
+            shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
+        }
         .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
         .focusRing(
             visible: self.isFocused,
