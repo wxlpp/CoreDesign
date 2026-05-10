@@ -1,3 +1,4 @@
+import CoreDesign
 import SwiftUI
 
 @main
