@@ -7,12 +7,40 @@ import SwiftUI
 
 // MARK: - UnderlinedTabBar
 
-/// 横向可滚动的下划线分栏组件。
+/// 横向可滚动的下划线分栏组件，按 Primer 视觉语言收齐于 v2-tokens。
 ///
-/// - 选中项文字加粗 + 主色，并以下划线胶囊标记，切换时用 `matchedGeometryEffect` 做顺滑过渡。
-/// - 选中变化时，自动把选中项滚到居中位置。
-/// - `trailing` 视图固定在右侧，不随 tabs 滚动；左侧自带 0.5pt 分隔线。
+/// ## 使用场景
+/// - 内容主屏的「页签 / 分类」切换：当 tab 数量超过单屏宽度时优先选用本组件（对应
+///   `SegmentedControl` 适用于固定 ≤ 5 项的紧凑场景）。
+/// - 带右侧固定操作（譬如「筛选」「排序」）的 tab 行；通过 `trailing` 注入。
+///
+/// ## 关键参数语义
+/// - `items`：tab 数据源；元素需 `Hashable` 以支持选中比较与 `ScrollViewReader.scrollTo`。
+/// - `selection`：受控选中态；切换时触发布局动画 + 自动滚动到居中位置。
+/// - `title`：从 `Item` 抽取展示文本；按视觉是「中文 4–8 字 / 英文 1–3 词」的短 label。
+/// - `trailing`：右侧固定视图（不随 tabs 滚动）；存在时左侧自带 hairline 分隔线。
+///
+/// ## 与 Primer 概念对应
+/// - 选中文字色 = `Color.contentPrimary`（Primer `fgColor.default`），
+///   非选中 = `Color.contentSecondary`（Primer `fgColor.muted`）。
+/// - 选中下划线 = `Color.accent`（Primer `borderColor.accent.emphasis`），
+///   厚度采用 `CoreBorderWidth.thick`（2pt，对齐 Primer focus indicator / selected state 标度）。
+/// - 字号采用 `CoreTypography.bodyMediumFont`（14pt，Primer `text.body.medium`，
+///   推荐的默认 UI 文字字号），选中态额外 `.fontWeight(.semibold)` 加强。
+/// - 间距 / padding 全部走 `CoreSpacing.*`；左侧分隔线宽度走 `CoreBorderWidth.hairline`。
+///
+/// ## Light / Dark 行为
+/// - 颜色全部使用语义 token，自动跟随 colorScheme：light 下分隔线偏浅灰、dark 下偏暗；
+///   accent 在 dark 模式下色相略亮以维持对比度（由 `Color.accent` 自身的 colorset 决定）。
+/// - 不使用 `.glassEffect`（PRD §US-3 白名单不包含 TabBar 类控件 chrome）。
 public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
+    /// 创建带 trailing 视图的下划线 tab 栏。
+    ///
+    /// - Parameters:
+    ///   - items: tab 数据源；首次渲染时会自动滚动到 `selection` 居中位置。
+    ///   - selection: 受控选中态；切换由本组件内部 `withAnimation` 驱动 underline 切换 + 滚动。
+    ///   - title: 从 `Item` 抽取展示文本的纯函数。
+    ///   - trailing: 右侧固定视图，不随 tabs 横向滚动；左侧自带 hairline 分隔线。
     public init(
         items: [Item],
         selection: Binding<Item>,
@@ -26,10 +54,10 @@ public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
     }
 
     public var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: CoreSpacing.none) {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: CoreSpacing.xs) {
                         ForEach(self.items, id: \.self) { item in
                             UnderlinedTabItem(
                                 title: self.title(item),
@@ -43,7 +71,7 @@ public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
                             .id(item)
                         }
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, CoreSpacing.md)
                 }
                 .onAppear {
                     proxy.scrollTo(self.selection, anchor: .center)
@@ -60,8 +88,8 @@ public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
                     .overlay(alignment: .leading) {
                         Rectangle()
                             .fill(Color.dividerDefault)
-                            .frame(width: 0.5)
-                            .padding(.vertical, 6)
+                            .frame(width: CoreBorderWidth.hairline)
+                            .padding(.vertical, CoreSpacing.sm)
                     }
             }
         }
@@ -93,6 +121,12 @@ public extension UnderlinedTabBar where Trailing == EmptyView {
 
 // MARK: - UnderlinedTabItem
 
+/// 单个 tab 项的内部视图。
+///
+/// 私有实现细节：选中态文字加粗 + `Color.contentPrimary`；
+/// underline 通过 `matchedGeometryEffect(id: "underline", in: namespace)` 在切换时
+/// 顺滑过渡（**不要**修改 namespace key 或动画 driver——`UnderlinedTabBar` 的切换逻辑
+/// 依赖该 ID 在所有 item 中保持一致）。
 private struct UnderlinedTabItem: View {
     let title: String
     let isSelected: Bool
@@ -101,26 +135,27 @@ private struct UnderlinedTabItem: View {
 
     var body: some View {
         Button(action: self.action) {
-            VStack(spacing: 6) {
+            VStack(spacing: CoreSpacing.sm) {
                 Text(self.title)
-                    .font(.callout.weight(self.isSelected ? .semibold : .regular))
+                    .font(CoreTypography.bodyMediumFont)
+                    .fontWeight(self.isSelected ? .semibold : .regular)
                     .foregroundStyle(self.isSelected ? Color.contentPrimary : Color.contentSecondary)
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
+                    .padding(.horizontal, CoreSpacing.md)
+                    .padding(.top, CoreSpacing.sm)
 
                 ZStack {
                     Capsule()
                         .fill(Color.clear)
-                        .frame(height: 3)
+                        .frame(height: CoreBorderWidth.thick)
                     if self.isSelected {
                         Capsule()
                             .fill(Color.accent)
-                            .frame(height: 3)
+                            .frame(height: CoreBorderWidth.thick)
                             .matchedGeometryEffect(id: "underline", in: self.namespace)
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 4)
+                .padding(.horizontal, CoreSpacing.xs)
             }
             .contentShape(Rectangle())
         }
