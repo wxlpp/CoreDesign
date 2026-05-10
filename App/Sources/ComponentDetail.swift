@@ -32,6 +32,7 @@ struct ComponentDetail: View {
                         .font(.headline)
                         .foregroundStyle(Color.contentPrimary)
 
+                    let shape = RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
                     HStack(alignment: .top, spacing: 0) {
                         // Light
                         VStack(spacing: 0) {
@@ -68,10 +69,9 @@ struct ComponentDetail: View {
                         .preferredColorScheme(.dark)
                     }
                     .overlay(
-                        RoundedRectangle(cornerRadius: CoreRadius.medium)
-                            .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
+                        shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
+                    .clipShape(shape)
                 }
             }
             .padding(CoreSpacing.lg)
