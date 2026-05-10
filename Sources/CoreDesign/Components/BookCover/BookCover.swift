@@ -15,12 +15,35 @@ import SwiftUI
 
 // MARK: - BookCover
 
+/// 书籍封面容器视图 / Book cover container.
+///
+/// **使用场景**：在书架、阅读列表、推荐位等需要展示一本书可视外观的位置；
+/// 当 `data` 为有效图片字节时渲染图片，否则降级到 `BookCoverPlaceholder`
+/// 自动生成一张带书名的封面替身。
+///
+/// **关键参数**：
+/// - `data`：封面图原始字节（PNG / JPEG 等 `UIImage` / `NSImage` 可解析格式）；
+///   `nil` 或解码失败时走 placeholder 分支。
+/// - `title`：书名；同时作为 placeholder 的文字内容与算法生成色的种子。
+///
+/// **Primer 对应**：Primer 库无对应"书籍封面"概念，本组件是 CoreDesign 自有抽象，
+/// 复用 v2 容器 token（`CoreRadius.large` 圆角 + `CoreBorderWidth.hairline` 边框 +
+/// `CoreElevation.medium` 阴影）落地视觉。
+///
+/// **Light / Dark 行为**：
+/// - 边框颜色走 `Color.borderMuted`（基于 `.separator.opacity(0.5)`），随系统外观自适应。
+/// - 阴影走 `View.coreShadow(.medium)`，由 `Resources.xcassets/shadow/shadow-medium.colorset`
+///   提供 light / dark 双取值，dark 模式下浓度自动加深以补偿 elevation 视觉。
+///
+/// **比例约束**：`aspectRatio = 2.0 / 3.0` 是书籍封面行业标准比例，不可配置。
 public struct BookCover: View {
     public init(data: Data?, title: String) {
         self.data = data
         self.title = title
     }
 
+    /// 书籍封面行业标准宽高比（2:3）。非 magic number——这是行业约定的比例，
+    /// 与 Amazon / Goodreads / 各大电子书店一致。
     public static let aspectRatio: CGFloat = 2.0 / 3.0
 
     public var body: some View {
@@ -34,12 +57,12 @@ public struct BookCover: View {
             }
         }
         .aspectRatio(Self.aspectRatio, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.black.opacity(0.08), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous)
+                .stroke(Color.borderMuted, lineWidth: CoreBorderWidth.hairline)
         )
-        .shadow(color: Color.black.opacity(0.18), radius: 6, x: 0, y: 3)
+        .coreShadow(.medium)
     }
 
     private let data: Data?
@@ -61,6 +84,29 @@ public struct BookCover: View {
 
 // MARK: - BookCoverPlaceholder
 
+/// 书籍封面占位视图 / Book cover placeholder.
+///
+/// **使用场景**：`BookCover` 在拿不到有效封面图片时的降级渲染；也可独立用于
+/// 书籍数据尚未加载完成的骨架屏 / 占位场景。
+///
+/// **关键参数**：
+/// - `title`：书名；空字符串时显示 "未命名"。书名同时是渐变背景色的算法种子
+///   （见 `Color(text:)` 在 `Utils/ColorExtension.swift`）——同一书名总是得到
+///   同一颜色，跨设备 / 跨会话保持一致。
+///
+/// **Primer 对应**：无；占位封面的 "彩色块 + 居中标题" 视觉为本仓自有约定。
+///
+/// **Light / Dark 行为**：
+/// - 背景色由 `Color(text:)` 哈希到固定调色板（red / green / blue / ... 10 色），
+///   随 SwiftUI 系统色自动调整 light / dark 表现。
+/// - 文字固定使用 `Color.contentOnEmphasis`（白色）——彩色饱和背景上的对比文本，
+///   语义对齐 Primer `fgColor.onEmphasis`。
+///
+/// **比例约束**：与 `BookCover.aspectRatio` 共用 2:3 比例，独立使用时同样保持。
+///
+/// **几何缩放**：字号 / 水平 padding 与 `proxy.size.width` 成比例（13% / 12%），
+/// 这是响应式视觉缩放逻辑，不是 magic number。字号下限走 `CoreSpacing.md` (12pt) 作为
+/// 极小尺寸下的可读性兜底。
 public struct BookCoverPlaceholder: View {
     public init(title: String) {
         self.title = title
@@ -77,15 +123,15 @@ public struct BookCoverPlaceholder: View {
                     endPoint: .bottomTrailing
                 )
                 VStack {
-                    Spacer(minLength: 0)
+                    Spacer(minLength: CoreSpacing.none)
                     Text(displayTitle)
-                        .font(.system(size: max(proxy.size.width * 0.13, 12), weight: .bold))
-                        .foregroundStyle(Color.white)
+                        .font(.system(size: max(proxy.size.width * 0.13, CoreSpacing.md), weight: .bold))
+                        .foregroundStyle(Color.contentOnEmphasis)
                         .multilineTextAlignment(.center)
-                        .lineSpacing(2)
+                        .lineSpacing(CoreSpacing.xxs)
                         .minimumScaleFactor(0.4)
                         .padding(.horizontal, proxy.size.width * 0.12)
-                    Spacer(minLength: 0)
+                    Spacer(minLength: CoreSpacing.none)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
