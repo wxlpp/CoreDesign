@@ -426,7 +426,8 @@ private struct ToastView: View {
         .padding(CoreSpacing.md)
         .surface(.card)
         .coreShadow(.medium)
-        .offset(y: self.dragOffset)
+        .offset(y: self.isDismissing ? self.dismissOffset : self.dragOffset)
+        .opacity(self.isDismissing ? 0 : 1)
         .contentShape(Rectangle())
         .onTapGesture { self.onDismiss() }
         .gesture(self.swipeGesture)
@@ -479,6 +480,14 @@ private struct ToastView: View {
         switch self.edge {
         case .top: dy <= 0
         case .bottom: dy >= 0
+        }
+    }
+
+    /// dismiss 动画的目标偏移量：朝 edge 方向滑出 60pt。
+    private var dismissOffset: CGFloat {
+        switch self.edge {
+        case .top: -60
+        case .bottom: 60
         }
     }
 }
