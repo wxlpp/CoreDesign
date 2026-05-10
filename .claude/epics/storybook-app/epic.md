@@ -1,8 +1,8 @@
 ---
 name: storybook-app
-status: completed
+status: backlog
 created: 2026-05-10T13:00:34Z
-progress: 100%
+progress: 0%
 prd: .claude/prds/storybook-app.md
 github: https://github.com/wxlpp/CoreDesign/issues/52
 ---
@@ -115,9 +115,9 @@ docs/
 - Xcode 16+ with iOS 26 Simulator
 
 ## Tasks Created
-- [x] #53 - 创建 App project + SPM 配置 (parallel: false)
-- [x] #54 - Storybook UI（组件列表 + 详情页 + 组件数据）(parallel: false)
-- [x] #55 - SnapshotTest target + 生成首版快照 (parallel: false)
+- [ ] #53 - 创建 App project + SPM 配置 (parallel: false)
+- [ ] #54 - Storybook UI（组件列表 + 详情页 + 组件数据）(parallel: false)
+- [ ] #55 - SnapshotTest target + 生成首版快照 (parallel: false)
 - [ ] #56 - 16 个组件文档 + 截图引用 (parallel: true)
 - [ ] #57 - docs/README 索引导航 + 快捷脚本 (parallel: true)
 
