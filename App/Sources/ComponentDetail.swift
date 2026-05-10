@@ -4,7 +4,9 @@ import CoreDesign
 struct ComponentDetail: View {
     let component: ComponentMeta
 
-    @Environment(\.toastHost) private var toast
+    private var previewBorder: RoundedRectangle {
+        RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+    }
 
     var body: some View {
         ScrollView {
@@ -12,31 +14,28 @@ struct ComponentDetail: View {
                 // Header
                 VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                     Text(component.name)
-                        .font(.title)
+                        .font(CoreTypography.titleMediumFont)
                         .foregroundStyle(Color.contentPrimary)
                     Text(component.description)
-                        .font(.body)
+                        .font(CoreTypography.bodyLargeFont)
                         .foregroundStyle(Color.contentMuted)
 
-                    if component.id == "toast" {
-                        Button("Show Demo Toast") {
-                            self.toast?.show("Toast message", level: .info)
-                        }
-                        .buttonStyle(.solidButton(role: .primary))
+                    if let demo = component.demoAction {
+                        demo()
                     }
                 }
 
                 // Light + Dark side-by-side
                 VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                     Text("Preview")
-                        .font(.headline)
+                        .font(CoreTypography.titleSmallFont)
                         .foregroundStyle(Color.contentPrimary)
 
                     HStack(alignment: .top, spacing: 0) {
                         // Light
                         VStack(spacing: 0) {
                             Text("Light")
-                                .font(.caption)
+                                .font(CoreTypography.captionFont)
                                 .foregroundStyle(Color.contentMuted)
                                 .padding(.vertical, CoreSpacing.xs)
                                 .frame(maxWidth: .infinity)
@@ -54,7 +53,7 @@ struct ComponentDetail: View {
                         // Dark
                         VStack(spacing: 0) {
                             Text("Dark")
-                                .font(.caption)
+                                .font(CoreTypography.captionFont)
                                 .foregroundStyle(Color.contentMuted)
                                 .padding(.vertical, CoreSpacing.xs)
                                 .frame(maxWidth: .infinity)
@@ -67,11 +66,8 @@ struct ComponentDetail: View {
                         }
                         .preferredColorScheme(.dark)
                     }
-                    .overlay(
-                        RoundedRectangle(cornerRadius: CoreRadius.medium)
-                            .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
+                    .overlay(self.previewBorder.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline))
+                    .clipShape(self.previewBorder)
                 }
             }
             .padding(CoreSpacing.lg)
@@ -80,3 +76,4 @@ struct ComponentDetail: View {
         .navigationTitle(component.name)
     }
 }
+
