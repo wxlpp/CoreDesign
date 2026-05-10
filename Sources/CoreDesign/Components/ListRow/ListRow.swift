@@ -15,7 +15,7 @@ import SwiftUI
 ///
 /// **API 形态**（per epic ADR #15 init 形态约束）：
 /// - **三泛型** `ListRow<Leading, Trailing, Label>`，每槽位独立类型；
-/// - **Designated init 全标签** `init(leading:trailing:label:)`——三个 `@ViewBuilder`
+/// - **Designated init 全标签** `init(leading:label:trailing:)`——三个 `@ViewBuilder`
 ///   闭包均带显式标签，避免 SwiftUI 多尾随闭包推断歧义；
 /// - **Convenience inits 只补缺省槽位**（`where Leading == EmptyView` /
 ///   `where Trailing == EmptyView` / 双 `EmptyView`），调用方写
