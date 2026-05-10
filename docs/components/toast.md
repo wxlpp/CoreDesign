@@ -12,7 +12,7 @@ ToastHost()
 
 | 方法 | 说明 |
 |---|---|
-| `show(_ message: String, level: ToastLevel, duration: TimeInterval)` | 入队一条 toast |
+| `show(_ message: String, level: ToastLevel = .info, duration: TimeInterval = ToastDefaults.duration)` | 入队一条 toast（level 缺省 `.info`，duration 缺省 3 秒） |
 | `show(_ item: ToastItem)` | 入队预构造的 ToastItem |
 | `dismiss(_ id: ToastItem.ID)` | 取消指定 toast |
 
