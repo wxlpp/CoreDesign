@@ -10,7 +10,7 @@ packages:
     path: ../
   SnapshotPreviews:
     url: https://github.com/EmergeTools/SnapshotPreviews
-    branch: main
+    exactVersion: "0.14.0"
 
 targets:
   CoreDesignPreview:
