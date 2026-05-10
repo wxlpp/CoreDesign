@@ -42,6 +42,7 @@ private struct ComponentList: View {
         .navigationDestination(for: ComponentMeta.self) { comp in
             ComponentDetail(component: comp)
         }
+        .scrollContentBackground(.hidden)
         .background(Color.surfaceCanvas)
     }
 }
