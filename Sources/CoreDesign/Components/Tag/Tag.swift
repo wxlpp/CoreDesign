@@ -87,7 +87,7 @@ public struct Tag<Label: View>: View {
                 .font(CoreTypography.bodySmallFont)
                 .foregroundStyle(self.color)
 
-            if self.removable {
+            if self.removable, self.onRemove != nil {
                 Button {
                     self.onRemove?()
                 } label: {
@@ -118,10 +118,10 @@ public struct Tag<Label: View>: View {
     /// 稍大边长才能感觉与字母 x-height 等高。集中常量避免散落字面量。
     private static var removeIconSize: CGFloat { CoreControlMetrics.iconSize(for: .small) }
 
-    let color: Color
-    let removable: Bool
-    let onRemove: (() -> Void)?
-    let label: Label
+    private let color: Color
+    private let removable: Bool
+    private let onRemove: (() -> Void)?
+    private let label: Label
 }
 
 // MARK: - String convenience init
