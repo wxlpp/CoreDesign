@@ -60,6 +60,7 @@ public enum BadgeVariant: Sendable, Equatable {
 /// Badge(variant: .success) {
 ///     HStack(spacing: CoreSpacing.xxs) {
 ///         Image(systemName: "checkmark")
+///             .accessibilityHidden(true)
 ///         Text("Merged")
 ///     }
 /// }
@@ -96,6 +97,7 @@ public struct Badge<Label: View>: View {
                     shape.strokeBorder(Self.borderColor(for: self.variant), lineWidth: CoreBorderWidth.thin)
                 }
             }
+            .accessibilityElement(children: .combine)
     }
 
     let variant: BadgeVariant

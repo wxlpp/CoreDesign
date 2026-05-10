@@ -11,8 +11,8 @@ struct BadgeTests {
         }
         #expect(badge.variant == .info)
         #expect(badge.outlined == true)
-        // Generic Label parameter is preserved (not erased to AnyView).
-        #expect(String(describing: type(of: badge)) == "Badge<Text>")
+        // Compile-time verification that Label == Text (not erased to AnyView).
+        let _: Badge<Text> = badge
     }
 
     @Test("convenience text init defaults variant to neutral and outlined to false")
