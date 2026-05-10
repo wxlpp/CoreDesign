@@ -10,28 +10,55 @@ import SwiftUI
 
 // MARK: - LightButtonStyle
 
+/// Primer 风格的"轻量"按钮（"light button"）样式：浅色 / 透明背景 + 角色色文字。
+///
+/// ## 使用场景 / Usage
+///
+/// 次要操作、对话框中的副按钮、与 `.solidButton(...)` 配对承载非主路径动作。
+/// 与 Primer Web 端 `Button variant="default"` / `"invisible"` 的语义介于两者之间——
+/// 视觉权重低于 solid，但有清晰的边界与背景以保持可点击感。
+///
+/// ## 关键参数 / Key Parameters
+///
+/// - `role`: `ButtonRoleStyleRole`——决定**文字**颜色与按下 / 禁用态的语义颜色映射
+///   （注意：背景统一为 `surfaceInteractive`，role 不影响背景色，只影响 label）。
+///
+/// ## Primer 概念对应 / Primer Mapping
+///
+/// 对应 Primer `Button variant="default"`——浅灰背景 + 主题色文字，视觉重量轻于 solid。
+/// 全部尺寸 / 圆角 / 描边 / 阴影走 v2-tokens：`CoreControlMetrics` / `CoreRadius.full` /
+/// `CoreBorderWidth.{hairline,thin}` / `CoreElevation.small`。
+///
+/// ## Light / Dark 行为差异 / Color Scheme Behavior
+///
+/// **亮色模式**：去除 `.glassEffect`，改用 `surfaceInteractive` 实色 + `CoreElevation.small`
+/// 柔和阴影，符合 Primer 桌面 UI 在亮色下"实色 + 1px 边框 + 轻阴影"的视觉语言。
+///
+/// **暗色模式**：**保留 `.glassEffect`**——按 PRD §US-3 的明确允许（暗色下浅色按钮的
+/// glass 视觉是 SwiftUI / iOS 26 的设计语言之一，能在低对比环境下提供合理 elevation
+/// 暗示）。
+///
+/// 两种模式的描边色也分支：暗色用 `Color.white.opacity(0.2)`，亮色用 `Color.borderSubtle`。
 public struct LightButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(self.textFont)
+            .font(CoreControlMetrics.font(for: self.controlSize))
             .foregroundStyle(self.textColor(isPressed: configuration.isPressed))
-            .padding(self.edgeInsets)
+            .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
+            .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
             .contentShape(Capsule(style: .continuous))
             .background {
                 if self.colorScheme == .dark {
+                    // 暗色：保留 glass（per PRD §US-3 允许的"漂浮在内容上方"暗色场景）
                     Capsule(style: .continuous)
                         .fill(Color.surfaceInteractive)
-                        .padding(1)
+                        .padding(CoreBorderWidth.thin)
                         .glassEffect()
                 } else {
+                    // 亮色：去 glass，改 token 化柔和阴影（CoreElevation.small）
                     Capsule(style: .continuous)
                         .fill(Color.surfaceInteractive)
-                        .shadow(
-                            color: .black.opacity(configuration.isPressed ? 0.04 : 0.08),
-                            radius: configuration.isPressed ? 2 : 6,
-                            x: 0,
-                            y: configuration.isPressed ? 1 : 2
-                        )
+                        .coreShadow(.small)
                 }
             }
             .overlay(
@@ -40,7 +67,7 @@ public struct LightButtonStyle: ButtonStyle {
                         self.colorScheme == .dark
                             ? Color.white.opacity(0.2)
                             : Color.borderSubtle,
-                        lineWidth: 0.8
+                        lineWidth: CoreBorderWidth.hairline
                     )
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
@@ -54,30 +81,6 @@ public struct LightButtonStyle: ButtonStyle {
     @Environment(\.controlSize) private var controlSize
     @Environment(\.colorScheme) private var colorScheme
 
-    private var edgeInsets: EdgeInsets {
-        switch self.controlSize {
-        case .mini: EdgeInsets(top: 2, leading: 12, bottom: 2, trailing: 12)
-        case .small: EdgeInsets(top: 2, leading: 12, bottom: 2, trailing: 12)
-        case .regular: EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
-        case .large: EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
-        case .extraLarge: EdgeInsets(top: 10, leading: 20, bottom: 10, trailing: 20)
-        @unknown default:
-            EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
-        }
-    }
-
-    private var textFont: Font {
-        switch self.controlSize {
-        case .mini: .caption
-        case .small: .callout
-        case .regular: .body
-        case .large: .title3
-        case .extraLarge: .title
-        @unknown default:
-            .body
-        }
-    }
-
     private func textColor(isPressed: Bool) -> Color {
         if !self.isEnabled {
             return self.role.disabledColor
@@ -86,7 +89,13 @@ public struct LightButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - ButtonStyle convenience
+
 public extension ButtonStyle where Self == LightButtonStyle {
+    /// 以指定 role 构造 Primer 轻量按钮样式。
+    ///
+    /// - Parameter role: 角色色板（默认 `.primary`）。决定 label 文字颜色，**不**影响背景。
+    /// - Returns: `LightButtonStyle` 实例，可直接传给 `.buttonStyle(...)`。
     static func lightButton(role: ButtonRoleStyleRole = .primary) -> LightButtonStyle {
         LightButtonStyle(role: role)
     }
