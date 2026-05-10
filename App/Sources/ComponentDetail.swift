@@ -75,7 +75,6 @@ struct ComponentDetail: View {
         }
         .background(Color.surfaceCanvas)
         .navigationTitle(component.name)
-        .toastHost(edge: .top)
     }
 }
 

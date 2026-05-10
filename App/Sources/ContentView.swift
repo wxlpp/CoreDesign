@@ -42,6 +42,7 @@ private struct ComponentList: View {
             ComponentDetail(component: comp)
         }
         .background(Color.surfaceCanvas)
+        .toastHost(edge: .top)
     }
 }
 

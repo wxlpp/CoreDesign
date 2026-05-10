@@ -52,9 +52,9 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 16 个 Primer 对齐组件。
 
 ## 生成预览图 / Generating Snapshots
 
-运行 `scripts/run-snapshots.sh` 生成所有已收录 `#Preview` 宏的组件 PNG 预览图，输出到 `docs/snapshots/`。
+运行 `scripts/run-snapshots.sh` 生成所有已收录 `#Preview` 宏的组件 PNG 预览图，输出到 `docs/snapshots/`。生成的 PNG 不检入版本库，须本地运行脚本后才能看到缩略图。
 
-Run `scripts/run-snapshots.sh` to generate preview PNGs for all components with `#Preview` macros, output to `docs/snapshots/`.
+Run `scripts/run-snapshots.sh` to generate preview PNGs for all components with `#Preview` macros, output to `docs/snapshots/`. PNGs are not checked in — run the script locally to populate thumbnails.
 
 ## 运行演示应用 / Running the Preview App
 
