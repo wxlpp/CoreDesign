@@ -1,6 +1,6 @@
 # CoreDesign
 
-iOS 26+ SwiftUI design system library, distributed as a Swift Package.
+iOS 26+ / macOS 26+ SwiftUI design system library, distributed as a Swift Package.
 
 ## Documentation
 
@@ -37,6 +37,3 @@ scripts/run-preview.sh     # Build and launch CoreDesignPreview in Simulator
 scripts/run-snapshots.sh   # Generate component snapshot PNGs
 ```
 
-## License
-
-MIT
