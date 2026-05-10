@@ -96,8 +96,8 @@ public struct Tag<Label: View>: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(self.onRemove == nil)
-                .contentShape(Rectangle())
                 .padding(CoreSpacing.xxs)
+                .contentShape(Rectangle())
                 .accessibilityLabel(Text("Remove tag"))
             }
         }
