@@ -8,52 +8,52 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 15 个 Primer 对齐组件。
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| Button | — | [button.md](components/button.md) |
+| Button | [<img src="snapshots/CoreDesignPreview_Previews.swift_Button.png" width="200">](components/button.md) | [button.md](components/button.md) |
 
 ### Form 表单
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| SegmentedControl | — | [segmented-control.md](components/segmented-control.md) |
-| SearchField | — | [search-field.md](components/search-field.md) |
-| BottomInputBar | — | [bottom-input-bar.md](components/bottom-input-bar.md) |
-| LabelIcon / ChevronRightIcon / DangerIcon | — | [form-icons.md](components/form-icons.md) |
+| SegmentedControl | [<img src="snapshots/CoreDesignPreview_Previews.swift_SegmentedControl.png" width="200">](components/segmented-control.md) | [segmented-control.md](components/segmented-control.md) |
+| SearchField | [<img src="snapshots/CoreDesignPreview_Previews.swift_SearchField.png" width="200">](components/search-field.md) | [search-field.md](components/search-field.md) |
+| BottomInputBar | [<img src="snapshots/CoreDesignPreview_Previews.swift_BottomInputBar.png" width="200">](components/bottom-input-bar.md) | [bottom-input-bar.md](components/bottom-input-bar.md) |
+| LabelIcon / ChevronRightIcon / DangerIcon | [<img src="snapshots/CoreDesignPreview_Previews.swift_Form_Icons.png" width="200">](components/form-icons.md) | [form-icons.md](components/form-icons.md) |
 
 ### Indicator 指示器
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| Badge | — | [badge.md](components/badge.md) |
-| Tag | — | [tag.md](components/tag.md) |
-| Banner | — | [banner.md](components/banner.md) |
+| Badge | [<img src="snapshots/CoreDesignPreview_Previews.swift_Badge.png" width="200">](components/badge.md) | [badge.md](components/badge.md) |
+| Tag | [<img src="snapshots/CoreDesignPreview_Previews.swift_Tag.png" width="200">](components/tag.md) | [tag.md](components/tag.md) |
+| Banner | [<img src="snapshots/CoreDesignPreview_Previews.swift_Banner.png" width="200">](components/banner.md) | [banner.md](components/banner.md) |
 
 ### Layout 布局
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| Avatar | — | [avatar.md](components/avatar.md) |
-| BookCover | — | [book-cover.md](components/book-cover.md) |
-| EmptyState | — | [empty-state.md](components/empty-state.md) |
-| ListRow | — | [list-row.md](components/list-row.md) |
+| Avatar | [<img src="snapshots/CoreDesignPreview_Previews.swift_Avatar.png" width="200">](components/avatar.md) | [avatar.md](components/avatar.md) |
+| BookCover | [<img src="snapshots/CoreDesignPreview_Previews.swift_BookCover.png" width="200">](components/book-cover.md) | [book-cover.md](components/book-cover.md) |
+| EmptyState | [<img src="snapshots/CoreDesignPreview_Previews.swift_EmptyState.png" width="200">](components/empty-state.md) | [empty-state.md](components/empty-state.md) |
+| ListRow | [<img src="snapshots/CoreDesignPreview_Previews.swift_ListRow.png" width="200">](components/list-row.md) | [list-row.md](components/list-row.md) |
 
 ### Navigation 导航
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| SidebarRow | — | [sidebar-row.md](components/sidebar-row.md) |
-| UnderlinedTabBar | — | [underlined-tab-bar.md](components/underlined-tab-bar.md) |
+| SidebarRow | [<img src="snapshots/CoreDesignPreview_Previews.swift_SidebarRow.png" width="200">](components/sidebar-row.md) | [sidebar-row.md](components/sidebar-row.md) |
+| UnderlinedTabBar | [<img src="snapshots/CoreDesignPreview_Previews.swift_UnderlinedTabBar.png" width="200">](components/underlined-tab-bar.md) | [underlined-tab-bar.md](components/underlined-tab-bar.md) |
 
 ### Feedback 反馈
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| Toast | — | [toast.md](components/toast.md) |
+| Toast | [<img src="snapshots/CoreDesignPreview_Previews.swift_Toast.png" width="200">](components/toast.md) | [toast.md](components/toast.md) |
 
 ## 生成预览图 / Generating Snapshots
 
-运行 `scripts/run-snapshots.sh` 生成所有已收录 `#Preview` 宏的组件 PNG 预览图，输出到 `docs/snapshots/`。生成的 PNG 不检入版本库，须本地运行脚本后才能看到缩略图。
+运行 `scripts/run-snapshots.sh` 重新生成所有已收录 `#Preview` 宏的组件 PNG 预览图，输出到 `docs/snapshots/`。
 
-Run `scripts/run-snapshots.sh` to generate preview PNGs for all components with `#Preview` macros, output to `docs/snapshots/`. PNGs are not checked in — run the script locally to populate thumbnails.
+Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components with `#Preview` macros, output to `docs/snapshots/`.
 
 ## 运行演示应用 / Running the Preview App
 
