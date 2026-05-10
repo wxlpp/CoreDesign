@@ -79,33 +79,43 @@ public struct EmptyState<Action: View>: View {
 
     public var body: some View {
         VStack(spacing: CoreSpacing.none) {
-            self.icon
-                .resizable()
-                .scaledToFit()
-                .frame(width: self.iconSize, height: self.iconSize)
-                .foregroundStyle(Color.contentMuted)
-                .accessibilityHidden(true)
-                .padding(.bottom, CoreSpacing.lg)
-
-            Text(self.title)
-                .font(CoreTypography.titleMediumFont)
-                .foregroundStyle(Color.contentPrimary)
-                .multilineTextAlignment(.center)
-
-            if let description = self.description {
-                Text(description)
-                    .font(CoreTypography.bodyMediumFont)
+            // 把 icon + title + description 合并为一个 a11y 元素，
+            // 让 VoiceOver 一次性朗读完空状态的描述性内容；CTA Button
+            // 仍以独立元素留在外层 VStack 中，保持可聚焦与可点击。
+            VStack(spacing: CoreSpacing.none) {
+                self.icon
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: self.iconSize, height: self.iconSize)
                     .foregroundStyle(Color.contentMuted)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, CoreSpacing.xs)
-            }
+                    .accessibilityHidden(true)
+                    .padding(.bottom, CoreSpacing.lg)
 
-            self.action
-                .padding(.top, CoreSpacing.xl)
+                Text(self.title)
+                    .font(CoreTypography.titleMediumFont)
+                    .foregroundStyle(Color.contentPrimary)
+                    .multilineTextAlignment(.center)
+
+                if let description = self.description {
+                    Text(description)
+                        .font(CoreTypography.bodyMediumFont)
+                        .foregroundStyle(Color.contentMuted)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, CoreSpacing.xs)
+                }
+            }
+            .accessibilityElement(children: .combine)
+
+            // 仅当调用方真正提供了 CTA（Action ≠ EmptyView）时才把
+            // action 子树插入视图层级，避免便利初始化路径下仍然吃掉
+            // 24pt 的顶部 padding，留下视觉上的空白。
+            if Action.self != EmptyView.self {
+                self.action
+                    .padding(.top, CoreSpacing.xl)
+            }
         }
         .padding(CoreSpacing.xl)
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
     }
 
     let icon: Image
