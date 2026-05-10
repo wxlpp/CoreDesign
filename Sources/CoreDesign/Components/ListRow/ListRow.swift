@@ -2,8 +2,6 @@
 //  ListRow.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//
 
 import SwiftUI
 
@@ -21,7 +19,7 @@ import SwiftUI
 ///   闭包均带显式标签，避免 SwiftUI 多尾随闭包推断歧义；
 /// - **Convenience inits 只补缺省槽位**（`where Leading == EmptyView` /
 ///   `where Trailing == EmptyView` / 双 `EmptyView`），调用方写
-///   `ListRow(label: { Text("..." )})` 不必再手填 `EmptyView { }`。**不引入**多个
+///   `ListRow(label: { Text("..." )})` 不必再手填 `EmptyView()`。**不引入**多个
 ///   无标签闭包重载（per epic ADR #15）。
 ///
 /// **关键参数语义**：
@@ -71,11 +69,17 @@ public struct ListRow<Leading: View, Trailing: View, Label: View>: View {
     // MARK: - Body
 
     public var body: some View {
-        HStack(spacing: CoreSpacing.md) {
-            self.leading
+        HStack(spacing: 0) {
+            if Leading.self != EmptyView.self {
+                self.leading
+                Spacer().frame(width: CoreSpacing.md)
+            }
             self.label
                 .frame(maxWidth: .infinity, alignment: .leading)
-            self.trailing
+            if Trailing.self != EmptyView.self {
+                Spacer().frame(width: CoreSpacing.md)
+                self.trailing
+            }
         }
         .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: .regular))
         .padding(.vertical, CoreControlMetrics.verticalPadding(for: .regular))
