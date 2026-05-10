@@ -66,6 +66,7 @@ public struct Tag<Label: View>: View {
     ///   - color: 调色板。同时驱动衬底（`color.opacity(0.12)`）与前景文字 / 关闭图标（直接用 `color`）。
     ///   - removable: 是否在右侧渲染 `xmark.circle.fill` 关闭按钮。默认 `false`。
     ///   - onRemove: `removable == true` 且按钮被点击时回调。`removable == false` 时被忽略。
+    ///     `onRemove == nil` 时按钮仍可见但 `.disabled(true)`，提醒调用方提供回调。
     ///   - label: 标签主体，常为 `Text` 或 `Label`。
     public init(
         color: Color,
@@ -103,7 +104,7 @@ public struct Tag<Label: View>: View {
         .padding(.horizontal, CoreSpacing.sm)
         .padding(.vertical, CoreSpacing.xs)
         .background(
-            RoundedRectangle(cornerRadius: CoreRadius.small)
+            RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
                 .fill(self.color.opacity(Self.backgroundOpacity))
         )
     }
