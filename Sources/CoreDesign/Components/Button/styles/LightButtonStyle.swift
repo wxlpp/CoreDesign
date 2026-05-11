@@ -3,7 +3,6 @@
 //  CoreDesign
 //
 
-import Foundation
 import SwiftUI
 
 // MARK: - LightButtonStyle
