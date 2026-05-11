@@ -1,0 +1,2295 @@
+# CoreDesign Three-in-One Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Implement 10 new components, 2 token expansions, 1 shared modifier, and 4 button style refactors across 5 zones to create a unified Apple-GitHub-Telegram design language.
+
+**Architecture:** Token → Modifier → Component dependency chain. Z1 establishes the shared foundation (CoreButtonMetrics, StatusColors, TelegramGlassButtonModifier) consumed by Z2–Z5. Each component follows existing patterns: `public struct` with `public init`, SwiftUI `#Preview` in the component file, Swift Testing `@Test`/`#expect` in `Tests/CoreDesignTests/`. All resources load via `bundle: .module`.
+
+**Tech Stack:** Swift 6, SwiftUI (iOS 26+ / macOS 26+), Swift Testing framework, no third-party dependencies.
+
+---
+
+## File Map
+
+### Created files
+| File | Zone | Purpose |
+|------|------|---------|
+| `Sources/CoreDesign/Tokens/CoreButtonMetrics.swift` | Z1 | Glass button constants |
+| `Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift` | Z1 | Shared glass shell |
+| `Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift` | Z1 | Circular spinner |
+| `Sources/CoreDesign/Components/StateLabel/StateLabel.swift` | Z2 | Status pill |
+| `Sources/CoreDesign/Components/RefPill/RefPill.swift` | Z2 | Code ref pill |
+| `Sources/CoreDesign/Layout/FlowLayout.swift` | Z3 | Tag-wrapping layout |
+| `Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift` | Z3 | Stacked avatars |
+| `Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift` | Z3 | Horizontal bar |
+| `Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift` | Z4 | Spine + env key |
+| `Sources/CoreDesign/Components/EventRow/EventRow.swift` | Z4 | Compact event |
+| `Sources/CoreDesign/Components/CommentCard/CommentCard.swift` | Z4 | Comment card |
+| `Sources/CoreDesign/Components/StatusRow/StatusRow.swift` | Z5 | CI check row |
+| `Tests/CoreDesignTests/CoreButtonMetricsTests.swift` | Z1 | |
+| `Tests/CoreDesignTests/StatusColorsTests.swift` | Z1 | |
+| `Tests/CoreDesignTests/ProgressIndicatorTests.swift` | Z1 | |
+| `Tests/CoreDesignTests/StateLabelTests.swift` | Z2 | |
+| `Tests/CoreDesignTests/RefPillTests.swift` | Z2 | |
+| `Tests/CoreDesignTests/FlowLayoutTests.swift` | Z3 | |
+| `Tests/CoreDesignTests/AvatarGroupTests.swift` | Z3 | |
+| `Tests/CoreDesignTests/ProgressBarTests.swift` | Z3 | |
+| `Tests/CoreDesignTests/TimelineItemTests.swift` | Z4 | |
+| `Tests/CoreDesignTests/EventRowTests.swift` | Z4 | |
+| `Tests/CoreDesignTests/CommentCardTests.swift` | Z4 | |
+| `Tests/CoreDesignTests/StatusRowTests.swift` | Z5 | |
+
+### Modified files
+| File | Zone | Change |
+|------|------|--------|
+| `Sources/CoreDesign/Colors/StatusColors.swift` | Z1 | Add 6-status × 4-variant, rename to primer-aligned tokens |
+| `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift` | Z1 | Add `glass:` param, use `TelegramGlassButtonModifier` |
+| `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift` | Z1 | Add `glass:` param, use `TelegramGlassButtonModifier` |
+| `Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift` | Z1 | Token migration (magic numbers → `CoreSpacing`/`CoreControlMetrics`) |
+| `Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift` | Z1 | Use shared `TelegramGlassButtonModifier` |
+
+---
+
+### Task 1: CoreButtonMetrics token (Z1)
+
+**Files:**
+- Create: `Sources/CoreDesign/Tokens/CoreButtonMetrics.swift`
+- Create: `Tests/CoreDesignTests/CoreButtonMetricsTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import Testing
+@testable import CoreDesign
+import CoreGraphics
+
+@Suite("CoreButtonMetrics")
+struct CoreButtonMetricsTests {
+    @Test("glassInset is 2pt")
+    func glassInset() {
+        #expect(CoreButtonMetrics.glassInset == 2.0)
+    }
+
+    @Test("glassBorderOpacity is 0.2")
+    func glassBorderOpacity() {
+        #expect(CoreButtonMetrics.glassBorderOpacity == 0.2)
+    }
+
+    @Test("pressedScale is 0.94")
+    func pressedScale() {
+        #expect(CoreButtonMetrics.pressedScale == 0.94)
+    }
+
+    @Test("all values are positive and non-zero")
+    func allPositive() {
+        #expect(CoreButtonMetrics.glassInset > 0)
+        #expect(CoreButtonMetrics.glassBorderOpacity > 0)
+        #expect(CoreButtonMetrics.pressedScale > 0 && CoreButtonMetrics.pressedScale < 1)
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter CoreButtonMetricsTests`
+Expected: FAIL — `CoreButtonMetrics` not found
+
+- [ ] **Step 3: Write the token**
+
+```swift
+//
+//  CoreButtonMetrics.swift
+//  CoreDesign
+//
+
+import CoreGraphics
+
+// MARK: - CoreButtonMetrics
+
+/// 按钮专用度量 token，服务于 Telegram 玻璃按钮四层结构。
+///
+/// 调用方式（caseless enum + `static let` of `CGFloat` / `Double`）：
+///
+/// ```swift
+/// shape.padding(CoreButtonMetrics.glassInset)
+///     .overlay(shape.strokeBorder(.white.opacity(CoreButtonMetrics.glassBorderOpacity), ...))
+/// ```
+public enum CoreButtonMetrics {
+    /// 底色内缩量 (2pt)。让底色从玻璃壳边缘微微透出，形成 Telegram 分层按钮的视觉纵深。
+    public static let glassInset: CGFloat = 2
+
+    /// 玻璃壳顶层细白描边的不透明度 (0.2)。配合 `CoreBorderWidth.hairline` 使用。
+    public static let glassBorderOpacity: Double = 0.2
+
+    /// 按钮按下时的缩放比例 (0.94)。提供 Telegram 风格的轻微凹陷反馈。
+    public static let pressedScale: Double = 0.94
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter CoreButtonMetricsTests`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/CoreDesign/Tokens/CoreButtonMetrics.swift Tests/CoreDesignTests/CoreButtonMetricsTests.swift
+git commit -m "feat: add CoreButtonMetrics token for Telegram glass button constants"
+```
+
+
+### Task 2: Expand StatusColors to 6-status × 4-variant system (Z1)
+
+**Files:**
+- Modify: `Sources/CoreDesign/Colors/StatusColors.swift`
+- Create: `Tests/CoreDesignTests/StatusColorsTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("StatusColors")
+struct StatusColorsTests {
+    @Test("accent status has 4 variants")
+    func accentVariants() {
+        // Verify all variants compile and return Color instances
+        let fg: Color = .statusAccentForeground
+        let emphasis: Color = .statusAccentEmphasis
+        let muted: Color = .statusAccentMuted
+        let subtle: Color = .statusAccentSubtle
+        #expect(fg != nil)
+        #expect(emphasis != nil)
+        #expect(muted != nil)
+        #expect(subtle != nil)
+    }
+
+    @Test("success status has 4 variants")
+    func successVariants() {
+        let fg: Color = .statusSuccessForeground
+        let emphasis: Color = .statusSuccessEmphasis
+        let muted: Color = .statusSuccessMuted
+        let subtle: Color = .statusSuccessSubtle
+        #expect(fg != nil)
+        #expect(emphasis != nil)
+        #expect(muted != nil)
+        #expect(subtle != nil)
+    }
+
+    @Test("attention status has 4 variants")
+    func attentionVariants() {
+        let _: Color = .statusAttentionForeground
+        let _: Color = .statusAttentionEmphasis
+        let _: Color = .statusAttentionMuted
+        let _: Color = .statusAttentionSubtle
+    }
+
+    @Test("danger status has 4 variants")
+    func dangerVariants() {
+        let _: Color = .statusDangerForeground
+        let _: Color = .statusDangerEmphasis
+        let _: Color = .statusDangerMuted
+        let _: Color = .statusDangerSubtle
+    }
+
+    @Test("done status has 4 variants")
+    func doneVariants() {
+        let _: Color = .statusDoneForeground
+        let _: Color = .statusDoneEmphasis
+        let _: Color = .statusDoneMuted
+        let _: Color = .statusDoneSubtle
+    }
+
+    @Test("existing info/warning/danger/success foreground-background-border tokens preserved")
+    func existingTokensPreserved() {
+        let _: Color = .infoForeground
+        let _: Color = .infoBackground
+        let _: Color = .infoBorder
+        let _: Color = .successForeground
+        let _: Color = .successBackground
+        let _: Color = .successBorder
+        let _: Color = .warningForeground
+        let _: Color = .warningBackground
+        let _: Color = .warningBorder
+        let _: Color = .dangerForeground
+        let _: Color = .dangerBackground
+        let _: Color = .dangerBorder
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter StatusColorsTests`
+Expected: FAIL — new status tokens not found
+
+- [ ] **Step 3: Rewrite StatusColors.swift**
+
+Replace the existing 4-status (info/success/warning/danger) with 6-status × 4-variant system. Create new colorsets in `Resources.xcassets/status/` for accent/attention/done colors, reusing existing colorsets for success (green) and danger (red):
+
+```swift
+import SwiftUI
+
+// MARK: - Status Colors (Primer 6-status × 4-variant)
+
+public extension Color {
+
+    // MARK: Accent (blue)
+    /// Primer `accent.fg` — link / focus / selection foreground text.
+    static let statusAccentForeground: Color = Color("status-accent-fg", bundle: .module)
+    /// Primer `accent.emphasis` — bold accent background (selected row, active toggle).
+    static let statusAccentEmphasis: Color = Color("status-accent-emphasis", bundle: .module)
+    /// Primer `accent.muted` — muted accent background (hover state).
+    static let statusAccentMuted: Color = Color("status-accent-muted", bundle: .module)
+    /// Primer `accent.subtle` — faint accent background (selection highlight).
+    static let statusAccentSubtle: Color = Color("status-accent-subtle", bundle: .module)
+
+    // MARK: Success (green)
+    /// Primer `success.fg` — success / merged / CI pass foreground text.
+    static let statusSuccessForeground: Color = Color("status-success-fg", bundle: .module)
+    /// Primer `success.emphasis` — bold success background.
+    static let statusSuccessEmphasis: Color = Color("status-success-emphasis", bundle: .module)
+    /// Primer `success.muted` — muted success background.
+    static let statusSuccessMuted: Color = Color("status-success-muted", bundle: .module)
+    /// Primer `success.subtle` — faint success background.
+    static let statusSuccessSubtle: Color = Color("status-success-subtle", bundle: .module)
+
+    // MARK: Attention (yellow)
+    /// Primer `attention.fg` — warning / pending / review foreground text.
+    static let statusAttentionForeground: Color = Color("status-attention-fg", bundle: .module)
+    /// Primer `attention.emphasis` — bold attention background.
+    static let statusAttentionEmphasis: Color = Color("status-attention-emphasis", bundle: .module)
+    /// Primer `attention.muted` — muted attention background.
+    static let statusAttentionMuted: Color = Color("status-attention-muted", bundle: .module)
+    /// Primer `attention.subtle` — faint attention background.
+    static let statusAttentionSubtle: Color = Color("status-attention-subtle", bundle: .module)
+
+    // MARK: Danger (red)
+    /// Primer `danger.fg` — error / delete / blocked foreground text.
+    static let statusDangerForeground: Color = Color("status-danger-fg", bundle: .module)
+    /// Primer `danger.emphasis` — bold danger background.
+    static let statusDangerEmphasis: Color = Color("status-danger-emphasis", bundle: .module)
+    /// Primer `danger.muted` — muted danger background.
+    static let statusDangerMuted: Color = Color("status-danger-muted", bundle: .module)
+    /// Primer `danger.subtle` — faint danger background.
+    static let statusDangerSubtle: Color = Color("status-danger-subtle", bundle: .module)
+
+    // MARK: Done (purple)
+    /// Primer `done.fg` — completed / closed / resolved foreground text.
+    static let statusDoneForeground: Color = Color("status-done-fg", bundle: .module)
+    /// Primer `done.emphasis` — bold done background.
+    static let statusDoneEmphasis: Color = Color("status-done-emphasis", bundle: .module)
+    /// Primer `done.muted` — muted done background.
+    static let statusDoneMuted: Color = Color("status-done-muted", bundle: .module)
+    /// Primer `done.subtle` — faint done background.
+    static let statusDoneSubtle: Color = Color("status-done-subtle", bundle: .module)
+
+    // MARK: Legacy compatibility (existing v1 API surface, preserved for callers)
+
+    static let infoForeground = Color.blue7
+    static let infoBackground = Color.blue1
+    static let infoBorder = Color.blue3
+
+    static let successForeground = Color.green7
+    static let successBackground = Color.green1
+    static let successBorder = Color.green3
+
+    static let warningForeground = Color.orange7
+    static let warningBackground = Color.orange1
+    static let warningBorder = Color.orange3
+
+    static let dangerForeground = Color.red7
+    static let dangerBackground = Color.red1
+    static let dangerBorder = Color.red3
+}
+```
+
+- [ ] **Step 4: Create required colorsets**
+
+Each colorset needs `Contents.json` with light/dark variants inside `Resources.xcassets/status/`. For the initial commit, create the 20 colorsets (5 statuses × 4 variants each) using the Color asset catalog format. Light values use Primer light palette; dark values use Primer dark palette.
+
+Run this to generate the directory structure:
+```bash
+mkdir -p Sources/CoreDesign/Resources/status
+for status in accent success attention danger done; do
+    for variant in fg emphasis muted subtle; do
+        cat > "Sources/CoreDesign/Resources/status/status-${status}-${variant}.colorset/Contents.json" <<JSON
+{
+  "colors" : [
+    {"color" : {"color-space" : "srgb","components" : {"red" : "0x00","green" : "0x00","blue" : "0x00","alpha" : "1.000"}},"idiom" : "universal"},
+    {"appearances" : [{"appearance" : "luminosity","value" : "dark"}],"color" : {"color-space" : "srgb","components" : {"red" : "0xFF","green" : "0xFF","blue" : "0xFF","alpha" : "1.000"}},"idiom" : "universal"}
+  ],
+  "info" : {"author" : "xcode","version" : 1}
+}
+JSON
+    done
+done
+```
+
+Then hand-edit each `Contents.json` with actual Primer hex values (see `docs/PRIMER_VERSION.md`).
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `swift test --filter StatusColorsTests`
+Expected: PASS
+
+- [ ] **Step 6: Verify legacy callers still compile**
+
+Run: `swift build`
+Expected: 0 errors
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add Sources/CoreDesign/Colors/StatusColors.swift Sources/CoreDesign/Resources/status/ Tests/CoreDesignTests/StatusColorsTests.swift
+git commit -m "feat: expand StatusColors to Primer 6-status x 4-variant system"
+```
+
+
+### Task 3: TelegramGlassButtonModifier (Z1)
+
+**Files:**
+- Create: `Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift`
+- (No separate test file — tested via Solid/Light button style refactors in Tasks 4–5)
+
+- [ ] **Step 1: Write the modifier**
+
+```swift
+//
+//  TelegramGlassButtonModifier.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - TelegramGlassButtonModifier
+
+/// Telegram 风格的玻璃按钮四层结构，抽取为可复用 modifier。
+///
+/// ## 四层结构 / Layer Stack
+///
+/// 1. **底色填充**：`Shape.fill(.background)`，颜色由调用方的 `.backgroundStyle()` 注入。
+/// 2. **内缩**：`CoreButtonMetrics.glassInset` (2pt) padding，让底色从玻璃边缘微微透出。
+/// 3. **玻璃壳**：`.glassEffect()`，iOS 26 液态玻璃材质。
+/// 4. **细白描边**：`Shape.strokeBorder(.white.opacity(0.2), lineWidth: .hairline)`。
+///
+/// ## 使用方式 / Usage
+///
+/// ```swift
+/// configuration.label
+///     .modifier(TelegramGlassButtonModifier(
+///         shape: Capsule(),
+///         isPressed: configuration.isPressed
+///     ))
+/// ```
+///
+/// Solid / Light / CircularGlass 三种有容器按钮样式共享此 modifier；
+/// Borderless 不参与（无视觉容器）。
+public struct TelegramGlassButtonModifier<S: Shape>: ViewModifier {
+    public let shape: S
+    public let isPressed: Bool
+
+    public init(shape: S, isPressed: Bool) {
+        self.shape = shape
+        self.isPressed = isPressed
+    }
+
+    public func body(content: Content) -> some View {
+        content
+            .background(
+                self.shape.fill(.background)
+                    .padding(CoreButtonMetrics.glassInset)
+                    .glassEffect()
+            )
+            .overlay(
+                self.shape.strokeBorder(
+                    .white.opacity(CoreButtonMetrics.glassBorderOpacity),
+                    lineWidth: CoreBorderWidth.hairline
+                )
+            )
+            .scaleEffect(self.isPressed ? CoreButtonMetrics.pressedScale : 1)
+            .animation(.snappy(duration: 0.16), value: self.isPressed)
+    }
+}
+```
+
+- [ ] **Step 2: Verify it compiles**
+
+Run: `swift build`
+Expected: 0 errors
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift
+git commit -m "feat: add TelegramGlassButtonModifier — shared glass button shell"
+```
+
+
+### Task 4: Refactor SolidButtonStyle (Z1)
+
+**Files:**
+- Modify: `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
+
+- [ ] **Step 1: Update SolidButtonStyle**
+
+Replace the body with the new glass-aware implementation:
+
+```swift
+//
+//  SolidButtonStyle.swift
+//  CoreDesign
+//
+
+import Foundation
+import SwiftUI
+
+// MARK: - SolidButtonStyle
+
+/// 主操作按钮样式（"solid button"）。
+///
+/// ## Telegram 玻璃模式（默认）
+///
+/// `glass: true`（默认）时使用 `TelegramGlassButtonModifier` 四层结构：
+/// 底色 + 2pt 内缩 + 玻璃壳 + 细白描边。底色由 `role.color` 注入。
+///
+/// `glass: false` 时退回到 Primer 实色 + 1px borderMuted 描边 + CoreElevation.small 阴影。
+///
+/// ## 使用场景 / Usage
+///
+/// 主要 CTA、表单提交、Merge 按钮等需要强烈视觉权重的主操作。
+public struct SolidButtonStyle: ButtonStyle {
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(CoreControlMetrics.font(for: self.controlSize))
+            .foregroundStyle(self.foregroundColor)
+            .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
+            .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
+            .contentShape(Capsule(style: .continuous))
+            .modifier(self.buttonBackground(configuration: configuration))
+            .opacity(configuration.isPressed ? 0.9 : 1)
+    }
+
+    let role: ButtonRoleStyleRole
+    let glass: Bool
+
+    public init(role: ButtonRoleStyleRole = .primary, glass: Bool = true) {
+        self.role = role
+        self.glass = glass
+    }
+
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
+
+    private var foregroundColor: Color {
+        self.glass ? .white : (self.isEnabled ? .contentOnAccent : .contentDisabled)
+    }
+
+    private func backgroundColor(isPressed: Bool) -> Color {
+        if !self.isEnabled {
+            return self.role.disabledColor
+        }
+        return isPressed ? self.role.activeColor : self.role.color
+    }
+
+    @ViewBuilder
+    private func buttonBackground(configuration: Configuration) -> some View {
+        if self.glass {
+            self.labelOnly(configuration: configuration)
+                .backgroundStyle(self.backgroundColor(isPressed: configuration.isPressed))
+                .modifier(TelegramGlassButtonModifier(
+                    shape: Capsule(style: .continuous),
+                    isPressed: configuration.isPressed
+                ))
+        } else {
+            // Primer 实色回退
+            self.labelOnly(configuration: configuration)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(self.backgroundColor(isPressed: configuration.isPressed))
+                        .coreShadow(.small)
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .strokeBorder(.borderMuted, lineWidth: CoreBorderWidth.thin)
+                )
+                .scaleEffect(configuration.isPressed ? CoreButtonMetrics.pressedScale : 1)
+                .animation(.snappy(duration: 0.16), value: configuration.isPressed)
+        }
+    }
+
+    /// Workaround: SwiftUI `backgroundStyle` only propagates to the `background` modifier
+    /// — not through `.modifier`. We apply `.backgroundStyle` on an intermediate view
+    /// so that `TelegramGlassButtonModifier`'s `shape.fill(.background)` picks it up.
+    @ViewBuilder
+    private func labelOnly(configuration: Configuration) -> some View {
+        configuration.label
+    }
+}
+
+// MARK: - ButtonStyle convenience
+
+public extension ButtonStyle where Self == SolidButtonStyle {
+    /// 构造主操作按钮样式。
+    ///
+    /// - Parameter role: 角色色板（默认 `.primary`）。
+    /// - Parameter glass: 是否启用 Telegram 玻璃模式（默认 `true`）。
+    static func solid(role: ButtonRoleStyleRole = .primary, glass: Bool = true) -> SolidButtonStyle {
+        SolidButtonStyle(role: role, glass: glass)
+    }
+}
+
+#Preview("Solid — glass") {
+    VStack(spacing: 12) {
+        Button {} label: { Text("Primary") }
+            .buttonStyle(.solid(role: .primary))
+        Button {} label: { Text("Danger") }
+            .buttonStyle(.solid(role: .danger))
+        Button {} label: { Text("Disabled") }
+            .buttonStyle(.solid(role: .primary))
+            .disabled(true)
+    }
+    .padding()
+}
+
+#Preview("Solid — no glass") {
+    VStack(spacing: 12) {
+        Button {} label: { Text("Primary") }
+            .buttonStyle(.solid(role: .primary, glass: false))
+        Button {} label: { Text("Secondary") }
+            .buttonStyle(.solid(role: .secondary, glass: false))
+    }
+    .padding()
+}
+```
+
+- [ ] **Step 2: Verify it compiles**
+
+Run: `swift build`
+Expected: 0 errors
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift
+git commit -m "feat: add glass param to SolidButtonStyle, use TelegramGlassButtonModifier"
+```
+
+
+### Task 5: Refactor LightButtonStyle (Z1)
+
+**Files:**
+- Modify: `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
+
+- [ ] **Step 1: Update LightButtonStyle**
+
+Replace the current `colorScheme`-branched implementation with the unified `glass:` parameter approach:
+
+```swift
+//
+//  LightButtonStyle.swift
+//  CoreDesign
+//
+
+import Foundation
+import SwiftUI
+
+// MARK: - LightButtonStyle
+
+/// 次要操作按钮样式（"light button"）。
+///
+/// `glass: true`（默认）时使用 `TelegramGlassButtonModifier`，`surfaceInteractive` 底色。
+/// `glass: false` 时退回到 Primer 浅灰实色 + CoreElevation.small 阴影 + borderSubtle 1px。
+public struct LightButtonStyle: ButtonStyle {
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(CoreControlMetrics.font(for: self.controlSize))
+            .foregroundStyle(self.textColor(isPressed: configuration.isPressed))
+            .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
+            .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
+            .contentShape(Capsule(style: .continuous))
+            .modifier(self.buttonBackground(configuration: configuration))
+            .opacity(configuration.isPressed ? 0.9 : 1)
+    }
+
+    let role: ButtonRoleStyleRole
+    let glass: Bool
+
+    public init(role: ButtonRoleStyleRole = .primary, glass: Bool = true) {
+        self.role = role
+        self.glass = glass
+    }
+
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
+
+    private func textColor(isPressed: Bool) -> Color {
+        if !self.isEnabled {
+            return self.role.disabledColor
+        }
+        return isPressed ? self.role.activeColor : self.role.color
+    }
+
+    @ViewBuilder
+    private func buttonBackground(configuration: Configuration) -> some View {
+        if self.glass {
+            configuration.label
+                .backgroundStyle(Color.surfaceInteractive)
+                .modifier(TelegramGlassButtonModifier(
+                    shape: Capsule(style: .continuous),
+                    isPressed: configuration.isPressed
+                ))
+        } else {
+            configuration.label
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(Color.surfaceInteractive)
+                        .coreShadow(.small)
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .strokeBorder(.borderSubtle, lineWidth: CoreBorderWidth.hairline)
+                )
+                .scaleEffect(configuration.isPressed ? CoreButtonMetrics.pressedScale : 1)
+                .animation(.snappy(duration: 0.16), value: configuration.isPressed)
+        }
+    }
+}
+
+// MARK: - ButtonStyle convenience
+
+public extension ButtonStyle where Self == LightButtonStyle {
+    static func light(role: ButtonRoleStyleRole = .primary, glass: Bool = true) -> LightButtonStyle {
+        LightButtonStyle(role: role, glass: glass)
+    }
+}
+
+#Preview("Light — glass") {
+    VStack(spacing: 12) {
+        Button {} label: { Text("Cancel") }
+            .buttonStyle(.light(role: .secondary))
+        Button {} label: { Text("Disabled") }
+            .buttonStyle(.light(role: .secondary))
+            .disabled(true)
+    }
+    .padding()
+    .background(Color.systemGroupedBackground)
+}
+
+#Preview("Light — no glass") {
+    VStack(spacing: 12) {
+        Button {} label: { Text("Cancel") }
+            .buttonStyle(.light(role: .secondary, glass: false))
+    }
+    .padding()
+}
+```
+
+- [ ] **Step 2: Verify it compiles**
+
+Run: `swift build`
+Expected: 0 errors
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift
+git commit -m "feat: add glass param to LightButtonStyle, use TelegramGlassButtonModifier"
+```
+
+
+### Task 6: Refactor BorderlessButtonStyle (Z1)
+
+**Files:**
+- Modify: `Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift`
+
+- [ ] **Step 1: Token migration — replace magic numbers**
+
+The existing `BorderlessButtonStyle` already has no hardcoded magic numbers for padding (uses `CoreControlMetrics`). This refactor is minimal — verify no hardcoded values, rename the convenience accessor from `borderless(role:)` to `borderless(role:)` (unchanged) and update doc comments to reflect the new role in the three-in-one system. No functional changes needed.
+
+- [ ] **Step 2: Verify it compiles**
+
+Run: `swift build`
+Expected: 0 errors
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift
+git commit -m "refactor: verify BorderlessButtonStyle token migration complete"
+```
+
+
+### Task 7: Refactor CircularGlassButtonStyle (Z1)
+
+**Files:**
+- Modify: `Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift`
+
+- [ ] **Step 1: Replace inline glass code with shared modifier**
+
+```swift
+//
+//  CircularGlassButtonStyle.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - CircularGlassButtonStyle
+
+/// 圆形玻璃浮按钮样式。
+///
+/// 始终使用 Telegram 玻璃四层结构（命名即语义），不使用 `glass:` 参数。
+/// 为 BottomInputBar 的 send / stop / shuffle 浮按钮，或任何漂浮在内容之上的
+/// 圆形 icon 按钮提供清晰的 elevation 暗示。
+public struct CircularGlassButtonStyle: ButtonStyle {
+    public var diameter: CGFloat = 38
+
+    public init(diameter: CGFloat = 38) {
+        self.diameter = diameter
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: self.diameter, height: self.diameter)
+            .contentShape(Circle())
+            .backgroundStyle(Color.surfaceInteractive)
+            .modifier(TelegramGlassButtonModifier(
+                shape: Circle(),
+                isPressed: configuration.isPressed
+            ))
+            .opacity(configuration.isPressed ? 0.9 : 1)
+    }
+}
+
+// MARK: - ButtonStyle convenience
+
+public extension ButtonStyle where Self == CircularGlassButtonStyle {
+    static var circularGlass: CircularGlassButtonStyle {
+        CircularGlassButtonStyle()
+    }
+
+    static func circularGlass(diameter: CGFloat) -> CircularGlassButtonStyle {
+        CircularGlassButtonStyle(diameter: diameter)
+    }
+}
+
+#Preview {
+    ZStack {
+        LinearGradient(colors: [.indigo, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+            .ignoresSafeArea()
+
+        Button {} label: {
+            Image(systemName: "wand.and.sparkles.inverse")
+                .font(.system(size: CoreControlMetrics.iconSize(for: .regular), weight: .semibold))
+                .foregroundStyle(.white)
+        }
+        .buttonStyle(.circularGlass)
+    }
+}
+```
+
+- [ ] **Step 2: Verify it compiles**
+
+Run: `swift build`
+Expected: 0 errors
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift
+git commit -m "refactor: use TelegramGlassButtonModifier in CircularGlassButtonStyle"
+```
+
+
+### Task 8: ProgressIndicator component (Z1)
+
+**Files:**
+- Create: `Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift`
+- Create: `Tests/CoreDesignTests/ProgressIndicatorTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("ProgressIndicator")
+struct ProgressIndicatorTests {
+    @Test("init creates without runtime errors")
+    func initCreatesInstance() {
+        let indicator = ProgressIndicator()
+        #expect(indicator != nil)
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter ProgressIndicatorTests`
+Expected: FAIL
+
+- [ ] **Step 3: Write the component**
+
+```swift
+//
+//  ProgressIndicator.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - ProgressIndicator
+
+/// 通用圆形加载指示器。
+///
+/// 封装系统 `ProgressView`，使用 Primer `accent` 色作为 tint，自动响应
+/// `@Environment(\.controlSize)` 调整尺寸。
+public struct ProgressIndicator: View {
+    public init() {}
+
+    @Environment(\.controlSize) private var controlSize
+
+    public var body: some View {
+        ProgressView()
+            .progressViewStyle(.circular)
+            .tint(.accent)
+            .controlSize(self.controlSize)
+            .accessibilityLabel("Loading")
+    }
+}
+
+#Preview {
+    VStack(spacing: 20) {
+        ProgressIndicator()
+            .controlSize(.small)
+        ProgressIndicator()
+            .controlSize(.regular)
+        ProgressIndicator()
+            .controlSize(.large)
+    }
+    .padding()
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter ProgressIndicatorTests`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift Tests/CoreDesignTests/ProgressIndicatorTests.swift
+git commit -m "feat: add ProgressIndicator component"
+```
+
+
+### Task 9: StateLabel component (Z2)
+
+**Files:**
+- Create: `Sources/CoreDesign/Components/StateLabel/StateLabel.swift`
+- Create: `Tests/CoreDesignTests/StateLabelTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("StateLabel")
+struct StateLabelTests {
+    @Test("active maps to success status color")
+    func activeMapsToSuccess() {
+        let label = StateLabel(.active)
+        #expect(label.style == .active)
+        #expect(label.label == "Active")
+    }
+
+    @Test("completed maps to done status color")
+    func completedMapsToDone() {
+        let label = StateLabel(.completed)
+        #expect(label.style == .completed)
+    }
+
+    @Test("custom label overrides default")
+    func customLabel() {
+        let label = StateLabel(.draft, label: "WIP")
+        #expect(label.label == "WIP")
+    }
+
+    @Test("all styles construct")
+    func allStylesConstruct() {
+        for style in [StateLabelStyle.active, .draft, .completed, .cancelled] {
+            let label = StateLabel(style)
+            #expect(label != nil)
+        }
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter StateLabelTests`
+Expected: FAIL
+
+- [ ] **Step 3: Write the component**
+
+```swift
+//
+//  StateLabel.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - StateLabelStyle
+
+/// 通用状态标签的语义样式。
+public enum StateLabelStyle: Sendable, Equatable {
+    case active      // green — in progress
+    case draft       // gray — not ready
+    case completed   // purple — finished
+    case cancelled   // red — cancelled
+}
+
+// MARK: - StateLabel
+
+/// 通用状态标识 pill。
+///
+/// 大圆角 + 彩色背景 + SF Symbol 图标 + 文字。颜色由 `StateLabelStyle` 枚举驱动，
+/// 映射到 `StatusColors` 系统的 emphasis 背景 + foreground 文字。
+public struct StateLabel: View {
+    public let style: StateLabelStyle
+    public let label: String
+
+    public init(_ style: StateLabelStyle, label: String? = nil) {
+        self.style = style
+        self.label = label ?? style.defaultLabel
+    }
+
+    public var body: some View {
+        HStack(spacing: CoreSpacing.xs) {
+            Image(systemName: self.iconName)
+                .font(.caption2)
+            Text(self.label)
+                .font(CoreTypography.bodySmallFont)
+        }
+        .foregroundStyle(self.foregroundColor)
+        .padding(.horizontal, CoreSpacing.sm)
+        .padding(.vertical, CoreSpacing.xxs)
+        .background(
+            Capsule(style: .continuous)
+                .fill(self.backgroundColor)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(self.label)
+    }
+
+    private var iconName: String {
+        switch self.style {
+        case .active: return "circle.fill"
+        case .draft: return "circle.dashed"
+        case .completed: return "checkmark.circle.fill"
+        case .cancelled: return "xmark.circle.fill"
+        }
+    }
+
+    private var foregroundColor: Color {
+        switch self.style {
+        case .active: return .statusSuccessForeground
+        case .draft: return .statusAttentionForeground
+        case .completed: return .statusDoneForeground
+        case .cancelled: return .statusDangerForeground
+        }
+    }
+
+    private var backgroundColor: Color {
+        switch self.style {
+        case .active: return .statusSuccessEmphasis
+        case .draft: return .statusAttentionEmphasis
+        case .completed: return .statusDoneEmphasis
+        case .cancelled: return .statusDangerEmphasis
+        }
+    }
+}
+
+private extension StateLabelStyle {
+    var defaultLabel: String {
+        switch self {
+        case .active: return "Active"
+        case .draft: return "Draft"
+        case .completed: return "Completed"
+        case .cancelled: return "Cancelled"
+        }
+    }
+}
+
+#Preview {
+    VStack(spacing: 12) {
+        StateLabel(.active)
+        StateLabel(.draft)
+        StateLabel(.completed)
+        StateLabel(.cancelled)
+        StateLabel(.active, label: "In Progress")
+    }
+    .padding()
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter StateLabelTests`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/StateLabel/StateLabel.swift Tests/CoreDesignTests/StateLabelTests.swift
+git commit -m "feat: add StateLabel component"
+```
+
+
+### Task 10: RefPill component (Z2)
+
+**Files:**
+- Create: `Sources/CoreDesign/Components/RefPill/RefPill.swift`
+- Create: `Tests/CoreDesignTests/RefPillTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("RefPill")
+struct RefPillTests {
+    @Test("single ref stores value")
+    func singleRef() {
+        let pill = RefPill("main")
+        #expect(pill.singleRef == "main")
+        #expect(pill.base == nil)
+        #expect(pill.head == nil)
+    }
+
+    @Test("base-head ref stores both values")
+    func baseHeadRef() {
+        let pill = RefPill(base: "main", head: "feat/foo")
+        #expect(pill.base == "main")
+        #expect(pill.head == "feat/foo")
+        #expect(pill.singleRef == nil)
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter RefPillTests`
+Expected: FAIL
+
+- [ ] **Step 3: Write the component**
+
+```swift
+//
+//  RefPill.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - RefPill
+
+/// 代码引用 pill。
+///
+/// 灰底 + 等宽字体 + 细边框，用于显示分支名、commit SHA、tag 等技术引用。
+/// 支持单引用（`RefPill("main")`）和双引用箭头连接（`RefPill(base: "main", head: "feat/foo")`）。
+public struct RefPill: View {
+    let singleRef: String?
+    let base: String?
+    let head: String?
+
+    public init(_ ref: String) {
+        self.singleRef = ref
+        self.base = nil
+        self.head = nil
+    }
+
+    public init(base: String, head: String) {
+        self.singleRef = nil
+        self.base = base
+        self.head = head
+    }
+
+    public var body: some View {
+        HStack(spacing: CoreSpacing.xs) {
+            Image(systemName: "arrow.triangle.branch")
+                .font(.caption2)
+            if let ref = self.singleRef {
+                Text(ref)
+                    .font(.caption.monospaced())
+            } else if let base = self.base, let head = self.head {
+                Text(base)
+                    .font(.caption.monospaced())
+                Image(systemName: "arrow.left")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text(head)
+                    .font(.caption.monospaced())
+            }
+        }
+        .padding(.horizontal, CoreSpacing.sm)
+        .padding(.vertical, CoreSpacing.xxs)
+        .background(
+            RoundedRectangle(cornerRadius: CoreRadius.small)
+                .fill(Color.surfaceCanvasInset)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: CoreRadius.small)
+                .strokeBorder(.borderMuted, lineWidth: CoreBorderWidth.thin)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(self.accessibilityText)
+        .accessibilityAddTraits(.isStaticText)
+    }
+
+    private var accessibilityText: String {
+        if let ref = self.singleRef {
+            return ref
+        } else if let base = self.base, let head = self.head {
+            return "\(base) from \(head)"
+        }
+        return ""
+    }
+}
+
+#Preview {
+    VStack(spacing: 12) {
+        RefPill("main")
+        RefPill(base: "main", head: "feat/foo")
+        RefPill("a1b2c3d4e5f6")
+    }
+    .padding()
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter RefPillTests`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/RefPill/RefPill.swift Tests/CoreDesignTests/RefPillTests.swift
+git commit -m "feat: add RefPill component"
+```
+
+
+### Task 11: FlowLayout (Z3)
+
+**Files:**
+- Create: `Sources/CoreDesign/Layout/FlowLayout.swift`
+- Create: `Tests/CoreDesignTests/FlowLayoutTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("FlowLayout")
+struct FlowLayoutTests {
+    @Test("init with default spacing uses CoreSpacing.xs")
+    func defaultSpacing() {
+        let layout = FlowLayout()
+        #expect(layout.spacing == CoreSpacing.xs)
+    }
+
+    @Test("init with custom spacing stores value")
+    func customSpacing() {
+        let layout = FlowLayout(spacing: 8)
+        #expect(layout.spacing == 8)
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter FlowLayoutTests`
+Expected: FAIL
+
+- [ ] **Step 3: Write the layout**
+
+```swift
+//
+//  FlowLayout.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - FlowLayout
+
+/// Tag 自动换行布局容器。
+///
+/// 使用 SwiftUI `Layout` 协议实现，子视图在行内容纳不下时自动折行。
+/// 配合现有 `Tag` 组件使用，构建 label chip group。
+///
+/// ```swift
+/// FlowLayout(spacing: CoreSpacing.xs) {
+///     Tag("bug", color: .red)
+///     Tag("enhancement", color: .blue)
+/// }
+/// ```
+public struct FlowLayout: Layout {
+    public let spacing: CGFloat
+
+    public init(spacing: CGFloat = CoreSpacing.xs) {
+        self.spacing = spacing
+    }
+
+    public func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        let rows = self.computeRows(proposalWidth: proposal.width, subviews: subviews)
+        let height = rows.reduce(0) { $0 + $1.maxHeight } + CGFloat(max(0, rows.count - 1)) * self.spacing
+        let width = proposal.width ?? rows.map(\.totalWidth).max() ?? 0
+        return CGSize(width: width, height: height)
+    }
+
+    public func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        let rows = self.computeRows(proposalWidth: bounds.width, subviews: subviews)
+        var y = bounds.minY
+
+        for row in rows {
+            var x = bounds.minX
+            for item in row.items {
+                let size = item.sizeThatFits(.unspecified)
+                item.place(at: CGPoint(x: x, y: y + (row.maxHeight - size.height) / 2), proposal: .unspecified)
+                x += size.width + self.spacing
+            }
+            y += row.maxHeight + self.spacing
+        }
+    }
+
+    private struct Row {
+        let items: [LayoutSubview]
+        let maxHeight: CGFloat
+        var totalWidth: CGFloat {
+            items.reduce(0) { acc, item in
+                acc + item.sizeThatFits(.unspecified).width
+            } + CGFloat(max(0, items.count - 1)) * spacing
+        }
+    }
+
+    private func computeRows(proposalWidth: CGFloat?, subviews: Subviews) -> [Row] {
+        let maxWidth = proposalWidth ?? .infinity
+        var rows: [Row] = []
+        var currentItems: [LayoutSubview] = []
+
+        for subview in subviews {
+            let itemSize = subview.sizeThatFits(.unspecified)
+            let projectedWidth = currentItems.reduce(itemSize.width) { $0 + $1.sizeThatFits(.unspecified).width + self.spacing }
+            + CGFloat(currentItems.count) * self.spacing
+
+            if projectedWidth > maxWidth && !currentItems.isEmpty {
+                let maxHeight = currentItems.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
+                rows.append(Row(items: currentItems, maxHeight: maxHeight))
+                currentItems = []
+            }
+            currentItems.append(subview)
+        }
+
+        if !currentItems.isEmpty {
+            let maxHeight = currentItems.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
+            rows.append(Row(items: currentItems, maxHeight: maxHeight))
+        }
+
+        return rows
+    }
+}
+
+#Preview {
+    FlowLayout(spacing: CoreSpacing.xs) {
+        ForEach(["bug", "enhancement", "help wanted", "documentation", "good first issue", "dependencies"], id: \.self) { label in
+            Tag(label)
+        }
+    }
+    .padding()
+    .frame(width: 280)
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter FlowLayoutTests`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/CoreDesign/Layout/FlowLayout.swift Tests/CoreDesignTests/FlowLayoutTests.swift
+git commit -m "feat: add FlowLayout for tag-wrapping container"
+```
+
+
+### Task 12: AvatarGroup component (Z3)
+
+**Files:**
+- Create: `Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift`
+- Create: `Tests/CoreDesignTests/AvatarGroupTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("AvatarGroup")
+struct AvatarGroupTests {
+    @Test("init with max parameter stores value")
+    func initMaxParam() {
+        let group = AvatarGroup(max: 5) {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+            Circle().fill(.red).frame(width: 32, height: 32)
+        }
+        #expect(group.max == 5)
+    }
+
+    @Test("default max is 3")
+    func defaultMax() {
+        let group = AvatarGroup {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+        }
+        #expect(group.max == 3)
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter AvatarGroupTests`
+Expected: FAIL
+
+- [ ] **Step 3: Write the component**
+
+```swift
+//
+//  AvatarGroup.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - AvatarGroup
+
+/// 堆叠头像组。
+///
+/// 前 N 个 avatar 交叠显示，超出 `max` 的部分显示 "+N" 计数 pill。
+/// 使用 `Group(subviews:)` (iOS 17+) 遍历子视图。
+///
+/// ```swift
+/// AvatarGroup(max: 3) {
+///     Image("avatar1").resizable().clipShape(.circle).frame(width: 32, height: 32)
+///     Image("avatar2").resizable().clipShape(.circle).frame(width: 32, height: 32)
+/// }
+/// ```
+public struct AvatarGroup<Avatars: View>: View {
+    public let max: Int
+
+    @ViewBuilder let avatars: () -> Avatars
+
+    public init(max: Int = 3, @ViewBuilder avatars: @escaping () -> Avatars) {
+        self.max = max
+        self.avatars = avatars
+    }
+
+    @Environment(\.controlSize) private var controlSize
+
+    private var overlapOffset: CGFloat {
+        switch self.controlSize {
+        case .mini, .small: return -6
+        case .regular: return -8
+        case .large, .extraLarge: return -10
+        @unknown default: return -8
+        }
+    }
+
+    public var body: some View {
+        Group(subviews: self.avatars()) { subviews in
+            let visible = subviews.prefix(self.max)
+            let overflow = subviews.count - self.max
+
+            HStack(spacing: self.overlapOffset) {
+                ForEach(Array(zip(visible.indices, visible)), id: \.0) { _, subview in
+                    subview
+                        .clipShape(Circle())
+                        .overlay(
+                            Circle()
+                                .strokeBorder(Color.systemBackground, lineWidth: CoreBorderWidth.thin)
+                        )
+                        .accessibilityHidden(true)
+                }
+
+                if overflow > 0 {
+                    Text("+\(overflow)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: self.avatarSize, height: self.avatarSize)
+                        .background(
+                            Circle()
+                                .fill(Color.surfaceCanvasInset)
+                        )
+                        .overlay(
+                            Circle()
+                                .strokeBorder(.borderMuted, lineWidth: CoreBorderWidth.thin)
+                        )
+                        .accessibilityLabel("\(overflow) more")
+                }
+            }
+        }
+    }
+
+    private var avatarSize: CGFloat {
+        switch self.controlSize {
+        case .mini: return 20
+        case .small: return 24
+        case .regular: return 32
+        case .large: return 40
+        case .extraLarge: return 48
+        @unknown default: return 32
+        }
+    }
+}
+
+#Preview {
+    VStack(spacing: 20) {
+        AvatarGroup {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+            Circle().fill(.green).frame(width: 32, height: 32)
+            Circle().fill(.red).frame(width: 32, height: 32)
+            Circle().fill(.orange).frame(width: 32, height: 32)
+            Circle().fill(.purple).frame(width: 32, height: 32)
+        }
+        AvatarGroup(max: 2) {
+            Circle().fill(.blue).frame(width: 24, height: 24)
+            Circle().fill(.green).frame(width: 24, height: 24)
+            Circle().fill(.red).frame(width: 24, height: 24)
+        }
+    }
+    .padding()
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter AvatarGroupTests`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift Tests/CoreDesignTests/AvatarGroupTests.swift
+git commit -m "feat: add AvatarGroup component"
+```
+
+
+### Task 13: ProgressBar component (Z3)
+
+**Files:**
+- Create: `Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift`
+- Create: `Tests/CoreDesignTests/ProgressBarTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("ProgressBar")
+struct ProgressBarTests {
+    @Test("init with value stores clamped value")
+    func initValue() {
+        let bar = ProgressBar(value: 0.6)
+        #expect(bar.value == 0.6)
+    }
+
+    @Test("value clamped to 0...1")
+    func valueClamping() {
+        let low = ProgressBar(value: -0.5)
+        #expect(low.value == 0.0)
+        let high = ProgressBar(value: 1.5)
+        #expect(high.value == 1.0)
+    }
+
+    @Test("optional tint and label stored")
+    func optionalParams() {
+        let bar = ProgressBar(value: 0.3, tint: .done, label: "3 of 10")
+        #expect(bar.value == 0.3)
+        #expect(bar.label == "3 of 10")
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter ProgressBarTests`
+Expected: FAIL
+
+- [ ] **Step 3: Write the component**
+
+```swift
+//
+//  ProgressBar.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - ProgressBar
+
+/// 水平进度条。
+///
+/// 灰色底轨 + 可配置彩色填充 + 可选左侧 label 文本。
+/// 高度由 `@Environment(\.controlSize)` 通过 `CoreControlMetrics` 决定。
+public struct ProgressBar: View {
+    public let value: Double  // 0.0...1.0
+    public let tint: Color?
+    public let label: String?
+
+    public init(value: Double, tint: Color? = nil, label: String? = nil) {
+        self.value = min(max(value, 0), 1)
+        self.tint = tint
+        self.label = label
+    }
+
+    @Environment(\.controlSize) private var controlSize
+
+    public var body: some View {
+        HStack(spacing: CoreSpacing.sm) {
+            if let label = self.label {
+                Text(label)
+                    .font(CoreTypography.bodySmallFont)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: CoreRadius.small)
+                        .fill(Color.surfaceCanvasInset)
+                    RoundedRectangle(cornerRadius: CoreRadius.small)
+                        .fill(self.tint ?? .accent)
+                        .frame(width: geometry.size.width * CGFloat(self.value))
+                }
+            }
+            .frame(height: self.barHeight)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue("\(Int(self.value * 100))% complete")
+    }
+
+    private var barHeight: CGFloat {
+        CoreControlMetrics.height(for: self.controlSize) / 4
+    }
+}
+
+#Preview {
+    VStack(spacing: 16) {
+        ProgressBar(value: 0.0)
+        ProgressBar(value: 0.5, label: "50%")
+        ProgressBar(value: 1.0, tint: .statusSuccessEmphasis, label: "Done")
+    }
+    .padding()
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter ProgressBarTests`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift Tests/CoreDesignTests/ProgressBarTests.swift
+git commit -m "feat: add ProgressBar component"
+```
+
+
+### Task 14: TimelineItem + TimelineDepthKey (Z4)
+
+**Files:**
+- Create: `Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift`
+- Create: `Tests/CoreDesignTests/TimelineItemTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("TimelineItem")
+struct TimelineItemTests {
+    @Test("init creates instance with default isLast")
+    func initDefault() {
+        let item = TimelineItem(icon: { Circle().fill(.blue).frame(width: 20, height: 20) }) {
+            Text("content")
+        }
+        #expect(item.isLast == false)
+    }
+
+    @Test("init creates instance with explicit isLast")
+    func initExplicit() {
+        let item = TimelineItem(
+            icon: { Circle().fill(.blue).frame(width: 20, height: 20) },
+            isLast: true
+        ) {
+            Text("content")
+        }
+        #expect(item.isLast == true)
+    }
+
+    @Test("timelineDepthKey defaults to 0")
+    func defaultDepth() {
+        #expect(TimelineDepthKey.defaultValue == 0)
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter TimelineItemTests`
+Expected: FAIL
+
+- [ ] **Step 3: Write the component (includes TimelineDepthKey)**
+
+```swift
+//
+//  TimelineItem.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - TimelineDepthKey
+
+struct TimelineDepthKey: EnvironmentKey {
+    static let defaultValue: Int = 0
+}
+
+extension EnvironmentValues {
+    var timelineDepth: Int {
+        get { self[TimelineDepthKey.self] }
+        set { self[TimelineDepthKey.self] = newValue }
+    }
+}
+
+// MARK: - TimelineItem
+
+/// 时间线脊柱节点容器。
+///
+/// 左侧脊柱（连接线 + 图标圆点）+ 右侧内容槽。通过 `@Environment(\.timelineDepth)`
+/// 自动管理缩进递归——父级嵌套子 `TimelineItem` 时缩进自动 +1，无需手动传参。
+///
+/// ```swift
+/// TimelineItem(icon: avatarView, isLast: false) {
+///     CommentCard(author: "evan", ...) { ... }
+///     // 回复嵌套（自动缩进）
+///     TimelineItem(icon: smallAvatar, isLast: true) {
+///         CommentCard(author: "bot", ...) { ... }
+///     }
+/// }
+/// ```
+public struct TimelineItem<Icon: View, Content: View>: View {
+    @ViewBuilder let icon: () -> Icon
+    @ViewBuilder let content: () -> Content
+    public let isLast: Bool
+
+    public init(
+        @ViewBuilder icon: @escaping () -> Icon,
+        isLast: Bool = false,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.icon = icon
+        self.isLast = isLast
+        self.content = content
+    }
+
+    @Environment(\.timelineDepth) private var depth
+
+    private var indent: CGFloat {
+        CGFloat(self.depth) * CoreSpacing.xl
+    }
+
+    public var body: some View {
+        HStack(alignment: .top, spacing: CoreSpacing.sm) {
+            // Spine column
+            self.spineView
+            // Content column
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                self.content()
+            }
+            .environment(\.timelineDepth, self.depth + 1)
+        }
+        .padding(.leading, self.indent)
+    }
+
+    private var spineView: some View {
+        VStack(spacing: 0) {
+            // Top connection line (from previous node)
+            Rectangle()
+                .fill(.borderMuted)
+                .frame(width: CoreBorderWidth.thin, height: CoreSpacing.sm)
+
+            // Icon dot
+            self.icon()
+                .frame(width: self.dotSize, height: self.dotSize)
+
+            // Bottom connection line (to next node, hidden if last)
+            if !self.isLast {
+                Rectangle()
+                    .fill(.borderMuted)
+                    .frame(width: CoreBorderWidth.thin, height: CoreSpacing.sm)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var dotSize: CGFloat {
+        switch self.depth {
+        case 0: return 32
+        default: return 20
+        }
+    }
+}
+
+#Preview {
+    VStack(alignment: .leading, spacing: 0) {
+        TimelineItem(icon: {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+                .overlay(Text("A").foregroundStyle(.white).font(.caption))
+        }, isLast: false) {
+            VStack(alignment: .leading) {
+                Text("First event").font(.headline)
+                TimelineItem(icon: {
+                    Circle().fill(.green).frame(width: 20, height: 20)
+                }, isLast: true) {
+                    Text("Nested reply").font(.subheadline)
+                }
+            }
+        }
+        TimelineItem(icon: {
+            Circle().fill(.gray).frame(width: 32, height: 32)
+        }, isLast: true) {
+            Text("Last event").font(.headline)
+        }
+    }
+    .padding()
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter TimelineItemTests`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift Tests/CoreDesignTests/TimelineItemTests.swift
+git commit -m "feat: add TimelineItem with automatic depth-aware indentation"
+```
+
+
+### Task 15: EventRow component (Z4)
+
+**Files:**
+- Create: `Sources/CoreDesign/Components/EventRow/EventRow.swift`
+- Create: `Tests/CoreDesignTests/EventRowTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("EventRow")
+struct EventRowTests {
+    @Test("init stores parameters with pill content")
+    func initWithPill() {
+        let row = EventRow(actor: "renovate", action: "force-pushed from", timeAgo: "2d") {
+            Text("abc")
+        }
+        #expect(row.actor == "renovate")
+        #expect(row.action == "force-pushed from")
+        #expect(row.timeAgo == "2d")
+    }
+
+    @Test("init stores parameters without pill")
+    func initWithoutPill() {
+        let row = EventRow(actor: "evan", action: "commented", timeAgo: "1h") {
+            EmptyView()
+        }
+        #expect(row.actor == "evan")
+        #expect(row.action == "commented")
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter EventRowTests`
+Expected: FAIL
+
+- [ ] **Step 3: Write the component**
+
+```swift
+//
+//  EventRow.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - EventRow
+
+/// 紧凑单行时间线事件。
+///
+/// Actor + 动作文本 + 可选 object pill + 时间戳。用于 TimelineItem 内容槽中
+/// 的非评论事件行（label 添加、force-push、commit 引用等）。
+///
+/// ```swift
+/// EventRow(actor: "renovate", action: "force-pushed from", timeAgo: "2 days ago") {
+///     RefPill("4d2040c")
+/// }
+/// ```
+public struct EventRow<PillContent: View>: View {
+    public let actor: String
+    public let action: String
+    public let timeAgo: String
+
+    @ViewBuilder let pill: () -> PillContent
+
+    public init(
+        actor: String,
+        action: String,
+        timeAgo: String,
+        @ViewBuilder pill: @escaping () -> PillContent = { EmptyView() }
+    ) {
+        self.actor = actor
+        self.action = action
+        self.timeAgo = timeAgo
+        self.pill = pill
+    }
+
+    public var body: some View {
+        HStack(spacing: CoreSpacing.xs) {
+            Text(self.actor)
+                .font(CoreTypography.bodyMediumFont)
+                .fontWeight(.medium)
+            Text(self.action)
+                .font(CoreTypography.bodyMediumFont)
+                .foregroundStyle(.secondary)
+            self.pill()
+            Text(self.timeAgo)
+                .font(CoreTypography.bodySmallFont)
+                .foregroundStyle(.tertiary)
+        }
+        .lineLimit(1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(self.actor) \(self.action) \(self.timeAgo)")
+    }
+}
+
+#Preview {
+    VStack(alignment: .leading, spacing: 8) {
+        EventRow(actor: "renovate", action: "added the", timeAgo: "2 days ago") {
+            Tag("dependencies")
+        }
+        EventRow(actor: "renovate", action: "force-pushed from", timeAgo: "2 days ago") {
+            RefPill("4d2040c")
+        }
+        EventRow(actor: "evan", action: "commented", timeAgo: "1 hour ago")
+    }
+    .padding()
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter EventRowTests`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/EventRow/EventRow.swift Tests/CoreDesignTests/EventRowTests.swift
+git commit -m "feat: add EventRow component"
+```
+
+
+### Task 16: CommentCard component (Z4)
+
+**Files:**
+- Create: `Sources/CoreDesign/Components/CommentCard/CommentCard.swift`
+- Create: `Tests/CoreDesignTests/CommentCardTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("CommentCard")
+struct CommentCardTests {
+    @Test("init with required params, not minimized")
+    func initNotMinimized() {
+        let card = CommentCard(author: "evan", timestamp: "2h ago") {
+            Text("Hello world")
+        }
+        #expect(card.author == "evan")
+        #expect(card.role == nil)
+        #expect(card.timestamp == "2h ago")
+        #expect(card.isMinimized == nil)
+    }
+
+    @Test("init with role and minimized binding")
+    func initWithRole() {
+        let card = CommentCard(
+            author: "bot",
+            role: "Bot",
+            timestamp: "1d ago",
+            isMinimized: Binding.constant(true)
+        ) {
+            Text("auto-generated")
+        }
+        #expect(card.author == "bot")
+        #expect(card.role == "Bot")
+        #expect(card.isMinimized?.wrappedValue == true)
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter CommentCardTests`
+Expected: FAIL
+
+- [ ] **Step 3: Write the component**
+
+```swift
+//
+//  CommentCard.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - CommentCard
+
+/// 通用评论卡片。
+///
+/// Header（作者名 + 可选 role badge + 时间戳）+ 主体内容 slot + 最小化提示。
+/// Avatar 由外层 `TimelineItem` 的 icon 槽提供，不在卡片内。
+///
+/// `isMinimized` 为 `Binding<Bool>` 可选：`nil` 时不可折叠（始终展开）；
+/// 非 nil 时由调用方控制折叠/展开状态。
+public struct CommentCard<BodyContent: View>: View {
+    public let author: String
+    public let role: String?
+    public let timestamp: String
+    public let isMinimized: Binding<Bool>?
+
+    @ViewBuilder let content: () -> BodyContent
+
+    public init(
+        author: String,
+        role: String? = nil,
+        timestamp: String,
+        isMinimized: Binding<Bool>? = nil,
+        @ViewBuilder content: @escaping () -> BodyContent
+    ) {
+        self.author = author
+        self.role = role
+        self.timestamp = timestamp
+        self.isMinimized = isMinimized
+        self.content = content
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            // Header
+            HStack(spacing: CoreSpacing.xs) {
+                Text(self.author)
+                    .font(CoreTypography.bodyMediumFont)
+                    .fontWeight(.semibold)
+                if let role = self.role {
+                    Text(role)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, CoreSpacing.xs)
+                        .padding(.vertical, 1)
+                        .background(
+                            Capsule()
+                                .fill(Color.surfaceCanvasInset)
+                        )
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(.borderMuted, lineWidth: CoreBorderWidth.thin)
+                        )
+                }
+                Spacer()
+                Text(self.timestamp)
+                    .font(CoreTypography.bodySmallFont)
+                    .foregroundStyle(.tertiary)
+            }
+
+            // Body or minimized placeholder
+            if let binding = self.isMinimized, binding.wrappedValue {
+                HStack(spacing: CoreSpacing.sm) {
+                    Text("This content has been minimized.")
+                        .font(CoreTypography.bodySmallFont)
+                        .foregroundStyle(.secondary)
+                    Button("Show") {
+                        binding.wrappedValue = false
+                    }
+                    .font(CoreTypography.bodySmallFont)
+                    .foregroundStyle(.accent)
+                }
+            } else {
+                self.content()
+            }
+        }
+        .padding(CoreSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: CoreRadius.medium)
+                .fill(Color.surfaceCard)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: CoreRadius.medium)
+                .strokeBorder(.borderMuted, lineWidth: CoreBorderWidth.thin)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Comment by \(self.author)")
+    }
+}
+
+#Preview("Normal") {
+    CommentCard(author: "evan", role: "Contributor", timestamp: "2 hours ago") {
+        Text("This is a sample comment body.")
+            .font(.body)
+    }
+    .padding()
+}
+
+#Preview("Minimized") {
+    CommentCard(
+        author: "renovate",
+        role: "Bot",
+        timestamp: "2 days ago",
+        isMinimized: Binding.constant(true)
+    ) {
+        Text("chore(deps): update github actions")
+    }
+    .padding()
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter CommentCardTests`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/CommentCard/CommentCard.swift Tests/CoreDesignTests/CommentCardTests.swift
+git commit -m "feat: add CommentCard component with minimized toggle"
+```
+
+
+### Task 17: StatusRow component (Z5)
+
+**Files:**
+- Create: `Sources/CoreDesign/Components/StatusRow/StatusRow.swift`
+- Create: `Tests/CoreDesignTests/StatusRowTests.swift`
+
+- [ ] **Step 1: Write the test**
+
+```swift
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("StatusRow")
+struct StatusRowTests {
+    @Test("init stores parameters")
+    func initParams() {
+        let row = StatusRow(label: "build (arm64)", duration: "2m 14s", result: .success)
+        #expect(row.label == "build (arm64)")
+        #expect(row.duration == "2m 14s")
+        #expect(row.result == .success)
+    }
+
+    @Test("all result cases construct")
+    func allResults() {
+        for result in [StatusResult.success, .failure, .pending, .skipped] {
+            let row = StatusRow(label: "test", duration: "0s", result: result)
+            #expect(row.result == result)
+        }
+    }
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `swift test --filter StatusRowTests`
+Expected: FAIL
+
+- [ ] **Step 3: Write the component**
+
+```swift
+//
+//  StatusRow.swift
+//  CoreDesign
+//
+
+import SwiftUI
+
+// MARK: - StatusResult
+
+/// CI 检查结果状态。
+public enum StatusResult: Sendable, Equatable {
+    case success
+    case failure
+    case pending
+    case skipped
+}
+
+// MARK: - StatusRow
+
+/// CI 检查状态行。图标 + 名称 + 耗时 + 结果指示器。
+///
+/// 用于平铺的检查列表（VStack），不是时间线组件。
+public struct StatusRow: View {
+    public let label: String
+    public let duration: String
+    public let result: StatusResult
+
+    public init(label: String, duration: String, result: StatusResult) {
+        self.label = label
+        self.duration = duration
+        self.result = result
+    }
+
+    public var body: some View {
+        HStack(spacing: CoreSpacing.sm) {
+            Image(systemName: self.resultIcon)
+                .foregroundStyle(self.resultColor)
+                .font(.caption)
+
+            Text(self.label)
+                .font(CoreTypography.bodySmallFont)
+                .lineLimit(1)
+
+            Spacer()
+
+            Text(self.duration)
+                .font(CoreTypography.bodySmallFont)
+                .foregroundStyle(.tertiary)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, CoreSpacing.md)
+        .padding(.vertical, CoreSpacing.sm)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(self.resultLabel): \(self.label), \(self.duration)")
+        .accessibilityValue(self.resultLabel)
+    }
+
+    private var resultIcon: String {
+        switch self.result {
+        case .success: return "checkmark.circle.fill"
+        case .failure: return "xmark.circle.fill"
+        case .pending: return "clock"
+        case .skipped: return "minus.circle"
+        }
+    }
+
+    private var resultColor: Color {
+        switch self.result {
+        case .success: return .statusSuccessForeground
+        case .failure: return .statusDangerForeground
+        case .pending: return .statusAttentionForeground
+        case .skipped: return .secondary
+        }
+    }
+
+    private var resultLabel: String {
+        switch self.result {
+        case .success: return "Passed"
+        case .failure: return "Failed"
+        case .pending: return "Pending"
+        case .skipped: return "Skipped"
+        }
+    }
+}
+
+#Preview {
+    VStack(spacing: 0) {
+        StatusRow(label: "build (arm64)", duration: "2m 14s", result: .success)
+        Divider()
+        StatusRow(label: "test (macOS)", duration: "3m 01s", result: .success)
+        Divider()
+        StatusRow(label: "lint", duration: "0m 12s", result: .failure)
+        Divider()
+        StatusRow(label: "deploy (preview)", duration: "—", result: .pending)
+        Divider()
+        StatusRow(label: "analyze", duration: "—", result: .skipped)
+    }
+    .padding()
+    .background(Color.systemBackground)
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `swift test --filter StatusRowTests`
+Expected: PASS
+
+- [ ] **Step 5: Verify full build**
+
+Run: `swift build`
+Expected: 0 errors
+
+- [ ] **Step 6: Run all tests**
+
+Run: `swift test`
+Expected: ALL PASS
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add Sources/CoreDesign/Components/StatusRow/StatusRow.swift Tests/CoreDesignTests/StatusRowTests.swift
+git commit -m "feat: add StatusRow component"
+```
