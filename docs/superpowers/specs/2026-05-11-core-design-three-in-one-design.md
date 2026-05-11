@@ -29,7 +29,7 @@ CoreDesign 当前的 v2 路线图完全对齐 GitHub Primer。本 spec 替代现
 ### Layer 2: GitHub Primer Skeleton
 
 - **6 状态色 × 4 变体**：`accent`(blue) / `success`(green) / `attention`(yellow) / `danger`(red) / `done`(purple)，各有 `fg` / `emphasis` / `muted` / `subtle`。
-- **表面层级**：`canvas → canvasSubtle → canvasInset → panel → sidebar → card`。
+- **表面层级**：`surfaceCanvas → surfaceCanvasSubtle → surfaceCanvasInset → surfacePanel → surfaceSidebar → surfaceCard`。
 - **边框驱动分隔**：`borderMuted`(1px) / `borderSubtle` / `borderEmphasis` / `borderFocus`(2px)，用线条而非阴影划分区域。
 - **功能性排版**：`CoreTypography` 提供标题/正文/标签层级。
 - **控件尺寸**：`CoreControlMetrics` 按 `ControlSize` 分 5 档。
@@ -105,10 +105,16 @@ public enum CoreButtonMetrics {
 Shared glass shell modifier used by Solid, Light, and CircularGlass styles:
 
 ```swift
-struct TelegramGlassButtonModifier<S: Shape>: ViewModifier {
-    let shape: S
-    let isPressed: Bool
-    func body(content: Content) -> some View {
+public struct TelegramGlassButtonModifier<S: Shape>: ViewModifier {
+    public let shape: S
+    public let isPressed: Bool
+
+    public init(shape: S, isPressed: Bool) {
+        self.shape = shape
+        self.isPressed = isPressed
+    }
+
+    public func body(content: Content) -> some View {
         content
             .background(
                 shape.fill(.background)
@@ -150,10 +156,15 @@ extension ButtonStyle where Self == CircularGlassButtonStyle {
     static var circularGlass: CircularGlassButtonStyle
 }
 
-extension ButtonStyle where Self == BorderlessButtonStyle {
+extension PrimitiveButtonStyle where Self == BorderlessButtonStyle {
     static var borderless: BorderlessButtonStyle
 }
 ```
+
+**Breaking changes:**
+- `.solidButton(role:)` → `.solid(role:)` (shorter accessor name)
+- `.lightButton(role:)` → `.light(role:)` (shorter accessor name)
+- `SolidButtonStyle` doc comment (epic ADR #3) is overridden: Solid/Light now default to glass; the ADR's glass whitelist is replaced by the `glass:` parameter.
 
 **File changes:**
 
@@ -212,7 +223,16 @@ public struct StateLabel: View {
 }
 ```
 
-Background uses the corresponding `StatusColors` emphasis color; text uses the matching foreground. Icon auto-selected per style.
+Background uses the corresponding `StatusColors` emphasis color; text uses the matching foreground. Mapping from `StateLabelStyle` to `StatusColors`:
+
+| Style Case | Status Color | SF Symbol |
+|---|---|---|
+| `.active` | `success` | `circle.fill` |
+| `.draft` | `attention` | `circle.dashed` |
+| `.completed` | `done` | `checkmark.circle.fill` |
+| `.cancelled` | `danger` | `xmark.circle.fill` |
+
+`label` defaults to the style's name (e.g., "Active", "Draft") when nil.
 
 **`RefPill` (`Components/RefPill/RefPill.swift` — new)**
 
@@ -249,6 +269,8 @@ public struct AvatarGroup<Avatars: View>: View {
     )
 }
 ```
+
+Implementation: uses `Group(subviews: avatars())` (iOS 17+) to count and iterate individual subviews from the opaque `Avatars: View` type. Each subview should be `Identifiable` or assigned explicit `id` key paths for reliable diffing.
 
 **`ProgressBar` (`Components/ProgressBar/ProgressBar.swift` — new)**
 
@@ -321,7 +343,20 @@ public struct TimelineItem<Icon: View, Content: View>: View {
 }
 ```
 
-Indentation is automatic via `@Environment(\.timelineDepth)`:
+Indentation is automatic via a custom environment key (defined in `Tokens/EnvironmentKeys.swift` or co-located with `TimelineItem`):
+
+```swift
+struct TimelineDepthKey: EnvironmentKey {
+    static let defaultValue: Int = 0
+}
+extension EnvironmentValues {
+    var timelineDepth: Int {
+        get { self[TimelineDepthKey.self] }
+        set { self[TimelineDepthKey.self] = newValue }
+    }
+}
+```
+
 - `TimelineItem` reads current depth → offsets spine + content by `depth * CoreSpacing.xl`
 - Sets `\.timelineDepth` to `depth + 1` for children
 - Callers never pass indentation explicitly
@@ -341,12 +376,12 @@ TimelineItem(icon: avatar) {                  // depth 0, auto
 Compact single-line timeline event. Actor + action text + optional object pill + timestamp.
 
 ```swift
-public struct EventRow<Object: View>: View {
+public struct EventRow<PillContent: View>: View {
     public init(
         actor: String,
-        action: String,              // "force-pushed", "added the label"
+        action: String,                   // "force-pushed", "added the label"
         timeAgo: String,
-        @ViewBuilder object: () -> Object  // RefPill, Tag, etc.
+        @ViewBuilder pill: () -> PillContent  // RefPill, Tag, etc.
     )
 }
 ```
@@ -413,6 +448,28 @@ Results auto-color: success → green, failure → red, pending → yellow, skip
 |------|------|
 | `Components/StatusRow/StatusRow.swift` | New |
 
+
+## Accessibility
+
+All components must meet baseline accessibility requirements:
+
+| Component | Requirement |
+|-----------|------------|
+| `TelegramGlassButtonModifier` | Content label passes through to button; pressed state uses `.accessibilityAddTraits(.isButton)` |
+| `ProgressIndicator` | `.accessibilityLabel("Loading")` when indeterminate |
+| `StateLabel` | Icon is decorative by default (`Image(decorative:)`); label text serves as the accessible name |
+| `RefPill` | Trait `.isStaticText`; full ref string as label |
+| `AvatarGroup` | Avatars are `.accessibilityHidden(true)` (decorative); "+N" pill reads "N more" |
+| `ProgressBar` | `.accessibilityValue("60% complete")` derived from value |
+| `TimelineItem` | Spine line and dot are `.accessibilityHidden(true)` (structural); content slot handles its own labels |
+| `EventRow` | Combines actor + action + timestamp into single `.accessibilityLabel()` |
+| `CommentCard` | Minimize/expand button has `.accessibilityAction(.default, "Toggle visibility")` |
+| `StatusRow` | Result icon labeled (`"Passed"`, `"Failed"`, `"Pending"`, `"Skipped"`); duration as `.accessibilityValue()` |
+
+SwiftUI accessibility conventions:
+- Decorative elements use `.accessibilityHidden(true)`
+- Interactive elements use `.accessibilityElement(children: .combine)` when grouping makes sense
+- Icons that convey meaning use `Image(systemName:)` with `.accessibilityLabel(_:)`; purely decorative icons use `Image(decorative:)`
 
 ## Components Not in Scope
 
