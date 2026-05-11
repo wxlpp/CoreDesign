@@ -11,10 +11,13 @@ import SwiftUI
 ///
 /// ## 四层结构 / Layer Stack
 ///
-/// 1. **底色填充**：`Shape.fill(.background)`，颜色由调用方的 `.backgroundStyle()` 注入。
-/// 2. **内缩**：`CoreButtonMetrics.glassInset` (2pt) padding，让底色从玻璃边缘微微透出。
-/// 3. **玻璃壳**：`.glassEffect()`，iOS 26 液态玻璃材质。
-/// 4. **细白描边**：`Shape.strokeBorder(.white.opacity(0.2), lineWidth: .hairline)`。
+/// 1. **底色填充**：`shape.inset(by: glassInset).fill(.background)`，
+///    通过 `InsettableShape.inset(by:)` 把底色 path 真正内缩 2pt（不是用 `.padding`
+///    撑开外框），颜色由调用方的 `.backgroundStyle()` 注入。
+/// 2. **玻璃壳**：`.glassEffect()`，iOS 26 液态玻璃材质，覆盖原始 shape 全尺寸。
+/// 3. **细白描边**：`shape.strokeBorder(.white.opacity(0.2), lineWidth: .hairline)`
+///    在外层 shape 边缘叠加一条细白线。
+/// 4. **按下反馈**：`scaleEffect(pressedScale)`。
 ///
 /// ## 使用方式 / Usage
 ///
@@ -40,8 +43,9 @@ public struct TelegramGlassButtonModifier<S: InsettableShape>: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .background(
-                self.shape.fill(.background)
-                    .padding(CoreButtonMetrics.glassInset)
+                self.shape
+                    .inset(by: CoreButtonMetrics.glassInset)
+                    .fill(.background)
                     .glassEffect()
             )
             .overlay(

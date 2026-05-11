@@ -310,14 +310,14 @@ public extension Color {
 
 - [ ] **Step 4: Create required colorsets**
 
-Each colorset needs `Contents.json` with light/dark variants inside `Resources.xcassets/status/`. For the initial commit, create the 20 colorsets (5 statuses × 4 variants each) using the Color asset catalog format. Light values use Primer light palette; dark values use Primer dark palette.
+Each colorset needs `Contents.json` with light/dark variants inside `Sources/CoreDesign/Resources/Resources.xcassets/status/` (the SwiftPM `.process("Resources")` directive picks up the `.xcassets` catalog under this path). For the initial commit, create the 20 colorsets (5 statuses × 4 variants each) using the Color asset catalog format. Light values use Primer light palette; dark values use Primer dark palette.
 
 Run this to generate the directory structure:
 ```bash
-mkdir -p Sources/CoreDesign/Resources/status
+mkdir -p Sources/CoreDesign/Resources/Resources.xcassets/status
 for status in accent success attention danger done; do
     for variant in fg emphasis muted subtle; do
-        cat > "Sources/CoreDesign/Resources/status/status-${status}-${variant}.colorset/Contents.json" <<JSON
+        cat > "Sources/CoreDesign/Resources/Resources.xcassets/status/status-${status}-${variant}.colorset/Contents.json" <<JSON
 {
   "colors" : [
     {"color" : {"color-space" : "srgb","components" : {"red" : "0x00","green" : "0x00","blue" : "0x00","alpha" : "1.000"}},"idiom" : "universal"},
@@ -345,8 +345,8 @@ Expected: 0 errors
 - [ ] **Step 7: Commit**
 
 ```bash
-git add Sources/CoreDesign/Colors/StatusColors.swift Sources/CoreDesign/Resources/status/ Tests/CoreDesignTests/StatusColorsTests.swift
-git commit -m "feat: expand StatusColors to Primer 6-status x 4-variant system"
+git add Sources/CoreDesign/Colors/StatusColors.swift Sources/CoreDesign/Resources/Resources.xcassets/status/ Tests/CoreDesignTests/StatusColorsTests.swift
+git commit -m "feat: expand StatusColors to Primer-style 5-status x 4-variant system"
 ```
 
 

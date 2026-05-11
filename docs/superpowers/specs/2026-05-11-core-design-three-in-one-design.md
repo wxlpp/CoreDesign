@@ -28,7 +28,7 @@ CoreDesign 当前的 v2 路线图完全对齐 GitHub Primer。本 spec 替代现
 
 ### Layer 2: GitHub Primer Skeleton
 
-- **6 状态色 × 4 变体**：`accent`(blue) / `success`(green) / `attention`(yellow) / `danger`(red) / `done`(purple)，各有 `fg` / `emphasis` / `muted` / `subtle`。
+- **5 状态色 × 4 变体**：`accent`(blue) / `success`(green) / `attention`(yellow) / `danger`(red) / `done`(purple)，各有 `fg` / `emphasis` / `muted` / `subtle`。Primer 的 `neutral` 由 `FillColors` / `ContentColors` 层提供，不在 `StatusColors` 重复。
 - **表面层级**：`surfaceCanvas → surfaceCanvasSubtle → surfaceCanvasInset → surfacePanel → surfaceSidebar → surfaceCard`。
 - **边框驱动分隔**：`borderMuted`(1px) / `borderSubtle` / `borderEmphasis` / `borderFocus`(2px)，用线条而非阴影划分区域。
 - **功能性排版**：`CoreTypography` 提供标题/正文/标签层级。

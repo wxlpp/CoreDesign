@@ -9,14 +9,27 @@ import CoreGraphics
 
 /// 按钮专用度量 token，服务于 Telegram 玻璃按钮四层结构。
 ///
-/// 调用方式（caseless enum + `static let` of `CGFloat` / `Double`）：
+/// 典型使用方式（参考 `TelegramGlassButtonModifier`）——通过 `InsettableShape.inset(by:)`
+/// 把底色 path 真正内缩，避免用 `.padding` 撑外框：
 ///
 /// ```swift
-/// shape.padding(CoreButtonMetrics.glassInset)
-///     .overlay(shape.strokeBorder(.white.opacity(CoreButtonMetrics.glassBorderOpacity), ...))
+/// content
+///     .background(
+///         shape
+///             .inset(by: CoreButtonMetrics.glassInset)
+///             .fill(.background)
+///             .glassEffect()
+///     )
+///     .overlay(
+///         shape.strokeBorder(
+///             .white.opacity(CoreButtonMetrics.glassBorderOpacity),
+///             lineWidth: CoreBorderWidth.hairline
+///         )
+///     )
 /// ```
 public enum CoreButtonMetrics {
     /// 底色内缩量 (2pt)。让底色从玻璃壳边缘微微透出，形成 Telegram 分层按钮的视觉纵深。
+    /// 通过 `InsettableShape.inset(by:)` 应用于底色 path，不要用 `.padding` 替代。
     public static let glassInset: CGFloat = 2
 
     /// 玻璃壳顶层细白描边的不透明度 (0.2)。配合 `CoreBorderWidth.hairline` 使用。
