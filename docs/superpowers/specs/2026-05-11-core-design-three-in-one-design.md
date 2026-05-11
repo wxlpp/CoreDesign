@@ -41,10 +41,11 @@ CoreDesign 当前的 v2 路线图完全对齐 GitHub Primer。本 spec 替代现
 仅应用于按钮。BottomInputBar 已验证的四层结构：
 
 ```
-Shape.fill(.background)         // 底色（由 .backgroundStyle() 注入）
-  .padding(2pt)                 // 内缩，让底色从玻璃边缘透出
-  .glassEffect()                // 液态玻璃材质
-  .strokeBorder(white, 0.2, 0.5pt)  // 顶层细白描边
+shape
+  .inset(by: 2pt)                // InsettableShape：path 真正内缩，不撑外框
+  .fill(.background)             // 底色（由 .backgroundStyle() 注入）
+  .glassEffect()                 // 液态玻璃材质，view-level 应用在原始 shape 全尺寸
+shape.strokeBorder(white, 0.2, 0.5pt)  // 外层细白描边（叠在 overlay）
 ```
 
 抽取为 `TelegramGlassButtonModifier`，Solid / Light / CircularGlass 三个有容器的按钮样式共享。通过 `glass: Bool` 参数控制开关（默认 `true`），`false` 时退回到 Primer 实色：`shape.fill(role.color)` + `shape.strokeBorder(.borderMuted, lineWidth: CoreBorderWidth.thin)`。
@@ -72,7 +73,9 @@ Z1: 基础框架      Z2: 头部区域     Z3: 信息侧栏     Z4: 时间线   
 
 ### Z1.1 Token Expansion
 
-**A. Six-Status-Color System (`Tokens/StatusColors.swift` — expand)**
+**A. Five-Status-Color System (`Colors/StatusColors.swift` — expand)**
+
+Primer 的 `neutral` 不在此处实现，由现有 `FillColors` / `ContentColors` 提供。
 
 Each status has 4 variants: `fg` (foreground text), `emphasis` (bold background), `muted` (subtle background), `subtle` (faint background).
 
@@ -198,7 +201,7 @@ public struct ProgressIndicator: View {
 
 | File | Type |
 |------|------|
-| `Tokens/StatusColors.swift` | Expand (6-status × 4-variant) |
+| `Colors/StatusColors.swift` | Expand (5-status × 4-variant; Primer `neutral` 由 `FillColors` / `ContentColors` 覆盖) |
 | `Tokens/CoreButtonMetrics.swift` | New |
 | `Modifier/TelegramGlassButtonModifier.swift` | New |
 | `Components/Button/styles/SolidButtonStyle.swift` | Refactor |

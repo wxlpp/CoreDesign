@@ -16,7 +16,9 @@ public struct ProgressBar: View {
     public let label: String?
 
     public init(value: Double, tint: Color? = nil, label: String? = nil) {
-        self.value = min(max(value, 0), 1)
+        // 非有限输入 (NaN / ±infinity) 直接归 0，避免后续 layout / accessibility 计算 trap。
+        let sanitized = value.isFinite ? value : 0
+        self.value = min(max(sanitized, 0), 1)
         self.tint = tint
         self.label = label
     }

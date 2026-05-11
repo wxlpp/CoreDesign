@@ -43,7 +43,7 @@
 ### Modified files
 | File | Zone | Change |
 |------|------|--------|
-| `Sources/CoreDesign/Colors/StatusColors.swift` | Z1 | Add 6-status × 4-variant, rename to primer-aligned tokens |
+| `Sources/CoreDesign/Colors/StatusColors.swift` | Z1 | Add 5-status × 4-variant Primer-style tokens (neutral 由 FillColors / ContentColors 提供) |
 | `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift` | Z1 | Add `glass:` param, use `TelegramGlassButtonModifier` |
 | `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift` | Z1 | Add `glass:` param, use `TelegramGlassButtonModifier` |
 | `Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift` | Z1 | Token migration (magic numbers → `CoreSpacing`/`CoreControlMetrics`) |
@@ -109,14 +109,27 @@ import CoreGraphics
 
 /// 按钮专用度量 token，服务于 Telegram 玻璃按钮四层结构。
 ///
-/// 调用方式（caseless enum + `static let` of `CGFloat` / `Double`）：
+/// 典型使用方式（参考 `TelegramGlassButtonModifier`）——通过 `InsettableShape.inset(by:)`
+/// 把底色 path 真正内缩，避免用 `.padding` 撑外框：
 ///
 /// ```swift
-/// shape.padding(CoreButtonMetrics.glassInset)
-///     .overlay(shape.strokeBorder(.white.opacity(CoreButtonMetrics.glassBorderOpacity), ...))
+/// content
+///     .background(
+///         shape
+///             .inset(by: CoreButtonMetrics.glassInset)
+///             .fill(.background)
+///             .glassEffect()
+///     )
+///     .overlay(
+///         shape.strokeBorder(
+///             .white.opacity(CoreButtonMetrics.glassBorderOpacity),
+///             lineWidth: CoreBorderWidth.hairline
+///         )
+///     )
 /// ```
 public enum CoreButtonMetrics {
     /// 底色内缩量 (2pt)。让底色从玻璃壳边缘微微透出，形成 Telegram 分层按钮的视觉纵深。
+    /// 通过 `InsettableShape.inset(by:)` 应用于底色 path，不要用 `.padding` 替代。
     public static let glassInset: CGFloat = 2
 
     /// 玻璃壳顶层细白描边的不透明度 (0.2)。配合 `CoreBorderWidth.hairline` 使用。
@@ -140,7 +153,7 @@ git commit -m "feat: add CoreButtonMetrics token for Telegram glass button const
 ```
 
 
-### Task 2: Expand StatusColors to 6-status × 4-variant system (Z1)
+### Task 2: Expand StatusColors to Primer-style 5-status × 4-variant system (Z1)
 
 **Files:**
 - Modify: `Sources/CoreDesign/Colors/StatusColors.swift`
@@ -157,27 +170,20 @@ import Testing
 struct StatusColorsTests {
     @Test("accent status has 4 variants")
     func accentVariants() {
-        // Verify all variants compile and return Color instances
-        let fg: Color = .statusAccentForeground
-        let emphasis: Color = .statusAccentEmphasis
-        let muted: Color = .statusAccentMuted
-        let subtle: Color = .statusAccentSubtle
-        #expect(fg != nil)
-        #expect(emphasis != nil)
-        #expect(muted != nil)
-        #expect(subtle != nil)
+        // Type-annotated `let _: Color = ...` 提供编译期覆盖；
+        // `Color` 是非可选类型，不能与 `nil` 比较——靠绑定本身即可证明 token 存在。
+        let _: Color = .statusAccentForeground
+        let _: Color = .statusAccentEmphasis
+        let _: Color = .statusAccentMuted
+        let _: Color = .statusAccentSubtle
     }
 
     @Test("success status has 4 variants")
     func successVariants() {
-        let fg: Color = .statusSuccessForeground
-        let emphasis: Color = .statusSuccessEmphasis
-        let muted: Color = .statusSuccessMuted
-        let subtle: Color = .statusSuccessSubtle
-        #expect(fg != nil)
-        #expect(emphasis != nil)
-        #expect(muted != nil)
-        #expect(subtle != nil)
+        let _: Color = .statusSuccessForeground
+        let _: Color = .statusSuccessEmphasis
+        let _: Color = .statusSuccessMuted
+        let _: Color = .statusSuccessSubtle
     }
 
     @Test("attention status has 4 variants")
