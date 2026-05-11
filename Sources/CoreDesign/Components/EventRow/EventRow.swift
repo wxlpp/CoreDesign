@@ -44,7 +44,8 @@ public struct EventRow<PillContent: View>: View {
         }
         .lineLimit(1)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(self.actor) \(self.action) \(self.timeAgo)")
+        // 不显式重写 `accessibilityLabel`——\`.combine\` 自动合并 actor / action / pill
+        // (Tag / RefPill 自身已带 a11y 文本) / timeAgo；若强行覆盖会丢失 pill 内容。
     }
 }
 

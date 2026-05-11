@@ -20,8 +20,16 @@ struct ProgressBarTests {
 
     @Test("optional tint and label stored")
     func optionalParams() {
-        let bar = ProgressBar(value: 0.3, label: "3 of 10")
+        let bar = ProgressBar(value: 0.3, tint: .green, label: "3 of 10")
         #expect(bar.value == 0.3)
+        #expect(bar.tint == .green)
         #expect(bar.label == "3 of 10")
+    }
+
+    @Test("non-finite value sanitized to 0")
+    func nonFiniteValue() {
+        #expect(ProgressBar(value: .nan).value == 0)
+        #expect(ProgressBar(value: .infinity).value == 0)
+        #expect(ProgressBar(value: -.infinity).value == 0)
     }
 }
