@@ -46,7 +46,11 @@ public struct FlowLayout: Layout {
         let rows = self.computeRows(proposalWidth: proposal.width, sizes: cache)
         let height = rows.reduce(0) { $0 + $1.maxHeight }
             + CGFloat(max(0, rows.count - 1)) * self.spacing
-        let width = proposal.width ?? rows.map(\.totalWidth).max() ?? 0
+        // 取 proposal.width 与最宽行的最大值——当某个 subview 比 proposal.width 还宽时
+        // (computeRows 此时会保留 1-item 行，totalWidth 自然超过 proposal)，
+        // 否则 placeSubviews 会把 subview 放到 layout 报出的 bounds 之外，造成 clipping。
+        let widest = rows.map(\.totalWidth).max() ?? 0
+        let width = max(proposal.width ?? 0, widest)
         return CGSize(width: width, height: height)
     }
 
