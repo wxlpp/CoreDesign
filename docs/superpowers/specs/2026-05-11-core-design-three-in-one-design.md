@@ -47,7 +47,7 @@ Shape.fill(.background)         // 底色（由 .backgroundStyle() 注入）
   .strokeBorder(white, 0.2, 0.5pt)  // 顶层细白描边
 ```
 
-抽取为 `TelegramGlassButtonModifier`，Solid / Light / CircularGlass 三个有容器的按钮样式共享。通过 `glass: Bool` 参数控制开关（默认 `true`），`false` 时退回到 Primer 实色 + 1px border。
+抽取为 `TelegramGlassButtonModifier`，Solid / Light / CircularGlass 三个有容器的按钮样式共享。通过 `glass: Bool` 参数控制开关（默认 `true`），`false` 时退回到 Primer 实色：`shape.fill(role.color)` + `shape.strokeBorder(.borderMuted, lineWidth: CoreBorderWidth.thin)`。
 
 ## Zone Breakdown
 
@@ -110,9 +110,18 @@ struct TelegramGlassButtonModifier<S: Shape>: ViewModifier {
     let isPressed: Bool
     func body(content: Content) -> some View {
         content
-            .background(shape.fill(.background).padding(2).glassEffect())
-            .overlay(shape.strokeBorder(.white.opacity(0.2), lineWidth: 0.5))
-            .scaleEffect(isPressed ? 0.94 : 1)
+            .background(
+                shape.fill(.background)
+                    .padding(CoreButtonMetrics.glassInset)
+                    .glassEffect()
+            )
+            .overlay(
+                shape.strokeBorder(
+                    .white.opacity(CoreButtonMetrics.glassBorderOpacity),
+                    lineWidth: CoreBorderWidth.hairline
+                )
+            )
+            .scaleEffect(isPressed ? CoreButtonMetrics.pressedScale : 1)
     }
 }
 ```
@@ -233,10 +242,10 @@ public struct RefPill: View {
 Stacked avatar display. First N avatars overlap; overflow shows "+N" count pill. Uses `Circle` or `RoundedRectangle` shape, respects `ControlSize`.
 
 ```swift
-public struct AvatarGroup<Avatar: View>: View {
+public struct AvatarGroup<Avatars: View>: View {
     public init(
         max: Int = 3,
-        @ViewBuilder avatars: () -> [Avatar]
+        @ViewBuilder avatars: () -> Avatars
     )
 }
 ```
@@ -313,7 +322,7 @@ public struct TimelineItem<Icon: View, Content: View>: View {
 ```
 
 Indentation is automatic via `@Environment(\.timelineDepth)`:
-- `TimelineItem` reads current depth → offsets spine + content by `depth * 24pt`
+- `TimelineItem` reads current depth → offsets spine + content by `depth * CoreSpacing.xl`
 - Sets `\.timelineDepth` to `depth + 1` for children
 - Callers never pass indentation explicitly
 
@@ -346,22 +355,21 @@ Usage: `EventRow(actor: "renovate", action: "force-pushed from", timeAgo: "2 day
 
 **`CommentCard` (`Components/CommentCard/CommentCard.swift` — new)**
 
-Full comment card inside a timeline node. Header (avatar + author + role badge + timestamp) + markdown body slot + footer.
+Full comment card inside a timeline node. Header (author + role badge + timestamp) + body slot + footer. Avatar lives in the parent `TimelineItem`'s icon slot, not in the card.
 
 ```swift
-public struct CommentCard<Avatar: View, BodyContent: View>: View {
+public struct CommentCard<BodyContent: View>: View {
     public init(
         author: String,
-        role: String? = nil,         // "Contributor", "Bot"
+        role: String? = nil,              // "Contributor", "Bot"
         timestamp: String,
-        minimized: Bool = false,
-        @ViewBuilder avatar: () -> Avatar,
+        isMinimized: Binding<Bool>? = nil, // nil = not collapsible
         @ViewBuilder content: () -> BodyContent
     )
 }
 ```
 
-`minimized: true` → shows "This content has been minimized" + "Show" button, content collapsed.
+`isMinimized` is a `Binding<Bool>` so the parent controls collapse/expand. When `nil`, the card is always expanded (no minimize button). When true, shows "This content has been minimized" + "Show" button; parent flips the binding on tap.
 
 ### Z4 Deliverables
 
