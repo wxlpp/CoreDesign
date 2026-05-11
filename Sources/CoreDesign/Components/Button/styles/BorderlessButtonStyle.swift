@@ -32,6 +32,11 @@ import SwiftUI
 ///
 /// 无视觉容器，颜色完全由 `role.color` / `role.activeColor` / `role.disabledColor`
 /// 决定；这些 token 自身已支持 light / dark adaptive，无需在本样式分支处理。
+///
+/// ## 玻璃效果 / Glass Effect
+///
+/// 本样式有意不使用玻璃效果——无边框按钮没有视觉容器，玻璃效果需要背景材质，
+/// 与 "invisible" 语义矛盾。
 public struct BorderlessButtonStyle: PrimitiveButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
