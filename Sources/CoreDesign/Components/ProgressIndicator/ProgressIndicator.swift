@@ -19,7 +19,9 @@ public struct ProgressIndicator: View {
     public var body: some View {
         ProgressView()
             .progressViewStyle(.circular)
-            .tint(.accent)
+            // 显式 `Color.accent`——避免在 `tint(_:)` 多个 ShapeStyle 重载之间
+            // 解析到 SwiftUI 自带的环境 accent，而不是 CoreDesign 的 Primer brand 色。
+            .tint(Color.accent)
             .controlSize(self.controlSize)
             .accessibilityLabel("Loading")
     }

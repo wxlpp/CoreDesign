@@ -37,7 +37,9 @@ public struct ProgressBar: View {
                     RoundedRectangle(cornerRadius: CoreRadius.small)
                         .fill(Color.surfaceCanvasInset)
                     RoundedRectangle(cornerRadius: CoreRadius.small)
-                        .fill(self.tint ?? .accent)
+                        // 显式 `Color.accent`——避免在 `.fill(_:)` 的 ShapeStyle
+                        // 上下文里解析到 SwiftUI 环境 accent。
+                        .fill(self.tint ?? Color.accent)
                         .frame(width: geometry.size.width * CGFloat(self.value))
                 }
             }
