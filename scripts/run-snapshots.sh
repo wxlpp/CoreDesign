@@ -14,11 +14,17 @@ mkdir -p "${SNAPSHOT_DIR}"
 TEST_RUNNER_SNAPSHOTS_EXPORT_DIR="${SNAPSHOT_DIR}" \
 xcodebuild test \
   -project App/CoreDesignPreview.xcodeproj \
-  -scheme SnapshotTests \
+  -scheme CoreDesignPreview \
+  -only-testing:SnapshotTests \
   -destination "platform=iOS Simulator,name=${DEVICE}" \
   CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
   -quiet
 
+# Snapshot scanner also picks up `#Preview` blocks in the CoreDesign library
+# source tree (CoreDesign_*.{png,json}); those are byproducts—convention is to
+# only commit App/Sources/Previews.swift-driven outputs (CoreDesignPreview_*).
+/usr/bin/find docs/snapshots -name "CoreDesign_*" -type f -delete
+
 echo "Snapshots saved to docs/snapshots/"
-count=$(find docs/snapshots -name "*.png" -type f | wc -l)
+count=$(/usr/bin/find docs/snapshots -name "*.png" -type f | wc -l)
 echo "${count} PNGs generated"

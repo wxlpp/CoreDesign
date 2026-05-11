@@ -141,3 +141,149 @@ private struct ToastSnapshotHarness: View {
         .foregroundStyle(Color.contentMuted)
         .padding()
 }
+
+// MARK: - Three-in-one components
+
+#Preview("ProgressIndicator") {
+    VStack(spacing: CoreSpacing.md) {
+        ProgressIndicator()
+            .controlSize(.small)
+        ProgressIndicator()
+            .controlSize(.regular)
+        ProgressIndicator()
+            .controlSize(.large)
+    }
+    .padding()
+}
+
+#Preview("ProgressBar") {
+    VStack(spacing: CoreSpacing.md) {
+        ProgressBar(value: 0.0)
+        ProgressBar(value: 0.5, label: "50%")
+        ProgressBar(value: 1.0, tint: .statusSuccessEmphasis, label: "Done")
+    }
+    .padding()
+}
+
+#Preview("StateLabel") {
+    VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+        StateLabel(.active)
+        StateLabel(.draft)
+        StateLabel(.completed)
+        StateLabel(.cancelled)
+        StateLabel(.active, label: "In Progress")
+    }
+    .padding()
+}
+
+#Preview("RefPill") {
+    VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+        RefPill("main")
+        RefPill(base: "main", head: "feat/foo")
+        RefPill("a1b2c3d4e5f6")
+    }
+    .padding()
+}
+
+#Preview("AvatarGroup") {
+    VStack(spacing: CoreSpacing.md) {
+        AvatarGroup {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+            Circle().fill(.green).frame(width: 32, height: 32)
+            Circle().fill(.red).frame(width: 32, height: 32)
+            Circle().fill(.orange).frame(width: 32, height: 32)
+            Circle().fill(.purple).frame(width: 32, height: 32)
+        }
+        AvatarGroup(max: 2) {
+            Circle().fill(.blue).frame(width: 24, height: 24)
+            Circle().fill(.green).frame(width: 24, height: 24)
+            Circle().fill(.red).frame(width: 24, height: 24)
+        }
+    }
+    .padding()
+}
+
+#Preview("FlowLayout") {
+    FlowLayout(spacing: CoreSpacing.xs) {
+        ForEach(
+            ["bug", "enhancement", "help wanted", "documentation", "good first issue", "dependencies"],
+            id: \.self
+        ) { label in
+            Tag(label, color: .blue)
+        }
+    }
+    .padding()
+    .frame(width: 280)
+}
+
+#Preview("TimelineItem") {
+    VStack(alignment: .leading, spacing: 0) {
+        TimelineItem(icon: {
+            Circle().fill(Color.statusAccentEmphasis).frame(width: 32, height: 32)
+                .overlay(Image(systemName: "plus").foregroundStyle(.white).font(.caption))
+        }) {
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text("evan opened this pull request").font(CoreTypography.bodyMediumFont)
+                Text("3 days ago").font(CoreTypography.bodySmallFont).foregroundStyle(.secondary)
+                TimelineItem(icon: {
+                    Circle().fill(Color.statusDoneEmphasis).frame(width: 20, height: 20)
+                        .overlay(Image(systemName: "checkmark").foregroundStyle(.white).font(.caption2))
+                }, isLast: true) {
+                    Text("CI passed").font(CoreTypography.bodySmallFont)
+                }
+            }
+        }
+        TimelineItem(icon: {
+            Circle().fill(Color.statusSuccessEmphasis).frame(width: 32, height: 32)
+                .overlay(Image(systemName: "checkmark").foregroundStyle(.white).font(.caption))
+        }, isLast: true) {
+            Text("merged 1 hour ago").font(CoreTypography.bodyMediumFont)
+        }
+    }
+    .padding()
+}
+
+#Preview("EventRow") {
+    VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+        EventRow(actor: "renovate", action: "added the", timeAgo: "2 days ago") {
+            Tag("dependencies", color: .blue)
+        }
+        EventRow(actor: "renovate", action: "force-pushed from", timeAgo: "2 days ago") {
+            RefPill("4d2040c")
+        }
+        EventRow(actor: "evan", action: "commented", timeAgo: "1 hour ago")
+    }
+    .padding()
+}
+
+#Preview("CommentCard") {
+    VStack(spacing: CoreSpacing.md) {
+        CommentCard(author: "evan", role: "Contributor", timestamp: "2 hours ago") {
+            Text("LGTM — ready to ship 🚀").font(CoreTypography.bodyMediumFont)
+        }
+        CommentCard(
+            author: "renovate",
+            role: "Bot",
+            timestamp: "2 days ago",
+            isMinimized: Binding.constant(true)
+        ) {
+            Text("chore(deps): update github actions")
+        }
+    }
+    .padding()
+}
+
+#Preview("StatusRow") {
+    VStack(spacing: 0) {
+        StatusRow(label: "build (arm64)", duration: "2m 14s", result: .success)
+        Divider()
+        StatusRow(label: "test (macOS)", duration: "3m 01s", result: .success)
+        Divider()
+        StatusRow(label: "lint", duration: "0m 12s", result: .failure)
+        Divider()
+        StatusRow(label: "deploy (preview)", duration: "—", result: .pending)
+        Divider()
+        StatusRow(label: "analyze", duration: "—", result: .skipped)
+    }
+    .padding()
+}
