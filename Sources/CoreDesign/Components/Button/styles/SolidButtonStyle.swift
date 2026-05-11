@@ -10,56 +10,60 @@ import SwiftUI
 
 // MARK: - SolidButtonStyle
 
-/// Primer 风格的实色按钮（"solid button"）样式。
+/// 主操作按钮样式（"solid button"）。
+///
+/// ## Telegram 玻璃模式（默认）
+///
+/// `glass: true`（默认）时使用 `TelegramGlassButtonModifier` 四层结构：
+/// 底色 + 2pt 内缩 + 玻璃壳 + 细白描边。底色由 `role.color` 通过 `.backgroundStyle()` 注入。
+///
+/// `glass: false` 时退回到 Primer 实色 + 1px borderMuted 描边 + CoreElevation.small 阴影。
 ///
 /// ## 使用场景 / Usage
 ///
-/// 主要 CTA、表单提交、需要强烈视觉权重的主操作；与 Primer Web 端
-/// `Button variant="primary" | "danger" | "warning"` 对应。在按钮密度较高的
-/// 表单场景，建议优先此样式承载主操作，搭配 `.lightButton(...)` 承载次操作。
-///
-/// ## 关键参数 / Key Parameters
-///
-/// - `role`: `ButtonRoleStyleRole`——决定背景色与按下 / 禁用态的语义颜色映射
-///   （`primary` → `.accent`，`secondary` → `.secondaryAccent`，`tertiary` →
-///   `.neutralAccent`，`warning` → `.warning`，`danger` → `.danger`）。
-///
-/// ## Primer 概念对应 / Primer Mapping
-///
-/// 对应 Primer `Button` 组件的 "solid" / "primary" / "danger" / "warning" 变体——
-/// 实色背景 + 极细 hairline 描边强化边缘对比，按 v2-tokens 的 `CoreControlMetrics`
-/// / `CoreRadius.full` (Capsule) / `CoreBorderWidth.hairline` / `CoreElevation.small`
-/// 收齐尺寸 / 圆角 / 描边 / 阴影。
-///
-/// ## Light / Dark 行为差异 / Color Scheme Behavior
-///
-/// 同样使用 `CoreElevation.small`，shadow 颜色由 `Resources.xcassets/shadow/shadow-small`
-/// colorset 在 light / dark 双取值之间切换（dark 不透明度约 light 的 8 倍以补偿暗色背景下
-/// elevation 视觉的损失）。**本样式不使用 `.glassEffect`**——按 epic ADR #3，glass
-/// 仅保留在 `BottomInputBar` / `MenuButton` / `CircularGlassButtonStyle` 三个白名单文件。
+/// 主要 CTA、表单提交、Merge 按钮等需要强烈视觉权重的主操作。
 public struct SolidButtonStyle: ButtonStyle {
-    public func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(CoreControlMetrics.font(for: self.controlSize))
-            .foregroundStyle(Color.contentOnAccent)
-            .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
-            .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
-            .contentShape(Capsule(style: .continuous))
-            .background(
-                Capsule(style: .continuous)
-                    .fill(self.backgroundColor(isPressed: configuration.isPressed))
-                    .coreShadow(.small)
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .strokeBorder(.white.opacity(0.2), lineWidth: CoreBorderWidth.hairline)
-            )
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .opacity(configuration.isPressed ? 0.9 : 1)
-            .animation(.snappy(duration: 0.16), value: configuration.isPressed)
+    public let role: ButtonRoleStyleRole
+    public let glass: Bool
+
+    public init(role: ButtonRoleStyleRole = .primary, glass: Bool = true) {
+        self.role = role
+        self.glass = glass
     }
 
-    let role: ButtonRoleStyleRole
+    public func makeBody(configuration: Configuration) -> some View {
+        let isPressed = configuration.isPressed
+        let backgroundColor = self.backgroundColor(isPressed: isPressed)
+
+        if self.glass {
+            configuration.label
+                .font(CoreControlMetrics.font(for: self.controlSize))
+                .foregroundStyle(Color.white)
+                .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
+                .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
+                .contentShape(Capsule(style: .continuous))
+                .backgroundStyle(backgroundColor)
+                .modifier(
+                    TelegramGlassButtonModifier(
+                        shape: Capsule(style: .continuous),
+                        isPressed: isPressed
+                    )
+                )
+        } else {
+            configuration.label
+                .font(CoreControlMetrics.font(for: self.controlSize))
+                .foregroundStyle(self.isEnabled ? Color.contentOnAccent : Color.contentDisabled)
+                .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
+                .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
+                .contentShape(Capsule(style: .continuous))
+                .modifier(
+                    SolidButtonBackgroundModifier(
+                        backgroundColor: backgroundColor,
+                        isPressed: isPressed
+                    )
+                )
+        }
+    }
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
@@ -72,35 +76,59 @@ public struct SolidButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - ButtonStyle convenience
+// MARK: - SolidButtonBackgroundModifier (non-glass fallback)
 
-public extension ButtonStyle where Self == SolidButtonStyle {
-    /// 以指定 role 构造 Primer 实色按钮样式。
-    ///
-    /// - Parameter role: 角色色板（默认 `.primary`）。详见 `ButtonRoleStyleRole`。
-    /// - Returns: `SolidButtonStyle` 实例，可直接传给 `.buttonStyle(...)`。
-    static func solidButton(role: ButtonRoleStyleRole = .primary) -> SolidButtonStyle {
-        SolidButtonStyle(role: role)
+private struct SolidButtonBackgroundModifier: ViewModifier {
+    let backgroundColor: Color
+    let isPressed: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                Capsule(style: .continuous)
+                    .fill(self.backgroundColor)
+                    .coreShadow(.small)
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
+            )
+            .scaleEffect(self.isPressed ? CoreButtonMetrics.pressedScale : 1)
+            .animation(.snappy(duration: 0.16), value: self.isPressed)
     }
 }
 
-#Preview {
+// MARK: - ButtonStyle convenience
+
+public extension ButtonStyle where Self == SolidButtonStyle {
+    /// 构造主操作按钮样式。
+    ///
+    /// - Parameter role: 角色色板（默认 `.primary`）。
+    /// - Parameter glass: 是否启用 Telegram 玻璃模式（默认 `true`）。
+    static func solid(role: ButtonRoleStyleRole = .primary, glass: Bool = true) -> SolidButtonStyle {
+        SolidButtonStyle(role: role, glass: glass)
+    }
+}
+
+#Preview("Solid — glass") {
     VStack(spacing: 12) {
-        Button {} label: { Text("Login") }
-            .buttonStyle(.solidButton(role: .primary))
-
-        Button {} label: { Text("Register") }
-            .buttonStyle(.solidButton(role: .secondary))
-
-        Button {} label: { Text("Warning") }
-            .buttonStyle(.solidButton(role: .warning))
-
+        Button {} label: { Text("Primary") }
+            .buttonStyle(.solid(role: .primary))
         Button {} label: { Text("Danger") }
-            .buttonStyle(.solidButton(role: .danger))
-
+            .buttonStyle(.solid(role: .danger))
         Button {} label: { Text("Disabled") }
-            .buttonStyle(.solidButton(role: .primary))
+            .buttonStyle(.solid(role: .primary))
             .disabled(true)
+    }
+    .padding()
+}
+
+#Preview("Solid — no glass") {
+    VStack(spacing: 12) {
+        Button {} label: { Text("Primary") }
+            .buttonStyle(.solid(role: .primary, glass: false))
+        Button {} label: { Text("Secondary") }
+            .buttonStyle(.solid(role: .secondary, glass: false))
     }
     .padding()
 }
