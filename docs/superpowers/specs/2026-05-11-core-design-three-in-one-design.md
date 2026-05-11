@@ -464,16 +464,16 @@ All components must meet baseline accessibility requirements:
 
 | Component | Requirement |
 |-----------|------------|
-| `TelegramGlassButtonModifier` | Content label passes through to button; pressed state uses `.accessibilityAddTraits(.isButton)` |
+| `TelegramGlassButtonModifier` | Modifier 不接管可访问性——外层 `Button` 自带 `.isButton` trait，label 由 `configuration.label` 透传 |
 | `ProgressIndicator` | `.accessibilityLabel("Loading")` when indeterminate |
-| `StateLabel` | Icon is decorative by default (`Image(decorative:)`); label text serves as the accessible name |
-| `RefPill` | Trait `.isStaticText`; full ref string as label |
+| `StateLabel` | `.accessibilityElement(children: .combine)` + `.accessibilityLabel(label)`——文字作为可访问名，SF Symbol icon 由 combine 吸收为纯装饰 |
+| `RefPill` | Trait `.isStaticText`；单引用读 ref 字符串、双引用读 `"<base> from <head>"` |
 | `AvatarGroup` | Avatars are `.accessibilityHidden(true)` (decorative); "+N" pill reads "N more" |
-| `ProgressBar` | `.accessibilityValue("60% complete")` derived from value |
+| `ProgressBar` | `.accessibilityLabel(label ?? "Progress")` + `.accessibilityValue("<percent>% complete")` |
 | `TimelineItem` | Spine line and dot are `.accessibilityHidden(true)` (structural); content slot handles its own labels |
-| `EventRow` | Combines actor + action + timestamp into single `.accessibilityLabel()` |
-| `CommentCard` | Minimize/expand button has `.accessibilityAction(.default, "Toggle visibility")` |
-| `StatusRow` | Result icon labeled (`"Passed"`, `"Failed"`, `"Pending"`, `"Skipped"`); duration as `.accessibilityValue()` |
+| `EventRow` | `.accessibilityElement(children: .combine)` 不覆盖 label——让子视图（actor / action / pill / timeAgo）的 a11y 文本自动合并，Tag / RefPill 的 label 自然纳入 |
+| `CommentCard` | 整卡 `.accessibilityElement(children: .contain)` + `accessibilityLabel("Comment by <author>")`；最小化态的 "Show" 按钮自带 `.accessibilityLabel("Show minimized comment")` + `.accessibilityHint("Expands the comment from <author>")` |
+| `StatusRow` | `.accessibilityLabel(label)` + `.accessibilityValue("<result>, <duration>")`——label 读 step name，value 读结果与时长 |
 
 SwiftUI accessibility conventions:
 - Decorative elements use `.accessibilityHidden(true)`

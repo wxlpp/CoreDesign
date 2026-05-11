@@ -35,4 +35,4 @@ EventRow(actor: "evan", action: "commented", timeAgo: "1 hour ago")
 - 颜色：actor 默认，action `.secondary`，timeAgo `.tertiary`
 - 行内间距：`CoreSpacing.xs`
 - 单行限制：`lineLimit(1)`
-- 可访问性：合并成单个元素，label 读 `"<actor> <action> <timeAgo>"`
+- 可访问性：`.accessibilityElement(children: .combine)` 不覆盖 label——actor / action / pill (Tag / RefPill) / timeAgo 各自的 a11y 文本自动合并；显式覆盖会丢失 pill 内容
