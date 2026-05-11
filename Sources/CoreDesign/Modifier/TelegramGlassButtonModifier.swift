@@ -14,9 +14,13 @@ import SwiftUI
 /// 1. **底色填充**：`shape.inset(by: glassInset).fill(.background)`，
 ///    通过 `InsettableShape.inset(by:)` 把底色 path 真正内缩 2pt（不是用 `.padding`
 ///    撑开外框），颜色由调用方的 `.backgroundStyle()` 注入。
-/// 2. **玻璃壳**：`.glassEffect()`，iOS 26 液态玻璃材质，覆盖原始 shape 全尺寸。
+/// 2. **玻璃壳**：`.glassEffect()` 应用在底色填充视图上。注意 `glassEffect`
+///    是 **view-level** material 修饰器（材质渲染在视图自身 frame 上），不会
+///    跟随上一步 `inset(by:)` 收缩——底色 path 内缩，但视图 frame 仍是原始
+///    shape 全尺寸，因此玻璃材质实际覆盖原始 shape 全尺寸；视觉上呈现“内缩
+///    底色透过玻璃微微透出”的分层效果。
 /// 3. **细白描边**：`shape.strokeBorder(.white.opacity(0.2), lineWidth: .hairline)`
-///    在外层 shape 边缘叠加一条细白线。
+///    在外层 shape（未内缩）边缘叠加一条细白线。
 /// 4. **按下反馈**：`scaleEffect(pressedScale)`。
 ///
 /// ## 使用方式 / Usage

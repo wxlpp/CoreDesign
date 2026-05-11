@@ -117,8 +117,9 @@ public struct TelegramGlassButtonModifier<S: Shape>: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .background(
-                shape.fill(.background)
-                    .padding(CoreButtonMetrics.glassInset)
+                shape
+                    .inset(by: CoreButtonMetrics.glassInset)
+                    .fill(.background)
                     .glassEffect()
             )
             .overlay(
@@ -128,9 +129,14 @@ public struct TelegramGlassButtonModifier<S: Shape>: ViewModifier {
                 )
             )
             .scaleEffect(isPressed ? CoreButtonMetrics.pressedScale : 1)
+            .animation(.snappy(duration: 0.16), value: isPressed)
     }
 }
 ```
+
+`S: InsettableShape` 约束是必需的：底色 path 通过 `inset(by:)` 真正内缩，而不是用
+`.padding` 撑开外框；`strokeBorder` 也需要该约束。`.glassEffect()` 作为 view-level
+material 修饰器，渲染在视图 frame 上（原始 shape 全尺寸），不跟随 `inset(by:)` 缩小。
 
 **Button style matrix after rebuild:**
 

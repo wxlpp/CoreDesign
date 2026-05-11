@@ -389,7 +389,7 @@ import SwiftUI
 ///
 /// Solid / Light / CircularGlass 三种有容器按钮样式共享此 modifier；
 /// Borderless 不参与（无视觉容器）。
-public struct TelegramGlassButtonModifier<S: Shape>: ViewModifier {
+public struct TelegramGlassButtonModifier<S: InsettableShape>: ViewModifier {
     public let shape: S
     public let isPressed: Bool
 
@@ -401,8 +401,9 @@ public struct TelegramGlassButtonModifier<S: Shape>: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .background(
-                self.shape.fill(.background)
-                    .padding(CoreButtonMetrics.glassInset)
+                self.shape
+                    .inset(by: CoreButtonMetrics.glassInset)
+                    .fill(.background)
                     .glassEffect()
             )
             .overlay(

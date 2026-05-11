@@ -51,8 +51,8 @@ public struct StatusRow: View {
         .padding(.horizontal, CoreSpacing.md)
         .padding(.vertical, CoreSpacing.sm)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(self.resultLabel): \(self.label), \(self.duration)")
-        .accessibilityValue(self.resultLabel)
+        .accessibilityLabel(self.label)
+        .accessibilityValue("\(self.resultLabel), \(self.duration)")
     }
 
     private var resultIcon: String {
