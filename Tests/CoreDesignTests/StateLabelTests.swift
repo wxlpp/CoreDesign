@@ -27,7 +27,7 @@ struct StateLabelTests {
     func allStylesConstruct() {
         for style in [StateLabelStyle.active, .draft, .completed, .cancelled] {
             let label = StateLabel(style)
-            #expect(label != nil)
+            #expect(label.style == style)
         }
     }
 }

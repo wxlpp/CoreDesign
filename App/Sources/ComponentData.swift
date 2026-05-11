@@ -114,8 +114,8 @@ extension ComponentMeta {
 private struct ButtonPreview: View {
     var body: some View {
         VStack(spacing: CoreSpacing.sm) {
-            Button("Solid") {}.buttonStyle(.solidButton(role: .primary))
-            Button("Light") {}.buttonStyle(.lightButton(role: .primary))
+            Button("Solid") {}.buttonStyle(.solid(role: .primary))
+            Button("Light") {}.buttonStyle(.light(role: .primary))
             Button("Borderless") {}.buttonStyle(.borderless(role: .primary))
         }
     }
@@ -249,6 +249,6 @@ private struct ToastDemoButton: View {
         Button("Show Demo Toast") {
             self.toast?.show("Toast message", level: .info)
         }
-        .buttonStyle(.solidButton(role: .primary))
+        .buttonStyle(.solid(role: .primary))
     }
 }

@@ -74,6 +74,8 @@ public struct CommentCard<BodyContent: View>: View {
                     }
                     .font(CoreTypography.bodySmallFont)
                     .foregroundStyle(Color.accent)
+                    .accessibilityLabel("Show minimized comment")
+                    .accessibilityHint("Expands the comment from \(self.author)")
                 }
             } else {
                 self.content()

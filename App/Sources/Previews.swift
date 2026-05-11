@@ -37,8 +37,8 @@ import CoreDesign
 
 #Preview("Button") {
     VStack(spacing: CoreSpacing.sm) {
-        Button("Solid Primary") {}.buttonStyle(.solidButton(role: .primary))
-        Button("Light Secondary") {}.buttonStyle(.lightButton(role: .secondary))
+        Button("Solid Primary") {}.buttonStyle(.solid(role: .primary))
+        Button("Light Secondary") {}.buttonStyle(.light(role: .secondary))
         Button("Borderless Danger") {}.buttonStyle(.borderless(role: .danger))
     }
     .padding()

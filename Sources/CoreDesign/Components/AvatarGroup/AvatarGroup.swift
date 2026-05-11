@@ -16,7 +16,7 @@ public struct AvatarGroup<Avatars: View>: View {
     @ViewBuilder let avatars: () -> Avatars
 
     public init(max: Int = 3, @ViewBuilder avatars: @escaping () -> Avatars) {
-        self.max = max
+        self.max = Swift.max(0, max)
         self.avatars = avatars
     }
 

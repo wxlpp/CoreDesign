@@ -6,26 +6,18 @@ import Testing
 struct StatusColorsTests {
     @Test("accent status has 4 variants")
     func accentVariants() {
-        let fg: Color = .statusAccentForeground
-        let emphasis: Color = .statusAccentEmphasis
-        let muted: Color = .statusAccentMuted
-        let subtle: Color = .statusAccentSubtle
-        #expect(fg != nil)
-        #expect(emphasis != nil)
-        #expect(muted != nil)
-        #expect(subtle != nil)
+        let _: Color = .statusAccentForeground
+        let _: Color = .statusAccentEmphasis
+        let _: Color = .statusAccentMuted
+        let _: Color = .statusAccentSubtle
     }
 
     @Test("success status has 4 variants")
     func successVariants() {
-        let fg: Color = .statusSuccessForeground
-        let emphasis: Color = .statusSuccessEmphasis
-        let muted: Color = .statusSuccessMuted
-        let subtle: Color = .statusSuccessSubtle
-        #expect(fg != nil)
-        #expect(emphasis != nil)
-        #expect(muted != nil)
-        #expect(subtle != nil)
+        let _: Color = .statusSuccessForeground
+        let _: Color = .statusSuccessEmphasis
+        let _: Color = .statusSuccessMuted
+        let _: Color = .statusSuccessSubtle
     }
 
     @Test("attention status has 4 variants")

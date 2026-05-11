@@ -1,6 +1,10 @@
 import SwiftUI
 
-// MARK: - Status Colors (Primer 6-status × 4-variant)
+// MARK: - Status Colors (Primer-style 5-status × 4-variant)
+//
+// Implemented: accent / success / attention / danger / done.
+// Primer's `neutral` family is intentionally omitted — neutral fills/text
+// are already covered by the `FillColors` / `ContentColors` layers above.
 
 public extension Color {
 

@@ -38,7 +38,7 @@ public struct SolidButtonStyle: ButtonStyle {
         if self.glass {
             configuration.label
                 .font(CoreControlMetrics.font(for: self.controlSize))
-                .foregroundStyle(Color.white)
+                .foregroundStyle(self.isEnabled ? Color.white : Color.contentDisabled)
                 .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
                 .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
                 .contentShape(Capsule(style: .continuous))

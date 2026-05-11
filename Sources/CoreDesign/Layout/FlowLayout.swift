@@ -19,19 +19,33 @@ import SwiftUI
 /// }
 /// ```
 public struct FlowLayout: Layout {
+
+    // 通过 `Layout.Cache` 把每个子视图的 `sizeThatFits(.unspecified)` 结果缓存起来，
+    // `sizeThatFits` 与 `placeSubviews` 共享同一份测量数据——一次布局只测一次。
+    public typealias Cache = [CGSize]
+
     public let spacing: CGFloat
 
     public init(spacing: CGFloat = CoreSpacing.xs) {
         self.spacing = spacing
     }
 
+    public func makeCache(subviews: Subviews) -> Cache {
+        subviews.map { $0.sizeThatFits(.unspecified) }
+    }
+
+    public func updateCache(_ cache: inout Cache, subviews: Subviews) {
+        cache = subviews.map { $0.sizeThatFits(.unspecified) }
+    }
+
     public func sizeThatFits(
         proposal: ProposedViewSize,
         subviews: Subviews,
-        cache: inout ()
+        cache: inout Cache
     ) -> CGSize {
-        let rows = self.computeRows(proposalWidth: proposal.width, subviews: subviews)
-        let height = rows.reduce(0) { $0 + $1.maxHeight } + CGFloat(max(0, rows.count - 1)) * self.spacing
+        let rows = self.computeRows(proposalWidth: proposal.width, sizes: cache)
+        let height = rows.reduce(0) { $0 + $1.maxHeight }
+            + CGFloat(max(0, rows.count - 1)) * self.spacing
         let width = proposal.width ?? rows.map(\.totalWidth).max() ?? 0
         return CGSize(width: width, height: height)
     }
@@ -40,16 +54,19 @@ public struct FlowLayout: Layout {
         in bounds: CGRect,
         proposal: ProposedViewSize,
         subviews: Subviews,
-        cache: inout ()
+        cache: inout Cache
     ) {
-        let rows = self.computeRows(proposalWidth: bounds.width, subviews: subviews)
+        let rows = self.computeRows(proposalWidth: bounds.width, sizes: cache)
         var y = bounds.minY
 
         for row in rows {
             var x = bounds.minX
-            for item in row.items {
-                let size = item.sizeThatFits(.unspecified)
-                item.place(at: CGPoint(x: x, y: y + (row.maxHeight - size.height) / 2), proposal: .unspecified)
+            for index in row.indices {
+                let size = cache[index]
+                subviews[index].place(
+                    at: CGPoint(x: x, y: y + (row.maxHeight - size.height) / 2),
+                    proposal: .unspecified
+                )
                 x += size.width + self.spacing
             }
             y += row.maxHeight + self.spacing
@@ -57,41 +74,50 @@ public struct FlowLayout: Layout {
     }
 
     private struct Row {
-        let items: [LayoutSubview]
+        let indices: Range<Int>
         let maxHeight: CGFloat
         let totalWidth: CGFloat
     }
 
-    private func computeRows(proposalWidth: CGFloat?, subviews: Subviews) -> [Row] {
+    private func computeRows(proposalWidth: CGFloat?, sizes: [CGSize]) -> [Row] {
         let maxWidth = proposalWidth ?? .infinity
         var rows: [Row] = []
-        var currentItems: [LayoutSubview] = []
+        var rowStart = 0
+        var currentCount = 0
         var currentWidth: CGFloat = 0
+        var currentMaxHeight: CGFloat = 0
 
-        func flushRow() {
-            let maxHeight = currentItems.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
-            let itemWidths = currentItems.reduce(0) { $0 + $1.sizeThatFits(.unspecified).width }
-            let gaps = CGFloat(max(0, currentItems.count - 1)) * self.spacing
-            rows.append(Row(items: currentItems, maxHeight: maxHeight, totalWidth: itemWidths + gaps))
-            currentItems = []
-            currentWidth = 0
-        }
+        for (index, size) in sizes.enumerated() {
+            let gap = currentCount == 0 ? 0 : self.spacing
+            let projectedWidth = currentWidth + size.width + gap
 
-        for subview in subviews {
-            let itemSize = subview.sizeThatFits(.unspecified)
-            let gap = currentItems.isEmpty ? 0 : self.spacing
-            let projectedWidth = currentWidth + itemSize.width + gap
-
-            if projectedWidth > maxWidth && !currentItems.isEmpty {
-                flushRow()
+            if projectedWidth > maxWidth && currentCount > 0 {
+                rows.append(
+                    Row(
+                        indices: rowStart..<index,
+                        maxHeight: currentMaxHeight,
+                        totalWidth: currentWidth
+                    )
+                )
+                rowStart = index
+                currentCount = 0
+                currentWidth = 0
+                currentMaxHeight = 0
             }
 
-            currentItems.append(subview)
-            currentWidth += itemSize.width + (currentItems.count > 1 ? self.spacing : 0)
+            currentWidth += size.width + (currentCount > 0 ? self.spacing : 0)
+            currentMaxHeight = max(currentMaxHeight, size.height)
+            currentCount += 1
         }
 
-        if !currentItems.isEmpty {
-            flushRow()
+        if currentCount > 0 {
+            rows.append(
+                Row(
+                    indices: rowStart..<sizes.count,
+                    maxHeight: currentMaxHeight,
+                    totalWidth: currentWidth
+                )
+            )
         }
 
         return rows
