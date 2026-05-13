@@ -125,3 +125,74 @@ public extension AsyncButton where Label == Text {
         self.init(action: action, onError: onError) { Text(title) }
     }
 }
+
+// MARK: - Previews (development only — snapshot 脚本会删除 CoreDesign_*.png)
+
+#Preview("AsyncButton — 全部 ButtonStyle") {
+    VStack(spacing: 12) {
+        AsyncButton("Solid") {
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        .buttonStyle(.solid())
+
+        AsyncButton("Light") {
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        .buttonStyle(.light())
+
+        AsyncButton("Borderless") {
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        .buttonStyle(.borderless())
+
+        AsyncButton {
+            try? await Task.sleep(for: .seconds(1.5))
+        } label: {
+            Image(systemName: "arrow.clockwise")
+        }
+        .buttonStyle(.circularGlass)
+    }
+    .padding()
+}
+
+#Preview("AsyncButton — 抛错 + onError") {
+    struct Harness: View {
+        @State private var lastError: String = "(none)"
+        var body: some View {
+            VStack(spacing: 12) {
+                AsyncButton("Throws") {
+                    try await Task.sleep(for: .seconds(0.6))
+                    struct DemoError: LocalizedError {
+                        var errorDescription: String? { "Demo failure" }
+                    }
+                    throw DemoError()
+                } onError: { error in
+                    self.lastError = error.localizedDescription
+                }
+                .buttonStyle(.solid(role: .primary))
+
+                Text("Last error: \(self.lastError)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+        }
+    }
+    return Harness()
+}
+
+#Preview("AsyncButton — disabled / running 并存") {
+    VStack(spacing: 12) {
+        AsyncButton("Always disabled") {
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        .buttonStyle(.solid())
+        .disabled(true)
+
+        AsyncButton("Normal") {
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        .buttonStyle(.solid())
+    }
+    .padding()
+}
