@@ -129,14 +129,18 @@ public var body: some View {
             await self.run()
         }
     } label: {
-        HStack(spacing: CoreSpacing.sm) {
+        // ZStack + label 透明占位:running 时 label 隐藏但保留布局占位,spinner
+        // 居中覆盖。对 .circularGlass 等 fixed-frame style 也不会溢出。
+        ZStack {
+            self.label
+                .opacity(self.isRunning ? 0 : 1)
+                .accessibilityHidden(self.isRunning)
             if self.isRunning {
                 ProgressView()
                     .progressViewStyle(.circular)
                     .controlSize(.small)
                     .accessibilityHidden(true)
             }
-            self.label
         }
         .accessibilityElement(children: .combine)
         .animation(.snappy(duration: 0.16), value: self.isRunning)
@@ -175,6 +179,11 @@ private struct LoadingAccessibilityModifier: ViewModifier {
   - **仍需验证**:`ProgressView(.circular)` 实际是否响应 `foregroundStyle`(底层可能是 `UIActivityIndicatorView`)。若不响应,回退:手动 `.tint(.contentOnAccent)` / `.tint(role.color)`,会引入对具体 style 的轻度耦合。Preview 实测决定。
 - **不复用 `ProgressIndicator`**:该组件硬编码 `.tint(Color.accent)`,会让 spinner 始终是品牌橙,在 `.solid(role: .primary)` 的白底文字旁视觉不协调。
 - **spinner 尺寸固定 `.small`**:不跟 `\.controlSize` 联动,避免 large 按钮里 spinner 喧宾夺主。
+- **ZStack + label 透明占位,而非 HStack 并排**:
+  - `running` 时 `label.opacity = 0`(保留布局占位防按钮 frame 抖动)+ spinner 在 ZStack 中心覆盖。
+  - 早期版本用 `HStack(spacing: CoreSpacing.sm)` 并排,在 `.circularGlass`(`CircularGlassButtonStyle.swift:24` 强制 38pt 直径)等 fixed-frame style 下,running 态 "spinner + icon" 双元素会撑破圆形外壳。
+  - ZStack 居中后:普通按钮 running 时只见 spinner,文字暂时隐藏(标准 Loading button 模式);圆形按钮 running 时 spinner 居中替代 icon,外壳完好。换回的代价是 running 期间用户看不到原文案——可接受,且与 GitHub Primer / Telegram 的 loading button 视觉一致。
+  - `label.accessibilityHidden(isRunning)` 让 VoiceOver 在 running 时不朗读 idle 态文字,仅留外层 `LoadingAccessibilityModifier` 的 `Loading` value。
 - **`.animation(.snappy(duration: 0.16))`**:与 `SolidButtonBackgroundModifier` 的 isPressed 动画同节奏。
 - **不做 pre-cancel-then-restart**:旧版本写了 `task?.cancel()` 后立刻起新 task,会让旧 task 的 `defer { isRunning = false }` 与新 task 的 `isRunning = true` 竞争,UI 抖动。改为 `.allowsHitTesting` + `guard` 双保险后,正常路径下 `isRunning == true` 时根本进不来 action 闭包,无需 cancel-restart。
 
@@ -292,6 +301,7 @@ action 内部若有长循环,应自行 `try Task.checkCancellation()`;`URLSessio
 2. 闭包重载是否歧义 —— 见 §7,三档降级方案已排序。
 3. `BorderlessButtonStyle`(`PrimitiveButtonStyle`)的 `.onTapGesture` 是否真的被 `.allowsHitTesting(false)` 拦住 —— 实现时 Preview 实测;`guard !isRunning` 是兜底。
 4. **隐式 toast fallback 的可发现性** —— 调用方不传 `onError` 时业务错误自动以 `.danger` toast 弹出,但这个行为在 init 签名上看不出来,需要靠文档/示例传达。调用方若期望"完全静默",必须显式写 `onError: { _ in }`。短期缓解:`AsyncButton` 顶部 docstring 已写出三级兜底;长期可考虑在 debug 构建给 `onError == nil && toastHost == nil` 的场景加一次 `os_log` 警告。
+5. **Running 态隐藏原 label** —— ZStack + 透明占位的代价是 running 期间用户看不到 idle 态文字(只剩 spinner)。这是为了在 `.circularGlass` 这种 fixed-frame style 下不溢出而做的设计取舍——与 GitHub Primer / Telegram 的 loading button 视觉一致,符合用户对"按钮正在执行"的直觉。
 
 这些将在实现阶段 verify-before-completion,而不是设计阶段决定。
 
