@@ -116,7 +116,7 @@ public struct AsyncButton<Label: View>: View {
                 await self.action()
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: CoreSpacing.sm) {
                 if self.isRunning {
                     ProgressView()
                         .progressViewStyle(.circular)
@@ -635,7 +635,7 @@ EOF
 }
 ```
 
-**Snapshot 范围限制说明**:仅 idle 态。Running 态 snapshot 需要扩张 AsyncButton 公共 API(例如加 `autoTriggerOnAppear` 参数,或暴露 `internal` 测试入口),计划主动避开。Idle 态 snapshot 能锁住:(a)四种 style 的 idle 渲染没有 layout 异常,(b)`HStack(spacing: 6)` 在 spinner 缺席时不引入额外 spacing,(c)4 种 style 都能接受 AsyncButton 作为内容容器。Running 态视觉验证由 Task 4 的 Xcode Canvas 手动 check 兜底。
+**Snapshot 范围限制说明**:仅 idle 态。Running 态 snapshot 需要扩张 AsyncButton 公共 API(例如加 `autoTriggerOnAppear` 参数,或暴露 `internal` 测试入口),计划主动避开。Idle 态 snapshot 能锁住:(a)四种 style 的 idle 渲染没有 layout 异常,(b)`HStack(spacing: CoreSpacing.sm)` 在 spinner 缺席时不引入额外 spacing,(c)4 种 style 都能接受 AsyncButton 作为内容容器。Running 态视觉验证由 Task 4 的 Xcode Canvas 手动 check 兜底。
 
 - [ ] **Step 5.2: 重新生成 snapshots**
 

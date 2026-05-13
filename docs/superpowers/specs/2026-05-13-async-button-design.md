@@ -129,7 +129,7 @@ public var body: some View {
             await self.run()
         }
     } label: {
-        HStack(spacing: 6) {
+        HStack(spacing: CoreSpacing.sm) {
             if self.isRunning {
                 ProgressView()
                     .progressViewStyle(.circular)
