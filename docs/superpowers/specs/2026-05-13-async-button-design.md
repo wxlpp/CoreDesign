@@ -84,13 +84,20 @@ AsyncButton("提交") {
 }
 .buttonStyle(.solid())
 
-// 错误上抛 toast
+// 错误自定义处理
 AsyncButton("发布") {
     try await api.publish()
 } onError: { error in
-    toast.show(error.localizedDescription)
+    logger.error("publish failed: \(error)")
 }
 .buttonStyle(.solid(role: .primary))
+
+// 不传 onError —— 上层若已挂 .toastHost,失败自动以 .danger toast 弹出
+AsyncButton("发布") {
+    try await api.publish()
+}
+.buttonStyle(.solid(role: .primary))
+// 在更上层的 scene root:.toastHost(edge: .top)
 
 // 自定义 label
 AsyncButton {
@@ -173,25 +180,51 @@ private struct LoadingAccessibilityModifier: ViewModifier {
 
 ## 5. 错误处理与取消
 
-| 闭包类型 | 抛 `CancellationError` | 抛业务错误 |
-|---|---|---|
-| `() async -> Void` | 不会发生(无 throws) | 不会发生 |
-| `() async throws -> Void` 无 onError | 静默 | 静默 |
-| `() async throws -> Void` 有 onError | 静默吞掉 | 调用 `onError(error)` |
+### 业务错误分派优先级
 
-`CancellationError` 一律不上报 —— 它代表"视图正常消失",不是业务故障。
+抛错 init 的业务错误按下列优先级兜底,**先匹配先消费**,每个错误只走一条路径:
+
+1. **显式 `onError`** → 调用 `onError(error)`。
+2. **`onError == nil` 且环境 `\.toastHost` 存在** → `toastHost.show(error.localizedDescription, level: .danger)`。
+3. **两者都没有** → 静默(匹配 Toast 系统的"未挂 host 即无声忽略"原则,见 `Toast.swift:287-289`)。
+
+### CancellationError
+
+`CancellationError` **始终**静默,不走上面的兜底链——它代表"视图正常消失",不是业务故障。
+
+### 总结表
+
+| 路径 | `CancellationError` | 业务错误 |
+|---|---|---|
+| `() async -> Void` | 不会发生 | 不会发生 |
+| `() async throws -> Void` + onError | 静默 | `onError(error)` |
+| `() async throws -> Void` + 无 onError + `\.toastHost` 已挂 | 静默 | toast `.danger` |
+| `() async throws -> Void` + 无 onError + 无 host | 静默 | 静默 |
+
+### 实现核心(`_runThrowing` 静态分派器)
 
 ```swift
-private func run() async {
+@MainActor
+internal static func _runThrowing(
+    _ action: @MainActor @Sendable () async throws -> Void,
+    onError: (@MainActor @Sendable (Error) -> Void)?,
+    toastHost: ToastHost?
+) async {
     do {
-        try await self.throwingAction()
+        try await action()
     } catch is CancellationError {
         // 静默
     } catch {
-        self.onError?(error)
+        if let onError {
+            onError(error)
+        } else {
+            toastHost?.show(error.localizedDescription, level: .danger)
+        }
     }
 }
 ```
+
+view body 仅负责状态机/UI,catch 分派 100% 落在这个静态函数里——便于 Swift Testing 直接 `await` 它,而不需要驱动 SwiftUI runloop。
 
 取消时机:
 1. 视图 `onDisappear` —— 唯一场景。
@@ -232,10 +265,11 @@ action 内部若有长循环,应自行 `try Task.checkCancellation()`;`URLSessio
 测试用例(以实际入库为准):
 
 1. **非抛错 init 构造编译** —— 烟雾测试,确认 view 能正常构造。
-2. **`_wrapThrowingAction` 业务错误透传** —— 抛业务错误时 `onError` 被调用一次,且错误透传相等。
-3. **`_wrapThrowingAction` CancellationError 静默** —— action 抛 `CancellationError`,`onError` 不被调用。
-4. **`_wrapThrowingAction` 无 onError 也不崩** —— `onError == nil` 时业务错误被静默吞下,不 crash。
-5. **重载解析** —— `LocalizedStringKey` / `StringProtocol` / trailing-closure 三种形态,非抛错与抛错版本能正确编译解析。
+2. **`_runThrowing` 业务错误透传** —— `onError` 存在时被调用一次,错误透传相等,**不**弹 toast(即便 toastHost 已挂)。
+3. **`_runThrowing` 自动 toast fallback** —— `onError == nil` + `toastHost != nil` → toast 入队一条 `.danger` level、message 等于 `error.localizedDescription`。
+4. **`_runThrowing` 全静默** —— `onError == nil` + `toastHost == nil` 不调用任何回调、不崩溃。
+5. **`_runThrowing` CancellationError 静默** —— action 抛 `CancellationError`,不调 onError、不弹 toast(即便两者都存在)。
+6. **重载解析** —— `LocalizedStringKey` / `StringProtocol` / trailing-closure 三种形态,非抛错与抛错版本能正确编译解析。
 
 > 关于状态机中间态测试:在 SwiftUI View body 内驱动 `@State` 变化并精确观察 `isRunning` 在 true/false 之间的瞬时,需要嵌入 SwiftUI 的 view update runloop,该项目当前没有这类基础设施;`isRunning` 的写入位置已被 §4 代码块严格定义,直接 review code path 即可,无需运行时测试。
 
@@ -245,17 +279,19 @@ action 内部若有长循环,应自行 `try Task.checkCancellation()`;`URLSessio
 
 ## 9. Preview
 
-同文件内提供 3 个 `#Preview` 块:
+同文件内提供 4 个 `#Preview` 块:
 
 1. **AsyncButton — 全部 ButtonStyle**: 4 个 AsyncButton 分别套 `.solid()` / `.light()` / `.borderless()` / `.circularGlass`(`.circularGlass` 是 property 形态;`.circularGlass(diameter:)` 才是函数形态),每个 action 内 `try await Task.sleep(.seconds(1.5))`,手动点击观察 spinner 表现。
-2. **AsyncButton — 抛错 + onError**: 演示 onError 弹 toast 的最小流程。
-3. **AsyncButton — disabled / running 并存**: 验证 loading 与外部 `.disabled(true)` 同时生效的视觉。
+2. **AsyncButton — 抛错 + onError**: 演示 onError 自定义处理(写日志/更新状态)的最小流程。
+3. **AsyncButton — 抛错 + 自动 toast fallback**: 上层挂 `.toastHost(edge: .top)`,不传 onError,失败自动以 `.danger` toast 弹出。
+4. **AsyncButton — disabled / running 并存**: 验证 loading 与外部 `.disabled(true)` 同时生效的视觉。
 
 ## 10. 风险与开放问题
 
 1. `ProgressView(.circular)` 是否响应 `foregroundStyle` —— 见 §4,有降级方案;snapshot test 兜底。
 2. 闭包重载是否歧义 —— 见 §7,三档降级方案已排序。
 3. `BorderlessButtonStyle`(`PrimitiveButtonStyle`)的 `.onTapGesture` 是否真的被 `.allowsHitTesting(false)` 拦住 —— 实现时 Preview 实测;`guard !isRunning` 是兜底。
+4. **隐式 toast fallback 的可发现性** —— 调用方不传 `onError` 时业务错误自动以 `.danger` toast 弹出,但这个行为在 init 签名上看不出来,需要靠文档/示例传达。调用方若期望"完全静默",必须显式写 `onError: { _ in }`。短期缓解:`AsyncButton` 顶部 docstring 已写出三级兜底;长期可考虑在 debug 构建给 `onError == nil && toastHost == nil` 的场景加一次 `os_log` 警告。
 
 这些将在实现阶段 verify-before-completion,而不是设计阶段决定。
 

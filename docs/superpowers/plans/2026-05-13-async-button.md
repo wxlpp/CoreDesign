@@ -191,7 +191,14 @@ EOF
 - Modify: `Sources/CoreDesign/Components/Button/AsyncButton.swift`
 - Modify: `Tests/CoreDesignTests/AsyncButtonTests.swift`
 
-- [ ] **Step 2.1: 写失败测试 —— wrapping 业务错误调用 onError**
+> **Plan amendment (R4+, 2026-05-13)**:Task 2 在 PR #71 review 过程中演进——
+> 原方案在 init 里同步把 throwing closure 包装成 non-throwing,函数名
+> `_wrapThrowingAction`;后改为在 view body 里 lazy resolve(用 enum `ActionKind`
+> 存 `(action, onError)`,body 读 `@Environment(\.toastHost)` 后再分派),
+> 静态分派器更名 `_runThrowing`。Spec §5 同步加入 onError → toastHost
+> → silent 三级兜底。下面 Step 2.1–2.5 已按最终方案重写。
+
+- [ ] **Step 2.1: 写失败测试 —— `_runThrowing` 业务错误调用 onError**
 
 把测试文件追加为:
 
@@ -204,52 +211,65 @@ import Testing
 @MainActor
 struct AsyncButtonTests {
 
+    private struct DemoError: Error, Equatable {
+        let code: Int
+    }
+
     @Test("非抛错 init 能正常构造")
     func nonThrowingInitCompiles() {
-        _ = AsyncButton(action: { }) {
-            Text("Tap")
-        }
+        _ = AsyncButton(action: { }) { Text("Tap") }
     }
 
-    @Test("wrapThrowingAction:业务错误透传给 onError")
-    func wrapBusinessErrorCallsOnError() async {
-        struct DemoError: Error, Equatable {
-            let code: Int
-        }
-
+    @Test("_runThrowing:业务错误透传给 onError(不弹 toast)")
+    func runThrowingBusinessErrorCallsOnError() async {
+        let host = ToastHost()
         var captured: Error?
-        let wrapped = AsyncButton<Text>._wrapThrowingAction(
+        await AsyncButton<Text>._runThrowing(
             { throw DemoError(code: 42) },
-            onError: { captured = $0 }
+            onError: { captured = $0 },
+            toastHost: host
         )
-
-        await wrapped()
-
         #expect((captured as? DemoError) == DemoError(code: 42))
+        #expect(host.queue.isEmpty)
     }
 
-    @Test("wrapThrowingAction:CancellationError 被静默吞下,不调 onError")
-    func wrapCancellationErrorSilent() async {
-        var called = false
-        let wrapped = AsyncButton<Text>._wrapThrowingAction(
+    @Test("_runThrowing:onError nil + toastHost 存在 → 自动弹 .danger toast")
+    func runThrowingFallsBackToToast() async {
+        let host = ToastHost()
+        await AsyncButton<Text>._runThrowing(
+            {
+                struct AutoToastError: LocalizedError {
+                    var errorDescription: String? { "Demo failure" }
+                }
+                throw AutoToastError()
+            },
+            onError: nil,
+            toastHost: host
+        )
+        #expect(host.queue.count == 1)
+        #expect(host.queue.first?.level == .danger)
+    }
+
+    @Test("_runThrowing:onError nil + toastHost nil → 静默,不崩")
+    func runThrowingSilentWithoutHandlers() async {
+        await AsyncButton<Text>._runThrowing(
+            { throw DemoError(code: 1) },
+            onError: nil,
+            toastHost: nil
+        )
+    }
+
+    @Test("_runThrowing:CancellationError 静默 — 不调 onError、不弹 toast")
+    func runThrowingCancellationSilent() async {
+        let host = ToastHost()
+        var onErrorCalled = false
+        await AsyncButton<Text>._runThrowing(
             { throw CancellationError() },
-            onError: { _ in called = true }
+            onError: { _ in onErrorCalled = true },
+            toastHost: host
         )
-
-        await wrapped()
-
-        #expect(called == false)
-    }
-
-    @Test("wrapThrowingAction:onError 为 nil 时业务错误被静默,不崩溃")
-    func wrapNilOnErrorIsSilent() async {
-        struct DemoError: Error {}
-        let wrapped = AsyncButton<Text>._wrapThrowingAction(
-            { throw DemoError() },
-            onError: nil
-        )
-
-        await wrapped()  // 不应崩溃
+        #expect(onErrorCalled == false)
+        #expect(host.queue.isEmpty)
     }
 }
 ```
@@ -260,43 +280,67 @@ struct AsyncButtonTests {
 swift test --filter CoreDesignTests.AsyncButton
 ```
 
-预期:`error: type 'AsyncButton<Text>' has no member '_wrapThrowingAction'`。
+预期:`error: type 'AsyncButton<Text>' has no member '_runThrowing'`。
 
-- [ ] **Step 2.3: 实现 wrapping 辅助 + 抛错 init**
+- [ ] **Step 2.3: 实现 ActionKind + lazy-resolve body + `_runThrowing`**
 
-在 `AsyncButton.swift` 的 `public init(action:...)` 下方追加:
+在 `AsyncButton.swift` 顶部增加 `@Environment(\.toastHost)`,把 init 的存储从
+`action: () async -> Void` 改成 `kind: ActionKind`,然后追加 `_runThrowing` 静态
+分派器与抛错 init。最终结构对齐 §4 / §5,核心片段:
 
 ```swift
-    /// 抛错 init。CancellationError 静默吞下;业务错误转发给 onError(可选)。
-    public init(
-        action: @escaping @MainActor @Sendable () async throws -> Void,
-        onError: (@MainActor @Sendable (Error) -> Void)? = nil,
-        @ViewBuilder label: () -> Label
-    ) {
-        self.action = Self._wrapThrowingAction(action, onError: onError)
-        self.label = label()
-    }
+@Environment(\.toastHost) private var toastHost
+private let kind: ActionKind
 
-    /// 内部 wrapping 工具,供测试直接调用(不暴露给 SwiftUI 调用方使用)。
-    /// 前缀下划线遵循 Swift 隐式 SPI 约定。
-    ///
-    /// 本函数自身不在 MainActor 上执行任何代码,只是构造并返回一个
-    /// `@MainActor` 闭包,因此不需要 `@MainActor` 标注;init 在非 MainActor
-    /// 环境也能同步调用它。
-    internal static func _wrapThrowingAction(
-        _ action: @escaping @MainActor @Sendable () async throws -> Void,
-        onError: (@MainActor @Sendable (Error) -> Void)?
-    ) -> @MainActor @Sendable () async -> Void {
-        return { @MainActor in
-            do {
-                try await action()
-            } catch is CancellationError {
-                // 静默 —— 视图消失或主动取消,不视为业务故障
-            } catch {
-                onError?(error)
-            }
+public init(
+    action: @escaping @MainActor @Sendable () async throws -> Void,
+    onError: (@MainActor @Sendable (Error) -> Void)? = nil,
+    @ViewBuilder label: () -> Label
+) {
+    self.kind = .throwing(action: action, onError: onError)
+    self.label = label()
+}
+
+@MainActor
+private func run() async {
+    switch self.kind {
+    case .nonThrowing(let action):
+        await action()
+    case .throwing(let action, let onError):
+        await Self._runThrowing(
+            action,
+            onError: onError,
+            toastHost: self.toastHost
+        )
+    }
+}
+
+@MainActor
+internal static func _runThrowing(
+    _ action: @MainActor @Sendable () async throws -> Void,
+    onError: (@MainActor @Sendable (Error) -> Void)?,
+    toastHost: ToastHost?
+) async {
+    do {
+        try await action()
+    } catch is CancellationError {
+        // 静默
+    } catch {
+        if let onError {
+            onError(error)
+        } else {
+            toastHost?.show(error.localizedDescription, level: .danger)
         }
     }
+}
+
+private enum ActionKind {
+    case nonThrowing(@MainActor @Sendable () async -> Void)
+    case throwing(
+        action: @MainActor @Sendable () async throws -> Void,
+        onError: (@MainActor @Sendable (Error) -> Void)?
+    )
+}
 ```
 
 - [ ] **Step 2.4: 跑测试确认通过**
@@ -305,7 +349,7 @@ swift test --filter CoreDesignTests.AsyncButton
 swift test --filter CoreDesignTests.AsyncButton
 ```
 
-预期:4 passed(原 1 个 + 新增 3 个)。
+预期:5 passed(原 1 + 新增 4 个:onError 透传、toast fallback、双 nil 静默、Cancellation 静默)。
 
 - [ ] **Step 2.5: Commit**
 
@@ -313,11 +357,13 @@ swift test --filter CoreDesignTests.AsyncButton
 git add Sources/CoreDesign/Components/Button/AsyncButton.swift \
         Tests/CoreDesignTests/AsyncButtonTests.swift
 git commit -m "$(cat <<'EOF'
-feat(AsyncButton): 抛错 init + onError + CancellationError 静默
+feat(AsyncButton): 抛错 init + 错误三级兜底(onError → toastHost → silent)
 
 新增 init(action: () async throws -> Void, onError:..) 与内部
-_wrapThrowingAction 辅助。CancellationError 静默,业务错误透传给
-onError(若为 nil 则一并静默)。spec §5。
+_runThrowing 静态分派器。CancellationError 静默;业务错误优先调
+onError,若 nil 则尝试 @Environment(\.toastHost) 自动以 .danger
+弹 toast,host 不存在则静默(匹配 Toast 系统的"未挂 host 即无声忽略"
+原则)。spec §5。
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF

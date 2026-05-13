@@ -13,13 +13,25 @@ import SwiftUI
 /// `ButtonStyle`(`.solid` / `.light` / `.borderless` / `.circularGlass`)正交,
 /// 调用方依旧用 `.buttonStyle(...)` 设置外观。
 ///
+/// ## 错误处理
+///
+/// 抛错版本(`() async throws -> Void`)按下列优先级分派业务错误:
+///
+/// 1. 显式 `onError` 闭包 → 调用 onError(error)
+/// 2. 否则,环境里挂了 `\.toastHost` → `toastHost.show(error.localizedDescription, level: .danger)`
+/// 3. 否则 → 静默(匹配 Toast 系统的"未挂 host 即无声忽略"原则)
+///
+/// `CancellationError` 始终静默,不视为业务故障。
+///
 /// 详细设计见 `docs/superpowers/specs/2026-05-13-async-button-design.md`。
 public struct AsyncButton<Label: View>: View {
 
     @State private var task: Task<Void, Never>?
     @State private var isRunning = false
 
-    private let action: @MainActor @Sendable () async -> Void
+    @Environment(\.toastHost) private var toastHost
+
+    private let kind: ActionKind
     private let label: Label
 
     /// 非抛错 init。
@@ -27,39 +39,21 @@ public struct AsyncButton<Label: View>: View {
         action: @escaping @MainActor @Sendable () async -> Void,
         @ViewBuilder label: () -> Label
     ) {
-        self.action = action
+        self.kind = .nonThrowing(action)
         self.label = label()
     }
 
-    /// 抛错 init。CancellationError 静默吞下;业务错误转发给 onError(可选)。
+    /// 抛错 init。
+    ///
+    /// - Parameter onError: 业务错误回调。`nil` 时若环境里挂了 `\.toastHost` 则
+    ///   以 `.danger` level 自动弹 toast；都未提供则静默。
     public init(
         action: @escaping @MainActor @Sendable () async throws -> Void,
         onError: (@MainActor @Sendable (Error) -> Void)? = nil,
         @ViewBuilder label: () -> Label
     ) {
-        self.action = Self._wrapThrowingAction(action, onError: onError)
+        self.kind = .throwing(action: action, onError: onError)
         self.label = label()
-    }
-
-    /// 内部 wrapping 工具,供测试直接调用(不暴露给 SwiftUI 调用方使用)。
-    /// 前缀下划线遵循 Swift 隐式 SPI 约定。
-    ///
-    /// 本函数自身不在 MainActor 上执行任何代码,只是构造并返回一个
-    /// `@MainActor` 闭包,因此不需要 `@MainActor` 标注;init 在非 MainActor
-    /// 环境也能同步调用它。
-    internal static func _wrapThrowingAction(
-        _ action: @escaping @MainActor @Sendable () async throws -> Void,
-        onError: (@MainActor @Sendable (Error) -> Void)?
-    ) -> @MainActor @Sendable () async -> Void {
-        return { @MainActor in
-            do {
-                try await action()
-            } catch is CancellationError {
-                // 静默 —— 视图消失或主动取消,不视为业务故障
-            } catch {
-                onError?(error)
-            }
-        }
     }
 
     public var body: some View {
@@ -74,7 +68,7 @@ public struct AsyncButton<Label: View>: View {
                     self.isRunning = false
                     self.task = nil
                 }
-                await self.action()
+                await self.run()
             }
         } label: {
             HStack(spacing: 6) {
@@ -93,6 +87,52 @@ public struct AsyncButton<Label: View>: View {
         .modifier(LoadingAccessibilityModifier(isLoading: self.isRunning))
         .onDisappear { self.task?.cancel() }
     }
+
+    @MainActor
+    private func run() async {
+        switch self.kind {
+        case .nonThrowing(let action):
+            await action()
+        case .throwing(let action, let onError):
+            await Self._runThrowing(
+                action,
+                onError: onError,
+                toastHost: self.toastHost
+            )
+        }
+    }
+
+    /// 抛错路径的核心分派:CancellationError 静默,其余按 onError → toastHost
+    /// → silent 顺序兜底。抽成静态函数便于在 `AsyncButtonTests` 中直接 `await`,
+    /// 不需要驱动 SwiftUI view 树。前缀下划线遵循 Swift 隐式 SPI 约定。
+    @MainActor
+    internal static func _runThrowing(
+        _ action: @MainActor @Sendable () async throws -> Void,
+        onError: (@MainActor @Sendable (Error) -> Void)?,
+        toastHost: ToastHost?
+    ) async {
+        do {
+            try await action()
+        } catch is CancellationError {
+            // 静默 —— 视图消失或主动取消,不视为业务故障
+        } catch {
+            if let onError {
+                onError(error)
+            } else {
+                toastHost?.show(error.localizedDescription, level: .danger)
+            }
+        }
+    }
+}
+
+// MARK: - ActionKind
+
+private enum ActionKind {
+    case nonThrowing(@MainActor @Sendable () async -> Void)
+    case throwing(
+        action: @MainActor @Sendable () async throws -> Void,
+        onError: (@MainActor @Sendable (Error) -> Void)?
+    )
 }
 
 // MARK: - LoadingAccessibilityModifier
@@ -203,6 +243,22 @@ public extension AsyncButton where Label == Text {
         }
     }
     return Harness()
+}
+
+#Preview("AsyncButton — 抛错 + 自动 toast fallback") {
+    // 上层挂 .toastHost,onError 留空 → 自动弹 toast(level: .danger)
+    VStack(spacing: 12) {
+        AsyncButton("Throws (no onError)") {
+            try await Task.sleep(for: .seconds(0.6))
+            struct DemoError: LocalizedError {
+                var errorDescription: String? { "Auto toast on failure" }
+            }
+            throw DemoError()
+        }
+        .buttonStyle(.solid(role: .danger))
+    }
+    .padding()
+    .toastHost(edge: .top)
 }
 
 #Preview("AsyncButton — disabled / running 并存") {
