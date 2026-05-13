@@ -65,8 +65,11 @@ public struct AsyncButton<Label: View>: View {
     public var body: some View {
         Button {
             guard !self.isRunning else { return }
+            // 同步置 true，避免 Task 启动前的同一 runloop 内多次点击竞态——
+            // .allowsHitTesting 与 guard 均依赖 isRunning，必须在创建 Task
+            // *之前* 翻转。
+            self.isRunning = true
             self.task = Task { @MainActor in
-                self.isRunning = true
                 defer { self.isRunning = false }
                 await self.action()
             }
@@ -82,8 +85,24 @@ public struct AsyncButton<Label: View>: View {
             .animation(.snappy(duration: 0.16), value: self.isRunning)
         }
         .allowsHitTesting(!self.isRunning)
-        .accessibilityValue(self.isRunning ? Text("Loading") : Text(""))
+        .modifier(LoadingAccessibilityModifier(isLoading: self.isRunning))
         .onDisappear { self.task?.cancel() }
+    }
+}
+
+// MARK: - LoadingAccessibilityModifier
+
+/// 仅在 loading 期间附加 `accessibilityValue("Loading")`；idle 态完全不设 value，
+/// 避免 VoiceOver 朗读空字符串或多一次停顿。
+private struct LoadingAccessibilityModifier: ViewModifier {
+    let isLoading: Bool
+
+    func body(content: Content) -> some View {
+        if self.isLoading {
+            content.accessibilityValue(Text("Loading"))
+        } else {
+            content
+        }
     }
 }
 

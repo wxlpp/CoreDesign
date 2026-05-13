@@ -1,6 +1,6 @@
 # AsyncButton 设计文档
 
-- **状态**: Draft → 待实现
+- **状态**: 已实现（PR [#71](https://github.com/wxlpp/CoreDesign/pull/71)）
 - **日期**: 2026-05-13
 - **作者**: Evan / Claude
 - **位置**: `Sources/CoreDesign/Components/Button/AsyncButton.swift`
