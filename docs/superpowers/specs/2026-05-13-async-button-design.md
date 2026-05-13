@@ -127,9 +127,11 @@ public var body: some View {
                 ProgressView()
                     .progressViewStyle(.circular)
                     .controlSize(.small)
+                    .accessibilityHidden(true)
             }
             self.label
         }
+        .accessibilityElement(children: .combine)
         .animation(.snappy(duration: 0.16), value: self.isRunning)
     }
     .allowsHitTesting(!self.isRunning)
