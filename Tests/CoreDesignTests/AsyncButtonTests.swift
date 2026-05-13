@@ -61,6 +61,8 @@ struct AsyncButtonTests {
         // StringProtocol 重载
         let title: String = "Submit"
         _ = AsyncButton(title, action: { })
+        // trailing closure 形态(项目主流调用方式)——必须解析到非抛错重载
+        _ = AsyncButton("Submit") { }
     }
 
     @Test("重载解析:抛错文本 init 编译")
