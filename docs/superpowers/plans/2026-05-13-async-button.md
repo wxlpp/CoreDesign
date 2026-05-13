@@ -542,7 +542,7 @@ EOF
 
 **Files:**
 - Modify: `App/Sources/Previews.swift`
-- Create (regenerated): `docs/snapshots/CoreDesignPreview_AsyncButton_Light.png` 及 `_Dark.png`
+- Create (regenerated): `docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.png` 及对应 `.json` sidecar(实际 EmergeTools SnapshotPreviews 产出的命名,与既有所有组件一致;**plan 早期版本误写为 `_Light/_Dark.png` 后缀,以本节为准**)
 
 - [ ] **Step 5.1: 在 `App/Sources/Previews.swift` 追加 `#Preview("AsyncButton")`**
 
@@ -573,7 +573,7 @@ EOF
 ./scripts/run-snapshots.sh
 ```
 
-预期:`X PNGs generated`(应比上次多 2 张:`CoreDesignPreview_AsyncButton_Light.png` 与 `_Dark.png`)。
+预期:`X PNGs generated`(应比上次多 1 张:`CoreDesignPreview_Previews.swift_AsyncButton.png`,加上 1 个对应的 `.json` sidecar)。
 
 - [ ] **Step 5.3: 视觉抽查新生成的 PNG**
 
