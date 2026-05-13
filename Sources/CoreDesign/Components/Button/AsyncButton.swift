@@ -31,6 +31,37 @@ public struct AsyncButton<Label: View>: View {
         self.label = label()
     }
 
+    /// 抛错 init。CancellationError 静默吞下;业务错误转发给 onError(可选)。
+    public init(
+        action: @escaping @MainActor @Sendable () async throws -> Void,
+        onError: (@MainActor @Sendable (Error) -> Void)? = nil,
+        @ViewBuilder label: () -> Label
+    ) {
+        self.action = Self._wrapThrowingAction(action, onError: onError)
+        self.label = label()
+    }
+
+    /// 内部 wrapping 工具,供测试直接调用(不暴露给 SwiftUI 调用方使用)。
+    /// 前缀下划线遵循 Swift 隐式 SPI 约定。
+    ///
+    /// 本函数自身不在 MainActor 上执行任何代码,只是构造并返回一个
+    /// `@MainActor` 闭包,因此不需要 `@MainActor` 标注;init 在非 MainActor
+    /// 环境也能同步调用它。
+    internal static func _wrapThrowingAction(
+        _ action: @escaping @MainActor @Sendable () async throws -> Void,
+        onError: (@MainActor @Sendable (Error) -> Void)?
+    ) -> @MainActor @Sendable () async -> Void {
+        return { @MainActor in
+            do {
+                try await action()
+            } catch is CancellationError {
+                // 静默 —— 视图消失或主动取消,不视为业务故障
+            } catch {
+                onError?(error)
+            }
+        }
+    }
+
     public var body: some View {
         Button {
             guard !self.isRunning else { return }

@@ -12,4 +12,45 @@ struct AsyncButtonTests {
             Text("Tap")
         }
     }
+
+    @Test("wrapThrowingAction:业务错误透传给 onError")
+    func wrapBusinessErrorCallsOnError() async {
+        struct DemoError: Error, Equatable {
+            let code: Int
+        }
+
+        var captured: Error?
+        let wrapped = AsyncButton<Text>._wrapThrowingAction(
+            { throw DemoError(code: 42) },
+            onError: { captured = $0 }
+        )
+
+        await wrapped()
+
+        #expect((captured as? DemoError) == DemoError(code: 42))
+    }
+
+    @Test("wrapThrowingAction:CancellationError 被静默吞下,不调 onError")
+    func wrapCancellationErrorSilent() async {
+        var called = false
+        let wrapped = AsyncButton<Text>._wrapThrowingAction(
+            { throw CancellationError() },
+            onError: { _ in called = true }
+        )
+
+        await wrapped()
+
+        #expect(called == false)
+    }
+
+    @Test("wrapThrowingAction:onError 为 nil 时业务错误被静默,不崩溃")
+    func wrapNilOnErrorIsSilent() async {
+        struct DemoError: Error {}
+        let wrapped = AsyncButton<Text>._wrapThrowingAction(
+            { throw DemoError() },
+            onError: nil
+        )
+
+        await wrapped()  // 不应崩溃
+    }
 }
