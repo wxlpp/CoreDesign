@@ -287,3 +287,18 @@ private struct ToastSnapshotHarness: View {
     }
     .padding()
 }
+
+#Preview("AsyncButton") {
+    VStack(spacing: CoreSpacing.sm) {
+        AsyncButton("Solid Primary") { }.buttonStyle(.solid(role: .primary))
+        AsyncButton("Light Secondary") { }.buttonStyle(.light(role: .secondary))
+        AsyncButton("Borderless Danger") { }.buttonStyle(.borderless(role: .danger))
+        AsyncButton {
+            // idle 态 snapshot,这里无需真的 sleep
+        } label: {
+            Image(systemName: "arrow.clockwise")
+        }
+        .buttonStyle(.circularGlass)
+    }
+    .padding()
+}
