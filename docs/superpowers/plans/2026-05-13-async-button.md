@@ -559,7 +559,7 @@ EOF
         } label: {
             Image(systemName: "arrow.clockwise")
         }
-        .buttonStyle(.circularGlass())
+        .buttonStyle(.circularGlass)   // 注意:property 形态,不带括号(.circularGlass(diameter:) 才是函数形态)
     }
     .padding()
 }
