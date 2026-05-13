@@ -70,7 +70,10 @@ public struct AsyncButton<Label: View>: View {
             // *之前* 翻转。
             self.isRunning = true
             self.task = Task { @MainActor in
-                defer { self.isRunning = false }
+                defer {
+                    self.isRunning = false
+                    self.task = nil
+                }
                 await self.action()
             }
         } label: {

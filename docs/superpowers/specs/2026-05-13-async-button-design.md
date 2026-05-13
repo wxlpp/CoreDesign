@@ -109,10 +109,16 @@ AsyncButton {
 
 public var body: some View {
     Button {
-        guard !self.isRunning else { return }   // 防御性:配合 .allowsHitTesting
+        guard !self.isRunning else { return }
+        // 同步置 true，避免 Task 启动前的同一 runloop 内多次点击竞态——
+        // .allowsHitTesting 与 guard 均依赖 isRunning，必须在创建 Task
+        // *之前* 翻转。
+        self.isRunning = true
         self.task = Task { @MainActor in
-            self.isRunning = true
-            defer { self.isRunning = false }
+            defer {
+                self.isRunning = false
+                self.task = nil
+            }
             await self.run()
         }
     } label: {
@@ -127,8 +133,21 @@ public var body: some View {
         .animation(.snappy(duration: 0.16), value: self.isRunning)
     }
     .allowsHitTesting(!self.isRunning)
-    .accessibilityValue(self.isRunning ? Text("Loading") : Text(""))
+    .modifier(LoadingAccessibilityModifier(isLoading: self.isRunning))
     .onDisappear { self.task?.cancel() }
+}
+
+// 配套 modifier:仅在 loading 时附加 accessibilityValue("Loading")，
+// idle 态完全不设 value，避免 VoiceOver 朗读空字符串。
+private struct LoadingAccessibilityModifier: ViewModifier {
+    let isLoading: Bool
+    func body(content: Content) -> some View {
+        if self.isLoading {
+            content.accessibilityValue(Text("Loading"))
+        } else {
+            content
+        }
+    }
 }
 ```
 
@@ -208,23 +227,25 @@ action 内部若有长循环,应自行 `try Task.checkCancellation()`;`URLSessio
 
 文件:`Tests/CoreDesignTests/AsyncButtonTests.swift`,使用 Swift Testing。
 
-测试用例:
+测试用例(以实际入库为准):
 
-1. **基础状态机** —— 触发后 `isRunning` 变 true,await 完成后变 false。
-   - 通过把 action 拆成可控制的 `AsyncStream` / `CheckedContinuation`,精确观察中间态。
-2. **抛错路径** —— 抛业务错误时 `onError` 被调用一次,且错误透传相等。
-3. **CancellationError 静默** —— action 抛 `CancellationError`,`onError` 不被调用。
-4. **重载解析** —— 各写一个非抛错与抛错调用点,能编译即通过(编译期保障)。
+1. **非抛错 init 构造编译** —— 烟雾测试,确认 view 能正常构造。
+2. **`_wrapThrowingAction` 业务错误透传** —— 抛业务错误时 `onError` 被调用一次,且错误透传相等。
+3. **`_wrapThrowingAction` CancellationError 静默** —— action 抛 `CancellationError`,`onError` 不被调用。
+4. **`_wrapThrowingAction` 无 onError 也不崩** —— `onError == nil` 时业务错误被静默吞下,不 crash。
+5. **重载解析** —— `LocalizedStringKey` / `StringProtocol` / trailing-closure 三种形态,非抛错与抛错版本能正确编译解析。
+
+> 关于状态机中间态测试:在 SwiftUI View body 内驱动 `@State` 变化并精确观察 `isRunning` 在 true/false 之间的瞬时,需要嵌入 SwiftUI 的 view update runloop,该项目当前没有这类基础设施;`isRunning` 的写入位置已被 §4 代码块严格定义,直接 review code path 即可,无需运行时测试。
 
 ### Snapshot
 
-项目已有 SnapshotTests target(`b4d9137`、`97a6241` 引入)。为 spinner-next-to-label 布局补 4 张 snapshot,running 状态各一张,覆盖 `.solid` / `.light` / `.borderless` / `.circularGlass`,锁住 `HStack(spacing: 6)` + `controlSize(.small)` 的视觉决策(同时间接验证 `ProgressView` 是否真的吃 `foregroundStyle`——若 spinner 颜色不对,snapshot 会直接红)。
+项目已有 SnapshotTests target(`b4d9137`、`97a6241` 引入)。实际入库的是 **`docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.{png,json}`,仅 idle 态一张**——running 态 snapshot 暂缓:`#Preview` 内的 `try await Task.sleep(...)` 无法在 snapshot 渲染那一帧把 `isRunning` 锁在 `true`,需要扩张公共 API(例如暴露 `initialIsRunning:` 测试钩子)才能稳定捕捉,代价大于收益,留待后续视觉回归发现问题时再补。spinner 颜色继承的验证由 §10 风险 1 的 Xcode Canvas 人工验收兜底。
 
 ## 9. Preview
 
 同文件内提供 3 个 `#Preview` 块:
 
-1. **AsyncButton — 全部 ButtonStyle**: 4 个 AsyncButton 分别套 `.solid()` / `.light()` / `.borderless()` / `.circularGlass()`,每个 action 内 `try await Task.sleep(.seconds(1.5))`,手动点击观察 spinner 与 disabled 表现。
+1. **AsyncButton — 全部 ButtonStyle**: 4 个 AsyncButton 分别套 `.solid()` / `.light()` / `.borderless()` / `.circularGlass`(`.circularGlass` 是 property 形态;`.circularGlass(diameter:)` 才是函数形态),每个 action 内 `try await Task.sleep(.seconds(1.5))`,手动点击观察 spinner 表现。
 2. **AsyncButton — 抛错 + onError**: 演示 onError 弹 toast 的最小流程。
 3. **AsyncButton — disabled / running 并存**: 验证 loading 与外部 `.disabled(true)` 同时生效的视觉。
 

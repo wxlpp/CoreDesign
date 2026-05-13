@@ -104,9 +104,15 @@ public struct AsyncButton<Label: View>: View {
     public var body: some View {
         Button {
             guard !self.isRunning else { return }
+            // 同步置 true，避免 Task 启动前的同一 runloop 内多次点击竞态——
+            // .allowsHitTesting 与 guard 均依赖 isRunning，必须在创建 Task
+            // *之前* 翻转。
+            self.isRunning = true
             self.task = Task { @MainActor in
-                self.isRunning = true
-                defer { self.isRunning = false }
+                defer {
+                    self.isRunning = false
+                    self.task = nil
+                }
                 await self.action()
             }
         } label: {
@@ -121,8 +127,24 @@ public struct AsyncButton<Label: View>: View {
             .animation(.snappy(duration: 0.16), value: self.isRunning)
         }
         .allowsHitTesting(!self.isRunning)
-        .accessibilityValue(self.isRunning ? Text("Loading") : Text(""))
+        .modifier(LoadingAccessibilityModifier(isLoading: self.isRunning))
         .onDisappear { self.task?.cancel() }
+    }
+}
+
+// MARK: - LoadingAccessibilityModifier
+
+/// 仅在 loading 期间附加 `accessibilityValue("Loading")`；idle 态完全不设 value，
+/// 避免 VoiceOver 朗读空字符串或多一次停顿。
+private struct LoadingAccessibilityModifier: ViewModifier {
+    let isLoading: Bool
+
+    func body(content: Content) -> some View {
+        if self.isLoading {
+            content.accessibilityValue(Text("Loading"))
+        } else {
+            content
+        }
     }
 }
 ```
@@ -452,7 +474,7 @@ EOF
         } label: {
             Image(systemName: "arrow.clockwise")
         }
-        .buttonStyle(.circularGlass())
+        .buttonStyle(.circularGlass)
     }
     .padding()
 }
@@ -578,28 +600,29 @@ EOF
 - [ ] **Step 5.3: 视觉抽查新生成的 PNG**
 
 ```bash
-open docs/snapshots/CoreDesignPreview_AsyncButton_Light.png
-open docs/snapshots/CoreDesignPreview_AsyncButton_Dark.png
+open docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.png
 ```
 
 **核对清单**:
 - [ ] 4 个按钮垂直排列,无 layout 错位
-- [ ] Light 模式下文字与背景对比度正常
-- [ ] Dark 模式下 `.solid` 玻璃效果可见,`.circularGlass` 圆形外壳清晰
+- [ ] 文字与背景对比度正常
+- [ ] `.solid` 玻璃效果可见,`.circularGlass` 圆形外壳清晰
 - [ ] 无 spinner(idle 态)
 
 - [ ] **Step 5.4: Commit snapshot 与 Previews.swift 修改**
 
 ```bash
-git add App/Sources/Previews.swift docs/snapshots/CoreDesignPreview_AsyncButton_*.png
+git add App/Sources/Previews.swift \
+        docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.png \
+        docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.json
 git commit -m "$(cat <<'EOF'
 test(AsyncButton): 增加 App snapshot preview(idle 态)
 
 App/Sources/Previews.swift 增加一个 AsyncButton entry,产出
-docs/snapshots/CoreDesignPreview_AsyncButton_{Light,Dark}.png 用于
-锁住 idle 态布局。Running 态 snapshot 暂缓——需要扩张公共 API 才能
-强制进入 running 态,与 spec §2 minimal API 目标冲突。Running 态由
-Task 4 的 Xcode Canvas 手动验证 + Tests/CoreDesignTests 的 Swift Testing
+docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.png(+.json
+sidecar)用于锁住 idle 态布局。Running 态 snapshot 暂缓——需要扩张
+公共 API 才能强制进入 running 态,与 spec §2 minimal API 目标冲突。
+Running 态由 Task 4 的 Xcode Canvas 手动验证 + Tests/CoreDesignTests 的 Swift Testing
 单测覆盖。
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
