@@ -86,3 +86,42 @@ public struct AsyncButton<Label: View>: View {
         .onDisappear { self.task?.cancel() }
     }
 }
+
+// MARK: - Text label conveniences
+
+public extension AsyncButton where Label == Text {
+
+    /// LocalizedStringKey + 非抛错。
+    init(
+        _ titleKey: LocalizedStringKey,
+        action: @escaping @MainActor @Sendable () async -> Void
+    ) {
+        self.init(action: action) { Text(titleKey) }
+    }
+
+    /// StringProtocol + 非抛错。
+    init<S: StringProtocol>(
+        _ title: S,
+        action: @escaping @MainActor @Sendable () async -> Void
+    ) {
+        self.init(action: action) { Text(title) }
+    }
+
+    /// LocalizedStringKey + 抛错 + 可选 onError。
+    init(
+        _ titleKey: LocalizedStringKey,
+        action: @escaping @MainActor @Sendable () async throws -> Void,
+        onError: (@MainActor @Sendable (Error) -> Void)? = nil
+    ) {
+        self.init(action: action, onError: onError) { Text(titleKey) }
+    }
+
+    /// StringProtocol + 抛错 + 可选 onError。
+    init<S: StringProtocol>(
+        _ title: S,
+        action: @escaping @MainActor @Sendable () async throws -> Void,
+        onError: (@MainActor @Sendable (Error) -> Void)? = nil
+    ) {
+        self.init(action: action, onError: onError) { Text(title) }
+    }
+}

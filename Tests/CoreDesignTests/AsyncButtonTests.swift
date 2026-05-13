@@ -53,4 +53,27 @@ struct AsyncButtonTests {
 
         await wrapped()  // 不应崩溃
     }
+
+    @Test("重载解析:非抛错文本 init 编译")
+    func nonThrowingTextInitsCompile() {
+        // LocalizedStringKey 重载
+        _ = AsyncButton("Submit", action: { })
+        // StringProtocol 重载
+        let title: String = "Submit"
+        _ = AsyncButton(title, action: { })
+    }
+
+    @Test("重载解析:抛错文本 init 编译")
+    func throwingTextInitsCompile() {
+        struct DemoError: Error {}
+        _ = AsyncButton("Submit",
+                        action: { throw DemoError() },
+                        onError: { _ in })
+        let title: String = "Submit"
+        _ = AsyncButton(title,
+                        action: { throw DemoError() },
+                        onError: { _ in })
+        // onError 省略
+        _ = AsyncButton("Submit", action: { throw DemoError() })
+    }
 }
