@@ -11,12 +11,13 @@ import SwiftUI
 
 /// 主操作按钮样式（"solid button"）。
 ///
-/// ## Telegram 玻璃模式（默认）
+/// ## Native Primer 默认
 ///
-/// `glass: true`（默认）时使用 `TelegramGlassButtonModifier` 四层结构：
-/// 底色 + 2pt 内缩 + 玻璃壳 + 细白描边。底色由 `role.color` 通过 `.backgroundStyle()` 注入。
+/// 默认使用 Primer 实色 + 1px borderMuted 描边 + CoreElevation.small 阴影。
 ///
-/// `glass: false` 时退回到 Primer 实色 + 1px borderMuted 描边 + CoreElevation.small 阴影。
+/// 显式传入 `glass: true` 时保留 legacy Telegram 玻璃模式，使用
+/// `TelegramGlassButtonModifier` 四层结构：底色 + 2pt 内缩 + 玻璃壳 + 细白描边。
+/// 底色由 `role.color` 通过 `.backgroundStyle()` 注入。
 ///
 /// ## 使用场景 / Usage
 ///
@@ -25,7 +26,7 @@ public struct SolidButtonStyle: ButtonStyle {
     public let role: ButtonRoleStyleRole
     public let glass: Bool
 
-    public init(role: ButtonRoleStyleRole = .primary, glass: Bool = true) {
+    public init(role: ButtonRoleStyleRole = .primary, glass: Bool = false) {
         self.role = role
         self.glass = glass
     }
@@ -103,13 +104,13 @@ public extension ButtonStyle where Self == SolidButtonStyle {
     /// 构造主操作按钮样式。
     ///
     /// - Parameter role: 角色色板（默认 `.primary`）。
-    /// - Parameter glass: 是否启用 Telegram 玻璃模式（默认 `true`）。
-    static func solid(role: ButtonRoleStyleRole = .primary, glass: Bool = true) -> SolidButtonStyle {
+    /// - Parameter glass: 是否启用 legacy Telegram 玻璃模式（默认 `false`）。
+    static func solid(role: ButtonRoleStyleRole = .primary, glass: Bool = false) -> SolidButtonStyle {
         SolidButtonStyle(role: role, glass: glass)
     }
 }
 
-#Preview("Solid — glass") {
+#Preview("Solid — default") {
     VStack(spacing: 12) {
         Button {} label: { Text("Primary") }
             .buttonStyle(.solid(role: .primary))
@@ -122,12 +123,12 @@ public extension ButtonStyle where Self == SolidButtonStyle {
     .padding()
 }
 
-#Preview("Solid — no glass") {
+#Preview("Solid — explicit glass") {
     VStack(spacing: 12) {
         Button {} label: { Text("Primary") }
-            .buttonStyle(.solid(role: .primary, glass: false))
+            .buttonStyle(.solid(role: .primary, glass: true))
         Button {} label: { Text("Secondary") }
-            .buttonStyle(.solid(role: .secondary, glass: false))
+            .buttonStyle(.solid(role: .secondary, glass: true))
     }
     .padding()
 }
