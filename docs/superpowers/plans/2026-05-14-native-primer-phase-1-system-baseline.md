@@ -1,65 +1,65 @@
-# Native Primer Phase 1 System Baseline Implementation Plan
+# Native Primer 第一阶段系统基线实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Establish the Native Primer system baseline: explicit surface roles, non-glass default buttons, floating glass primitives, and `EmptyState` deprecation.
+**Goal:** 建立 Native Primer 系统基线:明确的 surface 角色、非玻璃的默认按钮、浮层玻璃原语,以及 `EmptyState` 弃用。
 
-**Architecture:** Keep existing public APIs where possible, but adjust defaults and add focused primitives that later component work can reuse. This phase does not visually reset every component; it creates the shared rules and tests that Phase 2 and Phase 3 rely on.
+**Architecture:** 尽量保留既有公开 API,但调整默认值并新增聚焦的原语,供后续组件工作复用。本阶段不会对所有组件进行视觉重置;它建立的是第二阶段、第三阶段所依赖的共享规则与测试。
 
-**Tech Stack:** Swift 6.3, SwiftUI, Swift Testing, iOS 26/macOS 26 package targets, Liquid Glass APIs.
+**Tech Stack:** Swift 6.3、SwiftUI、Swift Testing、iOS 26 / macOS 26 包目标、Liquid Glass API。
 
 ---
 
 ## Source Spec
 
-Read before implementing:
+实施前请先读:
 
 - `docs/superpowers/specs/2026-05-14-native-primer-telegram-taste-design.md`
 
-This plan covers only Phase 1 from that spec.
+本计划仅覆盖该 spec 的第一阶段。
 
 ## File Structure
 
 Modify:
 
 - `Sources/CoreDesign/Modifier/SurfaceModifier.swift`
-  - Add new Native Primer surface roles while preserving old cases as compatibility aliases.
-  - Keep `View.surface(_:)` as the single surface entry point.
+  - 新增 Native Primer surface 角色,同时把旧 case 保留为兼容别名。
+  - 保持 `View.surface(_:)` 作为单一 surface 入口。
 - `Sources/CoreDesign/Modifier/FloatingGlassModifier.swift`
-  - New file for shared floating Liquid Glass behavior.
+  - 新文件,封装共享的浮层 Liquid Glass 行为。
 - `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
-  - Change `glass` default to `false`.
-  - Update docs/previews so default examples are non-glass.
+  - 把 `glass` 默认值改为 `false`。
+  - 更新文档 / preview,使默认示例为非玻璃形态。
 - `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
-  - Change `glass` default to `false`.
-  - Update docs/previews so default examples are non-glass.
+  - 把 `glass` 默认值改为 `false`。
+  - 更新文档 / preview,使默认示例为非玻璃形态。
 - `Sources/CoreDesign/Components/EmptyState/EmptyState.swift`
-  - Add deprecation annotations with migration guidance to `ContentUnavailableView`.
+  - 增加弃用注解,并提供迁移到 `ContentUnavailableView` 的指引。
 - `Tests/CoreDesignTests/SurfaceKindTests.swift`
-  - New tests for compatibility and new surface role construction.
+  - 新增测试,验证兼容性以及新 surface 角色的构造。
 - `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`
-  - New tests for button style default `glass` values.
+  - 新增测试,验证按钮 style 默认 `glass` 取值。
 - `Tests/CoreDesignTests/EmptyStateDeprecationTests.swift`
-  - New compile-only construction test to ensure deprecated APIs still remain available.
+  - 新增编译期构造测试,确保弃用 API 在过渡期内仍然可用。
 
-Read only:
+只读参考:
 
 - `Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift`
-  - Compatibility reference for legacy explicit glass button visuals.
+  - 旧版显式玻璃按钮视觉的兼容性参考。
 
-Do not modify Phase 2 component visuals in this plan: `SegmentedControl`, `SearchField`, `ListRow`, `SidebarRow`, `UnderlinedTabBar`, `Badge`, `Tag`, and `StateLabel`.
+本计划不修改第二阶段的组件视觉:`SegmentedControl`、`SearchField`、`ListRow`、`SidebarRow`、`UnderlinedTabBar`、`Badge`、`Tag`、`StateLabel`。
 
 ---
 
-## Task 1: Add Native Primer Surface Roles
+## 任务 1:新增 Native Primer surface 角色
 
 **Files:**
 - Modify: `Sources/CoreDesign/Modifier/SurfaceModifier.swift`
 - Create: `Tests/CoreDesignTests/SurfaceKindTests.swift`
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **步骤 1:先写失败测试**
 
-Create `Tests/CoreDesignTests/SurfaceKindTests.swift`:
+创建 `Tests/CoreDesignTests/SurfaceKindTests.swift`:
 
 ```swift
 import Testing
@@ -94,21 +94,21 @@ struct SurfaceKindTests {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **步骤 2:跑测试确认失败**
 
-Run:
+执行:
 
 ```bash
 swift test --filter SurfaceKind
 ```
 
-Expected: compile failure because `SurfaceKind.content`, `.control`, `.floating`, and `.overlay` do not exist.
+预期:编译失败,因为 `SurfaceKind.content`、`.control`、`.floating`、`.overlay` 还不存在。
 
-- [ ] **Step 3: Add surface roles and mappings**
+- [ ] **步骤 3:新增 surface 角色与映射**
 
-Edit `Sources/CoreDesign/Modifier/SurfaceModifier.swift`.
+编辑 `Sources/CoreDesign/Modifier/SurfaceModifier.swift`。
 
-Replace the `SurfaceKind` cases with:
+把 `SurfaceKind` 的 case 替换为:
 
 ```swift
 public enum SurfaceKind: Sendable {
@@ -141,7 +141,7 @@ public enum SurfaceKind: Sendable {
 }
 ```
 
-Update `background` mapping:
+更新 `background` 映射:
 
 ```swift
 var background: Color {
@@ -168,7 +168,7 @@ var background: Color {
 }
 ```
 
-Update `border` mapping:
+更新 `border` 映射:
 
 ```swift
 var border: Color {
@@ -195,7 +195,7 @@ var border: Color {
 }
 ```
 
-Update `cornerRadius` mapping:
+更新 `cornerRadius` 映射:
 
 ```swift
 var cornerRadius: CGFloat {
@@ -222,7 +222,7 @@ var cornerRadius: CGFloat {
 }
 ```
 
-Update the preview sample array to include the new roles:
+更新 preview 示例数组,纳入新角色:
 
 ```swift
 private let samples: [(label: String, kind: SurfaceKind)] = [
@@ -238,17 +238,17 @@ private let samples: [(label: String, kind: SurfaceKind)] = [
 ]
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [ ] **步骤 4:跑测试确认通过**
 
-Run:
+执行:
 
 ```bash
 swift test --filter SurfaceKind
 ```
 
-Expected: tests pass.
+预期:测试通过。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5:Commit**
 
 ```bash
 git add Sources/CoreDesign/Modifier/SurfaceModifier.swift Tests/CoreDesignTests/SurfaceKindTests.swift
@@ -257,15 +257,15 @@ git commit -m "feat: add native primer surface roles"
 
 ---
 
-## Task 2: Add Floating Glass Primitive
+## 任务 2:新增浮层玻璃原语
 
 **Files:**
 - Create: `Sources/CoreDesign/Modifier/FloatingGlassModifier.swift`
 - Create: `Tests/CoreDesignTests/FloatingGlassModifierTests.swift`
 
-- [ ] **Step 1: Write the failing compile test**
+- [ ] **步骤 1:先写失败的编译测试**
 
-Create `Tests/CoreDesignTests/FloatingGlassModifierTests.swift`:
+创建 `Tests/CoreDesignTests/FloatingGlassModifierTests.swift`:
 
 ```swift
 import SwiftUI
@@ -283,19 +283,19 @@ struct FloatingGlassModifierTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **步骤 2:跑测试确认失败**
 
-Run:
+执行:
 
 ```bash
 swift test --filter FloatingGlassModifier
 ```
 
-Expected: compile failure because `floatingGlass()` does not exist.
+预期:编译失败,因为 `floatingGlass()` 还不存在。
 
-- [ ] **Step 3: Implement the modifier**
+- [ ] **步骤 3:实现 modifier**
 
-Create `Sources/CoreDesign/Modifier/FloatingGlassModifier.swift`:
+创建 `Sources/CoreDesign/Modifier/FloatingGlassModifier.swift`:
 
 ```swift
 //
@@ -345,27 +345,27 @@ public extension View {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **步骤 4:跑测试确认通过**
 
-Run:
+执行:
 
 ```bash
 swift test --filter FloatingGlassModifier
 ```
 
-Expected: test passes.
+预期:测试通过。
 
-- [ ] **Step 5: Run package build**
+- [ ] **步骤 5:跑一次 package build**
 
-Run:
+执行:
 
 ```bash
 swift build
 ```
 
-Expected: build succeeds.
+预期:构建成功。
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6:Commit**
 
 ```bash
 git add Sources/CoreDesign/Modifier/FloatingGlassModifier.swift Tests/CoreDesignTests/FloatingGlassModifierTests.swift
@@ -374,16 +374,16 @@ git commit -m "feat: add floating glass primitive"
 
 ---
 
-## Task 3: Make Ordinary Button Styles Non-Glass By Default
+## 任务 3:把普通按钮 style 默认改为非玻璃
 
 **Files:**
 - Modify: `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
 - Modify: `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
 - Create: `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`
 
-- [ ] **Step 1: Write failing tests for defaults**
+- [ ] **步骤 1:为默认值写失败测试**
 
-Create `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`:
+创建 `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`:
 
 ```swift
 import Testing
@@ -411,43 +411,43 @@ struct ButtonStyleDefaultTests {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **步骤 2:跑测试确认失败**
 
-Run:
+执行:
 
 ```bash
 swift test --filter "Button style defaults"
 ```
 
-Expected: two tests fail because `SolidButtonStyle()` and `LightButtonStyle()` currently default `glass` to `true`.
+预期:两条测试失败,因为当前 `SolidButtonStyle()` 与 `LightButtonStyle()` 的 `glass` 默认值是 `true`。
 
-- [ ] **Step 3: Change SolidButtonStyle defaults and docs**
+- [ ] **步骤 3:修改 SolidButtonStyle 默认值与文档**
 
-In `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`, change:
+在 `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift` 中,把:
 
 ```swift
 public init(role: ButtonRoleStyleRole = .primary, glass: Bool = true) {
 ```
 
-to:
+改为:
 
 ```swift
 public init(role: ButtonRoleStyleRole = .primary, glass: Bool = false) {
 ```
 
-Change the convenience API:
+把便捷 API:
 
 ```swift
 static func solid(role: ButtonRoleStyleRole = .primary, glass: Bool = true) -> SolidButtonStyle {
 ```
 
-to:
+改为:
 
 ```swift
 static func solid(role: ButtonRoleStyleRole = .primary, glass: Bool = false) -> SolidButtonStyle {
 ```
 
-Update the top comment so it says:
+更新顶部注释为:
 
 ```swift
 /// ## Native Primer mode (default)
@@ -459,7 +459,7 @@ Update the top comment so it says:
 /// floating or transitional usage.
 ```
 
-Update preview labels and calls:
+更新 preview 标签与调用:
 
 ```swift
 #Preview("Solid — default") {
@@ -486,40 +486,40 @@ Update preview labels and calls:
 }
 ```
 
-- [ ] **Step 4: Change LightButtonStyle defaults and docs**
+- [ ] **步骤 4:修改 LightButtonStyle 默认值与文档**
 
-In `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`, change:
+在 `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift` 中,把:
 
 ```swift
 public init(role: ButtonRoleStyleRole = .primary, glass: Bool = true) {
 ```
 
-to:
+改为:
 
 ```swift
 public init(role: ButtonRoleStyleRole = .primary, glass: Bool = false) {
 ```
 
-Change the convenience API:
+把便捷 API:
 
 ```swift
 static func light(role: ButtonRoleStyleRole = .primary, glass: Bool = true) -> LightButtonStyle {
 ```
 
-to:
+改为:
 
 ```swift
 static func light(role: ButtonRoleStyleRole = .primary, glass: Bool = false) -> LightButtonStyle {
 ```
 
-Update the top comment so it says:
+更新顶部注释为:
 
 ```swift
 /// `glass: false` (default) uses a practical secondary control surface.
 /// `glass: true` keeps the legacy Telegram glass treatment for explicit usage.
 ```
 
-Update preview labels and calls:
+更新 preview 标签与调用:
 
 ```swift
 #Preview("Light — default") {
@@ -543,28 +543,28 @@ Update preview labels and calls:
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [ ] **步骤 5:跑测试确认通过**
 
-Run:
+执行:
 
 ```bash
 swift test --filter "Button style defaults"
 ```
 
-Expected: tests pass.
+预期:测试通过。
 
-- [ ] **Step 6: Run existing button-related tests**
+- [ ] **步骤 6:跑既有按钮相关测试**
 
-Run:
+执行:
 
 ```bash
 swift test --filter CoreButtonMetrics
 swift test --filter AsyncButton
 ```
 
-Expected: tests pass.
+预期:测试通过。
 
-- [ ] **Step 7: Commit**
+- [ ] **步骤 7:Commit**
 
 ```bash
 git add Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift Tests/CoreDesignTests/ButtonStyleDefaultTests.swift
@@ -573,15 +573,15 @@ git commit -m "feat: make button glass opt-in"
 
 ---
 
-## Task 4: Deprecate EmptyState With Native Migration Guidance
+## 任务 4:弃用 EmptyState 并指引迁移到原生方案
 
 **Files:**
 - Modify: `Sources/CoreDesign/Components/EmptyState/EmptyState.swift`
 - Create: `Tests/CoreDesignTests/EmptyStateDeprecationTests.swift`
 
-- [ ] **Step 1: Write compile-preservation test**
+- [ ] **步骤 1:写编译保持测试**
 
-Create `Tests/CoreDesignTests/EmptyStateDeprecationTests.swift`:
+创建 `Tests/CoreDesignTests/EmptyStateDeprecationTests.swift`:
 
 ```swift
 import SwiftUI
@@ -599,21 +599,21 @@ struct EmptyStateDeprecationTests {
 }
 ```
 
-- [ ] **Step 2: Run test before deprecation**
+- [ ] **步骤 2:在打弃用注解前先跑一次测试**
 
-Run:
+执行:
 
 ```bash
 swift test --filter "EmptyState deprecation"
 ```
 
-Expected: test passes. This confirms the compatibility baseline before adding annotations.
+预期:测试通过。这一步是为了在添加注解前先确认兼容性基线。
 
-- [ ] **Step 3: Add deprecation annotations**
+- [ ] **步骤 3:添加弃用注解**
 
-Edit `Sources/CoreDesign/Components/EmptyState/EmptyState.swift`.
+编辑 `Sources/CoreDesign/Components/EmptyState/EmptyState.swift`。
 
-Add this deprecation to the public struct:
+给 public struct 加上这条弃用注解:
 
 ```swift
 @available(
@@ -624,7 +624,7 @@ Add this deprecation to the public struct:
 public struct EmptyState<Action: View>: View {
 ```
 
-Add the same `@available` annotation to these public convenience initializers:
+把同样的 `@available` 注解加到以下 public 便捷 init:
 
 ```swift
 init(
@@ -654,7 +654,7 @@ init(
 )
 ```
 
-Update the file-level doc comment near the top to begin with:
+把文件顶部的文档注释改成以这段开头:
 
 ```swift
 /// Deprecated compatibility empty-state view.
@@ -664,27 +664,27 @@ Update the file-level doc comment near the top to begin with:
 /// version only as a compatibility wrapper for existing callers.
 ```
 
-- [ ] **Step 4: Run test to verify compatibility remains**
+- [ ] **步骤 4:跑测试确认兼容性仍然保留**
 
-Run:
+执行:
 
 ```bash
 swift test --filter "EmptyState deprecation"
 ```
 
-Expected: test passes. Deprecation warnings are acceptable.
+预期:测试通过。弃用警告是可以接受的。
 
-- [ ] **Step 5: Run full tests**
+- [ ] **步骤 5:跑完整测试套**
 
-Run:
+执行:
 
 ```bash
 swift test
 ```
 
-Expected: all tests pass.
+预期:所有测试通过。
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6:Commit**
 
 ```bash
 git add Sources/CoreDesign/Components/EmptyState/EmptyState.swift Tests/CoreDesignTests/EmptyStateDeprecationTests.swift
@@ -693,64 +693,64 @@ git commit -m "docs: deprecate empty state component"
 
 ---
 
-## Task 5: Phase 1 Verification
+## 任务 5:第一阶段验收
 
 **Files:**
 - Read: `docs/superpowers/specs/2026-05-14-native-primer-telegram-taste-design.md`
-- Verify: all files changed by Tasks 1-4
+- Verify: 任务 1-4 改动过的所有文件
 
-- [ ] **Step 1: Run all tests**
+- [ ] **步骤 1:跑完整测试套**
 
-Run:
+执行:
 
 ```bash
 swift test
 ```
 
-Expected: all tests pass.
+预期:所有测试通过。
 
-- [ ] **Step 2: Check for accidental global glass defaults**
+- [ ] **步骤 2:检查是否还有意外残留的全局 glass 默认值**
 
-Run:
+执行:
 
 ```bash
 rg "glass: Bool = true|\\.buttonStyle\\(\\.solid\\(|\\.buttonStyle\\(\\.light\\(" Sources/CoreDesign App/Sources Tests/CoreDesignTests
 ```
 
-Expected:
+预期:
 
-- no `glass: Bool = true` in `SolidButtonStyle.swift` or `LightButtonStyle.swift`
-- app previews may still call `.solid(...)` or `.light(...)`, but those now resolve to non-glass defaults
+- `SolidButtonStyle.swift` 与 `LightButtonStyle.swift` 中不再有 `glass: Bool = true`
+- App preview 中可能仍然调用 `.solid(...)` 或 `.light(...)`,但它们现在都会解析到非玻璃默认值
 
-- [ ] **Step 3: Check EmptyState remains public but deprecated**
+- [ ] **步骤 3:确认 EmptyState 仍然 public 但已弃用**
 
-Run:
+执行:
 
 ```bash
 rg "deprecated.*ContentUnavailableView|public struct EmptyState|ContentUnavailableView" Sources/CoreDesign/Components/EmptyState/EmptyState.swift
 ```
 
-Expected: output includes the `@available(... deprecated ...)` annotation, `public struct EmptyState`, and `ContentUnavailableView` migration guidance.
+预期:输出应包含 `@available(... deprecated ...)` 注解、`public struct EmptyState`,以及 `ContentUnavailableView` 迁移指引。
 
-- [ ] **Step 4: Check surface roles exist**
+- [ ] **步骤 4:确认新 surface 角色已落地**
 
-Run:
+执行:
 
 ```bash
 rg "case content|case control|case floating|case overlay" Sources/CoreDesign/Modifier/SurfaceModifier.swift
 ```
 
-Expected: all four cases are present.
+预期:四个 case 都在。
 
-- [ ] **Step 5: Inspect changed previews in Xcode or package build**
+- [ ] **步骤 5:在 Xcode 或 package build 中检查变更过的 preview**
 
-Run:
+执行:
 
 ```bash
 swift build
 ```
 
-Expected: build succeeds. Then inspect SwiftUI previews manually for:
+预期:构建成功。然后手动检查以下 SwiftUI preview:
 
 - `Surface — Light`
 - `Surface — Dark`
@@ -759,25 +759,22 @@ Expected: build succeeds. Then inspect SwiftUI previews manually for:
 - `Light — default`
 - `Light — explicit glass`
 
-- [ ] **Step 6: Confirm no extra verification changes are pending**
+- [ ] **步骤 6:确认没有遗留的、未提交的验收期改动**
 
-Run:
+执行:
 
 ```bash
 git status --short
 ```
 
-Expected: no uncommitted changes. If this command shows files, inspect them with
-`git diff` and either commit task-scoped changes using an exact file list or
-restore only changes made by the implementation task. Do not revert user-owned
-unrelated changes.
+预期:没有未提交的改动。如果该命令显示文件,用 `git diff` 检查,然后要么用精确的文件列表 commit 任务范围内的改动,要么只 restore 实施任务造成的改动。不要 revert 用户自己的、与本计划无关的改动。
 
 ---
 
 ## Handoff Notes
 
-- This plan intentionally does not implement Phase 2 component resets.
-- Keep commits small and task-scoped.
-- Do not remove `EmptyState` in Phase 1.
-- Do not rename `TelegramGlassButtonModifier` in Phase 1; it remains the compatibility implementation for explicit glass buttons.
-- If `FloatingGlassModifier` conflicts with actual Liquid Glass API signatures in the active SDK, adapt the modifier body to the compiler while preserving the public `floatingGlass(in:isInteractive:)` API and tests.
+- 本计划有意不实现第二阶段的组件视觉重置。
+- 提交保持小颗粒、聚焦在单个任务上。
+- 第一阶段不要移除 `EmptyState`。
+- 第一阶段不要重命名 `TelegramGlassButtonModifier`;它在显式玻璃按钮场景下仍是兼容实现。
+- 如果 `FloatingGlassModifier` 与当前 SDK 的 Liquid Glass API 签名冲突,在保留公开 `floatingGlass(in:isInteractive:)` API 与测试的前提下,调整 modifier 内部实现以适配编译器。

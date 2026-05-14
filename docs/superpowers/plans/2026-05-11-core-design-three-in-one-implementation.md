@@ -1,32 +1,32 @@
-# CoreDesign Three-in-One Implementation Plan
+# CoreDesign Three-in-One 实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement 10 new components, 2 token expansions, 1 shared modifier, and 4 button style refactors across 5 zones to create a unified Apple-GitHub-Telegram design language.
+**目标 / Goal：** 跨 5 个 zone 实施 10 个新组件、2 项 token 扩展、1 个共享 modifier 与 4 个按钮样式重构，打造 Apple-GitHub-Telegram 三合一的统一设计语言。
 
-**Architecture:** Token → Modifier → Component dependency chain. Z1 establishes the shared foundation (CoreButtonMetrics, StatusColors, TelegramGlassButtonModifier) consumed by Z2–Z5. Each component follows existing patterns: `public struct` with `public init`, SwiftUI `#Preview` in the component file, Swift Testing `@Test`/`#expect` in `Tests/CoreDesignTests/`. All resources load via `bundle: .module`.
+**架构 / Architecture：** Token → Modifier → Component 依赖链。Z1 建立共享基座（CoreButtonMetrics、StatusColors、TelegramGlassButtonModifier），供 Z2–Z5 消费。每个组件遵循既有模式：`public struct` 配 `public init`、组件文件内的 SwiftUI `#Preview`、`Tests/CoreDesignTests/` 下的 Swift Testing `@Test`/`#expect`。所有资源通过 `bundle: .module` 加载。
 
-**Tech Stack:** Swift 6, SwiftUI (iOS 26+ / macOS 26+), Swift Testing framework, no third-party dependencies.
+**技术栈 / Tech Stack：** Swift 6、SwiftUI（iOS 26+ / macOS 26+）、Swift Testing framework、无第三方依赖。
 
 ---
 
-## File Map
+## 文件清单 / File Map
 
-### Created files
-| File | Zone | Purpose |
-|------|------|---------|
-| `Sources/CoreDesign/Tokens/CoreButtonMetrics.swift` | Z1 | Glass button constants |
-| `Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift` | Z1 | Shared glass shell |
-| `Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift` | Z1 | Circular spinner |
-| `Sources/CoreDesign/Components/StateLabel/StateLabel.swift` | Z2 | Status pill |
-| `Sources/CoreDesign/Components/RefPill/RefPill.swift` | Z2 | Code ref pill |
-| `Sources/CoreDesign/Layout/FlowLayout.swift` | Z3 | Tag-wrapping layout |
-| `Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift` | Z3 | Stacked avatars |
-| `Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift` | Z3 | Horizontal bar |
-| `Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift` | Z4 | Spine + env key |
-| `Sources/CoreDesign/Components/EventRow/EventRow.swift` | Z4 | Compact event |
-| `Sources/CoreDesign/Components/CommentCard/CommentCard.swift` | Z4 | Comment card |
-| `Sources/CoreDesign/Components/StatusRow/StatusRow.swift` | Z5 | CI check row |
+### 新建文件
+| File | Zone | 用途 |
+|------|------|------|
+| `Sources/CoreDesign/Tokens/CoreButtonMetrics.swift` | Z1 | 玻璃按钮常量 |
+| `Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift` | Z1 | 共享玻璃壳 |
+| `Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift` | Z1 | 圆形 spinner |
+| `Sources/CoreDesign/Components/StateLabel/StateLabel.swift` | Z2 | 状态 pill |
+| `Sources/CoreDesign/Components/RefPill/RefPill.swift` | Z2 | 代码引用 pill |
+| `Sources/CoreDesign/Layout/FlowLayout.swift` | Z3 | tag 换行布局 |
+| `Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift` | Z3 | 堆叠头像 |
+| `Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift` | Z3 | 水平进度条 |
+| `Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift` | Z4 | 时间线脊柱 + 环境键 |
+| `Sources/CoreDesign/Components/EventRow/EventRow.swift` | Z4 | 紧凑事件行 |
+| `Sources/CoreDesign/Components/CommentCard/CommentCard.swift` | Z4 | 评论卡片 |
+| `Sources/CoreDesign/Components/StatusRow/StatusRow.swift` | Z5 | CI 检查行 |
 | `Tests/CoreDesignTests/CoreButtonMetricsTests.swift` | Z1 | |
 | `Tests/CoreDesignTests/StatusColorsTests.swift` | Z1 | |
 | `Tests/CoreDesignTests/ProgressIndicatorTests.swift` | Z1 | |
@@ -40,24 +40,24 @@
 | `Tests/CoreDesignTests/CommentCardTests.swift` | Z4 | |
 | `Tests/CoreDesignTests/StatusRowTests.swift` | Z5 | |
 
-### Modified files
-| File | Zone | Change |
-|------|------|--------|
-| `Sources/CoreDesign/Colors/StatusColors.swift` | Z1 | Add 5-status × 4-variant Primer-style tokens (neutral 由 FillColors / ContentColors 提供) |
-| `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift` | Z1 | Add `glass:` param, use `TelegramGlassButtonModifier` |
-| `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift` | Z1 | Add `glass:` param, use `TelegramGlassButtonModifier` |
-| `Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift` | Z1 | Token migration (magic numbers → `CoreSpacing`/`CoreControlMetrics`) |
-| `Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift` | Z1 | Use shared `TelegramGlassButtonModifier` |
+### 修改文件
+| File | Zone | 变更 |
+|------|------|------|
+| `Sources/CoreDesign/Colors/StatusColors.swift` | Z1 | 新增 5 状态 × 4 变体的 Primer 风格 token（neutral 由 FillColors / ContentColors 提供） |
+| `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift` | Z1 | 新增 `glass:` 参数，使用 `TelegramGlassButtonModifier` |
+| `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift` | Z1 | 新增 `glass:` 参数，使用 `TelegramGlassButtonModifier` |
+| `Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift` | Z1 | token 迁移（魔法数字 → `CoreSpacing`/`CoreControlMetrics`） |
+| `Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift` | Z1 | 使用共享的 `TelegramGlassButtonModifier` |
 
 ---
 
-### Task 1: CoreButtonMetrics token (Z1)
+### Task 1：CoreButtonMetrics token（Z1）
 
-**Files:**
-- Create: `Sources/CoreDesign/Tokens/CoreButtonMetrics.swift`
-- Create: `Tests/CoreDesignTests/CoreButtonMetricsTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Tokens/CoreButtonMetrics.swift`
+- 新建：`Tests/CoreDesignTests/CoreButtonMetricsTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import Testing
@@ -90,12 +90,12 @@ struct CoreButtonMetricsTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter CoreButtonMetricsTests`
-Expected: FAIL — `CoreButtonMetrics` not found
+预期：FAIL —— `CoreButtonMetrics` 未定义
 
-- [ ] **Step 3: Write the token**
+- [ ] **Step 3：编写 token**
 
 ```swift
 //
@@ -140,12 +140,12 @@ public enum CoreButtonMetrics {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter CoreButtonMetricsTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5：提交**
 
 ```bash
 git add Sources/CoreDesign/Tokens/CoreButtonMetrics.swift Tests/CoreDesignTests/CoreButtonMetricsTests.swift
@@ -153,13 +153,13 @@ git commit -m "feat: add CoreButtonMetrics token for Telegram glass button const
 ```
 
 
-### Task 2: Expand StatusColors to Primer-style 5-status × 4-variant system (Z1)
+### Task 2：将 StatusColors 扩展为 Primer 风格的 5 状态 × 4 变体体系（Z1）
 
-**Files:**
-- Modify: `Sources/CoreDesign/Colors/StatusColors.swift`
-- Create: `Tests/CoreDesignTests/StatusColorsTests.swift`
+**Files：**
+- 修改：`Sources/CoreDesign/Colors/StatusColors.swift`
+- 新建：`Tests/CoreDesignTests/StatusColorsTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -228,14 +228,14 @@ struct StatusColorsTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter StatusColorsTests`
-Expected: FAIL — new status tokens not found
+预期：FAIL —— 新增的 status token 未定义
 
-- [ ] **Step 3: Rewrite StatusColors.swift**
+- [ ] **Step 3：重写 StatusColors.swift**
 
-Replace the existing 4-status (info/success/warning/danger) with 6-status × 4-variant system. Create new colorsets in `Resources.xcassets/status/` for accent/attention/done colors, reusing existing colorsets for success (green) and danger (red):
+将既有的 4 状态体系（info/success/warning/danger）替换为 6 状态 × 4 变体体系。在 `Resources.xcassets/status/` 下为 accent / attention / done 创建新的 colorset，success（绿）与 danger（红）复用既有 colorset：
 
 ```swift
 import SwiftUI
@@ -314,11 +314,11 @@ public extension Color {
 }
 ```
 
-- [ ] **Step 4: Create required colorsets**
+- [ ] **Step 4：创建所需 colorset**
 
-Each colorset needs `Contents.json` with light/dark variants inside `Sources/CoreDesign/Resources/Resources.xcassets/status/` (the SwiftPM `.process("Resources")` directive picks up the `.xcassets` catalog under this path). For the initial commit, create the 20 colorsets (5 statuses × 4 variants each) using the Color asset catalog format. Light values use Primer light palette; dark values use Primer dark palette.
+每个 colorset 需在 `Sources/CoreDesign/Resources/Resources.xcassets/status/` 下创建带亮/暗变体的 `Contents.json`（SwiftPM 的 `.process("Resources")` 指令会处理此路径下的 `.xcassets` 资源目录）。首版提交时按 Color asset catalog 格式创建 20 个 colorset（5 状态 × 4 变体）。亮色采用 Primer light 调色板；暗色采用 Primer dark 调色板。
 
-Run this to generate the directory structure:
+执行以下命令生成目录结构：
 ```bash
 mkdir -p Sources/CoreDesign/Resources/Resources.xcassets/status
 for status in accent success attention danger done; do
@@ -336,19 +336,19 @@ JSON
 done
 ```
 
-Then hand-edit each `Contents.json` with actual Primer hex values (see `docs/PRIMER_VERSION.md`).
+随后手工把每个 `Contents.json` 替换为真实的 Primer 十六进制色值（参见 `docs/PRIMER_VERSION.md`）。
 
-- [ ] **Step 5: Run test to verify it passes**
+- [ ] **Step 5：运行测试确认通过**
 
 Run: `swift test --filter StatusColorsTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 6: Verify legacy callers still compile**
+- [ ] **Step 6：确认遗留调用方仍可编译**
 
 Run: `swift build`
-Expected: 0 errors
+预期：0 errors
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7：提交**
 
 ```bash
 git add Sources/CoreDesign/Colors/StatusColors.swift Sources/CoreDesign/Resources/Resources.xcassets/status/ Tests/CoreDesignTests/StatusColorsTests.swift
@@ -356,13 +356,13 @@ git commit -m "feat: expand StatusColors to Primer-style 5-status x 4-variant sy
 ```
 
 
-### Task 3: TelegramGlassButtonModifier (Z1)
+### Task 3：TelegramGlassButtonModifier（Z1）
 
-**Files:**
-- Create: `Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift`
-- (No separate test file — tested via Solid/Light button style refactors in Tasks 4–5)
+**Files：**
+- 新建：`Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift`
+- （不单独建测试文件——通过 Task 4–5 的 Solid/Light 按钮样式重构间接覆盖）
 
-- [ ] **Step 1: Write the modifier**
+- [ ] **Step 1：编写 modifier**
 
 ```swift
 //
@@ -424,12 +424,12 @@ public struct TelegramGlassButtonModifier<S: InsettableShape>: ViewModifier {
 }
 ```
 
-- [ ] **Step 2: Verify it compiles**
+- [ ] **Step 2：确认可编译**
 
 Run: `swift build`
-Expected: 0 errors
+预期：0 errors
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3：提交**
 
 ```bash
 git add Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift
@@ -437,14 +437,14 @@ git commit -m "feat: add TelegramGlassButtonModifier — shared glass button she
 ```
 
 
-### Task 4: Refactor SolidButtonStyle (Z1)
+### Task 4：重构 SolidButtonStyle（Z1）
 
-**Files:**
-- Modify: `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
+**Files：**
+- 修改：`Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
 
-- [ ] **Step 1: Update SolidButtonStyle**
+- [ ] **Step 1：更新 SolidButtonStyle**
 
-Replace the body with the new glass-aware implementation:
+用新的 glass-aware 实现替换 body：
 
 ```swift
 //
@@ -574,12 +574,12 @@ public extension ButtonStyle where Self == SolidButtonStyle {
 }
 ```
 
-- [ ] **Step 2: Verify it compiles**
+- [ ] **Step 2：确认可编译**
 
 Run: `swift build`
-Expected: 0 errors
+预期：0 errors
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift
@@ -587,14 +587,14 @@ git commit -m "feat: add glass param to SolidButtonStyle, use TelegramGlassButto
 ```
 
 
-### Task 5: Refactor LightButtonStyle (Z1)
+### Task 5：重构 LightButtonStyle（Z1）
 
-**Files:**
-- Modify: `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
+**Files：**
+- 修改：`Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
 
-- [ ] **Step 1: Update LightButtonStyle**
+- [ ] **Step 1：更新 LightButtonStyle**
 
-Replace the current `colorScheme`-branched implementation with the unified `glass:` parameter approach:
+把现有按 `colorScheme` 分支的实现替换为统一的 `glass:` 参数方案：
 
 ```swift
 //
@@ -696,12 +696,12 @@ public extension ButtonStyle where Self == LightButtonStyle {
 }
 ```
 
-- [ ] **Step 2: Verify it compiles**
+- [ ] **Step 2：确认可编译**
 
 Run: `swift build`
-Expected: 0 errors
+预期：0 errors
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift
@@ -709,21 +709,21 @@ git commit -m "feat: add glass param to LightButtonStyle, use TelegramGlassButto
 ```
 
 
-### Task 6: Refactor BorderlessButtonStyle (Z1)
+### Task 6：重构 BorderlessButtonStyle（Z1）
 
-**Files:**
-- Modify: `Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift`
+**Files：**
+- 修改：`Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift`
 
-- [ ] **Step 1: Token migration — replace magic numbers**
+- [ ] **Step 1：token 迁移——清除魔法数字**
 
-The existing `BorderlessButtonStyle` already has no hardcoded magic numbers for padding (uses `CoreControlMetrics`). This refactor is minimal — verify no hardcoded values, rename the convenience accessor from `borderless(role:)` to `borderless(role:)` (unchanged) and update doc comments to reflect the new role in the three-in-one system. No functional changes needed.
+现有的 `BorderlessButtonStyle` 在 padding 上已经没有写死的魔法数字（已使用 `CoreControlMetrics`）。本次重构改动极小——核对没有硬编码值，便利访问器 `borderless(role:)` 名称保持不变（`borderless(role:)`），仅更新文档注释以匹配三合一体系中的新定位。无功能性变更。
 
-- [ ] **Step 2: Verify it compiles**
+- [ ] **Step 2：确认可编译**
 
 Run: `swift build`
-Expected: 0 errors
+预期：0 errors
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift
@@ -731,12 +731,12 @@ git commit -m "refactor: verify BorderlessButtonStyle token migration complete"
 ```
 
 
-### Task 7: Refactor CircularGlassButtonStyle (Z1)
+### Task 7：重构 CircularGlassButtonStyle（Z1）
 
-**Files:**
-- Modify: `Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift`
+**Files：**
+- 修改：`Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift`
 
-- [ ] **Step 1: Replace inline glass code with shared modifier**
+- [ ] **Step 1：用共享 modifier 替换内联玻璃代码**
 
 ```swift
 //
@@ -800,12 +800,12 @@ public extension ButtonStyle where Self == CircularGlassButtonStyle {
 }
 ```
 
-- [ ] **Step 2: Verify it compiles**
+- [ ] **Step 2：确认可编译**
 
 Run: `swift build`
-Expected: 0 errors
+预期：0 errors
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift
@@ -813,13 +813,13 @@ git commit -m "refactor: use TelegramGlassButtonModifier in CircularGlassButtonS
 ```
 
 
-### Task 8: ProgressIndicator component (Z1)
+### Task 8：ProgressIndicator 组件（Z1）
 
-**Files:**
-- Create: `Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift`
-- Create: `Tests/CoreDesignTests/ProgressIndicatorTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift`
+- 新建：`Tests/CoreDesignTests/ProgressIndicatorTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -836,12 +836,12 @@ struct ProgressIndicatorTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter ProgressIndicatorTests`
-Expected: FAIL
+预期：FAIL
 
-- [ ] **Step 3: Write the component**
+- [ ] **Step 3：编写组件**
 
 ```swift
 //
@@ -884,12 +884,12 @@ public struct ProgressIndicator: View {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter ProgressIndicatorTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift Tests/CoreDesignTests/ProgressIndicatorTests.swift
@@ -897,13 +897,13 @@ git commit -m "feat: add ProgressIndicator component"
 ```
 
 
-### Task 9: StateLabel component (Z2)
+### Task 9：StateLabel 组件（Z2）
 
-**Files:**
-- Create: `Sources/CoreDesign/Components/StateLabel/StateLabel.swift`
-- Create: `Tests/CoreDesignTests/StateLabelTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Components/StateLabel/StateLabel.swift`
+- 新建：`Tests/CoreDesignTests/StateLabelTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -941,12 +941,12 @@ struct StateLabelTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter StateLabelTests`
-Expected: FAIL
+预期：FAIL
 
-- [ ] **Step 3: Write the component**
+- [ ] **Step 3：编写组件**
 
 ```swift
 //
@@ -1050,12 +1050,12 @@ private extension StateLabelStyle {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter StateLabelTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/StateLabel/StateLabel.swift Tests/CoreDesignTests/StateLabelTests.swift
@@ -1063,13 +1063,13 @@ git commit -m "feat: add StateLabel component"
 ```
 
 
-### Task 10: RefPill component (Z2)
+### Task 10：RefPill 组件（Z2）
 
-**Files:**
-- Create: `Sources/CoreDesign/Components/RefPill/RefPill.swift`
-- Create: `Tests/CoreDesignTests/RefPillTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Components/RefPill/RefPill.swift`
+- 新建：`Tests/CoreDesignTests/RefPillTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -1096,12 +1096,12 @@ struct RefPillTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter RefPillTests`
-Expected: FAIL
+预期：FAIL
 
-- [ ] **Step 3: Write the component**
+- [ ] **Step 3：编写组件**
 
 ```swift
 //
@@ -1186,12 +1186,12 @@ public struct RefPill: View {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter RefPillTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/RefPill/RefPill.swift Tests/CoreDesignTests/RefPillTests.swift
@@ -1199,13 +1199,13 @@ git commit -m "feat: add RefPill component"
 ```
 
 
-### Task 11: FlowLayout (Z3)
+### Task 11：FlowLayout（Z3）
 
-**Files:**
-- Create: `Sources/CoreDesign/Layout/FlowLayout.swift`
-- Create: `Tests/CoreDesignTests/FlowLayoutTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Layout/FlowLayout.swift`
+- 新建：`Tests/CoreDesignTests/FlowLayoutTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -1228,12 +1228,12 @@ struct FlowLayoutTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter FlowLayoutTests`
-Expected: FAIL
+预期：FAIL
 
-- [ ] **Step 3: Write the layout**
+- [ ] **Step 3：编写 layout**
 
 ```swift
 //
@@ -1342,12 +1342,12 @@ public struct FlowLayout: Layout {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter FlowLayoutTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5：提交**
 
 ```bash
 git add Sources/CoreDesign/Layout/FlowLayout.swift Tests/CoreDesignTests/FlowLayoutTests.swift
@@ -1355,13 +1355,13 @@ git commit -m "feat: add FlowLayout for tag-wrapping container"
 ```
 
 
-### Task 12: AvatarGroup component (Z3)
+### Task 12：AvatarGroup 组件（Z3）
 
-**Files:**
-- Create: `Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift`
-- Create: `Tests/CoreDesignTests/AvatarGroupTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift`
+- 新建：`Tests/CoreDesignTests/AvatarGroupTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -1389,12 +1389,12 @@ struct AvatarGroupTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter AvatarGroupTests`
-Expected: FAIL
+预期：FAIL
 
-- [ ] **Step 3: Write the component**
+- [ ] **Step 3：编写组件**
 
 ```swift
 //
@@ -1504,12 +1504,12 @@ public struct AvatarGroup<Avatars: View>: View {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter AvatarGroupTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift Tests/CoreDesignTests/AvatarGroupTests.swift
@@ -1517,13 +1517,13 @@ git commit -m "feat: add AvatarGroup component"
 ```
 
 
-### Task 13: ProgressBar component (Z3)
+### Task 13：ProgressBar 组件（Z3）
 
-**Files:**
-- Create: `Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift`
-- Create: `Tests/CoreDesignTests/ProgressBarTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift`
+- 新建：`Tests/CoreDesignTests/ProgressBarTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -1555,12 +1555,12 @@ struct ProgressBarTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter ProgressBarTests`
-Expected: FAIL
+预期：FAIL
 
-- [ ] **Step 3: Write the component**
+- [ ] **Step 3：编写组件**
 
 ```swift
 //
@@ -1628,12 +1628,12 @@ public struct ProgressBar: View {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter ProgressBarTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift Tests/CoreDesignTests/ProgressBarTests.swift
@@ -1641,13 +1641,13 @@ git commit -m "feat: add ProgressBar component"
 ```
 
 
-### Task 14: TimelineItem + TimelineDepthKey (Z4)
+### Task 14：TimelineItem + TimelineDepthKey（Z4）
 
-**Files:**
-- Create: `Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift`
-- Create: `Tests/CoreDesignTests/TimelineItemTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift`
+- 新建：`Tests/CoreDesignTests/TimelineItemTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -1682,12 +1682,12 @@ struct TimelineItemTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter TimelineItemTests`
-Expected: FAIL
+预期：FAIL
 
-- [ ] **Step 3: Write the component (includes TimelineDepthKey)**
+- [ ] **Step 3：编写组件（含 TimelineDepthKey）**
 
 ```swift
 //
@@ -1814,12 +1814,12 @@ public struct TimelineItem<Icon: View, Content: View>: View {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter TimelineItemTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift Tests/CoreDesignTests/TimelineItemTests.swift
@@ -1827,13 +1827,13 @@ git commit -m "feat: add TimelineItem with automatic depth-aware indentation"
 ```
 
 
-### Task 15: EventRow component (Z4)
+### Task 15：EventRow 组件（Z4）
 
-**Files:**
-- Create: `Sources/CoreDesign/Components/EventRow/EventRow.swift`
-- Create: `Tests/CoreDesignTests/EventRowTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Components/EventRow/EventRow.swift`
+- 新建：`Tests/CoreDesignTests/EventRowTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -1863,12 +1863,12 @@ struct EventRowTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter EventRowTests`
-Expected: FAIL
+预期：FAIL
 
-- [ ] **Step 3: Write the component**
+- [ ] **Step 3：编写组件**
 
 ```swift
 //
@@ -1942,12 +1942,12 @@ public struct EventRow<PillContent: View>: View {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter EventRowTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/EventRow/EventRow.swift Tests/CoreDesignTests/EventRowTests.swift
@@ -1955,13 +1955,13 @@ git commit -m "feat: add EventRow component"
 ```
 
 
-### Task 16: CommentCard component (Z4)
+### Task 16：CommentCard 组件（Z4）
 
-**Files:**
-- Create: `Sources/CoreDesign/Components/CommentCard/CommentCard.swift`
-- Create: `Tests/CoreDesignTests/CommentCardTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Components/CommentCard/CommentCard.swift`
+- 新建：`Tests/CoreDesignTests/CommentCardTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -1998,12 +1998,12 @@ struct CommentCardTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter CommentCardTests`
-Expected: FAIL
+预期：FAIL
 
-- [ ] **Step 3: Write the component**
+- [ ] **Step 3：编写组件**
 
 ```swift
 //
@@ -2123,12 +2123,12 @@ public struct CommentCard<BodyContent: View>: View {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter CommentCardTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/CommentCard/CommentCard.swift Tests/CoreDesignTests/CommentCardTests.swift
@@ -2136,13 +2136,13 @@ git commit -m "feat: add CommentCard component with minimized toggle"
 ```
 
 
-### Task 17: StatusRow component (Z5)
+### Task 17：StatusRow 组件（Z5）
 
-**Files:**
-- Create: `Sources/CoreDesign/Components/StatusRow/StatusRow.swift`
-- Create: `Tests/CoreDesignTests/StatusRowTests.swift`
+**Files：**
+- 新建：`Sources/CoreDesign/Components/StatusRow/StatusRow.swift`
+- 新建：`Tests/CoreDesignTests/StatusRowTests.swift`
 
-- [ ] **Step 1: Write the test**
+- [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
@@ -2169,12 +2169,12 @@ struct StatusRowTests {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2：运行测试确认失败**
 
 Run: `swift test --filter StatusRowTests`
-Expected: FAIL
+预期：FAIL
 
-- [ ] **Step 3: Write the component**
+- [ ] **Step 3：编写组件**
 
 ```swift
 //
@@ -2279,22 +2279,22 @@ public struct StatusRow: View {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4：运行测试确认通过**
 
 Run: `swift test --filter StatusRowTests`
-Expected: PASS
+预期：PASS
 
-- [ ] **Step 5: Verify full build**
+- [ ] **Step 5：确认完整构建**
 
 Run: `swift build`
-Expected: 0 errors
+预期：0 errors
 
-- [ ] **Step 6: Run all tests**
+- [ ] **Step 6：运行全部测试**
 
 Run: `swift test`
-Expected: ALL PASS
+预期：ALL PASS
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/StatusRow/StatusRow.swift Tests/CoreDesignTests/StatusRowTests.swift

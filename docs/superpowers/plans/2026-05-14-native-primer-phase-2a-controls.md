@@ -1,68 +1,68 @@
-# Native Primer Phase 2A Controls Implementation Plan
+# Native Primer 第 2A 阶段控件实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Reset the core control components to the Native Primer baseline: practical non-glass buttons, a quiet native segmented control, and an inset native search field.
+**目标：** 把核心控件组件回归到 Native Primer 基线：朴素的非 glass 按钮、安静的原生 segmented control，以及内嵌式的原生搜索框。
 
-**Architecture:** Phase 1 established shared surface roles and made button glass opt-in. Phase 2A applies that baseline to the highest-impact control components without touching navigation rows, badges, tags, or content components. Visual changes stay internal and preserve public APIs.
+**架构：** 第 1 阶段已建立共享的 surface role，并把按钮的 glass 改为按需启用。第 2A 阶段在不动导航行、Badge、Tag 或内容组件的前提下，把该基线应用到影响最大的控件组件上。视觉变化对内部封闭，公开 API 保持不变。
 
-**Tech Stack:** Swift 6.3, SwiftUI, Swift Testing, iOS 26/macOS 26 package targets.
+**技术栈：** Swift 6.3、SwiftUI、Swift Testing、iOS 26 / macOS 26 package target。
 
 ---
 
-## Source Spec
+## 源规格
 
-Read before implementing:
+实施前必读：
 
 - `docs/superpowers/specs/2026-05-14-native-primer-telegram-taste-design.md`
 
-This plan covers the Phase 2 controls subset only:
+本计划只覆盖第 2 阶段的控件子集：
 
 - Button / AsyncButton
 - SegmentedControl
 - SearchField
 
-Do not modify `ListRow`, `SidebarRow`, `UnderlinedTabBar`, `Badge`, `Tag`, or `StateLabel` in this plan.
+本计划不修改 `ListRow`、`SidebarRow`、`UnderlinedTabBar`、`Badge`、`Tag` 或 `StateLabel`。
 
-## File Structure
+## 文件结构
 
-Modify:
+修改：
 
 - `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
-  - Refine non-glass default background to be a practical Native Primer control.
-  - Keep explicit `glass: true` path unchanged.
+  - 把非 glass 默认背景调成符合 Native Primer 的实用控件外观。
+  - 显式 `glass: true` 分支保持不变。
 - `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
-  - Refine non-glass default background to be a practical secondary control.
-  - Keep explicit `glass: true` path unchanged.
+  - 把非 glass 默认背景调成符合次级控件的实用外观。
+  - 显式 `glass: true` 分支保持不变。
 - `Sources/CoreDesign/Components/Button/AsyncButton.swift`
-  - Update previews/docs text only if needed to reflect non-glass default styles.
-  - Do not change async behavior.
+  - 仅当 preview/文档文案需要反映非 glass 默认样式时再更新。
+  - 不修改 async 行为。
 - `Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift`
-  - Move from old “no glass” Primer text to Native Primer language.
-  - Use quiet control surface + lightly raised selected thumb.
-  - Keep public API unchanged.
+  - 把旧的 "no glass" Primer 文案改成 Native Primer 措辞。
+  - 使用安静的 control surface + 略微抬升的选中 thumb。
+  - 公开 API 保持不变。
 - `Sources/CoreDesign/Components/SearchField/SearchField.swift`
-  - Align container with `.surface(.control)`/inset control treatment.
-  - Keep public API unchanged and do not add glass.
+  - 让容器对齐 `.surface(.control)` / 内嵌式控件处理。
+  - 公开 API 保持不变，不加 glass。
 - `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`
-  - Extend existing default tests if needed.
+  - 视需要扩展已有的默认值测试。
 - `Tests/CoreDesignTests/SegmentedControlTests.swift`
-  - New compile tests for 2-item and 3-item construction.
+  - 新增针对 2 项 / 3 项构造的编译测试。
 - `Tests/CoreDesignTests/SearchFieldTests.swift`
-  - New compile/behavior tests for construction.
+  - 新增针对构造的编译 / 行为测试。
 
 ---
 
-## Task 1: Refine Non-Glass Button Defaults
+## 任务 1：调整非 glass 按钮的默认外观
 
-**Files:**
-- Modify: `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
-- Modify: `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
-- Modify: `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`
+**文件：**
+- 修改：`Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
+- 修改：`Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
+- 修改：`Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`
 
-- [ ] **Step 1: Write tests for concrete non-glass default semantics**
+- [ ] **步骤 1：为非 glass 默认语义写具体测试**
 
-Extend `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift` with:
+扩展 `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`：
 
 ```swift
 @Test("solid button style defaults to non-glass")
@@ -87,25 +87,21 @@ func buttonStyleFactoriesDefaultToNonGlass() {
 }
 ```
 
-These tests directly construct the concrete style structs, plus assert the
-`.solid()` / `.light()` factory convenience API via explicit type context. SwiftUI
-`ButtonStyle` extension return values are not directly introspectable after they
-are passed to `.buttonStyle(...)`, so factory coverage uses typed locals rather
-than a probe wrapper.
+这些测试直接构造具体 style struct，并通过显式类型上下文断言 `.solid()` / `.light()` 工厂便捷 API。SwiftUI 的 `ButtonStyle` 扩展返回值一旦传给 `.buttonStyle(...)` 就无法直接 introspect，所以工厂覆盖采用带类型的局部变量，而非 probe wrapper。
 
-- [ ] **Step 2: Run test to verify current behavior**
+- [ ] **步骤 2：运行测试以验证当前行为**
 
-Run:
+执行：
 
 ```bash
 swift test --filter ButtonStyleDefaultTests
 ```
 
-Expected: tests pass. This is a guard before visual refinement.
+预期：测试通过。视觉调整前先建立 guard。
 
-- [ ] **Step 3: Refine SolidButtonStyle non-glass modifier**
+- [ ] **步骤 3：调整 SolidButtonStyle 的非 glass modifier**
 
-In `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`, update `SolidButtonBackgroundModifier.body` to:
+在 `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift` 中，把 `SolidButtonBackgroundModifier.body` 更新为：
 
 ```swift
 func body(content: Content) -> some View {
@@ -124,11 +120,11 @@ func body(content: Content) -> some View {
 }
 ```
 
-Rationale: the default solid style should be a practical control surface, not a floating/elevated control. Explicit `glass: true` remains available for elevated/floating use.
+理由：默认的 solid 样式应该是一个实用的 control surface，而不是一个漂浮 / 抬升的控件。需要抬升 / 漂浮效果时仍可显式使用 `glass: true`。
 
-- [ ] **Step 4: Refine LightButtonStyle non-glass modifier**
+- [ ] **步骤 4：调整 LightButtonStyle 的非 glass modifier**
 
-In `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`, update `LightButtonBackgroundModifier.body` to:
+在 `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift` 中，把 `LightButtonBackgroundModifier.body` 更新为：
 
 ```swift
 func body(content: Content) -> some View {
@@ -146,11 +142,11 @@ func body(content: Content) -> some View {
 }
 ```
 
-Rationale: remove default elevation from secondary controls while preserving pressed feedback.
+理由：去除次级控件的默认抬升感，同时保留按压反馈。
 
-- [ ] **Step 5: Run targeted tests**
+- [ ] **步骤 5：运行定向测试**
 
-Run:
+执行：
 
 ```bash
 swift test --filter ButtonStyleDefaultTests
@@ -158,9 +154,9 @@ swift test --filter AsyncButton
 swift test --filter CoreButtonMetrics
 ```
 
-Expected: all tests pass.
+预期：所有测试通过。
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift Tests/CoreDesignTests/ButtonStyleDefaultTests.swift
@@ -169,24 +165,23 @@ git commit -m "refactor: quiet default button surfaces"
 
 ---
 
-## Task 2: Reset SegmentedControl To Native Primer Control
+## 任务 2：把 SegmentedControl 回归 Native Primer 控件外观
 
-**Files:**
-- Modify: `Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift`
-- Create: `Tests/CoreDesignTests/SegmentedControlTests.swift`
+**文件：**
+- 修改：`Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift`
+- 新建：`Tests/CoreDesignTests/SegmentedControlTests.swift`
 
-> **Plan revision (2026-05-14, Phase 2A review):** The shipped implementation
-> introduced an opt-in `glass: Bool = true` parameter and a native UIKit Glass
-> path (`NativeGlassSegmentedControl` + `UIGlassEffect` + `ImmediateFeedbackSegmentedControl`)
-> for iOS 26, with a quiet SwiftUI fallback used when `glass == false` and on
-> macOS. The doc-comment, body, and selected-thumb snippets below predate that
-> change — refer to the source for the current branching behavior. The "no
-> Liquid Glass" prohibition in Step 5 no longer applies; instead, glass is the
-> default and the non-glass path uses the control surface described here.
+> **计划修订（2026-05-14，第 2A 阶段复盘）：** 实际落地的实现引入了一个可选启用的
+> `glass: Bool = true` 参数，以及一条针对 iOS 26 的原生 UIKit Glass 路径
+> （`NativeGlassSegmentedControl` + `UIGlassEffect` + `ImmediateFeedbackSegmentedControl`），
+> 当 `glass == false` 时以及在 macOS 上则走安静的 SwiftUI 回退路径。下文的 doc-comment、
+> body 与选中 thumb 片段早于该改动 —— 当前的分支行为以源码为准。步骤 5 中
+> "不使用 Liquid Glass" 的禁令已不再适用；现在 glass 是默认值，非 glass
+> 路径才采用此处描述的 control surface。
 
-- [ ] **Step 1: Write compile/behavior tests**
+- [ ] **步骤 1：写编译 / 行为测试**
 
-Create `Tests/CoreDesignTests/SegmentedControlTests.swift`:
+创建 `Tests/CoreDesignTests/SegmentedControlTests.swift`：
 
 ```swift
 import SwiftUI
@@ -223,19 +218,19 @@ struct SegmentedControlTests {
 }
 ```
 
-- [ ] **Step 2: Run tests before implementation**
+- [ ] **步骤 2：实现前先跑测试**
 
-Run:
+执行：
 
 ```bash
 swift test --filter SegmentedControlTests
 ```
 
-Expected: tests pass. They provide a compile-preservation baseline before visual changes.
+预期：测试通过。在视觉调整前提供一个编译保持基线。
 
-- [ ] **Step 3: Update documentation comment**
+- [ ] **步骤 3：更新文档注释**
 
-In `Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift`, replace the old comments that say the component “复刻 Primer thumb” and “不使用 `.glassEffect`” with Native Primer language:
+在 `Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift` 中，把旧注释里 "复刻 Primer thumb" 和 "不使用 `.glassEffect`" 的措辞换成 Native Primer 语言：
 
 ```swift
 /// Native Primer segmented control.
@@ -246,11 +241,11 @@ In `Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift`, repl
 /// not use Liquid Glass by default.
 ```
 
-Keep the rest of the API documentation concise and accurate.
+其余 API 文档保持简洁与准确。
 
-- [ ] **Step 4: Update body surface treatment**
+- [ ] **步骤 4：更新 body 的表面处理**
 
-In `body`, replace the current `.background` block with a control surface that includes a subtle border:
+在 `body` 中，把当前的 `.background` 替换成带细微 border 的 control surface：
 
 ```swift
 .background(
@@ -263,7 +258,7 @@ In `body`, replace the current `.background` block with a control surface that i
 )
 ```
 
-Keep:
+保留：
 
 ```swift
 .padding(CoreSpacing.xxs)
@@ -271,9 +266,9 @@ Keep:
 .sensoryFeedback(.selection, trigger: self.selection)
 ```
 
-- [ ] **Step 5: Update selected thumb**
+- [ ] **步骤 5：更新选中 thumb**
 
-In `segment(for:)`, update selected thumb fill from `Color.surfaceRaised` to `Color.surfaceCanvas` and keep the small shadow:
+在 `segment(for:)` 中，把选中 thumb 的填充由 `Color.surfaceRaised` 改为 `Color.surfaceCanvas`，并保留小阴影：
 
 ```swift
 RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
@@ -286,22 +281,22 @@ RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
     .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
 ```
 
-Note (plan revision): the shipped code keeps this control-surface treatment only
-for the `glass == false` / macOS fallback path. The default `glass == true` path
-uses a Liquid Glass shell — see the file-top "Plan revision" callout for context.
+注（计划修订）：实际落地的代码只在 `glass == false` / macOS 回退路径上保留这种
+control-surface 处理。默认的 `glass == true` 路径用的是 Liquid Glass 外壳——
+参见文件顶部 "计划修订" 提示框中的上下文。
 
-- [ ] **Step 6: Run tests**
+- [ ] **步骤 6：运行测试**
 
-Run:
+执行：
 
 ```bash
 swift test --filter SegmentedControlTests
 swift test
 ```
 
-Expected: all tests pass.
+预期：所有测试通过。
 
-- [ ] **Step 7: Commit**
+- [ ] **步骤 7：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift Tests/CoreDesignTests/SegmentedControlTests.swift
@@ -310,15 +305,15 @@ git commit -m "refactor: reset segmented control surface"
 
 ---
 
-## Task 3: Align SearchField With Control Surface Rules
+## 任务 3：让 SearchField 对齐 control surface 规则
 
-**Files:**
-- Modify: `Sources/CoreDesign/Components/SearchField/SearchField.swift`
-- Create: `Tests/CoreDesignTests/SearchFieldTests.swift`
+**文件：**
+- 修改：`Sources/CoreDesign/Components/SearchField/SearchField.swift`
+- 新建：`Tests/CoreDesignTests/SearchFieldTests.swift`
 
-- [ ] **Step 1: Write compile tests**
+- [ ] **步骤 1：写编译测试**
 
-Create `Tests/CoreDesignTests/SearchFieldTests.swift`:
+创建 `Tests/CoreDesignTests/SearchFieldTests.swift`：
 
 ```swift
 import SwiftUI
@@ -344,19 +339,19 @@ struct SearchFieldTests {
 }
 ```
 
-- [ ] **Step 2: Run tests before implementation**
+- [ ] **步骤 2：实现前先跑测试**
 
-Run:
+执行：
 
 ```bash
 swift test --filter SearchFieldTests
 ```
 
-Expected: tests pass. They provide a compile-preservation baseline.
+预期：测试通过。提供一个编译保持基线。
 
-- [ ] **Step 3: Update documentation comment**
+- [ ] **步骤 3：更新文档注释**
 
-In `Sources/CoreDesign/Components/SearchField/SearchField.swift`, update the top comment from “GitHub Primer 风格” to Native Primer wording:
+在 `Sources/CoreDesign/Components/SearchField/SearchField.swift` 中，把顶部注释由 "GitHub Primer 风格" 改为 Native Primer 措辞：
 
 ```swift
 /// Native Primer search field.
@@ -366,50 +361,50 @@ In `Sources/CoreDesign/Components/SearchField/SearchField.swift`, update the top
 /// Liquid Glass.
 ```
 
-Keep parameter documentation accurate.
+参数文档保持准确。
 
-- [ ] **Step 4: Update shape radius and fill**
+- [ ] **步骤 4：更新形状半径与填充**
 
-Change:
+把：
 
 ```swift
 let shape = RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
 ```
 
-to:
+改为：
 
 ```swift
 let shape = RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
 ```
 
-Change background fill from:
+把背景填充由：
 
 ```swift
 shape.fill(Color.surfaceCanvasInset)
 ```
 
-to:
+改为：
 
 ```swift
 shape.fill(Color.surfaceInteractive)
 ```
 
-Change focus ring corner radius from `CoreRadius.medium` to `CoreRadius.small`.
+把 focus ring 圆角由 `CoreRadius.medium` 改为 `CoreRadius.small`。
 
-Rationale: SearchField is a control-layer component. It should look like a compact native input, not a rounded card.
+理由：SearchField 属于 control-layer 组件。它应当看起来像一个紧凑的原生输入控件，而不是一张圆角卡片。
 
-- [ ] **Step 5: Run tests**
+- [ ] **步骤 5：运行测试**
 
-Run:
+执行：
 
 ```bash
 swift test --filter SearchFieldTests
 swift test
 ```
 
-Expected: all tests pass.
+预期：所有测试通过。
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6：提交**
 
 ```bash
 git add Sources/CoreDesign/Components/SearchField/SearchField.swift Tests/CoreDesignTests/SearchFieldTests.swift
@@ -418,81 +413,81 @@ git commit -m "refactor: align search field control surface"
 
 ---
 
-## Task 4: Phase 2A Verification
+## 任务 4：第 2A 阶段验证
 
-**Files:**
-- Verify: all files changed by Tasks 1-3
+**文件：**
+- 验证：任务 1–3 涉及的全部文件
 
-- [ ] **Step 1: Run all tests**
+- [ ] **步骤 1：运行全部测试**
 
-Run:
+执行：
 
 ```bash
 swift test
 ```
 
-Expected: all tests pass.
+预期：所有测试通过。
 
-- [ ] **Step 2: Run build**
+- [ ] **步骤 2：运行构建**
 
-Run:
+执行：
 
 ```bash
 swift build
 ```
 
-Expected: build succeeds.
+预期：构建成功。
 
-- [ ] **Step 3: Check for accidental Liquid Glass usage in control-layer components**
+- [ ] **步骤 3：检查 control-layer 组件中是否误用 Liquid Glass**
 
-Run:
+执行：
 
 ```bash
 rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/SegmentedControl Sources/CoreDesign/Components/SearchField Sources/CoreDesign/Components/Button/styles
 ```
 
-Expected:
+预期：
 
-- `SegmentedControl` matches are expected and allowed: the shipped component
-  uses `.glassEffect` on its `glass == true` branch (both SwiftUI fallback and
-  iOS 26 native UIKit Glass paths). Treat matches as a sanity check that glass
-  remains gated behind that branch rather than as a violation.
-- `SearchField` has no matches.
-- Button style matches are allowed only in explicit `glass == true` branches or `.circularGlass`.
+- `SegmentedControl` 出现匹配是预期且允许的：实际落地的组件在
+  `glass == true` 分支（SwiftUI 回退路径与 iOS 26 原生 UIKit Glass 路径）上
+  使用 `.glassEffect`。把匹配项视为 "glass 仍被关在该分支后面" 的一次健全性检查，
+  而不是一次违规。
+- `SearchField` 无匹配。
+- Button style 的匹配仅允许出现在显式 `glass == true` 分支中，或 `.circularGlass` 中。
 
-- [ ] **Step 4: Check changed previews exist**
+- [ ] **步骤 4：检查改动相关的 preview 仍存在**
 
-Run:
+执行：
 
 ```bash
 rg "#Preview|Solid — default|Light — default|SegmentedControl|SearchField" Sources/CoreDesign/Components/Button Sources/CoreDesign/Components/SegmentedControl Sources/CoreDesign/Components/SearchField
 ```
 
-Expected: previews for button styles, segmented control, and search field are still present.
+预期：按钮样式、segmented control、search field 的 preview 仍在。
 
-- [ ] **Step 5: Confirm clean status**
+- [ ] **步骤 5：确认状态干净**
 
-Run:
+执行：
 
 ```bash
 git status --short
 ```
 
-Expected: no uncommitted changes.
+预期：没有未提交的变更。
 
 ---
 
-## Handoff Notes
+## 交接说明
 
-- This plan intentionally does not touch navigation/content/status components.
-- Do not reintroduce default glass for `.solid` or `.light`.
-- Do not add Liquid Glass to `SearchField`.
-- `SegmentedControl` ships with `glass: Bool = true` (see Task 2 "Plan revision"
-  callout). Path matrix:
-  - iOS + `glass == true` → `NativeGlassSegmentedControl` (UIKit `UIGlassEffect`).
-  - iOS + `glass == false` → SwiftUI path with `glass == false` branch (quiet
-    control surface, no `glassEffect`).
-  - macOS (any `glass` value) → SwiftUI path; the modifier honors `glass`, so
-    macOS with the default `glass == true` is still a Liquid Glass surface.
-  - To force a quiet surface on macOS, pass `glass: false` explicitly.
-- If visual review later finds the search field too flat, adjust within control-layer tokens first; do not make it floating glass.
+- 本计划刻意不动 navigation / content / status 组件。
+- 不要为 `.solid` 或 `.light` 重新引入默认 glass。
+- 不要给 `SearchField` 加 Liquid Glass。
+- `SegmentedControl` 出厂为 `glass: Bool = true`（见任务 2 的 "计划修订" 提示框）。
+  路径矩阵：
+  - iOS + `glass == true` → `NativeGlassSegmentedControl`（UIKit `UIGlassEffect`）。
+  - iOS + `glass == false` → SwiftUI 路径走 `glass == false` 分支（安静的
+    control surface，无 `glassEffect`）。
+  - macOS（无论 `glass` 取值）→ SwiftUI 路径；该 modifier 尊重 `glass`，所以
+    在 macOS 上默认 `glass == true` 仍是 Liquid Glass 表面。
+  - 若要在 macOS 强制安静表面，请显式传入 `glass: false`。
+- 后续视觉评审若发现 search field 过于扁平，先在 control-layer token 内调整；不要让它变成 floating glass。
