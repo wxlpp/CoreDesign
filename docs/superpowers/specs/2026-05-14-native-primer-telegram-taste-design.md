@@ -71,6 +71,24 @@ Examples:
 - `Toast`
 - floating toolbars
 
+Material layers and surface roles are separate dimensions. The material layer
+answers "how much visual treatment is allowed"; the surface role answers "what
+semantic background/border token should be used." Surface roles may include
+`canvas`, `content`, `control`, `floating`, and `overlay`, but these are not
+additional material layers.
+
+Initial mapping:
+
+| Component family | Material layer | Surface role |
+|---|---|---|
+| page backgrounds | content | canvas |
+| rows and ordinary content | content | content |
+| buttons and fields | control | control |
+| navigation rows and tabs | control | control |
+| toasts and floating toolbars | floating | floating |
+| popovers and menus | floating | overlay |
+| bottom input bar | floating | floating |
+
 ### 2. Button Defaults
 
 `ButtonStyle.solid` and `ButtonStyle.light` should not default to glass. They
@@ -83,6 +101,15 @@ should be practical native controls with Primer-like semantics:
 
 Glass remains available for floating controls, such as `.circularGlass`, bottom
 input actions, and overlay-specific actions.
+
+Phase 1 acceptance criteria:
+
+- `SolidButtonStyle(role:glass:)` defaults `glass` to `false`.
+- `LightButtonStyle(role:glass:)` defaults `glass` to `false`.
+- `.solid(role:)` and `.light(role:)` convenience APIs produce non-glass styles
+  by default.
+- Existing glass button visuals remain available only through explicit
+  `glass: true` or floating-specific styles such as `.circularGlass`.
 
 ### 3. Radius And Density
 
@@ -221,7 +248,8 @@ Update shared visual primitives before rewriting individual components:
 
 ### Deprecated Components
 
-`EmptyState` is deprecated instead of visually reset.
+`EmptyState` is deprecated instead of visually reset. Because it is currently a
+public component, deprecation must be staged rather than removed immediately.
 
 Rationale: SwiftUI and UIKit already provide native unavailable-content views:
 
@@ -229,9 +257,20 @@ Rationale: SwiftUI and UIKit already provide native unavailable-content views:
 - UIKit `UIContentUnavailableView`
 - UIKit `UIContentUnavailableConfiguration`
 
-CoreDesign should stop investing in custom empty-state visuals. Existing
-callers should migrate to system unavailable-content APIs. If action styling is
-needed, callers can compose native unavailable views with CoreDesign buttons.
+CoreDesign should stop investing in custom empty-state visuals. Existing callers
+should migrate to system unavailable-content APIs. If action styling is needed,
+callers can compose native unavailable views with CoreDesign buttons.
+
+Deprecation plan:
+
+1. Phase 1 marks `EmptyState` APIs as deprecated with migration guidance to
+   `ContentUnavailableView`.
+2. Phase 3 removes `EmptyState` from previews, component registry, and docs as a
+   recommended component.
+3. Existing source remains as a compatibility wrapper during the current major
+   version. It should not receive new visual styling beyond fixes required to
+   keep builds healthy.
+4. Removal is deferred to the next explicitly planned breaking-change cycle.
 
 ## Implementation Phases
 
@@ -241,6 +280,8 @@ needed, callers can compose native unavailable views with CoreDesign buttons.
 - Remove default glass from ordinary button styles.
 - Add explicit floating glass primitives.
 - Define shared pressed, selected, hover, border, radius, and shadow rules.
+- Mark `EmptyState` deprecated with native `ContentUnavailableView` migration
+  guidance.
 
 ### Phase 2: Foundation Components
 
@@ -288,3 +329,24 @@ Each phase should include:
 - explicit check that content-layer components remain readable and low-noise
 - explicit check that floating-layer components are visually distinct but not
   overpowering
+
+Minimum visual state matrix:
+
+| Component family | Required states |
+|---|---|
+| buttons | default, pressed, disabled, loading where applicable, destructive, primary, secondary |
+| segmented control | default, selected, pressed, disabled if supported, 2-item and 3+-item layouts |
+| fields | empty, filled, focused, disabled, validation/error if supported |
+| rows/navigation | default, hover, selected, pressed, disabled if supported |
+| badges/tags/status | every semantic variant in light and dark appearance |
+| floating surfaces | default, appearing, disappearing, action pressed, reduce motion |
+| content cards | default, long content, compact width, dark appearance |
+
+Accessibility and platform checks:
+
+- Dynamic Type at default and at least one larger size.
+- Reduce Motion enabled for animated components.
+- Light and dark appearances.
+- Keyboard/focus accessibility where controls accept input.
+- Public API defaults verified by tests when a default changes, especially
+  button `glass` defaults and `EmptyState` deprecation availability.
