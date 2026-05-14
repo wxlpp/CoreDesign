@@ -3,6 +3,7 @@ import Testing
 @testable import CoreDesign
 
 @Suite("StatusRow")
+@MainActor
 struct StatusRowTests {
     @Test("init stores parameters")
     func initParams() {

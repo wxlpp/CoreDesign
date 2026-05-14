@@ -221,7 +221,7 @@ private struct ToastSnapshotHarness: View {
         TimelineItem(icon: {
             Circle().fill(Color.statusAccentEmphasis).frame(width: 32, height: 32)
                 .overlay(Image(systemName: "plus").foregroundStyle(.white).font(.caption))
-        }) {
+        }, showsTopConnector: false) {
             VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                 Text("evan opened this pull request").font(CoreTypography.bodyMediumFont)
                 Text("3 days ago").font(CoreTypography.bodySmallFont).foregroundStyle(.secondary)

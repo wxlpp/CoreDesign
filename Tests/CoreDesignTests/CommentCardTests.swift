@@ -3,6 +3,7 @@ import Testing
 @testable import CoreDesign
 
 @Suite("CommentCard")
+@MainActor
 struct CommentCardTests {
     @Test("init with required params, not minimized")
     func initNotMinimized() {

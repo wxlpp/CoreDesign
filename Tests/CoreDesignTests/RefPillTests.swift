@@ -3,6 +3,7 @@ import Testing
 @testable import CoreDesign
 
 @Suite("RefPill")
+@MainActor
 struct RefPillTests {
     @Test("single ref stores value")
     func singleRef() {

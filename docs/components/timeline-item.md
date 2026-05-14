@@ -9,6 +9,7 @@
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | icon | () -> some View | - | 左侧脊柱图标槽（通常是 `Circle` + symbol overlay） |
+| showsTopConnector | Bool | true | 是否显示图标上方的连接线；顶层首节点应传 `false` |
 | isLast | Bool | false | 是否为列表最后一项，影响底部连接线的渲染 |
 | content | () -> some View | - | 右侧内容槽 |
 
@@ -22,7 +23,7 @@
 TimelineItem(icon: {
     Circle().fill(Color.statusAccentEmphasis)
         .overlay(Image(systemName: "plus").foregroundStyle(.white))
-}) {
+}, showsTopConnector: false) {
     VStack(alignment: .leading) {
         EventRow(actor: "evan", action: "opened this PR", timeAgo: "3 days ago")
         // 嵌套子 TimelineItem：depth 自动 +1

@@ -27,14 +27,17 @@ extension EnvironmentValues {
 public struct TimelineItem<Icon: View, Content: View>: View {
     @ViewBuilder let icon: () -> Icon
     @ViewBuilder let content: () -> Content
+    public let showsTopConnector: Bool
     public let isLast: Bool
 
     public init(
         @ViewBuilder icon: @escaping () -> Icon,
+        showsTopConnector: Bool = true,
         isLast: Bool = false,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.icon = icon
+        self.showsTopConnector = showsTopConnector
         self.isLast = isLast
         self.content = content
     }
@@ -60,10 +63,15 @@ public struct TimelineItem<Icon: View, Content: View>: View {
 
     private var spineView: some View {
         VStack(spacing: 0) {
-            // Top connection line (from previous node)
-            Rectangle()
-                .fill(Color.borderMuted)
-                .frame(width: CoreBorderWidth.thin, height: CoreSpacing.sm)
+            if self.showsTopConnector {
+                // Top connection line (from previous node)
+                Rectangle()
+                    .fill(Color.borderMuted)
+                    .frame(width: CoreBorderWidth.thin, height: CoreSpacing.sm)
+            } else {
+                Color.clear
+                    .frame(width: CoreBorderWidth.thin, height: CoreSpacing.sm)
+            }
 
             // Icon dot
             self.icon()
@@ -92,7 +100,7 @@ public struct TimelineItem<Icon: View, Content: View>: View {
         TimelineItem(icon: {
             Circle().fill(.blue).frame(width: 32, height: 32)
                 .overlay(Text("A").foregroundStyle(.white).font(.caption))
-        }, isLast: false) {
+        }, showsTopConnector: false, isLast: false) {
             VStack(alignment: .leading) {
                 Text("First event").font(.headline)
                 TimelineItem(icon: {

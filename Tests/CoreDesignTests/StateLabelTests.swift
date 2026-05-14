@@ -3,6 +3,7 @@ import Testing
 @testable import CoreDesign
 
 @Suite("StateLabel")
+@MainActor
 struct StateLabelTests {
     @Test("active maps to success status color")
     func activeMapsToSuccess() {

@@ -40,4 +40,4 @@ AvatarGroup(max: 2) {
 - 重叠偏移：`-6` (mini/small) / `-8` (regular) / `-10` (large+)
 - 头像尺寸：mini 20 / small 24 / regular 32 / large 40 / extraLarge 48
 - "+N" pill：`Color.surfaceCanvasInset` 填充 + `Color.borderMuted` 描边，文字 `.caption2`
-- 可访问性：每个 avatar `accessibilityHidden(true)`；"+N" 读 `"<N> more"`
+- 可访问性：每个 avatar 保留自身可访问性；"+N" 读 `"<N> more avatars"`

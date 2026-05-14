@@ -44,7 +44,6 @@ public struct AvatarGroup<Avatars: View>: View {
                             Circle()
                                 .strokeBorder(Color.systemBackground, lineWidth: CoreBorderWidth.thin)
                         )
-                        .accessibilityHidden(true)
                 }
 
                 if overflow > 0 {
@@ -60,7 +59,7 @@ public struct AvatarGroup<Avatars: View>: View {
                             Circle()
                                 .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
                         )
-                        .accessibilityLabel("\(overflow) more")
+                        .accessibilityLabel(AvatarGroupAccessibility.overflowLabel(for: overflow))
                 }
             }
         }
@@ -75,6 +74,12 @@ public struct AvatarGroup<Avatars: View>: View {
         case .extraLarge: return 48
         @unknown default: return 32
         }
+    }
+}
+
+enum AvatarGroupAccessibility {
+    static func overflowLabel(for count: Int) -> String {
+        "\(count) more avatars"
     }
 }
 

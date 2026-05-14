@@ -3,6 +3,7 @@ import Testing
 @testable import CoreDesign
 
 @Suite("AvatarGroup")
+@MainActor
 struct AvatarGroupTests {
     @Test("init with max parameter stores value")
     func initMaxParam() {
@@ -19,5 +20,10 @@ struct AvatarGroupTests {
             Circle().fill(.blue).frame(width: 32, height: 32)
         }
         #expect(group.max == 3)
+    }
+
+    @Test("overflow accessibility label includes avatar context")
+    func overflowAccessibilityLabel() {
+        #expect(AvatarGroupAccessibility.overflowLabel(for: 2) == "2 more avatars")
     }
 }

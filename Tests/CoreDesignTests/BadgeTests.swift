@@ -3,6 +3,7 @@ import Testing
 @testable import CoreDesign
 
 @Suite("Badge")
+@MainActor
 struct BadgeTests {
     @Test("designated init stores variant + outlined + label without erasure")
     func designatedInitPreservesParameters() {
@@ -38,4 +39,3 @@ struct BadgeTests {
         #expect(badge.variant == variant)
     }
 }
-

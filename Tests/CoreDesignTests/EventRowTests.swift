@@ -3,6 +3,7 @@ import Testing
 @testable import CoreDesign
 
 @Suite("EventRow")
+@MainActor
 struct EventRowTests {
     @Test("init stores parameters with pill content")
     func initWithPill() {

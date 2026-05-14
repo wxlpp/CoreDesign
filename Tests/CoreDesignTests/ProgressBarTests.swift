@@ -3,6 +3,7 @@ import Testing
 @testable import CoreDesign
 
 @Suite("ProgressBar")
+@MainActor
 struct ProgressBarTests {
     @Test("init with value stores clamped value")
     func initValue() {

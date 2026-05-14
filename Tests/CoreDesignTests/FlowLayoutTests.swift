@@ -3,6 +3,7 @@ import Testing
 @testable import CoreDesign
 
 @Suite("FlowLayout")
+@MainActor
 struct FlowLayoutTests {
     @Test("init with default spacing uses CoreSpacing.xs")
     func defaultSpacing() {

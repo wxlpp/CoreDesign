@@ -3,6 +3,7 @@ import Testing
 @testable import CoreDesign
 
 @Suite("StatusColors")
+@MainActor
 struct StatusColorsTests {
     @Test("accent status has 4 variants")
     func accentVariants() {

@@ -166,16 +166,20 @@ public struct BookCoverPlaceholder: View {
 
 @MainActor
 public enum BookCoverRenderer {
-    public static func generatePlaceholderData(title: String, width: CGFloat = 320) -> Data? {
+    public static func generatePlaceholderData(
+        title: String,
+        width: CGFloat = 320,
+        displayScale: CGFloat = 2
+    ) -> Data? {
         let size = CGSize(width: width, height: width / BookCover.aspectRatio)
         let content = BookCoverPlaceholder(title: title)
             .frame(width: size.width, height: size.height)
         let renderer = ImageRenderer(content: content)
         #if canImport(UIKit)
-            renderer.scale = UIScreen.main.scale
+            renderer.scale = displayScale
             return renderer.uiImage?.pngData()
         #elseif canImport(AppKit)
-            renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+            renderer.scale = displayScale
             guard let cg = renderer.cgImage else {
                 return nil
             }

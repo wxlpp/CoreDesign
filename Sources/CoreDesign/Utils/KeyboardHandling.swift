@@ -57,23 +57,54 @@ public extension KeyboardReadable {
 
     var keyboardHeight: AnyPublisher<CGFloat, Never> {
         #if canImport(UIKit)
-            NotificationCenter
-                .default
-                .publisher(for: UIResponder.keyboardDidShowNotification)
-                .map { notification in
-                    if
-                        let keyboardFrame: NSValue = notification
-                            .userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue
-                    {
-                        let keyboardRectangle = keyboardFrame.cgRectValue
-                        return keyboardRectangle.height
-                    } else {
-                        return 0
-                    }
-                }
-                .eraseToAnyPublisher()
+            KeyboardHeightPublisherFactory.make(
+                show: NotificationCenter.default
+                    .publisher(for: UIResponder.keyboardWillShowNotification)
+                    .eraseToAnyPublisher(),
+                hide: NotificationCenter.default
+                    .publisher(for: UIResponder.keyboardWillHideNotification)
+                    .eraseToAnyPublisher(),
+                changeFrame: NotificationCenter.default
+                    .publisher(for: UIResponder.keyboardWillChangeFrameNotification)
+                    .eraseToAnyPublisher(),
+                frameEndUserInfoKey: UIResponder.keyboardFrameEndUserInfoKey
+            )
         #else
             Just(0).eraseToAnyPublisher()
+        #endif
+    }
+}
+
+enum KeyboardHeightPublisherFactory {
+    static func make(
+        show: AnyPublisher<Notification, Never>,
+        hide: AnyPublisher<Notification, Never>,
+        changeFrame: AnyPublisher<Notification, Never>,
+        frameEndUserInfoKey: String
+    ) -> AnyPublisher<CGFloat, Never> {
+        Publishers.Merge3(
+            show.map { self.height(from: $0, frameEndUserInfoKey: frameEndUserInfoKey) },
+            changeFrame.map { self.height(from: $0, frameEndUserInfoKey: frameEndUserInfoKey) },
+            hide.map { _ in 0 }
+        )
+        .eraseToAnyPublisher()
+    }
+
+    static func height(
+        from notification: Notification,
+        frameEndUserInfoKey: String
+    ) -> CGFloat {
+        guard
+            let keyboardFrame = notification.userInfo?[frameEndUserInfoKey] as? NSValue
+        else {
+            return 0
+        }
+        #if canImport(UIKit)
+            return keyboardFrame.cgRectValue.height
+        #elseif canImport(AppKit)
+            return keyboardFrame.rectValue.height
+        #else
+            return 0
         #endif
     }
 }
