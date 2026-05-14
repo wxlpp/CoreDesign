@@ -309,7 +309,7 @@ Deprecation plan:
 - AvatarGroup
 - BookCover
 - BottomInputBar
-- Deprecate EmptyState and update docs/previews
+- Remove `EmptyState` from recommended docs/previews after Phase 1 deprecation
 
 ## Non-Goals
 
@@ -347,6 +347,8 @@ Accessibility and platform checks:
 - Dynamic Type at default and at least one larger size.
 - Reduce Motion enabled for animated components.
 - Light and dark appearances.
-- Keyboard/focus accessibility where controls accept input.
+- Keyboard/focus accessibility where controls accept input. Validate hover and
+  focus states per platform capability: hover primarily on macOS and pointer
+  iPadOS contexts, focus on keyboard-driven iOS/iPadOS/macOS flows.
 - Public API defaults verified by tests when a default changes, especially
   button `glass` defaults and `EmptyState` deprecation availability.
