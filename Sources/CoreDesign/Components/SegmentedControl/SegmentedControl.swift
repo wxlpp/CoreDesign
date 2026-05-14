@@ -68,16 +68,7 @@ public struct SegmentedControl<Item: Hashable>: View {
             .contentShape(Rectangle())
             .background {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
-                        .fill(Color.surfaceCanvasSubtle)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
-                                .strokeBorder(
-                                    .white.opacity(CoreButtonMetrics.glassBorderOpacity),
-                                    lineWidth: CoreBorderWidth.hairline
-                                )
-                        )
-                        .coreShadow(.small)
+                    self.selectedThumb
                         .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
                 }
             }
@@ -85,6 +76,30 @@ public struct SegmentedControl<Item: Hashable>: View {
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .accessibilityAction { self.select(item) }
             .onTapGesture { self.select(item) }
+    }
+
+    @ViewBuilder
+    private var selectedThumb: some View {
+        let shape = RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
+        if self.glass {
+            shape
+                .fill(Color.primary.opacity(0.10))
+                .glassEffect(.regular.interactive(), in: shape)
+                .overlay(
+                    shape.strokeBorder(
+                        Color.primary.opacity(0.10),
+                        lineWidth: CoreBorderWidth.hairline
+                    )
+                )
+                .coreShadow(.small)
+        } else {
+            shape
+                .fill(Color.surfaceCanvasSubtle)
+                .overlay(
+                    shape.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
+                )
+                .coreShadow(.small)
+        }
     }
 
     private func select(_ item: Item) {
