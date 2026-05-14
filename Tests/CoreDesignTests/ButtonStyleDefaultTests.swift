@@ -22,19 +22,12 @@ struct ButtonStyleDefaultTests {
         #expect(LightButtonStyle(glass: true).glass == true)
     }
 
-    @Test("concrete button styles default to non-glass")
-    func concreteButtonStylesDefaultToNonGlass() {
-        #expect(ButtonStyleDefaultProbe.solidDefaultGlass == false)
-        #expect(ButtonStyleDefaultProbe.lightDefaultGlass == false)
-    }
-}
+    @Test("button style factories default to non-glass")
+    func buttonStyleFactoriesDefaultToNonGlass() {
+        let solid: SolidButtonStyle = .solid()
+        let light: LightButtonStyle = .light()
 
-private enum ButtonStyleDefaultProbe {
-    static var solidDefaultGlass: Bool {
-        SolidButtonStyle().glass
-    }
-
-    static var lightDefaultGlass: Bool {
-        LightButtonStyle().glass
+        #expect(solid.glass == false)
+        #expect(light.glass == false)
     }
 }

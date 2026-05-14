@@ -27,7 +27,7 @@ import SwiftUI
 /// - `onSubmit` —— Return / Enter 提交回调；当用户按下提交键时调用，参数为
 ///   当前 `text`。**可选**——对纯实时过滤场景留 `nil` 即可。
 ///
-/// **Primer utility mapping / Primer utility mapping**：
+/// **Primer utility mapping / Primer 实用性映射**：
 /// 对应 Primer Web 的 `<TextInput leadingVisual={SearchIcon} trailingAction={...} />`
 /// 组合（GitHub 桌面 UI 中的 issue / PR 列表筛选框，仓库左上角的 "Go to file" 入口）。
 /// 本实现保留其前缀 magnifyingglass + 末尾 clear button 的实用结构。
