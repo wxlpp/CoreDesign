@@ -101,14 +101,8 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
                 .background(
                     self.shape
                         .inset(by: CoreButtonMetrics.glassInset)
-                        .fill(.background.opacity(0.72))
+                        .fill(.background)
                         .glassEffect(.regular.interactive(), in: self.shape)
-                )
-                .overlay(
-                    self.shape.strokeBorder(
-                        .white.opacity(CoreButtonMetrics.glassBorderOpacity),
-                        lineWidth: CoreBorderWidth.hairline
-                    )
                 )
         } else {
             content
