@@ -9,6 +9,12 @@ import SwiftUI
 
 // MARK: - EmptyState
 
+/// Deprecated compatibility empty-state view.
+///
+/// Prefer SwiftUI `ContentUnavailableView` for new empty, unavailable, and
+/// no-results states. This component remains available during the current major
+/// version only as a compatibility wrapper for existing callers.
+///
 /// 空状态占位视图（无搜索结果 / 列表为空 / 错误后兜底）。
 ///
 /// 概念对应 GitHub Primer 的 `Blankslate`：在数据缺席的位置以居中布局给出
@@ -45,6 +51,11 @@ import SwiftUI
 ///     Button("New document") { /* ... */ }
 /// }
 /// ```
+@available(
+    *,
+    deprecated,
+    message: "Use SwiftUI ContentUnavailableView for empty states. Compose CoreDesign buttons inside ContentUnavailableView actions when needed."
+)
 public struct EmptyState<Action: View>: View {
 
     // MARK: - Designated init
@@ -138,6 +149,11 @@ public extension EmptyState where Action == EmptyView {
     ///   - title: 标题文本。
     ///   - description: 说明文本（可选），多行居中。
     ///   - iconSize: 图标尺寸（pt）。默认 `CoreSpacing.xxxxl` (48pt)。
+    @available(
+        *,
+        deprecated,
+        message: "Use SwiftUI ContentUnavailableView for empty states. Compose CoreDesign buttons inside ContentUnavailableView actions when needed."
+    )
     init(
         icon: Image,
         title: String,
@@ -162,6 +178,11 @@ public extension EmptyState where Action == EmptyView {
     ///   - title: 标题文本。
     ///   - description: 说明文本（可选）。
     ///   - iconSize: 图标尺寸（pt）。默认 `CoreSpacing.xxxxl` (48pt)。
+    @available(
+        *,
+        deprecated,
+        message: "Use SwiftUI ContentUnavailableView for empty states. Compose CoreDesign buttons inside ContentUnavailableView actions when needed."
+    )
     init(
         systemName: String,
         title: String,
@@ -190,6 +211,11 @@ public extension EmptyState {
     ///   - description: 说明文本（可选）。
     ///   - iconSize: 图标尺寸（pt）。默认 `CoreSpacing.xxxxl` (48pt)。
     ///   - action: CTA 视图（通常为 `Button`）。
+    @available(
+        *,
+        deprecated,
+        message: "Use SwiftUI ContentUnavailableView for empty states. Compose CoreDesign buttons inside ContentUnavailableView actions when needed."
+    )
     init(
         systemName: String,
         title: String,
