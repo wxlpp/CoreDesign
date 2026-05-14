@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 // MARK: - SegmentedControl
 
@@ -37,7 +40,25 @@ public struct SegmentedControl<Item: Hashable>: View {
 
     /// 视图主体：横向 HStack 排列分段，外框走 `surfaceInteractive` 容器，
     /// thumb 通过 `matchedGeometryEffect` 在选中分段间无缝滑动。
+    @ViewBuilder
     public var body: some View {
+        #if os(iOS)
+        if self.glass {
+            NativeGlassSegmentedControl(
+                items: self.items,
+                selection: self.$selection,
+                title: self.title
+            )
+            .frame(height: CoreControlMetrics.height(for: .regular))
+        } else {
+            self.swiftUISegmentedControl
+        }
+        #else
+        self.swiftUISegmentedControl
+        #endif
+    }
+
+    private var swiftUISegmentedControl: some View {
         let shape = Capsule(style: .continuous)
         return HStack(spacing: CoreSpacing.xxs) {
             ForEach(self.items, id: \.self) { item in
@@ -102,6 +123,212 @@ public struct SegmentedControl<Item: Hashable>: View {
         }
     }
 }
+
+#if os(iOS)
+private struct NativeGlassSegmentedControl<Item: Hashable>: UIViewRepresentable {
+    let items: [Item]
+    @Binding var selection: Item
+    let title: (Item) -> String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> NativeGlassSegmentedControlView {
+        let view = NativeGlassSegmentedControlView()
+        view.control.addTarget(
+            context.coordinator,
+            action: #selector(Coordinator.selectionChanged(_:)),
+            for: .valueChanged
+        )
+        return view
+    }
+
+    func updateUIView(_ uiView: NativeGlassSegmentedControlView, context: Context) {
+        context.coordinator.parent = self
+        uiView.configure(titles: self.items.map(self.title))
+
+        let selectedIndex = self.items.firstIndex(of: self.selection) ?? 0
+        if uiView.control.selectedSegmentIndex != selectedIndex {
+            uiView.control.selectedSegmentIndex = selectedIndex
+        }
+
+        uiView.updateForCurrentTraits()
+    }
+
+    final class Coordinator: NSObject {
+        var parent: NativeGlassSegmentedControl
+
+        init(parent: NativeGlassSegmentedControl) {
+            self.parent = parent
+        }
+
+        @objc func selectionChanged(_ control: UISegmentedControl) {
+            let index = control.selectedSegmentIndex
+            guard index >= 0, index < self.parent.items.count else { return }
+            self.parent.selection = self.parent.items[index]
+        }
+    }
+}
+
+@available(iOS 26.0, *)
+private final class NativeGlassSegmentedControlView: UIView {
+    let control = ImmediateFeedbackSegmentedControl(items: nil)
+
+    private let glassView: UIVisualEffectView
+    private var currentTitles: [String] = []
+
+    override init(frame: CGRect) {
+        let effect = UIGlassEffect()
+        effect.isInteractive = true
+        self.glassView = UIVisualEffectView(effect: effect)
+
+        super.init(frame: frame)
+
+        self.setupViews()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(titles: [String]) {
+        guard titles != self.currentTitles else { return }
+        self.currentTitles = titles
+
+        self.control.removeAllSegments()
+        for (index, title) in titles.enumerated() {
+            self.control.insertSegment(withTitle: title, at: index, animated: false)
+            self.control.setWidth(0, forSegmentAt: index)
+        }
+    }
+
+    func updateForCurrentTraits() {
+        switch self.traitCollection.userInterfaceStyle {
+        case .dark:
+            self.control.selectedSegmentTintColor = .label.withAlphaComponent(0.15)
+        default:
+            self.control.selectedSegmentTintColor = .label.withAlphaComponent(0.08)
+        }
+
+        self.control.setTitleTextAttributes(
+            [
+                .foregroundColor: UIColor.secondaryLabel,
+                .font: UIFont.systemFont(ofSize: 15, weight: .regular),
+            ],
+            for: .normal
+        )
+        self.control.setTitleTextAttributes(
+            [
+                .foregroundColor: UIColor.label,
+                .font: UIFont.systemFont(ofSize: 15, weight: .semibold),
+            ],
+            for: .selected
+        )
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        self.glassView.cornerConfiguration = .capsule()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        self.updateForCurrentTraits()
+    }
+
+    private func setupViews() {
+        self.backgroundColor = .clear
+
+        self.glassView.translatesAutoresizingMaskIntoConstraints = false
+        self.addSubview(self.glassView)
+
+        self.control.backgroundColor = .clear
+        self.control.translatesAutoresizingMaskIntoConstraints = false
+        self.glassView.contentView.addSubview(self.control)
+
+        NSLayoutConstraint.activate([
+            self.glassView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+            self.glassView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
+            self.glassView.topAnchor.constraint(equalTo: self.topAnchor),
+            self.glassView.bottomAnchor.constraint(equalTo: self.bottomAnchor),
+
+            self.control.leadingAnchor.constraint(equalTo: self.glassView.contentView.leadingAnchor, constant: CoreSpacing.xxs),
+            self.control.trailingAnchor.constraint(equalTo: self.glassView.contentView.trailingAnchor, constant: -CoreSpacing.xxs),
+            self.control.topAnchor.constraint(equalTo: self.glassView.contentView.topAnchor, constant: CoreSpacing.xxs),
+            self.control.bottomAnchor.constraint(equalTo: self.glassView.contentView.bottomAnchor, constant: -CoreSpacing.xxs),
+        ])
+    }
+}
+
+@available(iOS 26.0, *)
+private final class ImmediateFeedbackSegmentedControl: UISegmentedControl {
+    private var originalIndex: Int?
+
+    private var shouldMoveIndicatorOnTouchDown: Bool {
+        !self.traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        for subview in self.subviews where subview is UIImageView {
+            subview.alpha = 0
+        }
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else {
+            super.touchesBegan(touches, with: event)
+            return
+        }
+
+        if self.shouldMoveIndicatorOnTouchDown {
+            self.originalIndex = self.selectedSegmentIndex
+            self.selectedSegmentIndex = self.segmentIndex(at: touch.location(in: self))
+        }
+
+        super.touchesBegan(touches, with: event)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else {
+            super.touchesMoved(touches, with: event)
+            return
+        }
+
+        if self.shouldMoveIndicatorOnTouchDown {
+            self.selectedSegmentIndex = self.segmentIndex(at: touch.location(in: self))
+        }
+
+        super.touchesMoved(touches, with: event)
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if self.shouldMoveIndicatorOnTouchDown, let originalIndex {
+            if self.selectedSegmentIndex != originalIndex {
+                self.sendActions(for: .valueChanged)
+            }
+        }
+        self.originalIndex = nil
+        super.touchesEnded(touches, with: event)
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if self.shouldMoveIndicatorOnTouchDown, let originalIndex {
+            self.selectedSegmentIndex = originalIndex
+        }
+        self.originalIndex = nil
+        super.touchesCancelled(touches, with: event)
+    }
+
+    private func segmentIndex(at point: CGPoint) -> Int {
+        guard self.numberOfSegments > 0, self.bounds.width > 0 else { return UISegmentedControl.noSegment }
+        let segmentWidth = self.bounds.width / CGFloat(self.numberOfSegments)
+        return min(max(Int(point.x / segmentWidth), 0), self.numberOfSegments - 1)
+    }
+}
+#endif
 
 private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModifier {
     let shape: S
