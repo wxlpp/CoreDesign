@@ -36,19 +36,18 @@ public struct SegmentedControl<Item: Hashable>: View {
     /// 视图主体：横向 HStack 排列分段，外框走 `surfaceInteractive` 容器，
     /// thumb 通过 `matchedGeometryEffect` 在选中分段间无缝滑动。
     public var body: some View {
-        HStack(spacing: CoreSpacing.xxs) {
+        let shape = RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+        return HStack(spacing: CoreSpacing.xxs) {
             ForEach(self.items, id: \.self) { item in
                 self.segment(for: item)
             }
         }
         .padding(CoreSpacing.xxs)
         .background(
-            RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
-                .fill(Color.surfaceInteractive)
+            shape.fill(Color.surfaceInteractive)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
-                .strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
+            shape.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
         )
         .frame(height: CoreControlMetrics.height(for: .regular))
         .sensoryFeedback(.selection, trigger: self.selection)
