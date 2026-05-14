@@ -8,7 +8,7 @@ struct SearchFieldTests {
     @Test("search field constructs with default placeholder")
     func searchFieldConstructsWithDefaultPlaceholder() {
         let field = SearchField(text: .constant(""))
-        #expect(String(describing: type(of: field)).isEmpty == false)
+        #expect(type(of: field) == SearchField.self)
     }
 
     @MainActor
@@ -16,6 +16,6 @@ struct SearchFieldTests {
     func searchFieldConstructsWithSubmitHandler() {
         let field = SearchField(text: .constant("query"), placeholder: "Filter") { _ in }
 
-        #expect(String(describing: type(of: field)).isEmpty == false)
+        #expect(type(of: field) == SearchField.self)
     }
 }

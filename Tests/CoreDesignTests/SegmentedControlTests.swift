@@ -14,7 +14,7 @@ struct SegmentedControlTests {
             title: { $0 }
         )
 
-        #expect(String(describing: type(of: control)).isEmpty == false)
+        #expect(type(of: control) == SegmentedControl<String>.self)
     }
 
     @MainActor
@@ -27,6 +27,6 @@ struct SegmentedControlTests {
             title: { $0 }
         )
 
-        #expect(String(describing: type(of: control)).isEmpty == false)
+        #expect(type(of: control) == SegmentedControl<String>.self)
     }
 }
