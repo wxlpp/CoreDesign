@@ -453,7 +453,10 @@ rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Segme
 
 Expected:
 
-- `SegmentedControl` has no matches.
+- `SegmentedControl` matches are expected and allowed: the shipped component
+  uses `.glassEffect` on its `glass == true` branch (both SwiftUI fallback and
+  iOS 26 native UIKit Glass paths). Treat matches as a sanity check that glass
+  remains gated behind that branch rather than as a violation.
 - `SearchField` has no matches.
 - Button style matches are allowed only in explicit `glass == true` branches or `.circularGlass`.
 
@@ -484,8 +487,12 @@ Expected: no uncommitted changes.
 - This plan intentionally does not touch navigation/content/status components.
 - Do not reintroduce default glass for `.solid` or `.light`.
 - Do not add Liquid Glass to `SearchField`.
-- `SegmentedControl` ships with `glass: Bool = true` and a native UIKit Glass
-  path on iOS 26 (see Task 2 "Plan revision" callout). The SwiftUI fallback —
-  used when `glass == false` and on macOS — stays on the quiet control surface
-  described above.
+- `SegmentedControl` ships with `glass: Bool = true` (see Task 2 "Plan revision"
+  callout). Path matrix:
+  - iOS + `glass == true` → `NativeGlassSegmentedControl` (UIKit `UIGlassEffect`).
+  - iOS + `glass == false` → SwiftUI path with `glass == false` branch (quiet
+    control surface, no `glassEffect`).
+  - macOS (any `glass` value) → SwiftUI path; the modifier honors `glass`, so
+    macOS with the default `glass == true` is still a Liquid Glass surface.
+  - To force a quiet surface on macOS, pass `glass: false` explicitly.
 - If visual review later finds the search field too flat, adjust within control-layer tokens first; do not make it floating glass.
