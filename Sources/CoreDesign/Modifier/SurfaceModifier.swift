@@ -18,24 +18,23 @@ import SwiftUI
 /// `(background, border, cornerRadius)` 三件套，全部从 token 派生，
 /// 调用方无需手写 `RoundedRectangle().fill().overlay(stroke())` 三件套。
 public enum SurfaceKind: Sendable {
-    /// 页面级最底层 canvas / Page-level canvas surface.
-    /// 对应 Primer `bgColor.default`；`borderDefault` 提供与 page 区分的可见边界。
+    /// Page-level canvas.
     case canvas
-
-    /// 次级 canvas（侧栏、表格头等） / Subtler canvas variant.
-    /// 对应 Primer `bgColor.muted`；`borderMuted` 弱化边缘以呈现层级感。
+    /// Ordinary content surfaces: rows, cards, and non-floating containers.
+    case content
+    /// Interactive control surfaces: buttons, fields, segmented controls.
+    case control
+    /// Floating surfaces above content: toasts, floating toolbars, bottom bars.
+    case floating
+    /// Overlay surfaces such as menus and popovers.
+    case overlay
+    /// Compatibility alias for a subtler canvas.
     case canvasSubtle
-
-    /// 面板容器 / Panel container surface.
-    /// 用于卡片群之上的面板；`borderDefault` 与 panel 同层级容器形成视觉分隔。
+    /// Compatibility alias for panel containers.
     case panel
-
-    /// 侧栏容器 / Sidebar container surface.
-    /// 侧栏通常贴边、与主内容区共享一条切边，故 `cornerRadius = .none`。
+    /// Compatibility alias for sidebar containers.
     case sidebar
-
-    /// 卡片容器 / Card container surface.
-    /// 单独漂浮的卡片；`borderMuted` 让阴影（由调用方追加）成为主分隔信号。
+    /// Compatibility alias for card containers.
     case card
 }
 
@@ -46,6 +45,10 @@ private extension SurfaceKind {
     var background: Color {
         switch self {
         case .canvas: .surfaceCanvas
+        case .content: .surfaceCard
+        case .control: .surfaceInteractive
+        case .floating: .surfaceOverlay
+        case .overlay: .surfacePanel
         case .canvasSubtle: .surfaceCanvasSubtle
         case .panel: .surfacePanel
         case .sidebar: .surfaceSidebar
@@ -57,6 +60,10 @@ private extension SurfaceKind {
     var border: Color {
         switch self {
         case .canvas: .borderDefault
+        case .content: .borderMuted
+        case .control: .borderSubtle
+        case .floating: .borderMuted
+        case .overlay: .borderDefault
         case .canvasSubtle: .borderMuted
         case .panel: .borderDefault
         case .sidebar: .borderDefault
@@ -68,6 +75,10 @@ private extension SurfaceKind {
     var cornerRadius: CGFloat {
         switch self {
         case .canvas: CoreRadius.medium
+        case .content: CoreRadius.medium
+        case .control: CoreRadius.small
+        case .floating: CoreRadius.large
+        case .overlay: CoreRadius.medium
         case .canvasSubtle: CoreRadius.medium
         case .panel: CoreRadius.medium
         case .sidebar: CoreRadius.none
@@ -137,6 +148,10 @@ public extension View {
 private struct SurfacePreviewGallery: View {
     private let samples: [(label: String, kind: SurfaceKind)] = [
         ("canvas", .canvas),
+        ("content", .content),
+        ("control", .control),
+        ("floating", .floating),
+        ("overlay", .overlay),
         ("canvasSubtle", .canvasSubtle),
         ("panel", .panel),
         ("sidebar", .sidebar),
