@@ -83,14 +83,8 @@ public struct SegmentedControl<Item: Hashable>: View {
         let shape = Capsule(style: .continuous)
         if self.glass {
             shape
-                .fill(Color.primary.opacity(0.10))
-                .glassEffect(.regular.interactive(), in: shape)
-                .overlay(
-                    shape.strokeBorder(
-                        Color.primary.opacity(0.10),
-                        lineWidth: CoreBorderWidth.hairline
-                    )
-                )
+                .fill(.clear)
+                .glassEffect(.clear.interactive(), in: shape)
                 .coreShadow(.small)
         } else {
             shape
@@ -119,7 +113,7 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
                 .background(
                     self.shape
                         .inset(by: CoreButtonMetrics.glassInset)
-                        .fill(.background)
+                        .fill(.clear)
                         .glassEffect(.regular.interactive(), in: self.shape)
                 )
         } else {
