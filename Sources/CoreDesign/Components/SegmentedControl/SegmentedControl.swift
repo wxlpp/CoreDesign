@@ -110,6 +110,10 @@ public struct SegmentedControl<Item: Hashable>: View {
     private var selectedThumb: some View {
         let shape = Capsule(style: .continuous)
         if self.glass {
+            // `.fill(.clear)` 是有意的：thumb 叠在 SegmentedControlBackgroundModifier
+            // 的玻璃外壳之上，再加底色会让两层玻璃变浑浊。仅靠 .glassEffect + 细描边
+            // + 小阴影区分选中态——与 FloatingGlass / TelegramGlass 那种"玻璃覆盖
+            // 在不透明 tint 之上"的形态有意不同。
             shape
                 .fill(.clear)
                 .glassEffect(.regular.interactive(), in: shape)
@@ -215,7 +219,6 @@ private final class NativeGlassSegmentedControlView: UIView {
         self.control.removeAllSegments()
         for (index, title) in titles.enumerated() {
             self.control.insertSegment(withTitle: title, at: index, animated: false)
-            self.control.setWidth(0, forSegmentAt: index)
         }
     }
 
@@ -293,6 +296,16 @@ private final class ImmediateFeedbackSegmentedControl: UISegmentedControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        // 隐藏 UISegmentedControl 自带的 UIImageView 装饰层（背景胶囊 + 分段间分隔
+        // image），交由外层 `UIVisualEffectView(UIGlassEffect)` 容器统一提供玻璃
+        // 材质——避免内置背景叠在外层玻璃上造成"玻璃中夹玻璃"的浑浊视觉。
+        //
+        // **已知风险**：依赖 UISegmentedControl 内部视图层级。尝试过
+        // `setBackgroundImage(UIImage(), for:barMetrics:)` / `setDividerImage(...)`
+        // 的 public API 路径，但在 iOS 26 上不能完全压制原生 Glass 背景图；遍历
+        // UIImageView 是当前已知唯一可靠手段，后续 iOS 版本若改动私有层级需要
+        // 复测此处。`selectedSegmentTintColor` 通过另一条路径渲染（不是
+        // UIImageView 子视图），所以选中态仍可见。
         for subview in self.subviews where subview is UIImageView {
             subview.alpha = 0
         }
@@ -357,6 +370,10 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
 
     func body(content: Content) -> some View {
         if self.glass {
+            // `.fill(.clear)`：让 .glassEffect 自己提供材质，不在底下叠任何 tint
+            // ——SegmentedControl 走的是"纯玻璃容器"形态，配合 thumb 那层玻璃
+            // 形成一致的两层玻璃叠加视觉，而不是 FloatingGlass / BottomInputBar 那
+            // 种"玻璃覆盖在 .background.opacity(0.72) 之上"的混合形态。
             content
                 .background(
                     self.shape
