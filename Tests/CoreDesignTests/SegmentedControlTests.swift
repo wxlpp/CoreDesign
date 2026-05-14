@@ -29,4 +29,18 @@ struct SegmentedControlTests {
 
         #expect(type(of: control) == SegmentedControl<String>.self)
     }
+
+    @MainActor
+    @Test("segmented control can opt out of glass")
+    func segmentedControlCanOptOutOfGlass() {
+        let selection = Binding.constant("One")
+        let control = SegmentedControl(
+            items: ["One", "Two"],
+            selection: selection,
+            glass: false,
+            title: { $0 }
+        )
+
+        #expect(type(of: control) == SegmentedControl<String>.self)
+    }
 }
