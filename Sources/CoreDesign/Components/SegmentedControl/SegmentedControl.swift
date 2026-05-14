@@ -105,7 +105,13 @@ public struct SegmentedControl<Item: Hashable>: View {
         if self.glass {
             shape
                 .fill(.clear)
-                .glassEffect(.clear.interactive(), in: shape)
+                .glassEffect(.regular.interactive(), in: shape)
+                .overlay(
+                    shape.strokeBorder(
+                        Color.primary.opacity(0.10),
+                        lineWidth: CoreBorderWidth.hairline
+                    )
+                )
                 .coreShadow(.small)
         } else {
             shape
