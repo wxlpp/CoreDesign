@@ -21,4 +21,20 @@ struct ButtonStyleDefaultTests {
         #expect(SolidButtonStyle(glass: true).glass == true)
         #expect(LightButtonStyle(glass: true).glass == true)
     }
+
+    @Test("concrete button styles default to non-glass")
+    func concreteButtonStylesDefaultToNonGlass() {
+        #expect(ButtonStyleDefaultProbe.solidDefaultGlass == false)
+        #expect(ButtonStyleDefaultProbe.lightDefaultGlass == false)
+    }
+}
+
+private enum ButtonStyleDefaultProbe {
+    static var solidDefaultGlass: Bool {
+        SolidButtonStyle().glass
+    }
+
+    static var lightDefaultGlass: Bool {
+        LightButtonStyle().glass
+    }
 }

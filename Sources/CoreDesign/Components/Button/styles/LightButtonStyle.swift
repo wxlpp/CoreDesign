@@ -9,7 +9,7 @@ import SwiftUI
 
 /// 次要操作按钮样式（"light button"）。
 ///
-/// 默认使用 Primer 浅灰实色 + CoreElevation.small 阴影 + borderSubtle 1px。
+/// 默认使用 `surfaceInteractive`、`borderSubtle` hairline、pressed scale，且无默认 elevation。
 /// 显式传入 `glass: true` 时保留 legacy Telegram 玻璃模式，使用
 /// `TelegramGlassButtonModifier` 和 `surfaceInteractive` 底色。
 public struct LightButtonStyle: ButtonStyle {
@@ -72,7 +72,6 @@ private struct LightButtonBackgroundModifier: ViewModifier {
             .background(
                 Capsule(style: .continuous)
                     .fill(Color.surfaceInteractive)
-                    .coreShadow(.small)
             )
             .overlay(
                 Capsule(style: .continuous)
