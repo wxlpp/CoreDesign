@@ -119,6 +119,7 @@ struct BottomInputBar: View {
     private var textFieldContainer: some View {
         HStack(alignment: .bottom, spacing: CoreSpacing.sm) {
             TextField(self.placeholder, text: self.$inputText, axis: .vertical)
+                .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .padding(.vertical, CoreSpacing.sm)
                 .padding(.leading, CoreSpacing.sm)
@@ -128,7 +129,7 @@ struct BottomInputBar: View {
                 .getSize(self.$textFieldSize)
         }
         .padding(.horizontal, CoreSpacing.xxs)
-        .glassEffect(.regular, in: BottomInputBarGlassEffectShape())
+        .modifier(BottomInputBarGlassModifier())
     }
 
     private var suggestionButton: some View {
@@ -207,6 +208,23 @@ struct BottomInputBarGlassEffectShape: Shape {
     func path(in rect: CGRect) -> Path {
         let cornerRadius: CGFloat = rect.height <= 44 ? rect.height / 2 : CoreRadius.large
         return Path(roundedRect: rect, cornerRadius: cornerRadius)
+    }
+}
+
+// MARK: - BottomInputBarGlassModifier
+
+private struct BottomInputBarGlassModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        let shape = BottomInputBarGlassEffectShape()
+        return content
+            .background(
+                shape
+                    .fill(.background.opacity(0.72))
+                    .glassEffect(.regular, in: shape)
+            )
+            .overlay(
+                shape.stroke(.white.opacity(CoreButtonMetrics.glassBorderOpacity), lineWidth: CoreBorderWidth.hairline)
+            )
     }
 }
 
