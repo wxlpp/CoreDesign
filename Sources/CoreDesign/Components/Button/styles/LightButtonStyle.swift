@@ -9,13 +9,14 @@ import SwiftUI
 
 /// 次要操作按钮样式（"light button"）。
 ///
-/// `glass: true`（默认）时使用 `TelegramGlassButtonModifier`，`surfaceInteractive` 底色。
-/// `glass: false` 时退回到 Primer 浅灰实色 + CoreElevation.small 阴影 + borderSubtle 1px。
+/// 默认使用 Primer 浅灰实色 + CoreElevation.small 阴影 + borderSubtle 1px。
+/// 显式传入 `glass: true` 时保留 legacy Telegram 玻璃模式，使用
+/// `TelegramGlassButtonModifier` 和 `surfaceInteractive` 底色。
 public struct LightButtonStyle: ButtonStyle {
     public let role: ButtonRoleStyleRole
     public let glass: Bool
 
-    public init(role: ButtonRoleStyleRole = .primary, glass: Bool = true) {
+    public init(role: ButtonRoleStyleRole = .primary, glass: Bool = false) {
         self.role = role
         self.glass = glass
     }
@@ -85,12 +86,12 @@ private struct LightButtonBackgroundModifier: ViewModifier {
 // MARK: - ButtonStyle convenience
 
 public extension ButtonStyle where Self == LightButtonStyle {
-    static func light(role: ButtonRoleStyleRole = .primary, glass: Bool = true) -> LightButtonStyle {
+    static func light(role: ButtonRoleStyleRole = .primary, glass: Bool = false) -> LightButtonStyle {
         LightButtonStyle(role: role, glass: glass)
     }
 }
 
-#Preview("Light — glass") {
+#Preview("Light — default") {
     VStack(spacing: 12) {
         Button {} label: { Text("Cancel") }
             .buttonStyle(.light(role: .secondary))
@@ -102,10 +103,10 @@ public extension ButtonStyle where Self == LightButtonStyle {
     .background(Color.systemGroupedBackground)
 }
 
-#Preview("Light — no glass") {
+#Preview("Light — explicit glass") {
     VStack(spacing: 12) {
         Button {} label: { Text("Cancel") }
-            .buttonStyle(.light(role: .secondary, glass: false))
+            .buttonStyle(.light(role: .secondary, glass: true))
     }
     .padding()
 }
