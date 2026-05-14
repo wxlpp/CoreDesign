@@ -37,17 +37,22 @@ public struct SegmentedControl<Item: Hashable>: View {
 
     /// 视图主体：横向 HStack 排列分段，外框走 `surfaceInteractive` 容器，
     /// thumb 通过 `matchedGeometryEffect` 在选中分段间无缝滑动。
+    @ViewBuilder
     public var body: some View {
         let shape = Capsule(style: .continuous)
-        return HStack(spacing: CoreSpacing.xxs) {
-            ForEach(self.items, id: \.self) { item in
-                self.segment(for: item)
+        if self.glass {
+            GlassEffectContainer(spacing: CoreSpacing.xxs) {
+                self.segments
+                    .modifier(SegmentedControlBackgroundModifier(shape: shape, glass: self.glass))
             }
+            .frame(height: CoreControlMetrics.height(for: .regular))
+            .sensoryFeedback(.selection, trigger: self.selection)
+        } else {
+            self.segments
+                .modifier(SegmentedControlBackgroundModifier(shape: shape, glass: self.glass))
+                .frame(height: CoreControlMetrics.height(for: .regular))
+                .sensoryFeedback(.selection, trigger: self.selection)
         }
-        .padding(CoreSpacing.xxs)
-        .modifier(SegmentedControlBackgroundModifier(shape: shape, glass: self.glass))
-        .frame(height: CoreControlMetrics.height(for: .regular))
-        .sensoryFeedback(.selection, trigger: self.selection)
     }
 
     @Binding private var selection: Item
@@ -56,6 +61,15 @@ public struct SegmentedControl<Item: Hashable>: View {
     private let items: [Item]
     private let glass: Bool
     private let title: (Item) -> String
+
+    private var segments: some View {
+        HStack(spacing: CoreSpacing.xxs) {
+            ForEach(self.items, id: \.self) { item in
+                self.segment(for: item)
+            }
+        }
+        .padding(CoreSpacing.xxs)
+    }
 
     @ViewBuilder
     private func segment(for item: Item) -> some View {
@@ -68,8 +82,13 @@ public struct SegmentedControl<Item: Hashable>: View {
             .contentShape(Rectangle())
             .background {
                 if isSelected {
-                    self.selectedThumb
-                        .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
+                    if self.glass {
+                        self.selectedThumb
+                            .glassEffectID("SegmentedControl.thumb", in: self.namespace)
+                    } else {
+                        self.selectedThumb
+                            .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
+                    }
                 }
             }
             .accessibilityAddTraits(.isButton)
@@ -84,7 +103,7 @@ public struct SegmentedControl<Item: Hashable>: View {
         if self.glass {
             shape
                 .fill(.clear)
-                .glassEffect(.clear.interactive(), in: shape)
+                .glassEffect(.regular.interactive(), in: shape)
                 .coreShadow(.small)
         } else {
             shape
