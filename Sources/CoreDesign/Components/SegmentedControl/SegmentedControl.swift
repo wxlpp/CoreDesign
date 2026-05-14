@@ -50,6 +50,7 @@ public struct SegmentedControl<Item: Hashable>: View {
                 title: self.title
             )
             .frame(height: CoreControlMetrics.height(for: .regular))
+            .sensoryFeedback(.selection, trigger: self.selection)
         } else {
             self.swiftUISegmentedControl
         }
@@ -81,22 +82,28 @@ public struct SegmentedControl<Item: Hashable>: View {
     @ViewBuilder
     private func segment(for item: Item) -> some View {
         let isSelected = self.selection == item
-        Text(self.title(item))
-            .font(CoreTypography.bodyMediumFont)
-            .fontWeight(isSelected ? .semibold : .regular)
-            .foregroundStyle(isSelected ? Color.contentPrimary : Color.contentSecondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .background {
-                if isSelected {
-                    self.selectedThumb
-                        .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
+        // 用 Button 而非 Text+onTapGesture：让 SwiftUI fallback 路径继承
+        // 系统按钮的键盘激活 / focus ring / pressed 状态 / hover 反馈，
+        // 对 macOS 键盘用户和辅助技术尤其重要。`.plain` 抹掉系统按钮默认装饰，
+        // 由我们的 background thumb 与 foregroundStyle 主导视觉。
+        Button {
+            self.select(item)
+        } label: {
+            Text(self.title(item))
+                .font(CoreTypography.bodyMediumFont)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundStyle(isSelected ? Color.contentPrimary : Color.contentSecondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .background {
+                    if isSelected {
+                        self.selectedThumb
+                            .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
+                    }
                 }
-            }
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAddTraits(isSelected ? .isSelected : [])
-            .accessibilityAction { self.select(item) }
-            .onTapGesture { self.select(item) }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     @ViewBuilder
@@ -154,7 +161,9 @@ private struct NativeGlassSegmentedControl<Item: Hashable>: UIViewRepresentable 
         context.coordinator.parent = self
         uiView.configure(titles: self.items.map(self.title))
 
-        let selectedIndex = self.items.firstIndex(of: self.selection) ?? 0
+        // selection 不在 items 时回退到 `noSegment`：避免 UI 显示第一个分段被选中
+        // 而 binding 仍持有 items 外值导致状态错位的"假选中"。
+        let selectedIndex = self.items.firstIndex(of: self.selection) ?? UISegmentedControl.noSegment
         if uiView.control.selectedSegmentIndex != selectedIndex {
             uiView.control.selectedSegmentIndex = selectedIndex
         }
@@ -218,17 +227,23 @@ private final class NativeGlassSegmentedControlView: UIView {
             self.control.selectedSegmentTintColor = .label.withAlphaComponent(0.08)
         }
 
+        // 用 UIFontMetrics 让原生分段标题字号跟随 Dynamic Type 缩放，
+        // 同时保留设计基线 15pt 与 weight 区分。
+        let metrics = UIFontMetrics(forTextStyle: .body)
+        let regularFont = metrics.scaledFont(for: UIFont.systemFont(ofSize: 15, weight: .regular))
+        let selectedFont = metrics.scaledFont(for: UIFont.systemFont(ofSize: 15, weight: .semibold))
+
         self.control.setTitleTextAttributes(
             [
                 .foregroundColor: UIColor.secondaryLabel,
-                .font: UIFont.systemFont(ofSize: 15, weight: .regular),
+                .font: regularFont,
             ],
             for: .normal
         )
         self.control.setTitleTextAttributes(
             [
                 .foregroundColor: UIColor.label,
-                .font: UIFont.systemFont(ofSize: 15, weight: .semibold),
+                .font: selectedFont,
             ],
             for: .selected
         )
