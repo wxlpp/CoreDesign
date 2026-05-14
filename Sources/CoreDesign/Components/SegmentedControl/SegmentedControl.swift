@@ -69,10 +69,13 @@ public struct SegmentedControl<Item: Hashable>: View {
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
-                        .fill(Color.surfaceCanvas)
+                        .fill(Color.surfaceCanvasSubtle)
                         .overlay(
                             RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
-                                .strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
+                                .strokeBorder(
+                                    .white.opacity(CoreButtonMetrics.glassBorderOpacity),
+                                    lineWidth: CoreBorderWidth.hairline
+                                )
                         )
                         .coreShadow(.small)
                         .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
