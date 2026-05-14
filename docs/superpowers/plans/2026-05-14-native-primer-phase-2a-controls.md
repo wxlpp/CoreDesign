@@ -65,26 +65,33 @@ Modify:
 Extend `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift` with:
 
 ```swift
-@Test("concrete button styles default to non-glass")
-func concreteButtonStylesDefaultToNonGlass() {
-    #expect(ButtonStyleDefaultProbe.solidDefaultGlass == false)
-    #expect(ButtonStyleDefaultProbe.lightDefaultGlass == false)
+@Test("solid button style defaults to non-glass")
+func solidDefaultsToNonGlass() {
+    let style = SolidButtonStyle()
+    #expect(style.glass == false)
 }
 
-private enum ButtonStyleDefaultProbe {
-    static var solidDefaultGlass: Bool {
-        SolidButtonStyle().glass
-    }
+@Test("light button style defaults to non-glass")
+func lightDefaultsToNonGlass() {
+    let style = LightButtonStyle()
+    #expect(style.glass == false)
+}
 
-    static var lightDefaultGlass: Bool {
-        LightButtonStyle().glass
-    }
+@Test("button style factories default to non-glass")
+func buttonStyleFactoriesDefaultToNonGlass() {
+    let solid: SolidButtonStyle = .solid()
+    let light: LightButtonStyle = .light()
+
+    #expect(solid.glass == false)
+    #expect(light.glass == false)
 }
 ```
 
-This test intentionally probes the concrete style structs. SwiftUI `ButtonStyle`
-extension return values are not directly introspectable after they are passed to
-`.buttonStyle(...)`.
+These tests directly construct the concrete style structs, plus assert the
+`.solid()` / `.light()` factory convenience API via explicit type context. SwiftUI
+`ButtonStyle` extension return values are not directly introspectable after they
+are passed to `.buttonStyle(...)`, so factory coverage uses typed locals rather
+than a probe wrapper.
 
 - [ ] **Step 2: Run test to verify current behavior**
 
@@ -168,6 +175,15 @@ git commit -m "refactor: quiet default button surfaces"
 - Modify: `Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift`
 - Create: `Tests/CoreDesignTests/SegmentedControlTests.swift`
 
+> **Plan revision (2026-05-14, Phase 2A review):** The shipped implementation
+> introduced an opt-in `glass: Bool = true` parameter and a native UIKit Glass
+> path (`NativeGlassSegmentedControl` + `UIGlassEffect` + `ImmediateFeedbackSegmentedControl`)
+> for iOS 26, with a quiet SwiftUI fallback used when `glass == false` and on
+> macOS. The doc-comment, body, and selected-thumb snippets below predate that
+> change — refer to the source for the current branching behavior. The "no
+> Liquid Glass" prohibition in Step 5 no longer applies; instead, glass is the
+> default and the non-glass path uses the control surface described here.
+
 - [ ] **Step 1: Write compile/behavior tests**
 
 Create `Tests/CoreDesignTests/SegmentedControlTests.swift`:
@@ -189,7 +205,7 @@ struct SegmentedControlTests {
             title: { $0 }
         )
 
-        #expect(String(describing: type(of: control)).isEmpty == false)
+        #expect(type(of: control) == SegmentedControl<String>.self)
     }
 
     @MainActor
@@ -202,7 +218,7 @@ struct SegmentedControlTests {
             title: { $0 }
         )
 
-        #expect(String(describing: type(of: control)).isEmpty == false)
+        #expect(type(of: control) == SegmentedControl<String>.self)
     }
 }
 ```
@@ -270,7 +286,9 @@ RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
     .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
 ```
 
-Do not add Liquid Glass to the segmented control.
+Note (plan revision): the shipped code keeps this control-surface treatment only
+for the `glass == false` / macOS fallback path. The default `glass == true` path
+uses a Liquid Glass shell — see the file-top "Plan revision" callout for context.
 
 - [ ] **Step 6: Run tests**
 
@@ -313,17 +331,15 @@ struct SearchFieldTests {
     @Test("search field constructs with default placeholder")
     func searchFieldConstructsWithDefaultPlaceholder() {
         let field = SearchField(text: .constant(""))
-        #expect(String(describing: type(of: field)).isEmpty == false)
+        #expect(type(of: field) == SearchField.self)
     }
 
     @MainActor
     @Test("search field constructs with submit handler")
     func searchFieldConstructsWithSubmitHandler() {
-        let field = SearchField(text: .constant("query"), placeholder: "Filter") { submitted in
-            #expect(submitted == "query")
-        }
+        let field = SearchField(text: .constant("query"), placeholder: "Filter") { _ in }
 
-        #expect(String(describing: type(of: field)).isEmpty == false)
+        #expect(type(of: field) == SearchField.self)
     }
 }
 ```
@@ -437,7 +453,10 @@ rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Segme
 
 Expected:
 
-- `SegmentedControl` has no matches.
+- `SegmentedControl` matches are expected and allowed: the shipped component
+  uses `.glassEffect` on its `glass == true` branch (both SwiftUI fallback and
+  iOS 26 native UIKit Glass paths). Treat matches as a sanity check that glass
+  remains gated behind that branch rather than as a violation.
 - `SearchField` has no matches.
 - Button style matches are allowed only in explicit `glass == true` branches or `.circularGlass`.
 
@@ -467,5 +486,13 @@ Expected: no uncommitted changes.
 
 - This plan intentionally does not touch navigation/content/status components.
 - Do not reintroduce default glass for `.solid` or `.light`.
-- Do not add Liquid Glass to `SegmentedControl` or `SearchField`.
+- Do not add Liquid Glass to `SearchField`.
+- `SegmentedControl` ships with `glass: Bool = true` (see Task 2 "Plan revision"
+  callout). Path matrix:
+  - iOS + `glass == true` → `NativeGlassSegmentedControl` (UIKit `UIGlassEffect`).
+  - iOS + `glass == false` → SwiftUI path with `glass == false` branch (quiet
+    control surface, no `glassEffect`).
+  - macOS (any `glass` value) → SwiftUI path; the modifier honors `glass`, so
+    macOS with the default `glass == true` is still a Liquid Glass surface.
+  - To force a quiet surface on macOS, pass `glass: false` explicitly.
 - If visual review later finds the search field too flat, adjust within control-layer tokens first; do not make it floating glass.

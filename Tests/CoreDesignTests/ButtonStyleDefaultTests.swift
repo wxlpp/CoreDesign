@@ -21,4 +21,13 @@ struct ButtonStyleDefaultTests {
         #expect(SolidButtonStyle(glass: true).glass == true)
         #expect(LightButtonStyle(glass: true).glass == true)
     }
+
+    @Test("button style factories default to non-glass")
+    func buttonStyleFactoriesDefaultToNonGlass() {
+        let solid: SolidButtonStyle = .solid()
+        let light: LightButtonStyle = .light()
+
+        #expect(solid.glass == false)
+        #expect(light.glass == false)
+    }
 }

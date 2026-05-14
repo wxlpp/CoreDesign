@@ -6,35 +6,17 @@
 //
 
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 // MARK: - SegmentedControl
 
-/// 分段控件 / Segmented control。
+/// Native Primer segmented control.
 ///
-/// **使用场景**：在视觉等价的少量选项（通常 2–4 个）之间二选一切换，譬如视图模式、
-/// 时间范围、内容分类。当选项 ≥ 5 个、需要溢出 / 滚动、或选项之间存在层级关系时，
-/// 改用 `UnderlinedTabBar` 或 `Picker`。
-///
-/// **与 Primer 概念对应**：对应 Primer `SegmentedControl`（GitHub 桌面 UI 的"组合式
-/// 按钮组"）。本实现复刻其 thumb 滑动 + 选中态 semibold 强调的视觉。
-///
-/// **关键参数语义**：
-/// - `items` —— 选项数据源；`Item` 必须 `Hashable`（用于 `selection` 比较与 `ForEach` 标识）。
-/// - `selection` —— 当前选中项的双向绑定；切换时触发 `withAnimation` thumb 过渡 +
-///   `.sensoryFeedback(.selection)`。
-/// - `title` —— 把 `Item` 映射到展示文字的闭包；调用方控制本地化与字符串构造。
-///
-/// **light / dark 行为**：
-/// - 外框背景 `Color.surfaceMuted`、thumb 背景 `Color.surfaceRaised`、文字
-///   `Color.contentPrimary` / `Color.contentSecondary` 均走 v2-tokens 语义色，
-///   light / dark 双模式自动切换。
-/// - thumb 阴影通过 `View.coreShadow(.small)` 应用，`shadow-small` colorset
-///   在 dark 模式下会自动加深 alpha 以保持 elevation 视觉。
-///
-/// **不使用 `.glassEffect`**——本组件属于"嵌入页面内容"的基础 chrome，按
-/// CoreDesign 设计原则，glass 效果仅用于浮层 UI（如 `BottomInputBar` /
-/// `MenuButton` / `CircularGlassButtonStyle` 这类悬浮于内容之上的元素），
-/// 嵌入式容器组件统一走实色 + 阴影以保持视觉层级清晰。
+/// The component keeps GitHub-like utility and density while rendering as an
+/// Apple-native control surface. The base uses a restrained Liquid Glass shell
+/// by default; only the selected segment gets a lightly raised thumb.
 public struct SegmentedControl<Item: Hashable>: View {
     /// 创建分段控件。
     ///
@@ -42,30 +24,50 @@ public struct SegmentedControl<Item: Hashable>: View {
     ///   - items: 选项数据源；`Item` 必须 `Hashable`，用于 `selection` 比较与
     ///     `ForEach` 标识。
     ///   - selection: 当前选中项的双向绑定。
+    ///   - glass: 是否使用 Liquid Glass 外壳；默认 `true`。
     ///   - title: 把 `Item` 映射到展示文字的闭包。
     public init(
         items: [Item],
         selection: Binding<Item>,
+        glass: Bool = true,
         title: @escaping (Item) -> String
     ) {
         self.items = items
         self._selection = selection
+        self.glass = glass
         self.title = title
     }
 
-    /// 视图主体：横向 HStack 排列分段，外框走 `surfaceMuted` 容器，
+    /// 视图主体：横向 HStack 排列分段，外框走 `surfaceInteractive` 容器，
     /// thumb 通过 `matchedGeometryEffect` 在选中分段间无缝滑动。
+    @ViewBuilder
     public var body: some View {
-        HStack(spacing: CoreSpacing.xxs) {
+        #if os(iOS)
+        if self.glass {
+            NativeGlassSegmentedControl(
+                items: self.items,
+                selection: self.$selection,
+                title: self.title
+            )
+            .frame(height: CoreControlMetrics.height(for: .regular))
+            .sensoryFeedback(.selection, trigger: self.selection)
+        } else {
+            self.swiftUISegmentedControl
+        }
+        #else
+        self.swiftUISegmentedControl
+        #endif
+    }
+
+    private var swiftUISegmentedControl: some View {
+        let shape = Capsule(style: .continuous)
+        return HStack(spacing: CoreSpacing.xxs) {
             ForEach(self.items, id: \.self) { item in
                 self.segment(for: item)
             }
         }
         .padding(CoreSpacing.xxs)
-        .background(
-            RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
-                .fill(Color.surfaceMuted)
-        )
+        .modifier(SegmentedControlBackgroundModifier(shape: shape, glass: self.glass))
         .frame(height: CoreControlMetrics.height(for: .regular))
         .sensoryFeedback(.selection, trigger: self.selection)
     }
@@ -74,15 +76,18 @@ public struct SegmentedControl<Item: Hashable>: View {
     @Namespace private var namespace
 
     private let items: [Item]
+    private let glass: Bool
     private let title: (Item) -> String
 
     @ViewBuilder
     private func segment(for item: Item) -> some View {
         let isSelected = self.selection == item
+        // 用 Button 而非 Text+onTapGesture：让 SwiftUI fallback 路径继承
+        // 系统按钮的键盘激活 / focus ring / pressed 状态 / hover 反馈，
+        // 对 macOS 键盘用户和辅助技术尤其重要。`.plain` 抹掉系统按钮默认装饰，
+        // 由我们的 background thumb 与 foregroundStyle 主导视觉。
         Button {
-            withAnimation(.easeInOut(duration: 0.18)) {
-                self.selection = item
-            }
+            self.select(item)
         } label: {
             Text(self.title(item))
                 .font(CoreTypography.bodyMediumFont)
@@ -92,14 +97,300 @@ public struct SegmentedControl<Item: Hashable>: View {
                 .contentShape(Rectangle())
                 .background {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
-                            .fill(Color.surfaceRaised)
-                            .coreShadow(.small)
+                        self.selectedThumb
                             .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
                     }
                 }
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var selectedThumb: some View {
+        let shape = Capsule(style: .continuous)
+        if self.glass {
+            // `.fill(.clear)` 是有意的：thumb 叠在 SegmentedControlBackgroundModifier
+            // 的玻璃外壳之上，再加底色会让两层玻璃变浑浊。仅靠 .glassEffect + 细描边
+            // + 小阴影区分选中态——与 FloatingGlass / TelegramGlass 那种"玻璃覆盖
+            // 在不透明 tint 之上"的形态有意不同。
+            shape
+                .fill(.clear)
+                .glassEffect(.regular.interactive(), in: shape)
+                .overlay(
+                    shape.strokeBorder(
+                        .white.opacity(CoreButtonMetrics.glassBorderOpacity),
+                        lineWidth: CoreBorderWidth.hairline
+                    )
+                )
+                .coreShadow(.small)
+        } else {
+            shape
+                .fill(Color.surfaceCanvasSubtle)
+                .overlay(
+                    shape.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
+                )
+                .coreShadow(.small)
+        }
+    }
+
+    private func select(_ item: Item) {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            self.selection = item
+        }
+    }
+}
+
+#if os(iOS)
+private struct NativeGlassSegmentedControl<Item: Hashable>: UIViewRepresentable {
+    let items: [Item]
+    @Binding var selection: Item
+    let title: (Item) -> String
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIView(context: Context) -> NativeGlassSegmentedControlView {
+        let view = NativeGlassSegmentedControlView()
+        view.control.addTarget(
+            context.coordinator,
+            action: #selector(Coordinator.selectionChanged(_:)),
+            for: .valueChanged
+        )
+        return view
+    }
+
+    func updateUIView(_ uiView: NativeGlassSegmentedControlView, context: Context) {
+        context.coordinator.parent = self
+        uiView.configure(titles: self.items.map(self.title))
+
+        // selection 不在 items 时回退到 `noSegment`：避免 UI 显示第一个分段被选中
+        // 而 binding 仍持有 items 外值导致状态错位的"假选中"。
+        let selectedIndex = self.items.firstIndex(of: self.selection) ?? UISegmentedControl.noSegment
+        if uiView.control.selectedSegmentIndex != selectedIndex {
+            uiView.control.selectedSegmentIndex = selectedIndex
+        }
+
+        uiView.updateForCurrentTraits()
+    }
+
+    final class Coordinator: NSObject {
+        var parent: NativeGlassSegmentedControl
+
+        init(parent: NativeGlassSegmentedControl) {
+            self.parent = parent
+        }
+
+        @objc func selectionChanged(_ control: UISegmentedControl) {
+            let index = control.selectedSegmentIndex
+            guard index >= 0, index < self.parent.items.count else { return }
+            self.parent.selection = self.parent.items[index]
+        }
+    }
+}
+
+@available(iOS 26.0, *)
+private final class NativeGlassSegmentedControlView: UIView {
+    let control = ImmediateFeedbackSegmentedControl(items: nil)
+
+    private let glassView: UIVisualEffectView
+    private var currentTitles: [String] = []
+
+    override init(frame: CGRect) {
+        let effect = UIGlassEffect()
+        effect.isInteractive = true
+        self.glassView = UIVisualEffectView(effect: effect)
+
+        super.init(frame: frame)
+
+        self.setupViews()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func configure(titles: [String]) {
+        guard titles != self.currentTitles else { return }
+        self.currentTitles = titles
+
+        self.control.removeAllSegments()
+        for (index, title) in titles.enumerated() {
+            self.control.insertSegment(withTitle: title, at: index, animated: false)
+        }
+    }
+
+    func updateForCurrentTraits() {
+        switch self.traitCollection.userInterfaceStyle {
+        case .dark:
+            self.control.selectedSegmentTintColor = .label.withAlphaComponent(0.15)
+        default:
+            self.control.selectedSegmentTintColor = .label.withAlphaComponent(0.08)
+        }
+
+        // 用 UIFontMetrics 让原生分段标题字号跟随 Dynamic Type 缩放，
+        // 同时保留设计基线 15pt 与 weight 区分。
+        let metrics = UIFontMetrics(forTextStyle: .body)
+        let regularFont = metrics.scaledFont(for: UIFont.systemFont(ofSize: 15, weight: .regular))
+        let selectedFont = metrics.scaledFont(for: UIFont.systemFont(ofSize: 15, weight: .semibold))
+
+        self.control.setTitleTextAttributes(
+            [
+                .foregroundColor: UIColor.secondaryLabel,
+                .font: regularFont,
+            ],
+            for: .normal
+        )
+        self.control.setTitleTextAttributes(
+            [
+                .foregroundColor: UIColor.label,
+                .font: selectedFont,
+            ],
+            for: .selected
+        )
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        self.glassView.cornerConfiguration = .capsule()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        self.updateForCurrentTraits()
+    }
+
+    private func setupViews() {
+        self.backgroundColor = .clear
+
+        self.glassView.translatesAutoresizingMaskIntoConstraints = false
+        self.addSubview(self.glassView)
+
+        self.control.backgroundColor = .clear
+        self.control.translatesAutoresizingMaskIntoConstraints = false
+        self.glassView.contentView.addSubview(self.control)
+
+        NSLayoutConstraint.activate([
+            self.glassView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+            self.glassView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
+            self.glassView.topAnchor.constraint(equalTo: self.topAnchor),
+            self.glassView.bottomAnchor.constraint(equalTo: self.bottomAnchor),
+
+            self.control.leadingAnchor.constraint(equalTo: self.glassView.contentView.leadingAnchor, constant: CoreSpacing.xxs),
+            self.control.trailingAnchor.constraint(equalTo: self.glassView.contentView.trailingAnchor, constant: -CoreSpacing.xxs),
+            self.control.topAnchor.constraint(equalTo: self.glassView.contentView.topAnchor, constant: CoreSpacing.xxs),
+            self.control.bottomAnchor.constraint(equalTo: self.glassView.contentView.bottomAnchor, constant: -CoreSpacing.xxs),
+        ])
+    }
+}
+
+@available(iOS 26.0, *)
+private final class ImmediateFeedbackSegmentedControl: UISegmentedControl {
+    private var originalIndex: Int?
+
+    private var shouldMoveIndicatorOnTouchDown: Bool {
+        !self.traitCollection.preferredContentSizeCategory.isAccessibilityCategory
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // 隐藏 UISegmentedControl 自带的 UIImageView 装饰层（背景胶囊 + 分段间分隔
+        // image），交由外层 `UIVisualEffectView(UIGlassEffect)` 容器统一提供玻璃
+        // 材质——避免内置背景叠在外层玻璃上造成"玻璃中夹玻璃"的浑浊视觉。
+        //
+        // **已知风险**：依赖 UISegmentedControl 内部视图层级。尝试过
+        // `setBackgroundImage(UIImage(), for:barMetrics:)` / `setDividerImage(...)`
+        // 的 public API 路径，但在 iOS 26 上不能完全压制原生 Glass 背景图；遍历
+        // UIImageView 是当前已知唯一可靠手段，后续 iOS 版本若改动私有层级需要
+        // 复测此处。`selectedSegmentTintColor` 通过另一条路径渲染（不是
+        // UIImageView 子视图），所以选中态仍可见。
+        for subview in self.subviews where subview is UIImageView {
+            subview.alpha = 0
+        }
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else {
+            super.touchesBegan(touches, with: event)
+            return
+        }
+
+        if self.shouldMoveIndicatorOnTouchDown {
+            self.originalIndex = self.selectedSegmentIndex
+            self.selectedSegmentIndex = self.segmentIndex(at: touch.location(in: self))
+        }
+
+        super.touchesBegan(touches, with: event)
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else {
+            super.touchesMoved(touches, with: event)
+            return
+        }
+
+        if self.shouldMoveIndicatorOnTouchDown {
+            self.selectedSegmentIndex = self.segmentIndex(at: touch.location(in: self))
+        }
+
+        super.touchesMoved(touches, with: event)
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if self.shouldMoveIndicatorOnTouchDown, let originalIndex {
+            if self.selectedSegmentIndex != originalIndex {
+                self.sendActions(for: .valueChanged)
+            }
+        }
+        self.originalIndex = nil
+        super.touchesEnded(touches, with: event)
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if self.shouldMoveIndicatorOnTouchDown, let originalIndex {
+            self.selectedSegmentIndex = originalIndex
+        }
+        self.originalIndex = nil
+        super.touchesCancelled(touches, with: event)
+    }
+
+    private func segmentIndex(at point: CGPoint) -> Int {
+        guard self.numberOfSegments > 0, self.bounds.width > 0 else { return UISegmentedControl.noSegment }
+        let segmentWidth = self.bounds.width / CGFloat(self.numberOfSegments)
+        return min(max(Int(point.x / segmentWidth), 0), self.numberOfSegments - 1)
+    }
+}
+#endif
+
+private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModifier {
+    let shape: S
+    let glass: Bool
+
+    func body(content: Content) -> some View {
+        if self.glass {
+            // `.fill(.clear)`：让 .glassEffect 自己提供材质，不在底下叠任何 tint
+            // ——SegmentedControl 走的是"纯玻璃容器"形态，配合 thumb 那层玻璃
+            // 形成一致的两层玻璃叠加视觉，而不是 FloatingGlass / BottomInputBar 那
+            // 种"玻璃覆盖在 .background.opacity(0.72) 之上"的混合形态。
+            // 因为没有 tint 底色需要从玻璃壳下"透出"，所以也不需要 `glassInset`
+            // 的内缩（它专门服务于 Telegram 分层按钮的纵深效果）。
+            content
+                .background(
+                    self.shape
+                        .fill(.clear)
+                        .glassEffect(.regular.interactive(), in: self.shape)
+                )
+        } else {
+            content
+                .background(
+                    self.shape.fill(Color.surfaceInteractive)
+                )
+                .overlay(
+                    self.shape.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
+                )
+        }
     }
 }
 

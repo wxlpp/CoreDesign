@@ -13,7 +13,7 @@ import SwiftUI
 ///
 /// ## Native Primer 默认
 ///
-/// 默认使用 Primer 实色 + 1px borderMuted 描边 + CoreElevation.small 阴影。
+/// 默认使用 role 色、muted hairline 描边、pressed scale，且无默认 elevation。
 ///
 /// 显式传入 `glass: true` 时保留 legacy Telegram 玻璃模式，使用
 /// `TelegramGlassButtonModifier` 四层结构：底色 + 2pt 内缩 + 玻璃壳 + 细白描边。
@@ -87,13 +87,13 @@ private struct SolidButtonBackgroundModifier: ViewModifier {
             .background(
                 Capsule(style: .continuous)
                     .fill(self.backgroundColor)
-                    .coreShadow(.small)
             )
             .overlay(
                 Capsule(style: .continuous)
-                    .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
+                    .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.hairline)
             )
             .scaleEffect(self.isPressed ? CoreButtonMetrics.pressedScale : 1)
+            .opacity(self.isPressed ? 0.92 : 1)
             .animation(.snappy(duration: 0.16), value: self.isPressed)
     }
 }

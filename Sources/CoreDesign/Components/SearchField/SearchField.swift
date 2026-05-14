@@ -9,7 +9,11 @@ import SwiftUI
 
 // MARK: - SearchField
 
-/// GitHub Primer 风格的搜索输入框 / GitHub Primer–styled search input field.
+/// Native Primer search field.
+///
+/// A compact Apple-native search/filter control with GitHub-like utility:
+/// leading search icon, optional clear action, clear focus ring, and no default
+/// Liquid Glass.
 ///
 /// **使用场景 / Use cases**：列表 / 表格 / 侧栏顶部的关键字过滤入口；
 /// 全局搜索的内联触发器；表单内"search-as-you-type"过滤场景。需要复杂的
@@ -23,13 +27,13 @@ import SwiftUI
 /// - `onSubmit` —— Return / Enter 提交回调；当用户按下提交键时调用，参数为
 ///   当前 `text`。**可选**——对纯实时过滤场景留 `nil` 即可。
 ///
-/// **Primer 概念对应 / Primer concept mapping**：
+/// **Primer utility mapping / Primer 实用性映射**：
 /// 对应 Primer Web 的 `<TextInput leadingVisual={SearchIcon} trailingAction={...} />`
 /// 组合（GitHub 桌面 UI 中的 issue / PR 列表筛选框，仓库左上角的 "Go to file" 入口）。
-/// 本实现复刻其"凹陷 well + 前缀 magnifyingglass + 末尾 clear button"三件套形态。
+/// 本实现保留其前缀 magnifyingglass + 末尾 clear button 的实用结构。
 ///
 /// **light / dark 行为 / light-dark behavior**：
-/// - 容器底色 `Color.surfaceCanvasInset`、边框 `Color.borderMuted`、文字
+/// - 容器底色 `Color.surfaceInteractive`、边框 `Color.borderMuted`、文字
 ///   `Color.contentPrimary`、icon `Color.contentMuted` 均走 v2-tokens 语义色，
 ///   light / dark 双模式自动切换。
 /// - 焦点环走 `View.focusRing(visible:)`：iOS 与 macOS 共享同一套 SwiftUI overlay
@@ -71,7 +75,7 @@ public struct SearchField: View {
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
         return HStack(spacing: CoreSpacing.sm) {
             // 聚焦命中区 / Focus hit-test region：点击放大镜 + TextField 区域才聚焦，
             // 不包含尾部 clear button——避免清空时容器 tap 立即重新聚焦的交互冲突。
@@ -114,7 +118,7 @@ public struct SearchField: View {
         .padding(.vertical, CoreControlMetrics.verticalPadding(for: .regular))
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .background {
-            shape.fill(Color.surfaceCanvasInset)
+            shape.fill(Color.surfaceInteractive)
         }
         .overlay {
             shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
@@ -123,7 +127,7 @@ public struct SearchField: View {
             visible: self.isFocused,
             color: .borderFocus,
             width: CoreBorderWidth.thick,
-            cornerRadius: CoreRadius.medium
+            cornerRadius: CoreRadius.small
         )
     }
 

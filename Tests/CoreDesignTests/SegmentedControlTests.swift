@@ -1,0 +1,46 @@
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+@Suite("SegmentedControl")
+struct SegmentedControlTests {
+    @MainActor
+    @Test("segmented control constructs with two items")
+    func segmentedControlConstructsWithTwoItems() {
+        let selection = Binding.constant("One")
+        let control = SegmentedControl(
+            items: ["One", "Two"],
+            selection: selection,
+            title: { $0 }
+        )
+
+        #expect(type(of: control) == SegmentedControl<String>.self)
+    }
+
+    @MainActor
+    @Test("segmented control constructs with three items")
+    func segmentedControlConstructsWithThreeItems() {
+        let selection = Binding.constant("A")
+        let control = SegmentedControl(
+            items: ["A", "B", "C"],
+            selection: selection,
+            title: { $0 }
+        )
+
+        #expect(type(of: control) == SegmentedControl<String>.self)
+    }
+
+    @MainActor
+    @Test("segmented control can opt out of glass")
+    func segmentedControlCanOptOutOfGlass() {
+        let selection = Binding.constant("One")
+        let control = SegmentedControl(
+            items: ["One", "Two"],
+            selection: selection,
+            glass: false,
+            title: { $0 }
+        )
+
+        #expect(type(of: control) == SegmentedControl<String>.self)
+    }
+}

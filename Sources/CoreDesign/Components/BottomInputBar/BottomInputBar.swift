@@ -119,6 +119,7 @@ struct BottomInputBar: View {
     private var textFieldContainer: some View {
         HStack(alignment: .bottom, spacing: CoreSpacing.sm) {
             TextField(self.placeholder, text: self.$inputText, axis: .vertical)
+                .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .padding(.vertical, CoreSpacing.sm)
                 .padding(.leading, CoreSpacing.sm)
@@ -128,7 +129,7 @@ struct BottomInputBar: View {
                 .getSize(self.$textFieldSize)
         }
         .padding(.horizontal, CoreSpacing.xxs)
-        .glassEffect(.regular, in: BottomInputBarGlassEffectShape())
+        .modifier(BottomInputBarGlassModifier())
     }
 
     private var suggestionButton: some View {
@@ -203,10 +204,38 @@ private extension View {
 
 // MARK: - BottomInputBarGlassEffectShape
 
-struct BottomInputBarGlassEffectShape: Shape {
+struct BottomInputBarGlassEffectShape: InsettableShape {
+    var insetAmount: CGFloat = 0
+
     func path(in rect: CGRect) -> Path {
-        let cornerRadius: CGFloat = rect.height <= 44 ? rect.height / 2 : CoreRadius.large
-        return Path(roundedRect: rect, cornerRadius: cornerRadius)
+        let insetRect = rect.insetBy(dx: self.insetAmount, dy: self.insetAmount)
+        let cornerRadius: CGFloat = insetRect.height <= 44 ? insetRect.height / 2 : CoreRadius.large
+        return Path(roundedRect: insetRect, cornerRadius: cornerRadius)
+    }
+
+    // InsettableShape：配合 `strokeBorder` 把描边收在路径内部，避免被外部
+    // clipShape / glassEffect 裁掉外侧一半（与 SurfaceModifier 边框约定一致）。
+    func inset(by amount: CGFloat) -> BottomInputBarGlassEffectShape {
+        var copy = self
+        copy.insetAmount += amount
+        return copy
+    }
+}
+
+// MARK: - BottomInputBarGlassModifier
+
+private struct BottomInputBarGlassModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        let shape = BottomInputBarGlassEffectShape()
+        return content
+            .background(
+                shape
+                    .fill(.background.opacity(0.72))
+                    .glassEffect(.regular, in: shape)
+            )
+            .overlay(
+                shape.strokeBorder(.white.opacity(CoreButtonMetrics.glassBorderOpacity), lineWidth: CoreBorderWidth.hairline)
+            )
     }
 }
 
