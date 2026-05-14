@@ -38,7 +38,7 @@ public struct SegmentedControl<Item: Hashable>: View {
     /// 视图主体：横向 HStack 排列分段，外框走 `surfaceInteractive` 容器，
     /// thumb 通过 `matchedGeometryEffect` 在选中分段间无缝滑动。
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+        let shape = Capsule(style: .continuous)
         return HStack(spacing: CoreSpacing.xxs) {
             ForEach(self.items, id: \.self) { item in
                 self.segment(for: item)
@@ -80,7 +80,7 @@ public struct SegmentedControl<Item: Hashable>: View {
 
     @ViewBuilder
     private var selectedThumb: some View {
-        let shape = RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
+        let shape = Capsule(style: .continuous)
         if self.glass {
             shape
                 .fill(Color.primary.opacity(0.10))
