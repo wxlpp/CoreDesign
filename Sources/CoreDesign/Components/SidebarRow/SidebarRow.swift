@@ -7,6 +7,15 @@ import SwiftUI
 
 // MARK: - SidebarRow
 
+/// Native Primer sidebar row.
+///
+/// Control-layer navigation component. Selected state is unmistakable but
+/// low-noise: a 2pt left-edge `borderFocus` accent bar plus a quiet
+/// `Color.surfaceCanvasSubtle` background. No global glass treatment — the
+/// parent container's `surface(.sidebar)` provides the chrome.
+///
+/// **Material layer**: control. **Surface role**: control.
+///
 /// 侧栏行 / Sidebar Row：GitHub 桌面客户端风格的侧栏导航行。
 ///
 /// 使用场景：左侧导航 / 项目侧栏 / 二级目录列表等需要"紧凑高度 + 选中态强调"

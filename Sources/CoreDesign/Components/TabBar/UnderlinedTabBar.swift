@@ -7,6 +7,19 @@ import SwiftUI
 
 // MARK: - UnderlinedTabBar
 
+/// Native Primer underlined tab bar.
+///
+/// Control-layer chrome for primary navigation. Selected tab is marked by a
+/// short, low-noise underline (`Color.accent` token, matching the
+/// `borderColor.accent.emphasis` Primer mapping documented below) plus
+/// active label emphasis. No global glass treatment — the host scene
+/// supplies the background, this component supplies the indicator and labels.
+///
+/// **Material layer**: control. **Surface role**: control.
+///
+/// Per the Native Primer baseline, navigation chrome does not use Liquid
+/// Glass; selected states stay typographic + line-based (see spec §Controls).
+///
 /// 横向可滚动的下划线分栏组件，按 Primer 视觉语言收齐于 v2-tokens。
 ///
 /// ## 使用场景
