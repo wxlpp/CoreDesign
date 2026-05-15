@@ -49,6 +49,11 @@ public struct SegmentedControl<Item: Hashable>: View {
                 selection: self.$selection,
                 title: self.title
             )
+            // `maxWidth: .infinity` 让控件填充父容器宽度。`UISegmentedControl` 自带
+            // intrinsic content size 会让 SwiftUI 默认采用紧凑宽度；在窄约束容器
+            // （≤240pt 的 sidebar / inspector 列、固定宽度的工具栏槽）里会观察到
+            // 分段控件不撑满。`.frame(height:)` 已经处理纵向，这里补齐横向行为。
+            .frame(maxWidth: .infinity)
             .frame(height: CoreControlMetrics.height(for: .regular))
             .sensoryFeedback(.selection, trigger: self.selection)
         } else {
@@ -67,6 +72,13 @@ public struct SegmentedControl<Item: Hashable>: View {
             }
         }
         .padding(CoreSpacing.xxs)
+        // `maxWidth: .infinity` 必须在 `SegmentedControlBackgroundModifier` 之前 —
+        // SwiftUI `.background` / `.overlay` 按修饰链顺序对当时内容尺寸取背景框，
+        // 若把宽度撑开放在 background 之后，胶囊 / 描边会停留在 intrinsic 宽度，
+        // 形成"内容撑满 + 背景没撑满"的视觉错位。每个 segment 内部已有
+        // `.frame(maxWidth: .infinity)`，但外层 HStack 仍需显式声明，以在部分
+        // 父容器（VStack / Grid）里得到稳定的横向铺满行为。
+        .frame(maxWidth: .infinity)
         .modifier(SegmentedControlBackgroundModifier(shape: shape, glass: self.glass))
         .frame(height: CoreControlMetrics.height(for: .regular))
         .sensoryFeedback(.selection, trigger: self.selection)
@@ -414,4 +426,43 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
         }
     }
     return PreviewHost()
+}
+
+/// 窄列填充验证：模拟 macOS 4-列工作区 sidebar / inspector 的宽度约束
+/// （sidebar ≥220pt、inspector ≥260pt），确认 `SegmentedControl` 不会缩到
+/// intrinsic 宽度，而是撑满列宽。详见 issue #82。
+#Preview("Narrow container fill (220pt / 320pt)") {
+    struct NarrowFillHost: View {
+        @State private var sidebarSelection = "卷一"
+        @State private var inspectorSelection = "Edit"
+        var body: some View {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Sidebar column — 220pt")
+                        .font(CoreTypography.captionFont)
+                        .foregroundStyle(Color.contentMuted)
+                    SegmentedControl(
+                        items: ["卷一", "卷二", "卷三"],
+                        selection: self.$sidebarSelection,
+                        title: { $0 }
+                    )
+                    .frame(width: 220)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Inspector column — 320pt")
+                        .font(CoreTypography.captionFont)
+                        .foregroundStyle(Color.contentMuted)
+                    SegmentedControl(
+                        items: ["Edit", "Outline", "Notes"],
+                        selection: self.$inspectorSelection,
+                        title: { $0 }
+                    )
+                    .frame(width: 320)
+                }
+            }
+            .padding()
+        }
+    }
+    return NarrowFillHost()
 }
