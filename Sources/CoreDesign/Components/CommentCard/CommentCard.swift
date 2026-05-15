@@ -7,6 +7,15 @@ import SwiftUI
 
 // MARK: - CommentCard
 
+/// Native Primer comment card.
+///
+/// Content-layer card. Preserves GitHub-like density and readability —
+/// polish comes from spacing, thin borders (`CoreBorderWidth.thin`), and
+/// typography hierarchy, **not** Liquid Glass. Restrained radius
+/// (`CoreRadius.medium`, 6pt) per spec §Radius And Density.
+///
+/// **Material layer**: content. **Surface role**: content.
+///
 /// 通用评论卡片。
 ///
 /// Header（作者名 + 可选 role badge + 时间戳）+ 主体内容 slot + 最小化提示。
