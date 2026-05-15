@@ -16,6 +16,8 @@ public enum StateLabelStyle: Sendable, Equatable {
     case draft       // attention (yellow) — not ready / WIP
     case completed   // done (purple) — finished
     case cancelled   // danger (red) — cancelled
+    case inProgress  // attention (yellow) — transient / in-flight (e.g. saving)
+    case error       // danger (red) — recoverable failure (e.g. save failed)
 }
 
 // MARK: - StateLabel
@@ -66,6 +68,8 @@ public struct StateLabel: View {
         case .draft: return "circle.dashed"
         case .completed: return "checkmark.circle.fill"
         case .cancelled: return "xmark.circle.fill"
+        case .inProgress: return "arrow.triangle.2.circlepath"
+        case .error: return "exclamationmark.triangle.fill"
         }
     }
 
@@ -75,6 +79,8 @@ public struct StateLabel: View {
         case .draft: return .statusAttentionForeground
         case .completed: return .statusDoneForeground
         case .cancelled: return .statusDangerForeground
+        case .inProgress: return .statusAttentionForeground
+        case .error: return .statusDangerForeground
         }
     }
 
@@ -84,6 +90,8 @@ public struct StateLabel: View {
         case .draft: return .statusAttentionEmphasis
         case .completed: return .statusDoneEmphasis
         case .cancelled: return .statusDangerEmphasis
+        case .inProgress: return .statusAttentionEmphasis
+        case .error: return .statusDangerEmphasis
         }
     }
 }
@@ -95,6 +103,8 @@ private extension StateLabelStyle {
         case .draft: return "Draft"
         case .completed: return "Completed"
         case .cancelled: return "Cancelled"
+        case .inProgress: return "In Progress"
+        case .error: return "Error"
         }
     }
 }
@@ -105,7 +115,10 @@ private extension StateLabelStyle {
         StateLabel(.draft)
         StateLabel(.completed)
         StateLabel(.cancelled)
-        StateLabel(.active, label: "In Progress")
+        StateLabel(.inProgress)
+        StateLabel(.error)
+        StateLabel(.inProgress, label: "Saving…")
+        StateLabel(.error, label: "Save failed")
     }
     .padding()
 }
