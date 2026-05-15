@@ -1,10 +1,3 @@
-//
-//  BannerTests.swift
-//  CoreDesignTests
-//
-//  Created by Claude Code on 2026/05/15.
-//
-
 import SwiftUI
 import Testing
 @testable import CoreDesign
