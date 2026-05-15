@@ -85,9 +85,6 @@ extension ComponentMeta {
         ComponentMeta(id: "book-cover", name: "BookCover", description: "书封渲染，按 Primer 视觉收齐", category: .layout) {
             BookCoverPreview()
         },
-        ComponentMeta(id: "empty-state", name: "EmptyState", description: "空状态占位，可选 CTA 按钮", category: .layout) {
-            EmptyStatePreview()
-        },
         ComponentMeta(id: "list-row", name: "ListRow", description: "3-槽位泛型列表行：leading / label / trailing", category: .layout) {
             ListRowPreview()
         },
@@ -200,12 +197,6 @@ private struct AvatarPreview: View {
 private struct BookCoverPreview: View {
     var body: some View {
         BookCover(data: nil, title: "CoreDesign")
-    }
-}
-
-private struct EmptyStatePreview: View {
-    var body: some View {
-        EmptyState(systemName: "magnifyingglass", title: "No results", description: "Try adjusting your search or filters.")
     }
 }
 
