@@ -162,15 +162,29 @@ public enum CoreTypography {
 
     public static let captionTracking: CGFloat = 0
 
+    // Caption Small（CoreDesign 扩展，sub-12pt）
+
     /// Caption Small。**CoreDesign 扩展**，Primer Primitives 锁定版本未定义 sub-12pt
     /// 字号档位。fontSize 9 / 单行使用 / weight normal (400)。
     /// 高密度 chrome 场景：tab 角标计数、状态栏指示器、紧贴边角的数字徽章。
-    /// 严格仅限单行；不满足 body text 可访问性要求。Dynamic Type 缩放仍走系统路径。
+    /// 严格仅限单行；不满足 body text 可访问性要求。
+    ///
+    /// > Important: **本 token 故意不参与 Dynamic Type 缩放**。`Font.system(size:weight:)`
+    /// > 是固定字号路径——9pt 字号若再随用户偏好按 accessibility scale 放大，会破坏
+    /// > chrome 紧凑布局（tab 角标越界、status bar 文字撑爆等）。如果调用场景需要
+    /// > Dynamic Type 跟随，使用 `captionFont` 或 `Font.system(.caption, design:)` 而非本档。
+    ///
+    /// > Note: 默认 weight 为 `.regular`。若调用站点（如 issue #81 引用的
+    /// > `TabBarView.swift:114` 9pt bold 徽章计数）需要加粗，请在调用处叠加
+    /// > `.fontWeight(.bold)` / `.fontWeight(.semibold)`，而不是替换本 token——
+    /// > 这样可保证迁移不会静默把字重从 bold 改成 regular。
     ///
     /// 如果未来 Primer 引入 sub-12pt 档位，应优先切换为对齐 token 值，再保留本档作为兼容。
     public static let captionSmallFont: Font = .system(size: 9, weight: .regular)
 
-    /// 单行设计目标，无相邻行可补偿；与 `captionFont` 的 lineSpacing 语义一致。
+    /// 单行设计目标，无相邻行可补偿——故 lineSpacing 取 0。
+    /// `captionLineSpacing = 3` 是由 Primer multiplier 推算出的多行补偿值，
+    /// 与本档单行用途的数值**不一致**；二者共享的只是"以单行场景为主"的使用意图。
     public static let captionSmallLineSpacing: CGFloat = 0
 
     public static let captionSmallTracking: CGFloat = 0
