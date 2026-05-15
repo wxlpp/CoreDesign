@@ -76,11 +76,6 @@ import CoreDesign
         .padding()
 }
 
-#Preview("EmptyState") {
-    EmptyState(systemName: "magnifyingglass", title: "No results", description: "Try adjusting your search or filters.")
-        .padding()
-}
-
 #Preview("ListRow") {
     VStack(spacing: 0) {
         ListRow(label: { Text("Label only").foregroundStyle(Color.contentPrimary) })

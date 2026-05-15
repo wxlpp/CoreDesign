@@ -7,6 +7,14 @@ import SwiftUI
 
 // MARK: - ProgressBar
 
+/// Native Primer progress bar.
+///
+/// Content-layer indicator. Practical readability over decoration: solid
+/// rounded rectangles for track + fill, no glass, no gradients. Value is
+/// clamped to `0...1` and non-finite inputs are sanitized to `0`.
+///
+/// **Material layer**: content. **Surface role**: content.
+///
 /// 水平进度条。
 ///
 /// 灰色底轨 + 可配置彩色填充 + 可选左侧 label 文本。

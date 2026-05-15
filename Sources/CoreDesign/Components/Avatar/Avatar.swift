@@ -9,6 +9,14 @@ import SwiftUI
 
 // MARK: - Avatar
 
+/// Native Primer avatar.
+///
+/// Content-layer identity affordance. Circular crop (by caller via
+/// `.clipShape(Circle())`), no border. Uses name-derived background color
+/// with white initial. No glass.
+///
+/// **Material layer**: content. **Surface role**: content.
+///
 /// 头像 / Avatar：根据姓名生成圆形彩色占位头像。
 ///
 /// 使用场景：用户列表 / 评论作者 / 登录态指示器等需要在缺图情景下给出可视化身份提示
