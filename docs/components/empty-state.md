@@ -1,50 +1,27 @@
-# EmptyState
+# EmptyState（已废弃 / Deprecated）
 
-空状态占位视图 / Empty state placeholder.
+`EmptyState` 已废弃，请改用平台原生的"内容不可用"视图：
 
-## API
+- SwiftUI：[`ContentUnavailableView`](https://developer.apple.com/documentation/swiftui/contentunavailableview)
+- UIKit：[`UIContentUnavailableView`](https://developer.apple.com/documentation/uikit/uicontentunavailableview)、
+  [`UIContentUnavailableConfiguration`](https://developer.apple.com/documentation/uikit/uicontentunavailableconfiguration)
 
-| 参数 | 类型 | 默认值 | 说明 |
-|---|---|---|---|
-| systemName | String | - | SF Symbol 名称 |
-| title | String | - | 标题文本 |
-| description | String? | nil | 说明文本（多行居中） |
-| iconSize | CGFloat | CoreSpacing.xxxxl | 图标尺寸（pt） |
-
-如需 CTA，使用 `EmptyState(systemName:title:description:iconSize:action:)`。
-
-## 预览 / Preview
-
-运行 `scripts/run-snapshots.sh` 后，预览图将生成于 `docs/snapshots/`。
-
-## 使用示例 / Usage
+如需带 action 的样式，把 `ContentUnavailableView` 与 CoreDesign 按钮组合即可：
 
 ```swift
-// 仅 icon + title
-EmptyState(systemName: "tray", title: "No items")
-
-// 含描述
-EmptyState(
-    systemName: "magnifyingglass",
-    title: "No results",
-    description: "Try a different search term."
-)
-
-// 含 CTA
-EmptyState(
-    systemName: "doc.text",
-    title: "No documents yet"
-) {
-    Button("New document") { /* ... */ }
-        .buttonStyle(.borderedProminent)
+ContentUnavailableView {
+    Label("No results", systemImage: "magnifyingglass")
+} description: {
+    Text("Try a different search.")
+} actions: {
+    Button("Clear filters") { /* ... */ }
+        .buttonStyle(.solid())
 }
 ```
 
-## 视觉 Token
+## 状态
 
-- 布局：垂直 VStack，`CoreSpacing.xl` 外边距，`frame(maxWidth: .infinity)`
-- 图标：`Color.contentMuted`，尺寸由 `iconSize` 控制
-- 图标底部间距：`CoreSpacing.lg`
-- 标题：`CoreTypography.titleMediumFont` + `Color.contentPrimary`
-- 描述：`CoreTypography.bodyMediumFont` + `Color.contentMuted`
-- CTA 上方间距：`CoreSpacing.xl`
+- **Phase 1（2026-05-14）**：API 标注 `@available(*, deprecated, ...)`，附迁移指引指向 `ContentUnavailableView`。
+- **Phase 3C（本阶段，2026-05-15）**：从 storybook 注册表、app preview catalog 与推荐组件索引中移除；源文件中所有内嵌 `#Preview` 块删除；`public extension EmptyState` 加 `@available(*, deprecated, ...)` 抑制 self-referential 警告——`swift build -Xswiftc -warnings-as-errors` 全包恢复 clean。
+- **源码状态**：`Sources/CoreDesign/Components/EmptyState/EmptyState.swift` 仍保留为兼容包装层，**当前大版本期间**不会被删除；不会接收新的视觉打磨，仅做保持构建健康必需的修复。
+- **彻底移除**：推迟到下一个明确规划的破坏性变更周期。
