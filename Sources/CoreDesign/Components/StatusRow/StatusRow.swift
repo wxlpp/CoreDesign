@@ -17,6 +17,14 @@ public enum StatusResult: Sendable, Equatable {
 
 // MARK: - StatusRow
 
+/// Native Primer status row.
+///
+/// Content-layer row. CI status entry (icon + label + duration + result).
+/// Color carries semantics (success / failure / pending / skipped);
+/// chrome stays minimal. No glass, no cardification.
+///
+/// **Material layer**: content. **Surface role**: content.
+///
 /// CI 检查状态行。图标 + 名称 + 耗时 + 结果指示器。
 ///
 /// 用于平铺的检查列表（VStack），不是时间线组件。
