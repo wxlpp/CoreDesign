@@ -47,6 +47,14 @@ import SwiftUI
 /// `frame(height:)`，遵循 `CoreControlMetrics` doc-comment 推荐——避免字号偏大时
 /// padding × 2 + font 超过 `height(for:)` 的 Primer 精确值导致裁切。
 ///
+/// **In-tree 渲染保证 / In-tree rendering guarantee**：本组件**不调用** SwiftUI
+/// `.searchable()`——它纯粹由 `HStack + TextField` 组成，因此在任意父容器
+/// （`NavigationSplitView` 的 sidebar / content / detail、`NavigationStack`、
+/// 普通 `VStack`）内都会原地渲染，**不会被 SwiftUI 提升到窗口 toolbar**。
+/// 对 macOS 多列工作区尤其重要：调用方放在 `NavigationSplitView { } content: { }` 内
+/// 时，组件不会与右上角 toolbar 项（如 Inspector toggle）抢占位置。详见
+/// "Toolbar hoist verification (macOS)" Preview / issue #83。
+///
 /// 调用示例 / Example usage:
 ///
 /// ```swift
@@ -184,5 +192,61 @@ private struct SearchFieldPreviewHost: View {
 #Preview("SearchField — Dark") {
     SearchFieldPreviewHost()
         .preferredColorScheme(.dark)
+}
+
+/// Toolbar hoist 验证 / Toolbar hoist verification：
+///
+/// 把 `SearchField` 放进 `NavigationSplitView` 的 content 列，并在 toolbar 的
+/// `.primaryAction` 槽里放一个按钮。**预期**：search 框留在 content 列内（不被
+/// SwiftUI 自动提升到窗口 toolbar），`.primaryAction` 按钮仍可见、可点击。
+///
+/// 这是 macOS 上对应原生 `.searchable()` 的反例验证——`.searchable()` 在 macOS
+/// 会把 TextField hoist 到窗口标题栏，挤占 toolbar 槽位；本组件不走那条路径，
+/// 因而可以与右上 toolbar 项（如 Inspector toggle）共存。Issue #83 跟踪该确认。
+private struct SearchFieldNavigationHostPreview: View {
+    @State private var query: String = ""
+    @State private var sidebarSelection: String? = "Inbox"
+
+    var body: some View {
+        NavigationSplitView {
+            List(selection: self.$sidebarSelection) {
+                Text("Inbox").tag(Optional("Inbox"))
+                Text("Drafts").tag(Optional("Drafts"))
+                Text("Archive").tag(Optional("Archive"))
+            }
+            .navigationTitle("Sidebar")
+        } content: {
+            VStack(alignment: .leading, spacing: CoreSpacing.md) {
+                SearchField(text: self.$query, placeholder: "Filter")
+                List {
+                    ForEach(0..<8, id: \.self) { i in
+                        Text("Item \(i + 1)")
+                    }
+                }
+                .listStyle(.inset)
+            }
+            .padding(CoreSpacing.md)
+            .navigationTitle("Content")
+        } detail: {
+            Text("Detail column")
+                .foregroundStyle(Color.contentMuted)
+                .navigationTitle("Detail")
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    // Inspector toggle stand-in — proves the toolbar slot is unaffected.
+                } label: {
+                    Image(systemName: "sidebar.right")
+                }
+                .accessibilityLabel("Toggle Inspector")
+            }
+        }
+    }
+}
+
+#Preview("Toolbar hoist verification (macOS) — issue #83") {
+    SearchFieldNavigationHostPreview()
+        .frame(minWidth: 720, minHeight: 480)
 }
 #endif
