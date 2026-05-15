@@ -44,7 +44,7 @@ public enum MessageLevel {
 /// (`info` / `success` / `warning` / `danger`) with restrained bordered or
 /// filled treatment — **not** Liquid Glass. Banner is for in-page
 /// information, not floating feedback; if you need floating feedback, use
-/// `Toast` instead.
+/// `ToastHost` via `.toastHost(edge:)`.
 ///
 /// **Material layer**: content (info-only) or control (with actions).
 /// **Surface role**: content / control.

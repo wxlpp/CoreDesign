@@ -94,12 +94,14 @@ public enum ToastDefaults {
 
 // MARK: - ToastHost
 
-/// Native Primer floating toast.
+/// Native Primer floating toast host.
 ///
-/// Floating-layer feedback surface. Uses `View.floatingGlass(in:isInteractive:)`
-/// over a `Capsule(style: .continuous)` shell so the toast reads as elevated
-/// system feedback, not content chrome. Text stays clear; actions stay
-/// compact. The queue state machine (`ToastHost`) is unchanged.
+/// Scene-scoped queue + dispatcher for floating-layer toast feedback.
+/// Internally renders each `ToastItem` via a `ToastView` whose container
+/// uses `View.floatingGlass(in:isInteractive:)` over a `Capsule(style:
+/// .continuous)` shell so the toast reads as elevated system feedback,
+/// not content chrome. Public API (`show` / `dismiss`) and the queue
+/// state machine are unchanged.
 ///
 /// **Material layer**: floating. **Surface role**: floating.
 ///
