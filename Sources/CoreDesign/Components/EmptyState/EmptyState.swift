@@ -138,6 +138,7 @@ public struct EmptyState<Action: View>: View {
 
 // MARK: - Convenience inits
 
+@available(*, deprecated, message: "Use SwiftUI ContentUnavailableView for empty states. Compose CoreDesign buttons inside ContentUnavailableView actions when needed.")
 public extension EmptyState where Action == EmptyView {
 
     /// 创建无 CTA 的空状态视图。
@@ -199,6 +200,7 @@ public extension EmptyState where Action == EmptyView {
     }
 }
 
+@available(*, deprecated, message: "Use SwiftUI ContentUnavailableView for empty states. Compose CoreDesign buttons inside ContentUnavailableView actions when needed.")
 public extension EmptyState {
 
     /// 创建带 CTA 的空状态视图（直接传入 SF Symbol 名）。
@@ -233,68 +235,3 @@ public extension EmptyState {
     }
 }
 
-// MARK: - Previews
-
-#Preview("Light - icon + title only") {
-    EmptyState(systemName: "tray", title: "No items")
-        .preferredColorScheme(.light)
-}
-
-#Preview("Dark - icon + title only") {
-    EmptyState(systemName: "tray", title: "No items")
-        .preferredColorScheme(.dark)
-}
-
-#Preview("Light - icon + title + description") {
-    EmptyState(
-        systemName: "magnifyingglass",
-        title: "No results",
-        description: "Try a different search term or clear the filters."
-    )
-    .preferredColorScheme(.light)
-}
-
-#Preview("Dark - icon + title + description") {
-    EmptyState(
-        systemName: "magnifyingglass",
-        title: "No results",
-        description: "Try a different search term or clear the filters."
-    )
-    .preferredColorScheme(.dark)
-}
-
-#Preview("Light - full + action") {
-    EmptyState(
-        systemName: "doc.text",
-        title: "No documents yet",
-        description: "Create your first document to start writing."
-    ) {
-        Button("New document") {}
-            .buttonStyle(.borderedProminent)
-    }
-    .preferredColorScheme(.light)
-}
-
-#Preview("Dark - full + action") {
-    EmptyState(
-        systemName: "doc.text",
-        title: "No documents yet",
-        description: "Create your first document to start writing."
-    ) {
-        Button("New document") {}
-            .buttonStyle(.borderedProminent)
-    }
-    .preferredColorScheme(.dark)
-}
-
-#Preview("Light - hero size") {
-    EmptyState(
-        systemName: "exclamationmark.triangle",
-        title: "Something went wrong",
-        description: "We couldn't load your data. Check your connection and try again.",
-        iconSize: CoreSpacing.huge
-    ) {
-        Button("Retry") {}
-    }
-    .preferredColorScheme(.light)
-}
