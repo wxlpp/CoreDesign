@@ -38,6 +38,17 @@ public enum MessageLevel {
 
 // MARK: - Banner
 
+/// Native Primer status banner.
+///
+/// Content/control-layer information surface. Uses status semantics
+/// (`info` / `success` / `warning` / `danger`) with restrained bordered or
+/// filled treatment — **not** Liquid Glass. Banner is for in-page
+/// information, not floating feedback; if you need floating feedback, use
+/// `ToastHost` via `.toastHost(edge:)`.
+///
+/// **Material layer**: content (info-only) or control (with actions).
+/// **Surface role**: content / control.
+///
 /// 通栏式信息提示组件，对应 GitHub Primer 的 `Flash` / `Banner`。
 ///
 /// 在主要操作流之外向用户传达系统级状态（成功 / 警告 / 错误 / 信息）。形态固定为

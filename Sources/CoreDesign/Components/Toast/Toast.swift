@@ -94,6 +94,17 @@ public enum ToastDefaults {
 
 // MARK: - ToastHost
 
+/// Native Primer floating toast host.
+///
+/// Scene-scoped queue + dispatcher for floating-layer toast feedback.
+/// Internally renders each `ToastItem` via a `ToastView` whose container
+/// uses `View.floatingGlass(in:isInteractive:)` over a `Capsule(style:
+/// .continuous)` shell so the toast reads as elevated system feedback,
+/// not content chrome. Public API (`show` / `dismiss`) and the queue
+/// state machine are unchanged.
+///
+/// **Material layer**: floating. **Surface role**: floating.
+///
 /// Scene-scoped Toast 宿主：维护 toast 队列状态机 + 自动 dismiss 调度。
 ///
 /// 架构 / Architecture（per epic ADR #9）：
@@ -146,9 +157,9 @@ public enum ToastDefaults {
 /// 主 actor；`@Observable` 自动生成的 keypath observation 同样运行在主 actor。
 /// 类型本身**不需要** `Sendable` 显式约束（`@MainActor` 已隐式提供线程安全）。
 ///
-/// 暗色模式行为：内部 `ToastView` 用 `.surface(.card)`（背景 + 边框 token 自动
-/// light/dark 适配）+ `.coreShadow(.medium)`（dark 模式不透明度 ≥ light × 2，由
-/// `Resources.xcassets/shadow/shadow-medium.colorset` 提供）。
+/// 暗色模式行为：内部 `ToastView` 使用 `.floatingGlass(in: Capsule(style: .continuous),
+/// isInteractive: false)`（玻璃材质 + strokeBorder overlay 自动 light/dark 适配），
+/// floating 层不再叠加独立阴影。
 @MainActor
 @Observable
 public final class ToastHost {
@@ -394,7 +405,8 @@ private struct ToastOverlay: View {
 /// 单条 toast 的渲染单元（internal）：icon + message + 容器装饰 + dismiss 触发。
 ///
 /// 视觉 token：
-/// - 容器：`.surface(.card)` + `.coreShadow(.medium)`
+/// - 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`
+///   浮动玻璃层，自带 strokeBorder overlay + 玻璃材质，pill 几何让 toast 读起来是系统反馈。
 /// - 字号：`CoreTypography.bodyMediumFont`
 /// - icon / 前景色：按 `ToastLevel` 走 status color token
 /// - padding：`CoreSpacing.md` 内边距
@@ -428,8 +440,10 @@ private struct ToastView: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(Text("点击关闭"))
         .padding(CoreSpacing.md)
-        .surface(.card)
-        .coreShadow(.medium)
+        .floatingGlass(
+            in: Capsule(style: .continuous),
+            isInteractive: false
+        )
         .offset(y: self.isDismissing ? self.dismissOffset : self.dragOffset)
         .opacity(self.isDismissing ? 0 : 1)
         .contentShape(Rectangle())

@@ -9,6 +9,15 @@ import SwiftUI
 
 // MARK: - BottomInputBar
 
+/// Native Primer floating input bar.
+///
+/// The library's most prominent floating input surface. Uses iOS 26 Liquid
+/// Glass via `BottomInputBarGlassModifier` (Phase 2A refactor:
+/// `BottomInputBarGlassEffectShape: InsettableShape` + `strokeBorder`
+/// overlay). Input ergonomics still come first — the glass is the chrome,
+/// not the feature.
+///
+/// **Material layer**: floating. **Surface role**: floating.
 struct BottomInputBar: View {
     init(
         isShowingSuggestions: Binding<Bool>,
