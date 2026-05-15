@@ -7,6 +7,14 @@ import SwiftUI
 
 // MARK: - EventRow
 
+/// Native Primer event row.
+///
+/// Content-layer row. Activity-stream entry with actor / action / object
+/// pill / timestamp layout. Density and readability are the priority; no
+/// glass, no cardification — the row sits flat on its container's surface.
+///
+/// **Material layer**: content. **Surface role**: content.
+///
 /// 紧凑单行时间线事件。
 ///
 /// Actor + 动作文本 + 可选 object pill + 时间戳。用于 TimelineItem 内容槽中
