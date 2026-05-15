@@ -7,7 +7,14 @@ import SwiftUI
 
 // MARK: - ListRow
 
-/// 列表行 / GitHub 风格的列表行容器。
+/// Native Primer list row.
+///
+/// Content-layer component. Stays quiet, scannable, and stable: no default
+/// glass, no default cardification. Hover and selected states use restrained
+/// fills (`Color.surfaceCanvasSubtle`) and the default background sits on
+/// `View.surface(.canvas)`.
+///
+/// **Material layer**: content. **Surface role**: canvas.
 ///
 /// **使用场景**：issue / PR 列表、章节大纲、设置项、文件 / 资源条目等需要"左侧
 /// 装饰 + 中间标题 + 右侧附件"三块布局的列表项。Primer 概念上对应 `ActionList.Item`
