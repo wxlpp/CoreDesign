@@ -7,6 +7,14 @@ import SwiftUI
 
 // MARK: - ProgressIndicator
 
+/// Native Primer progress indicator.
+///
+/// Content-layer spinner. Practical readability over decoration: no glass,
+/// no decorative material. Use for in-page loading states; for floating
+/// feedback use `ToastHost` instead.
+///
+/// **Material layer**: content. **Surface role**: content.
+///
 /// 通用圆形加载指示器。
 ///
 /// 封装系统 `ProgressView`，使用 Primer `accent` 色作为 tint，自动响应
