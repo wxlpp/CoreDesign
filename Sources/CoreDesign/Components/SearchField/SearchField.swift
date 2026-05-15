@@ -51,7 +51,7 @@ import SwiftUI
 /// `.searchable()`——它纯粹由 `HStack + TextField` 组成，因此在任意父容器
 /// （`NavigationSplitView` 的 sidebar / content / detail、`NavigationStack`、
 /// 普通 `VStack`）内都会原地渲染，**不会被 SwiftUI 提升到窗口 toolbar**。
-/// 对 macOS 多列工作区尤其重要：调用方放在 \`NavigationSplitView { } content: { }\` 内
+/// 对 macOS 多列工作区尤其重要：调用方放在 `NavigationSplitView { } content: { }` 内
 /// 时，组件不会与右上角 toolbar 项（如 Inspector toggle）抢占位置。详见
 /// "Toolbar hoist verification (macOS)" Preview / issue #83。
 ///
