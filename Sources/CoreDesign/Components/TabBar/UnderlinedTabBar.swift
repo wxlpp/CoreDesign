@@ -10,9 +10,10 @@ import SwiftUI
 /// Native Primer underlined tab bar.
 ///
 /// Control-layer chrome for primary navigation. Selected tab is marked by a
-/// short, low-noise underline (`borderFocus` token) plus active label
-/// emphasis. No global glass treatment — the host scene supplies the
-/// background, this component supplies the indicator and labels.
+/// short, low-noise underline (`Color.accent` token, matching the
+/// `borderColor.accent.emphasis` Primer mapping documented below) plus
+/// active label emphasis. No global glass treatment — the host scene
+/// supplies the background, this component supplies the indicator and labels.
 ///
 /// **Material layer**: control. **Surface role**: control.
 ///

@@ -10,9 +10,10 @@ import SwiftUI
 /// Native Primer list row.
 ///
 /// Content-layer component. Stays quiet, scannable, and stable: no default
-/// glass, no default cardification. Hover and selected states use restrained
-/// fills (`Color.surfaceCanvasSubtle`) and the default background sits on
-/// `View.surface(.canvas)`.
+/// glass, no default cardification. Hover state uses a restrained fill
+/// (`Color.surfaceCanvasSubtle`) and the default background sits on
+/// `View.surface(.canvas)`. No selected state — callers compose selection
+/// affordances externally if needed.
 ///
 /// **Material layer**: content. **Surface role**: canvas.
 ///
