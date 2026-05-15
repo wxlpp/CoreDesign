@@ -20,6 +20,15 @@ extension EnvironmentValues {
 
 // MARK: - TimelineItem
 
+/// Native Primer timeline item.
+///
+/// Content-layer row. Vertical timeline entry with a leading rail (dot +
+/// optional connector lines). Designed for scanning: low chrome, restrained
+/// borders, no glass. Polish comes from the leading-rail rhythm and
+/// typography, not from material.
+///
+/// **Material layer**: content. **Surface role**: content.
+///
 /// 时间线脊柱节点容器。
 ///
 /// 左侧脊柱（连接线 + 图标圆点）+ 右侧内容槽。通过 `@Environment(\.timelineDepth)`
