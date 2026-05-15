@@ -20,6 +20,15 @@ public enum StateLabelStyle: Sendable, Equatable {
 
 // MARK: - StateLabel
 
+/// Native Primer lifecycle state label.
+///
+/// Control-layer status pill driven by `StateLabelStyle` (`active` /
+/// `draft` / `completed` / `cancelled`). Compact, color-for-meaning, no
+/// decorative material — same restraint rules as `Badge`, with a fixed icon
+/// + label payload tuned for lifecycle scanning.
+///
+/// **Material layer**: control. **Surface role**: control.
+///
 /// 通用状态标识 pill。
 ///
 /// 大圆角 + 彩色背景 + SF Symbol 图标 + 文字。颜色由 `StateLabelStyle` 枚举驱动，
