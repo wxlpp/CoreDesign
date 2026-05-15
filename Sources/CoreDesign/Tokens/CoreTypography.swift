@@ -161,4 +161,17 @@ public enum CoreTypography {
     public static let captionLineSpacing: CGFloat = 3
 
     public static let captionTracking: CGFloat = 0
+
+    /// Caption Small。**CoreDesign 扩展**，Primer Primitives 锁定版本未定义 sub-12pt
+    /// 字号档位。fontSize 9 / 单行使用 / weight normal (400)。
+    /// 高密度 chrome 场景：tab 角标计数、状态栏指示器、紧贴边角的数字徽章。
+    /// 严格仅限单行；不满足 body text 可访问性要求。Dynamic Type 缩放仍走系统路径。
+    ///
+    /// 如果未来 Primer 引入 sub-12pt 档位，应优先切换为对齐 token 值，再保留本档作为兼容。
+    public static let captionSmallFont: Font = .system(size: 9, weight: .regular)
+
+    /// 单行设计目标，无相邻行可补偿；与 `captionFont` 的 lineSpacing 语义一致。
+    public static let captionSmallLineSpacing: CGFloat = 0
+
+    public static let captionSmallTracking: CGFloat = 0
 }
