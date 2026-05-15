@@ -28,6 +28,14 @@ public enum BadgeVariant: Sendable, Equatable {
 
 // MARK: - Badge
 
+/// Native Primer status badge.
+///
+/// Control-layer status indicator with 5 fixed semantic levels. Compact, low
+/// chrome, no glass — color is the semantic carrier, not decoration. Pairs
+/// with row, header, and inline-label contexts.
+///
+/// **Material layer**: control. **Surface role**: control.
+///
 /// GitHub 风格的状态指示器，对应 Primer 的 `Label` 组件。
 ///
 /// 用于在列表项 / 标题 / 按钮旁标注一个固定 level 的语义状态（如 "Beta" / "Draft" /

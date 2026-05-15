@@ -7,6 +7,15 @@ import SwiftUI
 
 // MARK: - Tag
 
+/// Native Primer category tag.
+///
+/// Control-layer category label. Color is supplied by the caller (issue
+/// labels, repo-defined palettes); the chip stays compact and low chrome.
+/// No default glass, no decorative material — semantics come from the
+/// caller's color choice.
+///
+/// **Material layer**: control. **Surface role**: control.
+///
 /// 任意分类标签 / Tag：GitHub issue label 风格的 chip，颜色由调用方传入。
 ///
 /// 使用场景：issue / PR 分类（`bug` / `enhancement` / `documentation` 等）、文章标签、
