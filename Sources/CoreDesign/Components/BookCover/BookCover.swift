@@ -25,6 +25,15 @@ private func bookCoverDisplayTitle(_ title: String) -> String {
 
 // MARK: - BookCover
 
+/// Native Primer book cover.
+///
+/// Content visual. Image-first presentation with a restrained border and a
+/// small shadow — explicitly **not** glass. Aspect ratio and corner radius
+/// match a print-cover read; the component stays a quiet object inside
+/// content rows / grids.
+///
+/// **Material layer**: content. **Surface role**: content.
+///
 /// 书籍封面容器视图 / Book cover container.
 ///
 /// **使用场景**：在书架、阅读列表、推荐位等需要展示一本书可视外观的位置；
