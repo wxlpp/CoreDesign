@@ -131,7 +131,7 @@ public struct SegmentedControl<Item: Hashable>: View {
                 .glassEffect(.regular.interactive(), in: shape)
                 .overlay(
                     shape.strokeBorder(
-                        .white.opacity(CoreButtonMetrics.glassBorderOpacity),
+                        Color.borderSubtle,
                         lineWidth: CoreBorderWidth.hairline
                     )
                 )
@@ -393,6 +393,9 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
                     self.shape
                         .fill(.clear)
                         .glassEffect(.regular.interactive(), in: self.shape)
+                )
+                .overlay(
+                    self.shape.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
                 )
         } else {
             content

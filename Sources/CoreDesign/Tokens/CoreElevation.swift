@@ -108,28 +108,28 @@ public enum CoreElevation {
                 y: 0
             )
         case .small:
-            // Primer resting.small 单层近似：alpha 0.07 (light) / 0.6 (dark)，y=1, blur=2。
+            // Craft workbench: small resting elevation is nearly flat; hierarchy comes from surface + border.
             return Spec(
                 color: Self.shadowSmallColor,
-                radius: 2,
+                radius: 1,
                 x: 0,
-                y: 1
+                y: 0.5
             )
         case .medium:
-            // Primer resting.medium 单层近似：alpha 0.15 (light) / 0.4 (dark)，y=3, blur=6。
+            // Craft workbench: ordinary cards should not float strongly above the page.
             return Spec(
                 color: Self.shadowMediumColor,
-                radius: 6,
+                radius: 4,
                 x: 0,
-                y: 3
+                y: 2
             )
         case .large:
-            // Primer floating.medium 主导层近似：alpha 0.20 (light) / 0.5 (dark)，y=8, blur=16。
+            // Craft workbench: keep obvious elevation for true floating surfaces, but reduce gloss.
             return Spec(
                 color: Self.shadowLargeColor,
-                radius: 16,
+                radius: 12,
                 x: 0,
-                y: 8
+                y: 6
             )
         }
     }

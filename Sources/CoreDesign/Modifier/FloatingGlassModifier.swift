@@ -23,12 +23,12 @@ public struct FloatingGlassModifier<S: InsettableShape>: ViewModifier {
             .background(
                 self.shape
                     .inset(by: CoreButtonMetrics.glassInset)
-                    .fill(.background.opacity(0.72))
+                    .fill(.background.opacity(0.64))
                     .glassEffect(glass, in: self.shape)
             )
             .overlay(
                 self.shape.strokeBorder(
-                    .white.opacity(CoreButtonMetrics.glassBorderOpacity),
+                    Color.borderSubtle,
                     lineWidth: CoreBorderWidth.hairline
                 )
             )
