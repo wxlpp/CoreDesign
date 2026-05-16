@@ -5,19 +5,19 @@ struct ComponentDetail: View {
     let component: ComponentMeta
 
     private var previewBorder: RoundedRectangle {
-        RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+        RoundedRectangle(cornerRadius: CoreRadius.mediumPlus, style: .continuous)
     }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            VStack(alignment: .leading, spacing: CoreSpacing.md) {
                 // Header
                 VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                     Text(component.name)
                         .font(CoreTypography.titleMediumFont)
                         .foregroundStyle(Color.contentPrimary)
                     Text(component.description)
-                        .font(CoreTypography.bodyLargeFont)
+                        .font(CoreTypography.bodyMediumFont)
                         .foregroundStyle(Color.contentMuted)
 
                     if let demo = component.demoAction {
@@ -39,7 +39,7 @@ struct ComponentDetail: View {
                                 .foregroundStyle(Color.contentMuted)
                                 .padding(.vertical, CoreSpacing.xs)
                                 .frame(maxWidth: .infinity)
-                                .background(Color.surfaceCanvasSubtle)
+                                .background(Color.surfacePanel)
 
                             component.preview()
                                 .padding(CoreSpacing.md)
@@ -57,7 +57,7 @@ struct ComponentDetail: View {
                                 .foregroundStyle(Color.contentMuted)
                                 .padding(.vertical, CoreSpacing.xs)
                                 .frame(maxWidth: .infinity)
-                                .background(Color.surfaceCanvasSubtle)
+                                .background(Color.surfacePanel)
 
                             component.preview()
                                 .padding(CoreSpacing.md)
@@ -66,7 +66,8 @@ struct ComponentDetail: View {
                         }
                         .preferredColorScheme(.dark)
                     }
-                    .overlay(self.previewBorder.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline))
+                    .background(Color.surfacePanel)
+                    .overlay(self.previewBorder.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.hairline))
                     .clipShape(self.previewBorder)
                 }
             }
@@ -76,4 +77,3 @@ struct ComponentDetail: View {
         .navigationTitle(component.name)
     }
 }
-

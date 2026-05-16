@@ -40,11 +40,13 @@ private struct ComponentList: View {
                 }
             }
         }
+        .listStyle(.sidebar)
         .navigationTitle("CoreDesign")
         .navigationDestination(for: ComponentMeta.self) { comp in
             ComponentDetail(component: comp)
         }
-        .background(Color.surfaceCanvas)
+        .scrollContentBackground(.hidden)
+        .background(Color.surfaceSidebar)
     }
 }
 
@@ -54,14 +56,16 @@ private struct ComponentRow: View {
     let component: ComponentMeta
 
     var body: some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(component.name)
                 .font(CoreTypography.bodyMediumFont)
+                .fontWeight(.medium)
                 .foregroundStyle(Color.contentPrimary)
             Text(component.id)
-                .font(CoreTypography.bodySmallFont)
-                .foregroundStyle(Color.contentMuted)
+                .font(CoreTypography.captionFont)
+                .foregroundStyle(Color.contentSubtle)
         }
+        .padding(.vertical, CoreSpacing.xxs)
     }
 }
 
@@ -69,10 +73,10 @@ private struct ComponentRow: View {
 
 private struct PlaceholderView: View {
     var body: some View {
-        VStack(spacing: CoreSpacing.md) {
+        VStack(spacing: CoreSpacing.sm) {
             Image(systemName: "square.grid.2x2")
-                .font(.system(size: 48))
-                .foregroundStyle(Color.contentMuted)
+                .font(.system(size: 32, weight: .regular))
+                .foregroundStyle(Color.contentSubtle)
                 .accessibilityHidden(true)
             Text("Select a component")
                 .font(CoreTypography.bodyMediumFont)
