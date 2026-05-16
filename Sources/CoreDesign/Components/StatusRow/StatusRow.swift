@@ -104,5 +104,5 @@ public struct StatusRow: View {
         StatusRow(label: "analyze", duration: "—", result: .skipped)
     }
     .padding()
-    .background(Color.systemBackground)
+    .background(Color.surfaceCanvas)
 }
