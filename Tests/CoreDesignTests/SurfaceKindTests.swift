@@ -28,8 +28,8 @@ struct SurfaceKindTests {
         #expect(roles.count == 4)
     }
 
-    @Test("all surface roles construct after Craft token tuning")
-    func allSurfaceRolesConstructAfterCraftTokenTuning() {
+    @Test("all public surface roles remain available")
+    func allPublicSurfaceRolesRemainAvailable() {
         let roles: [SurfaceKind] = [
             .canvas,
             .content,

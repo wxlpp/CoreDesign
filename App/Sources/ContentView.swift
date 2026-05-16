@@ -56,7 +56,7 @@ private struct ComponentRow: View {
     let component: ComponentMeta
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
             Text(component.name)
                 .font(CoreTypography.bodyMediumFont)
                 .fontWeight(.medium)

@@ -9,19 +9,21 @@ import SwiftUI
 
 // MARK: - CoreElevation
 
-/// 阴影 / 高度 (elevation) token，对齐 Primer Primitives 的 `shadow.*` 标度。
+/// 阴影 / 高度 (elevation) token。语义层级沿用 Primer Primitives 的 `shadow.*` 标度，
+/// 数值按 Craft workbench 风格调轻。
 ///
 /// 设计要点：
 ///
-/// - **4 档语义**：`.none` / `.small` / `.medium` / `.large`，对应 Primer
-///   `resting` 与 `floating` 两组的代表性档位（详见 `docs/PRIMER_VERSION.md`）。
+/// - **4 档语义**：`.none` / `.small` / `.medium` / `.large`，语义对应 Primer
+///   `resting` 与 `floating` 两组的代表性档位（详见 `docs/PRIMER_VERSION.md`），
+///   但 blur / y-offset 数值已按 Craft workbench 降低。
 /// - **暗色模式自适应**：`Spec.color` 通过 `Resources.xcassets/shadow/shadow-*.colorset`
 ///   提供 light / dark 双取值；dark 模式不透明度 ≥ light 的 2 倍——这是 Primer 与
 ///   Apple HIG 的共识（深色背景下的低对比阴影会"消失"，必须靠加深浓度补回 elevation 视觉）。
-/// - **单层近似**：Primer 上游用 1–5 层叠加；SwiftUI `.shadow(...)` 一次只渲染一层，
-///   故本文件取 Primer 主导那层（最大 alpha + 最大 blur）的合成值，保证在 SwiftUI
-///   原生 API 下视觉接近上游。如未来需要严格还原多层叠加，可在 `coreShadow(_:)`
-///   modifier 内连续调用多次 `.shadow(...)`。
+/// - **单层近似 + workbench 调轻**：Primer 上游用 1–5 层叠加；SwiftUI `.shadow(...)`
+///   一次只渲染一层。本文件保留 Primer 的档位语义与 asset-backed shadow color，
+///   但将 `.small` / `.medium` / `.large` 的 blur 与 y-offset 调低，让普通卡片更多依赖
+///   surface + border 层级，而不是强浮起阴影。
 ///
 /// 调用方式：
 ///
@@ -39,13 +41,13 @@ public enum CoreElevation {
         /// 无阴影。等价于平面元素，不产生 elevation 视觉。
         case none
 
-        /// 小阴影。Primer `shadow.resting.small`（按钮、可点击小元素的默认浮起）。
+        /// 小阴影。语义对应 Primer `shadow.resting.small`，数值按 workbench 风格调轻。
         case small
 
-        /// 中阴影。Primer `shadow.resting.medium`（卡片、面板等抬升于页面之上的容器）。
+        /// 中阴影。语义对应 Primer `shadow.resting.medium`，普通卡片不会强烈浮起。
         case medium
 
-        /// 大阴影。Primer `shadow.floating.medium`（popover、菜单、浮层）。
+        /// 大阴影。语义对应 Primer `shadow.floating.medium`，用于 popover、菜单、浮层。
         ///
         /// > Note: Primer 的 `floating.large` / `xlarge` 用于 modal / sheet；
         /// > 本仓库 4 档语义将 `large` 对齐到 `floating.medium`，避免一档"过冲"。
@@ -56,21 +58,19 @@ public enum CoreElevation {
     // MARK: - Spec
 
     /// 单档 elevation 的视觉规格。直接对应 SwiftUI
-    /// `.shadow(color:radius:x:y:)` 四个参数。
+    /// `.shadow(color:radius:x:y:)` 四个参数；radius / y 为 Craft workbench 调轻后的值。
     public struct Spec: Sendable {
         /// 阴影颜色。来自 `Resources.xcassets/shadow/shadow-*.colorset`，自动 light/dark。
         public let color: Color
 
-        /// SwiftUI `.shadow` blur radius，单位 **pt**（点）。Primer 上游以 px 给出对应数值，
-        /// 本仓库直接以同名数值在 SwiftUI 中以 pt 使用——pt 与 px 在 Apple 平台上**不等价**
-        /// （差一个屏幕 scale 因子），但视觉上 1pt 对应 N 个物理像素的渲染体验在常见 scale 下
-        /// 仍接近 Primer 设计意图。
+        /// SwiftUI `.shadow` blur radius，单位 **pt**（点）。本值保留 Primer 档位语义，
+        /// 但不是 Primer 原始数值的逐字映射。
         public let radius: CGFloat
 
         /// 水平偏移。对应 Primer `offsetX`。
         public let x: CGFloat
 
-        /// 垂直偏移。对应 Primer `offsetY`。
+        /// 垂直偏移。保留 Primer `offsetY` 语义，数值按 Craft workbench 调轻。
         public let y: CGFloat
 
         public init(color: Color, radius: CGFloat, x: CGFloat, y: CGFloat) {

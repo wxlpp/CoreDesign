@@ -12,8 +12,8 @@ struct FloatingGlassModifierTests {
     }
 
     @MainActor
-    @Test("interactive floating glass modifier constructs")
-    func interactiveFloatingGlassModifierConstructs() {
+    @Test("interactive floating glass modifier compile-smoke constructs")
+    func interactiveFloatingGlassModifierCompileSmokeConstructs() {
         let view = Text("Floating").floatingGlass(isInteractive: true)
         #expect(String(describing: type(of: view)).isEmpty == false)
     }
