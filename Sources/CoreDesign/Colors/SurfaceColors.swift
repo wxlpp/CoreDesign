@@ -33,11 +33,11 @@ public extension Color {
     }
 
     static var surfaceInteractive: Color {
-        .secondaryFill
+        .surfaceCanvasInset
     }
 
     static var surfaceOverlay: Color {
-        .quaternaryFill
+        .surfacePanel
     }
 
     // MARK: - Primer-aligned semantic surfaces / Primer 对齐语义表面

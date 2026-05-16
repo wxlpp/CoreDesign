@@ -99,7 +99,7 @@ public extension ButtonStyle where Self == LightButtonStyle {
             .disabled(true)
     }
     .padding()
-    .background(Color.systemGroupedBackground)
+    .background(Color.surfaceCanvas)
 }
 
 #Preview("Light — explicit glass") {
