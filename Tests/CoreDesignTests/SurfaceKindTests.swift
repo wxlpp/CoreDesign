@@ -27,4 +27,21 @@ struct SurfaceKindTests {
 
         #expect(roles.count == 4)
     }
+
+    @Test("all surface roles construct after Craft token tuning")
+    func allSurfaceRolesConstructAfterCraftTokenTuning() {
+        let roles: [SurfaceKind] = [
+            .canvas,
+            .content,
+            .control,
+            .floating,
+            .overlay,
+            .canvasSubtle,
+            .panel,
+            .sidebar,
+            .card,
+        ]
+
+        #expect(roles.count == 9)
+    }
 }

@@ -5,7 +5,7 @@ import SwiftUI
 
 public extension Color {
     static var borderSubtle: Color {
-        .separator.opacity(0.35)
+        .separator.opacity(0.28)
     }
 
     static var borderDefault: Color {
@@ -30,7 +30,7 @@ public extension Color {
     /// 但取值略强（透明度更高）。新代码优先使用本 token；旧 `borderSubtle` 双轨保留。
     /// 复用 `.separator.opacity(0.5)`，避免新建 colorset。
     static var borderMuted: Color {
-        .separator.opacity(0.5)
+        .separator.opacity(0.42)
     }
 
     /// Primer `borderColor.muted` 的 hover 表现（Primer Web 端无独立 token，此处取 `borderDefault`

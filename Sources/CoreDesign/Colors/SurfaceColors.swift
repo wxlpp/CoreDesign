@@ -65,22 +65,22 @@ public extension Color {
 
     /// Primer concept: panel surface (Web 端 `bgColor.muted` 的容器化表现)。
     /// 用于卡片群之上的面板容器；接近现有 `surfaceGroupedRaised`，新代码优先使用本 token。
-    /// 复用 `.secondarySystemGroupedBackground`，避免新建 colorset。
+    /// Craft workbench 风格下复用暖灰 `surfaceCanvasSubtle`。
     static var surfacePanel: Color {
-        .secondarySystemGroupedBackground
+        .surfaceCanvasSubtle
     }
 
     /// Primer concept: sidebar surface (Web 端 `bgColor.muted` 用于侧栏的语义专门化命名)。
     /// 接近现有 `surfaceGrouped`，新代码用于侧栏 / 导航容器优先使用本 token。
-    /// 复用 `.systemGroupedBackground`，避免新建 colorset。
+    /// Craft workbench 风格下复用暖灰 `surfaceCanvasSubtle`。
     static var surfaceSidebar: Color {
-        .systemGroupedBackground
+        .surfaceCanvasSubtle
     }
 
     /// Primer concept: card surface (Web 端 `bgColor.default` 在 grouped 容器内的卡片表现)。
     /// 接近现有 `surfaceGroupedElevated`，新代码优先使用本 token 表示卡片容器。
-    /// 复用 `.tertiarySystemGroupedBackground`，避免新建 colorset。
+    /// Craft workbench 风格下卡片保持接近画布，只靠边框和相邻 panel 拉开层级。
     static var surfaceCard: Color {
-        .tertiarySystemGroupedBackground
+        .surfaceCanvas
     }
 }
