@@ -51,6 +51,8 @@ Update the foundation before component-specific edits:
 
 The blue accent family remains the interaction backbone.
 
+Before editing component files, create the component review inventory from the sources listed in the Component Pass section. This prevents token work from being followed by an incomplete component sweep.
+
 ## Preview App
 
 The preview app should become the first clear expression of the Craft workbench direction.
@@ -62,11 +64,21 @@ The preview app should become the first clear expression of the Craft workbench 
 
 ## Component Pass
 
-All documented components should be reviewed. The depth of edits depends on visual impact.
+All documented components and all snapshot-covered preview components should be reviewed. The depth of edits depends on visual impact.
+
+The implementation inventory should be checked against:
+
+- `docs/README.md`
+- `docs/components/`
+- `App/Sources/Previews.swift`
+- `App/Sources/ComponentData.swift`
+
+If these sources disagree, the implementation should make the review list explicit before editing components. Deprecated components should not be visually redesigned, but their docs, previews, and snapshots should not contradict the restyle.
 
 High-impact components get targeted visual changes:
 
 - Button
+- AsyncButton
 - SegmentedControl
 - SearchField
 - SidebarRow
@@ -91,6 +103,7 @@ Medium-impact components get consistency calibration:
 - ProgressBar
 - ProgressIndicator
 - AvatarGroup
+- UnderlinedTabBar
 
 These should primarily align color hierarchy, border weight, radius, and spacing.
 
@@ -99,6 +112,7 @@ Low-impact components get a consistency review:
 - Avatar
 - FlowLayout
 - Form icons and similar utility examples
+- EmptyState migration surface, if any preview or snapshot still renders it
 
 Only change these if they visibly conflict with the new style.
 
