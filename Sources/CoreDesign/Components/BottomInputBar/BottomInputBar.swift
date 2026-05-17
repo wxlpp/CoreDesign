@@ -239,11 +239,11 @@ private struct BottomInputBarGlassModifier: ViewModifier {
         return content
             .background(
                 shape
-                    .fill(.background.opacity(0.72))
+                    .fill(.background.opacity(0.64))
                     .glassEffect(.regular, in: shape)
             )
             .overlay(
-                shape.strokeBorder(.white.opacity(CoreButtonMetrics.glassBorderOpacity), lineWidth: CoreBorderWidth.hairline)
+                shape.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
             )
     }
 }

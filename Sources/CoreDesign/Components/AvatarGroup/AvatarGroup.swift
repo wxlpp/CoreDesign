@@ -50,7 +50,7 @@ public struct AvatarGroup<Avatars: View>: View {
                         .clipShape(Circle())
                         .overlay(
                             Circle()
-                                .strokeBorder(Color.systemBackground, lineWidth: CoreBorderWidth.thin)
+                                .strokeBorder(Color.surfaceCanvas, lineWidth: CoreBorderWidth.thin)
                         )
                 }
 
@@ -109,4 +109,5 @@ enum AvatarGroupAccessibility {
         }
     }
     .padding()
+    .background(Color.surfaceCanvas)
 }

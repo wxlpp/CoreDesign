@@ -50,7 +50,7 @@ private func bookCoverDisplayTitle(_ title: String) -> String {
 /// 通过 `.coreShadow(.medium)` (CoreElevation.Level.medium) 提供阴影）落地视觉。
 ///
 /// **Light / Dark 行为**：
-/// - 边框颜色走 `Color.borderMuted`（基于 `.separator.opacity(0.5)`），随系统外观自适应。
+/// - 边框颜色走 `Color.borderMuted`（基于 `.separator.opacity(0.42)`），随系统外观自适应。
 /// - 阴影走 `.coreShadow(.medium)`，由 shadow-medium colorset
 ///   提供 light / dark 双取值，dark 模式下浓度自动加深以补偿 elevation 视觉。
 ///

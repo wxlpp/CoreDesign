@@ -99,7 +99,7 @@ private struct MenuButtonStyleModifier: ViewModifier {
                 )
                 .overlay(
                     Capsule()
-                        .strokeBorder(.white.opacity(0.2), lineWidth: CoreBorderWidth.hairline)
+                        .strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
                 )
         case .circular:
             content
@@ -113,7 +113,7 @@ private struct MenuButtonStyleModifier: ViewModifier {
                 )
                 .overlay(
                     Circle()
-                        .strokeBorder(.white.opacity(0.2), lineWidth: CoreBorderWidth.hairline)
+                        .strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
                 )
         }
     }

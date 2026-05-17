@@ -5,7 +5,7 @@ import SwiftUI
 
 public extension Color {
     static var borderSubtle: Color {
-        .separator.opacity(0.35)
+        .separator.opacity(0.28)
     }
 
     static var borderDefault: Color {
@@ -27,10 +27,10 @@ public extension Color {
     // MARK: - Primer-aligned semantic borders / Primer 对齐语义边框
 
     /// Primer `borderColor.muted`. 比 `borderDefault` 更弱的次要分隔线 / 卡片边框；语义接近现有 `borderSubtle`，
-    /// 但取值略强（透明度更高）。新代码优先使用本 token；旧 `borderSubtle` 双轨保留。
-    /// 复用 `.separator.opacity(0.5)`，避免新建 colorset。
+    /// 但取值略强（透明度更高）。Craft workbench 调整后透明度为 0.42；旧 `borderSubtle` 双轨保留。
+    /// 复用 `.separator.opacity(0.42)`，避免新建 colorset。
     static var borderMuted: Color {
-        .separator.opacity(0.5)
+        .separator.opacity(0.42)
     }
 
     /// Primer `borderColor.muted` 的 hover 表现（Primer Web 端无独立 token，此处取 `borderDefault`
