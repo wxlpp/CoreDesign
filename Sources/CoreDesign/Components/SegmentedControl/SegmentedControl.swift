@@ -385,7 +385,7 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
             // `.fill(.clear)`：让 .glassEffect 自己提供材质，不在底下叠任何 tint
             // ——SegmentedControl 走的是"纯玻璃容器"形态，配合 thumb 那层玻璃
             // 形成一致的两层玻璃叠加视觉，而不是 FloatingGlass / BottomInputBar 那
-            // 种"玻璃覆盖在 .background.opacity(0.72) 之上"的混合形态。
+            // 种"玻璃覆盖在 .background.opacity(0.64) 之上"的混合形态。
             // 因为没有 tint 底色需要从玻璃壳下"透出"，所以也不需要 `glassInset`
             // 的内缩（它专门服务于 Telegram 分层按钮的纵深效果）。
             content
