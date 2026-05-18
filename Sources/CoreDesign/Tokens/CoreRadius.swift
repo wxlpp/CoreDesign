@@ -29,7 +29,7 @@ public enum CoreRadius {
     public static let small: CGFloat = 3
 
     /// 比小圆角略大 (4pt)。**CoreDesign 扩展**，介于 `small=3` 与 `medium=6` 之间。
-    /// 选中态矩形（TabBar 选区、SidebarRow 选区、segment thumb）等需要比 `medium=6`
+    /// 选中态矩形（TabBar 选区、Sidebar 选区、segment thumb）等需要比 `medium=6`
     /// 略锐、但又比 `small=3` 略柔的场景；与相邻 6pt 元素并置时视觉更协调。
     /// 上游 Primer Primitives 当前锁定版本未定义此档；如果未来 Primer 引入对应级别，
     /// 切换该 token 数值即可。
