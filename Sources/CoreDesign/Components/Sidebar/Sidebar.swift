@@ -37,6 +37,9 @@ public struct SidebarSection<Content: View>: View {
                     Image(systemName: "chevron.right")
                         .font(CoreTypography.bodySmallFont)
                         .foregroundStyle(SidebarTextStyle.secondary)
+                        // 纯装饰：标题已表达分组语义，避免 VoiceOver 朗读
+                        // "chevron right" 噪音 / Decorative chevron.
+                        .accessibilityHidden(true)
                 }
 
                 Spacer()
@@ -44,6 +47,9 @@ public struct SidebarSection<Content: View>: View {
                 Image(systemName: "ellipsis")
                     .font(CoreTypography.bodyMediumFont)
                     .foregroundStyle(SidebarTextStyle.tertiary)
+                    // 装饰性占位符，当前无 action；对 VoiceOver 隐藏避免
+                    // 暴露成无标签图片 / Decorative placeholder, no action.
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, CoreSpacing.sm)
 
@@ -80,6 +86,9 @@ public struct SidebarNavigationRow: View {
                     .font(CoreTypography.bodyLargeFont)
                     .foregroundStyle(SidebarTextStyle.secondary)
                     .frame(width: CoreSpacing.xl)
+                    // 装饰性图标：button 的可访问名由 title 驱动，隐藏图标避免
+                    // VoiceOver 朗读 SF Symbol 名 / Decorative leading icon.
+                    .accessibilityHidden(true)
 
                 Text(self.title)
                     .font(CoreTypography.bodyLargeFont)
@@ -121,6 +130,9 @@ public struct SidebarUtilityRow: View {
                     .font(CoreTypography.bodyLargeFont)
                     .foregroundStyle(SidebarTextStyle.secondary)
                     .frame(width: CoreSpacing.xl)
+                    // 装饰性图标：button 的可访问名由 title 驱动，隐藏图标避免
+                    // VoiceOver 朗读 SF Symbol 名 / Decorative leading icon.
+                    .accessibilityHidden(true)
 
                 Text(self.title)
                     .font(CoreTypography.bodyLargeFont)
@@ -132,6 +144,9 @@ public struct SidebarUtilityRow: View {
                     Image(systemName: trailingSystemImage)
                         .font(CoreTypography.bodyLargeFont)
                         .foregroundStyle(SidebarTextStyle.tertiary)
+                        // 次级装饰性 affordance：随主 button 单一 action 触发，
+                        // 不单独暴露给 VoiceOver / Decorative trailing affordance.
+                        .accessibilityHidden(true)
                 }
             }
             .frame(height: CoreControlMetrics.height(for: .large))
@@ -167,6 +182,9 @@ public struct SidebarDocumentRow: View {
                     .font(CoreTypography.titleMediumFont)
                     .foregroundStyle(SidebarTextStyle.secondary)
                     .frame(width: CoreSpacing.xl)
+                    // 装饰性图标：可访问名由 title / detail 驱动
+                    // Decorative leading icon.
+                    .accessibilityHidden(true)
 
                 Text(self.title)
                     .font(CoreTypography.bodyLargeFont)
@@ -206,6 +224,9 @@ public struct SidebarTagRow: View {
                     .font(CoreTypography.titleMediumFont)
                     .foregroundStyle(SidebarTextStyle.secondary)
                     .frame(width: CoreSpacing.xl)
+                    // 装饰性 tag 标记：避免 VoiceOver 读成 "number sign"，
+                    // 可访问名由 title 驱动 / Decorative tag glyph.
+                    .accessibilityHidden(true)
 
                 Text(self.title)
                     .font(CoreTypography.bodyLargeFont)
@@ -216,6 +237,9 @@ public struct SidebarTagRow: View {
                 Image(systemName: "chevron.right")
                     .font(CoreTypography.bodySmallFont)
                     .foregroundStyle(SidebarTextStyle.tertiary)
+                    // 装饰性指示箭头：行整体可点击，标题已表达目标
+                    // Decorative trailing chevron.
+                    .accessibilityHidden(true)
             }
             .frame(height: CoreControlMetrics.height(for: .large))
             .padding(.horizontal, CoreSpacing.sm)
@@ -243,6 +267,9 @@ public struct SidebarStatusFooter: View {
                     width: CoreSpacing.sm,
                     height: CoreSpacing.sm
                 )
+                // 状态点纯装饰：title / detail 已传达语义
+                // Decorative status dot.
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                 Text(self.title)
@@ -258,6 +285,9 @@ public struct SidebarStatusFooter: View {
             Spacer()
         }
         .padding(CoreSpacing.sm)
+        // 合并 title / detail 为单个可访问元素（对齐 EventRow / StatusRow 惯例）
+        // Combine title + detail into one accessibility element.
+        .accessibilityElement(children: .combine)
     }
 
     private let title: String
@@ -272,6 +302,12 @@ private struct SidebarSelectedBackgroundModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         if self.isSelected {
+            // `floatingGlass(isInteractive: true)` 已提供 interactive regular
+            // glass 材质 + subtle 边框；此处仅在其上叠加 selected 色描边强调
+            // 选中态 + 阴影。原先额外的 `.glassEffect(.regular.interactive())`
+            // 会与 floatingGlass 内部的 glass 双重渲染材质，已移除。
+            // floatingGlass already applies the interactive glass; the extra
+            // outer glassEffect was redundant double material — removed.
             content
                 .floatingGlass(
                     in: RoundedRectangle(cornerRadius: CoreRadius.mediumPlus),
@@ -282,10 +318,6 @@ private struct SidebarSelectedBackgroundModifier: ViewModifier {
                         .strokeBorder(Color.borderSelected, lineWidth: CoreBorderWidth.thin)
                 }
                 .coreShadow(.medium)
-                .glassEffect(
-                    .regular.interactive(),
-                    in: .rect(cornerRadius: CoreRadius.mediumPlus)
-                )
         } else {
             content
         }
