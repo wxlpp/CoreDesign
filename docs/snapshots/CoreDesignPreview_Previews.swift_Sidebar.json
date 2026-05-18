@@ -4,7 +4,7 @@
     "preview" : {
       "container_display_name" : "Previews",
       "container_type_name" : "CoreDesignPreview.$s17CoreDesignPreview0019Previewsswift_DJEEdfMX90_0_33_3BEB43DB02743A1C460645E7626C1D93Ll0C0fMf9_15PreviewRegistryfMu_",
-      "display_name" : "SidebarRow",
+      "display_name" : "Sidebar",
       "index" : 0,
       "line" : 91,
       "orientation" : "portrait"
@@ -15,6 +15,6 @@
     },
     "test_name" : "-[SnapshotTests portrait-Previews-0-10]"
   },
-  "display_name" : "SidebarRow",
+  "display_name" : "Sidebar",
   "group" : "CoreDesignPreview\/Previews.swift"
 }

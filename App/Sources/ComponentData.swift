@@ -90,8 +90,8 @@ extension ComponentMeta {
         },
 
         // Navigation
-        ComponentMeta(id: "sidebar-row", name: "SidebarRow", description: "侧栏行，hover 高亮 + selected accent 条", category: .navigation) {
-            SidebarRowPreview()
+        ComponentMeta(id: "sidebar", name: "Sidebar", description: "侧栏导航组件组：section / navigation / utility / document / tag row", category: .navigation) {
+            SidebarPreview()
         },
         ComponentMeta(id: "underlined-tab-bar", name: "UnderlinedTabBar", description: "下划线式 TabBar，token 化配色 + 选中态指示器", category: .navigation) {
             UnderlinedTabBarPreview()
@@ -213,11 +213,27 @@ private struct ListRowPreview: View {
     }
 }
 
-private struct SidebarRowPreview: View {
+private struct SidebarPreview: View {
     var body: some View {
-        SidebarRow(isSelected: true) {
-            Label("Dashboard", systemImage: "square.grid.2x2")
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            SidebarSection(title: "Core", showsChevron: false) {
+                SidebarNavigationRow(systemImage: "calendar", title: "Today", isSelected: true) {}
+                SidebarNavigationRow(systemImage: "tray.full", title: "Inbox", isSelected: false) {}
+            }
+
+            SidebarSection(title: "Library") {
+                SidebarDocumentRow(systemImage: "doc.text", title: "Exam Sprint", detail: "47 days") {}
+                SidebarTagRow(title: "Math") {}
+            }
+
+            SidebarSection(title: "Tools", showsChevron: false) {
+                SidebarUtilityRow(systemImage: "gearshape", title: "Settings") {}
+                SidebarUtilityRow(systemImage: "trash", title: "Trash", trailingSystemImage: "arrow.up.right") {}
+            }
+
+            SidebarStatusFooter(title: "Synced", detail: "Updated just now")
         }
+        .background(Color.surfaceSidebar)
     }
 }
 

@@ -88,11 +88,27 @@ import CoreDesign
     .padding()
 }
 
-#Preview("SidebarRow") {
-    SidebarRow(isSelected: true) {
-        Label("Dashboard", systemImage: "square.grid.2x2")
+#Preview("Sidebar") {
+    VStack(alignment: .leading, spacing: CoreSpacing.md) {
+        SidebarSection(title: "Core", showsChevron: false) {
+            SidebarNavigationRow(systemImage: "calendar", title: "Today", isSelected: true) {}
+            SidebarNavigationRow(systemImage: "tray.full", title: "Inbox", isSelected: false) {}
+        }
+
+        SidebarSection(title: "Library") {
+            SidebarDocumentRow(systemImage: "doc.text", title: "Exam Sprint", detail: "47 days") {}
+            SidebarTagRow(title: "Math") {}
+        }
+
+        SidebarSection(title: "Tools", showsChevron: false) {
+            SidebarUtilityRow(systemImage: "gearshape", title: "Settings") {}
+            SidebarUtilityRow(systemImage: "trash", title: "Trash", trailingSystemImage: "arrow.up.right") {}
+        }
+
+        SidebarStatusFooter(title: "Synced", detail: "Updated just now")
     }
     .padding()
+    .background(Color.surfaceSidebar)
 }
 
 #Preview("UnderlinedTabBar") {
