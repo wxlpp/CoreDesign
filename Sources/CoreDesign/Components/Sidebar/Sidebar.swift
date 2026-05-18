@@ -107,7 +107,7 @@ public struct SidebarNavigationRow: View {
                 Image(systemName: self.systemImage)
                     .font(CoreTypography.bodyLargeFont)
                     .foregroundStyle(SidebarTextStyle.secondary)
-                    .frame(width: CoreSpacing.xl)
+                    .frame(width: CoreControlMetrics.iconSize(for: .large))
                     // 装饰性图标：button 的可访问名由 title 驱动，隐藏图标避免
                     // VoiceOver 朗读 SF Symbol 名 / Decorative leading icon.
                     .accessibilityHidden(true)
@@ -160,7 +160,7 @@ public struct SidebarUtilityRow: View {
                 Image(systemName: self.systemImage)
                     .font(CoreTypography.bodyLargeFont)
                     .foregroundStyle(SidebarTextStyle.secondary)
-                    .frame(width: CoreSpacing.xl)
+                    .frame(width: CoreControlMetrics.iconSize(for: .large))
                     // 装饰性图标：button 的可访问名由 title 驱动，隐藏图标避免
                     // VoiceOver 朗读 SF Symbol 名 / Decorative leading icon.
                     .accessibilityHidden(true)
@@ -218,7 +218,7 @@ public struct SidebarDocumentRow: View {
                 Image(systemName: self.systemImage)
                     .font(CoreTypography.titleMediumFont)
                     .foregroundStyle(SidebarTextStyle.secondary)
-                    .frame(width: CoreSpacing.xl)
+                    .frame(width: CoreControlMetrics.iconSize(for: .large))
                     // 装饰性图标：可访问名由 title / detail 驱动
                     // Decorative leading icon.
                     .accessibilityHidden(true)
@@ -266,7 +266,7 @@ public struct SidebarTagRow: View {
                 Text("#")
                     .font(CoreTypography.titleMediumFont)
                     .foregroundStyle(SidebarTextStyle.secondary)
-                    .frame(width: CoreSpacing.xl)
+                    .frame(width: CoreControlMetrics.iconSize(for: .large))
                     // 装饰性 tag 标记：避免 VoiceOver 读成 "number sign"，
                     // 可访问名由 title 驱动 / Decorative tag glyph.
                     .accessibilityHidden(true)
@@ -362,13 +362,13 @@ private struct SidebarSelectedBackgroundModifier: ViewModifier {
             // 会与 floatingGlass 内部的 glass 双重渲染材质，已移除。
             // floatingGlass already applies the interactive glass; the extra
             // outer glassEffect was redundant double material — removed.
+            // 单一 shape 来源：floatingGlass 与描边 overlay 共用，避免 corner
+            // radius / style 改动时两处不同步 / Single shape source.
+            let shape = RoundedRectangle(cornerRadius: CoreRadius.mediumPlus)
             content
-                .floatingGlass(
-                    in: RoundedRectangle(cornerRadius: CoreRadius.mediumPlus),
-                    isInteractive: true
-                )
+                .floatingGlass(in: shape, isInteractive: true)
                 .overlay {
-                    RoundedRectangle(cornerRadius: CoreRadius.mediumPlus)
+                    shape
                         .strokeBorder(Color.borderSelected, lineWidth: CoreBorderWidth.thin)
                 }
                 .coreShadow(.medium)
