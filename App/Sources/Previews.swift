@@ -99,6 +99,13 @@ import CoreDesign
             SidebarDocumentRow(systemImage: "doc.text", title: "Exam Sprint", detail: "47 days") {}
             SidebarTagRow(title: "Math") {}
         }
+
+        SidebarSection(title: "Tools", showsChevron: false) {
+            SidebarUtilityRow(systemImage: "gearshape", title: "Settings") {}
+            SidebarUtilityRow(systemImage: "trash", title: "Trash", trailingSystemImage: "arrow.up.right") {}
+        }
+
+        SidebarStatusFooter(title: "Synced", detail: "Updated just now")
     }
     .padding()
     .background(Color.surfaceSidebar)
