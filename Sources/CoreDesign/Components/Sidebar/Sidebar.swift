@@ -7,6 +7,14 @@ import SwiftUI
 
 // MARK: - Sidebar Text Style
 
+/// Semantic text-color aliases for sidebar content.
+///
+/// Maps to the content semantic tokens (`contentPrimary` / `contentMuted` /
+/// `contentSubtle`) so custom sidebar content stays visually consistent with
+/// the built-in rows. Use these instead of raw color hues.
+///
+/// 侧栏文本配色语义别名 / SidebarTextStyle：自定义侧栏内容时复用，保证与内置
+/// row 一致。
 public enum SidebarTextStyle {
     public static let primary = Color.contentPrimary
     public static let secondary = Color.contentMuted
@@ -15,6 +23,14 @@ public enum SidebarTextStyle {
 
 // MARK: - Sidebar Section
 
+/// Titled group container for sidebar rows.
+///
+/// Renders a section header (title + optional disclosure chevron + decorative
+/// overflow glyph) above a leading-aligned stack of row content.
+///
+/// **Material layer**: container. **Surface role**: sidebar.
+///
+/// 侧栏分组容器 / SidebarSection：标题 + 可选 chevron 头部 + 内容行堆叠。
 public struct SidebarSection<Content: View>: View {
     public init(
         title: String,
@@ -53,7 +69,7 @@ public struct SidebarSection<Content: View>: View {
             }
             .padding(.horizontal, CoreSpacing.sm)
 
-            VStack(spacing: CoreSpacing.xxs) {
+            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                 self.content
             }
         }
@@ -66,6 +82,12 @@ public struct SidebarSection<Content: View>: View {
 
 // MARK: - Sidebar Rows
 
+/// Primary navigation entry with a selected state.
+///
+/// Icon + title button row; when `isSelected` is true it carries the
+/// floating-glass selected background (see `sidebarSelectedBackground(_:)`).
+///
+/// 侧栏主导航行 / SidebarNavigationRow：图标 + 标题，选中态带 floating-glass 背景。
 public struct SidebarNavigationRow: View {
     public init(
         systemImage: String,
@@ -110,6 +132,12 @@ public struct SidebarNavigationRow: View {
     private let action: () -> Void
 }
 
+/// Secondary utility entry with an optional trailing affordance.
+///
+/// Single-action row: leading icon + title, with an optional decorative
+/// `trailingSystemImage` (no separate action — the whole row is one button).
+///
+/// 侧栏工具行 / SidebarUtilityRow：图标 + 标题 + 可选装饰性 trailing 图标，整行单一 action。
 public struct SidebarUtilityRow: View {
     public init(
         systemImage: String,
@@ -162,6 +190,12 @@ public struct SidebarUtilityRow: View {
     private let action: () -> Void
 }
 
+/// Document entry with a trailing detail label.
+///
+/// Leading icon + title with a trailing `detail` string (e.g. a count or
+/// relative date); `detail` stays VoiceOver-readable while the icon is hidden.
+///
+/// 侧栏文档行 / SidebarDocumentRow：图标 + 标题 + 尾部 detail（计数 / 日期等）。
 public struct SidebarDocumentRow: View {
     public init(
         systemImage: String,
@@ -211,6 +245,12 @@ public struct SidebarDocumentRow: View {
     private let action: () -> Void
 }
 
+/// Tag entry rendered with a leading `#` glyph.
+///
+/// Title-only navigation row prefixed by a decorative `#`; the accessible
+/// name is driven by `title` alone.
+///
+/// 侧栏标签行 / SidebarTagRow：`#` 前缀 + 标题。
 public struct SidebarTagRow: View {
     public init(title: String, action: @escaping () -> Void) {
         self.title = title
@@ -252,8 +292,19 @@ public struct SidebarTagRow: View {
     private let action: () -> Void
 }
 
+/// Footer showing a status dot with title/detail text.
+///
+/// Non-interactive footer (status dot + two-line label) combined into a
+/// single accessibility element. `statusColor` defaults to the semantic
+/// `statusSuccessForeground` token.
+///
+/// 侧栏状态页脚 / SidebarStatusFooter：状态点 + 标题/详情，默认成功语义色。
 public struct SidebarStatusFooter: View {
-    public init(title: String, detail: String, statusColor: Color = .green) {
+    public init(
+        title: String,
+        detail: String,
+        statusColor: Color = .statusSuccessForeground
+    ) {
         self.title = title
         self.detail = detail
         self.statusColor = statusColor
@@ -325,6 +376,12 @@ private struct SidebarSelectedBackgroundModifier: ViewModifier {
 }
 
 public extension View {
+    /// Applies the sidebar selected-state background when `isSelected` is true.
+    ///
+    /// Floating-glass material + selected-color stroke + shadow. Used by
+    /// `SidebarNavigationRow`; reuse on custom rows to match selection styling.
+    ///
+    /// 侧栏选中态背景 modifier / sidebarSelectedBackground：floating-glass + 选中描边 + 阴影。
     func sidebarSelectedBackground(_ isSelected: Bool) -> some View {
         self.modifier(SidebarSelectedBackgroundModifier(isSelected: isSelected))
     }
