@@ -124,6 +124,9 @@ public struct SidebarNavigationRow: View {
             .contentShape(RoundedRectangle(cornerRadius: CoreRadius.mediumPlus))
         }
         .buttonStyle(.plain)
+        // 向辅助技术暴露选中态，让 VoiceOver 用户感知当前导航目标
+        // （对齐 SegmentedControl）/ Expose selected state to a11y.
+        .accessibilityAddTraits(self.isSelected ? .isSelected : [])
     }
 
     private let systemImage: String
