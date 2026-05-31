@@ -79,6 +79,13 @@ traits: [
 - 调用方启用：`.package(url: "...", from: "...", traits: ["Blossom"])`，或 Xcode package trait 勾选 UI。
 - 源码内用 `#if Blossom` 直接分流（已确认 trait 名可直接作为编译条件，无需映射 local trait）。
 
+#### 工具链兼容性（不引入新的下游排除）
+Package Traits 是 Swift **6.1** 引入的特性，而本包 manifest **本来就 pin 在 `swift-tools-version: 6.3`**，并要求 `iOS 26 / macOS 26` 平台。结论：
+- **任何能解析现有 manifest 的工具链必然 ≥ 6.3 > 6.1，必然支持 traits。** 引入 traits **不新增任何下游排除**——低于 6.3 的消费者在本特性之前就已无法消费本包。
+- 因此**无需 fallback 或 version-gating**：traits 的版本下限严格低于既有约束。
+- README 仅声明 iOS 26+/macOS 26+，**未对外承诺过低于 6.3 的工具链支持**；本包目前**无 CI**（`.github/workflows/` 为空），不存在需要兼容的历史契约。
+- 若未来确实要支持 < 6.3 的消费者，那是一个独立于本主题的、针对整个包的降级决策，不在本 spec 范围内。
+
 ### 4.2 颜色分层与分流点（分流压到最低）
 
 ```
