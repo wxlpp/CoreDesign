@@ -16,6 +16,10 @@ let package = Package(
             targets: ["CoreDesign"]
         ),
     ],
+    traits: [
+        .trait(name: "Blossom", description: "暖悦风格 · 珊瑚粉糖果渐变女性向主题 / Coral-pink candy-gradient feminine theme"),
+        .default(enabledTraits: []),
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.

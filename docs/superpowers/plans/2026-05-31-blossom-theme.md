@@ -57,7 +57,7 @@ Every colorset is a folder `<name>.colorset/` containing one `Contents.json`. Li
 
 - [ ] **Step 1: Add the `traits:` parameter**
 
-Insert a `traits:` array into the `Package(...)` call. Place it right after the `platforms:` block (before `products:`):
+Insert a `traits:` array into the `Package(...)` call. SwiftPM enforces argument order, so it must go **after `products:`** (before `targets:`) — placing it before `products` fails with "argument 'products' must precede argument 'traits'":
 
 ```swift
 let package = Package(
@@ -66,15 +66,15 @@ let package = Package(
         .iOS("26.0"),
         .macOS("26.0"),
     ],
-    traits: [
-        .trait(name: "Blossom", description: "暖悦风格 · 珊瑚粉糖果渐变女性向主题 / Coral-pink candy-gradient feminine theme"),
-        .default(enabledTraits: []),
-    ],
     products: [
         .library(
             name: "CoreDesign",
             targets: ["CoreDesign"]
         ),
+    ],
+    traits: [
+        .trait(name: "Blossom", description: "暖悦风格 · 珊瑚粉糖果渐变女性向主题 / Coral-pink candy-gradient feminine theme"),
+        .default(enabledTraits: []),
     ],
     targets: [
         .target(
