@@ -9,6 +9,20 @@ import Foundation
 import SwiftUI
 
 /// brand
+#if Blossom
+public extension Color {
+    static let brand0 = Color("blossom-brand-0", bundle: .module)
+    static let brand1 = Color("blossom-brand-1", bundle: .module)
+    static let brand2 = Color("blossom-brand-2", bundle: .module)
+    static let brand3 = Color("blossom-brand-3", bundle: .module)
+    static let brand4 = Color("blossom-brand-4", bundle: .module)
+    static let brand5 = Color("blossom-brand-5", bundle: .module)
+    static let brand6 = Color("blossom-brand-6", bundle: .module)
+    static let brand7 = Color("blossom-brand-7", bundle: .module)
+    static let brand8 = Color("blossom-brand-8", bundle: .module)
+    static let brand9 = Color("blossom-brand-9", bundle: .module)
+}
+#else
 public extension Color {
     static let brand0 = Color("brand-0", bundle: .module)
     static let brand1 = Color("brand-1", bundle: .module)
@@ -21,6 +35,7 @@ public extension Color {
     static let brand8 = Color("brand-8", bundle: .module)
     static let brand9 = Color("brand-9", bundle: .module)
 }
+#endif
 
 /// amber
 public extension Color {
