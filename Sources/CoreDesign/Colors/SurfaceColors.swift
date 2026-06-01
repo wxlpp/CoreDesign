@@ -47,7 +47,11 @@ public extension Color {
     /// 页面级最底层背景；接近现有 `surfaceBase`，新代码优先使用本 token。
     /// 由 `canvas/canvas-default.colorset` 提供 light/dark 双值。
     static var surfaceCanvas: Color {
+        #if Blossom
+        Color("blossom-canvas-default", bundle: .module)
+        #else
         Color("canvas-default", bundle: .module)
+        #endif
     }
 
     /// Craft-tuned muted canvas，源自 Primer `bgColor.muted` 语义，但取值改为
@@ -55,7 +59,11 @@ public extension Color {
     /// 次级内容区背景（侧栏 / 表格头），接近现有 `surfaceRaised`，新代码优先使用本 token。
     /// 由 `canvas/canvas-subtle.colorset` 提供 light/dark 双值。
     static var surfaceCanvasSubtle: Color {
+        #if Blossom
+        Color("blossom-canvas-subtle", bundle: .module)
+        #else
         Color("canvas-subtle", bundle: .module)
+        #endif
     }
 
     /// Craft-tuned inset canvas，源自 Primer `bgColor.inset` 语义，但取值改为
@@ -63,7 +71,11 @@ public extension Color {
     /// 凹陷 well / 输入框内底色；现有 token 中无对应项，必须用新 colorset。
     /// 由 `canvas/canvas-inset.colorset` 提供 light/dark 双值。
     static var surfaceCanvasInset: Color {
+        #if Blossom
+        Color("blossom-canvas-inset", bundle: .module)
+        #else
         Color("canvas-inset", bundle: .module)
+        #endif
     }
 
     /// Primer concept: panel surface (Web 端 `bgColor.muted` 的容器化表现)。
