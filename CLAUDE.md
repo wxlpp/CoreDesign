@@ -31,6 +31,22 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 新增组件时优先使用第 3、4 层名称。如果缺少需要的语义 token，应在对应文件中补充新名称，而不是把第 1 层色相硬编码进组件。
 
+### 主题系统（Package Traits）
+
+CoreDesign 通过 SwiftPM **Package Trait** 在编译期切换风格方案，调用方"导入即主题"，组件代码零改动。
+
+- `Package.swift` 声明 trait：默认 `.default(enabledTraits: [])`（= Craft 蓝色主题，零变化）；当前唯一非默认 trait 是 `Blossom`（暖悦风格 · 珊瑚粉糖果渐变女性向）。注意 `traits:` 参数必须排在 `products:` 之后（SwiftPM 参数顺序约束）。
+- 调用方启用：`.package(url: "...", traits: ["Blossom"])`，或在 Xcode package 依赖的 trait 勾选 UI 中开启。
+- 源码内用 `#if Blossom` 直接分流（trait 名可直接作为编译条件，无需 local trait 映射）。
+- **分流点压到最低**：只有资源层 `ColorGrade.brand0…9`、`SurfaceColors` 的三个 `surfaceCanvas*`、以及 `secondary` / `secondaryAccent` 两组语义别名带 `#if Blossom`。`accent` / `primary` 指向 `brand5` 自动继承；状态色 (`StatusColors`) 不分流，保持标准语义色。
+- Blossom 色板由 `Resources.xcassets/blossom-brand/*`、`blossom-canvas/*` 提供（light/dark 双值）。
+- 两种构建模式都需保持绿：`swift build` / `swift test`（默认）与 `swift build --traits Blossom` / `swift test --traits Blossom`（Blossom）。
+- **新增 colorset 后必须 `swift package clean` 再构建/测试**：macOS SPM 以目录形式而非 `.car` 分发 `.xcassets`，增量构建不会拷贝新加的目录，资源存在测试会静默失败。
+
+### 渐变 token 层（CoreGradient）
+
+`Colors/CoreGradient.swift` 暴露 `CoreGradient.brand / cta / canvas`，类型为 `AnyShapeStyle`，使纯色与渐变可互换。Blossom 下为真实 `LinearGradient`，默认主题退化为对应纯色（`Color.accent` / `Color.surfaceCanvas`），现有观感零变化。组件可统一写 `.background(CoreGradient.canvas)` / `.fill(CoreGradient.cta)`。
+
 ### 按钮样式模式
 
 所有按钮样式遵循统一形态：`*ButtonStyle: ButtonStyle` + 在 `ButtonStyle where Self == ...` 上扩展 `static func *Button(role:) -> Self`，通过单个 `ButtonRoleStyleRole` 枚举（`Components/Button/ButtonRoleStyleRole.swift`）参数化。该枚举是 `color` / `activeColor` / `disabledColor` 的唯一来源——新增 role 时应扩展此枚举，而不是为每个样式各自定义调色板。样式从 `@Environment(\.controlSize)` 读取尺寸、从 `\.isEnabled` 决定禁用配色。重度使用 iOS 26 的 `.glassEffect()`；`LightButtonStyle` 会按 `colorScheme` 分支：暗色用 `glassEffect`，亮色用柔和阴影代替。
