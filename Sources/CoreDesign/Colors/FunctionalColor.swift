@@ -14,10 +14,17 @@ extension Color {
     static let primaryDisable: Color = .brand2
     static let primaryHover: Color = .brand6
 
+    #if Blossom
+    static let secondary: Color = .violet5
+    static let secondaryActive: Color = .violet7
+    static let secondaryDisable: Color = .violet2
+    static let secondaryHover: Color = .violet6
+    #else
     static let secondary: Color = .lightBlue5
     static let secondaryActive: Color = .lightBlue7
     static let secondaryDisable: Color = .lightBlue2
     static let secondaryHover: Color = .lightBlue6
+    #endif
 
     static let tertiary: Color = .grey5
     static let tertiaryActive: Color = .grey7
