@@ -2,7 +2,7 @@
 name: coredesign-audit-remediation
 status: backlog
 created: 2026-07-18T14:03:55Z
-updated: 2026-07-18T14:03:55Z
+updated: 2026-07-18T22:31:25Z
 progress: 0%
 prd: .claude/prds/coredesign-audit-remediation.md
 github: (will be set on sync)
@@ -60,63 +60,103 @@ github: (will be set on sync)
 
 `#1` 含 `defaultIsolation(MainActor.self)`——改变全库编译语义，必须最先合入。CI 部分因 Xcode 26 / iOS 26 Simulator runner 可用性未验证而带四级降级决策树，但不阻塞其它 Issue。
 
-`#7` 重建测试质量：删除恒真断言、补 Blossom 分流断言、补布局断言层。
+`#7` 重建测试质量：删除恒真断言、补 Blossom 分流断言。**布局断言层不在 `#7`，由 `#4` 随 Dynamic Type 改造一并落地**——安全网必须与它守护的改动同批合入。
 
 ## Implementation Strategy
 
-### 关键发现：本 epic 近乎全串行，不是并行任务集
+### 关键发现：本 epic 以串行为主，并行窗口有限且须逐对验算
 
 按 PRD 要求生成了真实的 owner 矩阵（扫描各 Issue 承载审计项的证据行号 + `CoreTypography` / legacy status token 的实际消费者）：
 
 ```
-触及文件 51 个，其中 27 个被多个 Issue 触碰，共 29 个冲突对
+触及文件 51 个，其中 28 个被多个 Issue 触碰，共 30 个冲突对
 
 5方  MenuButton.swift        #3 #5 #9 #10 #11
 4方  Banner.swift            #2 #4 #10 #11
 4方  BottomInputBar.swift    #4 #6 #8 #11
 4方  CommentCard.swift       #4 #6 #10 #11
+4方  Sidebar.swift           #4 #5 #10 #11
 4方  Toast.swift             #2 #4 #9 #10
 3方  AvatarGroup / Badge / BookCover / CheckBox / SegmentedControl /
-     Sidebar / StateLabel / StatusRow / TimelineItem
+     StateLabel / StatusRow / TimelineItem
 2方  另 13 个文件
 
-冲突最密的对：#4↔#10 共享 11 文件、#10↔#11 与 #4↔#11 与 #4↔#6 各 6 个
+冲突最密的对：#4↔#10 共享 12 文件、#10↔#11 共享 7、#4↔#11 共享 6、#4↔#6 共享 5
 ```
 
-**`#4` 是串行枢纽**——它与其它 8 个 Issue 冲突，因为 Dynamic Type 改造要触及全部 26 个 `CoreTypography` 消费者，几乎等于每个组件文件。
+**`#4` 是串行枢纽**——它与其它 **7** 个 Issue（`#2` `#5` `#6` `#8` `#9` `#10` `#11`）冲突，因为 Dynamic Type 改造要触及全部 `CoreTypography` 消费者，几乎等于每个组件文件。不冲突的是 `#1`（构建配置）、`#3`（`CheckBox`/`MenuButton` 均零 `CoreTypography` 引用）、`#7`（仅测试文件）。
 
-这否定了「11 个 Issue 并行推进」的模型。PRD 起草期间三次写出「某某可并行」的断言、三次被 grep 证伪，正是同一现象在不同尺度上的反映。本 epic 因此采用**串行为主、两个并行窗口**的执行模型。
+`#4` 的触及集 = 24 个 `CoreTypography.` 消费者（94 处，与 PRD FR-3 一致）+ `RefPill`（D3 的 `.caption.monospaced()`）+ `SolidButtonStyle`/`LightButtonStyle`（`font(for:)` → `fontToken(for:)`），共 **27 文件**；排除 `#6` 将整删的 `EmptyState.swift` 后实际改动 **26 文件**。
 
-### 执行顺序
+其中 `Sidebar.swift` 有 16 处 `CoreTypography.` 引用，是全库最高的单文件消费者——`#5` 的 B5 骨架收敛完成后会缩到约 6 处，这是把 `#4` 排在 `#5` 之后的又一收益。
+
+这否定了「11 个 Issue 自由并行推进」的模型。PRD 起草期间三次写出「某某可并行」的断言、三次被 grep 证伪，正是同一现象在不同尺度上的反映。
+
+但**反过来过度串行同样是成本**。逐对验算全部 55 个 Issue 组合后，找到三组交集为空、可真正并发的窗口（见下）。规则是一致的：**并行必须由矩阵逐对证明，不能靠直觉断言**。
+
+### 执行顺序（三个并行窗口）
+
+矩阵逐对验算后，有三组交集为空、可真正并发：
+
+```
+#5 ∩ #6  = ∅      #10 ∩ #8 = ∅      #11 ∩ #7 = ∅
+```
+
+据此的推荐调度（各 Issue 后的文件清单是**主要触及点，非穷举**；穷举以任务拆解时生成的 owner 矩阵为准）：
 
 ```
 阶段 0（硬前置）
   #1  构建配置        defaultIsolation 改变全库编译语义，须最先合入
 
-阶段 1（token 与 API 基础，顺序执行）
-  #2  色彩层重组      StatusColors / Toast / Badge / Banner / Form / CheckBox / StatusRow
+阶段 1（token 与 API 基础）
+  #2  色彩层重组      FunctionalColor / InteractionColors / BorderColors / StatusColors /
+                      Toast / Badge / Banner / Form / CheckBox / StatusRow / Previews
                       ├─ 须让 StatusColorsTests 重新编译通过（否则 #2 自身验证不绿）
+                      └─ 用「毒丸 commit」让编译器穷举遮蔽符号的残留引用（见下）
   #3  公开 API 与改名  CheckBox / BorderlessButtonStyle / ButtonRoleStyleRole / MenuButton
+
+阶段 2（并行窗口 1）
   #5  按钮 + Sidebar   四个 ButtonStyle / MenuButton / Sidebar / TelegramGlassButtonModifier
-  #6  死代码清理      EmptyState(整删) / BottomInputBar / CommentCard / RefPill /
-                      SegmentedControl / TimelineItem / BookCover / CheckBox
+  #6  死代码清理      EmptyState / View+SizeReader / KeyboardHandling（三者整删）+
+                      BottomInputBar / CommentCard / RefPill / SegmentedControl /
+                      TimelineItem / BookCover / CheckBox / CoreGradient / BorderModifier
+  （#5 ∩ #6 = ∅。#6 是承载项最多的 Issue（18 项），与 #5 并行直接缩短最长的一段关键路径）
 
-阶段 2（组件横扫，顺序执行）
-  #4  Dynamic Type    26 个 CoreTypography 消费者 —— 排在 #6 之后，避免迁移
-                      EmptyState 这个即将被整删的文件；排在 #5 之后，避免与按钮
-                      font 行收敛撞车
-  #10 API 形态统一    与 #4 共享 11 个文件，必须紧随其后
+阶段 3（串行枢纽）
+  #4  Dynamic Type    27 文件（排除 #6 整删的 EmptyState 后改 26）—— 排在 #6 之后避免
+                      迁移即将被删的文件；排在 #5 之后，等 B5 把 Sidebar 的 16 处
+                      CoreTypography 引用收敛到约 6 处、B3d 把四个 ButtonStyle 的
+                      font 行收敛成单一 modifier
+                      └─ 布局断言层在此编写（见 DoD 说明）
 
-阶段 3（并行窗口，两组无共享文件）
+阶段 4（并行窗口 2）
+  #10 API 形态统一    与 #4 共享 12 个文件，必须紧随其后
   #8  可访问性        BottomInputBar / UnderlinedTabBar / Form
-  #9  本地化          Toast / MenuButton / BookCover
-  （矩阵确认 #8 ∩ #9 = ∅，可并发）
+  （#10 ∩ #8 = ∅）
 
-阶段 4（收尾）
+阶段 5
+  #9  本地化          Toast / MenuButton / BookCover（与 #10 共享 MenuButton/Toast，须在其后）
+
+阶段 6（并行窗口 3）
   #11 机械清理        文档 / 目录 / gitignore / 硬编码数值 / Preview 补全
                       —— CLAUDE.md 被 #2/#6/#11 三方触碰，统一在此改一次
-  #7  测试质量重建    代码稳定后再重建断言，避免反复返工
+  #7  测试质量重建    恒真断言清理 + Blossom 分流断言
+  （#11 ∩ #7 = ∅。#11 是机械清理，不改测试所依赖的行为，无需等它）
 ```
+
+**对 PRD 分解规则的有意修订**：PRD Dependencies 写「`#4` 应整体排在结构性收敛（`#5`/`#6`/`#10`）之前或之后统一定序，不可与它们交错」，而本 epic 把 `#4` 插在 `#6` 与 `#10` 之间。这是刻意偏离——`#10` 的 API 形态重塑应当在字体迁移后的代码上做，否则同一批 12 个文件要改两遍。此处记录以免 SC-7 对账时被当成文档矛盾。
+
+### A1 型静默重解析的编译器兜底（`#2` 必做）
+
+三处被遮蔽符号的引用（`CheckBox.swift:31`、`StatusRow.swift:80`、`CoreGradient+Preview.swift:17`）在符号删除后**不报错**，只会静默改解析到 SwiftUI 内建成员。仅靠「逐处显式改写」是过程纪律，不是机制保障。
+
+**改用编译器强制枚举**：先不删，而是给 `FunctionalColor` 的 12 个遮蔽符号加一个中间 commit——
+
+```swift
+@available(*, unavailable, message: "shadows SwiftUI builtin; use contentPrimary or an explicit token")
+```
+
+编译一次，编译器会穷举报出全部残留使用点（含任何审计未发现的）。逐处改写后再删符号。成本是一次中间 commit，收益是把「靠人逐处找」换成「编译器保证无遗漏」。
 
 ### 分支拓扑
 
@@ -125,25 +165,27 @@ epic 集成分支 `epic/coredesign-audit-remediation`（off `main`）。每个 I
 ### 每个 Issue 的完成定义
 
 1. 四条 SwiftPM 命令绿：`swift build` / `swift test` / 两者的 `--traits Blossom` 版本
-2. `#4` 额外需第 5 条：`xcodebuild test -destination 'platform=iOS Simulator,name=iPhone 17 Pro'`
+2. `#4` 额外需第 5 条：`xcodebuild test -destination 'platform=iOS Simulator,name=iPhone 17 Pro'`。**布局断言层由 `#4` 自己编写**，不放在 `#7`——否则 `#4` 完成时该命令下无任何 `#if os(iOS)` 测试可跑，等于空转，而 Dynamic Type + Sidebar 裁切正是全 epic 风险最高的改动，其安全网必须与改动同批落地。`#7` 只负责恒真断言清理与 Blossom 分流断言。这也与 PRD US-2 把布局断言写在 Dynamic Type 名下的归属一致
 3. 更新 `audit-checklist.md` 中本 Issue 承载条目的状态（SC-7 判定基础）
-4. 新增 colorset 后须 `swift package clean` 再验证
+4. **新增或删除** colorset 后须 `swift package clean` 再验证——`#2` 要删 4 个 `status-accent-*.colorset`，不 clean 时 `.build` 里的陈旧拷贝会让「孤儿资产已清除」类验证假绿
 
 ## Task Breakdown Preview
 
-| # | 任务 | 承载项 | 依赖 | 并行 |
+「依赖」列写的是**真实文件级前置**（共享文件才算依赖），不是阶段链——阶段链另见上方推荐调度。两者分开，是为了让后续重排或 agent 自主调度不被假依赖锁死。
+
+| # | 任务 | 承载项 | 真实依赖（共享文件） | 可与之并行 |
 |---|---|---|---|---|
-| 1 | 构建配置前置：CI + `defaultIsolation` + 预览宿主 trait | 5 | — | 否（硬前置） |
-| 2 | 色彩层重组 | 12 | #1 | 否 |
-| 3 | 公开 API 修复与改名 | 6 | #2 | 否 |
-| 4 | Dynamic Type 改造 | 2 | #5, #6 | 否（串行枢纽） |
-| 5 | 按钮体系 + Sidebar 收敛 | 8 | #3 | 否 |
-| 6 | 死代码清理与现代化 | 18 | #5 | 否 |
-| 7 | 测试质量重建 + Blossom 断言 | 4 | #11 | 否 |
-| 8 | 可访问性 | 3 | #10 | 是（与 #9） |
-| 9 | 本地化 String Catalog | 1 | #10 | 是（与 #8） |
-| 10 | 公开 API 形态统一 | 9 | #4 | 否 |
-| 11 | 机械清理 | 10 | #8, #9 | 否 |
+| 1 | 构建配置前置：CI + `defaultIsolation` + 预览宿主 trait | 5 | — | 无（硬前置，须最先合入） |
+| 2 | 色彩层重组 | 12 | #1 | — |
+| 3 | 公开 API 修复与改名 | 6 | #2（CheckBox） | #4 |
+| 4 | Dynamic Type 改造 | 2 | #2, #5, #6 | #3 |
+| 5 | 按钮体系 + Sidebar 收敛 | 8 | #3（BorderlessButtonStyle、MenuButton） | **#6** |
+| 6 | 死代码清理与现代化 | 18 | #2, #3（CheckBox） | **#5** |
+| 7 | 测试质量重建 + Blossom 断言 | 4 | #2（StatusColorsTests）, #4 | **#11** |
+| 8 | 可访问性 | 3 | #2（Form）, #4, #6（BottomInputBar） | **#9, #10** |
+| 9 | 本地化 String Catalog | 1 | #4, #6（BookCover）, #10（MenuButton、Toast） | #8 |
+| 10 | 公开 API 形态统一 | 9 | #3, #4 | **#8** |
+| 11 | 机械清理 | 10 | #5, #6, #9, #10 | **#7** |
 
 任务数 11，超出 ccpm「≤10」的建议一项。保留 11 的理由：第 2 轮评审明确要求把原 #10 二分为「公开 API 形态设计」与「机械清理」——前者是设计决策、后者是文本改动，混在一个 Issue 里会让评审粒度失配。合并回去会牺牲评审质量。
 
@@ -165,24 +207,38 @@ epic 集成分支 `epic/coredesign-audit-remediation`（off `main`）。每个 I
 
 ## Success Criteria (Technical)
 
-1. 下游消费包能编译使用全部文档所述 public API（0 个 `inaccessible` / `cannot find in scope`）
-2. `grep -rn "#if Blossom" Sources/ | wc -l` 从 9 降至 8
-3. 10 个 typography token 全部支持缩放；`CoreControlMetrics` 不再暴露返回 `Font` 的 API
-4. CI workflow ≥1，覆盖五条命令（runner 受限时降级为本地 pre-push 闸门）
-5. 恒真断言归零，判定依据是 `#7` 产出的逐文件处置清单
-6. ≥1 个测试能区分默认与 Blossom 的实际颜色值（light `#0077FA` vs `#FF6F8E`）
-7. `audit-checklist.md` 83 项全部标记「已修复」或「记录不修 + 理由」
-8. `Sidebar` row 代码量从约 120 行降至约 50 行
+标注每条的**可机械判定程度**——这是 SC 能否作为自动闸门的前提：
+
+| # | 标准 | 判定 |
+|---|---|---|
+| 1 | 下游消费包能编译使用全部文档所述 public API（0 个 `inaccessible` / `cannot find in scope`） | 机械（probe 包进 CI）。**若 CI 降级，本条随之降级为本地执行**——与 SC-4 同一降级路径 |
+| 2 | `grep -rn "#if Blossom" Sources/ \| wc -l` 从 9 降至 8 | 机械 |
+| 3 | 10 个 typography token 全部支持缩放；`CoreControlMetrics` 不再暴露返回 `Font` 的 API | 后半机械（grep 返回类型）；前半靠 `#4` 的 iOS 布局断言兜底 |
+| 4 | CI workflow ≥1，覆盖五条命令（runner 受限时降级为本地 pre-push 闸门） | 机械 |
+| 5 | 恒真断言归零 | `#7` 附录落盘后机械 |
+| 6 | ≥1 个测试能区分默认与 Blossom 的实际颜色值（light `#0077FA` vs `#FF6F8E`） | 机械 |
+| 7 | `audit-checklist.md` 83 项全部标记「已修复」或「记录不修 + 理由」 | 机械（核对命令已实测输出 83 / 78） |
+| 8 | `Sidebar` 四种 row 的实现代码 **≤ 60 行** | 机械（原表述「约 120 → 约 50」不可判定，改为硬上限） |
 
 ## Estimated Effort
 
-**11 个 Issue，近乎全串行**——关键路径几乎等于总工作量，只有阶段 3 的 `#8`/`#9` 能并发。
+**11 个 Issue，以串行为主，三个并行窗口**（`#5∥#6`、`#10∥#8`、`#11∥#7`）。关键路径仍接近总工作量，但比全串行方案明显缩短——尤其 `#6`（承载项最多）与 `#5` 并行的那一段。
 
-按承载项数与波及面，工作量最重的三个：
-- `#6`（18 项，8 个文件，含整文件删除）
-- `#4`（2 项但波及 26 个文件 / 94 处，是全 epic 改动面最大的单项）
-- `#2`（12 项，含三处 A1 型静默重解析，必须逐处显式改写而非依赖编译器）
+按承载项数与波及面，工作量最重的四个：
 
-最轻的是 `#9`（1 项）与 `#4` 的项数——注意**项数不等于工作量**，`#4` 是典型反例。
+| Issue | 项数 | 触及文件 | 说明 |
+|---|---|---|---|
+| `#6` | 18 | 约 16 个 swift + CLAUDE.md + 3 个 docs | 含 `EmptyState` / `View+SizeReader` / `KeyboardHandling` 三个整文件删除及其测试 |
+| `#4` | 2 | 27（改动 26） | 全 epic 改动面最大的单项，`Sidebar` 一文件就有 16 处 |
+| `#10` | 9 | 约 16 | 全是设计级改动（`StatusLevel` 合并、style 协议化、`@ViewBuilder` init），按文件数与 `#6` 同量级 |
+| `#2` | 12 | 11 + 4 个 colorset + 4 个 docs | 含三处 A1 型静默重解析，须用毒丸 commit 让编译器穷举 |
+
+**项数不等于工作量**——`#4` 只有 2 项却是最大改动面，`#10` 项数中等但每项都是设计决策，两者都是反例。最轻的是 `#9`（1 项 / 3 文件）。
 
 **首要风险**：`#1` 的 CI runner 可用性未验证。若 hosted runner 不支持 Xcode 26 + iOS 26 Simulator，CI 降级为本地 pre-push 脚本；这不阻塞其它 Issue（验证以本地命令为准），但会使 `#4` 的布局断言层失去自动化守护。
+
+**其余需在任务定义中钉死的风险点：**
+
+- **`#1` 的 `defaultIsolation` fallout 未建模**：全库默认隔离翻转可能在任意组件或测试冒出并发诊断，届时 `#1` 被迫改组件文件，而矩阵没建模这一点，还可能白改 `#6` 即将删除的 `KeyboardHandling.swift`。约束：诊断修复最小化、只加注解不重构、落在 `#6` 删除名单内的文件不做任何整理、诊断量超出预期则停下回报而非硬修。
+- **`#6` 的 B7a「至少一处组件真实消费 `CoreGradient`」是矩阵盲点**：消费点文件未指定，若选中 `#5` 的文件（如某个 ButtonStyle）会静默破坏 `#5 ∩ #6 = ∅` 的并行前提。约束：消费点必须钉在 `#6` 自有文件内（`BookCover` 或 `CommentCard`）。
+- **`#9` 会触碰 `Package.swift`**：SPM 对含 `.xcstrings` 的 target 强制要求 `defaultLocalization`。这是一处未建模的跨 Issue 触碰（`Package.swift` 属 `#1`）。时序上无冲突（`#9` 在后），但须写进 `#9` 范围并要求四条 trait 命令复验。
