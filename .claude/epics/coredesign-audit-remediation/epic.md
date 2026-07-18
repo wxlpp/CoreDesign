@@ -2,7 +2,7 @@
 name: coredesign-audit-remediation
 status: backlog
 created: 2026-07-18T14:03:55Z
-updated: 2026-07-18T22:43:01Z
+updated: 2026-07-18T22:49:40Z
 progress: 0%
 prd: .claude/prds/coredesign-audit-remediation.md
 github: (will be set on sync)
@@ -274,3 +274,26 @@ epic 集成分支 `epic/coredesign-audit-remediation`（off `main`）。每个 I
 - **`#1` 的 `defaultIsolation` fallout 未建模**：全库默认隔离翻转可能在任意组件或测试冒出并发诊断，届时 `#1` 被迫改组件文件，而矩阵没建模这一点，还可能白改 `#6` 即将删除的 `KeyboardHandling.swift`。约束：诊断修复最小化、只加注解不重构、落在 `#6` 删除名单内的文件不做任何整理、诊断量超出预期则停下回报而非硬修。
 - **`#6` 的 B7a「至少一处组件真实消费 `CoreGradient`」是矩阵盲点**：消费点文件未指定，若选中 `#5` 的文件（如某个 ButtonStyle）会静默破坏 `#5 ∩ #6 = ∅` 的并行前提。约束：消费点必须钉在 `#6` 自有文件内（`BookCover` 或 `CommentCard`）。
 - **`#9` 会触碰 `Package.swift`**：SPM 对含 `.xcstrings` 的 target 强制要求 `defaultLocalization`。这是一处未建模的跨 Issue 触碰（`Package.swift` 属 `#1`）。时序上无冲突（`#9` 在后），但须写进 `#9` 范围并要求四条 trait 命令复验。
+
+## Tasks Created
+
+- [ ] 001.md - 构建配置前置：CI、defaultIsolation、预览宿主 trait (parallel: false) — M / 8h
+- [ ] 002.md - 色彩层重组 (parallel: false) — L / 16h
+- [ ] 003.md - 公开 API 修复与改名 (parallel: false) — M / 8h
+- [ ] 004.md - Dynamic Type 改造 (parallel: false) — XL / 24h
+- [ ] 005.md - 按钮体系 + Sidebar 收敛 (parallel: true) — L / 12h
+- [ ] 006.md - 死代码清理与现代化 (parallel: true) — XL / 20h
+- [ ] 007.md - 测试质量重建 + Blossom 断言 (parallel: true) — M / 8h
+- [ ] 008.md - 可访问性 (parallel: true) — S / 3h
+- [ ] 009.md - 本地化 String Catalog (parallel: false) — XS / 3h
+- [ ] 010.md - 公开 API 形态统一 (parallel: true) — L / 20h
+- [ ] 011.md - 机械清理 (parallel: true) — M / 12h
+
+Total tasks: 11
+Parallel tasks: 6
+Sequential tasks: 5
+Estimated total effort: 134 hours
+
+**并行窗口带来的实际收益**：三个已验证的零交集窗口（`005∥006`、`010∥008`、`011∥007`）把关键路径从 134h 压到约 **99h**——`006`(20h) 藏在 `005`(12h) 后、`008`(3h) 藏在 `010`(20h) 后、`007`(8h) 藏在 `011`(12h) 后，各省下并行组中较短的一支。
+
+**元数据校验（已实测）**：无循环依赖；`conflicts_with` 全对称；11 个任务承载数 5/12/6/2/8/18/4/3/1/9/10 = 78，与 audit-checklist 的 78 修项逐项吻合；三个并行窗口在 frontmatter 中保持（互不出现在对方 `conflicts_with`）。
