@@ -72,3 +72,6 @@ fastlane/test_output
 
 # Superpowers brainstorming visual companion
 .superpowers/
+
+# omsp runtime mode state (per-project, not shared)
+.claude/omsp/
