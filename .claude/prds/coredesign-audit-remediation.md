@@ -22,7 +22,11 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
 **为什么现在要做？**
 
-1. **存在会误导使用者的真 bug。** `Colors/FunctionalColor.swift:11-12` 在 `Color` 上定义了 `static let primary/secondary/tertiary`，与 SwiftUI 内建同名。模块内本地定义静默胜出（实测确认，无歧义报错），`Components/CheckBox/CheckBox.swift:31` 的 `.foregroundStyle(Color.primary)` 实际解析到 `.brand5`，而该文件 21-23 行的注释还写着"light/dark 自动适配系统外观"。文档与行为直接矛盾。
+1. **存在会误导使用者的真 bug。** `Colors/FunctionalColor.swift:11-12` 在 `Color` 上定义了 `static let primary/secondary/tertiary`，与 SwiftUI 内建同名。模块内本地定义静默胜出（实测确认，无歧义报错），已确认**两处产品代码受害**：
+   - `Components/CheckBox/CheckBox.swift:31` 的 `.foregroundStyle(Color.primary)` 实际解析到 `.brand5`，而该文件 21-23 行的注释还写着"light/dark 自动适配系统外观"。文档与行为直接矛盾。
+   - `Components/StatusRow/StatusRow.swift:80` 的 `case .skipped: return .secondary` 处于返回 `Color` 的上下文，解析到 `.lightBlue5`（Blossom 下 `.violet5`）——skipped 状态图标渲染成浅蓝/紫罗兰而非作者意图的中性灰。
+
+   这类 bug 的隐蔽性在于**删除遮蔽符号时也不会报错**，只会静默改变解析目标，因此修复必须逐处显式改写而非依赖编译器。
 
 2. **公开 API 表面有断裂，且已实测。** 在 scratchpad 建下游消费包逐条 probe，确认以下符号下游不可达：
    - `CheckBox.swift:24` `CheckBoxToggleStyle` → `error: cannot find 'CheckBoxToggleStyle' in scope`（而 `:52` 文档写着"业务侧通常直接使用"）
@@ -127,7 +131,10 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - **`#2` 的仓内触及清单**（删除 token 会波及但不一定报错的地方，须逐一处理）：
   - `Tests/CoreDesignTests/StatusColorsTests.swift` —— `:10-13` 引用四个 `statusAccent*`、`:48-62` 引用 12 个 legacy token，两组都被本 FR 删除，该测试文件**整体编译失败**。须随 `#2` 一并改写（它本身也在 #7 的恒真断言清单里，见下方依赖说明）
   - `App/Sources/Previews.swift:233` —— `Circle().fill(Color.statusAccentEmphasis)`，须改用其它 token 或删除该色块
-  - `Sources/CoreDesign/Colors/CoreGradient+Preview.swift:17` —— `RoundedRectangle(...).fill(Color.secondary)`。**这是最危险的一处**：删除 `FunctionalColor.secondary` 后此行**不报错**，而是静默改解析到 SwiftUI 内建 `Color.secondary`（系统灰），Blossom 视觉冒烟 Preview 的色块会从 violet 悄悄变灰。这正是 A1 遮蔽 bug 的又一实例（审计项 B1c 原写「引用数为 0」有误，已更正）。须显式改为期望的语义 token
+  - `Sources/CoreDesign/Components/StatusRow/StatusRow.swift:80` —— **最危险的一处，在产品代码里**。`case .skipped: return .secondary` 处于返回 `Color` 的上下文，今天解析到 `FunctionalColor.secondary`（默认 `lightBlue5`、Blossom 下 `violet5`），即 skipped 行图标当前渲染成浅蓝/紫罗兰而非作者意图的系统灰。删除后此行**不报错**，静默改解析到 SwiftUI 内建灰——恰好"治好"这个 bug，但属未声明的产品视觉变化，须在 `#2` 中显式改写并记入 NFR 视觉例外
+  - `Sources/CoreDesign/Colors/CoreGradient+Preview.swift:17` —— `RoundedRectangle(...).fill(Color.secondary)`，同型静默重解析。Blossom 视觉冒烟 Preview 的色块会从 violet 悄悄变灰。须显式改为期望的语义 token
+  - 删除 `status-accent-{fg,emphasis,muted,subtle}.colorset` 四个资源目录，避免留下孤儿资产（含 D19 的笔误 colorset）
+  - `docs/components/` 下引用被删 token 的示例：`timeline-item.md:24`（`statusAccentEmphasis`）、`form-icons.md:27,67`、`banner.md:34`、`toast.md:65`（legacy token）。`docs/superpowers/plans/` 下的历史计划文档是归档，不改
 
 ### FR-2 公开 API 修复与改名
 
@@ -219,6 +226,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
   4. Dynamic Type 缩放生效
   5. **7 处系统字号 → token 的字号归一**（`.subheadline` 为 15pt，无精确对应 token，迁移必有小幅字号变化）
   6. `statusAccent*` 整组移除。库内**零渲染消费点**（`Sources/` 仅有定义），故产品代码观感无变化；但仓内仍有两处引用须同步处理——`Tests/CoreDesignTests/StatusColorsTests.swift:10-13` 与 `App/Sources/Previews.swift:233`（预览宿主的一个色块，删除后该色块消失）
+  7. **`StatusRow` 的 skipped 图标从浅蓝（Blossom 下紫罗兰）变为系统灰**——这是修复 A1 遮蔽的直接结果，即把该图标恢复成作者原本意图的中性色
 - **性能**：消除 body 内的重复图片解码与每帧 `AnyShapeStyle` 装箱
 - **代码风格**：遵循仓库既有约定（显式 `self.`、中英双语注释、`#Preview` 与组件同文件）
 
@@ -297,23 +305,36 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - **`#1` 须最先合入**。它含 `defaultIsolation(MainActor.self)`（审计项 C7a）——这个开关改变**全库编译语义**，所有文件在新隔离默认值下重新检查，可能在任意组件冒出并发诊断。若它晚于 `#2`–`#11` 落地，期间写的代码会在开关合入时批量报错。故 C7a/C7b 从 #6 移入 #1，并作为唯一的硬性顺序约束
 - `#1` 的 **CI 部分**不阻塞任何 Issue——其余 Issue 的"验证绿"以 NFR 前四条 SwiftPM 命令为准；**第 5 条（`xcodebuild` iOS Simulator 布局断言）只有 `#4` 需要**。CI 若因 runner 受限而降级，只影响门禁形态，不影响验证标准
 - `#5` 依赖 `#3`（含 `CoreBorderlessButtonStyle` 改名，两者改同一批文件）
-- `#4` 与 `#5` **无文件冲突**：B2b（Sidebar `minHeight`）已明确归 #5 实施，#4 只在 FR-3 声明需求
+- `#4` 与 `#5` **有文件冲突**：B2b（Sidebar `minHeight`）已归 #5 实施化解了一处，但 FR-3 的 `CoreControlMetrics.font(for:)` → `fontToken(for:)` 改造要改写全部四个 ButtonStyle 的 font 调用行，而 #5 的 B3d 正在把这些行收敛成共享 modifier——同文件同行级冲突，须串行
 - `#2` 与 `#4` **无依赖**：色彩与 typography 分属不同文件，实测重叠仅 `CheckBox` 一处
 - `#7` 与 `#1` 相互独立，但 `#1` 的 CI 就绪后 `#7` 的成果才能进门禁
 - `#2` 与 `#7` 须协同：`StatusColorsTests.swift` 同时是 `#2` 的破坏对象（引用被删的 token）与 `#7` 的改写对象（恒真断言）。**由 `#2` 负责让它编译通过**（删掉引用已删 token 的断言），`#7` 再做恒真断言的整体清理。否则 `#2` 单独落地时 `swift test` 必红，违反其自身验证标准
 
-**文件级冲突（并行派工须据此串行化）：**
+**文件级冲突：分解时须生成 owner 矩阵，不可依赖本节穷举**
 
-`#8`/`#9`/`#10`/`#11` **逻辑上独立于主线，但存在同文件触碰**，ccpm 分解时须按下表划定串行对，不可无条件并发：
+**没有任何一组 Issue 可以无条件并发。** `#4` 一项就波及 24 文件 / 94 处（FR-3 自述），在 PRD 层面逐对枚举冲突注定挂一漏万——第 3 轮曾断言「#8/#9/#10/#11 可全程并行」、第 4 轮又断言「#4 与 #5 无文件冲突」，两条都被 grep 证伪。因此改为规则约束：
 
-| 冲突对 | 同一文件 | 说明 |
+> **分解规则**：ccpm 分解时须按各 task 的实际触及文件生成 **owner 矩阵**，**同文件即串行**。`#4` 因波及面最大而成为串行枢纽，应整体排在结构性收敛（`#5`/`#6`/`#10`）之前或之后统一定序，不可与它们交错。
+
+下表是**已知高危冲突示例**（用于校验 owner 矩阵是否合理，非穷举清单）：
+
+| 文件 | 涉及 Issue | 冲突性质 |
 |---|---|---|
-| `#8` ↔ `#6` | `BottomInputBar.swift` | #8 改 `:150,160,172` 加 a11y label；#6 改 `:87,138` 删死代码、`:297-438` 收敛 body |
-| `#10` ↔ `#4` | `StateLabel.swift`、`StatusRow.swift` | #10 改 `:39-40` 存储属性、`:65-109` switch、init 形态；#4 改 `:50`/`:46` 系统字号迁移，行号相邻 |
-| `#11` ↔ `#3` | `MenuButton.swift` | #11 改 `:136,146` 硬编码数值；#3 做 `MenuButton` → `CoreMenuButton` 改名 |
-| `#2` / `#6` / `#11` 三方 | `CLAUDE.md` | #2 改分层描述、#6 删 `.getSize` 描述、#11 改 `.focusedExternally` 描述 |
-
-建议串行顺序：`#3` → `#11`（MenuButton）、`#6` → `#8`（BottomInputBar）、`#4` → `#10`（StateLabel/StatusRow）；`CLAUDE.md` 的三处改动集中到最后一个落地的 Issue 一次性完成，或由 Epic 收尾统一处理
+| `MenuButton.swift` | #3（改名）/ #5（B8a）/ #9（D2 中文串）/ #10（D5）/ #11（D12） | 五方 |
+| `CommentCard.swift` | #4（D3）/ #6（B8c）/ #10（D4）/ #11（D12） | 四方 |
+| `Toast.swift` | #2（legacy 迁移）/ #9（D2）/ #10（B8e 枚举合并） | 三方 |
+| `Banner.swift` | #2（迁移）/ #10（B8b、B8e）/ #11（D9 **整文件移目录**） | 三方，含移动 vs 编辑 |
+| `TimelineItem.swift` | #6（B9b）/ #10（D4）/ #11（D12） | 三方 |
+| `Sidebar.swift` | #5（B5、B2b）/ #10（D6b）/ #11（D18） | 三方 |
+| `ButtonRoleStyleRole.swift` | #3（A2c）/ #5（resolvedColor）/ #10（D5） | 三方 |
+| `AvatarGroup.swift` | #4（D3）/ #10（D4）/ #11（D12） | 三方 |
+| `BottomInputBar.swift` | #4（D3 `:302,376`）/ #6（B8h `:297-308,374-381`）/ #8（D1a） | 三方，#4 与 #6 **同 hunk** |
+| 四个 ButtonStyle 文件 | #4（`fontToken` 改造）/ #5（B3d 收敛 font 行） | 同行级 |
+| `StatusRow.swift` | #2（A1 `:80`）/ #4（D3 `:46`）/ #10（B8f、D4） | 三方 |
+| `SegmentedControl.swift` | #6（B9d）/ #10（B8g、D7） | 两方 |
+| `Form.swift` | #2（`:101` legacy）/ #8（D1c） | 两方 |
+| `RefPill.swift` | #4（D3 + mono token）/ #6（B8d） | 两方 |
+| `CLAUDE.md` | #2（分层描述）/ #6（删 `.getSize`）/ #11（`.focusedExternally`） | 三方；建议由 Epic 收尾统一改一次 |
 
 **外部依赖：**
 - Xcode 26 / Swift 6.3 工具链
