@@ -1,6 +1,15 @@
 # 审计清单 — coredesign-audit-remediation
 
-四路并行 agent 审计（token 层 / 公开 API / 重复代码 / 构建测试基建）产出的完整缺陷清单，共 **52 项**。本文件是 PRD Success Criteria SC-7 的判定依据：每项须标记为「已修复」或「记录不修 + 理由」。
+四路并行 agent 审计（token 层 / 公开 API / 重复代码 / 构建测试基建）产出的完整缺陷清单，共 **83 项**（簇 A 7 / 簇 B 36 / 簇 C 17 / 簇 D 23）。本文件是 PRD Success Criteria SC-7 的判定依据：每项须标记为「已修复」或「记录不修 + 理由」。
+
+计数口径：**按本文件簇 A–D 四张表的数据行计**（每行一项），而非按顶层 ID 计（顶层 ID 有 40 个，多项带 a/b/c 后缀细分）。SC-7 引用的数字须与本行一致。
+
+核对命令（末尾统计段的「不修理由」表也以 `| C3 |` 形态开头，须减去其 5 行）：
+
+```bash
+echo $(( $(grep -c '^| [A-D][0-9]' audit-checklist.md) - 5 ))   # => 83
+grep -oE '\| #[0-9]+ \|$' audit-checklist.md | sort -V | uniq -c  # 各 Issue 承载数，求和 => 78
+```
 
 基线（审计时）：`swift build`、`swift test`（96 tests / 32 suites）、`swift build --traits Blossom` 全绿、零 warning。
 
@@ -37,7 +46,7 @@
 | B4a | `textFieldSize` 写入后从不读取，每次布局白跑 GeometryReader + PreferenceKey 往返 | `BottomInputBar.swift:87,138` | FR-5 | #6 |
 | B4b | `View+SizeReader.swift` 整文件是 B4a 的唯一支撑，删后可整体移除 | `View+SizeReader.swift`（51 行） | FR-5 | #6 |
 | B4c | `KeyboardHandling.swift` 中 `KeyboardReadable`、`dismissKeyboardOnTap`、`resignFirstResponder`、`becomeFirstResponder` 全仓零引用；`becomeFirstResponder` 泄漏宿主 app 私有通知名且未标 `@MainActor` | `KeyboardHandling.swift:18-76,112-167` | FR-5 | #6 |
-| B4d | `KeyboardHeightPublisherFactory` 无生产调用点，仅被测试消费 | `KeyboardHandling.swift:78-110` | FR-5 | #6 |
+| B4d | `KeyboardHeightPublisherFactory` 仅被自身文件内零引用的 `KeyboardReadable` 默认实现（`:60`）与测试消费，无生产调用点 | `KeyboardHandling.swift:60,78-110` | FR-5 | #6 |
 | B5 | `Sidebar` 四个 row 是同一 row 的四份拷贝（约 120 行可降至 50） | `Sidebar.swift:104-130,157-188,215-243,263-292` | FR-4 | #5 |
 | B6a | `StatusColors` 新旧两套并行 scale，组件随机选边 | `StatusColors.swift:13-59` vs `:63-77` | FR-1 | #2 |
 | B6b | legacy 组属层级违规（语义层直接引用第 1 层原子色 `blue7`/`blue1`/`blue3`） | `StatusColors.swift:63-77` | FR-1 | #2 |
@@ -72,16 +81,16 @@
 | C4b | 现有 Blossom asset guard 未覆盖分流同样依赖的 `violet-0…9` 与 `cyan-1` | `CoreDesignTests.swift:21-37` | FR-6 | #7 |
 | C5 | 零测试文件：`CheckBox`、`Form`、`MenuButton`、四个 ButtonStyle、`ButtonRoleStyleRole`、全部 token 层（仅 `CoreButtonMetrics` 有）、全部 modifier、`StarShape`、`ColorExtension` | `ls Tests/CoreDesignTests/` | FR-6 | #7 |
 | C6a | 无版本 tag（`git tag -l` 为空），README 让下游 `branch: "main"` | — | — | 记录不修（Out of Scope：不管下游） |
-| C6b | README 称「15 documented components」但实际 24 个组件目录 / 26 个 Preview | `README.md` | FR-6 | #10 |
-| C7a | `Package.swift` 无 `swiftSettings`，未启用 `defaultIsolation` | `Package.swift` | FR-6 | #6 |
-| C7b | `.iOS("26.0")` 用字符串形式而非枚举 case | `Package.swift:9` | FR-6 | #6 |
+| C6b | README 称「15 documented components」但实际 24 个组件目录 / 26 个 Preview | `README.md` | FR-6 | #11 |
+| C7a | `Package.swift` 无 `swiftSettings`，未启用 `defaultIsolation` | `Package.swift` | FR-6 | #1 |
+| C7b | `.iOS("26.0")` 用字符串形式而非枚举 case | `Package.swift:9` | FR-6 | #1 |
 | C8 | 无 lint/format 配置，而 CLAUDE.md 规定的「显式 `self.`」恰是 SwiftLint 可强制的规则 | 根目录 | — | 记录不修（本轮不引入新工具链，另开一轮） |
 | C9a | `App/project.yml` 的 `xcodeVersion: "16.0"` 与 iOS 26.0 部署目标自相矛盾 | `App/project.yml` | FR-6 | #1 |
 | C9b | 预览宿主未声明 `traits`，Blossom 在唯一视觉验证载体里看不到 | `App/project.yml` | FR-6 | #1 |
-| C10a | 缺 LICENSE | 根目录 | FR-6 | #10 |
+| C10a | 缺 LICENSE | 根目录 | FR-6 | #11 |
 | C10b | 缺 CHANGELOG | 根目录 | — | 记录不修（无版本契约，CHANGELOG 无意义） |
-| C10c | `.gitignore` 中 `.superpowers/` 重复两次 | `.gitignore` | FR-6 | #10 |
-| C10d | `.claude/`、`.agents/`、`AGENTS.md` 状态悬空（既未 ignore 也未 tracked） | `git status` | FR-6 | #10 |
+| C10c | `.gitignore` 中 `.superpowers/` 重复两次 | `.gitignore` | FR-6 | #11 |
+| C10d | `.claude/`、`.agents/`、`AGENTS.md` 状态悬空（既未 ignore 也未 tracked） | `git status` | FR-6 | #11 |
 
 ## 簇 D · 一致性与可访问性
 
@@ -98,24 +107,33 @@
 | D6b | 部分组件只收 `String`，无法插图标或富文本 | `StateLabel`、`StatusRow`、`EventRow`、`SidebarNavigationRow` | FR-7 | #10 |
 | D7 | `SegmentedControl` 的 `glass: Bool` 是布尔 hack，有真实多外观需求应升级为 style 协议 | `SegmentedControl.swift:27,33` | FR-4 | #10 |
 | D8 | `BorderModifier` 用 `stroke` 而非全仓约定的 `strokeBorder`；`cornerRadius: 0` 写成 `RoundedRectangle` 误导；写死矩形无法用于 Capsule | `BorderModifier.swift:20` | FR-5 | #6 |
-| D9 | `Banner.swift` 直接放 `Components/` 根目录，其余组件都是 `Components/<Name>/<Name>.swift` | — | FR-7 | #10 |
+| D9 | `Banner.swift` 直接放 `Components/` 根目录，其余组件都是 `Components/<Name>/<Name>.swift` | — | FR-7 | #11 |
 | D10 | `CoreRadius.full = 9999` 是死 token，所有 pill 场景都用 `Capsule()` | `CoreRadius.swift:59` | FR-5 | #6 |
 | D11 | `danger = .red4` 而同组全用 5 档，但其 Active/Hover 又按 5 档基准配，致 hover 反差大一档（`ButtonRoleStyleRole.danger` 走此值，是真实渲染差异） | `FunctionalColor.swift:44` | FR-1 | #2 |
-| D12 | 硬编码数值本应引用 token | `MenuButton.swift:136,146`、`TimelineItem.swift:74,99-104`、`CommentCard.swift:59`、`BottomInputBar.swift:221`、`AvatarGroup.swift:33-40,76-85` | FR-7 | #10 |
+| D12 | 硬编码数值本应引用 token | `MenuButton.swift:136,146`、`TimelineItem.swift:74,99-104`、`CommentCard.swift:59`、`BottomInputBar.swift:221`、`AvatarGroup.swift:33-40,76-85` | FR-7 | #11 |
 | D13 | 层级违规：语义层直接引用第 1 层原子色而非同层别名 | `BorderColors.swift:53`、`InteractionColors.swift:32` | FR-1 | #2 |
 | D14 | Blossom 下 accent 语义漂移：侧栏选中粉、focus ring 蓝、accent 状态色蓝；注释与代码不符 | `BorderColors.swift:46-54`（含 `:50` 注释）、`StatusColors.swift:13-19` | FR-1 | #2 |
-| D15 | `FillColors` 平台分支缺 `#else`，与同层两个桥接文件写法不一致；两条件皆不成立时无 return | `FillColors.swift:16-23,30-37,44-51,58-65` | FR-7 | #10 |
-| D16a | `StateLabel` 文档只列 4 个 style 而枚举实际 6 个 | `StateLabel.swift:28` vs `:14-21` | FR-7 | #10 |
-| D16b | CLAUDE.md 称 `.focusedExternally` 是 `Utils/` 通用辅助，实际是 `BottomInputBar` 内的 private extension | `BottomInputBar.swift:200-212` | FR-7 | #10 |
+| D15 | `FillColors` 平台分支缺 `#else`，与同层两个桥接文件写法不一致；两条件皆不成立时无 return | `FillColors.swift:16-23,30-37,44-51,58-65` | FR-7 | #11 |
+| D16a | `StateLabel` 文档只列 4 个 style 而枚举实际 6 个 | `StateLabel.swift:28` vs `:14-21` | FR-7 | #11 |
+| D16b | CLAUDE.md 称 `.focusedExternally` 是 `Utils/` 通用辅助，实际是 `BottomInputBar` 内的 private extension | `BottomInputBar.swift:200-212` | FR-7 | #11 |
 | D17 | `StarShape` public 但除自身 Preview 外零引用 | `StarShape.swift:10` | — | 记录不修（可能为下游预留，本轮仅记录） |
-| D18 | `Sidebar`（391 行 / 6 个 public 组件）与两个 public modifier 无 `#Preview` | `Sidebar.swift`、`FloatingGlassModifier.swift`、`TelegramGlassButtonModifier.swift` | FR-7 | #10 |
+| D18 | `Sidebar`（391 行 / 6 个 public 组件）与两个 public modifier 无 `#Preview` | `Sidebar.swift`、`FloatingGlassModifier.swift`、`TelegramGlassButtonModifier.swift` | FR-7 | #11 |
+| D19 | `statusAccentEmphasis` 的 light 值 `#DDF4FF` 与 `statusAccentMuted` 完全相同，但注释写 "bold accent background" 且 dark 值是正确的 Primer emphasis `#1F6FEB`——light 值系 colorset 笔误。第 2 轮评审新发现，随 `statusAccent*` 整组删除而消解 | `status-accent-emphasis.colorset` vs `status-accent-muted.colorset` | FR-1 | #2 |
 
 ---
 
 ## 统计
 
-- 总计 **52 项**
-- 计划修复 **46 项**
-- 记录不修 **6 项**：C3（视觉回归策略已定）、C6a（不管下游，无版本契约）、C8（不引入新工具链）、C10b（无版本契约）、D17（可能为下游预留）、以及 C3 关联的快照 baseline 升级
+- 总计 **83 项**（数据行计）
+- 计划修复 **78 项**
+- 记录不修 **5 项**：
 
-不修项的理由均对应 PRD 的 Out of Scope 或已定决策，非遗漏。
+| ID | 不修理由 | 对应 PRD 依据 |
+|---|---|---|
+| C3 | 视觉回归策略已定为「只生成 + agent 审美」 | Out of Scope 第 1 条 |
+| C6a | 不管下游，不建立版本契约 | Out of Scope 第 3 条 |
+| C8 | 本轮不引入新工具链 | Out of Scope 第 8 条 |
+| C10b | 无版本契约，CHANGELOG 无意义 | Out of Scope 第 3 条 |
+| D17 | `StarShape` 可能为下游预留，仅记录 | Out of Scope 第 5 条 |
+
+各 Issue 承载项数：#1=5、#2=12、#3=6、#4=2、#5=8、#6=18、#7=4、#8=3、#9=1、#10=9、#11=10，不修 5。合计 **83**。
