@@ -124,6 +124,10 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - **`statusAccent*` 整组删除**，而非映射到 accent 别名。理由：(a) 库内零渲染消费点（grep 证实除定义外无引用）；(b) 各档位无法干净映射——`statusAccentEmphasis` light 是淡蓝洗色 `#DDF4FF`、`statusAccentMuted`/`Subtle` 的 dark 值是 13.3%/6.7% alpha 叠加，而 accent 家族全是不透明纯色，叠在不同 surface 上不可等价；(c) 语义与 accent 家族重复；(d) `statusAccentEmphasis` 的 light 值与 `statusAccentMuted` 完全相同而注释写 "bold accent background"，系 colorset 笔误（审计项 D19）。下游若需中性强调色，直接用 accent 家族
 - `StatusColors` 新体系补 `*Border` 档，`Toast`/`Badge`/`Banner`/**`Form`** 全量迁移（`Form.swift:101` 使用 legacy `Color.dangerForeground`，`:92,99` 文档注释同样引用，漏改会直接编译失败），legacy 组（`StatusColors.swift:63-77`）删除
 - 同步更新 CLAUDE.md 分层描述
+- **`#2` 的仓内触及清单**（删除 token 会波及但不一定报错的地方，须逐一处理）：
+  - `Tests/CoreDesignTests/StatusColorsTests.swift` —— `:10-13` 引用四个 `statusAccent*`、`:48-62` 引用 12 个 legacy token，两组都被本 FR 删除，该测试文件**整体编译失败**。须随 `#2` 一并改写（它本身也在 #7 的恒真断言清单里，见下方依赖说明）
+  - `App/Sources/Previews.swift:233` —— `Circle().fill(Color.statusAccentEmphasis)`，须改用其它 token 或删除该色块
+  - `Sources/CoreDesign/Colors/CoreGradient+Preview.swift:17` —— `RoundedRectangle(...).fill(Color.secondary)`。**这是最危险的一处**：删除 `FunctionalColor.secondary` 后此行**不报错**，而是静默改解析到 SwiftUI 内建 `Color.secondary`（系统灰），Blossom 视觉冒烟 Preview 的色块会从 violet 悄悄变灰。这正是 A1 遮蔽 bug 的又一实例（审计项 B1c 原写「引用数为 0」有误，已更正）。须显式改为期望的语义 token
 
 ### FR-2 公开 API 修复与改名
 
@@ -214,7 +218,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
   3. **默认主题下 `borderFocus` 从 Primer 蓝 `#0969DA`/`#1F6FEB` 统一到品牌 accent `#0077FA`/`#3295FB`**——别名继承方案的必然代价，影响 `SearchField` focus ring 与 `.focusRing()` 默认参数
   4. Dynamic Type 缩放生效
   5. **7 处系统字号 → token 的字号归一**（`.subheadline` 为 15pt，无精确对应 token，迁移必有小幅字号变化）
-  6. `statusAccent*` 整组移除（库内零渲染消费点，故实际观感无变化；仅影响下游 token 消费者）
+  6. `statusAccent*` 整组移除。库内**零渲染消费点**（`Sources/` 仅有定义），故产品代码观感无变化；但仓内仍有两处引用须同步处理——`Tests/CoreDesignTests/StatusColorsTests.swift:10-13` 与 `App/Sources/Previews.swift:233`（预览宿主的一个色块，删除后该色块消失）
 - **性能**：消除 body 内的重复图片解码与每帧 `AnyShapeStyle` 装箱
 - **代码风格**：遵循仓库既有约定（显式 `self.`、中英双语注释、`#Preview` 与组件同文件）
 
@@ -291,12 +295,25 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
 **内部依赖（Issue 间）：**
 - **`#1` 须最先合入**。它含 `defaultIsolation(MainActor.self)`（审计项 C7a）——这个开关改变**全库编译语义**，所有文件在新隔离默认值下重新检查，可能在任意组件冒出并发诊断。若它晚于 `#2`–`#11` 落地，期间写的代码会在开关合入时批量报错。故 C7a/C7b 从 #6 移入 #1，并作为唯一的硬性顺序约束
-- `#1` 的 **CI 部分**不阻塞任何 Issue——其余 Issue 的"验证绿"以四条本地命令为准（见 NFR）。CI 若因 runner 受限而降级，只影响门禁形态，不影响验证标准
+- `#1` 的 **CI 部分**不阻塞任何 Issue——其余 Issue 的"验证绿"以 NFR 前四条 SwiftPM 命令为准；**第 5 条（`xcodebuild` iOS Simulator 布局断言）只有 `#4` 需要**。CI 若因 runner 受限而降级，只影响门禁形态，不影响验证标准
 - `#5` 依赖 `#3`（含 `CoreBorderlessButtonStyle` 改名，两者改同一批文件）
 - `#4` 与 `#5` **无文件冲突**：B2b（Sidebar `minHeight`）已明确归 #5 实施，#4 只在 FR-3 声明需求
 - `#2` 与 `#4` **无依赖**：色彩与 typography 分属不同文件，实测重叠仅 `CheckBox` 一处
 - `#7` 与 `#1` 相互独立，但 `#1` 的 CI 就绪后 `#7` 的成果才能进门禁
-- `#8`、`#9`、`#10`、`#11` 与主线无冲突，可全程并行
+- `#2` 与 `#7` 须协同：`StatusColorsTests.swift` 同时是 `#2` 的破坏对象（引用被删的 token）与 `#7` 的改写对象（恒真断言）。**由 `#2` 负责让它编译通过**（删掉引用已删 token 的断言），`#7` 再做恒真断言的整体清理。否则 `#2` 单独落地时 `swift test` 必红，违反其自身验证标准
+
+**文件级冲突（并行派工须据此串行化）：**
+
+`#8`/`#9`/`#10`/`#11` **逻辑上独立于主线，但存在同文件触碰**，ccpm 分解时须按下表划定串行对，不可无条件并发：
+
+| 冲突对 | 同一文件 | 说明 |
+|---|---|---|
+| `#8` ↔ `#6` | `BottomInputBar.swift` | #8 改 `:150,160,172` 加 a11y label；#6 改 `:87,138` 删死代码、`:297-438` 收敛 body |
+| `#10` ↔ `#4` | `StateLabel.swift`、`StatusRow.swift` | #10 改 `:39-40` 存储属性、`:65-109` switch、init 形态；#4 改 `:50`/`:46` 系统字号迁移，行号相邻 |
+| `#11` ↔ `#3` | `MenuButton.swift` | #11 改 `:136,146` 硬编码数值；#3 做 `MenuButton` → `CoreMenuButton` 改名 |
+| `#2` / `#6` / `#11` 三方 | `CLAUDE.md` | #2 改分层描述、#6 删 `.getSize` 描述、#11 改 `.focusedExternally` 描述 |
+
+建议串行顺序：`#3` → `#11`（MenuButton）、`#6` → `#8`（BottomInputBar）、`#4` → `#10`（StateLabel/StatusRow）；`CLAUDE.md` 的三处改动集中到最后一个落地的 Issue 一次性完成，或由 Epic 收尾统一处理
 
 **外部依赖：**
 - Xcode 26 / Swift 6.3 工具链
