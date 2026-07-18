@@ -2,7 +2,7 @@
 name: coredesign-audit-remediation
 status: backlog
 created: 2026-07-18T14:03:55Z
-updated: 2026-07-18T22:31:25Z
+updated: 2026-07-18T22:43:01Z
 progress: 0%
 prd: .claude/prds/coredesign-audit-remediation.md
 github: (will be set on sync)
@@ -77,16 +77,19 @@ github: (will be set on sync)
 4方  CommentCard.swift       #4 #6 #10 #11
 4方  Sidebar.swift           #4 #5 #10 #11
 4方  Toast.swift             #2 #4 #9 #10
-3方  AvatarGroup / Badge / BookCover / CheckBox / SegmentedControl /
-     StateLabel / StatusRow / TimelineItem
+3方  AvatarGroup / Badge / BookCover / ButtonRoleStyleRole / CheckBox /
+     SegmentedControl / StateLabel / StatusRow / TimelineItem
 2方  另 13 个文件
+
+（计数口径：**仅 Sources / Tests / App 下的 .swift 文件**，不含 docs、资源目录、
+ CLAUDE.md、Package.swift 等非源码触碰点。1×5方 + 5×4方 + 9×3方 + 13×2方 = 28）
 
 冲突最密的对：#4↔#10 共享 12 文件、#10↔#11 共享 7、#4↔#11 共享 6、#4↔#6 共享 5
 ```
 
 **`#4` 是串行枢纽**——它与其它 **7** 个 Issue（`#2` `#5` `#6` `#8` `#9` `#10` `#11`）冲突，因为 Dynamic Type 改造要触及全部 `CoreTypography` 消费者，几乎等于每个组件文件。不冲突的是 `#1`（构建配置）、`#3`（`CheckBox`/`MenuButton` 均零 `CoreTypography` 引用）、`#7`（仅测试文件）。
 
-`#4` 的触及集 = 24 个 `CoreTypography.` 消费者（94 处，与 PRD FR-3 一致）+ `RefPill`（D3 的 `.caption.monospaced()`）+ `SolidButtonStyle`/`LightButtonStyle`（`font(for:)` → `fontToken(for:)`），共 **27 文件**；排除 `#6` 将整删的 `EmptyState.swift` 后实际改动 **26 文件**。
+`#4` 的触及集 = 24 个 `CoreTypography.` 消费者（94 处，与 PRD FR-3 一致）+ `RefPill`（D3 的 `.caption.monospaced()`）+ `AvatarGroup`（D3 的 `:59` `.caption2`，该文件零 `CoreTypography` 引用故不在 24 之内）+ `SolidButtonStyle`/`LightButtonStyle`（`font(for:)` → `fontToken(for:)`），共 **28 文件**；排除 `#6` 将整删的 `EmptyState.swift` 后实际改动 **27 文件**。
 
 其中 `Sidebar.swift` 有 16 处 `CoreTypography.` 引用，是全库最高的单文件消费者——`#5` 的 B5 骨架收敛完成后会缩到约 6 处，这是把 `#4` 排在 `#5` 之后的又一收益。
 
@@ -110,10 +113,13 @@ github: (will be set on sync)
 
 阶段 1（token 与 API 基础）
   #2  色彩层重组      FunctionalColor / InteractionColors / BorderColors / StatusColors /
-                      Toast / Badge / Banner / Form / CheckBox / StatusRow / Previews
+                      Toast / Badge / Banner / Form / CheckBox / StatusRow /
+                      CoreGradient+Preview / StatusColorsTests / App Previews
+                      （13 个 swift + 4 个 colorset 目录 + 4 个 docs）
                       ├─ 须让 StatusColorsTests 重新编译通过（否则 #2 自身验证不绿）
                       └─ 用「毒丸 commit」让编译器穷举遮蔽符号的残留引用（见下）
   #3  公开 API 与改名  CheckBox / BorderlessButtonStyle / ButtonRoleStyleRole / MenuButton
+  （#2 与 #3 共享 CheckBox.swift，阶段 1 内部**串行**，不是并行组）
 
 阶段 2（并行窗口 1）
   #5  按钮 + Sidebar   四个 ButtonStyle / MenuButton / Sidebar / TelegramGlassButtonModifier
@@ -140,7 +146,13 @@ github: (will be set on sync)
 阶段 6（并行窗口 3）
   #11 机械清理        文档 / 目录 / gitignore / 硬编码数值 / Preview 补全
                       —— CLAUDE.md 被 #2/#6/#11 三方触碰，统一在此改一次
-  #7  测试质量重建    恒真断言清理 + Blossom 分流断言
+  #7  测试质量重建    恒真断言清理（C2）+ Blossom 分流断言（C4a/C4b）+ C5 覆盖缺口处置
+                      └─ **C5 的处置口径**：C5 列的约 15 个零测试目标（CheckBox / Form /
+                         MenuButton / 四个 ButtonStyle / ButtonRoleStyleRole / token 层 /
+                         全部 modifier / StarShape / ColorExtension）**不要求全部补测**。
+                         #7 产出的逐文件处置清单同时覆盖 C2 与 C5 名单，每项标
+                         「本轮补测」或「记录不补 + 理由」。否则 #7 做完也无法在
+                         audit-checklist 里标记 C5，SC-7 对账会卡住
   （#11 ∩ #7 = ∅。#11 是机械清理，不改测试所依赖的行为，无需等它）
 ```
 
@@ -153,10 +165,29 @@ github: (will be set on sync)
 **改用编译器强制枚举**：先不删，而是给 `FunctionalColor` 的 12 个遮蔽符号加一个中间 commit——
 
 ```swift
-@available(*, unavailable, message: "shadows SwiftUI builtin; use contentPrimary or an explicit token")
+@available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin; use contentPrimary or an explicit token")
 ```
 
-编译一次，编译器会穷举报出全部残留使用点（含任何审计未发现的）。逐处改写后再删符号。成本是一次中间 commit，收益是把「靠人逐处找」换成「编译器保证无遗漏」。
+编译一次，编译器会精确报出全部残留使用点（含任何审计未发现的）。逐处改写至零诊断后，再删符号。
+
+**必须用 `deprecated`，不能用 `unavailable`**——这一点已实测确认，四种方案的结果：
+
+| 方案 | 结果 |
+|---|---|
+| `@available(*, unavailable)` | **零诊断**，静默通过。重载决议会把 unavailable 候选**排除**出候选集，于是直接落到 SwiftUI 内建成员 |
+| 改名（`primary` → `__a1_primary`） | 零诊断，同样静默落到 SwiftUI |
+| 移出 `Color` 扩展到独立命名空间 | 零诊断，同上 |
+| **`@available(*, deprecated)`** | **精确报出每个使用点**：`warning: 'primary' is deprecated: A1 probe` |
+
+差别在于 `deprecated` 候选**仍参与重载决议并胜出**，只是附带诊断；`unavailable` 候选则被踢出决议。这恰好意味着：越是"强"的标记，对本场景越无效。
+
+配合 `-warnings-as-errors` 可把它变成硬闸门（实测输出 `error:` 而非 `warning:`），确保不会有残留点被忽略。
+
+验证脚本（`#2` 执行时用）：
+
+```bash
+swiftc -typecheck -warnings-as-errors ...   # 或临时给 target 加 .unsafeFlags(["-warnings-as-errors"])
+```
 
 ### 分支拓扑
 
@@ -167,7 +198,8 @@ epic 集成分支 `epic/coredesign-audit-remediation`（off `main`）。每个 I
 1. 四条 SwiftPM 命令绿：`swift build` / `swift test` / 两者的 `--traits Blossom` 版本
 2. `#4` 额外需第 5 条：`xcodebuild test -destination 'platform=iOS Simulator,name=iPhone 17 Pro'`。**布局断言层由 `#4` 自己编写**，不放在 `#7`——否则 `#4` 完成时该命令下无任何 `#if os(iOS)` 测试可跑，等于空转，而 Dynamic Type + Sidebar 裁切正是全 epic 风险最高的改动，其安全网必须与改动同批落地。`#7` 只负责恒真断言清理与 Blossom 分流断言。这也与 PRD US-2 把布局断言写在 Dynamic Type 名下的归属一致
 3. 更新 `audit-checklist.md` 中本 Issue 承载条目的状态（SC-7 判定基础）
-4. **新增或删除** colorset 后须 `swift package clean` 再验证——`#2` 要删 4 个 `status-accent-*.colorset`，不 clean 时 `.build` 里的陈旧拷贝会让「孤儿资产已清除」类验证假绿
+4. **凡触及布局断言覆盖文件的 Issue（至少 `Sidebar.swift`）同样跑第 5 条**——`#10` 的 D6b 重塑 Sidebar row init 形态、`#11` 的 D18 给 Sidebar 补 Preview，都在 `#4` 之后动该文件；而布局断言 `#if os(iOS)` 包住，四条 SwiftPM 命令下不可见。若 CI 降级，弄破断言将无人发现
+5. **新增或删除** colorset 后须 `swift package clean` 再验证——`#2` 要删 4 个 `status-accent-*.colorset`，不 clean 时 `.build` 里的陈旧拷贝会让「孤儿资产已清除」类验证假绿
 
 ## Task Breakdown Preview
 
@@ -181,11 +213,11 @@ epic 集成分支 `epic/coredesign-audit-remediation`（off `main`）。每个 I
 | 4 | Dynamic Type 改造 | 2 | #2, #5, #6 | #3 |
 | 5 | 按钮体系 + Sidebar 收敛 | 8 | #3（BorderlessButtonStyle、MenuButton） | **#6** |
 | 6 | 死代码清理与现代化 | 18 | #2, #3（CheckBox） | **#5** |
-| 7 | 测试质量重建 + Blossom 断言 | 4 | #2（StatusColorsTests）, #4 | **#11** |
+| 7 | 测试质量重建 + Blossom 断言 | 4 | #2（StatusColorsTests）；#4 为**语义依赖**（等布局断言层落地后再定测试边界），无共享文件 | **#11** |
 | 8 | 可访问性 | 3 | #2（Form）, #4, #6（BottomInputBar） | **#9, #10** |
-| 9 | 本地化 String Catalog | 1 | #4, #6（BookCover）, #10（MenuButton、Toast） | #8 |
+| 9 | 本地化 String Catalog | 1 | #1（Package.swift 加 `defaultLocalization`）, #3（MenuButton 改名）, #4, #6（BookCover）, #10（MenuButton、Toast） | #8 |
 | 10 | 公开 API 形态统一 | 9 | #3, #4 | **#8** |
-| 11 | 机械清理 | 10 | #5, #6, #9, #10 | **#7** |
+| 11 | 机械清理 | 10 | #2（Banner）, #3（MenuButton）, #4, #5, #6, #8（BottomInputBar）, #9, #10 | **#7** |
 
 任务数 11，超出 ccpm「≤10」的建议一项。保留 11 的理由：第 2 轮评审明确要求把原 #10 二分为「公开 API 形态设计」与「机械清理」——前者是设计决策、后者是文本改动，混在一个 Issue 里会让评审粒度失配。合并回去会牺牲评审质量。
 
@@ -218,7 +250,7 @@ epic 集成分支 `epic/coredesign-audit-remediation`（off `main`）。每个 I
 | 5 | 恒真断言归零 | `#7` 附录落盘后机械 |
 | 6 | ≥1 个测试能区分默认与 Blossom 的实际颜色值（light `#0077FA` vs `#FF6F8E`） | 机械 |
 | 7 | `audit-checklist.md` 83 项全部标记「已修复」或「记录不修 + 理由」 | 机械（核对命令已实测输出 83 / 78） |
-| 8 | `Sidebar` 四种 row 的实现代码 **≤ 60 行** | 机械（原表述「约 120 → 约 50」不可判定，改为硬上限） |
+| 8 | `Sidebar` 四种 row 的实现代码 **≤ 60 行**。测量边界：`SidebarNavigationRow` / `SidebarUtilityRow` / `SidebarDocumentRow` / `SidebarTagRow` 四个类型声明的首行到末行之和，**含**共享骨架类型与薄封装 init，**不含** `#Preview` 与文档注释 | 机械（原表述「约 120 → 约 50」不可判定，改为硬上限 + 测量边界） |
 
 ## Estimated Effort
 
@@ -229,7 +261,7 @@ epic 集成分支 `epic/coredesign-audit-remediation`（off `main`）。每个 I
 | Issue | 项数 | 触及文件 | 说明 |
 |---|---|---|---|
 | `#6` | 18 | 约 16 个 swift + CLAUDE.md + 3 个 docs | 含 `EmptyState` / `View+SizeReader` / `KeyboardHandling` 三个整文件删除及其测试 |
-| `#4` | 2 | 27（改动 26） | 全 epic 改动面最大的单项，`Sidebar` 一文件就有 16 处 |
+| `#4` | 2 | 28（改动 27） | 全 epic 改动面最大的单项，`Sidebar` 一文件就有 16 处 |
 | `#10` | 9 | 约 16 | 全是设计级改动（`StatusLevel` 合并、style 协议化、`@ViewBuilder` init），按文件数与 `#6` 同量级 |
 | `#2` | 12 | 11 + 4 个 colorset + 4 个 docs | 含三处 A1 型静默重解析，须用毒丸 commit 让编译器穷举 |
 
