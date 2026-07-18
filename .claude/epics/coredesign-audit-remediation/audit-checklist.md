@@ -1,0 +1,121 @@
+# 审计清单 — coredesign-audit-remediation
+
+四路并行 agent 审计（token 层 / 公开 API / 重复代码 / 构建测试基建）产出的完整缺陷清单，共 **52 项**。本文件是 PRD Success Criteria SC-7 的判定依据：每项须标记为「已修复」或「记录不修 + 理由」。
+
+基线（审计时）：`swift build`、`swift test`（96 tests / 32 suites）、`swift build --traits Blossom` 全绿、零 warning。
+
+`Issue` 列对应 PRD Dependencies 中的 Issue 编号。
+
+---
+
+## 簇 A · 真 bug
+
+| ID | 缺陷 | 证据 | FR | Issue |
+|---|---|---|---|---|
+| A1 | `Color.primary/secondary/tertiary` 遮蔽 SwiftUI 同名成员，模块内本地定义静默胜出；`CheckBox` 实际渲染品牌色而非系统 label 色，注释与行为矛盾 | `FunctionalColor.swift:11-12`、`CheckBox.swift:21-23,31` | FR-1 | #2 |
+| A2a | `CheckBoxToggleStyle` / `CheckBox` internal，但文档明说业务侧直接使用（实测 `cannot find in scope`） | `CheckBox.swift:24,52,53` | FR-2 | #3 |
+| A2b | `BorderlessButtonStyle` 的 `role` internal 致 memberwise init 不可达（实测 `initializer is inaccessible`） | `BorderlessButtonStyle.swift:40,52` | FR-2 | #3 |
+| A2c | `ButtonRoleStyleRole` 的 `color`/`activeColor`/`disabledColor` internal，而 CLAUDE.md 称其为三色「唯一来源」 | `ButtonRoleStyleRole.swift:18,33,48` | FR-2 | #3 |
+| A2d | `FunctionalColor` extension 整层非 public，CLAUDE.md 却称第 4 层是「最高层 API 表面」 | `FunctionalColor.swift:11,35` | FR-1 | #2 |
+| A3a | `BorderlessButtonStyle` 与 SwiftUI 同名，下游写该名**能编译**但静默解析到 SwiftUI 版本 | 下游消费包实测 | FR-2 | #3 |
+| A3b | `MenuButton` 与 macOS 上 deprecated 的 SwiftUI `MenuButton` 同名，实测报错信息具误导性 | `MenuButton.swift:128` | FR-2 | #3 |
+
+## 簇 B · 结构性冗余
+
+| ID | 缺陷 | 证据 | FR | Issue |
+|---|---|---|---|---|
+| B1a | `FunctionalColor` 与 `InteractionColors` 是同一套色阶两次声明（逐值相同） | `FunctionalColor.swift:12-32` vs `InteractionColors.swift:4-25` | FR-1 | #2 |
+| B1b | 上述重复带来**两份** `#if Blossom` violet 分流，违反「分流点压到最低」 | `FunctionalColor.swift:17-27`、`InteractionColors.swift:10-20` | FR-1 | #2 |
+| B1c | `FunctionalColor` 的 primary/secondary/tertiary 除 A1 的 bug 点外引用数为 0；其 Blossom 分流在产品代码中零效果 | 全仓 grep | FR-1 | #2 |
+| B2a | 全部 10 个 typography token 用 `.system(size:)`，`relativeTo:` 出现 0 次 | `CoreTypography.swift:53-183` | FR-3 | #4 |
+| B2b | `Sidebar` 四种 row 写死 `frame(height:)`，大字号裁切（`ListRow`/`SearchField` 用的是 `minHeight`） | `Sidebar.swift:121,183,238,287` | FR-3 | #5 |
+| B3a | 三个 ButtonStyle 的 role 三态取色逻辑逐字重复 | `SolidButtonStyle.swift:71-76`、`LightButtonStyle.swift:57-62`、`BorderlessButtonStyle.swift:65-70` | FR-4 | #5 |
+| B3b | Solid / Light 的 glass 与非 glass 分支整段复制，仅尾部 modifier 不同 | `SolidButtonStyle.swift:38-65`、`LightButtonStyle.swift:27-51` | FR-4 | #5 |
+| B3c | 两个 BackgroundModifier 实质是同一类型 | `SolidButtonStyle.swift:81-99`、`LightButtonStyle.swift:67-83` | FR-4 | #5 |
+| B3d | font/padding/contentShape 四行在 4 个 style 里共出现 5 次 | 同上 + `BorderlessButtonStyle.swift:43-46` | FR-4 | #5 |
+| B3e | `CircularGlassButtonStyle` 写死 diameter 38 且不读 `controlSize`（另三个都读），38 不在 metrics 序列内 | `CircularGlassButtonStyle.swift:16,18` | FR-4 | #5 |
+| B4a | `textFieldSize` 写入后从不读取，每次布局白跑 GeometryReader + PreferenceKey 往返 | `BottomInputBar.swift:87,138` | FR-5 | #6 |
+| B4b | `View+SizeReader.swift` 整文件是 B4a 的唯一支撑，删后可整体移除 | `View+SizeReader.swift`（51 行） | FR-5 | #6 |
+| B4c | `KeyboardHandling.swift` 中 `KeyboardReadable`、`dismissKeyboardOnTap`、`resignFirstResponder`、`becomeFirstResponder` 全仓零引用；`becomeFirstResponder` 泄漏宿主 app 私有通知名且未标 `@MainActor` | `KeyboardHandling.swift:18-76,112-167` | FR-5 | #6 |
+| B4d | `KeyboardHeightPublisherFactory` 无生产调用点，仅被测试消费 | `KeyboardHandling.swift:78-110` | FR-5 | #6 |
+| B5 | `Sidebar` 四个 row 是同一 row 的四份拷贝（约 120 行可降至 50） | `Sidebar.swift:104-130,157-188,215-243,263-292` | FR-4 | #5 |
+| B6a | `StatusColors` 新旧两套并行 scale，组件随机选边 | `StatusColors.swift:13-59` vs `:63-77` | FR-1 | #2 |
+| B6b | legacy 组属层级违规（语义层直接引用第 1 层原子色 `blue7`/`blue1`/`blue3`） | `StatusColors.swift:63-77` | FR-1 | #2 |
+| B6c | 新体系缺 `*Border` 档，这是 `Badge` 仍留在 legacy 的直接原因 | `Badge.swift:142-143,156-157` | FR-1 | #2 |
+| B7a | `CoreGradient` 全仓零采用（仅自身 Preview + 一个空测试） | 全仓 grep | FR-5 | #6 |
+| B7b | 三个 `static var` 每次求值新建 `AnyShapeStyle` box，放 body 里每帧重新装箱 | `CoreGradient.swift:21,37,53` | FR-5 | #6 |
+| B7c | 文件位于 `Colors/` 而非 `Tokens/`，与 CLAUDE.md「渐变 token 层」定位不符 | 同上 | FR-5 | #6 |
+| B8a | `MenuButtonStyleModifier` 两分支重复且重写了 `TelegramGlassButtonModifier` 的同一结构 | `MenuButton.swift:87-118` vs `TelegramGlassButtonModifier.swift:47-63` | FR-4 | #5 |
+| B8b | 两个 `BannerStyle.makeBody` 11 行里只有最后一行不同 | `Banner.swift:177-192,210-225` | FR-4 | #10 |
+| B8c | `CommentCard` 手写了 `.surface(.card)` 已提供的三件套（逐 token 一致） | `CommentCard.swift:93-101` | FR-5 | #6 |
+| B8d | `RefPill` 同型手写 surface 三件套 | `RefPill.swift:51-56` | FR-5 | #6 |
+| B8e | `ToastLevel` 与 `MessageLevel` case 集合完全相同却是两个类型 | `Toast.swift:24-29`、`Banner.swift:32-37` | FR-4 | #10 |
+| B8f | 各组件带 2–4 个平行 switch（`StateLabel` 4 个、`StatusRow` 3 个） | `StateLabel.swift:65-109`、`StatusRow.swift:66-91` | FR-4 | #10 |
+| B8g | `SegmentedControl` 两处 glass 分支各自复制 overlay | `SegmentedControl.swift:121-147,379-409` | FR-4 | #10 |
+| B8h | `BottomInputBarModifier.body` 78 行（唯一超 50 行）；两个 `onChange` 逻辑同构；chip 样式重复 | `BottomInputBar.swift:361-438,416-437,297-308,374-381` | FR-4 | #6 |
+| B9a | `BookCover` 在 body 里做 `UIImage`/`NSImage` 解码，列表滚动反复解码 | `BookCover.swift:74,95-106` | FR-5 | #6 |
+| B9b | `TimelineItem` 手写旧式 `EnvironmentKey`（10 行）而同仓已用 `@Entry`（3 行） | `TimelineItem.swift:10-19` | FR-5 | #6 |
+| B9c | `bordered(color:)` 是死重载；两重载全默认参数导致裸写 `.bordered()` 构成歧义 | `BorderModifier.swift:26-33` | FR-5 | #6 |
+| B9d | `@available(iOS 26.0, *)` 恒真无效（部署目标已 iOS 26+） | `SegmentedControl.swift:205,301` | FR-5 | #6 |
+| B9e | `CheckBox` 是硬编码 `Toggle("哈哈哈哈哈")` 的演示视图，用 `@State` 而非 `@Binding`，唯一使用者是同文件 Preview | `CheckBox.swift:53-59` | FR-2 | #3 |
+| B9f | `CheckBox.makeBody` 的 `@MainActor @preconcurrency` 冗余（协议声明已携带隔离） | `CheckBox.swift:25` | FR-5 | #6 |
+| B9g | `EmptyState.swift` 237 行全文件已废弃，同一 deprecated message 重复 6 次 | `EmptyState.swift:54,141,153,182,203,216` | FR-5 | #6 |
+
+## 簇 C · 质量保障基建
+
+| ID | 缺陷 | 证据 | FR | Issue |
+|---|---|---|---|---|
+| C1 | `.github/workflows/` 是空目录，无任何 CI | `ls .github/workflows/` | FR-6 | #1 |
+| C2 | 约 3/4 测试是恒真断言（编译通过即必过） | `ProgressIndicatorTests`、`FloatingGlassModifierTests`、`StatusColorsTests`、`SurfaceKindTests`、`AvatarTests` | FR-6 | #7 |
+| C3 | `SnapshotTests.swift` 是空 subclass；脚本每次 `rm -rf` 全量重生成；PNG 是插图非 baseline | `App/Tests/SnapshotTests.swift`、`scripts/run-snapshots.sh` | — | 记录不修（Out of Scope：视觉回归走 agent 审美） |
+| C4a | Blossom trait 核心行为无测试：`--traits Blossom` 与默认跑同样断言 | `swift test --traits Blossom` 输出 | FR-6 | #7 |
+| C4b | 现有 Blossom asset guard 未覆盖分流同样依赖的 `violet-0…9` 与 `cyan-1` | `CoreDesignTests.swift:21-37` | FR-6 | #7 |
+| C5 | 零测试文件：`CheckBox`、`Form`、`MenuButton`、四个 ButtonStyle、`ButtonRoleStyleRole`、全部 token 层（仅 `CoreButtonMetrics` 有）、全部 modifier、`StarShape`、`ColorExtension` | `ls Tests/CoreDesignTests/` | FR-6 | #7 |
+| C6a | 无版本 tag（`git tag -l` 为空），README 让下游 `branch: "main"` | — | — | 记录不修（Out of Scope：不管下游） |
+| C6b | README 称「15 documented components」但实际 24 个组件目录 / 26 个 Preview | `README.md` | FR-6 | #10 |
+| C7a | `Package.swift` 无 `swiftSettings`，未启用 `defaultIsolation` | `Package.swift` | FR-6 | #6 |
+| C7b | `.iOS("26.0")` 用字符串形式而非枚举 case | `Package.swift:9` | FR-6 | #6 |
+| C8 | 无 lint/format 配置，而 CLAUDE.md 规定的「显式 `self.`」恰是 SwiftLint 可强制的规则 | 根目录 | — | 记录不修（本轮不引入新工具链，另开一轮） |
+| C9a | `App/project.yml` 的 `xcodeVersion: "16.0"` 与 iOS 26.0 部署目标自相矛盾 | `App/project.yml` | FR-6 | #1 |
+| C9b | 预览宿主未声明 `traits`，Blossom 在唯一视觉验证载体里看不到 | `App/project.yml` | FR-6 | #1 |
+| C10a | 缺 LICENSE | 根目录 | FR-6 | #10 |
+| C10b | 缺 CHANGELOG | 根目录 | — | 记录不修（无版本契约，CHANGELOG 无意义） |
+| C10c | `.gitignore` 中 `.superpowers/` 重复两次 | `.gitignore` | FR-6 | #10 |
+| C10d | `.claude/`、`.agents/`、`AGENTS.md` 状态悬空（既未 ignore 也未 tracked） | `git status` | FR-6 | #10 |
+
+## 簇 D · 一致性与可访问性
+
+| ID | 缺陷 | 证据 | FR | Issue |
+|---|---|---|---|---|
+| D1a | `BottomInputBar` 三个 icon-only 按钮零可访问性标签 | `BottomInputBar.swift:150,160,172`（全文件 accessibility 出现 0 次） | FR-7 | #8 |
+| D1b | `UnderlinedTabItem` 未暴露选中态（同仓 `SegmentedControl`/`Sidebar` 都正确加了） | `UnderlinedTabBar.swift:143` | FR-7 | #8 |
+| D1c | `Form` 装饰性图标未 `accessibilityHidden`；`DangerIcon` 承载语义却无 label | `Form.swift:27,78,95` | FR-7 | #8 |
+| D2 | 硬编码中文 UI 字符串，与别处英文不一致；全库无 String Catalog | `Toast.swift:441`、`MenuButton.swift:139,169`、`BookCover.swift:23` | FR-7 | #9 |
+| D3 | 7 处绕过 `CoreTypography` 直接用系统字号 | `AvatarGroup.swift:59`、`StatusRow.swift:46`、`StateLabel.swift:50`、`CommentCard.swift:56`、`RefPill.swift:34,37,40,42,45`、`BottomInputBar.swift:302,376` | FR-3 | #4 |
+| D4 | `public let` 存储属性冻结内部布局（而 `Tag`/`SearchField`/`Sidebar*`/`ListRow`/`Badge` 都保持 private） | `ProgressBar.swift:22-24`、`StatusRow.swift:32-34`、`StateLabel.swift:39-40`、`CommentCard.swift:27-31`、`EventRow.swift:23-26`、`TimelineItem.swift:39-40`、`AvatarGroup.swift:23` | FR-7 | #10 |
+| D5 | 语义枚举协议不一致（部分 `Sendable, Equatable`，部分不是） | `Banner.swift:32`、`ButtonRoleStyleRole.swift:11`、`MenuButton.swift:77`、`SurfaceKind` | FR-7 | #10 |
+| D6a | 三个同类 pill 组件三种 init 形态 | `StateLabel.swift:42`、`Badge.swift:83`、`Tag.swift:80` | FR-7 | #10 |
+| D6b | 部分组件只收 `String`，无法插图标或富文本 | `StateLabel`、`StatusRow`、`EventRow`、`SidebarNavigationRow` | FR-7 | #10 |
+| D7 | `SegmentedControl` 的 `glass: Bool` 是布尔 hack，有真实多外观需求应升级为 style 协议 | `SegmentedControl.swift:27,33` | FR-4 | #10 |
+| D8 | `BorderModifier` 用 `stroke` 而非全仓约定的 `strokeBorder`；`cornerRadius: 0` 写成 `RoundedRectangle` 误导；写死矩形无法用于 Capsule | `BorderModifier.swift:20` | FR-5 | #6 |
+| D9 | `Banner.swift` 直接放 `Components/` 根目录，其余组件都是 `Components/<Name>/<Name>.swift` | — | FR-7 | #10 |
+| D10 | `CoreRadius.full = 9999` 是死 token，所有 pill 场景都用 `Capsule()` | `CoreRadius.swift:59` | FR-5 | #6 |
+| D11 | `danger = .red4` 而同组全用 5 档，但其 Active/Hover 又按 5 档基准配，致 hover 反差大一档（`ButtonRoleStyleRole.danger` 走此值，是真实渲染差异） | `FunctionalColor.swift:44` | FR-1 | #2 |
+| D12 | 硬编码数值本应引用 token | `MenuButton.swift:136,146`、`TimelineItem.swift:74,99-104`、`CommentCard.swift:59`、`BottomInputBar.swift:221`、`AvatarGroup.swift:33-40,76-85` | FR-7 | #10 |
+| D13 | 层级违规：语义层直接引用第 1 层原子色而非同层别名 | `BorderColors.swift:53`、`InteractionColors.swift:32` | FR-1 | #2 |
+| D14 | Blossom 下 accent 语义漂移：侧栏选中粉、focus ring 蓝、accent 状态色蓝；注释与代码不符 | `BorderColors.swift:46-54`（含 `:50` 注释）、`StatusColors.swift:13-19` | FR-1 | #2 |
+| D15 | `FillColors` 平台分支缺 `#else`，与同层两个桥接文件写法不一致；两条件皆不成立时无 return | `FillColors.swift:16-23,30-37,44-51,58-65` | FR-7 | #10 |
+| D16a | `StateLabel` 文档只列 4 个 style 而枚举实际 6 个 | `StateLabel.swift:28` vs `:14-21` | FR-7 | #10 |
+| D16b | CLAUDE.md 称 `.focusedExternally` 是 `Utils/` 通用辅助，实际是 `BottomInputBar` 内的 private extension | `BottomInputBar.swift:200-212` | FR-7 | #10 |
+| D17 | `StarShape` public 但除自身 Preview 外零引用 | `StarShape.swift:10` | — | 记录不修（可能为下游预留，本轮仅记录） |
+| D18 | `Sidebar`（391 行 / 6 个 public 组件）与两个 public modifier 无 `#Preview` | `Sidebar.swift`、`FloatingGlassModifier.swift`、`TelegramGlassButtonModifier.swift` | FR-7 | #10 |
+
+---
+
+## 统计
+
+- 总计 **52 项**
+- 计划修复 **46 项**
+- 记录不修 **6 项**：C3（视觉回归策略已定）、C6a（不管下游，无版本契约）、C8（不引入新工具链）、C10b（无版本契约）、D17（可能为下游预留）、以及 C3 关联的快照 baseline 升级
+
+不修项的理由均对应 PRD 的 Out of Scope 或已定决策，非遗漏。

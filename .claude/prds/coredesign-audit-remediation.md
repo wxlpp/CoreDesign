@@ -27,12 +27,13 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 2. **公开 API 表面有断裂，且已实测。** 在 scratchpad 建下游消费包逐条 probe，确认以下符号下游不可达：
    - `CheckBox.swift:24` `CheckBoxToggleStyle` → `error: cannot find 'CheckBoxToggleStyle' in scope`（而 `:52` 文档写着"业务侧通常直接使用"）
    - `BorderlessButtonStyle.swift:40,52` → `error: 'BorderlessButtonStyle' initializer is inaccessible due to 'internal' protection level`
-   - `Utils/View+SizeReader.swift:44,48` `getSize` → `inaccessible`（CLAUDE.md 将其列为通用公开辅助）
    - `ButtonRoleStyleRole.swift:18,33,48` 的 `color`/`activeColor`/`disabledColor` → `inaccessible`（CLAUDE.md 称该枚举是三色"唯一来源"）
+
+   （`Utils/View+SizeReader.swift:44,48` 的 `getSize` 同样不可达，但它的处置是**删除**而非补 `public`——见 FR-5 与 C1 决议。）
 
    更隐蔽的是 `BorderlessButtonStyle` 与 SwiftUI 自带类型同名：下游写 `BorderlessButtonStyle()` **能编译通过**，但静默解析到 SwiftUI 的类型。`MenuButton` 与 macOS 上 deprecated 的 SwiftUI `MenuButton` 同样冲突，实测报错信息具有误导性。
 
-3. **Dynamic Type 全库失效。** `Tokens/CoreTypography.swift:53-183` 全部 10 个字体 token 用 `.system(size:weight:)`，`relativeTo:` 出现 0 次。全库仅 `MenuButton.swift:67` 与 `SegmentedControl.swift:247` 两处适配。配合 `Sidebar.swift:121,183,238,287` 四处写死 `frame(height:)`，大字号下侧栏行会裁切。这对一个对外分发的设计系统是可访问性硬伤。
+3. **Typography token 层全部不缩放。** `Tokens/CoreTypography.swift:53-183` 全部 10 个字体 token 用 `.system(size:weight:)`，`relativeTo:` 出现 0 次。全库仅 `MenuButton.swift:67`（`@ScaledMetric`）与 `SegmentedControl.swift:245-249`（`UIFontMetrics`）两处组件级适配，另有 7 处绕过 token 直接用系统 TextStyle 的文字（`.caption`/`.caption2`/`.subheadline`）恰好因此**还能**缩放——即 token 层越是被正确使用，Dynamic Type 越失效。配合 `Sidebar.swift:121,183,238,287` 四处写死 `frame(height:)`，大字号下侧栏行会裁切。这对一个对外分发的设计系统是可访问性硬伤。
 
 4. **同一套色阶声明了两遍，Blossom 分流点因此翻倍。** `FunctionalColor.swift:12-32` 与 `InteractionColors.swift:4-25` 逐值相同（`primary/Active/Disable/Hover` 与 `accent/Pressed/Disabled/Hover` 都是 `brand5/7/2/6`），且**各带一份重复的 `#if Blossom` violet 分流**。这直接违反 CLAUDE.md「分流点压到最低」的约定——改一次 Blossom 配色要同步改两个文件。而 `FunctionalColor` 的 primary/secondary/tertiary 三组除了那个 bug 点外引用数为 0。
 
@@ -53,7 +54,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 **以便** 按文档写代码时不会撞上编译错误或静默拿到错误的类型
 
 **验收标准：**
-- 下游消费包能成功构造 `CheckBoxToggleStyle`、`CoreBorderlessButtonStyle`、调用 `View.getSize`、读取 `ButtonRoleStyleRole` 的三个调色板属性
+- 下游消费包能成功构造 `CheckBoxToggleStyle`、`CoreBorderlessButtonStyle`，读取 `ButtonRoleStyleRole` 的三个调色板属性
 - `CoreBorderlessButtonStyle` 与 SwiftUI 无同名冲突；下游写该类型名时不存在"解析到 SwiftUI 版本"的可能
 - 第 4 层功能色（`success`/`info`/`warning`/`danger` 及变体）对下游可见
 - 存在一个自动化验证：新增 public API 断裂能被 CI 捕获（下游消费包 probe 纳入 CI，或等效手段）
@@ -67,7 +68,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 **验收标准：**
 - 全部 10 个 typography token 通过 `.coreFont(_:)` 支持 Dynamic Type 缩放，fontSize 与 lineSpacing 同步缩放
 - Primer 精确基准字号保留，`docs/PRIMER_VERSION.md` 的对应关系继续成立
-- `Sidebar` 四种 row 在 `xxxLarge` 字号下不裁切内容（由布局断言测试覆盖）
+- `Sidebar` 四种 row 在 `xxxLarge` 字号下不裁切内容。**验证机制**：用 `ImageRenderer` 在指定 `dynamicTypeSize` 下渲染并断言测得高度随字号单调增长、且 ≥ 内容固有高度。注意 `swift test` 下 asset 颜色解析为 `(0,0,0,0)`（见 Constraints），故布局断言**不得**依赖颜色
 - 组件中绕过 token 直接使用系统字号的 7 处（`AvatarGroup.swift:59`、`StatusRow.swift:46`、`StateLabel.swift:50`、`CommentCard.swift:56`、`RefPill.swift:34,37,40,42,45`、`BottomInputBar.swift:302,376`）全部迁移到 token
 
 ### US-3: 主题使用者（Blossom）
@@ -79,8 +80,9 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 **验收标准：**
 - `borderFocus`、`statusAccent*` 在 Blossom 下跟随品牌色（珊瑚粉）
 - `statusSuccess`/`statusWarning`/`statusDanger` 在两个主题下保持标准语义色（绿/橙/红），不分流
-- Blossom 分流点从 2 处降至 1 处（仅 `InteractionColors`）
-- 存在测试断言 trait 分流后 token 指向不同且值正确的颜色——默认 `accent` → `brand-5` → `#0077FA`，Blossom → `blossom-brand-5` → `#FF6F8E`
+- **同一语义的重复分流点归零**：violet secondary 分流从 2 份（`FunctionalColor` + `InteractionColors`）合并为 1 份
+- **全库 `#if Blossom` 总数 9 → 8**（净减 1）。`borderFocus`/`statusAccent*` 跟随品牌通过**指向 accent 家族别名**实现，不新增 `#if`——与 `borderSelected` 的既有处理一致
+- 存在测试断言 trait 分流后 token 指向不同且值正确的颜色——默认 `accent` → `brand-5` → light `#0077FA`，Blossom → `blossom-brand-5` → light `#FF6F8E`（断言取 light 值；dark 值分别为 `#3295FB` / `#D15F82`）
 - `BorderColors.swift:50` 与代码矛盾的注释被修正
 
 ### US-4: 设计系统维护者（=本人）
@@ -91,9 +93,10 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
 **验收标准：**
 - CI 覆盖 `swift build`、`swift test`、`swift build --traits Blossom`、`swift test --traits Blossom` 四条命令
-- 恒真断言测试被删除或改写为真断言；保留的行为测试（`ToastHostTests`、`AsyncButtonTests`、`KeyboardHandlingTests`、`ProgressBarTests`、`ListRowTests` 的泛型 slot 断言）继续通过
+- 恒真断言测试被删除或改写为真断言；保留的行为测试（`ToastHostTests`、`AsyncButtonTests`、`ProgressBarTests`、`ListRowTests` 的泛型 slot 断言）继续通过
+- `KeyboardHandlingTests` 随 `KeyboardHandling.swift` 一并删除（见 FR-5：其被测对象 `KeyboardHeightPublisherFactory` 无生产调用点，保留即构成"只为测试而活"的死代码，正是本 epic 要清理的东西）
 - 存在布局断言层覆盖 Dynamic Type 改造的裁切风险
-- 修改后的测试总数与"真正验证了什么"可对应说明，不再有"编译即通过"的测试
+- 每个被删除的测试在审计清单中标记处置理由，使"恒真断言归零"可核对而非人工判断
 
 ### US-5: 使用辅助技术的终端用户
 
@@ -111,18 +114,18 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
 ### FR-1 色彩层重组
 
-- 第 4 层职责重定义为**状态功能别名**：保留 `success`/`info`/`warning`/`danger` 及 Active/Hover/Disable 变体，整层补 `public`
+- 第 4 层职责重定义为**状态功能别名**：`success`/`info`/`warning`/`danger` 及其现有变体**按现状保留**（注意 `success`/`info` 本就无 Active/Hover/Disable 变体，不需补齐），整层补 `public`
 - 删除 `FunctionalColor` 的 `primary`/`secondary`/`tertiary` 三组；交互色统一走第 3 层 `InteractionColors`
 - `CheckBox.swift:31` 改用 `Color.contentPrimary`，修正 21-23 行注释
 - `danger` 基准 `red4` → `red5`，与同组的 5 档基准对齐
 - `borderSelected` → `.accent`；`selectionBackgroundEmphasis` 走命名别名，消除层级违规
-- `borderFocus`、`statusAccent*` 补 Blossom 分流
-- `StatusColors` 新体系补 `*Border` 档，`Toast`/`Badge`/`Banner` 全量迁移，legacy 组（`StatusColors.swift:63-77`）删除
+- `borderFocus` → `.accent`；`statusAccent*` → 映射到 accent 家族别名。**通过别名继承实现 Blossom 跟随，不新增 `#if Blossom`**
+- `StatusColors` 新体系补 `*Border` 档，`Toast`/`Badge`/`Banner`/**`Form`** 全量迁移（`Form.swift:101` 使用 legacy `Color.dangerForeground`，`:92,99` 文档注释同样引用，漏改会直接编译失败），legacy 组（`StatusColors.swift:63-77`）删除
 - 同步更新 CLAUDE.md 分层描述
 
 ### FR-2 公开 API 修复与改名
 
-- 补 `public`：`CheckBoxToggleStyle`、`View.getSize` 及其 extension、`ButtonRoleStyleRole` 三个调色板属性、`FunctionalColor` extension
+- 补 `public`：`CheckBoxToggleStyle`、`ButtonRoleStyleRole` 三个调色板属性、`FunctionalColor` extension（`View.getSize` **不在此列**——它随 FR-5 删除）
 - `BorderlessButtonStyle` → `CoreBorderlessButtonStyle`，补 `public init(role:)` 与 `public let role`
 - `MenuButton` → `CoreMenuButton`，避开 macOS 上 SwiftUI 同名的 deprecated 类型
 - `CheckBox` 演示视图内联进 `#Preview`，只保留 `CheckBoxToggleStyle` 作为公开面
@@ -130,11 +133,15 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
 ### FR-3 Dynamic Type 改造
 
-- `CoreTypography` 从 `Font` 常量升级为 `.coreFont(_:)` modifier
+- `CoreTypography` 从 `Font` 常量升级为 `CoreTypography.Token` 枚举 + `.coreFont(_:)` modifier
 - 内部用 `ScaledMetric(wrappedValue:relativeTo:)` 在 init 中按 token 角色指定缩放基准（display → `.largeTitle`，正文 → `.body`，caption → `.caption`）
 - fontSize 与 lineSpacing 同步缩放；font/lineSpacing/tracking「三件套」收进单一调用点
-- `Sidebar` 四处 `frame(height:)` → `minHeight`
-- 组件中 7 处系统字号迁移到 token
+- **波及面已量化**：`CoreTypography.` 在 24 个文件、94 处被消费，FR-3 事实上要触及几乎每个组件。这是本 epic 改动面最大的单项
+- **`CoreControlMetrics.font(for:)` 的处置**（关键）：该 API 返回 `Font` 且被全部按钮样式消费（`CoreControlMetrics.swift:174-179`），而 `@ScaledMetric` 需要 View 上下文，modifier 形态服务不了它。改为 `CoreControlMetrics.fontToken(for:) -> CoreTypography.Token`，调用方写 `.coreFont(CoreControlMetrics.fontToken(for: controlSize))`。**不这样做则按钮文字仍不缩放，SC-3 名不副实**
+- **`RefPill` 的等宽需求**：`RefPill.swift:37,40,45` 用 `.caption.monospaced()`，而 `CoreTypography` 中 `monospaced` 出现 0 次。需新增 mono 变体 token，否则迁移会静默丢失等宽特性（ref / branch 名的视觉回归）。此项属"为保持现有表现所必需"，不受 Out of Scope「不做加法」约束
+- **硬顺序**：`.coreFont()` 必须**先**落地，7 处系统字号迁移**后**进行。这 7 处当前是 TextStyle，今天**会**随 Dynamic Type 缩放；顺序颠倒会让它们经历"先失去缩放再恢复"的中间态
+- `Sidebar` 四处 `frame(height:)` → `minHeight`。**须在 FR-4 的 Sidebar row 骨架收敛完成后，在新骨架上做**（两者改同四行，见 Dependencies）
+- 组件中 7 处系统字号迁移到 token（清单见 audit-checklist.md D3）
 
 ### FR-4 结构性收敛
 
@@ -149,15 +156,15 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
 ### FR-5 死代码清理与现代化
 
-- 删除 `BottomInputBar.swift:87,138` 的 `textFieldSize` 及 `Utils/View+SizeReader.swift` 整文件
-- 删除 `Utils/KeyboardHandling.swift` 中零引用的 public API（`KeyboardReadable` 及默认实现、`dismissKeyboardOnTap`、`resignFirstResponder`、`anyWriterFirstResponderNotification`/`becomeFirstResponder`）
+- 删除 `BottomInputBar.swift:87,138` 的 `textFieldSize` 及 `Utils/View+SizeReader.swift` 整文件（`getSize` 全库唯一消费点即 `BottomInputBar.swift:138`，删后整文件成死代码）。**同步从 CLAUDE.md 删去 `.getSize` 的通用辅助描述**
+- 删除 `Utils/KeyboardHandling.swift` **整文件**（含 `KeyboardReadable` 及默认实现、`dismissKeyboardOnTap`、`resignFirstResponder`、`anyWriterFirstResponderNotification`/`becomeFirstResponder`）**及其测试 `KeyboardHandlingTests.swift`**。保留 `KeyboardHeightPublisherFactory` 会构成"只为测试而活"的死代码——它无生产调用点，仅被该测试消费
 - `CoreGradient`：`static var` → `static let`，文件移入 `Tokens/`，并至少在一处组件真实消费以验证抽象成立
 - `TimelineItem` 旧式 `EnvironmentKey` → `@Entry`（同步改 `TimelineItemTests.swift:30`）
 - `BookCover` 图片解码移出 body
 - `CommentCard` 手写三件套 → `.surface(.card)`
 - 删除 `bordered(color:)` 死重载；`BorderModifier` 改 `strokeBorder` 并支持任意 shape
 - 删除 `SegmentedControl.swift:205,301` 恒真的 `@available(iOS 26.0, *)`
-- 删除已废弃的 `EmptyState.swift` 整文件及其自证测试
+- 删除已废弃的 `EmptyState.swift` 整文件及其自证测试 `EmptyStateDeprecationTests.swift`；同步移除 `docs/README.md:41` 的组件索引行与 `docs/components/empty-state.md` 迁移文档
 - 删除死 token `CoreRadius.full`
 
 ### FR-6 测试与 CI 基建
@@ -169,7 +176,8 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - 新增下游消费包 probe 纳入 CI，使 public API 断裂能被自动捕获（对应 US-1 验收标准）
 - `Package.swift` 加 `.defaultIsolation(MainActor.self)`；`.iOS("26.0")` 改枚举形式
 - `App/project.yml` 补 `traits: ["Blossom"]`；修正 `xcodeVersion` 与 iOS 26 部署目标的矛盾
-- 补 LICENSE；修正 README 组件数量；`.gitignore` 去重并加入 `.claude/omsp/`
+- 补 LICENSE；修正 README 组件数量；`.gitignore` 去重
+- **维护 `audit-checklist.md`**：每个 Issue 完成时更新其覆盖条目的状态，作为 SC-7 的判定依据
 
 ### FR-7 一致性清理
 
@@ -189,31 +197,41 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - **构建绿**：`swift build`、`swift test`、`swift build --traits Blossom`、`swift test --traits Blossom` 四条命令零 warning、零失败
 - **平台**：iOS 26+ / macOS 26+ 双端编译通过，不为 iOS 26 API 添加可用性回退
 - **并发**：Swift 6 语言模式 + `defaultIsolation(MainActor.self)`，无数据竞争诊断
-- **视觉零回归**：除本 PRD 明确变更的项（`danger` 基准色档、Blossom 下 `borderFocus`/`statusAccent` 转品牌色、Dynamic Type 缩放）外，默认主题观感不变
+- **视觉零回归**：除以下明确变更项外，默认主题观感不变——
+  1. `danger` 基准色档 `red4` → `red5`
+  2. Blossom 下 `borderFocus`/`statusAccent*` 转品牌色
+  3. Dynamic Type 缩放生效
+  4. **7 处系统字号 → token 的字号归一**（`.subheadline` 为 15pt，无精确对应 token，迁移必有小幅字号变化）
 - **性能**：消除 body 内的重复图片解码与每帧 `AnyShapeStyle` 装箱
 - **代码风格**：遵循仓库既有约定（显式 `self.`、中英双语注释、`#Preview` 与组件同文件）
 
 ## Success Criteria
 
-1. 下游消费包能成功编译使用全部文档所述 public API（0 个 `inaccessible` / `cannot find in scope` 错误）
-2. Blossom 分流点数量：2 → 1
-3. Dynamic Type 覆盖率：10 个 typography token 全部支持缩放（当前 0）
-4. CI workflow 数量：0 → ≥1，覆盖 4 条命令组合
-5. 恒真断言测试数量归零；保留测试全部为真断言
-6. 存在至少 1 个测试能区分默认与 Blossom 主题的实际颜色值
-7. 审计清单约 50 项缺陷全部关闭或有明确记录的不修理由
+1. 下游消费包能成功编译使用全部文档所述 public API（0 个 `inaccessible` / `cannot find in scope` 错误）——由纳入 CI 的 probe 包自动判定
+2. `grep -rn "#if Blossom" Sources/ | wc -l` 从 **9 降至 8**；且 violet secondary 分流从 2 份合为 1 份（`FunctionalColor` 那份消失）
+3. Dynamic Type 覆盖率：10 个 typography token 全部通过 `.coreFont()` 支持缩放（当前 0），且 `CoreControlMetrics` 不再暴露任何返回 `Font` 的 API
+4. CI workflow 数量：0 → ≥1，覆盖 4 条命令组合（若 runner 受限，见 Constraints 的降级路径，此时判定标准改为"本地四条命令 + pre-push 闸门就位"）
+5. 恒真断言测试归零——判定依据是 `audit-checklist.md` 的 C2 条目，其中逐一列出被判为恒真的测试文件及处置；保留测试全部为真断言
+6. 存在至少 1 个测试能区分默认与 Blossom 主题的实际颜色值（light 值：`#0077FA` vs `#FF6F8E`）
+7. `.claude/epics/coredesign-audit-remediation/audit-checklist.md` 中 **52 项**全部标记为「已修复」或「记录不修 + 理由」（当前规划：46 修 / 6 不修）
 8. `Sidebar` row 代码量从约 120 行降至约 50 行
 
 ## Constraints & Assumptions
 
 **约束：**
-- **CI runner 需 Xcode 26**（iOS/macOS 26 部署目标要求）。GitHub Actions hosted runner 的 Xcode 版本可用性**未经验证**，是本 epic 的首要技术风险，必须在实现前实测
+- **CI runner 需 Xcode 26**（iOS/macOS 26 部署目标要求）。GitHub Actions hosted runner 的 Xcode 版本可用性**未经验证**，是本 epic 的首要技术风险。**降级决策树**（#1 按序尝试，任一成功即停）：
+  1. `macos-26` hosted image（若已 GA）
+  2. `macos-15` + `xcodes` / `xcode-select` 装载 Xcode 26
+  3. self-hosted runner
+  4. 全部不可行 → 降级为**本地 pre-push 脚本**跑四条命令作为临时闸门，CI 留待 runner 就绪后回补
+
+  **CI 不可用不阻塞其余 Issue**：NFR 对"构建绿"的定义本就是四条本地命令，其余 Issue 以此为验证依据
 - `swift test` 下 asset 颜色**无法解析**——已实测确认 SwiftPM 不调用 `actool`，产出 bundle 只有原始 `Resources.xcassets` 目录，既无 `Assets.car` 也无 `Info.plist`，`Color.accent.resolve()` 返回 `(0,0,0,0)`。因此 Blossom 颜色断言必须走 asset 名 → `Contents.json` 解析路径，不能用 `Color.resolve`
 - 新增 colorset 后必须 `swift package clean` 再构建，否则资源静默缺失
 - `.build/` 存有跨路径 ModuleCache 时构建会失败，需先 clean
 
 **假设：**
-- **CoreDesign 无外部下游消费者**（用户明确确认"直接改，不管下游"）。若此假设不成立，FR-2 的改名与 FR-1 的删除会破坏下游编译
+- **CoreDesign 无外部下游消费者**（用户明确确认"直接改，不管下游"）。**支持证据**：`gh repo view` 显示仓库虽为 PUBLIC，但 **0 forks / 0 stars**，未发现反证。**风险留存**：`README.md` 的 Quick Start 指引消费者 `branch: "main"` 且无版本钉扎，任何匿名 clone 者会在下次 pull 时直接编译失败。「改名前打一个 pre-remediation tag」是与该决策不冲突的一条命令级保险，但用户已选择不建立版本契约，故本轮不做——此处记录取舍，便于日后追溯
 - 仓库内 `App/` 预览宿主是唯一需同步适配的消费者
 - Primer 对齐仍是 typography 的设计目标，因此保留精确字号而非改用系统 TextStyle
 
@@ -224,17 +242,34 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - **版本 tag 与 semver 发布流程**——用户选择不管下游，故本轮不建立版本契约；README 的 `branch: "main"` 指引保持不变
 - **deprecated 兼容层**——用户明确选择直接改，不保留 `@available(*, deprecated, renamed:)` 过渡
 - **`StarShape` 的去留**——public 且零引用，但可能是给下游预留，本轮仅记录不处理
-- **新增组件或新功能**——本 epic 纯修复与收敛，不做加法
+- **新增组件或新功能**——本 epic 纯修复与收敛。例外：为保持现有表现所必需的 token（`StatusColors` 的 `*Border` 档、`CoreTypography` 的 mono 变体）属修复范畴，不受此限
+- **`git tag` 保险点**——「改名前打 pre-remediation tag」虽是零成本，但与"不建立版本契约"的决策一并排除；理由记录于 Assumptions
 - **`swift-snapshot-testing` 等外部测试依赖引入**
 
 ## Dependencies
 
+**Issue 枚举与 FR 映射：**
+
+| Issue | 范围 | 对应 FR | 审计项 |
+|---|---|---|---|
+| #1 | CI + Xcode 26 可行性 + 预览宿主 trait 配置 | FR-6（CI 部分） | C1、C9a、C9b |
+| #2 | 色彩层重组 | FR-1 | A1、A2d、B1a–c、B6a–c、D11、D13、D14 |
+| #3 | 公开 API 修复与改名 | FR-2 | A2a–c、A3a–b、B9e |
+| #4 | Dynamic Type 改造 | FR-3 | B2a、D3 |
+| #5 | 按钮体系 + Sidebar 收敛 | FR-4（按钮/Sidebar 部分） | B2b、B3a–e、B5、B8a |
+| #6 | 死代码清理与现代化 | FR-5 | B4a–d、B7a–c、B8c、B8d、B8h、B9a–d、B9f、B9g、C7a、C7b、D8、D10 |
+| #7 | 测试质量重建 + Blossom 断言 | FR-6（测试部分） | C2、C4a、C4b、C5 |
+| #8 | 可访问性 | FR-7（a11y 部分） | D1a–c |
+| #9 | 本地化 String Catalog | FR-7（i18n 部分） | D2 |
+| #10 | 一致性清理 + 组件 style 协议化 | FR-4（枚举合并）、FR-7 | B8b、B8e–g、C6b、C10a、C10c、C10d、D4、D5、D6a–b、D7、D9、D12、D15、D16a–b、D18 |
+
 **内部依赖（Issue 间）：**
-- `#1 CI + Xcode 26 可行性` 是全局前置——后续每个 Issue 的"验证绿"都依赖它建立的自动化基线
-- `#4 Dynamic Type` 依赖 `#2 色彩层重组`（token 层改动需先稳定）
-- `#5 按钮体系收敛` 依赖 `#3 公开 API 修复`（含 `CoreBorderlessButtonStyle` 改名）
-- `#7 测试质量重建` 依赖 `#1`
-- `#8 可访问性`、`#9 本地化`、`#10 一致性清理` 与主线无依赖，可全程并行
+- `#5 按钮体系收敛` 依赖 `#3 公开 API 修复`（含 `CoreBorderlessButtonStyle` 改名，两者改同一批文件）
+- `#4 Dynamic Type` 的 Sidebar `minHeight` 改造依赖 `#5` 的 **Sidebar row 骨架收敛先完成**——两者都重写 `Sidebar.swift:121,183,238,287` 四行，顺序颠倒必然返工。其余部分无依赖
+- `#7 测试质量重建` 与 `#1` 相互独立，但 `#1` 就绪后 `#7` 的成果才能进 CI 门禁
+- `#1` **并行推进，不作全局前置**——其余 Issue 的"验证绿"以四条本地命令为准（见 NFR），CI 就绪后回补门禁
+- `#2` 与 `#4` **无依赖**：色彩与 typography 分属不同文件，实测重叠仅 `CheckBox` 一处
+- `#8`、`#9`、`#10` 与主线无冲突，可全程并行
 
 **外部依赖：**
 - Xcode 26 / Swift 6.3 工具链
