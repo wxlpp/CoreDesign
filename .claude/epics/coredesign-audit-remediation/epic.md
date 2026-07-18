@@ -129,7 +129,7 @@ github: (will be set on sync)
   （#5 ∩ #6 = ∅。#6 是承载项最多的 Issue（18 项），与 #5 并行直接缩短最长的一段关键路径）
 
 阶段 3（串行枢纽）
-  #4  Dynamic Type    27 文件（排除 #6 整删的 EmptyState 后改 26）—— 排在 #6 之后避免
+  #4  Dynamic Type    28 文件（排除 #6 整删的 EmptyState 后改 27）—— 排在 #6 之后避免
                       迁移即将被删的文件；排在 #5 之后，等 B5 把 Sidebar 的 16 处
                       CoreTypography 引用收敛到约 6 处、B3d 把四个 ButtonStyle 的
                       font 行收敛成单一 modifier
