@@ -135,6 +135,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
   - `Sources/CoreDesign/Colors/CoreGradient+Preview.swift:17` —— `RoundedRectangle(...).fill(Color.secondary)`，同型静默重解析。Blossom 视觉冒烟 Preview 的色块会从 violet 悄悄变灰。须显式改为期望的语义 token
   - 删除 `status-accent-{fg,emphasis,muted,subtle}.colorset` 四个资源目录，避免留下孤儿资产（含 D19 的笔误 colorset）
   - `docs/components/` 下引用被删 token 的示例：`timeline-item.md:24`（`statusAccentEmphasis`）、`form-icons.md:27,67`、`banner.md:34`、`toast.md:65`（legacy token）。`docs/superpowers/plans/` 下的历史计划文档是归档，不改
+  - **源码内注释**同样引用被删 legacy token，漏改只是文档漂移不报错，须逐一处理：`Toast.swift:18`、`Banner.swift:26,68,167,201`、`Badge.swift:55`、`Form.swift:92,99`
 
 ### FR-2 公开 API 修复与改名
 
@@ -155,6 +156,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - **硬顺序**：`.coreFont()` 必须**先**落地，7 处系统字号迁移**后**进行。这 7 处当前是 TextStyle，今天**会**随 Dynamic Type 缩放；顺序颠倒会让它们经历"先失去缩放再恢复"的中间态
 - `Sidebar` 四处 `frame(height:)` → `minHeight`（审计项 B2b）。**归属 Issue #5 而非 #4**——它与 FR-4 的 Sidebar row 骨架收敛改同一批行，由 #5 在收敛出新骨架时一并带上，彻底消除跨 Issue 文件冲突。FR-3 只声明需求，不承担实施
 - 组件中 7 处系统字号迁移到 token（清单见 audit-checklist.md D3）
+- **范围边界**：`CoreControlMetrics.iconSize(for:)` 驱动的图标字号（如 `CheckBox.swift:30,34`）**不纳入** Dynamic Type 改造，保持固定尺寸。US-2 承诺的是文字缩放；执行时不要自行扩大到图标
 
 ### FR-4 结构性收敛
 
@@ -225,7 +227,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
   3. **默认主题下 `borderFocus` 从 Primer 蓝 `#0969DA`/`#1F6FEB` 统一到品牌 accent `#0077FA`/`#3295FB`**——别名继承方案的必然代价，影响 `SearchField` focus ring 与 `.focusRing()` 默认参数
   4. Dynamic Type 缩放生效
   5. **7 处系统字号 → token 的字号归一**（`.subheadline` 为 15pt，无精确对应 token，迁移必有小幅字号变化）
-  6. `statusAccent*` 整组移除。库内**零渲染消费点**（`Sources/` 仅有定义），故产品代码观感无变化；但仓内仍有两处引用须同步处理——`Tests/CoreDesignTests/StatusColorsTests.swift:10-13` 与 `App/Sources/Previews.swift:233`（预览宿主的一个色块，删除后该色块消失）
+  6. `statusAccent*` 整组移除。库内**零渲染消费点**（`Sources/` 仅有定义），故产品代码观感无变化；但仓内仍有引用须同步处理（完整清单见 FR-1）——影响渲染的两处是 `Tests/CoreDesignTests/StatusColorsTests.swift:10-13` 与 `App/Sources/Previews.swift:233`（预览宿主的一个色块，删除后该色块消失），另有 `docs/components/timeline-item.md:24` 属文档漂移不影响渲染
   7. **`StatusRow` 的 skipped 图标从浅蓝（Blossom 下紫罗兰）变为系统灰**——这是修复 A1 遮蔽的直接结果，即把该图标恢复成作者原本意图的中性色
 - **性能**：消除 body 内的重复图片解码与每帧 `AnyShapeStyle` 装箱
 - **代码风格**：遵循仓库既有约定（显式 `self.`、中英双语注释、`#Preview` 与组件同文件）
@@ -306,7 +308,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - `#1` 的 **CI 部分**不阻塞任何 Issue——其余 Issue 的"验证绿"以 NFR 前四条 SwiftPM 命令为准；**第 5 条（`xcodebuild` iOS Simulator 布局断言）只有 `#4` 需要**。CI 若因 runner 受限而降级，只影响门禁形态，不影响验证标准
 - `#5` 依赖 `#3`（含 `CoreBorderlessButtonStyle` 改名，两者改同一批文件）
 - `#4` 与 `#5` **有文件冲突**：B2b（Sidebar `minHeight`）已归 #5 实施化解了一处，但 FR-3 的 `CoreControlMetrics.font(for:)` → `fontToken(for:)` 改造要改写全部四个 ButtonStyle 的 font 调用行，而 #5 的 B3d 正在把这些行收敛成共享 modifier——同文件同行级冲突，须串行
-- `#2` 与 `#4` **无依赖**：色彩与 typography 分属不同文件，实测重叠仅 `CheckBox` 一处
+- `#2` 与 `#4` **无逻辑依赖，但有 4 个文件重叠**：`Toast.swift`、`Badge.swift`、`Banner.swift`、`StatusRow.swift` 既是 #2 的 legacy status 迁移对象、又是 #4 的 `CoreTypography` 消费者，须由 owner 矩阵串行化。（注：`CheckBox.swift` 零 `CoreTypography` 引用，**不是** #2/#4 的重叠点；它的真实冲突方是 `#3`）
 - `#7` 与 `#1` 相互独立，但 `#1` 的 CI 就绪后 `#7` 的成果才能进门禁
 - `#2` 与 `#7` 须协同：`StatusColorsTests.swift` 同时是 `#2` 的破坏对象（引用被删的 token）与 `#7` 的改写对象（恒真断言）。**由 `#2` 负责让它编译通过**（删掉引用已删 token 的断言），`#7` 再做恒真断言的整体清理。否则 `#2` 单独落地时 `swift test` 必红，违反其自身验证标准
 
@@ -316,7 +318,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
 > **分解规则**：ccpm 分解时须按各 task 的实际触及文件生成 **owner 矩阵**，**同文件即串行**。`#4` 因波及面最大而成为串行枢纽，应整体排在结构性收敛（`#5`/`#6`/`#10`）之前或之后统一定序，不可与它们交错。
 
-下表是**已知高危冲突示例**（用于校验 owner 矩阵是否合理，非穷举清单）：
+下表是**已知高危冲突示例**（用于校验 owner 矩阵是否合理，非穷举清单）。**表头约定**：`#4` 波及 24 文件 / 94 处，故各行默认可能叠加 `#4`，表中未逐行标注——用本表校验矩阵时须自行叠加 `#4` 维度，否则会产生假通过：
 
 | 文件 | 涉及 Issue | 冲突性质 |
 |---|---|---|
