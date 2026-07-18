@@ -68,7 +68,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 **验收标准：**
 - 全部 10 个 typography token 通过 `.coreFont(_:)` 支持 Dynamic Type 缩放，fontSize 与 lineSpacing 同步缩放
 - Primer 精确基准字号保留，`docs/PRIMER_VERSION.md` 的对应关系继续成立
-- `Sidebar` 四种 row 在 `xxxLarge` 字号下不裁切内容。**验证机制**：用 `ImageRenderer` 在指定 `dynamicTypeSize` 下渲染并断言测得高度随字号单调增长、且 ≥ 内容固有高度。注意 `swift test` 下 asset 颜色解析为 `(0,0,0,0)`（见 Constraints），故布局断言**不得**依赖颜色
+- `Sidebar` 四种 row 在 `xxxLarge` 字号下不裁切内容。**验证机制（已实测确认，见 Constraints）**：用 `ImageRenderer` 在注入的 `dynamicTypeSize` 下渲染并断言高度单调增长且 ≥ 内容固有高度，测试用 `#if os(iOS)` 包住、经 `xcodebuild` + iOS Simulator 运行。断言写法：**相邻档位用 `>=`**（实测 `small` 与 `medium` 会相等，严格 `>` 会假失败），**跨档（`large` vs `xxxLarge`）才用 `>`**。布局断言**不得**依赖颜色（`swift test` 下 asset 颜色解析为 `(0,0,0,0)`）
 - 组件中绕过 token 直接使用系统字号的 7 处（`AvatarGroup.swift:59`、`StatusRow.swift:46`、`StateLabel.swift:50`、`CommentCard.swift:56`、`RefPill.swift:34,37,40,42,45`、`BottomInputBar.swift:302,376`）全部迁移到 token
 
 ### US-3: 主题使用者（Blossom）
@@ -82,7 +82,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - `statusSuccess`/`statusAttention`/`statusDanger` 在两个主题下保持标准语义色（绿/橙/红），不分流
 - `statusAccent*` 整组删除（见 FR-1）——它在库内零消费点、语义与 accent 家族重复、且 `statusAccentEmphasis` 的 light 值存在 colorset 笔误
 - **同一语义的重复分流点归零**：violet secondary 分流从 2 份（`FunctionalColor` + `InteractionColors`）合并为 1 份
-- **全库 `#if Blossom` 总数 9 → 8**（净减 1）。`borderFocus`/`statusAccent*` 跟随品牌通过**指向 accent 家族别名**实现，不新增 `#if`——与 `borderSelected` 的既有处理一致
+- **全库 `#if Blossom` 总数 9 → 8**（净减 1）。`borderFocus` 跟随品牌通过**指向 accent 家族别名**实现，不新增 `#if`——与 `borderSelected` 的既有处理一致；`statusAccent*` 因整组删除而不涉及分流
 - 存在测试断言 trait 分流后 token 指向不同且值正确的颜色——默认 `accent` → `brand-5` → light `#0077FA`，Blossom → `blossom-brand-5` → light `#FF6F8E`（断言取 light 值；dark 值分别为 `#3295FB` / `#D15F82`）
 - `BorderColors.swift:50` 与代码矛盾的注释被修正
 
@@ -93,7 +93,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 **以便** 我改动 token 或组件时能立刻知道是否破坏了什么
 
 **验收标准：**
-- CI 覆盖 `swift build`、`swift test`、`swift build --traits Blossom`、`swift test --traits Blossom` 四条命令
+- CI 覆盖 NFR 定义的**五条**命令（四条 SwiftPM + 一条 `xcodebuild` iOS Simulator 布局断言）
 - 恒真断言测试被删除或改写为真断言；保留的行为测试（`ToastHostTests`、`AsyncButtonTests`、`ProgressBarTests`、`ListRowTests` 的泛型 slot 断言）继续通过
 - `KeyboardHandlingTests` 随 `KeyboardHandling.swift` 一并删除（见 FR-5：其被测对象 `KeyboardHeightPublisherFactory` 无生产调用点，保留即构成"只为测试而活"的死代码，正是本 epic 要清理的东西）
 - 存在布局断言层覆盖 Dynamic Type 改造的裁切风险
@@ -172,7 +172,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
 ### FR-6 测试与 CI 基建
 
-- GitHub Actions workflow 覆盖四条命令组合
+- GitHub Actions workflow 覆盖 NFR 定义的五条命令组合（含 iOS Simulator 布局断言，须确认 runner 有可用的 iOS 26 Simulator）
 - 删除恒真断言测试；保留并扩充真行为测试
 - 新增 Blossom 分流断言测试：`String(describing: Color)` 取 asset 名 → 解析 `.colorset/Contents.json` 的 sRGB 分量 → 按 `#if Blossom` 断言期望值
 - 新增布局断言层覆盖 Dynamic Type 裁切风险
@@ -198,7 +198,14 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
 ## Non-Functional Requirements
 
-- **构建绿**：`swift build`、`swift test`、`swift build --traits Blossom`、`swift test --traits Blossom` 四条命令零 warning、零失败
+- **构建绿**：以下**五条**命令零 warning、零失败——
+  1. `swift build`
+  2. `swift test`
+  3. `swift build --traits Blossom`
+  4. `swift test --traits Blossom`
+  5. `xcodebuild test -scheme CoreDesign -destination 'platform=iOS Simulator,name=iPhone 17 Pro'`（布局断言层专用，见下）
+
+  第 5 条是 FR-3 引入的新增项：布局断言**只能**在 iOS 上跑（见 Constraints 的 Dynamic Type 实测结论），故用 `#if os(iOS)` 包住，前四条命令下自动跳过、不影响现有双 trait 流程
 - **平台**：iOS 26+ / macOS 26+ 双端编译通过，不为 iOS 26 API 添加可用性回退
 - **并发**：Swift 6 语言模式 + `defaultIsolation(MainActor.self)`，无数据竞争诊断
 - **视觉零回归**：除以下明确变更项外，默认主题观感不变——
@@ -216,7 +223,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 1. 下游消费包能成功编译使用全部文档所述 public API（0 个 `inaccessible` / `cannot find in scope` 错误）——由纳入 CI 的 probe 包自动判定
 2. `grep -rn "#if Blossom" Sources/ | wc -l` 从 **9 降至 8**；且 violet secondary 分流从 2 份合为 1 份（`FunctionalColor` 那份消失）
 3. Dynamic Type 覆盖率：10 个 typography token 全部通过 `.coreFont()` 支持缩放（当前 0），且 `CoreControlMetrics` 不再暴露任何返回 `Font` 的 API
-4. CI workflow 数量：0 → ≥1，覆盖 4 条命令组合（若 runner 受限，见 Constraints 的降级路径，此时判定标准改为"本地四条命令 + pre-push 闸门就位"）
+4. CI workflow 数量：0 → ≥1，覆盖 5 条命令组合（若 runner 受限，见 Constraints 的降级路径，此时判定标准改为"本地五条命令 + pre-push 闸门就位"）
 5. 恒真断言测试归零。判定依据是 **#7 执行时产出的逐文件处置清单**（每个测试文件标注「保留 / 删除 / 改写」及理由，作为 `audit-checklist.md` 的 C2 附录落盘）——PRD 阶段无法逐一枚举 32 个 suite，故把枚举义务下推到 #7 而非留作人工判断
 6. 存在至少 1 个测试能区分默认与 Blossom 主题的实际颜色值（light 值：`#0077FA` vs `#FF6F8E`）
 7. `.claude/epics/coredesign-audit-remediation/audit-checklist.md` 中 **83 项**全部标记为「已修复」或「记录不修 + 理由」（当前规划：78 修 / 5 不修）
@@ -229,9 +236,16 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
   1. `macos-26` hosted image（若已 GA）
   2. `macos-15` + `xcodes` / `xcode-select` 装载 Xcode 26
   3. self-hosted runner
-  4. 全部不可行 → 降级为**本地 pre-push 脚本**跑四条命令作为临时闸门，CI 留待 runner 就绪后回补
+  4. 全部不可行 → 降级为**本地 pre-push 脚本**跑五条命令作为临时闸门，CI 留待 runner 就绪后回补
 
-  **CI 不可用不阻塞其余 Issue**：NFR 对"构建绿"的定义本就是四条本地命令，其余 Issue 以此为验证依据
+  runner 还须提供**可用的 iOS 26 Simulator**（NFR 第 5 条命令依赖），决策树每一级都要同时验证这一点。
+
+  **CI 不可用不阻塞其余 Issue**：NFR 对"构建绿"的定义本就是五条本地命令，其余 Issue 以此为验证依据
+- **macOS 无 Dynamic Type，布局断言只能跑在 iOS Simulator 上**（已实测）。在 macOS `swift test` 宿主中：`ImageRenderer` 本身工作正常（能渲染、出位图、测量布局，且对显式 point size 敏感），`.environment(\.dynamicTypeSize,)` 的**环境值传播也正常**（视图内能读到注入值），但 `@ScaledMetric(wrappedValue: 16, relativeTo: .body)` 在全部 12 个档位下**恒返回 16.0**——macOS 的字体解析层根本不消费 Dynamic Type（`NSFont.preferredFont(.body).pointSize` 恒为 13.0）。同一视图在 iOS 26 Simulator 上则完全正常：`large=16` → `xxxLarge=21` → `accessibility5=45`。
+
+  **后果**：布局断言测试必须 `#if os(iOS)` 包住并经 `xcodebuild` + Simulator 运行（NFR 第 5 条命令）。这也**放大了 Xcode 26 runner 风险**——CI 不仅需要 Xcode 26，还需要可用的 iOS 26 Simulator，`#1` 的降级决策树须覆盖此项。
+
+  附带结论：`.coreFont()` 在 macOS 上退化为固定基准字号，属正确行为（该平台本就无 Dynamic Type），不算缺陷。
 - `swift test` 下 asset 颜色**无法解析**——已实测确认 SwiftPM 不调用 `actool`，产出 bundle 只有原始 `Resources.xcassets` 目录，既无 `Assets.car` 也无 `Info.plist`，`Color.accent.resolve()` 返回 `(0,0,0,0)`。因此 Blossom 颜色断言必须走 asset 名 → `Contents.json` 解析路径，不能用 `Color.resolve`
 - 新增 colorset 后必须 `swift package clean` 再构建，否则资源静默缺失
 - `.build/` 存有跨路径 ModuleCache 时构建会失败，需先 clean
