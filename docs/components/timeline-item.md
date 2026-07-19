@@ -21,7 +21,7 @@
 
 ```swift
 TimelineItem(icon: {
-    Circle().fill(Color.statusAccentEmphasis)
+    Circle().fill(Color.statusAccentEmphasis)   // Issue #93 起为饱和 Primer 蓝 #0969DA（此前误为淡蓝洗色）
         .overlay(Image(systemName: "plus").foregroundStyle(.white))
 }, showsTopConnector: false) {
     VStack(alignment: .leading) {
