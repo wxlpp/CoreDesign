@@ -23,7 +23,7 @@ private struct BannerPalette {
 ///
 /// 概念对应 GitHub Primer 的 `Flash` 组件 variant：`info` / `warning` / `danger` /
 /// `success`。具体颜色由 `Sources/CoreDesign/Colors/StatusColors.swift` 中的 status color
-/// token 控制（如 `Color.statusAccentMuted`），随系统 colorScheme 自动适配 light / dark。
+/// token 控制（如 `Color.statusAccentSubtle`），随系统 colorScheme 自动适配 light / dark。
 ///
 /// - `info`：中性提示（蓝）。例：版本可用、非关键状态变化。
 /// - `warning`：警告（橙）。例：即将过期、需要用户关注但暂未阻塞。
@@ -65,7 +65,7 @@ public enum MessageLevel {
 /// ```
 ///
 /// padding / spacing / 字号全部来自 v2-tokens（`CoreSpacing.*` / `CoreTypography.*`），
-/// 颜色来自 status color token（`Color.statusAccentMuted` 等），随 light / dark 自动适配。
+/// 颜色来自 status color token（`Color.statusAccentSubtle` 等），随 light / dark 自动适配。
 /// 不使用 `.glassEffect`：Banner 是基础信息容器，需要清晰的实色背景以保证可读性。
 public struct Banner<Label: View>: View {
     /// 创建 Banner。
@@ -149,13 +149,13 @@ private func bannerIcon(for level: MessageLevel) -> Image {
 private func bannerPalette(for level: MessageLevel) -> BannerPalette {
     switch level {
     case .info:
-        BannerPalette(foreground: .statusAccentForeground, background: .statusAccentMuted, border: .statusAccentBorder)
+        BannerPalette(foreground: .statusAccentForeground, background: .statusAccentSubtle, border: .statusAccentBorder)
     case .warning:
-        BannerPalette(foreground: .statusAttentionForeground, background: .statusAttentionMuted, border: .statusAttentionBorder)
+        BannerPalette(foreground: .statusAttentionForeground, background: .statusAttentionSubtle, border: .statusAttentionBorder)
     case .danger:
-        BannerPalette(foreground: .statusDangerForeground, background: .statusDangerMuted, border: .statusDangerBorder)
+        BannerPalette(foreground: .statusDangerForeground, background: .statusDangerSubtle, border: .statusDangerBorder)
     case .success:
-        BannerPalette(foreground: .statusSuccessForeground, background: .statusSuccessMuted, border: .statusSuccessBorder)
+        BannerPalette(foreground: .statusSuccessForeground, background: .statusSuccessSubtle, border: .statusSuccessBorder)
     }
 }
 
@@ -164,7 +164,7 @@ private func bannerPalette(for level: MessageLevel) -> BannerPalette {
 /// 默认的 Banner 外观：纯色背景 + 同色系前景，无描边。
 ///
 /// 对应 Primer `Flash` 默认 variant。背景 / 前景按 `MessageLevel` 走 status color token
-/// （`Color.statusAccentMuted` / `.statusAccentForeground` 等），随 light / dark 自动适配；padding
+/// （`Color.statusAccentSubtle` / `.statusAccentForeground` 等），随 light / dark 自动适配；padding
 /// 走 `CoreSpacing.md`（12pt），`HStack` spacing 显式固定为 `CoreSpacing.sm`（8pt，与
 /// SwiftUI system default 接近但显式化以避免依赖系统默认值，保证 icon 与 label 之间
 /// 的视觉间距在所有平台上稳定一致）。

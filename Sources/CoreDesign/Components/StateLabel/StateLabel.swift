@@ -73,15 +73,15 @@ public struct StateLabel: View {
         }
     }
 
+    /// 前景统一走 `contentOnEmphasis`（白），因为背景用的是 `status*Emphasis`——
+    /// Primer 的 emphasis 是饱和填充，配对的前景就是 `fgColor.onEmphasis`。
+    ///
+    /// > 此处原按 style 返回 `status*Foreground`。那在 emphasis 的 light 值被误填成
+    /// > 同组 muted（浅色洗色）时可读，但 Issue #93 把 emphasis 修正为 Primer 语义的
+    /// > 饱和实色后，前景与背景会变成同一个颜色（对比度 1.00，文字不可见）。
+    /// > `BookCover.swift:155` 是同一配对的既有先例。
     private var foregroundColor: Color {
-        switch self.style {
-        case .active: return .statusSuccessForeground
-        case .draft: return .statusAttentionForeground
-        case .completed: return .statusDoneForeground
-        case .cancelled: return .statusDangerForeground
-        case .inProgress: return .statusAttentionForeground
-        case .error: return .statusDangerForeground
-        }
+        .contentOnEmphasis
     }
 
     private var backgroundColor: Color {

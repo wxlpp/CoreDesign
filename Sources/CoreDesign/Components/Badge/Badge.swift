@@ -52,7 +52,7 @@ public nonisolated enum BadgeVariant: Sendable, Equatable {
 /// ## 视觉与 token
 ///
 /// - 背景：`Color.surfaceCanvasSubtle`（neutral）/ status background token
-///   （`statusAccentMuted` / `statusSuccessMuted` / `statusAttentionMuted` / `statusDangerMuted`）
+///   （`statusAccentSubtle` / `statusSuccessSubtle` / `statusAttentionSubtle` / `statusDangerSubtle`）
 /// - 边框（`outlined: true` 时）：`Color.borderMuted`（neutral）/ 对应 status border
 ///   token；宽度 `CoreBorderWidth.thin`
 /// - 圆角：`CoreRadius.full`（pill 形态）
@@ -139,10 +139,10 @@ private extension Badge {
     /// status background token；新增 variant 时同步扩展此映射。
     static func backgroundColor(for variant: BadgeVariant) -> Color {
         switch variant {
-        case .info: .statusAccentMuted
-        case .success: .statusSuccessMuted
-        case .warning: .statusAttentionMuted
-        case .danger: .statusDangerMuted
+        case .info: .statusAccentSubtle
+        case .success: .statusSuccessSubtle
+        case .warning: .statusAttentionSubtle
+        case .danger: .statusDangerSubtle
         case .neutral: .surfaceCanvasSubtle
         }
     }
