@@ -60,7 +60,7 @@ legacy 三档 → 新体系。`info` → `accent` 家族（Primer 里 accent 即
 
 **四组 legacy → 新体系的组名对应**：`info`→`accent`、`success`→`success`、`warning`→`attention`、`danger`→`danger`。`done` 组本任务不涉及，border 档也不补。
 
-**迁移的视觉变化（已列入 NFR 例外第 8、9 条，不是回归）**：两套 scale 取自不同来源，light 值 8 处全变，其中 **`warning` 前景从 `#A84A00`（橙）变为 `#9A6700`（橄榄黄）是色相改变**，在 `Banner`/`Toast`/`Badge` 三处可见；dark 侧则从不透明实色变为 alpha 叠加。
+**迁移的视觉变化（已列入 NFR 例外第 8、9 条，不是回归）**：两套 scale 取自不同来源，light 值 8 处全变，其中 **`warning` 前景从 `#A84A00`（橙）变为 `#9A6700`（橄榄黄）是色相改变**，在 `Banner`/`Toast`/`Badge` 三处可见；dark 侧则从不透明实色变为 alpha 叠加——**仅 fg / bg 两档**；border 档 light 与 dark **都不变**（沿用 ramp-3 原值）。
 
 ---
 
@@ -390,8 +390,8 @@ dark 值保持不变（accent `#1F6FEB`、success `#238636`、attention `#9E6A03
 在各组现有四档之后加一行，紧跟该组的 `subtle`：
 
 ```swift
-    /// 边框色。**CoreDesign 扩展**——本仓库为状态边框保留独立档，取值沿用重构前
-    /// legacy 组使用的原子色 3 档，保持既有视觉决定。
+    /// 边框色。本仓库为 status 家族保留的独立 border 档，取值沿用重构前 legacy
+    /// 组使用的原子色 3 档，保持既有视觉决定。
     static let statusAccentBorder: Color = Color("status-accent-border", bundle: .module)
 ```
 
@@ -420,6 +420,30 @@ find .build -name 'status-*-border.colorset' -maxdepth 6 | sed 's|.*/||' | sort
 
 Expected: 恰好 4 行（`status-accent-border.colorset` / `status-attention-border.colorset` / `status-danger-border.colorset` / `status-success-border.colorset`）。若为 0 行，说明 Step 4 的 clean 没生效，资源不会在运行时存在。
 
+再断言 Step 1 的五组 emphasis 真的改对了——D19 是本任务 12 个承载项之一，而四条命令对 JSON 改值完全不敏感，没有这一步它就零证据：
+
+```bash
+python3 -c "
+import json,sys
+A='Sources/CoreDesign/Resources/Resources.xcassets/status'
+want={'accent':'0969DA','success':'1F883D','attention':'9A6700','danger':'CF222E','done':'8250DF'}
+bad=0
+for g,exp in want.items():
+    d=json.load(open(f'{A}/status-{g}-emphasis.colorset/Contents.json'))
+    for c in d['colors']:
+        comp=c['color'].get('components')
+        if not comp or c.get('appearances'): continue
+        got=''.join(comp[k][-2:].upper() for k in ('red','green','blue'))
+        a=comp.get('alpha','1.000')
+        ok = got==exp and a in ('1.000','1')
+        print(f'  {g:10s} light #{got} alpha={a}  {\"OK\" if ok else \"✗ 期望 #\"+exp}')
+        if not ok: bad+=1
+sys.exit(1 if bad else 0)
+"
+```
+
+Expected: 五行全 `OK`，退出码 0
+
 - [ ] **Step 6: Commit**
 
 ```bash
@@ -437,7 +461,7 @@ git commit -m "Issue #93: fix the emphasis tier across five groups; add four bor
 - Modify: `Sources/CoreDesign/Components/Badge/Badge.swift:142-145,156-159`（+ 注释 `:55`）
 - Modify: `Sources/CoreDesign/Components/Toast/Toast.swift:468-471`（+ 注释 `:18`）
 - Modify: `Sources/CoreDesign/Components/Form/Form.swift:101`（+ 注释 `:92,99`）
-- Modify: `Sources/CoreDesign/Colors/StatusColors.swift:63-77`（删 legacy 组）
+- Modify: `Sources/CoreDesign/Colors/StatusColors.swift`（删 legacy 组；原 `:61-77`，Task 3 插入符号后会下移约 12–16 行，**按锚点定位**）
 - Modify: `Tests/CoreDesignTests/StatusColorsTests.swift`（让它编译通过）
 
 **Interfaces:**
@@ -503,7 +527,9 @@ git commit -m "Issue #93: fix the emphasis tier across five groups; add four bor
 
 - [ ] **Step 5: 删除 legacy 组**
 
-`Sources/CoreDesign/Colors/StatusColors.swift:63-77` 整段 12 个 token 删除（连同它们所在的 `// MARK:` 与说明注释）。
+`Sources/CoreDesign/Colors/StatusColors.swift` 的 legacy 组整段 12 个 token 删除，连同 `:61` 的 `// MARK:` 与说明注释。
+
+> **行号会漂移**：Task 3 Step 3 在该块之前插入了 4 个符号（各 2 行注释 + 1 行声明），legacy 组届时约在 `:75-93`。**按锚点定位，不要照抄行号**——搜 `// MARK:` 后跟 `infoForeground` 的那一段。
 
 - [ ] **Step 6: 让 `StatusColorsTests.swift` 编译通过**
 
@@ -571,14 +597,14 @@ git commit -m "Issue #93: migrate the four legacy status consumers; delete the l
 `BorderColors.swift`：
 
 ```swift
-    /// 选中态边框。指向 `accent` 别名，随 Blossom trait 自动继承，不单独分流。
-    static var borderSelected: Color { .accent }
-
-    /// 焦点环边框。同样指向 `accent`——focus 与 selected 同源于品牌强调色。
+    /// 焦点环边框。指向 `accent` 别名，随 Blossom trait 自动继承，不单独分流。
     static var borderFocus: Color { .accent }
+
+    /// 选中态边框。同样指向 `accent`——focus 与 selected 同源于品牌强调色。
+    static var borderSelected: Color { .accent }
 ```
 
-并重写 `:43-51` 整段注释（含 `:51`「取值复用品牌色 `brand5`」——`borderSelected` 改走 `.accent` 后同样过时）——`:50` 那句称「focus 与 selected 同源 accent」与原代码矛盾（`borderFocus` 实际是独立 colorset），而 `:45` 的「由 `border/border-focus.colorset` 提供 light/dark 双值」在该 colorset 删除后同样失效。两处一并改。
+按文件既有顺序（`borderFocus` 在 `:46`、`borderSelected` 在 `:52`）就地改，不要重排；并重写 `:43-51` 整段注释（含 `:51`「取值复用品牌色 `brand5`」——`borderSelected` 改走 `.accent` 后同样过时）——`:50` 那句称「focus 与 selected 同源 accent」与原代码矛盾（`borderFocus` 实际是独立 colorset），而 `:45` 的「由 `border/border-focus.colorset` 提供 light/dark 双值」在该 colorset 删除后同样失效。两处一并改。
 
 > **默认主题下 focus ring 会从 Primer 蓝 `#0969DA` 变为品牌蓝 `#0077FA`**（dark `#1F6FEB` → `#3295FB`），影响 `FocusRingModifier.swift:106`（默认参数）与 `SearchField.swift:136`。已列入 NFR 视觉例外第 3 条。
 
@@ -637,6 +663,7 @@ git commit -m "Issue #93: route focus/selected borders through the accent alias 
 - Modify: `docs/components/timeline-item.md:24`、`form-icons.md:27,67`、`banner.md:34`、`toast.md:65`
 - Modify: `CLAUDE.md`（分层描述）
 - Modify: `.claude/epics/coredesign-audit-remediation/audit-checklist.md`
+- Modify: `.claude/epics/coredesign-audit-remediation/93.md`（若执行期又发现改判，须同步回它——它是 SC-7 的判定基础）
 - Create: `.claude/epics/coredesign-audit-remediation/updates/93/progress.md`
 
 **Interfaces:**
