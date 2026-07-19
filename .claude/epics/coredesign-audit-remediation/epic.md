@@ -2,10 +2,10 @@
 name: coredesign-audit-remediation
 status: backlog
 created: 2026-07-18T14:03:55Z
-updated: 2026-07-18T22:49:40Z
+updated: 2026-07-19T07:16:54Z
 progress: 0%
 prd: .claude/prds/coredesign-audit-remediation.md
-github: (will be set on sync)
+github: https://github.com/wxlpp/CoreDesign/issues/91
 ---
 
 # Epic: coredesign-audit-remediation
