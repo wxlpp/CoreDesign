@@ -718,8 +718,18 @@ jobs:
             fails=$( { grep 'recorded an issue' first.log
                        grep -E 'Test "[^"]*" failed after' first.log
                      } || true )
-            # 空集 = 非测试类失败(编译错误 / simulator boot 失败)→ 直接判红,不重跑
-            if [ -z "$fails" ] || printf '%s\n' "$fails" | grep -qvE 'dismiss\(id:\)|double-fire'; then
+            # 空集 = 非测试类失败(编译错误 / simulator boot 失败)→ 直接判红,不重跑。
+            # 用 herestring 而非 `printf | grep -q`:后者在输出超过管道缓冲(64KiB)时,
+            # grep -q 早退会让 printf 收到 SIGPIPE,pipefail 又把 141 提升为管道退出码,
+            # 于是 if 恒假、重新退回 fail-open。herestring 走临时文件,无此问题。
+            #
+            # 白名单锚点用 '进入 dismissing 状态|double-fire' 而**不是** 'dismiss(id:)':
+            # ToastHostTests 里有 4 个 @Test 以 "dismiss(id:)" 开头,但只有
+            # :71 进入 dismissing 状态 / :84 重复触发不 double-fire 两个是已知 flake。
+            # 另两个(:47 排队中的 item 直接移除 / :62 不存在的 id 是 no-op)是确定性
+            # 状态断言,恰恰最可能被 defaultIsolation 的隔离变更打破——用宽锚点会把
+            # 它们的真实失败一起洗白。
+            if [ -z "$fails" ] || grep -qvE '进入 dismissing 状态|double-fire' <<< "$fails"; then
               echo "存在已知 flake 之外的失败 → 直接判红"; exit 1
             fi
             echo "仅已知 flake 失败,重跑一次"
@@ -765,8 +775,10 @@ jobs:
             fails=$( { grep 'recorded an issue' ios-first.log
                        grep -E 'Test "[^"]*" failed after' ios-first.log
                      } || true )
-            # 空集 = 非测试类失败(编译错误 / simulator boot 超时)→ 直接判红
-            if [ -z "$fails" ] || printf '%s\n' "$fails" | grep -qvE 'dismiss\(id:\)|double-fire'; then
+            # 空集 = 非测试类失败(编译错误 / simulator boot 超时)→ 直接判红。
+            # herestring + 精确锚点，理由同 swiftpm job（避免 SIGPIPE fail-open；
+            # 'dismiss(id:)' 会误伤 :47 / :62 两个非 flake 的确定性用例）。
+            if [ -z "$fails" ] || grep -qvE '进入 dismissing 状态|double-fire' <<< "$fails"; then
               echo "存在已知 flake 之外的失败 → 直接判红"; exit 1
             fi
             echo "仅已知 flake 失败,重跑一次"
