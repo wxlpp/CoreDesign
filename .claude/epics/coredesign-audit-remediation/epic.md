@@ -26,7 +26,7 @@ github: https://github.com/wxlpp/CoreDesign/issues/91
 
 `borderFocus` 指向 `.accent` 而非新增 `#if Blossom`，与 `borderSelected` 的既有处理一致，使全库分流点净减（9 → 8）。代价是默认主题下 focus ring 从 Primer 蓝变为品牌蓝，已列入 NFR 视觉例外。
 
-`statusAccent*` 整组删除而非映射——其 alpha 叠加档位无法等价映射到不透明的 accent 别名，且库内零渲染消费点、含 colorset 笔误。
+~~`statusAccent*` 整组删除~~ —— **已于 #93 执行期改判为保留**。删除它与 FR-1 自身的 legacy 迁移要求互斥：新体系只有 `statusAccent*` 一个蓝色家族，而它正是 Primer 的 info 语义，`Banner`/`Toast`/`Badge` 的 legacy `info*` 只能迁到它。原判据「库内零渲染消费点」恰恰因为 info 当时走 legacy——迁移一做即失效。原判据「accent 单组 colorset 笔误」经横向比对亦不成立：五组 `*-emphasis` 的 light 值逐组等于同组 `*-muted`，是系统性错误，改为一并修正。
 
 ### AD-3 typography 从 `Font` 常量升级为 `.coreFont(_:)` modifier
 

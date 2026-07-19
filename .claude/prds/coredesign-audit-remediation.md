@@ -241,8 +241,10 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
      影响 `Banner` / `Toast` / `Badge` 三个组件。warning 的橙→黄最明显——它从暖橙转为 Primer 的 attention 黄。这是「统一到 Primer 体系」的必然结果，不是回归。
 
+     **border 档不变**：新增的 `status-*-border` 沿用 legacy 的原子色 3 档原值（`#65B2FC`/`#7DD182`/`#FDC165`/`#FB9078`），故 `Badge` / `Banner` 的边框 light 观感保持不变。
+
   9. **legacy → 新体系迁移的 dark 观感变化**：legacy 用不透明原子色（如 `blue-1` dark `#0A4694`），新体系 dark 是 alpha 叠加（如 `#1F6FEB @13.3%`）。迁移后 dark 模式下状态背景从实色变为半透明叠加。这是 Primer 的标准做法（能随底层 surface 自适应），比 legacy 写死实色更正确
-  7. **`StatusRow` 的 skipped 图标从浅蓝（Blossom 下紫罗兰）变为系统灰**——这是修复 A1 遮蔽的直接结果，即把该图标恢复成作者原本意图的中性色
+  10. **`StatusRow` 的 skipped 图标从浅蓝（Blossom 下紫罗兰）变为系统灰**——修复 A1 遮蔽的直接结果，即把该图标恢复成作者原本意图的中性色
 - **性能**：消除 body 内的重复图片解码与每帧 `AnyShapeStyle` 装箱
 - **代码风格**：遵循仓库既有约定（显式 `self.`、中英双语注释、`#Preview` 与组件同文件）
 

@@ -52,13 +52,11 @@ legacy 三档 → 新体系。`info` → `accent` 家族（Primer 里 accent 即
 | `*Background` | ramp 1（`blue1` `#CBE7FE`） | `status*Muted` | Primer `muted` = 有色背景块的标准档；`subtle` 更淡（faint highlight），用于选区高亮而非 Banner/Badge 底色 |
 | `*Border` | ramp 3（`blue3` `#65B2FC`） | `status*Border`（**本任务新增**） | 见下 |
 
-**新增 4 个 `status-*-border.colorset` 的取值**（`accent`/`success`/`attention`/`danger`，**不建 `done` 组**——它无 legacy 先例、本任务零消费者，属加法，留到有需求时再补）：
+**新增 4 个 `status-*-border.colorset` 的取值**（`accent`/`success`/`attention`/`danger`）：**沿用 legacy 的原子色 3 档**，light / dark 双值、均不透明。
 
-取各组 `*-emphasis` 修正后的值 @ 40% alpha，light / dark 同法。理由：
-
-- Primer **确有** `borderColor.{accent,success,attention,danger}.{muted,emphasis}` 这一族（`BorderColors.swift:43` 的注释就引用了 `Primer borderColor.accent.emphasis`），所以不存在「Primer 无 border 档」这回事——本任务对齐它
-- 用同组 emphasis 派生，边框与背景自动同色系协调；而新体系 dark 背景是 alpha 叠加，若边框沿用 legacy 的不透明原子色 3 档，会在半透明背景上过分抢眼，产出一块混色板
-- **不沿用 legacy 原子色 3 档**：迁移的 fg / bg 两档 light 值本就全变（见下方视觉变化说明），「保持 light 零回归」这个理由不成立，不能只在 border 档上假装成立
+- `done` 组**不建**——legacy 只有 info/success/warning/danger 四组，done 无先例可沿用，且本任务零消费者，属加法
+- 取 ramp-3 的理由很简单：这些值本就是本仓库为「状态边框」选定的，有既定视觉依据，且不透明边框在任何背景上都有清晰轮廓。新体系 dark 背景是 alpha 叠加，半透明边框叠在半透明背景上两侧合成值不同、易糊
+- 这不是「light 零回归」的论证——迁移的 fg / bg 两档 light 值本就全变（见下）。border 档取 ramp-3 是**沿用既有视觉决定**，不是推导出来的最优解。若日后觉得偏抢眼，调 alpha 是独立的小改动
 
 **四组 legacy → 新体系的组名对应**：`info`→`accent`、`success`→`success`、`warning`→`attention`、`danger`→`danger`。`done` 组本任务不涉及，border 档也不补。
 
@@ -217,7 +215,7 @@ CoreGradient+Preview.swift:17."
         case .skipped: return .contentSecondary
 ```
 
-> 这一处的行为**会变**：原先因遮蔽而渲染成 `lightBlue5`（Blossom 下 `violet5`），改后是语义层的次要文本灰——即作者本意。已列入 NFR 视觉例外第 7 条。
+> 这一处的行为**会变**：原先因遮蔽而渲染成 `lightBlue5`（Blossom 下 `violet5`），改后是语义层的次要文本灰——即作者本意。已列入 NFR 视觉例外第 10 条。
 
 - [ ] **Step 3: 改写 `CoreGradient+Preview.swift:17`**
 
@@ -284,7 +282,13 @@ Expected: 四条各自 EXIT=0，两次 `Test run with 96 tests in 32 suites pass
 
 `scripts/downstream-probe` 当前**零个颜色 token 引用**（全是 `ToastItem`/`CoreSpacing`/`BadgeVariant` 等隔离面），因此对本任务的公开面变化完全不敏感——漏加 `public` 它照样绿。补一个消费点，让 A2d 有命令级证据：
 
-在 `scripts/downstream-probe/Sources/DownstreamProbe/NonisolatedUsage.swift` 末尾加：
+`scripts/downstream-probe/Sources/DownstreamProbe/NonisolatedUsage.swift` 当前只 `import CoreDesign` + `import Foundation`，**没有 `import SwiftUI`**（Swift 不跨模块 re-export）。先在文件顶部补：
+
+```swift
+import SwiftUI
+```
+
+再在末尾加：
 
 ```swift
 // 第 4 层「状态功能别名」的公开面。若 FunctionalColor 的 extension 漏加 public，
@@ -312,16 +316,16 @@ git commit -m "Issue #93: remove the shadowing colour aliases (A1, B1a-c, A2d, D
 
 ---
 
-### Task 3: 修正五组 `emphasis`，补齐 `*Border` 档
+### Task 3: 修正五组 `emphasis`，补齐 4 个 `*Border` 档
 
 **Files:**
 - Modify: `Sources/CoreDesign/Resources/Resources.xcassets/status/status-{accent,success,attention,danger,done}-emphasis.colorset/Contents.json`（5 个）
-- Create: `Sources/CoreDesign/Resources/Resources.xcassets/status/status-{accent,success,attention,danger,done}-border.colorset/Contents.json`（5 个）
-- Modify: `Sources/CoreDesign/Colors/StatusColors.swift`（新增 5 个 `status*Border` 符号）
+- Create: `Sources/CoreDesign/Resources/Resources.xcassets/status/status-{accent,success,attention,danger}-border.colorset/Contents.json`（**4 个，不含 done**）
+- Modify: `Sources/CoreDesign/Colors/StatusColors.swift`（新增 4 个 `status*Border` 符号）
 
 **Interfaces:**
 - Consumes: 无
-- Produces: `Color.statusAccentBorder` / `statusSuccessBorder` / `statusAttentionBorder` / `statusDangerBorder` / `statusDoneBorder`，供 Task 4 的 `Badge`/`Banner` 迁移使用。五组 `emphasis` 变为可用的饱和实色。
+- Produces: `Color.statusAccentBorder` / `statusSuccessBorder` / `statusAttentionBorder` / `statusDangerBorder`，供 Task 4 的 `Badge` / `Banner` 迁移使用。五组 `emphasis` 变为可用的饱和实色。
 
 - [ ] **Step 1: 修正五组 `emphasis` 的 light 值**
 
@@ -335,15 +339,26 @@ git commit -m "Issue #93: remove the shadowing colour aliases (A1, B1a-c, A2d, D
 | danger | `#FFC1BA` | `#CF222E` |
 | done | `#DACDFB` | `#8250DF` |
 
-dark 值保持不变（accent `#1F6FEB`、success `#238636`、attention `#9E6A03`、danger `#DA3633` 均已是正确的饱和实色）。改法：编辑各 `status-<组>-emphasis.colorset/Contents.json` 中**无 `appearances` 键**的那个 color 条目的 `components`。
+改法：编辑各 `status-<组>-emphasis.colorset/Contents.json` 中**无 `appearances` 键**的那个 color 条目的 `components`。以 accent 为例，把 light 条目的 components 改为 `"red": "0x09", "green": "0x69", "blue": "0xDA"`。
 
-> **`done` 组的 dark 侧有既有漂移，本任务不修**：`status-done-emphasis` dark = `#8250DF`（照抄了 light 值，Primer 应为 `#8957E5`），`status-done-fg` dark = `#AB7DF8`（Primer 为 `#A371F7`）。不在本任务的 12 个承载项内，Task 6 会把它记进 `audit-checklist.md` 作为后续项，不在此扩大范围。
+dark 值保持不变（accent `#1F6FEB`、success `#238636`、attention `#9E6A03`、danger `#DA3633` 均已是正确的饱和实色）。
 
-- [ ] **Step 2: 新建 5 个 border colorset**
+> **`done` 组的 dark 侧有既有漂移，本任务不修**：`status-done-emphasis` dark = `#8250DF`（照抄了 light 值，Primer 应为 `#8957E5`），`status-done-fg` dark = `#AB7DF8`（Primer 为 `#A371F7`）。不在本任务的 12 个承载项内，Task 6 会记进 `audit-checklist.md` 作后续项。
 
-取值沿用 legacy 的原子色 3 档，light / dark 双值、均不透明。以 `status-accent-border` 为例（`blue-3`）：
+- [ ] **Step 2: 新建 4 个 border colorset**
 
-`Sources/CoreDesign/Resources/Resources.xcassets/status/status-accent-border.colorset/Contents.json`：
+取值沿用 legacy 的原子色 3 档，light / dark 双值、均不透明：
+
+| colorset | light | dark | 来源 |
+|---|---|---|---|
+| `status-accent-border` | `#65B2FC` | `#1D75DB` | `blue-3` |
+| `status-success-border` | `#7DD182` | `#32953D` | `green-3` |
+| `status-attention-border` | `#FDC165` | `#D56F0F` | `orange-3` |
+| `status-danger-border` | `#FB9078` | `#D73324` | `red-3` |
+
+**不建 `status-done-border`**——legacy 无 done 组，无先例可沿用，且零消费者。
+
+以 `status-accent-border` 为例，`Sources/CoreDesign/Resources/Resources.xcassets/status/status-accent-border.colorset/Contents.json`：
 
 ```json
 {
@@ -368,58 +383,49 @@ dark 值保持不变（accent `#1F6FEB`、success `#238636`、attention `#9E6A03
 }
 ```
 
-其余四组同结构，取值：
+其余三组同结构，按上表替换 components（注意 JSON 里 components 的键序是 alpha / blue / green / red）。
 
-| colorset | light | dark | 来源原子色 |
-|---|---|---|---|
-| `status-accent-border` | `#65B2FC` | `#1D75DB` | `blue-3` |
-| `status-success-border` | `#7DD182` | `#32953D` | `green-3` |
-| `status-attention-border` | `#FDC165` | `#D56F0F` | `orange-3` |
-| `status-danger-border` | `#FB9078` | `#D73324` | `red-3` |
-| `status-done-border` | 取 `purple-3` 的 light | 取 `purple-3` 的 dark | `purple-3` |
-
-`purple-3` 的实际取值用命令读，不要猜：
-
-```bash
-python3 -c "
-import json
-d=json.load(open('Sources/CoreDesign/Resources/Resources.xcassets/purple/purple-3.colorset/Contents.json'))
-for c in d['colors']:
-    comp=c['color'].get('components')
-    if not comp: continue
-    print(('dark ' if c.get('appearances') else 'light'), {k:comp[k] for k in ('red','green','blue')})
-"
-```
-
-- [ ] **Step 3: 在 `StatusColors.swift` 声明 5 个新符号**
+- [ ] **Step 3: 在 `StatusColors.swift` 声明 4 个新符号**
 
 在各组现有四档之后加一行，紧跟该组的 `subtle`：
 
 ```swift
-    /// 边框色。**CoreDesign 扩展**，Primer 无独立 `*.border` 档（它用 `*.muted` 兼作边框）；
-    /// 本仓库保留独立档以免边框与背景同色而失去描边。取值沿用原 legacy 组的原子色 3 档。
+    /// 边框色。**CoreDesign 扩展**——本仓库为状态边框保留独立档，取值沿用重构前
+    /// legacy 组使用的原子色 3 档，保持既有视觉决定。
     static let statusAccentBorder: Color = Color("status-accent-border", bundle: .module)
 ```
 
-其余四组同形态（`statusSuccessBorder` / `statusAttentionBorder` / `statusDangerBorder` / `statusDoneBorder`）。
+其余三组同形态：`statusSuccessBorder` / `statusAttentionBorder` / `statusDangerBorder`。**不声明 `statusDoneBorder`**。
 
 - [ ] **Step 4: clean 后验证（新增了 colorset，必须 clean）**
 
 ```bash
 swift package clean
 set -o pipefail
-swift build; swift test; swift build --traits Blossom; swift test --traits Blossom
+swift build
+swift test 2>&1 | tail -1
+swift build --traits Blossom
+swift test --traits Blossom 2>&1 | tail -1
 ```
 
-Expected: 四条各自 EXIT=0，两次 96 tests passed（legacy 组仍在，Task 4 删除后变 95）
+Expected: 四条各自 EXIT=0，两次 `Test run with 96 tests in 32 suites passed`（legacy 组仍在，Task 4 删除后变 95）
 
 > **不 clean 会假绿**：macOS SPM 以目录而非 `.car` 分发 `.xcassets`，增量构建不拷贝新加的目录，新 colorset 在运行时不存在。
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: 确认 4 个新 colorset 真的进了构建产物**
+
+```bash
+find .build -name 'status-*-border.colorset' -maxdepth 6 | sed 's|.*/||' | sort
+```
+
+Expected: 恰好 4 行（`status-accent-border.colorset` / `status-attention-border.colorset` / `status-danger-border.colorset` / `status-success-border.colorset`）。若为 0 行，说明 Step 4 的 clean 没生效，资源不会在运行时存在。
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add Sources/CoreDesign/Resources/Resources.xcassets/status/ Sources/CoreDesign/Colors/StatusColors.swift
-git commit -m "Issue #93: fix emphasis tier across five groups; add the missing border tier (B6c, D19)"
+git status --short          # 确认 4 个新目录已 staged
+git commit -m "Issue #93: fix the emphasis tier across five groups; add four border colorsets (B6c, D19)"
 ```
 
 ---
@@ -435,7 +441,7 @@ git commit -m "Issue #93: fix emphasis tier across five groups; add the missing 
 - Modify: `Tests/CoreDesignTests/StatusColorsTests.swift`（让它编译通过）
 
 **Interfaces:**
-- Consumes: Task 3 的 5 个 `status*Border`
+- Consumes: Task 3 的 4 个 `status*Border`
 - Produces: legacy 组不复存在，`StatusColors` 只余新体系一套 scale。
 
 - [ ] **Step 1: 迁移 `Banner.swift`**
@@ -572,7 +578,7 @@ git commit -m "Issue #93: migrate the four legacy status consumers; delete the l
     static var borderFocus: Color { .accent }
 ```
 
-并重写 `:43-48` 整段注释——`:50` 那句称「focus 与 selected 同源 accent」与原代码矛盾（`borderFocus` 实际是独立 colorset），而 `:45` 的「由 `border/border-focus.colorset` 提供 light/dark 双值」在该 colorset 删除后同样失效。两处一并改。
+并重写 `:43-51` 整段注释（含 `:51`「取值复用品牌色 `brand5`」——`borderSelected` 改走 `.accent` 后同样过时）——`:50` 那句称「focus 与 selected 同源 accent」与原代码矛盾（`borderFocus` 实际是独立 colorset），而 `:45` 的「由 `border/border-focus.colorset` 提供 light/dark 双值」在该 colorset 删除后同样失效。两处一并改。
 
 > **默认主题下 focus ring 会从 Primer 蓝 `#0969DA` 变为品牌蓝 `#0077FA`**（dark `#1F6FEB` → `#3295FB`），影响 `FocusRingModifier.swift:106`（默认参数）与 `SearchField.swift:136`。已列入 NFR 视觉例外第 3 条。
 
@@ -581,7 +587,7 @@ git commit -m "Issue #93: migrate the four legacy status consumers; delete the l
 `InteractionColors.swift:32` 从直接引用第 1 层原子色 `.brand2` 改为同层别名：
 
 ```swift
-    static let selectionBackgroundEmphasis: Color = .accentDisabled   // 该文件通篇用 static let,保持一致
+    static var selectionBackgroundEmphasis: Color { .accentDisabled }
 ```
 
 并加注释说明为何与 `accentDisabled` 共值：
@@ -591,7 +597,7 @@ git commit -m "Issue #93: migrate the four legacy status consumers; delete the l
     /// 视觉档位一致，走别名而非直接引用第 1 层原子色，以免 accent 重定向时漏改。
 ```
 
-> `BorderColors.swift` 通篇是 `static var { … }` 计算属性形态，故上面两个改动用 `static var`；`InteractionColors.swift` 通篇是 `static let`，故这里保持 `static let`。各随所在文件的既有风格。
+> 两个文件都保持既有风格：`BorderColors.swift` 通篇 `static var { … }`；`InteractionColors.swift` **下半段的语义别名**（`:27-47`，含 `selectionBackgroundEmphasis` 本身）同样是 `static var { … }`，只有上半段的原子色直绑（`:4-25`）用 `static let`。故这里也用 `static var`。
 
 - [ ] **Step 3: 确认 `border-focus` colorset 是否仍被引用**
 
