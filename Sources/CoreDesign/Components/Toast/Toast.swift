@@ -21,7 +21,7 @@ import SwiftUI
 /// - `success`：操作成功（绿）。例：保存成功、上传完成。
 /// - `warning`：警告（橙）。例：网络延迟、配额接近上限。
 /// - `danger`：错误（红）。例：保存失败、操作被拒绝。
-public enum ToastLevel: Sendable {
+public nonisolated enum ToastLevel: Sendable {
     case info
     case success
     case warning
@@ -41,7 +41,7 @@ public enum ToastLevel: Sendable {
 /// - `level`：见 `ToastLevel`。决定 icon + 前景色。
 /// - `duration`：自动消失前的显示时长（秒）。**计时从 toast 开始显示起算**，
 ///   不是 enqueue 起算（详见 `ToastHost` 文档的 "dismiss timing" 段）。
-public struct ToastItem: Identifiable, Sendable {
+public nonisolated struct ToastItem: Identifiable, Sendable {
     public let id: UUID
     public let message: String
     public let level: ToastLevel
@@ -73,7 +73,7 @@ public struct ToastItem: Identifiable, Sendable {
 ///
 /// > Note: 这些是 toast 行为相关的默认值（duration / 动画时长），不是布局尺寸；
 /// > 布局走 `CoreSpacing.*` / `CoreRadius.*` 等 token，与此处无关。
-public enum ToastDefaults {
+public nonisolated enum ToastDefaults {
     /// `ToastItem.init` / `ToastHost.show(_:level:duration:)` 的缺省 duration（秒）。
     /// 取 3 秒贴合 Apple HIG / Material Design 对短提示的常见取值。
     public static let duration: TimeInterval = 3

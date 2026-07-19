@@ -37,7 +37,7 @@ public enum CoreElevation {
     // MARK: - Level
 
     /// 高度档位。每档对应 Primer shadow 标度的一档语义。
-    public enum Level: Sendable, CaseIterable {
+    public nonisolated enum Level: Sendable, CaseIterable {
         /// 无阴影。等价于平面元素，不产生 elevation 视觉。
         case none
 

@@ -20,7 +20,7 @@ import CoreGraphics
 ///
 /// `.thick` (2pt) 推荐用于交互元素的 focus ring；这与 Primer `borderWidth.thick` 文档中
 /// "focus indicator / selected state / emphasis border" 的用法分类一致。
-public enum CoreBorderWidth {
+public nonisolated enum CoreBorderWidth {
     /// 无描边 (0pt)。**CoreDesign 扩展**。零值占位。
     public static let none: CGFloat = 0
 

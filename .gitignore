@@ -75,3 +75,6 @@ fastlane/test_output
 
 # omsp runtime mode state (per-project, not shared)
 .claude/omsp/
+
+# Downstream probe build artifacts
+scripts/downstream-probe/.build/
