@@ -2,10 +2,20 @@ name: CI
 
 on:
   push:
-    # 包含 issue-** ：本 epic 的 11 个 Issue 各有一条 issue-* 分支，让它们在
-    # 开 PR 之前就能跑到 CI。
-    branches: [main, 'epic/**', 'issue-**']
+    # 不含 issue-** ：每个 Issue 分支开 PR 后，push 与 pull_request 会各触发一次，
+    # 同一 sha 跑两遍完整 macOS matrix（8 个 job）。macOS runner 按 10× 计费，
+    # 而本 workflow 会被后续 10 个 Issue 继承。PR 已覆盖 issue-* 分支。
+    branches: [main, 'epic/**']
   pull_request:
+
+# 最小权限。仓库当前默认就是 read，但那是可被改动的仓库级设置，显式钉住。
+permissions:
+  contents: read
+
+# 快速连续 push 时取消上一轮，避免堆叠整套 macOS matrix。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   swiftpm:
@@ -124,3 +134,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build downstream probe
         run: cd scripts/downstream-probe && swift build
+
+        # 只跑默认 trait：`--traits Blossom` 对 probe 包本身无效（trait 要声明在
+        # 依赖上，而它没声明），且隔离契约与 trait 无关——`nonisolated` 标注是无条件的。
+        # 若后续 Issue 引入 #if Blossom 条件的 public API，届时需另建一个带
+        # `traits: ["Blossom"]` 依赖的 probe。

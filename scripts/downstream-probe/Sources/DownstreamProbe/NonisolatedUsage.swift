@@ -38,3 +38,24 @@ nonisolated func useElevationLevel(_ level: CoreElevation.Level) -> CoreElevatio
 nonisolated func useSpacingAndRadius() -> CGFloat {
     CoreSpacing.md + CoreRadius.medium
 }
+
+nonisolated func useBorderWidthAndMetrics() -> CGFloat {
+    CoreBorderWidth.thin + CoreButtonMetrics.pressedScale + CoreControlMetrics.height(for: .regular)
+}
+
+nonisolated func useTypographyToken() -> CGFloat {
+    CoreTypography.bodyLargeLineSpacing
+}
+
+// 注意 `CoreElevation.spec(for:)` **不在**本 probe 覆盖范围：它读 asset-backed 的
+// shadow 颜色，而那些颜色的初始化表达式含 `Bundle.module`——SwiftPM 把该访问器生成
+// 在本 target 内，`defaultIsolation` 下它随之成为 MainActor 隔离，故整条
+// CoreElevation 家族无法 nonisolated。详见 updates/92/ci-decision.md。
+
+nonisolated func useToastDefaults() -> TimeInterval {
+    ToastDefaults.duration
+}
+
+nonisolated func useToastLevel() -> ToastLevel {
+    .info
+}

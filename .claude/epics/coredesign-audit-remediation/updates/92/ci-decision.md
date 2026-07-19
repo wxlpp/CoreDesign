@@ -134,6 +134,30 @@ CI 首跑暴露了一件本机看不出来的事：`ToastHostTests` 的三个 ti
 
 **给 `#4` 的输入**：布局断言层落地后，simulator job 才开始产生真实价值。届时确认 skip 列表没有误伤新增的 `#if os(iOS)` 测试。
 
+### 更正：`nonisolated` 的真实边界（前期记录有误，PR 评审推翻）
+
+本任务前期（含 PRD / epic / 计划 / 早期 commit message）反复断言：
+
+> `CoreElevation` / `CoreTypography` 持有 `Color` / `Font`，**SwiftUI 类型本身是 MainActor 隔离的**，故不能标 `nonisolated`；全标产生 17 个 error。
+
+**这个归因是错的。** PR 评审提出质疑后逐条实测：
+
+| 命题 | 实测 |
+|---|---|
+| `Color` / `Font` 是 MainActor 隔离类型 | ❌ 错。它们是 `Sendable` struct。`public nonisolated enum X { static let f: Font = .system(size: 12); static let c: Color = .red }` 构建通过 |
+| `Color("x")` / `Color("x", bundle: .main)` 阻止 nonisolated | ❌ 否，都通过 |
+| **`Color("x", bundle: .module)` 阻止 nonisolated** | ✅ **这才是真原因** |
+
+**真实边界**：一个类型无法标 `nonisolated`，当且仅当它含有**初始化表达式为 MainActor 隔离**的静态存储属性。本仓库只有一处符合——`CoreElevation.swift:90-93` 的四个 `Color("shadow-*", bundle: .module)`。
+
+`Bundle.module` 是 SwiftPM **生成在本 target 内**的访问器，因此 `defaultIsolation` 令它一并隔离。那 17 个 error 全部来自这四行，不是来自「持有 Color/Font」。
+
+**据此已补标**：`CoreTypography`、`CoreControlMetrics`、`CoreButtonMetrics`（实测构建 + 96 tests + Blossom 全绿）。这三个是下游从自定义 `Layout` / `Shape.path(in:)` 读取的典型对象——与库内已修的 `CoreSpacing`/`CoreRadius` 完全同类。
+
+**`CoreElevation.Spec` 刻意不标**：它虽是公开 `Sendable` 类型，但产出它的 `spec(for:)` 读 asset-backed 颜色、无法跟随 nonisolated。只标 `Spec` 而 `spec(for:)` 拿不到，等于制造另一个「装饰性 Sendable」——正是本任务批评过的问题。整条 `CoreElevation` 家族因 `Bundle.module` 而受限，这是已知且已记录的边界。
+
+**给 `#4` / `#10` 的更正**：不要采信「持有 SwiftUI 类型就不能标」。判据是**初始化表达式**是否 MainActor 隔离；实践中即「是否用了 `Bundle.module`」。`#2` 重组色彩层时尤其相关——`ColorGrade` / `SurfaceColors` 等整层都走 `Color(..., bundle: .module)`。
+
 ### 附带发现：所有验证都在被隔离的 target 内部，看不见公开 API 契约
 
 Task 1 的 checkpoint 评审发现，`defaultIsolation` 改变的不只是库内编译，还有**公开 API 的隔离契约**——下游从 nonisolated 上下文使用 `ToastItem` / `BadgeVariant` 等公开值类型会编译失败（实测 10 个 error）。

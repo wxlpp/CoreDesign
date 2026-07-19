@@ -41,7 +41,7 @@ import SwiftUI
 ///
 /// > Note: 取值参考 docs/PRIMER_VERSION.md 锁定的 Primer 版本。
 /// > Primer 用 `1rem = 16px`，本文件直接以 pt 为单位（Apple 平台 1pt ≈ 1px @1x）。
-public enum CoreTypography {
+public nonisolated enum CoreTypography {
 
     // MARK: - Display
 

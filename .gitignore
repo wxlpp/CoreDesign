@@ -78,3 +78,6 @@ fastlane/test_output
 
 # Downstream probe build artifacts
 scripts/downstream-probe/.build/
+
+# CI gate logs written to repo root when reproducing locally
+*.log
