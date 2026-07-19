@@ -9,26 +9,43 @@ import Foundation
 import SwiftUI
 
 extension Color {
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let primary: Color = .brand5
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let primaryActive: Color = .brand7
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let primaryDisable: Color = .brand2
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let primaryHover: Color = .brand6
 
     #if Blossom
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let secondary: Color = .violet5
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let secondaryActive: Color = .violet7
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let secondaryDisable: Color = .violet2
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let secondaryHover: Color = .violet6
     #else
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let secondary: Color = .lightBlue5
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let secondaryActive: Color = .lightBlue7
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let secondaryDisable: Color = .lightBlue2
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let secondaryHover: Color = .lightBlue6
     #endif
 
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
+
     static let tertiary: Color = .grey5
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let tertiaryActive: Color = .grey7
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let tertiaryDisable: Color = .grey2
+    @available(*, deprecated, message: "A1 probe: shadows SwiftUI builtin")
     static let tertiaryHover: Color = .grey6
 }
 
