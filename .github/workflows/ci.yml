@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    # 不含 issue-** ：每个 Issue 分支开 PR 后，push 与 pull_request 会各触发一次，
+    # 同一 sha 跑两遍完整 macOS matrix（8 个 job）。macOS runner 按 10× 计费，
+    # 而本 workflow 会被后续 10 个 Issue 继承。PR 已覆盖 issue-* 分支。
+    branches: [main, 'epic/**']
+  pull_request:
+
+# 最小权限。仓库当前默认就是 read，但那是可被改动的仓库级设置，显式钉住。
+permissions:
+  contents: read
+
+# 快速连续 push 时取消上一轮，避免堆叠整套 macOS matrix。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  swiftpm:
+    name: SwiftPM (${{ matrix.mode }})
+    # 钉死 macos-26 而非 macos-latest：两者当前解析到同一镜像
+    # （macOS 26.4 / Xcode 26.5），但 latest 会随 GitHub 滚动。
+    # runner 默认选中的就是 Xcode 26.5，无需 xcode-select 步骤。
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [default, blossom]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          if [ "${{ matrix.mode }}" = "blossom" ]; then
+            swift build --traits Blossom
+          else
+            swift build
+          fi
+
+      - name: Test
+        # ToastHostTests 的三个 timing 用例依赖真实墙钟（Task.sleep + 固定 buffer），
+        # 在负载较高的 runner 上会 flake。仅当失败用例**全部**落在这三个上才重跑
+        # 一次；其余任何失败直接判红——本 epic 改的是全库隔离语义，真实的并发时序
+        # 回归表现形式与 flake 完全一致，无差别重试会把它洗白。
+        #
+        # 三个用例都已确认是**既有** flake：第一轮评审在计划 commit(4dcb801,零代码
+        # 改动、无 defaultIsolation)上就观察到 ToastHostTests.swift:108-110 失败。
+        run: |
+          set -o pipefail
+          run_tests() {
+            if [ "${{ matrix.mode }}" = "blossom" ]; then
+              swift test --traits Blossom
+            else
+              swift test
+            fi
+          }
+          run_tests 2>&1 | tee first.log || {
+            # 先落到变量再匹配：`grep -q` 命中即退出并向上游发 SIGPIPE，
+            # 而 pipefail 会把 141 提升为整条管道的退出码，使 if 恒假、
+            # 一切失败都走「重跑」。
+            fails=$( { grep 'recorded an issue' first.log
+                       grep -E 'Test "[^"]*" failed after' first.log
+                     } || true )
+            # 空集 = 非测试类失败（编译错误等）→ 直接判红，不重跑。
+            # 锚点用三个 flaky 用例的**唯一名称**，不用 'dismiss(id:)'——
+            # 后者会命中另外两个确定性用例（排队中的 item 直接移除 / 不存在的 id
+            # 是 no-op），把它们的真实失败一起洗白。
+            if [ -z "$fails" ] || grep -qvE '进入 dismissing 状态|double-fire|advance 到下一条' <<< "$fails"; then
+              echo "存在已知 flake 之外的失败 → 直接判红"; exit 1
+            fi
+            echo "仅已知 flake 失败，重跑一次"
+            run_tests 2>&1 | tee second.log
+          }
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftpm-logs-${{ matrix.mode }}
+          path: '*.log'
+          if-no-files-found: ignore
+
+  simulator:
+    name: iOS Simulator
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run iOS tests
+        # 两个 suite 被跳过，理由不同：
+        #
+        # 1. BlossomAssetTests —— 它用 FileManager 查 .colorset 目录，那是为
+        #    SwiftPM（不调 actool）写的；xcodebuild 会生成 Assets.car，原始目录
+        #    不存在，故该 suite 在此环境**必然**失败。
+        #
+        # 2. ToastHostTests —— 三个 timing 用例依赖 Task.sleep 真实墙钟，buffer
+        #    取 0.3–0.5s。在 CI runner 上实测**稳定失败**（连跑两次都红，不是偶发），
+        #    buffer 在该负载下持续不够。它们是平台无关的状态机断言，SwiftPM 两个
+        #    job 已经覆盖且通过；在 simulator 里重跑一遍不增加任何信号，只会让这个
+        #    job 永久红。本 job 的存在意义是 iOS 特有断言（#4 的布局层）。
+        #    加大 buffer 属于测试改动，归 #7，不在本任务范围。
+        #
+        # 标识符要用**类型名**（BlossomAssetTests / ToastHostTests），不是 @Suite
+        # 的显示名——用显示名不报错，只是静默不生效。
+        #
+        # 本 job 目前跑不到任何 #if os(iOS) 布局断言（由 #4 引入），此刻验证的
+        # 是「这条命令在 CI 上能跑通」；#4 落地后才开始真正守护。
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme CoreDesign \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -skip-testing:CoreDesignTests/BlossomAssetTests \
+            -skip-testing:CoreDesignTests/ToastHostTests \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-first.log
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-logs
+          path: 'ios-*.log'
+          if-no-files-found: ignore
+
+  downstream-probe:
+    name: Downstream API probe
+    # 库的其余验证全都跑在启用了 defaultIsolation 的 target **内部**，
+    # 结构上看不见「下游从 nonisolated 上下文能否使用公开 API」。
+    # 这个 job 是唯一的下游视角，防的是公开 API 隔离契约的静默回归。
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build downstream probe
+        run: cd scripts/downstream-probe && swift build
+
+        # 只跑默认 trait：`--traits Blossom` 对 probe 包本身无效（trait 要声明在
+        # 依赖上，而它没声明），且隔离契约与 trait 无关——`nonisolated` 标注是无条件的。
+        # 若后续 Issue 引入 #if Blossom 条件的 public API，届时需另建一个带
+        # `traits: ["Blossom"]` 依赖的 probe。

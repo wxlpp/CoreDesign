@@ -54,7 +54,7 @@ import SwiftUI
 /// > Important: padding helper 必须返回 `CoreSpacing.*` 命名常量，font helper 必须返回
 /// > `CoreTypography.*Font`，不内联魔法数字——这是本 token 存在的全部意义。
 /// > height 与 iconSize 没有对应的 CoreSpacing 档位，按 Primer 直接给定 pt 值。
-public enum CoreControlMetrics {
+public nonisolated enum CoreControlMetrics {
 
     // MARK: - height
 

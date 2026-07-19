@@ -8,7 +8,7 @@ import SwiftUI
 // MARK: - StatusResult
 
 /// CI 检查结果状态。
-public enum StatusResult: Sendable, Equatable {
+public nonisolated enum StatusResult: Sendable, Equatable {
     case success
     case failure
     case pending

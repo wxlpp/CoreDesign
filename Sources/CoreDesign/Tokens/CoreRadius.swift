@@ -21,7 +21,9 @@ import CoreGraphics
 /// > Note: Primer 没有 `.none`（直角通常通过省略 `border-radius` 实现）。
 /// > 本仓库引入 `.none = 0`，方便在统一类型签名下表达"无圆角"——譬如
 /// > `BorderModifier` 默认不带圆角时仍走 token 路径，而不是字面量 0。
-public enum CoreRadius {
+// `nonisolated`：理由同 `CoreSpacing`——纯数值常量，需要在 nonisolated 上下文
+// （如 `BottomInputBarGlassEffectShape.path(in:)`）中被引用。
+public nonisolated enum CoreRadius {
     /// 直角 (0pt)。**CoreDesign 扩展**，Primer 无对应。
     public static let none: CGFloat = 0
 

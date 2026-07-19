@@ -75,3 +75,9 @@ fastlane/test_output
 
 # omsp runtime mode state (per-project, not shared)
 .claude/omsp/
+
+# Downstream probe build artifacts
+scripts/downstream-probe/.build/
+
+# CI gate logs written to repo root when reproducing locally
+*.log

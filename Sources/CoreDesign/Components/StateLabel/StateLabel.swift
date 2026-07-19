@@ -11,7 +11,7 @@ import SwiftUI
 ///
 /// 颜色映射通过 `StatusColors` 系统的 emphasis 背景 + foreground 文字实现，
 /// 详见下方 `backgroundColor` / `foregroundColor`。
-public enum StateLabelStyle: Sendable, Equatable {
+public nonisolated enum StateLabelStyle: Sendable, Equatable {
     case active      // success (green) — in progress
     case draft       // attention (yellow) — not ready / WIP
     case completed   // done (purple) — finished

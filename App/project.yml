@@ -3,11 +3,14 @@ options:
   bundleIdPrefix: com.coredesign
   deploymentTarget:
     iOS: "26.0"
-  xcodeVersion: "16.0"
+  xcodeVersion: "26.0"
 
 packages:
   CoreDesign:
     path: ../
+    # 需要 xcodegen >= 2.46.0——2.45.4 会静默忽略此键(生成物零 trait 痕迹)。
+    # 让预览宿主渲染 Blossom 主题,使它成为该主题的视觉验证载体。
+    traits: ["Blossom"]
   SnapshotPreviews:
     url: https://github.com/EmergeTools/SnapshotPreviews
     exactVersion: "0.14.0"

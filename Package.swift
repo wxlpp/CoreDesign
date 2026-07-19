@@ -6,8 +6,8 @@ import PackageDescription
 let package = Package(
     name: "CoreDesign",
     platforms: [
-        .iOS("26.0"),
-        .macOS("26.0"),
+        .iOS(.v26),
+        .macOS(.v26),
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
@@ -25,11 +25,13 @@ let package = Package(
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "CoreDesign",
-            resources: [.process("Resources")]
+            resources: [.process("Resources")],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
         .testTarget(
             name: "CoreDesignTests",
-            dependencies: ["CoreDesign"]
+            dependencies: ["CoreDesign"],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
     ],
     swiftLanguageModes: [.v6]
