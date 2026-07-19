@@ -12,7 +12,7 @@ github: (will be set on sync)
 
 ## Overview
 
-修复四路审计在 CoreDesign 中核实出的 83 项缺陷（78 修 / 5 记录不修），覆盖四个层面：遮蔽 SwiftUI 内建成员的真 bug、公开 API 断裂、结构性冗余（重复色阶 / typography 层不缩放 / 按钮体系重复），以及缺失的质量保障基建。
+修复四路审计在 CoreDesign 中核实出的 83 项缺陷（79 修 / 4 记录不修），覆盖四个层面：遮蔽 SwiftUI 内建成员的真 bug、公开 API 断裂、结构性冗余（重复色阶 / typography 层不缩放 / 按钮体系重复），以及缺失的质量保障基建。
 
 用户已确认 breaking change 直接改，不保留 deprecated 兼容层。完整缺陷清单与逐项证据见 `audit-checklist.md`，它同时是本 epic 的验收依据（SC-7）。
 
@@ -217,7 +217,7 @@ epic 集成分支 `epic/coredesign-audit-remediation`（off `main`）。每个 I
 | 8 | 可访问性 | 3 | #2（Form）, #4, #6（BottomInputBar） | **#9, #10** |
 | 9 | 本地化 String Catalog | 1 | #1（Package.swift 加 `defaultLocalization`）, #3（MenuButton 改名）, #4, #6（BookCover）, #10（MenuButton、Toast） | #8 |
 | 10 | 公开 API 形态统一 | 9 | #3, #4 | **#8** |
-| 11 | 机械清理 | 10 | #2（Banner）, #3（MenuButton）, #4, #5, #6, #8（BottomInputBar）, #9, #10 | **#7** |
+| 11 | 机械清理 | 11 | #2（Banner）, #3（MenuButton）, #4, #5, #6, #8（BottomInputBar）, #9, #10 | **#7** |
 
 任务数 11，超出 ccpm「≤10」的建议一项。保留 11 的理由：第 2 轮评审明确要求把原 #10 二分为「公开 API 形态设计」与「机械清理」——前者是设计决策、后者是文本改动，混在一个 Issue 里会让评审粒度失配。合并回去会牺牲评审质量。
 

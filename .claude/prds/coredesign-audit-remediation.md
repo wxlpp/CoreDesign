@@ -265,7 +265,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - `.build/` 存有跨路径 ModuleCache 时构建会失败，需先 clean
 
 **假设：**
-- **CoreDesign 无外部下游消费者**（用户明确确认"直接改，不管下游"）。**支持证据**：`gh repo view` 显示仓库虽为 PUBLIC，但 **0 forks / 0 stars**，未发现反证。**风险留存**：`README.md` 的 Quick Start 指引消费者 `branch: "main"` 且无版本钉扎，任何匿名 clone 者会在下次 pull 时直接编译失败。「改名前打一个 pre-remediation tag」是与该决策不冲突的一条命令级保险，但用户已选择不建立版本契约，故本轮不做——此处记录取舍，便于日后追溯
+- **CoreDesign 无外部下游消费者**（用户明确确认"直接改，不管下游"）。**支持证据**：`gh repo view` 显示仓库虽为 PUBLIC，但 **0 forks / 0 stars**，未发现反证。**风险留存**：`README.md` 的 Quick Start 指引消费者 `branch: "main"` 且无版本钉扎，任何匿名 clone 者会在下次 pull 时直接编译失败。**已更新**：用户确认仓库为自用后，`v0.1.0` 已打在 `43b71e2`（修复前基线，四种模式验证绿），作为可回退点。README 改为 pin tag 归 `#11`
 - 仓库内 `App/` 预览宿主是唯一需同步适配的消费者
 - Primer 对齐仍是 typography 的设计目标，因此保留精确字号而非改用系统 TextStyle
 
@@ -273,11 +273,10 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 
 - **像素级视觉回归测试**——用户明确选择"只生成 + agent 审美"，快照 PNG 继续作为文档插图，不升级为 baseline，不做像素比对
 - **upcoming features**（`ExistentialAny`、`MemberImportVisibility`、`InternalImportsByDefault`）——会引入大片与本次修复无关的机械改动，搅浑 diff，另开一轮
-- **版本 tag 与 semver 发布流程**——用户选择不管下游，故本轮不建立版本契约；README 的 `branch: "main"` 指引保持不变
+- **完整 semver 发布流程**——本轮只打了 `v0.1.0` 这一个修复前基线 tag 作为回退点，不建立持续的版本发布契约
 - **deprecated 兼容层**——用户明确选择直接改，不保留 `@available(*, deprecated, renamed:)` 过渡
 - **`StarShape` 的去留**——public 且零引用，但可能是给下游预留，本轮仅记录不处理
 - **新增组件或新功能**——本 epic 纯修复与收敛。例外：为保持现有表现所必需的 token（`StatusColors` 的 `*Border` 档、`CoreTypography` 的 mono 变体）属修复范畴，不受此限
-- **`git tag` 保险点**——「改名前打 pre-remediation tag」虽是零成本，但与"不建立版本契约"的决策一并排除；理由记录于 Assumptions
 - **`swift-snapshot-testing` 等外部测试依赖引入**
 - **lint / format 工具链**（SwiftLint、swift-format、.editorconfig）——CLAUDE.md 的「显式 `self.`」等风格约定继续靠人工与文档执行；引入新工具链会产生大批与本次修复无关的格式化 diff，另开一轮（对应审计项 C8）
 
