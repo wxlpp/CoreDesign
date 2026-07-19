@@ -1,0 +1,49 @@
+name: _probe-runner
+# 用 push 触发,不用 workflow_dispatch——后者要求 workflow 文件存在于**默认分支**
+# 才能 dispatch,而本探针只在 issue 分支上(实测 main 上无任何 workflow)。
+on:
+  push:
+    branches: ['issue-**']
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [macos-26, macos-15, macos-latest]
+    runs-on: ${{ matrix.image }}
+    continue-on-error: true
+    # 防执行期挂死。注意 timeout-minutes 只从 job **开始执行**后计时,排队时间
+    # 不计入,所以它挡不住「label 不可用导致长期 queued」——那靠轮询上限兜底。
+    timeout-minutes: 20
+    steps:
+      - name: Runner image
+        run: sw_vers && uname -m
+
+      - name: Available Xcode versions
+        run: ls /Applications | grep -i '^Xcode' || echo "none"
+
+      - name: Selected Xcode
+        run: xcodebuild -version
+
+      - name: Simulator runtimes
+        run: xcrun simctl list runtimes
+
+      - name: iOS 26 runtime present?
+        run: |
+          if xcrun simctl list runtimes | grep -q 'iOS 26'; then
+            echo "IOS26_RUNTIME=yes"
+          else
+            echo "IOS26_RUNTIME=no"
+          fi
+
+      - name: iPhone 17 Pro device present?
+        run: |
+          if xcrun simctl list devices available | grep -q 'iPhone 17 Pro'; then
+            echo "IPHONE17PRO=yes"
+          else
+            echo "IPHONE17PRO=no"
+          fi
+
+      - name: Swift version
+        run: swift --version
