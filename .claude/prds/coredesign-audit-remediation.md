@@ -227,7 +227,9 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
   3. **默认主题下 `borderFocus` 从 Primer 蓝 `#0969DA`/`#1F6FEB` 统一到品牌 accent `#0077FA`/`#3295FB`**——别名继承方案的必然代价，影响 `SearchField` focus ring 与 `.focusRing()` 默认参数
   4. Dynamic Type 缩放生效
   5. **7 处系统字号 → token 的字号归一**（`.subheadline` 为 15pt，无精确对应 token，迁移必有小幅字号变化）
-  6. `statusAccent*` 整组移除。库内**零渲染消费点**（`Sources/` 仅有定义），故产品代码观感无变化；但仓内仍有引用须同步处理（完整清单见 FR-1）——影响渲染的两处是 `Tests/CoreDesignTests/StatusColorsTests.swift:10-13` 与 `App/Sources/Previews.swift:233`（预览宿主的一个色块，删除后该色块消失），另有 `docs/components/timeline-item.md:24` 属文档漂移不影响渲染
+  6. ~~`statusAccent*` 整组移除~~ —— **已在 #93 执行时改判为保留**。删除它与 FR-1 自身的 legacy 迁移要求冲突：新体系只有 `accent` 一个蓝色家族，而它正是 Primer 的 info 语义，`Banner`/`Toast`/`Badge` 的 legacy `info*` 只能迁到它。原判据「库内零渲染消费点」在迁移完成后不再成立
+  7. **五组 `status-*-emphasis` 的 light 值修正**（`accent`/`success`/`attention`/`danger`/`done`）。原 D19 记为「accent 单组 colorset 笔误」，横向比对发现五组全部把 emphasis 填成了同组 muted 的值；Primer 语义里 emphasis 是饱和实色。修正后该档才真正可用
+  8. **legacy → 新体系迁移的 dark 观感变化**：legacy 用不透明原子色（如 `blue-1` dark `#0A4694`），新体系 dark 是 alpha 叠加（如 `#1F6FEB @13.3%`）。迁移后 dark 模式下状态背景从实色变为半透明叠加。这是 Primer 的标准做法（能随底层 surface 自适应），比 legacy 写死实色更正确
   7. **`StatusRow` 的 skipped 图标从浅蓝（Blossom 下紫罗兰）变为系统灰**——这是修复 A1 遮蔽的直接结果，即把该图标恢复成作者原本意图的中性色
 - **性能**：消除 body 内的重复图片解码与每帧 `AnyShapeStyle` 装箱
 - **代码风格**：遵循仓库既有约定（显式 `self.`、中英双语注释、`#Preview` 与组件同文件）
