@@ -302,6 +302,14 @@ ls App/CoreDesignPreview.xcodeproj/xcshareddata/xcschemes/   # 确认 scheme 未
 
 - [ ] **Step 4: 路径 4——wrapper 本地包（前三条不可行时必须尝试，不可跳过）**
 
+> **本路径已实测验证可行**，不是推测。在 scratchpad 建同构 wrapper 包后，探针输出：
+>
+> ```
+> ### ACCENT DESC: NamedColor(name: "blossom-brand-5", bundle: ...CoreDesign_CoreDesign.bundle)
+> ```
+>
+> 即 `Color.accent` 确实解析到 `blossom-brand-5`（Blossom 珊瑚粉），而非默认的 `brand-5`。**trait 通过 wrapper 真实生效**。因此 C9b 是可达成的，Step 5 的「记录不修」出口只应在本路径也因环境原因失败时才走。
+
 这条路径不依赖 xcodegen 支持 traits，也不怕 `xcodegen generate` 覆盖。在 `App/` 下建一个薄 wrapper 包，由它以 trait 方式依赖 CoreDesign 并 re-export：
 
 `App/BlossomPreviewShim/Package.swift`：
@@ -348,7 +356,16 @@ packages:
 
 并把 `CoreDesignPreview` target 的 `dependencies` 从 `- package: CoreDesign` 改为 `- package: BlossomPreviewShim`。
 
-验证（必须看真实色值，不能只看构建成功）：
+验证（必须看真实 asset 解析结果，不能只看构建成功——这正是 xcodegen `traits:` 的陷阱）：
+
+先用 SwiftPM 层面确认 trait 生效（最快、无需 simulator）。在 shim 包里临时加一个 test target，断言 `String(describing: Color.accent)` 含 `blossom-brand-5`：
+
+```swift
+let d = String(describing: Color.accent)
+#expect(d.contains("blossom-brand-5"))   // 默认 trait 下会是 "brand-5"
+```
+
+确认 trait 生效后再走 Xcode 侧：
 
 ```bash
 cd App && xcodegen generate --spec project.yml && cd ..
