@@ -82,4 +82,48 @@ git checkout -- App/CoreDesignPreview.xcodeproj/xcshareddata/
 
 ## C1：CI runner 能力结论
 
-（Task 4 填写）
+### 结论：**级别 1**，五条命令全部可进 CI，无需降级
+
+这是从 PRD 阶段悬到现在的首要风险，结果是最好的一种。
+
+### 实测输出（探针 workflow `_probe-runner.yml`，run 29691369849）
+
+| image | macOS | Xcode | iOS 26 runtime | iPhone 17 Pro |
+|---|---|---|---|---|
+| **`macos-26`** | 26.4 | **26.5** (17F42) | ✅ `yes` | ✅ `yes` |
+| `macos-latest` | 26.4 | 26.5 (17F42) | ✅ `yes` | ✅ `yes` |
+| `macos-15` | 15.7.7 | 16.4 (16F6) | — | — |
+
+`macos-26` 上实际可用的 iOS runtime：
+
+```
+iOS 26.2 (26.2 - 23C54)
+iOS 26.4 (26.4.1 - 23E254a)
+iOS 26.5 (26.5 - 23F77)
+```
+
+三个 image 的 job 全部 `success`。
+
+### 采用
+
+**`macos-26`**。虽然 `macos-latest` 当前解析到同一镜像（macOS 26.4 / Xcode 26.5），但 `latest` 的含义会随 GitHub 滚动，钉死 `macos-26` 更可预测——本仓库的部署目标就是 26。
+
+runner 的 Xcode 26.5 是默认选中的，**不需要 `xcode-select` 步骤**，`ci.yml` 里预留的那个插槽保持注释状态。
+
+### 对下游 Issue 的影响
+
+- **SC-1（下游 probe 包）**：进 CI。本任务已把 probe 固化为 `scripts/downstream-probe/`（起因见下方「附带发现」），CI 会构建它
+- **SC-4（CI workflow 覆盖五条命令）**：**达成**，无降级
+- **#4 的布局断言层是否有自动化守护：有** ✅
+
+  `#4` 可以放心把布局断言写成 `#if os(iOS)` + `xcodebuild` Simulator 形式，CI 的 `simulator` job 会真实运行它们。不需要退回「本地手工执行并记录输出」的降级路径。
+
+- **级别 4 的本地 pre-push 脚本**：不需要，未创建
+
+### 附带发现：所有验证都在被隔离的 target 内部，看不见公开 API 契约
+
+Task 1 的 checkpoint 评审发现，`defaultIsolation` 改变的不只是库内编译，还有**公开 API 的隔离契约**——下游从 nonisolated 上下文使用 `ToastItem` / `BadgeVariant` 等公开值类型会编译失败（实测 10 个 error）。
+
+根因是结构性的：四条 SwiftPM 命令、`xcodebuild test`、warning 判据**全都跑在被隔离的 target 内部**，没有任何一处能看见下游视角。
+
+因此新增 `scripts/downstream-probe/`——一个从 `nonisolated` 函数使用公开值类型的探针包，并纳入 CI。它是唯一能发现这类回归的地方；后续任何涉及隔离标注的改动（`#4`、`#10` 都会碰 token 层）都应保持它绿。
