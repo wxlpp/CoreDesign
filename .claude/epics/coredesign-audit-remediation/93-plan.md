@@ -38,7 +38,7 @@ Colors/CoreGradient+Preview.swift:17:63     'secondary' is deprecated
 
 ### 三条改判（已同步进 `audit-checklist.md` 与 PRD，commit `8c2f310`）
 
-1. **`statusAccent*` 保留，不删**。删它与本任务自身的 legacy 迁移冲突——新体系只有 `accent` 一个蓝色家族，而它正是 Primer 的 info 语义，`Banner`/`Toast`/`Badge` 的 legacy `info*` 只能迁到它。D19 原判据「库内零渲染消费点」在迁移完成后不再成立。
+1. **`statusAccent*` 保留，不删**。删它与本任务自身的 legacy 迁移冲突——新体系只有 `statusAccent*` 一个蓝色家族，而它正是 Primer 的 info 语义（**注意与 `Color.accent` 区分**：后者 = `brand5`，Blossom 下是珊瑚粉；`statusAccent*` 是 `StatusColors` 里不分流的 Primer 蓝），`Banner`/`Toast`/`Badge` 的 legacy `info*` 只能迁到它。D19 原判据「库内零渲染消费点」在迁移完成后不再成立。
 2. **五组 `emphasis` 的 light 值全错，不是 accent 单组笔误**。`accent`/`success`/`attention`/`danger`/`done` 的 `*-emphasis` light 值逐组等于同组 `*-muted`；Primer 语义里 emphasis 是饱和实色。本轮一并修正。
 3. **迁移会改变 dark 观感**，已列入 NFR 视觉例外：legacy 用不透明原子色（`blue-1` dark `#0A4694`），新体系 dark 是 alpha 叠加（`#1F6FEB @13.3%`）。这是 Primer 的标准做法，能随底层 surface 自适应，比 legacy 写死实色更正确。
 
@@ -52,9 +52,17 @@ legacy 三档 → 新体系。`info` → `accent` 家族（Primer 里 accent 即
 | `*Background` | ramp 1（`blue1` `#CBE7FE`） | `status*Muted` | Primer `muted` = 有色背景块的标准档；`subtle` 更淡（faint highlight），用于选区高亮而非 Banner/Badge 底色 |
 | `*Border` | ramp 3（`blue3` `#65B2FC`） | `status*Border`（**本任务新增**） | 见下 |
 
-**新增 5 个 `status-*-border.colorset` 的取值**：沿用 legacy 的原子色 3 档（`blue3`/`green3`/`orange3`/`red3`，`done` 组用 `purple3`）。理由——(a) 保持 light 模式观感零回归，这是迁移的默认要求；(b) Primer 本身没有独立的 `*.border` 档（它用 `*.muted` 兼作边框），若强行对齐会让边框与背景同色而失去描边；(c) legacy 的 3 档取值本就是本仓库为边框选定的，有既定视觉依据。dark 值同样沿用原子色 3 档的 dark 值（不透明），**不用 alpha 叠加**——边框需要清晰轮廓，半透明会糊。
+**新增 4 个 `status-*-border.colorset` 的取值**（`accent`/`success`/`attention`/`danger`，**不建 `done` 组**——它无 legacy 先例、本任务零消费者，属加法，留到有需求时再补）：
 
-**四组 legacy → 新体系的组名对应**：`info`→`accent`、`success`→`success`、`warning`→`attention`、`danger`→`danger`。（`done` 组本任务不涉及，但 border 档一并补齐以保持体系完整。）
+取各组 `*-emphasis` 修正后的值 @ 40% alpha，light / dark 同法。理由：
+
+- Primer **确有** `borderColor.{accent,success,attention,danger}.{muted,emphasis}` 这一族（`BorderColors.swift:43` 的注释就引用了 `Primer borderColor.accent.emphasis`），所以不存在「Primer 无 border 档」这回事——本任务对齐它
+- 用同组 emphasis 派生，边框与背景自动同色系协调；而新体系 dark 背景是 alpha 叠加，若边框沿用 legacy 的不透明原子色 3 档，会在半透明背景上过分抢眼，产出一块混色板
+- **不沿用 legacy 原子色 3 档**：迁移的 fg / bg 两档 light 值本就全变（见下方视觉变化说明），「保持 light 零回归」这个理由不成立，不能只在 border 档上假装成立
+
+**四组 legacy → 新体系的组名对应**：`info`→`accent`、`success`→`success`、`warning`→`attention`、`danger`→`danger`。`done` 组本任务不涉及，border 档也不补。
+
+**迁移的视觉变化（已列入 NFR 例外第 8、9 条，不是回归）**：两套 scale 取自不同来源，light 值 8 处全变，其中 **`warning` 前景从 `#A84A00`（橙）变为 `#9A6700`（橄榄黄）是色相改变**，在 `Banner`/`Toast`/`Badge` 三处可见；dark 侧则从不透明实色变为 alpha 叠加。
 
 ---
 
@@ -119,6 +127,11 @@ swift build 2>&1 | grep -aE "\.swift:[0-9]+:[0-9]+: warning:.*A1 probe" \
 swift build --traits Blossom 2>&1 | grep -aE "\.swift:[0-9]+:[0-9]+: warning:.*A1 probe" \
   | sed 's|.*/CoreDesign/||' | sort -u | tee "$LOGDIR/a1-blossom.txt"
 diff "$LOGDIR/a1-default.txt" "$LOGDIR/a1-blossom.txt" && echo "两种 trait 清单一致 ✓"
+
+# 库 target 之外:Tests/ 与 App/ 是独立编译单元,毒丸的 swift build 覆盖不到。
+# 补跑 test target,并 grep App/(它不进 SwiftPM 构建)。
+swift test 2>&1 | grep -aE "\.swift:[0-9]+:[0-9]+: warning:.*A1 probe" | sed 's|.*/CoreDesign/||' | sort -u
+grep -rnE '(Color\.|: Color = \.)(primary|secondary|tertiary)\b' App/Sources/ || echo "App/ 无 Color.primary/secondary/tertiary 引用"
 ```
 
 Expected: 两个文件内容相同，各 3 行：
@@ -128,6 +141,10 @@ Colors/CoreGradient+Preview.swift:17:63: warning: 'secondary' is deprecated: A1 
 Components/CheckBox/CheckBox.swift:31:44: warning: 'primary' is deprecated: A1 probe: shadows SwiftUI builtin
 Components/StatusRow/StatusRow.swift:80:32: warning: 'secondary' is deprecated: A1 probe: shadows SwiftUI builtin
 ```
+
+Expected（补跑部分）：`swift test` 侧无额外条目；`App/` 侧无输出。
+
+> 注意 `Sources/` 里另有 20 多处 `.foregroundStyle(.secondary)` / `.tertiary` **不会**被毒丸报出，也不受删除影响——它们在泛型 `ShapeStyle` 位置解析为 `HierarchicalShapeStyle`，走的是另一条重载。只有显式写 `Color.primary` 或处于 `-> Color` 上下文的裸 `.secondary` 才会命中被遮蔽的符号。
 
 **若出现第 4 处**，说明审计有遗漏——把它一并纳入 Task 2 的改写清单，不要忽略。
 
@@ -213,18 +230,33 @@ CoreGradient+Preview.swift:17."
 - [ ] **Step 4: 确认毒丸诊断已归零**
 
 ```bash
-swift build 2>&1 | grep -c "A1 probe" | xargs echo "默认 trait 残留:"
-swift build --traits Blossom 2>&1 | grep -c "A1 probe" | xargs echo "Blossom 残留:"
+LOGDIR="${TMPDIR:-/tmp}/coredesign-93"; mkdir -p "$LOGDIR"
+# 不用 `grep -c`——本步只改了另外三个文件,若 FunctionalColor.swift 未被重编译,
+# 诊断不会重放,计数返回 0 而门禁空过,正是毒丸要防的静默失败。
+# 复用 Task 1 Step 3 已验证的形态,并断言日志非空以证明确实编译过。
+swift package clean
+swift build 2>&1 | tee "$LOGDIR/gate-default.log" | tail -1
+swift build --traits Blossom 2>&1 | tee "$LOGDIR/gate-blossom.log" | tail -1
+for f in "$LOGDIR/gate-default.log" "$LOGDIR/gate-blossom.log"; do
+  [ -s "$f" ] || { echo "日志为空,门禁无效"; exit 1; }
+  grep -aE "\.swift:[0-9]+:[0-9]+: warning:.*A1 probe" "$f" | sed 's|.*/CoreDesign/||' | sort -u
+done
+echo "--- 以上为空即通过 ---"
 ```
 
-Expected: 两者均为 `0`。**非零则不许进入 Step 5** —— 删符号前必须零诊断。
+Expected: 两个日志都非空（证明真的编译了），且残留清单**无输出**。**有任何输出则不许进入 Step 5** —— 删符号前必须零诊断。
 
 - [ ] **Step 5: 删除三组色别名与毒丸，补 `public`，修 `danger` 基准**
 
 `Sources/CoreDesign/Colors/FunctionalColor.swift`：
 
 1. 删除 `primary`/`secondary`/`tertiary` 三组共 16 处声明（含刚加的毒丸注解、含 `#if Blossom` / `#else` 两个分支）。若该 `#if Blossom` 块删空，整块一并删除——这是 SC-2 要求的分流点净减
-2. `extension Color {` 改为 `public extension Color {`（A2d：第 4 层此前整层 internal，与 CLAUDE.md 称它是「最高层 API 表面」矛盾）
+2. **注意 `FunctionalColor.swift` 有两个 `extension Color`**（`:11` 与 `:35`）：`:11-33` 那个的全部内容就是要删的三组，**整块删除**；`public` 加在 `:35` 那个上（A2d：第 4 层此前整层 internal，与 CLAUDE.md 称它是「最高层 API 表面」矛盾）。
+   只对第一个匹配做替换会让 `:35` 那块仍是 internal，且**照样编译通过**——静默失败。验证：
+   ```bash
+   grep -c '^public extension Color' Sources/CoreDesign/Colors/FunctionalColor.swift   # 期望 1
+   grep -c '^extension Color' Sources/CoreDesign/Colors/FunctionalColor.swift          # 期望 0
+   ```
 3. `danger` 基准从 `.red4` 改为 `.red5`（D11）：
 
 ```swift
@@ -246,15 +278,27 @@ set -o pipefail
 swift build; swift test; swift build --traits Blossom; swift test --traits Blossom
 ```
 
-Expected: 四条各自 EXIT=0，两次 `Test run with 96 tests in 32 suites passed`
+Expected: 四条各自 EXIT=0，两次 `Test run with 96 tests in 32 suites passed`（此时 legacy 组尚未删除，仍是 96；Task 4 删除后变 95）
 
-- [ ] **Step 7: 下游 probe 保持绿**
+- [ ] **Step 7: 给 probe 补一个公开色彩面的消费点，再验证**
+
+`scripts/downstream-probe` 当前**零个颜色 token 引用**（全是 `ToastItem`/`CoreSpacing`/`BadgeVariant` 等隔离面），因此对本任务的公开面变化完全不敏感——漏加 `public` 它照样绿。补一个消费点，让 A2d 有命令级证据：
+
+在 `scripts/downstream-probe/Sources/DownstreamProbe/NonisolatedUsage.swift` 末尾加：
+
+```swift
+// 第 4 层「状态功能别名」的公开面。若 FunctionalColor 的 extension 漏加 public，
+// 这里会编译失败（Issue #93 的 A2d）。
+nonisolated func useFunctionalColors() -> [Color] {
+    [.success, .info, .warning, .danger]
+}
+```
 
 ```bash
 cd scripts/downstream-probe && swift build && cd ../..
 ```
 
-Expected: `Build complete!`（本步删了公开 API，probe 是 #92 建立的下游视角防线）
+Expected: `Build complete!`
 
 - [ ] **Step 8: Commit**
 
@@ -291,7 +335,9 @@ git commit -m "Issue #93: remove the shadowing colour aliases (A1, B1a-c, A2d, D
 | danger | `#FFC1BA` | `#CF222E` |
 | done | `#DACDFB` | `#8250DF` |
 
-dark 值保持不变（已是正确的饱和实色）。改法：编辑各 `status-<组>-emphasis.colorset/Contents.json` 中**无 `appearances` 键**的那个 color 条目的 `components`。
+dark 值保持不变（accent `#1F6FEB`、success `#238636`、attention `#9E6A03`、danger `#DA3633` 均已是正确的饱和实色）。改法：编辑各 `status-<组>-emphasis.colorset/Contents.json` 中**无 `appearances` 键**的那个 color 条目的 `components`。
+
+> **`done` 组的 dark 侧有既有漂移，本任务不修**：`status-done-emphasis` dark = `#8250DF`（照抄了 light 值，Primer 应为 `#8957E5`），`status-done-fg` dark = `#AB7DF8`（Primer 为 `#A371F7`）。不在本任务的 12 个承载项内，Task 6 会把它记进 `audit-checklist.md` 作为后续项，不在此扩大范围。
 
 - [ ] **Step 2: 新建 5 个 border colorset**
 
@@ -365,7 +411,7 @@ set -o pipefail
 swift build; swift test; swift build --traits Blossom; swift test --traits Blossom
 ```
 
-Expected: 四条各自 EXIT=0，两次 96 tests passed
+Expected: 四条各自 EXIT=0，两次 96 tests passed（legacy 组仍在，Task 4 删除后变 95）
 
 > **不 clean 会假绿**：macOS SPM 以目录而非 `.car` 分发 `.xcassets`，增量构建不拷贝新加的目录，新 colorset 在运行时不存在。
 
@@ -455,9 +501,11 @@ git commit -m "Issue #93: fix emphasis tier across five groups; add the missing 
 
 - [ ] **Step 6: 让 `StatusColorsTests.swift` 编译通过**
 
-该文件 `:50-61` 引用 12 个 legacy token，全部失效。删掉这些引用行。
+**删除整个 `existingTokensPreserved` 测试**（`@Test("existing info/warning/danger/success foreground-background-border tokens preserved")` 连同其函数体）——它的 12 个断言对象全部随 legacy 组消失，只删行会留下一个名字与内容不符的空壳，既是死代码又与 #98 的恒真断言清理冲突。
 
-> 只做「让它编译通过」。该文件的恒真断言（`let _: Color = ...` 无 `#expect`）整体清理**归 #98**，本任务不碰。
+> **测试数因此从 96 变 95**（suite 数不变，仍 32——被删的是 suite 内的一个 test）。本任务后续所有 `Expected` 都用 **95 tests in 32 suites**。
+>
+> 该文件其余的恒真断言（`let _: Color = ...` 无 `#expect`）整体清理**归 #98**，本任务不碰。
 
 - [ ] **Step 7: 验证（含 clean，因 Task 3 增过 colorset）**
 
@@ -468,11 +516,10 @@ set -o pipefail
 swift build
 swift test 2>&1 | tee "$LOGDIR/t4.log" | tail -1
 swift build --traits Blossom
-swift package clean
 swift test --traits Blossom 2>&1 | tee "$LOGDIR/t4b.log" | tail -1
 ```
 
-Expected: 两次 `Test run with 96 tests in 32 suites passed`
+Expected: 两次 `Test run with 95 tests in 32 suites passed`（`existingTokensPreserved` 已随 legacy 组删除）
 
 warning 判据（两侧）：
 
@@ -505,8 +552,9 @@ git commit -m "Issue #93: migrate the four legacy status consumers; delete the l
 ### Task 5: 别名层级修正（D13、D14）
 
 **Files:**
-- Modify: `Sources/CoreDesign/Colors/BorderColors.swift:46-54`（含 `:50` 注释）
+- Modify: `Sources/CoreDesign/Colors/BorderColors.swift:43-54`（含 `:45` 与 `:50` 两处注释）
 - Modify: `Sources/CoreDesign/Colors/InteractionColors.swift:32`
+- **Delete**: `Sources/CoreDesign/Resources/Resources.xcassets/border/border-focus.colorset/`（`borderFocus` 改走别名后成孤儿资产）
 
 **Interfaces:**
 - Consumes: 无
@@ -518,13 +566,13 @@ git commit -m "Issue #93: migrate the four legacy status consumers; delete the l
 
 ```swift
     /// 选中态边框。指向 `accent` 别名，随 Blossom trait 自动继承，不单独分流。
-    static let borderSelected: Color = .accent
+    static var borderSelected: Color { .accent }
 
     /// 焦点环边框。同样指向 `accent`——focus 与 selected 同源于品牌强调色。
-    static let borderFocus: Color = .accent
+    static var borderFocus: Color { .accent }
 ```
 
-并修正 `:50` 与代码矛盾的注释（原注释称 focus 与 selected 同源 accent，但 `borderFocus` 实际是独立的 Primer 蓝 colorset）。
+并重写 `:43-48` 整段注释——`:50` 那句称「focus 与 selected 同源 accent」与原代码矛盾（`borderFocus` 实际是独立 colorset），而 `:45` 的「由 `border/border-focus.colorset` 提供 light/dark 双值」在该 colorset 删除后同样失效。两处一并改。
 
 > **默认主题下 focus ring 会从 Primer 蓝 `#0969DA` 变为品牌蓝 `#0077FA`**（dark `#1F6FEB` → `#3295FB`），影响 `FocusRingModifier.swift:106`（默认参数）与 `SearchField.swift:136`。已列入 NFR 视觉例外第 3 条。
 
@@ -533,7 +581,7 @@ git commit -m "Issue #93: migrate the four legacy status consumers; delete the l
 `InteractionColors.swift:32` 从直接引用第 1 层原子色 `.brand2` 改为同层别名：
 
 ```swift
-    static let selectionBackgroundEmphasis: Color = .accentDisabled
+    static let selectionBackgroundEmphasis: Color = .accentDisabled   // 该文件通篇用 static let,保持一致
 ```
 
 并加注释说明为何与 `accentDisabled` 共值：
@@ -542,6 +590,8 @@ git commit -m "Issue #93: migrate the four legacy status consumers; delete the l
     /// 强调选区背景。与 `accentDisabled` 共值（同为 `brand2`）——两者语义不同但
     /// 视觉档位一致，走别名而非直接引用第 1 层原子色，以免 accent 重定向时漏改。
 ```
+
+> `BorderColors.swift` 通篇是 `static var { … }` 计算属性形态，故上面两个改动用 `static var`；`InteractionColors.swift` 通篇是 `static let`，故这里保持 `static let`。各随所在文件的既有风格。
 
 - [ ] **Step 3: 确认 `border-focus` colorset 是否仍被引用**
 
@@ -560,12 +610,15 @@ swift build; swift test; swift build --traits Blossom; swift test --traits Bloss
 grep -rn "#if Blossom" Sources/ | wc -l
 ```
 
-Expected: 四条 EXIT=0，两次 96 tests passed，`#if Blossom` 计数为 `8`
+Expected: 四条 EXIT=0，两次 **95** tests passed，`#if Blossom` 计数为 `8`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/CoreDesign/Colors/BorderColors.swift Sources/CoreDesign/Colors/InteractionColors.swift
+# 用 -A 覆盖 colorset 目录的删除——`git add <file>` 不会 stage 目录删除,
+# 漏掉会让孤儿资产留在仓库里而工作树看起来是干净的。
+git add -A Sources/CoreDesign/Colors/ Sources/CoreDesign/Resources/Resources.xcassets/border/
+git status --short          # 确认 border-focus.colorset 的删除已 staged
 git commit -m "Issue #93: route focus/selected borders through the accent alias (D13, D14)"
 ```
 
@@ -665,7 +718,7 @@ cd scripts/downstream-probe && swift build && cd ../..
 grep -rn "#if Blossom" Sources/ | wc -l
 ```
 
-Expected: 四条 EXIT=0、两次 96 tests passed、probe `Build complete!`、`#if Blossom` 为 `8`
+Expected: 四条 EXIT=0、两次 **95** tests passed、probe `Build complete!`、`#if Blossom` 为 `8`
 
 - [ ] **Step 7: Commit**
 
