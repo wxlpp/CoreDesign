@@ -25,11 +25,13 @@ let package = Package(
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "CoreDesign",
-            resources: [.process("Resources")]
+            resources: [.process("Resources")],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
         .testTarget(
             name: "CoreDesignTests",
-            dependencies: ["CoreDesign"]
+            dependencies: ["CoreDesign"],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
     ],
     swiftLanguageModes: [.v6]
