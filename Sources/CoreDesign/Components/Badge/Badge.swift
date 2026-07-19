@@ -52,7 +52,7 @@ public nonisolated enum BadgeVariant: Sendable, Equatable {
 /// ## 视觉与 token
 ///
 /// - 背景：`Color.surfaceCanvasSubtle`（neutral）/ status background token
-///   （`infoBackground` / `successBackground` / `warningBackground` / `dangerBackground`）
+///   （`statusAccentMuted` / `statusSuccessMuted` / `statusAttentionMuted` / `statusDangerMuted`）
 /// - 边框（`outlined: true` 时）：`Color.borderMuted`（neutral）/ 对应 status border
 ///   token；宽度 `CoreBorderWidth.thin`
 /// - 圆角：`CoreRadius.full`（pill 形态）
@@ -139,10 +139,10 @@ private extension Badge {
     /// status background token；新增 variant 时同步扩展此映射。
     static func backgroundColor(for variant: BadgeVariant) -> Color {
         switch variant {
-        case .info: .infoBackground
-        case .success: .successBackground
-        case .warning: .warningBackground
-        case .danger: .dangerBackground
+        case .info: .statusAccentMuted
+        case .success: .statusSuccessMuted
+        case .warning: .statusAttentionMuted
+        case .danger: .statusDangerMuted
         case .neutral: .surfaceCanvasSubtle
         }
     }
@@ -153,10 +153,10 @@ private extension Badge {
     /// 拉开描边层次但不喧宾夺主。
     static func borderColor(for variant: BadgeVariant) -> Color {
         switch variant {
-        case .info: .infoBorder
-        case .success: .successBorder
-        case .warning: .warningBorder
-        case .danger: .dangerBorder
+        case .info: .statusAccentBorder
+        case .success: .statusSuccessBorder
+        case .warning: .statusAttentionBorder
+        case .danger: .statusDangerBorder
         case .neutral: .borderMuted
         }
     }
