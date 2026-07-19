@@ -44,20 +44,4 @@ struct StatusColorsTests {
         let _: Color = .statusDoneMuted
         let _: Color = .statusDoneSubtle
     }
-
-    @Test("existing info/warning/danger/success foreground-background-border tokens preserved")
-    func existingTokensPreserved() {
-        let _: Color = .infoForeground
-        let _: Color = .infoBackground
-        let _: Color = .infoBorder
-        let _: Color = .successForeground
-        let _: Color = .successBackground
-        let _: Color = .successBorder
-        let _: Color = .warningForeground
-        let _: Color = .warningBackground
-        let _: Color = .warningBorder
-        let _: Color = .dangerForeground
-        let _: Color = .dangerBackground
-        let _: Color = .dangerBorder
-    }
 }

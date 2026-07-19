@@ -15,7 +15,7 @@ import SwiftUI
 ///
 /// 概念对应 GitHub Primer `Toast` / `Flash` variant。具体颜色由
 /// `Sources/CoreDesign/Colors/StatusColors.swift` 的 status color token 决定
-/// （`Color.infoForeground` 等），随系统 colorScheme 自动适配 light / dark。
+/// （`Color.statusAccentForeground` 等），随系统 colorScheme 自动适配 light / dark。
 ///
 /// - `info`：中性提示（蓝）。例：操作已记录、版本信息。
 /// - `success`：操作成功（绿）。例：保存成功、上传完成。
@@ -465,10 +465,10 @@ private struct ToastView: View {
 
     private var foregroundColor: Color {
         switch self.item.level {
-        case .info: .infoForeground
-        case .success: .successForeground
-        case .warning: .warningForeground
-        case .danger: .dangerForeground
+        case .info: .statusAccentForeground
+        case .success: .statusSuccessForeground
+        case .warning: .statusAttentionForeground
+        case .danger: .statusDangerForeground
         }
     }
 

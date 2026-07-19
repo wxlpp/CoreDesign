@@ -14,7 +14,7 @@ import SwiftUI
                 .font(.headline)
             HStack(spacing: 12) {
                 RoundedRectangle(cornerRadius: 12).fill(Color.accent).frame(height: 56)
-                RoundedRectangle(cornerRadius: 12).fill(Color.secondary).frame(height: 56)
+                RoundedRectangle(cornerRadius: 12).fill(Color.secondaryAccent).frame(height: 56)
             }
 
             Text("Gradients")

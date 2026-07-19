@@ -28,8 +28,10 @@ public extension Color {
         .accentSubtleBackground
     }
 
+    /// 强调选区背景。与 `accentDisabled` 共值（同为 `brand2`）——两者语义不同但视觉档位
+    /// 一致，走同层别名而非直接引用第 1 层原子色，以免 accent 重定向时漏改。
     static var selectionBackgroundEmphasis: Color {
-        .brand2
+        .accentDisabled
     }
 
     static var hoverBackground: Color {

@@ -62,7 +62,7 @@ struct DetailView: View {
 - 容器：`.surface(.card)` + `.coreShadow(.medium)`
 - 字号：`CoreTypography.bodyMediumFont`
 - 内边距：`CoreSpacing.md`
-- Icon / 前景色：按 `ToastLevel` 走 status color token（`infoForeground` / `successForeground` / `warningForeground` / `dangerForeground`）
+- Icon / 前景色：按 `ToastLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）
 - 入场/出场动画：从 `edge` 方向滑入 + 淡入
 - 滑动手势：向 edge 方向滑动超过 `CoreSpacing.xxl`（32pt）触发 dismiss
 - z-order：通过 `safeAreaInset` 实现，不覆盖 sheet / fullScreenCover，每个 scene 需独立挂载 host

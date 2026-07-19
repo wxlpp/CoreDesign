@@ -89,16 +89,16 @@ public struct ChevronRightIcon: View {
 
 /// 列表行 trailing 位置的危险 / 错误状态指示符（实心感叹号圆形）。
 ///
-/// 颜色固定为 `Color.dangerForeground`（语义 token），尺寸继承父容器字号。
+/// 颜色固定为 `Color.statusDangerForeground`（语义 token），尺寸继承父容器字号。
 /// 常见用法是与 `ChevronRightIcon` 并排出现于 `LabeledContent` 的 detail 槽位，
 /// 提示该项需要用户注意（例如未读告警 / 待修复设置）。
 public struct DangerIcon: View {
     /// 创建一个默认配置的危险指示符。
     public init() {}
 
-    /// 渲染 `exclamationmark.circle.fill`，foreground 锁定为 `dangerForeground`。
+    /// 渲染 `exclamationmark.circle.fill`，foreground 锁定为 `statusDangerForeground`。
     public var body: some View {
-        Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.dangerForeground)
+        Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.statusDangerForeground)
     }
 }
 
