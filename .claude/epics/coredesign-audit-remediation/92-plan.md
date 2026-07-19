@@ -17,7 +17,7 @@
 - `.build` 若有跨路径 ModuleCache 残留会报 `missing required module 'SwiftShims'`，遇到时先 `swift package clean`
 - **不碰 #6 的删除名单**：`Sources/CoreDesign/Components/EmptyState/EmptyState.swift`、`Sources/CoreDesign/Utils/View+SizeReader.swift`、`Sources/CoreDesign/Utils/KeyboardHandling.swift`、`Tests/CoreDesignTests/KeyboardHandlingTests.swift`、`Tests/CoreDesignTests/EmptyStateDeprecationTests.swift`
 - 工作区：`.worktrees/issue-92-build-config`，分支 `issue-92-build-config`，base `epic/coredesign-audit-remediation`
-- **`ToastHostTests` 的 timing 用例会 flake**（实测：同一命令连跑两次，一次 `EXIT=0` 一次 `EXIT=65`，失败在 `dismiss(id:) 正在显示的 item 进入 dismissing 状态` / `重复触发不 double-fire`）。该 suite 依赖 `Task.sleep` 真实墙钟，文件头 `ToastHostTests.swift:15-21` 已自述此风险与预案。**处置规则：任何「绿」判据遇到该 suite 失败时先重跑一次，连续两次失败才算真红。**不要把 flake 误判为本任务引入的 fallout，也不要在本任务里改它（超出范围）
+- **`ToastHostTests` 的 timing 用例会 flake**——共 **3 个**：`dismiss(id:) 正在显示的 item 进入 dismissing 状态`、`dismiss(id:) 重复触发不 double-fire`、`自动 dismiss 后 advance 到下一条`。本机实测同命令连跑两次一绿一红（前两个）；第三个由 CI 首跑抓到（`ToastHostTests.swift:108-109`），第一轮评审也曾在计划 commit `4dcb801`（零代码改动、无 `defaultIsolation`）上观察到它失败，故确认是**既有** flake 而非本任务回归。该 suite 依赖 `Task.sleep` 真实墙钟，文件头 `ToastHostTests.swift:15-21` 已自述此风险与预案。**处置规则：任何「绿」判据遇到该 suite 失败时先重跑一次，连续两次失败才算真红。**不要把 flake 误判为本任务引入的 fallout，也不要在本任务里改它（超出范围）
 - **warning 计数不能直接用 `grep -c`**：实测同一仓库状态下，clean 后首次 = 12、增量重跑 = 12、touch 单个文件后 = 0——计数随编译粒度漂移。判据须改为「**除已知来源外无新 warning**」，见 Task 1 Step 8
 
 ## 已完成的探针实测（直接采信，不要重新验证）

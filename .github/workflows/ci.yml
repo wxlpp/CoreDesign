@@ -30,10 +30,13 @@ jobs:
           fi
 
       - name: Test
-        # ToastHostTests 的两个 timing 用例依赖真实墙钟，在负载较高的 runner 上
-        # 会 flake（本机实测同命令连跑两次一绿一红）。仅当失败用例**全部**落在
-        # 这两个上才重跑一次；其余任何失败直接判红——本 epic 改的是全库隔离
-        # 语义，真实的并发时序回归表现形式与 flake 完全一致，无差别重试会把它洗白。
+        # ToastHostTests 的三个 timing 用例依赖真实墙钟（Task.sleep + 固定 buffer），
+        # 在负载较高的 runner 上会 flake。仅当失败用例**全部**落在这三个上才重跑
+        # 一次；其余任何失败直接判红——本 epic 改的是全库隔离语义，真实的并发时序
+        # 回归表现形式与 flake 完全一致，无差别重试会把它洗白。
+        #
+        # 三个用例都已确认是**既有** flake：第一轮评审在计划 commit(4dcb801,零代码
+        # 改动、无 defaultIsolation)上就观察到 ToastHostTests.swift:108-110 失败。
         run: |
           set -o pipefail
           run_tests() {
@@ -51,9 +54,10 @@ jobs:
                        grep -E 'Test "[^"]*" failed after' first.log
                      } || true )
             # 空集 = 非测试类失败（编译错误等）→ 直接判红，不重跑。
-            # 锚点用两个 flaky 用例的**唯一名称**，不用 'dismiss(id:)'——
-            # 后者会命中另外两个确定性用例，把它们的真实失败一起洗白。
-            if [ -z "$fails" ] || grep -qvE '进入 dismissing 状态|double-fire' <<< "$fails"; then
+            # 锚点用三个 flaky 用例的**唯一名称**，不用 'dismiss(id:)'——
+            # 后者会命中另外两个确定性用例（排队中的 item 直接移除 / 不存在的 id
+            # 是 no-op），把它们的真实失败一起洗白。
+            if [ -z "$fails" ] || grep -qvE '进入 dismissing 状态|double-fire|advance 到下一条' <<< "$fails"; then
               echo "存在已知 flake 之外的失败 → 直接判红"; exit 1
             fi
             echo "仅已知 flake 失败，重跑一次"
@@ -96,7 +100,7 @@ jobs:
             fails=$( { grep 'recorded an issue' ios-first.log
                        grep -E 'Test "[^"]*" failed after' ios-first.log
                      } || true )
-            if [ -z "$fails" ] || grep -qvE '进入 dismissing 状态|double-fire' <<< "$fails"; then
+            if [ -z "$fails" ] || grep -qvE '进入 dismissing 状态|double-fire|advance 到下一条' <<< "$fails"; then
               echo "存在已知 flake 之外的失败 → 直接判红"; exit 1
             fi
             echo "仅已知 flake 失败，重跑一次"
