@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    # 包含 issue-** ：本 epic 的 11 个 Issue 各有一条 issue-* 分支，让它们在
+    # 开 PR 之前就能跑到 CI。
+    branches: [main, 'epic/**', 'issue-**']
+  pull_request:
+
+jobs:
+  swiftpm:
+    name: SwiftPM (${{ matrix.mode }})
+    # 钉死 macos-26 而非 macos-latest：两者当前解析到同一镜像
+    # （macOS 26.4 / Xcode 26.5），但 latest 会随 GitHub 滚动。
+    # runner 默认选中的就是 Xcode 26.5，无需 xcode-select 步骤。
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [default, blossom]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          if [ "${{ matrix.mode }}" = "blossom" ]; then
+            swift build --traits Blossom
+          else
+            swift build
+          fi
+
+      - name: Test
+        # ToastHostTests 的两个 timing 用例依赖真实墙钟，在负载较高的 runner 上
+        # 会 flake（本机实测同命令连跑两次一绿一红）。仅当失败用例**全部**落在
+        # 这两个上才重跑一次；其余任何失败直接判红——本 epic 改的是全库隔离
+        # 语义，真实的并发时序回归表现形式与 flake 完全一致，无差别重试会把它洗白。
+        run: |
+          set -o pipefail
+          run_tests() {
+            if [ "${{ matrix.mode }}" = "blossom" ]; then
+              swift test --traits Blossom
+            else
+              swift test
+            fi
+          }
+          run_tests 2>&1 | tee first.log || {
+            # 先落到变量再匹配：`grep -q` 命中即退出并向上游发 SIGPIPE，
+            # 而 pipefail 会把 141 提升为整条管道的退出码，使 if 恒假、
+            # 一切失败都走「重跑」。
+            fails=$( { grep 'recorded an issue' first.log
+                       grep -E 'Test "[^"]*" failed after' first.log
+                     } || true )
+            # 空集 = 非测试类失败（编译错误等）→ 直接判红，不重跑。
+            # 锚点用两个 flaky 用例的**唯一名称**，不用 'dismiss(id:)'——
+            # 后者会命中另外两个确定性用例，把它们的真实失败一起洗白。
+            if [ -z "$fails" ] || grep -qvE '进入 dismissing 状态|double-fire' <<< "$fails"; then
+              echo "存在已知 flake 之外的失败 → 直接判红"; exit 1
+            fi
+            echo "仅已知 flake 失败，重跑一次"
+            run_tests 2>&1 | tee second.log
+          }
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftpm-logs-${{ matrix.mode }}
+          path: '*.log'
+          if-no-files-found: ignore
+
+  simulator:
+    name: iOS Simulator
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run iOS tests
+        # 跳过 "Blossom assets" suite：它用 FileManager 查 .colorset 目录，
+        # 那是为 SwiftPM（不调 actool）写的；xcodebuild 会生成 Assets.car，
+        # 原始目录不存在，故该 suite 在此环境必然失败。
+        # 标识符要用**类型名** BlossomAssetTests，不是 @Suite 的显示名——
+        # 用显示名不报错，只是静默不生效。
+        #
+        # 本 job 目前跑不到任何 #if os(iOS) 布局断言（由 #4 引入），此刻验证的
+        # 是「这条命令在 CI 上能跑通」；#4 落地后才开始真正守护。
+        run: |
+          set -o pipefail
+          run_ios() {
+            xcodebuild test \
+              -scheme CoreDesign \
+              -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+              -skip-testing:CoreDesignTests/BlossomAssetTests \
+              CODE_SIGNING_ALLOWED=NO
+          }
+          run_ios 2>&1 | tee ios-first.log || {
+            fails=$( { grep 'recorded an issue' ios-first.log
+                       grep -E 'Test "[^"]*" failed after' ios-first.log
+                     } || true )
+            if [ -z "$fails" ] || grep -qvE '进入 dismissing 状态|double-fire' <<< "$fails"; then
+              echo "存在已知 flake 之外的失败 → 直接判红"; exit 1
+            fi
+            echo "仅已知 flake 失败，重跑一次"
+            run_ios 2>&1 | tee ios-second.log
+          }
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-logs
+          path: 'ios-*.log'
+          if-no-files-found: ignore
+
+  downstream-probe:
+    name: Downstream API probe
+    # 库的其余验证全都跑在启用了 defaultIsolation 的 target **内部**，
+    # 结构上看不见「下游从 nonisolated 上下文能否使用公开 API」。
+    # 这个 job 是唯一的下游视角，防的是公开 API 隔离契约的静默回归。
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build downstream probe
+        run: cd scripts/downstream-probe && swift build
