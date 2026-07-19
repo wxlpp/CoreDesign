@@ -77,7 +77,11 @@ public struct StatusRow: View {
         case .success: return .statusSuccessForeground
         case .failure: return .statusDangerForeground
         case .pending: return .statusAttentionForeground
-        case .skipped: return .secondary
+        // 原写 `.secondary`：在返回 `Color` 的上下文中，它解析到第 4 层曾定义的
+        // 同名别名（`lightBlue5`，Blossom 下 `violet5`）而非 SwiftUI 内建的次要
+        // 文本色——skipped 图标因此渲染成浅蓝/紫罗兰。改用语义层 token 明确表达
+        // 「中性次要色」这一本意（Issue #93）。
+        case .skipped: return .contentSecondary
         }
     }
 

@@ -1,5 +1,6 @@
 import CoreDesign
 import Foundation
+import SwiftUI
 
 // 每个函数都显式 `nonisolated`，模拟下游在非 MainActor 上下文中的使用。
 // 这些类型都显式声明了 `Sendable`——作者有意让它们跨 actor 边界传递
@@ -58,4 +59,10 @@ nonisolated func useToastDefaults() -> TimeInterval {
 
 nonisolated func useToastLevel() -> ToastLevel {
     .info
+}
+
+// 第 4 层「状态功能别名」的公开面。若 FunctionalColor 的 extension 漏加 public，
+// 这里会编译失败（Issue #93 的 A2d）。
+nonisolated func useFunctionalColors() -> [Color] {
+    [.success, .info, .warning, .danger]
 }
