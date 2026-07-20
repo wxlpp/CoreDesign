@@ -35,28 +35,33 @@ public struct SolidButtonStyle: ButtonStyle {
         let isPressed = configuration.isPressed
         let backgroundColor = self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed)
 
+        // 共同结构只写一次（审计项 B3b）；两支各自只剩尾部的背景层差异。
+        let base = configuration.label
+            .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
+            .foregroundStyle(self.foregroundColor)
+
         if self.glass {
-            configuration.label
-                .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
-                .foregroundStyle(self.isEnabled ? Color.white : Color.contentDisabled)
+            base
                 .backgroundStyle(backgroundColor)
-                .modifier(
-                    TelegramGlassButtonModifier(
-                        shape: Capsule(style: .continuous),
-                        isPressed: isPressed
-                    )
-                )
+                .modifier(TelegramGlassButtonModifier(
+                    shape: Capsule(style: .continuous),
+                    isPressed: isPressed
+                ))
         } else {
-            configuration.label
-                .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
-                .foregroundStyle(self.isEnabled ? Color.contentOnAccent : Color.contentDisabled)
-                .modifier(
-                    SolidButtonBackgroundModifier(
-                        backgroundColor: backgroundColor,
-                        isPressed: isPressed
-                    )
+            base
+                .buttonBackground(
+                    fill: backgroundColor,
+                    border: Color.borderMuted,
+                    isPressed: isPressed,
+                    pressedOpacity: 0.92
                 )
         }
+    }
+
+    /// glass 用纯白、非 glass 用 `contentOnAccent`；禁用态统一 `contentDisabled`。
+    private var foregroundColor: Color {
+        guard self.isEnabled else { return .contentDisabled }
+        return self.glass ? .white : .contentOnAccent
     }
 
     @Environment(\.isEnabled) private var isEnabled
@@ -64,27 +69,6 @@ public struct SolidButtonStyle: ButtonStyle {
 
 }
 
-// MARK: - SolidButtonBackgroundModifier (non-glass fallback)
-
-private struct SolidButtonBackgroundModifier: ViewModifier {
-    let backgroundColor: Color
-    let isPressed: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .background(
-                Capsule(style: .continuous)
-                    .fill(self.backgroundColor)
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.hairline)
-            )
-            .scaleEffect(self.isPressed ? CoreButtonMetrics.pressedScale : 1)
-            .opacity(self.isPressed ? 0.92 : 1)
-            .animation(.snappy(duration: 0.16), value: self.isPressed)
-    }
-}
 
 // MARK: - ButtonStyle convenience
 

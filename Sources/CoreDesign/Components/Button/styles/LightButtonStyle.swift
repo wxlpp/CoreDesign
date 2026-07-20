@@ -24,25 +24,30 @@ public struct LightButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         let isPressed = configuration.isPressed
 
-        if self.glass {
-            configuration.label
-                .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
-                .foregroundStyle(self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed))
-                .backgroundStyle(Color.surfaceInteractive)
-                .modifier(
-                    TelegramGlassButtonModifier(
+        // 共同结构只写一次（审计项 B3b）；按压变暗对两支都适用，故提到 Group 上，
+        // 这也是 `buttonBackground` 不传 `pressedOpacity` 的原因。
+        let base = configuration.label
+            .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
+            .foregroundStyle(self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed))
+
+        Group {
+            if self.glass {
+                base
+                    .backgroundStyle(Color.surfaceInteractive)
+                    .modifier(TelegramGlassButtonModifier(
                         shape: Capsule(style: .continuous),
                         isPressed: isPressed
+                    ))
+            } else {
+                base
+                    .buttonBackground(
+                        fill: Color.surfaceInteractive,
+                        border: Color.borderSubtle,
+                        isPressed: isPressed
                     )
-                )
-                .opacity(isPressed ? 0.9 : 1)
-        } else {
-            configuration.label
-                .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
-                .foregroundStyle(self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed))
-                .modifier(LightButtonBackgroundModifier(isPressed: isPressed))
-                .opacity(isPressed ? 0.9 : 1)
+            }
         }
+        .opacity(isPressed ? 0.9 : 1)
     }
 
     @Environment(\.isEnabled) private var isEnabled
@@ -50,25 +55,6 @@ public struct LightButtonStyle: ButtonStyle {
 
 }
 
-// MARK: - LightButtonBackgroundModifier (non-glass fallback)
-
-private struct LightButtonBackgroundModifier: ViewModifier {
-    let isPressed: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color.surfaceInteractive)
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
-            )
-            .scaleEffect(self.isPressed ? CoreButtonMetrics.pressedScale : 1)
-            .animation(.snappy(duration: 0.16), value: self.isPressed)
-    }
-}
 
 // MARK: - ButtonStyle convenience
 
