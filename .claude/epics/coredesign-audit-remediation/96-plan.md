@@ -22,7 +22,7 @@
 | 事实 | 影响 |
 |---|---|
 | 基线绿：`swift build` EXIT=0、`swift test` 95 tests / 32 suites passed | 起点干净 |
-| `Sidebar.swift` 391 行，四 row 声明在 `:91 :144 :202 :257`，`CoreTypography.` 引用 **16 处** | AC 要求收敛后降到约 6 处 |
+| `Sidebar.swift` 391 行，四 row 声明在 `:91 :144 :202 :257`，`CoreTypography.` 引用 **16 处** | AC 已修订为「四个 row 的 body 内 11 → ≤8 处」（96.md:35，经用户确认；原写「文件级 16 → 约 6」不可达） |
 | 三处三态取色逻辑逐字相同：`SolidButtonStyle.backgroundColor(isPressed:)`、`LightButtonStyle.textColor(isPressed:)`、`CoreBorderlessButtonStyle.textColor` | B3a 可直接抽取 |
 | `CoreControlMetrics.height` 序列 = 24/28/32/40/48（mini→extraLarge） | B3e 的 38 不在序列内，`.large` = 40 最接近 |
 | `TelegramGlassButtonModifier` 是 `public`、泛型 `<S: InsettableShape>`，硬编码白色描边 + `pressedScale` + 动画 | B8a 的复用不是 drop-in，见下 |
@@ -69,7 +69,7 @@ private var resolvedDiameter: CGFloat {
 
 默认 40（落在 metrics 序列内，B3e 达成）、四个调用点一行不改、无 `.regular` 特例、无公开 API 意外。唯一代价：B3e 字面写的是「接入 `@Environment(\.controlSize)`」，方案 C 是**存显式档位**而非读环境——满足其**意图**（"不再写死 38、尺寸来自 metrics 序列"）而非字面。这比为了字面达标而植入语义地雷划算得多。
 
-**一处意外佐证**：`CoreMenuButton.swift:120-122` 的 `controlSize` 注释写着「匹配 `ControlSize.large`（40pt），**与输入栏 trailing 圆形按钮保持视觉等高**」并取 40——而那个圆形按钮实际是 38。也就是说 38 与既有意图**本来就是错位的**，改成 40 恰好把这处不一致修好。
+**一处意外佐证**：`CoreMenuButton.swift:121-123` 的 `controlSize` 注释写着「匹配 `ControlSize.large`（40pt），**与输入栏 trailing 圆形按钮保持视觉等高**」并取 40——而那个圆形按钮实际是 38。也就是说 38 与既有意图**本来就是错位的**，改成 40 恰好把这处不一致修好。
 
 若日后确需跟随环境 `controlSize`，那是一次干净的独立改动（连同调用点一起补 `.controlSize(.large)`），届时 `BottomInputBar.swift` 的归属也已释放。**此取舍须写进 `updates/96/progress.md` 供 #95/#101 接手。**
 
@@ -578,10 +578,10 @@ public struct CircularGlassButtonStyle: ButtonStyle {
     }
 
     public func makeBody(configuration: Configuration) -> some View {
-        let size = self.resolvedDiameter
+        let diameter = self.resolvedDiameter
 
         configuration.label
-            .frame(width: size, height: size)
+            .frame(width: diameter, height: diameter)
             .contentShape(Circle())
             .backgroundStyle(Color.surfaceInteractive)
             .modifier(TelegramGlassButtonModifier(
@@ -612,9 +612,13 @@ App/Sources/Previews.swift:312
 方案 C 下这些调用点**一行都不用改**（这正是选它的理由）。确认没有遗漏的显式构造：
 
 ```bash
-grep -rn 'CircularGlassButtonStyle(' Sources App 2>/dev/null
+echo "本文件内: $(grep -c 'CircularGlassButtonStyle(' Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift)  (预期 2)"
+grep -rn 'CircularGlassButtonStyle(' Sources App \
+  --exclude=CircularGlassButtonStyle.swift 2>/dev/null; echo "文件外 rc=$?  (预期 1，即无外部直接构造)"
 ```
-Expected: **恰好 2 行**，都在 `CircularGlassButtonStyle.swift` 的访问器扩展内（`static var circularGlass` 与另一处便利构造）。`rc=0` 是正确结果，不要期待 `rc=1`。逐个 Read 确认新增的 `size:` 参数有默认值、这两处无需传参。
+Expected: 本文件内恰好 2（访问器扩展的 `:40` 与 `:48`），文件外 `rc=1`。
+
+断言钉到文件而非全局计数——那两行就在 Task 5 正在编辑的文件里，若顺手加了便利构造，全局计数会静默漂移而看不出是内部还是外部新增。逐个 Read 确认新增的 `size:` 参数有默认值、这两处无需传参。
 
 - [ ] **Step 3: 验证**
 
@@ -633,9 +637,21 @@ Expected: EXIT=0
 @MainActor
 func constructCircularGlass() -> CGFloat? {
     let style = CircularGlassButtonStyle(size: .large, diameter: 44)
-    // 访问器也要覆盖：`circularGlass(diameter:)` 是本任务未改动但公开的 API
-    _ = ButtonStyle.circularGlass(diameter: 44)
     return style.diameter
+}
+
+// 访问器路径单独覆盖：`circularGlass(diameter:)` 是本任务未改动但公开的 API。
+//
+// > 必须经 `.buttonStyle(.circularGlass(...))` 的前导点推断来触达，**不能**写
+// > `ButtonStyle.circularGlass(diameter:)`——该静态成员定义在
+// > `extension ButtonStyle where Self == CircularGlassButtonStyle` 上，经协议
+// > 元类型访问会报 `static member 'circularGlass' cannot be used on protocol
+// > metatype '(any ButtonStyle).Type'`。同文件的 `consumeBorderlessAccessor()`
+// > 用的也是这个形态。
+@MainActor
+func consumeCircularGlassAccessor() -> some View {
+    Button("circular") {}
+        .buttonStyle(.circularGlass(diameter: 44))
 }
 ```
 
@@ -893,7 +909,7 @@ Expected: **`TOTAL` 恰好 99**（上限 100，只留 1 行余量；脚本超标
 >
 > 若超 100：真正的收敛应体现在结构上，**不要靠删注释或折行凑数**——本脚本只按行计数，`//` 注释与空行都计入（只有 `///` doc 注释因不在 body 块内而天然排除），所以这两招"能凑数"，正因如此更不该用。
 
-- [ ] **Step 4: 量 `CoreTypography` 引用数（AC：16 → 约 6）**
+- [ ] **Step 4: 量 `CoreTypography` 引用数（AC 已修订：row body 内 11 → ≤8，见 `96.md:35`）**
 
 口径是**四个 row 的 `var body` 内**，不是文件级——实测 16 处中有 5 处在本任务范围外（`SidebarSection` 的 `:49 :54 :64`、`SidebarStatusFooter` 的 `:330 :334`，B5 不碰这两个类型）。
 
@@ -948,7 +964,7 @@ git commit -m "refactor: Sidebar 四 row 收敛为共享骨架，固定高度改
 
 > `CoreMenuButton.swift` **不在** #97 的自有文件清单里（清单含 `BottomInputBar.swift` 但不含 `CoreMenuButton.swift`），可以改。实施前再核对一次 Global Constraints 的清单。
 
-按前言《判断 2》：参数化 `TelegramGlassButtonModifier`，保持既有 5 个调用点行为逐字不变。
+按前言《判断 2》：参数化 `TelegramGlassButtonModifier`，保持既有 3 个调用点（`SolidButtonStyle` / `LightButtonStyle` / `CircularGlassButtonStyle`）行为逐字不变。
 
 - [ ] **Step 1: 参数化 `TelegramGlassButtonModifier`**
 
@@ -1034,7 +1050,7 @@ private struct CoreMenuButtonStyleModifier: ViewModifier {
 >
 > 另：`.inset(by:)` 要求 `InsettableShape`，`Capsule` / `Circle` 都满足。
 
-> ⚠️ 上面只给出 `body` 的改写。**`private let controlSize: CGFloat = CoreControlMetrics.height(for: .large)`（`CoreMenuButton.swift:122`）及其 doc 注释原样保留**，结构体的收尾 `}` 也别漏——照抄上面的代码块会删掉该属性并破坏编译。
+> ⚠️ 上面只给出 `body` 的改写。**`private let controlSize: CGFloat = CoreControlMetrics.height(for: .large)`（`CoreMenuButton.swift:123`）及其 doc 注释原样保留**，结构体的收尾 `}` 也别漏——照抄上面的代码块会删掉该属性并破坏编译。
 
 两分支仍需 `switch`（shape 类型不同，泛型无法在同一函数内统一），但**重复的四层玻璃结构已消除**——这正是 B8a 的要求。
 
