@@ -28,7 +28,26 @@
 | `MenuButton` / `MenuButtonStyle` / `MenuButtonStyleModifier` 全部是 internal | 改名是模块内可读性 + 未来公开的前置，不影响下游；`MenuButtonStyle` 同样与 SwiftUI（macOS deprecated）的 `MenuButtonStyle` 协议同名，一并改 |
 | `MenuButton` 的唯一生产调用点是 `BottomInputBar.swift:121`，另有同文件两处 `#Preview` | 改名波及面已穷举 |
 | `FunctionalColor.swift` 已是 `public extension Color`，四个状态别名及变体均 public（#93 完成） | AC 该项是**复核**，probe 里已有 `useFunctionalColors()` 覆盖，无需新增代码 |
+| `CheckBox` 类型全库唯一出现点就是 `CheckBox.swift` 自身（`Tests/`、`App/`、`docs/`、`scripts/`、`README.md` 均 0 命中） | Task 1 可整类型删除；测试数量应保持 95 不变 |
 | `docs/superpowers/` 下的 spec/plan 是历史归档 | **不改**；只改 `docs/components/button.md` |
+
+### 工具语义（评审实测，务必照做）
+
+- **BSD `sed` 不支持 `\b`**——`sed -i '' 's/\bFoo\b/Bar/g'` 在 macOS 上把 `\b` 当未定义转义，结果是**静默不替换**。词边界必须写 `[[:<:]]` / `[[:>:]]`。
+- **BSD `grep` 支持 `\b`**——所以校验用的 `grep '\bFoo\b'` 是可靠的，能捕获上面的 sed 空转（不会两边一起瞎）。两个工具语义不同，不要互相类推。
+- `grep '\bBorderlessButtonStyle\b'` **不会**命中 `CoreBorderlessButtonStyle`（前导字符 `e` 不构成词边界）——已实测 0 命中。`CoreMenuButton` / `showMenuButton` 同理。
+
+### 统一的旧名扫描口径
+
+全计划所有「无旧名残留」检查都用同一条命令，不再各写各的：
+
+```bash
+grep -rn --exclude-dir=superpowers \
+  '\bBorderlessButtonStyle\b\|\bMenuButton\b\|\bMenuButtonStyle\b\|\bMenuButtonStyleModifier\b' \
+  Sources App docs README.md 2>/dev/null
+```
+
+`--exclude-dir=superpowers` 排除历史归档；`showMenuButton` 因词边界不命中，这是**有意的**（见 Task 4 非目标）。
 
 ---
 
@@ -93,10 +112,12 @@ public struct CheckBoxToggleStyle: ToggleStyle {
 }
 ```
 
-- [ ] **Step 3: 验证编译**
+- [ ] **Step 3: 验证编译（含测试 target）**
 
-Run: `swift build`
-Expected: EXIT=0，无 `cannot find 'CheckBox' in scope`（全库无其它引用点，见前置事实表）
+Run: `swift build --build-tests`
+Expected: EXIT=0，无 `cannot find 'CheckBox' in scope`
+
+用 `--build-tests` 而非裸 `swift build`——后者不编译测试 target，若 `Tests/` 里有 `CheckBox` 引用会漏到 Task 5 才炸。（前置事实表已实测 `Tests/` 0 命中，此处是把断言变成关卡。）
 
 - [ ] **Step 4: 提交**
 
@@ -173,11 +194,13 @@ git mv Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift \
 在 `CoreBorderlessButtonStyle.swift` 中把所有 `BorderlessButtonStyle` 替换为 `CoreBorderlessButtonStyle`（共 6 处：文件头注释 `:2`、MARK `:11`、类型声明 `:40`、静态扩展的 `where Self ==` `:75`、doc 注释 `:79`、返回类型与构造 `:80-81`）：
 
 ```bash
-sed -i '' 's/\bBorderlessButtonStyle\b/CoreBorderlessButtonStyle/g' \
+sed -i '' 's/[[:<:]]BorderlessButtonStyle[[:>:]]/CoreBorderlessButtonStyle/g' \
   Sources/CoreDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift
 ```
 
-替换后人工 Read 全文复核一遍，确认没有出现 `CoreCoreBorderlessButtonStyle`（`\b` 边界已排除，但要看一眼）。
+**必须用 `[[:<:]]` / `[[:>:]]`，不能用 `\b`**——BSD sed 会把 `\b` 当未定义转义，整条命令静默不替换（见前言《工具语义》）。
+
+替换后人工 Read 全文复核一遍，确认 6 处都改到、且没有出现 `CoreCoreBorderlessButtonStyle`。
 
 - [ ] **Step 3: `role` 补 public 并加显式 init**
 
@@ -203,12 +226,10 @@ sed -i '' 's/\bBorderlessButtonStyle\b/CoreBorderlessButtonStyle/g' \
 
 - [ ] **Step 5: 验证无旧名残留 + 编译**
 
-```bash
-grep -rn '\bBorderlessButtonStyle\b' Sources App docs/components docs/*.md 2>/dev/null
-```
-Expected: 无输出（`CoreBorderlessButtonStyle` 因 `\b` 前是 `e` 不匹配裸词；若有输出即为遗留）
+跑前言《统一的旧名扫描口径》那条命令。
+Expected: 无输出。若 Step 2 的 sed 空转过，这里会把 6 处旧名全打印出来——这是捕获 sed 失效的关卡。
 
-Run: `swift build`
+Run: `swift build --build-tests`
 Expected: EXIT=0
 
 - [ ] **Step 6: 提交**
@@ -233,6 +254,10 @@ git commit -m "refactor!: BorderlessButtonStyle 改名 CoreBorderlessButtonStyle
 
 **为什么连 `MenuButtonStyle` 一起改：** 它同样与 SwiftUI（macOS 上 deprecated）的 `MenuButtonStyle` 协议同名。只改 `MenuButton` 会留下一半的同名遮蔽，且 `CoreMenuButton` 的 `style:` 参数类型仍叫 `MenuButtonStyle` 读起来割裂。
 
+**非目标（明确不改）：**
+- `BottomInputBar` 的 **`showMenuButton`**（10 处：`:27,39,53,99,320,337,352,407,450,468`，另 `docs/components/bottom-input-bar.md:14`）。它是 `BottomInputBar.init` 的**公开参数标签**，改它是本 Issue 范围外的破坏性 API 变更。词边界保证 sed 与 grep 都不会碰它。
+- `BottomInputBar.menuButton` 私有计算属性——实现细节，不构成同名冲突。
+
 - [ ] **Step 1: 用 git mv 重命名文件**
 
 ```bash
@@ -242,16 +267,18 @@ git mv Sources/CoreDesign/Components/BottomInputBar/MenuButton.swift \
 
 - [ ] **Step 2: 文件内全量替换**
 
-顺序很重要——先替长名再替短名，否则 `MenuButtonStyleModifier` 会被短名规则先啃掉：
-
 ```bash
 F=Sources/CoreDesign/Components/BottomInputBar/CoreMenuButton.swift
 sed -i '' \
-  -e 's/\bMenuButtonStyleModifier\b/CoreMenuButtonStyleModifier/g' \
-  -e 's/\bMenuButtonStyle\b/CoreMenuButtonStyle/g' \
-  -e 's/\bMenuButton\b/CoreMenuButton/g' \
+  -e 's/[[:<:]]MenuButtonStyleModifier[[:>:]]/CoreMenuButtonStyleModifier/g' \
+  -e 's/[[:<:]]MenuButtonStyle[[:>:]]/CoreMenuButtonStyle/g' \
+  -e 's/[[:<:]]MenuButton[[:>:]]/CoreMenuButton/g' \
   "$F"
 ```
+
+**安全性来自词边界，不来自顺序。** `[[:<:]]MenuButton[[:>:]]` 不会命中 `MenuButtonStyleModifier` 内部（尾边界撞上 `S` 失配），所以三条规则的先后其实无关。反过来说：**若有人为了绕开 sed 报错而去掉边界，长→短的顺序也救不了**——规则 1 产出 `CoreMenuButtonStyleModifier`，规则 2 的裸 `MenuButtonStyle` 会在其内部再次命中，得到 `CoreCoreMenuButtonStyleModifier`。长→短顺序保留（无害），但不要把它当作安全依据。
+
+sed 只作用于本文件，`BottomInputBar.swift` 的 `showMenuButton` 不受影响。
 
 替换后 Read 全文复核，重点看 `:2` 文件头、`:63` 的长注释、`:74`/`:82`/`:126` 三个 MARK、`:179` 的设计说明段、`:194`/`:198` 两处 Preview——注释里的散文引用也要跟着改名，否则文档与代码脱节。
 
@@ -273,12 +300,10 @@ sed -i '' \
 
 - [ ] **Step 4: 验证无旧名残留 + 编译**
 
-```bash
-grep -rn '\bMenuButton\b\|\bMenuButtonStyle\b\|\bMenuButtonStyleModifier\b' Sources App 2>/dev/null
-```
-Expected: 无输出
+跑前言《统一的旧名扫描口径》那条命令。
+Expected: 无输出。若 sed 空转，这里会打印出 `CoreMenuButton.swift` 与 `BottomInputBar.swift` 里的全部旧名。
 
-Run: `swift build`
+Run: `swift build --build-tests`
 Expected: EXIT=0
 
 - [ ] **Step 5: 提交**
@@ -293,7 +318,7 @@ git commit -m "refactor: MenuButton 家族改名 CoreMenuButton，避开 SwiftUI
 ### Task 5: 下游 probe 覆盖 + 全量验证 + 审计清单
 
 **Files:**
-- Modify: `scripts/downstream-probe/Sources/DownstreamProbe/NonisolatedUsage.swift`（追加一节）
+- Create: `scripts/downstream-probe/Sources/DownstreamProbe/PublicVisibility.swift`
 - Modify: `.claude/epics/coredesign-audit-remediation/audit-checklist.md`
 
 **Interfaces:**
@@ -301,20 +326,27 @@ git commit -m "refactor: MenuButton 家族改名 CoreMenuButton，避开 SwiftUI
 
 **为什么 probe 是唯一有效关卡：** 所有 SwiftPM 测试都跑在 CoreDesign target **内部**，internal 符号一样可见——补 `public` 是否真的生效，只有从外部包才看得见。这是 #92 建立 probe 的原因。
 
-- [ ] **Step 1: 先做反向验证（红）——在没加 public 之前 probe 应报错**
+**为什么新开文件而不是追加进 `NonisolatedUsage.swift`：** 那个文件守的是**隔离**契约，文件头 `:5` 明写「每个函数都显式 `nonisolated`」。本节守的是**可见性**契约，且下面这些函数必须是 `@MainActor`（见 Step 2 说明）——混进去会让那句文件头注释变成假的，两种契约也纠缠不清。
 
-跳过。改动已在 Task 1–4 落地，红态无法重现。改为 Step 2 的**正向 + 定点反证**：先跑通，再手工去掉 `CheckBoxToggleStyle` 的 `public` 复现 `cannot find in scope`，确认 probe 真的看得见这条契约，然后还原。
-
-- [ ] **Step 2: 给 probe 追加公开面用例**
-
-在 `NonisolatedUsage.swift` 末尾追加（注意这些是 MainActor 相关类型，用 `@MainActor` 函数而非 `nonisolated`——本节验证的是**可见性**，不是隔离）：
+- [ ] **Step 1: 新建 `PublicVisibility.swift`**
 
 ```swift
+import CoreDesign
+import Foundation
+import SwiftUI
+
 // MARK: - 公开可见性契约（Issue #94）
 //
 // 以下符号此前漏写 `public`，下游实测报 `cannot find in scope` /
 // `initializer is inaccessible`。库内测试看不见这个问题——它们跑在 target
 // 内部，internal 符号一样可达。只有从外部包才能守住这条契约。
+//
+// 注意本文件与同目录 `NonisolatedUsage.swift` 的分工：那边守**隔离**契约
+// （函数全部 `nonisolated`），这边守**可见性**契约。CoreDesign 开了
+// `.defaultIsolation(MainActor.self)`，所以这里的函数都得是 `@MainActor`
+// ——包括读 `ButtonRoleStyleRole` 的调色板属性。换言之：这三个属性对下游
+// **可见但不是 nonisolated 可达的**；若日后需要 nonisolated 可达，那是另一个
+// 范围内的改动（给属性标 `nonisolated`），不要在本文件里顺手夹带。
 
 @MainActor
 func constructCheckBoxToggleStyle() -> CheckBoxToggleStyle {
@@ -328,28 +360,33 @@ func constructBorderlessStyle() -> CoreBorderlessButtonStyle {
     return style
 }
 
-nonisolated func readRolePalette(_ role: ButtonRoleStyleRole) -> [Color] {
+@MainActor
+func readRolePalette(_ role: ButtonRoleStyleRole) -> [Color] {
     [role.color, role.activeColor, role.disabledColor]
 }
 ```
 
-- [ ] **Step 3: 构建 probe**
+- [ ] **Step 2: 构建 probe**
 
 ```bash
 set -o pipefail
 (cd scripts/downstream-probe && swift build 2>&1 | tail -20); echo "probe EXIT=$?"
 ```
-Expected: `probe EXIT=0`，且输出中 0 个 `inaccessible` / `cannot find`
+Expected: `probe EXIT=0`，且输出中 0 个 `inaccessible` / `cannot find`。同时这一步顺带守住 AC「`FunctionalColor` 整层对下游可见」——`NonisolatedUsage.swift` 里已有的 `useFunctionalColors()` 引用 `.success/.info/.warning/.danger`，它们在 SwiftUI 中无同名对应物，编译过即证明本层 public 有效。
 
-- [ ] **Step 4: 定点反证 probe 有效**
+- [ ] **Step 3: 定点反证 probe 有效（三处，逐一还原）**
 
-临时把 `CheckBoxToggleStyle` 的 `public struct` 改回 `struct`，重跑 Step 3。
+红态在 Task 1–4 落地后无法自然重现，改用**逐契约反证**——每次只回退一处，确认 probe 真的报错，再还原。只反证一处不够：本 Issue 有三条独立契约，`CheckBoxToggleStyle` 通电不代表另两条也通电。
 
-Expected: 构建失败，报 `cannot find 'CheckBoxToggleStyle' in scope`（证明这条关卡真的通电）。
+| # | 临时回退 | 预期错误 | 还原命令 |
+|---|---|---|---|
+| 1 | `CheckBoxToggleStyle` 的 `public struct` → `struct` | `cannot find 'CheckBoxToggleStyle' in scope` | `git checkout -- Sources/CoreDesign/Components/CheckBox/CheckBox.swift` |
+| 2 | `CoreBorderlessButtonStyle` 的 `public init(role:)` → `init(role:)` | `initializer is inaccessible`（A2b 审计项原始症状） | `git checkout -- Sources/CoreDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift` |
+| 3 | `ButtonRoleStyleRole` 的 `public var color` → `var color` | `'color' is inaccessible due to 'internal' protection level` | `git checkout -- Sources/CoreDesign/Components/Button/ButtonRoleStyleRole.swift` |
 
-然后 `git checkout -- Sources/CoreDesign/Components/CheckBox/CheckBox.swift` 还原，重跑 Step 3 确认回到 EXIT=0。
+每次回退后重跑 Step 2，确认**失败**；还原后重跑 Step 2，确认回到 EXIT=0。三轮都做完再往下走。
 
-- [ ] **Step 5: 四条 SwiftPM 命令 + warning 判据**
+- [ ] **Step 4: 四条 SwiftPM 命令 + warning 判据**
 
 ```bash
 LOGDIR="${TMPDIR:-/tmp}/coredesign-94"; mkdir -p "$LOGDIR"
@@ -365,16 +402,16 @@ done
 grep -aoE 'Test run with [0-9]+ tests in [0-9]+ suites (passed|failed)' "$LOGDIR/t.log" | tail -1
 grep -aoE 'Test run with [0-9]+ tests in [0-9]+ suites (passed|failed)' "$LOGDIR/tb.log" | tail -1
 ```
-Expected: 四条 EXIT=0；warning 段全为 `(无)`；两条测试各 `95 tests in 32 suites passed`（Task 1 删的是视图类型不是测试，数量应不变——若变了要查清原因再往下走）
+Expected: 四条 EXIT=0；warning 段全为 `(无)`；两条测试各 `95 tests in 32 suites passed`（Task 1 删的是视图类型不是测试，且 `Tests/` 对 `CheckBox` 0 命中——数量应不变；若变了要查清原因再往下走）
 
-- [ ] **Step 6: DoD 的旧名扫描**
+关于 `grep -v 'EmptyState'`：DoD 写的是「零 warning」，但基线本就有若干 `EmptyState` deprecation warning，属 #97 的删除范围。该过滤是本 epic 既定口径（`92-plan.md` / `93-plan.md` 同样使用），不是本任务的临时抑制。
 
-```bash
-grep -rn '\bBorderlessButtonStyle\b\|\bMenuButton\b\|\bMenuButtonStyle\b' Sources App docs/components README.md 2>/dev/null
-```
-Expected: 无输出（`docs/superpowers/` 是历史归档，按 Global Constraints 排除）
+- [ ] **Step 5: DoD 的旧名扫描**
 
-- [ ] **Step 7: 更新审计清单**
+跑前言《统一的旧名扫描口径》那条命令。
+Expected: 无输出。
+
+- [ ] **Step 6: 更新审计清单**
 
 把 `audit-checklist.md` 中 A2a、A2b、A2c、A3a、A3b、B9e 六项状态改为「✅ 已修复」，并核对计数不变：
 
@@ -383,10 +420,12 @@ echo $(( $(grep -c '^| [A-D][0-9]' .claude/epics/coredesign-audit-remediation/au
 ```
 Expected: `83`
 
-- [ ] **Step 8: 提交**
+（`- 4` 扣的是文末「won't-fix 理由表」里 C3 / C8 / C10b / D17 四行——这四项在主表已各出现一次，理由表是它们的**第二次**出现，直接 `grep -c` 会重复计数。原始 87 − 4 = 83 个唯一审计项，其中 79 要修、4 项 won't-fix。）
+
+- [ ] **Step 7: 提交**
 
 ```bash
-git add scripts/downstream-probe/Sources/DownstreamProbe/NonisolatedUsage.swift
+git add scripts/downstream-probe/Sources/DownstreamProbe/PublicVisibility.swift
 git add .claude/epics/coredesign-audit-remediation/audit-checklist.md
 git add .claude/epics/coredesign-audit-remediation/94-plan.md
 git commit -m "test: probe 覆盖 #94 公开可见性契约并更新审计清单"
