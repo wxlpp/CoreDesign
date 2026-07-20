@@ -26,11 +26,8 @@ public struct LightButtonStyle: ButtonStyle {
 
         if self.glass {
             configuration.label
-                .font(CoreControlMetrics.font(for: self.controlSize))
-                .foregroundStyle(self.textColor(isPressed: isPressed))
-                .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
-                .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
-                .contentShape(Capsule(style: .continuous))
+                .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
+                .foregroundStyle(self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed))
                 .backgroundStyle(Color.surfaceInteractive)
                 .modifier(
                     TelegramGlassButtonModifier(
@@ -41,11 +38,8 @@ public struct LightButtonStyle: ButtonStyle {
                 .opacity(isPressed ? 0.9 : 1)
         } else {
             configuration.label
-                .font(CoreControlMetrics.font(for: self.controlSize))
-                .foregroundStyle(self.textColor(isPressed: isPressed))
-                .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
-                .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
-                .contentShape(Capsule(style: .continuous))
+                .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
+                .foregroundStyle(self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed))
                 .modifier(LightButtonBackgroundModifier(isPressed: isPressed))
                 .opacity(isPressed ? 0.9 : 1)
         }
@@ -54,12 +48,6 @@ public struct LightButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
 
-    private func textColor(isPressed: Bool) -> Color {
-        if !self.isEnabled {
-            return self.role.disabledColor
-        }
-        return isPressed ? self.role.activeColor : self.role.color
-    }
 }
 
 // MARK: - LightButtonBackgroundModifier (non-glass fallback)

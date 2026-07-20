@@ -33,15 +33,12 @@ public struct SolidButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         let isPressed = configuration.isPressed
-        let backgroundColor = self.backgroundColor(isPressed: isPressed)
+        let backgroundColor = self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed)
 
         if self.glass {
             configuration.label
-                .font(CoreControlMetrics.font(for: self.controlSize))
+                .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
                 .foregroundStyle(self.isEnabled ? Color.white : Color.contentDisabled)
-                .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
-                .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
-                .contentShape(Capsule(style: .continuous))
                 .backgroundStyle(backgroundColor)
                 .modifier(
                     TelegramGlassButtonModifier(
@@ -51,11 +48,8 @@ public struct SolidButtonStyle: ButtonStyle {
                 )
         } else {
             configuration.label
-                .font(CoreControlMetrics.font(for: self.controlSize))
+                .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
                 .foregroundStyle(self.isEnabled ? Color.contentOnAccent : Color.contentDisabled)
-                .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
-                .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
-                .contentShape(Capsule(style: .continuous))
                 .modifier(
                     SolidButtonBackgroundModifier(
                         backgroundColor: backgroundColor,
@@ -68,12 +62,6 @@ public struct SolidButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
 
-    private func backgroundColor(isPressed: Bool) -> Color {
-        if !self.isEnabled {
-            return self.role.disabledColor
-        }
-        return isPressed ? self.role.activeColor : self.role.color
-    }
 }
 
 // MARK: - SolidButtonBackgroundModifier (non-glass fallback)
