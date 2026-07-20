@@ -91,30 +91,22 @@ private struct CoreMenuButtonStyleModifier: ViewModifier {
                 .padding(.horizontal, CoreSpacing.sm)
                 .frame(minHeight: self.controlSize)
                 .contentShape(Capsule())
-                .background(
-                    Capsule()
-                        .fill(.background)
-                        .padding(CoreSpacing.xxs)
-                        .glassEffect()
-                )
-                .overlay(
-                    Capsule()
-                        .strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
-                )
+                .modifier(TelegramGlassButtonModifier(
+                    shape: Capsule(),
+                    isPressed: false,
+                    border: .borderSubtle,
+                    pressFeedback: false
+                ))
         case .circular:
             content
                 .frame(width: self.controlSize, height: self.controlSize)
                 .contentShape(Circle())
-                .background(
-                    Circle()
-                        .fill(.background)
-                        .padding(CoreSpacing.xxs)
-                        .glassEffect()
-                )
-                .overlay(
-                    Circle()
-                        .strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
-                )
+                .modifier(TelegramGlassButtonModifier(
+                    shape: Circle(),
+                    isPressed: false,
+                    border: .borderSubtle,
+                    pressFeedback: false
+                ))
         }
     }
 
