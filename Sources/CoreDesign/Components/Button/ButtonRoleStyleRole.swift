@@ -15,7 +15,7 @@ public enum ButtonRoleStyleRole {
     case warning
     case danger
 
-    var color: Color {
+    public var color: Color {
         switch self {
         case .primary:
             .accent
@@ -30,7 +30,7 @@ public enum ButtonRoleStyleRole {
         }
     }
 
-    var activeColor: Color {
+    public var activeColor: Color {
         switch self {
         case .primary:
             .accentPressed
@@ -45,7 +45,7 @@ public enum ButtonRoleStyleRole {
         }
     }
 
-    var disabledColor: Color {
+    public var disabledColor: Color {
         switch self {
         case .primary:
             .accentDisabled

@@ -24,9 +24,13 @@ import SwiftUI
 ///   > 此处原写 `Color.primary`。第 4 层曾定义同名别名而遮蔽了 SwiftUI 内建成员，
 ///   > 使该图标实际渲染成品牌色而非系统 label 色——与本注释原先的描述相反。
 ///   > Issue #93 删除了那组别名，这里改用语义层的 `contentPrimary` 明确表达意图。
-struct CheckBoxToggleStyle: ToggleStyle {
+public struct CheckBoxToggleStyle: ToggleStyle {
+    /// 无参构造 / Memberwise-free init：显式声明才能让下游可达
+    /// （Swift 默认合成的 memberwise init 是 internal）。
+    public init() {}
+
     @MainActor @preconcurrency
-    func makeBody(configuration: Configuration) -> some View {
+    public func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
             if configuration.isOn {
                 Image(systemName: "checkmark.square.fill")
@@ -46,21 +50,17 @@ struct CheckBoxToggleStyle: ToggleStyle {
     }
 }
 
-// MARK: - CheckBox
+// MARK: - Preview
 
-/// 复选框 / CheckBox：`Toggle` + `CheckBoxToggleStyle` 的便利封装。
-///
-/// 使用场景：表单选项、协议同意框、列表多选等。Primer 概念上对应 `Checkbox` 表单控件，
-/// 本组件仅暴露最小用法用于 `#Preview` 视觉冒烟，业务侧通常直接使用
-/// `Toggle(...).toggleStyle(CheckBoxToggleStyle())` 自行控制 binding 与 label。
-struct CheckBox: View {
-    @State var isOn = false
-
-    var body: some View {
-        Toggle("哈哈哈哈哈", isOn: self.$isOn).toggleStyle(CheckBoxToggleStyle())
-    }
-}
-
+// 演示用法 / Demo usage：本包不再导出便利封装——原 `CheckBox` 视图硬编码 label
+// 且用 `@State` 而非 `@Binding`，唯一使用者就是本 Preview，已于 Issue #94 内联。
+// （用 `//` 而非 `///`：doc 注释挂在 `#Preview` 这种独立宏展开上不会被 DocC /
+// Quick Help 呈现，写成 doc 注释是自欺。面向下游的说明在 `CheckBoxToggleStyle`
+// 自己的 doc block 里。）
 #Preview {
-    CheckBox()
+    @Previewable @State var isOn = false
+
+    Toggle("同意用户协议 / Accept terms", isOn: $isOn)
+        .toggleStyle(CheckBoxToggleStyle())
+        .padding()
 }
