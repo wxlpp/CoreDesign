@@ -94,14 +94,10 @@ public struct CommentCard<BodyContent: View>: View {
             }
         }
         .padding(CoreSpacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: CoreRadius.medium)
-                .fill(Color.surfaceCard)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: CoreRadius.medium)
-                .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
-        )
+        // 三件套（background + overlay + 圆角）收敛为语义 surface（审计项 B8c）。
+        // 两处受控变化：`.surface(_:)` 额外施加 `clipShape`（子视图会被裁到圆角内），
+        // 且用 `.continuous` 圆角而非手写时默认的 `.circular`。
+        .surface(.card)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Comment by \(self.author)")
     }

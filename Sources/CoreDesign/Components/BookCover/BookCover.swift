@@ -71,13 +71,19 @@ public struct BookCover: View {
         // 后续 clipShape 裁掉导致 hairline 半像素丢失/模糊。clipShape 必须在 overlay
         // 之后，与 SurfaceModifier 模式保持一致。
         return Group {
-            if let data, let image = Self.image(from: data) {
+            if let image = self.decodedImage {
                 image
                     .resizable()
                     .scaledToFill()
             } else {
                 BookCoverPlaceholder(title: self.title)
             }
+        }
+        // 解码只在 data 变化时做一次，不在 body 里（审计项 B9a）——原先每次 body
+        // 求值都会重新 `UIImage(data:)`，列表滚动时对整张封面反复解码。
+        // 用 `.task(id:)` 而非 init：View 的 init 可能被频繁调用。
+        .task(id: self.data) {
+            self.decodedImage = self.data.flatMap { Self.image(from: $0) }
         }
         .aspectRatio(Self.aspectRatio, contentMode: .fit)
         .overlay(shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.hairline))
@@ -91,6 +97,9 @@ public struct BookCover: View {
 
     private let data: Data?
     private let title: String
+
+    /// 解码后的封面图 / Decoded cover image，由 `.task(id: data)` 填充（B9a）。
+    @State private var decodedImage: Image?
 
     private static func image(from data: Data) -> Image? {
         #if canImport(UIKit)

@@ -5,17 +5,11 @@
 
 import SwiftUI
 
-// MARK: - TimelineDepthKey
-
-struct TimelineDepthKey: EnvironmentKey {
-    static let defaultValue: Int = 0
-}
+// MARK: - timelineDepth
 
 extension EnvironmentValues {
-    var timelineDepth: Int {
-        get { self[TimelineDepthKey.self] }
-        set { self[TimelineDepthKey.self] = newValue }
-    }
+    /// 时间线嵌套深度 / Timeline nesting depth。
+    @Entry var timelineDepth: Int = 0
 }
 
 // MARK: - TimelineItem
