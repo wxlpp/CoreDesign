@@ -30,7 +30,7 @@ CoreTypography row body 内 = 8   (基线 11，上限 8)   范围外 = 5
 
 **教训**：epic 分解阶段写下的量化验收指标，若没人对着真实结构验算过，执行期一定会撞上。后续 Issue 的数字型 AC 应在计划阶段就实测一次。
 
-## 三处受控变化（观感/交互非零回归）
+## 受控变化（观感非零回归）——两处
 
 1. **`CircularGlassButtonStyle` 直径 38 → 40**，`BottomInputBar` 的 send / stop / shuffle 三处同步。意外佐证：`CoreMenuButton.swift` 的 `controlSize` 注释本就写着「与输入栏 trailing 圆形按钮保持视觉等高」并取 40——**两者本来就是错位的**，改成 40 恰好修好。
 2. **`CoreBorderlessButtonStyle` 字号**从「继承环境字体」变为「随 `controlSize`」。
