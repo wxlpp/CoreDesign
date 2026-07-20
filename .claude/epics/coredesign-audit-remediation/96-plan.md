@@ -658,9 +658,13 @@ func consumeCircularGlassAccessor() -> some View {
 返回类型写 `CGFloat?` 而非 `CGFloat`——它把「`diameter` 是 optional」这一事实固定进 probe，日后再改回非 optional 会在此处编译失败。
 
 ```bash
-(cd scripts/downstream-probe && swift build > /tmp/p96b.log 2>&1); echo "probe EXIT=$?"
+(cd scripts/downstream-probe && swift package clean && swift build > /tmp/p96b.log 2>&1); echo "probe EXIT=$?"
 ```
 Expected: EXIT=0。
+
+> **probe 必须 `swift package clean` 后再构建。** 实测：本任务新增 `Modifier/ButtonChromeModifier.swift` 后，probe 包的增量构建**没有拾取该文件**，报出 4 条 `value of type 'ButtonStyleConfiguration.Label' has no member 'buttonChrome'`——而主包 `swift build` 同时是绿的。clean 后 probe 立即通过。
+>
+> 这次表现为**假红**，但同一机制（增量构建的源文件清单陈旧）同样能产生**假绿**：若删掉一个 probe 依赖的公开符号而 probe 的 `.build` 未更新，它会照常通过。与 CLAUDE.md 记的「新增 colorset 后必须 clean」是同一类坑，只是发生在 probe 包上。
 
 - [ ] **Step 5: 提交**
 

@@ -52,3 +52,29 @@ func consumeCheckBoxToggleStyle(isOn: Binding<Bool>) -> some View {
     Toggle("checkbox", isOn: isOn)
         .toggleStyle(CheckBoxToggleStyle())
 }
+
+// MARK: - CircularGlassButtonStyle 的破坏性类型变更（Issue #96）
+//
+// `diameter` 从 `CGFloat` 变为 `CGFloat?`（B3e：档位改由 `size` 决定，
+// `diameter` 退化为显式覆写通道）。这是**源码级破坏性变更**——下游写
+// `let d: CGFloat = style.diameter` 会断。返回类型写 `CGFloat?` 把这一事实
+// 固定进 probe：日后若改回非 optional，此处会编译失败。
+
+@MainActor
+func constructCircularGlass() -> CGFloat? {
+    let style = CircularGlassButtonStyle(size: .large, diameter: 44)
+    return style.diameter
+}
+
+// 访问器路径单独覆盖：`circularGlass(diameter:)` 是本任务未改动但公开的 API。
+//
+// > 必须经 `.buttonStyle(.circularGlass(...))` 的前导点推断来触达，**不能**写
+// > `ButtonStyle.circularGlass(diameter:)`——该静态成员定义在
+// > `extension ButtonStyle where Self == CircularGlassButtonStyle` 上，经协议
+// > 元类型访问会报 `static member 'circularGlass' cannot be used on protocol
+// > metatype '(any ButtonStyle).Type'`。
+@MainActor
+func consumeCircularGlassAccessor() -> some View {
+    Button("circular") {}
+        .buttonStyle(.circularGlass(diameter: 44))
+}
