@@ -1,6 +1,6 @@
 # CoreDesign 组件库 / Component Library
 
-iOS 26+ / macOS 26+ SwiftUI 设计系统，含 25 个 Primer 对齐组件（含三合一 epic 新增的 Timeline / 状态指示组件）。
+iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Primer 对齐组件（含三合一 epic 新增的 Timeline / 状态指示组件）。
 
 ## 组件索引 / Component Index
 

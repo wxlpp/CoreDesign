@@ -79,12 +79,6 @@ public struct BookCover: View {
                 BookCoverPlaceholder(title: self.title)
             }
         }
-        // 解码只在 data 变化时做一次，不在 body 里（审计项 B9a）——原先每次 body
-        // 求值都会重新 `UIImage(data:)`，列表滚动时对整张封面反复解码。
-        // 用 `.task(id:)` 而非 init：View 的 init 可能被频繁调用。
-        .task(id: self.data) {
-            self.decodedImage = self.data.flatMap { Self.image(from: $0) }
-        }
         .aspectRatio(Self.aspectRatio, contentMode: .fit)
         .overlay(shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.hairline))
         .clipShape(shape)
@@ -98,10 +92,17 @@ public struct BookCover: View {
     private let data: Data?
     private let title: String
 
-    /// 解码后的封面图 / Decoded cover image，由 `.task(id: data)` 填充（B9a）。
-    @State private var decodedImage: Image?
+    /// 解码后的封面图 / Decoded cover image（审计项 B9a）。
+    ///
+    /// 走**进程级缓存查表**而非 `@State` + `.task`：后者在首帧之后才执行，会让每个
+    /// cell 先闪一下占位彩块、且 `data` 切换时有一个 runloop 渲染上一本书的封面。
+    /// 缓存查表是同步的——首帧就有正确的图，重复解码也照样被消除（真正的目标）。
+    private var decodedImage: Image? {
+        guard let data = self.data else { return nil }
+        return BookCoverImageCache.image(for: data)
+    }
 
-    private static func image(from data: Data) -> Image? {
+    fileprivate static func decode(_ data: Data) -> Image? {
         #if canImport(UIKit)
             if let ui = UIImage(data: data) {
                 return Image(uiImage: ui)
@@ -219,4 +220,42 @@ public enum BookCoverRenderer {
             .frame(width: 120)
     }
     .padding()
+}
+
+// MARK: - BookCoverImageCache（审计项 B9a）
+
+/// 封面解码的进程级缓存 / Process-wide cover decode cache.
+///
+/// `BookCover.body` 原先每次求值都调 `UIImage(data:)`，列表滚动时对整张封面反复解码
+/// （审计项 B9a）。改法有两条路：
+///
+/// 1. `@State` + `.task(id: data)` —— **不用**。`.task` 在首帧**之后**才执行，于是每个
+///    cell 都要先闪一下占位彩块；且 `data` 切换时 state 仍持有旧图，会有一个 runloop
+///    渲染上一本书的封面配新书的 a11y label。用「优化滚动」的名义换来滚动时闪烁，方向反了。
+/// 2. **同步缓存查表**（本实现）—— 首帧即命中，重复解码同样被消除。
+///
+/// 用 `NSCache` 而非字典：它在内存压力下自动清理，不会让长列表把解码结果堆到 OOM。
+/// key 用 `data` 的哈希而非 `data` 本身，避免把多 MB 的字节当键反复比较。
+private enum BookCoverImageCache {
+    private static let cache: NSCache<NSNumber, ImageBox> = {
+        let cache = NSCache<NSNumber, ImageBox>()
+        cache.countLimit = 64
+        return cache
+    }()
+
+    /// `NSCache` 只接受 class 类型，`Image` 是 struct，故装箱。
+    private final class ImageBox {
+        let image: Image
+        init(_ image: Image) { self.image = image }
+    }
+
+    static func image(for data: Data) -> Image? {
+        let key = NSNumber(value: data.hashValue)
+        if let boxed = self.cache.object(forKey: key) {
+            return boxed.image
+        }
+        guard let decoded = BookCover.decode(data) else { return nil }
+        self.cache.setObject(ImageBox(decoded), forKey: key)
+        return decoded
+    }
 }

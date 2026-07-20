@@ -15,7 +15,7 @@ import CoreGraphics
 ///
 /// ```swift
 /// RoundedRectangle(cornerRadius: CoreRadius.medium)
-///     .clipShape(Capsule())   // pill 形态用 Capsule，不要用大 cornerRadius // pill
+///     .clipShape(Capsule())   // pill 形态用 Capsule，不要用大 cornerRadius
 /// ```
 ///
 /// > Note: Primer 没有 `.none`（直角通常通过省略 `border-radius` 实现）。

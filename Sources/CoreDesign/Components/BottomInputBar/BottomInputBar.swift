@@ -355,6 +355,9 @@ struct BottomInputBarModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            // 两段都必须走 `safeAreaBar` 而非 `safeAreaInset`——理由见
+            // `suggestionsBar` / `inputBar` 各自的 doc 注释（涉及 iOS 26 的
+            // scroll edge effect，改错会让内容滑到底时硬切）。
             .safeAreaBar(edge: .bottom, content: { self.suggestionsBar })
             .safeAreaBar(edge: .bottom, content: { self.inputBar })
             // 两个 handler 的 show 条件相同但 **hide 条件不同**，且都有隐含的
@@ -501,12 +504,13 @@ private struct BottomInputBarChipModifier: ViewModifier {
     }
 }
 
-extension View {
+private extension View {
     /// 输入栏内 chip（suggestion / 换一批）的统一样式。
     ///
     /// 原先在 `BottomInputBarSuggestionsView` 与 `BottomInputBarModifier` 中各写一份，
-    /// 逐字相同。文件级 `private`——它只服务本文件的两个消费点。
-    fileprivate func bottomInputBarChip() -> some View {
+    /// 逐字相同。文件级 `private`——它只服务本文件的两个消费点，与同文件的
+    /// `focusedExternally` 写法一致。
+    func bottomInputBarChip() -> some View {
         self.modifier(BottomInputBarChipModifier())
     }
 }

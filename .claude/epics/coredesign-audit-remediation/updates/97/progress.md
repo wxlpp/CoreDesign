@@ -78,6 +78,42 @@ Task 1 删 `.getSize` 时要改 CLAUDE.md 的《Modifier 约定》，而那**同
 - **坐标清扫**：本任务造成的漂移已更新——`audit-checklist.md` 的 D1a（`:150,160,172` → `:148,158,170`）与 D12、`102.md`、`99.md` 的 `BottomInputBar.swift:221` → `:219`。
 - **⚠️ 一批坐标在本任务之前就已陈旧**，非本次造成、也不在本任务范围：`102.md:37` 的 `TimelineItem.swift:74` 的 `VStack(spacing: 0)` **实测 0 命中**、`101.md:30` 与 `audit-checklist.md:65`（B8g）的 `SegmentedControl.swift:121-147,379-409` 与实测的 `:132,:142,:395,:403` 对不上。各自 Issue 接手时须先重量。
 
+## 降级前的 checkpoint 评审抓到的四条
+
+### 1. B9a 的第一版改法是一次真回归
+
+我原本用 `@State` + `.task(id: data)`。评审指出 **`.task` 在首帧之后才执行**，于是：
+
+- **必然的占位闪烁**：任何 `BookCover` 首帧 `decodedImage == nil` → 渲染按书名哈希取色的彩块，下一个 runloop 才换真图。书架滚动时**每个 cell 都闪一下**——比「反复解码」更刺眼，而且正是 B9a 想改善的同一场景。
+- **陈旧图窗口**：`data` 从 A 变 B 时 `.task` 取消重启是异步的，state 仍持有 A，这一个 runloop 内会渲染**上一本书的封面**配新书的 a11y label。
+
+更糟的是**现有验证在设计上就抓不到**：静态截图是 settle 之后拍的。
+
+改为 `BookCoverImageCache`（`NSCache` + 同步查表）：首帧即命中、重复解码同样被消除，两个缺陷都不存在。计划禁的是「`init` 内解码」，从未禁止缓存查表。
+
+### 2. 「零引用」原本只是仓内证据——已补真实下游验证
+
+`KeyboardHandling` 删掉的是 6 个 **public** 符号。对一个以 Swift Package 对外分发的库，「仓内零引用」不等于「无消费者」；而 `becomeFirstResponder` 里那个 `"io.platform.inputView.becomeFirstResponder"` 通知名恰恰暗示宿主 app 有对端实现。
+
+已在真实下游仓 `~/Repositories/any-writer` 实测：
+
+- 排除 `Local Packages/CoreDesign/`（那是 **vendored 副本**，是库自身源码不是消费者）后，6 个符号 + `EmptyState` + `CoreRadius.full` + `bordered(color:)` + `getSize` **全部 0 命中**。
+- `MarkdownKit` 里的 `becomeFirstResponder` / `resignFirstResponder` 是 `UIResponder` 的 `override`，与 CoreDesign 无关。
+
+**结论：删除安全，且「零引用」的口径已从「仓内」升级为「含真实下游」。**
+
+### 3. 删掉兼容承诺时，不该连记录承诺的文件一起删
+
+被删的 `docs/components/empty-state.md` 末尾明写：源码「仍保留为兼容包装层，**当前大版本期间**不会被删除」、「彻底移除推迟到下一个明确规划的破坏性变更周期」。
+
+本次改动在同一个 commit 里**既违反了这条承诺、又删掉了记录它的文件**——日后无从判断承诺是被履行了还是被遗忘了。而且它是全仓唯一指向 `ContentUnavailableView` 的迁移指引，仓内也无 CHANGELOG 承接。
+
+已恢复该文件为**墓碑文档**：写明「已于 #97 移除」、保留完整迁移示例、并显式声明「epic `coredesign-audit-remediation` 就是上文所称的那个破坏性变更周期」及其依据。
+
+### 4. `docs/README.md` 的组件计数由本次改动变陈旧
+
+删掉 EmptyState 索引行后，表里实际是 24 个组件，而 `:3` 仍写 25——正是本 epic D16 系列在追的「文档漂移」缺陷类型，由本次改动新引入。已改。
+
 ## 验证证据
 
 四条 SwiftPM 命令（`swift package clean` 后冷跑）：
