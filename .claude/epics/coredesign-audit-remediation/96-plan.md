@@ -165,9 +165,12 @@ self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: self.isPressed)
 - [ ] **Step 3: 验证三态取色逻辑确实只剩一份**
 
 ```bash
-grep -rn 'disabledColor' Sources/CoreDesign/Components/Button/ | grep -v 'ButtonRoleStyleRole.swift'
+grep -rn 'disabledColor' Sources/CoreDesign/Components/Button/ \
+  | grep -v 'ButtonRoleStyleRole.swift' | grep -v '///'
 ```
 Expected: 无输出（三个 style 都不再直接读 `disabledColor`）。
+
+**必须滤掉 `///`**：`CoreBorderlessButtonStyle.swift:33` 的 doc 注释里有「颜色完全由 `role.color` / `role.activeColor` / `role.disabledColor` 决定」——那句描述改造后依然成立，**不要去改它**。不滤会让本关卡假红，执行者最可能的反应就是去动那段正确的文档。
 
 Run: `swift build --build-tests`
 Expected: EXIT=0
@@ -189,6 +192,8 @@ git commit -m "refactor: 三态取色逻辑收敛进 ButtonRoleStyleRole.resolve
 
 **Interfaces:**
 - Produces: `View.buttonChrome<S: Shape>(shape:controlSize:) -> some View`
+
+> **B3d 的前提陈述对 `CoreBorderlessButtonStyle` 不成立。** 96.md:29 写「font / padding / contentShape 四行……共出现 5 次」且逐字相同——但实测该类型的 `makeBody` **只有两行 padding**，既没有 `font` 也没有 `contentShape`（96.md 引的 `:43-46` 坐标还落在 doc 注释里）。本任务按 B3d 的**意图**（统一 chrome）执行，代价是给它引入两处受控行为变化（字号、命中区，见下方警告）。**在此显式声明，避免后续审计对账时把这两处变化误判成实现越界。**
 
 **这是为 #95 让路的关键一步**——收敛后全库只剩**一处** `CoreControlMetrics.font(for:)` 调用，#95 把它换成 `fontToken(for:)` + `.coreFont()` 时只需改一行而非五行。
 
@@ -227,8 +232,13 @@ private struct ButtonChromeModifier<S: Shape>: ViewModifier {
 
 // MARK: - View extension
 
-public extension View {
+extension View {
     /// 套用按钮通用 chrome（字号 / 内边距 / 命中区域）。
+    ///
+    /// **有意保持 internal**：这是四个 style 的内部收敛产物，四者都在包内。
+    /// 一次纯重构不应顺手对外承诺一个未经设计评审的 modifier——尤其它的
+    /// `controlSize` 走显式传参，与仓库其它 modifier 从环境读取的习惯不同。
+    /// 若日后要公开，走独立的 API 设计评审。
     ///
     /// - Parameters:
     ///   - shape: 命中区域形状（胶囊、圆形等）。
@@ -613,11 +623,33 @@ Expected: EXIT=0
 
 `#Preview` 视觉冒烟：圆形按钮应从 38 变为 40（+2pt），`BottomInputBar` 的 send / stop / shuffle 三处同步变化。**重点确认没有缩到 32**——那说明 `size` 默认值不是 `.large`，或误接了环境 `controlSize`。
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 4: 让 probe 看得见这次破坏性类型变更**
+
+`public var diameter: CGFloat` → `CGFloat?` 是**源码级破坏性变更**（下游 `let d: CGFloat = style.diameter` 会断），但现有 probe 完全没覆盖 `CircularGlassButtonStyle`——`PublicVisibility.swift` 只有 `CoreBorderlessButtonStyle` 与 `ButtonRoleStyleRole`，probe 会照常 EXIT=0，无人守门。
+
+`scripts/` 不在 #97 的自有文件清单内，可以改。在 `PublicVisibility.swift` 末尾追加：
+
+```swift
+@MainActor
+func constructCircularGlass() -> CGFloat? {
+    let style = CircularGlassButtonStyle(size: .large, diameter: 44)
+    return style.diameter
+}
+```
+
+返回类型写 `CGFloat?` 而非 `CGFloat`——它把「`diameter` 是 optional」这一事实固定进 probe，日后再改回非 optional 会在此处编译失败。
+
+```bash
+(cd scripts/downstream-probe && swift build > /tmp/p96b.log 2>&1); echo "probe EXIT=$?"
+```
+Expected: EXIT=0。
+
+- [ ] **Step 5: 提交**
 
 ```bash
 git add Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift
-git commit -m "refactor!: CircularGlassButtonStyle 接入 controlSize，直径 38→40 对齐 metrics 序列（B3e）"
+git add scripts/downstream-probe/Sources/DownstreamProbe/PublicVisibility.swift
+git commit -m "refactor!: CircularGlassButtonStyle 改用显式 size 档位，直径 38→40 对齐 metrics 序列（B3e）"
 ```
 
 ---
@@ -825,21 +857,44 @@ for n in names:
     n_lines = be - bs + 1
     print(f'{n}: body {n_lines} 行 ({bs+1}-{be+1})')
     total += n_lines
-print(f'TOTAL = {total}   (SC-8 上限 60；改造前基线 118)')
+print(f'TOTAL = {total}   (SC-8 上限 100；改造前基线 118)')
+if total > 100:
+    sys.exit(f'!! SC-8 超标：{total} > 100')
 EOF
 ```
-Expected: `TOTAL` ≤ 60。**把实测数字与本脚本一并记进 PR 描述**（96.md 要求给出脚本）。
+Expected: `TOTAL` ≤ 100（脚本超标即 `exit 1`，不靠人眼）。**把实测数字与本脚本一并记进 PR 描述**（96.md 要求给出脚本）。
+
+> **上限为何是 100 而不是 60**：60 从未对照真实设计验算过。把本计划提议的骨架 + 四个薄封装落成代码实测得 **99**；删光 body 内注释空行得 85、连骨架也排除得 68、两者都做得 63——全部 > 60。唯一能压进 60 的做法是把多行实参表折成单行，即靠折行凑数。已于 #96 执行期经用户确认改为 ≤100（详见 `96.md` 的《SC-8 的测量边界》）。
 
 > 脚本的花括号配平法对本文件可靠——已核实四个 row 的 body 内无字符串字面量含花括号、无字符串插值。若日后 body 里出现 `"\(...)"`，此法会失准，届时改用真正的 Swift 解析。
 >
-> 若超 60：优先合并骨架内可省的修饰行，**不要靠删注释凑数**——但注意本脚本只按行计数、`//` 注释与空行**都计入**（只有 `///` doc 注释因不在 body 块内而天然排除）。所以"删注释能凑数"在此口径下**是成立的**，正因如此更不该那么做：真正的收敛应体现在结构上。
+> 若超 100：真正的收敛应体现在结构上，**不要靠删注释或折行凑数**——本脚本只按行计数，`//` 注释与空行都计入（只有 `///` doc 注释因不在 body 块内而天然排除），所以这两招"能凑数"，正因如此更不该用。
 
 - [ ] **Step 4: 量 `CoreTypography` 引用数（AC：16 → 约 6）**
 
+口径是**四个 row 的 `var body` 内**，不是文件级——实测 16 处中有 5 处在本任务范围外（`SidebarSection` 的 `:49 :54 :64`、`SidebarStatusFooter` 的 `:330 :334`，B5 不碰这两个类型）。
+
 ```bash
-grep -c 'CoreTypography\.' Sources/CoreDesign/Components/Sidebar/Sidebar.swift
+python3 - <<'EOF'
+import re, sys
+src = open('Sources/CoreDesign/Components/Sidebar/Sidebar.swift').read().split('\n')
+spans = []
+for n in ['SidebarRow','SidebarNavigationRow','SidebarUtilityRow','SidebarDocumentRow','SidebarTagRow']:
+    hits = [i for i,l in enumerate(src) if re.match(rf'^(public |private )?struct {n}[<:]', l)]
+    if not hits: sys.exit(f'!! 找不到 {n}')
+    bs = next(i for i in range(hits[0], len(src)) if re.search(r'var body: some View \{', src[i]))
+    d = 0
+    for i in range(bs, len(src)):
+        d += src[i].count('{') - src[i].count('}')
+        if d == 0 and i > bs: spans.append((bs, i)); break
+inside = [i+1 for i,l in enumerate(src) if 'CoreTypography.' in l and any(a<=i<=b for a,b in spans)]
+outside = [i+1 for i,l in enumerate(src) if 'CoreTypography.' in l and not any(a<=i<=b for a,b in spans)]
+print(f'row body 内 = {len(inside)} {inside}   (基线 11，AC 上限 8)')
+print(f'范围外     = {len(outside)} {outside}   (SidebarSection / SidebarStatusFooter，本任务不碰)')
+if len(inside) > 8: sys.exit('!! 超过 AC 上限 8')
+EOF
 ```
-Expected: 约 6（骨架 1 处 title + 四个薄封装的 leading/trailing 各 1–2 处）。实测数字记进 PR。
+Expected: `row body 内 ≤ 8`、`范围外 = 5`。实测数字记进 PR。
 
 - [ ] **Step 5: 验证 + 视觉冒烟**
 
@@ -911,7 +966,9 @@ git commit -m "refactor: Sidebar 四 row 收敛为共享骨架，固定高度改
     }
 ```
 
-> `self.border ?? .white.opacity(...)` 的类型推断：`border` 是 `Color?`，`.white.opacity(...)` 是 `Color`，`??` 结果是 `Color`，而 `strokeBorder` 收 `some ShapeStyle`——应能推断。**若编译器报歧义，显式写 `Color.white.opacity(...)`。**
+> **同步更新该类型的 doc 注释**（`TelegramGlassButtonModifier.swift:10-36`）。它把「四层结构」写死：第 3 层明写 `strokeBorder(.white.opacity(0.2), ...)`、第 4 层明写 `scaleEffect(pressedScale)`，Usage 示例只给两参数形态。参数化后这两条不再无条件成立，须改为「默认如此，可经 `border` / `pressFeedback` 覆写」，并写明**默认值 = 原行为**。这是三处需同步 doc 的地方里唯一 public 且被最多样式共享的类型。
+>
+> `self.border ?? .white.opacity(...)` 的类型推断：`border` 是 `Color?`，`.white.opacity(...)` 是 `Color`，`??` 结果是 `Color`，而 `strokeBorder` 收 `some ShapeStyle`——应能推断。**若编译器报歧义，显式写 `Color.white.opacity(...)`。** 同理 `.animation(self.pressFeedback ? .snappy(duration: 0.16) : nil, value:)` 里的隐式成员处在上下文类型为 `Animation?` 的三元表达式中，推断更脆——报错就显式写 `Animation.snappy(duration: 0.16)`。
 
 - [ ] **Step 2: `CoreMenuButtonStyleModifier` 泛型化并复用**
 
@@ -961,7 +1018,7 @@ private struct CoreMenuButtonStyleModifier: ViewModifier {
 ```bash
 grep -rn 'TelegramGlassButtonModifier(' Sources/ | cat
 ```
-逐个确认：`SolidButtonStyle`、`LightButtonStyle`、`CircularGlassButtonStyle` 三处**不传** `border` / `pressFeedback`（走默认值 = 原行为）；`CoreMenuButtonStyleModifier` 两处显式传。
+其中 1 行是 `TelegramGlassButtonModifier.swift` doc 注释里的 Usage 示例（本 Step 已要求同步更新它）。其余逐个确认：`SolidButtonStyle`、`LightButtonStyle`、`CircularGlassButtonStyle` 三处**不传** `border` / `pressFeedback`（走默认值 = 原行为）；`CoreMenuButtonStyleModifier` 两处显式传。
 
 Run: `swift build --build-tests`
 Expected: EXIT=0
@@ -1045,7 +1102,13 @@ Expected: 恰好 1 行，在 `Modifier/ButtonChromeModifier.swift`。
 
 - [ ] **Step 5: 视觉冒烟（AC 明列，不可省）**
 
-`Sidebar` 与四个按钮样式的 `#Preview`，在默认与 Blossom 两种模式、light + dark 下各看一遍。**已知的两处受控变化**：`CircularGlassButtonStyle` 38→40；`CoreBorderlessButtonStyle` 字号从随环境变为随 `controlSize`（Task 2 Step 2 的警告）。其余应零变化。
+`Sidebar` 与四个按钮样式的 `#Preview`，在默认与 Blossom 两种模式、light + dark 下各看一遍。**已知的三处受控变化**（与 Task 2 Step 2 的警告对齐，别漏第三条）：
+
+1. `CircularGlassButtonStyle` 直径 38→40（`BottomInputBar` 的 send / stop / shuffle 同步）
+2. `CoreBorderlessButtonStyle` 字号从随环境变为随 `controlSize`
+3. `CoreBorderlessButtonStyle` **命中区从带 padding 的矩形变为胶囊**——`buttonChrome` 给它加了原本没有的 `contentShape(Capsule)`。这是交互变化，**冒烟时要实点边角**，不能只看渲染。
+
+其余应零变化。
 
 - [ ] **Step 6: 更新审计清单**
 
@@ -1070,7 +1133,7 @@ Expected: `83`
 必须落进去的内容（这些证据合并后只存在于此）：
 - 八项各自的做法
 - **SC-8 实测行数**与 `CoreTypography` 引用数（16 → ?）
-- 两处受控视觉变化（38→40、Borderless 字号来源）及理由
+- **三处**受控变化（38→40、Borderless 字号来源、Borderless 命中区变胶囊）及理由——第三条是交互变化不是视觉变化，别归错类
 - `TelegramGlassButtonModifier` 参数化的默认值契约——**后续任何人加参数都必须保证既有调用点走默认值时行为不变**
 - 给 #95 的交接：`CoreControlMetrics.font(for:)` 现在只有 1 个调用点，在 `ButtonChromeModifier.swift`；`Sidebar` 的 `CoreTypography` 引用已降到 ? 处
 - 给 #97 的交接：005 ∩ 006 = ∅ 已用 `git diff --name-only` 自查通过
@@ -1089,4 +1152,4 @@ git commit -m "docs(ccpm): 更新 #96 审计清单状态与完成记录"
 
 `oh-my-superpowers:verification-before-completion` → `finishing-a-development-branch` Option 2 开 PR（**base = `epic/coredesign-audit-remediation`，禁止直合 main**）→ Copilot 不可用，按 auto-fix skill §3.6 降级为 `superpowers-reviewer` 一轮并在 PR 留顶层评论。
 
-PR 描述必须包含：SC-8 实测行数、`CoreTypography` 引用数变化、两处受控视觉变化的说明。
+PR 描述必须包含：SC-8 实测行数与脚本、`CoreTypography` 引用数变化（row body 内 11 → ?）、**三处**受控变化的说明。
