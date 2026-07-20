@@ -440,7 +440,11 @@ grep -c 'public var' Sources/CoreDesign/Components/Button/ButtonRoleStyleRole.sw
 grep -c 'public struct CheckBoxToggleStyle' Sources/CoreDesign/Components/CheckBox/CheckBox.swift
 grep -c 'public init(role:' Sources/CoreDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift
 ```
-Expected: `git status --porcelain` 只列出 Task 5 有意新增/修改的文件（probe 新文件、checklist、本计划）；三条 grep 分别为 `3` / `1` / `1`。
+Expected: `git status --porcelain` **只允许**两项——`?? scripts/downstream-probe/Sources/DownstreamProbe/PublicVisibility.swift`（Step 1 新建）与 ` M .claude/epics/coredesign-audit-remediation/94-plan.md`（勾 checkbox）。三条 grep 分别为 `3` / `1` / `1`。
+
+`audit-checklist.md` **此刻不应出现**——它要到 Step 7/8 才改。若它现在就是 modified，说明 Step 3 的反证残留混进来了。
+
+若冒出 `scripts/downstream-probe/Package.resolved` 或 `.swiftpm/`（构建 probe 的副产物，`.gitignore` 里这两条目前是注释掉的），先确认内容无意义再决定忽略还是补进 `.gitignore`，不要直接 `git add`。
 
 - [ ] **Step 5: 四条 SwiftPM 命令 + warning 判据**
 
@@ -480,44 +484,63 @@ Expected: `scan rc=1` 且无匹配行。
 
 - [ ] **Step 7: 修正 epic 文档里被本次改名打断的旁及证据**
 
-改名会让**别的 Issue** 的任务文件指向不存在的文件与符号。`.claude/` 不在任何扫描口径内，没有关卡会发现；不改的话 #5 / #9 / #10 / #11 的执行者会照着找不到东西。以下清单已逐行实测。
+改名与插入会让**别的 Issue** 的任务文件指向不存在的文件、符号或错误行号。`.claude/` 不在任何扫描口径内，没有关卡会发现；不改的话 #5 / #9 / #10 / #11 / #97 / #98 的执行者会照着找不到东西——或者更糟，找到**错误的代码**。
 
-**6a. `audit-checklist.md`——7 行（不是 4 行）**
+要修的 stale 分两维，别只想着第一维：
 
-| 行 | ID | 归属 | 改法 |
+**7a. 符号名 / 文件路径 stale**
+
+| 文件:行 | ID | 归属 | 改法 |
 |---|---|---|---|
-| `:43` | B3a | #5 | `BorderlessButtonStyle.swift:65-70` → `CoreBorderlessButtonStyle.swift:65-70` |
-| `:46` | B3d | #5 | `BorderlessButtonStyle.swift:43-46` → `CoreBorderlessButtonStyle.swift:43-46` |
-| `:59` | B8a | #5 | `MenuButtonStyleModifier` → `CoreMenuButtonStyleModifier`；`MenuButton.swift:87-118` → `CoreMenuButton.swift:87-118`（**这行引的是符号名，不只是路径**，#5 的执行者会 grep 一个已不存在的符号） |
-| `:84` | C5 | #98 | 「零测试文件：`CheckBox`、…、`MenuButton`、…」→ `CheckBoxToggleStyle`（`CheckBox` 类型本次删除）、`CoreMenuButton` |
-| `:104` | D2 | #9 | `MenuButton.swift:139,169` → `CoreMenuButton.swift:139,169` |
-| `:107` | D5 | #10 | `MenuButton.swift:77` → `CoreMenuButton.swift:77` |
-| `:115` | D12 | #11 | `MenuButton.swift:136,146` → `CoreMenuButton.swift:136,146` |
+| `audit-checklist.md:43` | B3a | #5 | `BorderlessButtonStyle.swift:65-70` → `CoreBorderlessButtonStyle.swift:73-78`（路径**与行号**都变，见 7b） |
+| `audit-checklist.md:46` | B3d | #5 | `BorderlessButtonStyle.swift:43-46` → `CoreBorderlessButtonStyle.swift:43-46`（在插入点之前，行号不变） |
+| `audit-checklist.md:59` | B8a | #5 | `MenuButtonStyleModifier` → `CoreMenuButtonStyleModifier`；`MenuButton.swift:87-118` → `CoreMenuButton.swift:87-118`（**这行引的是符号名**，#5 的执行者会 grep 一个已不存在的符号） |
+| `audit-checklist.md:84` | C5 | #98 | 「零测试文件：`CheckBox`、…、`MenuButton`、…」→ `CheckBoxToggleStyle`（`CheckBox` 类型本次删除）、`CoreMenuButton` |
+| `audit-checklist.md:104` | D2 | #9 | `MenuButton.swift:139,169` → `CoreMenuButton.swift:139,169` |
+| `audit-checklist.md:107` | D5 | #10 | `MenuButton.swift:77` → `CoreMenuButton.swift:77` |
+| `audit-checklist.md:115` | D12 | #11 | `MenuButton.swift:136,146` → `CoreMenuButton.swift:136,146` |
+| `96.md:26,29,33,70` | B3a/B3d/B8a | #5 | 同上口径；`:26` 的 `BorderlessButtonStyle.swift:65-70` 同样要 →`:73-78` |
+| `102.md:35,36` | D12 | #11 | `MenuButton.swift:146` / `:136` → `CoreMenuButton.swift:…` |
 
-行号本身不变（改名不增删行）。
+`MenuButton.swift` 的全部行号**不变**——Task 4 是纯 sed 替换，不增删行。
 
-**6b. 兄弟任务文件——只改带 `文件:行号` 的可执行指令**
+**7b. 因本任务插入而漂移的行坐标**
 
-| 文件 | 行 | 改法 |
-|---|---|---|
-| `96.md` | `:26,29,33,52,70` | `BorderlessButtonStyle.swift` → `CoreBorderlessButtonStyle.swift`；`MenuButtonStyleModifier` → `CoreMenuButtonStyleModifier`；`MenuButton.swift:87-118` → `CoreMenuButton.swift:87-118` |
-| `102.md` | `:35,36` | `MenuButton.swift:146` / `MenuButton.swift:136` → `CoreMenuButton.swift:…` |
+只有这两处，都源于「补 public 时插入了注释与 init」：
+
+| 文件:行 | 归属 | 现值 → 应改为 | 漂移来源 |
+|---|---|---|---|
+| `audit-checklist.md:43`、`96.md:26` | #5 | `:65-70` → `:73-78` | Task 3 Step 3 把 `:52` 的单行 `let role:` 换成 9 行（+8），其后坐标统一 +8。已实测：`textColor` 计算属性改前在 `:65-70`，改后在 `:73-78` |
+| `audit-checklist.md:72`（B9f） | #97 | `CheckBox.swift:25` → `CheckBox.swift:32` | 两段漂移叠加：#93 加注释已把 `@MainActor @preconcurrency` 推到 `:28`（该行**现在就是 stale 的**），Task 1 Step 1 再插入 4 行 → `:32` |
+
+B9f 归 #97 不归本 Issue，**别把它当成「本 Issue 自己的历史记录」而跳过**——它是可执行坐标，指错了 #97 就会改错地方。
 
 **明确不改**（写清理由，免得终审当成遗漏）：
 
-- `audit-checklist.md:27,28,31,32,71,72` —— 本 Issue 自己的缺陷描述行，Step 8 会给它们加「✅ 已修复」前缀。按 #93 的既定惯例，**缺陷描述保留原名**，那是在讲「从什么改成什么」的历史记录。
+- `audit-checklist.md:27,28,31,32,71` —— 本 Issue 自己的缺陷**描述**行（A2a/A2b/A3a/A3b/B9e），Step 8 会给它们加「✅ 已修复」前缀。按 #93 的既定惯例，缺陷描述保留原名，那是在讲「原本是什么」的历史记录。
+- `96.md:52`、`102.md:97` —— **改名叙述行**（`` `MenuButton` → `CoreMenuButton` 改名 ``）。箭头左侧的旧名是记录的一部分，盲改会产出 `` `CoreMenuButton` → `CoreMenuButton` `` 这种自指废话。
 - `epic.md`、`95.md`、`97.md`、`98.md`、`101.md` —— 散文/规划性提及（owner 矩阵、冲突说明、依赖叙述），不是可执行的 `文件:行号` 指令，改名后语义依然成立。
 - `100.md` —— 已经预先适配成 `CoreMenuButton` 并写明「003 已改名」，无需处理。
+- `Components/CheckBox/CheckBox.swift` 的文件名与目录名 —— Task 1 删掉 `CheckBox` 类型后文件名不再与内含类型同名，但**不改名**：`CheckBoxToggleStyle` 仍在其中，目录即组件边界，改名会平白制造又一处 stale 坐标。
 
-**6c. 验证**
+**7c. 验证**
 
 ```bash
-grep -rn '\bBorderlessButtonStyle\b\|\bMenuButton\b\|\bMenuButtonStyleModifier\b' \
+grep -rn '\bBorderlessButtonStyle\b\|\bMenuButton\b\|\bMenuButtonStyle\b\|\bMenuButtonStyleModifier\b' \
   .claude/epics/coredesign-audit-remediation/audit-checklist.md \
   .claude/epics/coredesign-audit-remediation/96.md \
   .claude/epics/coredesign-audit-remediation/102.md 2>/dev/null; echo "rc=$?"
 ```
-Expected: 只剩 `audit-checklist.md` 的 `:27 :28 :31 :32 :71 :72`（本 Issue 自身的缺陷描述，见上「明确不改」）。`96.md` / `102.md` 0 命中。**不要期待整体 rc=1**——那六行是有意保留的。
+Expected: **恰好 5 行**——`audit-checklist.md:28,31,32` + `96.md:52` + `102.md:97`，即上面「明确不改」的前两类。`rc=0`（有命中是**正确**的，不要期待 rc=1）。
+
+注意 `audit-checklist.md` 的 `:27 :71 :72` 不会出现在这个结果里：它们只含 `CheckBox`，而本 pattern 里没有 `CheckBox`（实测该三行对本 pattern 命中数为 0）。多数出一行或少数一行都说明 7a/7b 没改干净。
+
+另外 `docs/components/button.md:42` 写的是 `BorderlessButton`（无 `Style` 后缀），**任何带词边界的扫描都不会命中它**——Task 3 Step 4 的手工修改没有关卡兜底，此处顺便目视复核一次：
+
+```bash
+grep -n 'BorderlessButton' docs/components/button.md
+```
+Expected: 只出现 `CoreBorderlessButtonStyle`，无裸 `BorderlessButton`。
 
 - [ ] **Step 8: 更新审计清单状态**
 
@@ -538,6 +561,7 @@ git add scripts/downstream-probe/Sources/DownstreamProbe/PublicVisibility.swift
 git add .claude/epics/coredesign-audit-remediation/audit-checklist.md
 git add .claude/epics/coredesign-audit-remediation/96.md
 git add .claude/epics/coredesign-audit-remediation/102.md
+git add .claude/epics/coredesign-audit-remediation/94-plan.md   # 执行中勾掉的 checkbox
 git commit -m "test: probe 覆盖 #94 公开可见性契约，并修正被改名打断的审计证据"
 ```
 
