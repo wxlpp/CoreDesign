@@ -114,6 +114,32 @@ Task 1 删 `.getSize` 时要改 CLAUDE.md 的《Modifier 约定》，而那**同
 
 删掉 EmptyState 索引行后，表里实际是 24 个组件，而 `:3` 仍写 25——正是本 epic D16 系列在追的「文档漂移」缺陷类型，由本次改动新引入。已改。
 
+## 降级 PR 评审（第 2 轮）抓到的——一条真 bug
+
+### C1：`BookCoverImageCache` 用 `data.hashValue` 作 key 会永久串味
+
+我的缓存把 checkpoint 刚修掉的「陈旧图」缺陷用另一种形式带了回来，而且这次**永久**。评审实测 + 我复现：`Foundation.Data.hash(into:)` **只哈希 `count` 加前 80 字节**，不遍历全部。两张字节数相同、前 80 字节相同的封面（同一编码管线的 JPEG/PNG 头部往往逐字节相同）命中同一 key，`NSCache` 无 TTL，于是 B 书的封面永久配 A 书的 a11y label。
+
+```
+count 相等: true   Data 相等: false   hashValue 相等: true   ← 4096 字节、差异在前 80 之外
+```
+
+修法：命中后**用完整 `Data` 复核**（`entry.data == data`，`Data.==` 先比 count 再 memcmp，只对同尺寸候选跑）。顺带修的：
+- **I2**：解码失败（`nil`）也缓存，否则坏数据每帧重解码——正是 B9a 要修的场景。
+- **I3**：加 `totalCostLimit`（`countLimit` 只限个数不限字节，64 张大图能到几百 MB）。
+- **I7**：缓存改 `internal`（原 `private` 连 `@testable` 都够不到）+ 加**回归测试**。测试用 `decodeCount` 探针而非比 `Image`（不可比）或看 `nil`（macOS 的 `NSImage` 对损坏 PNG 太容错，观测不到）——直接量化「命中不重解码」（B9a）与「碰撞各自解码」（C1）。反证过通电：去掉复核那行，碰撞测试精确失败。
+
+### I6：`BorderModifier` 的 `AnyShapeStyle` 擦除是白付的代价
+
+类型已经泛型化过 shape，`style` 再擦成 `AnyShapeStyle` 每次 body 求值都装箱、且破坏 SwiftUI 的值比较。加第二个泛型参数 `Style: ShapeStyle` 即可，调用点签名不变。顺带把默认形状从 `RoundedRectangle(cornerRadius: .none)` 改成 `Rectangle()`（doc 自己吐槽过前者「误导」）。
+
+### I4/I5/I8/Q5：删除的账要让下游看得见
+
+- **I4**：`docs/README.md` 删掉了指向墓碑文档的**唯一链接**，墓碑变成只能猜路径才能到——恢复一行墓碑索引。
+- **I5**：`audit-checklist.md` 的 B9g 行原写「empty-state.md 一并清理」，与「改写为墓碑保留」矛盾，已改。
+- **I8**：新建 `docs/BREAKING-CHANGES.md` 列出 #97 的全部 public 删除与替代（仓内无 CHANGELOG）。特别标注 `anyWriterFirstResponderNotification` 是**字符串键契约**——下游若用字面量 observe，符号 grep 查不到，any-writer 的零引用扫描覆盖不到它。
+- **Q5**：墓碑里「epic 就是那个破坏性变更周期」原写成既定事实，改为显式标为「**工程判断而非治理决策**」并列出依据，供日后重新审视。
+
 ## 验证证据
 
 四条 SwiftPM 命令（`swift package clean` 后冷跑）：

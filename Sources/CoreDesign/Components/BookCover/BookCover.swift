@@ -234,28 +234,59 @@ public enum BookCoverRenderer {
 ///    渲染上一本书的封面配新书的 a11y label。用「优化滚动」的名义换来滚动时闪烁，方向反了。
 /// 2. **同步缓存查表**（本实现）—— 首帧即命中，重复解码同样被消除。
 ///
-/// 用 `NSCache` 而非字典：它在内存压力下自动清理，不会让长列表把解码结果堆到 OOM。
-/// key 用 `data` 的哈希而非 `data` 本身，避免把多 MB 的字节当键反复比较。
-private enum BookCoverImageCache {
-    private static let cache: NSCache<NSNumber, ImageBox> = {
-        let cache = NSCache<NSNumber, ImageBox>()
+/// 用 `NSCache` 而非字典：内存压力下自动清理（尽力而为，非硬上限），配合
+/// `totalCostLimit` 给一个字节预算，避免长列表把解码结果堆到 OOM。
+///
+/// > **key 不能只用 `data.hashValue`**：`Foundation.Data.hash(into:)` 只哈希 `count`
+/// > 加**前 80 字节**，不遍历全部字节。两张字节数相同、前 80 字节相同的封面
+/// > （同一编码管线的 JPEG 头部 + DQT 表往往逐字节相同）会命中同一 key，永久返回
+/// > 错图。故命中后**必须用完整 `Data` 复核**（`Data.==` 先比 `count` 再 memcmp，
+/// > 只对同尺寸候选跑，成本远低于一次解码）。
+enum BookCoverImageCache {
+    private static let cache: NSCache<NSNumber, Entry> = {
+        let cache = NSCache<NSNumber, Entry>()
         cache.countLimit = 64
+        // 约 64MB 字节预算：`cost` 用源 `Data` 的字节数近似（解码后的位图更大，
+        // 但源字节数与之单调相关，够做逐出排序）。
+        cache.totalCostLimit = 64 * 1024 * 1024
         return cache
     }()
 
-    /// `NSCache` 只接受 class 类型，`Image` 是 struct，故装箱。
-    private final class ImageBox {
-        let image: Image
-        init(_ image: Image) { self.image = image }
+    /// `NSCache` 只接受 class 类型。同时存源 `Data`（命中复核）与解码结果
+    /// （`nil` = 解码失败，也缓存下来避免对坏数据反复解码——I2）。
+    private final class Entry {
+        let data: Data
+        let image: Image?
+        init(data: Data, image: Image?) {
+            self.data = data
+            self.image = image
+        }
     }
 
+    /// 真解码次数 / Number of actual decode calls（测试探针，直接量化 B9a
+    /// 「不重复解码」：命中缓存不应递增它）。
+    static private(set) var decodeCount = 0
+
+    /// 清空缓存与计数 / Reset — 仅供测试隔离。
+    static func reset() {
+        self.cache.removeAllObjects()
+        self.decodeCount = 0
+    }
+
+    /// 解析封面图 / Resolve the cover image，带同步缓存。
+    ///
+    /// `@MainActor`：唯一调用点是 `BookCover.body`（MainActor），且 AppKit 的
+    /// `NSImage(data:)` 未文档化为线程安全——钉在主 actor 上消除歧义。
+    @MainActor
     static func image(for data: Data) -> Image? {
         let key = NSNumber(value: data.hashValue)
-        if let boxed = self.cache.object(forKey: key) {
-            return boxed.image
+        if let entry = self.cache.object(forKey: key), entry.data == data {
+            return entry.image   // 命中且字节完全一致——包括缓存过的解码失败（image == nil）
         }
-        guard let decoded = BookCover.decode(data) else { return nil }
-        self.cache.setObject(ImageBox(decoded), forKey: key)
+        // 未命中，或哈希碰撞（同 key 不同字节）：解码并覆盖。
+        self.decodeCount += 1
+        let decoded = BookCover.decode(data)
+        self.cache.setObject(Entry(data: data, image: decoded), forKey: key, cost: data.count)
         return decoded
     }
 }
