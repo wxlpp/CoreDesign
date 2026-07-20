@@ -82,7 +82,10 @@ public struct CommentCard<BodyContent: View>: View {
                         binding.wrappedValue = false
                     }
                     .font(CoreTypography.bodySmallFont)
-                    .foregroundStyle(Color.accent)
+                    // 渐变 token 层的首个生产消费点（审计项 B7a）。默认主题下
+                    // `CoreGradient.brand` 就是 `AnyShapeStyle(Color.accent)`——与改前
+                    // 逐像素相同；Blossom 下自动变成珊瑚粉→玫红渐变。
+                    .foregroundStyle(CoreGradient.brand)
                     .accessibilityLabel("Show minimized comment")
                     .accessibilityHint("Expands the comment from \(self.author)")
                 }

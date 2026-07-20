@@ -18,7 +18,7 @@ public enum CoreGradient {
 
     /// 品牌渐变 / brand gradient.
     /// Blossom: 珊瑚粉 → 玫红。默认：纯 `Color.accent`。
-    public static var brand: AnyShapeStyle {
+    public static let brand: AnyShapeStyle = {
         #if Blossom
         AnyShapeStyle(
             LinearGradient(
@@ -30,11 +30,11 @@ public enum CoreGradient {
         #else
         AnyShapeStyle(Color.accent)
         #endif
-    }
+    }()
 
     /// 主操作按钮渐变 / primary CTA gradient.
     /// Blossom: 亮珊瑚 → 玫红。默认：纯 `Color.accent`。
-    public static var cta: AnyShapeStyle {
+    public static let cta: AnyShapeStyle = {
         #if Blossom
         AnyShapeStyle(
             LinearGradient(
@@ -46,11 +46,11 @@ public enum CoreGradient {
         #else
         AnyShapeStyle(Color.accent)
         #endif
-    }
+    }()
 
     /// 页面画布渐变 / page canvas gradient.
     /// Blossom: 粉 → 薰衣草紫 → 青 三色柔和渐变。默认：纯 `Color.surfaceCanvas`。
-    public static var canvas: AnyShapeStyle {
+    public static let canvas: AnyShapeStyle = {
         #if Blossom
         AnyShapeStyle(
             LinearGradient(
@@ -62,5 +62,5 @@ public enum CoreGradient {
         #else
         AnyShapeStyle(Color.surfaceCanvas)
         #endif
-    }
+    }()
 }
