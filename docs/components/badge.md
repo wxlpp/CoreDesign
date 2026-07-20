@@ -32,7 +32,7 @@ Badge(variant: .success) {
 
 ## 视觉 Token
 
-- 圆角：`CoreRadius.full`（Capsule pill 形态）
+- 圆角：`Capsule()`（pill 形态）
 - 字号：`CoreTypography.bodySmallFont` + `bodySmallTracking`
 - Padding：横向 `CoreSpacing.sm`，纵向 `CoreSpacing.xs`
 - 背景色：`Color.surfaceCanvasSubtle`（neutral）/ status background token（info/success/warning/danger）

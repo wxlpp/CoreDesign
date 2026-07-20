@@ -29,7 +29,6 @@ public struct CheckBoxToggleStyle: ToggleStyle {
     /// （Swift 默认合成的 memberwise init 是 internal）。
     public init() {}
 
-    @MainActor @preconcurrency
     public func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
             if configuration.isOn {

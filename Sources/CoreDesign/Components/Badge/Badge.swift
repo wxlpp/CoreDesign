@@ -40,7 +40,7 @@ public nonisolated enum BadgeVariant: Sendable, Equatable {
 ///
 /// 用于在列表项 / 标题 / 按钮旁标注一个固定 level 的语义状态（如 "Beta" / "Draft" /
 /// "Deprecated" / "v1.0"）。形态固定为 pill：`Capsule(style: .continuous)` 圆角
-/// （等价于 `CoreRadius.full`）+ status background token + 可选 `CoreBorderWidth.thin`
+/// （`Capsule()`）+ status background token + 可选 `CoreBorderWidth.thin`
 /// 描边，内部为调用方传入的 label。
 ///
 /// ## 与 Tag 的边界
@@ -55,7 +55,7 @@ public nonisolated enum BadgeVariant: Sendable, Equatable {
 ///   （`statusAccentSubtle` / `statusSuccessSubtle` / `statusAttentionSubtle` / `statusDangerSubtle`）
 /// - 边框（`outlined: true` 时）：`Color.borderMuted`（neutral）/ 对应 status border
 ///   token；宽度 `CoreBorderWidth.thin`
-/// - 圆角：`CoreRadius.full`（pill 形态）
+/// - 圆角：`Capsule()`（pill 形态）
 /// - 字号：`CoreTypography.bodySmallFont` + `bodySmallTracking`
 /// - padding：横向 `CoreSpacing.sm`，纵向 `CoreSpacing.xs`
 ///

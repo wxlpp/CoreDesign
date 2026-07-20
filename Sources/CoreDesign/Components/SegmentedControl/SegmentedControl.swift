@@ -202,7 +202,6 @@ private struct NativeGlassSegmentedControl<Item: Hashable>: UIViewRepresentable 
     }
 }
 
-@available(iOS 26.0, *)
 private final class NativeGlassSegmentedControlView: UIView {
     let control = ImmediateFeedbackSegmentedControl(items: nil)
 
@@ -298,7 +297,6 @@ private final class NativeGlassSegmentedControlView: UIView {
     }
 }
 
-@available(iOS 26.0, *)
 private final class ImmediateFeedbackSegmentedControl: UISegmentedControl {
     private var originalIndex: Int?
 

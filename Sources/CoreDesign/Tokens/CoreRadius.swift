@@ -15,7 +15,7 @@ import CoreGraphics
 ///
 /// ```swift
 /// RoundedRectangle(cornerRadius: CoreRadius.medium)
-///     .clipShape(RoundedRectangle(cornerRadius: CoreRadius.full)) // pill
+///     .clipShape(Capsule())   // pill 形态用 Capsule，不要用大 cornerRadius // pill
 /// ```
 ///
 /// > Note: Primer 没有 `.none`（直角通常通过省略 `border-radius` 实现）。
@@ -57,6 +57,4 @@ public nonisolated enum CoreRadius {
     /// 大圆角 (12pt)。Primer `borderRadius.large`。Dialog、Modal、希望视觉柔和的容器。
     public static let large: CGFloat = 12
 
-    /// 完全圆角 (9999pt)。Primer `borderRadius.full`。Pill / Capsule / 头像。
-    public static let full: CGFloat = 9999
 }
