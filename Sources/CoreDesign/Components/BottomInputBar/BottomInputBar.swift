@@ -297,10 +297,7 @@ struct BottomInputBarSuggestionsView: View {
             self.onTapSuggestion(suggestion)
         } label: {
             Text(suggestion)
-                .font(.subheadline)
-                .padding(.horizontal, CoreSpacing.md)
-                .padding(.vertical, CoreSpacing.sm)
-                .glassEffect(.regular, in: Capsule())
+                .bottomInputBarChip()
         }
         .foregroundStyle(.primary)
     }
@@ -358,81 +355,88 @@ struct BottomInputBarModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            // suggestions chips 段：用 `safeAreaBar` 而非 `safeAreaInset`——iOS 26 起前者
-            // 在 inset 安全区之外**会把内层 ScrollView 的 scroll edge effect 延伸**到 bar
-            // 区（Liquid Glass 内容渐隐 / 模糊），后者只 inset 不带边缘效果，导致内容滑到
-            // 底时硬切到 bar 边缘。
-            .safeAreaBar(edge: .bottom, content: {
-                VStack(alignment: .leading, spacing: CoreSpacing.xs + CoreSpacing.xxs) {
-                    if self.isShowingSuggestions, self.showShuffleButton {
-                        HStack {
-                            Spacer()
-                            Button {
-                                self.onSubmit("换一批")
-                            } label: {
-                                Label("换一批", systemImage: "arrow.clockwise")
-                                    .font(.subheadline)
-                                    .padding(.horizontal, CoreSpacing.md)
-                                    .padding(.vertical, CoreSpacing.sm)
-                                    .glassEffect(.regular, in: Capsule())
-                            }
-                            .foregroundStyle(.primary)
-                        }
-                        .padding(.horizontal, CoreSpacing.xl)
-                    }
-
-                    BottomInputBarSuggestionsView(
-                        isShowingSuggestions: self.isShowingSuggestions,
-                        suggestions: self.suggestions
-                    ) { suggestion in
-                        self.onSubmit(suggestion)
-                        withAnimation(.snappy(duration: 0.2)) {
-                            self.isShowingSuggestions = false
-                        }
-                    }
-                }
-            })
-            // 输入框段：同样走 `safeAreaBar` —— 让 NavigationStack 内每条页面的 ScrollView
-            // 都自动拿到底部 inset + scroll edge effect，无需各页自行 contentMargins。
-            // bar 自身 pill 上的 `.glassEffect(.regular, in: BottomInputBarGlassEffectShape())`
-            // 仍负责视觉材质；safeAreaBar 不会再叠一层背景。
-            .safeAreaBar(edge: .bottom, content: {
-                BottomInputBar(
-                    isShowingSuggestions: self.$isShowingSuggestions,
-                    placeholder: self.placeholder,
-                    wandEnabled: self.wandEnabled,
-                    sendEnabled: self.sendEnabled,
-                    showMenuButton: self.showMenuButton,
-                    isRunning: self.isRunning,
-                    autoFocus: self.autoFocus,
-                    externalFocus: self.externalFocus,
-                    onActivate: self.onActivate,
-                    onStop: self.onStop,
-                    onSubmit: self.onSubmit
-                )
-            })
+            .safeAreaBar(edge: .bottom, content: { self.suggestionsBar })
+            .safeAreaBar(edge: .bottom, content: { self.inputBar })
+            // 两个 handler 的 show 条件相同但 **hide 条件不同**，且都有隐含的
+            // 「什么都不做」第三分支——**不能**合并成单一 `sync(shouldShow:)`。
+            // 反例：autoShow 关闭 + suggestions 非空 + 用户已手动展开时，数组更新
+            // 在原逻辑下保持展开，合并后会被强制收起。故只收敛动画包装这一层，
+            // 条件逻辑原样保留（审计项 B8h——其「两个 onChange 同构」的前提经实测不成立）。
             .onChange(of: self.suggestions) { _, newValue in
                 if self.autoShowSuggestions, !newValue.isEmpty {
-                    withAnimation(.snappy(duration: 0.2)) {
-                        self.isShowingSuggestions = true
-                    }
+                    self.setSuggestionsVisible(true)
                 } else if newValue.isEmpty, self.isShowingSuggestions {
-                    withAnimation(.snappy(duration: 0.2)) {
-                        self.isShowingSuggestions = false
-                    }
+                    self.setSuggestionsVisible(false)
                 }
             }
             .onChange(of: self.autoShowSuggestions) { _, newValue in
                 if newValue, !self.suggestions.isEmpty {
-                    withAnimation(.snappy(duration: 0.2)) {
-                        self.isShowingSuggestions = true
-                    }
+                    self.setSuggestionsVisible(true)
                 } else if !newValue, self.isShowingSuggestions {
-                    withAnimation(.snappy(duration: 0.2)) {
-                        self.isShowingSuggestions = false
-                    }
+                    self.setSuggestionsVisible(false)
                 }
             }
+    }
+
+    // MARK: - Private helpers
+
+    /// suggestions chips 段：用 `safeAreaBar` 而非 `safeAreaInset`——iOS 26 起前者
+    /// 在 inset 安全区之外**会把内层 ScrollView 的 scroll edge effect 延伸**到 bar
+    /// 区（Liquid Glass 内容渐隐 / 模糊），后者只 inset 不带边缘效果，导致内容滑到
+    /// 底时硬切到 bar 边缘。
+    private var suggestionsBar: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xs + CoreSpacing.xxs) {
+            if self.isShowingSuggestions, self.showShuffleButton {
+                HStack {
+                    Spacer()
+                    Button {
+                        self.onSubmit("换一批")
+                    } label: {
+                        Label("换一批", systemImage: "arrow.clockwise")
+                            .bottomInputBarChip()
+                    }
+                    .foregroundStyle(.primary)
+                }
+                .padding(.horizontal, CoreSpacing.xl)
+            }
+
+            BottomInputBarSuggestionsView(
+                isShowingSuggestions: self.isShowingSuggestions,
+                suggestions: self.suggestions
+            ) { suggestion in
+                self.onSubmit(suggestion)
+                self.setSuggestionsVisible(false)
+            }
+        }
+    }
+
+    /// 输入框段：同样走 `safeAreaBar` —— 让 NavigationStack 内每条页面的 ScrollView
+    /// 都自动拿到底部 inset + scroll edge effect，无需各页自行 contentMargins。
+    /// bar 自身 pill 上的 `.glassEffect(.regular, in: BottomInputBarGlassEffectShape())`
+    /// 仍负责视觉材质；safeAreaBar 不会再叠一层背景。
+    private var inputBar: some View {
+        BottomInputBar(
+            isShowingSuggestions: self.$isShowingSuggestions,
+            placeholder: self.placeholder,
+            wandEnabled: self.wandEnabled,
+            sendEnabled: self.sendEnabled,
+            showMenuButton: self.showMenuButton,
+            isRunning: self.isRunning,
+            autoFocus: self.autoFocus,
+            externalFocus: self.externalFocus,
+            onActivate: self.onActivate,
+            onStop: self.onStop,
+            onSubmit: self.onSubmit
+        )
+    }
+
+    /// 统一 suggestions 的显隐动画 / Single place for the show-hide animation。
+    ///
+    /// 只收敛**动画包装**这一层重复；两个 `onChange` 各自的条件逻辑保持原样。
+    private func setSuggestionsVisible(_ visible: Bool) {
+        withAnimation(.snappy(duration: 0.2)) {
+            self.isShowingSuggestions = visible
+        }
     }
 
     @State private var isShowingSuggestions: Bool
@@ -482,5 +486,27 @@ public extension View {
         Color.clear.bottomInputBar(suggestions: ["续写下一段", "换个风格", "润色文字", "生成对话"]) { text in
             print("发送: \(text)")
         }
+    }
+}
+
+// MARK: - Chip 样式（审计项 B8h）
+
+private struct BottomInputBarChipModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .font(.subheadline)
+            .padding(.horizontal, CoreSpacing.md)
+            .padding(.vertical, CoreSpacing.sm)
+            .glassEffect(.regular, in: Capsule())
+    }
+}
+
+extension View {
+    /// 输入栏内 chip（suggestion / 换一批）的统一样式。
+    ///
+    /// 原先在 `BottomInputBarSuggestionsView` 与 `BottomInputBarModifier` 中各写一份，
+    /// 逐字相同。文件级 `private`——它只服务本文件的两个消费点。
+    fileprivate func bottomInputBarChip() -> some View {
+        self.modifier(BottomInputBarChipModifier())
     }
 }
