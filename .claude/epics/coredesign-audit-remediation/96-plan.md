@@ -501,7 +501,7 @@ B3b 的验收口径是「共同结构只写一次」——`base` 就是共同结
                     .modifier(TelegramGlassButtonModifier(shape: Capsule(style: .continuous), isPressed: isPressed))
             } else {
                 base
-                    .modifier(ButtonBackgroundModifier(fill: .surfaceInteractive, border: .borderSubtle, isPressed: isPressed))
+                    .buttonBackground(fill: .surfaceInteractive, border: .borderSubtle, isPressed: isPressed)
             }
         }
         .opacity(isPressed ? 0.9 : 1)
