@@ -15,7 +15,7 @@
 | B7c | `CoreGradient.swift` 与 `CoreGradient+Preview.swift` **两个文件**移入 `Tokens/` |
 | B8c | `CommentCard` 三件套 → `.surface(.card)` |
 | B8h | `BottomInputBarModifier.body` **78 → 24 行**，拆出 `suggestionsBar` / `inputBar`，chip 收敛为 `bottomInputBarChip()` |
-| B9a | `BookCover` 解码移到 `@State` + `.task(id: data)` |
+| B9a | `BookCover` 解码改为 `BookCoverImageCache`（`NSCache` + 同步查表）——见下方 checkpoint 评审第 1 条 |
 | B9b | `TimelineItem` 的手写 `EnvironmentKey` → `@Entry`（10 行 → 3 行），测试同步 |
 | B9c | 删 `bordered(color:)` 死重载 |
 | D8 | `BorderModifier` 改 `strokeBorder` + 形状泛型化为 `InsettableShape` |
@@ -53,7 +53,7 @@
 
 处置：只收敛动画包装（`setSuggestionsVisible(_:)`），条件逻辑原样保留。body 仍从 78 降到 24 行，B8h 的其余两项（拆子视图、收敛 chip）足额完成。
 
-## 两处受控变化（已截图确认）
+## 三处受控变化（已截图确认）
 
 1. **`CommentCard` 的 `clipShape`**——`.surface(.card)` 比手写三件套多一步裁切，子视图会被裁到圆角内。
 2. **`CommentCard` 的圆角曲线**——手写默认 `.circular`，`SurfaceModifier` 用 `.continuous`。
@@ -62,7 +62,7 @@
 
 > **但冒烟不能证否裁切风险**：两个 Preview 的 content 都是单行 `Text`，不可能溢出。冒烟绿只证明「本仓库自带用例不被裁」，不证明下游调用方安全。真正的判定依据是 **API 语义决策**——裁切是 `.surface(_:)` 的既定语义，对 card 形态合理。
 
-D8 的 `stroke` → `strokeBorder`（描边向内收 `width/2`）在唯一生产消费点 `Banner.swift:223` 已截图确认，边框清晰无半像素问题。
+3. **D8 的 `stroke` → `strokeBorder`**（描边向内收 `width/2`）——在唯一生产消费点 `Banner.swift:223` 已截图确认，边框清晰无半像素问题。
 
 ## D16b 是顺带修的，原属 #102
 
