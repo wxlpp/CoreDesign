@@ -41,6 +41,7 @@ public struct LightButtonStyle: ButtonStyle {
             } else {
                 base
                     .buttonBackground(
+                        shape: Capsule(style: .continuous),
                         fill: Color.surfaceInteractive,
                         border: Color.borderSubtle,
                         isPressed: isPressed

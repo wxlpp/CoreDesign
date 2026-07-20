@@ -50,6 +50,7 @@ public struct SolidButtonStyle: ButtonStyle {
         } else {
             base
                 .buttonBackground(
+                    shape: Capsule(style: .continuous),
                     fill: backgroundColor,
                     border: Color.borderMuted,
                     isPressed: isPressed,

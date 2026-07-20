@@ -85,3 +85,31 @@ func consumeCircularGlassAccessor() -> some View {
     Button("circular") {}
         .buttonStyle(.circularGlass(diameter: 44))
 }
+
+// MARK: - Issue #96 新增的公开面
+
+// `TelegramGlassButtonModifier` 的默认值契约：该类型的 doc 写明「新增参数时
+// 务必保持这一契约」——两参数形态必须**永远**能编译。这句承诺此前只是注释，
+// 现在由 probe 从外部视角钉住：任何人给 init 加无默认值的参数都会在此失败。
+@MainActor
+func consumeGlassModifierTwoArgForm() -> some View {
+    Text("glass")
+        .modifier(TelegramGlassButtonModifier(shape: Capsule(), isPressed: false))
+}
+
+// `ButtonRoleStyleRole.resolvedColor` 是 #96 新增的 public 方法，现为三个
+// ButtonStyle 三态取色的唯一来源。`readRolePalette` 只覆盖了三个调色板属性。
+// 与 `readRolePalette` 同样必须 `@MainActor`——`defaultIsolation(MainActor.self)`
+// 下这个方法也是 MainActor 隔离的（它读三个隔离的调色板属性）。
+@MainActor
+func consumeResolvedColor(_ role: ButtonRoleStyleRole) -> Color {
+    role.resolvedColor(isEnabled: true, isPressed: false)
+}
+
+// 档位主通道访问器（`circularGlass(size:)`），与逃生舱 `circularGlass(diameter:)`
+// 并列覆盖。
+@MainActor
+func consumeCircularGlassTierAccessor() -> some View {
+    Button("tier") {}
+        .buttonStyle(.circularGlass(size: .small))
+}

@@ -80,15 +80,44 @@ B3e 字面要求「接入 `@Environment(\.controlSize)`」，本任务实施为*
 
 截图为 Blossom 主题（预览宿主自 #92 起启用该 trait），故呈珊瑚粉/紫。
 
+## B2b 的理由曾写错——降级评审抓到的
+
+`Sidebar.swift` 里 B2b 的注释原写「minHeight 而非固定 height：**大字号下不裁切**」。这个理由**今天没通电**：实测 `CoreTypography` 全部是 `.system(size:)`、`relativeTo:` 出现 **0** 次，字号不随辅助功能缩放——那正是 #95 要修的事。所以没有任何路径能让 row 内容超过 40pt。
+
+后果有两层：
+
+1. 视觉冒烟即使在 AX5 下截图，B2b 也**必然零差异**——那不是「通过」，是「没通电」。
+2. minHeight 今天**确实**改变了一件事，但不是 Dynamic Type：三个 row 传 `titleLineLimit: nil`，**长标题换行到 2+ 行时不再被固定高度压出框**。这才是本次唯一的真实布局行为变化，而它原本没出现在任何注释或验收判据里。`SidebarDocumentRow` 传 `1` 且 detail 也限 1 行，对它是纯预防性改动。
+
+注释、`audit-checklist.md` 的 B2b 行与 `docs/components/sidebar.md:66`（原写死「40pt」，现改为「≥40pt，`frame(minHeight:)`」，与 `list-row.md` 既有写法对齐）均已更正。
+
+**教训**：重构的注释若写的是「未来才兑现的收益」，会让当期的验证判据落空——验证的是一件今天不可能发生的事，永远绿。
+
+## 补上的测试与 probe 覆盖（降级评审）
+
+改造前，`size` 默认值被人改回 `.regular` 会**四条命令全绿、probe 全绿、95 tests 全绿**——只有人眼看截图能发现。现补：
+
+- `ButtonStyleDefaultTests` 新增 3 条：`CircularGlassButtonStyle().size == .large`、`.diameter == nil`、两个访问器的档位/直径断言
+- 新增 `ButtonRoleStyleRoleTests` suite 3 条：三态优先级（disabled > pressed > normal）、每个 role 都取自己的调色板
+- probe 新增 3 个函数：`TelegramGlassButtonModifier` 的**两参数形态**（该类型 doc 写着「新增参数时务必保持这一契约」，此前只是注释）、`resolvedColor`、`circularGlass(size:)`
+
+测试数 95 → **101**。反证过通电：把 `size` 默认值改回 `.regular`，精确报出 `circular glass defaults to the large tier` 失败。
+
+## API 形态调整（降级评审）
+
+- 补 `static func circularGlass(size:)`——此前只有 `.circularGlass` 与 `.circularGlass(diameter:)`，等于把**逃生舱**（裸 CGFloat）给了漂亮入口、**主通道**（档位）却要写 `CircularGlassButtonStyle(size:)`，引导方向指反了。
+- `size` / `diameter` 从 `public var` 改 `public let`，与 `SolidButtonStyle.role/glass` 的既有惯例一致。
+- `ButtonBackgroundModifier` 泛型化为 `<S: InsettableShape>`——原先硬编码 `Capsule` 两次，而同批新增的 `buttonChrome` 是泛型的。一个专门做去重的 PR 不该留下这种新的不对称：将来的圆角矩形 CTA 能复用 chrome、不能复用 background。
+
 ## 验证证据
 
 四条 SwiftPM 命令（`swift package clean` 后冷跑）：
 
 ```
 build          EXIT=0
-test           EXIT=0      Test run with 95 tests in 32 suites passed
+test           EXIT=0      Test run with 101 tests in 33 suites passed
 build-blossom  EXIT=0
-test-blossom   EXIT=0      Test run with 95 tests in 32 suites passed
+test-blossom   EXIT=0      Test run with 101 tests in 33 suites passed
 probe(clean)   EXIT=0
 ```
 

@@ -141,8 +141,16 @@ private struct SidebarRow<Leading: View, Trailing: View>: View {
 
                 self.trailing
             }
-            // minHeight 而非固定 height：大字号下不裁切（审计项 B2b），
-            // 与 ListRow / SearchField 的既有写法一致。
+            // minHeight 而非固定 height（审计项 B2b），与 ListRow / SearchField 一致。
+            //
+            // **今天的实际收益是长 title 换行不再被压出框**——三个 row 传
+            // `titleLineLimit: nil`，标题过长会换到 2+ 行，原先 `frame(height: 40)`
+            // 会把第二行裁掉。`SidebarDocumentRow` 传 `1` 且 detail 也限 1 行，
+            // 对它是纯预防性改动。
+            //
+            // Dynamic Type 那层收益要等 #95：`CoreTypography` 现在全部是
+            // `.system(size:)`、`relativeTo:` 出现 0 次，字号不随辅助功能缩放，
+            // 所以「大字号下不裁切」目前无路径可触发。
             .frame(minHeight: CoreControlMetrics.height(for: .large))
             .padding(.horizontal, CoreSpacing.sm)
             .sidebarSelectedBackground(self.isSelected)

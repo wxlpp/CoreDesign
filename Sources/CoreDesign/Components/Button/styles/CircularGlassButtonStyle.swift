@@ -23,10 +23,10 @@ public struct CircularGlassButtonStyle: ButtonStyle {
     /// > 32pt（实测）。若改为「忽略 `.regular` 按 `.large` 解释」，则下游**刻意**
     /// > 写 `.controlSize(.regular)` 时会静默得到 40pt，是永久的公开 API 陷阱。
     /// > 把档位存在 style 上既避免了这两者，也让意图显式可读。
-    public var size: ControlSize = .large
+    public let size: ControlSize
 
     /// 显式直径覆写 / Explicit diameter override：绕过 `size` 直接指定。
-    public var diameter: CGFloat?
+    public let diameter: CGFloat?
 
     public init(size: ControlSize = .large, diameter: CGFloat? = nil) {
         self.size = size
@@ -60,7 +60,21 @@ public extension ButtonStyle where Self == CircularGlassButtonStyle {
         CircularGlassButtonStyle()
     }
 
-    /// 自定义直径的圆形玻璃按钮样式。
+    /// 指定尺寸档位的圆形玻璃按钮样式。
+    ///
+    /// 这是**主通道**——档位取自 `CoreControlMetrics.height(for:)`，与其余
+    /// 三个 style 的尺寸来源一致。
+    ///
+    /// - Parameter size: 尺寸档位。
+    /// - Returns: `CircularGlassButtonStyle` 实例。
+    static func circularGlass(size: ControlSize) -> CircularGlassButtonStyle {
+        CircularGlassButtonStyle(size: size)
+    }
+
+    /// 自定义直径的圆形玻璃按钮样式（**逃生舱**）。
+    ///
+    /// 绕过 `size` 档位直接给值，用于 metrics 序列覆盖不到的非标尺寸。
+    /// 常规场景请用 `circularGlass(size:)`。
     ///
     /// - Parameter diameter: 按钮直径（pt）。
     /// - Returns: `CircularGlassButtonStyle` 实例。
