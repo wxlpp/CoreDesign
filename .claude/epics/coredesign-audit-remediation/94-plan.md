@@ -506,20 +506,23 @@ Expected: `scan rc=1` 且无匹配行。
 
 **7b. 因本任务插入而漂移的行坐标**
 
-只有这两处，都源于「补 public 时插入了注释与 init」：
+共四处，都源于「补 public 时插入了注释与 init」。这一维最容易漏——**同一条证据往往在 checklist 与该 Issue 的任务文件里各存一份，两处都要改**：
 
 | 文件:行 | 归属 | 现值 → 应改为 | 漂移来源 |
 |---|---|---|---|
 | `audit-checklist.md:43`、`96.md:26` | #5 | `:65-70` → `:73-78` | Task 3 Step 3 把 `:52` 的单行 `let role:` 换成 9 行（+8），其后坐标统一 +8。已实测：`textColor` 计算属性改前在 `:65-70`，改后在 `:73-78` |
-| `audit-checklist.md:72`（B9f） | #97 | `CheckBox.swift:25` → `CheckBox.swift:32` | 两段漂移叠加：#93 加注释已把 `@MainActor @preconcurrency` 推到 `:28`（该行**现在就是 stale 的**），Task 1 Step 1 再插入 4 行 → `:32` |
+| `audit-checklist.md:72`、**`97.md:55`**（B9f） | #97 | `CheckBox.swift:25` → `CheckBox.swift:32` | 两段漂移叠加：#93 加注释已把 `@MainActor @preconcurrency` 推到 `:28`（该行**现在就是 stale 的**），Task 1 Step 1 再插入 4 行 → `:32` |
+| `95.md:92` | #95 | `CheckBox.swift:30,34` → `CheckBox.swift:37,41` | 同样两段叠加：`iconSize(for:)` 两处现已漂到 `:33,:37`（#93 造成），Task 1 再 +4 |
 
-B9f 归 #97 不归本 Issue，**别把它当成「本 Issue 自己的历史记录」而跳过**——它是可执行坐标，指错了 #97 就会改错地方。
+**`97.md:55` 与 `95.md:92` 是 Acceptance Criteria 里的可执行勾选项**，不是散文——#97 / #95 的执行者读任务文件的优先级高于读 checklist。别因为它们在「兄弟任务文件」里就当成规划性提及跳过。
 
 **明确不改**（写清理由，免得终审当成遗漏）：
 
 - `audit-checklist.md:27,28,31,32,71` —— 本 Issue 自己的缺陷**描述**行（A2a/A2b/A3a/A3b/B9e），Step 8 会给它们加「✅ 已修复」前缀。按 #93 的既定惯例，缺陷描述保留原名，那是在讲「原本是什么」的历史记录。
 - `96.md:52`、`102.md:97` —— **改名叙述行**（`` `MenuButton` → `CoreMenuButton` 改名 ``）。箭头左侧的旧名是记录的一部分，盲改会产出 `` `CoreMenuButton` → `CoreMenuButton` `` 这种自指废话。
-- `epic.md`、`95.md`、`97.md`、`98.md`、`101.md` —— 散文/规划性提及（owner 矩阵、冲突说明、依赖叙述），不是可执行的 `文件:行号` 指令，改名后语义依然成立。
+- `epic.md`、`101.md`，以及 `95.md` / `97.md` / `98.md` 中 7a/7b 未点名的其余行 —— 散文/规划性提及（owner 矩阵、冲突说明、依赖叙述），不是可执行的 `文件:行号` 指令，改名后语义依然成立。（`101.md:40` 的裸 `MenuButtonStyle` 是唯一例外候选，但 #10 执行者 grep 它仍会子串命中 `CoreMenuButtonStyle`，且同文件 `:80` 已预先适配，风险可忽略。）
+- `98.md:55` 的 C5 名单里的 `CheckBox` / `MenuButton` —— 与 `audit-checklist.md:84` 同源，但那是「**不要求**补测」的排除清单，符号名而非坐标，指向已删类型不会让 #98 做错事。顺手改掉也可以，不改不算遗漏。
+- `100.md:70` 写的目录 `Components/MenuButton/` 实为 `Components/BottomInputBar/` —— 这是 #9 计划的**既有笔误**，与本次改名无关，不纳入本 Issue（扩大 blast radius）。
 - `100.md` —— 已经预先适配成 `CoreMenuButton` 并写明「003 已改名」，无需处理。
 - `Components/CheckBox/CheckBox.swift` 的文件名与目录名 —— Task 1 删掉 `CheckBox` 类型后文件名不再与内含类型同名，但**不改名**：`CheckBoxToggleStyle` 仍在其中，目录即组件边界，改名会平白制造又一处 stale 坐标。
 
@@ -561,6 +564,8 @@ git add scripts/downstream-probe/Sources/DownstreamProbe/PublicVisibility.swift
 git add .claude/epics/coredesign-audit-remediation/audit-checklist.md
 git add .claude/epics/coredesign-audit-remediation/96.md
 git add .claude/epics/coredesign-audit-remediation/102.md
+git add .claude/epics/coredesign-audit-remediation/97.md   # B9f 坐标 :25 → :32
+git add .claude/epics/coredesign-audit-remediation/95.md   # iconSize 坐标 :30,34 → :37,41
 git add .claude/epics/coredesign-audit-remediation/94-plan.md   # 执行中勾掉的 checkbox
 git commit -m "test: probe 覆盖 #94 公开可见性契约，并修正被改名打断的审计证据"
 ```
