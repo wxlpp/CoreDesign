@@ -118,7 +118,7 @@ struct BottomInputBar: View {
     }
 
     private var menuButton: some View {
-        MenuButton(
+        CoreMenuButton(
             isExpanded: self.$isExpanded,
             style: self.isInputFocused ? .circular : .labeled
         )

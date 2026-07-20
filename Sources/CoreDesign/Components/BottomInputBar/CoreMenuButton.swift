@@ -1,5 +1,5 @@
 //
-//  MenuButton.swift
+//  CoreMenuButton.swift
 //  CoreDesign
 //
 //  Created by Evan Wang on 2026/3/31.
@@ -60,7 +60,7 @@ private struct MenuIconView: View, @MainActor Animatable {
     /// 图标基线尺寸（pt），随 Dynamic Type 缩放。
     ///
     /// 刻意使用 `CoreControlMetrics.iconSize(for: .regular)` (16pt)——而非与外框
-    /// `MenuButtonStyleModifier.controlSize` (`.large` = 40pt) 同档的 `.large` (20pt)——
+    /// `CoreMenuButtonStyleModifier.controlSize` (`.large` = 40pt) 同档的 `.large` (20pt)——
     /// 是为了维持 16/40 ≈ 0.4 的 icon-to-button-height 比例，匹配 SF Symbol 在容器内的
     /// 视觉重量预期（Apple HIG "icon ≈ 容器 40%"）。若改用 `.large` (20pt)，icon 将占
     /// 按钮 50%，视觉过重、破坏与输入栏 trailing 圆形按钮的平衡。
@@ -71,18 +71,18 @@ private struct MenuIconView: View, @MainActor Animatable {
     }
 }
 
-// MARK: - MenuButtonStyle
+// MARK: - CoreMenuButtonStyle
 
 /// 通过测量同环境下 Text 的渲染高度来传递字体尺寸
-enum MenuButtonStyle {
+enum CoreMenuButtonStyle {
     case labeled
     case circular
 }
 
-// MARK: - MenuButtonStyleModifier
+// MARK: - CoreMenuButtonStyleModifier
 
-private struct MenuButtonStyleModifier: ViewModifier {
-    let style: MenuButtonStyle
+private struct CoreMenuButtonStyleModifier: ViewModifier {
+    let style: CoreMenuButtonStyle
 
     func body(content: Content) -> some View {
         switch self.style {
@@ -123,12 +123,12 @@ private struct MenuButtonStyleModifier: ViewModifier {
     private let controlSize: CGFloat = CoreControlMetrics.height(for: .large)
 }
 
-// MARK: - MenuButton
+// MARK: - CoreMenuButton
 
-struct MenuButton: View {
+struct CoreMenuButton: View {
     @Binding var isExpanded: Bool
 
-    var style: MenuButtonStyle = .labeled
+    var style: CoreMenuButtonStyle = .labeled
 
     var body: some View {
         let icon = MenuIconView(progress: self.isExpanded ? 1.0 : 0.0)
@@ -141,7 +141,7 @@ struct MenuButton: View {
         }
 
         inner
-            .modifier(MenuButtonStyleModifier(style: self.style))
+            .modifier(CoreMenuButtonStyleModifier(style: self.style))
             .foregroundStyle(.white)
             .scaleEffect(self.isLongPressing ? 0.94 : 1.0)
             .onLongPressGesture(minimumDuration: 0.18, maximumDistance: 10, pressing: { pressing in
@@ -176,7 +176,7 @@ struct MenuButton: View {
 
 /// 触觉反馈助手——`UIImpactFeedbackGenerator` 的 `init(style:)` / `prepare()` /
 /// `impactOccurred()` 在 iOS 上都标记为 `@MainActor`（Swift 6 strict concurrency 下
-/// 是硬性约束，main 上的 build 之前就因此失败）。`MenuButton` 的两处调用点
+/// 是硬性约束，main 上的 build 之前就因此失败）。`CoreMenuButton` 的两处调用点
 /// （`onLongPressGesture` / `onTapGesture` 闭包）本身就是 SwiftUI gesture 回调、
 /// 在 MainActor 上跑，故把整个 helper 标 `@MainActor` 是 zero-cost 的精确隔离——
 /// 无 Task hop、无 await、调用语义不变。
@@ -191,11 +191,11 @@ private func triggerMenuFeedback() {
 
 #Preview {
     VStack(spacing: 16) {
-        MenuButton(isExpanded: .constant(true), style: .labeled)
+        CoreMenuButton(isExpanded: .constant(true), style: .labeled)
             .font(.headline)
             .backgroundStyle(.red)
 
-        MenuButton(isExpanded: .constant(false), style: .circular)
+        CoreMenuButton(isExpanded: .constant(false), style: .circular)
             .font(.headline)
             .backgroundStyle(.red)
     }
