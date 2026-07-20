@@ -41,7 +41,7 @@ Button("Delete") {}
 
 ## 视觉 Token
 
-- 圆角：`CoreRadius.full`（Capsule pill 形态）
+- 圆角：`Capsule()`（pill 形态）
 - 字号 / padding / icon：由 `@Environment(\.controlSize)` 通过 `CoreControlMetrics` 决定
 - SolidButton 背景：`role.color` / `role.activeColor` / `role.disabledColor`
 - SolidButton 阴影：`CoreElevation.small`

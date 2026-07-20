@@ -44,7 +44,7 @@ import SwiftUI
 ///   从而维持与衬底的对比关系。调用方若传系统 dynamic color（`Color.accentColor` 等）
 ///   亦自动适配。
 /// - **圆角**：`CoreRadius.small`（3pt）。**不**使用 `.full`——这是与 Badge 的视觉区分点
-///   之一（Badge 走 `CoreRadius.full` pill 形态）。
+///   之一（Badge 走 `Capsule()` pill 形态）。
 /// - **字号**：`CoreTypography.bodySmallFont`（12pt regular）。
 /// - **padding**：水平 `CoreSpacing.sm`（8pt）+ 垂直 `CoreSpacing.xs`（4pt），紧凑 chip 形态。
 /// - **关闭按钮**：`removable: true` 时右侧追加 `xmark.circle.fill` 系统图标 button，

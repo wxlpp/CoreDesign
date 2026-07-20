@@ -27,8 +27,10 @@ struct TimelineItemTests {
         #expect(item.showsTopConnector == false)
     }
 
-    @Test("timelineDepthKey defaults to 0")
+    @Test("timelineDepth defaults to 0")
     func defaultDepth() {
-        #expect(TimelineDepthKey.defaultValue == 0)
+        // Issue #97（B9b）把手写的 `TimelineDepthKey: EnvironmentKey` 换成了 `@Entry`，
+        // 该类型不再存在——改为直接断言环境值的默认值。
+        #expect(EnvironmentValues().timelineDepth == 0)
     }
 }

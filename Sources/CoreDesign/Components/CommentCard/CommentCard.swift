@@ -82,7 +82,10 @@ public struct CommentCard<BodyContent: View>: View {
                         binding.wrappedValue = false
                     }
                     .font(CoreTypography.bodySmallFont)
-                    .foregroundStyle(Color.accent)
+                    // 渐变 token 层的首个生产消费点（审计项 B7a）。默认主题下
+                    // `CoreGradient.brand` 就是 `AnyShapeStyle(Color.accent)`——与改前
+                    // 逐像素相同；Blossom 下自动变成珊瑚粉→玫红渐变。
+                    .foregroundStyle(CoreGradient.brand)
                     .accessibilityLabel("Show minimized comment")
                     .accessibilityHint("Expands the comment from \(self.author)")
                 }
@@ -91,14 +94,10 @@ public struct CommentCard<BodyContent: View>: View {
             }
         }
         .padding(CoreSpacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: CoreRadius.medium)
-                .fill(Color.surfaceCard)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: CoreRadius.medium)
-                .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
-        )
+        // 三件套（background + overlay + 圆角）收敛为语义 surface（审计项 B8c）。
+        // 两处受控变化：`.surface(_:)` 额外施加 `clipShape`（子视图会被裁到圆角内），
+        // 且用 `.continuous` 圆角而非手写时默认的 `.circular`。
+        .surface(.card)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Comment by \(self.author)")
     }

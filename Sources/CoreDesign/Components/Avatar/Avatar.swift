@@ -35,7 +35,7 @@ public struct Avatar: View {
     }
 
     /// 内部位图边长。Avatar 圆角语义由调用方 `clipShape(Circle())` 保证（对应
-    /// `CoreRadius.full` 的 pill / 头像意图），本结构不在内部 `cornerRadius` 字面量上做约束。
+    /// `Capsule()` 的 pill / 头像意图），本结构不在内部 `cornerRadius` 字面量上做约束。
     private static let canvasSide: CGFloat = CoreSpacing.xxxxl
 
     public var body: some View {
