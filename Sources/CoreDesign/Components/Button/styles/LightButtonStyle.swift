@@ -55,7 +55,6 @@ public struct LightButtonStyle: ButtonStyle {
 
 }
 
-
 // MARK: - ButtonStyle convenience
 
 public extension ButtonStyle where Self == LightButtonStyle {

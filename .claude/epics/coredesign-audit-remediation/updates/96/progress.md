@@ -34,9 +34,9 @@ CoreTypography row body 内 = 8   (基线 11，上限 8)   范围外 = 5
 
 1. **`CircularGlassButtonStyle` 直径 38 → 40**，`BottomInputBar` 的 send / stop / shuffle 三处同步。意外佐证：`CoreMenuButton.swift` 的 `controlSize` 注释本就写着「与输入栏 trailing 圆形按钮保持视觉等高」并取 40——**两者本来就是错位的**，改成 40 恰好修好。
 2. **`CoreBorderlessButtonStyle` 字号**从「继承环境字体」变为「随 `controlSize`」。
-3. **`CoreBorderlessButtonStyle` 命中区**从「带 padding 的矩形」变为「胶囊」——`buttonChrome` 给它加了原本没有的 `contentShape`。**这是交互变化不是视觉变化**，冒烟须实点边角。
+~~3. `CoreBorderlessButtonStyle` 命中区变胶囊~~ —— **这条是我记错了，实际不存在**。checkpoint 评审指出后实测：改造前 `makeBody` 就有 `.clipShape(Capsule(style: .continuous))`（`git show epic/...:CoreBorderlessButtonStyle.swift` 的 `:64`），而 `clipShape` 本身即限定命中测试，故命中区**本来就是胶囊**，`buttonChrome` 补的 `contentShape` 未改变实际行为。已从 `audit-checklist.md` 的 B3d 行与类型 doc 注释中更正，避免污染后续对账。
 
-第 2、3 条的根因：**B3d 的前提陈述对 `CoreBorderlessButtonStyle` 不成立**。96.md 写「font/padding/contentShape 四行……共出现 5 次」且逐字相同，但该类型的 `makeBody` 实际**只有两行 padding**，既无 `font` 也无 `contentShape`（96.md 引的 `:43-46` 坐标还落在 doc 注释里）。本任务按 B3d 的**意图**（统一 chrome）执行，故产生这两处变化。已在类型 doc 注释与 `audit-checklist.md` 的 B3d 行写明，避免后续审计对账误判为实现越界。
+**所以受控变化只有两条。** 第 2 条的根因：**B3d 的前提陈述对 `CoreBorderlessButtonStyle` 不成立**。96.md 写「font/padding/contentShape 四行……共出现 5 次」且逐字相同，但该类型的 `makeBody` 实际**只有两行 padding**，既无 `font` 也无 `contentShape`（96.md 引的 `:43-46` 坐标还落在 doc 注释里）。本任务按 B3d 的**意图**（统一 chrome）执行，故产生这两处变化。已在类型 doc 注释与 `audit-checklist.md` 的 B3d 行写明，避免后续审计对账误判为实现越界。
 
 ## B3e 为何不接 `@Environment(\.controlSize)`
 
@@ -66,6 +66,19 @@ B3e 字面要求「接入 `@Environment(\.controlSize)`」，本任务实施为*
 - **probe 包的增量构建不拾取新增文件。** 本任务新增 `Modifier/ButtonChromeModifier.swift` 后，`scripts/downstream-probe` 的增量构建报 4 条 `has no member 'buttonChrome'`，而主包 `swift build` 同时是绿的；`swift package clean` 后立即通过。这次是**假红**，但同一机制（增量构建的源文件清单陈旧）同样能产生**假绿**——删掉一个 probe 依赖的公开符号而 `.build` 未更新时它会照常通过。与 CLAUDE.md 记的「新增 colorset 后必须 clean」同类。**probe 验证一律先 clean。**
 - **`ButtonStyle.circularGlass(diameter:)` 编译不过**：静态成员定义在 `extension ButtonStyle where Self == CircularGlassButtonStyle` 上，经协议元类型访问报 `static member 'circularGlass' cannot be used on protocol metatype`。probe 里必须走 `.buttonStyle(.circularGlass(...))` 的前导点推断。
 - **`grep -c 'Foo('` 会被代理到 ripgrep**，`(` 按正则解析报 unclosed group 并返回 0 匹配。计数含括号的模式要用 `grep -cF`。
+
+## 视觉冒烟（实测，非「应该没问题」）
+
+绕开 `scripts/run-snapshots.sh` 直接跑 xcodebuild（该脚本会 `rm -rf docs/snapshots` 删掉已提交的文档图，且会删掉 `CoreDesign_*` ——那恰好是库内 Preview 产物），导出到临时目录，`EXIT=0`，148 个文件。逐张核对四个改动点：
+
+| Preview | 结论 |
+|---|---|
+| `Previews.swift_Sidebar` | 四种 row 全部正常：Navigation 选中态玻璃背景 + 描边、Utility 的 trailing 箭头、Document 的 "47 days" detail 右对齐、Tag 的 `#` 与 chevron。**行高一致**（`minHeight` 未改变默认字号下的表现），间距无异常，`EmptyView()` 作 trailing 未引入多余间距 |
+| `Previews.swift_Button` | Solid / Light / Borderless 三种样式渲染正常。**Borderless 的字号现与另两个一致**——这正是受控变化 2，观感上反而更整齐 |
+| `CircularGlassButtonStyle.swift_line-72` | 圆形玻璃按钮 40pt，玻璃分层与描边完好 |
+| `CoreMenuButton.swift_line-184` | labeled / circular 两态正常，**描边仍是细语义色线**（未变成半透明白）、玻璃分层保留——B8a 复用参数化 modifier 后观感等价成立 |
+
+截图为 Blossom 主题（预览宿主自 #92 起启用该 trait），故呈珊瑚粉/紫。
 
 ## 验证证据
 

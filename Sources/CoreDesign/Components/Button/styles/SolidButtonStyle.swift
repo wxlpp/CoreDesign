@@ -69,7 +69,6 @@ public struct SolidButtonStyle: ButtonStyle {
 
 }
 
-
 // MARK: - ButtonStyle convenience
 
 public extension ButtonStyle where Self == SolidButtonStyle {

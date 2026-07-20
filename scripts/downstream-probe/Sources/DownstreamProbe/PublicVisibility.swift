@@ -57,13 +57,20 @@ func consumeCheckBoxToggleStyle(isOn: Binding<Bool>) -> some View {
 //
 // `diameter` 从 `CGFloat` 变为 `CGFloat?`（B3e：档位改由 `size` 决定，
 // `diameter` 退化为显式覆写通道）。这是**源码级破坏性变更**——下游写
-// `let d: CGFloat = style.diameter` 会断。返回类型写 `CGFloat?` 把这一事实
-// 固定进 probe：日后若改回非 optional，此处会编译失败。
+// `let d: CGFloat = style.diameter` 会断。下面用 `guard let` 把这一事实固定进
+// probe：日后若改回非 optional，条件绑定会编译失败。
 
 @MainActor
-func constructCircularGlass() -> CGFloat? {
+func constructCircularGlass() -> CGFloat {
     let style = CircularGlassButtonStyle(size: .large, diameter: 44)
-    return style.diameter
+    // 必须用 `guard let` 而非「返回 `CGFloat?`」——Swift 对 `T` → `T?` 有隐式提升，
+    // `return style.diameter` 在 `diameter` 改回非 optional 时**照样编译**，那样
+    // 这个关卡就是空的。条件绑定对非 optional 会硬报
+    // `initializer for conditional binding must have Optional type`。
+    guard let diameter = style.diameter else {
+        return CoreControlMetrics.height(for: style.size)
+    }
+    return diameter
 }
 
 // 访问器路径单独覆盖：`circularGlass(diameter:)` 是本任务未改动但公开的 API。

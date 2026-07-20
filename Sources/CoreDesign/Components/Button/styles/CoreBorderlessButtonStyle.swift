@@ -29,9 +29,11 @@ import SwiftUI
 /// padding 与命中区域仍按 `CoreControlMetrics` 走 token（经共享的 `buttonChrome`
 /// modifier），保证多按钮并排时视觉与点击区域一致。
 ///
-/// > Issue #96 之前本样式**不设字号**（继承环境字体）、**也不设 `contentShape`**
-/// > （命中区是带 padding 的矩形）。B3d 把四个 style 的 chrome 统一到一处后，
-/// > 字号改为随 `controlSize`、命中区改为胶囊——两处受控行为变化。
+/// > Issue #96 之前本样式**不设字号**（继承环境字体）。B3d 把四个 style 的
+/// > chrome 统一到一处后，字号改为随 `controlSize`——这是唯一的行为变化。
+/// > （`buttonChrome` 另外补了 `contentShape`，但本样式一直有
+/// > `.clipShape(Capsule)`，而 `clipShape` 本身即限定命中测试，故命中区
+/// > 本来就是胶囊，未实际改变。）
 ///
 /// ## Light / Dark 行为差异 / Color Scheme Behavior
 ///

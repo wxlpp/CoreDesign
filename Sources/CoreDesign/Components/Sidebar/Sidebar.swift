@@ -82,7 +82,7 @@ public struct SidebarSection<Content: View>: View {
 
 // MARK: - Sidebar Rows
 
-// MARK: - OptionalLineLimit
+// MARK: OptionalLineLimit (helper)
 
 /// 条件性 lineLimit / Conditional line limit。
 ///

@@ -28,6 +28,11 @@ import SwiftUI
 /// > `border` / `pressFeedback` 两个参数都有默认值，且默认值 = 参数化之前的
 /// > 原行为——既有三个调用点（Solid / Light / CircularGlass）无需传参、行为
 /// > 逐字不变。**新增参数时务必保持这一契约。**
+/// >
+/// > 注：`pressFeedback: false` 时仍会产出 `.scaleEffect(1)` 与
+/// > `.animation(nil, value:)` 两个恒等 modifier。`CoreMenuButton` 的两个调用点
+/// > 传的 `isPressed` 是编译期常量 `false`，两者都是 no-op，观感等价成立——
+/// > 但严格说不是「零 modifier」。
 ///
 /// ## 使用方式 / Usage
 ///

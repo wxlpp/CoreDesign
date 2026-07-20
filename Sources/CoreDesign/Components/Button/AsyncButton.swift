@@ -74,7 +74,7 @@ public struct AsyncButton<Label: View>: View {
             // ZStack + label 透明占位:running 时 label 隐藏但保留布局占位（防止
             // 按钮 frame 抖动），spinner 在 ZStack 中心覆盖。对 .circularGlass
             // 等 fixed-frame style（CircularGlassButtonStyle.swift:24 强制
-            // 38pt 直径）也能保证不溢出——spinner 居中替代 icon，圆形外壳完好。
+            // 40pt 直径）也能保证不溢出——spinner 居中替代 icon，圆形外壳完好。
             ZStack {
                 self.label
                     .opacity(self.isRunning ? 0 : 1)
