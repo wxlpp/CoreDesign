@@ -73,7 +73,7 @@ private struct MenuIconView: View, @MainActor Animatable {
 
 // MARK: - CoreMenuButtonStyle
 
-/// 通过测量同环境下 Text 的渲染高度来传递字体尺寸
+/// 菜单按钮的外形变体 / Shape variant：`labeled` = 胶囊 + 文案，`circular` = 圆形纯图标。
 enum CoreMenuButtonStyle {
     case labeled
     case circular

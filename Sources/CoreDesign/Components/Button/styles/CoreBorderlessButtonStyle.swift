@@ -37,6 +37,24 @@ import SwiftUI
 ///
 /// 本样式有意不使用玻璃效果——无边框按钮没有视觉容器，玻璃效果需要背景材质，
 /// 与 "invisible" 语义矛盾。
+///
+/// ## ⚠️ 与 SwiftUI 的同名冲突 / SwiftUI collision
+///
+/// 本类型原名 `BorderlessButtonStyle`，与 SwiftUI 自带类型同名——下游写该名**能编译**
+/// 但静默拿到 SwiftUI 的版本。Issue #94 加 `Core` 前缀正是为此，**不要为了"简洁"把
+/// 前缀去掉**。
+///
+/// 但要注意：**访问器名 `borderless` 仍与 SwiftUI 的 `PrimitiveButtonStyle.borderless`
+/// 重合**，两者只差一对括号，且都能编译、无任何诊断：
+///
+/// ```swift
+/// .buttonStyle(.borderless)              // ← SwiftUI 的，不是本样式
+/// .buttonStyle(.borderless())            // ← 本样式（role 默认 .primary）
+/// .buttonStyle(.borderless(role: .danger))  // ← 本样式
+/// ```
+///
+/// 保留 `borderless` 这个访问器名是有意的取舍（它让 `App/` 与 docs 示例在改名后
+/// 零改动），代价就是上面这处残留歧义。**调用时务必带括号。**
 public struct CoreBorderlessButtonStyle: PrimitiveButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label

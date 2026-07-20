@@ -10,6 +10,11 @@ Primer 风格按钮样式 / Primer-styled button styles.
 | `.lightButton(role:)` | `LightButtonStyle` | 轻量按钮，次要操作 |
 | `.borderless(role:)` | `CoreBorderlessButtonStyle` | 无边框按钮，行内链接 |
 
+> ⚠️ **`.borderless` 必须带括号。** 访问器名与 SwiftUI 自带的
+> `PrimitiveButtonStyle.borderless` 重合，两者只差一对括号且都能编译、无诊断：
+> `.buttonStyle(.borderless)` 拿到的是 **SwiftUI 的**样式，
+> `.buttonStyle(.borderless())` 才是 CoreDesign 的。
+
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | role | ButtonRoleStyleRole | .primary | 角色色板 |

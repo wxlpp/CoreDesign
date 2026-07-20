@@ -52,10 +52,11 @@ public struct CheckBoxToggleStyle: ToggleStyle {
 
 // MARK: - Preview
 
-/// 演示用法 / Demo usage：业务侧直接用
-/// `Toggle(...).toggleStyle(CheckBoxToggleStyle())` 自行控制 binding 与 label，
-/// 本包不再导出便利封装（原 `CheckBox` 视图硬编码 label 且用 `@State` 而非
-/// `@Binding`，唯一使用者就是本 Preview，已于 Issue #94 内联）。
+// 演示用法 / Demo usage：本包不再导出便利封装——原 `CheckBox` 视图硬编码 label
+// 且用 `@State` 而非 `@Binding`，唯一使用者就是本 Preview，已于 Issue #94 内联。
+// （用 `//` 而非 `///`：doc 注释挂在 `#Preview` 这种独立宏展开上不会被 DocC /
+// Quick Help 呈现，写成 doc 注释是自欺。面向下游的说明在 `CheckBoxToggleStyle`
+// 自己的 doc block 里。）
 #Preview {
     @Previewable @State var isOn = false
 
