@@ -31,3 +31,24 @@ func constructBorderlessStyle() -> CoreBorderlessButtonStyle {
 func readRolePalette(_ role: ButtonRoleStyleRole) -> [Color] {
     [role.color, role.activeColor, role.disabledColor]
 }
+
+// MARK: - 静态访问器与 style 消费路径
+//
+// 上面三个函数直接构造类型，但下游**实际**走的是访问器与 `.buttonStyle(...)` /
+// `.toggleStyle(...)`。A3a 的结论「改名后 `App/` 与 docs 示例无需改动，因为
+// `.borderless(role:)` 名称不变」正是靠 `ButtonStyle where Self == ...` 那个
+// public extension 成立的——若日后有人把它的 `public` 弄丢，四条 SwiftPM 命令
+// 与上面的直接构造都仍然绿，破坏只会在真实下游炸。这两个函数把访问器本身
+// 也纳入契约。
+
+@MainActor
+func consumeBorderlessAccessor() -> some View {
+    Button("borderless") {}
+        .buttonStyle(.borderless(role: .danger))
+}
+
+@MainActor
+func consumeCheckBoxToggleStyle(isOn: Binding<Bool>) -> some View {
+    Toggle("checkbox", isOn: isOn)
+        .toggleStyle(CheckBoxToggleStyle())
+}
