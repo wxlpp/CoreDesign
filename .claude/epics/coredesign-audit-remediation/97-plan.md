@@ -125,7 +125,11 @@ w=[l for l in d.split(chr(10)) if 'warning:' in l]
 r=[l.strip()[:50] for l in d.split(chr(10)) if 'Test run with' in l]
 print(f'warning={len(w)} (预期 0)'); print(r[-1] if r else 'NO RESULT')"
 ```
-Expected: **`warning=0`**——12 条 EmptyState deprecation 随文件消失。这是本任务最干净的一个正向指标。测试数会从 101 降（两个测试文件被删），**记下新数字**。
+Expected: `warning=0`。
+
+> **这一格是恒真的，不算通过证据。** 那 12 条全部来自刚被 Step 2 删掉的 `EmptyStateDeprecationTests.swift:10`——文件没了，warning 必然归零，与代码其余部分的状态无关。它只是 Step 4 那两条 grep「零残留」的重复确认。
+>
+> **本 Step 唯一有信息量的输出是测试数**：从 101 降到多少（删了两个测试文件）。**记下新数字**，Task 6 与 PR 描述都要用。
 
 - [ ] **Step 5: 提交**
 
@@ -140,6 +144,7 @@ git commit -m "refactor!: 删除 EmptyState / View+SizeReader / KeyboardHandling
 
 **Files:**
 - Move: `Sources/CoreDesign/Colors/CoreGradient.swift` → `Sources/CoreDesign/Tokens/CoreGradient.swift`
+- Move: `Sources/CoreDesign/Colors/CoreGradient+Preview.swift` → `Sources/CoreDesign/Tokens/CoreGradient+Preview.swift`（B7c 要搬**两个**文件，只搬主文件等于只做一半）
 - Modify: 同文件（`static var` → `static let`）
 - Modify: `Sources/CoreDesign/Components/CommentCard/CommentCard.swift`（B7a 消费点，**不是 BookCover**——理由见 Step 2）
 - Modify: `CLAUDE.md`（《渐变 token 层》段的路径）
@@ -194,7 +199,7 @@ grep -rn 'CoreGradient\.' Sources/CoreDesign/Components/ --include='*.swift' | c
 ```
 Expected: 至少 1 行，在 `CommentCard.swift`。
 
-**判据必须限定 `Components/`**——扫 `Sources/CoreDesign/` 全域会命中 `CoreGradient+Preview.swift` 的 4 行（`:22,23,24,28`），那是 token 自己的 Preview 不是生产消费点，**基线就已满足「至少 1 行」**，是彻头彻尾的假绿。
+**判据必须限定 `Components/`**——扫 `Sources/CoreDesign/` 全域会命中 `Tokens/CoreGradient+Preview.swift`（Step 1 已从 `Colors/` 搬来）的 4 行（`:22,23,24,28`），那是 token 自己的 Preview 不是生产消费点，**基线就已满足「至少 1 行」**，是彻头彻尾的假绿。
 
 ```bash
 swift build --build-tests > /tmp/t97b.log 2>&1; echo "build EXIT=$?"
@@ -221,7 +226,29 @@ git commit -m "refactor: CoreGradient 移入 Tokens/、改 static let，并在 C
 
 删除 `:31` 的 `bordered(color:)` 死重载（`Color` 已 conform `ShapeStyle`，与 `:27` 的 `bordered(style:)` 构成歧义——两者全默认参数，裸写 `.bordered()` 无法消歧）。
 
-D8：`:20-21` 从 `RoundedRectangle(cornerRadius: CoreRadius.none).stroke(...)` 改为 `strokeBorder` 并支持任意 shape。改法：给 modifier 加 `shape: some InsettableShape` 参数（默认 `RoundedRectangle(cornerRadius: CoreRadius.none)`），`.stroke` → `.strokeBorder`。
+D8：`:20-21` 从 `RoundedRectangle(cornerRadius: CoreRadius.none).stroke(...)` 改为 `strokeBorder`，并支持任意 **`InsettableShape`**（`strokeBorder` 只对该协议可用，`Capsule` / `Circle` / `RoundedRectangle` 都满足）。
+
+> ⚠️ **`var shape: some InsettableShape` 作存储属性编译不过**——opaque type 不能用于存储属性。必须把类型本身泛型化：
+>
+> ```swift
+> struct BorderModifier<S: InsettableShape>: ViewModifier {
+>     var shape: S
+>     var style: AnyShapeStyle
+>     var width: CGFloat
+>     // body: content.overlay(self.shape.strokeBorder(self.style, lineWidth: self.width))
+> }
+>
+> public extension View {
+>     func bordered(
+>         style: some ShapeStyle = Color.borderDefault,
+>         width: CGFloat = CoreBorderWidth.thin,
+>         shape: some InsettableShape = RoundedRectangle(cornerRadius: CoreRadius.none)
+>     ) -> some View {
+>         self.modifier(BorderModifier(shape: shape, style: AnyShapeStyle(style), width: width))
+>     }
+> }
+> ```
+> `View` 扩展的参数位可以用 `some`（那是隐式泛型），**只有存储属性不行**。
 
 > `stroke` 与 `strokeBorder` **不是等价替换**：前者以路径为中心向两侧各画半个线宽（越界 `width/2`），后者向内画。改后边框会向内收 `width/2`。`CoreBorderWidth.thin` 若是 1pt，差异是 0.5pt——**须在视觉冒烟里看 `.bordered()` 的消费点**。先 grep 消费点：
 > 实测唯一生产消费点是 **`Components/Banner.swift:223`**（`Rectangle().fill(palette.background).bordered(style: palette.border)`），另 `:205` 有一句引用它的 doc 注释。冒烟时看 `Banner` 的 `#Preview`。
@@ -261,11 +288,13 @@ swift test > /tmp/t97ct.log 2>&1; echo "test EXIT=$?"
 
 **本 Step 含两处公开 API 删除 + 一处签名扩展**：删 `bordered(color:)` 重载、删 `CoreRadius.full`（两者是真破坏），给 `bordered(style:width:)` 追加**带默认值**的 shape 参数（对源码分发是兼容变更）。`BorderModifier` 类型本身是 internal，故 commit 标 `refactor!:` 且**此处就要跑 probe**——不能攒到 Task 6，否则若 probe 用到这些符号会在最后才炸。probe 必须 clean（增量构建不拾取删除，#96 实测过）。
 
+> **probe 红了不要就地改 probe 让它变绿**——那等于把守门的关卡拆掉。probe 红 = 真实的下游破坏，**停下报用户**，由用户决定是保留一个 deprecated shim 还是接受破坏。（实测当前 probe 不引用 `bordered` / `CoreRadius.full`，预期不会红。）
+
 - [ ] **Step 6: 提交**
 
 ```bash
 git add -A
-git commit -m "refactor!: 删死重载与死 token、BorderModifier 改 strokeBorder 并支持任意 shape、清理恒真 available 与冗余隔离属性（B9c、D8、B9d、B9f、D10）"
+git commit -m "refactor!: 删死重载与死 token、BorderModifier 改 strokeBorder 并支持任意 InsettableShape、清理恒真 available 与冗余隔离属性（B9c、D8、B9d、B9f、D10）"
 ```
 
 ---
@@ -358,7 +387,7 @@ EOF
 
 **拆分的硬约束**：`body` 的签名是 `func body(content: Content)`，**只有不引用 `content` 的片段才能提为 `private var`**。实测两个 `safeAreaBar` 的闭包内容都不引用 `content`——`content` 只出现在链的起点。所以可拆，但遇到需要 `content` 的片段时必须保留在 `body` 内（或改成收 `Content` 参数的方法）。
 
-chip 样式的两处（`:297-308` 与 `:374-381`）**跨类型**：前者在 `BottomInputBarSuggestionsView`、后者在 `BottomInputBarModifier.body` 内。跨类型收敛需要一个**文件级 `private` 的 `ViewModifier` 或 `View` 扩展**——放在 `BottomInputBar.swift` 文件末尾的 `// MARK: - Private helpers` 段下，不要新建文件（它只服务本文件）。
+chip 样式的两处（`:297-308` 与 `:374-381`，**与 body 坐标同样因 Task 1 删两行而各 −2，以 grep 定位不要按行号**）**跨类型**：前者在 `BottomInputBarSuggestionsView`、后者在 `BottomInputBarModifier.body` 内。跨类型收敛需要一个**文件级 `private` 的 `ViewModifier` 或 `View` 扩展**——放在 `BottomInputBar.swift` 文件末尾的 `// MARK: - Private helpers` 段下，不要新建文件（它只服务本文件）。
 
 > **保留长注释**：`autoFocus` 那段解释了为何必须在 bar 自身 `onAppear` 中执行，拆分时别丢。
 
@@ -442,8 +471,10 @@ Expected: **四份全部 `warning=0`**，但两类日志承载的信号不同，
 
 | 组件 | 看什么 |
 |---|---|
-| `CommentCard` | (1) `.surface(.card)` 引入的 `clipShape` 是否裁掉内容；(2) 圆角从 `.circular` 变 `.continuous` 后形状是否可接受（判断 2 的两处受控变化）；(3) B7a 的 `CoreGradient.brand` 消费点——默认主题应与改前**逐像素相同** |
-| `Banner` | D8 的 `stroke` → `strokeBorder`，边框向内收 `width/2`（唯一生产消费点 `:223`）|
+| `CommentCard`（两个 Preview 都看） | **受控变化 1**：`.surface(.card)` 引入的 `clipShape` 是否裁掉内容 |
+| `CommentCard`（同上） | **受控变化 2**：圆角从 `.circular` 变 `.continuous` 后形状是否可接受 |
+| `Banner` | **受控变化 3**：D8 的 `stroke` → `strokeBorder`，边框向内收 `width/2`（唯一生产消费点 `:223`）|
+| `CommentCard` 的 `#Preview("Minimized")` | **零变化核对**（不是受控变化）：B7a 的 `CoreGradient.brand` 在默认主题下应与改前**逐像素相同** |
 
 **B7a 的冒烟必须看 `#Preview("Minimized")`（`CommentCard.swift:114`），不是 `"Normal"`。** `:85` 位于 `if let binding = self.isMinimized, binding.wrappedValue` 分支内，只在最小化态渲染——看 Normal 等于验证一件不会发生的事（正是 Global Constraints 里那条自我警告的模式）。默认与 Blossom 两种 trait 都要看：默认应与改前逐像素相同、Blossom 应显示真渐变。
 
@@ -468,13 +499,13 @@ echo "snapshot EXIT=$?"; ls "$SNAP" | wc -l
 
 - [ ] **Step 4: 更新审计清单**
 
-**17 项**标 `✅ **已修复**（GitHub #97）——<做法>。原缺陷：<原文保留>`，沿用 #93/#94/#96 的写法。**B8d 单独标为「撤销」**并写明前提不成立的理由与那张 token 对照表（判断 1）。B8c 注明 `clipShape` 那处受控变化。
+**17 项**标 `✅ **已修复**（GitHub #97）——<做法>。原缺陷：<原文保留>`，沿用 #93/#94/#96 的写法。**B8d 单独标为「撤销」**并写明前提不成立的理由与那张 token 对照表（判断 1）。B8c 注明**两处**受控变化（`clipShape` 与 `.circular` → `.continuous` 圆角曲线）。
 
 计数校验：
 ```bash
 echo $(( $(grep -c '^| [A-D][0-9]' .claude/epics/coredesign-audit-remediation/audit-checklist.md) - 4 ))
 ```
-Expected: `83`
+Expected: `83`——**这是回归护栏，不是完成证据**（基线就已是 83）。它保证编辑清单时没有增删行，与 SC-7 的「各项状态是否更新」是两回事。
 
 **坐标清扫**（#94/#96 的教训，两维都要）：本任务删了三个文件、改了 `BottomInputBar` / `CommentCard` / `BookCover` / `TimelineItem` / `SegmentedControl` / `CoreRadius` 的行号。逐条 Read 确认，**不要凭推理**：
 
