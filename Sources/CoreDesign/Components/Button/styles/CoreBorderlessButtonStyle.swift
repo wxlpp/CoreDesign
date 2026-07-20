@@ -1,5 +1,5 @@
 //
-//  BorderlessButtonStyle.swift
+//  CoreBorderlessButtonStyle.swift
 //  CoreDesign
 //
 //  Created by 王晓龙 on 2025/2/1.
@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-// MARK: - BorderlessButtonStyle
+// MARK: - CoreBorderlessButtonStyle
 
 /// Primer 风格的无边框 / 无背景按钮（"borderless" / "invisible button"）样式。
 ///
@@ -37,7 +37,7 @@ import SwiftUI
 ///
 /// 本样式有意不使用玻璃效果——无边框按钮没有视觉容器，玻璃效果需要背景材质，
 /// 与 "invisible" 语义矛盾。
-public struct BorderlessButtonStyle: PrimitiveButtonStyle {
+public struct CoreBorderlessButtonStyle: PrimitiveButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
@@ -49,7 +49,15 @@ public struct BorderlessButtonStyle: PrimitiveButtonStyle {
             .onTapGesture(count: 1, perform: configuration.trigger)
     }
 
-    let role: ButtonRoleStyleRole
+    public let role: ButtonRoleStyleRole
+
+    /// 以指定 role 构造 / Init with role。
+    ///
+    /// 显式声明才能让下游可达——Swift 合成的 memberwise init 取决于成员可见性，
+    /// 此前 `role` 是 internal，下游实测报 `initializer is inaccessible`。
+    public init(role: ButtonRoleStyleRole = .primary) {
+        self.role = role
+    }
 
     @GestureState private var isPressed = false
     @Environment(\.isEnabled) private var isEnabled
@@ -72,13 +80,13 @@ public struct BorderlessButtonStyle: PrimitiveButtonStyle {
 
 // MARK: - PrimitiveButtonStyle convenience
 
-public extension PrimitiveButtonStyle where Self == BorderlessButtonStyle {
+public extension PrimitiveButtonStyle where Self == CoreBorderlessButtonStyle {
     /// 以指定 role 构造 Primer 无边框按钮样式。
     ///
     /// - Parameter role: 角色色板（默认 `.primary`）。仅决定 label 文字颜色。
-    /// - Returns: `BorderlessButtonStyle` 实例，可直接传给 `.buttonStyle(...)`。
-    static func borderless(role: ButtonRoleStyleRole = .primary) -> BorderlessButtonStyle {
-        BorderlessButtonStyle(role: role)
+    /// - Returns: `CoreBorderlessButtonStyle` 实例，可直接传给 `.buttonStyle(...)`。
+    static func borderless(role: ButtonRoleStyleRole = .primary) -> CoreBorderlessButtonStyle {
+        CoreBorderlessButtonStyle(role: role)
     }
 }
 
