@@ -11,7 +11,8 @@
 ## Global Constraints
 
 - **不得触碰 #96 的自有文件**（005 ∩ 006 = ∅ 必须保持）：四个 ButtonStyle、`ButtonRoleStyleRole.swift`、`Sidebar.swift`、`CoreMenuButton.swift`、`TelegramGlassButtonModifier.swift`。**B7a 的消费点选择是最容易失手的一处**——必须落在 `BookCover` 或 `CommentCard`。收尾用 basename 精确匹配自查（**不能用子串 grep**，`EmptyState`/`CommentCard`/`RefPill` 等同时是目录名，#96 踩过）。
-- 四条 SwiftPM 命令绿。**warning 判据本任务特殊**：基线 12 条全是 `EmptyState` deprecation，B9g 删掉该文件后应**归零**——这是本任务少有的、能机械判定的正向指标。
+- 四条 SwiftPM 命令绿。**warning 判据本任务特殊**：基线 12 条全是 `EmptyState` deprecation，且**全部来自测试文件 `EmptyStateDeprecationTests.swift:10`**（实测；库编译本来就是 0 warning）。B9g 删掉该测试后归零是**恒真的**，与 grep 零残留判据重复——**不要把它当成独立的正向指标**。
+- **warning 采集必须编到测试 target**：`swift build` 不编测试，`swift test` 才首次编译它。用 `swift build --build-tests` 或以 `swift test` 的日志为准，否则那 12 条根本不出现在日志里。
 - **最终 warning 采集前必须 `swift package clean`**（热构建不重放诊断，#94/#96 的教训）。
 - 代码风格：显式 `self.`、中英双语注释、`// MARK: -`。**保留有设计说明价值的长注释**——拆分 `BottomInputBar` 的 body 时尤其注意（`autoFocus` 那段解释了为何必须在 bar 自身 `onAppear` 中执行）。
 - **注释里只写今天成立的理由**。#96 的 B2b 把「大字号下不裁切」写进注释，而字号当时根本不缩放，导致验证的是一件不可能发生的事、永远绿。本任务删代码时容易写出「删除后 X 不再发生」的同型陈述——写之前先确认 X 今天真的会发生。
@@ -63,7 +64,11 @@
 
 （`CommentCard` 手写已经用的是 `strokeBorder` 而非 `stroke`，描边这一项无差异。）
 
-处置：仍然做（裁切与 continuous 圆角都是该 modifier 的既定语义，对 card 形态合理），但**必须在视觉冒烟里实看 `CommentCard` 的 `#Preview`**，并在 `audit-checklist.md` 的 B8c 行注明这**两处**受控变化。**若内容被裁掉或圆角明显走样，停下改为保留手写**。
+处置：仍然做。**判定依据是 API 语义决策**——裁切与 continuous 圆角都是 `.surface(.card)` 的既定语义，对 card 形态合理。
+
+> 冒烟只是兜底、**不能证否裁切风险**：两个 Preview 的 content 都是单行 `Text`（`:109`、`:121`），不可能溢出。冒烟绿只证明「本仓库自带用例不被裁」，不证明下游调用方安全。
+
+但仍**必须实看 `CommentCard` 的两个 `#Preview`**，并在 `audit-checklist.md` 的 B8c 行注明这**两处**受控变化。**若内容被裁掉或圆角明显走样，停下改为保留手写**。
 
 ---
 
@@ -136,7 +141,7 @@ git commit -m "refactor!: 删除 EmptyState / View+SizeReader / KeyboardHandling
 **Files:**
 - Move: `Sources/CoreDesign/Colors/CoreGradient.swift` → `Sources/CoreDesign/Tokens/CoreGradient.swift`
 - Modify: 同文件（`static var` → `static let`）
-- Modify: `Sources/CoreDesign/Components/BookCover/BookCover.swift`（B7a 消费点）
+- Modify: `Sources/CoreDesign/Components/CommentCard/CommentCard.swift`（B7a 消费点，**不是 BookCover**——理由见 Step 2）
 - Modify: `CLAUDE.md`（《渐变 token 层》段的路径）
 
 - [ ] **Step 1: B7c 移动文件 + B7b 改 `static let`**
@@ -170,7 +175,7 @@ echo "static var: $(grep -c 'public static var' $F)  (预期 0)"
 
 同步 `CLAUDE.md`《渐变 token 层》段里的 `Colors/CoreGradient.swift` → `Tokens/CoreGradient.swift`。
 
-- [ ] **Step 2: B7a 让 `BookCover` 真实消费 `CoreGradient`**
+- [ ] **Step 2: B7a 让 `CommentCard` 真实消费 `CoreGradient`**
 
 **消费点必须在 `BookCover` 或 `CommentCard`**（Global Constraints）。选 **`CommentCard`**。
 
@@ -201,7 +206,7 @@ Expected: 两条 EXIT=0。
 
 ```bash
 git add -A
-git commit -m "refactor: CoreGradient 移入 Tokens/、改 static let，并在 BookCover 建立首个消费点（B7a-c）"
+git commit -m "refactor: CoreGradient 移入 Tokens/、改 static let，并在 CommentCard 建立首个消费点（B7a-c）"
 ```
 
 ---
@@ -254,13 +259,13 @@ swift test > /tmp/t97ct.log 2>&1; echo "test EXIT=$?"
 (cd scripts/downstream-probe && swift package clean >/dev/null 2>&1 && swift build > /tmp/t97cp.log 2>&1); echo "probe EXIT=$?"
 ```
 
-**本 Step 含三处公开 API 破坏**（删 public 的 `bordered(color:)` 重载、删 public 的 `CoreRadius.full`、给 public 的 `bordered(style:width:)` 加参数），故 commit 标 `refactor!:` 且**此处就要跑 probe**——不能攒到 Task 6，否则若 probe 用到这些符号会在最后才炸。probe 必须 clean（增量构建不拾取删除，#96 实测过）。
+**本 Step 含两处公开 API 删除 + 一处签名扩展**：删 `bordered(color:)` 重载、删 `CoreRadius.full`（两者是真破坏），给 `bordered(style:width:)` 追加**带默认值**的 shape 参数（对源码分发是兼容变更）。`BorderModifier` 类型本身是 internal，故 commit 标 `refactor!:` 且**此处就要跑 probe**——不能攒到 Task 6，否则若 probe 用到这些符号会在最后才炸。probe 必须 clean（增量构建不拾取删除，#96 实测过）。
 
 - [ ] **Step 6: 提交**
 
 ```bash
 git add -A
-git commit -m "refactor!: 清理死重载/恒真 available/冗余隔离属性/死 token（B9c、D8、B9d、B9f、D10）"
+git commit -m "refactor!: 删死重载与死 token、BorderModifier 改 strokeBorder 并支持任意 shape、清理恒真 available 与冗余隔离属性（B9c、D8、B9d、B9f、D10）"
 ```
 
 ---
@@ -372,7 +377,7 @@ swift test > /tmp/t97et.log 2>&1; echo "test EXIT=$?"
 
 ```bash
 git add -A
-git commit -m "refactor: 拆分 BottomInputBarModifier.body 并合并同构 onChange（B8h）"
+git commit -m "refactor: 拆分 BottomInputBarModifier.body、抽取 chip 样式与 setSuggestionsVisible（B8h；onChange 未合并——「同构」前提经实测不成立）"
 ```
 
 ---
@@ -418,24 +423,31 @@ for f in ['b','t','bb','tb']:
     for l in w[:5]: print('   !!', l.strip()[:150])
 EOF
 ```
-Expected: **`b.log` 与 `bb.log` 的 `warning=0`**。
+Expected: **四份全部 `warning=0`**，但两类日志承载的信号不同，别搞反：
 
-> ⚠️ **`t.log` / `tb.log` 的 warning 计数是空判据**：Step 2 只在开头 clean 一次，`swift test` 跑在 `swift build` 之上，库已编译完、只编测试 target，**库的 warning 不会重放**——它们恒为 0，与代码状态无关。这正是 Global Constraints 里那条「热构建不重放诊断」在本 Step 编排上的复发。
->
-> 由于期望值就是 0，这里的失败模式是**假绿**（真有 warning 也看不见），比假红危险。判据口径：**warning 只认 `b.log` / `bb.log`；`t.log` / `tb.log` 只判 EXIT 与测试数。**
+| 日志 | 承载什么 | 基线值 |
+|---|---|---|
+| `b.log` / `bb.log`（`swift build`） | **库** target 的诊断 | 本来就 0——这一格是基线就满足的，不构成新信息 |
+| `t.log` / `tb.log`（`swift test`） | **测试** target 的诊断（`swift build` 不编测试，`swift test` 才首次编它） | **12**，全部来自 `EmptyStateDeprecationTests.swift:10` |
+
+**真正有信号的是 `t.log` / `tb.log`**——那 12 条在这里出现、也在这里归零。上一版计划把口径写反了（说 t/tb 是空判据），实测证伪。
+
+> 仍需注意热构建：Step 2 只在开头 clean 一次，`swift test` 跑在 `swift build` 之上，所以**库**的诊断确实不会在 t/tb 里重放；但**测试** target 是在 `swift test` 时首次编译的，其诊断如实出现。两者不要混为一谈。
 
 > probe 必须 clean 后构建——本任务删了公开符号，probe 的增量构建可能不拾取（#96 实测过同类假信号）。
 
 - [ ] **Step 3: 视觉冒烟（AC 明列，本任务尤其不可省）**
 
-本任务有**三处受控变化**需实看：
+本任务有**三处受控变化**需实看（逐项打勾）：
 
 | 组件 | 看什么 |
 |---|---|
 | `CommentCard` | (1) `.surface(.card)` 引入的 `clipShape` 是否裁掉内容；(2) 圆角从 `.circular` 变 `.continuous` 后形状是否可接受（判断 2 的两处受控变化）；(3) B7a 的 `CoreGradient.brand` 消费点——默认主题应与改前**逐像素相同** |
 | `Banner` | D8 的 `stroke` → `strokeBorder`，边框向内收 `width/2`（唯一生产消费点 `:223`）|
 
-`CommentCard` 的 B7a 消费点**默认与 Blossom 两种 trait 都要看**——默认应与改前逐像素相同、Blossom 应显示真渐变。
+**B7a 的冒烟必须看 `#Preview("Minimized")`（`CommentCard.swift:114`），不是 `"Normal"`。** `:85` 位于 `if let binding = self.isMinimized, binding.wrappedValue` 分支内，只在最小化态渲染——看 Normal 等于验证一件不会发生的事（正是 Global Constraints 里那条自我警告的模式）。默认与 Blossom 两种 trait 都要看：默认应与改前逐像素相同、Blossom 应显示真渐变。
+
+B8c 的 clipShape 与圆角变化则**两个 Preview 都看**。
 
 另需常规冒烟：`BookCover`（B9a 解码改动）、`RefPill`（未改，作对照）、`BottomInputBar`（body 拆分后）、`SegmentedControl`、`TimelineItem`。
 
@@ -456,7 +468,7 @@ echo "snapshot EXIT=$?"; ls "$SNAP" | wc -l
 
 - [ ] **Step 4: 更新审计清单**
 
-18 项标 `✅ **已修复**（GitHub #97）——<做法>。原缺陷：<原文保留>`，沿用 #93/#94/#96 的写法。**B8d 标为「不做」并写明理由**（判断 1）。B8c 注明 `clipShape` 那处受控变化。
+**17 项**标 `✅ **已修复**（GitHub #97）——<做法>。原缺陷：<原文保留>`，沿用 #93/#94/#96 的写法。**B8d 单独标为「撤销」**并写明前提不成立的理由与那张 token 对照表（判断 1）。B8c 注明 `clipShape` 那处受控变化。
 
 计数校验：
 ```bash
@@ -473,7 +485,7 @@ grep -rn 'BottomInputBar\.swift:\|CommentCard\.swift:\|BookCover\.swift:\|Timeli
 
 - [ ] **Step 5: 写 `updates/97/progress.md`**
 
-必须落进去的：18 项各自做法、**B8d 不做的理由**、三处受控变化及冒烟结论、删除后的测试数与 warning 归零、给 #95/#99/#100/#101/#102 的交接（尤其：`KeyboardHandlingTests.swift` 已删，#98 的保留名单须以此为前提）。
+必须落进去的：17 项各自做法、**B8d 撤销的理由（前提不成立，非「推迟」）**、三处受控变化及冒烟结论、删除后的测试数与 warning 归零、给 #95/#99/#100/#101/#102 的交接（尤其：`KeyboardHandlingTests.swift` 已删，#98 的保留名单须以此为前提）。
 
 - [ ] **Step 6: 提交**
 
