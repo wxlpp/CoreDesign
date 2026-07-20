@@ -25,8 +25,15 @@ import SwiftUI
 /// ## Primer 概念对应 / Primer Mapping
 ///
 /// 对应 Primer `Button variant="invisible"` 与 `IconButton variant="invisible"`：
-/// 不渲染任何 chrome，仅 label 着色。padding 仍按 `CoreControlMetrics` 走 token，
-/// 保证多按钮并排时点击区域大小一致。
+/// 不渲染任何**视觉**容器（无背景、无边框、无阴影），仅 label 着色。但字号、
+/// padding 与命中区域仍按 `CoreControlMetrics` 走 token（经共享的 `buttonChrome`
+/// modifier），保证多按钮并排时视觉与点击区域一致。
+///
+/// > Issue #96 之前本样式**不设字号**（继承环境字体）。B3d 把四个 style 的
+/// > chrome 统一到一处后，字号改为随 `controlSize`——这是唯一的行为变化。
+/// > （`buttonChrome` 另外补了 `contentShape`，但本样式一直有
+/// > `.clipShape(Capsule)`，而 `clipShape` 本身即限定命中测试，故命中区
+/// > 本来就是胶囊，未实际改变。）
 ///
 /// ## Light / Dark 行为差异 / Color Scheme Behavior
 ///
@@ -58,9 +65,8 @@ import SwiftUI
 public struct CoreBorderlessButtonStyle: PrimitiveButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
-            .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
-            .foregroundStyle(self.textColor)
+            .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
+            .foregroundStyle(self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: self.isPressed))
             .clipShape(Capsule(style: .continuous))
             .animation(.easeInOut, value: self.isPressed)
             .simultaneousGesture(self.pressedStateGesture)
@@ -88,12 +94,6 @@ public struct CoreBorderlessButtonStyle: PrimitiveButtonStyle {
             }
     }
 
-    private var textColor: Color {
-        if !self.isEnabled {
-            return self.role.disabledColor
-        }
-        return self.isPressed ? self.role.activeColor : self.role.color
-    }
 }
 
 // MARK: - PrimitiveButtonStyle convenience

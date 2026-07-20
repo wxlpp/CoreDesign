@@ -1,0 +1,128 @@
+# Issue #96 按钮体系 + Sidebar 收敛 — 完成记录
+
+分支 `issue-96-buttons-sidebar`（base `epic/coredesign-audit-remediation`）。承载 8 个审计项：B2b、B3a–e、B5、B8a。
+
+## 做了什么
+
+| 审计项 | 改动 |
+|---|---|
+| B3a | 三态取色收敛为 `ButtonRoleStyleRole.resolvedColor(isEnabled:isPressed:)`，三个 style 的私有实现删除 |
+| B3d | font / padding / contentShape 提为 `Modifier/ButtonChromeModifier.swift`，以 `buttonChrome(shape:controlSize:)` 暴露（**有意 internal**） |
+| B3c | 两个 background modifier 合并为 `Modifier/ButtonBackgroundModifier.swift`，以 `buttonBackground(...)` 暴露 |
+| B3b | Solid / Light 的共同结构提为 `let base`，两支各剩尾部背景层差异 |
+| B3e | `CircularGlassButtonStyle` 改用显式 `size: ControlSize = .large` + `diameter: CGFloat?`，直径 38→40 |
+| B5 | `Sidebar` 四 row 收敛为 `SidebarRow` 共享骨架 + 薄封装，public 签名逐字不变 |
+| B2b | 四处 `frame(height:)` → `minHeight`，随骨架收敛一并落地 |
+| B8a | `TelegramGlassButtonModifier` 参数化（`border` / `pressFeedback`），`CoreMenuButtonStyleModifier` 两分支改为复用它 |
+
+## 两个硬指标：实测与预测精确吻合
+
+```
+SidebarRow 31 / Navigation 13 / Utility 20 / Document 17 / Tag 18
+TOTAL = 99          (基线 118，上限 100)
+CoreTypography row body 内 = 8   (基线 11，上限 8)   范围外 = 5
+```
+
+**这两个指标在计划阶段被改过两次**，值得后续 Issue 引以为戒：
+
+- **SC-8 原写「四种 row ≤60 行」不可达。** 第一轮以为是口径拼错——96.md 把测量边界扩成「含骨架与 init」却沿用 body-only 推导的 60（光四个 `public init` + 14 个 `private let` + 结构声明就约 79 行）。改回 body-only 后实测仍是 99 vs 60。真相：PRD 的「约 120 → 约 50」里，**118 是实测、50 是拍的**，从未对照真实设计验算。穷尽退路（删光注释空行 85 / 排除骨架 68 / 两者都做 63）全部超标，唯一能压进 60 的做法是折行凑数。经用户确认按实测重定为 **≤100**。
+- **`CoreTypography` 原写「16 → 约 6」同样不可达。** 16 处里有 **5 处在本任务范围外**（`SidebarSection` 的 `:49 :54 :64`、`SidebarStatusFooter` 的 `:330 :334`，B5 不碰这两个类型），且 6 在结构上就到不了——四 row 的 leading/trailing 字号本就各不相同。重述为「row body 内 11 → ≤8」。
+
+**教训**：epic 分解阶段写下的量化验收指标，若没人对着真实结构验算过，执行期一定会撞上。后续 Issue 的数字型 AC 应在计划阶段就实测一次。
+
+## 受控变化（观感非零回归）——两处
+
+1. **`CircularGlassButtonStyle` 直径 38 → 40**，`BottomInputBar` 的 send / stop / shuffle 三处同步。意外佐证：`CoreMenuButton.swift` 的 `controlSize` 注释本就写着「与输入栏 trailing 圆形按钮保持视觉等高」并取 40——**两者本来就是错位的**，改成 40 恰好修好。
+2. **`CoreBorderlessButtonStyle` 字号**从「继承环境字体」变为「随 `controlSize`」。
+~~3. `CoreBorderlessButtonStyle` 命中区变胶囊~~ —— **这条是我记错了，实际不存在**。checkpoint 评审指出后实测：改造前 `makeBody` 就有 `.clipShape(Capsule(style: .continuous))`（`git show epic/...:CoreBorderlessButtonStyle.swift` 的 `:64`），而 `clipShape` 本身即限定命中测试，故命中区**本来就是胶囊**，`buttonChrome` 补的 `contentShape` 未改变实际行为。已从 `audit-checklist.md` 的 B3d 行与类型 doc 注释中更正，避免污染后续对账。
+
+**所以受控变化只有两条。** 第 2 条的根因：**B3d 的前提陈述对 `CoreBorderlessButtonStyle` 不成立**。96.md 写「font/padding/contentShape 四行……共出现 5 次」且逐字相同，但该类型的 `makeBody` 实际**只有两行 padding**，既无 `font` 也无 `contentShape`（96.md 引的 `:43-46` 坐标还落在 doc 注释里）。本任务按 B3d 的**意图**（统一 chrome）执行，故产生这两处变化。已在类型 doc 注释与 `audit-checklist.md` 的 B3d 行写明，避免后续审计对账误判为实现越界。
+
+## B3e 为何不接 `@Environment(\.controlSize)`
+
+B3e 字面要求「接入 `@Environment(\.controlSize)`」，本任务实施为**显式 `size` 档位**，满足其意图而非字面。三个方案的取舍：
+
+- **老实读环境**：5 个调用点（`AsyncButton:223`、`BottomInputBar:153,165,177`、`Previews:312`）**全都没设 `controlSize`**，读到默认的 `.regular` → 32pt，即 38→32 的明显回归。补 `.controlSize(.large)` 需改 `BottomInputBar.swift`——#97 的自有文件，破坏 005 ∩ 006 = ∅。
+- **忽略 `.regular` 按 `.large` 解释**：`.controlSize(.regular)` 不只是「未设置的默认值」，也是**合法的显式取值**。下游刻意写它期待 32pt 却静默得 40pt，且无诊断——**永久的公开 API 陷阱**。
+- **采纳：档位存在 style 自身**。默认 40 落在 metrics 序列内、5 个调用点一行不改、无特例、无 API 意外。
+
+若日后要跟随环境，那是一次干净的独立改动（连同调用点补 `.controlSize(.large)`），届时 `BottomInputBar.swift` 的归属也已释放。
+
+## 给 #95 的交接（本任务存在的主要理由）
+
+- **`CoreControlMetrics.font(for:)` 在按钮体系内的调用点从 4 处降到 0**，唯一调用点在 `Modifier/ButtonChromeModifier.swift:25`。#95 把它换成 `fontToken(for:)` + `.coreFont()` 时只需改**一行**。
+- **但全库不止一处**：`Components/SearchField/SearchField.swift:98` 是按钮体系之外的独立调用点，#95 需单独处理；`Tokens/CoreControlMetrics.swift:25` 是 doc 注释里的用法示例。**验证时务必限定 `Components/Button/` 口径，否则会得 3 行而误以为收敛失败**——本任务的计划评审在这一点上摔过两次。
+- **`Sidebar.swift` 的 `CoreTypography` 引用从 16 降到 13**（row body 内 11→8，另 5 处在 `SidebarSection` / `SidebarStatusFooter` 未动）。#95 的 Sidebar 改动面按 8 处算，不是 16。
+- **`Sidebar` 的四处固定高度已改 `minHeight`（B2b）**，#95 的布局断言层可以直接假定不裁切。
+
+## 给其它 Issue 的交接
+
+- **#97**：`git diff --name-only | xargs -n1 basename | grep -Fx -f <清单>` 自查通过（`rc=1`），005 ∩ 006 = ∅ 保持。注意**不能用子串 grep**——`EmptyState` / `BottomInputBar` / `CommentCard` / `RefPill` / `SegmentedControl` / `TimelineItem` / `BookCover` 同时是**目录名**，子串匹配会把本任务合法修改的 `Components/BottomInputBar/CoreMenuButton.swift` 判成违规，形成必然假红。
+- **#101（D4）**：`CoreBorderlessButtonStyle.swift:74` 的 `public let role` 是 #94 按 A2b 的 AC 新增的样本，已补进 D4 证据列。
+- **坐标清扫**：本任务改动了 `CoreMenuButton.swift` 与 `Sidebar.swift` 的行号，已更新 `audit-checklist.md` 的 D2 / D4 / D12 三行、`102.md:35,36`、`99.md:37,87`。
+
+## 工具/环境坑（实测）
+
+- **probe 包的增量构建不拾取新增文件。** 本任务新增 `Modifier/ButtonChromeModifier.swift` 后，`scripts/downstream-probe` 的增量构建报 4 条 `has no member 'buttonChrome'`，而主包 `swift build` 同时是绿的；`swift package clean` 后立即通过。这次是**假红**，但同一机制（增量构建的源文件清单陈旧）同样能产生**假绿**——删掉一个 probe 依赖的公开符号而 `.build` 未更新时它会照常通过。与 CLAUDE.md 记的「新增 colorset 后必须 clean」同类。**probe 验证一律先 clean。**
+- **`ButtonStyle.circularGlass(diameter:)` 编译不过**：静态成员定义在 `extension ButtonStyle where Self == CircularGlassButtonStyle` 上，经协议元类型访问报 `static member 'circularGlass' cannot be used on protocol metatype`。probe 里必须走 `.buttonStyle(.circularGlass(...))` 的前导点推断。
+- **`grep -c 'Foo('` 会被代理到 ripgrep**，`(` 按正则解析报 unclosed group 并返回 0 匹配。计数含括号的模式要用 `grep -cF`。
+
+## 视觉冒烟（实测，非「应该没问题」）
+
+绕开 `scripts/run-snapshots.sh` 直接跑 xcodebuild（该脚本会 `rm -rf docs/snapshots` 删掉已提交的文档图，且会删掉 `CoreDesign_*` ——那恰好是库内 Preview 产物），导出到临时目录，`EXIT=0`，148 个文件。逐张核对四个改动点：
+
+| Preview | 结论 |
+|---|---|
+| `Previews.swift_Sidebar` | 四种 row 全部正常：Navigation 选中态玻璃背景 + 描边、Utility 的 trailing 箭头、Document 的 "47 days" detail 右对齐、Tag 的 `#` 与 chevron。**行高一致**（`minHeight` 未改变默认字号下的表现），间距无异常，`EmptyView()` 作 trailing 未引入多余间距 |
+| `Previews.swift_Button` | Solid / Light / Borderless 三种样式渲染正常。**Borderless 的字号现与另两个一致**——这正是受控变化 2，观感上反而更整齐 |
+| `CircularGlassButtonStyle.swift_line-72` | 圆形玻璃按钮 40pt，玻璃分层与描边完好 |
+| `CoreMenuButton.swift_line-184` | labeled / circular 两态正常，**描边仍是细语义色线**（未变成半透明白）、玻璃分层保留——B8a 复用参数化 modifier 后观感等价成立 |
+
+截图为 Blossom 主题（预览宿主自 #92 起启用该 trait），故呈珊瑚粉/紫。
+
+## B2b 的理由曾写错——降级评审抓到的
+
+`Sidebar.swift` 里 B2b 的注释原写「minHeight 而非固定 height：**大字号下不裁切**」。这个理由**今天没通电**：实测 `CoreTypography` 全部是 `.system(size:)`、`relativeTo:` 出现 **0** 次，字号不随辅助功能缩放——那正是 #95 要修的事。所以没有任何路径能让 row 内容超过 40pt。
+
+后果有两层：
+
+1. 视觉冒烟即使在 AX5 下截图，B2b 也**必然零差异**——那不是「通过」，是「没通电」。
+2. minHeight 今天**确实**改变了一件事，但不是 Dynamic Type：三个 row 传 `titleLineLimit: nil`，**长标题换行到 2+ 行时不再被固定高度压出框**。这才是本次唯一的真实布局行为变化，而它原本没出现在任何注释或验收判据里。`SidebarDocumentRow` 传 `1` 且 detail 也限 1 行，对它是纯预防性改动。
+
+注释、`audit-checklist.md` 的 B2b 行与 `docs/components/sidebar.md:66`（原写死「40pt」，现改为「≥40pt，`frame(minHeight:)`」，与 `list-row.md` 既有写法对齐）均已更正。
+
+**教训**：重构的注释若写的是「未来才兑现的收益」，会让当期的验证判据落空——验证的是一件今天不可能发生的事，永远绿。
+
+## 补上的测试与 probe 覆盖（降级评审）
+
+改造前，`size` 默认值被人改回 `.regular` 会**四条命令全绿、probe 全绿、95 tests 全绿**——只有人眼看截图能发现。现补：
+
+- `ButtonStyleDefaultTests` 新增 3 条：`CircularGlassButtonStyle().size == .large`、`.diameter == nil`、两个访问器的档位/直径断言
+- 新增 `ButtonRoleStyleRoleTests` suite 3 条：三态优先级（disabled > pressed > normal）、每个 role 都取自己的调色板
+- probe 新增 3 个函数：`TelegramGlassButtonModifier` 的**两参数形态**（该类型 doc 写着「新增参数时务必保持这一契约」，此前只是注释）、`resolvedColor`、`circularGlass(size:)`
+
+测试数 95 → **101**。反证过通电：把 `size` 默认值改回 `.regular`，精确报出 `circular glass defaults to the large tier` 失败。
+
+## API 形态调整（降级评审）
+
+- 补 `static func circularGlass(size:)`——此前只有 `.circularGlass` 与 `.circularGlass(diameter:)`，等于把**逃生舱**（裸 CGFloat）给了漂亮入口、**主通道**（档位）却要写 `CircularGlassButtonStyle(size:)`，引导方向指反了。
+- `size` / `diameter` 从 `public var` 改 `public let`，与 `SolidButtonStyle.role/glass` 的既有惯例一致。
+- `ButtonBackgroundModifier` 泛型化为 `<S: InsettableShape>`——原先硬编码 `Capsule` 两次，而同批新增的 `buttonChrome` 是泛型的。一个专门做去重的 PR 不该留下这种新的不对称：将来的圆角矩形 CTA 能复用 chrome、不能复用 background。
+
+## 验证证据
+
+四条 SwiftPM 命令（`swift package clean` 后冷跑）：
+
+```
+build          EXIT=0
+test           EXIT=0      Test run with 101 tests in 33 suites passed
+build-blossom  EXIT=0
+test-blossom   EXIT=0      Test run with 101 tests in 33 suites passed
+probe(clean)   EXIT=0
+```
+
+warning：四份日志各 0 / 12 / 0 / 12 条，**非 EmptyState 者为 0**（那 12 条全是既有的 `EmptyState` deprecation，归 #97）。
+
+SC-3 前置：`grep -rn 'CoreControlMetrics.font(for:' Sources/CoreDesign/Components/Button/` → 0 行。
+
+`audit-checklist.md` 计数 83，八项已标 ✅。

@@ -63,7 +63,7 @@ VStack(alignment: .leading, spacing: CoreSpacing.md) {
 ## 视觉 Token
 
 - 文本配色：`SidebarTextStyle`（`Color.contentPrimary` / `.contentMuted` / `.contentSubtle`）
-- 行高：`CoreControlMetrics.height(for: .large)`（40pt）
+- 行高：`CoreControlMetrics.height(for: .large)`（≥40pt，`frame(minHeight:)`——长标题换行时 row 撑高，与 `ListRow` / `SearchField` 一致）
 - leading icon / glyph 列宽：`CoreControlMetrics.iconSize(for: .large)`（20pt）
 - 行内间距：`CoreSpacing.sm`；section header ↔ 内容 `CoreSpacing.sm`，行间 `CoreSpacing.xxs`
 - 圆角：`CoreRadius.mediumPlus`（选中态背景 / contentShape）

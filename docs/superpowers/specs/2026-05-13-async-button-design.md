@@ -181,7 +181,7 @@ private struct LoadingAccessibilityModifier: ViewModifier {
 - **spinner 尺寸固定 `.small`**：不跟 `\.controlSize` 联动，避免 large 按钮里 spinner 喧宾夺主。
 - **ZStack + label 透明占位，而非 HStack 并排**：
   - `running` 时 `label.opacity = 0`（保留布局占位防按钮 frame 抖动）+ spinner 在 ZStack 中心覆盖。
-  - 早期版本用 `HStack(spacing: CoreSpacing.sm)` 并排，在 `.circularGlass`（`CircularGlassButtonStyle.swift:24` 强制 38pt 直径）等 fixed-frame style 下，running 态 "spinner + icon" 双元素会撑破圆形外壳。
+  - 早期版本用 `HStack(spacing: CoreSpacing.sm)` 并排，在 `.circularGlass`（`CircularGlassButtonStyle` 的 `size: ControlSize = .large` 决定 40pt 直径（Issue #96 前是写死的 38pt））等 fixed-frame style 下，running 态 "spinner + icon" 双元素会撑破圆形外壳。
   - ZStack 居中后：普通按钮 running 时只见 spinner，文字暂时隐藏（标准 Loading button 模式）；圆形按钮 running 时 spinner 居中替代 icon，外壳完好。换回的代价是 running 期间用户看不到原文案——可接受，且与 GitHub Primer / Telegram 的 loading button 视觉一致。
   - `label.accessibilityHidden(isRunning)` 让 VoiceOver 在 running 时不朗读 idle 态文字，仅留外层 `LoadingAccessibilityModifier` 的 `Loading` value。
 - **`.animation(.snappy(duration: 0.16))`**：与 `SolidButtonBackgroundModifier` 的 isPressed 动画同节奏。

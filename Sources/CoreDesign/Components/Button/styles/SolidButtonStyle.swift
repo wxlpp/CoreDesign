@@ -33,69 +33,41 @@ public struct SolidButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         let isPressed = configuration.isPressed
-        let backgroundColor = self.backgroundColor(isPressed: isPressed)
+        let backgroundColor = self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed)
+
+        // 共同结构只写一次（审计项 B3b）；两支各自只剩尾部的背景层差异。
+        let base = configuration.label
+            .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
+            .foregroundStyle(self.foregroundColor)
 
         if self.glass {
-            configuration.label
-                .font(CoreControlMetrics.font(for: self.controlSize))
-                .foregroundStyle(self.isEnabled ? Color.white : Color.contentDisabled)
-                .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
-                .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
-                .contentShape(Capsule(style: .continuous))
+            base
                 .backgroundStyle(backgroundColor)
-                .modifier(
-                    TelegramGlassButtonModifier(
-                        shape: Capsule(style: .continuous),
-                        isPressed: isPressed
-                    )
-                )
+                .modifier(TelegramGlassButtonModifier(
+                    shape: Capsule(style: .continuous),
+                    isPressed: isPressed
+                ))
         } else {
-            configuration.label
-                .font(CoreControlMetrics.font(for: self.controlSize))
-                .foregroundStyle(self.isEnabled ? Color.contentOnAccent : Color.contentDisabled)
-                .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
-                .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
-                .contentShape(Capsule(style: .continuous))
-                .modifier(
-                    SolidButtonBackgroundModifier(
-                        backgroundColor: backgroundColor,
-                        isPressed: isPressed
-                    )
+            base
+                .buttonBackground(
+                    shape: Capsule(style: .continuous),
+                    fill: backgroundColor,
+                    border: Color.borderMuted,
+                    isPressed: isPressed,
+                    pressedOpacity: 0.92
                 )
         }
+    }
+
+    /// glass 用纯白、非 glass 用 `contentOnAccent`；禁用态统一 `contentDisabled`。
+    private var foregroundColor: Color {
+        guard self.isEnabled else { return .contentDisabled }
+        return self.glass ? .white : .contentOnAccent
     }
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
 
-    private func backgroundColor(isPressed: Bool) -> Color {
-        if !self.isEnabled {
-            return self.role.disabledColor
-        }
-        return isPressed ? self.role.activeColor : self.role.color
-    }
-}
-
-// MARK: - SolidButtonBackgroundModifier (non-glass fallback)
-
-private struct SolidButtonBackgroundModifier: ViewModifier {
-    let backgroundColor: Color
-    let isPressed: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .background(
-                Capsule(style: .continuous)
-                    .fill(self.backgroundColor)
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.hairline)
-            )
-            .scaleEffect(self.isPressed ? CoreButtonMetrics.pressedScale : 1)
-            .opacity(self.isPressed ? 0.92 : 1)
-            .animation(.snappy(duration: 0.16), value: self.isPressed)
-    }
 }
 
 // MARK: - ButtonStyle convenience

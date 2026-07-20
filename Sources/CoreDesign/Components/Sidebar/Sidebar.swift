@@ -82,6 +82,87 @@ public struct SidebarSection<Content: View>: View {
 
 // MARK: - Sidebar Rows
 
+// MARK: OptionalLineLimit (helper)
+
+/// 条件性 lineLimit / Conditional line limit。
+///
+/// `.lineLimit(nil)` 会**显式重置**祖先设过的值，与「不写 lineLimit」不等价。
+/// 本 modifier 在 `limit == nil` 时原样返回 content，保证三个不限行的 row
+/// 与收敛前逐字等价。
+private struct OptionalLineLimit: ViewModifier {
+    let limit: Int?
+
+    func body(content: Content) -> some View {
+        if let limit = self.limit {
+            content.lineLimit(limit)
+        } else {
+            content
+        }
+    }
+}
+
+// MARK: - SidebarRow (shared skeleton)
+
+/// 四种 sidebar row 的共享骨架 / Shared skeleton for the four sidebar rows.
+///
+/// 收敛自原先四份逐字重复的实现（审计项 B5）。差异全部由调用方经
+/// `leading` / `trailing` 两个 `@ViewBuilder` 与 `isSelected` 表达：
+///
+/// - `leading`：图标或 `#` 字形，字号各 row 不同（`bodyLarge` / `titleMedium`）
+/// - `trailing`：可选尾部内容；**a11y 语义由调用方决定**——`SidebarDocumentRow`
+///   的 detail 承载信息须可读，`SidebarUtilityRow` / `SidebarTagRow` 的是纯装饰
+///   须 `.accessibilityHidden(true)`。骨架不代为决定。
+/// - `isSelected`：仅 `SidebarNavigationRow` 使用，驱动 floating-glass 背景与
+///   `.isSelected` 辅助技术 trait。
+private struct SidebarRow<Leading: View, Trailing: View>: View {
+    let title: String
+    let titleLineLimit: Int?
+    let isSelected: Bool
+    let action: () -> Void
+    @ViewBuilder let leading: Leading
+    @ViewBuilder let trailing: Trailing
+
+    var body: some View {
+        Button(action: self.action) {
+            HStack(spacing: CoreSpacing.sm) {
+                self.leading
+                    .foregroundStyle(SidebarTextStyle.secondary)
+                    .frame(width: CoreControlMetrics.iconSize(for: .large))
+                    // 装饰性 leading 字形：button 的可访问名由 title 驱动，隐藏它
+                    // 避免 VoiceOver 朗读 SF Symbol 名 / Decorative leading glyph.
+                    .accessibilityHidden(true)
+
+                Text(self.title)
+                    .font(CoreTypography.bodyLargeFont)
+                    .foregroundStyle(SidebarTextStyle.primary)
+                    .modifier(OptionalLineLimit(limit: self.titleLineLimit))
+
+                Spacer()
+
+                self.trailing
+            }
+            // minHeight 而非固定 height（审计项 B2b），与 ListRow / SearchField 一致。
+            //
+            // **今天的实际收益是长 title 换行不再被压出框**——三个 row 传
+            // `titleLineLimit: nil`，标题过长会换到 2+ 行，原先 `frame(height: 40)`
+            // 会把第二行裁掉。`SidebarDocumentRow` 传 `1` 且 detail 也限 1 行，
+            // 对它是纯预防性改动。
+            //
+            // Dynamic Type 那层收益要等 #95：`CoreTypography` 现在全部是
+            // `.system(size:)`、`relativeTo:` 出现 0 次，字号不随辅助功能缩放，
+            // 所以「大字号下不裁切」目前无路径可触发。
+            .frame(minHeight: CoreControlMetrics.height(for: .large))
+            .padding(.horizontal, CoreSpacing.sm)
+            .sidebarSelectedBackground(self.isSelected)
+            .contentShape(RoundedRectangle(cornerRadius: CoreRadius.mediumPlus))
+        }
+        .buttonStyle(.plain)
+        // 向辅助技术暴露选中态，让 VoiceOver 用户感知当前导航目标
+        // （对齐 SegmentedControl）/ Expose selected state to a11y.
+        .accessibilityAddTraits(self.isSelected ? .isSelected : [])
+    }
+}
+
 /// Primary navigation entry with a selected state.
 ///
 /// Icon + title button row; when `isSelected` is true it carries the
@@ -102,31 +183,17 @@ public struct SidebarNavigationRow: View {
     }
 
     public var body: some View {
-        Button(action: self.action) {
-            HStack(spacing: CoreSpacing.sm) {
-                Image(systemName: self.systemImage)
-                    .font(CoreTypography.bodyLargeFont)
-                    .foregroundStyle(SidebarTextStyle.secondary)
-                    .frame(width: CoreControlMetrics.iconSize(for: .large))
-                    // 装饰性图标：button 的可访问名由 title 驱动，隐藏图标避免
-                    // VoiceOver 朗读 SF Symbol 名 / Decorative leading icon.
-                    .accessibilityHidden(true)
-
-                Text(self.title)
-                    .font(CoreTypography.bodyLargeFont)
-                    .foregroundStyle(SidebarTextStyle.primary)
-
-                Spacer()
-            }
-            .frame(height: CoreControlMetrics.height(for: .large))
-            .padding(.horizontal, CoreSpacing.sm)
-            .sidebarSelectedBackground(self.isSelected)
-            .contentShape(RoundedRectangle(cornerRadius: CoreRadius.mediumPlus))
+        SidebarRow(
+            title: self.title,
+            titleLineLimit: nil,
+            isSelected: self.isSelected,
+            action: self.action
+        ) {
+            Image(systemName: self.systemImage)
+                .font(CoreTypography.bodyLargeFont)
+        } trailing: {
+            EmptyView()
         }
-        .buttonStyle(.plain)
-        // 向辅助技术暴露选中态，让 VoiceOver 用户感知当前导航目标
-        // （对齐 SegmentedControl）/ Expose selected state to a11y.
-        .accessibilityAddTraits(self.isSelected ? .isSelected : [])
     }
 
     private let systemImage: String
@@ -155,36 +222,24 @@ public struct SidebarUtilityRow: View {
     }
 
     public var body: some View {
-        Button(action: self.action) {
-            HStack(spacing: CoreSpacing.sm) {
-                Image(systemName: self.systemImage)
+        SidebarRow(
+            title: self.title,
+            titleLineLimit: nil,
+            isSelected: false,
+            action: self.action
+        ) {
+            Image(systemName: self.systemImage)
+                .font(CoreTypography.bodyLargeFont)
+        } trailing: {
+            if let trailingSystemImage = self.trailingSystemImage {
+                Image(systemName: trailingSystemImage)
                     .font(CoreTypography.bodyLargeFont)
-                    .foregroundStyle(SidebarTextStyle.secondary)
-                    .frame(width: CoreControlMetrics.iconSize(for: .large))
-                    // 装饰性图标：button 的可访问名由 title 驱动，隐藏图标避免
-                    // VoiceOver 朗读 SF Symbol 名 / Decorative leading icon.
+                    .foregroundStyle(SidebarTextStyle.tertiary)
+                    // 次级装饰性 affordance：随主 button 单一 action 触发，
+                    // 不单独暴露给 VoiceOver / Decorative trailing affordance.
                     .accessibilityHidden(true)
-
-                Text(self.title)
-                    .font(CoreTypography.bodyLargeFont)
-                    .foregroundStyle(SidebarTextStyle.primary)
-
-                Spacer()
-
-                if let trailingSystemImage {
-                    Image(systemName: trailingSystemImage)
-                        .font(CoreTypography.bodyLargeFont)
-                        .foregroundStyle(SidebarTextStyle.tertiary)
-                        // 次级装饰性 affordance：随主 button 单一 action 触发，
-                        // 不单独暴露给 VoiceOver / Decorative trailing affordance.
-                        .accessibilityHidden(true)
-                }
             }
-            .frame(height: CoreControlMetrics.height(for: .large))
-            .padding(.horizontal, CoreSpacing.sm)
-            .contentShape(RoundedRectangle(cornerRadius: CoreRadius.mediumPlus))
         }
-        .buttonStyle(.plain)
     }
 
     private let systemImage: String
@@ -213,33 +268,21 @@ public struct SidebarDocumentRow: View {
     }
 
     public var body: some View {
-        Button(action: self.action) {
-            HStack(spacing: CoreSpacing.sm) {
-                Image(systemName: self.systemImage)
-                    .font(CoreTypography.titleMediumFont)
-                    .foregroundStyle(SidebarTextStyle.secondary)
-                    .frame(width: CoreControlMetrics.iconSize(for: .large))
-                    // 装饰性图标：可访问名由 title / detail 驱动
-                    // Decorative leading icon.
-                    .accessibilityHidden(true)
-
-                Text(self.title)
-                    .font(CoreTypography.bodyLargeFont)
-                    .foregroundStyle(SidebarTextStyle.primary)
-                    .lineLimit(1)
-
-                Spacer()
-
-                Text(self.detail)
-                    .font(CoreTypography.bodyMediumFont)
-                    .foregroundStyle(SidebarTextStyle.tertiary)
-                    .lineLimit(1)
-            }
-            .frame(height: CoreControlMetrics.height(for: .large))
-            .padding(.horizontal, CoreSpacing.sm)
-            .contentShape(RoundedRectangle(cornerRadius: CoreRadius.mediumPlus))
+        SidebarRow(
+            title: self.title,
+            titleLineLimit: 1,
+            isSelected: false,
+            action: self.action
+        ) {
+            Image(systemName: self.systemImage)
+                .font(CoreTypography.titleMediumFont)
+        } trailing: {
+            // detail 承载信息（计数 / 日期），**不**隐藏，保持 VoiceOver 可读
+            Text(self.detail)
+                .font(CoreTypography.bodyMediumFont)
+                .foregroundStyle(SidebarTextStyle.tertiary)
+                .lineLimit(1)
         }
-        .buttonStyle(.plain)
     }
 
     private let systemImage: String
@@ -261,34 +304,22 @@ public struct SidebarTagRow: View {
     }
 
     public var body: some View {
-        Button(action: self.action) {
-            HStack(spacing: CoreSpacing.sm) {
-                Text("#")
-                    .font(CoreTypography.titleMediumFont)
-                    .foregroundStyle(SidebarTextStyle.secondary)
-                    .frame(width: CoreControlMetrics.iconSize(for: .large))
-                    // 装饰性 tag 标记：避免 VoiceOver 读成 "number sign"，
-                    // 可访问名由 title 驱动 / Decorative tag glyph.
-                    .accessibilityHidden(true)
-
-                Text(self.title)
-                    .font(CoreTypography.bodyLargeFont)
-                    .foregroundStyle(SidebarTextStyle.primary)
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(CoreTypography.bodySmallFont)
-                    .foregroundStyle(SidebarTextStyle.tertiary)
-                    // 装饰性指示箭头：行整体可点击，标题已表达目标
-                    // Decorative trailing chevron.
-                    .accessibilityHidden(true)
-            }
-            .frame(height: CoreControlMetrics.height(for: .large))
-            .padding(.horizontal, CoreSpacing.sm)
-            .contentShape(RoundedRectangle(cornerRadius: CoreRadius.mediumPlus))
+        SidebarRow(
+            title: self.title,
+            titleLineLimit: nil,
+            isSelected: false,
+            action: self.action
+        ) {
+            Text("#")
+                .font(CoreTypography.titleMediumFont)
+        } trailing: {
+            Image(systemName: "chevron.right")
+                .font(CoreTypography.bodySmallFont)
+                .foregroundStyle(SidebarTextStyle.tertiary)
+                // 装饰性指示箭头：行整体可点击，标题已表达目标
+                // Decorative trailing chevron.
+                .accessibilityHidden(true)
         }
-        .buttonStyle(.plain)
     }
 
     private let title: String
