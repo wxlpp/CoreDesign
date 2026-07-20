@@ -65,7 +65,7 @@ CoreDesign 通过 SwiftPM **Package Trait** 在编译期切换风格方案，调
 
 ### Modifier 约定
 
-可复用的 `ViewModifier` 放在 `Modifier/` 目录下；以 `View` 扩展形式暴露（如 `.bordered(...)`），而不是要求调用方写 `.modifier(BorderModifier(...))`。通用辅助方法（如 `.getSize`、`.focusedExternally`）放在 `Utils/`。
+可复用的 `ViewModifier` 放在 `Modifier/` 目录下；以 `View` 扩展形式暴露（如 `.bordered(...)`），而不是要求调用方写 `.modifier(BorderModifier(...))`。跨组件复用的纯辅助扩展放在 `Utils/`（目前仅 `ColorExtension.swift`）；只服务单个组件的辅助扩展与组件同文件（如 `.focusedExternally` 在 `BottomInputBar.swift`）。
 
 ### 资源加载
 

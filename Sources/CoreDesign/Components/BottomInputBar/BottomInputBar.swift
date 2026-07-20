@@ -84,7 +84,6 @@ struct BottomInputBar: View {
     @State private var inputText = ""
     @FocusState private var isInputFocused: Bool
     @State private var isExpanded = false
-    @State private var textFieldSize: CGSize = .zero
 
     private var trimmedInputText: String {
         self.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -135,7 +134,6 @@ struct BottomInputBar: View {
                 .focused(self.$isInputFocused)
                 .focusedExternally(self.externalFocus)
                 .simultaneousGesture(TapGesture().onEnded { self.activateInput() })
-                .getSize(self.$textFieldSize)
         }
         .padding(.horizontal, CoreSpacing.xxs)
         .modifier(BottomInputBarGlassModifier())
