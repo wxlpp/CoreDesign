@@ -125,7 +125,7 @@ struct CoreMenuButton: View {
     var body: some View {
         let icon = MenuIconView(progress: self.isExpanded ? 1.0 : 0.0)
 
-        let inner = HStack(spacing: 8) {
+        let inner = HStack(spacing: CoreSpacing.sm) {
             icon
             if self.style == .labeled {
                 Text("Menu", bundle: .module)
@@ -135,7 +135,7 @@ struct CoreMenuButton: View {
         inner
             .modifier(CoreMenuButtonStyleModifier(style: self.style))
             .foregroundStyle(.white)
-            .scaleEffect(self.isLongPressing ? 0.94 : 1.0)
+            .scaleEffect(self.isLongPressing ? CoreButtonMetrics.pressedScale : 1.0)
             .onLongPressGesture(minimumDuration: 0.18, maximumDistance: 10, pressing: { pressing in
                 withAnimation(.easeInOut(duration: 0.12)) {
                     self.isLongPressing = pressing

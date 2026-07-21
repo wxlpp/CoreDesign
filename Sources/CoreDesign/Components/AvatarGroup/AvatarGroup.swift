@@ -30,6 +30,9 @@ public struct AvatarGroup<Avatars: View>: View {
 
     @Environment(\.controlSize) private var controlSize
 
+    /// 头像交叠量 / Avatar overlap offset（按 controlSize 递增负 offset）。
+    /// 元素尺寸 ramp，刻意与 `CoreControlMetrics` 同构（裸字面量 switch），
+    /// 不路由到 `CoreSpacing`——后者是间距刻度，且负值 / 20pt 无对应档位。
     private var overlapOffset: CGFloat {
         switch self.controlSize {
         case .mini, .small: return -6
@@ -73,6 +76,8 @@ public struct AvatarGroup<Avatars: View>: View {
         }
     }
 
+    /// 头像直径 / Avatar diameter（按 controlSize，20…48pt）。
+    /// 同上：元素尺寸 ramp，与 `CoreControlMetrics` 同构，不套 spacing token。
     private var avatarSize: CGFloat {
         switch self.controlSize {
         case .mini: return 20

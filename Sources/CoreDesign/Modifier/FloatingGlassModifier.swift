@@ -43,3 +43,17 @@ public extension View {
         self.modifier(FloatingGlassModifier(shape: shape, isInteractive: isInteractive))
     }
 }
+
+#Preview {
+    VStack(spacing: CoreSpacing.xl) {
+        Text("floatingGlass · Capsule (default)")
+            .padding()
+            .floatingGlass()
+
+        Text("floatingGlass · RoundedRect (interactive)")
+            .padding()
+            .floatingGlass(in: RoundedRectangle(cornerRadius: CoreRadius.large), isInteractive: true)
+    }
+    .padding(CoreSpacing.xxxl)
+    .background(Color.surfaceCanvas)
+}

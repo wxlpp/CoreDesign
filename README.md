@@ -4,7 +4,7 @@ iOS 26+ / macOS 26+ SwiftUI design system library, distributed as a Swift Packag
 
 ## Documentation
 
-See the [Component Index](docs/README.md) for a reference of all 15 documented components organized by category.
+See the [Component Index](docs/README.md) for a reference of all 24 documented components organized by category.
 
 ## Quick Start
 

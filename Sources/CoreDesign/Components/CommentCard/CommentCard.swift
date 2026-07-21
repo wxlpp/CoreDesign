@@ -56,6 +56,9 @@ public struct CommentCard<BodyContent: View>: View {
                         .coreFont(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, CoreSpacing.xs)
+                        // 1pt hairline 纵向内衬：刻意低于最小 spacing 档位（xxs=2pt），
+                        // 让 role badge 胶囊维持紧凑高度。无对应 token；snap 到 xxs 会使
+                        // 徽标可见变高，单点使用提常量属过度抽象 —— 保留裸值 + 本注释。
                         .padding(.vertical, 1)
                         .background(
                             Capsule()

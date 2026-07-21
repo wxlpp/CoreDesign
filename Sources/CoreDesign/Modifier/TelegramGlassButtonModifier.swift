@@ -93,3 +93,24 @@ public struct TelegramGlassButtonModifier<S: InsettableShape>: ViewModifier {
             .animation(self.pressFeedback ? Animation.snappy(duration: 0.16) : nil, value: self.isPressed)
     }
 }
+
+#Preview {
+    VStack(spacing: CoreSpacing.xl) {
+        Text("Capsule · default border")
+            .padding(.horizontal, CoreSpacing.md)
+            .padding(.vertical, CoreSpacing.sm)
+            .modifier(TelegramGlassButtonModifier(shape: Capsule(), isPressed: false))
+
+        Image(systemName: "plus")
+            .padding(CoreSpacing.md)
+            .modifier(TelegramGlassButtonModifier(
+                shape: Circle(),
+                isPressed: true,
+                border: .borderSubtle,
+                pressFeedback: true
+            ))
+    }
+    .foregroundStyle(.white)
+    .padding(CoreSpacing.xxxl)
+    .background(Color.surfaceCanvas)
+}
