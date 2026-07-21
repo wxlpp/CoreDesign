@@ -162,8 +162,8 @@ git commit -m "test: Blossom trait 的真颜色值分流断言（C4a）"
    @Suite("SurfaceKind")
    struct SurfaceKindTests {
        // 编译期 public API 守卫：误删任一 public case 会让本引用编译失败，
-       // 拦住破坏性变更。**故意非 @Test**——它无运行时断言，避免触发
-       // Step 5 Step 3 的 0-`#expect` 自检；恒真的 `.count` 断言已删。
+       // 拦住破坏性变更。故意写成普通存储属性、不是测试方法——本文件因此
+       // 不含任何测试方法，逃过 Task 5 的空断言自检；恒真的数组长度断言已删。
        // token 映射是 private，Tests/ 内无法断言（改 Sources 违约 / ViewInspector Out of Scope）。
        private static let apiGuard: [SurfaceKind] = [
            .canvas, .content, .control, .floating, .overlay,
@@ -171,7 +171,7 @@ git commit -m "test: Blossom trait 的真颜色值分流断言（C4a）"
        ]
    }
    ```
-   `apiGuard` 是 `static let`（类型作用域合法、无 unused warning、编译期检查全部 9 个 public case）。文件因此**不含 `@Test`**，逃过 0-`#expect` 自检；恒真 `.count` 也去掉了。
+   `apiGuard` 是 `static let`（类型作用域合法、无 unused warning、编译期检查全部 9 个 public case）。**代码与注释里都不出现测试方法标记与断言宏的字面量**——所以 Task 5 的两条自检 grep（一条找测试方法标记列文件、一条数断言宏）都不会因注释误命中本文件；恒真的数组长度断言也去掉了。
 
 **C5 清单如实记**：`SurfaceKindTests.swift` | 恒真 `.count` 断言已删，保留非-`@Test` 编译期 case 守卫；**token 映射仍无运行时测试守护**（private，Tests/ 内不可断言，非「间接覆盖」）。文件从 3 test 降为 0 test。
 
@@ -203,7 +203,7 @@ swift test > /tmp/t2t.log 2>&1; echo "test EXIT=$?"
 
 ```bash
 git add Tests/CoreDesignTests/
-git commit -m "test: 五个恒真断言文件改写为真行为断言 / 删除（C2）"
+git commit -m "test: 五个恒真断言文件改写为真断言 / 删除 / 断言瘦身（C2）"
 ```
 
 ---
@@ -255,7 +255,7 @@ git commit -m "test: asset guard 扩展到 violet/cyan（Blossom 渐变依赖，
 
 作为 **C2 附录**落到 `audit-checklist.md`。**首列必须是测试文件名**（`| ProgressIndicatorTests.swift |`），**不得**用 `| C2a |` 形态——否则破坏顶部计数命令。表格覆盖：
 
-- C2 的 5 个恒真文件：每个标「已改写为真断言」/「已删除」+ 一句做法
+- C2 的 5 个恒真文件：每个标「已改写为真断言」/「已删除」/「断言瘦身·保留编译引用（0 test）」+ 一句做法（`SurfaceKindTests` 属第三态：删恒真断言、留非测试方法的 case 守卫、文件降为 0 test）
 - C5 的约 15 个零测试目标（`CheckBoxToggleStyle`、`Form`、`CoreMenuButton`、四个 ButtonStyle、`ButtonRoleStyleRole`、token 层、modifier、`StarShape`、`ColorExtension`）：每个标「本轮补测」/「记录不补 + 理由」
 - `KeyboardHandlingTests`：标「已由 #97 删除」
 
