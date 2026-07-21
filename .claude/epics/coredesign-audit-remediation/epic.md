@@ -26,7 +26,7 @@ github: https://github.com/wxlpp/CoreDesign/issues/91
 
 `borderFocus` 指向 `.accent` 而非新增 `#if Blossom`，与 `borderSelected` 的既有处理一致，使全库分流点净减（9 → 8）。代价是默认主题下 focus ring 从 Primer 蓝变为品牌蓝，已列入 NFR 视觉例外。
 
-`statusAccent*` 整组删除而非映射——其 alpha 叠加档位无法等价映射到不透明的 accent 别名，且库内零渲染消费点、含 colorset 笔误。
+~~`statusAccent*` 整组删除~~ —— **已于 #93 执行期改判为保留**。删除它与 FR-1 自身的 legacy 迁移要求互斥：新体系只有 `statusAccent*` 一个蓝色家族，而它正是 Primer 的 info 语义，`Banner`/`Toast`/`Badge` 的 legacy `info*` 只能迁到它。原判据「库内零渲染消费点」恰恰因为 info 当时走 legacy——迁移一做即失效。原判据「accent 单组 colorset 笔误」经横向比对亦不成立：五组 `*-emphasis` 的 light 值逐组等于同组 `*-muted`，是系统性错误，改为一并修正。
 
 ### AD-3 typography 从 `Font` 常量升级为 `.coreFont(_:)` modifier
 
@@ -249,7 +249,7 @@ epic 集成分支 `epic/coredesign-audit-remediation`（off `main`）。每个 I
 | 4 | CI workflow ≥1，覆盖五条命令（runner 受限时降级为本地 pre-push 闸门） | 机械 |
 | 5 | 恒真断言归零 | `#7` 附录落盘后机械 |
 | 6 | ≥1 个测试能区分默认与 Blossom 的实际颜色值（light `#0077FA` vs `#FF6F8E`） | 机械 |
-| 7 | `audit-checklist.md` 83 项全部标记「已修复」或「记录不修 + 理由」 | 机械（核对命令已实测输出 83 / 78） |
+| 7 | `audit-checklist.md` 83 项全部标记「已修复」或「记录不修 + 理由」 | 机械（核对命令已实测输出 83 / 79） |
 | 8 | `Sidebar` 四种 row 的实现代码 **≤ 60 行**。测量边界：`SidebarNavigationRow` / `SidebarUtilityRow` / `SidebarDocumentRow` / `SidebarTagRow` 四个类型声明的首行到末行之和，**含**共享骨架类型与薄封装 init，**不含** `#Preview` 与文档注释 | 机械（原表述「约 120 → 约 50」不可判定，改为硬上限 + 测量边界） |
 
 ## Estimated Effort
@@ -296,4 +296,4 @@ Estimated total effort: 134 hours
 
 **并行窗口带来的实际收益**：三个已验证的零交集窗口（`005∥006`、`010∥008`、`011∥007`）把关键路径从 134h 压到约 **99h**——`006`(20h) 藏在 `005`(12h) 后、`008`(3h) 藏在 `010`(20h) 后、`007`(8h) 藏在 `011`(12h) 后，各省下并行组中较短的一支。
 
-**元数据校验（已实测）**：无循环依赖；`conflicts_with` 全对称；11 个任务承载数 5/12/6/2/8/18/4/3/1/9/10 = 78，与 audit-checklist 的 78 修项逐项吻合；三个并行窗口在 frontmatter 中保持（互不出现在对方 `conflicts_with`）。
+**元数据校验（已实测）**：无循环依赖；`conflicts_with` 全对称；11 个任务承载数 5/12/6/2/8/18/4/3/1/9/11 = 79，与 audit-checklist 的 79 修项逐项吻合；三个并行窗口在 frontmatter 中保持（互不出现在对方 `conflicts_with`）。

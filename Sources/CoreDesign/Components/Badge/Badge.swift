@@ -18,7 +18,7 @@ import SwiftUI
 /// - `warning`：警告（橙）。例："草稿"、"即将过期"。
 /// - `danger`：错误 / 风险（红）。例："已废弃"、"已关闭未合并"。
 /// - `neutral`：默认中性（灰）。例：版本号、计数、未指定状态。
-public enum BadgeVariant: Sendable, Equatable {
+public nonisolated enum BadgeVariant: Sendable, Equatable {
     case info
     case success
     case warning
@@ -40,7 +40,7 @@ public enum BadgeVariant: Sendable, Equatable {
 ///
 /// 用于在列表项 / 标题 / 按钮旁标注一个固定 level 的语义状态（如 "Beta" / "Draft" /
 /// "Deprecated" / "v1.0"）。形态固定为 pill：`Capsule(style: .continuous)` 圆角
-/// （等价于 `CoreRadius.full`）+ status background token + 可选 `CoreBorderWidth.thin`
+/// （`Capsule()`）+ status background token + 可选 `CoreBorderWidth.thin`
 /// 描边，内部为调用方传入的 label。
 ///
 /// ## 与 Tag 的边界
@@ -52,10 +52,10 @@ public enum BadgeVariant: Sendable, Equatable {
 /// ## 视觉与 token
 ///
 /// - 背景：`Color.surfaceCanvasSubtle`（neutral）/ status background token
-///   （`infoBackground` / `successBackground` / `warningBackground` / `dangerBackground`）
+///   （`statusAccentSubtle` / `statusSuccessSubtle` / `statusAttentionSubtle` / `statusDangerSubtle`）
 /// - 边框（`outlined: true` 时）：`Color.borderMuted`（neutral）/ 对应 status border
 ///   token；宽度 `CoreBorderWidth.thin`
-/// - 圆角：`CoreRadius.full`（pill 形态）
+/// - 圆角：`Capsule()`（pill 形态）
 /// - 字号：`CoreTypography.bodySmallFont` + `bodySmallTracking`
 /// - padding：横向 `CoreSpacing.sm`，纵向 `CoreSpacing.xs`
 ///
@@ -93,8 +93,7 @@ public struct Badge<Label: View>: View {
     public var body: some View {
         let shape = Capsule(style: .continuous)
         return self.label
-            .font(CoreTypography.bodySmallFont)
-            .tracking(CoreTypography.bodySmallTracking)
+            .coreFont(.bodySmall)
             .padding(.horizontal, CoreSpacing.sm)
             .padding(.vertical, CoreSpacing.xs)
             .background {
@@ -139,10 +138,10 @@ private extension Badge {
     /// status background token；新增 variant 时同步扩展此映射。
     static func backgroundColor(for variant: BadgeVariant) -> Color {
         switch variant {
-        case .info: .infoBackground
-        case .success: .successBackground
-        case .warning: .warningBackground
-        case .danger: .dangerBackground
+        case .info: .statusAccentSubtle
+        case .success: .statusSuccessSubtle
+        case .warning: .statusAttentionSubtle
+        case .danger: .statusDangerSubtle
         case .neutral: .surfaceCanvasSubtle
         }
     }
@@ -153,10 +152,10 @@ private extension Badge {
     /// 拉开描边层次但不喧宾夺主。
     static func borderColor(for variant: BadgeVariant) -> Color {
         switch variant {
-        case .info: .infoBorder
-        case .success: .successBorder
-        case .warning: .warningBorder
-        case .danger: .dangerBorder
+        case .info: .statusAccentBorder
+        case .success: .statusSuccessBorder
+        case .warning: .statusAttentionBorder
+        case .danger: .statusDangerBorder
         case .neutral: .borderMuted
         }
     }

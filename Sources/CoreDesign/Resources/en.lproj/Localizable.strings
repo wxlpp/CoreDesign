@@ -1,0 +1,11 @@
+/* Component internal UI strings (source language = en). */
+"Alert" = "Alert";
+"Loading" = "Loading";
+"Menu" = "Menu";
+"Progress" = "Progress";
+"Remove tag" = "Remove tag";
+"Send" = "Send";
+"Stop" = "Stop";
+"Suggestions" = "Suggestions";
+"Tap to dismiss" = "Tap to dismiss";
+"Untitled" = "Untitled";

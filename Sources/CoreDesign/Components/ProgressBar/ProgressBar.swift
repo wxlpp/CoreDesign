@@ -19,9 +19,9 @@ import SwiftUI
 ///
 /// 灰色底轨 + 可配置彩色填充 + 可选左侧 label 文本。
 public struct ProgressBar: View {
-    public let value: Double  // 0.0...1.0
-    public let tint: Color?
-    public let label: String?
+    let value: Double  // 0.0...1.0
+    let tint: Color?
+    let label: String?
 
     public init(value: Double, tint: Color? = nil, label: String? = nil) {
         // 非有限输入 (NaN / ±infinity) 直接归 0，避免后续 layout / accessibility 计算 trap。
@@ -35,7 +35,7 @@ public struct ProgressBar: View {
         HStack(spacing: CoreSpacing.sm) {
             if let label = self.label {
                 Text(label)
-                    .font(CoreTypography.bodySmallFont)
+                    .coreFont(.bodySmall)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -54,7 +54,7 @@ public struct ProgressBar: View {
             .frame(height: CoreSpacing.xs)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(self.label ?? "Progress")
+        .accessibilityLabel(self.label.map(Text.init(verbatim:)) ?? Text("Progress", bundle: .module))
         .accessibilityValue("\(Int(self.value * 100))% complete")
     }
 }

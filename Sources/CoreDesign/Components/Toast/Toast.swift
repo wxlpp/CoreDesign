@@ -9,25 +9,6 @@
 
 import SwiftUI
 
-// MARK: - ToastLevel
-
-/// Toast 的语义等级，决定整条 toast 的图标 + 前景色映射。
-///
-/// 概念对应 GitHub Primer `Toast` / `Flash` variant。具体颜色由
-/// `Sources/CoreDesign/Colors/StatusColors.swift` 的 status color token 决定
-/// （`Color.infoForeground` 等），随系统 colorScheme 自动适配 light / dark。
-///
-/// - `info`：中性提示（蓝）。例：操作已记录、版本信息。
-/// - `success`：操作成功（绿）。例：保存成功、上传完成。
-/// - `warning`：警告（橙）。例：网络延迟、配额接近上限。
-/// - `danger`：错误（红）。例：保存失败、操作被拒绝。
-public enum ToastLevel: Sendable {
-    case info
-    case success
-    case warning
-    case danger
-}
-
 // MARK: - ToastItem
 
 /// 单条 Toast 的数据载体。`ToastHost` 内部以 `[ToastItem]` 维护队列。
@@ -38,13 +19,13 @@ public enum ToastLevel: Sendable {
 /// - `id`：每个 item 的 stable identity，由 `init` 默认生成；调用方一般不需要手传。
 ///   `dismiss(_:)` 通过该 id 精确定位排队中或正在显示的 item。
 /// - `message`：toast 文本内容。当前实现固定单行 `Text`；多行 / 富文本未来扩展。
-/// - `level`：见 `ToastLevel`。决定 icon + 前景色。
+/// - `level`：见 `StatusLevel`。决定 icon + 前景色。
 /// - `duration`：自动消失前的显示时长（秒）。**计时从 toast 开始显示起算**，
 ///   不是 enqueue 起算（详见 `ToastHost` 文档的 "dismiss timing" 段）。
-public struct ToastItem: Identifiable, Sendable {
+public nonisolated struct ToastItem: Identifiable, Sendable {
     public let id: UUID
     public let message: String
-    public let level: ToastLevel
+    public let level: StatusLevel
     public let duration: TimeInterval
 
     /// 创建一条 ToastItem。
@@ -57,7 +38,7 @@ public struct ToastItem: Identifiable, Sendable {
     public init(
         id: UUID = UUID(),
         message: String,
-        level: ToastLevel = .info,
+        level: StatusLevel = .info,
         duration: TimeInterval = ToastDefaults.duration
     ) {
         self.id = id
@@ -73,7 +54,7 @@ public struct ToastItem: Identifiable, Sendable {
 ///
 /// > Note: 这些是 toast 行为相关的默认值（duration / 动画时长），不是布局尺寸；
 /// > 布局走 `CoreSpacing.*` / `CoreRadius.*` 等 token，与此处无关。
-public enum ToastDefaults {
+public nonisolated enum ToastDefaults {
     /// `ToastItem.init` / `ToastHost.show(_:level:duration:)` 的缺省 duration（秒）。
     /// 取 3 秒贴合 Apple HIG / Material Design 对短提示的常见取值。
     public static let duration: TimeInterval = 3
@@ -193,7 +174,7 @@ public final class ToastHost {
     ///   - duration: 显示时长（秒），缺省 `ToastDefaults.duration` (3s)；计时从开始显示起算。
     public func show(
         _ message: String,
-        level: ToastLevel = .info,
+        level: StatusLevel = .info,
         duration: TimeInterval = ToastDefaults.duration
     ) {
         self.show(ToastItem(message: message, level: level, duration: duration))
@@ -408,7 +389,7 @@ private struct ToastOverlay: View {
 /// - 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`
 ///   浮动玻璃层，自带 strokeBorder overlay + 玻璃材质，pill 几何让 toast 读起来是系统反馈。
 /// - 字号：`CoreTypography.bodyMediumFont`
-/// - icon / 前景色：按 `ToastLevel` 走 status color token
+/// - icon / 前景色：按 `StatusLevel` 走 status color token
 /// - padding：`CoreSpacing.md` 内边距
 ///
 /// dismiss 触发：自动 / 滑动手势（向 edge 方向，阈值 `ToastDefaults.swipeDismissThreshold`）/
@@ -427,7 +408,7 @@ private struct ToastView: View {
                 .foregroundStyle(self.foregroundColor)
                 .accessibilityHidden(true)
             Text(self.item.message)
-                .font(CoreTypography.bodyMediumFont)
+                .coreFont(.bodyMedium)
                 .foregroundStyle(Color.contentPrimary)
                 .multilineTextAlignment(.leading)
                 .lineLimit(1)
@@ -438,7 +419,7 @@ private struct ToastView: View {
         // hint，而不是误标 `.isStaticText`（原实现告诉 VO 元素不可交互，
         // 但实际 onTapGesture 会触发 dismiss）。
         .accessibilityAddTraits(.isButton)
-        .accessibilityHint(Text("点击关闭"))
+        .accessibilityHint(Text("Tap to dismiss", bundle: .module))
         .padding(CoreSpacing.md)
         .floatingGlass(
             in: Capsule(style: .continuous),
@@ -465,10 +446,10 @@ private struct ToastView: View {
 
     private var foregroundColor: Color {
         switch self.item.level {
-        case .info: .infoForeground
-        case .success: .successForeground
-        case .warning: .warningForeground
-        case .danger: .dangerForeground
+        case .info: .statusAccentForeground
+        case .success: .statusSuccessForeground
+        case .warning: .statusAttentionForeground
+        case .danger: .statusDangerForeground
         }
     }
 
@@ -532,7 +513,7 @@ private struct ToastPreviewHarness: View {
 private struct ToastDemoView: View {
     @Environment(\.toastHost) private var toast
 
-    private let levels: [(label: String, level: ToastLevel)] = [
+    private let levels: [(label: String, level: StatusLevel)] = [
         ("Info", .info),
         ("Success", .success),
         ("Warning", .warning),
@@ -542,7 +523,7 @@ private struct ToastDemoView: View {
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
             Text("Tap a button to enqueue a toast.")
-                .font(CoreTypography.bodyMediumFont)
+                .coreFont(.bodyMedium)
                 .foregroundStyle(Color.contentMuted)
             ForEach(self.levels, id: \.label) { entry in
                 Button(entry.label) {

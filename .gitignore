@@ -70,8 +70,14 @@ fastlane/test_output
 # Local git worktrees
 .worktrees/
 
-# Superpowers brainstorming visual companion
-.superpowers/
-
 # omsp runtime mode state (per-project, not shared)
 .claude/omsp/
+
+# Local agent tooling (per-checkout, not shared)
+.agents/
+
+# Downstream probe build artifacts
+scripts/downstream-probe/.build/
+
+# CI gate logs written to repo root when reproducing locally
+*.log

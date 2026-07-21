@@ -26,8 +26,10 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 1. **资源调色板**（`Colors/ColorGrade.swift`）—— 17 种命名色相 × 10 个色阶（`brand-0`…`yellow-9`），由 `Resources.xcassets` 中的 color set 提供。通过 `Color("...", bundle: .module)` 加载。属于内部构造原料，组件代码中应避免直接使用。
 2. **系统色桥接**（`Colors/SystemBackgroundColors.swift`、`SystemLabelColors.swift`）—— 通过 `#if canImport(UIKit)` / `AppKit` 把 `UIColor` / `NSColor` 系统色重新导出为 `Color`，保证同一名称在两端平台都能编译。
-3. **语义化 token**——`SurfaceColors`、`ContentColors`、`BorderColors`、`FillColors`、`InteractionColors`、`StatusColors`。命名描述用途而非色相（`surfaceRaised`、`contentPrimary`、`accent`、`accentPressed`、`dangerForeground`）。
-4. **功能性别名**（`Colors/FunctionalColor.swift`）—— `Color.primary/secondary/tertiary`（含 `Active`/`Disable`/`Hover` 变体）、`success`、`info`、`warning`、`danger`。这是最高层的 API 表面。
+3. **语义化 token**——`SurfaceColors`、`ContentColors`、`BorderColors`、`FillColors`、`InteractionColors`、`StatusColors`。命名描述用途而非色相（`surfaceRaised`、`contentPrimary`、`accent`、`accentPressed`、`statusDangerForeground`）。
+4. **状态功能别名**（`Colors/FunctionalColor.swift`）—— `success`、`info`、`warning`、`danger` 及其现有变体。本层为 `public`，是最高层的 API 表面。
+
+   **交互色不在此层**——`accent` / `secondaryAccent` / `neutralAccent` 等走第 3 层 `InteractionColors`。该层曾定义 `Color.primary/secondary/tertiary` 三组，因与 SwiftUI 内建成员同名而遮蔽它们（删除时编译器不报错，只静默改变解析目标），已于 Issue #93 移除。
 
 新增组件时优先使用第 3、4 层名称。如果缺少需要的语义 token，应在对应文件中补充新名称，而不是把第 1 层色相硬编码进组件。
 
@@ -38,14 +40,14 @@ CoreDesign 通过 SwiftPM **Package Trait** 在编译期切换风格方案，调
 - `Package.swift` 声明 trait：默认 `.default(enabledTraits: [])`（= Craft 蓝色主题，零变化）；当前唯一非默认 trait 是 `Blossom`（暖悦风格 · 珊瑚粉糖果渐变女性向）。注意 `traits:` 参数必须排在 `products:` 之后（SwiftPM 参数顺序约束）。
 - 调用方启用：`.package(url: "...", traits: ["Blossom"])`，或在 Xcode package 依赖的 trait 勾选 UI 中开启。
 - 源码内用 `#if Blossom` 直接分流（trait 名可直接作为编译条件，无需 local trait 映射）。
-- **分流点压到最低**：只有资源层 `ColorGrade.brand0…9`、`SurfaceColors` 的三个 `surfaceCanvas*`、以及 `secondary` / `secondaryAccent` 两组语义别名带 `#if Blossom`。`accent` / `primary` 指向 `brand5` 自动继承；状态色 (`StatusColors`) 不分流，保持标准语义色。
+- **分流点压到最低**：只有资源层 `ColorGrade.brand0…9`、`SurfaceColors` 的三个 `surfaceCanvas*`、以及 `InteractionColors` 的 `secondaryAccent` 一组语义别名带 `#if Blossom`（共 8 处）。`accent` 指向 `brand5` 自动继承，`borderFocus` / `borderSelected` 又指向 `accent`；状态色 (`StatusColors`) 不分流，保持标准语义色。
 - Blossom 色板由 `Resources.xcassets/blossom-brand/*`、`blossom-canvas/*` 提供（light/dark 双值）。
 - 两种构建模式都需保持绿：`swift build` / `swift test`（默认）与 `swift build --traits Blossom` / `swift test --traits Blossom`（Blossom）。
 - **新增 colorset 后必须 `swift package clean` 再构建/测试**：macOS SPM 以目录形式而非 `.car` 分发 `.xcassets`，增量构建不会拷贝新加的目录，资源存在测试会静默失败。
 
 ### 渐变 token 层（CoreGradient）
 
-`Colors/CoreGradient.swift` 暴露 `CoreGradient.brand / cta / canvas`，类型为 `AnyShapeStyle`，使纯色与渐变可互换。Blossom 下为真实 `LinearGradient`，默认主题退化为对应纯色（`Color.accent` / `Color.surfaceCanvas`），现有观感零变化。组件可统一写 `.background(CoreGradient.canvas)` / `.fill(CoreGradient.cta)`。
+`Tokens/CoreGradient.swift` 暴露 `CoreGradient.brand / cta / canvas`，类型为 `AnyShapeStyle`，使纯色与渐变可互换。Blossom 下为真实 `LinearGradient`，默认主题退化为对应纯色（`Color.accent` / `Color.surfaceCanvas`），现有观感零变化。组件可统一写 `.background(CoreGradient.canvas)` / `.fill(CoreGradient.cta)`。
 
 ### 按钮样式模式
 
@@ -63,7 +65,7 @@ CoreDesign 通过 SwiftPM **Package Trait** 在编译期切换风格方案，调
 
 ### Modifier 约定
 
-可复用的 `ViewModifier` 放在 `Modifier/` 目录下；以 `View` 扩展形式暴露（如 `.bordered(...)`），而不是要求调用方写 `.modifier(BorderModifier(...))`。通用辅助方法（如 `.getSize`、`.focusedExternally`）放在 `Utils/`。
+可复用的 `ViewModifier` 放在 `Modifier/` 目录下；以 `View` 扩展形式暴露（如 `.bordered(...)`），而不是要求调用方写 `.modifier(BorderModifier(...))`。跨组件复用的纯辅助扩展放在 `Utils/`（目前仅 `ColorExtension.swift`）；只服务单个组件的辅助扩展与组件同文件（如 `.focusedExternally` 在 `BottomInputBar.swift`）。
 
 ### 资源加载
 

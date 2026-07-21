@@ -24,10 +24,10 @@ import SwiftUI
 /// `isMinimized` 为 `Binding<Bool>` 可选：`nil` 时不可折叠（始终展开）；
 /// 非 nil 时由调用方控制折叠/展开状态。
 public struct CommentCard<BodyContent: View>: View {
-    public let author: String
-    public let role: String?
-    public let timestamp: String
-    public let isMinimized: Binding<Bool>?
+    let author: String
+    let role: String?
+    let timestamp: String
+    let isMinimized: Binding<Bool>?
     @ViewBuilder let content: () -> BodyContent
 
     public init(
@@ -49,13 +49,16 @@ public struct CommentCard<BodyContent: View>: View {
             // Header
             HStack(spacing: CoreSpacing.xs) {
                 Text(self.author)
-                    .font(CoreTypography.bodyMediumFont)
+                    .coreFont(.bodyMedium)
                     .fontWeight(.semibold)
                 if let role = self.role {
                     Text(role)
-                        .font(.caption2)
+                        .coreFont(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, CoreSpacing.xs)
+                        // 1pt hairline 纵向内衬：刻意低于最小 spacing 档位（xxs=2pt），
+                        // 让 role badge 胶囊维持紧凑高度。无对应 token；snap 到 xxs 会使
+                        // 徽标可见变高，单点使用提常量属过度抽象 —— 保留裸值 + 本注释。
                         .padding(.vertical, 1)
                         .background(
                             Capsule()
@@ -68,7 +71,7 @@ public struct CommentCard<BodyContent: View>: View {
                 }
                 Spacer()
                 Text(self.timestamp)
-                    .font(CoreTypography.bodySmallFont)
+                    .coreFont(.bodySmall)
                     .foregroundStyle(.tertiary)
             }
 
@@ -76,13 +79,16 @@ public struct CommentCard<BodyContent: View>: View {
             if let binding = self.isMinimized, binding.wrappedValue {
                 HStack(spacing: CoreSpacing.sm) {
                     Text("This content has been minimized.")
-                        .font(CoreTypography.bodySmallFont)
+                        .coreFont(.bodySmall)
                         .foregroundStyle(.secondary)
                     Button("Show") {
                         binding.wrappedValue = false
                     }
-                    .font(CoreTypography.bodySmallFont)
-                    .foregroundStyle(Color.accent)
+                    .coreFont(.bodySmall)
+                    // 渐变 token 层的首个生产消费点（审计项 B7a）。默认主题下
+                    // `CoreGradient.brand` 就是 `AnyShapeStyle(Color.accent)`——与改前
+                    // 逐像素相同；Blossom 下自动变成珊瑚粉→玫红渐变。
+                    .foregroundStyle(CoreGradient.brand)
                     .accessibilityLabel("Show minimized comment")
                     .accessibilityHint("Expands the comment from \(self.author)")
                 }
@@ -91,14 +97,10 @@ public struct CommentCard<BodyContent: View>: View {
             }
         }
         .padding(CoreSpacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: CoreRadius.medium)
-                .fill(Color.surfaceCard)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: CoreRadius.medium)
-                .strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)
-        )
+        // 三件套（background + overlay + 圆角）收敛为语义 surface（审计项 B8c）。
+        // 两处受控变化：`.surface(_:)` 额外施加 `clipShape`（子视图会被裁到圆角内），
+        // 且用 `.continuous` 圆角而非手写时默认的 `.circular`。
+        .surface(.card)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Comment by \(self.author)")
     }

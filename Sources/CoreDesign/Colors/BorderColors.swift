@@ -40,17 +40,20 @@ public extension Color {
         .opaqueSeparator
     }
 
-    /// Primer `borderColor.accent.emphasis` (`base.color.blue.5`，light `#0969da` / dark `#1f6feb`)。
-    /// 替代旧的 focus ring 颜色（原 `focusRing` 已删除，无别名）。键盘 focus / 选中等强调描边专用。
-    /// 由 `border/border-focus.colorset` 提供 light/dark 双值。
+    /// 键盘 focus / 强调描边专用。指向 `accent` 别名，随 Blossom trait 自动继承，不单独分流。
+    ///
+    /// > 此前由独立的 `border/border-focus.colorset` 提供 Primer 蓝（light `#0969da` /
+    /// > dark `#1f6feb`），与紧邻的 `borderSelected` 各走各的取值——而下一行的注释却
+    /// > 声称两者「同源 `accent`」。Issue #93 让它们真的同源：都指向 `accent`，
+    /// > 默认主题下因此从 Primer 蓝变为品牌蓝，Blossom 下则跟随珊瑚粉。
     static var borderFocus: Color {
-        Color("border-focus", bundle: .module)
+        .accent
     }
 
-    /// Primer `borderColor.accent.emphasis` 在选中态的应用（与 `borderFocus` 同源 `accent`）。
-    /// 语义层面表示"已选中"而非"键盘 focus"，取值复用品牌色 `brand5` 以与项目品牌色保持一致。
+    /// 选中态描边。语义上表示"已选中"而非"键盘 focus"，但与 `borderFocus` 同源 `accent`——
+    /// 走别名而非直接引用第 1 层原子色，accent 重定向时自动跟随。
     static var borderSelected: Color {
-        .brand5
+        .accent
     }
 
     /// Primer `borderColor.emphasis` (`base.color.neutral.8`)。比 `borderDefault` / `borderStrong` 更具视觉重量，

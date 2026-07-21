@@ -31,18 +31,18 @@ public struct RefPill: View {
     public var body: some View {
         HStack(spacing: CoreSpacing.xs) {
             Image(systemName: "arrow.triangle.branch")
-                .font(.caption2)
+                .coreFont(.caption)
             if let ref = self.singleRef {
                 Text(ref)
-                    .font(.caption.monospaced())
+                    .coreFont(.captionMono)
             } else if let base = self.base, let head = self.head {
                 Text(base)
-                    .font(.caption.monospaced())
+                    .coreFont(.captionMono)
                 Image(systemName: "arrow.left")
-                    .font(.caption2)
+                    .coreFont(.caption)
                     .foregroundStyle(.secondary)
                 Text(head)
-                    .font(.caption.monospaced())
+                    .coreFont(.captionMono)
             }
         }
         .padding(.horizontal, CoreSpacing.sm)

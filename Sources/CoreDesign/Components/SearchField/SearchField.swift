@@ -95,7 +95,7 @@ public struct SearchField: View {
 
                 TextField(self.placeholder, text: self.$text)
                     .textFieldStyle(.plain)
-                    .font(CoreControlMetrics.font(for: .regular))
+                    .coreFont(CoreControlMetrics.fontToken(for: .regular))
                     .foregroundStyle(Color.contentPrimary)
                     .accessibilityLabel(self.placeholder.isEmpty ? "Search" : self.placeholder)
                     .focused(self.$isFocused)
@@ -157,14 +157,14 @@ private struct SearchFieldPreviewHost: View {
         VStack(alignment: .leading, spacing: CoreSpacing.lg) {
             VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                 Text("Empty (placeholder visible, no clear button)")
-                    .font(CoreTypography.captionFont)
+                    .coreFont(.caption)
                     .foregroundStyle(Color.contentMuted)
                 SearchField(text: self.$emptyText, placeholder: "Search")
             }
 
             VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                 Text("With text (clear button visible)")
-                    .font(CoreTypography.captionFont)
+                    .coreFont(.caption)
                     .foregroundStyle(Color.contentMuted)
                 SearchField(text: self.$filledText, placeholder: "Search") { submitted in
                     print("submitted: \(submitted)")
@@ -173,7 +173,7 @@ private struct SearchFieldPreviewHost: View {
 
             VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                 Text("Filled + focused (tap field → focus ring 2pt + clear button)")
-                    .font(CoreTypography.captionFont)
+                    .coreFont(.caption)
                     .foregroundStyle(Color.contentMuted)
                 SearchField(text: self.$filledText, placeholder: "Filter items")
             }

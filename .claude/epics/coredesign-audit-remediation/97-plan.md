@@ -1,0 +1,535 @@
+# 死代码清理与现代化 Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use oh-my-superpowers:subagent-driven-development (recommended) or oh-my-superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 删掉三个整文件的死代码、消除若干过时写法，并让 `CoreGradient` 这层抽象第一次被真实消费。
+
+**Architecture:** 以**删除**为主、现代化为辅。删除类改动的风险不在编译（编译器会报），而在**删过头**（连带删掉仍有价值的东西）与**删不干净**（文档/注释残留）。现代化类改动的风险相反：容易在「等价替换」的名义下引入观感变化。
+
+**Tech Stack:** SwiftPM / Swift 6 / SwiftUI，验证靠四条 SwiftPM 命令 + `#Preview` 视觉冒烟。
+
+## Global Constraints
+
+- **不得触碰 #96 的自有文件**（005 ∩ 006 = ∅ 必须保持）：四个 ButtonStyle、`ButtonRoleStyleRole.swift`、`Sidebar.swift`、`CoreMenuButton.swift`、`TelegramGlassButtonModifier.swift`。**B7a 的消费点选择是最容易失手的一处**——必须落在 `BookCover` 或 `CommentCard`。收尾用 basename 精确匹配自查（**不能用子串 grep**，`EmptyState`/`CommentCard`/`RefPill` 等同时是目录名，#96 踩过）。
+- 四条 SwiftPM 命令绿。**warning 判据本任务特殊**：基线 12 条全是 `EmptyState` deprecation，且**全部来自测试文件 `EmptyStateDeprecationTests.swift:10`**（实测；库编译本来就是 0 warning）。B9g 删掉该测试后归零是**恒真的**，与 grep 零残留判据重复——**不要把它当成独立的正向指标**。
+- **warning 采集必须编到测试 target**：`swift build` 不编测试，`swift test` 才首次编译它。用 `swift build --build-tests` 或以 `swift test` 的日志为准，否则那 12 条根本不出现在日志里。
+- **最终 warning 采集前必须 `swift package clean`**（热构建不重放诊断，#94/#96 的教训）。
+- 代码风格：显式 `self.`、中英双语注释、`// MARK: -`。**保留有设计说明价值的长注释**——拆分 `BottomInputBar` 的 body 时尤其注意（`autoFocus` 那段解释了为何必须在 bar 自身 `onAppear` 中执行）。
+- **注释里只写今天成立的理由**。#96 的 B2b 把「大字号下不裁切」写进注释，而字号当时根本不缩放，导致验证的是一件不可能发生的事、永远绿。本任务删代码时容易写出「删除后 X 不再发生」的同型陈述——写之前先确认 X 今天真的会发生。
+
+## 已实测的前置事实（不要重新推导）
+
+| 事实 | 影响 |
+|---|---|
+| 基线绿：101 tests / 33 suites passed，**warning 12 条全是 EmptyState deprecation** | B9g 删完应归零 |
+| `EmptyState.swift` 237 行、`View+SizeReader.swift` 51 行、`KeyboardHandling.swift` **167 行**（97.md 未给行数） | 三个整文件删除 |
+| `EmptyState` 在 **Swift 侧零消费**（仅 docs 提及）；`getSize` 唯一消费点 `BottomInputBar.swift:138`；`KeyboardHandling` 的全部符号只被自己与 `KeyboardHandlingTests.swift` 消费 | 三个删除都干净 |
+| `CoreRadius.full` 在**代码中零消费**，共 **7 处** doc/文档提及：`CoreRadius.swift:18`、`Avatar.swift:38`、`Badge.swift:43,58`、`Tag.swift:47`、**`docs/components/button.md:44`**、**`docs/components/badge.md:35`** | D10 这 7 处都要同步，否则 Step 5 的 grep（扫描范围含 `docs`）必然假红 |
+| `SegmentedControl.swift` 的 `@available` 有**三处**：`:205`、`:301`（恒真，要删）、`:222` 的 `@available(*, unavailable)`（**不能删**） | B9d 只删两处 |
+| `TimelineDepthKey` 在 `TimelineItem.swift:10`，测试引用在 `TimelineItemTests.swift:32`（97.md 写 `:30`，早两行） | B9b |
+| `BookCover.swift:74` 在 body 里调 `Self.image(from: data)`，实现在 `:95` | B9a |
+| 真实文件路径是 `Components/<Name>/<Name>.swift`（97.md 写的 `Components/CommentCard.swift` 等**少一层目录**） | 全任务 |
+
+## 两处必须先定的判断（97.md 的前提与实测不符）
+
+### 判断 1：B8d 的 `RefPill` **没有**对应的 `SurfaceKind`，不能按「等价替换」做
+
+97.md 说 `RefPill.swift:51-56` 是「同型手写 surface 三件套」，与 B8c 并列。实测三者的 token：
+
+| | background | border | cornerRadius |
+|---|---|---|---|
+| `CommentCard` 手写 | `surfaceCard` | `borderMuted` | `.medium` |
+| **`.surface(.card)`** | `surfaceCard` | `borderMuted` | `.medium` |
+| `RefPill` 手写 | **`surfaceCanvasInset`** | `borderMuted` | **`.small`** |
+| `.surface(.control)` | `surfaceInteractive` | `borderSubtle` | `.small` |
+| `.surface(.canvasSubtle)` | `surfaceCanvasSubtle` | `borderMuted` | `.medium` |
+
+**没有任何 `SurfaceKind` 的 background 是 `surfaceCanvasInset`。** 而且差异还有**第四项**：`SurfaceModifier` 构造的是 `RoundedRectangle(cornerRadius:style: .continuous)`，`RefPill` / `CommentCard` 手写的是默认 `.circular`——圆角**曲线类型**也不同。
+
+`RefPill` 换成任何现有 kind 都会改变背景色 + 圆角半径 + 圆角曲线三项——那是视觉回归，不是重复消除。
+
+处置：**B8c 做，B8d 撤销**。
+
+注意措辞——**不是「推迟给 #101」而是「前提不成立，撤销该审计项」**。97.md 说 RefPill 与 CommentCard「同型」，这个前提是假的；若标成「推迟」，#101 接手时会继承同一个错误前提再判断一次。`audit-checklist.md` 的 B8d 行要写清「实测无对应 SurfaceKind，原判定的『同型』不成立」，并附上上面那张表。
+
+若日后真要收敛，可选方向有三条（都不在本 epic 范围）：(a) 给 `SurfaceKind` 加 `.inset` case——是加法，本 epic Out of Scope 禁止；(b) 接受背景色变化，须列入 NFR 视觉例外；(c) 承认 `RefPill` 的取色是有意的、维持手写。
+
+### 判断 2：B8c 的 `.surface(.card)` 会**额外引入 `clipShape`**
+
+`SurfaceModifier` 的实现是三步：`background` + `overlay` + **`clipShape`**（见其 doc 注释第 3 条）。而 `CommentCard` 当前只有前两步。替换后子视图会被裁切到圆角内。
+
+`CommentCard` 的 content 是 `@ViewBuilder` 传入的任意视图（`:90` 的 `self.content()`），调用方可能放溢出元素。这是**行为变化**，不是纯重复消除。
+
+**还有第二处受控变化**：手写用的是默认 `.circular` 圆角，`SurfaceModifier` 用 `.continuous`。在 `CoreRadius.medium` 下这是肉眼可辨的形状差异。冒烟判据不能只看「内容有没有被裁」——**还要看圆角形状是否可接受**。
+
+（`CommentCard` 手写已经用的是 `strokeBorder` 而非 `stroke`，描边这一项无差异。）
+
+处置：仍然做。**判定依据是 API 语义决策**——裁切与 continuous 圆角都是 `.surface(.card)` 的既定语义，对 card 形态合理。
+
+> 冒烟只是兜底、**不能证否裁切风险**：两个 Preview 的 content 都是单行 `Text`（`:109`、`:121`），不可能溢出。冒烟绿只证明「本仓库自带用例不被裁」，不证明下游调用方安全。
+
+但仍**必须实看 `CommentCard` 的两个 `#Preview`**，并在 `audit-checklist.md` 的 B8c 行注明这**两处**受控变化。**若内容被裁掉或圆角明显走样，停下改为保留手写**。
+
+---
+
+### Task 1: 三个整文件删除（B9g、B4a、B4b、B4c、B4d）
+
+**Files:**
+- Delete: `Sources/CoreDesign/Components/EmptyState/EmptyState.swift`、`Tests/CoreDesignTests/EmptyStateDeprecationTests.swift`
+- Delete: `Sources/CoreDesign/Utils/View+SizeReader.swift`
+- Delete: `Sources/CoreDesign/Utils/KeyboardHandling.swift`、`Tests/CoreDesignTests/KeyboardHandlingTests.swift`
+- Modify: `Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift`（删 `textFieldSize` 与 `.getSize` 调用）
+- Modify: `CLAUDE.md`、`docs/README.md`、Delete: `docs/components/empty-state.md`
+
+- [ ] **Step 1: 先删 `textFieldSize`（B4a），它是 `View+SizeReader` 的唯一消费点**
+
+`BottomInputBar.swift` 中删除：`@State private var textFieldSize` 声明（约 `:87`）与 `.getSize(self.$textFieldSize)` 调用（约 `:138`）。先 grep 确认该变量确实只写不读：
+
+```bash
+grep -n 'textFieldSize' Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift
+```
+Expected: **恰好 2 行**（声明 + `.getSize` 写入）。若有第三行，说明它被读取，**停下**——B4a 的前提「写入后从不读取」不成立。
+
+- [ ] **Step 2: 删三个文件及两个测试**
+
+```bash
+git rm Sources/CoreDesign/Components/EmptyState/EmptyState.swift
+git rm Tests/CoreDesignTests/EmptyStateDeprecationTests.swift
+git rm Sources/CoreDesign/Utils/View+SizeReader.swift
+git rm Sources/CoreDesign/Utils/KeyboardHandling.swift
+git rm Tests/CoreDesignTests/KeyboardHandlingTests.swift
+rmdir Sources/CoreDesign/Components/EmptyState 2>/dev/null || true
+```
+
+- [ ] **Step 3: 文档同步（删除的连带义务）**
+
+- `CLAUDE.md` 的《Modifier 约定》末句：「通用辅助方法（如 `.getSize`、`.focusedExternally`）放在 `Utils/`」——删去 `.getSize`，保留 `.focusedExternally`（**先 grep 确认后者仍存在**）。
+- `docs/README.md:41`：删掉 EmptyState 的组件索引行。
+- `git rm docs/components/empty-state.md`。
+- **`docs/superpowers/` 下的历史 plan / spec 不改**（归档，它们记录的是当时的决策）。
+
+- [ ] **Step 4: 验证零残留 + warning 归零**
+
+```bash
+grep -rn '\bEmptyState\b' Sources Tests App docs/components docs/README.md CLAUDE.md 2>/dev/null; echo "EmptyState rc=$?"
+grep -rn 'getSize\|KeyboardReadable\|dismissKeyboardOnTap\|resignFirstResponder\|KeyboardHeightPublisherFactory\|becomeFirstResponder' Sources Tests App 2>/dev/null; echo "符号 rc=$?"
+```
+Expected: 两条都 `rc=1`、无匹配行。
+
+```bash
+swift package clean
+swift test > /tmp/t97a.log 2>&1; echo "test EXIT=$?"
+python3 -c "
+d=open('/tmp/t97a.log').read()
+w=[l for l in d.split(chr(10)) if 'warning:' in l]
+r=[l.strip()[:50] for l in d.split(chr(10)) if 'Test run with' in l]
+print(f'warning={len(w)} (预期 0)'); print(r[-1] if r else 'NO RESULT')"
+```
+Expected: `warning=0`。
+
+> **这一格是恒真的，不算通过证据。** 那 12 条全部来自刚被 Step 2 删掉的 `EmptyStateDeprecationTests.swift:10`——文件没了，warning 必然归零，与代码其余部分的状态无关。它只是 Step 4 那两条 grep「零残留」的重复确认。
+>
+> **本 Step 唯一有信息量的输出是测试数**：从 101 降到多少（删了两个测试文件）。**记下新数字**，Task 6 与 PR 描述都要用。
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add -A
+git commit -m "refactor!: 删除 EmptyState / View+SizeReader / KeyboardHandling 三个死代码文件（B9g、B4a-d）"
+```
+
+---
+
+### Task 2: `CoreGradient` 三项（B7a、B7b、B7c）
+
+**Files:**
+- Move: `Sources/CoreDesign/Colors/CoreGradient.swift` → `Sources/CoreDesign/Tokens/CoreGradient.swift`
+- Move: `Sources/CoreDesign/Colors/CoreGradient+Preview.swift` → `Sources/CoreDesign/Tokens/CoreGradient+Preview.swift`（B7c 要搬**两个**文件，只搬主文件等于只做一半）
+- Modify: 同文件（`static var` → `static let`）
+- Modify: `Sources/CoreDesign/Components/CommentCard/CommentCard.swift`（B7a 消费点，**不是 BookCover**——理由见 Step 2）
+- Modify: `CLAUDE.md`（《渐变 token 层》段的路径）
+
+- [ ] **Step 1: B7c 移动文件 + B7b 改 `static let`**
+
+```bash
+git mv Sources/CoreDesign/Colors/CoreGradient.swift Sources/CoreDesign/Tokens/CoreGradient.swift
+git mv Sources/CoreDesign/Colors/CoreGradient+Preview.swift Sources/CoreDesign/Tokens/CoreGradient+Preview.swift
+```
+
+**三处 `static var` → `static let` 逐个手改，不要用 sed。** 实测：`sed -i '' 's/...\(brand\|cta\|canvas\)...'` 在 BSD sed 上是**静默 no-op**——BRE 不支持 `\|` 交替（那是 GNU 扩展），0 处替换、退出码 0、无任何提示。后续 build 全绿，B7b 就这么悄悄没做了。这个失败模式比"产出不能编译的代码"危险得多，因为它不响。
+
+目标形态（实测：闭包**必须带 `()`**，否则报 `function produces expected type 'AnyShapeStyle'; did you mean to call it with '()'?`；`AnyShapeStyle` 是 Sendable，`public static let` 在 Swift 6 严格并发下无 warning）：
+
+```swift
+public static let brand: AnyShapeStyle = {
+    #if Blossom
+    AnyShapeStyle(LinearGradient(...))
+    #else
+    AnyShapeStyle(Color.accent)
+    #endif
+}()
+```
+
+机械判据：
+
+```bash
+F=Sources/CoreDesign/Tokens/CoreGradient.swift
+echo "static let: $(grep -c 'public static let' $F)  (预期 3)"
+echo "static var: $(grep -c 'public static var' $F)  (预期 0)"
+```
+
+同步 `CLAUDE.md`《渐变 token 层》段里的 `Colors/CoreGradient.swift` → `Tokens/CoreGradient.swift`。
+
+- [ ] **Step 2: B7a 让 `CommentCard` 真实消费 `CoreGradient`**
+
+**消费点必须在 `BookCover` 或 `CommentCard`**（Global Constraints）。选 **`CommentCard`**。
+
+> **不要选 `BookCover` 的占位背景。** 实测 `:76` 的 else 分支是 `BookCoverPlaceholder(title:)`——一个独立 View，其背景在 `:141-143` 是 `Color(text: displayTitle)` 驱动的 `LinearGradient`，即**按书名哈希取色**，`:115-135` 的 doc 注释把「同一书名总是得到同一颜色，跨设备跨会话一致」记为设计约定。换成 `CoreGradient.brand` 会让所有占位封面塌成同一个 accent 色，并使那段注释失真。
+
+改法：`CommentCard.swift:85` 的 `.foregroundStyle(Color.accent)` → `.foregroundStyle(CoreGradient.brand)`。
+
+**为什么这个点最优**：默认主题下 `CoreGradient.brand` 就是 `AnyShapeStyle(Color.accent)`，**逐像素零变化**；Blossom 下自动变成真渐变。既满足 B7a「真实消费」又无观感风险。
+
+先 Read `CommentCard.swift:85` 确认该行确实是 `Color.accent`——若已被 #93 改过，按实际的语义 token 找等价点。
+
+- [ ] **Step 3: 验证**
+
+```bash
+grep -rn 'CoreGradient\.' Sources/CoreDesign/Components/ --include='*.swift' | cat
+```
+Expected: 至少 1 行，在 `CommentCard.swift`。
+
+**判据必须限定 `Components/`**——扫 `Sources/CoreDesign/` 全域会命中 `Tokens/CoreGradient+Preview.swift`（Step 1 已从 `Colors/` 搬来）的 4 行（`:22,23,24,28`），那是 token 自己的 Preview 不是生产消费点，**基线就已满足「至少 1 行」**，是彻头彻尾的假绿。
+
+```bash
+swift build --build-tests > /tmp/t97b.log 2>&1; echo "build EXIT=$?"
+swift build --traits Blossom > /tmp/t97bb.log 2>&1; echo "blossom EXIT=$?"
+```
+Expected: 两条 EXIT=0。
+
+- [ ] **Step 4: 提交**
+
+```bash
+git add -A
+git commit -m "refactor: CoreGradient 移入 Tokens/、改 static let，并在 CommentCard 建立首个消费点（B7a-c）"
+```
+
+---
+
+### Task 3: 小改动批次（B9c、D8、B9d、B9f、D10）
+
+这五项互不相干且都是几行的删除/替换，合并为一个 Task 以减少验证轮次。**每项改完各自 grep 确认，最后统一编译。**
+
+**Files:** `Modifier/BorderModifier.swift`、**`Components/Banner.swift`（D8 的唯一生产消费点 `:223`，可能需同步 `:205` 的注释）**、`Components/SegmentedControl/SegmentedControl.swift`、`Components/CheckBox/CheckBox.swift`、`Tokens/CoreRadius.swift` + 6 处引用该 token 的 doc/文档
+
+- [ ] **Step 1: B9c + D8 —— `BorderModifier`**
+
+删除 `:31` 的 `bordered(color:)` 死重载（`Color` 已 conform `ShapeStyle`，与 `:27` 的 `bordered(style:)` 构成歧义——两者全默认参数，裸写 `.bordered()` 无法消歧）。
+
+D8：`:20-21` 从 `RoundedRectangle(cornerRadius: CoreRadius.none).stroke(...)` 改为 `strokeBorder`，并支持任意 **`InsettableShape`**（`strokeBorder` 只对该协议可用，`Capsule` / `Circle` / `RoundedRectangle` 都满足）。
+
+> ⚠️ **`var shape: some InsettableShape` 作存储属性编译不过**——opaque type 不能用于存储属性。必须把类型本身泛型化：
+>
+> ```swift
+> struct BorderModifier<S: InsettableShape>: ViewModifier {
+>     var shape: S
+>     var style: AnyShapeStyle
+>     var width: CGFloat
+>     // body: content.overlay(self.shape.strokeBorder(self.style, lineWidth: self.width))
+> }
+>
+> public extension View {
+>     func bordered(
+>         style: some ShapeStyle = Color.borderDefault,
+>         width: CGFloat = CoreBorderWidth.thin,
+>         shape: some InsettableShape = RoundedRectangle(cornerRadius: CoreRadius.none)
+>     ) -> some View {
+>         self.modifier(BorderModifier(shape: shape, style: AnyShapeStyle(style), width: width))
+>     }
+> }
+> ```
+> `View` 扩展的参数位可以用 `some`（那是隐式泛型），**只有存储属性不行**。
+
+> `stroke` 与 `strokeBorder` **不是等价替换**：前者以路径为中心向两侧各画半个线宽（越界 `width/2`），后者向内画。改后边框会向内收 `width/2`。`CoreBorderWidth.thin` 若是 1pt，差异是 0.5pt——**须在视觉冒烟里看 `.bordered()` 的消费点**。先 grep 消费点：
+> 实测唯一生产消费点是 **`Components/Banner.swift:223`**（`Rectangle().fill(palette.background).bordered(style: palette.border)`），另 `:205` 有一句引用它的 doc 注释。冒烟时看 `Banner` 的 `#Preview`。
+> ```bash
+> grep -rn '\.bordered(' Sources App --include='*.swift' | cat
+> ```
+
+- [ ] **Step 2: B9d —— 删两处恒真 `@available`**
+
+`SegmentedControl.swift:205` 与 `:301` 的 `@available(iOS 26.0, *)`（部署目标已 iOS 26+，恒真）。
+
+> **`:222` 的 `@available(*, unavailable)` 不能删**——那是有意的不可用标记，与恒真的可用性声明是两回事。删前逐行 Read 确认。
+
+- [ ] **Step 3: B9f —— 删 `CheckBox.swift:32` 的 `@MainActor @preconcurrency`**
+
+`ToggleStyle.makeBody` 的协议声明已携带隔离，这两个属性冗余。
+
+- [ ] **Step 4: D10 —— 删 `CoreRadius.full`**
+
+删 `Tokens/CoreRadius.swift:61` 的 `public static let full: CGFloat = 9999`。**同步 7 处**（实测：`CoreRadius.swift:18`、`Avatar.swift:38`、`Badge.swift:43,58`、`Tag.swift:47`、`docs/components/button.md:44`、`docs/components/badge.md:35`）——它们提到该 token 作为「pill 意图」的说明，删 token 后这些描述会指向不存在的符号。改写为指向 `Capsule()`（所有 pill 场景的实际做法）。
+
+- [ ] **Step 5: 统一验证**
+
+```bash
+grep -rn 'CoreRadius\.full' Sources App docs 2>/dev/null; echo "rc=$?"
+grep -n 'func bordered' Sources/CoreDesign/Modifier/BorderModifier.swift
+grep -c '@available(iOS 26.0, \*)' Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift
+grep -c '@MainActor @preconcurrency' Sources/CoreDesign/Components/CheckBox/CheckBox.swift
+```
+Expected: `rc=1`（无残留）；`bordered` 恰好 1 个重载；`@available(iOS 26.0, *)` 计数 **0**；`@MainActor @preconcurrency` 计数 **0**。
+
+```bash
+swift build --build-tests > /tmp/t97c.log 2>&1; echo "build EXIT=$?"
+swift test > /tmp/t97ct.log 2>&1; echo "test EXIT=$?"
+(cd scripts/downstream-probe && swift package clean >/dev/null 2>&1 && swift build > /tmp/t97cp.log 2>&1); echo "probe EXIT=$?"
+```
+
+**本 Step 含两处公开 API 删除 + 一处签名扩展**：删 `bordered(color:)` 重载、删 `CoreRadius.full`（两者是真破坏），给 `bordered(style:width:)` 追加**带默认值**的 shape 参数（对源码分发是兼容变更）。`BorderModifier` 类型本身是 internal，故 commit 标 `refactor!:` 且**此处就要跑 probe**——不能攒到 Task 6，否则若 probe 用到这些符号会在最后才炸。probe 必须 clean（增量构建不拾取删除，#96 实测过）。
+
+> **probe 红了不要就地改 probe 让它变绿**——那等于把守门的关卡拆掉。probe 红 = 真实的下游破坏，**停下报用户**，由用户决定是保留一个 deprecated shim 还是接受破坏。（实测当前 probe 不引用 `bordered` / `CoreRadius.full`，预期不会红。）
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add -A
+git commit -m "refactor!: 删死重载与死 token、BorderModifier 改 strokeBorder 并支持任意 InsettableShape、清理恒真 available 与冗余隔离属性（B9c、D8、B9d、B9f、D10）"
+```
+
+---
+
+### Task 4: 组件现代化（B8c、B9a、B9b）
+
+**Files:** `Components/CommentCard/CommentCard.swift`、`Components/BookCover/BookCover.swift`、`Components/TimelineItem/TimelineItem.swift`、`Tests/CoreDesignTests/TimelineItemTests.swift`
+
+- [ ] **Step 1: B8c —— `CommentCard` 三件套改 `.surface(.card)`**
+
+删除 `:94-101` 的 `.background(RoundedRectangle(.medium).fill(.surfaceCard))` + `.overlay(RoundedRectangle(.medium).strokeBorder(.borderMuted, .thin))`，改为 `.surface(.card)`。
+
+> 按《判断 2》：`.surface(.card)` 会**额外引入 `clipShape`**，子视图会被裁到圆角内。这是行为变化，**必须在 Preview 里实看**。若内容被裁掉，改回手写并在 checklist 注明。
+
+- [ ] **Step 2: B9a —— `BookCover` 的图片解码移出 body**
+
+`:74` 在 body 里调 `Self.image(from: data)`，列表滚动时每帧重解码。改法：把解码结果缓存进 `@State`，在 `.task(id: data)` 或 `.onChange(of: data)` 里做一次。
+
+> **不要**改成 `init` 里解码——`BookCover` 是 View，init 可能被频繁调用。用 `@State` + `.task(id:)` 是 SwiftUI 的惯用法。
+
+- [ ] **Step 3: B9b —— `TimelineItem` 的旧式 `EnvironmentKey` 改 `@Entry`**
+
+`:8-19` 的 `TimelineDepthKey` + `EnvironmentValues` 扩展（10 行）改为 `@Entry var timelineDepth: Int = 0`（3 行），与 `Toast.swift` / `Banner.swift` 的既有写法一致。
+
+**同步改 `Tests/CoreDesignTests/TimelineItemTests.swift:32`**（实测行号，97.md 写的 `:30` 早两行）——它直接引用 `TimelineDepthKey.defaultValue`，删除该类型后会编译失败。改为断言 `EnvironmentValues().timelineDepth == 0`。
+
+- [ ] **Step 4: 验证**
+
+```bash
+grep -rn 'TimelineDepthKey' Sources Tests 2>/dev/null; echo "rc=$?"
+swift build --build-tests > /tmp/t97d.log 2>&1; echo "build EXIT=$?"
+swift test > /tmp/t97dt.log 2>&1; echo "test EXIT=$?"
+```
+Expected: `rc=1`；两条 EXIT=0。
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add -A
+git commit -m "refactor: CommentCard 收敛 surface、BookCover 解码移出 body、TimelineItem 改 @Entry（B8c、B9a、B9b）"
+```
+
+---
+
+### Task 5: `BottomInputBar` body 拆分（B8h）
+
+**Files:** `Components/BottomInputBar/BottomInputBar.swift`
+
+这是本任务最大的单项。`BottomInputBarModifier` 声明在 `:313`，其 `body` 是全库唯一超 50 行的 body。
+
+- [ ] **Step 1: 先量真实边界**
+
+```bash
+python3 - <<'EOF'
+import re
+src=open('Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift').read().split('\n')
+st=next(i for i,l in enumerate(src) if 'struct BottomInputBarModifier' in l)
+bs=next(i for i in range(st,len(src)) if re.search(r'func body\(content', src[i]))
+d=0
+for i in range(bs,len(src)):
+    d+=src[i].count('{')-src[i].count('}')
+    if d==0 and i>bs: be=i; break
+print(f'body: {bs+1}-{be+1}  共 {be-bs+1} 行')
+EOF
+```
+**记下实测行数**（97.md 说 78 行、`:361-438`，但 Task 1 删了 `textFieldSize` 两行，坐标已漂移）。
+
+- [ ] **Step 2: 收敛两个 `onChange` —— 但**不是**同构合并**
+
+> ⚠️ **97.md 说这两个 handler「同构」，实测不成立。** show 条件相同，**hide 条件不同**，且两者都有隐含的第三分支「什么都不做」：
+>
+> | handler | show | hide | 否则 |
+> |---|---|---|---|
+> | `onChange(of: suggestions)` | `autoShow && !new.isEmpty` | `new.isEmpty && isShowing` | 不动 |
+> | `onChange(of: autoShowSuggestions)` | `new && !suggestions.isEmpty` | `!new && isShowing` | 不动 |
+>
+> 按 97.md 给的签名 `syncSuggestionsVisibility(shouldShow:)` 合并，等价于 `shouldShow = autoShow && !suggestions.isEmpty`、hide 变成 `!shouldShow`。**反例**：`autoShow == false`、suggestions 非空、用户已手动展开——此时 suggestions 数组更新，原代码保持展开（落进「不动」分支），合并后会**强制收起**。`autoShow` 由 false→true 且 suggestions 为空时同理。
+>
+> **不要沿用 97.md 的签名。**
+
+两条可行改法，二选一：
+
+**(a) 只抽公共谓词**（推荐，风险最低）——保留两个 `onChange`，把重复的 `withAnimation(.snappy(duration: 0.2)) { self.isShowingSuggestions = ... }` 抽成 `private func setSuggestionsVisible(_ visible: Bool)`。消除的是动画包装的重复，不碰条件逻辑。
+
+**(b) 三态签名**——`syncSuggestionsVisibility(_ desired: Bool?)`，`nil` 表示「不动」。两个调用点各自算出 `Bool?` 再传入。表达力够，但把条件逻辑留在调用点，收敛收益有限。
+
+**选 (a)。** B8h 的验收口径是「拆分子视图 + 合并同构 onChange + 收敛 chip 样式」，其中「同构」这个前提已被证伪——如实收敛到证据支持的程度即可，不要为了字面达标而改变行为。**在 `audit-checklist.md` 的 B8h 行写明这一点。**
+
+- [ ] **Step 3: 拆子视图 + 收敛重复的 chip 样式**
+
+**拆分的硬约束**：`body` 的签名是 `func body(content: Content)`，**只有不引用 `content` 的片段才能提为 `private var`**。实测两个 `safeAreaBar` 的闭包内容都不引用 `content`——`content` 只出现在链的起点。所以可拆，但遇到需要 `content` 的片段时必须保留在 `body` 内（或改成收 `Content` 参数的方法）。
+
+chip 样式的两处（`:297-308` 与 `:374-381`，**与 body 坐标同样因 Task 1 删两行而各 −2，以 grep 定位不要按行号**）**跨类型**：前者在 `BottomInputBarSuggestionsView`、后者在 `BottomInputBarModifier.body` 内。跨类型收敛需要一个**文件级 `private` 的 `ViewModifier` 或 `View` 扩展**——放在 `BottomInputBar.swift` 文件末尾的 `// MARK: - Private helpers` 段下，不要新建文件（它只服务本文件）。
+
+> **保留长注释**：`autoFocus` 那段解释了为何必须在 bar 自身 `onAppear` 中执行，拆分时别丢。
+
+- [ ] **Step 4: 验证 body 已降到 50 行以下**
+
+重跑 Step 1 的脚本。Expected: ≤50 行。
+
+> 该脚本用花括号配平，**不排除字符串字面量与注释**。本 body 当前的中文注释与 `"换一批"` 等字面量都不含花括号，暂时安全；但作为通过判据它是脆的——**数字当参考，最终以 Read 目视确认为准**。
+
+```bash
+swift build --build-tests > /tmp/t97e.log 2>&1; echo "build EXIT=$?"
+swift test > /tmp/t97et.log 2>&1; echo "test EXIT=$?"
+```
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add -A
+git commit -m "refactor: 拆分 BottomInputBarModifier.body、抽取 chip 样式与 setSuggestionsVisible（B8h；onChange 未合并——「同构」前提经实测不成立）"
+```
+
+---
+
+### Task 6: 全量验证 + 审计清单 + 交接记录
+
+- [ ] **Step 1: 并行硬约束自查（basename 精确匹配）**
+
+```bash
+git diff --name-only epic/coredesign-audit-remediation..HEAD \
+  | xargs -n1 basename \
+  | grep -Fx -f <(printf '%s\n' \
+      SolidButtonStyle.swift LightButtonStyle.swift CoreBorderlessButtonStyle.swift \
+      CircularGlassButtonStyle.swift ButtonRoleStyleRole.swift Sidebar.swift \
+      CoreMenuButton.swift TelegramGlassButtonModifier.swift)
+echo "rc=$?  (预期 1)"
+```
+**必须 basename 精确匹配**——`CommentCard`/`RefPill`/`BookCover` 等同时是目录名，子串 grep 会误判（#96 踩过）。
+
+- [ ] **Step 2: 四条 SwiftPM 命令（clean 后冷跑）**
+
+```bash
+LOGDIR="${TMPDIR:-/tmp}/coredesign-97"; mkdir -p "$LOGDIR"
+swift package clean
+swift build                  > "$LOGDIR/b.log"  2>&1; echo "build          EXIT=$?"
+swift test                   > "$LOGDIR/t.log"  2>&1; echo "test           EXIT=$?"
+swift build --traits Blossom > "$LOGDIR/bb.log" 2>&1; echo "build-blossom  EXIT=$?"
+swift test  --traits Blossom > "$LOGDIR/tb.log" 2>&1; echo "test-blossom   EXIT=$?"
+(cd scripts/downstream-probe && swift package clean >/dev/null 2>&1 && swift build > "$LOGDIR/p.log" 2>&1); echo "probe(clean)   EXIT=$?"
+```
+
+**warning 判据本任务是绝对零，不是「不新增」**：
+
+```bash
+python3 - <<EOF
+import os
+for f in ['b','t','bb','tb']:
+    d=open(os.path.join("$LOGDIR",f+'.log')).read()
+    assert d, f+'.log 为空'
+    w=[l for l in d.split('\n') if 'warning:' in l]
+    r=[l.strip()[:50] for l in d.split('\n') if 'Test run with' in l]
+    print(f"{f}: warning={len(w)} (预期 0) {r[-1] if r else ''}")
+    for l in w[:5]: print('   !!', l.strip()[:150])
+EOF
+```
+Expected: **四份全部 `warning=0`**，但两类日志承载的信号不同，别搞反：
+
+| 日志 | 承载什么 | 基线值 |
+|---|---|---|
+| `b.log` / `bb.log`（`swift build`） | **库** target 的诊断 | 本来就 0——这一格是基线就满足的，不构成新信息 |
+| `t.log` / `tb.log`（`swift test`） | **测试** target 的诊断（`swift build` 不编测试，`swift test` 才首次编它） | **12**，全部来自 `EmptyStateDeprecationTests.swift:10` |
+
+**真正有信号的是 `t.log` / `tb.log`**——那 12 条在这里出现、也在这里归零。上一版计划把口径写反了（说 t/tb 是空判据），实测证伪。
+
+> 仍需注意热构建：Step 2 只在开头 clean 一次，`swift test` 跑在 `swift build` 之上，所以**库**的诊断确实不会在 t/tb 里重放；但**测试** target 是在 `swift test` 时首次编译的，其诊断如实出现。两者不要混为一谈。
+
+> probe 必须 clean 后构建——本任务删了公开符号，probe 的增量构建可能不拾取（#96 实测过同类假信号）。
+
+- [ ] **Step 3: 视觉冒烟（AC 明列，本任务尤其不可省）**
+
+本任务有**三处受控变化**需实看（逐项打勾）：
+
+| 组件 | 看什么 |
+|---|---|
+| `CommentCard`（两个 Preview 都看） | **受控变化 1**：`.surface(.card)` 引入的 `clipShape` 是否裁掉内容 |
+| `CommentCard`（同上） | **受控变化 2**：圆角从 `.circular` 变 `.continuous` 后形状是否可接受 |
+| `Banner` | **受控变化 3**：D8 的 `stroke` → `strokeBorder`，边框向内收 `width/2`（唯一生产消费点 `:223`）|
+| `CommentCard` 的 `#Preview("Minimized")` | **零变化核对**（不是受控变化）：B7a 的 `CoreGradient.brand` 在默认主题下应与改前**逐像素相同** |
+
+**B7a 的冒烟必须看 `#Preview("Minimized")`（`CommentCard.swift:114`），不是 `"Normal"`。** `:85` 位于 `if let binding = self.isMinimized, binding.wrappedValue` 分支内，只在最小化态渲染——看 Normal 等于验证一件不会发生的事（正是 Global Constraints 里那条自我警告的模式）。默认与 Blossom 两种 trait 都要看：默认应与改前逐像素相同、Blossom 应显示真渐变。
+
+B8c 的 clipShape 与圆角变化则**两个 Preview 都看**。
+
+另需常规冒烟：`BookCover`（B9a 解码改动）、`RefPill`（未改，作对照）、`BottomInputBar`（body 拆分后）、`SegmentedControl`、`TimelineItem`。
+
+**跑法**（不要用 `scripts/run-snapshots.sh`——它 `rm -rf docs/snapshots` 会删掉已提交的文档图，且删掉 `CoreDesign_*` 即库内 Preview 产物）：
+
+```bash
+SNAP="${TMPDIR:-/tmp}/snap97"; rm -rf "$SNAP"; mkdir -p "$SNAP"
+xcodegen generate --spec App/project.yml > /dev/null 2>&1
+git checkout -- App/CoreDesignPreview.xcodeproj/xcshareddata/ 2>/dev/null || true
+TEST_RUNNER_SNAPSHOTS_EXPORT_DIR="$SNAP" \
+xcodebuild test -project App/CoreDesignPreview.xcodeproj -scheme CoreDesignPreview \
+  -only-testing:SnapshotTests -destination "platform=iOS Simulator,name=iPhone 17 Pro" \
+  CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO -quiet > /tmp/snap97.log 2>&1
+echo "snapshot EXIT=$?"; ls "$SNAP" | wc -l
+```
+
+**跑完 `git checkout -- App/CoreDesignPreview.xcodeproj/project.pbxproj`** 回退 xcodegen 的重新生成噪音（#96 踩过）。
+
+- [ ] **Step 4: 更新审计清单**
+
+**17 项**标 `✅ **已修复**（GitHub #97）——<做法>。原缺陷：<原文保留>`，沿用 #93/#94/#96 的写法。**B8d 单独标为「撤销」**并写明前提不成立的理由与那张 token 对照表（判断 1）。B8c 注明**两处**受控变化（`clipShape` 与 `.circular` → `.continuous` 圆角曲线）。
+
+计数校验：
+```bash
+echo $(( $(grep -c '^| [A-D][0-9]' .claude/epics/coredesign-audit-remediation/audit-checklist.md) - 4 ))
+```
+Expected: `83`——**这是回归护栏，不是完成证据**（基线就已是 83）。它保证编辑清单时没有增删行，与 SC-7 的「各项状态是否更新」是两回事。
+
+**坐标清扫**（#94/#96 的教训，两维都要）：本任务删了三个文件、改了 `BottomInputBar` / `CommentCard` / `BookCover` / `TimelineItem` / `SegmentedControl` / `CoreRadius` 的行号。逐条 Read 确认，**不要凭推理**：
+
+```bash
+grep -rn 'BottomInputBar\.swift:\|CommentCard\.swift:\|BookCover\.swift:\|TimelineItem\.swift:\|SegmentedControl\.swift:\|CoreRadius\.swift:\|RefPill\.swift:\|CoreGradient\.swift:\|EmptyState\|View+SizeReader\|KeyboardHandling' \
+  .claude/epics/coredesign-audit-remediation/*.md
+```
+
+- [ ] **Step 5: 写 `updates/97/progress.md`**
+
+必须落进去的：17 项各自做法、**B8d 撤销的理由（前提不成立，非「推迟」）**、三处受控变化及冒烟结论、删除后的测试数与 warning 归零、给 #95/#99/#100/#101/#102 的交接（尤其：`KeyboardHandlingTests.swift` 已删，#98 的保留名单须以此为前提）。
+
+- [ ] **Step 6: 提交**
+
+```bash
+git status --porcelain
+git add .claude/epics/coredesign-audit-remediation/
+git commit -m "docs(ccpm): 更新 #97 审计清单状态、坐标清扫与完成记录"
+```
+
+---
+
+## 收尾
+
+`verification-before-completion` → `finishing-a-development-branch` Option 2 开 PR（**base = `epic/coredesign-audit-remediation`**）→ Copilot 不可用，按 §3.6 降级为 `superpowers-reviewer` 并在 PR 留顶层评论。
+
+PR 描述必须包含：warning 12 → 0、测试数变化、B8d 不做的理由、三处受控变化的冒烟结论。

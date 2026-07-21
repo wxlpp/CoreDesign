@@ -178,11 +178,11 @@ private struct ToastSnapshotHarness: View {
 
 #Preview("StateLabel") {
     VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-        StateLabel(.active)
-        StateLabel(.draft)
-        StateLabel(.completed)
-        StateLabel(.cancelled)
-        StateLabel(.active, label: "In Progress")
+        StateLabel(style: .active)
+        StateLabel(style: .draft)
+        StateLabel(style: .completed)
+        StateLabel(style: .cancelled)
+        StateLabel(style: .active, label: "In Progress")
     }
     .padding()
 }

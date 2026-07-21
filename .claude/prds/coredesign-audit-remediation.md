@@ -84,9 +84,9 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 **验收标准：**
 - `borderFocus` 在 Blossom 下跟随品牌色（珊瑚粉）。**默认主题下它同时会从 Primer 蓝 `#0969DA` 变为品牌蓝 `#0077FA`**——这是别名继承方案的必然代价，已列入 NFR 视觉例外
 - `statusSuccess`/`statusAttention`/`statusDanger` 在两个主题下保持标准语义色（绿/橙/红），不分流
-- `statusAccent*` 整组删除（见 FR-1）——它在库内零消费点、语义与 accent 家族重复、且 `statusAccentEmphasis` 的 light 值存在 colorset 笔误
+- `statusAccent*` **保留**（原判整组删除，已于 #93 执行期改判）——删它与 FR-1 自身的 legacy 迁移冲突：新体系只有 `accent` 一个蓝色家族，而它正是 Primer 的 info 语义。改为修正**五组** `emphasis` 的 light 值（原判「accent 单组笔误」经横向比对为系统性错误）
 - **同一语义的重复分流点归零**：violet secondary 分流从 2 份（`FunctionalColor` + `InteractionColors`）合并为 1 份
-- **全库 `#if Blossom` 总数 9 → 8**（净减 1）。`borderFocus` 跟随品牌通过**指向 accent 家族别名**实现，不新增 `#if`——与 `borderSelected` 的既有处理一致；`statusAccent*` 因整组删除而不涉及分流
+- **全库 `#if Blossom` 总数 9 → 8**（净减 1）。`borderFocus` 跟随品牌通过**指向 accent 家族别名**实现，不新增 `#if`——与 `borderSelected` 的既有处理一致；`statusAccent*` 保留但本就不分流（`StatusColors` 全组无 trait 分支），故不影响计数
 - 存在测试断言 trait 分流后 token 指向不同且值正确的颜色——默认 `accent` → `brand-5` → light `#0077FA`，Blossom → `blossom-brand-5` → light `#FF6F8E`（断言取 light 值；dark 值分别为 `#3295FB` / `#D15F82`）
 - `BorderColors.swift:50` 与代码矛盾的注释被修正
 
@@ -125,7 +125,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
 - `danger` 基准 `red4` → `red5`，与同组的 5 档基准对齐
 - `borderSelected` → `.accent`；`selectionBackgroundEmphasis` 走命名别名，消除层级违规
 - `borderFocus` → `.accent`。**通过别名继承实现 Blossom 跟随，不新增 `#if Blossom`**。副作用：默认主题下 focus ring 从 `#0969DA` 变为 `#0077FA`，影响 `FocusRingModifier.swift:106`（默认参数）与 `SearchField.swift:136` 两个真实渲染点，已列入 NFR 例外
-- **`statusAccent*` 整组删除**，而非映射到 accent 别名。理由：(a) 库内零渲染消费点（grep 证实除定义外无引用）；(b) 各档位无法干净映射——`statusAccentEmphasis` light 是淡蓝洗色 `#DDF4FF`、`statusAccentMuted`/`Subtle` 的 dark 值是 13.3%/6.7% alpha 叠加，而 accent 家族全是不透明纯色，叠在不同 surface 上不可等价；(c) 语义与 accent 家族重复；(d) `statusAccentEmphasis` 的 light 值与 `statusAccentMuted` 完全相同而注释写 "bold accent background"，系 colorset 笔误（审计项 D19）。下游若需中性强调色，直接用 accent 家族
+- **`statusAccent*` 保留**（原 AD-2 定为整组删除，已于 #93 执行期改判）。删除它与本 FR 自身的 legacy 迁移要求**互斥**：新体系只有 `accent` 一个蓝色家族，而它正是 Primer 的 info 语义，`Banner`/`Toast`/`Badge` 的 legacy `info*` 只能迁到它。原判据 (a)「库内零渲染消费点」恰恰因为 info 当时走 legacy——迁移一做即失效。原判据 (d) 的「accent 单组笔误」经横向比对亦不成立：五组 `*-emphasis` 的 light 值**逐组等于同组 `*-muted`**，是系统性错误，改为一并修正
 - `StatusColors` 新体系补 `*Border` 档，`Toast`/`Badge`/`Banner`/**`Form`** 全量迁移（`Form.swift:101` 使用 legacy `Color.dangerForeground`，`:92,99` 文档注释同样引用，漏改会直接编译失败），legacy 组（`StatusColors.swift:63-77`）删除
 - 同步更新 CLAUDE.md 分层描述
 - **`#2` 的仓内触及清单**（删除 token 会波及但不一定报错的地方，须逐一处理）：
@@ -133,7 +133,7 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
   - `App/Sources/Previews.swift:233` —— `Circle().fill(Color.statusAccentEmphasis)`，须改用其它 token 或删除该色块
   - `Sources/CoreDesign/Components/StatusRow/StatusRow.swift:80` —— **最危险的一处，在产品代码里**。`case .skipped: return .secondary` 处于返回 `Color` 的上下文，今天解析到 `FunctionalColor.secondary`（默认 `lightBlue5`、Blossom 下 `violet5`），即 skipped 行图标当前渲染成浅蓝/紫罗兰而非作者意图的系统灰。删除后此行**不报错**，静默改解析到 SwiftUI 内建灰——恰好"治好"这个 bug，但属未声明的产品视觉变化，须在 `#2` 中显式改写并记入 NFR 视觉例外
   - `Sources/CoreDesign/Colors/CoreGradient+Preview.swift:17` —— `RoundedRectangle(...).fill(Color.secondary)`，同型静默重解析。Blossom 视觉冒烟 Preview 的色块会从 violet 悄悄变灰。须显式改为期望的语义 token
-  - 删除 `status-accent-{fg,emphasis,muted,subtle}.colorset` 四个资源目录，避免留下孤儿资产（含 D19 的笔误 colorset）
+  - 修正五组 `status-{accent,success,attention,danger,done}-emphasis.colorset` 的 light 值（原为同组 muted 值，应为各组 `fg` 同色）；四个 `status-accent-*.colorset` **保留**
   - `docs/components/` 下引用被删 token 的示例：`timeline-item.md:24`（`statusAccentEmphasis`）、`form-icons.md:27,67`、`banner.md:34`、`toast.md:65`（legacy token）。`docs/superpowers/plans/` 下的历史计划文档是归档，不改
   - **源码内注释**同样引用被删 legacy token，漏改只是文档漂移不报错，须逐一处理：`Toast.swift:18`、`Banner.swift:26,68,167,201`、`Badge.swift:55`、`Form.swift:92,99`
 
@@ -226,9 +226,30 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
   2. Blossom 下 `borderFocus` 转品牌色
   3. **默认主题下 `borderFocus` 从 Primer 蓝 `#0969DA`/`#1F6FEB` 统一到品牌 accent `#0077FA`/`#3295FB`**——别名继承方案的必然代价，影响 `SearchField` focus ring 与 `.focusRing()` 默认参数
   4. Dynamic Type 缩放生效
-  5. **7 处系统字号 → token 的字号归一**（`.subheadline` 为 15pt，无精确对应 token，迁移必有小幅字号变化）
-  6. `statusAccent*` 整组移除。库内**零渲染消费点**（`Sources/` 仅有定义），故产品代码观感无变化；但仓内仍有引用须同步处理（完整清单见 FR-1）——影响渲染的两处是 `Tests/CoreDesignTests/StatusColorsTests.swift:10-13` 与 `App/Sources/Previews.swift:233`（预览宿主的一个色块，删除后该色块消失），另有 `docs/components/timeline-item.md:24` 属文档漂移不影响渲染
-  7. **`StatusRow` 的 skipped 图标从浅蓝（Blossom 下紫罗兰）变为系统灰**——这是修复 A1 遮蔽的直接结果，即把该图标恢复成作者原本意图的中性色
+  5. **7 处系统字号 → token 的字号归一**（#95 执行期实测的具体变化）：
+     - `.subheadline`（15pt）→ `.bodyLarge`（16pt）：`BottomInputBar` 的 chip，+1pt
+     - `.caption2`（≈11pt）→ `.caption`（12pt）：`AvatarGroup` / `StateLabel` / `CommentCard` / `RefPill` 五处，+1pt（`CoreTypography` 无 11pt 档，`caption` 12 是最近的缩放档）
+     - `.caption`（12pt）→ `.caption`（12pt）：`StatusRow`，精确对应无变化
+     - `.caption.monospaced()` → `.captionMono`（12pt 等宽）：`RefPill` ×3 + `ListRow`，等宽保留
+     - **`captionSmall` 明确不缩放**：AC 原写「10 个 token 全缩放」，`captionSmall`（9pt 紧凑 chrome）有既有设计约束「故意不缩放」（放大会撑爆 tab 角标/status bar），经用户确认改为「9 缩放 + captionSmall 固定」
+  6. ~~`statusAccent*` 整组移除~~ —— **已在 #93 执行时改判为保留**。删除它与 FR-1 自身的 legacy 迁移要求冲突：新体系只有 `accent` 一个蓝色家族，而它正是 Primer 的 info 语义，`Banner`/`Toast`/`Badge` 的 legacy `info*` 只能迁到它。原判据「库内零渲染消费点」在迁移完成后不再成立
+  7. **五组 `status-*-emphasis` 的 light 值修正**（`accent`/`success`/`attention`/`danger`/`done`）。原 D19 记为「accent 单组 colorset 笔误」，横向比对发现五组全部把 emphasis 填成了同组 muted 的值；Primer 语义里 emphasis 是饱和实色。修正后该档才真正可用
+  8. **legacy → 新体系迁移的 light 值变化（8 处，含一处色相改变）**。迁移不是等值替换——两套 scale 取自不同来源（legacy 走本仓库原子色 ramp，新体系走 Primer colorset）：
+
+     | 语义 | 档 | legacy | 新体系 |
+     |---|---|---|---|
+     | info | fg / bg | `#004FB3` / `#CBE7FE` | `#0969DA` / `#DDF4FF` |
+     | success | fg / bg | `#25772F` / `#D0F0D1` | `#1F883D` / `#AFF5B5` |
+     | **warning** | **fg** | **`#A84A00`（橙）** | **`#9A6700`（橄榄黄）← 色相改变** |
+     | warning | bg | `#FEEECC` | `#F8E3A1` |
+     | danger | fg / bg | `#B2140C` / `#FEDDD2` | `#CF222E` / `#FFC1BA` |
+
+     影响 `Banner` / `Toast` / `Badge` 三个组件。warning 的橙→黄最明显——它从暖橙转为 Primer 的 attention 黄。这是「统一到 Primer 体系」的必然结果，不是回归。
+
+     **border 档不变**：新增的 `status-*-border` 沿用 legacy 的原子色 3 档原值（`#65B2FC`/`#7DD182`/`#FDC165`/`#FB9078`），故 `Badge` / `Banner` 的边框 light 观感保持不变。
+
+  9. **legacy → 新体系迁移的 dark 观感变化**：legacy 用不透明原子色（如 `blue-1` dark `#0A4694`），新体系 dark 是 alpha 叠加（如 `#1F6FEB @13.3%`）。迁移后 dark 模式下状态背景从实色变为半透明叠加。这是 Primer 的标准做法（能随底层 surface 自适应），比 legacy 写死实色更正确
+  10. **`StatusRow` 的 skipped 图标从浅蓝（Blossom 下紫罗兰）变为系统灰**——修复 A1 遮蔽的直接结果，即把该图标恢复成作者原本意图的中性色
 - **性能**：消除 body 内的重复图片解码与每帧 `AnyShapeStyle` 装箱
 - **代码风格**：遵循仓库既有约定（显式 `self.`、中英双语注释、`#Preview` 与组件同文件）
 

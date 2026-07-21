@@ -31,7 +31,7 @@ public struct ProgressIndicator: View {
             // 解析到 SwiftUI 自带的环境 accent，而不是 CoreDesign 的 Primer brand 色。
             .tint(Color.accent)
             .controlSize(self.controlSize)
-            .accessibilityLabel("Loading")
+            .accessibilityLabel(Text("Loading", bundle: .module))
     }
 }
 

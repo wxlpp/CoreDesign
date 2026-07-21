@@ -27,7 +27,7 @@ import CoreGraphics
 ///         )
 ///     )
 /// ```
-public enum CoreButtonMetrics {
+public nonisolated enum CoreButtonMetrics {
     /// 底色内缩量 (2pt)。让底色从玻璃壳边缘微微透出，形成 Telegram 分层按钮的视觉纵深。
     /// 通过 `InsettableShape.inset(by:)` 应用于底色 path，不要用 `.padding` 替代。
     public static let glassInset: CGFloat = 2

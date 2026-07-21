@@ -150,7 +150,7 @@ private struct UnderlinedTabItem: View {
         Button(action: self.action) {
             VStack(spacing: CoreSpacing.sm) {
                 Text(self.title)
-                    .font(CoreTypography.bodyMediumFont)
+                    .coreFont(.bodyMedium)
                     .fontWeight(self.isSelected ? .semibold : .regular)
                     .foregroundStyle(self.isSelected ? Color.contentPrimary : Color.contentSecondary)
                     .padding(.horizontal, CoreSpacing.md)
@@ -173,6 +173,7 @@ private struct UnderlinedTabItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(self.isSelected ? .isSelected : [])
     }
 }
 

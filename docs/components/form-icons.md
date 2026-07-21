@@ -24,7 +24,7 @@ ChevronRightIcon()
 
 ### DangerIcon
 
-无参数。渲染 `exclamationmark.circle.fill`，前景固定为 `Color.dangerForeground`。
+无参数。渲染 `exclamationmark.circle.fill`，前景固定为 `Color.statusDangerForeground`。
 
 ```swift
 DangerIcon()
@@ -64,4 +64,4 @@ LabeledContent {
 - LabelIcon 底层 tile 边长：`CoreControlMetrics.iconSize(for: .extraLarge)`（24pt）
 - LabelIcon 上层 glyph 边长：`CoreControlMetrics.iconSize(for: .regular)`（16pt）
 - LabelIcon 反白色：`Color.contentInverse`
-- DangerIcon 前景：`Color.dangerForeground`
+- DangerIcon 前景：`Color.statusDangerForeground`

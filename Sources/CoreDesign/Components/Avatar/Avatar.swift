@@ -35,7 +35,7 @@ public struct Avatar: View {
     }
 
     /// 内部位图边长。Avatar 圆角语义由调用方 `clipShape(Circle())` 保证（对应
-    /// `CoreRadius.full` 的 pill / 头像意图），本结构不在内部 `cornerRadius` 字面量上做约束。
+    /// `Capsule()` 的 pill / 头像意图），本结构不在内部 `cornerRadius` 字面量上做约束。
     private static let canvasSide: CGFloat = CoreSpacing.xxxxl
 
     public var body: some View {
@@ -49,6 +49,9 @@ public struct Avatar: View {
             )
             context.draw(
                 Text(firstCharacter)
+                    // Canvas / GraphicsContext.draw 是命令式绘制，套不了 `.coreFont`
+                    // modifier；头像首字母是按 avatar 尺寸的图标级字号，本就不纳入
+                    // Dynamic Type（范围边界）。故用固定 `Font` 值。
                     .font(CoreTypography.titleLargeFont.weight(.bold))
                     .foregroundStyle(Color.white),
                 at: CGPoint(x: size.width / 2, y: size.height / 2)

@@ -61,6 +61,12 @@ public struct LabelIcon: View {
                     .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
                     .foregroundStyle(Color.contentInverse)
             }
+            // LabelIcon 是 `Label { Text(...) } icon: { LabelIcon(...) }` 的 icon 槽：
+            // 该用法下 SwiftUI 的 `Label` 已把 icon+text 合成单一元素、由 Text 播报，
+            // 本 hidden 与之一致（冗余保险）。**不承诺**外层 `.accessibilityHidden(false)`
+            // 能恢复——SwiftUI 内层 hidden 剪掉子树后外层 unhide 不可靠。standalone 需要
+            // 图标被播报时，调用方应组合自带 label 的图标视图，而非依赖 unhide。
+            .accessibilityHidden(true)
     }
 
     private let systemName: String
@@ -82,6 +88,9 @@ public struct ChevronRightIcon: View {
     /// 渲染 `chevron.right` symbol，颜色 / 尺寸由父容器决定。
     public var body: some View {
         Image(systemName: "chevron.right")
+            // 永远是「进入下一级」的 disclosure 指示符，任何语境下都装饰——对齐
+            // Sidebar 对 chevron 的处理，无歧义，隐藏它安全。
+            .accessibilityHidden(true)
     }
 }
 
@@ -89,16 +98,21 @@ public struct ChevronRightIcon: View {
 
 /// 列表行 trailing 位置的危险 / 错误状态指示符（实心感叹号圆形）。
 ///
-/// 颜色固定为 `Color.dangerForeground`（语义 token），尺寸继承父容器字号。
+/// 颜色固定为 `Color.statusDangerForeground`（语义 token），尺寸继承父容器字号。
 /// 常见用法是与 `ChevronRightIcon` 并排出现于 `LabeledContent` 的 detail 槽位，
 /// 提示该项需要用户注意（例如未读告警 / 待修复设置）。
 public struct DangerIcon: View {
     /// 创建一个默认配置的危险指示符。
     public init() {}
 
-    /// 渲染 `exclamationmark.circle.fill`，foreground 锁定为 `dangerForeground`。
+    /// 渲染 `exclamationmark.circle.fill`，foreground 锁定为 `statusDangerForeground`。
     public var body: some View {
-        Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.dangerForeground)
+        Image(systemName: "exclamationmark.circle.fill")
+            .foregroundStyle(Color.statusDangerForeground)
+            // 承载语义（危险/需注意本身是信息），补 label 而非隐藏。用 "Alert" 而非
+            // "Warning"——warning(橙) 与 danger(红) 在本库是两个不同的状态语义，念 "Warning"
+            // 会让屏读用户把 danger 误听成 warning、无法区分本该能区分的两个状态。
+            .accessibilityLabel(Text("Alert", bundle: .module))
     }
 }
 

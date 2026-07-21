@@ -5,17 +5,23 @@
 
 import SwiftUI
 
-// MARK: - TimelineDepthKey
-
-struct TimelineDepthKey: EnvironmentKey {
-    static let defaultValue: Int = 0
-}
+// MARK: - timelineDepth
 
 extension EnvironmentValues {
-    var timelineDepth: Int {
-        get { self[TimelineDepthKey.self] }
-        set { self[TimelineDepthKey.self] = newValue }
-    }
+    /// 时间线嵌套深度 / Timeline nesting depth。
+    @Entry var timelineDepth: Int = 0
+}
+
+// MARK: - TimelineDotDiameter
+
+/// 脊柱图标圆点直径 / Icon-dot diameters（元素尺寸，非 spacing 档位）。
+/// 根节点 32pt、嵌套子节点 20pt——`CoreSpacing` 是间距刻度且不含 20pt，
+/// 故提为命名常量而非硬套 token，保持数值零变化。
+/// （`TimelineItem` 是泛型类型，不支持 static stored property，故常量落在此文件级
+/// caseless enum 命名空间中。）
+private enum TimelineDotDiameter {
+    static let root: CGFloat = 32
+    static let nested: CGFloat = 20
 }
 
 // MARK: - TimelineItem
@@ -36,8 +42,8 @@ extension EnvironmentValues {
 public struct TimelineItem<Icon: View, Content: View>: View {
     @ViewBuilder let icon: () -> Icon
     @ViewBuilder let content: () -> Content
-    public let showsTopConnector: Bool
-    public let isLast: Bool
+    let showsTopConnector: Bool
+    let isLast: Bool
 
     public init(
         @ViewBuilder icon: @escaping () -> Icon,
@@ -71,7 +77,7 @@ public struct TimelineItem<Icon: View, Content: View>: View {
     }
 
     private var spineView: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: CoreSpacing.none) {
             if self.showsTopConnector {
                 // Top connection line (from previous node)
                 Rectangle()
@@ -98,8 +104,8 @@ public struct TimelineItem<Icon: View, Content: View>: View {
 
     private var dotSize: CGFloat {
         switch self.depth {
-        case 0: return 32
-        default: return 20
+        case 0: return TimelineDotDiameter.root
+        default: return TimelineDotDiameter.nested
         }
     }
 }
