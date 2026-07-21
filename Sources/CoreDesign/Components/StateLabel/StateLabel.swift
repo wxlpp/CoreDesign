@@ -9,8 +9,8 @@ import SwiftUI
 
 /// 通用状态标签的语义样式。
 ///
-/// 颜色映射通过 `StatusColors` 系统的 emphasis 背景 + foreground 文字实现，
-/// 详见下方 `backgroundColor` / `foregroundColor`。
+/// 颜色映射通过 `StatusColors` 系统的 emphasis 背景 + `contentOnEmphasis` 前景实现，
+/// 图标 / 背景 / 默认文案统一由下方 `spec` 单次穷举给出（审计项 B8f）。
 public nonisolated enum StateLabelStyle: Sendable, Equatable {
     case active      // success (green) — in progress
     case draft       // attention (yellow) — not ready / WIP
@@ -20,105 +20,110 @@ public nonisolated enum StateLabelStyle: Sendable, Equatable {
     case error       // danger (red) — recoverable failure (e.g. save failed)
 }
 
-// MARK: - StateLabel
-
-/// Native Primer lifecycle state label.
-///
-/// Control-layer status pill driven by `StateLabelStyle` (`active` /
-/// `draft` / `completed` / `cancelled`). Compact, color-for-meaning, no
-/// decorative material — same restraint rules as `Badge`, with a fixed icon
-/// + label payload tuned for lifecycle scanning.
-///
-/// **Material layer**: control. **Surface role**: control.
-///
-/// 通用状态标识 pill。
-///
-/// 大圆角 + 彩色背景 + SF Symbol 图标 + 文字。颜色由 `StateLabelStyle` 枚举驱动，
-/// 映射到 `StatusColors` 系统的 emphasis 背景 + foreground 文字。
-public struct StateLabel: View {
-    public let style: StateLabelStyle
-    public let label: String
-
-    public init(_ style: StateLabelStyle, label: String? = nil) {
-        self.style = style
-        self.label = label ?? style.defaultLabel
-    }
-
-    public var body: some View {
-        HStack(spacing: CoreSpacing.xs) {
-            Image(systemName: self.iconName)
-                .coreFont(.caption)
-            Text(self.label)
-                .coreFont(.bodySmall)
-        }
-        .foregroundStyle(self.foregroundColor)
-        .padding(.horizontal, CoreSpacing.sm)
-        .padding(.vertical, CoreSpacing.xxs)
-        .background(
-            Capsule(style: .continuous)
-                .fill(self.backgroundColor)
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(self.label)
-    }
-
-    private var iconName: String {
-        switch self.style {
-        case .active: return "circle.fill"
-        case .draft: return "circle.dashed"
-        case .completed: return "checkmark.circle.fill"
-        case .cancelled: return "xmark.circle.fill"
-        case .inProgress: return "arrow.triangle.2.circlepath"
-        case .error: return "exclamationmark.triangle.fill"
-        }
-    }
-
-    /// 前景统一走 `contentOnEmphasis`（白），因为背景用的是 `status*Emphasis`——
-    /// Primer 的 emphasis 是饱和填充，配对的前景就是 `fgColor.onEmphasis`。
+extension StateLabelStyle {
+    /// 单个样式的图标 / 背景 / 默认文案三元组（审计项 B8f）。
     ///
-    /// > 此处原按 style 返回 `status*Foreground`。那在 emphasis 的 light 值被误填成
-    /// > 同组 muted（浅色洗色）时可读，但 Issue #93 把 emphasis 修正为 Primer 语义的
-    /// > 饱和实色后，前景与背景会变成同一个颜色（对比度 1.00，文字不可见）。
-    /// > `BookCover.swift:155` 是同一配对的既有先例。
-    private var foregroundColor: Color {
-        .contentOnEmphasis
+    /// 收敛前 `StateLabel` 有三个平行 switch（iconName / backgroundColor / defaultLabel）；
+    /// 现由 `spec` 一次穷举返回。新增 case 时编译器只在此处要求穷举。
+    struct Spec {
+        let icon: String
+        let background: Color
+        let defaultLabel: String
     }
 
-    private var backgroundColor: Color {
-        switch self.style {
-        case .active: return .statusSuccessEmphasis
-        case .draft: return .statusAttentionEmphasis
-        case .completed: return .statusDoneEmphasis
-        case .cancelled: return .statusDangerEmphasis
-        case .inProgress: return .statusAttentionEmphasis
-        case .error: return .statusDangerEmphasis
+    /// `@MainActor`：`background` 读 `status*Emphasis` token Color，在
+    /// `defaultIsolation(MainActor.self)` 下这些 token 是 MainActor 隔离的。
+    /// 消费点（`StateLabel.body` 与便利 init）都在 MainActor，故不受限。
+    @MainActor
+    var spec: Spec {
+        switch self {
+        case .active:
+            Spec(icon: "circle.fill", background: .statusSuccessEmphasis, defaultLabel: "Active")
+        case .draft:
+            Spec(icon: "circle.dashed", background: .statusAttentionEmphasis, defaultLabel: "Draft")
+        case .completed:
+            Spec(icon: "checkmark.circle.fill", background: .statusDoneEmphasis, defaultLabel: "Completed")
+        case .cancelled:
+            Spec(icon: "xmark.circle.fill", background: .statusDangerEmphasis, defaultLabel: "Cancelled")
+        case .inProgress:
+            Spec(icon: "arrow.triangle.2.circlepath", background: .statusAttentionEmphasis, defaultLabel: "In Progress")
+        case .error:
+            Spec(icon: "exclamationmark.triangle.fill", background: .statusDangerEmphasis, defaultLabel: "Error")
         }
     }
 }
 
-private extension StateLabelStyle {
-    var defaultLabel: String {
-        switch self {
-        case .active: return "Active"
-        case .draft: return "Draft"
-        case .completed: return "Completed"
-        case .cancelled: return "Cancelled"
-        case .inProgress: return "In Progress"
-        case .error: return "Error"
+// MARK: - StateLabel
+
+/// Native Primer lifecycle state label.
+///
+/// Control-layer status pill driven by `StateLabelStyle`. Compact,
+/// color-for-meaning, no decorative material — same restraint rules as
+/// `Badge`, with a fixed icon + caller-supplied label payload.
+///
+/// **Material layer**: control. **Surface role**: control.
+///
+/// 通用状态标识 pill。大圆角 + 彩色背景 + SF Symbol 图标 + label 内容。
+/// 双层 init 形态对齐 `Badge` / `Tag`：`@ViewBuilder` designated init 可插图标 /
+/// 富文本，`where Label == Text` 便利 init 收 `String`（审计项 D6a / D6b）。
+public struct StateLabel<Label: View>: View {
+    let style: StateLabelStyle
+    let label: Label
+
+    /// 以任意 label 视图构造。
+    public init(style: StateLabelStyle, @ViewBuilder label: () -> Label) {
+        self.style = style
+        self.label = label()
+    }
+
+    public var body: some View {
+        HStack(spacing: CoreSpacing.xs) {
+            Image(systemName: self.style.spec.icon)
+                .coreFont(.caption)
+                // 评审 Suggestion 4：`.combine` 会把未隐藏子元素的可访问名折进来。
+                // 原 `.accessibilityLabel(self.label)`（String）压掉了 icon；泛型化后改
+                // `.combine`，须显式隐藏 icon 否则 SF Symbol 名泄漏进 VoiceOver name
+                // （与 Banner.swift:182 对 icon 的处理一致）。
+                .accessibilityHidden(true)
+            self.label
+                .coreFont(.bodySmall)
+        }
+        // 前景统一走 `contentOnEmphasis`（白）——背景用 `status*Emphasis`（饱和填充），
+        // 配对前景即 `onEmphasis`。此前按 style 返回 `status*Foreground` 在 #93 修正
+        // emphasis 为饱和实色后会与背景同色（对比度 1.00、文字不可见）。
+        // `BookCover.swift:155` 是同一配对的既有先例。
+        .foregroundStyle(Color.contentOnEmphasis)
+        .padding(.horizontal, CoreSpacing.sm)
+        .padding(.vertical, CoreSpacing.xxs)
+        .background(
+            Capsule(style: .continuous)
+                .fill(self.style.spec.background)
+        )
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - StateLabel convenience init
+
+public extension StateLabel where Label == Text {
+    /// 文本 StateLabel 便利构造。`label == nil` 时用 style 的默认文案。
+    init(style: StateLabelStyle, label: String? = nil) {
+        self.init(style: style) {
+            Text(label ?? style.spec.defaultLabel)
         }
     }
 }
 
 #Preview {
     VStack(spacing: 12) {
-        StateLabel(.active)
-        StateLabel(.draft)
-        StateLabel(.completed)
-        StateLabel(.cancelled)
-        StateLabel(.inProgress)
-        StateLabel(.error)
-        StateLabel(.inProgress, label: "Saving…")
-        StateLabel(.error, label: "Save failed")
+        StateLabel(style: .active)
+        StateLabel(style: .draft)
+        StateLabel(style: .completed)
+        StateLabel(style: .cancelled)
+        StateLabel(style: .inProgress)
+        StateLabel(style: .error)
+        StateLabel(style: .inProgress, label: "Saving…")
+        StateLabel(style: .error, label: "Save failed")
     }
     .padding()
 }

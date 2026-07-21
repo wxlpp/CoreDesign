@@ -27,10 +27,10 @@
 ## 使用示例 / Usage
 
 ```swift
-StateLabel(.active)
-StateLabel(.draft, label: "WIP")
-StateLabel(.completed)
-StateLabel(.cancelled)
+StateLabel(style: .active)
+StateLabel(style: .draft, label: "WIP")
+StateLabel(style: .completed)
+StateLabel(style: .cancelled)
 ```
 
 ## 视觉 Token
