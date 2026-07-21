@@ -49,7 +49,7 @@ public struct CommentCard<BodyContent: View>: View {
             // Header
             HStack(spacing: CoreSpacing.xs) {
                 Text(self.author)
-                    .font(CoreTypography.bodyMediumFont)
+                    .coreFont(.bodyMedium)
                     .fontWeight(.semibold)
                 if let role = self.role {
                     Text(role)
@@ -68,7 +68,7 @@ public struct CommentCard<BodyContent: View>: View {
                 }
                 Spacer()
                 Text(self.timestamp)
-                    .font(CoreTypography.bodySmallFont)
+                    .coreFont(.bodySmall)
                     .foregroundStyle(.tertiary)
             }
 
@@ -76,12 +76,12 @@ public struct CommentCard<BodyContent: View>: View {
             if let binding = self.isMinimized, binding.wrappedValue {
                 HStack(spacing: CoreSpacing.sm) {
                     Text("This content has been minimized.")
-                        .font(CoreTypography.bodySmallFont)
+                        .coreFont(.bodySmall)
                         .foregroundStyle(.secondary)
                     Button("Show") {
                         binding.wrappedValue = false
                     }
-                    .font(CoreTypography.bodySmallFont)
+                    .coreFont(.bodySmall)
                     // 渐变 token 层的首个生产消费点（审计项 B7a）。默认主题下
                     // `CoreGradient.brand` 就是 `AnyShapeStyle(Color.accent)`——与改前
                     // 逐像素相同；Blossom 下自动变成珊瑚粉→玫红渐变。

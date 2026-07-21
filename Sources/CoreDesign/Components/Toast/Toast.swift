@@ -427,7 +427,7 @@ private struct ToastView: View {
                 .foregroundStyle(self.foregroundColor)
                 .accessibilityHidden(true)
             Text(self.item.message)
-                .font(CoreTypography.bodyMediumFont)
+                .coreFont(.bodyMedium)
                 .foregroundStyle(Color.contentPrimary)
                 .multilineTextAlignment(.leading)
                 .lineLimit(1)
@@ -542,7 +542,7 @@ private struct ToastDemoView: View {
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
             Text("Tap a button to enqueue a toast.")
-                .font(CoreTypography.bodyMediumFont)
+                .coreFont(.bodyMedium)
                 .foregroundStyle(Color.contentMuted)
             ForEach(self.levels, id: \.label) { entry in
                 Button(entry.label) {

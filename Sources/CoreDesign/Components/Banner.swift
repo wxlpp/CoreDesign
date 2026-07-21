@@ -183,7 +183,7 @@ public struct PlainBannerStyle: BannerStyle {
             configuration.label
         }
         .accessibilityElement(children: .combine)
-        .font(CoreTypography.bodyMediumFont)
+        .coreFont(.bodyMedium)
         .foregroundStyle(palette.foreground)
         .padding(CoreSpacing.md)
         .background {
@@ -216,7 +216,7 @@ public struct BorderedBannerStyle: BannerStyle {
             configuration.label
         }
         .accessibilityElement(children: .combine)
-        .font(CoreTypography.bodyMediumFont)
+        .coreFont(.bodyMedium)
         .foregroundStyle(palette.foreground)
         .padding(CoreSpacing.md)
         .background {

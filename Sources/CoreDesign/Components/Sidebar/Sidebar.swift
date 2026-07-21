@@ -46,12 +46,12 @@ public struct SidebarSection<Content: View>: View {
         VStack(alignment: .leading, spacing: CoreSpacing.sm) {
             HStack(spacing: CoreSpacing.xs) {
                 Text(self.title)
-                    .font(CoreTypography.titleSmallFont)
+                    .coreFont(.titleSmall)
                     .foregroundStyle(SidebarTextStyle.primary)
 
                 if self.showsChevron {
                     Image(systemName: "chevron.right")
-                        .font(CoreTypography.bodySmallFont)
+                        .coreFont(.bodySmall)
                         .foregroundStyle(SidebarTextStyle.secondary)
                         // 纯装饰：标题已表达分组语义，避免 VoiceOver 朗读
                         // "chevron right" 噪音 / Decorative chevron.
@@ -61,7 +61,7 @@ public struct SidebarSection<Content: View>: View {
                 Spacer()
 
                 Image(systemName: "ellipsis")
-                    .font(CoreTypography.bodyMediumFont)
+                    .coreFont(.bodyMedium)
                     .foregroundStyle(SidebarTextStyle.tertiary)
                     // 装饰性占位符，当前无 action；对 VoiceOver 隐藏避免
                     // 暴露成无标签图片 / Decorative placeholder, no action.
@@ -133,7 +133,7 @@ private struct SidebarRow<Leading: View, Trailing: View>: View {
                     .accessibilityHidden(true)
 
                 Text(self.title)
-                    .font(CoreTypography.bodyLargeFont)
+                    .coreFont(.bodyLarge)
                     .foregroundStyle(SidebarTextStyle.primary)
                     .modifier(OptionalLineLimit(limit: self.titleLineLimit))
 
@@ -190,7 +190,7 @@ public struct SidebarNavigationRow: View {
             action: self.action
         ) {
             Image(systemName: self.systemImage)
-                .font(CoreTypography.bodyLargeFont)
+                .coreFont(.bodyLarge)
         } trailing: {
             EmptyView()
         }
@@ -229,11 +229,11 @@ public struct SidebarUtilityRow: View {
             action: self.action
         ) {
             Image(systemName: self.systemImage)
-                .font(CoreTypography.bodyLargeFont)
+                .coreFont(.bodyLarge)
         } trailing: {
             if let trailingSystemImage = self.trailingSystemImage {
                 Image(systemName: trailingSystemImage)
-                    .font(CoreTypography.bodyLargeFont)
+                    .coreFont(.bodyLarge)
                     .foregroundStyle(SidebarTextStyle.tertiary)
                     // 次级装饰性 affordance：随主 button 单一 action 触发，
                     // 不单独暴露给 VoiceOver / Decorative trailing affordance.
@@ -275,11 +275,11 @@ public struct SidebarDocumentRow: View {
             action: self.action
         ) {
             Image(systemName: self.systemImage)
-                .font(CoreTypography.titleMediumFont)
+                .coreFont(.titleMedium)
         } trailing: {
             // detail 承载信息（计数 / 日期），**不**隐藏，保持 VoiceOver 可读
             Text(self.detail)
-                .font(CoreTypography.bodyMediumFont)
+                .coreFont(.bodyMedium)
                 .foregroundStyle(SidebarTextStyle.tertiary)
                 .lineLimit(1)
         }
@@ -311,10 +311,10 @@ public struct SidebarTagRow: View {
             action: self.action
         ) {
             Text("#")
-                .font(CoreTypography.titleMediumFont)
+                .coreFont(.titleMedium)
         } trailing: {
             Image(systemName: "chevron.right")
-                .font(CoreTypography.bodySmallFont)
+                .coreFont(.bodySmall)
                 .foregroundStyle(SidebarTextStyle.tertiary)
                 // 装饰性指示箭头：行整体可点击，标题已表达目标
                 // Decorative trailing chevron.
@@ -358,11 +358,11 @@ public struct SidebarStatusFooter: View {
 
             VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                 Text(self.title)
-                    .font(CoreTypography.bodySmallFont)
+                    .coreFont(.bodySmall)
                     .fontWeight(.medium)
                     .foregroundStyle(SidebarTextStyle.primary)
                 Text(self.detail)
-                    .font(CoreTypography.bodySmallFont)
+                    .coreFont(.bodySmall)
                     .foregroundStyle(SidebarTextStyle.secondary)
                     .lineLimit(1)
             }

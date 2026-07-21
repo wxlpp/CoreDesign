@@ -40,14 +40,14 @@ public struct EventRow<PillContent: View>: View {
     public var body: some View {
         HStack(spacing: CoreSpacing.xs) {
             Text(self.actor)
-                .font(CoreTypography.bodyMediumFont)
+                .coreFont(.bodyMedium)
                 .fontWeight(.medium)
             Text(self.action)
-                .font(CoreTypography.bodyMediumFont)
+                .coreFont(.bodyMedium)
                 .foregroundStyle(.secondary)
             self.pill()
             Text(self.timeAgo)
-                .font(CoreTypography.bodySmallFont)
+                .coreFont(.bodySmall)
                 .foregroundStyle(.tertiary)
         }
         .lineLimit(1)

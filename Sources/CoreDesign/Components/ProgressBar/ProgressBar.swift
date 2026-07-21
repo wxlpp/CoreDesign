@@ -35,7 +35,7 @@ public struct ProgressBar: View {
         HStack(spacing: CoreSpacing.sm) {
             if let label = self.label {
                 Text(label)
-                    .font(CoreTypography.bodySmallFont)
+                    .coreFont(.bodySmall)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

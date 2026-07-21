@@ -102,7 +102,7 @@ public struct SegmentedControl<Item: Hashable>: View {
             self.select(item)
         } label: {
             Text(self.title(item))
-                .font(CoreTypography.bodyMediumFont)
+                .coreFont(.bodyMedium)
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? Color.contentPrimary : Color.contentSecondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -440,7 +440,7 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Sidebar column — 220pt")
-                        .font(CoreTypography.captionFont)
+                        .coreFont(.caption)
                         .foregroundStyle(Color.contentMuted)
                     SegmentedControl(
                         items: ["卷一", "卷二", "卷三"],
@@ -452,7 +452,7 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Inspector column — 320pt")
-                        .font(CoreTypography.captionFont)
+                        .coreFont(.caption)
                         .foregroundStyle(Color.contentMuted)
                     SegmentedControl(
                         items: ["Edit", "Outline", "Notes"],

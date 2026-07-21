@@ -49,6 +49,9 @@ public struct Avatar: View {
             )
             context.draw(
                 Text(firstCharacter)
+                    // Canvas / GraphicsContext.draw 是命令式绘制，套不了 `.coreFont`
+                    // modifier；头像首字母是按 avatar 尺寸的图标级字号，本就不纳入
+                    // Dynamic Type（范围边界）。故用固定 `Font` 值。
                     .font(CoreTypography.titleLargeFont.weight(.bold))
                     .foregroundStyle(Color.white),
                 at: CGPoint(x: size.width / 2, y: size.height / 2)

@@ -49,7 +49,7 @@ public struct StateLabel: View {
             Image(systemName: self.iconName)
                 .font(.caption2)
             Text(self.label)
-                .font(CoreTypography.bodySmallFont)
+                .coreFont(.bodySmall)
         }
         .foregroundStyle(self.foregroundColor)
         .padding(.horizontal, CoreSpacing.sm)

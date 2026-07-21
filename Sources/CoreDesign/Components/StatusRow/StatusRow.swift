@@ -46,13 +46,13 @@ public struct StatusRow: View {
                 .font(.caption)
 
             Text(self.label)
-                .font(CoreTypography.bodySmallFont)
+                .coreFont(.bodySmall)
                 .lineLimit(1)
 
             Spacer()
 
             Text(self.duration)
-                .font(CoreTypography.bodySmallFont)
+                .coreFont(.bodySmall)
                 .foregroundStyle(.tertiary)
                 .monospacedDigit()
         }
