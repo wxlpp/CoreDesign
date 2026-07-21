@@ -16,8 +16,7 @@ public extension Color {
     static var fill: Color {
         #if canImport(UIKit)
             return Color(uiColor: .systemFill)
-        #endif
-        #if canImport(AppKit)
+        #else
             return Color(nsColor: .systemFill)
         #endif
     }
@@ -30,8 +29,7 @@ public extension Color {
     static var secondaryFill: Color {
         #if canImport(UIKit)
             return Color(uiColor: .secondarySystemFill)
-        #endif
-        #if canImport(AppKit)
+        #else
             return Color(nsColor: .secondarySystemFill)
         #endif
     }
@@ -44,8 +42,7 @@ public extension Color {
     static var tertiaryFill: Color {
         #if canImport(UIKit)
             return Color(uiColor: .tertiarySystemFill)
-        #endif
-        #if canImport(AppKit)
+        #else
             return Color(nsColor: .tertiarySystemFill)
         #endif
     }
@@ -58,8 +55,7 @@ public extension Color {
     static var quaternaryFill: Color {
         #if canImport(UIKit)
             return Color(uiColor: .quaternarySystemFill)
-        #endif
-        #if canImport(AppKit)
+        #else
             return Color(nsColor: .quaternarySystemFill)
         #endif
     }
