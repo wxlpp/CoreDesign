@@ -38,6 +38,10 @@ public extension Color {
     /// > 深色模式把 accent 推向纯黑画布（`systemGroupedBackground` dark = `#000000`），
     /// > 与旧行为方向相反。AC 的"不要降 alpha"仍然成立并已遵守——降 alpha 只会露出
     /// > 更多背景、削弱存在感，两个模式下都不对。
+    /// >
+    /// > 已知副作用：macOS 的 `.primary`（`NSColor.labelColor`）自带 α≈0.85，混合后
+    /// > `accentHover` α≈0.976、`accentPressed` α≈0.961。iOS 的 `UIColor.label` 全不透明，
+    /// > 不受影响。这 2–4% 的 alpha 下滑视觉不可辨，但严格说它确实不是"完全不降 alpha"。
     static let accentPressed = Color.accent.mix(with: .primary, by: 0.25)
 
     /// 禁用态：**Issue #120 改值**。原取固定色阶 `brand2`（一个具体的浅色调），

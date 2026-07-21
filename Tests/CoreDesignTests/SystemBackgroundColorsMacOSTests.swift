@@ -48,9 +48,16 @@ struct SystemBackgroundColorsMacOSTests {
         #expect(Color.systemGroupedBackground != Color.tertiarySystemGroupedBackground)
 
         // secondary 与 tertiary 在 macOS 上仍然同色：AppKit 没有第三级 grouped 背景，
-        // 两者都落 `.controlBackgroundColor`。硬塞一个别的系统色（`underPageBackgroundColor`
-        // / `textBackgroundColor`）风险大于收益——这两个 token 当前在组件层零消费点，
-        // 猜错色比诚实塌缩更糟。
+        // 两者都落 `.controlBackgroundColor`。
+        //
+        // 塌缩只发生在 **tertiary 一侧**：`secondarySystemGroupedBackground` 的取值本就正确，
+        // 且它**有真实组件消费者**（经 `surfaceCanvasSubtle` / `surfaceRaised` 到达
+        // `ListRow.swift:98` hover 背景、`Badge.swift:145` neutral 背景、
+        // `SegmentedControl.swift:185` thumb）——**改动 secondary 不是零风险操作**。
+        // 零消费的是 tertiary（`surfaceElevated` / `surfaceGroupedElevated`，组件层 0 引用）。
+        //
+        // 因此不硬塞别的系统色给 tertiary：`underPageBackgroundColor` 的语义是"页面之下"
+        // （比画布更暗）而非"更抬升"，猜错色比诚实塌缩更糟，而受益方还是个零消费 token。
         //
         // 用 `withKnownIssue` 而不是删掉断言：一旦将来有人给 tertiary 找到合适的
         // AppKit 对应物，这里会因"预期失败却通过了"而提醒更新，不会静默失效。
