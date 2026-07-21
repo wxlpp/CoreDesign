@@ -7,17 +7,10 @@ public extension Color {
     static let accentDisabled = Color.brand2
     static let accentSubtleBackground = Color.brand1
 
-    #if Blossom
-    static let secondaryAccent = Color.violet5
-    static let secondaryAccentHover = Color.violet6
-    static let secondaryAccentPressed = Color.violet7
-    static let secondaryAccentDisabled = Color.violet2
-    #else
     static let secondaryAccent = Color.lightBlue5
     static let secondaryAccentHover = Color.lightBlue6
     static let secondaryAccentPressed = Color.lightBlue7
     static let secondaryAccentDisabled = Color.lightBlue2
-    #endif
 
     static let neutralAccent = Color.grey5
     static let neutralAccentHover = Color.grey6

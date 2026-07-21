@@ -40,12 +40,12 @@ public extension Color {
         .opaqueSeparator
     }
 
-    /// 键盘 focus / 强调描边专用。指向 `accent` 别名，随 Blossom trait 自动继承，不单独分流。
+    /// 键盘 focus / 强调描边专用。指向 `accent` 别名，不单独分流。
     ///
     /// > 此前由独立的 `border/border-focus.colorset` 提供 Primer 蓝（light `#0969da` /
     /// > dark `#1f6feb`），与紧邻的 `borderSelected` 各走各的取值——而下一行的注释却
     /// > 声称两者「同源 `accent`」。Issue #93 让它们真的同源：都指向 `accent`，
-    /// > 默认主题下因此从 Primer 蓝变为品牌蓝，Blossom 下则跟随珊瑚粉。
+    /// > 默认主题下因此从 Primer 蓝变为品牌蓝。
     static var borderFocus: Color {
         .accent
     }
