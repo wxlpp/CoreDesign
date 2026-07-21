@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "CoreDesign",
+    defaultLocalization: "en",
     platforms: [
         .iOS(.v26),
         .macOS(.v26),
