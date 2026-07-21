@@ -24,10 +24,10 @@ import SwiftUI
 /// `isMinimized` 为 `Binding<Bool>` 可选：`nil` 时不可折叠（始终展开）；
 /// 非 nil 时由调用方控制折叠/展开状态。
 public struct CommentCard<BodyContent: View>: View {
-    public let author: String
-    public let role: String?
-    public let timestamp: String
-    public let isMinimized: Binding<Bool>?
+    let author: String
+    let role: String?
+    let timestamp: String
+    let isMinimized: Binding<Bool>?
     @ViewBuilder let content: () -> BodyContent
 
     public init(

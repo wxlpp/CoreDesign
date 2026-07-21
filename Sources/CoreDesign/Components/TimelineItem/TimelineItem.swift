@@ -30,8 +30,8 @@ extension EnvironmentValues {
 public struct TimelineItem<Icon: View, Content: View>: View {
     @ViewBuilder let icon: () -> Icon
     @ViewBuilder let content: () -> Content
-    public let showsTopConnector: Bool
-    public let isLast: Bool
+    let showsTopConnector: Bool
+    let isLast: Bool
 
     public init(
         @ViewBuilder icon: @escaping () -> Icon,

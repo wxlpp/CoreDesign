@@ -20,7 +20,7 @@ import SwiftUI
 /// 前 N 个 avatar 交叠显示，超出 `max` 的部分显示 "+N" 计数 pill。
 /// 使用 `Group(subviews:)` 遍历子视图。
 public struct AvatarGroup<Avatars: View>: View {
-    public let max: Int
+    let max: Int
     @ViewBuilder let avatars: () -> Avatars
 
     public init(max: Int = 3, @ViewBuilder avatars: @escaping () -> Avatars) {

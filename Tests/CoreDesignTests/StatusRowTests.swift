@@ -5,19 +5,19 @@ import Testing
 @Suite("StatusRow")
 @MainActor
 struct StatusRowTests {
-    @Test("init stores parameters")
+    @Test("convenience init stores scalar parameters")
     func initParams() {
         let row = StatusRow(label: "build (arm64)", duration: "2m 14s", result: .success)
-        #expect(row.label == "build (arm64)")
         #expect(row.duration == "2m 14s")
         #expect(row.result == .success)
     }
 
-    @Test("all result cases construct")
+    @Test("all result cases construct and expose a spec")
     func allResults() {
         for result in [StatusResult.success, .failure, .pending, .skipped] {
             let row = StatusRow(label: "test", duration: "0s", result: result)
             #expect(row.result == result)
+            #expect(!result.spec.label.isEmpty)
         }
     }
 }

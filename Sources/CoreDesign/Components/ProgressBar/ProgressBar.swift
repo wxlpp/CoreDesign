@@ -19,9 +19,9 @@ import SwiftUI
 ///
 /// 灰色底轨 + 可配置彩色填充 + 可选左侧 label 文本。
 public struct ProgressBar: View {
-    public let value: Double  // 0.0...1.0
-    public let tint: Color?
-    public let label: String?
+    let value: Double  // 0.0...1.0
+    let tint: Color?
+    let label: String?
 
     public init(value: Double, tint: Color? = nil, label: String? = nil) {
         // 非有限输入 (NaN / ±infinity) 直接归 0，避免后续 layout / accessibility 计算 trap。

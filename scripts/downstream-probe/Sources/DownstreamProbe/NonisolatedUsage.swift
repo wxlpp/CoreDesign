@@ -28,6 +28,10 @@ nonisolated func compareStateLabelStyle(_ a: StateLabelStyle, _ b: StateLabelSty
     a == b
 }
 
+nonisolated func compareButtonRole(_ a: ButtonRoleStyleRole, _ b: ButtonRoleStyleRole) -> Bool {
+    a == b
+}
+
 nonisolated func useSurfaceKind(_ kind: SurfaceKind) -> SurfaceKind {
     kind
 }
@@ -57,7 +61,7 @@ nonisolated func useToastDefaults() -> TimeInterval {
     ToastDefaults.duration
 }
 
-nonisolated func useToastLevel() -> ToastLevel {
+nonisolated func useStatusLevel() -> StatusLevel {
     .info
 }
 

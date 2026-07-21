@@ -17,7 +17,7 @@ import SwiftUI
 /// 每个 kind 通过 `View.surface(_:)` 派生出一组
 /// `(background, border, cornerRadius)` 三件套，全部从 token 派生，
 /// 调用方无需手写 `RoundedRectangle().fill().overlay(stroke())` 三件套。
-public nonisolated enum SurfaceKind: Sendable {
+public nonisolated enum SurfaceKind: Sendable, Equatable {
     /// Page-level canvas.
     case canvas
     /// Ordinary content surfaces: rows, cards, and non-floating containers.

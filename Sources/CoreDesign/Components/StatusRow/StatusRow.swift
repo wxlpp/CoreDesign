@@ -15,37 +15,70 @@ public nonisolated enum StatusResult: Sendable, Equatable {
     case skipped
 }
 
+extension StatusResult {
+    /// 单个结果的图标 / 前景色 / 可读标签三元组（审计项 B8f）。
+    ///
+    /// 收敛前 `StatusRow` 有三个平行 switch（resultIcon / resultColor / resultLabel）；
+    /// 现由 `spec` 一次穷举返回。
+    struct Spec {
+        let icon: String
+        let color: Color
+        let label: String
+    }
+
+    /// `@MainActor`：`color` 读 status token Color（MainActor 隔离）。
+    @MainActor
+    var spec: Spec {
+        switch self {
+        case .success:
+            Spec(icon: "checkmark.circle.fill", color: .statusSuccessForeground, label: "Passed")
+        case .failure:
+            Spec(icon: "xmark.circle.fill", color: .statusDangerForeground, label: "Failed")
+        case .pending:
+            Spec(icon: "clock", color: .statusAttentionForeground, label: "Pending")
+        case .skipped:
+            // #93：原写 `.secondary` 会解析到已删的第 4 层同名别名（`lightBlue5` /
+            // Blossom `violet5`）而非中性次要色，skipped 图标渲染成浅蓝/紫罗兰。
+            // 用语义层 `.contentSecondary` 明确表达「中性次要色」。
+            Spec(icon: "minus.circle", color: .contentSecondary, label: "Skipped")
+        }
+    }
+}
+
 // MARK: - StatusRow
 
 /// Native Primer status row.
 ///
 /// Content-layer row. CI status entry (icon + label + duration + result).
-/// Color carries semantics (success / failure / pending / skipped);
-/// chrome stays minimal. No glass, no cardification.
+/// Color carries semantics; chrome stays minimal. No glass, no cardification.
 ///
 /// **Material layer**: content. **Surface role**: content.
 ///
-/// CI 检查状态行。图标 + 名称 + 耗时 + 结果指示器。
-///
-/// 用于平铺的检查列表（VStack），不是时间线组件。
-public struct StatusRow: View {
-    public let label: String
-    public let duration: String
-    public let result: StatusResult
+/// CI 检查状态行。图标 + label 内容 + 耗时 + 结果指示器。双层 init 形态对齐
+/// `Badge` / `Tag`：`@ViewBuilder` designated init 可插图标 / 富文本，
+/// `where Label == Text` 便利 init 收 `String`（审计项 D6b）。
+public struct StatusRow<Label: View>: View {
+    let label: Label
+    let duration: String
+    let result: StatusResult
 
-    public init(label: String, duration: String, result: StatusResult) {
-        self.label = label
+    /// 以任意 label 视图构造。
+    public init(duration: String, result: StatusResult, @ViewBuilder label: () -> Label) {
         self.duration = duration
         self.result = result
+        self.label = label()
     }
 
     public var body: some View {
         HStack(spacing: CoreSpacing.sm) {
-            Image(systemName: self.resultIcon)
-                .foregroundStyle(self.resultColor)
+            Image(systemName: self.result.spec.icon)
+                .foregroundStyle(self.result.spec.color)
                 .coreFont(.caption)
+                // 评审 Suggestion 4：泛型化后改 `.combine`，显式隐藏 icon 防 SF Symbol 名
+                // 泄漏进 VoiceOver name（对齐 Banner.swift:215）。
+                .accessibilityHidden(true)
 
-            Text(self.label)
+            self.label
                 .coreFont(.bodySmall)
                 .lineLimit(1)
 
@@ -55,42 +88,23 @@ public struct StatusRow: View {
                 .coreFont(.bodySmall)
                 .foregroundStyle(.tertiary)
                 .monospacedDigit()
+                // duration 已由 accessibilityValue 承载，隐藏避免 combine 重复朗读。
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, CoreSpacing.md)
         .padding(.vertical, CoreSpacing.sm)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(self.label)
-        .accessibilityValue("\(self.resultLabel), \(self.duration)")
+        .accessibilityValue("\(self.result.spec.label), \(self.duration)")
     }
+}
 
-    private var resultIcon: String {
-        switch self.result {
-        case .success: return "checkmark.circle.fill"
-        case .failure: return "xmark.circle.fill"
-        case .pending: return "clock"
-        case .skipped: return "minus.circle"
-        }
-    }
+// MARK: - StatusRow convenience init
 
-    private var resultColor: Color {
-        switch self.result {
-        case .success: return .statusSuccessForeground
-        case .failure: return .statusDangerForeground
-        case .pending: return .statusAttentionForeground
-        // 原写 `.secondary`：在返回 `Color` 的上下文中，它解析到第 4 层曾定义的
-        // 同名别名（`lightBlue5`，Blossom 下 `violet5`）而非 SwiftUI 内建的次要
-        // 文本色——skipped 图标因此渲染成浅蓝/紫罗兰。改用语义层 token 明确表达
-        // 「中性次要色」这一本意（Issue #93）。
-        case .skipped: return .contentSecondary
-        }
-    }
-
-    private var resultLabel: String {
-        switch self.result {
-        case .success: return "Passed"
-        case .failure: return "Failed"
-        case .pending: return "Pending"
-        case .skipped: return "Skipped"
+public extension StatusRow where Label == Text {
+    /// 文本 StatusRow 便利构造（保留原签名，既有调用点不变）。
+    init(label: String, duration: String, result: StatusResult) {
+        self.init(duration: duration, result: result) {
+            Text(label)
         }
     }
 }

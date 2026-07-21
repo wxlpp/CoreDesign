@@ -169,17 +169,18 @@ private struct SidebarRow<Leading: View, Trailing: View>: View {
 /// floating-glass selected background (see `sidebarSelectedBackground(_:)`).
 ///
 /// 侧栏主导航行 / SidebarNavigationRow：图标 + 标题，选中态带 floating-glass 背景。
-public struct SidebarNavigationRow: View {
+public struct SidebarNavigationRow<Leading: View>: View {
+    /// 以任意 leading 视图构造（可插图标 / 富文本，审计项 D6b）。
     public init(
-        systemImage: String,
         title: String,
         isSelected: Bool,
-        action: @escaping () -> Void
+        action: @escaping () -> Void,
+        @ViewBuilder leading: () -> Leading
     ) {
-        self.systemImage = systemImage
         self.title = title
         self.isSelected = isSelected
         self.action = action
+        self.leading = leading()
     }
 
     public var body: some View {
@@ -189,17 +190,29 @@ public struct SidebarNavigationRow: View {
             isSelected: self.isSelected,
             action: self.action
         ) {
-            Image(systemName: self.systemImage)
-                .coreFont(.bodyLarge)
+            self.leading
         } trailing: {
             EmptyView()
         }
     }
 
-    private let systemImage: String
     private let title: String
     private let isSelected: Bool
     private let action: () -> Void
+    private let leading: Leading
+}
+
+public extension SidebarNavigationRow where Leading == AnyView {
+    /// SF Symbol 便利构造（保留原签名，既有调用点不变）。
+    ///
+    /// `AnyView` 擦除在此可接受：leading 只是单个 `.coreFont(.bodyLarge)` 图标、
+    /// 无测试断言其具体类型（与 `Badge` 需保留 `Text` 精确类型的场景不同），
+    /// 擦除代价可忽略，且能一比一复现改前的 bodyLarge 字号观感。
+    init(systemImage: String, title: String, isSelected: Bool, action: @escaping () -> Void) {
+        self.init(title: title, isSelected: isSelected, action: action) {
+            AnyView(Image(systemName: systemImage).coreFont(.bodyLarge))
+        }
+    }
 }
 
 /// Secondary utility entry with an optional trailing affordance.

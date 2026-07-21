@@ -8,13 +8,14 @@
 import Foundation
 import SwiftUI
 
-public enum ButtonRoleStyleRole {
+public nonisolated enum ButtonRoleStyleRole: Sendable, Equatable {
     case primary
     case secondary
     case tertiary
     case warning
     case danger
 
+    @MainActor
     public var color: Color {
         switch self {
         case .primary:
@@ -30,6 +31,7 @@ public enum ButtonRoleStyleRole {
         }
     }
 
+    @MainActor
     public var activeColor: Color {
         switch self {
         case .primary:
@@ -45,6 +47,7 @@ public enum ButtonRoleStyleRole {
         }
     }
 
+    @MainActor
     public var disabledColor: Color {
         switch self {
         case .primary:
@@ -69,6 +72,7 @@ public enum ButtonRoleStyleRole {
     /// - Parameters:
     ///   - isEnabled: 通常来自 `@Environment(\.isEnabled)`。
     ///   - isPressed: 通常来自 `ButtonStyle.Configuration.isPressed`。
+    @MainActor
     public func resolvedColor(isEnabled: Bool, isPressed: Bool) -> Color {
         if !isEnabled {
             return self.disabledColor

@@ -20,9 +20,9 @@ import SwiftUI
 /// Actor + 动作文本 + 可选 object pill + 时间戳。用于 TimelineItem 内容槽中
 /// 的非评论事件行。
 public struct EventRow<PillContent: View>: View {
-    public let actor: String
-    public let action: String
-    public let timeAgo: String
+    let actor: String
+    let action: String
+    let timeAgo: String
     @ViewBuilder let pill: () -> PillContent
 
     public init(
