@@ -226,7 +226,12 @@ CoreDesign 当前构建是绿的——`swift build`、`swift test`（96 tests / 
   2. Blossom 下 `borderFocus` 转品牌色
   3. **默认主题下 `borderFocus` 从 Primer 蓝 `#0969DA`/`#1F6FEB` 统一到品牌 accent `#0077FA`/`#3295FB`**——别名继承方案的必然代价，影响 `SearchField` focus ring 与 `.focusRing()` 默认参数
   4. Dynamic Type 缩放生效
-  5. **7 处系统字号 → token 的字号归一**（`.subheadline` 为 15pt，无精确对应 token，迁移必有小幅字号变化）
+  5. **7 处系统字号 → token 的字号归一**（#95 执行期实测的具体变化）：
+     - `.subheadline`（15pt）→ `.bodyLarge`（16pt）：`BottomInputBar` 的 chip，+1pt
+     - `.caption2`（≈11pt）→ `.caption`（12pt）：`AvatarGroup` / `StateLabel` / `CommentCard` / `RefPill` 五处，+1pt（`CoreTypography` 无 11pt 档，`caption` 12 是最近的缩放档）
+     - `.caption`（12pt）→ `.caption`（12pt）：`StatusRow`，精确对应无变化
+     - `.caption.monospaced()` → `.captionMono`（12pt 等宽）：`RefPill` ×3 + `ListRow`，等宽保留
+     - **`captionSmall` 明确不缩放**：AC 原写「10 个 token 全缩放」，`captionSmall`（9pt 紧凑 chrome）有既有设计约束「故意不缩放」（放大会撑爆 tab 角标/status bar），经用户确认改为「9 缩放 + captionSmall 固定」
   6. ~~`statusAccent*` 整组移除~~ —— **已在 #93 执行时改判为保留**。删除它与 FR-1 自身的 legacy 迁移要求冲突：新体系只有 `accent` 一个蓝色家族，而它正是 Primer 的 info 语义，`Banner`/`Toast`/`Badge` 的 legacy `info*` 只能迁到它。原判据「库内零渲染消费点」在迁移完成后不再成立
   7. **五组 `status-*-emphasis` 的 light 值修正**（`accent`/`success`/`attention`/`danger`/`done`）。原 D19 记为「accent 单组 colorset 笔误」，横向比对发现五组全部把 emphasis 填成了同组 muted 的值；Primer 语义里 emphasis 是饱和实色。修正后该档才真正可用
   8. **legacy → 新体系迁移的 light 值变化（8 处，含一处色相改变）**。迁移不是等值替换——两套 scale 取自不同来源（legacy 走本仓库原子色 ramp，新体系走 Primer colorset）：
