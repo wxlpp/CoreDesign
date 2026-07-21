@@ -2,19 +2,23 @@ import SwiftUI
 import Testing
 @testable import CoreDesign
 
+// FloatingGlassModifier 的公开 API 契约断言（C2）。
+//
+// 旧版 `String(describing: type(of: view)).isEmpty == false` 是恒真占位。
+// modifier 暴露 public `shape` / `isInteractive`，可直接断言 init 的默认值与透传
+// 契约——能捕获「默认参数被误改」「isInteractive 未透传」这类真实回退。
 @Suite("FloatingGlassModifier")
+@MainActor
 struct FloatingGlassModifierTests {
-    @MainActor
-    @Test("floating glass modifier constructs")
-    func floatingGlassModifierConstructs() {
-        let view = Text("Floating").floatingGlass()
-        #expect(String(describing: type(of: view)).isEmpty == false)
+    @Test("init 默认非交互")
+    func defaultsNonInteractive() {
+        let modifier = FloatingGlassModifier(shape: Capsule())
+        #expect(modifier.isInteractive == false)
     }
 
-    @MainActor
-    @Test("interactive floating glass modifier compile-smoke constructs")
-    func interactiveFloatingGlassModifierCompileSmokeConstructs() {
-        let view = Text("Floating").floatingGlass(isInteractive: true)
-        #expect(String(describing: type(of: view)).isEmpty == false)
+    @Test("isInteractive 透传到 modifier")
+    func interactiveFlagPassedThrough() {
+        let modifier = FloatingGlassModifier(shape: Capsule(), isInteractive: true)
+        #expect(modifier.isInteractive == true)
     }
 }
