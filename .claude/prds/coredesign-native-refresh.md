@@ -90,12 +90,15 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 ### US-5 · 下游 any-writer：破坏性变更可控
 
 **作为** CoreDesign 的下游使用者，
-**我希望**破坏性变更被完整记录且一次性发生，
-**以便**能在一次升级中完成跟进，而不是分散在多个版本里反复改。
+**我希望**每个破坏性版本的变更被完整记录，
+**以便**知道该改什么、以及某项替代方案是否要等下一个版本才有。
 
 验收标准：
-- 所有删除的公开符号与改名的 token 在 `docs/BREAKING-CHANGES.md` 中列出，每项给出替代方案。
-- 提供下游编译探针结果，确认破坏面已被完整识别。
+- 所有删除的公开符号与改名的 token 在 `docs/BREAKING-CHANGES.md` 中列出，每项给出替代方案；替代物尚未交付的（如被删组件的替代品要等 Phase 2）明确标注"将于 `0.4.0` 提供"，不留空。
+- **"同名换值"单列一节**：`CoreRadius` 各档、`CoreControlMetrics.height` 各档、语义色指向变更——这些对下游编译零感知，但视觉影响显著，必须逐项列出旧值 → 新值。
+- 提供下游编译探针结果，并明示其覆盖边界（探针看不见同名换值）。
+
+> 本改造分两个版本发布，下游实际会经历两次迁移。若 any-writer 不急于跟进 `0.3.0`，可评估直接从 `0.2.0` 跳到 `0.4.0`，届时以两版 BREAKING-CHANGES 的并集为准。
 
 ## Functional Requirements
 
@@ -120,15 +123,21 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 
 连带移除：`@ScaledMetric` 缩放机制、`lineSpacing` 推导与全部 `*LineSpacing` / `*Tracking` 常量、`Spec.scales` 开关、`Token.fixedFont`。`.coreFont(_:)` 调用形态保留。
 
+**关于改名的取舍**：另一条路是保留旧名、只换实现（`bodyLarge` 直接指 `.body`），下游零改名迁移。本 PRD 选择改名，理由是旧名承载的是 Primer 语义（`bodyMedium` 意为"Primer 标度里的中号正文"，在 Apple 体系中对应 `.callout`），保名换值会让 token 名与其实际含义长期错位，读者无从判断该用哪个。迁移成本一次性付清，换取长期与 Apple 文档一致的命名。
+
 ### FR-2 · 圆角 token 重铸
 
 `CoreRadius` 改为 `none 0 / small 6 / medium 10 / large 16 / xLarge 22`；删除 `smallPlus` (4) 与 `mediumPlus` (8)。
 
-库内所有 `RoundedRectangle` 显式使用 `style: .continuous`。嵌套在已知容器内的元素改用 `ConcentricRectangle`（iOS 26+，`Edge.Corner.Style.concentric`），使内层圆角与外层容器同心；容器侧按需声明 `.containerShape(_:)`。
+**这是"同名换值"，禁止裸换**：新的 `small = 6` 恰好等于旧的 `medium`，所有按旧语义选 `small = 3` 的调用点（Badge、Tag、`ProgressBar.swift:45,47`、`SearchField.swift:86` 等）圆角会静默翻倍。可能正是想要的效果，但必须是逐调用点重审后的结论。Epic 1 须产出「旧档位 → 新档位」的逐调用点迁移映射表，不允许改完 token 数值就认为调用点自动继承正确。
+
+库内不再直接书写裸 `RoundedRectangle`：提供统一的 shape helper，内部固定使用 `style: .continuous`。嵌套在已知容器内的元素改用 `ConcentricRectangle`（iOS 26+，`Edge.Corner.Style.concentric`），使内层圆角与外层容器同心；容器侧按需声明 `.containerShape(_:)`。
 
 ### FR-3 · 控件尺寸 token 重铸
 
 `CoreControlMetrics.height(for:)` 改为 `mini 28 / small 32 / regular 44 / large 50 / extraLarge 56`，`.regular` 满足 HIG 44pt 触控下限。纵横 padding 相应调整。删除 `primerVerticalPadding(for:)` 逃生口。
+
+同 FR-2，这也是"同名换值"（`regular` 32 → 44），对下游编译零感知但视觉与布局影响显著，须逐调用点重审并写入 BREAKING-CHANGES。
 
 ### FR-4 · 语义色重新指向系统色
 
@@ -138,9 +147,17 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 - `surfaceRaised` → `secondarySystemGroupedBackground`
 - `borderDefault` / `borderSubtle` → `separator` / `opaqueSeparator`
 - `contentPrimary` / `contentSecondary` / `contentTertiary` → `label` / `secondaryLabel` / `tertiaryLabel`
-- `accent` → 系统强调色（`tint`），可被调用方 `.tint(_:)` 覆盖
 
 第 1 层 `ColorGrade` 调色板保留作内部构造原料，继续为 `StatusColors` 等无系统对应物的 token 供色。
+
+**macOS 降级映射（必须显式给出）**：AppKit 没有 grouped background 系列，现有桥接层把 `surfaceCanvas` 与 `surfaceRaised` **都**落到 `.controlBackgroundColor`（`Colors/SystemBackgroundColors.swift:47-53`、`58-64`）。若照搬 iOS 映射，macOS 上卡片与画布将同色、raised 层完全隐形——这是功能性退化，不属于 Out of Scope 中"macOS 观感不打磨"的范畴。macOS 侧须拉开一档：`surfaceCanvas → windowBackgroundColor`、`surfaceRaised → controlBackgroundColor`，并在实现中验证浅色/深色下两者确有可见差异。
+
+**`accent` 及其衍生族（本 FR 中最需要明确规格的一项）**：`InteractionColors.accent` 不是孤立常量，而是一个静态衍生族——`accentHover` = `brand6`、`accentPressed` = `brand7`、`accentDisabled` = `brand2`、`accentSubtleBackground` = `brand1`，另有 `selectionBackground` / `selectionBackgroundEmphasis` 走同层别名，而 `borderFocus` / `borderSelected` 又指向 `accent`。决策如下：
+
+- `accent` 改为指向 **宿主 app 的强调色**（`Color.accentColor`，即调用方 asset catalog 中的 `AccentColor` 或系统默认蓝），使库跟随宿主品牌色而非携带自己的品牌色。
+- 衍生态**不再取 `ColorGrade` 的固定色阶**（动态强调色下 `brand6` / `brand7` 这类色阶无从推导），改为对 `accent` 做不透明度 / 层级调制。具体档位在 Epic 1 实现时确定并写入 `docs/DESIGN-FOUNDATION.md`。
+- **明确不承诺**"跟随每个视图的 `.tint(_:)`"：静态 `Color` 常量读不到环境值，要做到这一点需要把组件配色改成 `ShapeStyle` / 环境通路，是组件层 API 形态变更。本次不做；需要按视图 tint 的场景，走 SwiftUI 原生通路（系统控件 style 天然响应 `.tint`）。
+- 连带影响：`ButtonRoleStyleRole` 的 `color` / `activeColor` / `disabledColor` 三属性调色板须按新推导策略重写，此工作量计入 Epic 1。
 
 ### FR-5 · 阴影层级
 
@@ -148,15 +165,31 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 
 ### FR-6 · 删除 GitHub 专用组件
 
-删除 `BookCover`、`RefPill`、`StatusRow`、`EventRow`、`CommentCard`、`TimelineItem` 六个组件，及其测试、文档页、快照与组件索引条目。`StatusResult` / `StatusLevel` 等仅服务于这些组件的附属类型一并评估删除。
+删除 `BookCover`、`RefPill`、`StatusRow`、`EventRow`、`CommentCard`、`TimelineItem` 六个组件，及其测试、文档页、快照与组件索引条目。
+
+附属类型按实际归属二分，**不可一概而论**：
+
+- `StatusResult`（`Components/StatusRow/StatusRow.swift:11`）仅被 `StatusRow` 使用，随之删除。
+- **`StatusLevel` 必须保留**——它是保留组件 `Banner`（`Banner.swift:57,103`）与 `Toast`（`Toast.swift:28,41,177`）的公开 API 参数类型。误删会连带打断 Banner / Toast / StateLabel。
+
+同时必须清理预览宿主 `App/`（它不在 `Sources` / `Tests` / `docs` 之内，容易漏）：`App/Sources/Previews.swift`（24 处引用）、`App/Sources/ComponentData.swift`（4 处引用），并重新生成 `App/CoreDesignPreview.xcodeproj`。
 
 ### FR-7 · 删除 Blossom 主题
 
-删除 `Package.swift` 的 `traits:` 声明、8 处 `#if Blossom` 分流、`Resources.xcassets/blossom-brand/*` 与 `blossom-canvas/*` 色板、`BlossomColorDivergenceTests`，以及 CI 中的 `--traits Blossom` 双构建。
+删除以下全部内容：
+
+- `Package.swift` 的 `traits:` 声明。
+- `Sources` 内 8 处 `#if Blossom` 分流（`ColorGrade` / `CoreGradient` ×3 / `InteractionColors` / `SurfaceColors` ×3）。
+- `Resources.xcassets/blossom-brand/*` 与 `blossom-canvas/*` 色板。
+- `Tests/CoreDesignTests/BlossomColorDivergenceTests.swift`，以及 **`Tests/CoreDesignTests/CoreDesignTests.swift` 中的 `BlossomAssetTests` suite**（含其 `#if Blossom` 分支与 CoreGradient 渐变断言）——这是 `Sources` 之外的第 9 处 `#if Blossom`。
+- CI（`.github/workflows/ci.yml`）中的 `swift build --traits Blossom` / `swift test --traits Blossom` 双构建腿、xcodebuild 腿的 `-skip-testing:CoreDesignTests/BlossomAssetTests` 及其成因注释、以及 downstream-probe 一节的 Blossom 说明。
+- 预览宿主 `App/project.yml:13` 的 `traits: ["Blossom"]` 与其上方注释，并重新生成 `App/CoreDesignPreview.xcodeproj`（pbxproj 中含 `traits = (Blossom,)`）。**此项不做则 trait 删除后预览宿主直接无法解析依赖**，而视觉评审（Success Criteria #8）依赖它能跑。
 
 ### FR-8 · 删除 CoreGradient
 
 `CoreGradient.brand / cta / canvas` 存在的唯一理由是让 Blossom 拥有渐变而默认主题退化为纯色。Blossom 移除后，三个 token 退化为"纯色包一层 `AnyShapeStyle`"，构成净负担。删除 `CoreGradient.swift` 与 `CoreGradient+Preview.swift`，调用点改为直接使用语义色。
+
+`Sources` 内唯一的外部调用点在 `CommentCard`（已在 FR-6 删除清单内）；此外 `Tests/CoreDesignTests/CoreDesignTests.swift` 中有渐变退化断言，随 `BlossomAssetTests` 一并删除。
 
 ### FR-9 · 注释清理
 
@@ -170,9 +203,13 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 
 `InsetGroupedSection`（圆角分组容器，可选页眉/页脚）+ `SettingsRow`（图标方块 + 标题 + 可选副标题 + 尾部 accessory）。尾部 accessory 至少支持：value 文本、chevron、`Toggle`、任意自定义视图。分隔线自动按图标右缘做 leading inset。
 
+**为何自建容器而非直接用原生 `List` 的 `.insetGrouped` 样式**（与"不重造系统控件"约束的边界）：原生 `List` 只能作为滚动容器整体使用，无法把单个分组嵌进已有的 `ScrollView`、`VStack` 或表单混排布局中，而"在自定义页面里放一两个设置分组"正是最常见的用法。因此 `InsetGroupedSection` 复刻的是**分组容器的视觉**（圆角、分隔线 inset、页眉页脚），而非 `List` 的数据/滚动/编辑能力——后者仍然一律用系统的。`SettingsRow` 设计为既能放进 `InsetGroupedSection`，也能直接作为原生 `List` 的行使用。
+
 ### FR-11 · 新增基础容器与分隔件
 
 `Card`（统一卡片容器）、`Separator(inset:)`（可控 inset 的分隔线）、`SectionHeader` / `SectionFooter`。
+
+`Card` 与既有的 `SurfaceModifier`（`Modifier/SurfaceModifier.swift`，已提供背景 + 描边 + 圆角的容器语义）职责需明确划分：`Card` 是 `.surface(.content)` 的**具名封装**，提供默认内边距与标准圆角，不引入平行的容器体系；需要更细控制的场景继续直接用 `SurfaceModifier`。
 
 ### FR-12 · 新增系统控件 style 套件
 
@@ -182,13 +219,13 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 
 - `docs/PRIMER_VERSION.md` 替换为 `docs/DESIGN-FOUNDATION.md`（记录 Apple HIG 依据与 token 取值理由）。
 - `docs/README.md` 组件索引与快照同步更新。
-- `docs/BREAKING-CHANGES.md` 记录全部删除符号与改名 token，每项给出替代方案。
+- `docs/BREAKING-CHANGES.md` 记录全部删除符号、改名 token 与**同名换值**（圆角档位、控件高度档位、语义色指向），每项给出替代方案或旧值 → 新值对照；替代物要等 `0.4.0` 的条目明确标注。
 - Phase 1 发 `0.3.0`，Phase 2 发 `0.4.0`；README 的版本 pin 同步。
 
 ## Non-Functional Requirements
 
 - **平台与语言**：维持 iOS 26+ / macOS 26+、Swift 6 语言模式与完整严格并发检查；`swiftSettings: [.defaultIsolation(MainActor.self)]` 不变。
-- **可访问性**：所有文字随 Dynamic Type 缩放（`caption2` 不再例外）；交互元素满足 44pt 触控下限；在最大辅助功能字号下布局不裁切、不重叠。库内现有的 `DynamicTypeLayoutTests` 需覆盖新 token。
+- **可访问性**：所有文字随 Dynamic Type 缩放（原 `captionSmall` 的 9pt 不缩放例外随其改为 `caption2` 一并取消）；交互元素满足 44pt 触控下限；在最大辅助功能字号下布局不裁切、不重叠。库内现有的 `DynamicTypeLayoutTests` 需覆盖新 token，且其中 `captionSmallDoesNotScale` 断言编码的是与本条相反的旧契约，须**翻转**而非仅扩充；该 suite 的其余断言是单调性检查，对 token 重铸稳健。
 - **测试**：继续使用 Swift Testing（`import Testing` / `@Test` / `#expect`），不引入 XCTest。删除组件的测试一并删除；新增组件配套测试。
 - **预览**：每个组件保留同文件内的 `#Preview`，作为视觉冒烟检查。
 - **资源加载**：所有资源查找继续传 `bundle: .module`。
@@ -197,15 +234,15 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 
 ## Success Criteria
 
-1. `swift build` 与 `swift test` 全绿（两阶段各自收尾时）。
-2. `grep -rE "审计项|Issue #[0-9]+|epic ADR" Sources` 返回 0 行。
-3. `grep -rn "RoundedRectangle(cornerRadius:" Sources` 的每一处都带 `style: .continuous`（或已改用 `ConcentricRectangle`）。
-4. `CoreControlMetrics.height(for: .regular) >= 44`，且库内所有交互组件在 `.regular` 下实测可点击高度 ≥ 44pt（测试覆盖）。
+1. **CI 全部命令全绿**（两阶段各自收尾时），明确包含 `.github/workflows/ci.yml` 中的 **xcodebuild iOS Simulator 腿**——不能只跑 `swift build` / `swift test`。原因：`DynamicTypeLayoutTests` 整个 suite 是 `#if os(iOS)`，在 macOS 的 `swift test` 下是空 suite；下面第 4 条与 NFR 的 Dynamic Type 断言只能在这条腿上真正执行。
+2. `grep -rE "审计项|Issue #[0-9]+|epic ADR|per epic|PR description" Sources` 返回 0 行（改造前实测命中 23 个源文件）。
+3. `Sources` 中不存在裸 `RoundedRectangle(...)` 调用——全部经 FR-2 的 shape helper 或 `ConcentricRectangle`。以「grep 裸调用为 0」作判据，而非逐行检查是否带 `.continuous`（后者抓不到跨行初始化，且会把文档注释里的示例误计为违规）。
+4. `CoreControlMetrics.height(for: .regular) >= 44`，且库内所有交互组件在 `.regular` 下实测可点击高度 ≥ 44pt（测试覆盖，在第 1 条的 iOS Simulator 腿上执行）。
 5. `CoreTypography` 中不存在 `Font.system(size:)` 固定字号调用（`Canvas` 等命令式绘制场景若确需，单独记录理由）。
-6. `Sources` 中 `#if Blossom` 出现 0 次，`CoreGradient` 符号 0 引用。
-7. 库中删除的 6 个组件在 `Sources` / `Tests` / `docs` 中 0 残留引用。
+6. `Sources`、`Tests`、`App` 三处 `#if Blossom` 均出现 0 次（改造前 `Sources` 8 处 + `Tests` 1 处），`CoreGradient` 符号 0 引用，CI 中无 `--traits Blossom` 与 `-skip-testing:CoreDesignTests/BlossomAssetTests`。
+7. 删除的 6 个组件在 `Sources` / `Tests` / `docs` / **`App`** 中 0 残留引用（`App` 必须纳入范围：改造前 `App/Sources/Previews.swift` 有 24 处、`ComponentData.swift` 有 4 处引用）。
 8. `ios-visual-reviewer` 基于模拟器截图的视觉评审结论为通过（无"看起来像网页控件 / 非原生"类阻断项）。
-9. 下游 any-writer 编译探针跑通，破坏面已全部落入 `docs/BREAKING-CHANGES.md`。
+9. 下游 any-writer 编译探针跑通。**注意探针只能发现删除与改名的符号，对"同名换值"（FR-2 圆角、FR-3 控件高度、FR-4 色义）系统性失明**——这三类须另行以逐调用点迁移映射表（FR-2）为证，不得以探针通过代替。
 10. Phase 2 交付后，`InsetGroupedSection` + `SettingsRow` 能在不写任何 CoreDesign 之外样式代码的前提下复刻一屏 iOS 设置页（以 preview 为证）。
 
 ## Constraints & Assumptions
@@ -242,8 +279,8 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 ### 内部依赖
 
 - Epic 2 依赖 Epic 1 完成并合入 main。
-- 视觉评审依赖 preview app 与快照脚本可跑通（若 Phase 1 的删除动作打断它们，需在同一 epic 内修复）。
-- `docs/BREAKING-CHANGES.md` 的完整性依赖下游编译探针（`scripts/downstream-probe`）跑通。
+- **视觉评审（Success Criteria #8）依赖预览宿主 `App/` 可构建，而 Phase 1 的删除动作确定会打断它**（`project.yml` 的 Blossom trait、`Previews.swift` / `ComponentData.swift` 对 6 个被删组件的引用）。修复 `App/` 是 Epic 1 的既定工作项，不是或有风险——见 FR-6 / FR-7。
+- `docs/BREAKING-CHANGES.md` 的完整性依赖下游编译探针（`scripts/downstream-probe`）跑通，外加人工整理的同名换值清单（探针覆盖不到）。
 
 ### 外部依赖
 
