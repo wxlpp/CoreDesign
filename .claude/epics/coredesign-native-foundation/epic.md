@@ -46,13 +46,21 @@ github: (will be set on sync)
 
 AppKit 无 grouped background 系列，现桥接层把 `surfaceCanvas` 与 `surfaceRaised` 都落到 `.controlBackgroundColor`（`SystemBackgroundColors.swift:47-53`、`58-64`）。照搬 iOS 映射会让 macOS 上卡片与画布同色、raised 层隐形。macOS 侧取 `windowBackgroundColor`（canvas）/ `controlBackgroundColor`（raised），并在浅色与深色下各验证一次二者确有可见差异。
 
-### ADR-5 · 「同名换值」按逐调用点迁移，不靠自动继承
+### ADR-5 · 改名走弃用别名过渡，不做硬切
+
+旧字体 token 名在 `Tokens/` 之外有 63 处引用，删 `CoreRadius.mediumPlus` 直接打断 `Sidebar.swift:157,411`。若 Task 003 硬改名，`swift build` 会从 003 一直红到迁移完成（约 36 小时），期间 CI 与每个 checkpoint 评审全部失去把关能力，且 003∥004 的并行声明失效——两者之一注定落在红树上无法独立验证。
+
+因此 003 采用 `@available(*, deprecated, renamed:)` 别名过渡：新旧名并存，全程 build 绿。迁移由 deprecation warning 驱动，比编译错误清单更完整（warning 能逐点列全且不阻塞构建）。别名在 Task 005 末尾删除。
+
+**注意别名兜不住同名换值**（见 ADR-6）——`CoreRadius.small` 3 → 6 这类改动既不报错也不产生 warning。两类风险的处置手段不同，故拆成 005（改名，编译器驱动）与 006（换值，人工逐点）两个任务。
+
+### ADR-6 · 「同名换值」按逐调用点迁移，不靠自动继承
 
 `CoreRadius.small` 3 → 6、`medium` 6 → 10、`CoreControlMetrics.height(.regular)` 32 → 44 等属同名换值：下游与库内调用点**编译零感知**，但视觉全变。尤其新 `small = 6` 恰等于旧 `medium`，所有按旧语义选 `small` 的调用点圆角静默翻倍。
 
-因此 Task 005 的产出不只是「改完能编译」，而是一份「旧档位 → 新档位」的逐调用点迁移映射表，逐点确认新档位是有意选择。
+因此 Task 006 的产出不只是「改完能编译」，而是一份「旧档位 → 新档位」的逐调用点迁移映射表，逐点确认新档位是有意选择。
 
-### ADR-6 · 删除先于重铸
+### ADR-7 · 删除先于重铸
 
 见 Overview。Task 001 / 002 无前置依赖且可并行；其余任务在其之后。
 
@@ -61,8 +69,8 @@ AppKit 无 grouped background 系列，现桥接层把 `surfaceCanvas` 与 `surf
 ### Token 层（`Sources/CoreDesign/Tokens/`、`Colors/`）
 
 - `CoreTypography`：12 档改为 Apple 文本样式语义（`largeTitle` / `title` / `title2` / `title3` / `headline` / `body` / `callout` / `subheadline` / `footnote` / `caption` / `captionMono` / `caption2`）。
-- `CoreRadius`：`none 0 / small 6 / medium 10 / large 16 / xLarge 22`，删 `smallPlus` / `mediumPlus`；新增 shape helper。
-- `CoreControlMetrics`：高度 `28 / 32 / 44 / 50 / 56`，删 `primerVerticalPadding` 逃生口。
+- `CoreRadius`：`none 0 / small 6 / medium 10 / large 16 / xLarge 22`；`smallPlus` / `mediumPlus` 先标 deprecated、Task 005 删除；新增 shape helper。
+- `CoreControlMetrics`：高度 `28 / 32 / 44 / 50 / 56`；`primerVerticalPadding` 逃生口先标 deprecated、Task 005 删除。
 - `CoreElevation`：resting 档保持近乎平坦，层级交给 material + separator。
 - `SurfaceColors` / `ContentColors` / `BorderColors` / `InteractionColors` / `FillColors`：产出第 3 层**完整**映射表，改指系统色，保持现值的显式标注（PRD FR-4 明确该表非穷尽，`surfaceCanvasInset` / `surfaceCard` / `contentOnEmphasis` 等未列出的必须一并定案）。
 - `ColorGrade`：保留为内部原料，取值不动。
@@ -73,7 +81,7 @@ AppKit 无 grouped background 系列，现桥接层把 `surfaceCanvas` 与 `surf
 
 ### 宿主与 CI（`App/`、`.github/workflows/ci.yml`、`scripts/`）
 
-`App/` 不在 `Sources`/`Tests`/`docs` 之内，是最容易漏的一块，而视觉评审依赖它能构建：`project.yml:13` 的 `traits: ["Blossom"]`、`Previews.swift`（24 处）与 `ComponentData.swift`（4 处）对被删组件的引用、pbxproj 重生成。CI 需摘掉双 trait 腿与 `-skip-testing:CoreDesignTests/BlossomAssetTests`。
+`App/` 不在 `Sources`/`Tests`/`docs` 之内，是最容易漏的一块，而视觉评审依赖它能构建：`project.yml:13` 的 `traits: ["Blossom"]`、`Previews.swift`（24 处）与 `ComponentData.swift`（4 处）对被删组件的引用、pbxproj 重生成。CI 需摘掉 `matrix: mode: [default, blossom]` 及其 if/else 骨架、以及 `-skip-testing:CoreDesignTests/BlossomAssetTests`。
 
 ### 文档
 
@@ -84,10 +92,15 @@ AppKit 无 grouped background 系列，现桥接层把 `surfaceCanvas` 与 `surf
 三段式，顺序不可交换：
 
 1. **削面积**（001 ∥ 002）——删掉不需要迁移的东西，把后续迁移面缩到最小。
-2. **铸地基**（003 ∥ 004）——token 定义层重写，此时不动组件。
-3. **迁调用**（005 → 006 → 007 → 008）——组件逐调用点迁移、注释清理、文档与 CI、视觉终审。
+2. **铸地基**（003 ∥ 004）——token 定义层重写，此时不动组件；靠弃用别名保持 build 绿（ADR-5）。
+3. **迁调用与收尾**（005 → 006 → 007 → 008 → 009 → 010）——机械改名、逐点重审、可访问性验证、注释清理、视觉终审、文档发版。
 
-风险控制：第 3 段是串行的，因为 005 / 006 会大面积触及同一批组件文件，并行只会制造冲突。视觉评审（008）放在最后，因为它需要一个能构建的预览宿主和一套已迁移完的组件才有意义。
+风险控制：
+
+- 第 3 段全程串行，因为这些任务会大面积触及同一批组件文件，并行只会制造冲突。
+- **005 与 006 必须分开**：前者是编译器驱动的机械替换，后者是人工的逐点视觉判断。合在一起执行，结果通常是机械替换做完了而设计判断被跳过。
+- **视觉终审（009）排在文档发版（010）之前**：009 允许回改 token 值，若文档先定稿，「同名换值」表与取值理由会当场失真。009 的评审看的是模拟器截图，不需要 `docs/snapshots/` 就绪，所以这个顺序没有代价。
+- 009 设 2 轮复审上限，超出则升级给用户裁决——「处置→复审」是无界循环，且允许回卷 003/004 的定案。
 
 ## Task Breakdown Preview
 
@@ -95,30 +108,34 @@ AppKit 无 grouped background 系列，现桥接层把 `surfaceCanvas` 与 `surf
 |---|---|---|---|
 | 001 | 删除 6 个 GitHub 专用组件（Sources / Tests / docs / App） | — | ✅ 与 002 |
 | 002 | 删除 Blossom trait 与 CoreGradient（Sources / Tests / CI / App 宿主配置） | — | ✅ 与 001 |
-| 003 | 重铸字体 / 圆角 / 尺寸 / 阴影 token，引入 shape helper | 002 | ✅ 与 004 |
+| 003 | 重铸字体 / 圆角 / 尺寸 / 阴影 token，引入 shape helper，留弃用别名 | 002 | ✅ 与 004 |
 | 004 | 重铸语义色层：完整映射表 + macOS 降级 + accent 衍生族 + `ButtonRoleStyleRole` | 002 | ✅ 与 003 |
-| 005 | 保留组件逐调用点迁移，产出「旧档位 → 新档位」迁移映射表 | 003, 004 | ❌ |
-| 006 | 清理注释：删内部流程编号、统一中文、去 Primer 考据 | 005 | ❌ |
-| 007 | 文档与 CI：DESIGN-FOUNDATION / BREAKING-CHANGES / CLAUDE.md / AGENTS.md / 组件索引 / 快照 / 版本 pin | 005, 006 | ❌ |
-| 008 | 视觉终审：跑预览宿主截图 → `ios-visual-reviewer` → 修复 | 007 | ❌ |
+| 005 | 组件机械改名扫尾并删除弃用别名（编译器驱动） | 003, 004 | ❌ |
+| 006 | 同名换值逐点重审与迁移映射表（人工判断） | 005 | ❌ |
+| 007 | 触控目标与 Dynamic Type 验证 | 006 | ❌ |
+| 008 | 清理注释：删内部流程编号、统一中文、去 Primer 考据 | 007 | ❌ |
+| 009 | 视觉终审：截图 → `ios-visual-reviewer` → 修（2 轮上限） | 008 | ❌ |
+| 010 | 文档 / CI / 版本：DESIGN-FOUNDATION、BREAKING-CHANGES、CLAUDE.md、AGENTS.md、组件索引、快照、`0.3.0` 发版 | 009 | ❌ |
 
-共 8 个任务。
+共 10 个任务。
 
 ## Dependencies
 
 ### 内部
 
 - 003 / 004 依赖 002：`CoreGradient` 在 `Tokens/`，`#if Blossom` 分流在 `SurfaceColors` / `InteractionColors` / `ColorGrade`，先删可避免在将被删除的分支上做迁移。
-- 005 依赖 003 + 004：组件迁移需要新 token 已定案。
-- 008 依赖 007：视觉评审需要可构建的预览宿主（001 / 002 修好 `App/`）与已重生成的快照。
-- 001 与 002 无文件冲突：001 改 `App/Sources/Previews.swift` 与 `ComponentData.swift`，002 改 `App/project.yml` 与 pbxproj。
+- 005 依赖 003 + 004：组件迁移需要新 token 与别名都已就位。
+- 006 依赖 005：改名扫干净、树是绿的，才能专注做视觉判断。
+- 009 的实际可运行性依赖 001 / 002 修好 `App/`（宿主 trait 配置与被删组件引用）。
+- 010 依赖 009：文档必须以视觉终审后的终态数值写就。
+- 001 与 002 无文件冲突：001 改 `App/Sources/*.swift`，002 改 `App/project.yml` 与 pbxproj（xcodegen 按 glob 收文件，001 不改变文件身份，无需重生成工程）。
 - 004 与 005 均触及 `Components/Button/`：`ButtonRoleStyleRole` 归 004，其余 Button style 归 005，需在 005 启动前确认 004 已合入。
 
 ### 外部
 
 - SwiftUI iOS 26 / macOS 26 SDK：`ConcentricRectangle`、`Edge.Corner.Style.concentric`、`.glassEffect()`、`@Entry`。
-- `ios-visual-reviewer` agent：Task 008 的判定方。
-- 下游 any-writer：不阻塞本 epic，但 007 须产出供其迁移的完整破坏清单。
+- `ios-visual-reviewer` agent：Task 009 的判定方。
+- 下游 any-writer：不阻塞本 epic，但 010 须产出供其迁移的完整破坏清单。
 
 ## Success Criteria (Technical)
 
@@ -136,14 +153,16 @@ AppKit 无 grouped background 系列，现桥接层把 `surfaceCanvas` 与 `surf
 
 ## Estimated Effort
 
-- 001 / 002：各半天，纯删除 + 连带清理，机械但覆盖面广（易漏 `App/` 与 CI）。
+- 001 / 002：各半天，纯删除 + 连带清理，机械但覆盖面广（易漏 `App/`、CI matrix 与快照 JSON）。
 - 003 / 004：各 1 天。004 更重——完整映射表 + macOS 降级验证 + accent 衍生族推导 + `ButtonRoleStyleRole` 重写。
-- 005：2–3 天，本 epic 最大的一块，约 20 个保留组件逐调用点过一遍并产出映射表。
-- 006：半天到 1 天，23 个源文件。
-- 007：1 天。
-- 008：1 天，含评审后的修复轮次。
+- 005：半天到 1 天，编译器驱动，63 处改名 + 删别名。
+- 006：1 天，本 epic 判断密度最高的一段，逐调用点确认换值。
+- 007：半天到 1 天，触控与 Dynamic Type 断言。
+- 008：半天到 1 天，23 个源文件的注释清理。
+- 009：1 天，含最多 2 轮复审与修复。
+- 010：1 天，文档、CI 复核、发版。
 
-合计约 7–9 天。关键路径是 002 → 004 → 005 → 006 → 007 → 008；001 与 003 可搭车并行，不在关键路径上。
+合计约 8–10 天。关键路径 002 → 004 → 005 → 006 → 007 → 008 → 009 → 010；001 与 003 搭车并行，不在关键路径上。
 
 ## Tasks Created
 
@@ -151,12 +170,14 @@ AppKit 无 grouped background 系列，现桥接层把 `surfaceCanvas` 与 `surf
 - [ ] 002.md - 删除 Blossom trait 与 CoreGradient (parallel: true)
 - [ ] 003.md - 重铸字体 / 圆角 / 尺寸 / 阴影 token (parallel: true, depends_on: 002)
 - [ ] 004.md - 重铸语义色层与 accent 衍生族 (parallel: true, depends_on: 002)
-- [ ] 005.md - 保留组件逐调用点迁移到新 token (parallel: false, depends_on: 003, 004)
-- [ ] 006.md - 清理注释 (parallel: false, depends_on: 005)
-- [ ] 007.md - 文档、CI 与版本收尾 (parallel: false, depends_on: 005, 006)
-- [ ] 008.md - 视觉终审与修复 (parallel: false, depends_on: 007)
+- [ ] 005.md - 组件机械改名扫尾并删除弃用别名 (parallel: false, depends_on: 003, 004)
+- [ ] 006.md - 同名换值逐点重审与迁移映射表 (parallel: false, depends_on: 005)
+- [ ] 007.md - 触控目标与 Dynamic Type 验证 (parallel: false, depends_on: 006)
+- [ ] 008.md - 清理注释 (parallel: false, depends_on: 007)
+- [ ] 009.md - 视觉终审与修复 (parallel: false, depends_on: 008)
+- [ ] 010.md - 文档、CI 与版本收尾 (parallel: false, depends_on: 009)
 
-Total tasks: 8
+Total tasks: 10
 Parallel tasks: 4（001∥002，随后 003∥004）
-Sequential tasks: 4（005 → 006 → 007 → 008）
+Sequential tasks: 6（005 → 006 → 007 → 008 → 009 → 010）
 Estimated total effort: 66 hours
