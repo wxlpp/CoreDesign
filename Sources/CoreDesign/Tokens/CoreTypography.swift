@@ -188,4 +188,46 @@ public nonisolated enum CoreTypography {
     public static let captionSmallLineSpacing: CGFloat = 0
 
     public static let captionSmallTracking: CGFloat = 0
+
+    // MARK: - Token（Dynamic Type 入口，Issue #95 / B2a）
+
+    /// 排版 token / Typography token。携带 Primer 基准规格，经 `.coreFont(_:)` 施加。
+    ///
+    /// 取代直接读 `*Font` 常量——那些是 `.system(size:)` 固定值**不缩放**。`.coreFont(token)`
+    /// 用 `@ScaledMetric` 让字号与 lineSpacing 随 Dynamic Type 缩放，同时保住 Primer 精确
+    /// 基准 pt。`captionSmall` 是唯一例外（`scales == false`），保留其既有的紧凑 chrome 约束。
+    public enum Token: CaseIterable {
+        case displayLarge, titleLarge, titleMedium, titleSmall, subtitle
+        case bodyLarge, bodyMedium, bodySmall, caption, captionMono, captionSmall
+
+        /// token 的完整排版规格。
+        public struct Spec {
+            public let size: CGFloat
+            public let weight: Font.Weight
+            /// Dynamic Type 缩放基准（借其斜率，基准 pt 仍是 `size`）；`scales == false` 时忽略。
+            public let textStyle: Font.TextStyle
+            public let lineSpacing: CGFloat
+            public let tracking: CGFloat
+            public let scales: Bool
+            public let monospaced: Bool
+        }
+
+        public var spec: Spec {
+            switch self {
+            //                    size  weight       textStyle 基准    lineSpacing  tracking  scales  mono
+            case .displayLarge: Spec(size: 40, weight: .medium,   textStyle: .largeTitle, lineSpacing: 15,   tracking: 0, scales: true,  monospaced: false)
+            case .titleLarge:   Spec(size: 32, weight: .semibold, textStyle: .title,      lineSpacing: 16,   tracking: 0, scales: true,  monospaced: false)
+            case .titleMedium:  Spec(size: 20, weight: .semibold, textStyle: .title2,     lineSpacing: 12.5, tracking: 0, scales: true,  monospaced: false)
+            case .titleSmall:   Spec(size: 16, weight: .semibold, textStyle: .headline,   lineSpacing: 8,    tracking: 0, scales: true,  monospaced: false)
+            case .subtitle:     Spec(size: 20, weight: .regular,  textStyle: .title3,     lineSpacing: 12.5, tracking: 0, scales: true,  monospaced: false)
+            case .bodyLarge:    Spec(size: 16, weight: .regular,  textStyle: .body,       lineSpacing: 8,    tracking: 0, scales: true,  monospaced: false)
+            case .bodyMedium:   Spec(size: 14, weight: .regular,  textStyle: .callout,    lineSpacing: 7,    tracking: 0, scales: true,  monospaced: false)
+            case .bodySmall:    Spec(size: 12, weight: .regular,  textStyle: .caption,    lineSpacing: 7.5,  tracking: 0, scales: true,  monospaced: false)
+            case .caption:      Spec(size: 12, weight: .regular,  textStyle: .caption,    lineSpacing: 3,    tracking: 0, scales: true,  monospaced: false)
+            case .captionMono:  Spec(size: 12, weight: .regular,  textStyle: .caption,    lineSpacing: 3,    tracking: 0, scales: true,  monospaced: true)
+            // captionSmall：9pt 紧凑 chrome，故意不缩放（放大会撑爆 tab 角标/status bar）。
+            case .captionSmall: Spec(size: 9,  weight: .regular,  textStyle: .caption2,   lineSpacing: 0,    tracking: 0, scales: false, monospaced: false)
+            }
+        }
+    }
 }
