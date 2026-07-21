@@ -27,4 +27,15 @@
 
 ## #99 指针兑现
 
-- #99 曾在 D2 行加指针「L10n sweep 须一并纳入」并新增 4 处英文 a11y 串（`BottomInputBar` Suggestions/Send/Stop、`Form.DangerIcon` Alert）。主编排裁决扩范围，本任务已一并纳入 catalog——D2 标「已修复」名副其实，全库组件内部 UI 串口径一致。
+- #99 曾在 D2 行加指针「L10n sweep 须一并纳入」并新增 4 处英文 a11y 串（`BottomInputBar` Suggestions/Send/Stop、`Form.DangerIcon` Alert）。主编排裁决扩范围，本任务已一并纳入 catalog——D2 标「已修复」名副其实（AC 枚举清单口径一致）。
+
+## 未纳入（AC 枚举外，留 follow-up）
+
+本任务按 AC 枚举清单交付，**不声称库内英文 a11y 串穷尽**。checkpoint 复核发现以下约 8 处英文 a11y 串仍是裸字面量、未走 `bundle: .module`（多含动态插值，catalog 化成本高于 XS 定位，且 SearchField/CommentCard/StatusRow 在本任务越界白名单外）：
+
+- `SearchField.swift:100/122/242`（"Search" / "Clear …" 插值 / "Toggle Inspector"）
+- `CommentCard.swift:89/90/102`（"Show minimized comment" / "Expands…\(author)" / "Comment by \(author)"）
+- `ProgressBar.swift:58`（`% complete` value——与本任务已本地化的 `:57` label 同组件一行之隔）
+- `StatusRow.swift:97`（"\(label), \(duration)" combined value）
+
+建议归 #102 或后续单独 L10n sweep。**两处 AC 偏离供用户知晓**：(i) AC line 33 字面要求 `Localizable.xcstrings`，实际交付 `.strings`/`.stringsdict`（工具链现实，spike 实证）；(ii) AC line 34「全库口径一致」与其只列 4 处的枚举自相矛盾，本任务按枚举交付、审计记录已修正为不夸大。
