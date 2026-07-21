@@ -31,5 +31,39 @@ struct DynamicTypeLayoutTests {
         #expect(self.renderedHeight(text, at: .accessibility5) > self.renderedHeight(text, at: .large),
                 "ImageRenderer 未按注入档缩放——Task 5 的整套断言不成立")
     }
+
+    @Test("Sidebar 四种 row 的高度随 Dynamic Type 单调不减")
+    func sidebarRowsGrowWithDynamicType() {
+        // 注意：本断言的高度增长依赖 `SidebarRow` 的 **title** 字号缩放（Task 3 已把
+        // SidebarRow 的 title 迁到 coreFont）。若 title 仍是固定 Font，此断言不通电。
+        let row = SidebarNavigationRow(systemImage: "star", title: "Long enough title to wrap at accessibility sizes", isSelected: false) {}
+
+        let small = self.renderedHeight(row, at: .large)          // 默认档
+        let xxxl  = self.renderedHeight(row, at: .xxxLarge)
+        let ax5   = self.renderedHeight(row, at: .accessibility5)
+
+        // 主断言用**最大跨度** large vs accessibility5——`row` 有 `minHeight` 地板，
+        // 相邻/近档可能都被夹到地板值。最大跨度才必然突破地板。
+        #expect(ax5 > small, "accessibility5 未比 large 高——字号没缩放或被固定高度裁切")
+        #expect(xxxl >= small, "xxxLarge 应 ≥ large")
+        #expect(ax5 >= xxxl, "accessibility5 应 ≥ xxxLarge")
+    }
+
+    @Test("coreFont 的字号在 iOS 下确实随 Dynamic Type 变化")
+    func coreFontActuallyScales() {
+        let text = Text("Ag").coreFont(.bodyLarge)
+        let small = self.renderedHeight(text, at: .large)
+        let ax5   = self.renderedHeight(text, at: .accessibility5)
+        #expect(ax5 > small, "coreFont 未缩放——ScaledMetric 或 textStyle 基准错了")
+    }
+
+    @Test("captionSmall 明确不缩放")
+    func captionSmallDoesNotScale() {
+        let text = Text("9").coreFont(.captionSmall)
+        let small = self.renderedHeight(text, at: .large)
+        let ax5   = self.renderedHeight(text, at: .accessibility5)
+        // captionSmall 固定档：ax5 不应比 small 显著高（渲染有 ±1px 抖动，留容差）。
+        #expect(ax5 <= small + 1, "captionSmall 缩放了——违反其固定设计约束")
+    }
 }
 #endif
