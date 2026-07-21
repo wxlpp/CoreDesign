@@ -107,7 +107,7 @@ public struct Tag<Label: View>: View {
                 .disabled(self.onRemove == nil)
                 .padding(CoreSpacing.xxs)
                 .contentShape(Rectangle())
-                .accessibilityLabel(Text("Remove tag"))
+                .accessibilityLabel(Text("Remove tag", bundle: .module))
             }
         }
         .padding(.horizontal, CoreSpacing.sm)

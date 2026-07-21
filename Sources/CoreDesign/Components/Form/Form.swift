@@ -112,7 +112,7 @@ public struct DangerIcon: View {
             // 承载语义（危险/需注意本身是信息），补 label 而非隐藏。用 "Alert" 而非
             // "Warning"——warning(橙) 与 danger(红) 在本库是两个不同的状态语义，念 "Warning"
             // 会让屏读用户把 danger 误听成 warning、无法区分本该能区分的两个状态。
-            .accessibilityLabel("Alert")
+            .accessibilityLabel(Text("Alert", bundle: .module))
     }
 }
 

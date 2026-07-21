@@ -87,7 +87,7 @@ public struct AvatarGroup<Avatars: View>: View {
 
 enum AvatarGroupAccessibility {
     static func overflowLabel(for count: Int) -> String {
-        "\(count) more avatars"
+        String(localized: "\(count) more avatars", bundle: .module)
     }
 }
 

@@ -54,7 +54,7 @@ public struct ProgressBar: View {
             .frame(height: CoreSpacing.xs)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(self.label ?? "Progress")
+        .accessibilityLabel(self.label.map(Text.init(verbatim:)) ?? Text("Progress", bundle: .module))
         .accessibilityValue("\(Int(self.value * 100))% complete")
     }
 }
