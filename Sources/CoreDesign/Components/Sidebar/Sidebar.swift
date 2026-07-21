@@ -433,3 +433,38 @@ public extension View {
         self.modifier(SidebarSelectedBackgroundModifier(isSelected: isSelected))
     }
 }
+
+#Preview {
+    ScrollView {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            // 1) SidebarSection 容器 + 2) SidebarNavigationRow（选中 / 未选中两态）
+            SidebarSection(title: "Workspace") {
+                SidebarNavigationRow(systemImage: "house", title: "Home", isSelected: true) {}
+                SidebarNavigationRow(systemImage: "bell", title: "Notifications", isSelected: false) {}
+            }
+
+            // 3) SidebarUtilityRow（带装饰性 trailing 图标）
+            SidebarSection(title: "Tools", showsChevron: false) {
+                SidebarUtilityRow(systemImage: "gearshape", title: "Settings", trailingSystemImage: "chevron.right") {}
+                SidebarUtilityRow(systemImage: "trash", title: "Trash") {}
+            }
+
+            // 4) SidebarDocumentRow（尾部 detail 可读）
+            SidebarSection(title: "Documents") {
+                SidebarDocumentRow(systemImage: "doc.text", title: "Design Spec", detail: "3d") {}
+                SidebarDocumentRow(systemImage: "doc.richtext", title: "A very long document title that wraps", detail: "12") {}
+            }
+
+            // 5) SidebarTagRow（# 前缀）
+            SidebarSection(title: "Tags") {
+                SidebarTagRow(title: "swiftui") {}
+                SidebarTagRow(title: "design-system") {}
+            }
+
+            // 6) SidebarStatusFooter（默认成功语义色）
+            SidebarStatusFooter(title: "All systems operational", detail: "Updated just now")
+        }
+        .padding(CoreSpacing.md)
+    }
+    .background(Color.surfaceCanvas)
+}
