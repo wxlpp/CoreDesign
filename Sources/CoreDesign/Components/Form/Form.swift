@@ -89,7 +89,7 @@ public struct ChevronRightIcon: View {
     public var body: some View {
         Image(systemName: "chevron.right")
             // 永远是「进入下一级」的 disclosure 指示符，任何语境下都装饰——对齐
-            // Sidebar 对 chevron 的处理，无歧义烤 hidden 安全。
+            // Sidebar 对 chevron 的处理，无歧义，隐藏它安全。
             .accessibilityHidden(true)
     }
 }
@@ -109,8 +109,9 @@ public struct DangerIcon: View {
     public var body: some View {
         Image(systemName: "exclamationmark.circle.fill")
             .foregroundStyle(Color.statusDangerForeground)
-            // 承载语义（危险/需注意本身是信息），补 label 而非隐藏。用 "Alert"（与 danger
-            // 语义对齐）而非 "Warning"——后者会撞 FunctionalColor 的 warning(橙) token 语义。
+            // 承载语义（危险/需注意本身是信息），补 label 而非隐藏。用 "Alert" 而非
+            // "Warning"——warning(橙) 与 danger(红) 在本库是两个不同的状态语义，念 "Warning"
+            // 会让屏读用户把 danger 误听成 warning、无法区分本该能区分的两个状态。
             .accessibilityLabel("Alert")
     }
 }
