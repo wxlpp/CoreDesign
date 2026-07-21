@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - 前四条 SwiftPM 命令绿且不新增 warning。**warning 采集前 `swift package clean`**（热构建不重放诊断，#94/#96/#97 的教训）。
-- **第 5 条命令是本任务独有的硬性验收**：`xcodebuild test -scheme CoreDesign -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -skip-testing:CoreDesignTests/BlossomAssetTests -skip-testing:CoreDesignTests/ToastHostTests CODE_SIGNING_ALLOWED=NO`（与 CI `ci.yml:110` 逐字一致）。布局断言必须在其下**真正执行**（用函数名 grep 确认，非空转）。
+- **第 5 条命令是本任务独有的硬性验收**：`xcodebuild test -scheme CoreDesign -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -skip-testing:CoreDesignTests/BlossomAssetTests -skip-testing:CoreDesignTests/ToastHostTests CODE_SIGNING_ALLOWED=NO`（与 CI `ci.yml:110` 逐字一致）。布局断言必须在其下**真正执行**（用**显示名子串** grep 确认，非空转——Swift Testing 打印显示名不打印函数名）。
 - **macOS 无 Dynamic Type**：`@ScaledMetric(wrappedValue: 16, relativeTo: .body)` 在 macOS `swift test` 宿主下全 12 档**恒返回 16.0**（`NSFont.preferredFont(.body).pointSize` 恒为 13）。所以布局断言必须 `#if os(iOS)` 包住——四条 SwiftPM 命令下它是**空转的**。这本身是个假绿点：SwiftPM 全绿不代表布局断言过。
 - **不依赖颜色**：`swift test` 下 asset 颜色解析为 `(0,0,0,0)`（SwiftPM 不调 `actool`）。布局断言只测尺寸，不测色。
 - 代码风格：显式 `self.`、中英双语注释、`// MARK: -`、`Modifier/` 下以 `View` 扩展暴露。
@@ -241,26 +241,37 @@ Expected: EXIT=0。
 swift build --traits Blossom > /tmp/t1bb.log 2>&1; echo "blossom EXIT=$?"
 ```
 
-**更重要——先证明 `ImageRenderer` 尊重注入的 `dynamicTypeSize`**，这是 Task 5 整层押注的机制。**直接建 `Tests/CoreDesignTests/DynamicTypeLayoutTests.swift`**（就是 Task 5 的文件，本 spike 是它的第一个用例，Task 5 Step 1 在其上追加另外三个），内容先只放：
+**更重要——先证明 `ImageRenderer` 尊重注入的 `dynamicTypeSize`**，这是 Task 5 整层押注的机制。**直接建 `Tests/CoreDesignTests/DynamicTypeLayoutTests.swift`**（就是 Task 5 的文件），内容先放 `#if os(iOS)` suite + `renderedHeight` helper + 这一个 spike 用例（形态与 Task 5 Step 1 的「完整文件形态」一致，只是暂时只有 spike 这一个 `@Test`）：
 
 ```swift
+import Testing
+import SwiftUI
+@testable import CoreDesign
+
 #if os(iOS)
-@Test("spike：ImageRenderer 尊重注入的 dynamicTypeSize")
-@MainActor func imageRendererRespectsDynamicType() {
-    func h(_ s: DynamicTypeSize) -> CGFloat {
-        let r = ImageRenderer(content: Text("Ag").coreFont(.bodyLarge)
-            .environment(\.dynamicTypeSize, s).frame(width: 320))
-        r.scale = 1
-        return r.uiImage?.size.height ?? 0
+@Suite("Dynamic Type 布局")
+@MainActor
+struct DynamicTypeLayoutTests {
+    private func renderedHeight<V: View>(_ view: V, at size: DynamicTypeSize) -> CGFloat {
+        let renderer = ImageRenderer(
+            content: view.environment(\.dynamicTypeSize, size).frame(width: 320))
+        renderer.scale = 1
+        return renderer.uiImage?.size.height ?? 0
     }
-    #expect(h(.accessibility5) > h(.large), "ImageRenderer 未按注入档缩放——Task 5 的整套断言不成立")
+
+    @Test("spike：ImageRenderer 尊重注入的 dynamicTypeSize")
+    func imageRendererRespectsDynamicType() {
+        let text = Text("Ag").coreFont(.bodyLarge)
+        #expect(self.renderedHeight(text, at: .accessibility5) > self.renderedHeight(text, at: .large),
+                "ImageRenderer 未按注入档缩放——Task 5 的整套断言不成立")
+    }
 }
 #endif
 ```
 
 跑第 5 条命令（Task 5 Step 2 的 `xcodebuild -scheme CoreDesign`）确认这一个 spike 过。**若它红了，Task 5 的方案要换（回退到 UIFontMetrics 直接量或注入 UITraitCollection），不要盲目往下铺三个断言。**
 
-spike 用例**留在** `DynamicTypeLayoutTests.swift` 里（不删、不复制），Task 1 Step 5 一并 commit 该文件；Task 5 Step 1 在其上追加另外三个断言。这样避免悬空的临时测试文件或与 `coreFontActuallyScales` 重复。
+spike 用例**留在** `DynamicTypeLayoutTests.swift` 里（不删、不复制），Task 1 Step 5 一并 commit 该文件；Task 5 Step 1 在其上追加另外三个断言。spike 与 Task 5 的 `coreFontActuallyScales` 语义重叠（都断言 `.bodyLarge` 在 ax5 > large），**保留 spike 作机制回归锚点**——不是为避免重复。
 
 - [ ] **Step 5: 提交**
 
@@ -435,7 +446,7 @@ git commit -m "refactor: D3 的 7 处文本字号迁移到 coreFont，新增 cap
 
 - [ ] **Step 1: 在 spike 文件上追加三个断言**
 
-`DynamicTypeLayoutTests.swift` 已在 Task 1 Step 4 建好（含 spike `imageRendererRespectsDynamicType`）。在同一 `#if os(iOS)` suite 内**追加**下面三个用例（renderedHeight helper 提取为 suite 方法，spike 也改用它）。完整文件形态：
+`DynamicTypeLayoutTests.swift` 已在 Task 1 Step 4 建好（含 `renderedHeight` helper + spike `imageRendererRespectsDynamicType`）。在同一 `#if os(iOS)` suite 内**追加**下面三个用例。追加后的完整文件形态（4 个 `@Test`）：
 
 ```swift
 import Testing
@@ -462,6 +473,14 @@ struct DynamicTypeLayoutTests {
         )
         renderer.scale = 1
         return renderer.uiImage?.size.height ?? 0
+    }
+
+    // Task 1 Step 4 的 spike，保留作机制回归锚点（改用 renderedHeight）。
+    @Test("spike：ImageRenderer 尊重注入的 dynamicTypeSize")
+    func imageRendererRespectsDynamicType() {
+        let text = Text("Ag").coreFont(.bodyLarge)
+        #expect(self.renderedHeight(text, at: .accessibility5) > self.renderedHeight(text, at: .large),
+                "ImageRenderer 未按注入档缩放——Task 5 的整套断言不成立")
     }
 
     @Test("Sidebar 四种 row 的高度随 Dynamic Type 单调不减")
@@ -529,14 +548,17 @@ Expected: `TEST SUCCEEDED`。
 **非空转判据（机械，不靠肉眼看末 30 行）：**
 
 ```bash
-# Swift Testing 打印的是 @Test 的**显示名**（中文），不是函数名——必须 grep 显示名子串。
-for key in "单调不减" "确实随 Dynamic Type 变化" "captionSmall 明确不缩放"; do
+# Swift Testing 打印的是 @Test 的**显示名**（中文），不是函数名——grep 显示名子串。
+# 每个 pattern **带尾引号**锚定，避免匹配到更长的同前缀显示名（见下）。
+for key in '单调不减"' '确实随 Dynamic Type 变化"' 'captionSmall 明确不缩放"'; do
   n=$(grep -c "$key" "${TMPDIR:-/tmp}/ios95.log")
   echo "[$key]: $n  (预期 ≥ 1，出现即证明该断言真的跑了)"
 done
 ```
 
-> 用**显示名子串**而非函数名：Swift Testing 的 console 输出是 `Test "<显示名>" passed`，日志里出现的是中文显示名。上一版 grep 函数名恒为 0、每次假报空转（评审本机实测）。三个子串各自唯一，UTF-8 grep 可匹配。
+> **尾引号锚定是必需的**：Task 1 的 token 测试有个显示名 `captionSmall 明确不缩放，其余缩放`（**不在** `#if os(iOS)`、不在 skip，xcodebuild 下照跑照打印）。裸 grep `captionSmall 明确不缩放` 会命中它，即便 iOS 布局断言 `captionSmallDoesNotScale`（显示名 `captionSmall 明确不缩放`）根本没跑——假绿。加尾引号 `captionSmall 明确不缩放"` 只匹配布局断言那条（token 测试打印的是 `...不缩放，其余缩放"`）。另两个子串本就无同前缀，加尾引号更保险。
+>
+> Swift Testing 的 console 输出是 `Test "<显示名>" started/passed`——已实测显示名（含中文）在 `xcodebuild` 日志里逐字出现。
 
 **任一为 0 = 该断言被 skip / 没编进去 / 显示名被改动 = 空转**，停下查 `-skip-testing` 与显示名是否一致。
 
@@ -568,12 +590,12 @@ warning 判据：按 message 来源过滤，四份均无非 EmptyState 的新增
 
 - [ ] **Step 2: 第 5 条命令（本任务的硬性验收）**
 
-跑 Task 5 Step 2 的 `xcodebuild -scheme CoreDesign ...` 与其后的函数名 grep。`TEST SUCCEEDED` 且三个函数名各出现 ≥ 1。
+跑 Task 5 Step 2 的 `xcodebuild -scheme CoreDesign ...` 与其后的**显示名子串** grep（带尾引号锚定）。`TEST SUCCEEDED` 且三个显示名子串各出现 ≥ 1。
 
 - [ ] **Step 3: SC-3 与 relativeTo 自查**
 
 ```bash
-grep -n '\-> Font' Sources/CoreDesign/Tokens/CoreControlMetrics.swift; echo "SC-3 rc=$?"
+grep -n '\-> Font' Sources/CoreDesign/Tokens/CoreControlMetrics.swift   # Expected: 无输出（SC-3 满足）
 grep -c 'relativeTo:' Sources/CoreDesign/Modifier/CoreFontModifier.swift   # 应 ≥ 2（size + lineSpacing）
 ```
 
