@@ -39,6 +39,34 @@ private nonisolated var rawXcassetsAvailable: Bool {
     return FileManager.default.fileExists(atPath: base.path)
 }
 
+/// **无条件 canary**——不带 `.enabled(if:)`，任何构建方式下都必须跑。
+///
+/// 下面那个守卫 suite 用 `rawXcassetsAvailable` 判断适用性，但**这个判据和它要守卫的
+/// 对象是同一件事**：如果 `Resources.xcassets` 整个丢失（未被拷进 bundle、被改名、
+/// `resourceURL` 为 nil），判据返回 false，suite 被**跳过**而不是变红——而那恰恰是
+/// 该守卫最该抓住的一类回归，此时 SwiftPM 与 xcodebuild 两条腿会同时静默失守。
+///
+/// 本 canary 断言两种形态**至少存在其一**：目录形式的 `Resources.xcassets/`（SwiftPM，
+/// 不调 actool）或编译产物 `Assets.car`（xcodebuild 调 actool）。两者皆无 = bundle 坏了，
+/// 必须响。它同时覆盖「SwiftPM 将来改为调用 actool」这种工具链漂移。
+@Suite("资源 bundle canary")
+struct ResourceBundleCanaryTests {
+    @Test("bundle 里必须能找到 xcassets——目录形式或编译后的 Assets.car")
+    func assetCatalogIsPresentInSomeForm() {
+        guard let resourceURL = Bundle.module.resourceURL else {
+            Issue.record("Bundle.module.resourceURL 为 nil——资源根本没被打进 bundle")
+            return
+        }
+        let fm = FileManager.default
+        let rawDir = resourceURL.appendingPathComponent("Resources.xcassets").path
+        let compiled = resourceURL.appendingPathComponent("Assets.car").path
+        #expect(
+            fm.fileExists(atPath: rawDir) || fm.fileExists(atPath: compiled),
+            "bundle 里既无 Resources.xcassets/ 目录也无 Assets.car——所有颜色都会静默 fallback"
+        )
+    }
+}
+
 @Suite("Colorset 资源存在性守卫", .enabled(if: rawXcassetsAvailable))
 struct ColorAssetGuardTests {
     /// 17 种命名色相（`Colors/ColorGrade.swift`），每种 10 个色阶 `<hue>-0` … `<hue>-9`。

@@ -91,19 +91,27 @@ public nonisolated enum CoreControlMetrics {
     ///
     /// `mini=4 / small=4 / regular=12 / large=16 / extraLarge=16`。
     ///
-    /// > Important: **哪些档位由地板决定、哪些由 padding 决定，务必分清**——
-    /// > `mini` / `small` 共用 `footnote` 字号（见 `fontToken(for:)`，行高约 18pt），
-    /// > 4pt padding 算得 `4×2+18 = 26pt`，低于两档地板（28 / 32），故这两档的实际
-    /// > 高度**由 `height(for:)` 的 `frame(minHeight:)` 地板决定**，二者因此可见地不同高。
+    /// > Important: **哪些档位由地板决定、哪些由 padding 决定，取决于平台与 Dynamic Type 档**——
+    /// > 下面的算术只在 **iOS 默认 Dynamic Type 档**成立，不要当成无条件结论。
     /// >
-    /// > `regular` 及以上则相反：`12×2+21(callout) ≈ 45pt` 已超过 44pt 地板，
-    /// > `large` `16×2+22(body) ≈ 54 > 50`、`extraLarge` `16×2+28(title2) ≈ 60 > 56`——
-    /// > 这三档**由 padding 决定**，`height(for:)` 退化为不生效的下限。这是有意取舍：
-    /// > 宁可比 HIG 参考高度略高，也不压缩 label（`minHeight` 不裁切，`frame(height:)` 会）。
+    /// > **iOS 默认档**（footnote 13 / callout 16 / body 17 / title2 22，行高约 18/21/22/28）：
+    /// > `mini` / `small` 算得 `4×2+18 = 26pt` 低于两档地板（28 / 32），由 `frame(minHeight:)`
+    /// > **地板**决定，二者因此可见地不同高；`regular` 及以上相反——`12×2+21 ≈ 45 > 44`、
+    /// > `16×2+22 ≈ 54 > 50`、`16×2+28 ≈ 60 > 56`，由 **padding** 决定，`height(for:)`
+    /// > 退化为不生效的下限。
     /// >
-    /// > 早先版本这里取 `mini=8 / small=8`，算得 34pt 同时越过两个地板，导致 `mini` 与
-    /// > `small` 渲染同高、而注释仍声称靠地板区分——数值上不成立的机制。改回 4pt 修复。
-    /// > 五档的实际渲染高度仍待 Task #122 视觉复核。
+    /// > **macOS**：系统文本样式明显更小（实测 footnote 10 / callout 12 / body 13 / title2 17），
+    /// > 算得 regular `24+15 ≈ 39 < 44`、large `32+16 ≈ 48 < 50`、extraLarge `32+22 ≈ 54 < 56`
+    /// > ——**五档全部由地板决定**，与 iOS 默认档的情形相反。
+    /// >
+    /// > **iOS 大字号档**：Dynamic Type 调大后 `mini` / `small` 也会越过地板、转为由 padding
+    /// > 决定，结论再次翻转。
+    /// >
+    /// > 取舍：宁可比 `height(for:)` 的参考高度略高，也不压缩 label——`minHeight` 不裁切，
+    /// > `frame(height:)` 会。五档在各平台各档位的实际渲染高度待 Task #122 视觉复核。
+    /// >
+    /// > 历史：早先版本取 `mini=8 / small=8`，算得 34pt 同时越过两个地板，导致 mini 与 small
+    /// > 渲染同高、而注释仍声称靠地板区分——数值上不成立的机制。改回 4pt 修复。
     ///
     /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
     /// - Returns: 该尺寸下推荐的上下 padding，单位 pt，必为 `CoreSpacing.*` 命名常量。
