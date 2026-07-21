@@ -140,6 +140,33 @@ private func bannerPalette(for level: StatusLevel) -> BannerPalette {
     }
 }
 
+/// 两个内置 `BannerStyle` 的公共布局主体（审计项 B8b）。
+///
+/// `PlainBannerStyle` 与 `BorderedBannerStyle` 的 body 只差最后的背景是否叠描边，
+/// 抽此一处避免两份 11 行 HStack 逐字重复。`bordered` 为 `true` 时在背景 `Rectangle`
+/// 上追加 `.bordered(style: palette.border)`（`CoreBorderWidth.thin`）。
+@ViewBuilder
+private func bannerBody(configuration: BannerStyleConfiguration, bordered: Bool) -> some View {
+    let palette = bannerPalette(for: configuration.level)
+    HStack(spacing: CoreSpacing.sm) {
+        bannerIcon(for: configuration.level)
+            .foregroundStyle(palette.foreground)
+            .accessibilityHidden(true)
+        configuration.label
+    }
+    .accessibilityElement(children: .combine)
+    .coreFont(.bodyMedium)
+    .foregroundStyle(palette.foreground)
+    .padding(CoreSpacing.md)
+    .background {
+        if bordered {
+            Rectangle().fill(palette.background).bordered(style: palette.border)
+        } else {
+            Rectangle().fill(palette.background)
+        }
+    }
+}
+
 // MARK: - PlainBannerStyle
 
 /// 默认的 Banner 外观：纯色背景 + 同色系前景，无描边。
@@ -156,20 +183,7 @@ public struct PlainBannerStyle: BannerStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
-        let icon = bannerIcon(for: configuration.level)
-        let palette = bannerPalette(for: configuration.level)
-        HStack(spacing: CoreSpacing.sm) {
-            icon.foregroundStyle(palette.foreground)
-                .accessibilityHidden(true)
-            configuration.label
-        }
-        .accessibilityElement(children: .combine)
-        .coreFont(.bodyMedium)
-        .foregroundStyle(palette.foreground)
-        .padding(CoreSpacing.md)
-        .background {
-            Rectangle().fill(palette.background)
-        }
+        bannerBody(configuration: configuration, bordered: false)
     }
 }
 
@@ -189,20 +203,7 @@ public struct BorderedBannerStyle: BannerStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
-        let icon = bannerIcon(for: configuration.level)
-        let palette = bannerPalette(for: configuration.level)
-        HStack(spacing: CoreSpacing.sm) {
-            icon.foregroundStyle(palette.foreground)
-                .accessibilityHidden(true)
-            configuration.label
-        }
-        .accessibilityElement(children: .combine)
-        .coreFont(.bodyMedium)
-        .foregroundStyle(palette.foreground)
-        .padding(CoreSpacing.md)
-        .background {
-            Rectangle().fill(palette.background).bordered(style: palette.border)
-        }
+        bannerBody(configuration: configuration, bordered: true)
     }
 }
 
