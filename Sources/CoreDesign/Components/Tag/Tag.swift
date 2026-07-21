@@ -92,7 +92,7 @@ public struct Tag<Label: View>: View {
     public var body: some View {
         HStack(spacing: CoreSpacing.xs) {
             self.label
-                .font(CoreTypography.bodySmallFont)
+                .coreFont(.bodySmall)
                 .foregroundStyle(self.color)
 
             if self.removable {

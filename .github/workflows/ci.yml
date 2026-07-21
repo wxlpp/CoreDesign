@@ -105,8 +105,9 @@ jobs:
         # 标识符要用**类型名**（BlossomAssetTests / ToastHostTests），不是 @Suite
         # 的显示名——用显示名不报错，只是静默不生效。
         #
-        # 本 job 目前跑不到任何 #if os(iOS) 布局断言（由 #4 引入），此刻验证的
-        # 是「这条命令在 CI 上能跑通」；#4 落地后才开始真正守护。
+        # 布局断言层（#if os(iOS) 的 DynamicTypeLayoutTests）已由 #95（原 #4）落地，
+        # 现在本 job 真正守护它。**切勿**把 DynamicTypeLayoutTests 加进下面的
+        # -skip-testing 列表，否则该层在 CI 上空转（macOS 侧本就不编它）。
         run: |
           set -o pipefail
           xcodebuild test \

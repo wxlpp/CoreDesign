@@ -146,7 +146,7 @@ struct BottomInputBar: View {
             }
         } label: {
             Image(systemName: "wand.and.sparkles.inverse")
-                .font(CoreTypography.titleSmallFont)
+                .coreFont(.titleSmall)
         }
         .buttonStyle(.circularGlass)
     }
@@ -156,7 +156,7 @@ struct BottomInputBar: View {
             self.submitMessage()
         } label: {
             Image(systemName: "paperplane")
-                .font(CoreTypography.titleSmallFont)
+                .coreFont(.titleSmall)
         }
         .foregroundStyle(.white)
         .backgroundStyle(.green)
@@ -168,7 +168,7 @@ struct BottomInputBar: View {
             self.onStop?()
         } label: {
             Image(systemName: "stop.fill")
-                .font(CoreTypography.titleSmallFont)
+                .coreFont(.titleSmall)
         }
         .foregroundStyle(.white)
         .backgroundStyle(.red)
@@ -497,7 +497,7 @@ public extension View {
 private struct BottomInputBarChipModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .font(.subheadline)
+            .coreFont(.bodyLarge)
             .padding(.horizontal, CoreSpacing.md)
             .padding(.vertical, CoreSpacing.sm)
             .glassEffect(.regular, in: Capsule())

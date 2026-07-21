@@ -93,8 +93,7 @@ public struct Badge<Label: View>: View {
     public var body: some View {
         let shape = Capsule(style: .continuous)
         return self.label
-            .font(CoreTypography.bodySmallFont)
-            .tracking(CoreTypography.bodySmallTracking)
+            .coreFont(.bodySmall)
             .padding(.horizontal, CoreSpacing.sm)
             .padding(.vertical, CoreSpacing.xs)
             .background {

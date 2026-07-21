@@ -43,16 +43,16 @@ public struct StatusRow: View {
         HStack(spacing: CoreSpacing.sm) {
             Image(systemName: self.resultIcon)
                 .foregroundStyle(self.resultColor)
-                .font(.caption)
+                .coreFont(.caption)
 
             Text(self.label)
-                .font(CoreTypography.bodySmallFont)
+                .coreFont(.bodySmall)
                 .lineLimit(1)
 
             Spacer()
 
             Text(self.duration)
-                .font(CoreTypography.bodySmallFont)
+                .coreFont(.bodySmall)
                 .foregroundStyle(.tertiary)
                 .monospacedDigit()
         }

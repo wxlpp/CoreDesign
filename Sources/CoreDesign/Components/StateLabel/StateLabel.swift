@@ -47,9 +47,9 @@ public struct StateLabel: View {
     public var body: some View {
         HStack(spacing: CoreSpacing.xs) {
             Image(systemName: self.iconName)
-                .font(.caption2)
+                .coreFont(.caption)
             Text(self.label)
-                .font(CoreTypography.bodySmallFont)
+                .coreFont(.bodySmall)
         }
         .foregroundStyle(self.foregroundColor)
         .padding(.horizontal, CoreSpacing.sm)

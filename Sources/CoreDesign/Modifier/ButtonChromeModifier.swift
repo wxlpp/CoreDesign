@@ -13,8 +13,8 @@ import SwiftUI
 /// （同样各一）中逐字重复，`CoreBorderlessButtonStyle` 则只有其中两行 padding
 /// （审计项 B3d）。
 ///
-/// > 收敛的另一重意义：`CoreControlMetrics.font(for:)` 在按钮体系内的调用点从
-/// > 4 处降到 1 处。Issue #95 要把它改成 `fontToken(for:)` + `.coreFont()` 以恢复
+/// > 收敛的另一重意义：`CoreControlMetrics.fontToken(for:)` 在按钮体系内的调用点从
+/// > 4 处降到 1 处（#96），#95 据此把 `.font(...)` 换成 `.coreFont(...)` 恢复
 /// > Dynamic Type，届时只需改本文件一行。**不要把 font 调用重新散回各 style。**
 private struct ButtonChromeModifier<S: Shape>: ViewModifier {
     let shape: S
@@ -22,7 +22,7 @@ private struct ButtonChromeModifier<S: Shape>: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .font(CoreControlMetrics.font(for: self.controlSize))
+            .coreFont(CoreControlMetrics.fontToken(for: self.controlSize))
             .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: self.controlSize))
             .padding(.vertical, CoreControlMetrics.verticalPadding(for: self.controlSize))
             .contentShape(self.shape)
