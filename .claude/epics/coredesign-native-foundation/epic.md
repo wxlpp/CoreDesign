@@ -48,9 +48,9 @@ AppKit 无 grouped background 系列，现桥接层把 `surfaceCanvas` 与 `surf
 
 ### ADR-5 · 改名走弃用别名过渡，不做硬切
 
-旧字体 token 名在 `Tokens/` 之外有 63 处引用，删 `CoreRadius.mediumPlus` 直接打断 `Sidebar.swift:157,411`。若 Task 003 硬改名，`swift build` 会从 003 一直红到迁移完成（约 36 小时），期间 CI 与每个 checkpoint 评审全部失去把关能力，且 003∥004 的并行声明失效——两者之一注定落在红树上无法独立验证。
+Sources 内需改名的 `.coreFont` 调用有 42 处，App 宿主另有 17 处旧 `*Font` static var，删 `CoreRadius.mediumPlus` 直接打断 `Sidebar.swift:157,411`。若 Task 003 硬改名，`swift build` 会从 003 一直红到迁移完成（约 36 小时），期间 CI 与每个 checkpoint 评审全部失去把关能力，且 003∥004 的并行声明失效——两者之一注定落在红树上无法独立验证。
 
-因此 003 采用 `@available(*, deprecated, renamed:)` 别名过渡：新旧名并存，全程 build 绿。迁移由 deprecation warning 驱动，比编译错误清单更完整（warning 能逐点列全且不阻塞构建）。别名在 Task 005 末尾删除。
+因此 003 采用 `@available(*, deprecated, renamed:)` 别名过渡：新旧名并存，全程 build 绿。**「绿」的判据必须包含 CI 的 xcodebuild iOS 腿**——`swift test` 在 macOS 上跑不到 `#if os(iOS)` 的 suite，只看它会假绿（`captionSmallDoesNotScale` 正是这样一条只在 iOS 腿上红的断言，故其翻转与 `CoreFontModifier` 的重写都必须留在 003 内）。迁移由 deprecation warning 驱动，比编译错误清单更完整（warning 能逐点列全且不阻塞构建）。别名在 Task 005 末尾删除。
 
 **注意别名兜不住同名换值**（见 ADR-6）——`CoreRadius.small` 3 → 6 这类改动既不报错也不产生 warning。两类风险的处置手段不同，故拆成 005（改名，编译器驱动）与 006（换值，人工逐点）两个任务。
 
@@ -155,7 +155,7 @@ AppKit 无 grouped background 系列，现桥接层把 `surfaceCanvas` 与 `surf
 
 - 001 / 002：各半天，纯删除 + 连带清理，机械但覆盖面广（易漏 `App/`、CI matrix 与快照 JSON）。
 - 003 / 004：各 1 天。004 更重——完整映射表 + macOS 降级验证 + accent 衍生族推导 + `ButtonRoleStyleRole` 重写。
-- 005：半天到 1 天，编译器驱动，63 处改名 + 删别名。
+- 005：1 天，编译器驱动，Sources 42 处改名 + App 宿主 17 处 + Tests 3 处 + 删别名。
 - 006：1 天，本 epic 判断密度最高的一段，逐调用点确认换值。
 - 007：半天到 1 天，触控与 Dynamic Type 断言。
 - 008：半天到 1 天，23 个源文件的注释清理。
