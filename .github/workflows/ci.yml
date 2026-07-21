@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     # 不含 issue-** ：每个 Issue 分支开 PR 后，push 与 pull_request 会各触发一次，
-    # 同一 sha 跑两遍完整 macOS matrix（8 个 job）。macOS runner 按 10× 计费，
+    # 同一 sha 跑两遍完整 macOS job 集（6 个 job）。macOS runner 按 10× 计费，
     # 而本 workflow 会被后续 10 个 Issue 继承。PR 已覆盖 issue-* 分支。
     branches: [main, 'epic/**']
   pull_request:
@@ -12,32 +12,23 @@ on:
 permissions:
   contents: read
 
-# 快速连续 push 时取消上一轮，避免堆叠整套 macOS matrix。
+# 快速连续 push 时取消上一轮，避免堆叠整套 macOS job。
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   swiftpm:
-    name: SwiftPM (${{ matrix.mode }})
+    name: SwiftPM
     # 钉死 macos-26 而非 macos-latest：两者当前解析到同一镜像
     # （macOS 26.4 / Xcode 26.5），但 latest 会随 GitHub 滚动。
     # runner 默认选中的就是 Xcode 26.5，无需 xcode-select 步骤。
     runs-on: macos-26
-    strategy:
-      fail-fast: false
-      matrix:
-        mode: [default, blossom]
     steps:
       - uses: actions/checkout@v4
 
       - name: Build
-        run: |
-          if [ "${{ matrix.mode }}" = "blossom" ]; then
-            swift build --traits Blossom
-          else
-            swift build
-          fi
+        run: swift build
 
       - name: Test
         # ToastHostTests 的三个 timing 用例依赖真实墙钟（Task.sleep + 固定 buffer），
@@ -50,11 +41,7 @@ jobs:
         run: |
           set -o pipefail
           run_tests() {
-            if [ "${{ matrix.mode }}" = "blossom" ]; then
-              swift test --traits Blossom
-            else
-              swift test
-            fi
+            swift test
           }
           run_tests 2>&1 | tee first.log || {
             # 先落到变量再匹配：`grep -q` 命中即退出并向上游发 SIGPIPE，
@@ -78,7 +65,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: swiftpm-logs-${{ matrix.mode }}
+          name: swiftpm-logs
           path: '*.log'
           if-no-files-found: ignore
 
@@ -89,21 +76,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run iOS tests
-        # 两个 suite 被跳过，理由不同：
+        # ToastHostTests 被跳过：三个 timing 用例依赖 Task.sleep 真实墙钟，buffer
+        # 取 0.3–0.5s。在 CI runner 上实测**稳定失败**（连跑两次都红，不是偶发），
+        # buffer 在该负载下持续不够。它们是平台无关的状态机断言，SwiftPM job
+        # 已经覆盖且通过；在 simulator 里重跑一遍不增加任何信号，只会让这个
+        # job 永久红。本 job 的存在意义是 iOS 特有断言（#4 的布局层）。
+        # 加大 buffer 属于测试改动，归 #7，不在本任务范围。
         #
-        # 1. BlossomAssetTests —— 它用 FileManager 查 .colorset 目录，那是为
-        #    SwiftPM（不调 actool）写的；xcodebuild 会生成 Assets.car，原始目录
-        #    不存在，故该 suite 在此环境**必然**失败。
-        #
-        # 2. ToastHostTests —— 三个 timing 用例依赖 Task.sleep 真实墙钟，buffer
-        #    取 0.3–0.5s。在 CI runner 上实测**稳定失败**（连跑两次都红，不是偶发），
-        #    buffer 在该负载下持续不够。它们是平台无关的状态机断言，SwiftPM 两个
-        #    job 已经覆盖且通过；在 simulator 里重跑一遍不增加任何信号，只会让这个
-        #    job 永久红。本 job 的存在意义是 iOS 特有断言（#4 的布局层）。
-        #    加大 buffer 属于测试改动，归 #7，不在本任务范围。
-        #
-        # 标识符要用**类型名**（BlossomAssetTests / ToastHostTests），不是 @Suite
-        # 的显示名——用显示名不报错，只是静默不生效。
+        # 标识符要用**类型名**（ToastHostTests），不是 @Suite 的显示名——
+        # 用显示名不报错，只是静默不生效。
         #
         # 布局断言层（#if os(iOS) 的 DynamicTypeLayoutTests）已由 #95（原 #4）落地，
         # 现在本 job 真正守护它。**切勿**把 DynamicTypeLayoutTests 加进下面的
@@ -113,7 +94,6 @@ jobs:
           xcodebuild test \
             -scheme CoreDesign \
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-            -skip-testing:CoreDesignTests/BlossomAssetTests \
             -skip-testing:CoreDesignTests/ToastHostTests \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-first.log
 
@@ -135,8 +115,3 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build downstream probe
         run: cd scripts/downstream-probe && swift build
-
-        # 只跑默认 trait：`--traits Blossom` 对 probe 包本身无效（trait 要声明在
-        # 依赖上，而它没声明），且隔离契约与 trait 无关——`nonisolated` 标注是无条件的。
-        # 若后续 Issue 引入 #if Blossom 条件的 public API，届时需另建一个带
-        # `traits: ["Blossom"]` 依赖的 probe。
