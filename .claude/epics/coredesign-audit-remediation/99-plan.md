@@ -126,7 +126,7 @@ git commit -m "a11y: UnderlinedTabItem 补 .isSelected trait 播报选中态（D
 > - `ChevronRightIcon` **无歧义**——它永远是「进入下一级」的 disclosure 指示符（对齐 `Sidebar.swift:58` 对 chevron 的处理），任何语境下都装饰，烤 hidden 安全。
 > - `LabelIcon` 是 `Label { Text(...) } icon: { LabelIcon(...) }` 的 icon 槽。**在这个主用法下 SwiftUI 的 `Label` 已把 icon+text 合成单一 accessibility 元素、由 `Text` 播报**，故 `LabelIcon` 自身的 hidden 是与该语义一致的**冗余保险**（不改变 Label 用法的结果）。补 hidden(true) 满足 AC/DoD，但注释**不承诺** `.accessibilityHidden(false)` 能从外层恢复——SwiftUI 内层 `accessibilityHidden(true)` 剪掉子树后，外层 unhide 通常不可靠（更具体的内层胜出，仓库内无此 override 先例）。若 standalone 使用（icon 作行唯一内容、需被播报），调用方应**组合一个自带 label 的变体**，而不是依赖对已隐藏子树 unhide。
 
-- [ ] **Step 1: `LabelIcon` → hidden（Form 语境默认，可 opt-out）**
+- [ ] **Step 1: `LabelIcon` → hidden（Form 主用法下与 Label 语义一致的冗余隐藏）**
 
 `LabelIcon.body` 的根 `Image(systemName: "app.fill")…` 链，在 `.overlay { … }` 之后补：
 ```swift
