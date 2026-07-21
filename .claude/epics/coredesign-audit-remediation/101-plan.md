@@ -689,6 +689,11 @@ public struct StateLabel<Label: View>: View {
         HStack(spacing: CoreSpacing.xs) {
             Image(systemName: self.style.spec.icon)
                 .coreFont(.caption)
+                // 评审 Suggestion 4：`.combine` 会把未隐藏子元素的可访问名折进来。
+                // 原 `.accessibilityLabel(self.label)`（String）压掉了 icon；泛型化后改
+                // `.combine`，须显式隐藏 icon 否则 SF Symbol 名泄漏进 VoiceOver name
+                // （与 Banner.swift:182 对 icon 的处理一致）。
+                .accessibilityHidden(true)
             self.label
                 .coreFont(.bodySmall)
         }
@@ -925,6 +930,9 @@ public struct StatusRow<Label: View>: View {
             Image(systemName: self.result.spec.icon)
                 .foregroundStyle(self.result.spec.color)
                 .coreFont(.caption)
+                // 评审 Suggestion 4：泛型化后改 `.combine`，显式隐藏 icon 防 SF Symbol 名
+                // 泄漏进 VoiceOver name（对齐 Banner.swift:215）。
+                .accessibilityHidden(true)
 
             self.label
                 .coreFont(.bodySmall)
@@ -1181,7 +1189,9 @@ private func segmentedGlassChrome<S: InsettableShape>(_ shape: S) -> some View {
                 .background(segmentedGlassChrome(self.shape))
 ```
 
-- [ ] **Step 4: 构建 + 测试（B8g 不改行为，测试全绿）**
+> **评审 Suggestion 3（z-order 微变，列入视觉冒烟）**：原 `SegmentedControlBackgroundModifier` 把 `strokeBorder` **overlay 在 `content` 之上**（`:395-397`，描边在 segments 上方），而 `segmentedGlassChrome` 把描边烤进 `.background`（shape 上、content 之下）。合并后 container hairline 从 above-content 移到 behind-content。capsule 边缘实际差异大概率为 nil，但这是真实 z-order 变化——**收尾的视觉冒烟须抽查 SegmentedControl 的描边观感**（`selectedThumb` 侧本就是 overlay-on-shape，无变化；仅外壳 modifier 侧变）。
+
+- [ ] **Step 4: 构建 + 测试（B8g 视觉近似——有一处描边 z-order 微变见 Step 3，测试仅测构造全绿）**
 
 Run:
 ```bash
@@ -1396,9 +1406,17 @@ private struct SwiftUISegmentedControl: View {
                 self.segmentView(segment)
             }
         }
+        // 保留原 `swiftUISegmentedControl` 的 inset（SegmentedControl.swift:74）——
+        // 让 segments/thumb 从玻璃外壳边缘缩进，形成「track 内浮起 thumb」的观感。
+        // 评审 Finding 1：迁移时漏掉会让 thumb 贴外壳（所有 SwiftUI 回退渲染 = iOS
+        // Plain + 全 macOS 受影响；测试只测构造，四命令/iOS 命令都抓不到）。
+        .padding(CoreSpacing.xxs)
         .frame(maxWidth: .infinity)
         .modifier(SegmentedControlBackgroundModifier(shape: shape, glass: self.glass))
         .frame(height: CoreControlMetrics.height(for: .regular))
+        // 保留原 fallback 路径的选择触感（SegmentedControl.swift:84）——评审 Finding 2：
+        // 无 `selection` 属性，改由选中 segment 的 index 驱动 trigger（Int? 可 Equatable）。
+        .sensoryFeedback(.selection, trigger: self.configuration.segments.first(where: \.isSelected)?.index)
     }
 
     @ViewBuilder
