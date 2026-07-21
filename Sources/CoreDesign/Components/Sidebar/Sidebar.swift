@@ -383,7 +383,7 @@ public struct SidebarStatusFooter: View {
             Spacer()
         }
         .padding(CoreSpacing.sm)
-        // 合并 title / detail 为单个可访问元素（对齐 EventRow / StatusRow 惯例）
+        // 合并 title / detail 为单个可访问元素
         // Combine title + detail into one accessibility element.
         .accessibilityElement(children: .combine)
     }
