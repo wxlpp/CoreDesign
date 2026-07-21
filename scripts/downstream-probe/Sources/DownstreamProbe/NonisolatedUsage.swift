@@ -57,7 +57,7 @@ nonisolated func useToastDefaults() -> TimeInterval {
     ToastDefaults.duration
 }
 
-nonisolated func useToastLevel() -> ToastLevel {
+nonisolated func useStatusLevel() -> StatusLevel {
     .info
 }
 

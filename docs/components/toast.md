@@ -14,11 +14,11 @@ Scene 级 Toast 通知 / Scene-scoped toast notification.
 
 | 方法 | 说明 |
 |---|---|
-| `show(_ message: String, level: ToastLevel = .info, duration: TimeInterval = ToastDefaults.duration)` | 入队一条 toast（level 缺省 `.info`，duration 缺省 3 秒） |
+| `show(_ message: String, level: StatusLevel = .info, duration: TimeInterval = ToastDefaults.duration)` | 入队一条 toast（level 缺省 `.info`，duration 缺省 3 秒） |
 | `show(_ item: ToastItem)` | 入队预构造的 ToastItem |
 | `dismiss(_ id: ToastItem.ID)` | 取消指定 toast |
 
-ToastLevel: info / success / warning / danger。
+StatusLevel: info / success / warning / danger。
 
 ## 预览 / Preview
 
@@ -62,7 +62,7 @@ struct DetailView: View {
 - 容器：`.surface(.card)` + `.coreShadow(.medium)`
 - 字号：`CoreTypography.bodyMediumFont`
 - 内边距：`CoreSpacing.md`
-- Icon / 前景色：按 `ToastLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）
+- Icon / 前景色：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）
 - 入场/出场动画：从 `edge` 方向滑入 + 淡入
 - 滑动手势：向 edge 方向滑动超过 `CoreSpacing.xxl`（32pt）触发 dismiss
 - z-order：通过 `safeAreaInset` 实现，不覆盖 sheet / fullScreenCover，每个 scene 需独立挂载 host

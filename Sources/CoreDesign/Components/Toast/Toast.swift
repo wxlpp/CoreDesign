@@ -9,25 +9,6 @@
 
 import SwiftUI
 
-// MARK: - ToastLevel
-
-/// Toast 的语义等级，决定整条 toast 的图标 + 前景色映射。
-///
-/// 概念对应 GitHub Primer `Toast` / `Flash` variant。具体颜色由
-/// `Sources/CoreDesign/Colors/StatusColors.swift` 的 status color token 决定
-/// （`Color.statusAccentForeground` 等），随系统 colorScheme 自动适配 light / dark。
-///
-/// - `info`：中性提示（蓝）。例：操作已记录、版本信息。
-/// - `success`：操作成功（绿）。例：保存成功、上传完成。
-/// - `warning`：警告（橙）。例：网络延迟、配额接近上限。
-/// - `danger`：错误（红）。例：保存失败、操作被拒绝。
-public nonisolated enum ToastLevel: Sendable {
-    case info
-    case success
-    case warning
-    case danger
-}
-
 // MARK: - ToastItem
 
 /// 单条 Toast 的数据载体。`ToastHost` 内部以 `[ToastItem]` 维护队列。
@@ -38,13 +19,13 @@ public nonisolated enum ToastLevel: Sendable {
 /// - `id`：每个 item 的 stable identity，由 `init` 默认生成；调用方一般不需要手传。
 ///   `dismiss(_:)` 通过该 id 精确定位排队中或正在显示的 item。
 /// - `message`：toast 文本内容。当前实现固定单行 `Text`；多行 / 富文本未来扩展。
-/// - `level`：见 `ToastLevel`。决定 icon + 前景色。
+/// - `level`：见 `StatusLevel`。决定 icon + 前景色。
 /// - `duration`：自动消失前的显示时长（秒）。**计时从 toast 开始显示起算**，
 ///   不是 enqueue 起算（详见 `ToastHost` 文档的 "dismiss timing" 段）。
 public nonisolated struct ToastItem: Identifiable, Sendable {
     public let id: UUID
     public let message: String
-    public let level: ToastLevel
+    public let level: StatusLevel
     public let duration: TimeInterval
 
     /// 创建一条 ToastItem。
@@ -57,7 +38,7 @@ public nonisolated struct ToastItem: Identifiable, Sendable {
     public init(
         id: UUID = UUID(),
         message: String,
-        level: ToastLevel = .info,
+        level: StatusLevel = .info,
         duration: TimeInterval = ToastDefaults.duration
     ) {
         self.id = id
@@ -193,7 +174,7 @@ public final class ToastHost {
     ///   - duration: 显示时长（秒），缺省 `ToastDefaults.duration` (3s)；计时从开始显示起算。
     public func show(
         _ message: String,
-        level: ToastLevel = .info,
+        level: StatusLevel = .info,
         duration: TimeInterval = ToastDefaults.duration
     ) {
         self.show(ToastItem(message: message, level: level, duration: duration))
@@ -408,7 +389,7 @@ private struct ToastOverlay: View {
 /// - 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`
 ///   浮动玻璃层，自带 strokeBorder overlay + 玻璃材质，pill 几何让 toast 读起来是系统反馈。
 /// - 字号：`CoreTypography.bodyMediumFont`
-/// - icon / 前景色：按 `ToastLevel` 走 status color token
+/// - icon / 前景色：按 `StatusLevel` 走 status color token
 /// - padding：`CoreSpacing.md` 内边距
 ///
 /// dismiss 触发：自动 / 滑动手势（向 edge 方向，阈值 `ToastDefaults.swipeDismissThreshold`）/
@@ -532,7 +513,7 @@ private struct ToastPreviewHarness: View {
 private struct ToastDemoView: View {
     @Environment(\.toastHost) private var toast
 
-    private let levels: [(label: String, level: ToastLevel)] = [
+    private let levels: [(label: String, level: StatusLevel)] = [
         ("Info", .info),
         ("Success", .success),
         ("Warning", .warning),
