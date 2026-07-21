@@ -1,3 +1,9 @@
+# ⚠️ 不要在 git worktree 里跑 `xcodegen generate`：
+# 它会把本地 package 引用的 `name` 字段按**当前目录名**写死（例如写成
+# "issue-118-remove-blossom" 而非 "CoreDesign"），并顺带清空
+# xcshareddata/xcschemes/CoreDesignPreview.xcscheme。
+# 若必须在 worktree 里生成，事后手动把 name 改回 CoreDesign，
+# 并 `git checkout HEAD -- App/CoreDesignPreview.xcodeproj/xcshareddata`。
 name: CoreDesignPreview
 options:
   bundleIdPrefix: com.coredesign
