@@ -36,7 +36,7 @@
 
 | 文件 | 被测对象有无可断言的真行为 | 处置 |
 |---|---|---|
-| `SurfaceKindTests` | **测不了**：`SurfaceKind.background`/`border`/`cornerRadius` 是 `private extension`（`SurfaceModifier.swift:43`），`@testable` 只提升 internal、够不到 private；改 Sources 加可见性会破坏「只碰 Tests/」硬约束（`conflicts_with: []`）。ViewInspector 又是 Out of Scope | **删除**（映射从 Tests/ 无法断言，无 in-scope 改写路径） |
+| `SurfaceKindTests` | **测不了**：`SurfaceKind.background`/`border`/`cornerRadius` 是 `private extension`（`SurfaceModifier.swift:43`），`@testable` 只提升 internal、够不到 private；改 Sources 加可见性会破坏「只碰 Tests/」硬约束（`conflicts_with: []`）。ViewInspector 又是 Out of Scope | **断言瘦身**：删三个恒真 `.count` 断言，保留一个非-`@Test` 的编译期 case 守卫（`SurfaceKind` 是 public，误删 case 应编译失败） |
 | `StatusColorsTests` | **有**：5 组 status 色的 asset 名（与 C4a 同法，`String(describing:)` 取名） | 改写成 asset 名断言 |
 | `AvatarTests` | 部分：memberwise init 是编译器保证的，但可断言 `Avatar` 的**派生行为**（如首字母提取、尺寸） | 改写成派生行为断言，改不出则删 |
 | `FloatingGlassModifierTests` | 弱：modifier 无值可断言，`type(of:)` 恒真 | 改写成 concrete-type 断言（能捕获泛型 slot 回退，如 `ListRowTests` 的做法），或删 |
@@ -144,15 +144,36 @@ git commit -m "test: Blossom trait 的真颜色值分流断言（C4a）"
 
 **Files:** `SurfaceKindTests.swift`、`StatusColorsTests.swift`、`AvatarTests.swift`、`FloatingGlassModifierTests.swift`、`ProgressIndicatorTests.swift`
 
-- [ ] **Step 1: `SurfaceKindTests` —— 删除（不可 in-scope 改写）**
+- [ ] **Step 1: `SurfaceKindTests` —— 断言瘦身（删恒真 `.count`，留非-`@Test` case 守卫）**
 
 `SurfaceKind` 的 `background`/`border`/`cornerRadius` 是 `private extension`（`SurfaceModifier.swift:43`）——`@testable` 只提升 internal 到测试可见，**够不到 private**。而 `SurfaceKindTests` 现有的断言（`roles.count == 5` / `== 4`）断的是测试自己写的数组字面量长度，恒真、与被测代码无关。
 
-三条出路都不通：(a) 改 `SurfaceModifier.swift` 放宽可见性 → 破坏「只碰 `Tests/`」硬约束 + `conflicts_with: []`；(b) 经渲染视图测映射 → 需 ViewInspector，Out of Scope；(c) 保留恒真 → 正是 C2 要清的。
+`SurfaceKindTests` 现有 3 个 `@Test`，断的都是测试自己写的数组 `.count == N`——恒真、与被测代码无关。映射（`.card → surfaceCard/borderMuted/CoreRadius.medium`）是 private，从 Tests/ 无法断言（改 Sources 违约、ViewInspector Out of Scope）。
 
-**处置：整文件删除，诚实记录覆盖缺口。** `.surface(.card)` 的**存在性**由 `CommentCard.swift:100` 编译保证；但其 **token 映射**（`.card → surfaceCard/borderMuted/CoreRadius.medium`）目前**无任何自动化守护**——`CommentCardTests` 只断言 memberwise 属性、从不渲染 body。删除即**接受这一覆盖缺口**（映射为 private，Tests/ 内无法断言：改 Sources 违约、ViewInspector Out of Scope）。C5 清单如实写「已删除；token 映射目前无测试守护，非『间接覆盖』」——本 issue 的目标就是消除失真信号，不能往审计记录里写假的覆盖声明。
+**但不整文件删除。** `SurfaceKind` 是 `public` API，那份 case 清单**本身是编译期引用**——误删某个 public case（尤其 `.canvasSubtle`/`.panel`/`.sidebar` 这类若无组件消费的 alias）会让它编译失败，拦住破坏性 API 变更。整删会连这层守卫一起丢。
 
-> **S1 取舍（保留 case 守卫）**：`SurfaceKind` 是 `public` API。原测试的 case 清单（`.canvas … .card` 9 个）虽 `.count == 9` 恒真，但那份**清单本身是编译期引用**——误删某个 public case（尤其 `.canvasSubtle`/`.panel`/`.sidebar` 这类若无组件消费的 alias）会让它编译失败，拦住破坏性 API 变更。**处置：保留一个不含 `.count` 断言的编译引用**（`let _: [SurfaceKind] = [.canvas, .content, .control, .floating, .overlay, .canvasSubtle, .panel, .sidebar, .card]`，无运行时 `#expect`），删掉三个恒真 `.count` 断言。这层守卫留住、恒真去掉，且过 Step 3 自检（自检只抓 `.count ==`）。
+**处置**：
+1. **删三个恒真 `@Test`**（`roles.count == 5/4/9`）。
+2. **保留一个非-`@Test` 的编译期 case 守卫**——`private static let`（类型级属性，`_` 通配绑定不能作类型级属性，必须命名）：
+   ```swift
+   import Testing
+   @testable import CoreDesign
+
+   @Suite("SurfaceKind")
+   struct SurfaceKindTests {
+       // 编译期 public API 守卫：误删任一 public case 会让本引用编译失败，
+       // 拦住破坏性变更。**故意非 @Test**——它无运行时断言，避免触发
+       // Step 5 Step 3 的 0-`#expect` 自检；恒真的 `.count` 断言已删。
+       // token 映射是 private，Tests/ 内无法断言（改 Sources 违约 / ViewInspector Out of Scope）。
+       private static let apiGuard: [SurfaceKind] = [
+           .canvas, .content, .control, .floating, .overlay,
+           .canvasSubtle, .panel, .sidebar, .card,
+       ]
+   }
+   ```
+   `apiGuard` 是 `static let`（类型作用域合法、无 unused warning、编译期检查全部 9 个 public case）。文件因此**不含 `@Test`**，逃过 0-`#expect` 自检；恒真 `.count` 也去掉了。
+
+**C5 清单如实记**：`SurfaceKindTests.swift` | 恒真 `.count` 断言已删，保留非-`@Test` 编译期 case 守卫；**token 映射仍无运行时测试守护**（private，Tests/ 内不可断言，非「间接覆盖」）。文件从 3 test 降为 0 test。
 
 - [ ] **Step 2: `StatusColorsTests` 改写成 asset 名断言**
 
@@ -176,7 +197,7 @@ Read 三个被测类型，判断有无可断言的**派生行为**。**先查可
 swift build --build-tests > /tmp/t2.log 2>&1; echo "build EXIT=$?"
 swift test > /tmp/t2t.log 2>&1; echo "test EXIT=$?"
 ```
-**记下新测试数**（删除会降、改写不变）。
+**记下新测试数**（删除/瘦身会降、改写不变；`SurfaceKindTests` 由 3 test 降为 0——仅保留编译引用）。
 
 - [ ] **Step 6: 提交**
 
