@@ -149,6 +149,10 @@ struct BottomInputBar: View {
                 .coreFont(.titleSmall)
         }
         .buttonStyle(.circularGlass)
+        .accessibilityLabel("Suggestions")
+        // suggestion 按钮是 toggle：额外播报展开态，否则 VoiceOver 听不出面板开合
+        // （与 UnderlinedTabItem 的选中态 trait 同模式）。
+        .accessibilityAddTraits(self.isShowingSuggestions ? .isSelected : [])
     }
 
     private var sendButton: some View {
@@ -161,6 +165,7 @@ struct BottomInputBar: View {
         .foregroundStyle(.white)
         .backgroundStyle(.green)
         .buttonStyle(.circularGlass)
+        .accessibilityLabel("Send")
     }
 
     private var stopButton: some View {
@@ -173,6 +178,7 @@ struct BottomInputBar: View {
         .foregroundStyle(.white)
         .backgroundStyle(.red)
         .buttonStyle(.circularGlass)
+        .accessibilityLabel("Stop")
     }
 
     private func submitMessage() {
