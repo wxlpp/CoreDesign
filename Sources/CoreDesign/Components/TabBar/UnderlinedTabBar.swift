@@ -173,6 +173,7 @@ private struct UnderlinedTabItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(self.isSelected ? .isSelected : [])
     }
 }
 
