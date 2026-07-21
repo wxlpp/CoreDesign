@@ -11,7 +11,7 @@ See the [Component Index](docs/README.md) for a reference of all 24 documented c
 ```swift
 // Package.swift
 dependencies: [
-    .package(url: "https://github.com/wxlpp/CoreDesign", branch: "main"),
+    .package(url: "https://github.com/wxlpp/CoreDesign", from: "0.2.0"),
 ]
 ```
 
