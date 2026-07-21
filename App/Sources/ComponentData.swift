@@ -82,9 +82,6 @@ extension ComponentMeta {
         ComponentMeta(id: "avatar", name: "Avatar", description: "头像组件，按名称首字母生成", category: .layout) {
             AvatarPreview()
         },
-        ComponentMeta(id: "book-cover", name: "BookCover", description: "书封渲染，按 Primer 视觉收齐", category: .layout) {
-            BookCoverPreview()
-        },
         ComponentMeta(id: "list-row", name: "ListRow", description: "3-槽位泛型列表行：leading / label / trailing", category: .layout) {
             ListRowPreview()
         },
@@ -191,12 +188,6 @@ private struct AvatarPreview: View {
             Avatar(name: "Evan")
             Avatar(name: "CoreDesign")
         }
-    }
-}
-
-private struct BookCoverPreview: View {
-    var body: some View {
-        BookCover(data: nil, title: "CoreDesign")
     }
 }
 

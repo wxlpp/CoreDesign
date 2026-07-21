@@ -1,6 +1,6 @@
 # CoreDesign 组件库 / Component Library
 
-iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Primer 对齐组件（含三合一 epic 新增的 Timeline / 状态指示组件）。
+iOS 26+ / macOS 26+ SwiftUI 设计系统，含 18 个 Primer 对齐组件。
 
 ## 组件索引 / Component Index
 
@@ -27,7 +27,6 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Primer 对齐组件（含�
 | Tag | [<img src="snapshots/CoreDesignPreview_Previews.swift_Tag.png" width="200">](components/tag.md) | [tag.md](components/tag.md) |
 | Banner | [<img src="snapshots/CoreDesignPreview_Previews.swift_Banner.png" width="200">](components/banner.md) | [banner.md](components/banner.md) |
 | StateLabel | [<img src="snapshots/CoreDesignPreview_Previews.swift_StateLabel.png" width="200">](components/state-label.md) | [state-label.md](components/state-label.md) |
-| RefPill | [<img src="snapshots/CoreDesignPreview_Previews.swift_RefPill.png" width="200">](components/ref-pill.md) | [ref-pill.md](components/ref-pill.md) |
 | ProgressIndicator | [<img src="snapshots/CoreDesignPreview_Previews.swift_ProgressIndicator.png" width="200">](components/progress-indicator.md) | [progress-indicator.md](components/progress-indicator.md) |
 | ProgressBar | [<img src="snapshots/CoreDesignPreview_Previews.swift_ProgressBar.png" width="200">](components/progress-bar.md) | [progress-bar.md](components/progress-bar.md) |
 
@@ -37,18 +36,8 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Primer 对齐组件（含�
 |---|---|---|
 | Avatar | [<img src="snapshots/CoreDesignPreview_Previews.swift_Avatar.png" width="200">](components/avatar.md) | [avatar.md](components/avatar.md) |
 | AvatarGroup | [<img src="snapshots/CoreDesignPreview_Previews.swift_AvatarGroup.png" width="200">](components/avatar-group.md) | [avatar-group.md](components/avatar-group.md) |
-| BookCover | [<img src="snapshots/CoreDesignPreview_Previews.swift_BookCover.png" width="200">](components/book-cover.md) | [book-cover.md](components/book-cover.md) |
 | ListRow | [<img src="snapshots/CoreDesignPreview_Previews.swift_ListRow.png" width="200">](components/list-row.md) | [list-row.md](components/list-row.md) |
 | FlowLayout | [<img src="snapshots/CoreDesignPreview_Previews.swift_FlowLayout.png" width="200">](components/flow-layout.md) | [flow-layout.md](components/flow-layout.md) |
-
-### Timeline 时间线
-
-| 组件 | 预览 | 文档 |
-|---|---|---|
-| TimelineItem | [<img src="snapshots/CoreDesignPreview_Previews.swift_TimelineItem.png" width="200">](components/timeline-item.md) | [timeline-item.md](components/timeline-item.md) |
-| EventRow | [<img src="snapshots/CoreDesignPreview_Previews.swift_EventRow.png" width="200">](components/event-row.md) | [event-row.md](components/event-row.md) |
-| CommentCard | [<img src="snapshots/CoreDesignPreview_Previews.swift_CommentCard.png" width="200">](components/comment-card.md) | [comment-card.md](components/comment-card.md) |
-| StatusRow | [<img src="snapshots/CoreDesignPreview_Previews.swift_StatusRow.png" width="200">](components/status-row.md) | [status-row.md](components/status-row.md) |
 
 ### Navigation 导航
 

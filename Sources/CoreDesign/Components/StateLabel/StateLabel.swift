@@ -91,7 +91,6 @@ public struct StateLabel<Label: View>: View {
         // 前景统一走 `contentOnEmphasis`（白）——背景用 `status*Emphasis`（饱和填充），
         // 配对前景即 `onEmphasis`。此前按 style 返回 `status*Foreground` 在 #93 修正
         // emphasis 为饱和实色后会与背景同色（对比度 1.00、文字不可见）。
-        // `BookCover.swift:155` 是同一配对的既有先例。
         .foregroundStyle(Color.contentOnEmphasis)
         .padding(.horizontal, CoreSpacing.sm)
         .padding(.vertical, CoreSpacing.xxs)
