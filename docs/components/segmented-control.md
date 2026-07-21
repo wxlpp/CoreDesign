@@ -10,6 +10,8 @@ Token 化的分段控件 / Token-styled segmented control.
 | selection | Binding<Item> | - | 当前选中项的双向绑定 |
 | title | (Item) -> String | - | 选项到显示文字的映射 |
 
+支持 `View.segmentedControlStyle(_:)` 注入外观，内置 `GlassSegmentedControlStyle`（默认）与 `PlainSegmentedControlStyle`。
+
 ## 预览 / Preview
 
 运行 `scripts/run-snapshots.sh` 后，预览图将生成于 `docs/snapshots/`。

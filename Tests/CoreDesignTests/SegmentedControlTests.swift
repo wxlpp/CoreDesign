@@ -31,16 +31,30 @@ struct SegmentedControlTests {
     }
 
     @MainActor
-    @Test("segmented control can opt out of glass")
-    func segmentedControlCanOptOutOfGlass() {
+    @Test("plain style opts out of glass via the style modifier")
+    func plainStyleOptsOutOfGlass() {
         let selection = Binding.constant("One")
-        let control = SegmentedControl(
+        let styled = SegmentedControl(
             items: ["One", "Two"],
             selection: selection,
-            glass: false,
             title: { $0 }
         )
+        .segmentedControlStyle(PlainSegmentedControlStyle())
+        // 四件套接通即编译通过（modifier 返回 `some View`，不再是 SegmentedControl<Item>）。
+        _ = styled
+    }
 
-        #expect(type(of: control) == SegmentedControl<String>.self)
+    @MainActor
+    @Test("both built-in styles produce a body from a configuration")
+    func builtInStylesProduceBody() {
+        let config = SegmentedControlStyleConfiguration(
+            segments: [
+                .init(index: 0, title: "A", isSelected: true),
+                .init(index: 1, title: "B", isSelected: false),
+            ],
+            select: { _ in }
+        )
+        _ = GlassSegmentedControlStyle().makeBody(configuration: config)
+        _ = PlainSegmentedControlStyle().makeBody(configuration: config)
     }
 }

@@ -25,120 +25,159 @@ private func segmentedGlassChrome<S: InsettableShape>(_ shape: S) -> some View {
         )
 }
 
+// MARK: - SegmentedControlStyleConfiguration
+
+/// 传给 `SegmentedControlStyle.makeBody` 的上下文：类型擦除的分段数据 + 选择回调。
+///
+/// `Item` 泛型在此收敛为「index + 展示文字 + 选中态」，让 style 能同时驱动 iOS 原生
+/// `UISegmentedControl`（收 `[String]` + index）与 SwiftUI 回退路径（按 index 重建）。
+public struct SegmentedControlStyleConfiguration {
+    /// 单个分段的类型擦除表示。
+    public struct Segment: Identifiable {
+        public let index: Int
+        public let title: String
+        public let isSelected: Bool
+        public var id: Int { self.index }
+
+        public init(index: Int, title: String, isSelected: Bool) {
+            self.index = index
+            self.title = title
+            self.isSelected = isSelected
+        }
+    }
+
+    public let segments: [Segment]
+    /// 选中第 `index` 段的回调（由 `SegmentedControl` 注入，内部做 `withAnimation` + 越界保护）。
+    public let select: (Int) -> Void
+
+    public init(segments: [Segment], select: @escaping (Int) -> Void) {
+        self.segments = segments
+        self.select = select
+    }
+}
+
+// MARK: - SegmentedControlStyle
+
+/// `SegmentedControl` 视觉外观的扩展点，形态对齐 `BannerStyle` / Apple `ButtonStyle`。
+///
+/// 实现该协议提供新外观，通过 `View.segmentedControlStyle(_:)` 注入子树。内置
+/// `GlassSegmentedControlStyle`（默认，Liquid Glass 外壳）与 `PlainSegmentedControlStyle`
+/// （纯色外壳）。此前的 `glass: Bool` 布尔 hack 升级为本协议（审计项 D7）。
+public protocol SegmentedControlStyle {
+    associatedtype Body: View
+
+    @ViewBuilder
+    @MainActor @preconcurrency
+    func makeBody(configuration: Self.Configuration) -> Body
+
+    typealias Configuration = SegmentedControlStyleConfiguration
+}
+
 // MARK: - SegmentedControl
 
 /// Native Primer segmented control.
 ///
-/// The component keeps GitHub-like utility and density while rendering as an
-/// Apple-native control surface. The base uses a restrained Liquid Glass shell
-/// by default; only the selected segment gets a lightly raised thumb.
+/// GitHub-like density on an Apple-native control surface. 外观由环境注入的
+/// `SegmentedControlStyle` 决定，默认 `GlassSegmentedControlStyle`。
 public struct SegmentedControl<Item: Hashable>: View {
     /// 创建分段控件。
     ///
     /// - Parameters:
-    ///   - items: 选项数据源；`Item` 必须 `Hashable`，用于 `selection` 比较与
-    ///     `ForEach` 标识。
+    ///   - items: 选项数据源；`Item: Hashable`，用于 `selection` 比较与标识。
     ///   - selection: 当前选中项的双向绑定。
-    ///   - glass: 是否使用 Liquid Glass 外壳；默认 `true`。
-    ///   - title: 把 `Item` 映射到展示文字的闭包。
+    ///   - title: 把 `Item` 映射到展示文字。
     public init(
         items: [Item],
         selection: Binding<Item>,
-        glass: Bool = true,
         title: @escaping (Item) -> String
     ) {
         self.items = items
         self._selection = selection
-        self.glass = glass
         self.title = title
     }
 
-    /// 视图主体：横向 HStack 排列分段，外框走 `surfaceInteractive` 容器，
-    /// thumb 通过 `matchedGeometryEffect` 在选中分段间无缝滑动。
-    @ViewBuilder
     public var body: some View {
-        #if os(iOS)
-        if self.glass {
-            NativeGlassSegmentedControl(
-                items: self.items,
-                selection: self.$selection,
-                title: self.title
+        let segments = self.items.enumerated().map { index, item in
+            SegmentedControlStyleConfiguration.Segment(
+                index: index,
+                title: self.title(item),
+                isSelected: item == self.selection
             )
-            // `maxWidth: .infinity` 让控件填充父容器宽度。`UISegmentedControl` 自带
-            // intrinsic content size 会让 SwiftUI 默认采用紧凑宽度；在窄约束容器
-            // （≤240pt 的 sidebar / inspector 列、固定宽度的工具栏槽）里会观察到
-            // 分段控件不撑满。`.frame(height:)` 已经处理纵向，这里补齐横向行为。
-            .frame(maxWidth: .infinity)
-            .frame(height: CoreControlMetrics.height(for: .regular))
-            .sensoryFeedback(.selection, trigger: self.selection)
-        } else {
-            self.swiftUISegmentedControl
         }
-        #else
-        self.swiftUISegmentedControl
-        #endif
-    }
-
-    private var swiftUISegmentedControl: some View {
-        let shape = Capsule(style: .continuous)
-        return HStack(spacing: CoreSpacing.xxs) {
-            ForEach(self.items, id: \.self) { item in
-                self.segment(for: item)
-            }
+        let configuration = SegmentedControlStyleConfiguration(segments: segments) { index in
+            guard self.items.indices.contains(index) else { return }
+            self.select(self.items[index])
         }
-        .padding(CoreSpacing.xxs)
-        // `maxWidth: .infinity` 必须在 `SegmentedControlBackgroundModifier` 之前 —
-        // SwiftUI `.background` / `.overlay` 按修饰链顺序对当时内容尺寸取背景框，
-        // 若把宽度撑开放在 background 之后，胶囊 / 描边会停留在 intrinsic 宽度，
-        // 形成"内容撑满 + 背景没撑满"的视觉错位。每个 segment 内部已有
-        // `.frame(maxWidth: .infinity)`，但外层 HStack 仍需显式声明，以在部分
-        // 父容器（VStack / Grid）里得到稳定的横向铺满行为。
-        .frame(maxWidth: .infinity)
-        .modifier(SegmentedControlBackgroundModifier(shape: shape, glass: self.glass))
-        .frame(height: CoreControlMetrics.height(for: .regular))
-        .sensoryFeedback(.selection, trigger: self.selection)
+        return AnyView(self.style.makeBody(configuration: configuration))
     }
 
     @Binding private var selection: Item
-    @Namespace private var namespace
+    @Environment(\.segmentedControlStyle) private var style
 
     private let items: [Item]
-    private let glass: Bool
     private let title: (Item) -> String
 
+    private func select(_ item: Item) {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            self.selection = item
+        }
+    }
+}
+
+// MARK: - SwiftUI body（两个内置 style 共用）
+
+private struct SwiftUISegmentedControl: View {
+    let configuration: SegmentedControlStyleConfiguration
+    let glass: Bool
+
+    @Namespace private var namespace
+
+    var body: some View {
+        let shape = Capsule(style: .continuous)
+        return HStack(spacing: CoreSpacing.xxs) {
+            ForEach(self.configuration.segments) { segment in
+                self.segmentView(segment)
+            }
+        }
+        // 保留原 `swiftUISegmentedControl` 的 inset（SegmentedControl.swift:74）——
+        // 让 segments/thumb 从玻璃外壳边缘缩进，形成「track 内浮起 thumb」的观感。
+        // 评审 Finding 1：迁移时漏掉会让 thumb 贴外壳（所有 SwiftUI 回退渲染 = iOS
+        // Plain + 全 macOS 受影响；测试只测构造，四命令/iOS 命令都抓不到）。
+        .padding(CoreSpacing.xxs)
+        .frame(maxWidth: .infinity)
+        .modifier(SegmentedControlBackgroundModifier(shape: shape, glass: self.glass))
+        .frame(height: CoreControlMetrics.height(for: .regular))
+        // 保留原 fallback 路径的选择触感（SegmentedControl.swift:84）——评审 Finding 2：
+        // 无 `selection` 属性，改由选中 segment 的 index 驱动 trigger（Int? 可 Equatable）。
+        .sensoryFeedback(.selection, trigger: self.configuration.segments.first(where: \.isSelected)?.index)
+    }
+
     @ViewBuilder
-    private func segment(for item: Item) -> some View {
-        let isSelected = self.selection == item
-        // 用 Button 而非 Text+onTapGesture：让 SwiftUI fallback 路径继承
-        // 系统按钮的键盘激活 / focus ring / pressed 状态 / hover 反馈，
-        // 对 macOS 键盘用户和辅助技术尤其重要。`.plain` 抹掉系统按钮默认装饰，
-        // 由我们的 background thumb 与 foregroundStyle 主导视觉。
+    private func segmentView(_ segment: SegmentedControlStyleConfiguration.Segment) -> some View {
         Button {
-            self.select(item)
+            self.configuration.select(segment.index)
         } label: {
-            Text(self.title(item))
+            Text(segment.title)
                 .coreFont(.bodyMedium)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? Color.contentPrimary : Color.contentSecondary)
+                .fontWeight(segment.isSelected ? .semibold : .regular)
+                .foregroundStyle(segment.isSelected ? Color.contentPrimary : Color.contentSecondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .background {
-                    if isSelected {
+                    if segment.isSelected {
                         self.selectedThumb
                             .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
                     }
                 }
         }
         .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityAddTraits(segment.isSelected ? .isSelected : [])
     }
 
     @ViewBuilder
     private var selectedThumb: some View {
         let shape = Capsule(style: .continuous)
         if self.glass {
-            // thumb 叠在 SegmentedControlBackgroundModifier 的玻璃外壳之上；
-            // `.fill(.clear)` 有意——再加底色会让两层玻璃变浑浊。
             segmentedGlassChrome(shape)
                 .coreShadow(.small)
         } else {
@@ -150,19 +189,59 @@ public struct SegmentedControl<Item: Hashable>: View {
                 .coreShadow(.small)
         }
     }
+}
 
-    private func select(_ item: Item) {
-        withAnimation(.easeInOut(duration: 0.18)) {
-            self.selection = item
-        }
+// MARK: - Built-in styles
+
+/// 默认外观：Liquid Glass 外壳。iOS 走原生 `UISegmentedControl` + `UIGlassEffect`，
+/// 其他平台走玻璃版 SwiftUI 回退。
+public struct GlassSegmentedControlStyle: SegmentedControlStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        #if os(iOS)
+        NativeGlassSegmentedControl(
+            titles: configuration.segments.map(\.title),
+            selectedIndex: configuration.segments.first(where: \.isSelected)?.index,
+            onSelect: configuration.select
+        )
+        .frame(maxWidth: .infinity)
+        .frame(height: CoreControlMetrics.height(for: .regular))
+        .sensoryFeedback(.selection, trigger: configuration.segments.firstIndex(where: \.isSelected))
+        #else
+        SwiftUISegmentedControl(configuration: configuration, glass: true)
+        #endif
+    }
+}
+
+/// 纯色外壳外观（此前 `glass: false`）。全平台走 SwiftUI 回退。
+public struct PlainSegmentedControlStyle: SegmentedControlStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        SwiftUISegmentedControl(configuration: configuration, glass: false)
+    }
+}
+
+// MARK: - Environment entry
+
+extension EnvironmentValues {
+    /// 当前生效的 `SegmentedControlStyle`，默认 `GlassSegmentedControlStyle`。
+    @Entry var segmentedControlStyle: any SegmentedControlStyle = GlassSegmentedControlStyle()
+}
+
+public extension View {
+    /// 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。
+    func segmentedControlStyle(_ style: some SegmentedControlStyle) -> some View {
+        self.environment(\.segmentedControlStyle, style)
     }
 }
 
 #if os(iOS)
-private struct NativeGlassSegmentedControl<Item: Hashable>: UIViewRepresentable {
-    let items: [Item]
-    @Binding var selection: Item
-    let title: (Item) -> String
+private struct NativeGlassSegmentedControl: UIViewRepresentable {
+    let titles: [String]
+    let selectedIndex: Int?
+    let onSelect: (Int) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -180,13 +259,11 @@ private struct NativeGlassSegmentedControl<Item: Hashable>: UIViewRepresentable 
 
     func updateUIView(_ uiView: NativeGlassSegmentedControlView, context: Context) {
         context.coordinator.parent = self
-        uiView.configure(titles: self.items.map(self.title))
+        uiView.configure(titles: self.titles)
 
-        // selection 不在 items 时回退到 `noSegment`：避免 UI 显示第一个分段被选中
-        // 而 binding 仍持有 items 外值导致状态错位的"假选中"。
-        let selectedIndex = self.items.firstIndex(of: self.selection) ?? UISegmentedControl.noSegment
-        if uiView.control.selectedSegmentIndex != selectedIndex {
-            uiView.control.selectedSegmentIndex = selectedIndex
+        let target = self.selectedIndex ?? UISegmentedControl.noSegment
+        if uiView.control.selectedSegmentIndex != target {
+            uiView.control.selectedSegmentIndex = target
         }
 
         uiView.updateForCurrentTraits()
@@ -201,8 +278,8 @@ private struct NativeGlassSegmentedControl<Item: Hashable>: UIViewRepresentable 
 
         @objc func selectionChanged(_ control: UISegmentedControl) {
             let index = control.selectedSegmentIndex
-            guard index >= 0, index < self.parent.items.count else { return }
-            self.parent.selection = self.parent.items[index]
+            guard index >= 0, index < self.parent.titles.count else { return }
+            self.parent.onSelect(index)
         }
     }
 }
