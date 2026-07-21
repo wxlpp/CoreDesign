@@ -23,7 +23,7 @@ struct SidebarComponentsTests {
             action: {}
         )
 
-        #expect(type(of: row) == SidebarNavigationRow.self)
+        #expect(type(of: row) == SidebarNavigationRow<AnyView>.self)
     }
 
     @Test("sidebar utility row constructs with trailing image")
