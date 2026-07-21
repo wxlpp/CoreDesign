@@ -45,8 +45,11 @@
         }
         .buttonStyle(.circularGlass)
         .accessibilityLabel("Suggestions")
+        .accessibilityAddTraits(self.isShowingSuggestions ? .isSelected : [])
     }
 ```
+
+`suggestionButton` 是 **toggle**（切 `isShowingSuggestions`）——除 label 外补 `.accessibilityAddTraits(... .isSelected ...)` 播报展开态，否则 VoiceOver 只念「Suggestions, button」、听不出面板开合（与本任务 D1b 的 trait 模式一致）。`sendButton`/`stopButton` 是一次性动作，无状态需播报；`trailingButton:110-111` 的 `.disabled`/`.opacity` 已自动播报「dimmed」，无需额外处理。
 
 `sendButton`：
 ```swift
@@ -117,9 +120,13 @@ git commit -m "a11y: UnderlinedTabItem 补 .isSelected trait 播报选中态（D
 **Files:**
 - Modify: `Sources/CoreDesign/Components/Form/Form.swift`
 
-**当前状态**：三个 public 图标视图。`LabelIcon`（`:55` body）与 `ChevronRightIcon`（`:83` body）纯装饰（信息由邻近 `Label` 的 `Text` / 行标题承载）；`DangerIcon`（`:100` body）**承载语义**（危险状态本身是信息）。**三者处理方式不同，逐一核对。**
+**当前状态**：三个 public 图标视图。`LabelIcon`（`:55` body）与 `ChevronRightIcon`（`:83` body）在 Form 语境是装饰（信息由邻近 `Label` 的 `Text` / 行标题承载）；`DangerIcon`（`:100` body）**承载语义**（危险状态本身是信息）。**三者处理方式不同，逐一核对。**
 
-- [ ] **Step 1: `LabelIcon` 纯装饰 → hidden**
+> **关于把 `hidden` 烤进 public primitive 的取舍**（评审 Finding 1）：`Sidebar.swift:112-114` 立了「a11y 语义由调用方决定，骨架不代为决定」的约定，在**组合点**（`SidebarRow.body:133`）而非骨架里加 hidden。`LabelIcon` 是 public leaf，`ChevronRightIcon` 也是。区别在确定性：
+> - `ChevronRightIcon` **无歧义**——它永远是「进入下一级」的 disclosure 指示符（对齐 `Sidebar.swift:58` 对 chevron 的处理），任何语境下都装饰，烤 hidden 安全。
+> - `LabelIcon` 有 systemName 由调用方给，**可能**被单独用作行的唯一内容。故**不无条件烤死**：加 hidden(true) 作 Form 语境默认，但在注释里写明设计契约（icon 槽、信息由配对 Text 承载）与 opt-out 路径 `.accessibilityHidden(false)`，让单独使用的调用方能恢复。
+
+- [ ] **Step 1: `LabelIcon` → hidden（Form 语境默认，可 opt-out）**
 
 `LabelIcon.body` 的根 `Image(systemName: "app.fill")…` 链，在 `.overlay { … }` 之后补：
 ```swift
@@ -128,6 +135,9 @@ git commit -m "a11y: UnderlinedTabItem 补 .isSelected trait 播报选中态（D
                     .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
                     .foregroundStyle(Color.contentInverse)
             }
+            // LabelIcon 设计为 `Label { Text(...) } icon: { LabelIcon(...) }` 的 icon 槽，
+            // 信息由配对的 Text 承载，故默认对 VoiceOver 隐藏。若单独用作行的唯一内容，
+            // 调用方以 `.accessibilityHidden(false)` 恢复（骨架给默认、不越俎代庖锁死）。
             .accessibilityHidden(true)
 ```
 
@@ -146,9 +156,11 @@ git commit -m "a11y: UnderlinedTabItem 补 .isSelected trait 播报选中态（D
     public var body: some View {
         Image(systemName: "exclamationmark.circle.fill")
             .foregroundStyle(Color.statusDangerForeground)
-            .accessibilityLabel("Warning")
+            .accessibilityLabel("Alert")
     }
 ```
+
+> **文案为何是 `"Alert"` 而非 `"Warning"`**（评审 Finding 2）：`DangerIcon` 渲染 `statusDangerForeground`（红，danger 语义）。而 `FunctionalColor.swift` 的 `warning`（橙）与 `danger`（红）是**两个不同的状态语义**（CLAUDE.md 第 4 层 success/info/warning/danger）。给 danger 图标念「Warning」会把屏读用户本该能区分的两个状态混淆。用 `"Alert"`（与 danger「需要注意」语义对齐、不撞 `warning` token）。init 参数化默认 label 属 API 形态改造（#101 范围），本任务用固定字面量。
 
 - [ ] **Step 4: 验证三者处理不同**
 
@@ -171,6 +183,17 @@ git commit -m "a11y: Form 装饰图标 hidden、DangerIcon 补 label（D1c）"
 **Files:**
 - Modify: `.claude/epics/coredesign-audit-remediation/audit-checklist.md`
 
+- [ ] **Step 0: 前置——确认 base 含声明的依赖已落**（评审 Finding 5）
+
+`99.md` front-matter `depends_on: [93,95,97]` 与正文 `002/004/006` 是两套编号；本任务假设它们已在 `epic/coredesign-audit-remediation` 上。落地前显式核实（而非隐式假设）：
+```bash
+# 002 已迁：Form 用新 statusDangerForeground、无 legacy Color.dangerForeground
+grep -n 'dangerForeground' Sources/CoreDesign/Components/Form/Form.swift   # 应见 statusDangerForeground，无裸 Color.dangerForeground
+# 006 已拆：BottomInputBar 的三个按钮是独立计算属性
+grep -cE 'private var (suggestion|send|stop)Button' Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift  # => 3
+```
+Expected: Form 用 `statusDangerForeground`；三个按钮计算属性各在。任一不符则停下核对依赖是否真落地。
+
 - [ ] **Step 1: 四条 SwiftPM 命令（clean 冷跑）**
 
 ```bash
@@ -191,6 +214,20 @@ git diff --name-only epic/coredesign-audit-remediation..HEAD | grep -vE '^(Sourc
 ```
 Expected: `rc=1`，无越界输出（改动只在三个组件目录 + `.claude/`）。
 
+- [ ] **Step 2b: 逐处精确核对 label 值 / 元素**（评审 Finding 3——grep 计数只证「存在」，须证「值对、挂对元素」，抓 `stopButton` 误标 "Send" 之类）
+
+```bash
+# 每个按钮计算属性块内的 label 值（-A 取上下文，确认 value 挂在对的按钮上）
+grep -A6 'private var suggestionButton' Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift | grep -E 'accessibilityLabel|accessibilityAddTraits'  # "Suggestions" + isSelected trait
+grep -A6 'private var sendButton'       Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift | grep 'accessibilityLabel'  # "Send"
+grep -A6 'private var stopButton'       Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift | grep 'accessibilityLabel'  # "Stop"
+# Form 三图标：LabelIcon/ChevronRightIcon hidden、DangerIcon 是 "Alert"（非 "Warning"）
+grep -B2 'accessibilityHidden(true)' Sources/CoreDesign/Components/Form/Form.swift   # 命中 LabelIcon / ChevronRightIcon 上下文
+grep -n 'accessibilityLabel("Alert")' Sources/CoreDesign/Components/Form/Form.swift  # DangerIcon
+grep -c 'accessibilityLabel("Warning")' Sources/CoreDesign/Components/Form/Form.swift  # => 0（不得撞 warning token）
+```
+Expected: 三按钮各自块内 label 值正确对应（send="Send"/stop="Stop"/suggestion="Suggestions"+trait）；Form 两 hidden + DangerIcon="Alert"、零 "Warning"。**任一值挂错元素即停下修正**——这是 grep 计数抓不到、VoiceOver 才能抓的那类错误的代码层替代核对。
+
 - [ ] **Step 3: 标记 audit-checklist D1a/D1b/D1c + 计数核对**
 
 三项标 `✅ 已修复（GitHub #99）`。**只改状态描述，不增删数据行**，计数须仍 83 / 79：
@@ -200,9 +237,12 @@ echo "计数1: $(( $(grep -c '^| [A-D][0-9]' audit-checklist.md) - 4 ))"   # => 
 echo "计数2: $(grep -oE '\| #[0-9]+ \|$' audit-checklist.md | sort | uniq -c | awk '{s+=$1} END{print s}')"  # => 79
 ```
 
-- [ ] **Step 4: VoiceOver 冒烟说明**
+- [ ] **Step 4: VoiceOver 运行时项——显式 deferred，不用 grep 冒充完成**（评审 Finding 3）
 
-代码层已补齐（三处 modifier）。运行时 VoiceOver 冒烟（DoD 末项）需 iOS Simulator 手动开 VoiceOver / Accessibility Inspector 走一遍——**代码层无法自动断言 a11y**（ViewInspector 属 Out of Scope）。在 `updates/99/progress.md` 记录：三个按钮有可读 label、tab 选中态播报 `.isSelected`、装饰图标不被聚焦；建议用户在 Simulator 手动复核。
+代码层已补齐并经 Step 2b 逐处精确核对（label 值挂对元素、DangerIcon 非 Warning、trait 正确）。但 DoD 末项的**运行时 VoiceOver 冒烟**（开 VoiceOver 听 spoken output）**本任务不自动执行**——ViewInspector 属 Out of Scope，swift test 断言不了 a11y 运行时行为。诚实处理：
+- audit-checklist 的 **D1a/D1b/D1c 标 ✅**：这三项审计缺陷是「代码层缺 modifier」，代码已修复且逐处核对，审计项闭合。
+- `99.md` DoD 的 **VoiceOver 冒烟项标 `deferred（运行时，待用户 Simulator 复核）`，不勾选**——它是运行时验证，不因代码修复自动满足（Step 3 标记与本项状态不得互相矛盾）。
+- `progress.md` 记下代码层核对的 spoken-label 预期：`Suggestions`（+展开态 selected）/ `Send` / `Stop` / tab 选中态 `.isSelected` / `LabelIcon`·`ChevronRightIcon` 不被聚焦 / `DangerIcon` 念 `"Alert"`；并明说运行时 VoiceOver 未自动跑、建议用户手动走一遍。
 
 - [ ] **Step 5: 写 progress.md + 提交**
 
