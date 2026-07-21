@@ -48,7 +48,7 @@
    `Tokens/CoreGradient.swift` / `CoreGradient+Preview.swift`。
 
 9. **全局验证**
-   - `grep -rn "BookCover\|RefPill\|StatusRow\|EventRow\|CommentCard\|TimelineItem" Sources Tests docs App` → 0 行
+   - `grep -rn "BookCover\|RefPill\|StatusRow\|EventRow\|CommentCard\|TimelineItem" Sources Tests App docs/README.md docs/components docs/snapshots` → 0 行
      （需确认不会误伤 `StatusLevel` / `StatusColors` 等无关词——这些不含目标词本身，不会被匹配到）
    - `swift build` 通过
    - `swift test` 通过，80 tests / 0 failure
@@ -56,3 +56,5 @@
 10. **提交**
     按逻辑分组提交（如：Sources+Tests 一提交，docs 一提交，App 一提交，或视情况合并），
     每条 commit message 用 `Issue #117: <描述>` 格式，末尾加 Co-Authored-By 行。
+
+> 注：grep 范围不含 `docs/superpowers/`——那里的 spec / plan 是这些组件当初被设计时的历史规划归档，改写归档等于篡改历史记录（见 117.md 的同项说明）。
