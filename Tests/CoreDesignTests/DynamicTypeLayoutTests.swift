@@ -49,6 +49,16 @@ struct DynamicTypeLayoutTests {
         #expect(ax5 >= xxxl, "accessibility5 应 ≥ xxxLarge")
     }
 
+    @Test("Sidebar 单行钳制 row（Document）在放大档同样撑高不裁切")
+    func sidebarSingleLineRowGrows() {
+        // Document row 传 titleLineLimit: 1（与 Navigation 的 nil 换行行为不同），
+        // 单独覆盖单行钳制路径——AC 是「四种 row 不裁切」。
+        let row = SidebarDocumentRow(systemImage: "doc", title: "Document title", detail: "3 days ago") {}
+        let small = self.renderedHeight(row, at: .large)
+        let ax5   = self.renderedHeight(row, at: .accessibility5)
+        #expect(ax5 > small, "Document row 在 accessibility5 未撑高——单行钳制下字号没缩放或被裁")
+    }
+
     @Test("coreFont 的字号在 iOS 下确实随 Dynamic Type 变化")
     func coreFontActuallyScales() {
         let text = Text("Ag").coreFont(.bodyLarge)
@@ -62,6 +72,7 @@ struct DynamicTypeLayoutTests {
         let text = Text("9").coreFont(.captionSmall)
         let small = self.renderedHeight(text, at: .large)
         let ax5   = self.renderedHeight(text, at: .accessibility5)
+        #expect(small > 0, "渲染失败（uiImage nil）——本断言的 <= 会被 0<=1 假放过")
         // captionSmall 固定档：ax5 不应比 small 显著高（渲染有 ±1px 抖动，留容差）。
         #expect(ax5 <= small + 1, "captionSmall 缩放了——违反其固定设计约束")
     }
