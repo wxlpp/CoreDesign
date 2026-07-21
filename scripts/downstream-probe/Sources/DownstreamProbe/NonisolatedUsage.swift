@@ -20,7 +20,10 @@ nonisolated func compareBadgeVariant(_ a: BadgeVariant, _ b: BadgeVariant) -> Bo
     a == b
 }
 
-nonisolated func compareStatusResult(_ a: StatusResult, _ b: StatusResult) -> Bool {
+// `StatusResult` 随 StatusRow 于 Issue #117 删除；改用保留下来的同构类型
+// `StatusLevel`（同样 Sendable + Equatable）继续覆盖「在 nonisolated 上下文
+// 比较状态枚举」这条路径。下方 `useStatusLevel()` 只构造不比较，覆盖面不重叠。
+nonisolated func compareStatusLevel(_ a: StatusLevel, _ b: StatusLevel) -> Bool {
     a == b
 }
 
