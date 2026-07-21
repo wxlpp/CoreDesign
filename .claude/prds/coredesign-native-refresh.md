@@ -148,6 +148,8 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 - `borderDefault` / `borderSubtle` → `separator` / `opaqueSeparator`
 - `contentPrimary` / `contentSecondary` / `contentTertiary` → `label` / `secondaryLabel` / `tertiaryLabel`
 
+**上表不是穷尽清单**。第 3 层还有未列出的 token（`surfaceCanvasInset`、`surfaceCard`、`contentOnEmphasis`、`FillColors` 各项等）。Epic 1 须产出第 3 层的**完整映射表**，其中保持现值的必须显式标注为"保持现值"，改变指向的并入 FR-13 的同名换值清单——不允许出现"未提及即默认不变"的模糊地带。
+
 第 1 层 `ColorGrade` 调色板保留作内部构造原料，继续为 `StatusColors` 等无系统对应物的 token 供色。
 
 **macOS 降级映射（必须显式给出）**：AppKit 没有 grouped background 系列，现有桥接层把 `surfaceCanvas` 与 `surfaceRaised` **都**落到 `.controlBackgroundColor`（`Colors/SystemBackgroundColors.swift:47-53`、`58-64`）。若照搬 iOS 映射，macOS 上卡片与画布将同色、raised 层完全隐形——这是功能性退化，不属于 Out of Scope 中"macOS 观感不打磨"的范畴。macOS 侧须拉开一档：`surfaceCanvas → windowBackgroundColor`、`surfaceRaised → controlBackgroundColor`，并在实现中验证浅色/深色下两者确有可见差异。
@@ -155,8 +157,8 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 **`accent` 及其衍生族（本 FR 中最需要明确规格的一项）**：`InteractionColors.accent` 不是孤立常量，而是一个静态衍生族——`accentHover` = `brand6`、`accentPressed` = `brand7`、`accentDisabled` = `brand2`、`accentSubtleBackground` = `brand1`，另有 `selectionBackground` / `selectionBackgroundEmphasis` 走同层别名，而 `borderFocus` / `borderSelected` 又指向 `accent`。决策如下：
 
 - `accent` 改为指向 **宿主 app 的强调色**（`Color.accentColor`，即调用方 asset catalog 中的 `AccentColor` 或系统默认蓝），使库跟随宿主品牌色而非携带自己的品牌色。
-- 衍生态**不再取 `ColorGrade` 的固定色阶**（动态强调色下 `brand6` / `brand7` 这类色阶无从推导），改为对 `accent` 做不透明度 / 层级调制。具体档位在 Epic 1 实现时确定并写入 `docs/DESIGN-FOUNDATION.md`。
-- **明确不承诺**"跟随每个视图的 `.tint(_:)`"：静态 `Color` 常量读不到环境值，要做到这一点需要把组件配色改成 `ShapeStyle` / 环境通路，是组件层 API 形态变更。本次不做；需要按视图 tint 的场景，走 SwiftUI 原生通路（系统控件 style 天然响应 `.tint`）。
+- 衍生态**不再取 `ColorGrade` 的固定色阶**（动态强调色下 `brand6` / `brand7` 这类色阶无从推导），改为对 `accent` 做不透明度 / 明度调制。具体档位在 Epic 1 实现时确定并写入 `docs/DESIGN-FOUNDATION.md`。注意 `accentPressed` 现值 `brand7` 是**加深**——降 alpha 只会变浅，实现时须用压暗 overlay 或明度调制，不可简单降低不透明度。
+- **明确不承诺**"跟随每个视图的 `.tint(_:)`"：`.tint` 走的是独立于 `Color.accentColor` 的 `ShapeStyle` 通道，要让 CoreDesign 的静态色 token 跟随它，需要把组件配色整体改成 `ShapeStyle` / 环境通路，属组件层 API 形态变更。本次不做。
 - 连带影响：`ButtonRoleStyleRole` 的 `color` / `activeColor` / `disabledColor` 三属性调色板须按新推导策略重写，此工作量计入 Epic 1。
 
 ### FR-5 · 阴影层级
@@ -170,7 +172,7 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 附属类型按实际归属二分，**不可一概而论**：
 
 - `StatusResult`（`Components/StatusRow/StatusRow.swift:11`）仅被 `StatusRow` 使用，随之删除。
-- **`StatusLevel` 必须保留**——它是保留组件 `Banner`（`Banner.swift:57,103`）与 `Toast`（`Toast.swift:28,41,177`）的公开 API 参数类型。误删会连带打断 Banner / Toast / StateLabel。
+- **`StatusLevel` 必须保留**——它是保留组件 `Banner`（`Banner.swift:57,103`）与 `Toast`（`Toast.swift:28,41,177`）的公开 API 参数类型，误删会连带打断这两个组件。（`StateLabel` 不依赖它，用的是自己的 `StateLabelStyle`。）
 
 同时必须清理预览宿主 `App/`（它不在 `Sources` / `Tests` / `docs` 之内，容易漏）：`App/Sources/Previews.swift`（24 处引用）、`App/Sources/ComponentData.swift`（4 处引用），并重新生成 `App/CoreDesignPreview.xcodeproj`。
 
@@ -181,7 +183,7 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 - `Package.swift` 的 `traits:` 声明。
 - `Sources` 内 8 处 `#if Blossom` 分流（`ColorGrade` / `CoreGradient` ×3 / `InteractionColors` / `SurfaceColors` ×3）。
 - `Resources.xcassets/blossom-brand/*` 与 `blossom-canvas/*` 色板。
-- `Tests/CoreDesignTests/BlossomColorDivergenceTests.swift`，以及 **`Tests/CoreDesignTests/CoreDesignTests.swift` 中的 `BlossomAssetTests` suite**（含其 `#if Blossom` 分支与 CoreGradient 渐变断言）——这是 `Sources` 之外的第 9 处 `#if Blossom`。
+- `Tests/CoreDesignTests/BlossomColorDivergenceTests.swift`（含 `:54` 的 `#if Blossom`），以及 **`Tests/CoreDesignTests/CoreDesignTests.swift` 中的 `BlossomAssetTests` suite**（含 `:62` 的 `#if Blossom` 分支与 CoreGradient 渐变断言）。连同 `Sources` 的 8 处，全仓库 `#if Blossom` 共 10 处。
 - CI（`.github/workflows/ci.yml`）中的 `swift build --traits Blossom` / `swift test --traits Blossom` 双构建腿、xcodebuild 腿的 `-skip-testing:CoreDesignTests/BlossomAssetTests` 及其成因注释、以及 downstream-probe 一节的 Blossom 说明。
 - 预览宿主 `App/project.yml:13` 的 `traits: ["Blossom"]` 与其上方注释，并重新生成 `App/CoreDesignPreview.xcodeproj`（pbxproj 中含 `traits = (Blossom,)`）。**此项不做则 trait 删除后预览宿主直接无法解析依赖**，而视觉评审（Success Criteria #8）依赖它能跑。
 
@@ -215,9 +217,12 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 
 为 `Toggle` / `TextField` / `ProgressView` / `Label` / `DisclosureGroup` 各提供一个 CoreDesign style，按 SwiftUI 惯例经对应 style 协议上的静态成员 `.core` 暴露（`.toggleStyle(.core)` 等）。不重新实现控件本身。
 
+**强调色必须走 `.tint` 通路**：`.core` style 的 `makeBody` 中不得把强调色写死为静态 `accent` token，须经 `TintShapeStyle`（`.tint`）或 configuration 取色。否则调用方对这些控件用 `.tint(_:)` 会静默失效——那将同时违反 US-3「保留系统控件全部原生行为，只改视觉」与 FR-4 给出的"按视图 tint 走原生通路"这条逃生口。这也是 FR-4 不承诺静态 token 跟随 tint 之后，tint 仍然可用的唯一保障。
+
 ### FR-13 · 文档与版本
 
 - `docs/PRIMER_VERSION.md` 替换为 `docs/DESIGN-FOUNDATION.md`（记录 Apple HIG 依据与 token 取值理由）。
+- **同步重写 `CLAUDE.md` 与 `AGENTS.md`**：两份文件当前含「主题系统（Package Traits）」「渐变 token 层（CoreGradient）」整节，以及"两种构建模式都需保持绿""新增 colorset 后必须 `swift package clean`"等约定，Phase 1 之后全部变为错误指引。这个仓库重度依赖 agent 按这两份文件工作，过期指令有实际成本，不可留到以后再说。分层色彩系统一节也需按 FR-4 的新映射改写。
 - `docs/README.md` 组件索引与快照同步更新。
 - `docs/BREAKING-CHANGES.md` 记录全部删除符号、改名 token 与**同名换值**（圆角档位、控件高度档位、语义色指向），每项给出替代方案或旧值 → 新值对照；替代物要等 `0.4.0` 的条目明确标注。
 - Phase 1 发 `0.3.0`，Phase 2 发 `0.4.0`；README 的版本 pin 同步。
@@ -239,7 +244,7 @@ CoreDesign 是一个面向 iOS 26+ / macOS 26+ 的 SwiftUI 设计系统库。它
 3. `Sources` 中不存在裸 `RoundedRectangle(...)` 调用——全部经 FR-2 的 shape helper 或 `ConcentricRectangle`。以「grep 裸调用为 0」作判据，而非逐行检查是否带 `.continuous`（后者抓不到跨行初始化，且会把文档注释里的示例误计为违规）。
 4. `CoreControlMetrics.height(for: .regular) >= 44`，且库内所有交互组件在 `.regular` 下实测可点击高度 ≥ 44pt（测试覆盖，在第 1 条的 iOS Simulator 腿上执行）。
 5. `CoreTypography` 中不存在 `Font.system(size:)` 固定字号调用（`Canvas` 等命令式绘制场景若确需，单独记录理由）。
-6. `Sources`、`Tests`、`App` 三处 `#if Blossom` 均出现 0 次（改造前 `Sources` 8 处 + `Tests` 1 处），`CoreGradient` 符号 0 引用，CI 中无 `--traits Blossom` 与 `-skip-testing:CoreDesignTests/BlossomAssetTests`。
+6. `Sources`、`Tests`、`App` 三处 `#if Blossom` 均出现 0 次（改造前 `Sources` 8 处 + `Tests` 2 处），`CoreGradient` 符号 0 引用，CI 中无 `--traits Blossom` 与 `-skip-testing:CoreDesignTests/BlossomAssetTests`。
 7. 删除的 6 个组件在 `Sources` / `Tests` / `docs` / **`App`** 中 0 残留引用（`App` 必须纳入范围：改造前 `App/Sources/Previews.swift` 有 24 处、`ComponentData.swift` 有 4 处引用）。
 8. `ios-visual-reviewer` 基于模拟器截图的视觉评审结论为通过（无"看起来像网页控件 / 非原生"类阻断项）。
 9. 下游 any-writer 编译探针跑通。**注意探针只能发现删除与改名的符号，对"同名换值"（FR-2 圆角、FR-3 控件高度、FR-4 色义）系统性失明**——这三类须另行以逐调用点迁移映射表（FR-2）为证，不得以探针通过代替。
