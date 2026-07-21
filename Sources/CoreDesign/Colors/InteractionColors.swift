@@ -19,16 +19,26 @@ public extension Color {
     /// 跟随宿主 App 的 AccentColor 资源。
     static let accent = Color.accentColor
 
-    /// Hover 态：比基础 accent 更亮一档，用于 macOS 指针悬停 / iPadOS 指针高亮等
-    /// "按下前的强调"场景。**Issue #120 改值**：原取固定色阶 `brand6`，现用 15%
-    /// 白混合调制亮度——accent 现在可以是任意宿主色，没有"brand6"这种预先烘焙好
-    /// 的下一档亮色可用，只能对 accent 自身做相对调制。
-    static let accentHover = Color.accent.mix(with: .white, by: 0.15)
+    /// Hover 态：**离背景更远一档**，用于 macOS 指针悬停 / iPadOS 指针高亮等
+    /// "按下前的强调"场景。**Issue #120 改值**：原取固定色阶 `brand6`。
+    ///
+    /// > Important: 混合基色取 `.primary`（浅色模式≈黑、深色模式≈白）而非固定的黑或白。
+    /// > 旧的 brand 色阶是**外观自适应反转**的——实测 `brand6` 浅色 `#0062D6`（比
+    /// > `brand5 #0077FA` 深）、深色 `#65B2FC`（比 `brand5 #3295FB` 浅）。也就是说
+    /// > 旧行为是"朝远离背景的方向走一档"，而不是恒定变亮或恒定变暗。用固定的白/黑
+    /// > 混合会在其中一个模式下把 accent 推向背景色、收窄对比度。`.primary` 一个基色
+    /// > 即可复现这一双向行为。
+    static let accentHover = Color.accent.mix(with: .primary, by: 0.15)
 
-    /// 按下态：**必须比 accent 更深**（原值 `brand7` 就是加深的下一档）。**Issue #120
-    /// 改值**：用黑混合调制明度，而不是降低不透明度——降 alpha 只会让颜色更透明、
-    /// 露出更多背景色而"变浅"，方向与"按下应加深"相反。
-    static let accentPressed = Color.accent.mix(with: .black, by: 0.25)
+    /// 按下态：比 hover **更远离背景一档**（原值 `brand7`：浅色 `#004FB3`、深色 `#98CDFD`）。
+    /// **Issue #120 改值**：同 `accentHover`，混合基色取 `.primary` 以复现旧的双向行为。
+    ///
+    /// > Note: 任务 AC 原文写的是"`brand7` 是加深，必须用压暗而非降 alpha"——
+    /// > 该表述**只在浅色模式成立**。深色模式下 `brand7` 反而是提亮的。恒定压暗会在
+    /// > 深色模式把 accent 推向纯黑画布（`systemGroupedBackground` dark = `#000000`），
+    /// > 与旧行为方向相反。AC 的"不要降 alpha"仍然成立并已遵守——降 alpha 只会露出
+    /// > 更多背景、削弱存在感，两个模式下都不对。
+    static let accentPressed = Color.accent.mix(with: .primary, by: 0.25)
 
     /// 禁用态：**Issue #120 改值**。原取固定色阶 `brand2`（一个具体的浅色调），
     /// 现改为对 accent 本身降低不透明度——与 Apple 系统控件的禁用惯例一致（保持
@@ -86,18 +96,30 @@ public extension Color {
         .accent
     }
 
+    /// 中性 hover 底色。**Issue #120 定案：保持现值**——它委托给 `FillColors` / `ContentColors`，
+    /// 那一层已由系统色支撑（见对应文件），本层无需改指。这一族与 accent 族无关，
+    /// 不参与强调色的动态推导。
     static var hoverBackground: Color {
         .secondaryFill
     }
 
+    /// 中性按下底色。**Issue #120 定案：保持现值**——它委托给 `FillColors` / `ContentColors`，
+    /// 那一层已由系统色支撑（见对应文件），本层无需改指。这一族与 accent 族无关，
+    /// 不参与强调色的动态推导。
     static var pressedBackground: Color {
         .tertiaryFill
     }
 
+    /// 禁用态底色。**Issue #120 定案：保持现值**——它委托给 `FillColors` / `ContentColors`，
+    /// 那一层已由系统色支撑（见对应文件），本层无需改指。这一族与 accent 族无关，
+    /// 不参与强调色的动态推导。
     static var disabledBackground: Color {
         .quaternaryFill
     }
 
+    /// 禁用态前景色。**Issue #120 定案：保持现值**——它委托给 `FillColors` / `ContentColors`，
+    /// 那一层已由系统色支撑（见对应文件），本层无需改指。这一族与 accent 族无关，
+    /// 不参与强调色的动态推导。
     static var disabledForeground: Color {
         .contentDisabled
     }
