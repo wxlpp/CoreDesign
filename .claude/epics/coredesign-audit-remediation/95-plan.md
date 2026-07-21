@@ -241,7 +241,7 @@ Expected: EXIT=0。
 swift build --traits Blossom > /tmp/t1bb.log 2>&1; echo "blossom EXIT=$?"
 ```
 
-**更重要——先证明 `ImageRenderer` 尊重注入的 `dynamicTypeSize`**，这是 Task 5 整层押注的机制。写一个临时 iOS 单测（放进 `Tests/CoreDesignTests/`，验证后可留作 Task 5 的第一个用例）：
+**更重要——先证明 `ImageRenderer` 尊重注入的 `dynamicTypeSize`**，这是 Task 5 整层押注的机制。**直接建 `Tests/CoreDesignTests/DynamicTypeLayoutTests.swift`**（就是 Task 5 的文件，本 spike 是它的第一个用例，Task 5 Step 1 在其上追加另外三个），内容先只放：
 
 ```swift
 #if os(iOS)
@@ -260,11 +260,14 @@ swift build --traits Blossom > /tmp/t1bb.log 2>&1; echo "blossom EXIT=$?"
 
 跑第 5 条命令（Task 5 Step 2 的 `xcodebuild -scheme CoreDesign`）确认这一个 spike 过。**若它红了，Task 5 的方案要换（回退到 UIFontMetrics 直接量或注入 UITraitCollection），不要盲目往下铺三个断言。**
 
+spike 用例**留在** `DynamicTypeLayoutTests.swift` 里（不删、不复制），Task 1 Step 5 一并 commit 该文件；Task 5 Step 1 在其上追加另外三个断言。这样避免悬空的临时测试文件或与 `coreFontActuallyScales` 重复。
+
 - [ ] **Step 5: 提交**
 
 ```bash
-git add Sources/CoreDesign/Tokens/CoreTypography.swift Sources/CoreDesign/Modifier/CoreFontModifier.swift Tests/CoreDesignTests/CoreTypographyTokenTests.swift
-git commit -m "feat: CoreTypography.Token 枚举 + .coreFont() modifier，字号随 Dynamic Type 缩放（B2a）"
+git add Sources/CoreDesign/Tokens/CoreTypography.swift Sources/CoreDesign/Modifier/CoreFontModifier.swift
+git add Tests/CoreDesignTests/CoreTypographyTokenTests.swift Tests/CoreDesignTests/DynamicTypeLayoutTests.swift
+git commit -m "feat: CoreTypography.Token 枚举 + .coreFont() modifier + ImageRenderer spike（B2a）"
 ```
 
 ---
@@ -296,7 +299,7 @@ git commit -m "feat: CoreTypography.Token 枚举 + .coreFont() modifier，字号
     }
 ```
 
-同步 `:25` 的 doc 注释示例（`.font(CoreControlMetrics.font(for:))` → `.coreFont(CoreControlMetrics.fontToken(for:))`）。
+同步 `:25` 的 doc 注释示例。**另 `ButtonChromeModifier.swift:16` 的 doc 注释也引用了 `CoreControlMetrics.font(for:)`**（实测），改名后成死注释，一并改写为 `fontToken(for:)`。
 
 - [ ] **Step 2: 两个消费点改用 `coreFont`**
 
@@ -430,7 +433,9 @@ git commit -m "refactor: D3 的 7 处文本字号迁移到 coreFont，新增 cap
 
 安全网必须与它守护的改动同批落地。这是全新的、最易出错的一层——写详尽。
 
-- [ ] **Step 1: 建断言文件**
+- [ ] **Step 1: 在 spike 文件上追加三个断言**
+
+`DynamicTypeLayoutTests.swift` 已在 Task 1 Step 4 建好（含 spike `imageRendererRespectsDynamicType`）。在同一 `#if os(iOS)` suite 内**追加**下面三个用例（renderedHeight helper 提取为 suite 方法，spike 也改用它）。完整文件形态：
 
 ```swift
 import Testing
@@ -469,11 +474,13 @@ struct DynamicTypeLayoutTests {
         let xxxl   = self.renderedHeight(row, at: .xxxLarge)
         let ax5    = self.renderedHeight(row, at: .accessibility5)
 
-        // 跨档用 >：大字号必须更高（minHeight 不裁切，B2b 的守护）。
-        #expect(xxxl > small, "xxxLarge 未比 large 高——字号没缩放或被固定高度裁切")
+        // 主断言用**最大跨度** large vs accessibility5——`row` 有 `minHeight` 地板，
+        // 相邻/近档可能都被夹到地板值（xxxLarge 若换行数不变、行高增长未超地板，
+        // 会 == large == 地板，严格 `>` 假失败）。最大跨度才必然突破地板。
+        #expect(ax5 > small, "accessibility5 未比 large 高——字号没缩放或被固定高度裁切")
+        // 中间档单调不减（可能同值，故 >=）。
+        #expect(xxxl >= small, "xxxLarge 应 ≥ large")
         #expect(ax5 >= xxxl, "accessibility5 应 ≥ xxxLarge")
-        // 粗下限：高于 minHeight（真正的裁切守护是上面两条单调断言，此条只兜底）。
-        #expect(ax5 > CoreControlMetrics.height(for: .large), "accessibility5 下未超过 minHeight——内容被裁")
     }
 
     @Test("coreFont 的字号在 iOS 下确实随 Dynamic Type 变化")
@@ -522,12 +529,16 @@ Expected: `TEST SUCCEEDED`。
 **非空转判据（机械，不靠肉眼看末 30 行）：**
 
 ```bash
-for fn in sidebarRowsGrowWithDynamicType coreFontActuallyScales captionSmallDoesNotScale; do
-  n=$(grep -c "$fn" "${TMPDIR:-/tmp}/ios95.log")
-  echo "$fn: $n  (预期 ≥ 1，出现即证明它真的跑了)"
+# Swift Testing 打印的是 @Test 的**显示名**（中文），不是函数名——必须 grep 显示名子串。
+for key in "单调不减" "确实随 Dynamic Type 变化" "captionSmall 明确不缩放"; do
+  n=$(grep -c "$key" "${TMPDIR:-/tmp}/ios95.log")
+  echo "[$key]: $n  (预期 ≥ 1，出现即证明该断言真的跑了)"
 done
 ```
-每个函数名都应在日志里出现（Swift Testing 会打印每个 `@Test` 的运行/通过行）。**任一为 0 = 该断言被 skip 或没编进去 = 空转**，停下查 `-skip-testing` 是否误伤。
+
+> 用**显示名子串**而非函数名：Swift Testing 的 console 输出是 `Test "<显示名>" passed`，日志里出现的是中文显示名。上一版 grep 函数名恒为 0、每次假报空转（评审本机实测）。三个子串各自唯一，UTF-8 grep 可匹配。
+
+**任一为 0 = 该断言被 skip / 没编进去 / 显示名被改动 = 空转**，停下查 `-skip-testing` 与显示名是否一致。
 
 > ⚠️ **`DynamicTypeLayoutTests` 绝不能被加进 CI 的 `-skip-testing` 列表**（当前只有 `BlossomAssetTests` / `ToastHostTests`）。本 Task 无需改 `ci.yml`——CI 已按上面的命令跑，本层落地后自动通电。
 
