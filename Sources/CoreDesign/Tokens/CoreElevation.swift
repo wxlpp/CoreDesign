@@ -2,28 +2,27 @@
 //  CoreElevation.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//
 
 import SwiftUI
 
 // MARK: - CoreElevation
 
-/// 阴影 / 高度 (elevation) token。语义层级沿用 Primer Primitives 的 `shadow.*` 标度，
-/// 数值按 Craft workbench 风格调轻。
+/// 阴影 / 高度 (elevation) token。语义与数值均按 Apple HIG 的分层原则设计：
+/// 平面层级优先靠 material（毛玻璃）与 separator（分隔线/描边）表达，阴影只用于
+/// 真正悬浮于内容之上的元素。
 ///
 /// 设计要点：
 ///
-/// - **4 档语义**：`.none` / `.small` / `.medium` / `.large`，语义对应 Primer
-///   `resting` 与 `floating` 两组的代表性档位（详见 `docs/PRIMER_VERSION.md`），
-///   但 blur / y-offset 数值已按 Craft workbench 降低。
+/// - **4 档语义**：`.none` / `.small` / `.medium` / `.large`——`.none` 无阴影；
+///   `.small` / `.medium` 是近乎平坦的 resting 层级，普通卡片、列表行等常驻内容用它们，
+///   不应产生明显"浮起"视觉；`.large` 才是留给 popover / 菜单 / 真正浮层的档位。
 /// - **暗色模式自适应**：`Spec.color` 通过 `Resources.xcassets/shadow/shadow-*.colorset`
-///   提供 light / dark 双取值；dark 模式不透明度 ≥ light 的 2 倍——这是 Primer 与
-///   Apple HIG 的共识（深色背景下的低对比阴影会"消失"，必须靠加深浓度补回 elevation 视觉）。
-/// - **单层近似 + workbench 调轻**：Primer 上游用 1–5 层叠加；SwiftUI `.shadow(...)`
-///   一次只渲染一层。本文件保留 Primer 的档位语义与 asset-backed shadow color，
-///   但将 `.small` / `.medium` / `.large` 的 blur 与 y-offset 调低，让普通卡片更多依赖
-///   surface + border 层级，而不是强浮起阴影。
+///   提供 light / dark 双取值；dark 模式不透明度 ≥ light 的 2 倍——这是 Apple HIG 的
+///   通行做法（深色背景下的低对比阴影会"消失"，必须靠加深浓度补回 elevation 视觉）。
+/// - **克制的单层阴影**：Apple HIG 提倡阴影服务于内容层级而非装饰，日常静止内容
+///   （resting）应尽量平坦，只有真正悬浮的内容（floating）才使用更明显的阴影。
+///   本文件的 `.small` / `.medium` 因此刻意调低 blur 与 y-offset，让普通卡片更多依赖
+///   surface + border 层级，而不是强浮起阴影；`.large` 保留给真正的浮层。
 ///
 /// 调用方式：
 ///
@@ -36,41 +35,39 @@ public enum CoreElevation {
 
     // MARK: - Level
 
-    /// 高度档位。每档对应 Primer shadow 标度的一档语义。
+    /// 高度档位。每档对应 Apple HIG elevation 语义的一档。
     public nonisolated enum Level: Sendable, CaseIterable {
         /// 无阴影。等价于平面元素，不产生 elevation 视觉。
         case none
 
-        /// 小阴影。语义对应 Primer `shadow.resting.small`，数值按 workbench 风格调轻。
+        /// 小阴影。resting 层级，近乎平坦，日常静止内容（Badge、紧凑控件）用它。
         case small
 
-        /// 中阴影。语义对应 Primer `shadow.resting.medium`，普通卡片不会强烈浮起。
+        /// 中阴影。resting 层级，普通卡片不应强烈浮起——层级交给 surface + border 表达。
         case medium
 
-        /// 大阴影。语义对应 Primer `shadow.floating.medium`，用于 popover、菜单、浮层。
+        /// 大阴影。floating 层级，用于 popover、菜单、真正悬浮于内容之上的浮层。
         ///
-        /// > Note: Primer 的 `floating.large` / `xlarge` 用于 modal / sheet；
-        /// > 本仓库 4 档语义将 `large` 对齐到 `floating.medium`，避免一档"过冲"。
-        /// > 真·全屏遮罩的强阴影留待后续按需扩展。
+        /// > Note: 全屏 modal / sheet 级别的强阴影留待后续按需扩展，不在本仓库当前
+        /// > 4 档语义内。
         case large
     }
 
     // MARK: - Spec
 
     /// 单档 elevation 的视觉规格。直接对应 SwiftUI
-    /// `.shadow(color:radius:x:y:)` 四个参数；radius / y 为 Craft workbench 调轻后的值。
+    /// `.shadow(color:radius:x:y:)` 四个参数。
     public struct Spec: Sendable {
         /// 阴影颜色。来自 `Resources.xcassets/shadow/shadow-*.colorset`，自动 light/dark。
         public let color: Color
 
-        /// SwiftUI `.shadow` blur radius，单位 **pt**（点）。本值保留 Primer 档位语义，
-        /// 但不是 Primer 原始数值的逐字映射。
+        /// SwiftUI `.shadow` blur radius，单位 **pt**（点）。
         public let radius: CGFloat
 
-        /// 水平偏移。对应 Primer `offsetX`。
+        /// 水平偏移。
         public let x: CGFloat
 
-        /// 垂直偏移。保留 Primer `offsetY` 语义，数值按 Craft workbench 调轻。
+        /// 垂直偏移。
         public let y: CGFloat
 
         public init(color: Color, radius: CGFloat, x: CGFloat, y: CGFloat) {
@@ -108,7 +105,7 @@ public enum CoreElevation {
                 y: 0
             )
         case .small:
-            // Craft workbench: small resting elevation is nearly flat; hierarchy comes from surface + border.
+            // Apple HIG: resting elevation should be nearly flat; hierarchy comes from surface + border.
             return Spec(
                 color: Self.shadowSmallColor,
                 radius: 1,
@@ -116,7 +113,7 @@ public enum CoreElevation {
                 y: 0.5
             )
         case .medium:
-            // Craft workbench: ordinary cards should not float strongly above the page.
+            // Apple HIG: ordinary cards should not float strongly above the page.
             return Spec(
                 color: Self.shadowMediumColor,
                 radius: 4,
@@ -124,7 +121,7 @@ public enum CoreElevation {
                 y: 2
             )
         case .large:
-            // Craft workbench: keep obvious elevation for true floating surfaces, but reduce gloss.
+            // Apple HIG: keep obvious elevation for true floating surfaces, but reduce gloss.
             return Spec(
                 color: Self.shadowLargeColor,
                 radius: 12,
