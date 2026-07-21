@@ -74,7 +74,7 @@ private struct MenuIconView: View, @MainActor Animatable {
 // MARK: - CoreMenuButtonStyle
 
 /// 菜单按钮的外形变体 / Shape variant：`labeled` = 胶囊 + 文案，`circular` = 圆形纯图标。
-enum CoreMenuButtonStyle {
+enum CoreMenuButtonStyle: Sendable, Equatable {
     case labeled
     case circular
 }
