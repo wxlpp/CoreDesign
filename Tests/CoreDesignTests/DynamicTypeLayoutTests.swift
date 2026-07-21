@@ -42,6 +42,7 @@ struct DynamicTypeLayoutTests {
         let xxxl  = self.renderedHeight(row, at: .xxxLarge)
         let ax5   = self.renderedHeight(row, at: .accessibility5)
 
+        #expect(small > 0, "渲染失败（uiImage nil）——下面的比较会以 0 假通过")
         // 主断言用**最大跨度** large vs accessibility5——`row` 有 `minHeight` 地板，
         // 相邻/近档可能都被夹到地板值。最大跨度才必然突破地板。
         #expect(ax5 > small, "accessibility5 未比 large 高——字号没缩放或被固定高度裁切")
@@ -56,6 +57,7 @@ struct DynamicTypeLayoutTests {
         let row = SidebarDocumentRow(systemImage: "doc", title: "Document title", detail: "3 days ago") {}
         let small = self.renderedHeight(row, at: .large)
         let ax5   = self.renderedHeight(row, at: .accessibility5)
+        #expect(small > 0, "渲染失败（uiImage nil）")
         #expect(ax5 > small, "Document row 在 accessibility5 未撑高——单行钳制下字号没缩放或被裁")
     }
 
@@ -64,6 +66,7 @@ struct DynamicTypeLayoutTests {
         let text = Text("Ag").coreFont(.bodyLarge)
         let small = self.renderedHeight(text, at: .large)
         let ax5   = self.renderedHeight(text, at: .accessibility5)
+        #expect(small > 0, "渲染失败（uiImage nil）")
         #expect(ax5 > small, "coreFont 未缩放——ScaledMetric 或 textStyle 基准错了")
     }
 
