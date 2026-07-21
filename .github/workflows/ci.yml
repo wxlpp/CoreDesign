@@ -12,7 +12,7 @@ on:
 permissions:
   contents: read
 
-# 快速连续 push 时取消上一轮，避免堆叠整套 macOS matrix。
+# 快速连续 push 时取消上一轮，避免堆叠整套 macOS job。
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
