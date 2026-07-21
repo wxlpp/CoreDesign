@@ -128,7 +128,7 @@ struct CoreMenuButton: View {
         let inner = HStack(spacing: 8) {
             icon
             if self.style == .labeled {
-                Text("菜单")
+                Text("Menu", bundle: .module)
             }
         }
 
@@ -158,7 +158,7 @@ struct CoreMenuButton: View {
                 triggerMenuFeedback()
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("菜单")
+            .accessibilityLabel(Text("Menu", bundle: .module))
             .accessibilityAddTraits(.isButton)
     }
 
