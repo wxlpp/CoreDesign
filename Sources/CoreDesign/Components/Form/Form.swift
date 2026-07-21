@@ -61,6 +61,12 @@ public struct LabelIcon: View {
                     .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
                     .foregroundStyle(Color.contentInverse)
             }
+            // LabelIcon 是 `Label { Text(...) } icon: { LabelIcon(...) }` 的 icon 槽：
+            // 该用法下 SwiftUI 的 `Label` 已把 icon+text 合成单一元素、由 Text 播报，
+            // 本 hidden 与之一致（冗余保险）。**不承诺**外层 `.accessibilityHidden(false)`
+            // 能恢复——SwiftUI 内层 hidden 剪掉子树后外层 unhide 不可靠。standalone 需要
+            // 图标被播报时，调用方应组合自带 label 的图标视图，而非依赖 unhide。
+            .accessibilityHidden(true)
     }
 
     private let systemName: String
@@ -82,6 +88,9 @@ public struct ChevronRightIcon: View {
     /// 渲染 `chevron.right` symbol，颜色 / 尺寸由父容器决定。
     public var body: some View {
         Image(systemName: "chevron.right")
+            // 永远是「进入下一级」的 disclosure 指示符，任何语境下都装饰——对齐
+            // Sidebar 对 chevron 的处理，无歧义烤 hidden 安全。
+            .accessibilityHidden(true)
     }
 }
 
@@ -98,7 +107,11 @@ public struct DangerIcon: View {
 
     /// 渲染 `exclamationmark.circle.fill`，foreground 锁定为 `statusDangerForeground`。
     public var body: some View {
-        Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.statusDangerForeground)
+        Image(systemName: "exclamationmark.circle.fill")
+            .foregroundStyle(Color.statusDangerForeground)
+            // 承载语义（危险/需注意本身是信息），补 label 而非隐藏。用 "Alert"（与 danger
+            // 语义对齐）而非 "Warning"——后者会撞 FunctionalColor 的 warning(橙) token 语义。
+            .accessibilityLabel("Alert")
     }
 }
 
