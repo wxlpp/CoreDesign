@@ -88,3 +88,43 @@
 - `CoreControlMetrics.height(for:)` 全部 5 档：24/28/32/40/48 → 28/32/44/50/56。
 - `CoreControlMetrics.horizontalPadding(for:)` / `verticalPadding(for:)`：具体新旧对照见实现后的
   代码注释。
+
+
+## 换值清单（交付物，供 Task #122 逐点重审）
+
+以下改动**不产生 deprecation warning、也不产生编译错误**，调用点静默继承新值——
+与改名类不同，deprecation 机制发现不了它们。这是 #122 存在的全部理由。
+
+### CoreRadius（三档全部换值，不止 medium）
+
+| token | 旧值 | 新值 | 备注 |
+|---|---|---|---|
+| `small` | 3 | 6 | **新 `small`(6) 恰等于旧 `medium`(6)**——所有按旧语义选 `small=3` 的调用点圆角直接翻倍 |
+| `medium` | 6 | 10 | 按钮 / 输入框默认档 |
+| `large` | 12 | 16 | 卡片 / 分组容器 |
+
+> 早先版本的计划文档把这条写成「新 medium 与旧 small 的旧值 6 撞车」——错的，旧 `small` 是 3。
+> 撞车的是**新 `small`(6) == 旧 `medium`(6)**，这才是 #122 最需要逐点核的一条。
+
+### CoreControlMetrics.height(for:)
+
+| controlSize | 旧 | 新 |
+|---|---|---|
+| mini / small / regular / large / extraLarge | 24 / 28 / 32 / 40 / 48 | 28 / 32 / **44** / 50 / 56 |
+
+`.regular` 32 → 44 是 HIG 触控下限的兑现，对所有交互组件的布局有连锁影响。
+
+### CoreControlMetrics padding（旧值在代码里已无处可查，故记于此）
+
+| | mini | small | regular | large | extraLarge |
+|---|---|---|---|---|---|
+| horizontal 旧 → 新 | 8 → 8 | 12 → 12 | 12 → **16** | 12 → **16** | 12 → **24** |
+| vertical 旧 → 新 | 2 → **4** | 4 → 4 | 8 → **12** | 12 → **16** | 16 → 16 |
+
+> 注意 `primerVerticalPadding` 保留的 2/4/6/10/14 是 **Primer 原始值**，不是旧 helper 的
+> 实际返回值——不要拿它当旧值对照。
+
+### 地板生效情况（#122 视觉复核时须核对）
+
+`mini` / `small` 由 `frame(minHeight:)` 地板决定实际高度；`regular` 及以上由 padding 决定，
+`height(for:)` 退化为不生效的下限。详见 `CoreControlMetrics.verticalPadding` 的文档注释。

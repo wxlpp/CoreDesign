@@ -14,17 +14,32 @@ import Foundation
 // churn in this task (CLAUDE.md: 增量构建不会拷贝新加的 colorset 目录，资源缺失是
 // 静默失败).
 
-private func xcassetsURL() -> URL? {
+private nonisolated func xcassetsURL() -> URL? {
     Bundle.module.resourceURL?.appendingPathComponent("Resources.xcassets")
 }
 
-private func colorsetExists(_ group: String, _ name: String) -> Bool {
+private nonisolated func colorsetExists(_ group: String, _ name: String) -> Bool {
     guard let base = xcassetsURL() else { return false }
     let path = base.appendingPathComponent("\(group)/\(name).colorset").path
     return FileManager.default.fileExists(atPath: path)
 }
 
-@Suite("Colorset 资源存在性守卫")
+/// 本守卫是否适用于当前构建方式。
+///
+/// 目录形式的 `.xcassets` 只在 **SwiftPM**（`swift build` / `swift test`）下成立——
+/// 它不调 `actool`，资源按原样拷进 bundle。**xcodebuild 会调 `actool` 把整个
+/// xcassets 编译成单个 `Assets.car`**，原始 `.colorset` 目录在产物里根本不存在，
+/// 此时逐目录断言会全数失败（201 个 issue），而那是构建方式差异、不是资源缺失。
+///
+/// 老的 `BlossomAssetTests` 当年是靠 CI 里一行 `-skip-testing` 规避的；那行随
+/// Issue #118 删除该测试时一并消失。改由测试自身判断适用性——CI 配置是会漂移的
+/// 外部状态，而这里能把原因和判据放在一起。
+private nonisolated var rawXcassetsAvailable: Bool {
+    guard let base = xcassetsURL() else { return false }
+    return FileManager.default.fileExists(atPath: base.path)
+}
+
+@Suite("Colorset 资源存在性守卫", .enabled(if: rawXcassetsAvailable))
 struct ColorAssetGuardTests {
     /// 17 种命名色相（`Colors/ColorGrade.swift`），每种 10 个色阶 `<hue>-0` … `<hue>-9`。
     private static let hues = [

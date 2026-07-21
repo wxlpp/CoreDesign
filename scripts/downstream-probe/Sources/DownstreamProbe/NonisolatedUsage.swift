@@ -76,3 +76,10 @@ nonisolated func useStatusLevel() -> StatusLevel {
 nonisolated func useFunctionalColors() -> [Color] {
     [.success, .info, .warning, .danger]
 }
+
+// `CoreShape` 是 #119 引入的圆角唯一出口，而它的主要消费点是 `Shape.path(in:)` 这类
+// nonisolated 同步上下文。本包走 `defaultIsolation(MainActor)`，漏 `nonisolated` 关键字
+// 时这里会编译失败——#122 迁移调用点前先在这里挡住。
+nonisolated func useCoreShape() -> some Shape {
+    CoreShape.rounded(CoreRadius.medium)
+}

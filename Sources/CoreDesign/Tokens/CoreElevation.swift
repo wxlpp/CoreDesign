@@ -17,8 +17,8 @@ import SwiftUI
 ///   `.small` / `.medium` 是近乎平坦的 resting 层级，普通卡片、列表行等常驻内容用它们，
 ///   不应产生明显"浮起"视觉；`.large` 才是留给 popover / 菜单 / 真正浮层的档位。
 /// - **暗色模式自适应**：`Spec.color` 通过 `Resources.xcassets/shadow/shadow-*.colorset`
-///   提供 light / dark 双取值；dark 模式不透明度 ≥ light 的 2 倍——这是 Apple HIG 的
-///   通行做法（深色背景下的低对比阴影会"消失"，必须靠加深浓度补回 elevation 视觉）。
+///   提供 light / dark 双取值；dark 模式不透明度 ≥ light 的 2 倍。这是常见的工程实践
+///   而非 HIG 的明文规定（深色背景下的低对比阴影会"消失"，须靠加深浓度补回 elevation 视觉）。
 /// - **克制的单层阴影**：Apple HIG 提倡阴影服务于内容层级而非装饰，日常静止内容
 ///   （resting）应尽量平坦，只有真正悬浮的内容（floating）才使用更明显的阴影。
 ///   本文件的 `.small` / `.medium` 因此刻意调低 blur 与 y-offset，让普通卡片更多依赖

@@ -69,7 +69,11 @@ public nonisolated enum CoreRadius {
 /// > Note: 本任务只提供这个出口；组件调用点从裸 `RoundedRectangle` 迁移到
 /// > `CoreShape` / `ConcentricRectangle` 是 Task #122 的范围
 /// > （验收判据是 `grep` 裸 `RoundedRectangle` 为 0）。
-public enum CoreShape {
+// `nonisolated`：理由同 `CoreRadius`——本包全 target 走 `.defaultIsolation(MainActor.self)`，
+// 而 shape 的主要消费点恰是 `Shape.path(in:)` / `InsettableShape` 这类 nonisolated 同步上下文
+// （如 `BottomInputBarGlassEffectShape.path(in:)`）。漏掉这个关键字，#122 迁移调用点时
+// 会在这些位置拿到 Swift 6 隔离错误，而本任务因零调用点不会暴露。
+public nonisolated enum CoreShape {
     /// 统一圆角矩形出口，固定 `.continuous` 角样式。
     ///
     /// - Parameter radius: 圆角半径，通常传 `CoreRadius.*`。
