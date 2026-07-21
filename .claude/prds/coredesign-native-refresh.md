@@ -1,7 +1,7 @@
 ---
 name: coredesign-native-refresh
 description: 把 CoreDesign 的设计地基从 GitHub Primer 重铸为 Apple HIG（SF 文本样式 / 连续与同心圆角 / 44pt 触控 / 系统语义色），删除 6 个 GitHub 专用组件与 Blossom 主题，补齐 iOS 分组设置行、基础容器与系统组件 style 套件，并清理源码中的内部审计注释；本 PRD 在 structure 阶段拆为 2 个独立 epic
-status: backlog
+status: in-progress
 created: 2026-07-21T14:43:48Z
 ---
 
