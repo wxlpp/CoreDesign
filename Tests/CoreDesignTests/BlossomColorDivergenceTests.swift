@@ -11,13 +11,7 @@ import Foundation
 @Suite("Blossom 颜色分流")
 struct BlossomColorDivergenceTests {
 
-    /// 从 `String(describing: Color)` 提取 asset 名（spike 实证格式：
-    /// `NamedColor(name: "brand-5", bundle: ...)`）。
-    private func assetName(of color: Color) -> String? {
-        let desc = String(describing: color)
-        guard let r = desc.range(of: #"name: "([^"]+)""#, options: .regularExpression) else { return nil }
-        return String(desc[r]).replacingOccurrences(of: #"name: ""#, with: "").dropLast().description
-    }
+    // asset 名提取用共享的 `assetName(of:)`（见 TestSupport.swift）。
 
     /// 读 `<group>/<name>.colorset/Contents.json` 的 **light**（无 appearances 的第一个 color）
     /// sRGB 分量，返回 `#RRGGBB` 大写。
@@ -42,7 +36,7 @@ struct BlossomColorDivergenceTests {
 
     @Test("accent 的实际颜色值随 trait 分流")
     func accentDivergesByTrait() {
-        let name = self.assetName(of: Color.accent)
+        let name = assetName(of: Color.accent)
         #expect(name != nil, "无法从 Color.accent 取 asset 名")
 
         #if Blossom
