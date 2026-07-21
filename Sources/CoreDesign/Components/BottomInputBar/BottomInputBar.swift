@@ -497,7 +497,7 @@ public extension View {
 private struct BottomInputBarChipModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .font(.subheadline)
+            .coreFont(.bodyLarge)
             .padding(.horizontal, CoreSpacing.md)
             .padding(.vertical, CoreSpacing.sm)
             .glassEffect(.regular, in: Capsule())

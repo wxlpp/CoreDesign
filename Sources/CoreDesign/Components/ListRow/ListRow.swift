@@ -270,7 +270,7 @@ private struct ListRowPreviewGallery: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: CoreSpacing.xs) {
             Text(title)
-                .font(.caption.monospaced())
+                .coreFont(.captionMono)
                 .foregroundStyle(.secondary)
             content()
         }

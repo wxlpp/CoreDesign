@@ -53,7 +53,7 @@ public struct CommentCard<BodyContent: View>: View {
                     .fontWeight(.semibold)
                 if let role = self.role {
                     Text(role)
-                        .font(.caption2)
+                        .coreFont(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, CoreSpacing.xs)
                         .padding(.vertical, 1)

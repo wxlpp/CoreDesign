@@ -56,7 +56,7 @@ public struct AvatarGroup<Avatars: View>: View {
 
                 if overflow > 0 {
                     Text("+\(overflow)")
-                        .font(.caption2)
+                        .coreFont(.caption)
                         .foregroundStyle(.secondary)
                         .frame(width: self.avatarSize, height: self.avatarSize)
                         .background(
