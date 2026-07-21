@@ -419,7 +419,7 @@ private struct ToastView: View {
         // hint，而不是误标 `.isStaticText`（原实现告诉 VO 元素不可交互，
         // 但实际 onTapGesture 会触发 dismiss）。
         .accessibilityAddTraits(.isButton)
-        .accessibilityHint(Text("点击关闭"))
+        .accessibilityHint(Text("Tap to dismiss", bundle: .module))
         .padding(CoreSpacing.md)
         .floatingGlass(
             in: Capsule(style: .continuous),

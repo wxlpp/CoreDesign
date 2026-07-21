@@ -18,9 +18,9 @@ import SwiftUI
 /// 统一书名兜底逻辑 / Unified title fallback.
 ///
 /// `BookCover` 与 `BookCoverPlaceholder` 共用同一份 a11y label 兜底语义：
-/// 空标题朗读为 "未命名"。集中在此避免双处分叉。
+/// 空标题朗读为 "Untitled"。集中在此避免双处分叉。
 private func bookCoverDisplayTitle(_ title: String) -> String {
-    title.isEmpty ? "未命名" : title
+    title.isEmpty ? String(localized: "Untitled", bundle: .module) : title
 }
 
 // MARK: - BookCover
@@ -124,7 +124,7 @@ public struct BookCover: View {
 /// 书籍数据尚未加载完成的骨架屏 / 占位场景。
 ///
 /// **关键参数**：
-/// - `title`：书名；空字符串时显示 "未命名"。书名同时是渐变背景色的算法种子
+/// - `title`：书名；空字符串时显示 "Untitled"。书名同时是渐变背景色的算法种子
 ///   （见 `Color(text:)` 在 `Utils/ColorExtension.swift`）——同一书名总是得到
 ///   同一颜色，跨设备 / 跨会话保持一致。
 ///

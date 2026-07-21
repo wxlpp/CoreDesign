@@ -150,7 +150,7 @@ private struct LoadingAccessibilityModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         if self.isLoading {
-            content.accessibilityValue(Text("Loading"))
+            content.accessibilityValue(Text("Loading", bundle: .module))
         } else {
             content
         }
