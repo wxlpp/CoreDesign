@@ -4,7 +4,7 @@ import Testing
 
 // FloatingGlassModifier 的公开 API 契约断言（C2）。
 //
-// 旧版 `String(describing: type(of: view)).isEmpty == false` 是恒真占位。
+// 旧版用「描述字符串非空」做恒真占位（编译通过即必过，零信息量）。
 // modifier 暴露 public `shape` / `isInteractive`，可直接断言 init 的默认值与透传
 // 契约——能捕获「默认参数被误改」「isInteractive 未透传」这类真实回退。
 @Suite("FloatingGlassModifier")

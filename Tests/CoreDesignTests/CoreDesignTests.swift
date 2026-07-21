@@ -49,7 +49,7 @@ struct BlossomAssetTests {
 
 @Suite("CoreGradient tokens")
 struct CoreGradientTests {
-    // CoreGradient 的 trait 分流**真行为**断言（顺带清理原恒真的 #expect(Bool(true))）。
+    // CoreGradient 的 trait 分流**真行为**断言（顺带清理原来那条恒真占位断言）。
     //
     // 默认主题下三个 token 退化为纯色（AnyShapeStyle 内部为 ColorBox<NamedColor>），
     // Blossom 下为真实 LinearGradient（ShapeStyleBox<LinearGradient>）。swift test 无法
