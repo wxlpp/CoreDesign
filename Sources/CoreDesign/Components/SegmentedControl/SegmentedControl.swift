@@ -10,6 +10,21 @@ import SwiftUI
 import UIKit
 #endif
 
+/// 分段控件玻璃壳的共享构造（审计项 B8g）。
+///
+/// `selectedThumb` 的 glass 分支与 `SegmentedControlBackgroundModifier` 的 glass
+/// 分支此前各自复制同一段「透明填充 + 交互玻璃 + 细描边」；抽此一处，thumb 侧再叠
+/// `.coreShadow(.small)`。
+@ViewBuilder
+private func segmentedGlassChrome<S: InsettableShape>(_ shape: S) -> some View {
+    shape
+        .fill(.clear)
+        .glassEffect(.regular.interactive(), in: shape)
+        .overlay(
+            shape.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
+        )
+}
+
 // MARK: - SegmentedControl
 
 /// Native Primer segmented control.
@@ -122,19 +137,9 @@ public struct SegmentedControl<Item: Hashable>: View {
     private var selectedThumb: some View {
         let shape = Capsule(style: .continuous)
         if self.glass {
-            // `.fill(.clear)` 是有意的：thumb 叠在 SegmentedControlBackgroundModifier
-            // 的玻璃外壳之上，再加底色会让两层玻璃变浑浊。仅靠 .glassEffect + 细描边
-            // + 小阴影区分选中态——与 FloatingGlass / TelegramGlass 那种"玻璃覆盖
-            // 在不透明 tint 之上"的形态有意不同。
-            shape
-                .fill(.clear)
-                .glassEffect(.regular.interactive(), in: shape)
-                .overlay(
-                    shape.strokeBorder(
-                        Color.borderSubtle,
-                        lineWidth: CoreBorderWidth.hairline
-                    )
-                )
+            // thumb 叠在 SegmentedControlBackgroundModifier 的玻璃外壳之上；
+            // `.fill(.clear)` 有意——再加底色会让两层玻璃变浑浊。
+            segmentedGlassChrome(shape)
                 .coreShadow(.small)
         } else {
             shape
@@ -387,14 +392,7 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
             // 因为没有 tint 底色需要从玻璃壳下"透出"，所以也不需要 `glassInset`
             // 的内缩（它专门服务于 Telegram 分层按钮的纵深效果）。
             content
-                .background(
-                    self.shape
-                        .fill(.clear)
-                        .glassEffect(.regular.interactive(), in: self.shape)
-                )
-                .overlay(
-                    self.shape.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
-                )
+                .background(segmentedGlassChrome(self.shape))
         } else {
             content
                 .background(
