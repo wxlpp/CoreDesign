@@ -22,7 +22,7 @@ import SwiftUI
 /// ...
 /// .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: controlSize))
 /// .padding(.vertical, CoreControlMetrics.verticalPadding(for: controlSize))
-/// .font(CoreControlMetrics.font(for: controlSize))
+/// .coreFont(CoreControlMetrics.fontToken(for: controlSize))
 /// .frame(minHeight: CoreControlMetrics.height(for: controlSize))
 /// ```
 ///
@@ -168,15 +168,14 @@ public nonisolated enum CoreControlMetrics {
     ///
     /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
     /// - Returns: 该尺寸下推荐的 SwiftUI `Font`，必为 `CoreTypography.*Font` 命名常量。
-    public static func font(for controlSize: ControlSize) -> Font {
+    public static func fontToken(for controlSize: ControlSize) -> CoreTypography.Token {
         switch controlSize {
-        case .mini: return CoreTypography.bodySmallFont       // 12pt regular
-        case .small: return CoreTypography.bodySmallFont      // 12pt regular
-        case .regular: return CoreTypography.bodyMediumFont   // 14pt regular — 默认 UI 字号
-        case .large: return CoreTypography.bodyLargeFont      // 16pt regular
-        case .extraLarge: return CoreTypography.titleMediumFont // 20pt semibold — CTA 视觉权重
-        @unknown default:
-            return CoreTypography.bodyMediumFont
+        case .mini:       .bodySmall     // 12pt regular
+        case .small:      .bodySmall     // 12pt regular
+        case .regular:    .bodyMedium    // 14pt regular — 默认 UI 字号
+        case .large:      .bodyLarge     // 16pt regular
+        case .extraLarge: .titleMedium   // 20pt semibold — CTA 视觉权重
+        @unknown default: .bodyMedium
         }
     }
 

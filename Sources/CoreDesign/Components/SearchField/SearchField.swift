@@ -95,7 +95,7 @@ public struct SearchField: View {
 
                 TextField(self.placeholder, text: self.$text)
                     .textFieldStyle(.plain)
-                    .font(CoreControlMetrics.font(for: .regular))
+                    .coreFont(CoreControlMetrics.fontToken(for: .regular))
                     .foregroundStyle(Color.contentPrimary)
                     .accessibilityLabel(self.placeholder.isEmpty ? "Search" : self.placeholder)
                     .focused(self.$isFocused)
