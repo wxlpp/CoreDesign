@@ -7,11 +7,9 @@ import SwiftUI
 
 // MARK: - UnderlinedTabBar
 
-/// Control-layer chrome for primary navigation. Selected tab is marked by a
-/// short, low-noise underline (`Color.accent` token, matching the
-/// 选中态靠 `Color.accent` 下划线表达）加上
-/// active label emphasis. No global glass treatment — the host scene
-/// supplies the background, this component supplies the indicator and labels.
+/// 主导航的控件层 chrome。选中项以一条短促、低噪的下划线（`Color.accent`）标记，
+/// 配合标签字重加强。**不做整体玻璃处理**——背景由宿主 scene 提供，本组件只负责
+/// 指示器与标签本身。
 ///
 /// **Material layer**: control. **Surface role**: control.
 ///
@@ -41,7 +39,7 @@ import SwiftUI
 /// ## Light / Dark 行为
 /// - 颜色全部使用语义 token，自动跟随 colorScheme：light 下分隔线偏浅灰、dark 下偏暗；
 ///   accent 在 dark 模式下色相略亮以维持对比度（由 `Color.accent` 自身的 colorset 决定）。
-/// - 不使用 `.glassEffect`（PRD §US-3 白名单不包含 TabBar 类控件 chrome）。
+/// - 不使用 `.glassEffect`——导航 chrome 是高频扫视对象，材质会与内容争夺注意力。
 public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
     /// 创建带 trailing 视图的下划线 tab 栏。
     ///

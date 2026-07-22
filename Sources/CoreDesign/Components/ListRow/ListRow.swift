@@ -41,13 +41,13 @@ import SwiftUI
 /// - 高度 `frame(minHeight: CoreControlMetrics.height(for: .regular))`——不固定
 ///   height，让多行 label 自然撑开（per `CoreControlMetrics` doc-comment 推荐）。
 ///
-/// **light / dark 行为**：背景 / hover 背景 / 文字均走 v2-tokens 语义色，
+/// **light / dark 行为**：背景 / hover 背景 / 文字均走语义色 token，
 /// 双模式自动切换，组件本体无 `colorScheme` 分支逻辑。
 ///
 /// **Hover token debt**: hover 态使用 `Color.surfaceCanvasSubtle` 而非
 /// `Color.hoverBackground`：后者已存在于 `InteractionColors.swift` 但取值是系统
 /// 本组件直接用 `surfaceCanvasSubtle` 是**取值层取舍**，不是
-/// token 缺失代偿。详见 PRD `coredesign-v2-components.md` §Notes hover token debt。
+/// token 缺失代偿——本库当前没有专门的 hover fill token，故借用表面色。
 /// 后续若引入专门的 hover fill token，可回评此处。
 public struct ListRow<Leading: View, Trailing: View, Label: View>: View {
 

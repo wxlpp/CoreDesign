@@ -43,7 +43,7 @@ private struct BannerPalette {
 /// .bannerStyle(BorderedBannerStyle())
 /// ```
 ///
-/// padding / spacing / 字号全部来自 v2-tokens（`CoreSpacing.*` / `CoreTypography.*`），
+/// padding / spacing / 字号全部来自设计 token（`CoreSpacing.*` / `CoreTypography.*`），
 /// 颜色来自 status color token（`Color.statusAccentSubtle` 等），随 light / dark 自动适配。
 /// 不使用 `.glassEffect`：Banner 是基础信息容器，需要清晰的实色背景以保证可读性。
 public struct Banner<Label: View>: View {
@@ -74,7 +74,7 @@ public struct Banner<Label: View>: View {
 /// 内含 label 视图和 `StatusLevel`，由实现自行决定如何组织 padding / 背景 / 描边。
 ///
 /// 内置实现见 `PlainBannerStyle`（默认）与 `BorderedBannerStyle`。新实现应继续走
-/// v2-tokens（`CoreSpacing.*` / `CoreBorderWidth.*` / `CoreTypography.*`）和 status
+/// 设计 token（`CoreSpacing.*` / `CoreBorderWidth.*` / `CoreTypography.*`）和 status
 /// color token，避免引入魔法数字。
 public protocol BannerStyle {
     associatedtype Body: View

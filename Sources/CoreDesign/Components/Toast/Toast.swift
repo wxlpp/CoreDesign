@@ -74,8 +74,7 @@ public nonisolated enum ToastDefaults {
 /// Scene 级的浮层 toast 队列与调度器。
 /// 内部把每个 `ToastItem` 渲染为 `ToastView`，其容器在 `Capsule(style: .continuous)`
 /// 外壳上施加 `View.floatingGlass(in:isInteractive:)`——让 toast 读起来像**浮起的
-/// 系统反馈**，而不是内容自身的 chrome。公开 API（`show` / `dismiss`）与队列
-/// state machine are unchanged.
+/// 系统反馈**，而不是内容自身的 chrome。公开 API（`show` / `dismiss`）与队列状态机保持不变。
 ///
 /// **Material layer**: floating. **Surface role**: floating.
 ///

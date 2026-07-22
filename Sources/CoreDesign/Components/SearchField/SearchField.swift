@@ -7,9 +7,8 @@ import SwiftUI
 
 // MARK: - SearchField
 
-/// A compact Apple-native search/filter control with GitHub-like utility:
-/// leading search icon, optional clear action, clear focus ring, and no default
-/// Liquid Glass.
+/// 紧凑的搜索 / 筛选控件：leading 放大镜图标 + 可选清除动作 + 明确的焦点环，
+/// **无默认 Liquid Glass**。
 ///
 /// **使用场景 / Use cases**：列表 / 表格 / 侧栏顶部的关键字过滤入口；
 /// 全局搜索的内联触发器；表单内"search-as-you-type"过滤场景。需要复杂的
@@ -29,7 +28,7 @@ import SwiftUI
 ///
 /// **light / dark 行为 / light-dark behavior**：
 /// - 容器底色 `Color.surfaceInteractive`、边框 `Color.borderMuted`、文字
-///   `Color.contentPrimary`、icon `Color.contentMuted` 均走 v2-tokens 语义色，
+///   `Color.contentPrimary`、icon `Color.contentMuted` 均走语义色 token，
 ///   light / dark 双模式自动切换。
 /// - 焦点环走 `View.focusRing(visible:)`：iOS 与 macOS 共享同一套 SwiftUI overlay
 ///   实现（**不是临时分支**——是显式评估后的最终决定）。macOS 下该 overlay

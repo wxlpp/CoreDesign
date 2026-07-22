@@ -16,7 +16,7 @@ import SwiftUI
 /// `(background, border, cornerRadius)` 三件套，全部从 token 派生，
 /// 调用方无需手写"圆角矩形 fill + overlay stroke"三件套。
 public nonisolated enum SurfaceKind: Sendable, Equatable {
-    /// Page-level canvas.
+    /// 页面级画布。
     case canvas
     /// 普通内容表面：列表行、卡片、非浮起容器。
     case content

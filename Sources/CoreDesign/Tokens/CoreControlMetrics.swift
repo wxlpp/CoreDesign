@@ -107,7 +107,7 @@ public nonisolated enum CoreControlMetrics {
     /// > 决定，结论再次翻转。
     /// >
     /// > 取舍：宁可比 `height(for:)` 的参考高度略高，也不压缩 label——`minHeight` 不裁切，
-    /// > `frame(height:)` 会。五档在各平台各档位的实际渲染高度待 Task #122 视觉复核。
+    /// > `frame(height:)` 会。五档在各平台各档位的实际渲染高度待视觉终审确认。
     /// >
     /// > 历史：早先版本取 `mini=8 / small=8`，算得 34pt 同时越过两个地板，导致 mini 与 small
     /// > 渲染同高、而注释仍声称靠地板区分——数值上不成立的机制。改回 4pt 修复。

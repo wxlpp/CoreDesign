@@ -40,7 +40,7 @@ public struct ProgressBar: View {
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    // Task #122：track 高度固定 `CoreSpacing.xs`(4pt)，小于
+                    // track 高度固定 `CoreSpacing.xs`(4pt)，小于
                     // `CoreRadius.small`(6pt) 的直径——SwiftUI 会把圆角自动 clamp 到
                     // `min(width, height)/2`，实际渲染半径恒为 2pt（= height/2，胶囊
                     // 观感），3→6pt 的换值在这两处**不产生任何可见差异**。
