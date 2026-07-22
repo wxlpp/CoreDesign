@@ -39,6 +39,13 @@ import SwiftUI
 // ≥ 44pt，那被两侧 44–50pt 的圆形按钮平凡满足；中间 textFieldContainer 自身的
 // 激活区域（作用域在 TextField + 其自有 padding 上，不是外层玻璃胶囊）没有被验证。
 //
+// **已知不适用的例外（三）**：`SegmentedControl` 内部由多个独立分段 Button 组成，整体
+// 容器高度（44pt，`frame(height:)` 钳制）与单个分段的真实命中高度是两回事——
+// 分段容器四边各有 `CoreSpacing.xxs`（2pt）内缩（`NativeGlassSegmentedControlView`
+// / `SwiftUISegmentedControl` 两条渲染路径都有），单段实测命中高度约 40pt，
+// 低于 44pt 地板。这条不是本文件能用整体 bounding box 测出的（外层容器仍报
+// 44pt），已作为 Task #123 的发现在 PR / issue 说明中记录，留给设计判断
+// （改动分段内缩量涉及玻璃胶囊的视觉比例，属于 Task #125 视觉终审范畴）。
 // **已知不适用的例外（四）· `Tag` 的移除按钮**：与前三类性质相反。前三类是
 // `contentShape` 作用域**偏小**（命中区小于布局 frame），本类是命中区被**有意**做成
 // 大于布局 frame——用「对称 padding 撑开 + 负 padding 抵消」把命中区扩到 44pt，同时
@@ -47,13 +54,6 @@ import SwiftUI
 // 对这类实现，`ImageRenderer` 量到的布局高度（约 24pt）**低于**实际命中区（44pt），
 // 本文件的断言方式会给出假阴性。故不在此覆盖，改由代码注释与 `123.md` 记录。
 //
-// **已知不适用的例外（三）**：`SegmentedControl` 内部由多个独立分段 Button 组成，整体
-// 容器高度（44pt，`frame(height:)` 钳制）与单个分段的真实命中高度是两回事——
-// 分段容器四边各有 `CoreSpacing.xxs`（2pt）内缩（`NativeGlassSegmentedControlView`
-// / `SwiftUISegmentedControl` 两条渲染路径都有），单段实测命中高度约 40pt，
-// 低于 44pt 地板。这条不是本文件能用整体 bounding box 测出的（外层容器仍报
-// 44pt），已作为 Task #123 的发现在 PR / issue 说明中记录，留给设计判断
-// （改动分段内缩量涉及玻璃胶囊的视觉比例，属于 Task #125 视觉终审范畴）。
 #if os(iOS)
 @Suite("触控目标 ≥ 44pt")
 @MainActor

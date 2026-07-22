@@ -46,8 +46,10 @@ public struct CheckBoxToggleStyle: ToggleStyle {
         // intrinsic 高度（实测约 21pt，远低于 44pt）——`.onTapGesture` 只在这块紧凑
         // 区域内生效。
         // 补上 `frame(minHeight:)` + `contentShape(Rectangle())`（与 ListRow /
-        // SearchField 同一模式）：视觉不变（HStack 仍按 intrinsic 尺寸居中显示），
-        // 但命中区域撑到 44pt 地板。
+        // SearchField 同一模式）：**组件整体行高从实测的 21pt 撑到 44pt 地板**，
+        // 内部相对布局不变（HStack 仍按 intrinsic 尺寸居中）。不是「视觉完全不变」——
+        // 行高确有增加，只是这里整条可点单元一起变高，属可接受的无障碍取舍；
+        // 与 Tag 移除按钮那种「撑大子视图连累兄弟元素」的情形性质不同。
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
         .animation(.easeOut(duration: 0.25), value: configuration.isOn)
