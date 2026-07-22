@@ -32,6 +32,10 @@ targets:
         INFOPLIST_FILE: ""
         GENERATE_INFOPLIST_FILE: "YES"
         TARGETED_DEVICE_FAMILY: "1"
+        # 没有这一行，iOS 会把 app 当作「无启动屏的传统 app」，以 320×480 兼容
+        # 窗口运行（屏幕上下留黑边、内容被等比放大）。Task #125 的视觉终审最初
+        # 就是在这种被放大的 320×480 画布上截图的——量出来的一切尺寸关系都不作数。
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
 
   SnapshotTests:
     type: bundle.unit-test
