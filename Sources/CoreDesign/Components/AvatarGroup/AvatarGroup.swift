@@ -7,11 +7,7 @@ import SwiftUI
 
 // MARK: - AvatarGroup
 
-/// Content-layer composition of stacked avatars with overlap + overflow
-/// counter. Uses thin border (`CoreBorderWidth.thin`) to separate stacked
-/// avatars and overflow pill. No glass.
-///
-/// **Material layer**: content. **Surface role**: content.
+/// **材质层**: 内容. **表面角色**: 内容.
 ///
 /// 堆叠头像组。
 ///

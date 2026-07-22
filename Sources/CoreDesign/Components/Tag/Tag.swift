@@ -10,7 +10,7 @@ import SwiftUI
 /// 控件层的分类标签。颜色由调用方提供（标签色、自定义色板等），chip 保持紧凑、
 /// 低 chrome。**无默认玻璃、无装饰性材质**——语义完全来自调用方选的颜色。
 ///
-/// **Material layer**: control. **Surface role**: control.
+/// **材质层**: 控件. **表面角色**: 控件.
 ///
 /// 任意分类标签 / Tag：GitHub issue label 风格的 chip，颜色由调用方传入。
 ///

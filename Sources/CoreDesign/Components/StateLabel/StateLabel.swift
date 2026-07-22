@@ -55,11 +55,7 @@ extension StateLabelStyle {
 
 // MARK: - StateLabel
 
-/// Control-layer status pill driven by `StateLabelStyle`. Compact,
-/// color-for-meaning, no decorative material — same restraint rules as
-/// `Badge`, with a fixed icon + caller-supplied label payload.
-///
-/// **Material layer**: control. **Surface role**: control.
+/// **材质层**: 控件. **表面角色**: 控件.
 ///
 /// 通用状态标识 pill。大圆角 + 彩色背景 + SF Symbol 图标 + label 内容。
 /// 双层 init 形态对齐 `Badge` / `Tag`：`@ViewBuilder` designated init 可插图标 /

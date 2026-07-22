@@ -56,9 +56,13 @@ public nonisolated enum CoreRadius {
 ///   父子边框天然同心，不需要手动对齐两处半径字面量。容器侧按需搭配
 ///   `.containerShape(CoreShape.rounded(radius))` 声明形状。
 ///
-/// > Note: 本任务只提供这个出口；组件调用点从裸 `RoundedRectangle` 迁移到
-/// > 调用点向 `CoreShape` / `ConcentricRectangle` 的迁移已完成
-/// > （验收判据是 `grep` 裸 `RoundedRectangle` 为 0）。
+/// > Note: 组件调用点向 `CoreShape` 的迁移**已完成**——`Sources` 内裸
+/// > `RoundedRectangle(` 调用为 0（唯一例外是 `CoreShape.rounded` 自身的实现，
+/// > 包装器总得在某处调用原语）。
+/// >
+/// > 但 `ConcentricRectangle` **当前零采纳**：没有任何调用点嵌套在声明了
+/// > `.containerShape(_:)` 的父容器里，因此用不上同心圆角。它是为后续组件
+/// > （尤其是卡片内嵌元素）预留的能力，不是已经在用的东西。
 // `nonisolated`：理由同 `CoreRadius`——本包全 target 走 `.defaultIsolation(MainActor.self)`，
 // 而 shape 的主要消费点恰是 `Shape.path(in:)` / `InsettableShape` 这类 nonisolated 同步上下文
 // （如 `BottomInputBarGlassEffectShape.path(in:)`）。漏掉这个关键字，#122 迁移调用点时

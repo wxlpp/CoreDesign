@@ -15,7 +15,7 @@ import SwiftUI
 /// Liquid Glass（`BottomInputBarGlassEffectShape: InsettableShape` + `strokeBorder`
 /// overlay）。**输入体验优先于观感**——玻璃是 chrome，不是卖点。
 ///
-/// **Material layer**: floating. **Surface role**: floating.
+/// **材质层**: 浮层. **表面角色**: 浮层.
 struct BottomInputBar: View {
     init(
         isShowingSuggestions: Binding<Bool>,

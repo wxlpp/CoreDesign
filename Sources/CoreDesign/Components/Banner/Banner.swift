@@ -19,14 +19,12 @@ private struct BannerPalette {
 
 // MARK: - Banner
 
-/// Content/control-layer information surface. Uses status semantics
-/// (`info` / `success` / `warning` / `danger`) with restrained bordered or
-/// filled treatment — **not** Liquid Glass. Banner is for in-page
-/// information, not floating feedback; if you need floating feedback, use
-/// `ToastHost` via `.toastHost(edge:)`.
+/// 内容 / 控件层的信息表面。用状态语义（`info` / `success` / `warning` / `danger`）
+/// 配克制的描边或填充——**不用** Liquid Glass。Banner 面向**页内信息**，不是浮层反馈；
+/// 需要浮层反馈请经 `.toastHost(edge:)` 用 `ToastHost`。
 ///
-/// **Material layer**: content (info-only) or control (with actions).
-/// **Surface role**: content / control.
+/// **材质层**: 内容 (info-only) or control (with actions).
+/// **表面角色**: 内容 / control.
 ///
 /// 通栏式信息提示组件。
 ///

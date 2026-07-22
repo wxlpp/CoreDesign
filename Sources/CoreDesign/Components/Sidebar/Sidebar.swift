@@ -27,7 +27,7 @@ public enum SidebarTextStyle {
 /// 在 leading 对齐的行内容堆叠之上渲染一个 section header（标题 + 可选展开
 /// chevron + 装饰性溢出字形）。
 ///
-/// **Material layer**: container. **Surface role**: sidebar.
+/// **材质层**: 容器. **表面角色**: 侧栏.
 ///
 /// 侧栏分组容器 / SidebarSection：标题 + 可选 chevron 头部 + 内容行堆叠。
 public struct SidebarSection<Content: View>: View {

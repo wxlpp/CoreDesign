@@ -7,11 +7,7 @@ import SwiftUI
 
 // MARK: - ProgressIndicator
 
-/// Content-layer spinner. Practical readability over decoration: no glass,
-/// no decorative material. Use for in-page loading states; for floating
-/// feedback use `ToastHost` instead.
-///
-/// **Material layer**: content. **Surface role**: content.
+/// **材质层**: 内容. **表面角色**: 内容.
 ///
 /// 通用圆形加载指示器。
 ///

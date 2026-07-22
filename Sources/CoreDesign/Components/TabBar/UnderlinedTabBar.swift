@@ -11,7 +11,7 @@ import SwiftUI
 /// 配合标签字重加强。**不做整体玻璃处理**——背景由宿主 scene 提供，本组件只负责
 /// 指示器与标签本身。
 ///
-/// **Material layer**: control. **Surface role**: control.
+/// **材质层**: 控件. **表面角色**: 控件.
 ///
 /// 导航 chrome **不使用** Liquid Glass——选中态靠字重与下划线表达，不靠材质。
 /// 这是刻意取舍：tab bar 是高频扫视的导航件，材质会与内容争夺注意力。
@@ -39,7 +39,7 @@ import SwiftUI
 /// ## Light / Dark 行为
 /// - 颜色全部使用语义 token，自动跟随 colorScheme：light 下分隔线偏浅灰、dark 下偏暗；
 ///   accent 在 dark 模式下色相略亮以维持对比度（由 `Color.accent` 自身的 colorset 决定）。
-/// - 不使用 `.glassEffect`——导航 chrome 是高频扫视对象，材质会与内容争夺注意力。
+/// - 不使用 `.glassEffect`（理由见上方「导航 chrome 不使用 Liquid Glass」一段）。
 public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
     /// 创建带 trailing 视图的下划线 tab 栏。
     ///

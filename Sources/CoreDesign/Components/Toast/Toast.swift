@@ -76,7 +76,7 @@ public nonisolated enum ToastDefaults {
 /// 外壳上施加 `View.floatingGlass(in:isInteractive:)`——让 toast 读起来像**浮起的
 /// 系统反馈**，而不是内容自身的 chrome。公开 API（`show` / `dismiss`）与队列状态机保持不变。
 ///
-/// **Material layer**: floating. **Surface role**: floating.
+/// **材质层**: 浮层. **表面角色**: 浮层.
 ///
 /// Scene-scoped Toast 宿主：维护 toast 队列状态机 + 自动 dismiss 调度。
 ///

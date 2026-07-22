@@ -28,11 +28,7 @@ public nonisolated enum BadgeVariant: Sendable, Equatable {
 
 // MARK: - Badge
 
-/// Control-layer status indicator with 5 fixed semantic levels. Compact, low
-/// chrome, no glass — color is the semantic carrier, not decoration. Pairs
-/// with row, header, and inline-label contexts.
-///
-/// **Material layer**: control. **Surface role**: control.
+/// **材质层**: 控件. **表面角色**: 控件.
 ///
 /// 状态指示器。
 ///

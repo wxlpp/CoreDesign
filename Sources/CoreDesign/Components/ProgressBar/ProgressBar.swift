@@ -7,11 +7,7 @@ import SwiftUI
 
 // MARK: - ProgressBar
 
-/// Content-layer indicator. Practical readability over decoration: solid
-/// rounded rectangles for track + fill, no glass, no gradients. Value is
-/// clamped to `0...1` and non-finite inputs are sanitized to `0`.
-///
-/// **Material layer**: content. **Surface role**: content.
+/// **材质层**: 内容. **表面角色**: 内容.
 ///
 /// 水平进度条。
 ///

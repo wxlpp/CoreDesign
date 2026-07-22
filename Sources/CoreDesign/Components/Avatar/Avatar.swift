@@ -9,11 +9,7 @@ import SwiftUI
 
 // MARK: - Avatar
 
-/// Content-layer identity affordance. Circular crop (by caller via
-/// `.clipShape(Circle())`), no border. Uses name-derived background color
-/// with white initial. No glass.
-///
-/// **Material layer**: content. **Surface role**: content.
+/// **材质层**: 内容. **表面角色**: 内容.
 ///
 /// 头像 / Avatar：根据姓名生成圆形彩色占位头像。
 ///

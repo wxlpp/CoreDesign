@@ -46,10 +46,9 @@ import SwiftUI
 /// 仍走 overlay 路径以避免 layout 抖动 / identity 跳变；overlay 不参与父布局，
 /// 因此对外不占空间。
 ///
-/// A visual focus-ring `ViewModifier`. When `visible == false` the stroke uses
-/// `.clear`, still routed through the same overlay so SwiftUI sees a stable
-/// view identity (no layout jitter). The overlay is non-participating in the
-/// parent layout, so the modifier is layout-neutral either way.
+/// 焦点环 `ViewModifier`。`visible == false` 时描边取 `.clear`，但仍走同一个
+/// overlay——让 SwiftUI 看到稳定的视图标识，避免布局抖动。overlay 不参与父级
+/// 布局，因此本 modifier 在两种状态下都是布局中性的。
 struct FocusRingModifier: ViewModifier {
     var visible: Bool
     var color: Color
