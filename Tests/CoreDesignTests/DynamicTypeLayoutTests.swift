@@ -70,14 +70,19 @@ struct DynamicTypeLayoutTests {
         #expect(ax5 > small, "coreFont 未缩放——ScaledMetric 或 textStyle 基准错了")
     }
 
-    @Test("captionSmall 明确不缩放")
-    func captionSmallDoesNotScale() {
+    // Issue #119 之前：`captionSmall` 是故意不缩放的固定 9pt chrome 字号
+    // （旧 `Spec.scales == false`）。Issue #119 之后：`captionSmall` 只是
+    // `caption2`（`@available(*, deprecated, renamed: "caption2")`）的弃用别名，
+    // 语义完全由 `caption2`（系统 `.caption2` 文本样式）决定，会随 Dynamic Type 缩放。
+    // 本测试断言方向相对旧版本**故意翻转**——这是 119.md AC 明确要求的行为变化，
+    // 不是回归；保留旧名 `captionSmallDoesNotScale` 会误导读者，故一并更名。
+    @Test("captionSmall 现在是 caption2 的别名，随 Dynamic Type 缩放")
+    func captionSmallNowScalesViaCaption2Alias() {
         let text = Text("9").coreFont(.captionSmall)
         let small = self.renderedHeight(text, at: .large)
         let ax5   = self.renderedHeight(text, at: .accessibility5)
-        #expect(small > 0, "渲染失败（uiImage nil）——本断言的 <= 会被 0<=1 假放过")
-        // captionSmall 固定档：ax5 不应比 small 显著高（渲染有 ±1px 抖动，留容差）。
-        #expect(ax5 <= small + 1, "captionSmall 缩放了——违反其固定设计约束")
+        #expect(small > 0, "渲染失败（uiImage nil）")
+        #expect(ax5 > small, "captionSmall（→ caption2）未随 Dynamic Type 缩放——别名映射或 caption2 的 textStyle 错了")
     }
 }
 #endif
