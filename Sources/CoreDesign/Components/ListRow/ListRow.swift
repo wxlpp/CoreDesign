@@ -7,28 +7,24 @@ import SwiftUI
 
 // MARK: - ListRow
 
-/// Native Primer list row.
+/// 内容层组件。保持安静、易扫视、稳定：**无默认玻璃、无默认卡片化**。hover 态用
+/// 克制的填充色（`Color.surfaceCanvasSubtle`），默认背景落在 `View.surface(.canvas)` 上。
+/// **不提供选中态**——需要的话由调用方在外层自行组合。
 ///
-/// Content-layer component. Stays quiet, scannable, and stable: no default
-/// glass, no default cardification. Hover state uses a restrained fill
-/// (`Color.surfaceCanvasSubtle`) and the default background sits on
-/// `View.surface(.canvas)`. No selected state — callers compose selection
-/// affordances externally if needed.
-///
-/// **Material layer**: content. **Surface role**: canvas.
+/// **材质层**: 内容. **表面角色**: 画布.
 ///
 /// **使用场景**：issue / PR 列表、章节大纲、设置项、文件 / 资源条目等需要"左侧
-/// 装饰 + 中间标题 + 右侧附件"三块布局的列表项。Primer 概念上对应 `ActionList.Item`
+/// 装饰 + 中间标题 + 右侧附件"三块布局的列表项。
 /// （桌面端 GitHub UI 中导航 / 设置侧栏的统一行容器）。
 ///
-/// **API 形态**（per epic ADR #15 init 形态约束）：
+/// **API 形态**：
 /// - **三泛型** `ListRow<Leading, Trailing, Label>`，每槽位独立类型；
 /// - **Designated init 全标签** `init(leading:label:trailing:)`——三个 `@ViewBuilder`
 ///   闭包均带显式标签，避免 SwiftUI 多尾随闭包推断歧义；
 /// - **Convenience inits 只补缺省槽位**（`where Leading == EmptyView` /
 ///   `where Trailing == EmptyView` / 双 `EmptyView`），调用方写
 ///   `ListRow(label: { Text("..." )})` 不必再手填 `EmptyView()`。**不引入**多个
-///   无标签闭包重载（per epic ADR #15）。
+///   无标签闭包重载。
 ///
 /// **关键参数语义**：
 /// - `leading` —— 左侧装饰位（icon / Avatar / status dot），可省略；
@@ -43,22 +39,23 @@ import SwiftUI
 /// - 高度 `frame(minHeight: CoreControlMetrics.height(for: .regular))`——不固定
 ///   height，让多行 label 自然撑开（per `CoreControlMetrics` doc-comment 推荐）。
 ///
-/// **light / dark 行为**：背景 / hover 背景 / 文字均走 v2-tokens 语义色，
+/// **light / dark 行为**：背景 / hover 背景 / 文字均走语义色 token，
 /// 双模式自动切换，组件本体无 `colorScheme` 分支逻辑。
 ///
-/// **Hover token debt**: hover 态使用 `Color.surfaceCanvasSubtle` 而非
-/// `Color.hoverBackground`：后者已存在于 `InteractionColors.swift` 但取值是系统
-/// fill 未对齐 Primer。本组件直接用 `surfaceCanvasSubtle` 是**取值层取舍**，不是
-/// token 缺失代偿。详见 PRD `coredesign-v2-components.md` §Notes hover token debt。
-/// 后续 InteractionColors Primer 对齐 epic 后回评。
+/// **hover 取值的取舍**：hover 态用 `Color.surfaceCanvasSubtle` 而非
+/// `Color.hoverBackground`。后者虽已存在于 `InteractionColors.swift`，但它是系统
+/// fill 色，语义上是「叠加在内容之上的填充」，与列表行需要的「整行换一层表面色」
+/// 不是一回事。本库当前没有专门的 hover fill token，故直接借用表面色——这是
+/// **取值层的有意取舍**，不是 token 缺失的代偿。若将来引入专门的 hover token，
+/// 可回评此处。
 public struct ListRow<Leading: View, Trailing: View, Label: View>: View {
 
     // MARK: - Designated init
 
     /// 创建带 leading / label / trailing 三槽位的列表行。
     ///
-    /// 三个 `@ViewBuilder` 闭包均带显式标签——这是 designated init 形态约束
-    /// （per epic ADR #15），用于规避 SwiftUI 多尾随闭包推断歧义。
+    /// 三个 `@ViewBuilder` 闭包均带显式标签——这是 designated init 形态约束，
+    /// 用于规避 SwiftUI 多尾随闭包推断歧义。
     ///
     /// - Parameters:
     ///   - leading: 左侧装饰位 view builder（icon / Avatar / status dot）。
@@ -113,12 +110,12 @@ public struct ListRow<Leading: View, Trailing: View, Label: View>: View {
     @State private var isHovered: Bool = false
 }
 
-// MARK: - Convenience inits (only fill missing slots; per ADR #15)
+// MARK: - Convenience inits (only fill missing slots)
 
 public extension ListRow where Leading == EmptyView {
     /// 无 leading 槽位的便利 init（`Leading == EmptyView`）。
     ///
-    /// 仅补齐缺省槽位，不引入无标签闭包重载（per epic ADR #15）。
+    /// 仅补齐缺省槽位，不引入无标签闭包重载。
     ///
     /// - Parameters:
     ///   - label: 中间内容主体 view builder。
@@ -134,7 +131,7 @@ public extension ListRow where Leading == EmptyView {
 public extension ListRow where Trailing == EmptyView {
     /// 无 trailing 槽位的便利 init（`Trailing == EmptyView`）。
     ///
-    /// 仅补齐缺省槽位，不引入无标签闭包重载（per epic ADR #15）。
+    /// 仅补齐缺省槽位，不引入无标签闭包重载。
     ///
     /// - Parameters:
     ///   - leading: 左侧装饰位 view builder。
@@ -150,7 +147,7 @@ public extension ListRow where Trailing == EmptyView {
 public extension ListRow where Leading == EmptyView, Trailing == EmptyView {
     /// 仅 label 的便利 init（`Leading == EmptyView, Trailing == EmptyView`）。
     ///
-    /// 仅补齐缺省槽位，不引入无标签闭包重载（per epic ADR #15）。
+    /// 仅补齐缺省槽位，不引入无标签闭包重载。
     ///
     /// - Parameter label: 中间内容主体 view builder。
     init(@ViewBuilder label: () -> Label) {

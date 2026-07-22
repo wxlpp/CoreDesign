@@ -10,7 +10,7 @@ import SwiftUI
 /// 非 glass 按钮的背景层 / Non-glass button background：填充 + 描边 + 按压反馈。
 ///
 /// 合并自原先的 `SolidButtonBackgroundModifier` 与 `LightButtonBackgroundModifier`
-/// （审计项 B3c）——两者结构完全相同，仅填充色、描边 token 与按压不透明度不同。
+/// ——两者结构完全相同，仅填充色、描边 token 与按压不透明度不同。
 ///
 /// > `pressedOpacity` 默认 `nil`（不施加）：`LightButtonStyle` 的按压变暗写在
 /// > 本 modifier **之外**，因为它的 glass 分支同样需要；`SolidButtonStyle` 则只在

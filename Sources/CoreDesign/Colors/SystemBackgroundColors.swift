@@ -45,12 +45,12 @@ public extension Color {
     ///
     /// 将此颜色用于分组内容，包括表视图和基于托盘的设计。
     ///
-    /// Issue #120 / ADR-4：macOS 降级修复。AppKit 没有 grouped background 系列，
-    /// 此前 macOS 分支落 `.controlBackgroundColor`——与 `secondarySystemGroupedBackground`
-    /// 完全同值，会让 `surfaceCanvas`（本 token 的消费者）与 `surfaceRaised` 在 macOS 上
-    /// 卡片和画布同色、raised 层完全隐形，属功能性退化。现改为 `.windowBackgroundColor`：
-    /// AppKit 里代表窗口最外层画布背景，与 `controlBackgroundColor`（内容/控件区背景）
-    /// 在浅色与深色下均有可辨差异（验证见 `SystemBackgroundColorsMacOSTests`）。
+    /// macOS 降级：AppKit 没有 grouped background 系列。取 `.windowBackgroundColor`——
+    /// AppKit 里代表窗口最外层画布背景，与 `controlBackgroundColor`（内容/控件区背景，
+    /// 见下方 `secondarySystemGroupedBackground`）在浅色与深色下均有可辨差异（验证见
+    /// `SystemBackgroundColorsMacOSTests`）。若改落 `controlBackgroundColor`，会与
+    /// `secondarySystemGroupedBackground` 完全同值，让 `surfaceCanvas`（本 token 的
+    /// 消费者）与 `surfaceRaised` 在 macOS 上卡片和画布同色、raised 层完全隐形。
     static var systemGroupedBackground: Color {
         #if canImport(UIKit)
             Color(uiColor: .systemGroupedBackground)
@@ -63,10 +63,9 @@ public extension Color {
     ///
     /// 将此颜色用于分组内容，包括表视图和基于托盘的设计。
     ///
-    /// Issue #120 / ADR-4：与上面 `systemGroupedBackground` 配对修复。取
-    /// `.controlBackgroundColor`（AppKit 里内容/控件区背景），使其与
-    /// `systemGroupedBackground`（画布，现为 `.windowBackgroundColor`）在 macOS 上
-    /// 确有可辨差异，而不是像此前那样两者同值。
+    /// 与上面 `systemGroupedBackground` 配对：取 `.controlBackgroundColor`
+    /// （AppKit 里内容/控件区背景），使其与 `systemGroupedBackground`（画布，
+    /// `.windowBackgroundColor`）在 macOS 上确有可辨差异。
     static var secondarySystemGroupedBackground: Color {
         #if canImport(UIKit)
             Color(uiColor: .secondarySystemGroupedBackground)

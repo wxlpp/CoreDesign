@@ -10,11 +10,11 @@ import SwiftUI
 
 // MARK: - CoreBorderlessButtonStyle
 
-/// Primer 风格的无边框 / 无背景按钮（"borderless" / "invisible button"）样式。
+/// 无边框 / 无背景按钮样式。
 ///
 /// ## 使用场景 / Usage
 ///
-/// 行内文本链接、工具栏的次要触发器、表格单元格内的轻量动作；与 Primer
+/// 行内文本链接、工具栏的次要触发器、表格单元格内的轻量动作；与
 /// `Button variant="invisible"` / `Link` 的语义一致——**仅 label 自身可见**，
 /// 无视觉容器（无背景、无边框、无阴影），按下时通过文字色 + 不透明度反馈。
 ///
@@ -22,18 +22,16 @@ import SwiftUI
 ///
 /// - `role`: `ButtonRoleStyleRole`——决定文字颜色（normal / pressed / disabled 三态）。
 ///
-/// ## Primer 概念对应 / Primer Mapping
 ///
-/// 对应 Primer `Button variant="invisible"` 与 `IconButton variant="invisible"`：
+/// 与有容器的按钮样式的区别：
 /// 不渲染任何**视觉**容器（无背景、无边框、无阴影），仅 label 着色。但字号、
 /// padding 与命中区域仍按 `CoreControlMetrics` 走 token（经共享的 `buttonChrome`
 /// modifier），保证多按钮并排时视觉与点击区域一致。
 ///
-/// > Issue #96 之前本样式**不设字号**（继承环境字体）。B3d 把四个 style 的
-/// > chrome 统一到一处后，字号改为随 `controlSize`——这是唯一的行为变化。
-/// > （`buttonChrome` 另外补了 `contentShape`，但本样式一直有
-/// > `.clipShape(Capsule)`，而 `clipShape` 本身即限定命中测试，故命中区
-/// > 本来就是胶囊，未实际改变。）
+/// > 本样式此前**不设字号**（继承环境字体）。四个按钮 style 的 chrome 统一到
+/// > 一处后，字号改为随 `controlSize`——这是唯一的行为变化。（`buttonChrome`
+/// > 另外补了 `contentShape`，但本样式一直有 `.clipShape(Capsule)`，而
+/// > `clipShape` 本身即限定命中测试，故命中区本来就是胶囊，未实际改变。）
 ///
 /// ## Light / Dark 行为差异 / Color Scheme Behavior
 ///
@@ -48,8 +46,7 @@ import SwiftUI
 /// ## ⚠️ 与 SwiftUI 的同名冲突 / SwiftUI collision
 ///
 /// 本类型原名 `BorderlessButtonStyle`，与 SwiftUI 自带类型同名——下游写该名**能编译**
-/// 但静默拿到 SwiftUI 的版本。Issue #94 加 `Core` 前缀正是为此，**不要为了"简洁"把
-/// 前缀去掉**。
+/// 但静默拿到 SwiftUI 的版本。加 `Core` 前缀正是为此，**不要为了"简洁"把前缀去掉**。
 ///
 /// 但要注意：**访问器名 `borderless` 仍与 SwiftUI 的 `PrimitiveButtonStyle.borderless`
 /// 重合**，两者只差一对括号，且都能编译、无任何诊断：
@@ -99,7 +96,7 @@ public struct CoreBorderlessButtonStyle: PrimitiveButtonStyle {
 // MARK: - PrimitiveButtonStyle convenience
 
 public extension PrimitiveButtonStyle where Self == CoreBorderlessButtonStyle {
-    /// 以指定 role 构造 Primer 无边框按钮样式。
+    /// 以指定 role 构造无边框按钮样式。
     ///
     /// - Parameter role: 角色色板（默认 `.primary`）。仅决定 label 文字颜色。
     /// - Returns: `CoreBorderlessButtonStyle` 实例，可直接传给 `.buttonStyle(...)`。

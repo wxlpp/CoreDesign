@@ -11,7 +11,7 @@ import SwiftUI
 
 /// 主操作按钮样式（"solid button"）。
 ///
-/// ## Native Primer 默认
+/// ## 默认档位
 ///
 /// 默认使用 role 色、muted hairline 描边、pressed scale，且无默认 elevation。
 ///
@@ -35,7 +35,7 @@ public struct SolidButtonStyle: ButtonStyle {
         let isPressed = configuration.isPressed
         let backgroundColor = self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed)
 
-        // 共同结构只写一次（审计项 B3b）；两支各自只剩尾部的背景层差异。
+        // 共同结构只写一次；两支各自只剩尾部的背景层差异。
         let base = configuration.label
             .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
             .foregroundStyle(self.foregroundColor)

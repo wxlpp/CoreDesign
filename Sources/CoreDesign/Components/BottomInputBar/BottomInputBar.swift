@@ -9,15 +9,13 @@ import SwiftUI
 
 // MARK: - BottomInputBar
 
-/// Native Primer floating input bar.
+/// 浮层输入条。
 ///
-/// The library's most prominent floating input surface. Uses iOS 26 Liquid
-/// Glass via `BottomInputBarGlassModifier` (Phase 2A refactor:
-/// `BottomInputBarGlassEffectShape: InsettableShape` + `strokeBorder`
-/// overlay). Input ergonomics still come first — the glass is the chrome,
-/// not the feature.
+/// 本库最显眼的浮层输入表面。经 `BottomInputBarGlassModifier` 使用 iOS 26 的
+/// Liquid Glass（`BottomInputBarGlassEffectShape: InsettableShape` + `strokeBorder`
+/// overlay）。**输入体验优先于观感**——玻璃是 chrome，不是卖点。
 ///
-/// **Material layer**: floating. **Surface role**: floating.
+/// **材质层**: 浮层. **表面角色**: 浮层.
 struct BottomInputBar: View {
     init(
         isShowingSuggestions: Binding<Bool>,
@@ -376,7 +374,7 @@ struct BottomInputBarModifier: ViewModifier {
             // 「什么都不做」第三分支——**不能**合并成单一 `sync(shouldShow:)`。
             // 反例：autoShow 关闭 + suggestions 非空 + 用户已手动展开时，数组更新
             // 在原逻辑下保持展开，合并后会被强制收起。故只收敛动画包装这一层，
-            // 条件逻辑原样保留（审计项 B8h——其「两个 onChange 同构」的前提经实测不成立）。
+            // 条件逻辑原样保留——「两个 onChange 同构」的前提经实测不成立。
             .onChange(of: self.suggestions) { _, newValue in
                 if self.autoShowSuggestions, !newValue.isEmpty {
                     self.setSuggestionsVisible(true)
@@ -504,7 +502,7 @@ public extension View {
     }
 }
 
-// MARK: - Chip 样式（审计项 B8h）
+// MARK: - Chip 样式
 
 private struct BottomInputBarChipModifier: ViewModifier {
     func body(content: Content) -> some View {

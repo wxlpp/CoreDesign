@@ -7,14 +7,11 @@
 
 import SwiftUI
 
-// Issue #120 完整映射表（第 3 层 FillColors 全部 token）——全部保持现值：
+// MARK: - Fill Colors / 填充颜色
 //
-// | token          | 值                   | 判定 |
-// |----------------|-----------------------|------|
-// | fill           | systemFill            | 保持现值——已是系统色，UIKit/AppKit 双端均正确桥接 |
-// | secondaryFill  | secondarySystemFill   | 保持现值——同上 |
-// | tertiaryFill   | tertiarySystemFill    | 保持现值——同上；本任务新增消费者 `surfaceCanvasInset`（见 SurfaceColors.swift） |
-// | quaternaryFill | quaternarySystemFill  | 保持现值——同上 |
+// 全部 token 直接指向系统填充色族（`systemFill` / `secondarySystemFill` /
+// `tertiarySystemFill` / `quaternarySystemFill`），UIKit / AppKit 双端均正确桥接，
+// 随系统外观自动更新。`tertiaryFill` 另被 `SurfaceColors.surfaceCanvasInset` 复用。
 public extension Color {
     /// 为细小形状的叠加填充颜色。
     ///

@@ -9,18 +9,14 @@ import SwiftUI
 
 // MARK: - Avatar
 
-/// Native Primer avatar.
-///
-/// Content-layer identity affordance. Circular crop (by caller via
-/// `.clipShape(Circle())`), no border. Uses name-derived background color
-/// with white initial. No glass.
-///
-/// **Material layer**: content. **Surface role**: content.
+/// **材质层**: 内容. **表面角色**: 内容.
 ///
 /// 头像 / Avatar：根据姓名生成圆形彩色占位头像。
 ///
+/// **无玻璃、无装饰性材质**——身份标识靠色相与首字母表达，不靠材质。
+///
 /// 使用场景：用户列表 / 评论作者 / 登录态指示器等需要在缺图情景下给出可视化身份提示
-/// 的位置。Primer 概念上对应 `Avatar` 组件的"无图占位"分支——本组件不渲染外部图片，
+/// 的位置。本组件**不渲染外部图片**，
 /// 仅按姓名首字符 + 由姓名稳定哈希出的色相填充背景。
 ///
 /// 视觉规格：
@@ -51,9 +47,8 @@ public struct Avatar: View {
                 Text(firstCharacter)
                     // Canvas / GraphicsContext.draw 是命令式绘制，套不了 `.coreFont`
                     // modifier，只能直接引用 `CoreTypography.Token.title.font`。
-                    // Issue #119 起该 token 本身随 Dynamic Type 缩放（不再有"固定不
-                    // 缩放"的 *Font 变体）——首字符字号因此也会跟着系统字号设置变化，
-                    // 与旧版本"本就不纳入 Dynamic Type"的说法不再成立。
+                    // 该 token 本身随 Dynamic Type 缩放，首字符字号因此也会跟着系统
+                    // 字号设置变化。
                     .font(CoreTypography.Token.title.font.weight(.bold))
                     .foregroundStyle(Color.white),
                 at: CGPoint(x: size.width / 2, y: size.height / 2)
