@@ -154,7 +154,7 @@ private struct SidebarRow<Leading: View, Trailing: View>: View {
             .frame(minHeight: CoreControlMetrics.height(for: .large))
             .padding(.horizontal, CoreSpacing.sm)
             .sidebarSelectedBackground(self.isSelected)
-            .contentShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
+            .contentShape(CoreShape.rounded(CoreRadius.medium))
         }
         .buttonStyle(.plain)
         // 向辅助技术暴露选中态，让 VoiceOver 用户感知当前导航目标
@@ -408,7 +408,7 @@ private struct SidebarSelectedBackgroundModifier: ViewModifier {
             // outer glassEffect was redundant double material — removed.
             // 单一 shape 来源：floatingGlass 与描边 overlay 共用，避免 corner
             // radius / style 改动时两处不同步 / Single shape source.
-            let shape = RoundedRectangle(cornerRadius: CoreRadius.medium)
+            let shape = CoreShape.rounded(CoreRadius.medium)
             content
                 .floatingGlass(in: shape, isInteractive: true)
                 .overlay {

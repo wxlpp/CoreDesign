@@ -52,7 +52,7 @@ public extension View {
 
         Text("floatingGlass · RoundedRect (interactive)")
             .padding()
-            .floatingGlass(in: RoundedRectangle(cornerRadius: CoreRadius.large), isInteractive: true)
+            .floatingGlass(in: CoreShape.rounded(CoreRadius.large), isInteractive: true)
     }
     .padding(CoreSpacing.xxxl)
     .background(Color.surfaceCanvas)

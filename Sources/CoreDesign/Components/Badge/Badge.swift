@@ -51,7 +51,7 @@ public nonisolated enum BadgeVariant: Sendable, Equatable {
 ///
 /// ## 视觉与 token
 ///
-/// - 背景：`Color.surfaceCanvasSubtle`（neutral）/ status background token
+/// - 背景：`Color.secondaryFill`（neutral）/ status background token
 ///   （`statusAccentSubtle` / `statusSuccessSubtle` / `statusAttentionSubtle` / `statusDangerSubtle`）
 /// - 边框（`outlined: true` 时）：`Color.borderMuted`（neutral）/ 对应 status border
 ///   token；宽度 `CoreBorderWidth.thin`
@@ -134,15 +134,28 @@ public extension Badge where Label == Text {
 private extension Badge {
     /// 由 `BadgeVariant` 映射到背景色 token。
     ///
-    /// `neutral` 走 `surfaceCanvasSubtle`（与 Tag 默认表面区分），其余 4 级走对应的
-    /// status background token；新增 variant 时同步扩展此映射。
+    /// `neutral` 走 `secondaryFill`，其余 4 级走对应的 status background token；
+    /// 新增 variant 时同步扩展此映射。
+    ///
+    /// > **Task #122 定案：neutral 由 `surfaceCanvasSubtle` 改为 `secondaryFill`。**
+    /// > #120 把 `surfaceCanvasSubtle` 改指 `secondarySystemGroupedBackground` 后，它在
+    /// > **浅色模式下与 `surfaceBase`（`systemBackground`）同为 `#FFFFFF`**——iOS 模拟器
+    /// > 实测确认。也就是说无描边的 neutral badge 放在普通页面背景上完全不可见。
+    /// >
+    /// > 根因是选错了 token **种类**：badge 背景是叠在别人之上的一小块色，该用**填充色**
+    /// > （`FillColors`，半透明、专为叠加设计），而不是**背景色**（`SurfaceColors`，专为
+    /// > 充当底层而设计）。任何单一 surface token 都修不好这个问题——换 `surfaceCanvas`
+    /// > 会在深色模式与 `surfaceBase` 同为纯黑。
+    /// >
+    /// > `secondaryFill` 浅色 α=0.16 / 深色 α=0.32，实测在 `surfaceBase` / `surfaceCanvas`
+    /// > / `surfaceRaised` 三种父容器、两种外观下均可辨。
     static func backgroundColor(for variant: BadgeVariant) -> Color {
         switch variant {
         case .info: .statusAccentSubtle
         case .success: .statusSuccessSubtle
         case .warning: .statusAttentionSubtle
         case .danger: .statusDangerSubtle
-        case .neutral: .surfaceCanvasSubtle
+        case .neutral: .secondaryFill
         }
     }
 

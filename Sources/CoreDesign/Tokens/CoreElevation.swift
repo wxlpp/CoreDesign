@@ -27,7 +27,7 @@ import SwiftUI
 /// 调用方式：
 ///
 /// ```swift
-/// RoundedRectangle(cornerRadius: CoreRadius.medium)
+/// CoreShape.rounded(CoreRadius.medium)
 ///     .fill(Color.systemBackground)
 ///     .coreShadow(.medium)
 /// ```
@@ -140,7 +140,7 @@ public extension View {
     /// ```swift
     /// VStack { ... }
     ///     .background(Color.systemBackground)
-    ///     .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
+    ///     .clipShape(CoreShape.rounded(CoreRadius.medium))
     ///     .coreShadow(.medium)
     /// ```
     ///
@@ -171,7 +171,7 @@ private struct CoreElevationPreview: View {
         VStack(spacing: 32) {
             ForEach(CoreElevation.Level.allCases, id: \.self) { level in
                 VStack(spacing: 6) {
-                    RoundedRectangle(cornerRadius: CoreRadius.medium)
+                    CoreShape.rounded(CoreRadius.medium)
                         .fill(Color.systemBackground)
                         .frame(width: 160, height: 80)
                         .coreShadow(level)

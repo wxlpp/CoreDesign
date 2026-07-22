@@ -83,7 +83,7 @@ public struct SearchField: View {
     }
 
     public var body: some View {
-        let shape = RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
+        let shape = CoreShape.rounded(CoreRadius.small)
         return HStack(spacing: CoreSpacing.sm) {
             // 聚焦命中区 / Focus hit-test region：点击放大镜 + TextField 区域才聚焦，
             // 不包含尾部 clear button——避免清空时容器 tap 立即重新聚焦的交互冲突。

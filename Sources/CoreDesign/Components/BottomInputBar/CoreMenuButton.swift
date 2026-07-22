@@ -59,20 +59,18 @@ private struct MenuIconView: View, @MainActor Animatable {
 
     /// 图标基线尺寸（pt），随 Dynamic Type 缩放。
     ///
-    /// 刻意使用 `CoreControlMetrics.iconSize(for: .regular)` (16pt)——而非与外框
-    /// `CoreMenuButtonStyleModifier.controlSize` (`.large` = 50pt) 同档的 `.large` (20pt)——
-    /// 这个选型是在 Issue #119 换值**之前**做的：当时 `.large` 外框是 40pt，16/40 ≈ 0.4
-    /// 恰好落在 SF Symbol 的经验值（icon ≈ 容器 40%）上，而 `.large` iconSize (20pt) 会
-    /// 过冲到 50%。
+    /// **Task #122 定案：改用 `CoreControlMetrics.iconSize(for: .large)` (20pt)**。
     ///
-    /// > **换值后该论证已不成立**：外框变 50pt 后，当前的 16pt 算下来是 16/50 = 0.32，
-    /// > **低于**那个 40% 经验值；反而是 `.large` (20pt) 现在恰好等于 40%（20/50）。
-    /// > 也就是说原结论的方向翻转了。
-    /// >
-    /// > Task #121 只更正失实的 pt 数字、保持 `.regular` 选型不变——「换哪一档才对」是
-    /// > 视觉判断，归 **Task #122** 逐点重审。复核时请注意这里是一处**已知的欠冲**，
-    /// > 不是「维持原比例」。
-    @ScaledMetric(relativeTo: .body) private var size: CGFloat = CoreControlMetrics.iconSize(for: .regular)
+    /// 原先用 `.regular` (16pt) 的选型是在 Issue #119 换值**之前**做的：当时 `.large`
+    /// 外框是 40pt，16/40 ≈ 0.4 恰好落在 SF Symbol 的经验值（icon ≈ 容器 40%）上。
+    /// height 标度换值后外框变 50pt（`CoreMenuButtonStyleModifier.controlSize`，见下），
+    /// 16/50 = 0.32 已跌破 40% 经验值——反而是 `.large` iconSize (20pt) 现在恰好等于
+    /// 40%（20/50）。原结论的方向已翻转，故这里改选 `.large`，让图标与外框的比例回到
+    /// 设计初衷的经验值，而不是继续沿用一个数字上已不成立的 `.regular`。
+    ///
+    /// > Task #121 当时只更正失实的 pt 数字、保持 `.regular` 选型不变；「换哪一档才对」
+    /// > 是视觉判断，留给本任务。
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = CoreControlMetrics.iconSize(for: .large)
 
     private var lineWidth: CGFloat {
         self.size / 12
