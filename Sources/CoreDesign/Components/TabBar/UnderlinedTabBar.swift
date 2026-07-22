@@ -170,6 +170,11 @@ private struct UnderlinedTabItem: View {
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, CoreSpacing.xs)
             }
+            // Issue #123：原先无 minHeight，实测高度（label + underline 行）约
+            // 38pt，低于 44pt——`contentShape` 只撑到这块紧凑内容的大小。
+            // 补 `frame(minHeight:)`（与 ListRow / SidebarRow 同一模式）：视觉
+            // 不变（VStack 内容仍按 intrinsic 尺寸居中），命中区域撑到 44pt 地板。
+            .frame(minHeight: CoreControlMetrics.height(for: .regular))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

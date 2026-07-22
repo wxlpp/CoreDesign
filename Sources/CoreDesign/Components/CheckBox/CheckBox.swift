@@ -42,6 +42,14 @@ public struct CheckBoxToggleStyle: ToggleStyle {
             }
             configuration.label
         }
+        // Issue #123：原先无 minHeight/contentShape，命中区域退化为 icon + label 的
+        // intrinsic 高度（实测约 21pt，远低于 44pt）——`.onTapGesture` 只在这块紧凑
+        // 区域内生效。
+        // 补上 `frame(minHeight:)` + `contentShape(Rectangle())`（与 ListRow /
+        // SearchField 同一模式）：视觉不变（HStack 仍按 intrinsic 尺寸居中显示），
+        // 但命中区域撑到 44pt 地板。
+        .frame(minHeight: CoreControlMetrics.height(for: .regular))
+        .contentShape(Rectangle())
         .animation(.easeOut(duration: 0.25), value: configuration.isOn)
         .onTapGesture {
             configuration.isOn.toggle()
