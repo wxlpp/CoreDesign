@@ -19,8 +19,11 @@ public struct CircularGlassButtonStyle: ButtonStyle {
     /// `.large`（50pt，落在 `CoreControlMetrics.height` 的 28/32/44/50/56 序列内）。
     ///
     /// > 为何不读 `@Environment(\.controlSize)`：该环境值未被显式设置时是
-    /// > `.regular`，而现有五个调用点都没设——直接采信会把浮按钮从 38pt 缩到
-    /// > 32pt（实测）。若改为「忽略 `.regular` 按 `.large` 解释」，则下游**刻意**
+    /// > `.regular`，而现有五个调用点都没设——直接采信会把浮按钮显著缩小。
+    /// > （原注释此处记有「从 38pt 缩到 32pt（实测）」，那是 Issue #119 换值**之前**
+    /// > 的实测值；height 标度已整体从 24/28/32/40/48 换成 28/32/44/50/56，该经验数字
+    /// > 已失效。结论方向不受影响——`.regular` 仍显著小于 `.large`——但具体数值待
+    /// > Task #122 重新实测。）若改为「忽略 `.regular` 按 `.large` 解释」，则下游**刻意**
     /// > 写 `.controlSize(.regular)` 时会静默得到 44pt，是永久的公开 API 陷阱。
     /// > 把档位存在 style 上既避免了这两者，也让意图显式可读。
     public let size: ControlSize

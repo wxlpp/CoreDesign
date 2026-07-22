@@ -61,10 +61,17 @@ private struct MenuIconView: View, @MainActor Animatable {
     ///
     /// 刻意使用 `CoreControlMetrics.iconSize(for: .regular)` (16pt)——而非与外框
     /// `CoreMenuButtonStyleModifier.controlSize` (`.large` = 50pt) 同档的 `.large` (20pt)——
-    /// 是为了维持 16/50 = 0.32 的 icon-to-button-height 比例，匹配 SF Symbol 在容器内的
-    /// 视觉重量预期（Apple HIG "icon ≈ 容器 40%"）。若改用 `.large` (20pt)，icon 将占
-    /// 按钮 40%（20/50）——该比例是否仍是最优待 Task #122 视觉复核，这里仅更正 Task #121
-    /// 换值前遗留的失实 pt 数字，不改变原有 .regular 选型。
+    /// 这个选型是在 Issue #119 换值**之前**做的：当时 `.large` 外框是 40pt，16/40 ≈ 0.4
+    /// 恰好落在 SF Symbol 的经验值（icon ≈ 容器 40%）上，而 `.large` iconSize (20pt) 会
+    /// 过冲到 50%。
+    ///
+    /// > **换值后该论证已不成立**：外框变 50pt 后，当前的 16pt 算下来是 16/50 = 0.32，
+    /// > **低于**那个 40% 经验值；反而是 `.large` (20pt) 现在恰好等于 40%（20/50）。
+    /// > 也就是说原结论的方向翻转了。
+    /// >
+    /// > Task #121 只更正失实的 pt 数字、保持 `.regular` 选型不变——「换哪一档才对」是
+    /// > 视觉判断，归 **Task #122** 逐点重审。复核时请注意这里是一处**已知的欠冲**，
+    /// > 不是「维持原比例」。
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = CoreControlMetrics.iconSize(for: .regular)
 
     private var lineWidth: CGFloat {
