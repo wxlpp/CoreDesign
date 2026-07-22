@@ -81,4 +81,24 @@ struct ButtonRoleStyleRoleTests {
             #expect(role.resolvedColor(isEnabled: false, isPressed: false) == role.disabledColor)
         }
     }
+
+    // MARK: - 三态调色板互不相同（Issue #120）
+    //
+    // Issue #120 把 `ButtonRoleStyleRole.primary` 的调色板改为对动态 `accent` 做
+    // `mix`/`opacity` 调制而非固定色阶。这里断言每个 role 的 `color` /
+    // `activeColor` / `disabledColor` 三者结构上互不相同——`Color` 是 Equatable，
+    // 对同一表达式重复求值会得到结构相同的值，因此这条断言能捕获"调制没生效、
+    // 三态退化为同一个颜色"这类回归（尤其是 pressed 若被误改成降低不透明度，
+    // 有可能与 disabled 撞色）。真实的浅色/深色差异无法在 `swift test` 里直接
+    // 渲染断言，但 `accent` 走 `Color.accentColor`、`secondaryAccent`/`neutralAccent`
+    // 走带 light/dark 双值的 colorset、`warning`/`danger` 走同样带双值的 colorset，
+    // 三者的明暗自适应链路本身已由 SwiftUI / colorset 机制保证。
+    @Test("每个 role 的 color / activeColor / disabledColor 三态互不相同")
+    func everyRoleHasThreeDistinctTones() {
+        for role in [ButtonRoleStyleRole.primary, .secondary, .tertiary, .warning, .danger] {
+            #expect(role.color != role.activeColor, "\(role) 的 color 与 activeColor 撞色")
+            #expect(role.color != role.disabledColor, "\(role) 的 color 与 disabledColor 撞色")
+            #expect(role.activeColor != role.disabledColor, "\(role) 的 activeColor 与 disabledColor 撞色")
+        }
+    }
 }

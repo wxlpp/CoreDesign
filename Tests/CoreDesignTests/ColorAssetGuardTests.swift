@@ -92,12 +92,13 @@ struct ColorAssetGuardTests {
         }
     }
 
-    @Test("canvas 三档 colorset 存在（SurfaceColors 消费）")
-    func canvasColorsetsPresent() {
-        for name in ["canvas-default", "canvas-subtle", "canvas-inset"] {
-            #expect(colorsetExists("canvas", name), "missing \(name)")
-        }
-    }
+    // canvas 三档 colorset（`canvas-default` / `canvas-subtle` / `canvas-inset`）的守卫
+    // 已随 Issue #120 移除——`SurfaceColors` 改指系统色后不再引用它们，资产本身也删了。
+    //
+    // 这条曾是一个 git 察觉不到的跨分支语义冲突：#119 建守卫时断言它们存在，#120 并行
+    // 删除了它们，两支各自 CI 全绿、合并后测试必红（实测确认：合并后
+    // "missing canvas-default"）。处置原则是「删资产的分支负责更新守卫」，
+    // 已在 `.claude/epics/coredesign-native-foundation/120.md` 列为合并门槛项。
 
     @Test("status 语义色 colorset 全部存在（StatusColors 消费）")
     func statusColorsetsPresent() {

@@ -2,6 +2,33 @@ import SwiftUI
 
 // MARK: - Border Colors / 边框颜色
 // Source of truth: docs/PRIMER_VERSION.md
+//
+// Issue #120 完整映射表（第 3 层 BorderColors 全部 token）：
+//
+// | token          | 值                          | 判定 |
+// |----------------|------------------------------|------|
+// | borderSubtle   | separator.opacity(0.28)      | 保持现值——已是系统色（separator）的不透明度调制，见下方关于 AC 字面表述的说明 |
+// | borderDefault  | separator                    | 保持现值——已是系统色 |
+// | borderStrong   | opaqueSeparator               | 保持现值——已是系统色 |
+// | dividerDefault | separator                    | 保持现值——已是系统色 |
+// | dividerOpaque  | opaqueSeparator               | 保持现值——已是系统色 |
+// | borderMuted    | separator.opacity(0.42)       | 保持现值——已是系统色（separator）的不透明度调制 |
+// | borderHover    | opaqueSeparator               | 保持现值——已是系统色 |
+// | borderFocus    | accent（自动继承 accent 改值）| 保持别名关系不变——底层值随 accent 从 brand5 改为 Color.accentColor 自动更新 |
+// | borderSelected | accent（自动继承 accent 改值）| 保持别名关系不变——同上 |
+// | borderEmphasis | opaqueSeparator               | 保持现值——已是系统色 |
+//
+// **AC 表述歧义（Issue #120 编排已裁决，此处仅存结论）**：AC 核心映射原文写
+// 「`borderDefault` / `borderSubtle` → `separator` / `opaqueSeparator`」。按字面顺序
+// 一一对应会得到 `borderSubtle = opaqueSeparator`——那样它会与 `borderStrong` /
+// `dividerOpaque` / `borderHover` / `borderEmphasis` 四个"更重"的 token 同值，且比
+// `borderDefault` 更不透明，与"subtle 应比 default 更弱"的既有语义直接倒挂。
+//
+// 裁决：AC 那行是宽泛速记而非精确指令，不照字面执行。取
+// `borderSubtle = separator.opacity(0.28)`——它本就是系统色 `separator` 的不透明度
+// 调制，符合"改指系统色"的精神。最终梯度：
+// `subtle 0.28 < muted 0.42 < default 1.0 < strong opaqueSeparator`。
+// 裁决记录见 `.claude/epics/coredesign-native-foundation/120.md`。
 
 public extension Color {
     static var borderSubtle: Color {
