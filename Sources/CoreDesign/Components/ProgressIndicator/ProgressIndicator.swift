@@ -11,6 +11,9 @@ import SwiftUI
 ///
 /// 通用圆形加载指示器。
 ///
+/// 实用可读性优先于装饰：**无玻璃、无装饰性材质**。用于页内加载态；
+/// 需要浮层反馈请改用 `ToastHost`。
+///
 /// 封装系统 `ProgressView`，使用 `Color.accent` 作为 tint，自动响应
 /// `@Environment(\.controlSize)` 调整尺寸。
 public struct ProgressIndicator: View {

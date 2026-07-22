@@ -32,6 +32,8 @@ public nonisolated enum BadgeVariant: Sendable, Equatable {
 ///
 /// 状态指示器。
 ///
+/// 紧凑、低 chrome、**无玻璃**——**颜色本身就是语义载体**，不是装饰。
+///
 /// 用于在列表项 / 标题 / 按钮旁标注一个固定 level 的语义状态（如 "Beta" / "Draft" /
 /// "Deprecated" / "v1.0"）。形态固定为 pill：`Capsule(style: .continuous)` 圆角
 /// （`Capsule()`）+ status background token + 可选 `CoreBorderWidth.thin`

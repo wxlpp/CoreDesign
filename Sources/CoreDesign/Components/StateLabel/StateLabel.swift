@@ -58,6 +58,9 @@ extension StateLabelStyle {
 /// **材质层**: 控件. **表面角色**: 控件.
 ///
 /// 通用状态标识 pill。大圆角 + 彩色背景 + SF Symbol 图标 + label 内容。
+///
+/// 紧凑、**以色表意、无装饰性材质**——与 `Badge` 同一套克制规则，区别是它带固定图标
+/// 和调用方提供的 label 内容。
 /// 双层 init 形态对齐 `Badge` / `Tag`：`@ViewBuilder` designated init 可插图标 /
 /// 富文本，`where Label == Text` 便利 init 收 `String`。
 public struct StateLabel<Label: View>: View {

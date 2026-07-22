@@ -11,6 +11,9 @@ import SwiftUI
 ///
 /// 水平进度条。
 ///
+/// 实用可读性优先于装饰：轨道与填充都是实心圆角矩形，**无玻璃、无渐变**。
+/// value 会被钳到 `0...1`，非有限输入归零。
+///
 /// 灰色底轨 + 可配置彩色填充 + 可选左侧 label 文本。
 public struct ProgressBar: View {
     let value: Double  // 0.0...1.0

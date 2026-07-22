@@ -42,13 +42,9 @@ import SwiftUI
 
 // MARK: - FocusRingModifier
 
-/// 视觉焦点环 ViewModifier。`visible == false` 时 stroke 透明（`.clear`），
-/// 仍走 overlay 路径以避免 layout 抖动 / identity 跳变；overlay 不参与父布局，
-/// 因此对外不占空间。
-///
-/// 焦点环 `ViewModifier`。`visible == false` 时描边取 `.clear`，但仍走同一个
-/// overlay——让 SwiftUI 看到稳定的视图标识，避免布局抖动。overlay 不参与父级
-/// 布局，因此本 modifier 在两种状态下都是布局中性的。
+/// 焦点环 `ViewModifier`。`visible == false` 时描边取 `.clear`，但**仍走同一个
+/// overlay 路径**——让 SwiftUI 看到稳定的视图标识，避免布局抖动 / identity 跳变。
+/// overlay 不参与父级布局，因此本 modifier 在两种状态下都是布局中性的、对外不占空间。
 struct FocusRingModifier: ViewModifier {
     var visible: Bool
     var color: Color

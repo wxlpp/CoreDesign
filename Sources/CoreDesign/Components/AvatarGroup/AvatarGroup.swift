@@ -11,6 +11,8 @@ import SwiftUI
 ///
 /// 堆叠头像组。
 ///
+/// **无玻璃**——靠 `CoreBorderWidth.thin` 细描边分隔堆叠的头像与溢出计数 pill。
+///
 /// 前 N 个 avatar 交叠显示，超出 `max` 的部分显示 "+N" 计数 pill。
 /// 使用 `Group(subviews:)` 遍历子视图。
 public struct AvatarGroup<Avatars: View>: View {

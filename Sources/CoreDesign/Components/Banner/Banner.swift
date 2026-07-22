@@ -23,8 +23,8 @@ private struct BannerPalette {
 /// 配克制的描边或填充——**不用** Liquid Glass。Banner 面向**页内信息**，不是浮层反馈；
 /// 需要浮层反馈请经 `.toastHost(edge:)` 用 `ToastHost`。
 ///
-/// **材质层**: 内容 (info-only) or control (with actions).
-/// **表面角色**: 内容 / control.
+/// **材质层**: 纯信息时为内容层，带动作时为控件层。
+/// **表面角色**: 内容 / 控件。
 ///
 /// 通栏式信息提示组件。
 ///
