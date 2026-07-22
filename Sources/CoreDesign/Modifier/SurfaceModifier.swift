@@ -57,14 +57,14 @@ private extension SurfaceKind {
     /// 该 kind 对应的边框色 token / Border color token for this kind.
     var border: Color {
         switch self {
-        case .canvas: .borderDefault
+        case .canvas: .clear
         case .content: .borderMuted
         case .control: .borderSubtle
         case .floating: .borderMuted
         case .overlay: .borderDefault
         case .canvasSubtle: .borderMuted
         case .panel: .borderDefault
-        case .sidebar: .borderDefault
+        case .sidebar: .clear
         case .card: .borderMuted
         }
     }
@@ -72,7 +72,7 @@ private extension SurfaceKind {
     /// 该 kind 对应的圆角 token / Corner radius token for this kind.
     var cornerRadius: CGFloat {
         switch self {
-        case .canvas: CoreRadius.medium
+        case .canvas: CoreRadius.none
         case .content: CoreRadius.medium
         case .control: CoreRadius.small
         case .floating: CoreRadius.large
@@ -103,6 +103,16 @@ struct SurfaceModifier: ViewModifier {
         let shape = CoreShape.rounded(self.kind.cornerRadius)
         // strokeBorder 内描边（路径在形状内部），避免后续 clipShape 把居中描边的外侧一半裁掉
         // 导致视觉上 1pt 变细。strokeBorder + clipShape 组合保证边框完整可见。
+        //
+        // Task #125 视觉终审发现：`.canvas` / `.sidebar` 这类**页面级容器**此前也带
+        // `borderDefault` 描边 + 圆角裁剪，于是 `ListRow`（用 `.surface(.canvas)`）
+        // 每一行都被渲染成一个独立的圆角描边盒子——深色模式下行背景与页面背景同色，
+        // 看起来就是一摞空的描边框，与 `ListRow` 文档承诺的「无默认卡片化」直接矛盾。
+        //
+        // 页面级容器本就不该有边框和圆角（`.sidebar` 的 `CoreRadius.none` 早已体现
+        // 这个判断，只是 `.canvas` 没跟上）。二者的 border 现取 `.clear`、`.canvas`
+        // 的圆角取 `.none`。仍走同一条 overlay 路径而不是加分支——保持视图标识稳定，
+        // 且 `.clear` 描边不产生任何像素。
         return content
             .background(shape.fill(self.kind.background))
             .overlay(shape.strokeBorder(self.kind.border, lineWidth: CoreBorderWidth.thin))
