@@ -67,6 +67,13 @@ import SwiftUI
 ///     Label("good first issue", systemImage: "star.fill")
 /// }
 /// ```
+/// > Important: `removable: true` 时，移除按钮的**命中区向 chip 视觉边界之外溢出**
+/// > （纵向约 8pt、横向约 4pt）——为满足 HIG 44pt 触控下限而有意为之，**布局尺寸不受影响**
+/// > （removable 与非 removable 的 chip 高度相同，实测均为 24pt）。
+/// >
+/// > 因此**相邻可交互元素之间应留出 ≥8pt 间距**，否则命中区会互相重叠、形成看不见的
+/// > 点击陷阱。组件自身 `#Preview` 用的 `CoreSpacing.md`(12pt) 行距是安全的。
+///
 public struct Tag<Label: View>: View {
 
     // MARK: - Init
@@ -107,8 +114,37 @@ public struct Tag<Label: View>: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(self.onRemove == nil)
+                // Issue #123：原先只有 `.padding(CoreSpacing.xxs)` + `contentShape`，
+                // 命中区域 = 14pt 图标 + 2×2pt = 约 18×18pt，仅为 HIG 44pt 下限的 41%。
+                //
+                // **修法必须不影响布局**——这是与 CheckBox / UnderlinedTabItem 的关键区别。
+                // 那两者的 `.frame(minHeight:)` 加在组件**唯一的整条 body** 外层，整个可点
+                // 单元一起变高是可接受的取舍。而移除按钮只是 chip 内的一个**子视图**：
+                // HStack 高度取子视图最大值，直接给它加 44pt frame 会把整条 chip（连同旁边
+                // 完全没变的 label）一起撑起来——实测 24pt → 52pt，2.1 倍，且同一行里的
+                // 非 removable tag 仍是 21pt，高度严重错配。
+                //
+                // 故用「对称 padding 撑开命中区、再用负 padding 抵消布局影响」的标准写法。
+                // 尺寸实测（iOS Simulator，`ImageRenderer`）：
+                //
+                //     图标裸尺寸（`.font(.system(size: 14))` 的字形盒）  16×16
+                //     + `CoreSpacing.xxs`（2pt，视觉内边距，参与布局）    20×20
+                //     + `CoreSpacing.md`（12pt，命中区扩展）             44×44  ← HIG 下限
+                //
+                // 注意 **图标字号 14pt 渲染出来是 16pt 的盒**，不是 14——早先版本按 14 推算
+                // 得出 `13pt slop`，实际只有 40–42pt，够不到下限。数值一律以实测为准。
+                //
+                // > **调用方需知**：命中区比 chip 的视觉边界向外溢出——纵向约
+                // > `12 − CoreSpacing.xs(4) = 8pt`、横向约 `12 − CoreSpacing.sm(8) = 4pt`。
+                // > 对小尺寸关闭按钮这是 Apple 自己也在用的常规做法，但**相邻可交互元素
+                // > 之间应留出 ≥8pt 间距**，否则命中区会互相重叠形成看不见的点击陷阱。
+                //
+                // > 代价：`ImageRenderer` 量的是布局 frame，量不到这个 44pt 命中区，
+                // > 因此无法用 `TouchTargetTests` 的方式加断言。见该文件头「例外（四）」。
                 .padding(CoreSpacing.xxs)
+                .padding(CoreSpacing.md)
                 .contentShape(Rectangle())
+                .padding(-CoreSpacing.md)
                 .accessibilityLabel(Text("Remove tag", bundle: .module))
             }
         }
