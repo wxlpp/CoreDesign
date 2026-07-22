@@ -58,6 +58,26 @@ struct AccentDerivationTests {
         }
     }
 
+    @Test("混合只动明度、不显著降 alpha")
+    func derivationPreservesOpacity() {
+        // 任务 AC 要求「不要降 alpha」——降 alpha 只会露出更多背景、削弱存在感。
+        // 实现用的是明度混合，本应保持不透明。唯一例外：macOS 的 `.primary`
+        // （`NSColor.labelColor`）自带 α≈0.85，按线性混合公式 `(1-t)·1 + t·0.85`
+        // 算得 hover(t=0.15) α≈0.976、pressed(t=0.25) α≈0.961。iOS 的 `UIColor.label`
+        // 全不透明，不受影响。
+        //
+        // 这个 2–4% 的下滑视觉不可辨，但此前只写在注释里、没有任何断言守着。
+        // 取 0.95 作下界：既容得下 macOS 的已知副作用，又能拦住「改回 opacity 调制」
+        // 这类真正的降 alpha 回归。
+        for scheme in [ColorScheme.light, .dark] {
+            let e = Self.env(scheme)
+            for (name, color) in [("accentHover", Color.accentHover), ("accentPressed", Color.accentPressed)] {
+                let alpha = color.resolve(in: e).opacity
+                #expect(alpha > 0.95, "\(name) 在 \(scheme) 下 alpha 降到 \(alpha)——混合不应显著降透明度")
+            }
+        }
+    }
+
     @Test("混合基色未被提前解析——四档在浅色与深色下取值不同")
     func derivationIsAppearanceAdaptive() {
         let light = Self.env(.light), dark = Self.env(.dark)
