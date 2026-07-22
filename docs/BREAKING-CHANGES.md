@@ -1,6 +1,9 @@
 # Breaking Changes
 
-本库当前无外部版本 tag，破坏性变更按 Issue 记录在此。下游升级前请对照。
+破坏性变更按版本 / Issue 记录在此，下游升级前请对照。
+
+> 已发布的 git tag：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）。本文件早期版本曾写
+> 「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
 
 ## `0.3.0`（epic coredesign-native-foundation，2026-07-21 ~ 2026-07-23）
 
@@ -23,7 +26,7 @@
 |---|---|---|
 | `BookCover` / `RefPill` / `StatusRow` / `EventRow` / `CommentCard` / `TimelineItem`（6 个组件） | #117 | **无直接替代**——它们服务于「GitHub Issue 时间线」这一具体场景，在通用设计系统里被判定为死重而非迁移目标。若下游依赖，需按各自场景用 SwiftUI 原生组件重建；`0.4.0` 会新增的 `Card` / `InsetGroupedSection` 等通用容器可作为重建时的基础构件，但不是这 6 个组件的直接替代品 |
 | `StatusResult`（枚举，`StatusRow.swift` 内） | #117 | 随 `StatusRow` 一并删除，无独立替代。注意 `StatusLevel`（`Banner` / `Toast` 的公开参数类型）**保留**，未受影响，不要混淆两者 |
-| `timelineDepth`（`EnvironmentValues` 入口） | #117 | **无替代**——随 `TimelineItem` 删除，功能本身不再提供 |
+| `timelineDepth`（`EnvironmentValues` 入口） | #117 | **从未 `public`，对下游无影响**——`@Entry` 不继承 public 访问级别（本库对此有惯例：`Toast.swift` 的 `toastHost` 显式写了 `@Entry public var`，而 `segmentedControlStyle` / `bannerStyle` 与本条一样是 internal）。列在此处仅为完整记录随 `TimelineItem` 一并消失的符号，**不构成破坏性变更** |
 | `Blossom` package trait | #118 | **无替代**。下游若在 `Package.swift` 里写 `.package(url: "...", traits: ["Blossom"])`，升级后会在**依赖解析期**报 unknown-trait 错误——报错发生在 SwiftPM manifest 解析层，**不是编译错误**，下游不一定能第一时间把这个报错与本次升级关联起来，请特别注意。若需要强调色主题化，改用宿主 App 自己的 `AccentColor` 资源（见下方「改名的 token」表外的语义色变更） |
 | `CoreGradient.brand` / `.cta` / `.canvas` | #118 | `brand` / `cta` → `Color.accent`；`canvas` → `Color.surfaceCanvas`。三者此前都是 `AnyShapeStyle`，默认主题下本就退化为对应纯色，替换后视觉不变 |
 | `CoreRadius.smallPlus`（4pt，删除前库内零调用点） | #119 / #121 | 就近改用 `CoreRadius.small`（6pt） |
@@ -113,7 +116,7 @@
 | `Color.accentDisabled` | `Color.brand2`（固定色阶） | `accent.opacity(0.35)` |
 | `Color.accentSubtleBackground` | `Color.brand1`（固定色阶） | `accent.opacity(0.12)` |
 | `Color.selectionBackgroundEmphasis` | 借道 `accentDisabled`（= `brand2`，淡色块） | 实心 `accent` |
-| `Color.borderFocus` / `Color.borderSelected` | 独立固定蓝 colorset（light `#0969da` / dark `#1f6feb`） | `Color.accent`（随 accent 改值自动继承） |
+| `Color.borderFocus` / `Color.borderSelected` | `Color.accent`（即固定色阶 `brand5` 品牌蓝）——**注意它们在 `0.2.0` 就已指向 `accent`**，独立蓝色 colorset 是更早的 Issue #93 删的，不是本次 | `Color.accent`（指向不变，但 `accent` 本身改指宿主 `AccentColor`，故实际取值随之变化——见上一行） |
 | `Color.surfaceCanvas` / `Color.surfaceGrouped` | 自有 `canvas-default` colorset（light `#FCFBF7` / dark `#11110F`） | `Color.systemGroupedBackground` |
 | `Color.surfaceCanvasSubtle` | 自有 `canvas-subtle` colorset（light `#F3F0EA` / dark `#1A1916`） | `Color.secondarySystemGroupedBackground` |
 | `Color.surfaceCanvasInset` / `Color.surfaceInteractive` | 自有 `canvas-inset` colorset（light `#F8F5EF` / dark `#0F0F0D`，不透明） | `Color.tertiaryFill`（系统填充色，半透明叠加语义） |
