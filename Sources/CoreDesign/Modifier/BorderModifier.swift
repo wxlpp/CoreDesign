@@ -17,7 +17,7 @@ import SwiftUI
 /// 描边（`SurfaceModifier`、`TelegramGlassButtonModifier`、`ButtonBackgroundModifier`）
 /// 用的都是 `strokeBorder`，本 modifier 现与之对齐。
 ///
-/// 形状泛型化（同为 D8）：原先写死 `RoundedRectangle(cornerRadius: CoreRadius.none)`，
+/// 形状泛型化（同为 D8）：原先写死圆角矩形（半径固定取 `CoreRadius.none`），
 /// `cornerRadius: 0` 时既误导又无法用于 `Capsule`。约束取 `InsettableShape` 而非
 /// `Shape`——`strokeBorder` 只对前者可用。
 struct BorderModifier<S: InsettableShape, Style: ShapeStyle>: ViewModifier {

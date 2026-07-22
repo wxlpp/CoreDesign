@@ -8,7 +8,7 @@
 //  This file ships a cross-platform `View.focusRing(visible:color:width:cornerRadius:)`
 //  modifier.
 //
-//  - iOS / iPadOS / visionOS: 完整实现 — `.overlay(RoundedRectangle().stroke())`
+//  - iOS / iPadOS / visionOS: 完整实现 — `.overlay(圆角矩形.stroke())`
 //    纯视觉焦点环，由 SwiftUI `@FocusState` 等外部状态驱动 `visible` 入参。
 //  - macOS: 同样走 SwiftUI overlay 兜底（与 iOS 一致），即 PRD/epic 描述的
 //    "spike fallback"。**这是 issue #9 的最终决策**，不是占位。
@@ -69,7 +69,11 @@ struct FocusRingModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay(
-                RoundedRectangle(cornerRadius: self.cornerRadius)
+                // Task #122：改用 `CoreShape.rounded` 统一出口——原先裸构造圆角矩形
+                // 未指定 `style`，隐式取 `.circular`，与全仓其余圆角元素的
+                // `.continuous`（squircle）不一致，在方形转角附近与宿主视图的圆角
+                // 描边会有肉眼可见的错位。
+                CoreShape.rounded(self.cornerRadius)
                     .stroke(
                         self.visible ? self.color : .clear,
                         lineWidth: self.width

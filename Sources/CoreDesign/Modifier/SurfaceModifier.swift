@@ -16,7 +16,7 @@ import SwiftUI
 ///
 /// 每个 kind 通过 `View.surface(_:)` 派生出一组
 /// `(background, border, cornerRadius)` 三件套，全部从 token 派生，
-/// 调用方无需手写 `RoundedRectangle().fill().overlay(stroke())` 三件套。
+/// 调用方无需手写"圆角矩形 fill + overlay stroke"三件套。
 public nonisolated enum SurfaceKind: Sendable, Equatable {
     /// Page-level canvas.
     case canvas
@@ -102,7 +102,7 @@ struct SurfaceModifier: ViewModifier {
     let kind: SurfaceKind
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: self.kind.cornerRadius, style: .continuous)
+        let shape = CoreShape.rounded(self.kind.cornerRadius)
         // strokeBorder 内描边（路径在形状内部），避免后续 clipShape 把居中描边的外侧一半裁掉
         // 导致视觉上 1pt 变细。strokeBorder + clipShape 组合保证边框完整可见。
         return content

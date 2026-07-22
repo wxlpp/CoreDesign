@@ -43,8 +43,10 @@ import SwiftUI
 ///   场景下随 colorScheme 自动渲染（譬如 `.blue` / `.purple` 在 dark mode 下亮度提升），
 ///   从而维持与衬底的对比关系。调用方若传系统 dynamic color（`Color.accentColor` 等）
 ///   亦自动适配。
-/// - **圆角**：`CoreRadius.small`（3pt）。**不**使用 `.full`——这是与 Badge 的视觉区分点
-///   之一（Badge 走 `Capsule()` pill 形态）。
+/// - **圆角**：`CoreRadius.small`（Issue #119 起 6pt，此前 3pt）。**不**使用 `.full`——
+///   这是与 Badge 的视觉区分点之一（Badge 走 `Capsule()` pill 形态）。Task #122 复核：
+///   chip 实际渲染高度（footnote 行高 + 上下 `CoreSpacing.xs` padding）约 24–26pt，
+///   6pt 圆角占比约 23–25%，仍明显是"圆角矩形"而非胶囊，与 Badge 的区分度保留。
 /// - **字号**：`.coreFont(.footnote)`。
 /// - **padding**：水平 `CoreSpacing.sm`（8pt）+ 垂直 `CoreSpacing.xs`（4pt），紧凑 chip 形态。
 /// - **关闭按钮**：`removable: true` 时右侧追加 `xmark.circle.fill` 系统图标 button，
@@ -113,7 +115,7 @@ public struct Tag<Label: View>: View {
         .padding(.horizontal, CoreSpacing.sm)
         .padding(.vertical, CoreSpacing.xs)
         .background(
-            RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)
+            CoreShape.rounded(CoreRadius.small)
                 .fill(self.color.opacity(Self.backgroundOpacity))
         )
     }

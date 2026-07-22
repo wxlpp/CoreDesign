@@ -14,7 +14,7 @@ import CoreGraphics
 /// 调用方式：
 ///
 /// ```swift
-/// RoundedRectangle(cornerRadius: CoreRadius.medium)
+/// CoreShape.rounded(CoreRadius.medium)
 ///     .stroke(.borderDefault, lineWidth: CoreBorderWidth.thin)
 /// ```
 ///
