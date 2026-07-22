@@ -5,7 +5,7 @@ struct ComponentDetail: View {
     let component: ComponentMeta
 
     private var previewBorder: RoundedRectangle {
-        RoundedRectangle(cornerRadius: CoreRadius.mediumPlus, style: .continuous)
+        RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
     }
 
     var body: some View {
@@ -14,10 +14,10 @@ struct ComponentDetail: View {
                 // Header
                 VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                     Text(component.name)
-                        .font(CoreTypography.titleMediumFont)
+                        .font(CoreTypography.Token.title2.font)
                         .foregroundStyle(Color.contentPrimary)
                     Text(component.description)
-                        .font(CoreTypography.bodyMediumFont)
+                        .font(CoreTypography.Token.callout.font)
                         .foregroundStyle(Color.contentMuted)
 
                     if let demo = component.demoAction {
@@ -28,14 +28,14 @@ struct ComponentDetail: View {
                 // Light + Dark side-by-side
                 VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                     Text("Preview")
-                        .font(CoreTypography.titleSmallFont)
+                        .font(CoreTypography.Token.headline.font)
                         .foregroundStyle(Color.contentPrimary)
 
                     HStack(alignment: .top, spacing: 0) {
                         // Light
                         VStack(spacing: 0) {
                             Text("Light")
-                                .font(CoreTypography.captionFont)
+                                .font(CoreTypography.Token.caption.font)
                                 .foregroundStyle(Color.contentMuted)
                                 .padding(.vertical, CoreSpacing.xs)
                                 .frame(maxWidth: .infinity)
@@ -53,7 +53,7 @@ struct ComponentDetail: View {
                         // Dark
                         VStack(spacing: 0) {
                             Text("Dark")
-                                .font(CoreTypography.captionFont)
+                                .font(CoreTypography.Token.caption.font)
                                 .foregroundStyle(Color.contentMuted)
                                 .padding(.vertical, CoreSpacing.xs)
                                 .frame(maxWidth: .infinity)

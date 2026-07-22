@@ -146,7 +146,7 @@ struct BottomInputBar: View {
             }
         } label: {
             Image(systemName: "wand.and.sparkles.inverse")
-                .coreFont(.titleSmall)
+                .coreFont(.headline)
         }
         .buttonStyle(.circularGlass)
         .accessibilityLabel(Text("Suggestions", bundle: .module))
@@ -160,7 +160,7 @@ struct BottomInputBar: View {
             self.submitMessage()
         } label: {
             Image(systemName: "paperplane")
-                .coreFont(.titleSmall)
+                .coreFont(.headline)
         }
         .foregroundStyle(.white)
         .backgroundStyle(.green)
@@ -173,7 +173,7 @@ struct BottomInputBar: View {
             self.onStop?()
         } label: {
             Image(systemName: "stop.fill")
-                .coreFont(.titleSmall)
+                .coreFont(.headline)
         }
         .foregroundStyle(.white)
         .backgroundStyle(.red)
@@ -223,7 +223,7 @@ struct BottomInputBarGlassEffectShape: InsettableShape {
     /// HIG 最小可点击区域边长（44pt）。输入栏收缩到 ≤ 44pt（单行紧凑态）时把形状
     /// 收成整胶囊（height/2），更高（多行）时用 `CoreRadius.large`。
     /// **不是** metrics 序列里的档位——`CoreControlMetrics.height(for: .extraLarge)`
-    /// 是 48pt，替换会静默改变布局；此处刻意保留 HIG 的 44。
+    /// 是 56pt，替换会静默改变布局；此处刻意保留 HIG 的 44。
     private static let minimumHitTargetSide: CGFloat = 44
 
     func path(in rect: CGRect) -> Path {
@@ -509,7 +509,7 @@ public extension View {
 private struct BottomInputBarChipModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .coreFont(.bodyLarge)
+            .coreFont(.body)
             .padding(.horizontal, CoreSpacing.md)
             .padding(.vertical, CoreSpacing.sm)
             .glassEffect(.regular, in: Capsule())

@@ -46,12 +46,12 @@ public struct SidebarSection<Content: View>: View {
         VStack(alignment: .leading, spacing: CoreSpacing.sm) {
             HStack(spacing: CoreSpacing.xs) {
                 Text(self.title)
-                    .coreFont(.titleSmall)
+                    .coreFont(.headline)
                     .foregroundStyle(SidebarTextStyle.primary)
 
                 if self.showsChevron {
                     Image(systemName: "chevron.right")
-                        .coreFont(.bodySmall)
+                        .coreFont(.footnote)
                         .foregroundStyle(SidebarTextStyle.secondary)
                         // 纯装饰：标题已表达分组语义，避免 VoiceOver 朗读
                         // "chevron right" 噪音 / Decorative chevron.
@@ -61,7 +61,7 @@ public struct SidebarSection<Content: View>: View {
                 Spacer()
 
                 Image(systemName: "ellipsis")
-                    .coreFont(.bodyMedium)
+                    .coreFont(.callout)
                     .foregroundStyle(SidebarTextStyle.tertiary)
                     // 装饰性占位符，当前无 action；对 VoiceOver 隐藏避免
                     // 暴露成无标签图片 / Decorative placeholder, no action.
@@ -108,7 +108,7 @@ private struct OptionalLineLimit: ViewModifier {
 /// 收敛自原先四份逐字重复的实现（审计项 B5）。差异全部由调用方经
 /// `leading` / `trailing` 两个 `@ViewBuilder` 与 `isSelected` 表达：
 ///
-/// - `leading`：图标或 `#` 字形，字号各 row 不同（`bodyLarge` / `titleMedium`）
+/// - `leading`：图标或 `#` 字形，字号各 row 不同（`body` / `title2`）
 /// - `trailing`：可选尾部内容；**a11y 语义由调用方决定**——`SidebarDocumentRow`
 ///   的 detail 承载信息须可读，`SidebarUtilityRow` / `SidebarTagRow` 的是纯装饰
 ///   须 `.accessibilityHidden(true)`。骨架不代为决定。
@@ -133,7 +133,7 @@ private struct SidebarRow<Leading: View, Trailing: View>: View {
                     .accessibilityHidden(true)
 
                 Text(self.title)
-                    .coreFont(.bodyLarge)
+                    .coreFont(.body)
                     .foregroundStyle(SidebarTextStyle.primary)
                     .modifier(OptionalLineLimit(limit: self.titleLineLimit))
 
@@ -154,7 +154,7 @@ private struct SidebarRow<Leading: View, Trailing: View>: View {
             .frame(minHeight: CoreControlMetrics.height(for: .large))
             .padding(.horizontal, CoreSpacing.sm)
             .sidebarSelectedBackground(self.isSelected)
-            .contentShape(RoundedRectangle(cornerRadius: CoreRadius.mediumPlus))
+            .contentShape(RoundedRectangle(cornerRadius: CoreRadius.medium))
         }
         .buttonStyle(.plain)
         // 向辅助技术暴露选中态，让 VoiceOver 用户感知当前导航目标
@@ -205,12 +205,12 @@ public struct SidebarNavigationRow<Leading: View>: View {
 public extension SidebarNavigationRow where Leading == AnyView {
     /// SF Symbol 便利构造（保留原签名，既有调用点不变）。
     ///
-    /// `AnyView` 擦除在此可接受：leading 只是单个 `.coreFont(.bodyLarge)` 图标、
+    /// `AnyView` 擦除在此可接受：leading 只是单个 `.coreFont(.body)` 图标、
     /// 无测试断言其具体类型（与 `Badge` 需保留 `Text` 精确类型的场景不同），
-    /// 擦除代价可忽略，且能一比一复现改前的 bodyLarge 字号观感。
+    /// 擦除代价可忽略，且能一比一复现改前的 body 字号观感。
     init(systemImage: String, title: String, isSelected: Bool, action: @escaping () -> Void) {
         self.init(title: title, isSelected: isSelected, action: action) {
-            AnyView(Image(systemName: systemImage).coreFont(.bodyLarge))
+            AnyView(Image(systemName: systemImage).coreFont(.body))
         }
     }
 }
@@ -242,11 +242,11 @@ public struct SidebarUtilityRow: View {
             action: self.action
         ) {
             Image(systemName: self.systemImage)
-                .coreFont(.bodyLarge)
+                .coreFont(.body)
         } trailing: {
             if let trailingSystemImage = self.trailingSystemImage {
                 Image(systemName: trailingSystemImage)
-                    .coreFont(.bodyLarge)
+                    .coreFont(.body)
                     .foregroundStyle(SidebarTextStyle.tertiary)
                     // 次级装饰性 affordance：随主 button 单一 action 触发，
                     // 不单独暴露给 VoiceOver / Decorative trailing affordance.
@@ -288,11 +288,11 @@ public struct SidebarDocumentRow: View {
             action: self.action
         ) {
             Image(systemName: self.systemImage)
-                .coreFont(.titleMedium)
+                .coreFont(.title2)
         } trailing: {
             // detail 承载信息（计数 / 日期），**不**隐藏，保持 VoiceOver 可读
             Text(self.detail)
-                .coreFont(.bodyMedium)
+                .coreFont(.callout)
                 .foregroundStyle(SidebarTextStyle.tertiary)
                 .lineLimit(1)
         }
@@ -324,10 +324,10 @@ public struct SidebarTagRow: View {
             action: self.action
         ) {
             Text("#")
-                .coreFont(.titleMedium)
+                .coreFont(.title2)
         } trailing: {
             Image(systemName: "chevron.right")
-                .coreFont(.bodySmall)
+                .coreFont(.footnote)
                 .foregroundStyle(SidebarTextStyle.tertiary)
                 // 装饰性指示箭头：行整体可点击，标题已表达目标
                 // Decorative trailing chevron.
@@ -371,11 +371,11 @@ public struct SidebarStatusFooter: View {
 
             VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                 Text(self.title)
-                    .coreFont(.bodySmall)
+                    .coreFont(.footnote)
                     .fontWeight(.medium)
                     .foregroundStyle(SidebarTextStyle.primary)
                 Text(self.detail)
-                    .coreFont(.bodySmall)
+                    .coreFont(.footnote)
                     .foregroundStyle(SidebarTextStyle.secondary)
                     .lineLimit(1)
             }
@@ -408,7 +408,7 @@ private struct SidebarSelectedBackgroundModifier: ViewModifier {
             // outer glassEffect was redundant double material — removed.
             // 单一 shape 来源：floatingGlass 与描边 overlay 共用，避免 corner
             // radius / style 改动时两处不同步 / Single shape source.
-            let shape = RoundedRectangle(cornerRadius: CoreRadius.mediumPlus)
+            let shape = RoundedRectangle(cornerRadius: CoreRadius.medium)
             content
                 .floatingGlass(in: shape, isInteractive: true)
                 .overlay {

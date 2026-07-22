@@ -191,10 +191,10 @@ private struct ListRowPreviewGallery: View {
                         label: {
                             VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                                 Text("README.md")
-                                    .coreFont(.bodyMedium)
+                                    .coreFont(.callout)
                                     .foregroundStyle(Color.contentPrimary)
                                 Text("Updated 2 hours ago")
-                                    .coreFont(.bodySmall)
+                                    .coreFont(.footnote)
                                     .foregroundStyle(Color.contentMuted)
                             }
                         },
@@ -213,7 +213,7 @@ private struct ListRowPreviewGallery: View {
                     ListRow(
                         label: {
                             Text("Notification settings")
-                                .coreFont(.bodyMedium)
+                                .coreFont(.callout)
                                 .foregroundStyle(Color.contentPrimary)
                         },
                         trailing: {
@@ -240,10 +240,10 @@ private struct ListRowPreviewGallery: View {
                         label: {
                             VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                                 Text("octocat")
-                                    .coreFont(.bodyMedium)
+                                    .coreFont(.callout)
                                     .foregroundStyle(Color.contentPrimary)
                                 Text("Member since 2011")
-                                    .coreFont(.bodySmall)
+                                    .coreFont(.footnote)
                                     .foregroundStyle(Color.contentMuted)
                             }
                         }
@@ -253,7 +253,7 @@ private struct ListRowPreviewGallery: View {
                 Self.section(title: "label only") {
                     ListRow {
                         Text("All issues")
-                            .coreFont(.bodyMedium)
+                            .coreFont(.callout)
                             .foregroundStyle(Color.contentPrimary)
                     }
                 }

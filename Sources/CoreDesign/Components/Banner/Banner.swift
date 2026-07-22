@@ -155,7 +155,7 @@ private func bannerBody(configuration: BannerStyleConfiguration, bordered: Bool)
         configuration.label
     }
     .accessibilityElement(children: .combine)
-    .coreFont(.bodyMedium)
+    .coreFont(.callout)
     .foregroundStyle(palette.foreground)
     .padding(CoreSpacing.md)
     .background {

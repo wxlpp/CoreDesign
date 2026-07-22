@@ -127,7 +127,7 @@ private struct ToastSnapshotHarness: View {
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
             Text("Tap button to show a toast.")
-                .font(CoreTypography.bodyMediumFont)
+                .font(CoreTypography.Token.callout.font)
                 .foregroundStyle(Color.contentMuted)
             Button("Info") { self.toast?.show("Info: demo", level: .info) }
             Button("Success") { self.toast?.show("Success: demo", level: .success) }
@@ -143,7 +143,7 @@ private struct ToastSnapshotHarness: View {
 
 #Preview("BottomInputBar") {
     Text("BottomInputBar 通过 `.bottomInputBar` modifier 使用，非独立 View。")
-        .font(CoreTypography.bodySmallFont)
+        .font(CoreTypography.Token.footnote.font)
         .foregroundStyle(Color.contentMuted)
         .padding()
 }

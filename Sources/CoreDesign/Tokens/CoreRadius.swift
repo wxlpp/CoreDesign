@@ -29,18 +29,8 @@ public nonisolated enum CoreRadius {
     /// 小圆角 (6pt)。Badge、Tag、紧凑控件的圆角。
     public static let small: CGFloat = 6
 
-    /// 比小圆角略小 (4pt)。**遗留档位，已弃用**——`Sidebar.swift:157,411` 仍在用，
-    /// 由 Task #121 在迁走调用点后删除。不要在新代码中使用。
-    @available(*, deprecated, message: "改用 CoreRadius.small（6pt）或就近的新档位；本档由 Task #121 迁移调用点后删除。")
-    public static let smallPlus: CGFloat = 4
-
     /// 中圆角 (10pt)。按钮、输入框、Card、容器的默认圆角。
     public static let medium: CGFloat = 10
-
-    /// 比中圆角略大 (8pt)。**遗留档位，已弃用**——`Sidebar.swift:157,411` 仍在用，
-    /// 由 Task #121 在迁走调用点后删除。不要在新代码中使用。
-    @available(*, deprecated, message: "改用 CoreRadius.medium（10pt）或就近的新档位；本档由 Task #121 迁移调用点后删除。")
-    public static let mediumPlus: CGFloat = 8
 
     /// 大圆角 (16pt)。Dialog、Modal、希望视觉柔和的容器。
     public static let large: CGFloat = 16

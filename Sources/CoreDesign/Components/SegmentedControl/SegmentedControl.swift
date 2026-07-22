@@ -158,7 +158,7 @@ private struct SwiftUISegmentedControl: View {
             self.configuration.select(segment.index)
         } label: {
             Text(segment.title)
-                .coreFont(.bodyMedium)
+                .coreFont(.callout)
                 .fontWeight(segment.isSelected ? .semibold : .regular)
                 .foregroundStyle(segment.isSelected ? Color.contentPrimary : Color.contentSecondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

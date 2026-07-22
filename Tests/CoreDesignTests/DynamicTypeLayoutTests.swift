@@ -27,7 +27,7 @@ struct DynamicTypeLayoutTests {
     // Task 1 Step 4 的 spike，保留作机制回归锚点（改用 renderedHeight）。
     @Test("spike：ImageRenderer 尊重注入的 dynamicTypeSize")
     func imageRendererRespectsDynamicType() {
-        let text = Text("Ag").coreFont(.bodyLarge)
+        let text = Text("Ag").coreFont(.body)
         #expect(self.renderedHeight(text, at: .accessibility5) > self.renderedHeight(text, at: .large),
                 "ImageRenderer 未按注入档缩放——Task 5 的整套断言不成立")
     }
@@ -63,7 +63,7 @@ struct DynamicTypeLayoutTests {
 
     @Test("coreFont 的字号在 iOS 下确实随 Dynamic Type 变化")
     func coreFontActuallyScales() {
-        let text = Text("Ag").coreFont(.bodyLarge)
+        let text = Text("Ag").coreFont(.body)
         let small = self.renderedHeight(text, at: .large)
         let ax5   = self.renderedHeight(text, at: .accessibility5)
         #expect(small > 0, "渲染失败（uiImage nil）")
@@ -78,7 +78,7 @@ struct DynamicTypeLayoutTests {
     // 不是回归；保留旧名 `captionSmallDoesNotScale` 会误导读者，故一并更名。
     @Test("captionSmall 现在是 caption2 的别名，随 Dynamic Type 缩放")
     func captionSmallNowScalesViaCaption2Alias() {
-        let text = Text("9").coreFont(.captionSmall)
+        let text = Text("9").coreFont(.caption2)
         let small = self.renderedHeight(text, at: .large)
         let ax5   = self.renderedHeight(text, at: .accessibility5)
         #expect(small > 0, "渲染失败（uiImage nil）")

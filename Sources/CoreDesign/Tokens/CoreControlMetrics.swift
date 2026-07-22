@@ -9,9 +9,9 @@ import SwiftUI
 // MARK: - CoreControlMetrics
 
 /// 控件尺寸 token，按 SwiftUI `ControlSize`（mini / small / regular / large / extraLarge）
-/// 暴露 5 个主查询 helper（height / horizontalPadding / verticalPadding / font / iconSize）
-/// + 1 个已弃用的 escape hatch（`primerVerticalPadding`，Issue #119 起不再有意义，仅保留
-/// 供零调用点确认后删除）。
+/// 暴露 5 个查询 helper（height / horizontalPadding / verticalPadding / font / iconSize）。
+/// 曾有第 6 个已弃用的 escape hatch `primerVerticalPadding`（Issue #119 起不再有意义），
+/// 确认零调用点后已由 Task #121 删除。
 ///
 /// 调用方式（caseless enum + `static func`）：
 ///
@@ -125,28 +125,6 @@ public nonisolated enum CoreControlMetrics {
         case .extraLarge: return CoreSpacing.lg  // 16pt
         @unknown default:
             return CoreSpacing.md
-        }
-    }
-
-    // MARK: - primerVerticalPadding (deprecated escape hatch)
-
-    /// **已弃用**：曾是"严格命中 Primer 精确高度"的逃生口，Issue #119 把控件尺寸标度
-    /// 切到 Apple HIG 后不再有对应的"精确值"概念——本仓库不再追踪任何第三方像素级
-    /// 标度。零调用点（`grep -rn "primerVerticalPadding(for:" Sources Tests App` 只命中
-    /// 本文件自身），由 Task #121 确认后删除。
-    ///
-    /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
-    /// - Returns: 沿用旧 Primer `paddingBlock` 精确值（pt），仅供参考，不再是权威取值。
-    @available(*, deprecated, message: "Issue #119 起标度已切到 Apple HIG，不再有对应的'Primer 精确值'概念；零调用点，改用 verticalPadding(for:)。")
-    public static func primerVerticalPadding(for controlSize: ControlSize) -> CGFloat {
-        switch controlSize {
-        case .mini: return 2         // 旧 Primer xsmall.paddingBlock
-        case .small: return 4        // 旧 Primer small.paddingBlock
-        case .regular: return 6      // 旧 Primer medium.paddingBlock
-        case .large: return 10       // 旧 Primer large.paddingBlock
-        case .extraLarge: return 14  // 旧 Primer xlarge.paddingBlock
-        @unknown default:
-            return 6
         }
     }
 

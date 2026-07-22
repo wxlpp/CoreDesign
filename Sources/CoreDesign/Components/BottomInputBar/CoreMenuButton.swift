@@ -60,10 +60,11 @@ private struct MenuIconView: View, @MainActor Animatable {
     /// 图标基线尺寸（pt），随 Dynamic Type 缩放。
     ///
     /// 刻意使用 `CoreControlMetrics.iconSize(for: .regular)` (16pt)——而非与外框
-    /// `CoreMenuButtonStyleModifier.controlSize` (`.large` = 40pt) 同档的 `.large` (20pt)——
-    /// 是为了维持 16/40 ≈ 0.4 的 icon-to-button-height 比例，匹配 SF Symbol 在容器内的
+    /// `CoreMenuButtonStyleModifier.controlSize` (`.large` = 50pt) 同档的 `.large` (20pt)——
+    /// 是为了维持 16/50 = 0.32 的 icon-to-button-height 比例，匹配 SF Symbol 在容器内的
     /// 视觉重量预期（Apple HIG "icon ≈ 容器 40%"）。若改用 `.large` (20pt)，icon 将占
-    /// 按钮 50%，视觉过重、破坏与输入栏 trailing 圆形按钮的平衡。
+    /// 按钮 40%（20/50）——该比例是否仍是最优待 Task #122 视觉复核，这里仅更正 Task #121
+    /// 换值前遗留的失实 pt 数字，不改变原有 .regular 选型。
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = CoreControlMetrics.iconSize(for: .regular)
 
     private var lineWidth: CGFloat {
@@ -111,7 +112,7 @@ private struct CoreMenuButtonStyleModifier: ViewModifier {
     }
 
     /// 控件外框尺寸。匹配 SwiftUI `ControlSize.large` 的 Primer 规格
-    /// (`CoreControlMetrics.height(for: .large)` = 40pt)，与输入栏 trailing 圆形按钮保持视觉等高。
+    /// (`CoreControlMetrics.height(for: .large)` = 50pt)，与输入栏 trailing 圆形按钮保持视觉等高。
     private let controlSize: CGFloat = CoreControlMetrics.height(for: .large)
 }
 

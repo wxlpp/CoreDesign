@@ -36,24 +36,8 @@ struct CoreTypographyTokenTests {
         #expect(CoreTypography.Token.allCases.count == 12)
     }
 
-    @Test("9 个弃用别名解析到映射固定的新档位")
-    func deprecatedAliasesResolveToMappedToken() {
-        #expect(CoreTypography.Token.displayLarge == .largeTitle)
-        #expect(CoreTypography.Token.titleLarge == .title)
-        #expect(CoreTypography.Token.titleMedium == .title2)
-        #expect(CoreTypography.Token.subtitle == .title3)
-        #expect(CoreTypography.Token.titleSmall == .headline)
-        #expect(CoreTypography.Token.bodyLarge == .body)
-        #expect(CoreTypography.Token.bodyMedium == .callout)
-        #expect(CoreTypography.Token.bodySmall == .footnote)
-        #expect(CoreTypography.Token.captionSmall == .caption2)
-    }
-
-    @Test("旧 *Font static var 仍可用，指向对应新档位的 font")
-    func legacyFontStaticVarsStillResolve() {
-        // 这些断言本身会触发弃用 warning（预期内），验证的是弃用别名在删除前
-        // 仍然指向正确的新实现，而不是编译期悄悄断链。
-        #expect(String(describing: CoreTypography.displayLargeFont) == String(describing: CoreTypography.Token.largeTitle.font))
-        #expect(String(describing: CoreTypography.captionSmallFont) == String(describing: CoreTypography.Token.caption2.font))
-    }
+    // Task #121 完成全部调用点迁移后，删除了 9 个 `@available(deprecated, renamed:)`
+    // Token 别名与 10 个旧 `*Font` static var——曾在此验证它们解析到正确新档位的两个
+    // 测试（`deprecatedAliasesResolveToMappedToken` / `legacyFontStaticVarsStillResolve`）
+    // 随别名一起删除：别名本身不存在了，断言"别名解析正确"无对象可测。
 }

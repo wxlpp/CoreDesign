@@ -26,7 +26,7 @@ import SwiftUI
 /// 视觉规格：
 /// - 内部位图边长 `CoreSpacing.xxxxl`（48pt）。`.resizable()` + `.aspectRatio(.fill)`
 ///   暴露给调用方，调用方决定外框尺寸；圆形语义由调用方 `.clipShape(Circle())` 保证。
-/// - 首字符字号 `CoreTypography.titleLargeFont`（32pt semibold）+ `.weight(.bold)`
+/// - 首字符字号 `CoreTypography.Token.title.font`（28pt regular）+ `.weight(.bold)`
 ///   保留原有 bold 视觉权重；颜色固定 `Color.white` 与彩色背景对比。
 /// - light / dark 行为一致：背景由 `Color(text:)` 哈希派生，前景始终白色。
 public struct Avatar: View {
@@ -50,9 +50,11 @@ public struct Avatar: View {
             context.draw(
                 Text(firstCharacter)
                     // Canvas / GraphicsContext.draw 是命令式绘制，套不了 `.coreFont`
-                    // modifier；头像首字母是按 avatar 尺寸的图标级字号，本就不纳入
-                    // Dynamic Type（范围边界）。故用固定 `Font` 值。
-                    .font(CoreTypography.titleLargeFont.weight(.bold))
+                    // modifier，只能直接引用 `CoreTypography.Token.title.font`。
+                    // Issue #119 起该 token 本身随 Dynamic Type 缩放（不再有"固定不
+                    // 缩放"的 *Font 变体）——首字符字号因此也会跟着系统字号设置变化，
+                    // 与旧版本"本就不纳入 Dynamic Type"的说法不再成立。
+                    .font(CoreTypography.Token.title.font.weight(.bold))
                     .foregroundStyle(Color.white),
                 at: CGPoint(x: size.width / 2, y: size.height / 2)
             )
