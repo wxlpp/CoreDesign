@@ -75,6 +75,10 @@ struct SurfaceContrastTests {
             ("statusSuccessSubtle", .statusSuccessSubtle),
             ("statusAttentionSubtle", .statusAttentionSubtle),
             ("statusDangerSubtle", .statusDangerSubtle),
+            // `statusDoneSubtle` 当前无生产消费者（见 `StatusColors.swift` 的说明），
+            // 但它与上面四个是同一批被修的 colorset（α 0.067 → 0.280）。一并纳入守卫，
+            // 免得将来它被接进 Badge 之类的组件时，alpha 已经悄悄漂回去而无人发现。
+            ("statusDoneSubtle", .statusDoneSubtle),
         ]
 
         for (name, fill) in fills {
