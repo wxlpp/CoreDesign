@@ -56,6 +56,51 @@ struct SurfaceContrastTests {
         }
     }
 
+    @Test("status subtle 填充在深色纯黑画布上仍可辨，且四档两两不同")
+    func statusSubtleFillsAreDistinguishableInDark() {
+        // Task #125 视觉终审发现的缺陷：四个 status subtle 色的**深色 α 全是 0.067**。
+        // 6.7% 的色叠在纯黑画布（深色下 `surfaceCanvas` = `systemGroupedBackground`
+        // = 纯黑）上几乎不可见，四个语义档位在深色模式下无法区分——而 `Badge` 的
+        // **文字颜色不随 variant 变化**，于是「用颜色编码语义」这件事在深色下完全失效。
+        //
+        // 这是个纯视觉缺陷：编译绿、测试绿、grep 干净，只有把 app 跑起来看深色截图
+        // 才发现得了。对照组是 Badge 的 neutral 档用的 `secondaryFill`（深色 α=0.32），
+        // 早已验证在三种父容器两种外观下均可辨——修复后取 0.28，同一量级。
+        var dark = EnvironmentValues()
+        dark.colorScheme = .dark
+        let canvas = Color.surfaceCanvas.resolve(in: dark)
+
+        let fills: [(String, Color)] = [
+            ("statusAccentSubtle", .statusAccentSubtle),
+            ("statusSuccessSubtle", .statusSuccessSubtle),
+            ("statusAttentionSubtle", .statusAttentionSubtle),
+            ("statusDangerSubtle", .statusDangerSubtle),
+            // `statusDoneSubtle` 当前无生产消费者（见 `StatusColors.swift` 的说明），
+            // 但它与上面四个是同一批被修的 colorset（α 0.067 → 0.280）。一并纳入守卫，
+            // 免得将来它被接进 Badge 之类的组件时，alpha 已经悄悄漂回去而无人发现。
+            ("statusDoneSubtle", .statusDoneSubtle),
+        ]
+
+        for (name, fill) in fills {
+            let f = fill.resolve(in: dark)
+            #expect(
+                f.opacity > 0.15,
+                "\(name) 深色 α 只有 \(f.opacity)——叠在纯黑画布上会几乎不可见"
+            )
+            #expect(f != canvas, "\(name) 与深色画布同色")
+        }
+
+        // 四档必须两两可分，否则「用颜色编码语义」失去意义。
+        for i in fills.indices {
+            for j in fills.indices where j > i {
+                #expect(
+                    fills[i].1.resolve(in: dark) != fills[j].1.resolve(in: dark),
+                    "\(fills[i].0) 与 \(fills[j].0) 在深色下同色——语义档位不可区分"
+                )
+            }
+        }
+    }
+
     @Test("填充色族整体可叠加——半透明且与各父背景不同色")
     func fillTokensLayerOverAnySurface() {
         for scheme in [ColorScheme.light, .dark] {

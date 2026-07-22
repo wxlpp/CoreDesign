@@ -31,7 +31,10 @@ struct ComponentDetail: View {
                         .font(CoreTypography.Token.headline.font)
                         .foregroundStyle(Color.contentPrimary)
 
-                    HStack(alignment: .top, spacing: 0) {
+                    // Task #125：原为 HStack 并排——两栏各只有约 185pt 宽，一行 5 个 Badge
+                    // 或稍长的 Tag 会被挤成「一字一行」的竖条，让组件在 demo 里看起来是坏的，
+                    // 而组件本身没问题。改为上下堆叠，两种外观各占满整宽。
+                    VStack(alignment: .leading, spacing: 0) {
                         // Light
                         VStack(spacing: 0) {
                             Text("Light")
@@ -46,7 +49,12 @@ struct ComponentDetail: View {
                                 .frame(maxWidth: .infinity)
                                 .background(Color.surfaceCanvas)
                         }
-                        .preferredColorScheme(.light)
+                        // Task #125：这里**不能**用 `.preferredColorScheme`——它不是局部
+                        // 作用域，会向上冒泡到整个 scene。两个兄弟视图各设一次时最后一个
+                        // 赢，结果是整屏统一成同一外观、两栏渲染完全相同，而且还会**覆盖
+                        // 掉真实的系统外观设置**（实测：模拟器设为深色，本页仍整屏浅色）。
+                        // 用 `.environment(\.colorScheme,)` 才是真正只作用于该子树。
+                        .environment(\.colorScheme, .light)
 
                         Divider()
 
@@ -64,7 +72,7 @@ struct ComponentDetail: View {
                                 .frame(maxWidth: .infinity)
                                 .background(Color.surfaceCanvas)
                         }
-                        .preferredColorScheme(.dark)
+                        .environment(\.colorScheme, .dark)
                     }
                     .background(Color.surfacePanel)
                     .overlay(self.previewBorder.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.hairline))

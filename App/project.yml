@@ -2,7 +2,13 @@
 # 它会把本地 package 引用的 `name` 字段按**当前目录名**写死（例如写成
 # "issue-118-remove-blossom" 而非 "CoreDesign"），并顺带清空
 # xcshareddata/xcschemes/CoreDesignPreview.xcscheme。
-# 若必须在 worktree 里生成，事后手动把 name 改回 CoreDesign，
+# 若必须在 worktree 里生成，事后手动把 **两处**都改回 CoreDesign——
+#   (1) `name = "..."` 字段
+#   (2) `/* ... */` 注释标记（Task #125 就漏了这处：只查 name= 字段的 grep
+#       报告「已修回」，而注释里的目录名还在，评审才发现）
+# 验证要查全部形态：`grep -c "<worktree 目录名>" project.pbxproj` 应为 0，
+# 另注：即便命名都对，不同 worktree 路径下 xcodegen 生成的 file-reference
+# UUID 也会与 main 上的不同（属已知噪声、非代码问题），不必当成新发现。
 # 并 `git checkout HEAD -- App/CoreDesignPreview.xcodeproj/xcshareddata`。
 name: CoreDesignPreview
 options:
@@ -32,6 +38,10 @@ targets:
         INFOPLIST_FILE: ""
         GENERATE_INFOPLIST_FILE: "YES"
         TARGETED_DEVICE_FAMILY: "1"
+        # 没有这一行，iOS 会把 app 当作「无启动屏的传统 app」，以 320×480 兼容
+        # 窗口运行（屏幕上下留黑边、内容被等比放大）。Task #125 的视觉终审最初
+        # 就是在这种被放大的 320×480 画布上截图的——量出来的一切尺寸关系都不作数。
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
 
   SnapshotTests:
     type: bundle.unit-test
