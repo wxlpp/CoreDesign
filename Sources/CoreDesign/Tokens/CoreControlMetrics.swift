@@ -101,8 +101,9 @@ public nonisolated enum CoreControlMetrics {
     /// > 退化为不生效的下限。
     /// >
     /// > **macOS**：系统文本样式明显更小（实测 footnote 10 / callout 12 / body 13 / title2 17），
-    /// > 算得 regular `24+15 ≈ 39 < 44`、large `32+16 ≈ 48 < 50`、extraLarge `32+22 ≈ 54 < 56`
-    /// > ——**五档全部由地板决定**，与 iOS 默认档的情形相反。
+    /// > 算得 mini / small `4×2+13 = 21 < 28 / 32`、regular `24+15 ≈ 39 < 44`、
+    /// > large `32+16 ≈ 48 < 50`、extraLarge `32+22 ≈ 54 < 56`——**五档全部由地板决定**，
+    /// > 与 iOS 默认档的情形相反。
     /// >
     /// > **iOS 大字号档**：Dynamic Type 调大后 `mini` / `small` 也会越过地板、转为由 padding
     /// > 决定，结论再次翻转。
