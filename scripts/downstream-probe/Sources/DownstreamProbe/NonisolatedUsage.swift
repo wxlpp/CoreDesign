@@ -51,8 +51,11 @@ nonisolated func useBorderWidthAndMetrics() -> CGFloat {
     CoreBorderWidth.thin + CoreButtonMetrics.pressedScale + CoreControlMetrics.height(for: .regular)
 }
 
-nonisolated func useTypographyToken() -> CGFloat {
-    CoreTypography.bodyLargeLineSpacing
+// Issue #119 删除了 `*LineSpacing` / `*Tracking` 常量（连同手写字号表与 `Spec` 一起）；
+// `CoreTypography.Token` 现在直接映射系统文本样式。这里改为构造并返回 `Token` 本身，
+// 继续覆盖"nonisolated 访问 CoreTypography.Token 不触发 MainActor 隔离"这条路径。
+nonisolated func useTypographyToken() -> CoreTypography.Token {
+    .body
 }
 
 // 注意 `CoreElevation.spec(for:)` **不在**本 probe 覆盖范围：它读 asset-backed 的
@@ -72,4 +75,11 @@ nonisolated func useStatusLevel() -> StatusLevel {
 // 这里会编译失败（Issue #93 的 A2d）。
 nonisolated func useFunctionalColors() -> [Color] {
     [.success, .info, .warning, .danger]
+}
+
+// `CoreShape` 是 #119 引入的圆角唯一出口，而它的主要消费点是 `Shape.path(in:)` 这类
+// nonisolated 同步上下文。本包走 `defaultIsolation(MainActor)`，漏 `nonisolated` 关键字
+// 时这里会编译失败——#122 迁移调用点前先在这里挡住。
+nonisolated func useCoreShape() -> some Shape {
+    CoreShape.rounded(CoreRadius.medium)
 }
