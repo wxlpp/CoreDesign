@@ -38,7 +38,7 @@ import SwiftUI
 ///   非选中 = `Color.contentSecondary`（Primer `fgColor.muted`）。
 /// - 选中下划线 = `Color.accent`（Primer `borderColor.accent.emphasis`），
 ///   厚度采用 `CoreBorderWidth.thick`（2pt，对齐 Primer focus indicator / selected state 标度）。
-/// - 字号采用 `CoreTypography.bodyMediumFont`（14pt，Primer `text.body.medium`，
+/// - 字号采用 `.coreFont(.callout)`（Primer `text.body.medium` 的迁移目标，
 ///   推荐的默认 UI 文字字号），选中态额外 `.fontWeight(.semibold)` 加强。
 /// - 间距 / padding 全部走 `CoreSpacing.*`；左侧分隔线宽度走 `CoreBorderWidth.hairline`。
 ///
@@ -150,7 +150,7 @@ private struct UnderlinedTabItem: View {
         Button(action: self.action) {
             VStack(spacing: CoreSpacing.sm) {
                 Text(self.title)
-                    .coreFont(.bodyMedium)
+                    .coreFont(.callout)
                     .fontWeight(self.isSelected ? .semibold : .regular)
                     .foregroundStyle(self.isSelected ? Color.contentPrimary : Color.contentSecondary)
                     .padding(.horizontal, CoreSpacing.md)

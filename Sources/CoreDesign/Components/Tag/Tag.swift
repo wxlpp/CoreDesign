@@ -45,7 +45,7 @@ import SwiftUI
 ///   亦自动适配。
 /// - **圆角**：`CoreRadius.small`（3pt）。**不**使用 `.full`——这是与 Badge 的视觉区分点
 ///   之一（Badge 走 `Capsule()` pill 形态）。
-/// - **字号**：`CoreTypography.bodySmallFont`（12pt regular）。
+/// - **字号**：`.coreFont(.footnote)`。
 /// - **padding**：水平 `CoreSpacing.sm`（8pt）+ 垂直 `CoreSpacing.xs`（4pt），紧凑 chip 形态。
 /// - **关闭按钮**：`removable: true` 时右侧追加 `xmark.circle.fill` 系统图标 button，
 ///   尺寸走 `CoreControlMetrics.iconSize(for: .small)`（14pt），点击调用 `onRemove`。
@@ -92,7 +92,7 @@ public struct Tag<Label: View>: View {
     public var body: some View {
         HStack(spacing: CoreSpacing.xs) {
             self.label
-                .coreFont(.bodySmall)
+                .coreFont(.footnote)
                 .foregroundStyle(self.color)
 
             if self.removable {
@@ -126,7 +126,7 @@ public struct Tag<Label: View>: View {
     private static var backgroundOpacity: Double { 0.12 }
 
     /// 关闭按钮 icon 边长。走 `CoreControlMetrics.iconSize(for: .small)` = 14pt，
-    /// 与 `bodySmallFont`（12pt）视觉等重——SF Symbol 视觉重心略低于 cap height，
+    /// 与 `.coreFont(.footnote)` 视觉等重——SF Symbol 视觉重心略低于 cap height，
     /// 稍大边长才能感觉与字母 x-height 等高。集中常量避免散落字面量。
     private static var removeIconSize: CGFloat { CoreControlMetrics.iconSize(for: .small) }
 

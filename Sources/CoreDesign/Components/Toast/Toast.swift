@@ -388,7 +388,7 @@ private struct ToastOverlay: View {
 /// 视觉 token：
 /// - 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`
 ///   浮动玻璃层，自带 strokeBorder overlay + 玻璃材质，pill 几何让 toast 读起来是系统反馈。
-/// - 字号：`CoreTypography.bodyMediumFont`
+/// - 字号：`.coreFont(.callout)`
 /// - icon / 前景色：按 `StatusLevel` 走 status color token
 /// - padding：`CoreSpacing.md` 内边距
 ///
@@ -408,7 +408,7 @@ private struct ToastView: View {
                 .foregroundStyle(self.foregroundColor)
                 .accessibilityHidden(true)
             Text(self.item.message)
-                .coreFont(.bodyMedium)
+                .coreFont(.callout)
                 .foregroundStyle(Color.contentPrimary)
                 .multilineTextAlignment(.leading)
                 .lineLimit(1)
@@ -523,7 +523,7 @@ private struct ToastDemoView: View {
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
             Text("Tap a button to enqueue a toast.")
-                .coreFont(.bodyMedium)
+                .coreFont(.callout)
                 .foregroundStyle(Color.contentMuted)
             ForEach(self.levels, id: \.label) { entry in
                 Button(entry.label) {

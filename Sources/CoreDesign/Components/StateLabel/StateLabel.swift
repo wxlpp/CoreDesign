@@ -86,7 +86,7 @@ public struct StateLabel<Label: View>: View {
                 // （与 Banner.swift:182 对 icon 的处理一致）。
                 .accessibilityHidden(true)
             self.label
-                .coreFont(.bodySmall)
+                .coreFont(.footnote)
         }
         // 前景统一走 `contentOnEmphasis`（白）——背景用 `status*Emphasis`（饱和填充），
         // 配对前景即 `onEmphasis`。此前按 style 返回 `status*Foreground` 在 #93 修正

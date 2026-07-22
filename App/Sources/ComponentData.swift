@@ -97,7 +97,7 @@ extension ComponentMeta {
         // Feedback
         ComponentMeta(id: "toast", name: "Toast", description: "Scene-scoped toast host + 队列状态机", category: .feedback, preview: {
             Text("Toast 通过 `.toastHost(edge:)` modifier 挂载到 WindowGroup 根级别")
-                .font(CoreTypography.bodySmallFont)
+                .font(CoreTypography.Token.footnote.font)
                 .foregroundStyle(Color.contentMuted)
         }, demoAction: { AnyView(ToastDemoButton()) }),
     ]
@@ -142,7 +142,7 @@ private struct SearchFieldPreview: View {
 private struct BottomInputBarPreview: View {
     var body: some View {
         Text("BottomInputBar 通过 `.bottomInputBar` modifier 使用，非独立 View。")
-            .font(CoreTypography.bodySmallFont)
+            .font(CoreTypography.Token.footnote.font)
             .foregroundStyle(Color.contentMuted)
             .padding()
     }

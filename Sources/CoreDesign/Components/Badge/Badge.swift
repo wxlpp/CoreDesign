@@ -56,7 +56,7 @@ public nonisolated enum BadgeVariant: Sendable, Equatable {
 /// - 边框（`outlined: true` 时）：`Color.borderMuted`（neutral）/ 对应 status border
 ///   token；宽度 `CoreBorderWidth.thin`
 /// - 圆角：`Capsule()`（pill 形态）
-/// - 字号：`CoreTypography.bodySmallFont` + `bodySmallTracking`
+/// - 字号：`.coreFont(.footnote)`（Issue #119 起字号直接取系统文本样式，不再有手写 tracking 常量）
 /// - padding：横向 `CoreSpacing.sm`，纵向 `CoreSpacing.xs`
 ///
 /// light / dark 行为差异：所有颜色均走 semantic token，由 colorset 自动适配，无需调用方
@@ -93,7 +93,7 @@ public struct Badge<Label: View>: View {
     public var body: some View {
         let shape = Capsule(style: .continuous)
         return self.label
-            .coreFont(.bodySmall)
+            .coreFont(.footnote)
             .padding(.horizontal, CoreSpacing.sm)
             .padding(.vertical, CoreSpacing.xs)
             .background {
