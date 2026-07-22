@@ -144,4 +144,8 @@
 
 `grep -rn "RoundedRectangle(" Sources` 现在只剩 **1 处**：`Tokens/CoreRadius.swift:71`，即 `CoreShape.rounded(_:)` 自身的实现——包装器总得在某处调用原语，这是必要的唯一例外。10 个真实调用点 + 6 处文档示例全部迁移。
 
+> **范围说明**：AC 的字面范围是 `Sources`（即 `Sources/CoreDesign`），**不含演示宿主 `App/`**。
+> `App/Sources/ComponentDetail.swift:8` 仍有一处裸 `RoundedRectangle(cornerRadius:style:)`。
+> 那不是本任务的缺陷（宿主不属于库的公开表面），但记录在此，免得后来者误以为全仓已 100% 收敛。
+
 **副产品**：`FocusRingModifier` 此前用的是**隐式 `.circular`** 角样式，从未带过 `.continuous`——一个先于本 epic 存在的不一致，借这次收敛顺手修掉了。已用 `git log -p` 确认这确实是既有问题，不是本次引入。

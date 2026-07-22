@@ -15,9 +15,18 @@ import Testing
 // > ⚠️ 这类断言**必须跑在 iOS Simulator 上**。macOS 无 WindowServer 会话时，
 // > 三个 surface token 会塌缩成同一 fallback 值，断言会给出误导性的"全部同色"结论。
 // > 故整个 suite 限定 `#if os(iOS)`——它只在 CI 的 xcodebuild iOS 腿执行。
+//
+// **断言强度的边界（有意为之）**：这里断言的是「两个 `Color.Resolved` 逐位不同」，
+// 不是「肉眼可辨」。Badge 那个 bug 正是逐位相同（双方都是 `#FFFFFF`），所以这个判据
+// 对该类回归是足够的；但它抓不到「差一点点、肉眼仍不可辨」的情形。
+//
+// 之所以不上感知色差阈值：那需要选一个色彩空间感知均匀的度量（裸 sRGB 通道差不是），
+// 并且**当前代码库里没有任何近似撞色的真实案例可用来标定阈值**——现有 token 两两之间
+// 都差着几十个色阶。在没有具体驱动案例的情况下引入阈值，只会带来误报风险而无实际收益。
+// 若将来真出现近似撞色，再按那个案例标定。
 
 #if os(iOS)
-@Suite("叠加元素与父背景可辨")
+@Suite("叠加元素与父背景不同色")
 struct SurfaceContrastTests {
 
     private nonisolated static func env(_ scheme: ColorScheme) -> EnvironmentValues {
@@ -33,8 +42,8 @@ struct SurfaceContrastTests {
         ("surfaceRaised", .surfaceRaised),
     ]
 
-    @Test("Badge neutral 背景在任意父容器、任意外观下都可辨")
-    func badgeNeutralIsVisibleAnywhere() {
+    @Test("Badge neutral 背景与任意父容器、任意外观下都不同色")
+    func badgeNeutralIsNotSameColorAsAnyParent() {
         for scheme in [ColorScheme.light, .dark] {
             let e = Self.env(scheme)
             let badge = Color.secondaryFill.resolve(in: e)
@@ -47,7 +56,7 @@ struct SurfaceContrastTests {
         }
     }
 
-    @Test("填充色族整体可叠加——半透明且与各父背景可辨")
+    @Test("填充色族整体可叠加——半透明且与各父背景不同色")
     func fillTokensLayerOverAnySurface() {
         for scheme in [ColorScheme.light, .dark] {
             let e = Self.env(scheme)
