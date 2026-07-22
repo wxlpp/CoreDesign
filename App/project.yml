@@ -7,6 +7,8 @@
 #   (2) `/* ... */` 注释标记（Task #125 就漏了这处：只查 name= 字段的 grep
 #       报告「已修回」，而注释里的目录名还在，评审才发现）
 # 验证要查全部形态：`grep -c "<worktree 目录名>" project.pbxproj` 应为 0，
+# 另注：即便命名都对，不同 worktree 路径下 xcodegen 生成的 file-reference
+# UUID 也会与 main 上的不同（属已知噪声、非代码问题），不必当成新发现。
 # 并 `git checkout HEAD -- App/CoreDesignPreview.xcodeproj/xcshareddata`。
 name: CoreDesignPreview
 options:
