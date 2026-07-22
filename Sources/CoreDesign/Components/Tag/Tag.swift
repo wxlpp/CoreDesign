@@ -7,19 +7,15 @@ import SwiftUI
 
 // MARK: - Tag
 
-/// Native Primer category tag.
-///
-/// Control-layer category label. Color is supplied by the caller (issue
-/// labels, repo-defined palettes); the chip stays compact and low chrome.
-/// No default glass, no decorative material — semantics come from the
-/// caller's color choice.
+/// 控件层的分类标签。颜色由调用方提供（标签色、自定义色板等），chip 保持紧凑、
+/// 低 chrome。**无默认玻璃、无装饰性材质**——语义完全来自调用方选的颜色。
 ///
 /// **Material layer**: control. **Surface role**: control.
 ///
 /// 任意分类标签 / Tag：GitHub issue label 风格的 chip，颜色由调用方传入。
 ///
 /// 使用场景：issue / PR 分类（`bug` / `enhancement` / `documentation` 等）、文章标签、
-/// 任意需要"调用方决定调色板"的归类视觉。Primer 概念上对应 `Label`（标签 / chip），
+/// 任意需要"调用方决定调色板"的归类视觉。
 /// 不对应 `Label`-as-icon-text 排版组件。
 ///
 /// ## Tag ↔ Badge 边界（重要）
@@ -31,7 +27,7 @@ import SwiftUI
 /// - **Badge**：5 固定状态等级（info / success / warning / danger / neutral）的状态指示器，
 ///   颜色由 token 决定，调用方**不**传颜色。
 ///
-/// 若需要的是"5 个固定状态 level"语义，请改用 `Badge`（task #30）；若需要"用户自定义/
+/// 若需要的是"5 个固定状态 level"语义，请改用 `Badge`；若需要"用户自定义/
 /// 仓库自定义调色板"，本组件正合适。
 ///
 /// ## 视觉规格
@@ -43,10 +39,10 @@ import SwiftUI
 ///   场景下随 colorScheme 自动渲染（譬如 `.blue` / `.purple` 在 dark mode 下亮度提升），
 ///   从而维持与衬底的对比关系。调用方若传系统 dynamic color（`Color.accentColor` 等）
 ///   亦自动适配。
-/// - **圆角**：`CoreRadius.small`（Issue #119 起 6pt，此前 3pt）。**不**使用 `.full`——
-///   这是与 Badge 的视觉区分点之一（Badge 走 `Capsule()` pill 形态）。Task #122 复核：
-///   chip 实际渲染高度（footnote 行高 + 上下 `CoreSpacing.xs` padding）约 24–26pt，
-///   6pt 圆角占比约 23–25%，仍明显是"圆角矩形"而非胶囊，与 Badge 的区分度保留。
+/// - **圆角**：`CoreRadius.small`（6pt）。**不**使用 `.full`——这是与 Badge 的视觉
+///   区分点之一（Badge 走 `Capsule()` pill 形态）。chip 实际渲染高度（footnote 行高 +
+///   上下 `CoreSpacing.xs` padding）约 24–26pt，6pt 圆角占比约 23–25%，仍明显是
+///   "圆角矩形"而非胶囊，与 Badge 的区分度保留。
 /// - **字号**：`.coreFont(.footnote)`。
 /// - **padding**：水平 `CoreSpacing.sm`（8pt）+ 垂直 `CoreSpacing.xs`（4pt），紧凑 chip 形态。
 /// - **关闭按钮**：`removable: true` 时右侧追加 `xmark.circle.fill` 系统图标 button，
@@ -114,8 +110,8 @@ public struct Tag<Label: View>: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(self.onRemove == nil)
-                // Issue #123：原先只有 `.padding(CoreSpacing.xxs)` + `contentShape`，
-                // 命中区域 = 14pt 图标 + 2×2pt = 约 18×18pt，仅为 HIG 44pt 下限的 41%。
+                // 若只有 `.padding(CoreSpacing.xxs)` + `contentShape`，命中区域 =
+                // 14pt 图标 + 2×2pt = 约 18×18pt，仅为 HIG 44pt 下限的 41%。
                 //
                 // **修法必须不影响布局**——这是与 CheckBox / UnderlinedTabItem 的关键区别。
                 // 那两者的 `.frame(minHeight:)` 加在组件**唯一的整条 body** 外层，整个可点

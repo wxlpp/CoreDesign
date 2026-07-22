@@ -2,10 +2,6 @@
 //  Toast.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//  PRD: .claude/prds/coredesign-v2-components.md §FR-B-7
-//  Epic: .claude/epics/coredesign-v2-components-new/epic.md ADR #9 / #14 / #16
-//
 
 import SwiftUI
 
@@ -75,24 +71,23 @@ public nonisolated enum ToastDefaults {
 
 // MARK: - ToastHost
 
-/// Native Primer floating toast host.
-///
-/// Scene-scoped queue + dispatcher for floating-layer toast feedback.
-/// Internally renders each `ToastItem` via a `ToastView` whose container
-/// uses `View.floatingGlass(in:isInteractive:)` over a `Capsule(style:
-/// .continuous)` shell so the toast reads as elevated system feedback,
-/// not content chrome. Public API (`show` / `dismiss`) and the queue
+/// Scene 级的浮层 toast 队列与调度器。
+/// 内部把每个 `ToastItem` 渲染为 `ToastView`，其容器在 `Capsule(style: .continuous)`
+/// 外壳上施加 `View.floatingGlass(in:isInteractive:)`——让 toast 读起来像**浮起的
+/// 系统反馈**，而不是内容自身的 chrome。公开 API（`show` / `dismiss`）与队列
 /// state machine are unchanged.
 ///
 /// **Material layer**: floating. **Surface role**: floating.
 ///
 /// Scene-scoped Toast 宿主：维护 toast 队列状态机 + 自动 dismiss 调度。
 ///
-/// 架构 / Architecture（per epic ADR #9）：
+/// ## 架构 / Architecture
 ///
 /// 每个 scene 持有**独立**的 `ToastHost` 实例，通过 `EnvironmentValues.toastHost`
 /// 注入到 view tree。**不是 singleton**——多 scene / sheet / 独立 window 各自隔离，
-/// 避免状态耦合（譬如某个 sheet 内的 toast 出现在主 scene 顶部）。
+/// 避免状态耦合（譬如某个 sheet 内的 toast 出现在主 scene 顶部）。这是刻意的设计
+/// 取舍：全局 singleton 虽然实现更简单，但会让不同 scene / sheet 的 toast 状态
+/// 互相干扰，与"toast 应归属于触发它的那个上下文"的直觉相悖。
 ///
 /// 调用方使用：
 ///
@@ -112,7 +107,7 @@ public nonisolated enum ToastDefaults {
 /// }
 /// ```
 ///
-/// 状态机（per epic ADR #16，硬 AC）：
+/// ## 状态机 / State machine
 ///
 /// - **dismiss timing**：`duration` 从 toast **开始显示**起算（**不是** enqueue），
 ///   通过 `Task.sleep(...) + cancel` 实现；每次切换 toast 前 `dismissTask?.cancel()`，
@@ -125,12 +120,12 @@ public nonisolated enum ToastDefaults {
 /// - **重复触发不 double-fire**：连续 `dismiss(id)` 不引发崩溃 / 重复动画
 ///   （由 `dismissTask` 单实例 + 状态判断保证）。
 ///
-/// z-order 限制（per epic ADR #16，PR description 必填字段）：
+/// ## z-order 限制
 ///
 /// `safeAreaInset(edge:)` 仅在挂 `.toastHost(edge:)` 那层 view 树内可见；**不**
 /// 覆盖 sheet / `fullScreenCover` / 独立 window。每个 sheet root 需单独挂
 /// `.toastHost(...)` 才能让 sheet 内触发的 toast 显示。这是 scene-scoped 架构
-/// 的设计取舍——singleton 全局覆盖**不被采纳**。
+/// 的直接后果——singleton 全局覆盖**不被采纳**（见上方"架构"一节的取舍说明）。
 ///
 /// Swift 6 strict concurrency：
 ///
@@ -280,9 +275,9 @@ extension EnvironmentValues {
     /// scene 没挂 host 时调用方应"无声忽略"，避免 stub 静默吞掉 toast 让人误以为
     /// host 已生效。Debug 构建可在调用点显式 `assert(toast != nil)` 提前发现错配。
     ///
-    /// R1 fix：显式 `public` 标注在 var 上（而不是仅靠 `public extension` 推导）；
-    /// 后者由 `@Entry` 宏展开时是否继承公开访问级别，是一个易被 reviewer 质疑的
-    /// 隐式行为，显式声明消除歧义并保证下游模块可访问 `@Environment(\.toastHost)`。
+    /// 显式 `public` 标注在 var 上（而不是仅靠 `public extension` 推导）：后者
+    /// 由 `@Entry` 宏展开时是否继承公开访问级别是隐式行为，显式声明消除歧义
+    /// 并保证下游模块可访问 `@Environment(\.toastHost)`。
     @Entry public var toastHost: ToastHost? = nil
 }
 
@@ -311,8 +306,8 @@ public extension View {
     /// `safeAreaInset` 仅在**挂 modifier 那层 view 树**内可见；不会覆盖 sheet /
     /// `fullScreenCover` / 独立 window。需要在 sheet 内显示 toast 时，**在 sheet
     /// 的 root view 单独挂一份** `.toastHost(...)`，使用独立的 host 实例。
-    /// 这是 scene-scoped 架构的设计取舍（per epic ADR #9 + #16），singleton 全局覆盖
-    /// 不被采纳。
+    /// 这是 scene-scoped 架构的直接后果（见 `ToastHost` 的"架构"一节），
+    /// singleton 全局覆盖不被采纳。
     ///
     /// - Parameter edge: toast 显示位置，缺省 `.top`。
     /// - Returns: 已挂载 host 的视图。
@@ -323,7 +318,7 @@ public extension View {
 
 // MARK: - ToastHostModifier
 
-/// Internal modifier：拥有 `ToastHost` 实例 + 注入 environment + 通过 `safeAreaInset`
+/// 内部 modifier：持有 `ToastHost` 实例 + 注入 environment + 经 `safeAreaInset`
 /// 在 `edge` 方向渲染队列首条 toast。
 private struct ToastHostModifier: ViewModifier {
     @State private var host = ToastHost()
@@ -341,9 +336,8 @@ private struct ToastHostModifier: ViewModifier {
 // MARK: - ToastOverlay
 
 /// 监听 `host.queue` 与 `host.isDismissing`，按状态机渲染当前显示项；空队列时
-/// 返回零尺寸 view，避免 `safeAreaInset` 永久抢占 16pt 内边距导致内容被挤压
-/// （R1 fix：原实现无论队列是否为空都施加 `.padding(.top/.bottom, lg)`，
-/// 引发视觉回归）。
+/// 返回零尺寸 view，避免 `safeAreaInset` 永久抢占 16pt 内边距导致内容被挤压——
+/// 若无论队列是否为空都施加 `.padding(.top/.bottom, lg)`，会引发视觉回归。
 private struct ToastOverlay: View {
     @Bindable var host: ToastHost
     let edge: VerticalEdge
@@ -415,9 +409,9 @@ private struct ToastView: View {
             Spacer(minLength: CoreSpacing.none)
         }
         .accessibilityElement(children: .combine)
-        // R1 fix：toast 整体可点击 dismiss，应当对 VoiceOver 暴露为 button +
-        // hint，而不是误标 `.isStaticText`（原实现告诉 VO 元素不可交互，
-        // 但实际 onTapGesture 会触发 dismiss）。
+        // toast 整体可点击 dismiss，应当对 VoiceOver 暴露为 button + hint，
+        // 而不是误标 `.isStaticText`——后者会告诉 VO 元素不可交互，但实际
+        // onTapGesture 会触发 dismiss。
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(Text("Tap to dismiss", bundle: .module))
         .padding(CoreSpacing.md)

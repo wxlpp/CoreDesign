@@ -10,8 +10,6 @@ import SwiftUI
 
 /// 控件尺寸 token，按 SwiftUI `ControlSize`（mini / small / regular / large / extraLarge）
 /// 暴露 5 个查询 helper（height / horizontalPadding / verticalPadding / font / iconSize）。
-/// 曾有第 6 个已弃用的 escape hatch `primerVerticalPadding`（Issue #119 起不再有意义），
-/// 确认零调用点后已由 Task #121 删除。
 ///
 /// 调用方式（caseless enum + `static func`）：
 ///

@@ -2,15 +2,11 @@
 //  SearchField.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//
 
 import SwiftUI
 
 // MARK: - SearchField
 
-/// Native Primer search field.
-///
 /// A compact Apple-native search/filter control with GitHub-like utility:
 /// leading search icon, optional clear action, clear focus ring, and no default
 /// Liquid Glass.
@@ -27,8 +23,7 @@ import SwiftUI
 /// - `onSubmit` —— Return / Enter 提交回调；当用户按下提交键时调用，参数为
 ///   当前 `text`。**可选**——对纯实时过滤场景留 `nil` 即可。
 ///
-/// **Primer utility mapping / Primer 实用性映射**：
-/// 对应 Primer Web 的 `<TextInput leadingVisual={SearchIcon} trailingAction={...} />`
+/// **形态**：leading 放大镜图标 + 输入区 + 尾部清除按钮
 /// 组合（GitHub 桌面 UI 中的 issue / PR 列表筛选框，仓库左上角的 "Go to file" 入口）。
 /// 本实现保留其前缀 magnifyingglass + 末尾 clear button 的实用结构。
 ///
@@ -37,23 +32,23 @@ import SwiftUI
 ///   `Color.contentPrimary`、icon `Color.contentMuted` 均走 v2-tokens 语义色，
 ///   light / dark 双模式自动切换。
 /// - 焦点环走 `View.focusRing(visible:)`：iOS 与 macOS 共享同一套 SwiftUI overlay
-///   实现（**不是临时分支**——是 v2-tokens issue #9 spike 的最终决议）。macOS
-///   下该 overlay **不被 Accessibility Inspector 识别为系统 focus indicator**，
-///   仅是视觉等价；这是 PRD SC #11 已记录的限制，详见 `FocusRingModifier.swift`
-///   文件级 doc-comment。键盘 focus / 失焦切换由内部 `@FocusState` 驱动，
-///   `borderFocus` 仅在聚焦时高亮 2pt 描边。
+///   实现（**不是临时分支**——是显式评估后的最终决定）。macOS 下该 overlay
+///   **不被 Accessibility Inspector 识别为系统 focus indicator**，仅是视觉等价；
+///   这是已记录的已知限制，详见 `FocusRingModifier.swift` 文件级 doc-comment。
+///   键盘 focus / 失焦切换由内部 `@FocusState` 驱动，`borderFocus` 仅在聚焦时
+///   高亮 2pt 描边。
 ///
 /// **height 策略 / height strategy**：使用 `frame(minHeight:)` 而非
 /// `frame(height:)`，遵循 `CoreControlMetrics` doc-comment 推荐——避免字号偏大时
-/// padding × 2 + font 超过 `height(for:)` 的 Primer 精确值导致裁切。
+/// padding × 2 + font 超过 `height(for:)` 导致裁切。
 ///
 /// **In-tree 渲染保证 / In-tree rendering guarantee**：本组件**不调用** SwiftUI
 /// `.searchable()`——它纯粹由 `HStack + TextField` 组成，因此在任意父容器
 /// （`NavigationSplitView` 的 sidebar / content / detail、`NavigationStack`、
 /// 普通 `VStack`）内都会原地渲染，**不会被 SwiftUI 提升到窗口 toolbar**。
 /// 对 macOS 多列工作区尤其重要：调用方放在 `NavigationSplitView { } content: { }` 内
-/// 时，组件不会与右上角 toolbar 项（如 Inspector toggle）抢占位置。详见
-/// "Toolbar hoist verification (macOS)" Preview / issue #83。
+/// 时，组件不会与右上角 toolbar 项（如 Inspector toggle）抢占位置。详见下方
+/// "Toolbar hoist verification (macOS)" Preview。
 ///
 /// 调用示例 / Example usage:
 ///
@@ -194,7 +189,7 @@ private struct SearchFieldPreviewHost: View {
         .preferredColorScheme(.dark)
 }
 
-/// Toolbar hoist 验证 / Toolbar hoist verification：
+/// Toolbar hoist 验证：
 ///
 /// 把 `SearchField` 放进 `NavigationSplitView` 的 content 列，并在 toolbar 的
 /// `.primaryAction` 槽里放一个按钮。**预期**：search 框留在 content 列内（不被
@@ -202,7 +197,7 @@ private struct SearchFieldPreviewHost: View {
 ///
 /// 这是 macOS 上对应原生 `.searchable()` 的反例验证——`.searchable()` 在 macOS
 /// 会把 TextField hoist 到窗口标题栏，挤占 toolbar 槽位；本组件不走那条路径，
-/// 因而可以与右上 toolbar 项（如 Inspector toggle）共存。Issue #83 跟踪该确认。
+/// 因而可以与右上 toolbar 项（如 Inspector toggle）共存。
 private struct SearchFieldNavigationHostPreview: View {
     @State private var query: String = ""
     @State private var sidebarSelection: String? = "Inbox"
@@ -245,7 +240,7 @@ private struct SearchFieldNavigationHostPreview: View {
     }
 }
 
-#Preview("Toolbar hoist verification (macOS) — issue #83") {
+#Preview("Toolbar hoist verification (macOS)") {
     SearchFieldNavigationHostPreview()
         .frame(minWidth: 720, minHeight: 480)
 }

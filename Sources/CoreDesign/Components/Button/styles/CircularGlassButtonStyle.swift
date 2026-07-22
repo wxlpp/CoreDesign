@@ -20,15 +20,12 @@ public struct CircularGlassButtonStyle: ButtonStyle {
     ///
     /// > 为何不读 `@Environment(\.controlSize)`：该环境值未被显式设置时是
     /// > `.regular`，而现有五个调用点都没设——直接采信会把浮按钮缩小。
-    /// > （原注释此处记有「从 38pt 缩到 32pt（实测）」，那是 Issue #119 换值**之前**
-    /// > 的实测值，早已失效。Task #122 用换值后的标度重新算过：`.regular` = 44pt、
-    /// > `.large` = 50pt，差 6pt——相对 `.large` 约 12%、相对 `.regular` 约 13.6%。
-    /// > 数学上 `.regular` 仍小于 `.large`，方向结论不变；但换值前的差距是 32 vs 40
-    /// > （8pt / 25%），换值后收窄到约 12–13.6%，「显著」这个词已不再准确——两个圆形
-    /// > 浮按钮挨在一起时，6pt 直径差是否肉眼可辨须看实际渲染，静态计算无法替代，
-    /// > 留给 Task #125 视觉终审确认。）若改为「忽略 `.regular` 按 `.large` 解释」，
-    /// > 则下游**刻意**写 `.controlSize(.regular)` 时会静默得到 44pt，是永久的公开
-    /// > API 陷阱。把档位存在 style 上既避免了这两者，也让意图显式可读。
+    /// > `.regular` = 44pt、`.large` = 50pt，差 6pt——相对 `.large` 约 12%、相对
+    /// > `.regular` 约 13.6%。数学上 `.regular` 仍小于 `.large`，方向结论不变；但差距
+    /// > 是否足够"显著"到肉眼可辨须看实际渲染，静态计算无法替代，留给视觉终审确认。
+    /// > 若改为「忽略 `.regular` 按 `.large` 解释」，则下游**刻意**写
+    /// > `.controlSize(.regular)` 时会静默得到 44pt，是永久的公开 API 陷阱。把档位存
+    /// > 在 style 上既避免了这两者，也让意图显式可读。
     public let size: ControlSize
 
     /// 显式直径覆写 / Explicit diameter override：绕过 `size` 直接指定。

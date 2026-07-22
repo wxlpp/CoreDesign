@@ -7,8 +7,6 @@ import SwiftUI
 
 // MARK: - AvatarGroup
 
-/// Native Primer avatar group.
-///
 /// Content-layer composition of stacked avatars with overlap + overflow
 /// counter. Uses thin border (`CoreBorderWidth.thin`) to separate stacked
 /// avatars and overflow pill. No glass.

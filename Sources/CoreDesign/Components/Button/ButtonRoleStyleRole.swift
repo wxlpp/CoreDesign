@@ -67,7 +67,7 @@ public nonisolated enum ButtonRoleStyleRole: Sendable, Equatable {
     ///
     /// 三态优先级：disabled > pressed > normal。此前 `SolidButtonStyle`、
     /// `LightButtonStyle`、`CoreBorderlessButtonStyle` 各自持有一份逐字相同的
-    /// 实现（审计项 B3a），现收敛到本枚举——它本就是三个调色板属性的唯一来源。
+    /// 实现，现收敛到本枚举——它本就是三个调色板属性的唯一来源。
     ///
     /// - Parameters:
     ///   - isEnabled: 通常来自 `@Environment(\.isEnabled)`。

@@ -24,7 +24,7 @@ public struct LightButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         let isPressed = configuration.isPressed
 
-        // 共同结构只写一次（审计项 B3b）；按压变暗对两支都适用，故提到 Group 上，
+        // 共同结构只写一次；按压变暗对两支都适用，故提到 Group 上，
         // 这也是 `buttonBackground` 不传 `pressedOpacity` 的原因。
         let base = configuration.label
             .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)

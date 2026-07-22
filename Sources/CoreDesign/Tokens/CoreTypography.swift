@@ -17,9 +17,9 @@ import SwiftUI
 ///     .coreFont(.body)
 /// ```
 ///
-/// ## 设计取舍（Issue #119）
+/// ## 设计取舍
 ///
-/// 早期版本对齐 GitHub Primer Primitives 的 `text.*` 标度，携带手写的 size / weight /
+/// 早期版本对齐第三方设计规范手写的 `text.*` 标度，携带手写的 size / weight /
 /// lineSpacing / tracking 四件套，并用 `@ScaledMetric` 模拟 Dynamic Type 缩放。
 /// 本文件改为**直接取系统文本样式**：12 档 `Token` 一一对应 `Font.TextStyle`
 /// （`largeTitle` / `title` / `title2` / `title3` / `headline` / `body` / `callout` /
@@ -30,7 +30,7 @@ import SwiftUI
 ///
 /// > Note: 9 个旧名（`displayLarge` 等）与 10 个旧 `*Font` static var 曾以
 /// > `@available(*, deprecated, renamed:)` / `deprecated(message:)` 别名保留，供调用点
-/// > 按 warning 逐点迁移；Task #121 完成全部调用点迁移后已删除这两组别名。
+/// > 按 warning 逐点迁移；全部调用点迁移完成后已删除这两组别名。
 public nonisolated enum CoreTypography {
 
     // MARK: - Token（Dynamic Type 入口）
@@ -38,8 +38,8 @@ public nonisolated enum CoreTypography {
     /// 排版 token，经 `.coreFont(_:)` 施加。每一档直接对应一个 Apple 系统文本样式，
     /// 字号 / 行高 / 字重 / Dynamic Type 缩放全部由系统决定。
     ///
-    /// `Sendable`（Issue #123 补）：caseless 枚举本身平凡线程安全，显式声明让
-    /// `Testing` 的 `@Test(arguments:)` 能把它跨 `@MainActor` 隔离边界传参
+    /// `Sendable`：caseless 枚举本身平凡线程安全，显式声明让 `Testing` 的
+    /// `@Test(arguments:)` 能把它跨 `@MainActor` 隔离边界传参
     /// （`DynamicTypeLayoutTests.everyTypographyTokenScalesWithDynamicType`）。
     public enum Token: CaseIterable, Sendable {
         case largeTitle

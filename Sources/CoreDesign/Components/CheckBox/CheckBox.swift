@@ -23,7 +23,7 @@ import SwiftUI
 ///
 ///   > 此处原写 `Color.primary`。第 4 层曾定义同名别名而遮蔽了 SwiftUI 内建成员，
 ///   > 使该图标实际渲染成品牌色而非系统 label 色——与本注释原先的描述相反。
-///   > Issue #93 删除了那组别名，这里改用语义层的 `contentPrimary` 明确表达意图。
+///   > 该组别名已删除，这里改用语义层的 `contentPrimary` 明确表达意图。
 public struct CheckBoxToggleStyle: ToggleStyle {
     /// 无参构造 / Memberwise-free init：显式声明才能让下游可达
     /// （Swift 默认合成的 memberwise init 是 internal）。
@@ -42,9 +42,8 @@ public struct CheckBoxToggleStyle: ToggleStyle {
             }
             configuration.label
         }
-        // Issue #123：原先无 minHeight/contentShape，命中区域退化为 icon + label 的
-        // intrinsic 高度（实测约 21pt，远低于 44pt）——`.onTapGesture` 只在这块紧凑
-        // 区域内生效。
+        // 若无 minHeight/contentShape，命中区域会退化为 icon + label 的 intrinsic
+        // 高度（实测约 21pt，远低于 44pt）——`.onTapGesture` 只在这块紧凑区域内生效。
         // 补上 `frame(minHeight:)` + `contentShape(Rectangle())`（与 ListRow /
         // SearchField 同一模式）：**组件整体行高从实测的 21pt 撑到 44pt 地板**，
         // 内部相对布局不变（HStack 仍按 intrinsic 尺寸居中）。不是「视觉完全不变」——
@@ -62,7 +61,7 @@ public struct CheckBoxToggleStyle: ToggleStyle {
 // MARK: - Preview
 
 // 演示用法 / Demo usage：本包不再导出便利封装——原 `CheckBox` 视图硬编码 label
-// 且用 `@State` 而非 `@Binding`，唯一使用者就是本 Preview，已于 Issue #94 内联。
+// 且用 `@State` 而非 `@Binding`，唯一使用者就是本 Preview，已内联到此处。
 // （用 `//` 而非 `///`：doc 注释挂在 `#Preview` 这种独立宏展开上不会被 DocC /
 // Quick Help 呈现，写成 doc 注释是自欺。面向下游的说明在 `CheckBoxToggleStyle`
 // 自己的 doc block 里。）

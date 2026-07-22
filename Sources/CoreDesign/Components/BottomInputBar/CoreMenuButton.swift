@@ -59,17 +59,9 @@ private struct MenuIconView: View, @MainActor Animatable {
 
     /// 图标基线尺寸（pt），随 Dynamic Type 缩放。
     ///
-    /// **Task #122 定案：改用 `CoreControlMetrics.iconSize(for: .large)` (20pt)**。
-    ///
-    /// 原先用 `.regular` (16pt) 的选型是在 Issue #119 换值**之前**做的：当时 `.large`
-    /// 外框是 40pt，16/40 ≈ 0.4 恰好落在 SF Symbol 的经验值（icon ≈ 容器 40%）上。
-    /// height 标度换值后外框变 50pt（`CoreMenuButtonStyleModifier.controlSize`，见下），
-    /// 16/50 = 0.32 已跌破 40% 经验值——反而是 `.large` iconSize (20pt) 现在恰好等于
-    /// 40%（20/50）。原结论的方向已翻转，故这里改选 `.large`，让图标与外框的比例回到
-    /// 设计初衷的经验值，而不是继续沿用一个数字上已不成立的 `.regular`。
-    ///
-    /// > Task #121 当时只更正失实的 pt 数字、保持 `.regular` 选型不变；「换哪一档才对」
-    /// > 是视觉判断，留给本任务。
+    /// 用 `CoreControlMetrics.iconSize(for: .large)` (20pt)：外框是 50pt
+    /// （`CoreMenuButtonStyleModifier.controlSize`，见下），20/50 = 0.4 恰好落在
+    /// SF Symbol 的经验值（icon ≈ 容器 40%）上，让图标与外框的比例符合这一经验值。
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = CoreControlMetrics.iconSize(for: .large)
 
     private var lineWidth: CGFloat {
@@ -116,7 +108,7 @@ private struct CoreMenuButtonStyleModifier: ViewModifier {
         }
     }
 
-    /// 控件外框尺寸。匹配 SwiftUI `ControlSize.large` 的 Primer 规格
+    /// 控件外框尺寸。取 `CoreControlMetrics.height(for: .large)`
     /// (`CoreControlMetrics.height(for: .large)` = 50pt)，与输入栏 trailing 圆形按钮保持视觉等高。
     private let controlSize: CGFloat = CoreControlMetrics.height(for: .large)
 }

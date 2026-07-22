@@ -7,13 +7,12 @@ import SwiftUI
 
 // MARK: - Sidebar Text Style
 
-/// Semantic text-color aliases for sidebar content.
+/// 侧栏内容的语义文字色别名。
 ///
-/// Maps to the content semantic tokens (`contentPrimary` / `contentMuted` /
-/// `contentSubtle`) so custom sidebar content stays visually consistent with
-/// the built-in rows. Use these instead of raw color hues.
+/// 映射到第 3 层语义文字色（`contentPrimary` / `contentMuted` / `contentSubtle`），
+/// 使自定义侧栏内容与内置行保持视觉一致。**用这些别名，不要直接取色相。**
 ///
-/// 侧栏文本配色语义别名 / SidebarTextStyle：自定义侧栏内容时复用，保证与内置
+/// 自定义侧栏内容时复用，保证与内置
 /// row 一致。
 public enum SidebarTextStyle {
     public static let primary = Color.contentPrimary
@@ -23,10 +22,10 @@ public enum SidebarTextStyle {
 
 // MARK: - Sidebar Section
 
-/// Titled group container for sidebar rows.
+/// 带标题的侧栏分组容器。
 ///
-/// Renders a section header (title + optional disclosure chevron + decorative
-/// overflow glyph) above a leading-aligned stack of row content.
+/// 在 leading 对齐的行内容堆叠之上渲染一个 section header（标题 + 可选展开
+/// chevron + 装饰性溢出字形）。
 ///
 /// **Material layer**: container. **Surface role**: sidebar.
 ///
@@ -105,7 +104,7 @@ private struct OptionalLineLimit: ViewModifier {
 
 /// 四种 sidebar row 的共享骨架 / Shared skeleton for the four sidebar rows.
 ///
-/// 收敛自原先四份逐字重复的实现（审计项 B5）。差异全部由调用方经
+/// 收敛自原先四份逐字重复的实现。差异全部由调用方经
 /// `leading` / `trailing` 两个 `@ViewBuilder` 与 `isSelected` 表达：
 ///
 /// - `leading`：图标或 `#` 字形，字号各 row 不同（`body` / `title2`）
@@ -141,16 +140,12 @@ private struct SidebarRow<Leading: View, Trailing: View>: View {
 
                 self.trailing
             }
-            // minHeight 而非固定 height（审计项 B2b），与 ListRow / SearchField 一致。
+            // minHeight 而非固定 height，与 ListRow / SearchField 一致。
             //
-            // **今天的实际收益是长 title 换行不再被压出框**——三个 row 传
-            // `titleLineLimit: nil`，标题过长会换到 2+ 行，原先 `frame(height: 40)`
-            // 会把第二行裁掉。`SidebarDocumentRow` 传 `1` 且 detail 也限 1 行，
+            // **实际收益是长 title 换行不再被压出框**——三个 row 传
+            // `titleLineLimit: nil`，标题过长会换到 2+ 行，固定 height 会把
+            // 第二行裁掉。`SidebarDocumentRow` 传 `1` 且 detail 也限 1 行，
             // 对它是纯预防性改动。
-            //
-            // Dynamic Type 那层收益要等 #95：`CoreTypography` 现在全部是
-            // `.system(size:)`、`relativeTo:` 出现 0 次，字号不随辅助功能缩放，
-            // 所以「大字号下不裁切」目前无路径可触发。
             .frame(minHeight: CoreControlMetrics.height(for: .large))
             .padding(.horizontal, CoreSpacing.sm)
             .sidebarSelectedBackground(self.isSelected)
@@ -163,14 +158,14 @@ private struct SidebarRow<Leading: View, Trailing: View>: View {
     }
 }
 
-/// Primary navigation entry with a selected state.
+/// 带选中态的主导航行。
 ///
-/// Icon + title button row; when `isSelected` is true it carries the
-/// floating-glass selected background (see `sidebarSelectedBackground(_:)`).
+/// 图标 + 标题的按钮行；`isSelected` 为 true 时带上浮层玻璃选中背景
+/// （见 `sidebarSelectedBackground(_:)`）。
 ///
 /// 侧栏主导航行 / SidebarNavigationRow：图标 + 标题，选中态带 floating-glass 背景。
 public struct SidebarNavigationRow<Leading: View>: View {
-    /// 以任意 leading 视图构造（可插图标 / 富文本，审计项 D6b）。
+    /// 以任意 leading 视图构造（可插图标 / 富文本）。
     public init(
         title: String,
         isSelected: Bool,
@@ -215,10 +210,10 @@ public extension SidebarNavigationRow where Leading == AnyView {
     }
 }
 
-/// Secondary utility entry with an optional trailing affordance.
+/// 次级工具行，可选尾部装饰。
 ///
-/// Single-action row: leading icon + title, with an optional decorative
-/// `trailingSystemImage` (no separate action — the whole row is one button).
+/// 单动作行：leading 图标 + 标题，尾部可挂一个装饰性的 `trailingSystemImage`
+/// （**不是独立动作**——整行就是一个按钮）。
 ///
 /// 侧栏工具行 / SidebarUtilityRow：图标 + 标题 + 可选装饰性 trailing 图标，整行单一 action。
 public struct SidebarUtilityRow: View {
@@ -261,10 +256,10 @@ public struct SidebarUtilityRow: View {
     private let action: () -> Void
 }
 
-/// Document entry with a trailing detail label.
+/// 带尾部 detail 文本的文档行。
 ///
-/// Leading icon + title with a trailing `detail` string (e.g. a count or
-/// relative date); `detail` stays VoiceOver-readable while the icon is hidden.
+/// leading 图标 + 标题 + 尾部 `detail` 字符串（计数、相对日期等）；
+/// `detail` 对 VoiceOver 可读，而图标被标记为装饰性隐藏。
 ///
 /// 侧栏文档行 / SidebarDocumentRow：图标 + 标题 + 尾部 detail（计数 / 日期等）。
 public struct SidebarDocumentRow: View {
@@ -304,10 +299,9 @@ public struct SidebarDocumentRow: View {
     private let action: () -> Void
 }
 
-/// Tag entry rendered with a leading `#` glyph.
+/// 以 `#` 字形开头的标签行。
 ///
-/// Title-only navigation row prefixed by a decorative `#`; the accessible
-/// name is driven by `title` alone.
+/// 仅含标题的导航行，前缀 `#` 是装饰性的；无障碍名称只由 `title` 决定。
 ///
 /// 侧栏标签行 / SidebarTagRow：`#` 前缀 + 标题。
 public struct SidebarTagRow: View {
@@ -339,11 +333,10 @@ public struct SidebarTagRow: View {
     private let action: () -> Void
 }
 
-/// Footer showing a status dot with title/detail text.
+/// 状态点 + 标题/详情文本的页脚。
 ///
-/// Non-interactive footer (status dot + two-line label) combined into a
-/// single accessibility element. `statusColor` defaults to the semantic
-/// `statusSuccessForeground` token.
+/// 非交互式页脚（状态点 + 两行标签），合并为**单个无障碍元素**。
+/// `statusColor` 默认取语义 token `statusSuccessForeground`。
 ///
 /// 侧栏状态页脚 / SidebarStatusFooter：状态点 + 标题/详情，默认成功语义色。
 public struct SidebarStatusFooter: View {
@@ -423,10 +416,10 @@ private struct SidebarSelectedBackgroundModifier: ViewModifier {
 }
 
 public extension View {
-    /// Applies the sidebar selected-state background when `isSelected` is true.
+    /// `isSelected` 为 true 时施加侧栏选中态背景。
     ///
-    /// Floating-glass material + selected-color stroke + shadow. Used by
-    /// `SidebarNavigationRow`; reuse on custom rows to match selection styling.
+    /// 浮层玻璃材质 + 选中色描边 + 阴影。`SidebarNavigationRow` 在用；
+    /// 自定义行复用它即可与内置选中样式保持一致。
     ///
     /// 侧栏选中态背景 modifier / sidebarSelectedBackground：floating-glass + 选中描边 + 阴影。
     func sidebarSelectedBackground(_ isSelected: Bool) -> some View {

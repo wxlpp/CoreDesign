@@ -2,8 +2,6 @@
 //  SurfaceModifier.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//
 
 import SwiftUI
 
@@ -20,21 +18,21 @@ import SwiftUI
 public nonisolated enum SurfaceKind: Sendable, Equatable {
     /// Page-level canvas.
     case canvas
-    /// Ordinary content surfaces: rows, cards, and non-floating containers.
+    /// 普通内容表面：列表行、卡片、非浮起容器。
     case content
-    /// Interactive control surfaces: buttons, fields, segmented controls.
+    /// 交互控件表面：按钮、输入框、分段控件。
     case control
-    /// Floating surfaces above content: toasts, floating toolbars, bottom bars.
+    /// 浮于内容之上的表面：toast、浮动工具栏、底部栏。
     case floating
-    /// Overlay surfaces such as menus and popovers.
+    /// 覆盖层表面，如菜单与 popover。
     case overlay
-    /// Compatibility alias for a subtler canvas.
+    /// 兼容别名：更淡的画布。
     case canvasSubtle
-    /// Compatibility alias for panel containers.
+    /// 兼容别名：面板容器。
     case panel
-    /// Compatibility alias for sidebar containers.
+    /// 兼容别名：侧栏容器。
     case sidebar
-    /// Compatibility alias for card containers.
+    /// 兼容别名：卡片容器。
     case card
 }
 
@@ -116,7 +114,7 @@ struct SurfaceModifier: ViewModifier {
 
 public extension View {
     /// 将容器表面 token（背景 + 1pt 边框 + 圆角）一次性应用到当前视图。
-    /// Apply a container surface token (background + 1pt border + corner radius) in one shot.
+    /// 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角）。
     ///
     /// 调用示例 / Usage:
     ///

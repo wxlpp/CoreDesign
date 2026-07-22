@@ -10,7 +10,7 @@ import SwiftUI
 import UIKit
 #endif
 
-/// 分段控件玻璃壳的共享构造（审计项 B8g）。
+/// 分段控件玻璃壳的共享构造。
 ///
 /// `selectedThumb` 的 glass 分支与 `SegmentedControlBackgroundModifier` 的 glass
 /// 分支此前各自复制同一段「透明填充 + 交互玻璃 + 细描边」；抽此一处，thumb 侧再叠
@@ -62,7 +62,7 @@ public struct SegmentedControlStyleConfiguration {
 ///
 /// 实现该协议提供新外观，通过 `View.segmentedControlStyle(_:)` 注入子树。内置
 /// `GlassSegmentedControlStyle`（默认，Liquid Glass 外壳）与 `PlainSegmentedControlStyle`
-/// （纯色外壳）。此前的 `glass: Bool` 布尔 hack 升级为本协议（审计项 D7）。
+/// （纯色外壳）。此前的 `glass: Bool` 布尔 hack 升级为本协议。
 public protocol SegmentedControlStyle {
     associatedtype Body: View
 
@@ -75,8 +75,6 @@ public protocol SegmentedControlStyle {
 
 // MARK: - SegmentedControl
 
-/// Native Primer segmented control.
-///
 /// GitHub-like density on an Apple-native control surface. 外观由环境注入的
 /// `SegmentedControlStyle` 决定，默认 `GlassSegmentedControlStyle`。
 public struct SegmentedControl<Item: Hashable>: View {
@@ -139,16 +137,15 @@ private struct SwiftUISegmentedControl: View {
                 self.segmentView(segment)
             }
         }
-        // 保留原 `swiftUISegmentedControl` 的 inset（SegmentedControl.swift:74）——
-        // 让 segments/thumb 从玻璃外壳边缘缩进，形成「track 内浮起 thumb」的观感。
-        // 评审 Finding 1：迁移时漏掉会让 thumb 贴外壳（所有 SwiftUI 回退渲染 = iOS
-        // Plain + 全 macOS 受影响；测试只测构造，四命令/iOS 命令都抓不到）。
+        // inset 让 segments/thumb 从玻璃外壳边缘缩进，形成「track 内浮起 thumb」的观感。
+        // 缺失会让 thumb 贴外壳——所有 SwiftUI 回退渲染（iOS Plain + 全 macOS）都受影响，
+        // 且只测构造的测试抓不到这类视觉回归，需靠预览目视确认。
         .padding(CoreSpacing.xxs)
         .frame(maxWidth: .infinity)
         .modifier(SegmentedControlBackgroundModifier(shape: shape, glass: self.glass))
         .frame(height: CoreControlMetrics.height(for: .regular))
-        // 保留原 fallback 路径的选择触感（SegmentedControl.swift:84）——评审 Finding 2：
-        // 无 `selection` 属性，改由选中 segment 的 index 驱动 trigger（Int? 可 Equatable）。
+        // 触感反馈由选中 segment 的 index 驱动 trigger（Int? 可 Equatable）——
+        // 本类型没有独立的 `selection` 属性可用。
         .sensoryFeedback(.selection, trigger: self.configuration.segments.first(where: \.isSelected)?.index)
     }
 
@@ -506,7 +503,7 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
 
 /// 窄列填充验证：模拟 macOS 4-列工作区 sidebar / inspector 的宽度约束
 /// （sidebar ≥220pt、inspector ≥260pt），确认 `SegmentedControl` 不会缩到
-/// intrinsic 宽度，而是撑满列宽。详见 issue #82。
+/// intrinsic 宽度，而是撑满列宽。
 #Preview("Narrow container fill (220pt / 320pt)") {
     struct NarrowFillHost: View {
         @State private var sidebarSelection = "卷一"
