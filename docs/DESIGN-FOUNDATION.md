@@ -53,7 +53,7 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 
 - `SurfaceColors`：`surfaceCanvas` / `surfaceRaised` / `surfaceElevated` 三档统一走 `systemGroupedBackground` 族（`systemGroupedBackground` / `secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground`），`surfaceCanvasInset` 改指 `FillColors.tertiaryFill`——其官方 HIG 语义（输入字段/搜索栏/按钮）与实际消费点（头像环、进度条轨道）精确对应。
 - `ContentColors`：全部指向系统 `label` 族（`label` / `secondaryLabel` / `tertiaryLabel` / `quaternaryLabel` / `placeholderText` / `link`）；`contentInverse` / `contentOnAccent` / `contentOnDanger` / `contentOnEmphasis` 固定为 `.white`——Apple 没有"保证与当前外观相反"的系统色 API，且这些 token 的消费点均为固定饱和色背景，白字对比度可靠。
-- `BorderColors`：`separator` / `opaqueSeparator` 两族。`borderFocus` / `borderSelected` **在 `0.2.0` 就已指向 `accent`**（各自独立的固定蓝 colorset 是更早的 Issue #93 删的，不是本次改造）；本次它们的指向不变，但因 `accent` 改指宿主 `AccentColor`，实际取值随之变化。
+- `BorderColors`：`separator` / `opaqueSeparator` 两族。`borderFocus` / `borderSelected` **在 `0.2.0` 就已指向 `accent`**（各自独立的固定蓝 colorset 是更早的 Issue #93 删的，不是本次改造）；本次它们的指向不变，但因 `accent` 改指宿主 `AccentColor`，实际取值随之变化。 `borderSubtle` 取 `separator.opacity(0.28)` 而非直接等于 `opaqueSeparator`，是为了保持 `subtle(0.28) < muted(0.42) < default(1.0) < strong` 的既有强弱梯度，避免与字面顺序倒挂。
 - `FillColors`：`systemFill` 族四档（`systemFill` / `secondarySystemFill` / `tertiarySystemFill` / `quaternarySystemFill`），本就是系统色，未改动。
 
 **macOS 降级**：AppKit 没有 grouped background 系列。`systemGroupedBackground` 现降级到 `windowBackgroundColor`（此前误降级到与 `secondarySystemGroupedBackground` 相同的 `controlBackgroundColor`，导致 macOS 上画布与 raised 层同色、raised 层完全隐形——已在本次修正，`SystemBackgroundColorsMacOSTests` 守卫二者在浅色/深色下均可辨）。`secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground` 保持 `controlBackgroundColor`。
