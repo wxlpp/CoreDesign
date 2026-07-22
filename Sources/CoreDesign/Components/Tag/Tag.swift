@@ -109,18 +109,24 @@ public struct Tag<Label: View>: View {
                 .disabled(self.onRemove == nil)
                 // Issue #123：原先只有 `.padding(CoreSpacing.xxs)` + `contentShape`，
                 // 命中区域 = 14pt 图标 + 2×2pt = 约 18×18pt，仅为 HIG 44pt 下限的 41%。
-                // 与 CheckBox(21pt) / UnderlinedTabItem(38pt) 属同一类缺陷：视觉正常、
-                // 可点区域远小于视觉体量。补 `frame(minWidth:minHeight:)` 地板后再
-                // `contentShape`——顺序要紧，contentShape 必须在 frame 之后才能覆盖到
-                // 撑开后的完整区域。
                 //
-                // 视觉不变：图标仍按 intrinsic 尺寸居中，只是可点范围向外扩展。chip
-                // 通常四周有留白，扩展后的命中区不会与相邻元素抢夺。
-                .frame(
-                    minWidth: CoreControlMetrics.height(for: .regular),
-                    minHeight: CoreControlMetrics.height(for: .regular)
-                )
+                // **修法必须不影响布局**——这是与 CheckBox / UnderlinedTabItem 的关键区别。
+                // 那两者的 `.frame(minHeight:)` 加在组件**唯一的整条 body** 外层，整个可点
+                // 单元一起变高是可接受的取舍。而移除按钮只是 chip 内的一个**子视图**：
+                // HStack 高度取子视图最大值，直接给它加 44pt frame 会把整条 chip（连同
+                // 旁边完全没变的 label）一起撑起来——实测 24pt → 52pt，2.1 倍，且同一行里
+                // 的非 removable tag 仍是 21pt，高度严重错配。
+                //
+                // 故用「对称 padding 撑开命中区、再用负 padding 抵消布局影响」这个标准写法：
+                // `contentShape` 按撑开后的几何生效（命中区 18 + 2×13 = 44pt），而负 padding
+                // 让外层 HStack 看到的仍是原尺寸。命中区会略微溢出 chip 的视觉边界——对小尺寸
+                // 关闭按钮这是 Apple 自己也在用的常规做法，chip 四周通常有留白。
+                //
+                // > 代价：`ImageRenderer` 量不到这个命中区（它量的是布局 frame），所以本处
+                // > 无法用 `TouchTargetTests` 的方式加断言。见该文件头「例外（四）」。
+                .padding(Self.removeHitSlop)
                 .contentShape(Rectangle())
+                .padding(-Self.removeHitSlop)
                 .accessibilityLabel(Text("Remove tag", bundle: .module))
             }
         }
@@ -142,6 +148,11 @@ public struct Tag<Label: View>: View {
     /// 关闭按钮 icon 边长。走 `CoreControlMetrics.iconSize(for: .small)` = 14pt，
     /// 与 `.coreFont(.footnote)` 视觉等重——SF Symbol 视觉重心略低于 cap height，
     /// 稍大边长才能感觉与字母 x-height 等高。集中常量避免散落字面量。
+    /// 移除按钮的命中区扩展量。图标 14pt + `xxs` 2×2pt = 18pt，
+    /// 两侧各扩 13pt 即达 44pt HIG 下限：`18 + 2 × 13 = 44`。
+    /// （`Tag` 是泛型类型，不支持 static stored property，故用计算属性。）
+    private static var removeHitSlop: CGFloat { 13 }
+
     private static var removeIconSize: CGFloat { CoreControlMetrics.iconSize(for: .small) }
 
     private let color: Color

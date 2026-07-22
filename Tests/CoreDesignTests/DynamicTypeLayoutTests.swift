@@ -137,8 +137,8 @@ struct DynamicTypeLayoutTests {
         #expect(ax5 > small, "ListRow 在 accessibility5 未撑高——两行 label 没缩放或被裁切/重叠")
     }
 
-    @Test("SegmentedControl 在 accessibility5 下不裁切——它用的是 frame(height:) 硬钳制")
-    func segmentedControlDoesNotClipAtLargestSize() {
+    @Test("SegmentedControl 在 accessibility5 下高度仍被钳制在 44pt（现状记录；是否裁切文字见 #125，未在此断言）")
+    func segmentedControlHeightStaysClampedAtLargestSize() {
         // 本仓库其余组件都用 `frame(minHeight:)`（地板，内容可撑高），唯独
         // `SegmentedControl.swift:149` 用 `frame(height:)`——**钳制**。
         // `CoreControlMetrics` 自己的文档就警告过：钳制在字号变大时会裁切 label，

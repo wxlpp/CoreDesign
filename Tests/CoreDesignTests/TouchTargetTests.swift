@@ -39,6 +39,14 @@ import SwiftUI
 // ≥ 44pt，那被两侧 44–50pt 的圆形按钮平凡满足；中间 textFieldContainer 自身的
 // 激活区域（作用域在 TextField + 其自有 padding 上，不是外层玻璃胶囊）没有被验证。
 //
+// **已知不适用的例外（四）· `Tag` 的移除按钮**：与前三类性质相反。前三类是
+// `contentShape` 作用域**偏小**（命中区小于布局 frame），本类是命中区被**有意**做成
+// 大于布局 frame——用「对称 padding 撑开 + 负 padding 抵消」把命中区扩到 44pt，同时
+// 不让外层 HStack 的高度受影响（否则整条 chip 会被撑大，实测 24pt → 52pt，2.1 倍）。
+//
+// 对这类实现，`ImageRenderer` 量到的布局高度（约 24pt）**低于**实际命中区（44pt），
+// 本文件的断言方式会给出假阴性。故不在此覆盖，改由代码注释与 `123.md` 记录。
+//
 // **已知不适用的例外（三）**：`SegmentedControl` 内部由多个独立分段 Button 组成，整体
 // 容器高度（44pt，`frame(height:)` 钳制）与单个分段的真实命中高度是两回事——
 // 分段容器四边各有 `CoreSpacing.xxs`（2pt）内缩（`NativeGlassSegmentedControlView`
@@ -218,16 +226,15 @@ struct TouchTargetTests {
 
     // MARK: - SegmentedControl（整体容器；单段命中区域的已知缺口见文件头注释）
 
-    @Test("Tag 移除按钮实测命中高度 ≥ 44pt（Issue #123 修复：原先约 18×18pt）")
-    func tagRemoveButtonMeetsMinimumTouchTarget() {
-        // 修复前：14pt 图标 + 2×2pt padding ≈ 18×18pt，仅为下限的 41%。
-        // 与 CheckBox(21pt) / UnderlinedTabItem(38pt) 同类——视觉正常、可点区域远小于视觉体量。
-        let tag = Tag(color: .accent, removable: true, onRemove: {}) { Text("Label") }
-        #expect(
-            self.renderedHeight(tag) >= Self.minimumHitTarget,
-            "Tag 移除按钮的命中区域低于 44pt"
-        )
-    }
+    // **Tag 的移除按钮不在本文件覆盖范围**——见文件头「例外（四）」。
+    //
+    // 它的命中区用「对称 padding 撑开 + 负 padding 抵消布局」实现（`Tag.swift:127-129`），
+    // 这是**有意让布局高度保持不变**的。`ImageRenderer` 量的是布局 frame，因此本文件的
+    // 手段对它恒返回约 24pt（chip 原高度），无法验证那个 44pt 的命中区。
+    //
+    // 曾经在这里写过一条 `renderedHeight(tag) >= 44` 的断言——它当时能绿，恰恰是因为
+    // 当时的修法（直接给按钮加 `frame(minHeight: 44)`）把整条 chip 撑到了 52pt，
+    // 那是个 2.1 倍的视觉回归。**断言绿了，组件坏了**——这是本文件方法论局限最直接的例证。
 
     @Test("SegmentedControl 整体容器实测高度 ≥ 44pt")
     func segmentedControlContainerMeetsMinimumTouchTarget() {
