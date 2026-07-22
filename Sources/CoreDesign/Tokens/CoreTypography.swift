@@ -37,7 +37,11 @@ public nonisolated enum CoreTypography {
 
     /// 排版 token，经 `.coreFont(_:)` 施加。每一档直接对应一个 Apple 系统文本样式，
     /// 字号 / 行高 / 字重 / Dynamic Type 缩放全部由系统决定。
-    public enum Token: CaseIterable {
+    ///
+    /// `Sendable`（Issue #123 补）：caseless 枚举本身平凡线程安全，显式声明让
+    /// `Testing` 的 `@Test(arguments:)` 能把它跨 `@MainActor` 隔离边界传参
+    /// （`DynamicTypeLayoutTests.everyTypographyTokenScalesWithDynamicType`）。
+    public enum Token: CaseIterable, Sendable {
         case largeTitle
         case title
         case title2

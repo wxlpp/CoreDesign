@@ -84,5 +84,57 @@ struct DynamicTypeLayoutTests {
         #expect(small > 0, "渲染失败（uiImage nil）")
         #expect(ax5 > small, "captionSmall（→ caption2）未随 Dynamic Type 缩放——别名映射或 caption2 的 textStyle 错了")
     }
+
+    // MARK: - 全部 12 档 token 覆盖（Issue #123）
+    //
+    // 上面几个既有测试只抽样验证了 `.body` / `.caption2` 两档——`CoreTypography.Token`
+    // 重铸后一一对应 12 个系统 `Font.TextStyle`（Task #119），"重铸带来的可访问性
+    // 承诺"须对全部 12 档兑现，不能只信抽样。用 `Token.allCases` 参数化，每档独立
+    // 断言 large → accessibility5 单调增长——任何一档的 `textStyle` 映射写错（比如
+    // 误连到不随 Dynamic Type 缩放的 `.system(size:)` 定值写法）都会在这里单独现形，
+    // 而不是被抽样掩盖。
+    @Test(
+        "CoreTypography 全部 12 档 token 在 iOS 下均随 Dynamic Type 缩放",
+        arguments: CoreTypography.Token.allCases
+    )
+    func everyTypographyTokenScalesWithDynamicType(_ token: CoreTypography.Token) {
+        let text = Text("Ag").coreFont(token)
+        let small = self.renderedHeight(text, at: .large)
+        let ax5 = self.renderedHeight(text, at: .accessibility5)
+        #expect(small > 0, "\(token)：渲染失败（uiImage nil）")
+        #expect(ax5 > small, "\(token) 未随 Dynamic Type 缩放（large=\(small)pt, accessibility5=\(ax5)pt）")
+    }
+
+    // MARK: - 复合布局在最大辅助功能字号下不裁切、不重叠（Issue #123）
+    //
+    // 上面的 Sidebar 断言只覆盖 Sidebar 一族；`ListRow` 是另一个高频复合布局
+    // （leading icon + 两行 label + trailing），且 label 的标题/副标题两个
+    // `coreFont` 档位不同（`.callout` / `.footnote`，参见 `ListRow.swift` 预览）。
+    // 用同一「large → accessibility5 高度不减」判据验证：若两行文字在放大档
+    // 被固定高度裁掉，或 leading icon 与文字重叠导致渲染高度反而不变/更小，
+    // 这里会失败。
+    @Test("ListRow 两行 label 在 accessibility5 下随 Dynamic Type 撑高、不裁切")
+    func listRowGrowsWithDynamicTypeWithoutClipping() {
+        let row = ListRow(
+            leading: {
+                Image(systemName: "doc.text")
+            },
+            label: {
+                VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                    Text("A sufficiently long title to wrap at accessibility sizes")
+                        .coreFont(.callout)
+                    Text("Updated 2 hours ago")
+                        .coreFont(.footnote)
+                }
+            },
+            trailing: {
+                Image(systemName: "chevron.right")
+            }
+        )
+        let small = self.renderedHeight(row, at: .large)
+        let ax5 = self.renderedHeight(row, at: .accessibility5)
+        #expect(small > 0, "渲染失败（uiImage nil）")
+        #expect(ax5 > small, "ListRow 在 accessibility5 未撑高——两行 label 没缩放或被裁切/重叠")
+    }
 }
 #endif
