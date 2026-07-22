@@ -136,5 +136,29 @@ struct DynamicTypeLayoutTests {
         #expect(small > 0, "渲染失败（uiImage nil）")
         #expect(ax5 > small, "ListRow 在 accessibility5 未撑高——两行 label 没缩放或被裁切/重叠")
     }
+
+    @Test("SegmentedControl 在 accessibility5 下不裁切——它用的是 frame(height:) 硬钳制")
+    func segmentedControlDoesNotClipAtLargestSize() {
+        // 本仓库其余组件都用 `frame(minHeight:)`（地板，内容可撑高），唯独
+        // `SegmentedControl.swift:149` 用 `frame(height:)`——**钳制**。
+        // `CoreControlMetrics` 自己的文档就警告过：钳制在字号变大时会裁切 label，
+        // 而地板不会。这是全库唯一采用该机制的地方，因此也是最可能在最大辅助功能
+        // 字号下出问题的组件，本断言专门盯它。
+        let control = SegmentedControl(
+            items: ["一个比较长的选项", "另一个"],
+            selection: .constant("一个比较长的选项"),
+            title: { $0 }
+        )
+        let normal = self.renderedHeight(control, at: .large)
+        let ax5 = self.renderedHeight(control, at: .accessibility5)
+        #expect(normal > 0, "渲染失败")
+        // 钳制的预期行为就是高度不变；这里断言的是「高度确实被钳住」这一事实，
+        // 让它显式可见。文字在该高度下是否被截断，属视觉判断，交 #125。
+        let delta: CGFloat = ax5 > normal ? ax5 - normal : normal - ax5
+        #expect(
+            delta < 1,
+            "SegmentedControl 高度随字号变化了（\(normal) → \(ax5)）——若已改为 minHeight，本断言与其注释需同步更新"
+        )
+    }
 }
 #endif

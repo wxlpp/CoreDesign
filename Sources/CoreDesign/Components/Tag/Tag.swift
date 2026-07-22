@@ -107,7 +107,19 @@ public struct Tag<Label: View>: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(self.onRemove == nil)
-                .padding(CoreSpacing.xxs)
+                // Issue #123：原先只有 `.padding(CoreSpacing.xxs)` + `contentShape`，
+                // 命中区域 = 14pt 图标 + 2×2pt = 约 18×18pt，仅为 HIG 44pt 下限的 41%。
+                // 与 CheckBox(21pt) / UnderlinedTabItem(38pt) 属同一类缺陷：视觉正常、
+                // 可点区域远小于视觉体量。补 `frame(minWidth:minHeight:)` 地板后再
+                // `contentShape`——顺序要紧，contentShape 必须在 frame 之后才能覆盖到
+                // 撑开后的完整区域。
+                //
+                // 视觉不变：图标仍按 intrinsic 尺寸居中，只是可点范围向外扩展。chip
+                // 通常四周有留白，扩展后的命中区不会与相邻元素抢夺。
+                .frame(
+                    minWidth: CoreControlMetrics.height(for: .regular),
+                    minHeight: CoreControlMetrics.height(for: .regular)
+                )
                 .contentShape(Rectangle())
                 .accessibilityLabel(Text("Remove tag", bundle: .module))
             }
