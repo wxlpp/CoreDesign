@@ -24,6 +24,13 @@ import SwiftUI
 /// 两种形态都保留 `configuration.label` / `currentValueLabel`（若调用方提供），
 /// 并通过 `accessibilityElement(children: .combine)` + `accessibilityValue`
 /// 保留进度语义，供 VoiceOver 播报百分比。
+///
+/// > 无障碍假设：`currentValueLabel` 的**可视文本**被 `.accessibilityHidden` 掉
+/// > 以避免与 `accessibilityValue` 的百分数双重播报——这假定它就是百分比重复
+/// > （如 "60%"）。若调用方在 `currentValueLabel` 里放的是**非百分比**信息
+/// > （如 "3 of 5 files"），该信息对 VoiceOver 不可达，只会播报 `fractionCompleted`
+/// > 的百分数。需要播报非百分比进度时，改用系统默认 `ProgressView` 语义或自行
+/// > 在 `label` 中承载。
 public struct CoreProgressViewStyle: ProgressViewStyle {
     public init() {}
 
@@ -51,10 +58,16 @@ public struct CoreProgressViewStyle: ProgressViewStyle {
                     currentValueLabel
                         .coreFont(.footnote)
                         .foregroundStyle(.secondary)
+                        // 百分比已由下方 `.accessibilityValue` 播报；若让 `.combine`
+                        // 把这段可视文本（调用方常传 "60%"）也并进元素，VoiceOver
+                        // 会连播两遍。可视保留、无障碍隐藏，避免重复。
+                        .accessibilityHidden(true)
                 }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityValue("\(Int(fractionCompleted * 100))%")
+            // 本地化百分数（`.percent` 会 ×100 并按 locale 格式化），
+            // 而非硬编码 `%` + `Int(...)` 截断（0.999 会显示成 "99%"）。
+            .accessibilityValue(Text(fractionCompleted, format: .percent))
         } else {
             // 不确定态：退回系统环形 spinner。显式指定 `.circular` 而不是省略，
             // 避免 SwiftUI 把当前环境的 `progressViewStyle`（即本 style 自身）

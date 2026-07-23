@@ -13,14 +13,17 @@ import SwiftUI
 /// 是公开 API，`.tint` 接入无障碍。
 ///
 /// 外观：`label` + 一个随展开状态旋转 90° 的 chevron，二者放在可点击的
-/// `Button`（`.plain` 样式，避免系统按钮外观）里；展开后的 `content` 套一层
-/// `.surface(.content)`（背景 + 描边 + 圆角，经 `CoreShape`，非裸
-/// `RoundedRectangle`）。chevron 走 `.tint` 取色，不写死 `Color.accent`
+/// `Button`（`.plain` 样式，避免系统按钮外观）里；展开后的 `content` 只作
+/// leading 缩进对齐（贴近原生 `DisclosureGroup`，不加卡片、不消费 surface）。
+/// chevron 走 `.tint` 取色，不写死 `Color.accent`
 /// （FR-12 / ADR-3）——外加 `.tint(.red)` 会让 chevron 真的变红。
 ///
 /// 展开/收起沿用系统 `DisclosureGroup` 的状态绑定（`configuration.isExpanded`
-/// 直接读写会驱动同一个 `$isExpanded` binding），VoiceOver 仍可通过按钮的
-/// expanded/collapsed 状态与 `.isHeader`/toggle 语义感知，不因换皮而丢失。
+/// 直接读写会驱动同一个 `$isExpanded` binding）。**但换皮后系统不再自动为这个
+/// 自绘 `Button` 播报展开态**——原生 `DisclosureGroup` 会告诉 VoiceOver
+/// 「展开/收起」，普通 `Button` 只会播「按钮」。故在 header 上显式补回
+/// `.accessibilityValue`（可本地化的 `Text`），使 VoiceOver 用户仍能感知
+/// 当前是展开还是收起。
 public struct CoreDisclosureGroupStyle: DisclosureGroupStyle {
     public init() {}
 
@@ -43,12 +46,17 @@ public struct CoreDisclosureGroupStyle: DisclosureGroupStyle {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            // 自绘 Button 不会像原生 DisclosureGroup 那样自动播报展开态——
+            // 显式补回，`Text` 走 LocalizedStringKey 可随宿主 App 本地化。
+            .accessibilityValue(configuration.isExpanded ? Text("Expanded") : Text("Collapsed"))
 
             if configuration.isExpanded {
+                // 原生 iOS `DisclosureGroup` 展开后只把内容缩进对齐、不加卡片。
+                // 这里照做——不套 `.surface(.content)`：既贴近系统观感，也让本 style
+                // 不消费 surface 层（与 #140 表面色改动解耦，观感不依赖其 token 值）。
                 configuration.content
-                    .padding(CoreSpacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .surface(.content)
+                    .padding(.leading, CoreSpacing.md)
             }
         }
     }
@@ -57,8 +65,8 @@ public struct CoreDisclosureGroupStyle: DisclosureGroupStyle {
 // MARK: - DisclosureGroupStyle extension
 
 public extension DisclosureGroupStyle where Self == CoreDisclosureGroupStyle {
-    /// CoreDesign 的默认 `DisclosureGroup` 外观：chevron 走 `.tint`，展开内容套
-    /// `.surface(.content)`。
+    /// CoreDesign 的默认 `DisclosureGroup` 外观：chevron 走 `.tint`，展开内容
+    /// 作 leading 缩进（贴近原生，不加卡片）。
     ///
     /// ```swift
     /// DisclosureGroup("Details") {
