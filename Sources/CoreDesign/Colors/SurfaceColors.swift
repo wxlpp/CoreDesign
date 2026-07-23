@@ -84,6 +84,11 @@ public extension Color {
 
     /// 卡片群之上的面板容器；接近现有 `surfaceGroupedRaised`，与其别名目标
     /// `surfaceCanvasSubtle` 同值。
+    ///
+    /// - Note: Issue #140 后，`.surface(.panel)` 的背景与 `.surface(.card)` 同值
+    ///   （二者均解析到 `secondarySystemGroupedBackground`），层级差异改由**边框**
+    ///   表达（panel 用 `borderDefault`、card 用 `borderMuted`），不再靠背景色区分。
+    ///   9 个 `SurfaceKind` 收敛为 3 个 distinct 背景的完整数据与缓议见 issue #140。
     static var surfacePanel: Color {
         .surfaceCanvasSubtle
     }
@@ -94,9 +99,13 @@ public extension Color {
         .surfaceCanvasSubtle
     }
 
-    /// 卡片容器背景。卡片刻意保持接近画布，只靠边框和相邻 panel 拉开层级，
-    /// `surfaceCard` 别名到 `surfaceCanvas`，随其改指系统色。
+    /// 卡片容器背景。Phase 1 曾让卡片刻意贴近画布、只靠边框拉开层级
+    /// （`surfaceCard` 别名 `surfaceCanvas`）；Phase 2 视觉终审（#125/#136）
+    /// 推翻了这一判断——深色模式下卡片与页面画布完全同色、无描边时视觉塌缩、
+    /// 隐形。现改为浮在画布之上：`surfaceCard` 别名 `surfaceRaised`
+    /// （= `secondarySystemGroupedBackground`），符合 iOS 分组容器（列表/卡片
+    /// 浮于分组画布之上）的系统惯例。
     static var surfaceCard: Color {
-        .surfaceCanvas
+        .surfaceRaised
     }
 }
