@@ -129,7 +129,7 @@
 
 ## `0.4.0`（epic coredesign-native-components）
 
-Phase 2 新组件交付,**纯新增为主**:基础容器 `Card` / `Separator` / `SectionHeader` / `SectionFooter`、分组设置行 `InsetGroupedSection` / `SettingsRow`（含 `SettingsRowIcon` / `SettingsRowChevron`）、系统控件 `.core` style 3 个（`progressViewStyle(.core)` / `labelStyle(.core)` / `disclosureGroupStyle(.core)`）。这些**不删不改公开符号,对下游零破坏**。唯一的破坏面是下方「同名换值」的 `.content` / `.card` 表面色指向变更（对下游编译零感知,仅改观感）。
+Phase 2 新组件交付,**纯新增为主**:基础容器 `Card` / `Separator` / `SectionHeader` / `SectionFooter`、分组设置行 `InsetGroupedSection` / `SettingsRow`（含 `SettingsRowIcon` / `SettingsRowChevron` / 顶层枚举 `SettingsDividerInset`）、系统控件 `.core` style 3 个（`progressViewStyle(.core)` / `labelStyle(.core)` / `disclosureGroupStyle(.core)`）。这些**不删不改公开符号,对下游零破坏**。唯一的破坏面是下方「同名换值」的 `.content` / `.card` 表面色指向变更（对下游编译零感知,仅改观感）。
 
 > `.toggleStyle(.core)` / `.textFieldStyle(.core)` **有意未提供**——自定义 `ToggleStyle.makeBody` 会丢原生 switch 的手势与 haptic、`TextFieldStyle._body` 是私有的无公开自定义入口;换皮即重造控件,违反「不重造系统控件」约束。设置行里的开关直接用系统 `Toggle` + `.tint`。
 

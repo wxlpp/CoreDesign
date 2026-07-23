@@ -52,4 +52,4 @@ DisclosureGroup("Details", isExpanded: $isExpanded) {
 - 强调色全部经 `.tint`（`ShapeStyle.tint`）取值，不写死 `Color.accent`（FR-12 / ADR-3 硬约束）——外层 `.tint(_:)` 能真的改变填充条 / icon / chevron 的颜色
 - `CoreProgressViewStyle` 轨道底色：`Color.surfaceCanvasInset`；圆角：`CoreShape.rounded(CoreRadius.small)`；间距：`CoreSpacing.xs`
 - `CoreLabelStyle` 图标 ↔ 标题间距：`CoreSpacing.sm`
-- `CoreDisclosureGroupStyle` 展开内容缩进：`CoreSpacing.md`；标题 ↔ chevron 行间距：`CoreSpacing.sm`；展开内容不套 `.surface(.content)`（贴近系统观感，不消费 surface 层）
+- `CoreDisclosureGroupStyle` 展开内容缩进：`CoreSpacing.md`；标题行 ↔ 展开内容纵向间距：`CoreSpacing.sm`（标题与 chevron 间是弹性 `Spacer()`，非定距）；展开内容不套 `.surface(.content)`（贴近系统观感，不消费 surface 层）

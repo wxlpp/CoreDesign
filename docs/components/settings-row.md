@@ -52,10 +52,13 @@ SettingsRow(
 }
 .tint(.green) // Toggle 跟随
 
-// 无 accessory
+// 纯 value 行（trailing 是 value 文本）
 SettingsRow(title: Text("Version")) {
     Text("0.4.0").foregroundStyle(.secondary)
 }
+
+// 真正无 accessory（便利 init，Accessory == EmptyView）
+SettingsRow(icon: .init(systemName: "info.circle", background: .gray), title: Text("Build"))
 ```
 
 ## 视觉 Token
