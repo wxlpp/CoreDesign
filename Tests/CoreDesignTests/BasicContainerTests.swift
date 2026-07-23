@@ -1,0 +1,93 @@
+import SwiftUI
+import Testing
+@testable import CoreDesign
+
+// MARK: - 基础容器（Issue #141）
+//
+// Card / Separator / SectionHeader / SectionFooter 是薄封装，视觉正确性主要靠
+// 各文件的 `#Preview` 与 #144 的实机视觉终审（ADR-4 硬门）兜底。这里覆盖两类
+// 机械可断言的东西：
+//   1. `Separator.Inset` 的映射逻辑（纯逻辑，两端平台都跑）。
+//   2. `Card` 的**可见性契约**——它的背景必须与画布拉开，否则卡片隐形。这正是
+//      Issue #140 修的塌缩；在 Card 组件层再钉一根守卫，证明 `.surface(.content)`
+//      被正确接进 Card（token 层的守卫在 `SurfaceContrastTests`）。渲染类断言同样
+//      只在 iOS 腿作数（macOS 无 WindowServer 会塌缩系统色）。
+
+@Suite("基础容器 Separator.Inset 逻辑")
+struct SeparatorInsetTests {
+
+    @Test("leadingAmount: none→0, leading(x)→x")
+    func leadingAmount() {
+        #expect(Separator.Inset.none.leadingAmount == 0)
+        #expect(Separator.Inset.leading(24).leadingAmount == 24)
+        #expect(Separator.Inset.leading(0).leadingAmount == 0)
+    }
+
+    @Test("Inset Equatable：leading(0) 与 none 是不同的 case")
+    func insetEquatable() {
+        #expect(Separator.Inset.none == .none)
+        #expect(Separator.Inset.leading(4) == .leading(4))
+        #expect(Separator.Inset.leading(4) != .leading(8))
+        // 语义有别：`.none` = 贯穿整宽，`.leading(0)` = 走缩进逻辑但量为 0。
+        // leadingAmount 恰好都为 0，但 case 本身不相等。
+        #expect(Separator.Inset.none != .leading(0))
+    }
+}
+
+#if os(iOS)
+import UIKit
+
+@Suite("基础容器 Card 可见性（iOS 腿）")
+@MainActor
+struct CardVisibilityTests {
+
+    /// 渲染 `view` 并采样中心像素。系统色在 iOS Simulator 上有真实渲染上下文，
+    /// ImageRenderer 能正确解析（不像 macOS 无 WindowServer 时塌缩）。
+    private func centerPixel(_ view: some View, scheme: ColorScheme) -> [UInt8]? {
+        let renderer = ImageRenderer(content:
+            view.environment(\.colorScheme, scheme)
+        )
+        renderer.scale = 1
+        guard let cg = renderer.uiImage?.cgImage else { return nil }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let space = CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(
+            data: &pixel,
+            width: 1, height: 1,
+            bitsPerComponent: 8, bytesPerRow: 4,
+            space: space,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        // 把整张图平移，使其中心恰好落在 1×1 上下文上，采到中心像素。
+        ctx.draw(
+            cg,
+            in: CGRect(
+                x: -CGFloat(cg.width) / 2 + 0.5,
+                y: -CGFloat(cg.height) / 2 + 0.5,
+                width: CGFloat(cg.width),
+                height: CGFloat(cg.height)
+            )
+        )
+        return pixel
+    }
+
+    @Test("Card 渲染出的背景与画布两种外观下都不同色（浮起可见）")
+    func cardBackgroundDiffersFromCanvas() {
+        for scheme in [ColorScheme.light, .dark] {
+            // Card 内容用 clear 占位，中心采到的是 Card 自身背景（.surface(.content)）。
+            let card = Card { Color.clear.frame(width: 60, height: 60) }
+            let canvas = Color.surfaceCanvas.frame(width: 100, height: 100)
+
+            let cardPixel = self.centerPixel(card, scheme: scheme)
+            let canvasPixel = self.centerPixel(canvas, scheme: scheme)
+
+            #expect(cardPixel != nil, "Card 渲染失败（\(scheme)）")
+            #expect(canvasPixel != nil, "画布渲染失败（\(scheme)）")
+            #expect(
+                cardPixel != canvasPixel,
+                "Card 背景在 \(scheme) 下与画布同色 → 卡片隐形（Issue #140 塌缩回归）"
+            )
+        }
+    }
+}
+#endif
