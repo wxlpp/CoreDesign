@@ -30,7 +30,7 @@ import SwiftUI
 ///     }
 /// }
 ///
-/// Card(alignment: .center) { EmptyStateView() }  // 居中内容的空态卡片
+/// Card(alignment: .center) { ContentUnavailableView("No Results", systemImage: "magnifyingglass") }  // 居中内容的空态卡片
 /// ```
 public struct Card<Content: View>: View {
     private let padding: CGFloat

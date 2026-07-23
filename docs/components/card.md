@@ -27,7 +27,7 @@ Card {
 }
 
 Card(alignment: .center) {
-    EmptyStateView(...)  // 居中内容的空态卡片
+    ContentUnavailableView("No Results", systemImage: "magnifyingglass")  // 居中内容的空态卡片
 }
 
 Card(padding: CoreSpacing.md) {

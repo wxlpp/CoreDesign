@@ -2,16 +2,17 @@
 
 破坏性变更按版本 / Issue 记录在此，下游升级前请对照。
 
-> 已发布的 git tag：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）。本文件早期版本曾写
-> 「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
+> 已发布的 git tag：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）、`v0.3.0`（2026-07-23）。
+> `v0.4.0` 将随本 epic 合入 `main` 时打出。本文件早期版本曾写「本库当前无外部版本 tag」
+> ——那在 `v0.1.0` 之前成立，之后未同步，已更正。
 
 ## `0.3.0`（epic coredesign-native-foundation，2026-07-21 ~ 2026-07-23）
 
 把 token 地基从 GitHub Primer 换成 Apple HIG。取值理由见
 [`docs/DESIGN-FOUNDATION.md`](DESIGN-FOUNDATION.md)。这是一次**破坏面很大**的改造：
 6 个组件删除、`Blossom` trait 删除、`CoreGradient` 删除、9 个字体 token 改名、
-圆角与控件尺寸档位换值、大量语义色改指系统色。库当前版本 `0.2.0`，处于 `1.0` 之前，
-接受破坏性变更，但要求完整记录。
+圆角与控件尺寸档位换值、大量语义色改指系统色。本条目定稿时库自 `0.2.0` 升往 `0.3.0`；
+库处于 `1.0` 之前，接受破坏性变更，但要求完整记录。
 
 > **下游升级路径**：本次改造分两个版本发布——`0.3.0`（本条目，地基）与 `0.4.0`
 > （新组件，`InsetGroupedSection` / `SettingsRow` / `Card` / `Separator` /
@@ -139,7 +140,7 @@ Phase 2 新组件交付,**纯新增为主**:基础容器 `Card` / `Separator` / 
 
 | 旧实现 | 新实现 | 影响 |
 |---|---|---|
-| 别名 `Color.surfaceCanvas`（= `systemGroupedBackground`，页面画布色） | 别名 `Color.surfaceRaised`（= `secondarySystemGroupedBackground`，浮起层色） | **对下游编译零感知**——符号名、类型签名均未变，`scripts/downstream-probe` 探测不到。视觉上：`.surface(.content)` 与 `.surface(.card)` 两个 `SurfaceKind` case（唯二消费 `surfaceCard` 的调用点）渲染出的背景色**在浅色与深色两种外观下都改变**（iOS 浅色：`systemGroupedBackground` #F2F2F7 → `secondarySystemGroupedBackground` #FFFFFF，灰画布卡片变白色浮起卡片；iOS 深色：由此前与画布同色的塌缩隐形变为可辨的浮起背景。上述 hex 为 **iOS 值**；macOS 走降级映射 `windowBackgroundColor` → `controlBackgroundColor`，具体值不同但同样两种外观下都变，见 `SystemBackgroundColors.swift` 的降级注释）。深色是动机（塌缩隐形），不是变化的全部范围。库内**当前无生产组件调用** `.surface(.content)` / `.surface(.card)`（唯一**生产**组件调用点是 `ListRow.swift` 的 `.surface(.canvas)`，不受影响；`SurfacePreviewGallery` 的 `#Preview` 会遍历全部 case，非生产路径），若下游代码直接调用了这两个 case，或直接引用 `Color.surfaceCard`，升级后视觉会随之改变 |
+| 别名 `Color.surfaceCanvas`（= `systemGroupedBackground`，页面画布色） | 别名 `Color.surfaceRaised`（= `secondarySystemGroupedBackground`，浮起层色） | **对下游编译零感知**——符号名、类型签名均未变，`scripts/downstream-probe` 探测不到。视觉上：`.surface(.content)` 与 `.surface(.card)` 两个 `SurfaceKind` case（唯二消费 `surfaceCard` 的调用点）渲染出的背景色**在浅色与深色两种外观下都改变**（iOS 浅色：`systemGroupedBackground` #F2F2F7 → `secondarySystemGroupedBackground` #FFFFFF，灰画布卡片变白色浮起卡片；iOS 深色：由此前与画布同色的塌缩隐形变为可辨的浮起背景。上述 hex 为 **iOS 值**；macOS 走降级映射 `windowBackgroundColor` → `controlBackgroundColor`，具体值不同但同样两种外观下都变，见 `SystemBackgroundColors.swift` 的降级注释）。深色是动机（塌缩隐形），不是变化的全部范围。本变更落地（`0.3.0`）时库内**无生产组件调用** `.surface(.content)` / `.surface(.card)`（彼时唯一**生产**调用点是 `ListRow.swift` 的 `.surface(.canvas)`，不受影响；`SurfacePreviewGallery` 的 `#Preview` 会遍历全部 case，非生产路径）。**`0.4.0` 起新增的 `Card` 消费 `.surface(.content)`**——但 `Card` 是净新增组件、自始即渲染新值,不构成升级前后的观感变化。若下游代码直接调用了这两个 case，或直接引用 `Color.surfaceCard`，升级后视觉会随之改变 |
 
 Phase 1 视觉终审（#125）与 #136 查明 `.surface(.content)` → `surfaceCard` → `surfaceCanvas` → `systemGroupedBackground` 这条链路——卡片背景与页面画布完全同色，深色下、无描边时不可辨。iOS 卡片本应浮于画布之上（`secondarySystemGroupedBackground`，即库内已有的 `surfaceRaised`），故只改 `surfaceCard` 的别名目标，不改 `SurfaceKind` 的 case 结构。
 
