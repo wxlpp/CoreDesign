@@ -101,6 +101,20 @@ struct SurfaceContrastTests {
         }
     }
 
+    @Test("surfaceCard 与 surfaceCanvas 两种外观下都不同色（Issue #140）")
+    func surfaceCardDiffersFromCanvasInBothAppearances() {
+        // 断言 surfaceCard 本身（非 surfaceRaised != surfaceCanvas，那个不改代码就恒真）。
+        // 两种外观都验：浅色下 #F2F2F7 vs #FFFFFF、深色下由塌缩的纯黑变为可辨——
+        // 都是本次修复的产物，浅色侧的回归同样要防。
+        for scheme in [ColorScheme.light, .dark] {
+            let e = Self.env(scheme)
+            #expect(
+                Color.surfaceCard.resolve(in: e) != Color.surfaceCanvas.resolve(in: e),
+                "\(scheme)：surfaceCard 与 surfaceCanvas 同色——卡片在画布上不可辨"
+            )
+        }
+    }
+
     @Test("填充色族整体可叠加——半透明且与各父背景不同色")
     func fillTokensLayerOverAnySurface() {
         for scheme in [ColorScheme.light, .dark] {

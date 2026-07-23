@@ -1,5 +1,7 @@
 /* Component internal UI strings (source language = en). */
 "Alert" = "Alert";
+"Collapsed" = "Collapsed";
+"Expanded" = "Expanded";
 "Loading" = "Loading";
 "Menu" = "Menu";
 "Progress" = "Progress";

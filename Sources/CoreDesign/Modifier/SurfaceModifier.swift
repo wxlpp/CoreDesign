@@ -18,7 +18,9 @@ import SwiftUI
 public nonisolated enum SurfaceKind: Sendable, Equatable {
     /// 页面级画布。
     case canvas
-    /// 普通内容表面：列表行、卡片、非浮起容器。
+    /// 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。
+    /// 注意列表行**不**用本 kind：`ListRow` 刻意用 `.surface(.canvas)` 贴画布（见本文件下方注释），
+    /// 照旧文案「列表行」接到 `.content` 会得到浮起卡片、违背 #125 的裁决。
     case content
     /// 交互控件表面：按钮、输入框、分段控件。
     case control

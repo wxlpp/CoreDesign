@@ -49,6 +49,12 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 新增带样式的组件时复用该形态，不要另立平行模式。
 
+### 系统控件 `.core` style 与分组容器（Phase 2 / `0.4.0`）
+
+- **`.core` style 的强调色必须走 `.tint` 通路**：`ProgressView` / `Label` / `DisclosureGroup` 各有一个 `.core` style（`Components/Style/`），**换皮不重造控件**；`makeBody` 中强调色一律经 `TintShapeStyle`（`.tint`）取，**不得写死 `Color.accent`**——否则调用方 `.tint(_:)` 对这些控件静默失效（FR-12）。`Toggle` / `TextField` 有意未提供 `.core` style（前者丢原生手势/haptic，后者 `_body` 私有无公开自定义入口）；设置行里的开关直接用系统 `Toggle` + `.tint`。
+- **分组容器只复刻视觉、不复刻 `List` 能力**：`InsetGroupedSection` / `SettingsRow` 复刻 iOS `.insetGrouped` 观感（圆角卡片 + raised 背景 + 自动分隔线 inset），但不做数据/滚动/编辑——因此能嵌进已有 `ScrollView` / `VStack`，也能直接作原生 `List` 行（配 `.listRowInsets(EdgeInsets())`）。相邻行分隔线用 iOS 18+ `Group(subviews:)` 在真实子视图间插入，leading inset 从 `SettingsRowMetrics` 推导（不硬编码，改图标尺寸自动跟随）。
+- **`Card` 是薄封装**：`Card` = `.surface(.content)` + 默认内边距，不重造背景/描边/圆角；需更细控制直接用 `View.surface(_:)`。分隔件 `Separator(inset:)` 走 `Color.dividerDefault` 系统色、hairline 宽度。
+
 ### Modifier 约定
 
 可复用的 `ViewModifier` 放在 `Modifier/` 目录下；以 `View` 扩展形式暴露（如 `.bordered(...)`），而不是要求调用方写 `.modifier(BorderModifier(...))`。跨组件复用的纯辅助扩展放在 `Utils/`（目前仅 `ColorExtension.swift`）；只服务单个组件的辅助扩展与组件同文件（如 `.focusedExternally` 在 `BottomInputBar.swift`）。
