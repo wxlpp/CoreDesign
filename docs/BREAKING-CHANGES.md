@@ -2,16 +2,17 @@
 
 破坏性变更按版本 / Issue 记录在此，下游升级前请对照。
 
-> 已发布的 git tag：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）。本文件早期版本曾写
-> 「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
+> 已发布的 git tag：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）、`v0.3.0`（2026-07-23）。
+> `v0.4.0` 将随本 epic 合入 `main` 时打出。本文件早期版本曾写「本库当前无外部版本 tag」
+> ——那在 `v0.1.0` 之前成立，之后未同步，已更正。
 
 ## `0.3.0`（epic coredesign-native-foundation，2026-07-21 ~ 2026-07-23）
 
 把 token 地基从 GitHub Primer 换成 Apple HIG。取值理由见
 [`docs/DESIGN-FOUNDATION.md`](DESIGN-FOUNDATION.md)。这是一次**破坏面很大**的改造：
 6 个组件删除、`Blossom` trait 删除、`CoreGradient` 删除、9 个字体 token 改名、
-圆角与控件尺寸档位换值、大量语义色改指系统色。库当前版本 `0.2.0`，处于 `1.0` 之前，
-接受破坏性变更，但要求完整记录。
+圆角与控件尺寸档位换值、大量语义色改指系统色。本条目定稿时库自 `0.2.0` 升往 `0.3.0`；
+库处于 `1.0` 之前，接受破坏性变更，但要求完整记录。
 
 > **下游升级路径**：本次改造分两个版本发布——`0.3.0`（本条目，地基）与 `0.4.0`
 > （新组件，`InsetGroupedSection` / `SettingsRow` / `Card` / `Separator` /
@@ -24,7 +25,7 @@
 
 | 删除 | 来源 | 替代 |
 |---|---|---|
-| `BookCover` / `RefPill` / `StatusRow` / `EventRow` / `CommentCard` / `TimelineItem`（6 个组件） | #117 | **无直接替代**——它们服务于「GitHub Issue 时间线」这一具体场景，在通用设计系统里被判定为死重而非迁移目标。若下游依赖，需按各自场景用 SwiftUI 原生组件重建；`0.4.0` 会新增的 `Card` / `InsetGroupedSection` 等通用容器可作为重建时的基础构件，但不是这 6 个组件的直接替代品 |
+| `BookCover` / `RefPill` / `StatusRow` / `EventRow` / `CommentCard` / `TimelineItem`（6 个组件） | #117 | **无直接替代**——它们服务于「GitHub Issue 时间线」这一具体场景，在通用设计系统里被判定为死重而非迁移目标。若下游依赖，需按各自场景用 SwiftUI 原生组件重建；`0.4.0` **已提供**的 `Card` / `InsetGroupedSection` / `SettingsRow` 等通用容器可作为重建时的基础构件，但**不是**这 6 个组件的直接替代品（Phase 1 已裁决：通用容器 ≠ GitHub 时间线场景组件的等价物） |
 | `StatusResult`（枚举，`StatusRow.swift` 内） | #117 | 随 `StatusRow` 一并删除，无独立替代。注意 `StatusLevel`（`Banner` / `Toast` 的公开参数类型）**保留**，未受影响，不要混淆两者 |
 | `timelineDepth`（`EnvironmentValues` 入口） | #117 | **从未 `public`，对下游无影响**——`@Entry` 不继承 public 访问级别（本库对此有惯例：`Toast.swift` 的 `toastHost` 显式写了 `@Entry public var`，而 `segmentedControlStyle` / `bannerStyle` 与本条一样是 internal）。列在此处仅为完整记录随 `TimelineItem` 一并消失的符号，**不构成破坏性变更** |
 | `Blossom` package trait | #118 | **无替代**。下游若在 `Package.swift` 里写 `.package(url: "...", traits: ["Blossom"])`，升级后会在**依赖解析期**报 unknown-trait 错误——报错发生在 SwiftPM manifest 解析层，**不是编译错误**，下游不一定能第一时间把这个报错与本次升级关联起来，请特别注意。若需要强调色主题化，改用宿主 App 自己的 `AccentColor` 资源（见下方「改名的 token」表外的语义色变更） |
@@ -127,9 +128,11 @@
 
 > `ContentColors`（`label` 族）与 `FillColors`（`systemFill` 族）本就直接指向系统色，本次未改动，不在上表中。`secondaryAccent` / `neutralAccent` 两族与 `StatusColors` 的其余 19 个 token（非 subtle 变体）**显式定案保留**现有取值，同样未换值。
 
-## `0.4.0`（epic coredesign-native-components，进行中）
+## `0.4.0`（epic coredesign-native-components）
 
-新组件交付（`InsetGroupedSection` / `SettingsRow` / `Card` / `Separator` / `SectionHeader` / `SectionFooter` 等）；本条目随任务推进逐步补全。
+Phase 2 新组件交付,**纯新增为主**:基础容器 `Card` / `Separator` / `SectionHeader` / `SectionFooter`、分组设置行 `InsetGroupedSection` / `SettingsRow`（含 `SettingsRowIcon` / `SettingsRowChevron` / 顶层枚举 `SettingsDividerInset`）、系统控件 `.core` style 3 个（`progressViewStyle(.core)` / `labelStyle(.core)` / `disclosureGroupStyle(.core)`）。这些**不删不改公开符号,对下游零破坏**。唯一的破坏面是下方「同名换值」的 `.content` / `.card` 表面色指向变更（对下游编译零感知,仅改观感）。
+
+> `.toggleStyle(.core)` / `.textFieldStyle(.core)` **有意未提供**——自定义 `ToggleStyle.makeBody` 会丢原生 switch 的手势与 haptic、`TextFieldStyle._body` 是私有的无公开自定义入口;换皮即重造控件,违反「不重造系统控件」约束。设置行里的开关直接用系统 `Toggle` + `.tint`。
 
 ### 同名换值
 
@@ -137,7 +140,7 @@
 
 | 旧实现 | 新实现 | 影响 |
 |---|---|---|
-| 别名 `Color.surfaceCanvas`（= `systemGroupedBackground`，页面画布色） | 别名 `Color.surfaceRaised`（= `secondarySystemGroupedBackground`，浮起层色） | **对下游编译零感知**——符号名、类型签名均未变，`scripts/downstream-probe` 探测不到。视觉上：`.surface(.content)` 与 `.surface(.card)` 两个 `SurfaceKind` case（唯二消费 `surfaceCard` 的调用点）渲染出的背景色**在浅色与深色两种外观下都改变**（iOS 浅色：`systemGroupedBackground` #F2F2F7 → `secondarySystemGroupedBackground` #FFFFFF，灰画布卡片变白色浮起卡片；iOS 深色：由此前与画布同色的塌缩隐形变为可辨的浮起背景。上述 hex 为 **iOS 值**；macOS 走降级映射 `windowBackgroundColor` → `controlBackgroundColor`，具体值不同但同样两种外观下都变，见 `SystemBackgroundColors.swift` 的降级注释）。深色是动机（塌缩隐形），不是变化的全部范围。库内**当前无生产组件调用** `.surface(.content)` / `.surface(.card)`（唯一**生产**组件调用点是 `ListRow.swift` 的 `.surface(.canvas)`，不受影响；`SurfacePreviewGallery` 的 `#Preview` 会遍历全部 case，非生产路径），若下游代码直接调用了这两个 case，或直接引用 `Color.surfaceCard`，升级后视觉会随之改变 |
+| 别名 `Color.surfaceCanvas`（= `systemGroupedBackground`，页面画布色） | 别名 `Color.surfaceRaised`（= `secondarySystemGroupedBackground`，浮起层色） | **对下游编译零感知**——符号名、类型签名均未变，`scripts/downstream-probe` 探测不到。视觉上：`.surface(.content)` 与 `.surface(.card)` 两个 `SurfaceKind` case（唯二消费 `surfaceCard` 的调用点）渲染出的背景色**在浅色与深色两种外观下都改变**（iOS 浅色：`systemGroupedBackground` #F2F2F7 → `secondarySystemGroupedBackground` #FFFFFF，灰画布卡片变白色浮起卡片；iOS 深色：由此前与画布同色的塌缩隐形变为可辨的浮起背景。上述 hex 为 **iOS 值**；macOS 走降级映射 `windowBackgroundColor` → `controlBackgroundColor`，具体值不同但同样两种外观下都变，见 `SystemBackgroundColors.swift` 的降级注释）。深色是动机（塌缩隐形），不是变化的全部范围。本变更落地（`0.3.0`）时库内**无生产组件调用** `.surface(.content)` / `.surface(.card)`（彼时唯一**生产**调用点是 `ListRow.swift` 的 `.surface(.canvas)`，不受影响；`SurfacePreviewGallery` 的 `#Preview` 会遍历全部 case，非生产路径）。**`0.4.0` 起新增的 `Card` 消费 `.surface(.content)`**——但 `Card` 是净新增组件、自始即渲染新值,不构成升级前后的观感变化。若下游代码直接调用了这两个 case，或直接引用 `Color.surfaceCard`，升级后视觉会随之改变 |
 
 Phase 1 视觉终审（#125）与 #136 查明 `.surface(.content)` → `surfaceCard` → `surfaceCanvas` → `systemGroupedBackground` 这条链路——卡片背景与页面画布完全同色，深色下、无描边时不可辨。iOS 卡片本应浮于画布之上（`secondarySystemGroupedBackground`，即库内已有的 `surfaceRaised`），故只改 `surfaceCard` 的别名目标，不改 `SurfaceKind` 的 case 结构。
 
