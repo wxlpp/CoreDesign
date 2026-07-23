@@ -28,8 +28,9 @@ struct SeparatorInsetTests {
         #expect(Separator.Inset.none == .none)
         #expect(Separator.Inset.leading(4) == .leading(4))
         #expect(Separator.Inset.leading(4) != .leading(8))
-        // 语义有别：`.none` = 贯穿整宽，`.leading(0)` = 走缩进逻辑但量为 0。
-        // leadingAmount 恰好都为 0，但 case 本身不相等。
+        // `.none` 与 `.leading(0)` **渲染完全相同**（都归结为 `.padding(.leading, 0)`），
+        // 但作为枚举值是两个不同 case——合成的 Equatable 应区分它们。这条守卫防的是
+        // 「误把 .none 与 .leading(0) 合并成同一 case」这类 API 变更，不是行为差异。
         #expect(Separator.Inset.none != .leading(0))
     }
 }
@@ -51,24 +52,30 @@ struct CardVisibilityTests {
         guard let cg = renderer.uiImage?.cgImage else { return nil }
         var pixel = [UInt8](repeating: 0, count: 4)
         let space = CGColorSpaceCreateDeviceRGB()
-        guard let ctx = CGContext(
-            data: &pixel,
-            width: 1, height: 1,
-            bitsPerComponent: 8, bytesPerRow: 4,
-            space: space,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
-        // 把整张图平移，使其中心恰好落在 1×1 上下文上，采到中心像素。
-        ctx.draw(
-            cg,
-            in: CGRect(
-                x: -CGFloat(cg.width) / 2 + 0.5,
-                y: -CGFloat(cg.height) / 2 + 0.5,
-                width: CGFloat(cg.width),
-                height: CGFloat(cg.height)
+        // `CGContext(data:)` 只在 init 期借用指针；draw 必须在指针仍有效时发生。
+        // 用 withUnsafeMutableBytes 把 context 的创建与 draw 全放进指针有效的闭包，
+        // 避免 `&pixel` 桥接出的临时指针在 draw 时已悬垂（Swift UB）。
+        let ok = pixel.withUnsafeMutableBytes { buffer -> Bool in
+            guard let ctx = CGContext(
+                data: buffer.baseAddress,
+                width: 1, height: 1,
+                bitsPerComponent: 8, bytesPerRow: 4,
+                space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            // 把整张图平移，使其中心恰好落在 1×1 上下文上，采到中心像素。
+            ctx.draw(
+                cg,
+                in: CGRect(
+                    x: -CGFloat(cg.width) / 2 + 0.5,
+                    y: -CGFloat(cg.height) / 2 + 0.5,
+                    width: CGFloat(cg.width),
+                    height: CGFloat(cg.height)
+                )
             )
-        )
-        return pixel
+            return true
+        }
+        return ok ? pixel : nil
     }
 
     @Test("Card 渲染出的背景与画布两种外观下都不同色（浮起可见）")

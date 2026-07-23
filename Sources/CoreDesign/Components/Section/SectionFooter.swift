@@ -18,14 +18,20 @@ import SwiftUI
 /// SectionFooter("Turning this off stops all notifications from this app.")
 /// ```
 public struct SectionFooter: View {
-    private let text: String
+    private let content: Text
 
-    public init(_ text: String) {
-        self.text = text
+    /// LocalizedStringKey——字面量会在**调用方 bundle** 本地化（与 SwiftUI `Text` 一致）。
+    public init(_ textKey: LocalizedStringKey) {
+        self.content = Text(textKey)
+    }
+
+    /// 运行期字符串，verbatim 显示、不走本地化查表。
+    public init<S: StringProtocol>(_ text: S) {
+        self.content = Text(text)
     }
 
     public var body: some View {
-        Text(self.text)
+        self.content
             .coreFont(.footnote)
             .foregroundStyle(Color.contentSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)

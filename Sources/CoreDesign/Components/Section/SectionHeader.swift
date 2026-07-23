@@ -23,14 +23,20 @@ import SwiftUI
 /// SectionHeader("General")   // 渲染为 "GENERAL"，footnote 灰
 /// ```
 public struct SectionHeader: View {
-    private let title: String
+    private let title: Text
 
-    public init(_ title: String) {
-        self.title = title
+    /// LocalizedStringKey——字面量会在**调用方 bundle** 本地化（与 SwiftUI `Text` 一致）。
+    public init(_ titleKey: LocalizedStringKey) {
+        self.title = Text(titleKey)
+    }
+
+    /// 运行期字符串（数据来的分类名等），verbatim 显示、不走本地化查表。
+    public init<S: StringProtocol>(_ title: S) {
+        self.title = Text(title)
     }
 
     public var body: some View {
-        Text(self.title)
+        self.title
             .coreFont(.footnote)
             .textCase(.uppercase)
             .foregroundStyle(Color.contentSecondary)
