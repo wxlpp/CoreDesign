@@ -1,6 +1,8 @@
 # CoreDesign 组件库 / Component Library
 
-iOS 26+ / macOS 26+ SwiftUI 设计系统，含 18 个 Apple HIG 对齐组件。
+iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件 + 3 个系统控件 `.core` style。
+
+> Phase 2（`0.4.0`）新增的容器组件与 `.core` style 快照尚未生成——运行 `scripts/run-snapshots.sh` 可为已在预览宿主注册的组件补齐 `docs/snapshots/` 预览图。
 
 ## 组件索引 / Component Index
 
@@ -18,6 +20,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 18 个 Apple HIG 对齐组件。
 | SearchField | [<img src="snapshots/CoreDesignPreview_Previews.swift_SearchField.png" width="200">](components/search-field.md) | [search-field.md](components/search-field.md) |
 | BottomInputBar | [<img src="snapshots/CoreDesignPreview_Previews.swift_BottomInputBar.png" width="200">](components/bottom-input-bar.md) | [bottom-input-bar.md](components/bottom-input-bar.md) |
 | LabelIcon / ChevronRightIcon / DangerIcon | [<img src="snapshots/CoreDesignPreview_Previews.swift_Form_Icons.png" width="200">](components/form-icons.md) | [form-icons.md](components/form-icons.md) |
+| `.core` Control Styles（ProgressView / Label / DisclosureGroup）| _运行 `run-snapshots.sh` 生成_ | [core-control-styles.md](components/core-control-styles.md) |
 
 ### Indicator 指示器
 
@@ -38,6 +41,16 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 18 个 Apple HIG 对齐组件。
 | AvatarGroup | [<img src="snapshots/CoreDesignPreview_Previews.swift_AvatarGroup.png" width="200">](components/avatar-group.md) | [avatar-group.md](components/avatar-group.md) |
 | ListRow | [<img src="snapshots/CoreDesignPreview_Previews.swift_ListRow.png" width="200">](components/list-row.md) | [list-row.md](components/list-row.md) |
 | FlowLayout | [<img src="snapshots/CoreDesignPreview_Previews.swift_FlowLayout.png" width="200">](components/flow-layout.md) | [flow-layout.md](components/flow-layout.md) |
+
+### Container 容器（Phase 2 · `0.4.0`）
+
+| 组件 | 预览 | 文档 |
+|---|---|---|
+| Card | _运行 `run-snapshots.sh` 生成_ | [card.md](components/card.md) |
+| Separator | _运行 `run-snapshots.sh` 生成_ | [separator.md](components/separator.md) |
+| SectionHeader / SectionFooter | _运行 `run-snapshots.sh` 生成_ | [section-header-footer.md](components/section-header-footer.md) |
+| InsetGroupedSection | _运行 `run-snapshots.sh` 生成_ | [inset-grouped-section.md](components/inset-grouped-section.md) |
+| SettingsRow | _运行 `run-snapshots.sh` 生成_ | [settings-row.md](components/settings-row.md) |
 
 ### Navigation 导航
 

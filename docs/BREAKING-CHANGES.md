@@ -24,7 +24,7 @@
 
 | 删除 | 来源 | 替代 |
 |---|---|---|
-| `BookCover` / `RefPill` / `StatusRow` / `EventRow` / `CommentCard` / `TimelineItem`（6 个组件） | #117 | **无直接替代**——它们服务于「GitHub Issue 时间线」这一具体场景，在通用设计系统里被判定为死重而非迁移目标。若下游依赖，需按各自场景用 SwiftUI 原生组件重建；`0.4.0` 会新增的 `Card` / `InsetGroupedSection` 等通用容器可作为重建时的基础构件，但不是这 6 个组件的直接替代品 |
+| `BookCover` / `RefPill` / `StatusRow` / `EventRow` / `CommentCard` / `TimelineItem`（6 个组件） | #117 | **无直接替代**——它们服务于「GitHub Issue 时间线」这一具体场景，在通用设计系统里被判定为死重而非迁移目标。若下游依赖，需按各自场景用 SwiftUI 原生组件重建；`0.4.0` **已提供**的 `Card` / `InsetGroupedSection` / `SettingsRow` 等通用容器可作为重建时的基础构件，但**不是**这 6 个组件的直接替代品（Phase 1 已裁决：通用容器 ≠ GitHub 时间线场景组件的等价物） |
 | `StatusResult`（枚举，`StatusRow.swift` 内） | #117 | 随 `StatusRow` 一并删除，无独立替代。注意 `StatusLevel`（`Banner` / `Toast` 的公开参数类型）**保留**，未受影响，不要混淆两者 |
 | `timelineDepth`（`EnvironmentValues` 入口） | #117 | **从未 `public`，对下游无影响**——`@Entry` 不继承 public 访问级别（本库对此有惯例：`Toast.swift` 的 `toastHost` 显式写了 `@Entry public var`，而 `segmentedControlStyle` / `bannerStyle` 与本条一样是 internal）。列在此处仅为完整记录随 `TimelineItem` 一并消失的符号，**不构成破坏性变更** |
 | `Blossom` package trait | #118 | **无替代**。下游若在 `Package.swift` 里写 `.package(url: "...", traits: ["Blossom"])`，升级后会在**依赖解析期**报 unknown-trait 错误——报错发生在 SwiftPM manifest 解析层，**不是编译错误**，下游不一定能第一时间把这个报错与本次升级关联起来，请特别注意。若需要强调色主题化，改用宿主 App 自己的 `AccentColor` 资源（见下方「改名的 token」表外的语义色变更） |
@@ -127,9 +127,11 @@
 
 > `ContentColors`（`label` 族）与 `FillColors`（`systemFill` 族）本就直接指向系统色，本次未改动，不在上表中。`secondaryAccent` / `neutralAccent` 两族与 `StatusColors` 的其余 19 个 token（非 subtle 变体）**显式定案保留**现有取值，同样未换值。
 
-## `0.4.0`（epic coredesign-native-components，进行中）
+## `0.4.0`（epic coredesign-native-components）
 
-新组件交付（`InsetGroupedSection` / `SettingsRow` / `Card` / `Separator` / `SectionHeader` / `SectionFooter` 等）；本条目随任务推进逐步补全。
+Phase 2 新组件交付,**纯新增为主**:基础容器 `Card` / `Separator` / `SectionHeader` / `SectionFooter`、分组设置行 `InsetGroupedSection` / `SettingsRow`（含 `SettingsRowIcon` / `SettingsRowChevron`）、系统控件 `.core` style 3 个（`progressViewStyle(.core)` / `labelStyle(.core)` / `disclosureGroupStyle(.core)`）。这些**不删不改公开符号,对下游零破坏**。唯一的破坏面是下方「同名换值」的 `.content` / `.card` 表面色指向变更（对下游编译零感知,仅改观感）。
+
+> `.toggleStyle(.core)` / `.textFieldStyle(.core)` **有意未提供**——自定义 `ToggleStyle.makeBody` 会丢原生 switch 的手势与 haptic、`TextFieldStyle._body` 是私有的无公开自定义入口;换皮即重造控件,违反「不重造系统控件」约束。设置行里的开关直接用系统 `Toggle` + `.tint`。
 
 ### 同名换值
 
