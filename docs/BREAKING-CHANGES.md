@@ -127,6 +127,20 @@
 
 > `ContentColors`（`label` 族）与 `FillColors`（`systemFill` 族）本就直接指向系统色，本次未改动，不在上表中。`secondaryAccent` / `neutralAccent` 两族与 `StatusColors` 的其余 19 个 token（非 subtle 变体）**显式定案保留**现有取值，同样未换值。
 
+## `0.4.0`（epic coredesign-native-components，进行中）
+
+新组件交付（`InsetGroupedSection` / `SettingsRow` / `Card` / `Separator` / `SectionHeader` / `SectionFooter` 等）；本条目随任务推进逐步补全。
+
+### 同名换值
+
+#### `Color.surfaceCard`（Issue #140）
+
+| 旧实现 | 新实现 | 影响 |
+|---|---|---|
+| 别名 `Color.surfaceCanvas`（= `systemGroupedBackground`，页面画布色） | 别名 `Color.surfaceRaised`（= `secondarySystemGroupedBackground`，浮起层色） | **对下游编译零感知**——符号名、类型签名均未变，`scripts/downstream-probe` 探测不到。视觉上：`.surface(.content)` 与 `.surface(.card)` 两个 `SurfaceKind` case（唯二消费 `surfaceCard` 的调用点）渲染出的背景色在深色模式下会从「与页面画布同色（此前视觉塌缩、卡片隐形）」变为「浮于画布之上的可辨 raised 背景」。库内**当前无生产组件调用** `.surface(.content)` / `.surface(.card)`（唯一 `.surface(` 调用点是 `ListRow.swift` 的 `.canvas`，不受影响），若下游代码直接调用了这两个 case，或直接引用 `Color.surfaceCard`，升级后视觉会随之改变 |
+
+Phase 1 视觉终审（#125）与 #136 查明 `.surface(.content)` → `surfaceCard` → `surfaceCanvas` → `systemGroupedBackground` 这条链路——卡片背景与页面画布完全同色，深色下、无描边时不可辨。iOS 卡片本应浮于画布之上（`secondarySystemGroupedBackground`，即库内已有的 `surfaceRaised`），故只改 `surfaceCard` 的别名目标，不改 `SurfaceKind` 的 case 结构。
+
 ## Issue #97（epic coredesign-audit-remediation，2026-07-21）
 
 ### 删除的公开符号
