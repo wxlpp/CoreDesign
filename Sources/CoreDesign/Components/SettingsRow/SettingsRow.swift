@@ -167,9 +167,10 @@ public struct SettingsRow<Accessory: View>: View {
                 Image(systemName: icon.systemName)
                     // glyph 走 `@ScaledMetric` 缩放（见 self.glyphSize）——随 Dynamic Type
                     // 与同行 `.body` 标题同步,不用裸固定 pt（本库明文反对的形态,大字号下
-                    // 会与撑高的标题脱节）。方块尺寸与分隔线 inset 仍静态,代价是极大字号下
-                    // glyph 会更填满方块,已列入 #144 目视。
-                    .font(.system(size: self.glyphSize))
+                    // 会与撑高的标题脱节）。方块尺寸与分隔线 inset 仍静态；glyph 上限封到
+                    // 「方块边长 − sm×2」（30−16=... 留 sm 边距）,防 AX5 下 glyph 撑到
+                    // ~48pt 溢出 30pt 色块。方块本身在大字号不放大是有意的（保 inset 静态推导）。
+                    .font(.system(size: min(self.glyphSize, SettingsRowMetrics.iconSquareSize - CoreSpacing.sm * 2)))
                     .foregroundStyle(.white)
             }
             // 图标是装饰,语义由 title 承载（与 CoreLabelStyle 一致）。
@@ -201,7 +202,7 @@ public extension SettingsRow where Accessory == EmptyView {
 }
 
 private struct SettingsRowPreviewGallery: View {
-    @State private var wifiOn = true
+    @State private var notificationsOn = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -218,7 +219,7 @@ private struct SettingsRowPreviewGallery: View {
                 icon: .init(systemName: "bell.badge.fill", background: .red),
                 title: Text("Notifications")
             ) {
-                Toggle("Notifications", isOn: self.$wifiOn).labelsHidden()
+                Toggle("Notifications", isOn: self.$notificationsOn).labelsHidden()
             }
             .tint(.green)
         }
