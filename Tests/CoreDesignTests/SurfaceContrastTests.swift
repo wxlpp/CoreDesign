@@ -101,7 +101,7 @@ struct SurfaceContrastTests {
         }
     }
 
-    @Test("surfaceCard 与 surfaceCanvas 深色下不同色（Issue #140）")
+    @Test("surfaceCard 与 surfaceCanvas 两种外观下都不同色（Issue #140）")
     func surfaceCardDiffersFromCanvasInBothAppearances() {
         // 断言 surfaceCard 本身（非 surfaceRaised != surfaceCanvas，那个不改代码就恒真）。
         // 两种外观都验：浅色下 #F2F2F7 vs #FFFFFF、深色下由塌缩的纯黑变为可辨——
