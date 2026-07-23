@@ -84,6 +84,9 @@ public struct CoreProgressViewStyle: ProgressViewStyle {
                         .foregroundStyle(.secondary)
                 }
             }
+            // 与确定态分支保持一致：把 label / spinner / currentValueLabel 合成
+            // 单个无障碍元素（不确定态无百分比，故不叠加 accessibilityValue）。
+            .accessibilityElement(children: .combine)
         }
     }
 }

@@ -47,8 +47,14 @@ public struct CoreDisclosureGroupStyle: DisclosureGroupStyle {
             }
             .buttonStyle(.plain)
             // 自绘 Button 不会像原生 DisclosureGroup 那样自动播报展开态——
-            // 显式补回，`Text` 走 LocalizedStringKey 可随宿主 App 本地化。
-            .accessibilityValue(configuration.isExpanded ? Text("Expanded") : Text("Collapsed"))
+            // 显式补回。字符串走 `bundle: .module` 在库自带的 Localizable.strings
+            // 查键（与库内其余 a11y 文案一致，如 ProgressIndicator 的 "Loading"），
+            // 保证库侧可本地化、不依赖宿主 App 提供这两个键。
+            .accessibilityValue(
+                configuration.isExpanded
+                    ? Text("Expanded", bundle: .module)
+                    : Text("Collapsed", bundle: .module)
+            )
 
             if configuration.isExpanded {
                 // 原生 iOS `DisclosureGroup` 展开后只把内容缩进对齐、不加卡片。

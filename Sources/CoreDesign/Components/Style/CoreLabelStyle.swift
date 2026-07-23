@@ -18,6 +18,11 @@ import SwiftUI
 ///
 /// icon 显式 `.accessibilityHidden(true)`——保留系统默认 `Label` 的可访问性
 /// 语义：VoiceOver 只播报 title，icon 是纯装饰，不产生冗余播报。
+///
+/// > 无障碍假设：本 style 假定 **title 非空、承载语义**（与原生 `Label` 的分工
+/// > 一致）。若用于 icon-only 场景（空 title），icon 又被 `.accessibilityHidden`，
+/// > 该元素对 VoiceOver 将完全静默；此时应改用系统 `.labelStyle(.iconOnly)`
+/// > 并自行提供 `.accessibilityLabel`，而非本 style。
 public struct CoreLabelStyle: LabelStyle {
     public init() {}
 
