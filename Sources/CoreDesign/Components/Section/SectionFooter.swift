@@ -20,7 +20,8 @@ import SwiftUI
 public struct SectionFooter: View {
     private let content: Text
 
-    /// LocalizedStringKey——字面量会在**调用方 bundle** 本地化（与 SwiftUI `Text` 一致）。
+    /// LocalizedStringKey——字面量在 **`Bundle.main`** 本地化（与直接写 `Text(key)` 行为
+    /// 一致；对 App 调用方即其自身 bundle）。
     public init(_ textKey: LocalizedStringKey) {
         self.content = Text(textKey)
     }

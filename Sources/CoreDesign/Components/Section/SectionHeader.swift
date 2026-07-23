@@ -25,7 +25,8 @@ import SwiftUI
 public struct SectionHeader: View {
     private let title: Text
 
-    /// LocalizedStringKey——字面量会在**调用方 bundle** 本地化（与 SwiftUI `Text` 一致）。
+    /// LocalizedStringKey——字面量在 **`Bundle.main`** 本地化（与直接写 `Text(key)` 行为
+    /// 一致；对 App 调用方即其自身 bundle）。
     public init(_ titleKey: LocalizedStringKey) {
         self.title = Text(titleKey)
     }
@@ -41,6 +42,10 @@ public struct SectionHeader: View {
             .textCase(.uppercase)
             .foregroundStyle(Color.contentSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // iOS 分组列表 section header 带 heading trait——VoiceOver 的 heading rotor
+            // 靠它跳节。裸 Text 无 trait 会让标题导航跳过所有分组（SectionFooter 是
+            // 正文说明，不加）。
+            .accessibilityAddTraits(.isHeader)
     }
 }
 

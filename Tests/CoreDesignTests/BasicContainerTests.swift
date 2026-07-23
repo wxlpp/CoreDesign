@@ -21,6 +21,8 @@ struct SeparatorInsetTests {
         #expect(Separator.Inset.none.leadingAmount == 0)
         #expect(Separator.Inset.leading(24).leadingAmount == 24)
         #expect(Separator.Inset.leading(0).leadingAmount == 0)
+        // 负值 clamp 到 0——负 inset 会让分隔线向 leading 外扩、溢出边界。
+        #expect(Separator.Inset.leading(-8).leadingAmount == 0)
     }
 
     @Test("Inset Equatable：leading(0) 与 none 是不同的 case")
