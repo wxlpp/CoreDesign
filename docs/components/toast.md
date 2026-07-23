@@ -59,7 +59,7 @@ struct DetailView: View {
 
 ## 视觉 Token
 
-- 容器：`.surface(.card)` + `.coreShadow(.medium)`
+- 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`——iOS 26 液态玻璃浮起外壳，不消费 `.surface(.card)`（Phase 3A 迁移，见 `ToastView`）
 - 字号：`CoreTypography.bodyMediumFont`
 - 内边距：`CoreSpacing.md`
 - Icon / 前景色：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）

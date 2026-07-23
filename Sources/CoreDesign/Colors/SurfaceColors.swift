@@ -84,6 +84,11 @@ public extension Color {
 
     /// 卡片群之上的面板容器；接近现有 `surfaceGroupedRaised`，与其别名目标
     /// `surfaceCanvasSubtle` 同值。
+    ///
+    /// - Note: Issue #140 后，`.surface(.panel)` 的背景与 `.surface(.card)` 同值
+    ///   （二者均解析到 `secondarySystemGroupedBackground`），层级差异改由**边框**
+    ///   表达（panel 用 `borderDefault`、card 用 `borderMuted`），不再靠背景色区分。
+    ///   9 个 `SurfaceKind` 收敛为 3 个 distinct 背景的完整数据与缓议见 issue #140。
     static var surfacePanel: Color {
         .surfaceCanvasSubtle
     }
