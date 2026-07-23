@@ -2,7 +2,7 @@
 
 通用圆形加载指示器 / Generic circular loading indicator.
 
-封装系统 `ProgressView`，使用 Primer `accent` 色作为 tint，自动响应 `@Environment(\.controlSize)`。
+封装系统 `ProgressView`，使用 `accent` 色（跟随宿主 App 的 `AccentColor`）作为 tint，自动响应 `@Environment(\.controlSize)`。
 
 ## API
 

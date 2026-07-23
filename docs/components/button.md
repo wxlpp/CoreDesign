@@ -1,6 +1,6 @@
 # Button
 
-Primer 风格按钮样式 / Primer-styled button styles.
+Apple HIG 风格按钮样式 / Apple HIG-styled button styles.
 
 ## API
 

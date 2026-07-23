@@ -1,6 +1,6 @@
 # CoreDesign 组件库 / Component Library
 
-iOS 26+ / macOS 26+ SwiftUI 设计系统，含 18 个 Primer 对齐组件。
+iOS 26+ / macOS 26+ SwiftUI 设计系统，含 18 个 Apple HIG 对齐组件。
 
 ## 组件索引 / Component Index
 
