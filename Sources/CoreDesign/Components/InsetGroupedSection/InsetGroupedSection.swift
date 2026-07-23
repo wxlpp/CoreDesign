@@ -5,6 +5,30 @@
 
 import SwiftUI
 
+// MARK: - SettingsDividerInset
+
+/// `InsetGroupedSection` 相邻行分隔线的 leading 对齐方式。
+///
+/// **顶层类型**（非嵌套在 `InsetGroupedSection<Content>` 内）：嵌套类型会随外层泛型
+/// 参数特化，`InsetGroupedSection<A>.X` 与 `InsetGroupedSection<B>.X` 是不同类型、
+/// 不可互换——下游想把 inset 存进配置就得捏造幻影 `Content`。顶层类型避免这个陷阱。
+public enum SettingsDividerInset: Equatable, Sendable {
+    /// 越过图标列、对齐标题 leading（有图标分组的 iOS 惯例,默认）。
+    case iconAligned
+    /// 对齐内容 leading（无图标分组）。
+    case textAligned
+    /// 自定义 leading inset（pt）。
+    case custom(CGFloat)
+
+    var value: CGFloat {
+        switch self {
+        case .iconAligned: SettingsRowMetrics.iconAlignedDividerInset
+        case .textAligned: SettingsRowMetrics.textAlignedDividerInset
+        case let .custom(amount): amount
+        }
+    }
+}
+
 // MARK: - InsetGroupedSection
 
 /// iOS `.insetGrouped` 分组容器的**视觉**复刻（ADR-2:只复刻观感,不复刻 `List` 的
@@ -14,10 +38,14 @@ import SwiftUI
 /// 与 `List` 不同,它能直接嵌进已有的 `ScrollView` / `VStack`——「在自定义页面里放
 /// 一两个设置分组」这一最常见用法,`List` 反而做不到。
 ///
-/// **分隔线 leading inset 自动对齐**:同一分组内相邻行之间的分隔线,默认从图标列右缘
-/// 起始(`.iconAligned`),对齐 `SettingsRow` 的标题 leading。inset 值从
-/// `SettingsRowMetrics`（图标方块宽 + 间距）**推导**,调用方无需计算;无图标的分组
-/// 用 `.textAligned`。
+/// **分隔线 leading inset 自动对齐**:同一分组内相邻行之间的分隔线,默认对齐
+/// `SettingsRow` 的**标题 leading**(`.iconAligned`)。inset 值从 `SettingsRowMetrics`
+/// **推导**,调用方无需计算;无图标的分组用 `.textAligned`。
+///
+/// > 裁定记录:`.iconAligned` = `横向 padding + 图标方块宽 + 图标↔标题间距`
+/// > (16+30+12 = **58pt**),对齐标题文本 leading——这是真实 iOS 设置页的分隔线惯例。
+/// > 任务 AC 字面写的是「对齐图标方块**右缘**」(16+30 = 46pt),本实现有意取标题
+/// > leading(多 12pt 的间距),观感更贴近系统;此 12pt 偏离列入 #144 视觉终审确认。
 ///
 /// ```swift
 /// InsetGroupedSection(header: "General", footer: "Applies to all accounts.") {
@@ -30,27 +58,9 @@ import SwiftUI
 /// }
 /// ```
 public struct InsetGroupedSection<Content: View>: View {
-    /// 分隔线的 leading 对齐方式。
-    public enum DividerInset: Equatable, Sendable {
-        /// 越过图标列、对齐标题 leading（有图标分组的 iOS 惯例,默认）。
-        case iconAligned
-        /// 对齐内容 leading（无图标分组）。
-        case textAligned
-        /// 自定义 leading inset（pt）。
-        case custom(CGFloat)
-
-        var value: CGFloat {
-            switch self {
-            case .iconAligned: SettingsRowMetrics.iconAlignedDividerInset
-            case .textAligned: SettingsRowMetrics.textAlignedDividerInset
-            case let .custom(amount): amount
-            }
-        }
-    }
-
     private let header: LocalizedStringKey?
     private let footer: LocalizedStringKey?
-    private let dividerInset: DividerInset
+    private let dividerInset: SettingsDividerInset
     private let content: Content
 
     /// - Parameters:
@@ -61,7 +71,7 @@ public struct InsetGroupedSection<Content: View>: View {
     public init(
         header: LocalizedStringKey? = nil,
         footer: LocalizedStringKey? = nil,
-        dividerInset: DividerInset = .iconAligned,
+        dividerInset: SettingsDividerInset = .iconAligned,
         @ViewBuilder content: () -> Content
     ) {
         self.header = header
@@ -93,9 +103,13 @@ public struct InsetGroupedSection<Content: View>: View {
         // 分隔线——因此分隔线数量恒等于 行数−1,不受行的条件渲染影响,也无需调用方摆放。
         Group(subviews: self.content) { rows in
             VStack(spacing: 0) {
-                ForEach(rows.indices, id: \.self) { index in
-                    rows[index]
-                    if index != rows.count - 1 {
+                // 用 `Subview` 自带的稳定 identity（`ForEach(rows)`）而非位置索引：
+                // content 里若含动态 `ForEach`（设置页常见的账户列表行），增删首行会让
+                // 位置索引全体平移、过渡动画错乱、行内 @State 错配到相邻行；subview
+                // identity 挂在声明来源上,不受行数增减影响。分隔线守卫改用 `last?.id`。
+                ForEach(rows) { row in
+                    row
+                    if row.id != rows.last?.id {
                         Separator(inset: .leading(self.dividerInset.value))
                     }
                 }

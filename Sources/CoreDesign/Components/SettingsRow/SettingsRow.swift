@@ -68,6 +68,11 @@ public struct SettingsRowChevron: View {
 /// 内容与内边距,不画自己的背景/分隔线;背景与圆角由容器（`InsetGroupedSection` 或
 /// `List`）负责。
 ///
+/// > 放进 `List` 时:SettingsRow 自带 `horizontalPadding`(16pt),而 `List` 行默认
+/// > 还有自己的 row insets,两者会叠加成过宽的 leading。要贴合 iOS 设置观感,给该行
+/// > 加 `.listRowInsets(EdgeInsets())` 清零 List 侧 inset,由 SettingsRow 独占内边距。
+/// > List 场景的最终观感以 #144 视觉终审为准。
+///
 /// accessory 用 `@ViewBuilder` 泛型,支持任意视图:value 文本、`SettingsRowChevron`、
 /// `Toggle`、或自定义。**尾部挂 `Toggle` 时不写死强调色**——`Toggle` 自然读环境
 /// `.tint`,与 #143 的 `.core` toggle 逃生口(用系统 Toggle + `.tint`)协同。
@@ -116,6 +121,10 @@ public struct SettingsRow<Accessory: View>: View {
                         .foregroundStyle(Color.contentSecondary)
                 }
             }
+            // 把标题 + 副标题合成**单个**无障碍元素（VoiceOver 读作 "Wi-Fi, HomeNetwork"）。
+            // 只合这一格、**不含 accessory**——若把整行 combine，尾部的交互 accessory
+            // （如 Toggle）会被并进静态元素、丢掉可操作性；accessory 保持独立焦点。
+            .accessibilityElement(children: .combine)
 
             Spacer(minLength: CoreSpacing.md)
 

@@ -15,13 +15,15 @@ struct SettingsDividerInsetTests {
 
     @Test("iconAligned = 横向 padding + 图标方块宽 + 间距（非硬编码）")
     func iconAlignedDerivation() {
+        // 第一条是**可执行的公式文档**（复述实现表达式，永不失败）——说明 inset 由这三
+        // 个 token 组成，而非某个魔数。真正的回归守卫是下面的 `== 58` 钉值：任一 token
+        // 改动都会让钉值失败、提醒同步分隔线预期。
         let expected =
             SettingsRowMetrics.horizontalPadding
             + SettingsRowMetrics.iconSquareSize
             + SettingsRowMetrics.iconTitleGap
         #expect(SettingsRowMetrics.iconAlignedDividerInset == expected)
-        // 具体值：16 + 30 + 12 = 58（默认 token 档；token 改了这里也该改）。
-        #expect(SettingsRowMetrics.iconAlignedDividerInset == 58)
+        #expect(SettingsRowMetrics.iconAlignedDividerInset == 58) // 16 + 30 + 12
     }
 
     @Test("textAligned = 横向 padding（无图标列）")
@@ -30,12 +32,11 @@ struct SettingsDividerInsetTests {
         #expect(SettingsRowMetrics.textAlignedDividerInset == 16)
     }
 
-    @Test("DividerInset.value 三档映射")
+    @Test("SettingsDividerInset.value 三档映射（顶层类型，非泛型嵌套）")
     func dividerInsetValueMapping() {
-        typealias Inset = InsetGroupedSection<EmptyView>.DividerInset
-        #expect(Inset.iconAligned.value == SettingsRowMetrics.iconAlignedDividerInset)
-        #expect(Inset.textAligned.value == SettingsRowMetrics.textAlignedDividerInset)
-        #expect(Inset.custom(7).value == 7)
+        #expect(SettingsDividerInset.iconAligned.value == SettingsRowMetrics.iconAlignedDividerInset)
+        #expect(SettingsDividerInset.textAligned.value == SettingsRowMetrics.textAlignedDividerInset)
+        #expect(SettingsDividerInset.custom(7).value == 7)
     }
 }
 
