@@ -8,6 +8,7 @@ enum ComponentCategory: String, CaseIterable, Identifiable {
     case form = "Form"
     case indicator = "Indicator"
     case layout = "Layout"
+    case container = "Container"
     case navigation = "Navigation"
     case feedback = "Feedback"
 
@@ -84,6 +85,40 @@ extension ComponentMeta {
         },
         ComponentMeta(id: "list-row", name: "ListRow", description: "3-槽位泛型列表行：leading / label / trailing", category: .layout) {
             ListRowPreview()
+        },
+
+        // Container（Phase 2）
+        ComponentMeta(id: "settings-screen", name: "Settings Screen", description: "SC#10：仅用 CoreDesign 复刻一屏 iOS 设置页（InsetGroupedSection + SettingsRow）", category: .container) {
+            SettingsScreenDemo()
+        },
+        ComponentMeta(id: "inset-grouped-section", name: "InsetGroupedSection", description: "iOS .insetGrouped 分组容器 + 自动分隔线 inset + 页眉页脚", category: .container) {
+            InsetGroupedSectionPreview()
+        },
+        ComponentMeta(id: "settings-row", name: "SettingsRow", description: "设置行：图标方块 + 标题 + 副标题 + accessory（value / chevron / Toggle / 自定义）", category: .container) {
+            SettingsRowPreview()
+        },
+        ComponentMeta(id: "settings-row-in-list", name: "SettingsRow in List", description: "AC9：SettingsRow 直接作原生 List 行 + .listRowInsets(EdgeInsets()) 消双重 inset", category: .container) {
+            SettingsRowInListDemo()
+        },
+        ComponentMeta(id: "card", name: "Card", description: ".surface(.content) 具名封装 + 默认内边距，浮于画布之上", category: .container) {
+            CardPreview()
+        },
+        ComponentMeta(id: "separator", name: "Separator", description: "可控 leading inset 的 hairline 分隔线，走 dividerDefault 系统色", category: .container) {
+            SeparatorPreview()
+        },
+        ComponentMeta(id: "section-header-footer", name: "Section Header / Footer", description: "iOS 分组页眉（大写 footnote 灰）/ 页脚说明", category: .container) {
+            SectionHeaderFooterPreview()
+        },
+
+        // Form（Phase 2 .core style）
+        ComponentMeta(id: "core-progressview", name: ".core ProgressView", description: "系统 ProgressView 的 .core style，填充走 .tint", category: .form) {
+            CoreProgressViewPreview()
+        },
+        ComponentMeta(id: "core-label", name: ".core Label", description: "系统 Label 的 .core style，icon 走 .tint", category: .form) {
+            CoreLabelPreview()
+        },
+        ComponentMeta(id: "core-disclosuregroup", name: ".core DisclosureGroup", description: "系统 DisclosureGroup 的 .core style，chevron 走 .tint + leading 缩进", category: .form) {
+            CoreDisclosureGroupPreview()
         },
 
         // Navigation
@@ -248,5 +283,197 @@ private struct ToastDemoButton: View {
             self.toast?.show("Toast message", level: .info)
         }
         .buttonStyle(.solid(role: .primary))
+    }
+}
+
+// MARK: - Phase 2 Container Previews
+
+private struct CardPreview: View {
+    var body: some View {
+        VStack(spacing: CoreSpacing.md) {
+            Card {
+                VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                    Text("Card 标题").coreFont(.headline)
+                    Text("卡片浮于画布之上，深浅双模式都与背景拉开。")
+                        .coreFont(.subheadline)
+                        .foregroundStyle(Color.contentSecondary)
+                }
+            }
+            Card(padding: CoreSpacing.md, alignment: .center) {
+                Text("居中 + 紧凑内边距").coreFont(.subheadline)
+            }
+        }
+    }
+}
+
+private struct SeparatorPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            Text("贯穿").coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+            Separator()
+            Text("leading 缩进（58pt，对齐设置行标题）").coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+            Separator(inset: .leading(58))
+        }
+    }
+}
+
+private struct SectionHeaderFooterPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            SectionHeader("General")
+            Card { Text("分组内容").coreFont(.body) }
+            SectionFooter("Applies to all accounts on this device.")
+        }
+    }
+}
+
+private struct SettingsRowPreview: View {
+    @State private var on = true
+    var body: some View {
+        VStack(spacing: 0) {
+            SettingsRow(
+                icon: .init(systemName: "wifi", background: .blue),
+                title: Text("Wi-Fi"),
+                subtitle: Text("HomeNetwork")
+            ) {
+                Text("On").foregroundStyle(Color.contentSecondary)
+                SettingsRowChevron()
+            }
+            Separator(inset: .leading(58))
+            SettingsRow(
+                icon: .init(systemName: "bell.badge.fill", background: .red),
+                title: Text("Notifications")
+            ) {
+                Toggle("Notifications", isOn: self.$on).labelsHidden()
+            }
+            .tint(.green)
+        }
+        .background(Color.surfaceCard)
+        .clipShape(CoreShape.rounded(CoreRadius.medium))
+    }
+}
+
+private struct InsetGroupedSectionPreview: View {
+    @State private var airplane = false
+    var body: some View {
+        InsetGroupedSection(header: "Connectivity", footer: "Airplane Mode disables Wi-Fi and Bluetooth.") {
+            SettingsRow(icon: .init(systemName: "airplane", background: .orange), title: Text("Airplane Mode")) {
+                Toggle("Airplane Mode", isOn: self.$airplane).labelsHidden()
+            }
+            SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+                Text("HomeNetwork").foregroundStyle(Color.contentSecondary)
+                SettingsRowChevron()
+            }
+        }
+        .tint(.green)
+    }
+}
+
+private struct CoreProgressViewPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            ProgressView(value: 0.6, label: { Text("Downloading") }, currentValueLabel: { Text("60%") })
+                .progressViewStyle(.core)
+            ProgressView(value: 0.6)
+                .progressViewStyle(.core)
+                .tint(.red)
+        }
+    }
+}
+
+private struct CoreLabelPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            Label("Sync", systemImage: "arrow.triangle.2.circlepath").labelStyle(.core)
+            Label("Delete", systemImage: "trash.fill").labelStyle(.core).tint(.red)
+        }
+    }
+}
+
+private struct CoreDisclosureGroupPreview: View {
+    @State private var expanded = true
+    var body: some View {
+        DisclosureGroup("Details", isExpanded: self.$expanded) {
+            Text("Additional information goes here.").foregroundStyle(Color.contentSecondary)
+        }
+        .disclosureGroupStyle(.core)
+        .tint(.red)
+    }
+}
+
+// MARK: - SettingsRow in native List（AC9 验证）
+
+/// SettingsRow 直接作原生 List 的行,配 .listRowInsets(EdgeInsets()) 清零 List 侧
+/// inset,由 SettingsRow 独占 16pt 内边距——验证无双重 inset。
+private struct SettingsRowInListDemo: View {
+    @State private var on = true
+    var body: some View {
+        List {
+            SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+                Text("HomeNetwork").foregroundStyle(Color.contentSecondary)
+                SettingsRowChevron()
+            }
+            .listRowInsets(EdgeInsets())
+            SettingsRow(icon: .init(systemName: "bell.badge.fill", background: .red), title: Text("Notifications")) {
+                Toggle("Notifications", isOn: self.$on).labelsHidden()
+            }
+            .listRowInsets(EdgeInsets())
+            .tint(.green)
+        }
+        .listStyle(.insetGrouped)
+    }
+}
+
+// MARK: - Settings Screen Demo（Success Criteria #10）
+
+/// 仅用 CoreDesign 组件复刻一屏 iOS 设置页——不写任何 CoreDesign 之外的样式代码。
+private struct SettingsScreenDemo: View {
+    @State private var airplane = false
+    @State private var wifiOn = true
+    @State private var bluetoothOn = true
+    @State private var notificationsOn = true
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: CoreSpacing.xl) {
+                InsetGroupedSection {
+                    SettingsRow(icon: .init(systemName: "airplane", background: .orange), title: Text("Airplane Mode")) {
+                        Toggle("Airplane Mode", isOn: self.$airplane).labelsHidden()
+                    }
+                    SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+                        Text("HomeNetwork").foregroundStyle(Color.contentSecondary)
+                        SettingsRowChevron()
+                    }
+                    SettingsRow(icon: .init(systemName: "personalhotspot", background: .green), title: Text("Personal Hotspot")) {
+                        Text("Off").foregroundStyle(Color.contentSecondary)
+                        SettingsRowChevron()
+                    }
+                }
+
+                InsetGroupedSection(header: "Notifications", footer: "Choose how you receive alerts from apps.") {
+                    SettingsRow(icon: .init(systemName: "bell.badge.fill", background: .red), title: Text("Notifications")) {
+                        Toggle("Notifications", isOn: self.$notificationsOn).labelsHidden()
+                    }
+                    SettingsRow(icon: .init(systemName: "speaker.wave.2.fill", background: .pink), title: Text("Sounds & Haptics")) {
+                        SettingsRowChevron()
+                    }
+                    SettingsRow(icon: .init(systemName: "moon.fill", background: .indigo), title: Text("Focus"), subtitle: Text("Do Not Disturb")) {
+                        SettingsRowChevron()
+                    }
+                }
+                .tint(.green)
+
+                InsetGroupedSection(header: "About", dividerInset: .textAligned) {
+                    SettingsRow(title: Text("Version")) {
+                        Text("0.4.0").foregroundStyle(Color.contentSecondary)
+                    }
+                    SettingsRow(title: Text("Legal")) {
+                        SettingsRowChevron()
+                    }
+                }
+            }
+            .padding()
+        }
+        .background(Color.surfaceCanvas)
     }
 }
