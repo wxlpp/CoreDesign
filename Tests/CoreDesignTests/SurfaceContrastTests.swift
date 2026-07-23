@@ -102,19 +102,17 @@ struct SurfaceContrastTests {
     }
 
     @Test("surfaceCard 与 surfaceCanvas 深色下不同色（Issue #140）")
-    func surfaceCardDiffersFromCanvasInDark() {
-        // Phase 1 让 `surfaceCard` 别名 `surfaceCanvas`——卡片与页面画布完全同色，
-        // 深色下、无描边时视觉塌缩、卡片隐形。Phase 2（#125/#136 视觉终审）推翻了
-        // 这个判断，`surfaceCard` 改别名 `surfaceRaised`。
-        //
-        // 这里必须断言 `surfaceCard` 本身，而不是 `surfaceRaised != surfaceCanvas`——
-        // 后者今天不改代码就恒真（`SystemBackgroundColorsMacOSTests.swift` 已经在
-        // 断言这件事），不构成本次修复的守卫。
-        let dark = Self.env(.dark)
-        #expect(
-            Color.surfaceCard.resolve(in: dark) != Color.surfaceCanvas.resolve(in: dark),
-            "深色下 surfaceCard 与 surfaceCanvas 同色——卡片在画布上不可辨"
-        )
+    func surfaceCardDiffersFromCanvasInBothAppearances() {
+        // 断言 surfaceCard 本身（非 surfaceRaised != surfaceCanvas，那个不改代码就恒真）。
+        // 两种外观都验：浅色下 #F2F2F7 vs #FFFFFF、深色下由塌缩的纯黑变为可辨——
+        // 都是本次修复的产物，浅色侧的回归同样要防。
+        for scheme in [ColorScheme.light, .dark] {
+            var e = EnvironmentValues(); e.colorScheme = scheme
+            #expect(
+                Color.surfaceCard.resolve(in: e) != Color.surfaceCanvas.resolve(in: e),
+                "\(scheme)：surfaceCard 与 surfaceCanvas 同色——卡片在画布上不可辨"
+            )
+        }
     }
 
     @Test("填充色族整体可叠加——半透明且与各父背景不同色")
