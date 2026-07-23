@@ -53,7 +53,7 @@ public enum SettingsDividerInset: Equatable, Sendable {
 ///         SettingsRowChevron()
 ///     }
 ///     SettingsRow(icon: .init(systemName: "bell.fill", background: .red), title: Text("Notifications")) {
-///         Toggle("", isOn: $on).labelsHidden()
+///         Toggle("Notifications", isOn: $on).labelsHidden()
 ///     }
 /// }
 /// ```
@@ -143,7 +143,7 @@ private struct InsetGroupedSectionPreviewGallery: View {
                         icon: .init(systemName: "airplane", background: .orange),
                         title: Text("Airplane Mode")
                     ) {
-                        Toggle("", isOn: self.$airplaneOn).labelsHidden()
+                        Toggle("Airplane Mode", isOn: self.$airplaneOn).labelsHidden()
                     }
                     SettingsRow(
                         icon: .init(systemName: "wifi", background: .blue),

@@ -33,7 +33,7 @@ enum SettingsRowMetrics {
 // MARK: - SettingsRowIcon
 
 /// iOS 设置行左侧的圆角色块 + 白色 SF Symbol。
-public struct SettingsRowIcon: Equatable, Sendable {
+public struct SettingsRowIcon: Sendable {
     let systemName: String
     let background: Color
 
@@ -77,12 +77,19 @@ public struct SettingsRowChevron: View {
 /// `Toggle`、或自定义。**尾部挂 `Toggle` 时不写死强调色**——`Toggle` 自然读环境
 /// `.tint`,与 #143 的 `.core` toggle 逃生口(用系统 Toggle + `.tint`)协同。
 ///
+/// > 无障碍要点:标题 + 副标题被 combine 成**单个静态元素**、**不含 accessory**——
+/// > 所以 accessory 必须自带可读 label。挂 `Toggle` 时 label 要**非空**、由
+/// > `.labelsHidden()` 隐藏视觉,**不要传空串**(空串会让 VoiceOver 只报 "switch,
+/// > on" 而无名字,title 又兜不了底)。纯静态 value 行(无交互 accessory)若想让
+/// > VoiceOver 读成一个元素("Version, 0.4.0"),可在**调用侧**对整行加
+/// > `.accessibilityElement(children: .combine)`。
+///
 /// ```swift
 /// SettingsRow(
 ///     icon: .init(systemName: "bell.badge.fill", background: .red),
-///     title: "Notifications"
+///     title: Text("Notifications")
 /// ) {
-///     Toggle("", isOn: $on).labelsHidden()
+///     Toggle("Notifications", isOn: $on).labelsHidden() // label 非空、仅隐藏视觉
 /// }
 /// .tint(.green) // Toggle 跟随
 /// ```
@@ -91,6 +98,11 @@ public struct SettingsRow<Accessory: View>: View {
     private let title: Text
     private let subtitle: Text?
     private let accessory: Accessory
+
+    // glyph 边长随 Dynamic Type 缩放（相对 `.body`,与同行标题同步）——`@ScaledMetric`
+    // 是让 SF Symbol 精确缩放的正解（`Font.system(size:)` 无 `relativeTo:`）。方块尺寸
+    // 与分隔线 inset 仍是静态 token,inset 的静态推导（58pt）不受影响。
+    @ScaledMetric(relativeTo: .body) private var glyphSize = CoreControlMetrics.iconSize(for: .regular)
 
     /// Designated init——accessory 用 `@ViewBuilder`。
     public init(
@@ -128,7 +140,12 @@ public struct SettingsRow<Accessory: View>: View {
 
             Spacer(minLength: CoreSpacing.md)
 
-            self.accessory
+            // accessory 包一层紧凑 HStack:多视图 accessory（如 value 文本 + chevron）
+            // 之间用 xs（4pt）而非行的 12pt 间距,贴近 iOS 设置的 value↔chevron 密度;
+            // 单视图 accessory（Toggle 等）不受影响。想要别的间距时调用方自包 HStack。
+            HStack(spacing: CoreSpacing.xs) {
+                self.accessory
+            }
         }
         .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
         .padding(.vertical, CoreSpacing.sm)
@@ -148,7 +165,11 @@ public struct SettingsRow<Accessory: View>: View {
             )
             .overlay {
                 Image(systemName: icon.systemName)
-                    .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
+                    // glyph 走 `@ScaledMetric` 缩放（见 self.glyphSize）——随 Dynamic Type
+                    // 与同行 `.body` 标题同步,不用裸固定 pt（本库明文反对的形态,大字号下
+                    // 会与撑高的标题脱节）。方块尺寸与分隔线 inset 仍静态,代价是极大字号下
+                    // glyph 会更填满方块,已列入 #144 目视。
+                    .font(.system(size: self.glyphSize))
                     .foregroundStyle(.white)
             }
             // 图标是装饰,语义由 title 承载（与 CoreLabelStyle 一致）。
@@ -197,7 +218,7 @@ private struct SettingsRowPreviewGallery: View {
                 icon: .init(systemName: "bell.badge.fill", background: .red),
                 title: Text("Notifications")
             ) {
-                Toggle("", isOn: self.$wifiOn).labelsHidden()
+                Toggle("Notifications", isOn: self.$wifiOn).labelsHidden()
             }
             .tint(.green)
         }
