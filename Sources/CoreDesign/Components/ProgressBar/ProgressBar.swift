@@ -7,15 +7,12 @@ import SwiftUI
 
 // MARK: - ProgressBar
 
-/// Native Primer progress bar.
-///
-/// Content-layer indicator. Practical readability over decoration: solid
-/// rounded rectangles for track + fill, no glass, no gradients. Value is
-/// clamped to `0...1` and non-finite inputs are sanitized to `0`.
-///
-/// **Material layer**: content. **Surface role**: content.
+/// **材质层**: 内容. **表面角色**: 内容.
 ///
 /// 水平进度条。
+///
+/// 实用可读性优先于装饰：轨道与填充都是实心圆角矩形，**无玻璃、无渐变**。
+/// value 会被钳到 `0...1`，非有限输入归零。
 ///
 /// 灰色底轨 + 可配置彩色填充 + 可选左侧 label 文本。
 public struct ProgressBar: View {
@@ -35,16 +32,20 @@ public struct ProgressBar: View {
         HStack(spacing: CoreSpacing.sm) {
             if let label = self.label {
                 Text(label)
-                    .coreFont(.bodySmall)
+                    .coreFont(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: CoreRadius.small)
+                    // track 高度固定 `CoreSpacing.xs`(4pt)，小于
+                    // `CoreRadius.small`(6pt) 的直径——SwiftUI 会把圆角自动 clamp 到
+                    // `min(width, height)/2`，实际渲染半径恒为 2pt（= height/2，胶囊
+                    // 观感），3→6pt 的换值在这两处**不产生任何可见差异**。
+                    CoreShape.rounded(CoreRadius.small)
                         .fill(Color.surfaceCanvasInset)
-                    RoundedRectangle(cornerRadius: CoreRadius.small)
+                    CoreShape.rounded(CoreRadius.small)
                         // 显式 `Color.accent`——避免在 `.fill(_:)` 的 ShapeStyle
                         // 上下文里解析到 SwiftUI 环境 accent。
                         .fill(self.tint ?? Color.accent)

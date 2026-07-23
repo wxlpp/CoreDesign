@@ -71,11 +71,6 @@ import CoreDesign
     .padding()
 }
 
-#Preview("BookCover") {
-    BookCover(data: nil, title: "CoreDesign")
-        .padding()
-}
-
 #Preview("ListRow") {
     VStack(spacing: 0) {
         ListRow(label: { Text("Label only").foregroundStyle(Color.contentPrimary) })
@@ -132,7 +127,7 @@ private struct ToastSnapshotHarness: View {
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
             Text("Tap button to show a toast.")
-                .font(CoreTypography.bodyMediumFont)
+                .font(CoreTypography.Token.callout.font)
                 .foregroundStyle(Color.contentMuted)
             Button("Info") { self.toast?.show("Info: demo", level: .info) }
             Button("Success") { self.toast?.show("Success: demo", level: .success) }
@@ -148,7 +143,7 @@ private struct ToastSnapshotHarness: View {
 
 #Preview("BottomInputBar") {
     Text("BottomInputBar 通过 `.bottomInputBar` modifier 使用，非独立 View。")
-        .font(CoreTypography.bodySmallFont)
+        .font(CoreTypography.Token.footnote.font)
         .foregroundStyle(Color.contentMuted)
         .padding()
 }
@@ -187,15 +182,6 @@ private struct ToastSnapshotHarness: View {
     .padding()
 }
 
-#Preview("RefPill") {
-    VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-        RefPill("main")
-        RefPill(base: "main", head: "feat/foo")
-        RefPill("a1b2c3d4e5f6")
-    }
-    .padding()
-}
-
 #Preview("AvatarGroup") {
     VStack(spacing: CoreSpacing.md) {
         AvatarGroup {
@@ -225,78 +211,6 @@ private struct ToastSnapshotHarness: View {
     }
     .padding()
     .frame(width: 280)
-}
-
-#Preview("TimelineItem") {
-    VStack(alignment: .leading, spacing: 0) {
-        TimelineItem(icon: {
-            Circle().fill(Color.statusAccentEmphasis).frame(width: 32, height: 32)
-                .overlay(Image(systemName: "plus").foregroundStyle(.white).font(.caption))
-        }, showsTopConnector: false) {
-            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
-                Text("evan opened this pull request").font(CoreTypography.bodyMediumFont)
-                Text("3 days ago").font(CoreTypography.bodySmallFont).foregroundStyle(.secondary)
-                TimelineItem(icon: {
-                    Circle().fill(Color.statusDoneEmphasis).frame(width: 20, height: 20)
-                        .overlay(Image(systemName: "checkmark").foregroundStyle(.white).font(.caption2))
-                }, isLast: true) {
-                    Text("CI passed").font(CoreTypography.bodySmallFont)
-                }
-            }
-        }
-        TimelineItem(icon: {
-            Circle().fill(Color.statusSuccessEmphasis).frame(width: 32, height: 32)
-                .overlay(Image(systemName: "checkmark").foregroundStyle(.white).font(.caption))
-        }, isLast: true) {
-            Text("merged 1 hour ago").font(CoreTypography.bodyMediumFont)
-        }
-    }
-    .padding()
-}
-
-#Preview("EventRow") {
-    VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-        EventRow(actor: "renovate", action: "added the", timeAgo: "2 days ago") {
-            Tag("dependencies", color: .blue)
-        }
-        EventRow(actor: "renovate", action: "force-pushed from", timeAgo: "2 days ago") {
-            RefPill("4d2040c")
-        }
-        EventRow(actor: "evan", action: "commented", timeAgo: "1 hour ago")
-    }
-    .padding()
-}
-
-#Preview("CommentCard") {
-    VStack(spacing: CoreSpacing.md) {
-        CommentCard(author: "evan", role: "Contributor", timestamp: "2 hours ago") {
-            Text("LGTM — ready to ship 🚀").font(CoreTypography.bodyMediumFont)
-        }
-        CommentCard(
-            author: "renovate",
-            role: "Bot",
-            timestamp: "2 days ago",
-            isMinimized: Binding.constant(true)
-        ) {
-            Text("chore(deps): update github actions")
-        }
-    }
-    .padding()
-}
-
-#Preview("StatusRow") {
-    VStack(spacing: 0) {
-        StatusRow(label: "build (arm64)", duration: "2m 14s", result: .success)
-        Divider()
-        StatusRow(label: "test (macOS)", duration: "3m 01s", result: .success)
-        Divider()
-        StatusRow(label: "lint", duration: "0m 12s", result: .failure)
-        Divider()
-        StatusRow(label: "deploy (preview)", duration: "—", result: .pending)
-        Divider()
-        StatusRow(label: "analyze", duration: "—", result: .skipped)
-    }
-    .padding()
 }
 
 #Preview("AsyncButton") {

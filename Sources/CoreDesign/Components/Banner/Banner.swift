@@ -19,18 +19,14 @@ private struct BannerPalette {
 
 // MARK: - Banner
 
-/// Native Primer status banner.
+/// 内容 / 控件层的信息表面。用状态语义（`info` / `success` / `warning` / `danger`）
+/// 配克制的描边或填充——**不用** Liquid Glass。Banner 面向**页内信息**，不是浮层反馈；
+/// 需要浮层反馈请经 `.toastHost(edge:)` 用 `ToastHost`。
 ///
-/// Content/control-layer information surface. Uses status semantics
-/// (`info` / `success` / `warning` / `danger`) with restrained bordered or
-/// filled treatment — **not** Liquid Glass. Banner is for in-page
-/// information, not floating feedback; if you need floating feedback, use
-/// `ToastHost` via `.toastHost(edge:)`.
+/// **材质层**: 纯信息时为内容层，带动作时为控件层。
+/// **表面角色**: 内容 / 控件。
 ///
-/// **Material layer**: content (info-only) or control (with actions).
-/// **Surface role**: content / control.
-///
-/// 通栏式信息提示组件，对应 GitHub Primer 的 `Flash` / `Banner`。
+/// 通栏式信息提示组件。
 ///
 /// 在主要操作流之外向用户传达系统级状态（成功 / 警告 / 错误 / 信息）。形态固定为
 /// 横向 `HStack`：`StatusLevel` 决定的 system icon + 调用方传入的 label。
@@ -45,7 +41,7 @@ private struct BannerPalette {
 /// .bannerStyle(BorderedBannerStyle())
 /// ```
 ///
-/// padding / spacing / 字号全部来自 v2-tokens（`CoreSpacing.*` / `CoreTypography.*`），
+/// padding / spacing / 字号全部来自设计 token（`CoreSpacing.*` / `CoreTypography.*`），
 /// 颜色来自 status color token（`Color.statusAccentSubtle` 等），随 light / dark 自动适配。
 /// 不使用 `.glassEffect`：Banner 是基础信息容器，需要清晰的实色背景以保证可读性。
 public struct Banner<Label: View>: View {
@@ -76,7 +72,7 @@ public struct Banner<Label: View>: View {
 /// 内含 label 视图和 `StatusLevel`，由实现自行决定如何组织 padding / 背景 / 描边。
 ///
 /// 内置实现见 `PlainBannerStyle`（默认）与 `BorderedBannerStyle`。新实现应继续走
-/// v2-tokens（`CoreSpacing.*` / `CoreBorderWidth.*` / `CoreTypography.*`）和 status
+/// 设计 token（`CoreSpacing.*` / `CoreBorderWidth.*` / `CoreTypography.*`）和 status
 /// color token，避免引入魔法数字。
 public protocol BannerStyle {
     associatedtype Body: View
@@ -140,7 +136,7 @@ private func bannerPalette(for level: StatusLevel) -> BannerPalette {
     }
 }
 
-/// 两个内置 `BannerStyle` 的公共布局主体（审计项 B8b）。
+/// 两个内置 `BannerStyle` 的公共布局主体。
 ///
 /// `PlainBannerStyle` 与 `BorderedBannerStyle` 的 body 只差最后的背景是否叠描边，
 /// 抽此一处避免两份 11 行 HStack 逐字重复。`bordered` 为 `true` 时在背景 `Rectangle`
@@ -155,7 +151,7 @@ private func bannerBody(configuration: BannerStyleConfiguration, bordered: Bool)
         configuration.label
     }
     .accessibilityElement(children: .combine)
-    .coreFont(.bodyMedium)
+    .coreFont(.callout)
     .foregroundStyle(palette.foreground)
     .padding(CoreSpacing.md)
     .background {
@@ -171,7 +167,7 @@ private func bannerBody(configuration: BannerStyleConfiguration, bordered: Bool)
 
 /// 默认的 Banner 外观：纯色背景 + 同色系前景，无描边。
 ///
-/// 对应 Primer `Flash` 默认 variant。背景 / 前景按 `StatusLevel` 走 status color token
+/// 默认样式。背景 / 前景按 `StatusLevel` 走 status color token
 /// （`Color.statusAccentSubtle` / `.statusAccentForeground` 等），随 light / dark 自动适配；padding
 /// 走 `CoreSpacing.md`（12pt），`HStack` spacing 显式固定为 `CoreSpacing.sm`（8pt，与
 /// SwiftUI system default 接近但显式化以避免依赖系统默认值，保证 icon 与 label 之间
@@ -191,7 +187,7 @@ public struct PlainBannerStyle: BannerStyle {
 
 /// 带同色系描边的 Banner 外观：背景 + `CoreBorderWidth.thin` 描边。
 ///
-/// 对应 Primer `Flash` 带 border 的 variant。在内容区背景颜色不确定 / 与 banner 背景
+/// 带描边的样式。在内容区背景颜色不确定 / 与 banner 背景
 /// 接近时使用，描边帮助 banner 与周围内容拉开层次；颜色按 `StatusLevel` 走 status
 /// color token（`Color.statusAccentBorder` 等）。
 ///

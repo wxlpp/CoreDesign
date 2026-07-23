@@ -20,7 +20,10 @@ nonisolated func compareBadgeVariant(_ a: BadgeVariant, _ b: BadgeVariant) -> Bo
     a == b
 }
 
-nonisolated func compareStatusResult(_ a: StatusResult, _ b: StatusResult) -> Bool {
+// `StatusResult` 随 StatusRow 于 Issue #117 删除；改用保留下来的同构类型
+// `StatusLevel`（同样 Sendable + Equatable）继续覆盖「在 nonisolated 上下文
+// 比较状态枚举」这条路径。下方 `useStatusLevel()` 只构造不比较，覆盖面不重叠。
+nonisolated func compareStatusLevel(_ a: StatusLevel, _ b: StatusLevel) -> Bool {
     a == b
 }
 
@@ -48,8 +51,11 @@ nonisolated func useBorderWidthAndMetrics() -> CGFloat {
     CoreBorderWidth.thin + CoreButtonMetrics.pressedScale + CoreControlMetrics.height(for: .regular)
 }
 
-nonisolated func useTypographyToken() -> CGFloat {
-    CoreTypography.bodyLargeLineSpacing
+// Issue #119 删除了 `*LineSpacing` / `*Tracking` 常量（连同手写字号表与 `Spec` 一起）；
+// `CoreTypography.Token` 现在直接映射系统文本样式。这里改为构造并返回 `Token` 本身，
+// 继续覆盖"nonisolated 访问 CoreTypography.Token 不触发 MainActor 隔离"这条路径。
+nonisolated func useTypographyToken() -> CoreTypography.Token {
+    .body
 }
 
 // 注意 `CoreElevation.spec(for:)` **不在**本 probe 覆盖范围：它读 asset-backed 的
@@ -69,4 +75,11 @@ nonisolated func useStatusLevel() -> StatusLevel {
 // 这里会编译失败（Issue #93 的 A2d）。
 nonisolated func useFunctionalColors() -> [Color] {
     [.success, .info, .warning, .danger]
+}
+
+// `CoreShape` 是 #119 引入的圆角唯一出口，而它的主要消费点是 `Shape.path(in:)` 这类
+// nonisolated 同步上下文。本包走 `defaultIsolation(MainActor)`，漏 `nonisolated` 关键字
+// 时这里会编译失败——#122 迁移调用点前先在这里挡住。
+nonisolated func useCoreShape() -> some Shape {
+    CoreShape.rounded(CoreRadius.medium)
 }

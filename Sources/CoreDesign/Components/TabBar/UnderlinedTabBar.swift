@@ -7,20 +7,16 @@ import SwiftUI
 
 // MARK: - UnderlinedTabBar
 
-/// Native Primer underlined tab bar.
+/// 主导航的控件层 chrome。选中项以一条短促、低噪的下划线（`Color.accent`）标记，
+/// 配合标签字重加强。**不做整体玻璃处理**——背景由宿主 scene 提供，本组件只负责
+/// 指示器与标签本身。
 ///
-/// Control-layer chrome for primary navigation. Selected tab is marked by a
-/// short, low-noise underline (`Color.accent` token, matching the
-/// `borderColor.accent.emphasis` Primer mapping documented below) plus
-/// active label emphasis. No global glass treatment — the host scene
-/// supplies the background, this component supplies the indicator and labels.
+/// **材质层**: 控件. **表面角色**: 控件.
 ///
-/// **Material layer**: control. **Surface role**: control.
+/// 导航 chrome **不使用** Liquid Glass——选中态靠字重与下划线表达，不靠材质。
+/// 这是刻意取舍：tab bar 是高频扫视的导航件，材质会与内容争夺注意力。
 ///
-/// Per the Native Primer baseline, navigation chrome does not use Liquid
-/// Glass; selected states stay typographic + line-based (see spec §Controls).
-///
-/// 横向可滚动的下划线分栏组件，按 Primer 视觉语言收齐于 v2-tokens。
+/// 横向可滚动的下划线分栏组件。
 ///
 /// ## 使用场景
 /// - 内容主屏的「页签 / 分类」切换：当 tab 数量超过单屏宽度时优先选用本组件（对应
@@ -33,19 +29,17 @@ import SwiftUI
 /// - `title`：从 `Item` 抽取展示文本；按视觉是「中文 4–8 字 / 英文 1–3 词」的短 label。
 /// - `trailing`：右侧固定视图（不随 tabs 滚动）；存在时左侧自带 hairline 分隔线。
 ///
-/// ## 与 Primer 概念对应
-/// - 选中文字色 = `Color.contentPrimary`（Primer `fgColor.default`），
-///   非选中 = `Color.contentSecondary`（Primer `fgColor.muted`）。
-/// - 选中下划线 = `Color.accent`（Primer `borderColor.accent.emphasis`），
-///   厚度采用 `CoreBorderWidth.thick`（2pt，对齐 Primer focus indicator / selected state 标度）。
-/// - 字号采用 `CoreTypography.bodyMediumFont`（14pt，Primer `text.body.medium`，
+/// ## 配色与尺度
+/// - 选中文字色 = `Color.contentPrimary`，非选中 = `Color.contentSecondary`。
+/// - 选中下划线 = `Color.accent`，厚度 `CoreBorderWidth.thick`（2pt）。
+/// - 字号 `.coreFont(.callout)`（
 ///   推荐的默认 UI 文字字号），选中态额外 `.fontWeight(.semibold)` 加强。
 /// - 间距 / padding 全部走 `CoreSpacing.*`；左侧分隔线宽度走 `CoreBorderWidth.hairline`。
 ///
 /// ## Light / Dark 行为
 /// - 颜色全部使用语义 token，自动跟随 colorScheme：light 下分隔线偏浅灰、dark 下偏暗；
 ///   accent 在 dark 模式下色相略亮以维持对比度（由 `Color.accent` 自身的 colorset 决定）。
-/// - 不使用 `.glassEffect`（PRD §US-3 白名单不包含 TabBar 类控件 chrome）。
+/// - 不使用 `.glassEffect`（理由见上方「导航 chrome 不使用 Liquid Glass」一段）。
 public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
     /// 创建带 trailing 视图的下划线 tab 栏。
     ///
@@ -150,7 +144,7 @@ private struct UnderlinedTabItem: View {
         Button(action: self.action) {
             VStack(spacing: CoreSpacing.sm) {
                 Text(self.title)
-                    .coreFont(.bodyMedium)
+                    .coreFont(.callout)
                     .fontWeight(self.isSelected ? .semibold : .regular)
                     .foregroundStyle(self.isSelected ? Color.contentPrimary : Color.contentSecondary)
                     .padding(.horizontal, CoreSpacing.md)
@@ -170,6 +164,13 @@ private struct UnderlinedTabItem: View {
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, CoreSpacing.xs)
             }
+            // 若无 minHeight，实测高度（label + underline 行）约 38pt，低于
+            // 44pt——`contentShape` 只撑到这块紧凑内容的大小。
+            // 补 `frame(minHeight:)`（与 ListRow / SidebarRow 同一模式）：
+            // **组件整体行高从实测的 38pt 撑到 44pt 地板**，内部相对布局不变
+            // （VStack 内容仍按 intrinsic 尺寸居中）。不是「视觉完全不变」——行高确有
+            // 增加，只是这里整条可点单元一起变高，属可接受的无障碍取舍。
+            .frame(minHeight: CoreControlMetrics.height(for: .regular))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

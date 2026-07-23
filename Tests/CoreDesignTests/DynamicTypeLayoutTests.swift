@@ -27,7 +27,7 @@ struct DynamicTypeLayoutTests {
     // Task 1 Step 4 的 spike，保留作机制回归锚点（改用 renderedHeight）。
     @Test("spike：ImageRenderer 尊重注入的 dynamicTypeSize")
     func imageRendererRespectsDynamicType() {
-        let text = Text("Ag").coreFont(.bodyLarge)
+        let text = Text("Ag").coreFont(.body)
         #expect(self.renderedHeight(text, at: .accessibility5) > self.renderedHeight(text, at: .large),
                 "ImageRenderer 未按注入档缩放——Task 5 的整套断言不成立")
     }
@@ -63,21 +63,102 @@ struct DynamicTypeLayoutTests {
 
     @Test("coreFont 的字号在 iOS 下确实随 Dynamic Type 变化")
     func coreFontActuallyScales() {
-        let text = Text("Ag").coreFont(.bodyLarge)
+        let text = Text("Ag").coreFont(.body)
         let small = self.renderedHeight(text, at: .large)
         let ax5   = self.renderedHeight(text, at: .accessibility5)
         #expect(small > 0, "渲染失败（uiImage nil）")
         #expect(ax5 > small, "coreFont 未缩放——ScaledMetric 或 textStyle 基准错了")
     }
 
-    @Test("captionSmall 明确不缩放")
-    func captionSmallDoesNotScale() {
-        let text = Text("9").coreFont(.captionSmall)
+    // Issue #119 之前：`captionSmall` 是故意不缩放的固定 9pt chrome 字号
+    // （旧 `Spec.scales == false`）。Issue #119 之后：`captionSmall` 只是
+    // `caption2`（`@available(*, deprecated, renamed: "caption2")`）的弃用别名，
+    // 语义完全由 `caption2`（系统 `.caption2` 文本样式）决定，会随 Dynamic Type 缩放。
+    // 本测试断言方向相对旧版本**故意翻转**——这是 119.md AC 明确要求的行为变化，
+    // 不是回归；保留旧名 `captionSmallDoesNotScale` 会误导读者，故一并更名。
+    @Test("captionSmall 现在是 caption2 的别名，随 Dynamic Type 缩放")
+    func captionSmallNowScalesViaCaption2Alias() {
+        let text = Text("9").coreFont(.caption2)
         let small = self.renderedHeight(text, at: .large)
         let ax5   = self.renderedHeight(text, at: .accessibility5)
-        #expect(small > 0, "渲染失败（uiImage nil）——本断言的 <= 会被 0<=1 假放过")
-        // captionSmall 固定档：ax5 不应比 small 显著高（渲染有 ±1px 抖动，留容差）。
-        #expect(ax5 <= small + 1, "captionSmall 缩放了——违反其固定设计约束")
+        #expect(small > 0, "渲染失败（uiImage nil）")
+        #expect(ax5 > small, "captionSmall（→ caption2）未随 Dynamic Type 缩放——别名映射或 caption2 的 textStyle 错了")
+    }
+
+    // MARK: - 全部 12 档 token 覆盖（Issue #123）
+    //
+    // 上面几个既有测试只抽样验证了 `.body` / `.caption2` 两档——`CoreTypography.Token`
+    // 重铸后一一对应 12 个系统 `Font.TextStyle`（Task #119），"重铸带来的可访问性
+    // 承诺"须对全部 12 档兑现，不能只信抽样。用 `Token.allCases` 参数化，每档独立
+    // 断言 large → accessibility5 单调增长——任何一档的 `textStyle` 映射写错（比如
+    // 误连到不随 Dynamic Type 缩放的 `.system(size:)` 定值写法）都会在这里单独现形，
+    // 而不是被抽样掩盖。
+    @Test(
+        "CoreTypography 全部 12 档 token 在 iOS 下均随 Dynamic Type 缩放",
+        arguments: CoreTypography.Token.allCases
+    )
+    func everyTypographyTokenScalesWithDynamicType(_ token: CoreTypography.Token) {
+        let text = Text("Ag").coreFont(token)
+        let small = self.renderedHeight(text, at: .large)
+        let ax5 = self.renderedHeight(text, at: .accessibility5)
+        #expect(small > 0, "\(token)：渲染失败（uiImage nil）")
+        #expect(ax5 > small, "\(token) 未随 Dynamic Type 缩放（large=\(small)pt, accessibility5=\(ax5)pt）")
+    }
+
+    // MARK: - 复合布局在最大辅助功能字号下不裁切、不重叠（Issue #123）
+    //
+    // 上面的 Sidebar 断言只覆盖 Sidebar 一族；`ListRow` 是另一个高频复合布局
+    // （leading icon + 两行 label + trailing），且 label 的标题/副标题两个
+    // `coreFont` 档位不同（`.callout` / `.footnote`，参见 `ListRow.swift` 预览）。
+    // 用同一「large → accessibility5 高度不减」判据验证：若两行文字在放大档
+    // 被固定高度裁掉，或 leading icon 与文字重叠导致渲染高度反而不变/更小，
+    // 这里会失败。
+    @Test("ListRow 两行 label 在 accessibility5 下随 Dynamic Type 撑高、不裁切")
+    func listRowGrowsWithDynamicTypeWithoutClipping() {
+        let row = ListRow(
+            leading: {
+                Image(systemName: "doc.text")
+            },
+            label: {
+                VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                    Text("A sufficiently long title to wrap at accessibility sizes")
+                        .coreFont(.callout)
+                    Text("Updated 2 hours ago")
+                        .coreFont(.footnote)
+                }
+            },
+            trailing: {
+                Image(systemName: "chevron.right")
+            }
+        )
+        let small = self.renderedHeight(row, at: .large)
+        let ax5 = self.renderedHeight(row, at: .accessibility5)
+        #expect(small > 0, "渲染失败（uiImage nil）")
+        #expect(ax5 > small, "ListRow 在 accessibility5 未撑高——两行 label 没缩放或被裁切/重叠")
+    }
+
+    @Test("SegmentedControl 在 accessibility5 下高度仍被钳制在 44pt（现状记录；是否裁切文字见 #125，未在此断言）")
+    func segmentedControlHeightStaysClampedAtLargestSize() {
+        // 本仓库其余组件都用 `frame(minHeight:)`（地板，内容可撑高），唯独
+        // `SegmentedControl.swift:149` 用 `frame(height:)`——**钳制**。
+        // `CoreControlMetrics` 自己的文档就警告过：钳制在字号变大时会裁切 label，
+        // 而地板不会。这是全库唯一采用该机制的地方，因此也是最可能在最大辅助功能
+        // 字号下出问题的组件，本断言专门盯它。
+        let control = SegmentedControl(
+            items: ["一个比较长的选项", "另一个"],
+            selection: .constant("一个比较长的选项"),
+            title: { $0 }
+        )
+        let normal = self.renderedHeight(control, at: .large)
+        let ax5 = self.renderedHeight(control, at: .accessibility5)
+        #expect(normal > 0, "渲染失败")
+        // 钳制的预期行为就是高度不变；这里断言的是「高度确实被钳住」这一事实，
+        // 让它显式可见。文字在该高度下是否被截断，属视觉判断，交 #125。
+        let delta: CGFloat = ax5 > normal ? ax5 - normal : normal - ax5
+        #expect(
+            delta < 1,
+            "SegmentedControl 高度随字号变化了（\(normal) → \(ax5)）——若已改为 minHeight，本断言与其注释需同步更新"
+        )
     }
 }
 #endif

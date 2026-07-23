@@ -31,9 +31,9 @@
 		03A29E7FA95EC2FF845D0D21 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		457D5F18DBF5AA8DBFC6F21D /* ComponentDetail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentDetail.swift; sourceTree = "<group>"; };
 		4FDABA31E8A0B1BE5894093A /* SnapshotTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = SnapshotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		56AEB19184373624158CE68D /* CoreDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "CoreDesign"; path = ..; sourceTree = SOURCE_ROOT; };
 		68F69BA38AFE90DFB4E401E0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		890B70C2CB6F53C36F98AE2F /* ComponentData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentData.swift; sourceTree = "<group>"; };
-		6104B42A36BCBCA754032665 /* CoreDesign */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CoreDesign; path = ..; sourceTree = SOURCE_ROOT; };
 		B59D812CBA2BDD39DDD346DF /* Previews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Previews.swift; sourceTree = "<group>"; };
 		C97FE730CB5504ABEE89CB4C /* SnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotTests.swift; sourceTree = "<group>"; };
 		F7DAB2075D696E1C1D349E93 /* CoreDesignPreview.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CoreDesignPreview.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -80,7 +80,7 @@
 		69D5BF84801C7F3EC8E8DC37 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				6104B42A36BCBCA754032665 /* CoreDesign */,
+				56AEB19184373624158CE68D /* CoreDesign */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -285,6 +285,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -303,6 +304,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -444,9 +446,6 @@
 		8B8C61C1807EF33E79327904 /* XCLocalSwiftPackageReference "..//" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "..//";
-			traits = (
-				Blossom,
-			);
 		};
 /* End XCLocalSwiftPackageReference section */
 

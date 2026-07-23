@@ -2,34 +2,42 @@ import Testing
 import SwiftUI
 @testable import CoreDesign
 
+// Issue #119 把 `CoreTypography.Token` 从手写 Primer 字号表改为直接映射系统文本样式，
+// `Spec` 类型本身被删除。旧版本断言 Primer 字号表与 `captionSmall.scales == false` 的
+// 整套测试因此作废，本文件按新契约重写。
 @Suite("CoreTypography.Token")
 struct CoreTypographyTokenTests {
-    @Test("基准字号与 Primer 对齐，且未漂移")
-    func baseSizes() {
-        #expect(CoreTypography.Token.displayLarge.spec.size == 40)
-        #expect(CoreTypography.Token.titleLarge.spec.size == 32)
-        #expect(CoreTypography.Token.titleMedium.spec.size == 20)
-        #expect(CoreTypography.Token.titleSmall.spec.size == 16)
-        #expect(CoreTypography.Token.subtitle.spec.size == 20)
-        #expect(CoreTypography.Token.bodyLarge.spec.size == 16)
-        #expect(CoreTypography.Token.bodyMedium.spec.size == 14)
-        #expect(CoreTypography.Token.bodySmall.spec.size == 12)
-        #expect(CoreTypography.Token.caption.spec.size == 12)
-        #expect(CoreTypography.Token.captionMono.spec.size == 12)
-        #expect(CoreTypography.Token.captionSmall.spec.size == 9)
+    @Test("12 档一一对应系统文本样式")
+    func textStyleMapping() {
+        #expect(CoreTypography.Token.largeTitle.textStyle == .largeTitle)
+        #expect(CoreTypography.Token.title.textStyle == .title)
+        #expect(CoreTypography.Token.title2.textStyle == .title2)
+        #expect(CoreTypography.Token.title3.textStyle == .title3)
+        #expect(CoreTypography.Token.headline.textStyle == .headline)
+        #expect(CoreTypography.Token.body.textStyle == .body)
+        #expect(CoreTypography.Token.callout.textStyle == .callout)
+        #expect(CoreTypography.Token.subheadline.textStyle == .subheadline)
+        #expect(CoreTypography.Token.footnote.textStyle == .footnote)
+        #expect(CoreTypography.Token.caption.textStyle == .caption)
+        #expect(CoreTypography.Token.captionMono.textStyle == .caption)
+        #expect(CoreTypography.Token.caption2.textStyle == .caption2)
     }
 
-    @Test("captionSmall 明确不缩放，其余缩放")
-    func scalingFlags() {
-        #expect(CoreTypography.Token.captionSmall.spec.scales == false)
-        for t in CoreTypography.Token.allCases where t != .captionSmall {
-            #expect(t.spec.scales == true, "\(t) 应缩放")
+    @Test("仅 captionMono 是等宽")
+    func monospacedFlag() {
+        #expect(CoreTypography.Token.captionMono.isMonospaced == true)
+        for t in CoreTypography.Token.allCases where t != .captionMono {
+            #expect(t.isMonospaced == false, "\(t) 不应是等宽")
         }
     }
 
-    @Test("captionMono 是等宽")
-    func monoFlag() {
-        #expect(CoreTypography.Token.captionMono.spec.monospaced == true)
-        #expect(CoreTypography.Token.caption.spec.monospaced == false)
+    @Test("恰好 12 档，无隐藏 case")
+    func allCasesCount() {
+        #expect(CoreTypography.Token.allCases.count == 12)
     }
+
+    // Task #121 完成全部调用点迁移后，删除了 9 个 `@available(deprecated, renamed:)`
+    // Token 别名与 10 个旧 `*Font` static var——曾在此验证它们解析到正确新档位的两个
+    // 测试（`deprecatedAliasesResolveToMappedToken` / `legacyFontStaticVarsStillResolve`）
+    // 随别名一起删除：别名本身不存在了，断言"别名解析正确"无对象可测。
 }

@@ -15,7 +15,7 @@ import SwiftUI
 /// `accent` / `secondaryAccent` / `neutralAccent` 等走第 3 层 `InteractionColors`。
 ///
 /// > 该层曾定义 `Color.primary/secondary/tertiary` 三组，因与 SwiftUI 内建成员同名
-/// > 而遮蔽它们（删除时编译器不报错，只静默改变解析目标），已于 Issue #93 移除。
+/// > 而遮蔽它们（删除时编译器不报错，只静默改变解析目标）——已移除该组别名。
 public extension Color {
     static let success: Color = .green5
     static let info: Color = .blue5

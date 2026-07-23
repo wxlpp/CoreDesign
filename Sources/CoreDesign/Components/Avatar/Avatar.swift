@@ -9,24 +9,20 @@ import SwiftUI
 
 // MARK: - Avatar
 
-/// Native Primer avatar.
-///
-/// Content-layer identity affordance. Circular crop (by caller via
-/// `.clipShape(Circle())`), no border. Uses name-derived background color
-/// with white initial. No glass.
-///
-/// **Material layer**: content. **Surface role**: content.
+/// **材质层**: 内容. **表面角色**: 内容.
 ///
 /// 头像 / Avatar：根据姓名生成圆形彩色占位头像。
 ///
+/// **无玻璃、无装饰性材质**——身份标识靠色相与首字母表达，不靠材质。
+///
 /// 使用场景：用户列表 / 评论作者 / 登录态指示器等需要在缺图情景下给出可视化身份提示
-/// 的位置。Primer 概念上对应 `Avatar` 组件的"无图占位"分支——本组件不渲染外部图片，
+/// 的位置。本组件**不渲染外部图片**，
 /// 仅按姓名首字符 + 由姓名稳定哈希出的色相填充背景。
 ///
 /// 视觉规格：
 /// - 内部位图边长 `CoreSpacing.xxxxl`（48pt）。`.resizable()` + `.aspectRatio(.fill)`
 ///   暴露给调用方，调用方决定外框尺寸；圆形语义由调用方 `.clipShape(Circle())` 保证。
-/// - 首字符字号 `CoreTypography.titleLargeFont`（32pt semibold）+ `.weight(.bold)`
+/// - 首字符字号 `CoreTypography.Token.title.font`（28pt regular）+ `.weight(.bold)`
 ///   保留原有 bold 视觉权重；颜色固定 `Color.white` 与彩色背景对比。
 /// - light / dark 行为一致：背景由 `Color(text:)` 哈希派生，前景始终白色。
 public struct Avatar: View {
@@ -50,9 +46,10 @@ public struct Avatar: View {
             context.draw(
                 Text(firstCharacter)
                     // Canvas / GraphicsContext.draw 是命令式绘制，套不了 `.coreFont`
-                    // modifier；头像首字母是按 avatar 尺寸的图标级字号，本就不纳入
-                    // Dynamic Type（范围边界）。故用固定 `Font` 值。
-                    .font(CoreTypography.titleLargeFont.weight(.bold))
+                    // modifier，只能直接引用 `CoreTypography.Token.title.font`。
+                    // 该 token 本身随 Dynamic Type 缩放，首字符字号因此也会跟着系统
+                    // 字号设置变化。
+                    .font(CoreTypography.Token.title.font.weight(.bold))
                     .foregroundStyle(Color.white),
                 at: CGPoint(x: size.width / 2, y: size.height / 2)
             )

@@ -2,8 +2,6 @@
 //  CoreControlMetrics.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//
 
 import CoreGraphics
 import SwiftUI
@@ -11,10 +9,9 @@ import SwiftUI
 // MARK: - CoreControlMetrics
 
 /// 控件尺寸 token，按 SwiftUI `ControlSize`（mini / small / regular / large / extraLarge）
-/// 暴露 5 个主查询 helper（height / horizontalPadding / verticalPadding / font / iconSize）
-/// + 1 个严格 Primer 高度用的 escape hatch（`primerVerticalPadding`）。
+/// 暴露 5 个查询 helper（height / horizontalPadding / verticalPadding / font / iconSize）。
 ///
-/// 调用方式（caseless enum + 6 个 `static func`，5 主查询 + 1 escape hatch）：
+/// 调用方式（caseless enum + `static func`）：
 ///
 /// ```swift
 /// // SegmentedControl / SearchField / SolidButtonStyle 内部
@@ -26,34 +23,20 @@ import SwiftUI
 /// .frame(minHeight: CoreControlMetrics.height(for: controlSize))
 /// ```
 ///
-/// > Important: 默认推荐用 **`frame(minHeight:)`**（地板）而非 `frame(height:)`（钳制）。
-/// > 原因：本仓库 padding 取值贴 CoreSpacing scale（8/12/16），与 Primer 原始
-/// > paddingBlock（6/10/14）有 2–4pt 上抬；当字体偏大时（譬如 extraLarge 用
-/// > titleMedium 20pt），padding × 2 + font 会超过 `height(for:)` 的 Primer 精确值，
-/// > 用 `frame(height:)` 会裁切 / 压缩 label。
-/// >
-/// > 若设计上必须严格命中 Primer 控件高度（譬如对接现有视觉 spec），改用
-/// > `primerVerticalPadding(for:)`（返回 Primer `paddingBlock` 精确值
-/// > 2/4/6/10/14——其中 6/10/14 不在 CoreSpacing scale 上，是本 helper
-/// > 存在的全部理由）配 `frame(height:)` 钳制；padding 数值仍集中在本 token
-/// > 内，不在调用方散落字面量。
+/// > Important: 推荐用 **`frame(minHeight:)`**（地板）而非 `frame(height:)`（钳制）。
+/// > `height(for:)` 给出的是 Apple HIG 参考高度，padding + 系统文本样式字号的实际渲染
+/// > 高度未必逐 pt 精确命中；用 `minHeight` 保证不裁切，超出时自然撑高。
 ///
 /// ## 取值依据
 ///
-/// 主要参考 Primer Primitives `functional/size/size.json5` 的 `control.{xsmall,small,medium,large,xlarge}`
-/// 表（详见 `docs/PRIMER_VERSION.md` 锁定的版本）。SwiftUI `ControlSize` 5 个 case 与 Primer
-/// 5 档一一对应：`mini ↔ xsmall`、`small ↔ small`、`regular ↔ medium`、`large ↔ large`、
-/// `extraLarge ↔ xlarge`。
-///
-/// 真实参考基线：`Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift` 现有
-/// `EdgeInsets` 表（`mini=2/12, small=2/12, regular=6/12, large=8/16, extraLarge=10/20`）。
-/// 本 token 把这些字面量上抬到 `CoreSpacing.*`，并在 padding 与 Primer 不能精确对齐时
-/// **就近选择 CoreSpacing 上已有的档位**——这是 token 化 vs. 像素级对齐的取舍：组件层
-/// 不应再出现魔法数字。
+/// Apple HIG 的控件尺寸建议：常规交互控件的最小可点击区域约 44pt（`regular`），
+/// 密集 chrome 场景可收紧到 28–32pt（`mini` / `small`），大尺寸 CTA 类控件可以到
+/// 50–56pt（`large` / `extraLarge`）。SwiftUI `ControlSize` 5 个 case 直接对应
+/// 这 5 档语义，不再挂靠任何第三方标度。
 ///
 /// > Important: padding helper 必须返回 `CoreSpacing.*` 命名常量，font helper 必须返回
-/// > `CoreTypography.*Font`，不内联魔法数字——这是本 token 存在的全部意义。
-/// > height 与 iconSize 没有对应的 CoreSpacing 档位，按 Primer 直接给定 pt 值。
+/// > `CoreTypography.Token` 新档位，不内联魔法数字——这是本 token 存在的全部意义。
+/// > height 与 iconSize 没有对应的 CoreSpacing 档位，按 HIG 直接给定 pt 值。
 public nonisolated enum CoreControlMetrics {
 
     // MARK: - height
@@ -61,21 +44,21 @@ public nonisolated enum CoreControlMetrics {
     /// 控件高度（pt）。用于 capsule / pill / SegmentedControl / SearchField 等需要固定外框
     /// 高度的场景。
     ///
-    /// 取值参考 Primer `control.{size}.size` token：
-    /// `mini=24 / small=28 / regular=32 / large=40 / extraLarge=48`。
-    /// `regular = 32pt` 对应 Primer `control.medium.size`，是 GitHub 桌面 UI 默认按钮高度。
+    /// 取值对齐 Apple HIG 控件高度参考：
+    /// `mini=28 / small=32 / regular=44 / large=50 / extraLarge=56`。
+    /// `regular = 44pt` 是 Apple 平台推荐的最小可点击目标高度。
     ///
     /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
     /// - Returns: 该尺寸下的推荐外框高度，单位 pt。
     public static func height(for controlSize: ControlSize) -> CGFloat {
         switch controlSize {
-        case .mini: return 24
-        case .small: return 28
-        case .regular: return 32
-        case .large: return 40
-        case .extraLarge: return 48
+        case .mini: return 28
+        case .small: return 32
+        case .regular: return 44
+        case .large: return 50
+        case .extraLarge: return 56
         @unknown default:
-            return 32
+            return 44
         }
     }
 
@@ -83,21 +66,20 @@ public nonisolated enum CoreControlMetrics {
 
     /// 控件横向 padding（pt）。包裹 label 的左右内边距，配合 `height(for:)` 决定外框宽度。
     ///
-    /// 取值参考 Primer `control.{size}.paddingInline.normal`：
-    /// `xsmall=8 / small=12 / medium=12 / large=12 / xlarge=12`。Primer 在 small 及以上
-    /// 都使用 12pt 横向内边距，仅 mini (xsmall) 收紧到 8pt。本 token 直接照搬这一规律。
+    /// `mini=8 / small=12 / regular=16 / large=16 / extraLarge=24`——`regular` 起给出更
+    /// 舒展的横向留白，贴近 Apple 系统按钮的视觉密度；`extraLarge`（CTA 类）进一步放宽。
     ///
     /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
     /// - Returns: 该尺寸下推荐的左右 padding，单位 pt，必为 `CoreSpacing.*` 命名常量。
     public static func horizontalPadding(for controlSize: ControlSize) -> CGFloat {
         switch controlSize {
-        case .mini: return CoreSpacing.sm        // 8pt — Primer xsmall.paddingInline.normal
-        case .small: return CoreSpacing.md       // 12pt — Primer small.paddingInline.normal
-        case .regular: return CoreSpacing.md     // 12pt — Primer medium.paddingInline.normal
-        case .large: return CoreSpacing.md       // 12pt — Primer large.paddingInline.normal
-        case .extraLarge: return CoreSpacing.md  // 12pt — Primer xlarge.paddingInline.normal
+        case .mini: return CoreSpacing.sm        // 8pt
+        case .small: return CoreSpacing.md       // 12pt
+        case .regular: return CoreSpacing.lg     // 16pt
+        case .large: return CoreSpacing.lg        // 16pt
+        case .extraLarge: return CoreSpacing.xl  // 24pt — CTA 类，更宽松
         @unknown default:
-            return CoreSpacing.md
+            return CoreSpacing.lg
         }
     }
 
@@ -105,77 +87,64 @@ public nonisolated enum CoreControlMetrics {
 
     /// 控件纵向 padding（pt）。包裹 label 的上下内边距。
     ///
-    /// Primer `control.{size}.paddingBlock` 给出 `xsmall=2 / small=4 / medium=6 / large=10 /
-    /// xlarge=14`。CoreSpacing 标度（2/4/8/12/16）覆盖前两档但不覆盖 6/10/14——本 token
-    /// 在 regular 起就近上调到 CoreSpacing 档位（regular=8 / large=12 / extraLarge=16），
-    /// 让 padding 始终命中 token，不出现魔法数字。这会让对应档位的总高度比 Primer 略增
-    /// 2–4pt，组件层若需精确对齐可在外部 `frame(height:)` 显式强制 `height(for:)`。
+    /// `mini=4 / small=4 / regular=12 / large=16 / extraLarge=16`。
+    ///
+    /// > Important: **哪些档位由地板决定、哪些由 padding 决定，取决于平台与 Dynamic Type 档**——
+    /// > 下面的算术只在 **iOS 默认 Dynamic Type 档**成立，不要当成无条件结论。
+    /// >
+    /// > **iOS 默认档**（footnote 13 / callout 16 / body 17 / title2 22，行高约 18/21/22/28）：
+    /// > `mini` / `small` 算得 `4×2+18 = 26pt` 低于两档地板（28 / 32），由 `frame(minHeight:)`
+    /// > **地板**决定，二者因此可见地不同高；`regular` 及以上相反——`12×2+21 ≈ 45 > 44`、
+    /// > `16×2+22 ≈ 54 > 50`、`16×2+28 ≈ 60 > 56`，由 **padding** 决定，`height(for:)`
+    /// > 退化为不生效的下限。
+    /// >
+    /// > **macOS**：系统文本样式明显更小（实测 footnote 10 / callout 12 / body 13 / title2 17），
+    /// > 算得 mini / small `4×2+13 = 21 < 28 / 32`、regular `24+15 ≈ 39 < 44`、
+    /// > large `32+16 ≈ 48 < 50`、extraLarge `32+22 ≈ 54 < 56`——**五档全部由地板决定**，
+    /// > 与 iOS 默认档的情形相反。
+    /// >
+    /// > **iOS 大字号档**：Dynamic Type 调大后 `mini` / `small` 也会越过地板、转为由 padding
+    /// > 决定，结论再次翻转。
+    /// >
+    /// > 取舍：宁可比 `height(for:)` 的参考高度略高，也不压缩 label——`minHeight` 不裁切，
+    /// > `frame(height:)` 会。五档在各平台各档位的实际渲染高度待视觉终审确认。
+    /// >
+    /// > 历史：早先版本取 `mini=8 / small=8`，算得 34pt 同时越过两个地板，导致 mini 与 small
+    /// > 渲染同高、而注释仍声称靠地板区分——数值上不成立的机制。改回 4pt 修复。
     ///
     /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
     /// - Returns: 该尺寸下推荐的上下 padding，单位 pt，必为 `CoreSpacing.*` 命名常量。
     public static func verticalPadding(for controlSize: ControlSize) -> CGFloat {
         switch controlSize {
-        case .mini: return CoreSpacing.xxs       // 2pt — 与 Primer xsmall.paddingBlock 完全一致
-        case .small: return CoreSpacing.xs       // 4pt — 与 Primer small.paddingBlock 完全一致
-        case .regular: return CoreSpacing.sm     // 8pt — Primer medium 为 6，CoreSpacing 就近上调
-        case .large: return CoreSpacing.md       // 12pt — Primer large 为 10，CoreSpacing 就近上调
-        case .extraLarge: return CoreSpacing.lg  // 16pt — Primer xlarge 为 14，CoreSpacing 就近上调
+        case .mini: return CoreSpacing.xs        // 4pt
+        case .small: return CoreSpacing.xs       // 4pt
+        case .regular: return CoreSpacing.md     // 12pt
+        case .large: return CoreSpacing.lg       // 16pt
+        case .extraLarge: return CoreSpacing.lg  // 16pt
         @unknown default:
-            return CoreSpacing.sm
-        }
-    }
-
-    // MARK: - primerVerticalPadding (escape hatch)
-
-    /// **严格 Primer 高度路径**专用：返回 Primer `control.{size}.paddingBlock` 的精确值
-    /// （xsmall=2 / small=4 / medium=6 / large=10 / xlarge=14）。
-    ///
-    /// 与 `verticalPadding(for:)` 的差别：本 helper 不上调到 `CoreSpacing` 档位——
-    /// regular / large / extraLarge 三档分别返回 6 / 10 / 14（**这三档 Primer 取值不在
-    /// CoreSpacing scale 上**）。代价是：调用方必须明确意图是"装得下 Primer 精确高度"，
-    /// 否则默认仍应使用 `verticalPadding(for:)` 命中 CoreSpacing 标度。
-    ///
-    /// 仅当组件需要严格命中 `height(for:)` 的 Primer 精确值（搭配 `frame(height:)`
-    /// 而非 `frame(minHeight:)`）时才用。一般场景默认 `verticalPadding(for:)`。
-    ///
-    /// 字面量集中在本 helper 的语义：避免组件层散落 6/10/14 这种非 token scale 的
-    /// 魔法数字（与 `CoreSpacing` "组件不引入 padding 魔法数字"约定一致）。
-    ///
-    /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
-    /// - Returns: 该尺寸下 Primer `paddingBlock` 精确值（pt）。
-    public static func primerVerticalPadding(for controlSize: ControlSize) -> CGFloat {
-        switch controlSize {
-        case .mini: return 2         // Primer xsmall.paddingBlock
-        case .small: return 4        // Primer small.paddingBlock
-        case .regular: return 6      // Primer medium.paddingBlock
-        case .large: return 10       // Primer large.paddingBlock
-        case .extraLarge: return 14  // Primer xlarge.paddingBlock
-        @unknown default:
-            return 6
+            return CoreSpacing.md
         }
     }
 
     // MARK: - font
 
-    /// 控件 label 推荐字号。直接返回 `CoreTypography.*Font`，调用方可选择是否再补 lineSpacing
-    /// 与 tracking 三件套（按钮 / SegmentedControl / SearchField 多为单行容器，
-    /// `lineSpacing` 不会显出视觉效果，省略亦可）。
+    /// 控件 label 推荐字号 token。直接返回 `CoreTypography.Token`，调用方经
+    /// `.coreFont(_:)` 施加。
     ///
-    /// 档位映射理由：mini / small 走 `bodySmall`（12pt）保证密集 UI 不溢出；regular 走
-    /// 推荐的默认 UI 字号 `bodyMedium`（14pt）；large / extraLarge 上抬到
-    /// `bodyLarge`（16pt）/ `titleMedium`（20pt semibold），让 CTA 类按钮视觉权重与
-    /// 较大尺寸的外框匹配。
+    /// 档位映射理由：mini / small 走 `footnote` 保证密集 UI 不溢出；regular 走
+    /// `callout`（默认 UI 字号）；large 上抬到 `body`；extraLarge 用 `title2`，
+    /// 让 CTA 类按钮视觉权重与较大尺寸的外框匹配。
     ///
     /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
-    /// - Returns: 该尺寸下推荐的 SwiftUI `Font`，必为 `CoreTypography.*Font` 命名常量。
+    /// - Returns: 该尺寸下推荐的 `CoreTypography.Token`。
     public static func fontToken(for controlSize: ControlSize) -> CoreTypography.Token {
         switch controlSize {
-        case .mini:       .bodySmall     // 12pt regular
-        case .small:      .bodySmall     // 12pt regular
-        case .regular:    .bodyMedium    // 14pt regular — 默认 UI 字号
-        case .large:      .bodyLarge     // 16pt regular
-        case .extraLarge: .titleMedium   // 20pt semibold — CTA 视觉权重
-        @unknown default: .bodyMedium
+        case .mini:       .footnote
+        case .small:      .footnote
+        case .regular:    .callout
+        case .large:      .body
+        case .extraLarge: .title2
+        @unknown default: .callout
         }
     }
 
@@ -185,8 +154,7 @@ public nonisolated enum CoreControlMetrics {
     /// 对齐——SF Symbol / SVG glyph 的视觉重心通常略低于 cap height，需要稍大边长才能感觉
     /// 与字母 x-height 等高。
     ///
-    /// 取值参考：mini=12 (与 12pt 字 1.0×) / small=14 / regular=16 (≈14pt 字 × 1.14) /
-    /// large=20 (16pt 字 × 1.25) / extraLarge=24 (20pt 字 × 1.20)。
+    /// 取值参考：mini=12 / small=14 / regular=16 / large=20 / extraLarge=24。
     /// 这些值不在 CoreSpacing 标度上（CoreSpacing 用于布局间距，与 icon 几何尺寸不同
     /// 语义），故直接以 pt 给定。
     ///

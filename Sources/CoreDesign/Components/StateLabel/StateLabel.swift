@@ -10,7 +10,7 @@ import SwiftUI
 /// 通用状态标签的语义样式。
 ///
 /// 颜色映射通过 `StatusColors` 系统的 emphasis 背景 + `contentOnEmphasis` 前景实现，
-/// 图标 / 背景 / 默认文案统一由下方 `spec` 单次穷举给出（审计项 B8f）。
+/// 图标 / 背景 / 默认文案统一由下方 `spec` 单次穷举给出。
 public nonisolated enum StateLabelStyle: Sendable, Equatable {
     case active      // success (green) — in progress
     case draft       // attention (yellow) — not ready / WIP
@@ -21,7 +21,7 @@ public nonisolated enum StateLabelStyle: Sendable, Equatable {
 }
 
 extension StateLabelStyle {
-    /// 单个样式的图标 / 背景 / 默认文案三元组（审计项 B8f）。
+    /// 单个样式的图标 / 背景 / 默认文案三元组。
     ///
     /// 收敛前 `StateLabel` 有三个平行 switch（iconName / backgroundColor / defaultLabel）；
     /// 现由 `spec` 一次穷举返回。新增 case 时编译器只在此处要求穷举。
@@ -55,17 +55,14 @@ extension StateLabelStyle {
 
 // MARK: - StateLabel
 
-/// Native Primer lifecycle state label.
-///
-/// Control-layer status pill driven by `StateLabelStyle`. Compact,
-/// color-for-meaning, no decorative material — same restraint rules as
-/// `Badge`, with a fixed icon + caller-supplied label payload.
-///
-/// **Material layer**: control. **Surface role**: control.
+/// **材质层**: 控件. **表面角色**: 控件.
 ///
 /// 通用状态标识 pill。大圆角 + 彩色背景 + SF Symbol 图标 + label 内容。
+///
+/// 紧凑、**以色表意、无装饰性材质**——与 `Badge` 同一套克制规则，区别是它带固定图标
+/// 和调用方提供的 label 内容。
 /// 双层 init 形态对齐 `Badge` / `Tag`：`@ViewBuilder` designated init 可插图标 /
-/// 富文本，`where Label == Text` 便利 init 收 `String`（审计项 D6a / D6b）。
+/// 富文本，`where Label == Text` 便利 init 收 `String`。
 public struct StateLabel<Label: View>: View {
     let style: StateLabelStyle
     let label: Label
@@ -80,18 +77,16 @@ public struct StateLabel<Label: View>: View {
         HStack(spacing: CoreSpacing.xs) {
             Image(systemName: self.style.spec.icon)
                 .coreFont(.caption)
-                // 评审 Suggestion 4：`.combine` 会把未隐藏子元素的可访问名折进来。
-                // 原 `.accessibilityLabel(self.label)`（String）压掉了 icon；泛型化后改
-                // `.combine`，须显式隐藏 icon 否则 SF Symbol 名泄漏进 VoiceOver name
-                // （与 Banner.swift:182 对 icon 的处理一致）。
+                // `.combine` 会把未隐藏子元素的可访问名折进来，须显式隐藏 icon，
+                // 否则 SF Symbol 名会泄漏进 VoiceOver name（与 `Banner` 对 icon
+                // 的处理一致）。
                 .accessibilityHidden(true)
             self.label
-                .coreFont(.bodySmall)
+                .coreFont(.footnote)
         }
         // 前景统一走 `contentOnEmphasis`（白）——背景用 `status*Emphasis`（饱和填充），
-        // 配对前景即 `onEmphasis`。此前按 style 返回 `status*Foreground` 在 #93 修正
-        // emphasis 为饱和实色后会与背景同色（对比度 1.00、文字不可见）。
-        // `BookCover.swift:155` 是同一配对的既有先例。
+        // 配对前景即 `onEmphasis`。若按 style 返回 `status*Foreground`，在 emphasis
+        // 为饱和实色的前提下会与背景同色（对比度 1.00、文字不可见）。
         .foregroundStyle(Color.contentOnEmphasis)
         .padding(.horizontal, CoreSpacing.sm)
         .padding(.vertical, CoreSpacing.xxs)

@@ -58,11 +58,11 @@ private struct ComponentRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
             Text(component.name)
-                .font(CoreTypography.bodyMediumFont)
+                .font(CoreTypography.Token.callout.font)
                 .fontWeight(.medium)
                 .foregroundStyle(Color.contentPrimary)
             Text(component.id)
-                .font(CoreTypography.captionFont)
+                .font(CoreTypography.Token.caption.font)
                 .foregroundStyle(Color.contentSubtle)
         }
         .padding(.vertical, CoreSpacing.xxs)
@@ -79,7 +79,7 @@ private struct PlaceholderView: View {
                 .foregroundStyle(Color.contentSubtle)
                 .accessibilityHidden(true)
             Text("Select a component")
-                .font(CoreTypography.bodyMediumFont)
+                .font(CoreTypography.Token.callout.font)
                 .foregroundStyle(Color.contentMuted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

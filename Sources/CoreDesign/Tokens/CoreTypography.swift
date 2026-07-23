@@ -2,241 +2,87 @@
 //  CoreTypography.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//
 
 import CoreGraphics
 import SwiftUI
 
 // MARK: - CoreTypography
 
-/// 字体 token，对齐 Primer Primitives `functional/typography/typography.json5`
-/// 中的 `text.*` text styles（display / title / subtitle / body / caption）。
+/// 字体 token，对齐 Apple HIG 的系统文本样式（`Font.TextStyle`）标度。
 ///
-/// 调用方式（caseless enum + 三件套：Font / LineSpacing / Tracking）：
+/// 调用方式：
 ///
 /// ```swift
 /// Text("Hello, world.")
-///     .font(CoreTypography.bodyMediumFont)
-///     .lineSpacing(CoreTypography.bodyMediumLineSpacing)
-///     .tracking(CoreTypography.bodyMediumTracking)
+///     .coreFont(.body)
 /// ```
 ///
-/// ## SwiftUI ↔ Primer 对应关系
+/// ## 设计取舍
 ///
-/// - Primer `fontSize` (rem → pt @1rem=16pt) → SwiftUI `Font.system(size:weight:)`
-/// - Primer `lineHeight`（**multiplier**，如 1.5 / 1.625）→ SwiftUI `lineSpacing` 形式：
-///   先把 multiplier 还原成绝对 pt（`fontSize * lineHeightMultiplier`），再减字号本身：
-///   `lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize)`
-///   等价于 `fontSize * max(0, lineHeightMultiplier - 1)`。
-///   （SwiftUI `lineSpacing` 是「行间距」而非「行高」，需把 Primer 行高减去字号才是补偿值。）
-/// - Primer 当前锁定版本（见 `docs/PRIMER_VERSION.md`）的 typography 文件**未定义**
-///   letter-spacing token，故所有档位 `*Tracking = 0`；保留接口以便未来 Primer
-///   引入字距时无破坏式扩展。
+/// 早期版本对齐第三方设计规范手写的 `text.*` 标度，携带手写的 size / weight /
+/// lineSpacing / tracking 四件套，并用 `@ScaledMetric` 模拟 Dynamic Type 缩放。
+/// 本文件改为**直接取系统文本样式**：12 档 `Token` 一一对应 `Font.TextStyle`
+/// （`largeTitle` / `title` / `title2` / `title3` / `headline` / `body` / `callout` /
+/// `subheadline` / `footnote` / `caption` / `caption2`；`captionMono` 额外映射
+/// `.caption` + 等宽 design）。字号、行高、字重、Dynamic Type 缩放全部交给系统本身，
+/// 不再手写任何字号表——这是与旧版本的核心差异，也是本文件不再需要 `Spec` 结构体、
+/// `lineSpacing` / `tracking` 常量的原因。
 ///
-/// > Important: 单行容器（按钮 label、SegmentedControl 选项、ListRow 单行文本、
-/// > Toolbar item 等）观察不到 `lineSpacing` 的视觉效果——`lineSpacing` 只作用于
-/// > 文本的*行与行之间*，单行无相邻行可补偿。**这是 SwiftUI 的预期行为，不视为缺陷。**
-/// > 仍然推荐统一调用三件套，组件未来切换为多行（譬如 `Text` 自动换行）时无需改动。
-///
-/// > Note: 取值参考 docs/PRIMER_VERSION.md 锁定的 Primer 版本。
-/// > Primer 用 `1rem = 16px`，本文件直接以 pt 为单位（Apple 平台 1pt ≈ 1px @1x）。
+/// > Note: 9 个旧名（`displayLarge` 等）与 10 个旧 `*Font` static var 曾以
+/// > `@available(*, deprecated, renamed:)` / `deprecated(message:)` 别名保留，供调用点
+/// > 按 warning 逐点迁移；全部调用点迁移完成后已删除这两组别名。
 public nonisolated enum CoreTypography {
 
-    // MARK: - Display
+    // MARK: - Token（Dynamic Type 入口）
 
-    /// Display Large。对应 Primer `text.display`。
-    /// fontSize 40 / lineHeight 1.375 (snug) / weight medium (500)。
-    /// Hero / 落地页 / 品牌过渡页用，窄视口建议降级到 `titleLarge`。
+    /// 排版 token，经 `.coreFont(_:)` 施加。每一档直接对应一个 Apple 系统文本样式，
+    /// 字号 / 行高 / 字重 / Dynamic Type 缩放全部由系统决定。
     ///
-    /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
-    public static var displayLargeFont: Font { Token.displayLarge.fixedFont }
+    /// `Sendable`：caseless 枚举本身平凡线程安全，显式声明让 `Testing` 的
+    /// `@Test(arguments:)` 能把它跨 `@MainActor` 隔离边界传参
+    /// （`DynamicTypeLayoutTests.everyTypographyTokenScalesWithDynamicType`）。
+    public enum Token: CaseIterable, Sendable {
+        case largeTitle
+        case title
+        case title2
+        case title3
+        case headline
+        case body
+        case callout
+        case subheadline
+        case footnote
+        case caption
+        case captionMono
+        case caption2
 
-    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 40 * 1.375 - 40) = 15
-    public static var displayLargeLineSpacing: CGFloat { Token.displayLarge.spec.lineSpacing }
-
-    public static var displayLargeTracking: CGFloat { Token.displayLarge.spec.tracking }
-
-    // MARK: - Title
-
-    /// Title Large。对应 Primer `text.title.large`。
-    /// fontSize 32 / lineHeight 1.5 (normal) / weight semibold (600)。
-    /// 用户生成对象的页面标题（Issue / PR title），窄视口降级到 `titleMedium`。
-    ///
-    /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
-    public static var titleLargeFont: Font { Token.titleLarge.fixedFont }
-
-    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 32 * 1.5 - 32) = 16
-    public static var titleLargeLineSpacing: CGFloat { Token.titleLarge.spec.lineSpacing }
-
-    public static var titleLargeTracking: CGFloat { Token.titleLarge.spec.tracking }
-
-    /// Title Medium。对应 Primer `text.title.medium`。
-    /// fontSize 20 / lineHeight 1.625 (relaxed) / weight semibold (600)。
-    /// 推荐的默认页面标题；Section 标题、Dialog 标题。
-    ///
-    /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
-    public static var titleMediumFont: Font { Token.titleMedium.fixedFont }
-
-    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 20 * 1.625 - 20) = 12.5
-    public static var titleMediumLineSpacing: CGFloat { Token.titleMedium.spec.lineSpacing }
-
-    public static var titleMediumTracking: CGFloat { Token.titleMedium.spec.tracking }
-
-    /// Title Small。对应 Primer `text.title.small`。
-    /// fontSize 16 / lineHeight 1.5 (normal) / weight semibold (600)。
-    /// 与 `bodyLarge` 同字号，semibold 加粗以作章节内子标题；List title / 侧栏标题。
-    ///
-    /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
-    public static var titleSmallFont: Font { Token.titleSmall.fixedFont }
-
-    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 16 * 1.5 - 16) = 8
-    public static var titleSmallLineSpacing: CGFloat { Token.titleSmall.spec.lineSpacing }
-
-    public static var titleSmallTracking: CGFloat { Token.titleSmall.spec.tracking }
-
-    // MARK: - Subtitle
-
-    /// Subtitle。对应 Primer `text.subtitle`。
-    /// fontSize 20 / lineHeight 1.625 (relaxed) / weight normal (400)。
-    /// 标题下方的辅助说明文字；与 `titleMedium` 同字号同行高，仅 weight 区分。
-    ///
-    /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
-    public static var subtitleFont: Font { Token.subtitle.fixedFont }
-
-    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 20 * 1.625 - 20) = 12.5
-    public static var subtitleLineSpacing: CGFloat { Token.subtitle.spec.lineSpacing }
-
-    public static var subtitleTracking: CGFloat { Token.subtitle.spec.tracking }
-
-    // MARK: - Body
-
-    /// Body Large。对应 Primer `text.body.large`。
-    /// fontSize 16 / lineHeight 1.5 (normal) / weight normal (400)。
-    /// 用户生成内容（Markdown 渲染、文章正文、长评论）。
-    ///
-    /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
-    public static var bodyLargeFont: Font { Token.bodyLarge.fixedFont }
-
-    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 16 * 1.5 - 16) = 8
-    public static var bodyLargeLineSpacing: CGFloat { Token.bodyLarge.spec.lineSpacing }
-
-    public static var bodyLargeTracking: CGFloat { Token.bodyLarge.spec.tracking }
-
-    /// Body Medium。对应 Primer `text.body.medium`。
-    /// fontSize 14 / lineHeight 1.5 (normal) / weight normal (400)。
-    /// **推荐的默认 UI 文字**：按钮 label、表单 label、导航、绝大多数界面文字。
-    ///
-    /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
-    public static var bodyMediumFont: Font { Token.bodyMedium.fixedFont }
-
-    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 14 * 1.5 - 14) = 7
-    public static var bodyMediumLineSpacing: CGFloat { Token.bodyMedium.spec.lineSpacing }
-
-    public static var bodyMediumTracking: CGFloat { Token.bodyMedium.spec.tracking }
-
-    /// Body Small。对应 Primer `text.body.small`。
-    /// fontSize 12 / lineHeight 1.625 (relaxed) / weight normal (400)。
-    /// 辅助文字（helper / footnote / metadata / timestamp），慎用，不建议作为主要内容。
-    ///
-    /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
-    public static var bodySmallFont: Font { Token.bodySmall.fixedFont }
-
-    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 12 * 1.625 - 12) = 7.5
-    public static var bodySmallLineSpacing: CGFloat { Token.bodySmall.spec.lineSpacing }
-
-    public static var bodySmallTracking: CGFloat { Token.bodySmall.spec.tracking }
-
-    // MARK: - Caption
-
-    /// Caption。对应 Primer `text.caption`。
-    /// fontSize 12 / lineHeight 1.25 (tight) / weight normal (400)。
-    /// 紧凑场景：Badge text、单行 metadata、单行 label。
-    /// Primer 提示：caption 不满足 body text 的可访问性要求，仅用于单行/极短文本。
-    ///
-    /// 单行容器（按钮 label / 列表行）不会观察到 lineSpacing 效果，这是预期行为，不视为缺陷。
-    public static var captionFont: Font { Token.caption.fixedFont }
-
-    // lineSpacing = max(0, fontSize * lineHeightMultiplier - fontSize) = max(0, 12 * 1.25 - 12) = 3
-    public static var captionLineSpacing: CGFloat { Token.caption.spec.lineSpacing }
-
-    public static var captionTracking: CGFloat { Token.caption.spec.tracking }
-
-    // Caption Small（CoreDesign 扩展，sub-12pt）
-
-    /// Caption Small。**CoreDesign 扩展**，Primer Primitives 锁定版本未定义 sub-12pt
-    /// 字号档位。fontSize 9 / 单行使用 / weight normal (400)。
-    /// 高密度 chrome 场景：tab 角标计数、状态栏指示器、紧贴边角的数字徽章。
-    /// 严格仅限单行；不满足 body text 可访问性要求。
-    ///
-    /// > Important: **本 token 故意不参与 Dynamic Type 缩放**。`Font.system(size:weight:)`
-    /// > 是固定字号路径——9pt 字号若再随用户偏好按 accessibility scale 放大，会破坏
-    /// > chrome 紧凑布局（tab 角标越界、status bar 文字撑爆等）。如果调用场景需要
-    /// > Dynamic Type 跟随，使用 `captionFont` 或 `Font.system(.caption, design:)` 而非本档。
-    ///
-    /// > Note: 默认 weight 为 `.regular`。若调用站点（如 issue #81 引用的
-    /// > `TabBarView.swift:114` 9pt bold 徽章计数）需要加粗，请在调用处叠加
-    /// > `.fontWeight(.bold)` / `.fontWeight(.semibold)`，而不是替换本 token——
-    /// > 这样可保证迁移不会静默把字重从 bold 改成 regular。
-    ///
-    /// 如果未来 Primer 引入 sub-12pt 档位，应优先切换为对齐 token 值，再保留本档作为兼容。
-    public static var captionSmallFont: Font { Token.captionSmall.fixedFont }
-
-    /// 单行设计目标，无相邻行可补偿——故 lineSpacing 取 0。
-    /// `captionLineSpacing = 3` 是由 Primer multiplier 推算出的多行补偿值，
-    /// 与本档单行用途的数值**不一致**；二者共享的只是"以单行场景为主"的使用意图。
-    public static var captionSmallLineSpacing: CGFloat { Token.captionSmall.spec.lineSpacing }
-
-    public static var captionSmallTracking: CGFloat { Token.captionSmall.spec.tracking }
-
-    // MARK: - Token（Dynamic Type 入口，Issue #95 / B2a）
-
-    /// 排版 token / Typography token。携带 Primer 基准规格，经 `.coreFont(_:)` 施加。
-    ///
-    /// 取代直接读 `*Font` 常量——那些是 `.system(size:)` 固定值**不缩放**。`.coreFont(token)`
-    /// 用 `@ScaledMetric` 让字号与 lineSpacing 随 Dynamic Type 缩放，同时保住 Primer 精确
-    /// 基准 pt。`captionSmall` 是唯一例外（`scales == false`），保留其既有的紧凑 chrome 约束。
-    public enum Token: CaseIterable {
-        case displayLarge, titleLarge, titleMedium, titleSmall, subtitle
-        case bodyLarge, bodyMedium, bodySmall, caption, captionMono, captionSmall
-
-        /// token 的完整排版规格。
-        public struct Spec {
-            public let size: CGFloat
-            public let weight: Font.Weight
-            /// Dynamic Type 缩放基准（借其斜率，基准 pt 仍是 `size`）；`scales == false` 时忽略。
-            public let textStyle: Font.TextStyle
-            public let lineSpacing: CGFloat
-            public let tracking: CGFloat
-            public let scales: Bool
-            public let monospaced: Bool
-        }
-
-        /// 固定字号 `Font`（**不缩放**）——命令式绘制（`Canvas` / `GraphicsContext.draw`）
-        /// 等无法套用 `.coreFont` modifier 的场景用它取值；能用 modifier 的一律用 `.coreFont`。
-        public var fixedFont: Font {
-            let spec = self.spec
-            return spec.monospaced
-                ? .system(size: spec.size, weight: spec.weight).monospaced()
-                : .system(size: spec.size, weight: spec.weight)
-        }
-
-        public var spec: Spec {
+        /// 对应的系统文本样式（Dynamic Type 缩放基准）。
+        public var textStyle: Font.TextStyle {
             switch self {
-            //                    size  weight       textStyle 基准    lineSpacing  tracking  scales  mono
-            case .displayLarge: Spec(size: 40, weight: .medium,   textStyle: .largeTitle, lineSpacing: 15,   tracking: 0, scales: true,  monospaced: false)
-            case .titleLarge:   Spec(size: 32, weight: .semibold, textStyle: .title,      lineSpacing: 16,   tracking: 0, scales: true,  monospaced: false)
-            case .titleMedium:  Spec(size: 20, weight: .semibold, textStyle: .title2,     lineSpacing: 12.5, tracking: 0, scales: true,  monospaced: false)
-            case .titleSmall:   Spec(size: 16, weight: .semibold, textStyle: .headline,   lineSpacing: 8,    tracking: 0, scales: true,  monospaced: false)
-            case .subtitle:     Spec(size: 20, weight: .regular,  textStyle: .title3,     lineSpacing: 12.5, tracking: 0, scales: true,  monospaced: false)
-            case .bodyLarge:    Spec(size: 16, weight: .regular,  textStyle: .body,       lineSpacing: 8,    tracking: 0, scales: true,  monospaced: false)
-            case .bodyMedium:   Spec(size: 14, weight: .regular,  textStyle: .callout,    lineSpacing: 7,    tracking: 0, scales: true,  monospaced: false)
-            case .bodySmall:    Spec(size: 12, weight: .regular,  textStyle: .caption,    lineSpacing: 7.5,  tracking: 0, scales: true,  monospaced: false)
-            case .caption:      Spec(size: 12, weight: .regular,  textStyle: .caption,    lineSpacing: 3,    tracking: 0, scales: true,  monospaced: false)
-            case .captionMono:  Spec(size: 12, weight: .regular,  textStyle: .caption,    lineSpacing: 3,    tracking: 0, scales: true,  monospaced: true)
-            // captionSmall：9pt 紧凑 chrome，故意不缩放（放大会撑爆 tab 角标/status bar）。
-            case .captionSmall: Spec(size: 9,  weight: .regular,  textStyle: .caption2,   lineSpacing: 0,    tracking: 0, scales: false, monospaced: false)
+            case .largeTitle: .largeTitle
+            case .title: .title
+            case .title2: .title2
+            case .title3: .title3
+            case .headline: .headline
+            case .body: .body
+            case .callout: .callout
+            case .subheadline: .subheadline
+            case .footnote: .footnote
+            case .caption: .caption
+            case .captionMono: .caption
+            case .caption2: .caption2
             }
+        }
+
+        /// 是否为等宽字体。目前仅 `captionMono` 为真。
+        public var isMonospaced: Bool {
+            self == .captionMono
+        }
+
+        /// 直接取系统文本样式 `Font`，随 Dynamic Type 缩放。
+        public var font: Font {
+            self.isMonospaced
+                ? .system(self.textStyle, design: .monospaced)
+                : .system(self.textStyle)
         }
     }
 }

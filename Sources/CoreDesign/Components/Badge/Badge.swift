@@ -8,7 +8,7 @@ import SwiftUI
 
 /// Badge 的语义等级，决定背景 / 边框配色映射。
 ///
-/// 概念对应 GitHub Primer 的 `Label` 组件 variant：`info` / `success` / `warning` /
+/// 五个语义档位：`info` / `success` / `warning` /
 /// `danger` / `neutral`，5 个**固定 level**，颜色由 token 决定（见
 /// `Sources/CoreDesign/Colors/StatusColors.swift` 与 `SurfaceColors.swift`），
 /// 随系统 colorScheme 自动适配 light / dark。
@@ -28,15 +28,11 @@ public nonisolated enum BadgeVariant: Sendable, Equatable {
 
 // MARK: - Badge
 
-/// Native Primer status badge.
+/// **材质层**: 控件. **表面角色**: 控件.
 ///
-/// Control-layer status indicator with 5 fixed semantic levels. Compact, low
-/// chrome, no glass — color is the semantic carrier, not decoration. Pairs
-/// with row, header, and inline-label contexts.
+/// 状态指示器。
 ///
-/// **Material layer**: control. **Surface role**: control.
-///
-/// GitHub 风格的状态指示器，对应 Primer 的 `Label` 组件。
+/// 紧凑、低 chrome、**无玻璃**——**颜色本身就是语义载体**，不是装饰。
 ///
 /// 用于在列表项 / 标题 / 按钮旁标注一个固定 level 的语义状态（如 "Beta" / "Draft" /
 /// "Deprecated" / "v1.0"）。形态固定为 pill：`Capsule(style: .continuous)` 圆角
@@ -47,16 +43,16 @@ public nonisolated enum BadgeVariant: Sendable, Equatable {
 ///
 /// **Badge = 状态指示器**：5 固定 `BadgeVariant` level（info / success / warning /
 /// danger / neutral），颜色由 token 决定，调用方**不**传 color。任意分类（如 GitHub
-/// issue labels 那样调用方自定义颜色）请用 `Tag`（见 task #31）。
+/// issue labels 那样调用方自定义颜色）请用 `Tag`。
 ///
 /// ## 视觉与 token
 ///
-/// - 背景：`Color.surfaceCanvasSubtle`（neutral）/ status background token
+/// - 背景：`Color.secondaryFill`（neutral）/ status background token
 ///   （`statusAccentSubtle` / `statusSuccessSubtle` / `statusAttentionSubtle` / `statusDangerSubtle`）
 /// - 边框（`outlined: true` 时）：`Color.borderMuted`（neutral）/ 对应 status border
 ///   token；宽度 `CoreBorderWidth.thin`
 /// - 圆角：`Capsule()`（pill 形态）
-/// - 字号：`CoreTypography.bodySmallFont` + `bodySmallTracking`
+/// - 字号：`.coreFont(.footnote)`（直接取系统文本样式，不手写 tracking 常量）
 /// - padding：横向 `CoreSpacing.sm`，纵向 `CoreSpacing.xs`
 ///
 /// light / dark 行为差异：所有颜色均走 semantic token，由 colorset 自动适配，无需调用方
@@ -93,7 +89,7 @@ public struct Badge<Label: View>: View {
     public var body: some View {
         let shape = Capsule(style: .continuous)
         return self.label
-            .coreFont(.bodySmall)
+            .coreFont(.footnote)
             .padding(.horizontal, CoreSpacing.sm)
             .padding(.vertical, CoreSpacing.xs)
             .background {
@@ -134,15 +130,28 @@ public extension Badge where Label == Text {
 private extension Badge {
     /// 由 `BadgeVariant` 映射到背景色 token。
     ///
-    /// `neutral` 走 `surfaceCanvasSubtle`（与 Tag 默认表面区分），其余 4 级走对应的
-    /// status background token；新增 variant 时同步扩展此映射。
+    /// `neutral` 走 `secondaryFill`，其余 4 级走对应的 status background token；
+    /// 新增 variant 时同步扩展此映射。
+    ///
+    /// > **neutral 用 `secondaryFill` 而不是某个 `SurfaceColors` token**：`surfaceCanvasSubtle`
+    /// > 在浅色模式下与 `surfaceBase`（`systemBackground`）同为 `#FFFFFF`——iOS 模拟器
+    /// > 实测确认，无描边的 neutral badge 放在普通页面背景上会完全不可见；换
+    /// > `surfaceCanvas` 则会在深色模式与 `surfaceBase` 同为纯黑，同样的问题换个模式重现。
+    /// >
+    /// > 根因是选错了 token **种类**：badge 背景是叠在别人之上的一小块色，该用**填充色**
+    /// > （`FillColors`，半透明、专为叠加设计），而不是**背景色**（`SurfaceColors`，专为
+    /// > 充当底层而设计）。任何单一 surface token 都修不好这个问题——问题出在种类选错，
+    /// > 不是某个具体 token 的取值。
+    /// >
+    /// > `secondaryFill` 浅色 α=0.16 / 深色 α=0.32，实测在 `surfaceBase` / `surfaceCanvas`
+    /// > / `surfaceRaised` 三种父容器、两种外观下均可辨。
     static func backgroundColor(for variant: BadgeVariant) -> Color {
         switch variant {
         case .info: .statusAccentSubtle
         case .success: .statusSuccessSubtle
         case .warning: .statusAttentionSubtle
         case .danger: .statusDangerSubtle
-        case .neutral: .surfaceCanvasSubtle
+        case .neutral: .secondaryFill
         }
     }
 

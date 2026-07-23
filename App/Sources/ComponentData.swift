@@ -82,9 +82,6 @@ extension ComponentMeta {
         ComponentMeta(id: "avatar", name: "Avatar", description: "头像组件，按名称首字母生成", category: .layout) {
             AvatarPreview()
         },
-        ComponentMeta(id: "book-cover", name: "BookCover", description: "书封渲染，按 Primer 视觉收齐", category: .layout) {
-            BookCoverPreview()
-        },
         ComponentMeta(id: "list-row", name: "ListRow", description: "3-槽位泛型列表行：leading / label / trailing", category: .layout) {
             ListRowPreview()
         },
@@ -100,7 +97,7 @@ extension ComponentMeta {
         // Feedback
         ComponentMeta(id: "toast", name: "Toast", description: "Scene-scoped toast host + 队列状态机", category: .feedback, preview: {
             Text("Toast 通过 `.toastHost(edge:)` modifier 挂载到 WindowGroup 根级别")
-                .font(CoreTypography.bodySmallFont)
+                .font(CoreTypography.Token.footnote.font)
                 .foregroundStyle(Color.contentMuted)
         }, demoAction: { AnyView(ToastDemoButton()) }),
     ]
@@ -145,7 +142,7 @@ private struct SearchFieldPreview: View {
 private struct BottomInputBarPreview: View {
     var body: some View {
         Text("BottomInputBar 通过 `.bottomInputBar` modifier 使用，非独立 View。")
-            .font(CoreTypography.bodySmallFont)
+            .font(CoreTypography.Token.footnote.font)
             .foregroundStyle(Color.contentMuted)
             .padding()
     }
@@ -191,12 +188,6 @@ private struct AvatarPreview: View {
             Avatar(name: "Evan")
             Avatar(name: "CoreDesign")
         }
-    }
-}
-
-private struct BookCoverPreview: View {
-    var body: some View {
-        BookCover(data: nil, title: "CoreDesign")
     }
 }
 

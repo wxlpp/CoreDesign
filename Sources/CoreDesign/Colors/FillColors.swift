@@ -7,6 +7,11 @@
 
 import SwiftUI
 
+// MARK: - Fill Colors / 填充颜色
+//
+// 全部 token 直接指向系统填充色族（`systemFill` / `secondarySystemFill` /
+// `tertiarySystemFill` / `quaternarySystemFill`），UIKit / AppKit 双端均正确桥接，
+// 随系统外观自动更新。`tertiaryFill` 另被 `SurfaceColors.surfaceCanvasInset` 复用。
 public extension Color {
     /// 为细小形状的叠加填充颜色。
     ///

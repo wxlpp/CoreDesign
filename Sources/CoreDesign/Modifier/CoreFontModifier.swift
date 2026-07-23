@@ -7,46 +7,25 @@ import SwiftUI
 
 // MARK: - CoreFontModifier
 
-/// 施加一个 `CoreTypography.Token`：字号 + lineSpacing 随 Dynamic Type 缩放，tracking 固定。
+/// 施加一个 `CoreTypography.Token`：直接取系统文本样式 `Font`，随 Dynamic Type 缩放。
 ///
-/// 为何是 modifier 而非 `Font` 常量：缩放靠 `@ScaledMetric`，它需要 View 上下文。
-/// 旧的 `CoreTypography.*Font`（`.system(size:)` 固定值）**不缩放**——那正是 B2a 要修的。
+/// 早期版本的 token 携带手写的 size / weight 基准，靠 `@ScaledMetric` 在 View
+/// 上下文里手动模拟缩放。现在 `Token` 直接对应 `Font.TextStyle`，缩放交给系统本身，
+/// 本 modifier 只保留 `.coreFont(_:)` 的调用形态——它是全库统一的文字入口，形态变更
+/// 会波及每个组件文件，因此形态本身不变，只是内部实现大幅简化。
 private struct CoreFontModifier: ViewModifier {
     let token: CoreTypography.Token
-    @ScaledMetric private var scaledSize: CGFloat
-    @ScaledMetric private var scaledLineSpacing: CGFloat
-
-    init(_ token: CoreTypography.Token) {
-        self.token = token
-        let spec = token.spec
-        // 缩放档：以 token 基准 pt 为「标准尺寸下的值」，随 spec.textStyle 的曲线缩放。
-        // 固定档（captionSmall）：ScaledMetric 照存但 body 不读它，用 spec.size 原值。
-        self._scaledSize = ScaledMetric(wrappedValue: spec.size, relativeTo: spec.textStyle)
-        self._scaledLineSpacing = ScaledMetric(wrappedValue: spec.lineSpacing, relativeTo: spec.textStyle)
-    }
 
     func body(content: Content) -> some View {
-        let spec = self.token.spec
-        let size = spec.scales ? self.scaledSize : spec.size
-        let lineSpacing = spec.scales ? self.scaledLineSpacing : spec.lineSpacing
-        let font: Font = spec.monospaced
-            ? .system(size: size, weight: spec.weight).monospaced()
-            : .system(size: size, weight: spec.weight)
-        return content
-            .font(font)
-            .lineSpacing(lineSpacing)
-            .tracking(spec.tracking)
+        content.font(self.token.font)
     }
 }
 
 // MARK: - View extension
 
 public extension View {
-    /// 施加 CoreDesign 排版 token（字号 + lineSpacing 随 Dynamic Type 缩放）。
-    ///
-    /// 取代旧的 `.font(CoreTypography.xxxFont)` + 手写 `.lineSpacing()`——三件套
-    /// （font / lineSpacing / tracking）收进单一调用点。
+    /// 施加 CoreDesign 排版 token（直接取系统文本样式，随 Dynamic Type 缩放）。
     func coreFont(_ token: CoreTypography.Token) -> some View {
-        self.modifier(CoreFontModifier(token))
+        self.modifier(CoreFontModifier(token: token))
     }
 }

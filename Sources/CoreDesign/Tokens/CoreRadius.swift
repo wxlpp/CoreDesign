@@ -2,59 +2,76 @@
 //  CoreRadius.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//
 
 import CoreGraphics
+import SwiftUI
 
 // MARK: - CoreRadius
 
-/// 圆角 token，对齐 Primer Primitives 的 `borderRadius.*` 标度。
+/// 圆角 token，对齐 Apple HIG 的圆角标度。
 ///
 /// 调用方式：
 ///
 /// ```swift
-/// RoundedRectangle(cornerRadius: CoreRadius.medium)
+/// CoreShape.rounded(CoreRadius.medium)
 ///     .clipShape(Capsule())   // pill 形态用 Capsule，不要用大 cornerRadius
 /// ```
 ///
-/// > Note: Primer 没有 `.none`（直角通常通过省略 `border-radius` 实现）。
-/// > 本仓库引入 `.none = 0`，方便在统一类型签名下表达"无圆角"——譬如
-/// > `BorderModifier` 默认不带圆角时仍走 token 路径，而不是字面量 0。
+/// > Note: HIG 没有单独的 `.none` 档（直角通常通过省略圆角实现）。本仓库引入
+/// > `.none = 0`，方便在统一类型签名下表达"无圆角"——譬如 `BorderModifier` 默认
+/// > 不带圆角时仍走 token 路径，而不是字面量 0。
 // `nonisolated`：理由同 `CoreSpacing`——纯数值常量，需要在 nonisolated 上下文
 // （如 `BottomInputBarGlassEffectShape.path(in:)`）中被引用。
 public nonisolated enum CoreRadius {
-    /// 直角 (0pt)。**CoreDesign 扩展**，Primer 无对应。
+    /// 直角 (0pt)。**CoreDesign 扩展**，HIG 无对应。
     public static let none: CGFloat = 0
 
-    /// 小圆角 (3pt)。Primer `borderRadius.small`。Badge、Tag、≤16pt 高度的元素。
-    public static let small: CGFloat = 3
+    /// 小圆角 (6pt)。Badge、Tag、紧凑控件的圆角。
+    public static let small: CGFloat = 6
 
-    /// 比小圆角略大 (4pt)。**CoreDesign 扩展**，介于 `small=3` 与 `medium=6` 之间。
-    /// 选中态矩形（TabBar 选区、Sidebar 选区、segment thumb）等需要比 `medium=6`
-    /// 略锐、但又比 `small=3` 略柔的场景；与相邻 6pt 元素并置时视觉更协调。
-    /// 上游 Primer Primitives 当前锁定版本未定义此档；如果未来 Primer 引入对应级别，
-    /// 切换该 token 数值即可。
+    /// 中圆角 (10pt)。按钮、输入框、Card、容器的默认圆角。
+    public static let medium: CGFloat = 10
+
+    /// 大圆角 (16pt)。Dialog、Modal、希望视觉柔和的容器。
+    public static let large: CGFloat = 16
+
+    /// 特大圆角 (22pt)。**CoreDesign 扩展**。全屏 sheet、大尺寸浮层容器等需要更明显
+    /// 柔化观感的场景。
+    public static let xLarge: CGFloat = 22
+}
+
+// MARK: - CoreShape
+
+/// 圆角 shape 的统一出口。内部固定 `style: .continuous`（squircle 观感）——组件不应
+/// 再直接构造 `RoundedRectangle`，那样每个构造点都要记得手动指定 `.continuous`，
+/// 漏一处就是一处观感不一致的元素。
+///
+/// ## 使用约定
+///
+/// - **独立元素**（不嵌套在已知容器内、或容器形状与自身圆角无关）：用
+///   `CoreShape.rounded(_:)`，配合 `CoreRadius.*` 传入固定半径。
+/// - **嵌套于已知容器的元素**（容器内边距固定、子元素紧贴容器内壁，譬如卡片内的
+///   缩略图、按钮内的 icon 底板）：改用 iOS 26+ 的 `ConcentricRectangle()`——它会
+///   向上寻找最近的 `.containerShape(_:)` 声明并按其圆角推算出自身应有的圆角，
+///   父子边框天然同心，不需要手动对齐两处半径字面量。容器侧按需搭配
+///   `.containerShape(CoreShape.rounded(radius))` 声明形状。
+///
+/// > Note: 组件调用点向 `CoreShape` 的迁移**已完成**——`Sources` 内裸
+/// > `RoundedRectangle(` 调用为 0（唯一例外是 `CoreShape.rounded` 自身的实现，
+/// > 包装器总得在某处调用原语）。
+/// >
+/// > 但 `ConcentricRectangle` **当前零采纳**：没有任何调用点嵌套在声明了
+/// > `.containerShape(_:)` 的父容器里，因此用不上同心圆角。它是为后续组件
+/// > （尤其是卡片内嵌元素）预留的能力，不是已经在用的东西。
+// `nonisolated`：理由同 `CoreRadius`——本包全 target 走 `.defaultIsolation(MainActor.self)`，
+// 而 shape 的主要消费点恰是 `Shape.path(in:)` / `InsettableShape` 这类 nonisolated 同步上下文
+// （如 `BottomInputBarGlassEffectShape.path(in:)`）。漏掉这个关键字，#122 迁移调用点时
+// 会在这些位置拿到 Swift 6 隔离错误，而本任务因零调用点不会暴露。
+public nonisolated enum CoreShape {
+    /// 统一圆角矩形出口，固定 `.continuous` 角样式。
     ///
-    /// > Note: 命名采用 `*Plus` 后缀显式表达"大于 `small`"——避免与本仓库其它 token
-    /// > （`CoreSpacing.xxs / xs / sm`、`CoreControlMetrics` 的 `xsmall` 语义）里
-    /// > `x*` 一律表示"小于"的惯例冲突。
-    public static let smallPlus: CGFloat = 4
-
-    /// 中圆角 (6pt)。Primer `borderRadius.medium` / `.default`。按钮、输入框、Card、容器的默认。
-    public static let medium: CGFloat = 6
-
-    /// 比中圆角略大 (8pt)。**CoreDesign 扩展**，介于 `medium=6` 与 `large=12` 之间。
-    /// 容器卡片（BackReferenceList 等）希望比按钮容器更柔和、又不到 Dialog 级别的场景。
-    /// 上游 Primer Primitives 当前锁定版本未定义此档；如果未来 Primer 引入对应级别，
-    /// 切换该 token 数值即可。
-    ///
-    /// > Note: 命名采用 `*Plus` 后缀显式表达"大于 `medium`"——避免与 `smallPlus`
-    /// > 类似的层级语义混淆（曾考虑过的 `smallMid` 名称易被误读为"介于 small 与
-    /// > medium 之间"）。
-    public static let mediumPlus: CGFloat = 8
-
-    /// 大圆角 (12pt)。Primer `borderRadius.large`。Dialog、Modal、希望视觉柔和的容器。
-    public static let large: CGFloat = 12
-
+    /// - Parameter radius: 圆角半径，通常传 `CoreRadius.*`。
+    public static func rounded(_ radius: CGFloat) -> RoundedRectangle {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+    }
 }

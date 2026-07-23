@@ -10,12 +10,11 @@ import SwiftUI
 /// 按钮的通用 chrome / Shared button chrome：字号 + 内边距 + 命中区域。
 ///
 /// 这四行原本在 `SolidButtonStyle`（glass / 非 glass 各一）与 `LightButtonStyle`
-/// （同样各一）中逐字重复，`CoreBorderlessButtonStyle` 则只有其中两行 padding
-/// （审计项 B3d）。
+/// （同样各一）中逐字重复，`CoreBorderlessButtonStyle` 则只有其中两行 padding。
 ///
-/// > 收敛的另一重意义：`CoreControlMetrics.fontToken(for:)` 在按钮体系内的调用点从
-/// > 4 处降到 1 处（#96），#95 据此把 `.font(...)` 换成 `.coreFont(...)` 恢复
-/// > Dynamic Type，届时只需改本文件一行。**不要把 font 调用重新散回各 style。**
+/// > 收敛的另一重意义：`CoreControlMetrics.fontToken(for:)` 在按钮体系内的调用点
+/// > 收敛到 1 处，恢复 Dynamic Type 时只需改本文件一行。**不要把 font 调用重新
+/// > 散回各 style。**
 private struct ButtonChromeModifier<S: Shape>: ViewModifier {
     let shape: S
     let controlSize: ControlSize

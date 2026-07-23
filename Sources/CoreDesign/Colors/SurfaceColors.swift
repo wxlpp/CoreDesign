@@ -1,19 +1,40 @@
 import SwiftUI
 
 // MARK: - Surface Colors / 表面颜色
-// Source of truth: docs/PRIMER_VERSION.md
-
+//
+// `surfaceCanvas` 指向 `systemGroupedBackground`，随系统浅色/深色自动更新；与
+// 已存在、同样指向 `systemGroupedBackground` 的 `surfaceGrouped` 是刻意的双轨
+// 命名（两个名字指向同一系统色），与本文件内 `borderStrong`/`dividerOpaque`
+// 等既有的双轨别名模式一致。
+//
+// `surfaceRaised` / `surfaceElevated` 与 `surfaceCanvas` 同走 grouped 族的二/三级
+// （`secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground`），
+// 使 `surfaceCanvas → surfaceRaised → surfaceElevated` 与
+// `surfaceGrouped → surfaceGroupedRaised → surfaceGroupedElevated` 保持同一族
+// 三档的一致关系（两者数值因此完全相同——这是刻意的双轨命名，不是重复劳动）。
+//
+// `surfaceCanvasInset` 指向 `FillColors.tertiaryFill`：其官方 HIG 语义
+// （输入字段/搜索栏/按钮）与本 token 的实际消费点（头像环、进度条轨道，以及经
+// `surfaceInteractive` 别名服务的 `SearchField` / `SegmentedControl` /
+// `LightButtonStyle` / `CircularGlassButtonStyle`）精确对应。
+//
+// `surfaceSidebar` 走 `surfaceCanvasSubtle`（而非字面对齐 `surfaceGrouped`）：
+// 侧栏在实际消费点（`Sidebar`、`App` 宿主的分栏布局）里需要与主画布区隔开的
+// "次级面板"观感——macOS 降级后 `surfaceGrouped`/`surfaceCanvas` 落
+// `windowBackgroundColor`（画布本体），`surfaceCanvasSubtle` 落
+// `controlBackgroundColor`（可辨识的次级背景），后者更符合"侧栏应与画布区隔"
+// 的实际使用场景。
 public extension Color {
     static var surfaceBase: Color {
         .systemBackground
     }
 
     static var surfaceRaised: Color {
-        .secondarySystemBackground
+        .secondarySystemGroupedBackground
     }
 
     static var surfaceElevated: Color {
-        .tertiarySystemBackground
+        .tertiarySystemGroupedBackground
     }
 
     static var surfaceGrouped: Color {
@@ -40,61 +61,41 @@ public extension Color {
         .surfacePanel
     }
 
-    // MARK: - Primer-aligned semantic surfaces / Primer 对齐语义表面
+    // MARK: - Semantic surface variants / 语义表面变体
 
-    /// Craft-tuned canvas default，源自 Primer `bgColor.default` 语义，但取值改为
-    /// light `#FCFBF7` / dark `#11110F` 以形成更温润的编辑工作台画布。
-    /// 页面级最底层背景；接近现有 `surfaceBase`，新代码优先使用本 token。
-    /// 由 `canvas/canvas-default.colorset` 提供 light/dark 双值。
+    /// 页面级最底层背景。指向 `systemGroupedBackground`，随系统浅色/深色与未来的
+    /// 外观调整自动更新。与 `surfaceGrouped` 同值——刻意的双轨命名，见文件顶部说明。
     static var surfaceCanvas: Color {
-        #if Blossom
-        Color("blossom-canvas-default", bundle: .module)
-        #else
-        Color("canvas-default", bundle: .module)
-        #endif
+        .systemGroupedBackground
     }
 
-    /// Craft-tuned muted canvas，源自 Primer `bgColor.muted` 语义，但取值改为
-    /// light `#F3F0EA` / dark `#1A1916`。
-    /// 次级内容区背景（侧栏 / 表格头），接近现有 `surfaceRaised`，新代码优先使用本 token。
-    /// 由 `canvas/canvas-subtle.colorset` 提供 light/dark 双值。
+    /// 次级内容区背景（侧栏 / 表格头）。指向 `secondarySystemGroupedBackground`，
+    /// 与 `surfaceRaised` 同值。
     static var surfaceCanvasSubtle: Color {
-        #if Blossom
-        Color("blossom-canvas-subtle", bundle: .module)
-        #else
-        Color("canvas-subtle", bundle: .module)
-        #endif
+        .secondarySystemGroupedBackground
     }
 
-    /// Craft-tuned inset canvas，源自 Primer `bgColor.inset` 语义，但取值改为
-    /// light `#F8F5EF` / dark `#0F0F0D`。
-    /// 凹陷 well / 输入框内底色；现有 token 中无对应项，必须用新 colorset。
-    /// 由 `canvas/canvas-inset.colorset` 提供 light/dark 双值。
+    /// 凹陷 well / 输入框内底色。指向 `FillColors.tertiaryFill`——其官方 HIG 语义
+    /// （输入字段/搜索栏/按钮）与本 token 的实际消费点（头像环、进度条轨道、经
+    /// `surfaceInteractive` 服务的搜索框/分段控件/按钮背景）精确对应。
     static var surfaceCanvasInset: Color {
-        #if Blossom
-        Color("blossom-canvas-inset", bundle: .module)
-        #else
-        Color("canvas-inset", bundle: .module)
-        #endif
+        .tertiaryFill
     }
 
-    /// Primer concept: panel surface (Web 端 `bgColor.muted` 的容器化表现)。
-    /// 用于卡片群之上的面板容器；接近现有 `surfaceGroupedRaised`，新代码优先使用本 token。
-    /// Craft workbench 风格下复用暖灰 `surfaceCanvasSubtle`。
+    /// 卡片群之上的面板容器；接近现有 `surfaceGroupedRaised`，与其别名目标
+    /// `surfaceCanvasSubtle` 同值。
     static var surfacePanel: Color {
         .surfaceCanvasSubtle
     }
 
-    /// Primer concept: sidebar surface (Web 端 `bgColor.muted` 用于侧栏的语义专门化命名)。
-    /// 接近现有 `surfaceGrouped`，新代码用于侧栏 / 导航容器优先使用本 token。
-    /// Craft workbench 风格下复用暖灰 `surfaceCanvasSubtle`。
+    /// 侧栏 / 导航容器背景。走 `surfaceCanvasSubtle`（而非 `surfaceGrouped`），
+    /// 因为它在 macOS 降级后能与画布本体形成可辨识的次级背景层级——见文件顶部说明。
     static var surfaceSidebar: Color {
         .surfaceCanvasSubtle
     }
 
-    /// Primer concept: card surface (Web 端 `bgColor.default` 在 grouped 容器内的卡片表现)。
-    /// 接近现有 `surfaceGroupedElevated`，新代码优先使用本 token 表示卡片容器。
-    /// Craft workbench 风格下卡片保持接近画布，只靠边框和相邻 panel 拉开层级。
+    /// 卡片容器背景。卡片刻意保持接近画布，只靠边框和相邻 panel 拉开层级，
+    /// `surfaceCard` 别名到 `surfaceCanvas`，随其改指系统色。
     static var surfaceCard: Color {
         .surfaceCanvas
     }

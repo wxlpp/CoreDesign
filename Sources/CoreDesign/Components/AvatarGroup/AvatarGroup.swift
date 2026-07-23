@@ -7,15 +7,11 @@ import SwiftUI
 
 // MARK: - AvatarGroup
 
-/// Native Primer avatar group.
-///
-/// Content-layer composition of stacked avatars with overlap + overflow
-/// counter. Uses thin border (`CoreBorderWidth.thin`) to separate stacked
-/// avatars and overflow pill. No glass.
-///
-/// **Material layer**: content. **Surface role**: content.
+/// **材质层**: 内容. **表面角色**: 内容.
 ///
 /// 堆叠头像组。
+///
+/// **无玻璃**——靠 `CoreBorderWidth.thin` 细描边分隔堆叠的头像与溢出计数 pill。
 ///
 /// 前 N 个 avatar 交叠显示，超出 `max` 的部分显示 "+N" 计数 pill。
 /// 使用 `Group(subviews:)` 遍历子视图。

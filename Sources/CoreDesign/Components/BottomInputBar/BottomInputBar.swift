@@ -9,15 +9,13 @@ import SwiftUI
 
 // MARK: - BottomInputBar
 
-/// Native Primer floating input bar.
+/// 浮层输入条。
 ///
-/// The library's most prominent floating input surface. Uses iOS 26 Liquid
-/// Glass via `BottomInputBarGlassModifier` (Phase 2A refactor:
-/// `BottomInputBarGlassEffectShape: InsettableShape` + `strokeBorder`
-/// overlay). Input ergonomics still come first — the glass is the chrome,
-/// not the feature.
+/// 本库最显眼的浮层输入表面。经 `BottomInputBarGlassModifier` 使用 iOS 26 的
+/// Liquid Glass（`BottomInputBarGlassEffectShape: InsettableShape` + `strokeBorder`
+/// overlay）。**输入体验优先于观感**——玻璃是 chrome，不是卖点。
 ///
-/// **Material layer**: floating. **Surface role**: floating.
+/// **材质层**: 浮层. **表面角色**: 浮层.
 struct BottomInputBar: View {
     init(
         isShowingSuggestions: Binding<Bool>,
@@ -146,7 +144,7 @@ struct BottomInputBar: View {
             }
         } label: {
             Image(systemName: "wand.and.sparkles.inverse")
-                .coreFont(.titleSmall)
+                .coreFont(.headline)
         }
         .buttonStyle(.circularGlass)
         .accessibilityLabel(Text("Suggestions", bundle: .module))
@@ -160,7 +158,7 @@ struct BottomInputBar: View {
             self.submitMessage()
         } label: {
             Image(systemName: "paperplane")
-                .coreFont(.titleSmall)
+                .coreFont(.headline)
         }
         .foregroundStyle(.white)
         .backgroundStyle(.green)
@@ -173,7 +171,7 @@ struct BottomInputBar: View {
             self.onStop?()
         } label: {
             Image(systemName: "stop.fill")
-                .coreFont(.titleSmall)
+                .coreFont(.headline)
         }
         .foregroundStyle(.white)
         .backgroundStyle(.red)
@@ -223,7 +221,7 @@ struct BottomInputBarGlassEffectShape: InsettableShape {
     /// HIG 最小可点击区域边长（44pt）。输入栏收缩到 ≤ 44pt（单行紧凑态）时把形状
     /// 收成整胶囊（height/2），更高（多行）时用 `CoreRadius.large`。
     /// **不是** metrics 序列里的档位——`CoreControlMetrics.height(for: .extraLarge)`
-    /// 是 48pt，替换会静默改变布局；此处刻意保留 HIG 的 44。
+    /// 是 56pt，替换会静默改变布局；此处刻意保留 HIG 的 44。
     private static let minimumHitTargetSide: CGFloat = 44
 
     func path(in rect: CGRect) -> Path {
@@ -376,7 +374,7 @@ struct BottomInputBarModifier: ViewModifier {
             // 「什么都不做」第三分支——**不能**合并成单一 `sync(shouldShow:)`。
             // 反例：autoShow 关闭 + suggestions 非空 + 用户已手动展开时，数组更新
             // 在原逻辑下保持展开，合并后会被强制收起。故只收敛动画包装这一层，
-            // 条件逻辑原样保留（审计项 B8h——其「两个 onChange 同构」的前提经实测不成立）。
+            // 条件逻辑原样保留——「两个 onChange 同构」的前提经实测不成立。
             .onChange(of: self.suggestions) { _, newValue in
                 if self.autoShowSuggestions, !newValue.isEmpty {
                     self.setSuggestionsVisible(true)
@@ -504,12 +502,12 @@ public extension View {
     }
 }
 
-// MARK: - Chip 样式（审计项 B8h）
+// MARK: - Chip 样式
 
 private struct BottomInputBarChipModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .coreFont(.bodyLarge)
+            .coreFont(.body)
             .padding(.horizontal, CoreSpacing.md)
             .padding(.vertical, CoreSpacing.sm)
             .glassEffect(.regular, in: Capsule())

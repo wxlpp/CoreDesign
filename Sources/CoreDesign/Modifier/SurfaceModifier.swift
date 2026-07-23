@@ -2,8 +2,6 @@
 //  SurfaceModifier.swift
 //  CoreDesign
 //
-//  Source of truth: docs/PRIMER_VERSION.md
-//
 
 import SwiftUI
 
@@ -16,25 +14,25 @@ import SwiftUI
 ///
 /// 每个 kind 通过 `View.surface(_:)` 派生出一组
 /// `(background, border, cornerRadius)` 三件套，全部从 token 派生，
-/// 调用方无需手写 `RoundedRectangle().fill().overlay(stroke())` 三件套。
+/// 调用方无需手写"圆角矩形 fill + overlay stroke"三件套。
 public nonisolated enum SurfaceKind: Sendable, Equatable {
-    /// Page-level canvas.
+    /// 页面级画布。
     case canvas
-    /// Ordinary content surfaces: rows, cards, and non-floating containers.
+    /// 普通内容表面：列表行、卡片、非浮起容器。
     case content
-    /// Interactive control surfaces: buttons, fields, segmented controls.
+    /// 交互控件表面：按钮、输入框、分段控件。
     case control
-    /// Floating surfaces above content: toasts, floating toolbars, bottom bars.
+    /// 浮于内容之上的表面：toast、浮动工具栏、底部栏。
     case floating
-    /// Overlay surfaces such as menus and popovers.
+    /// 覆盖层表面，如菜单与 popover。
     case overlay
-    /// Compatibility alias for a subtler canvas.
+    /// 兼容别名：更淡的画布。
     case canvasSubtle
-    /// Compatibility alias for panel containers.
+    /// 兼容别名：面板容器。
     case panel
-    /// Compatibility alias for sidebar containers.
+    /// 兼容别名：侧栏容器。
     case sidebar
-    /// Compatibility alias for card containers.
+    /// 兼容别名：卡片容器。
     case card
 }
 
@@ -59,14 +57,14 @@ private extension SurfaceKind {
     /// 该 kind 对应的边框色 token / Border color token for this kind.
     var border: Color {
         switch self {
-        case .canvas: .borderDefault
+        case .canvas: .clear
         case .content: .borderMuted
         case .control: .borderSubtle
         case .floating: .borderMuted
         case .overlay: .borderDefault
         case .canvasSubtle: .borderMuted
         case .panel: .borderDefault
-        case .sidebar: .borderDefault
+        case .sidebar: .clear
         case .card: .borderMuted
         }
     }
@@ -74,7 +72,7 @@ private extension SurfaceKind {
     /// 该 kind 对应的圆角 token / Corner radius token for this kind.
     var cornerRadius: CGFloat {
         switch self {
-        case .canvas: CoreRadius.medium
+        case .canvas: CoreRadius.none
         case .content: CoreRadius.medium
         case .control: CoreRadius.small
         case .floating: CoreRadius.large
@@ -102,9 +100,19 @@ struct SurfaceModifier: ViewModifier {
     let kind: SurfaceKind
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: self.kind.cornerRadius, style: .continuous)
+        let shape = CoreShape.rounded(self.kind.cornerRadius)
         // strokeBorder 内描边（路径在形状内部），避免后续 clipShape 把居中描边的外侧一半裁掉
         // 导致视觉上 1pt 变细。strokeBorder + clipShape 组合保证边框完整可见。
+        //
+        // Task #125 视觉终审发现：`.canvas` / `.sidebar` 这类**页面级容器**此前也带
+        // `borderDefault` 描边 + 圆角裁剪，于是 `ListRow`（用 `.surface(.canvas)`）
+        // 每一行都被渲染成一个独立的圆角描边盒子——深色模式下行背景与页面背景同色，
+        // 看起来就是一摞空的描边框，与 `ListRow` 文档承诺的「无默认卡片化」直接矛盾。
+        //
+        // 页面级容器本就不该有边框和圆角（`.sidebar` 的 `CoreRadius.none` 早已体现
+        // 这个判断，只是 `.canvas` 没跟上）。二者的 border 现取 `.clear`、`.canvas`
+        // 的圆角取 `.none`。仍走同一条 overlay 路径而不是加分支——保持视图标识稳定，
+        // 且 `.clear` 描边不产生任何像素。
         return content
             .background(shape.fill(self.kind.background))
             .overlay(shape.strokeBorder(self.kind.border, lineWidth: CoreBorderWidth.thin))
@@ -116,7 +124,7 @@ struct SurfaceModifier: ViewModifier {
 
 public extension View {
     /// 将容器表面 token（背景 + 1pt 边框 + 圆角）一次性应用到当前视图。
-    /// Apply a container surface token (background + 1pt border + corner radius) in one shot.
+    /// 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角）。
     ///
     /// 调用示例 / Usage:
     ///

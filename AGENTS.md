@@ -24,32 +24,18 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 ### 分层色彩系统
 
-颜色按四层堆叠组织——根据意图选择对应层级，不要在组件中直接使用底层原子色：
+颜色按四层堆叠组织——根据意图选择对应层级，不要在组件中直接使用底层原子色。`0.3.0`
+把地基从 GitHub Primer 换成 Apple HIG 后，第 3 层绝大多数 token 已改指系统语义色 API；
+逐 token 的取值理由与新旧映射见 `docs/DESIGN-FOUNDATION.md`。
 
-1. **资源调色板**（`Colors/ColorGrade.swift`）—— 17 种命名色相 × 10 个色阶（`brand-0`…`yellow-9`），由 `Resources.xcassets` 中的 color set 提供。通过 `Color("...", bundle: .module)` 加载。属于内部构造原料，组件代码中应避免直接使用。
-2. **系统色桥接**（`Colors/SystemBackgroundColors.swift`、`SystemLabelColors.swift`）—— 通过 `#if canImport(UIKit)` / `AppKit` 把 `UIColor` / `NSColor` 系统色重新导出为 `Color`，保证同一名称在两端平台都能编译。
-3. **语义化 token**——`SurfaceColors`、`ContentColors`、`BorderColors`、`FillColors`、`InteractionColors`、`StatusColors`。命名描述用途而非色相（`surfaceRaised`、`contentPrimary`、`accent`、`accentPressed`、`statusDangerForeground`）。
+1. **资源调色板**（`Colors/ColorGrade.swift`）—— 17 种命名色相 × 10 个色阶（`brand-0`…`yellow-9`），由 `Resources.xcassets` 中的 color set 提供。通过 `Color("...", bundle: .module)` 加载。第 3 层迁到系统色后，本层现仅为 `StatusColors`（24 个状态色 token，Apple 无对应系统概念）与 `InteractionColors` 的 `secondaryAccent` / `neutralAccent` 族（显式定案保留品牌色阶）供色；组件代码中应避免直接使用第 1 层。
+2. **系统色桥接**（`Colors/SystemBackgroundColors.swift`、`SystemLabelColors.swift`）—— 通过 `#if canImport(UIKit)` / `AppKit` 把 `UIColor` / `NSColor` 系统色重新导出为 `Color`，保证同一名称在两端平台都能编译。现在是第 3 层大多数 token 的直接来源。
+3. **语义化 token**——`SurfaceColors`、`ContentColors`、`BorderColors`、`FillColors`、`InteractionColors`、`StatusColors`。命名描述用途而非色相（`surfaceRaised`、`contentPrimary`、`accent`、`accentPressed`、`statusDangerForeground`）。多数 token 直接改指系统语义色（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观 / 对比度设置自动更新；`accent` 改指宿主 App 的 `Color.accentColor`，衍生态（`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground`）用 `Color.mix(with:by:in:)` / `.opacity()` 对 `accent` 本身调制，而非各取固定色阶。`secondaryAccent` / `neutralAccent` / `StatusColors` 显式定案保留 `ColorGrade` 品牌色阶——Apple HIG 没有"第二强调色"或"5 态状态色板"的系统概念，无桥接目标。
 4. **状态功能别名**（`Colors/FunctionalColor.swift`）—— `success`、`info`、`warning`、`danger` 及其现有变体。本层为 `public`，是最高层的 API 表面。
 
    **交互色不在此层**——`accent` / `secondaryAccent` / `neutralAccent` 等走第 3 层 `InteractionColors`。该层曾定义 `Color.primary/secondary/tertiary` 三组，因与 SwiftUI 内建成员同名而遮蔽它们（删除时编译器不报错，只静默改变解析目标），已于 Issue #93 移除。
 
 新增组件时优先使用第 3、4 层名称。如果缺少需要的语义 token，应在对应文件中补充新名称，而不是把第 1 层色相硬编码进组件。
-
-### 主题系统（Package Traits）
-
-CoreDesign 通过 SwiftPM **Package Trait** 在编译期切换风格方案，调用方"导入即主题"，组件代码零改动。
-
-- `Package.swift` 声明 trait：默认 `.default(enabledTraits: [])`（= Craft 蓝色主题，零变化）；当前唯一非默认 trait 是 `Blossom`（暖悦风格 · 珊瑚粉糖果渐变女性向）。注意 `traits:` 参数必须排在 `products:` 之后（SwiftPM 参数顺序约束）。
-- 调用方启用：`.package(url: "...", traits: ["Blossom"])`，或在 Xcode package 依赖的 trait 勾选 UI 中开启。
-- 源码内用 `#if Blossom` 直接分流（trait 名可直接作为编译条件，无需 local trait 映射）。
-- **分流点压到最低**：只有资源层 `ColorGrade.brand0…9`、`SurfaceColors` 的三个 `surfaceCanvas*`、以及 `InteractionColors` 的 `secondaryAccent` 一组语义别名带 `#if Blossom`（共 8 处）。`accent` 指向 `brand5` 自动继承，`borderFocus` / `borderSelected` 又指向 `accent`；状态色 (`StatusColors`) 不分流，保持标准语义色。
-- Blossom 色板由 `Resources.xcassets/blossom-brand/*`、`blossom-canvas/*` 提供（light/dark 双值）。
-- 两种构建模式都需保持绿：`swift build` / `swift test`（默认）与 `swift build --traits Blossom` / `swift test --traits Blossom`（Blossom）。
-- **新增 colorset 后必须 `swift package clean` 再构建/测试**：macOS SPM 以目录形式而非 `.car` 分发 `.xcassets`，增量构建不会拷贝新加的目录，资源存在测试会静默失败。
-
-### 渐变 token 层（CoreGradient）
-
-`Tokens/CoreGradient.swift` 暴露 `CoreGradient.brand / cta / canvas`，类型为 `AnyShapeStyle`，使纯色与渐变可互换。Blossom 下为真实 `LinearGradient`，默认主题退化为对应纯色（`Color.accent` / `Color.surfaceCanvas`），现有观感零变化。组件可统一写 `.background(CoreGradient.canvas)` / `.fill(CoreGradient.cta)`。
 
 ### 按钮样式模式
 
@@ -76,6 +62,32 @@ CoreDesign 通过 SwiftPM **Package Trait** 在编译期切换风格方案，调
 ### 公开 API 表面
 
 调用方依赖的内容必须显式标记为 `public`（包括 init）。Swift 默认可见性是 internal，漏写 `public` 会悄无声息地导致下游编译失败——新增组件时务必检查导出。现有组件展示了惯例：public 类型、public init、public `body`、private state。
+
+## 验证边界与常见坑
+
+「`swift build` / `swift test` 全绿」不等于「一切都验证过了」——本仓库有好几块验证盲区，
+不了解会误判为绿：
+
+- **`swift build` 不编译 `Tests/`**，`swift test` 才编译并跑测试；但 `Tests/` 下 `#if
+  os(iOS)` 的 suite（如 `DynamicTypeLayoutTests`）在 macOS 上是**空 suite**——`swift
+  test` 通过在这类 suite 上是假绿，必须看 CI 的 **xcodebuild iOS Simulator 腿**（或本地跑
+  `xcodebuild test -scheme CoreDesign -destination 'platform=iOS Simulator,...'`）才作数。
+- **`App/`（预览宿主）不受 `swift build` / `swift test` 覆盖，CI 也不构建它**——它是独立的
+  `xcodegen` 生成的 `.xcodeproj`，只能用 `scripts/run-preview.sh` 或直接
+  `xcodebuild -project App/CoreDesignPreview.xcodeproj` 手动验证。删除或改名公开符号后
+  务必手动确认它仍能构建，否则预览宿主可能已经无法编译却没人发现（trait 删除这类
+  manifest 层变更尤其如此——报错发生在依赖解析期，不会在库自身的编译期出现）。
+- **`scripts/downstream-probe` 是独立 SwiftPM 包**（自带 `Package.swift`），只有 CI 的
+  `downstream-probe` job（`cd scripts/downstream-probe && swift build`）覆盖它。任何
+  删除/改名公开符号都必须同步这个包，否则本地 `swift build` 全绿而这个 job 会红。
+- **在 git worktree 里跑 `xcodegen generate` 有坑**：会把 `App/project.yml` 里 local
+  package 的 `name` 按当前目录名（而非 `CoreDesign`）写死，并清空
+  `xcshareddata/xcschemes/CoreDesignPreview.xcscheme`。完整警告与恢复步骤见
+  `App/project.yml` 顶部注释；验证要覆盖 `name=` 字段与文件内注释两种形态的目录名
+  残留，只查一种会漏。
+- **新增 / 修改 `.xcassets` 里的 colorset 后必须 `swift package clean` 再构建/测试**：
+  macOS SwiftPM 以目录形式而非 `.car` 分发 `.xcassets`，增量构建不会拷贝新加的目录，
+  资源缺失是静默失败，颜色断言抓不到。
 
 ## 仓库内的代码风格观察
 
