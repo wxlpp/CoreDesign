@@ -87,7 +87,7 @@ public struct SettingsRowChevron: View {
 /// ```swift
 /// SettingsRow(
 ///     icon: .init(systemName: "bell.badge.fill", background: .red),
-///     title: Text("Notifications")
+///     title: "Notifications"
 /// ) {
 ///     Toggle("Notifications", isOn: $on).labelsHidden() // label 非空、仅隐藏视觉
 /// }
@@ -104,17 +104,41 @@ public struct SettingsRow<Accessory: View>: View {
     // 与分隔线 inset 仍是静态 token,inset 的静态推导（58pt）不受影响。
     @ScaledMetric(relativeTo: .body) private var glyphSize = CoreControlMetrics.iconSize(for: .regular)
 
-    /// Designated init——accessory 用 `@ViewBuilder`。
-    public init(
-        icon: SettingsRowIcon? = nil,
+    // 内部 designated——存 `Text`。公开入参统一走下面的 LocalizedStringKey /
+    // StringProtocol 重载（与 SectionHeader / SectionFooter / AsyncButton 一致），
+    // 不再暴露 `title: Text`。
+    private init(
+        icon: SettingsRowIcon?,
         title: Text,
-        subtitle: Text? = nil,
-        @ViewBuilder accessory: () -> Accessory
+        subtitle: Text?,
+        accessory: Accessory
     ) {
         self.icon = icon
         self.title = title
         self.subtitle = subtitle
-        self.accessory = accessory()
+        self.accessory = accessory
+    }
+
+    /// LocalizedStringKey——字面量在 **`Bundle.main`** 本地化（与直接写 `Text(key)` 一致；对 App 调用方即其自身 bundle）。
+    /// accessory 用 `@ViewBuilder`。
+    public init(
+        icon: SettingsRowIcon? = nil,
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey? = nil,
+        @ViewBuilder accessory: () -> Accessory
+    ) {
+        self.init(icon: icon, title: Text(title), subtitle: subtitle.map { Text($0) }, accessory: accessory())
+    }
+
+    /// 运行期字符串（数据来的分类名等），verbatim 显示、不走本地化查表。
+    @_disfavoredOverload
+    public init<S: StringProtocol>(
+        icon: SettingsRowIcon? = nil,
+        title: S,
+        subtitle: S? = nil,
+        @ViewBuilder accessory: () -> Accessory
+    ) {
+        self.init(icon: icon, title: Text(title), subtitle: subtitle.map { Text($0) }, accessory: accessory())
     }
 
     public var body: some View {
@@ -181,11 +205,21 @@ public struct SettingsRow<Accessory: View>: View {
 // MARK: - Convenience inits
 
 public extension SettingsRow where Accessory == EmptyView {
-    /// 无尾部 accessory。
+    /// 无尾部 accessory（LocalizedStringKey）。
     init(
         icon: SettingsRowIcon? = nil,
-        title: Text,
-        subtitle: Text? = nil
+        title: LocalizedStringKey,
+        subtitle: LocalizedStringKey? = nil
+    ) {
+        self.init(icon: icon, title: title, subtitle: subtitle) { EmptyView() }
+    }
+
+    /// 无尾部 accessory（运行期字符串，verbatim）。
+    @_disfavoredOverload
+    init<S: StringProtocol>(
+        icon: SettingsRowIcon? = nil,
+        title: S,
+        subtitle: S? = nil
     ) {
         self.init(icon: icon, title: title, subtitle: subtitle) { EmptyView() }
     }
@@ -208,8 +242,8 @@ private struct SettingsRowPreviewGallery: View {
         VStack(spacing: 0) {
             SettingsRow(
                 icon: .init(systemName: "wifi", background: .blue),
-                title: Text("Wi-Fi"),
-                subtitle: Text("HomeNetwork")
+                title: "Wi-Fi",
+                subtitle: "HomeNetwork"
             ) {
                 Text("On").foregroundStyle(.secondary)
                 SettingsRowChevron()
@@ -217,7 +251,7 @@ private struct SettingsRowPreviewGallery: View {
             Separator(inset: .leading(SettingsRowMetrics.iconAlignedDividerInset))
             SettingsRow(
                 icon: .init(systemName: "bell.badge.fill", background: .red),
-                title: Text("Notifications")
+                title: "Notifications"
             ) {
                 Toggle("Notifications", isOn: self.$notificationsOn).labelsHidden()
             }

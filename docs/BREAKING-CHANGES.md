@@ -3,8 +3,26 @@
 破坏性变更按版本 / Issue 记录在此，下游升级前请对照。
 
 > 已发布的 git tag：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）、`v0.3.0`（2026-07-23）、
-> `v0.4.0`（2026-07-24，Phase 2 新组件）、`v0.4.1`（2026-07-24，非破坏性收尾，见下）。
+> `v0.4.0`（2026-07-24，Phase 2 新组件）、`v0.4.1`（2026-07-24，非破坏性收尾）。
+> `v0.5.0`（**未发布**，文本入参统一，见下——含破坏性变更）。
 > 本文件早期版本曾写「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
+
+## `0.5.0`（文本入参统一，未发布）
+
+**破坏性** —— `SettingsRow` 的文本入参从 `Text` 改为 `LocalizedStringKey` / `StringProtocol`，与库内 `SectionHeader` / `SectionFooter` / `AsyncButton` 的入参形态统一。
+
+### 签名变更（source-breaking）
+
+| 组件 | 旧（`0.4.x`） | 新（`0.5.0`） |
+|---|---|---|
+| `SettingsRow`（带 accessory） | `init(icon:, title: Text, subtitle: Text? = nil, accessory:)` | `init(icon:, title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil, accessory:)` + `@_disfavoredOverload init<S: StringProtocol>(...)` |
+| `SettingsRow`（无 accessory 便利 init，`Accessory == EmptyView`） | `init(icon:, title: Text, subtitle: Text? = nil)` | `init(icon:, title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil)` + `@_disfavoredOverload init<S: StringProtocol>(...)` |
+
+**迁移**：把 `SettingsRow(title: Text("Wi-Fi"))` 改为 `SettingsRow(title: "Wi-Fi")`；副标题同理。**字面量**走 `LocalizedStringKey`（`Bundle.main` 本地化——`StringProtocol` 重载带 `@_disfavoredOverload`，与 SwiftUI `Text` 同款做法，保证字面量不落到 verbatim 泛型重载）；**运行期字符串**走 `StringProtocol` 重载（verbatim）。**注意**：`title` 与 `subtitle` 类型须一致——混用字面量 title + 运行期字符串 subtitle 时，两者会一起落到 `StringProtocol` 重载、字面量 title 也按 verbatim 处理（不本地化）。**代价**：不再能直接传样式化 `Text`（如 `Text("x").bold()`）——如需样式化标题，用系统 `.font` / attributed string 于 accessory，或按需在库层再引入 `titleView:` 形态。
+
+### 新增（非破坏，随本次一并）
+
+- `InsetGroupedSection` 的 `header` / `footer` 补 `StringProtocol` 重载——此前只收 `LocalizedStringKey`，运行期字符串传不进；现与 `SettingsRow` / Section 组件对齐。现有 `header: "General"` 字面量调用不变。
 
 ## `0.3.0`（epic coredesign-native-foundation，2026-07-21 ~ 2026-07-23）
 

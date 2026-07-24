@@ -27,6 +27,7 @@ public struct SectionFooter: View {
     }
 
     /// 运行期字符串，verbatim 显示、不走本地化查表。
+    @_disfavoredOverload
     public init<S: StringProtocol>(_ text: S) {
         self.content = Text(text)
     }

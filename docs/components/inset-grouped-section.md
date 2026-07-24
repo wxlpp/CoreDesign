@@ -6,8 +6,8 @@ iOS `.insetGrouped` 分组容器的视觉复刻 / Visual replica of iOS's `.inse
 
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| header | LocalizedStringKey? | nil | 可选分组页眉（复用 `SectionHeader` 样式） |
-| footer | LocalizedStringKey? | nil | 可选分组页脚（复用 `SectionFooter` 样式） |
+| header | LocalizedStringKey? / StringProtocol? | nil | 可选分组页眉（复用 `SectionHeader`，字面量本地化/运行期字符串 verbatim） |
+| footer | LocalizedStringKey? / StringProtocol? | nil | 可选分组页脚（复用 `SectionFooter`） |
 | dividerInset | SettingsDividerInset | .iconAligned | 相邻行分隔线的 leading 对齐：`.iconAligned`（对齐标题 leading，58pt）/ `.textAligned`（对齐内容 leading）/ `.custom(CGFloat)` |
 | content | () -> Content | - | 分组内的行（通常是若干 `SettingsRow`） |
 
@@ -21,17 +21,17 @@ iOS `.insetGrouped` 分组容器的视觉复刻 / Visual replica of iOS's `.inse
 
 ```swift
 InsetGroupedSection(header: "General", footer: "Applies to all accounts.") {
-    SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+    SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
         SettingsRowChevron()
     }
-    SettingsRow(icon: .init(systemName: "bell.fill", background: .red), title: Text("Notifications")) {
+    SettingsRow(icon: .init(systemName: "bell.fill", background: .red), title: "Notifications") {
         Toggle("Notifications", isOn: $on).labelsHidden()
     }
 }
 
 // 无图标分组：分隔线对齐内容 leading
 InsetGroupedSection(header: "About", dividerInset: .textAligned) {
-    SettingsRow(title: Text("Version")) {
+    SettingsRow(title: "Version") {
         Text("0.4.0").foregroundStyle(.secondary)
     }
 }
