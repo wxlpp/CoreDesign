@@ -24,6 +24,31 @@ import SwiftUI
 /// 「展开/收起」，普通 `Button` 只会播「按钮」。故在 header 上显式补回
 /// `.accessibilityValue`（可本地化的 `Text`），使 VoiceOver 用户仍能感知
 /// 当前是展开还是收起。
+// MARK: - DisclosureChevron
+
+/// 展开态旋转的 disclosure chevron。抽成独立 View 是为了读 `@Environment(\.layoutDirection)`
+/// ——`DisclosureGroupStyle.makeBody` 不是 View、拿不到环境值。
+private struct DisclosureChevron: View {
+    let isExpanded: Bool
+
+    @Environment(\.layoutDirection) private var layoutDirection
+
+    var body: some View {
+        Image(systemName: "chevron.forward")
+            // `.tint`（`TintShapeStyle`）——反映当前环境 tint，而非写死 `Color.accent`（FR-12 / ADR-3）。
+            .foregroundStyle(.tint)
+            .rotationEffect(.degrees(self.rotation))
+    }
+
+    private var rotation: Double {
+        guard self.isExpanded else { return 0 }
+        // `chevron.forward` 在 RTL 下已镜像为左向；而 `rotationEffect` 是纯几何变换、
+        // 不感知 layoutDirection——左向 chevron 转 +90° 会指向**上方**（反语义）。
+        // RTL 用 -90° 让展开态指下，与原生 DisclosureGroup 一致。
+        return self.layoutDirection == .rightToLeft ? -90 : 90
+    }
+}
+
 public struct CoreDisclosureGroupStyle: DisclosureGroupStyle {
     public init() {}
 
@@ -37,11 +62,7 @@ public struct CoreDisclosureGroupStyle: DisclosureGroupStyle {
                 HStack {
                     configuration.label
                     Spacer()
-                    Image(systemName: "chevron.forward")
-                        // `.tint`（`TintShapeStyle`）——反映当前环境 tint，
-                        // 而非固定写死的 `Color.accent`（FR-12 / ADR-3）。
-                        .foregroundStyle(.tint)
-                        .rotationEffect(.degrees(configuration.isExpanded ? 90 : 0))
+                    DisclosureChevron(isExpanded: configuration.isExpanded)
                 }
                 .contentShape(Rectangle())
             }

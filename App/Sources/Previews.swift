@@ -77,7 +77,7 @@ import CoreDesign
         ListRow(
             leading: { Image(systemName: "doc.text").foregroundStyle(Color.contentMuted) },
             label: { Text("With icon + chevron").foregroundStyle(Color.contentPrimary) },
-            trailing: { Image(systemName: "chevron.right").foregroundStyle(Color.contentMuted) }
+            trailing: { Image(systemName: "chevron.forward").foregroundStyle(Color.contentMuted) }
         )
     }
     .padding()

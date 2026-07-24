@@ -233,7 +233,7 @@ private struct ListRowPreview: View {
             ListRow(
                 leading: { Image(systemName: "doc.text").foregroundStyle(Color.contentMuted) },
                 label: { Text("With icon").foregroundStyle(Color.contentPrimary) },
-                trailing: { Image(systemName: "chevron.right").foregroundStyle(Color.contentMuted) }
+                trailing: { Image(systemName: "chevron.forward").foregroundStyle(Color.contentMuted) }
             )
         }
     }

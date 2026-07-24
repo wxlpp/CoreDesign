@@ -128,7 +128,7 @@ struct DynamicTypeLayoutTests {
                 }
             },
             trailing: {
-                Image(systemName: "chevron.right")
+                Image(systemName: "chevron.forward")
             }
         )
         let small = self.renderedHeight(row, at: .large)
