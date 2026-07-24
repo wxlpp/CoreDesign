@@ -333,8 +333,8 @@ private struct SettingsRowPreview: View {
         VStack(spacing: 0) {
             SettingsRow(
                 icon: .init(systemName: "wifi", background: .blue),
-                title: Text("Wi-Fi"),
-                subtitle: Text("HomeNetwork")
+                title: "Wi-Fi",
+                subtitle: "HomeNetwork"
             ) {
                 Text("On").foregroundStyle(Color.contentSecondary)
                 SettingsRowChevron()
@@ -342,7 +342,7 @@ private struct SettingsRowPreview: View {
             Separator(inset: .leading(58))
             SettingsRow(
                 icon: .init(systemName: "bell.badge.fill", background: .red),
-                title: Text("Notifications")
+                title: "Notifications"
             ) {
                 Toggle("Notifications", isOn: self.$on).labelsHidden()
             }
@@ -357,10 +357,10 @@ private struct InsetGroupedSectionPreview: View {
     @State private var airplane = false
     var body: some View {
         InsetGroupedSection(header: "Connectivity", footer: "Airplane Mode disables Wi-Fi and Bluetooth.") {
-            SettingsRow(icon: .init(systemName: "airplane", background: .orange), title: Text("Airplane Mode")) {
+            SettingsRow(icon: .init(systemName: "airplane", background: .orange), title: "Airplane Mode") {
                 Toggle("Airplane Mode", isOn: self.$airplane).labelsHidden()
             }
-            SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+            SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
                 Text("HomeNetwork").foregroundStyle(Color.contentSecondary)
                 SettingsRowChevron()
             }
@@ -409,12 +409,12 @@ private struct SettingsRowInListDemo: View {
     @State private var on = true
     var body: some View {
         List {
-            SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+            SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
                 Text("HomeNetwork").foregroundStyle(Color.contentSecondary)
                 SettingsRowChevron()
             }
             .listRowInsets(EdgeInsets())
-            SettingsRow(icon: .init(systemName: "bell.badge.fill", background: .red), title: Text("Notifications")) {
+            SettingsRow(icon: .init(systemName: "bell.badge.fill", background: .red), title: "Notifications") {
                 Toggle("Notifications", isOn: self.$on).labelsHidden()
             }
             .listRowInsets(EdgeInsets())
@@ -437,37 +437,37 @@ private struct SettingsScreenDemo: View {
         ScrollView {
             VStack(spacing: CoreSpacing.xl) {
                 InsetGroupedSection {
-                    SettingsRow(icon: .init(systemName: "airplane", background: .orange), title: Text("Airplane Mode")) {
+                    SettingsRow(icon: .init(systemName: "airplane", background: .orange), title: "Airplane Mode") {
                         Toggle("Airplane Mode", isOn: self.$airplane).labelsHidden()
                     }
-                    SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+                    SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
                         Text("HomeNetwork").foregroundStyle(Color.contentSecondary)
                         SettingsRowChevron()
                     }
-                    SettingsRow(icon: .init(systemName: "personalhotspot", background: .green), title: Text("Personal Hotspot")) {
+                    SettingsRow(icon: .init(systemName: "personalhotspot", background: .green), title: "Personal Hotspot") {
                         Text("Off").foregroundStyle(Color.contentSecondary)
                         SettingsRowChevron()
                     }
                 }
 
                 InsetGroupedSection(header: "Notifications", footer: "Choose how you receive alerts from apps.") {
-                    SettingsRow(icon: .init(systemName: "bell.badge.fill", background: .red), title: Text("Notifications")) {
+                    SettingsRow(icon: .init(systemName: "bell.badge.fill", background: .red), title: "Notifications") {
                         Toggle("Notifications", isOn: self.$notificationsOn).labelsHidden()
                     }
-                    SettingsRow(icon: .init(systemName: "speaker.wave.2.fill", background: .pink), title: Text("Sounds & Haptics")) {
+                    SettingsRow(icon: .init(systemName: "speaker.wave.2.fill", background: .pink), title: "Sounds & Haptics") {
                         SettingsRowChevron()
                     }
-                    SettingsRow(icon: .init(systemName: "moon.fill", background: .indigo), title: Text("Focus"), subtitle: Text("Do Not Disturb")) {
+                    SettingsRow(icon: .init(systemName: "moon.fill", background: .indigo), title: "Focus", subtitle: "Do Not Disturb") {
                         SettingsRowChevron()
                     }
                 }
                 .tint(.green)
 
                 InsetGroupedSection(header: "About", dividerInset: .textAligned) {
-                    SettingsRow(title: Text("Version")) {
+                    SettingsRow(title: "Version") {
                         Text("0.4.0").foregroundStyle(Color.contentSecondary)
                     }
-                    SettingsRow(title: Text("Legal")) {
+                    SettingsRow(title: "Legal") {
                         SettingsRowChevron()
                     }
                 }

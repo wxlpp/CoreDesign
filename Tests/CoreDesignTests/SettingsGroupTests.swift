@@ -55,7 +55,7 @@ struct SettingsRowHeightTests {
 
     @Test("最简行（仅标题）渲染高度 ≥ 44pt")
     func minimalRowMeetsFloor() {
-        let row = SettingsRow(title: Text("Version")) { EmptyView() }
+        let row = SettingsRow(title: "Version") { EmptyView() }
         let height = self.renderedHeight(row)
         #expect(height != nil)
         #expect((height ?? 0) >= 44, "SettingsRow 命中高度 \(height ?? 0) < 44pt")
@@ -65,8 +65,8 @@ struct SettingsRowHeightTests {
     func iconSubtitleRowMeetsFloor() {
         let row = SettingsRow(
             icon: .init(systemName: "wifi", background: .blue),
-            title: Text("Wi-Fi"),
-            subtitle: Text("HomeNetwork")
+            title: "Wi-Fi",
+            subtitle: "HomeNetwork"
         ) {
             SettingsRowChevron()
         }

@@ -271,8 +271,8 @@ private struct ToastSnapshotHarness: View {
     VStack(spacing: 0) {
         SettingsRow(
             icon: .init(systemName: "wifi", background: .blue),
-            title: Text("Wi-Fi"),
-            subtitle: Text("HomeNetwork")
+            title: "Wi-Fi",
+            subtitle: "HomeNetwork"
         ) {
             Text("On").foregroundStyle(Color.contentSecondary)
             SettingsRowChevron()
@@ -280,7 +280,7 @@ private struct ToastSnapshotHarness: View {
         Separator(inset: .leading(58))
         SettingsRow(
             icon: .init(systemName: "bell.badge.fill", background: .red),
-            title: Text("Notifications")
+            title: "Notifications"
         ) {
             Toggle("Notifications", isOn: .constant(true)).labelsHidden()
         }
@@ -294,10 +294,10 @@ private struct ToastSnapshotHarness: View {
 
 #Preview("InsetGroupedSection") {
     InsetGroupedSection(header: "Connectivity", footer: "Airplane Mode disables Wi-Fi and Bluetooth.") {
-        SettingsRow(icon: .init(systemName: "airplane", background: .orange), title: Text("Airplane Mode")) {
+        SettingsRow(icon: .init(systemName: "airplane", background: .orange), title: "Airplane Mode") {
             Toggle("Airplane Mode", isOn: .constant(false)).labelsHidden()
         }
-        SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+        SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
             Text("HomeNetwork").foregroundStyle(Color.contentSecondary)
             SettingsRowChevron()
         }

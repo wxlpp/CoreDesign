@@ -9,8 +9,8 @@ iOS 设置页 / 偏好面板的行 / iOS Settings-style preference row.
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | icon | SettingsRowIcon? | nil | 左侧可着色图标方块，nil 时不显示 |
-| title | Text | - | 标题 |
-| subtitle | Text? | nil | 可选副标题 |
+| title | LocalizedStringKey / StringProtocol | - | 标题（字面量本地化，运行期字符串 verbatim） |
+| subtitle | LocalizedStringKey? / StringProtocol? | nil | 可选副标题 |
 | accessory | () -> Accessory | - | `@ViewBuilder` 尾部附件，支持任意视图 |
 
 无 accessory 的便利 init：`SettingsRow(icon:title:subtitle:)`（`Accessory == EmptyView`）。
@@ -37,8 +37,8 @@ iOS 设置页 / 偏好面板的行 / iOS Settings-style preference row.
 ```swift
 SettingsRow(
     icon: .init(systemName: "wifi", background: .blue),
-    title: Text("Wi-Fi"),
-    subtitle: Text("HomeNetwork")
+    title: "Wi-Fi",
+    subtitle: "HomeNetwork"
 ) {
     Text("On").foregroundStyle(.secondary)
     SettingsRowChevron()
@@ -46,19 +46,19 @@ SettingsRow(
 
 SettingsRow(
     icon: .init(systemName: "bell.badge.fill", background: .red),
-    title: Text("Notifications")
+    title: "Notifications"
 ) {
     Toggle("Notifications", isOn: $on).labelsHidden() // label 非空、仅隐藏视觉
 }
 .tint(.green) // Toggle 跟随
 
 // 纯 value 行（trailing 是 value 文本）
-SettingsRow(title: Text("Version")) {
+SettingsRow(title: "Version") {
     Text("0.4.0").foregroundStyle(.secondary)
 }
 
 // 真正无 accessory（便利 init，Accessory == EmptyView）
-SettingsRow(icon: .init(systemName: "info.circle", background: .gray), title: Text("Build"))
+SettingsRow(icon: .init(systemName: "info.circle", background: .gray), title: "Build")
 ```
 
 ## 视觉 Token

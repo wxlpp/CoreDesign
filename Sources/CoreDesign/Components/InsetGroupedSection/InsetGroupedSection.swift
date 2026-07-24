@@ -49,20 +49,24 @@ public enum SettingsDividerInset: Equatable, Sendable {
 ///
 /// ```swift
 /// InsetGroupedSection(header: "General", footer: "Applies to all accounts.") {
-///     SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+///     SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
 ///         SettingsRowChevron()
 ///     }
-///     SettingsRow(icon: .init(systemName: "bell.fill", background: .red), title: Text("Notifications")) {
+///     SettingsRow(icon: .init(systemName: "bell.fill", background: .red), title: "Notifications") {
 ///         Toggle("Notifications", isOn: $on).labelsHidden()
 ///     }
 /// }
 /// ```
 public struct InsetGroupedSection<Content: View>: View {
-    private let header: LocalizedStringKey?
-    private let footer: LocalizedStringKey?
+    // 存已构好的 `SectionHeader?` / `SectionFooter?`——它们自身已支持 LocalizedStringKey
+    // 与 StringProtocol 两种入参，容器只需转发，与库内 Section 组件 API 面对齐。
+    private let header: SectionHeader?
+    private let footer: SectionFooter?
     private let dividerInset: SettingsDividerInset
     private let content: Content
 
+    /// LocalizedStringKey 页眉/页脚——字面量在调用方 bundle 本地化。
+    ///
     /// - Parameters:
     ///   - header: 可选分组页眉（复用 `SectionHeader` 的大写 footnote 样式）。
     ///   - footer: 可选分组页脚（复用 `SectionFooter`）。
@@ -74,8 +78,21 @@ public struct InsetGroupedSection<Content: View>: View {
         dividerInset: SettingsDividerInset = .iconAligned,
         @ViewBuilder content: () -> Content
     ) {
-        self.header = header
-        self.footer = footer
+        self.header = header.map { SectionHeader($0) }
+        self.footer = footer.map { SectionFooter($0) }
+        self.dividerInset = dividerInset
+        self.content = content()
+    }
+
+    /// 运行期字符串页眉/页脚（数据来的分组名等），verbatim 显示。
+    public init<S: StringProtocol>(
+        header: S? = nil,
+        footer: S? = nil,
+        dividerInset: SettingsDividerInset = .iconAligned,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.header = header.map { SectionHeader($0) }
+        self.footer = footer.map { SectionFooter($0) }
         self.dividerInset = dividerInset
         self.content = content()
     }
@@ -83,14 +100,14 @@ public struct InsetGroupedSection<Content: View>: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.sm) {
             if let header = self.header {
-                SectionHeader(header)
+                header
                     .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
             }
 
             self.card
 
             if let footer = self.footer {
-                SectionFooter(footer)
+                footer
                     .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
             }
         }
@@ -142,20 +159,20 @@ private struct InsetGroupedSectionPreviewGallery: View {
                 InsetGroupedSection(header: "Connectivity", footer: "Turning on Airplane Mode disables Wi-Fi.") {
                     SettingsRow(
                         icon: .init(systemName: "airplane", background: .orange),
-                        title: Text("Airplane Mode")
+                        title: "Airplane Mode"
                     ) {
                         Toggle("Airplane Mode", isOn: self.$airplaneOn).labelsHidden()
                     }
                     SettingsRow(
                         icon: .init(systemName: "wifi", background: .blue),
-                        title: Text("Wi-Fi")
+                        title: "Wi-Fi"
                     ) {
                         Text("HomeNetwork").foregroundStyle(.secondary)
                         SettingsRowChevron()
                     }
                     SettingsRow(
                         icon: .init(systemName: "personalhotspot", background: .green),
-                        title: Text("Personal Hotspot")
+                        title: "Personal Hotspot"
                     ) {
                         Text("Off").foregroundStyle(.secondary)
                         SettingsRowChevron()
@@ -165,10 +182,10 @@ private struct InsetGroupedSectionPreviewGallery: View {
 
                 // 无图标分组：分隔线对齐内容 leading。
                 InsetGroupedSection(header: "About", dividerInset: .textAligned) {
-                    SettingsRow(title: Text("Version")) {
+                    SettingsRow(title: "Version") {
                         Text("0.4.0").foregroundStyle(.secondary)
                     }
-                    SettingsRow(title: Text("Legal")) {
+                    SettingsRow(title: "Legal") {
                         SettingsRowChevron()
                     }
                 }

@@ -6,8 +6,8 @@ iOS `.insetGrouped` 分组容器的视觉复刻 / Visual replica of iOS's `.inse
 
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| header | LocalizedStringKey? | nil | 可选分组页眉（复用 `SectionHeader` 样式） |
-| footer | LocalizedStringKey? | nil | 可选分组页脚（复用 `SectionFooter` 样式） |
+| header | LocalizedStringKey? / StringProtocol? | nil | 可选分组页眉（复用 `SectionHeader`，字面量本地化/运行期字符串 verbatim） |
+| footer | LocalizedStringKey? / StringProtocol? | nil | 可选分组页脚（复用 `SectionFooter`） |
 | dividerInset | SettingsDividerInset | .iconAligned | 相邻行分隔线的 leading 对齐：`.iconAligned`（对齐标题 leading，58pt）/ `.textAligned`（对齐内容 leading）/ `.custom(CGFloat)` |
 | content | () -> Content | - | 分组内的行（通常是若干 `SettingsRow`） |
 
