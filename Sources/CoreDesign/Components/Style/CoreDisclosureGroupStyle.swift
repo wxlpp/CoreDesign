@@ -5,25 +5,6 @@
 
 import SwiftUI
 
-// MARK: - CoreDisclosureGroupStyle
-
-/// 系统 `DisclosureGroup` 的 CoreDesign 视觉外观——**不重新实现控件本身**，只重排
-/// `makeBody(configuration:)` 交出的 `label` / `content`，展开状态仍由系统
-/// 通过 `configuration.$isExpanded`（`Binding<Bool>`）驱动。`DisclosureGroupStyle.makeBody`
-/// 是公开 API，`.tint` 接入无障碍。
-///
-/// 外观：`label` + 一个随展开状态旋转 90° 的 chevron，二者放在可点击的
-/// `Button`（`.plain` 样式，避免系统按钮外观）里；展开后的 `content` 只作
-/// leading 缩进对齐（贴近原生 `DisclosureGroup`，不加卡片、不消费 surface）。
-/// chevron 走 `.tint` 取色，不写死 `Color.accent`
-/// （FR-12 / ADR-3）——外加 `.tint(.red)` 会让 chevron 真的变红。
-///
-/// 展开/收起沿用系统 `DisclosureGroup` 的状态绑定（`configuration.isExpanded`
-/// 直接读写会驱动同一个 `$isExpanded` binding）。**但换皮后系统不再自动为这个
-/// 自绘 `Button` 播报展开态**——原生 `DisclosureGroup` 会告诉 VoiceOver
-/// 「展开/收起」，普通 `Button` 只会播「按钮」。故在 header 上显式补回
-/// `.accessibilityValue`（可本地化的 `Text`），使 VoiceOver 用户仍能感知
-/// 当前是展开还是收起。
 // MARK: - DisclosureChevron
 
 /// 展开态旋转的 disclosure chevron。抽成独立 View 是为了读 `@Environment(\.layoutDirection)`
@@ -49,6 +30,25 @@ private struct DisclosureChevron: View {
     }
 }
 
+// MARK: - CoreDisclosureGroupStyle
+
+/// 系统 `DisclosureGroup` 的 CoreDesign 视觉外观——**不重新实现控件本身**，只重排
+/// `makeBody(configuration:)` 交出的 `label` / `content`，展开状态仍由系统
+/// 通过 `configuration.$isExpanded`（`Binding<Bool>`）驱动。`DisclosureGroupStyle.makeBody`
+/// 是公开 API，`.tint` 接入无障碍。
+///
+/// 外观：`label` + 一个随展开状态旋转 90° 的 chevron，二者放在可点击的
+/// `Button`（`.plain` 样式，避免系统按钮外观）里；展开后的 `content` 只作
+/// leading 缩进对齐（贴近原生 `DisclosureGroup`，不加卡片、不消费 surface）。
+/// chevron 走 `.tint` 取色，不写死 `Color.accent`
+/// （FR-12 / ADR-3）——外加 `.tint(.red)` 会让 chevron 真的变红。
+///
+/// 展开/收起沿用系统 `DisclosureGroup` 的状态绑定（`configuration.isExpanded`
+/// 直接读写会驱动同一个 `$isExpanded` binding）。**但换皮后系统不再自动为这个
+/// 自绘 `Button` 播报展开态**——原生 `DisclosureGroup` 会告诉 VoiceOver
+/// 「展开/收起」，普通 `Button` 只会播「按钮」。故在 header 上显式补回
+/// `.accessibilityValue`（可本地化的 `Text`），使 VoiceOver 用户仍能感知
+/// 当前是展开还是收起。
 public struct CoreDisclosureGroupStyle: DisclosureGroupStyle {
     public init() {}
 
