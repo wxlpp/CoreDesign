@@ -49,7 +49,7 @@ public struct SidebarSection<Content: View>: View {
                     .foregroundStyle(SidebarTextStyle.primary)
 
                 if self.showsChevron {
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "chevron.forward")
                         .coreFont(.footnote)
                         .foregroundStyle(SidebarTextStyle.secondary)
                         // 纯装饰：标题已表达分组语义，避免 VoiceOver 朗读
@@ -320,7 +320,7 @@ public struct SidebarTagRow: View {
             Text("#")
                 .coreFont(.title2)
         } trailing: {
-            Image(systemName: "chevron.right")
+            Image(systemName: "chevron.forward")
                 .coreFont(.footnote)
                 .foregroundStyle(SidebarTextStyle.tertiary)
                 // 装饰性指示箭头：行整体可点击，标题已表达目标
@@ -438,7 +438,7 @@ public extension View {
 
             // 3) SidebarUtilityRow（带装饰性 trailing 图标）
             SidebarSection(title: "Tools", showsChevron: false) {
-                SidebarUtilityRow(systemImage: "gearshape", title: "Settings", trailingSystemImage: "chevron.right") {}
+                SidebarUtilityRow(systemImage: "gearshape", title: "Settings", trailingSystemImage: "chevron.forward") {}
                 SidebarUtilityRow(systemImage: "trash", title: "Trash") {}
             }
 

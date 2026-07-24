@@ -10,8 +10,12 @@ import SwiftUI
 /// `.surface(.content)` 的**具名封装** + 默认内边距——iOS 分组卡片/内容容器的最薄外壳。
 ///
 /// Card **不引入平行的容器体系**：它就是 `content` → `.padding(默认值)` →
-/// `.surface(.content)`（背景 + 描边 + 圆角均由 `SurfaceModifier` 提供，不重新实现）。
-/// 需要更细控制（自定义 kind / 边距 / 形状）的场景，直接用 `View.surface(_:)`。
+/// `.surface(.content, bordered:)`（背景 + 描边 + 圆角均由 `SurfaceModifier` 提供，
+/// 不重新实现——`bordered` 也透传给它，两种形态同一条路径）。需要更细控制（自定义
+/// kind / 边距 / 形状）的场景，直接用 `View.surface(_:bordered:)`。
+///
+/// `bordered: false` 去描边，只留背景 + 圆角，贴近 iOS 系统分组容器（无描边、靠填充色
+/// 对比定界），与 `InsetGroupedSection` 的卡片外观一致。
 ///
 /// 背景来自 `.surface(.content)`，Issue #140 后指向 `surfaceRaised`
 /// （`secondarySystemGroupedBackground`）——**浮于画布之上**，深浅双模式下都与
@@ -35,19 +39,26 @@ import SwiftUI
 public struct Card<Content: View>: View {
     private let padding: CGFloat
     private let alignment: Alignment
+    private let bordered: Bool
     private let content: Content
 
     /// - Parameters:
     ///   - padding: 内容四周内边距，默认 `CoreSpacing.lg`（16pt，对齐 iOS 分组卡片惯例）。
     ///   - alignment: 撑满宽度内的内容对齐，默认 `.leading`。
+    ///   - bordered: 是否带描边，默认 `true`（走完整 `.surface(.content)`：背景 + 描边 + 圆角）。
+    ///     置 `false` 只保留背景 + 圆角、**去掉描边**——贴近 iOS 系统分组容器
+    ///     （`secondarySystemGroupedBackground` 靠填充色对比定界、无描边）。与
+    ///     `InsetGroupedSection` 的卡片外观一致。
     ///   - content: 卡片内容。
     public init(
         padding: CGFloat = CoreSpacing.lg,
         alignment: Alignment = .leading,
+        bordered: Bool = true,
         @ViewBuilder content: () -> Content
     ) {
         self.padding = padding
         self.alignment = alignment
+        self.bordered = bordered
         self.content = content()
     }
 
@@ -55,7 +66,9 @@ public struct Card<Content: View>: View {
         self.content
             .padding(self.padding)
             .frame(maxWidth: .infinity, alignment: self.alignment)
-            .surface(.content)
+            // 两种形态都走 `SurfaceModifier`（`bordered` 透传）——不再手抄背景/圆角，
+            // `.content` 的 token 映射变了 Card 自动跟随，无 drift。
+            .surface(.content, bordered: self.bordered)
     }
 }
 
@@ -82,6 +95,9 @@ private struct CardPreviewGallery: View {
             }
             Card(padding: CoreSpacing.md) {
                 Text("紧凑内边距（md）").coreFont(.subheadline)
+            }
+            Card(bordered: false) {
+                Text("无描边（bordered: false）——贴近系统分组容器").coreFont(.subheadline)
             }
         }
         .padding()

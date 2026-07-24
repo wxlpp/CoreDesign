@@ -199,7 +199,7 @@ private struct ListRowPreviewGallery: View {
                             }
                         },
                         trailing: {
-                            Image(systemName: "chevron.right")
+                            Image(systemName: "chevron.forward")
                                 .frame(
                                     width: CoreControlMetrics.iconSize(for: .regular),
                                     height: CoreControlMetrics.iconSize(for: .regular)
@@ -217,7 +217,7 @@ private struct ListRowPreviewGallery: View {
                                 .foregroundStyle(Color.contentPrimary)
                         },
                         trailing: {
-                            Image(systemName: "chevron.right")
+                            Image(systemName: "chevron.forward")
                                 .frame(
                                     width: CoreControlMetrics.iconSize(for: .regular),
                                     height: CoreControlMetrics.iconSize(for: .regular)

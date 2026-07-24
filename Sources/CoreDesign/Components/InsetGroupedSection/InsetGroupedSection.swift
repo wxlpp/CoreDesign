@@ -115,9 +115,10 @@ public struct InsetGroupedSection<Content: View>: View {
                 }
             }
         }
-        .background(Color.surfaceCard)
-        // 裁到圆角内——否则分隔线会溢出卡片的圆角缺口。经 CoreShape,非裸 RoundedRectangle。
-        .clipShape(CoreShape.rounded(CoreRadius.medium))
+        // 走 `.surface(.content, bordered: false)`——背景 + 圆角裁剪由 SurfaceModifier
+        // 统一提供、无描边（iOS 分组容器惯例），不再手抄 surfaceCard + radius；裁到圆角
+        // 内避免分隔线溢出缺口。
+        .surface(.content, bordered: false)
     }
 }
 

@@ -76,7 +76,10 @@ public struct LabelIcon: View {
 
 // MARK: - ChevronRightIcon
 
-/// 列表行 trailing 位置的"可进入下一级"指示符（系统 `chevron.right`）。
+/// 列表行 trailing 位置的"可进入下一级"指示符。用系统 `chevron.forward`——
+/// **在 LTR 下渲染为 chevron.right（视觉不变），在 RTL 下自动镜像为 chevron.left**，
+/// 与 iOS 系统一致。类型名保留 `ChevronRightIcon`（公开 API 稳定），"Right" 指
+/// LTR 下的朝向。
 ///
 /// 配色与字号继承父容器（一般是 `LabeledContent` 的 detail 槽位，由 SwiftUI
 /// `Form` / `List` 自动应用 secondary tint）。如未来需要自定义尺寸，可以加
@@ -85,9 +88,9 @@ public struct ChevronRightIcon: View {
     /// 创建一个默认配置的 chevron 指示符。
     public init() {}
 
-    /// 渲染 `chevron.right` symbol，颜色 / 尺寸由父容器决定。
+    /// 渲染 `chevron.forward` symbol（LTR=right / RTL=left），颜色 / 尺寸由父容器决定。
     public var body: some View {
-        Image(systemName: "chevron.right")
+        Image(systemName: "chevron.forward")
             // 永远是「进入下一级」的 disclosure 指示符，任何语境下都装饰——对齐
             // Sidebar 对 chevron 的处理，无歧义，隐藏它安全。
             .accessibilityHidden(true)

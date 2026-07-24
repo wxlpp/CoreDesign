@@ -80,21 +80,23 @@ struct CardVisibilityTests {
         return ok ? pixel : nil
     }
 
-    @Test("Card 渲染出的背景与画布两种外观下都不同色（浮起可见）")
-    func cardBackgroundDiffersFromCanvas() {
+    @Test("Card 渲染出的背景与画布两种外观下都不同色（浮起可见）", arguments: [true, false])
+    func cardBackgroundDiffersFromCanvas(bordered: Bool) {
+        // bordered 与 borderless 两种形态都测——borderless 失去描边这道兜底，可见性
+        // 完全依赖背景对比（恰是 #140 塌缩里更脆弱的形态），更要守。
         for scheme in [ColorScheme.light, .dark] {
             // Card 内容用 clear 占位，中心采到的是 Card 自身背景（.surface(.content)）。
-            let card = Card { Color.clear.frame(width: 60, height: 60) }
+            let card = Card(bordered: bordered) { Color.clear.frame(width: 60, height: 60) }
             let canvas = Color.surfaceCanvas.frame(width: 100, height: 100)
 
             let cardPixel = self.centerPixel(card, scheme: scheme)
             let canvasPixel = self.centerPixel(canvas, scheme: scheme)
 
-            #expect(cardPixel != nil, "Card 渲染失败（\(scheme)）")
+            #expect(cardPixel != nil, "Card 渲染失败（bordered=\(bordered), \(scheme)）")
             #expect(canvasPixel != nil, "画布渲染失败（\(scheme)）")
             #expect(
                 cardPixel != canvasPixel,
-                "Card 背景在 \(scheme) 下与画布同色 → 卡片隐形（Issue #140 塌缩回归）"
+                "Card(bordered: \(bordered)) 背景在 \(scheme) 下与画布同色 → 卡片隐形（Issue #140 塌缩回归）"
             )
         }
     }

@@ -100,9 +100,14 @@ private extension SurfaceKind {
 /// > `.coreShadow(_:)`（详见 `CoreElevation`，由 Task 4 提供）。
 struct SurfaceModifier: ViewModifier {
     let kind: SurfaceKind
+    var bordered: Bool = true
 
     func body(content: Content) -> some View {
         let shape = CoreShape.rounded(self.kind.cornerRadius)
+        // `bordered: false` 时描边取 `.clear`——走同一条 overlay 路径（保持视图标识稳定），
+        // `.clear` 不产生任何像素，效果等同去描边。用于贴近 iOS 系统分组容器（无描边、
+        // 靠填充色对比定界）。
+        let borderColor = self.bordered ? self.kind.border : Color.clear
         // strokeBorder 内描边（路径在形状内部），避免后续 clipShape 把居中描边的外侧一半裁掉
         // 导致视觉上 1pt 变细。strokeBorder + clipShape 组合保证边框完整可见。
         //
@@ -117,7 +122,7 @@ struct SurfaceModifier: ViewModifier {
         // 且 `.clear` 描边不产生任何像素。
         return content
             .background(shape.fill(self.kind.background))
-            .overlay(shape.strokeBorder(self.kind.border, lineWidth: CoreBorderWidth.thin))
+            .overlay(shape.strokeBorder(borderColor, lineWidth: CoreBorderWidth.thin))
             .clipShape(shape)
     }
 }
@@ -136,10 +141,13 @@ public extension View {
     ///     .surface(.card)
     /// ```
     ///
-    /// - Parameter kind: 容器语义类别 / Container semantic kind.
+    /// - Parameters:
+    ///   - kind: 容器语义类别 / Container semantic kind.
+    ///   - bordered: 是否画描边，默认 `true`。置 `false` 只保留背景 + 圆角、去描边——
+    ///     贴近 iOS 系统分组容器（无描边、靠填充色对比定界）。
     /// - Returns: 已应用 surface 装饰的视图 / The view with surface decoration applied.
-    func surface(_ kind: SurfaceKind) -> some View {
-        self.modifier(SurfaceModifier(kind: kind))
+    func surface(_ kind: SurfaceKind, bordered: Bool = true) -> some View {
+        self.modifier(SurfaceModifier(kind: kind, bordered: bordered))
     }
 }
 
