@@ -227,3 +227,98 @@ private struct ToastSnapshotHarness: View {
     }
     .padding()
 }
+
+// MARK: - Phase 2（0.4.0）
+
+#Preview("Card") {
+    VStack(spacing: CoreSpacing.md) {
+        Card {
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("Card 标题").coreFont(.headline)
+                Text("卡片浮于画布之上").coreFont(.subheadline).foregroundStyle(Color.contentSecondary)
+            }
+        }
+        Card(padding: CoreSpacing.md, alignment: .center) {
+            Text("居中 + 紧凑内边距").coreFont(.subheadline)
+        }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Separator") {
+    VStack(alignment: .leading, spacing: CoreSpacing.md) {
+        Text("贯穿").coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+        Separator()
+        Text("leading 缩进 58pt").coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+        Separator(inset: .leading(58))
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Section Header Footer") {
+    VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+        SectionHeader("General")
+        Card { Text("分组内容").coreFont(.body) }
+        SectionFooter("Applies to all accounts on this device.")
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("SettingsRow") {
+    VStack(spacing: 0) {
+        SettingsRow(
+            icon: .init(systemName: "wifi", background: .blue),
+            title: Text("Wi-Fi"),
+            subtitle: Text("HomeNetwork")
+        ) {
+            Text("On").foregroundStyle(Color.contentSecondary)
+            SettingsRowChevron()
+        }
+        Separator(inset: .leading(58))
+        SettingsRow(
+            icon: .init(systemName: "bell.badge.fill", background: .red),
+            title: Text("Notifications")
+        ) {
+            Toggle("Notifications", isOn: .constant(true)).labelsHidden()
+        }
+        .tint(.green)
+    }
+    .background(Color.surfaceCard)
+    .clipShape(CoreShape.rounded(CoreRadius.medium))
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("InsetGroupedSection") {
+    InsetGroupedSection(header: "Connectivity", footer: "Airplane Mode disables Wi-Fi and Bluetooth.") {
+        SettingsRow(icon: .init(systemName: "airplane", background: .orange), title: Text("Airplane Mode")) {
+            Toggle("Airplane Mode", isOn: .constant(false)).labelsHidden()
+        }
+        SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+            Text("HomeNetwork").foregroundStyle(Color.contentSecondary)
+            SettingsRowChevron()
+        }
+    }
+    .tint(.green)
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Core Control Styles") {
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        ProgressView(value: 0.6, label: { Text("Downloading") }, currentValueLabel: { Text("60%") })
+            .progressViewStyle(.core)
+            .tint(.red)
+        Label("Sync", systemImage: "arrow.triangle.2.circlepath").labelStyle(.core).tint(.blue)
+        DisclosureGroup("Details", isExpanded: .constant(true)) {
+            Text("Additional information goes here.").foregroundStyle(Color.contentSecondary)
+        }
+        .disclosureGroupStyle(.core)
+        .tint(.red)
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
