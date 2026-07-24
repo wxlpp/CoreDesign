@@ -2,9 +2,9 @@
 
 破坏性变更按版本 / Issue 记录在此，下游升级前请对照。
 
-> 已发布的 git tag：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）、`v0.3.0`（2026-07-23）。
-> `v0.4.0` 将随本 epic 合入 `main` 时打出。本文件早期版本曾写「本库当前无外部版本 tag」
-> ——那在 `v0.1.0` 之前成立，之后未同步，已更正。
+> 已发布的 git tag：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）、`v0.3.0`（2026-07-23）、
+> `v0.4.0`（2026-07-24，Phase 2 新组件）、`v0.4.1`（2026-07-24，非破坏性收尾，见下）。
+> 本文件早期版本曾写「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
 
 ## `0.3.0`（epic coredesign-native-foundation，2026-07-21 ~ 2026-07-23）
 
@@ -127,6 +127,13 @@
 | `status-accent-subtle` / `status-success-subtle` / `status-attention-subtle` / `status-danger-subtle` / `status-done-subtle`（**仅深色模式**） | alpha `0.067` | alpha `0.280`（视觉终审 #125 发现深色下四档在纯黑画布上几乎不可辨，统一提高不透明度） |
 
 > `ContentColors`（`label` 族）与 `FillColors`（`systemFill` 族）本就直接指向系统色，本次未改动，不在上表中。`secondaryAccent` / `neutralAccent` 两族与 `StatusColors` 的其余 19 个 token（非 subtle 变体）**显式定案保留**现有取值，同样未换值。
+
+## `0.4.1`（Phase 2 收尾改进，2026-07-24）
+
+**非破坏性** —— 纯新增 + RTL 正确性修复，对下游零破坏，无需迁移。
+
+- **`Card(bordered:)` + `View.surface(_:bordered:)`（新增公开 API）**：`Card` 新增 `bordered: Bool = true` 参数，`SurfaceModifier` 同步暴露 `.surface(_:bordered:)`。置 `false` 去描边、只留背景 + 圆角，贴近 iOS 系统分组容器（无描边、靠填充色对比定界）。默认 `true`，现有 `Card { }` / `.surface(kind)` 调用行为不变。
+- **全库 chevron 统一 `chevron.forward`（RTL 正确性）**：`ChevronRightIcon` / `Sidebar` / `ListRow` / `CoreDisclosureGroupStyle` 的 disclosure chevron 从 `chevron.right` 改为 `chevron.forward`。**LTR 下视觉不变**（仍指右），**RTL 下自动镜像**为指左，与系统一致。`CoreDisclosureGroupStyle` 的展开旋转同步做了 `layoutDirection` 感知（RTL 展开态指下而非指上）。`ChevronRightIcon` 公开类型名保留（API 稳定）。
 
 ## `0.4.0`（epic coredesign-native-components）
 
