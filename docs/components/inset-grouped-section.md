@@ -21,17 +21,17 @@ iOS `.insetGrouped` 分组容器的视觉复刻 / Visual replica of iOS's `.inse
 
 ```swift
 InsetGroupedSection(header: "General", footer: "Applies to all accounts.") {
-    SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: Text("Wi-Fi")) {
+    SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
         SettingsRowChevron()
     }
-    SettingsRow(icon: .init(systemName: "bell.fill", background: .red), title: Text("Notifications")) {
+    SettingsRow(icon: .init(systemName: "bell.fill", background: .red), title: "Notifications") {
         Toggle("Notifications", isOn: $on).labelsHidden()
     }
 }
 
 // 无图标分组：分隔线对齐内容 leading
 InsetGroupedSection(header: "About", dividerInset: .textAligned) {
-    SettingsRow(title: Text("Version")) {
+    SettingsRow(title: "Version") {
         Text("0.4.0").foregroundStyle(.secondary)
     }
 }

@@ -38,6 +38,23 @@ struct SettingsDividerInsetTests {
         #expect(SettingsDividerInset.textAligned.value == SettingsRowMetrics.textAlignedDividerInset)
         #expect(SettingsDividerInset.custom(7).value == 7)
     }
+
+    // 编译级守卫（0.5.0 文本入参统一）：运行期字符串必须能经 StringProtocol 重载
+    // 传入 SettingsRow / InsetGroupedSection。若哪天误删泛型重载、只留 LocalizedStringKey，
+    // 这个 @MainActor 测试会**编译失败**（String 变量无法隐式转 LocalizedStringKey）。
+    // 字面量→LocalizedStringKey 的解析靠 @_disfavoredOverload 保证（见组件源码），
+    // 其本地化行为需带 strings 表的渲染断言才能测，此处只锁「泛型路径存在且可用」。
+    @Test("运行期字符串经 StringProtocol 重载可构造（编译级守卫）")
+    @MainActor func runtimeStringOverloadsCompile() {
+        let title = String("Wi-Fi")
+        let sub: String = "HomeNetwork"
+        let header: Substring = "General".prefix(7)
+
+        _ = SettingsRow(title: title, subtitle: sub) { EmptyView() }
+        _ = SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: title)
+        _ = InsetGroupedSection(header: header) { EmptyView() }
+        #expect(Bool(true)) // 走到这里即证明上面三处泛型重载解析成功
+    }
 }
 
 #if os(iOS)

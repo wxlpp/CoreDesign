@@ -32,6 +32,7 @@ public struct SectionHeader: View {
     }
 
     /// 运行期字符串（数据来的分类名等），verbatim 显示、不走本地化查表。
+    @_disfavoredOverload
     public init<S: StringProtocol>(_ title: S) {
         self.title = Text(title)
     }

@@ -15,6 +15,8 @@ iOS 设置页 / 偏好面板的行 / iOS Settings-style preference row.
 
 无 accessory 的便利 init：`SettingsRow(icon:title:subtitle:)`（`Accessory == EmptyView`）。
 
+> **文本入参**：`title` / `subtitle` 各有 `LocalizedStringKey` 与 `StringProtocol` 两个重载。字面量（`title: "Wi-Fi"`）走 `LocalizedStringKey` 在 `Bundle.main` 本地化——`StringProtocol` 重载带 `@_disfavoredOverload`，保证字面量不误落 verbatim；运行期字符串变量走 `StringProtocol`（verbatim）。**`title` 与 `subtitle` 类型须一致**：混用字面量 + 运行期字符串时，字面量也会按 verbatim 处理、跳过本地化。
+
 ### SettingsRowIcon
 
 | 参数 | 类型 | 默认值 | 说明 |

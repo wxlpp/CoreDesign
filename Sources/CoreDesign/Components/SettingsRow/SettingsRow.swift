@@ -119,7 +119,7 @@ public struct SettingsRow<Accessory: View>: View {
         self.accessory = accessory
     }
 
-    /// LocalizedStringKey——字面量在**调用方 bundle** 本地化（与 SwiftUI `Text` 一致）。
+    /// LocalizedStringKey——字面量在 **`Bundle.main`** 本地化（与直接写 `Text(key)` 一致；对 App 调用方即其自身 bundle）。
     /// accessory 用 `@ViewBuilder`。
     public init(
         icon: SettingsRowIcon? = nil,
@@ -131,6 +131,7 @@ public struct SettingsRow<Accessory: View>: View {
     }
 
     /// 运行期字符串（数据来的分类名等），verbatim 显示、不走本地化查表。
+    @_disfavoredOverload
     public init<S: StringProtocol>(
         icon: SettingsRowIcon? = nil,
         title: S,
@@ -214,6 +215,7 @@ public extension SettingsRow where Accessory == EmptyView {
     }
 
     /// 无尾部 accessory（运行期字符串，verbatim）。
+    @_disfavoredOverload
     init<S: StringProtocol>(
         icon: SettingsRowIcon? = nil,
         title: S,

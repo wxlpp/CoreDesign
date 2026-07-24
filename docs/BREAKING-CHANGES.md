@@ -15,9 +15,10 @@
 
 | 组件 | 旧（`0.4.x`） | 新（`0.5.0`） |
 |---|---|---|
-| `SettingsRow` | `init(icon:, title: Text, subtitle: Text? = nil, accessory:)` | `init(icon:, title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil, accessory:)` + `init<S: StringProtocol>(...)` 重载 |
+| `SettingsRow`（带 accessory） | `init(icon:, title: Text, subtitle: Text? = nil, accessory:)` | `init(icon:, title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil, accessory:)` + `@_disfavoredOverload init<S: StringProtocol>(...)` |
+| `SettingsRow`（无 accessory 便利 init，`Accessory == EmptyView`） | `init(icon:, title: Text, subtitle: Text? = nil)` | `init(icon:, title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil)` + `@_disfavoredOverload init<S: StringProtocol>(...)` |
 
-**迁移**：把 `SettingsRow(title: Text("Wi-Fi"))` 改为 `SettingsRow(title: "Wi-Fi")`；副标题同理。字面量走 `LocalizedStringKey`（调用方 bundle 本地化），运行期字符串走 `StringProtocol` 重载（verbatim）。**代价**：不再能直接传样式化 `Text`（如 `Text("x").bold()`）——如需样式化标题，用系统 `.font` / attributed string 于 accessory，或按需在库层再引入 `titleView:` 形态。
+**迁移**：把 `SettingsRow(title: Text("Wi-Fi"))` 改为 `SettingsRow(title: "Wi-Fi")`；副标题同理。**字面量**走 `LocalizedStringKey`（`Bundle.main` 本地化——`StringProtocol` 重载带 `@_disfavoredOverload`，与 SwiftUI `Text` 同款做法，保证字面量不落到 verbatim 泛型重载）；**运行期字符串**走 `StringProtocol` 重载（verbatim）。**注意**：`title` 与 `subtitle` 类型须一致——混用字面量 title + 运行期字符串 subtitle 时，两者会一起落到 `StringProtocol` 重载、字面量 title 也按 verbatim 处理（不本地化）。**代价**：不再能直接传样式化 `Text`（如 `Text("x").bold()`）——如需样式化标题，用系统 `.font` / attributed string 于 accessory，或按需在库层再引入 `titleView:` 形态。
 
 ### 新增（非破坏，随本次一并）
 

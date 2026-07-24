@@ -170,6 +170,7 @@ public extension AsyncButton where Label == Text {
     }
 
     /// StringProtocol + 非抛错。
+    @_disfavoredOverload
     init<S: StringProtocol>(
         _ title: S,
         action: @escaping @MainActor @Sendable () async -> Void
@@ -187,6 +188,7 @@ public extension AsyncButton where Label == Text {
     }
 
     /// StringProtocol + 抛错 + 可选 onError。
+    @_disfavoredOverload
     init<S: StringProtocol>(
         _ title: S,
         action: @escaping @MainActor @Sendable () async throws -> Void,

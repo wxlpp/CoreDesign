@@ -65,7 +65,7 @@ public struct InsetGroupedSection<Content: View>: View {
     private let dividerInset: SettingsDividerInset
     private let content: Content
 
-    /// LocalizedStringKey 页眉/页脚——字面量在调用方 bundle 本地化。
+    /// LocalizedStringKey 页眉/页脚——字面量在 `Bundle.main` 本地化（对 App 调用方即其自身 bundle）。
     ///
     /// - Parameters:
     ///   - header: 可选分组页眉（复用 `SectionHeader` 的大写 footnote 样式）。
@@ -85,6 +85,7 @@ public struct InsetGroupedSection<Content: View>: View {
     }
 
     /// 运行期字符串页眉/页脚（数据来的分组名等），verbatim 显示。
+    @_disfavoredOverload
     public init<S: StringProtocol>(
         header: S? = nil,
         footer: S? = nil,
