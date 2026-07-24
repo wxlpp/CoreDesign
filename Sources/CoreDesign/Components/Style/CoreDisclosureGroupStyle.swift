@@ -37,7 +37,7 @@ public struct CoreDisclosureGroupStyle: DisclosureGroupStyle {
                 HStack {
                     configuration.label
                     Spacer()
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "chevron.forward")
                         // `.tint`（`TintShapeStyle`）——反映当前环境 tint，
                         // 而非固定写死的 `Color.accent`（FR-12 / ADR-3）。
                         .foregroundStyle(.tint)

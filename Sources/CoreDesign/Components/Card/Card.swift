@@ -35,27 +35,44 @@ import SwiftUI
 public struct Card<Content: View>: View {
     private let padding: CGFloat
     private let alignment: Alignment
+    private let bordered: Bool
     private let content: Content
 
     /// - Parameters:
     ///   - padding: 内容四周内边距，默认 `CoreSpacing.lg`（16pt，对齐 iOS 分组卡片惯例）。
     ///   - alignment: 撑满宽度内的内容对齐，默认 `.leading`。
+    ///   - bordered: 是否带描边，默认 `true`（走完整 `.surface(.content)`：背景 + 描边 + 圆角）。
+    ///     置 `false` 只保留背景 + 圆角、**去掉描边**——贴近 iOS 系统分组容器
+    ///     （`secondarySystemGroupedBackground` 靠填充色对比定界、无描边）。与
+    ///     `InsetGroupedSection` 的卡片外观一致。
     ///   - content: 卡片内容。
     public init(
         padding: CGFloat = CoreSpacing.lg,
         alignment: Alignment = .leading,
+        bordered: Bool = true,
         @ViewBuilder content: () -> Content
     ) {
         self.padding = padding
         self.alignment = alignment
+        self.bordered = bordered
         self.content = content()
     }
 
     public var body: some View {
-        self.content
+        let base = self.content
             .padding(self.padding)
             .frame(maxWidth: .infinity, alignment: self.alignment)
-            .surface(.content)
+
+        if self.bordered {
+            base.surface(.content)
+        } else {
+            // 复刻 `.surface(.content)` 的背景 + 圆角，但**不画描边**——与
+            // `SurfaceKind.content` 同源（背景 `surfaceCard`、圆角 `CoreRadius.medium`），
+            // 经 `CoreShape.rounded`，非裸 `RoundedRectangle`。
+            base
+                .background(Color.surfaceCard)
+                .clipShape(CoreShape.rounded(CoreRadius.medium))
+        }
     }
 }
 
