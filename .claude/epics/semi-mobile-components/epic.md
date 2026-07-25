@@ -2,10 +2,10 @@
 name: semi-mobile-components
 status: backlog
 created: 2026-07-25T08:25:36Z
-updated: 2026-07-25T08:37:58Z
+updated: 2026-07-25T08:56:03Z
 progress: 0%
 prd: .claude/prds/semi-mobile-components.md
-github: (will be set on sync)
+github: https://github.com/wxlpp/CoreDesign/issues/160
 ---
 
 # Epic: semi-mobile-components
