@@ -12,6 +12,10 @@ import SwiftUI
 /// 纯数据结构：`id` 直接取 `value`（`Identifiable` 契约），`title` 由调用方提供、
 /// 未经 `Localizable.strings`——与 `Tag` / `CheckBoxToggleStyle` 一致，标签文案本地化
 /// 由调用方自负责。
+///
+/// > Precondition: 同一 `RadioGroup` 内各 `RadioOption.value` **必须唯一**——`id == value`，
+/// > 重复 value 会产生重复的 `Identifiable` id（`ForEach` 行为未定义，且两行会同时呈选中态）。
+/// > 若 `selection` 不在任何 option 的 value 中，则无行选中（合理的空选中态）。
 public struct RadioOption<SelectionValue: Hashable & Sendable>: Identifiable, Sendable {
     public var id: SelectionValue { self.value }
 
@@ -93,7 +97,9 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
     @ViewBuilder
     private func row(for option: RadioOption<SelectionValue>) -> some View {
         let selected = Self.isSelected(option, in: self.selection)
-        HStack(spacing: CoreSpacing.sm) {
+        // 与 CheckBox 成对：`.top` 对齐，标签折行成多行时圆点仍钉在首行顶部，
+        // 不随文本垂直居中（否则同一表单里 Radio 与 CheckBox 长标签下会肉眼可见地错位）。
+        HStack(alignment: .top, spacing: CoreSpacing.sm) {
             Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                 .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
                 .foregroundStyle(selected ? Color.contentPrimary : Color.gray)
@@ -154,4 +160,35 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
         axis: .horizontal
     )
     .padding()
+}
+
+#Preview("垂直 / Vertical — Dark") {
+    @Previewable @State var verticalSelection = "pro"
+
+    RadioGroup(
+        selection: $verticalSelection,
+        options: [
+            RadioOption(value: "basic", title: "基础版 / Basic"),
+            RadioOption(value: "pro", title: "专业版 / Pro"),
+            RadioOption(value: "enterprise", title: "企业版 / Enterprise"),
+        ]
+    )
+    .padding()
+    .preferredColorScheme(.dark)
+}
+
+#Preview("水平 / Horizontal — Dark") {
+    @Previewable @State var horizontalSelection = 2
+
+    RadioGroup(
+        selection: $horizontalSelection,
+        options: [
+            RadioOption(value: 1, title: "小 / S"),
+            RadioOption(value: 2, title: "中 / M"),
+            RadioOption(value: 3, title: "大 / L"),
+        ],
+        axis: .horizontal
+    )
+    .padding()
+    .preferredColorScheme(.dark)
 }
