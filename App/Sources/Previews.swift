@@ -162,14 +162,8 @@ private struct ToastSnapshotHarness: View {
     .padding()
 }
 
-#Preview("ProgressBar") {
-    VStack(spacing: CoreSpacing.md) {
-        ProgressBar(value: 0.0)
-        ProgressBar(value: 0.5, label: "50%")
-        ProgressBar(value: 1.0, tint: .statusSuccessEmphasis, label: "Done")
-    }
-    .padding()
-}
+// ProgressBar 的快照 #Preview 已随弃用移除（0.6.0）——索引不再引用其图，
+// 迁移期请看 "Core Control Styles" 预览的 .core ProgressView。
 
 #Preview("StateLabel") {
     VStack(alignment: .leading, spacing: CoreSpacing.sm) {

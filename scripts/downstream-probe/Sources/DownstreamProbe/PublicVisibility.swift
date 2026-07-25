@@ -113,3 +113,26 @@ func consumeCircularGlassTierAccessor() -> some View {
     Button("tier") {}
         .buttonStyle(.circularGlass(size: .small))
 }
+
+// MARK: - SettingsRowMetrics 公开常量（0.6.0，item 2）
+//
+// SettingsRowMetrics 从 internal 改 public，让下游把自定义行对齐到 SettingsRow
+// 网格。这是该次变更的**全部交付物**——若被改回 internal，库内 @testable 测试、
+// App 宿主、既有 probe 都护不住（无一从外部包引用它）。这里从外部包消费全部 6 个
+// 成员，pin 住可见性。
+//
+// 必须 @MainActor：`.defaultIsolation(MainActor.self)` 下两个计算属性
+// （iconAlignedDividerInset / textAlignedDividerInset）是 MainActor 隔离的，四个
+// static let 跨模块也非 nonisolated 可达（SE-0434 只放开模块内）——与上面
+// ButtonRoleStyleRole 调色板同款「可见但非 nonisolated 可达」。
+@MainActor
+func consumeSettingsRowMetrics() -> [CGFloat] {
+    [
+        SettingsRowMetrics.iconSquareSize,
+        SettingsRowMetrics.iconTitleGap,
+        SettingsRowMetrics.horizontalPadding,
+        SettingsRowMetrics.iconCornerRadius,
+        SettingsRowMetrics.iconAlignedDividerInset,
+        SettingsRowMetrics.textAlignedDividerInset,
+    ]
+}

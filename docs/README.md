@@ -1,6 +1,6 @@
 # CoreDesign 组件库 / Component Library
 
-iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件 + 3 个系统控件 `.core` style。
+iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style。
 
 ## 组件索引 / Component Index
 
