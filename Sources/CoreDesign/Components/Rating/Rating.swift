@@ -35,6 +35,7 @@ public struct Rating: View {
 
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.layoutDirection) private var layoutDirection
 
     /// - Parameters:
     ///   - value: 当前评分，驱动方通过 `Binding<Double>` 双向绑定。
@@ -103,8 +104,14 @@ public struct Rating: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { drag in
+                    // RTL 镜像：`drag.location.x` 是视图本地物理坐标（不随 layoutDirection
+                    // 镜像），而 HStack 星序与半星 `.mask` 在 RTL 下都镜像。故 RTL 时把 x 沿
+                    // 宽度翻折，保证「点视觉上的第 k 颗星」在两种方向下都得到 k 分。
+                    let x = self.layoutDirection == .rightToLeft
+                        ? self.totalWidth - drag.location.x
+                        : drag.location.x
                     self.value = Self.steppedValue(
-                        atRelativeX: drag.location.x,
+                        atRelativeX: x,
                         totalWidth: self.totalWidth,
                         count: self.count,
                         step: self.step
@@ -157,14 +164,19 @@ public struct Rating: View {
         min(max(value - Double(starIndex), 0), 1)
     }
 
-    /// 根据触摸 / 拖拽在评分控件宽度上的相对 x 坐标计算新的评分值：按 `step` 取整、
-    /// clamp 到 `0...count`。真实手势无法在 Swift Testing 里直接模拟，提取成纯函数
-    /// 让手势背后的取整 / 边界逻辑可单测。
+    /// 根据触摸 / 拖拽在评分控件宽度上的相对 x 坐标计算新的评分值：按 `step` **向上取整**
+    /// （ceiling），clamp 到 `0...count`。真实手势无法在 Swift Testing 里直接模拟，提取成
+    /// 纯函数让取值 / 边界逻辑可单测。
+    ///
+    /// **为何 ceiling 而非就近取整**：rating 控件的惯例是「点第 k 颗星 → k 分」（半星模式下
+    /// 星 k 左半 → k−0.5、右半 → k）。就近取整会让星 k 的左半区落回 k−1——点第一颗星的左
+    /// 大半区反而清零，严重违反直觉。ceiling 保证落在星 k 上（rawValue ∈ (k−1, k]）的任何
+    /// 点按都至少给到 k（半星模式细分到 k−0.5 / k）。rawValue==0（最左缘）仍得 0，即清空。
     static func steppedValue(atRelativeX relativeX: CGFloat, totalWidth: CGFloat, count: Int, step: Double) -> Double {
         guard totalWidth > 0, count > 0, step > 0 else { return 0 }
         let clampedX = min(max(relativeX, 0), totalWidth)
         let rawValue = Double(clampedX / totalWidth) * Double(count)
-        let stepped = (rawValue / step).rounded() * step
+        let stepped = (rawValue / step).rounded(.up) * step
         return min(max(stepped, 0), Double(count))
     }
 

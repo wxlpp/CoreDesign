@@ -44,23 +44,23 @@ struct RatingTests {
 
     // MARK: - 半星步进取整
 
-    @Test("steppedValue：allowsHalfStar 关闭（step=1.0）按整数取整")
+    @Test("steppedValue：step=1.0 按 ceiling——点第 k 颗星得 k 分")
     func steppedValueWholeStep() {
-        // 5 颗星，总宽 100pt：每颗星占 20pt
-        #expect(Rating.steppedValue(atRelativeX: 0, totalWidth: 100, count: 5, step: 1.0) == 0)
-        #expect(Rating.steppedValue(atRelativeX: 22, totalWidth: 100, count: 5, step: 1.0) == 1)
-        #expect(Rating.steppedValue(atRelativeX: 48, totalWidth: 100, count: 5, step: 1.0) == 2)
+        // 5 颗星，总宽 100pt：每颗星占 20pt（星 k 覆盖 rawValue ∈ (k−1, k]，x ∈ ((k−1)*20, k*20]）
+        #expect(Rating.steppedValue(atRelativeX: 0, totalWidth: 100, count: 5, step: 1.0) == 0)   // 最左缘 → 清空
+        #expect(Rating.steppedValue(atRelativeX: 10, totalWidth: 100, count: 5, step: 1.0) == 1)  // 星 1 内 → 1（关键：不再回落 0）
+        #expect(Rating.steppedValue(atRelativeX: 20, totalWidth: 100, count: 5, step: 1.0) == 1)  // 星 1 右边界 → 仍 1
+        #expect(Rating.steppedValue(atRelativeX: 22, totalWidth: 100, count: 5, step: 1.0) == 2)  // 进入星 2 → 2
         #expect(Rating.steppedValue(atRelativeX: 100, totalWidth: 100, count: 5, step: 1.0) == 5)
     }
 
-    @Test("steppedValue：allowsHalfStar 开启（step=0.5）按半星取整")
+    @Test("steppedValue：step=0.5 按 ceiling——星 k 左半 → k−0.5、右半 → k")
     func steppedValueHalfStep() {
-        // 2.5 颗星对应的 x = 2.5/5 * 100 = 50
-        #expect(Rating.steppedValue(atRelativeX: 50, totalWidth: 100, count: 5, step: 0.5) == 2.5)
-        // 2.2 颗星（x=44）应就近取整到 2.0（非 0.5 的整数倍差 <0.25 时向下）
-        #expect(Rating.steppedValue(atRelativeX: 44, totalWidth: 100, count: 5, step: 0.5) == 2.0)
-        // 2.3 颗星（x=46）应就近取整到 2.5
-        #expect(Rating.steppedValue(atRelativeX: 46, totalWidth: 100, count: 5, step: 0.5) == 2.5)
+        // 星 3 覆盖 x ∈ (40, 60]：左半 (40,50] → 2.5、右半 (50,60] → 3.0
+        #expect(Rating.steppedValue(atRelativeX: 5, totalWidth: 100, count: 5, step: 0.5) == 0.5)  // 星 1 左半 → 0.5
+        #expect(Rating.steppedValue(atRelativeX: 44, totalWidth: 100, count: 5, step: 0.5) == 2.5) // 星 3 左半 → 2.5
+        #expect(Rating.steppedValue(atRelativeX: 50, totalWidth: 100, count: 5, step: 0.5) == 2.5) // 星 3 左/右半分界 → 2.5
+        #expect(Rating.steppedValue(atRelativeX: 56, totalWidth: 100, count: 5, step: 0.5) == 3.0) // 星 3 右半 → 3.0
     }
 
     // MARK: - 边界值
