@@ -16,7 +16,7 @@
 
 ## 预览 / Preview
 
-运行 `scripts/run-snapshots.sh` 后，预览图将生成于 `docs/snapshots/`。
+已弃用，不再生成快照预览图。替代品的预览见 [core-control-styles.md](core-control-styles.md)（`.core ProgressView`）。
 
 ## 使用示例 / Usage
 
