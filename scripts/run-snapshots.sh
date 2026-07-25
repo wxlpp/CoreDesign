@@ -13,20 +13,34 @@ DEVICE="${SIMULATOR_DEVICE:-iPhone 17 Pro}"
 # changed host preview (e.g. an Issue editing ProgressIndicator) cannot dirty a
 # committed snapshot. Default mode (=0) is byte-for-byte the prior behavior.
 KEEP_LIBRARY_SNAPSHOTS="${KEEP_LIBRARY_SNAPSHOTS:-0}"
-# NOTE: in keep mode this dir is `rm -rf`'d wholesale on each run — point it at a
-# scratch location only, never a shared/committed directory. Default is under $TMPDIR.
-LIBRARY_SNAPSHOTS_EXPORT_DIR="${LIBRARY_SNAPSHOTS_EXPORT_DIR:-${TMPDIR:-/tmp}/coredesign-library-snapshots}"
+case "${KEEP_LIBRARY_SNAPSHOTS}" in
+  0 | 1) ;;
+  *)
+    echo "ERROR: KEEP_LIBRARY_SNAPSHOTS must be 0 or 1 (got '${KEEP_LIBRARY_SNAPSHOTS}')." >&2
+    echo "       Refusing to run so an unrecognized value can't silently fall into the destructive default." >&2
+    exit 2
+    ;;
+esac
 
 cd "$(dirname "$0")/.."
 SNAPSHOT_DIR="$(pwd)/docs/snapshots"
 
+# Default scratch export dir is PER-WORKTREE (suffixed with the checkout root's
+# basename). Phase 1 runs 10 Issue worktrees in parallel; a shared global scratch
+# dir would let them `rm -rf` each other's exports. Override with the env var if
+# needed — NOTE: in keep mode this dir is `rm -rf`'d wholesale each run, so point
+# it at a scratch location only, never a shared/committed directory.
+LIBRARY_SNAPSHOTS_EXPORT_DIR="${LIBRARY_SNAPSHOTS_EXPORT_DIR:-${TMPDIR:-/tmp}/coredesign-library-snapshots-$(basename "$(pwd)")}"
+
 if [ "${KEEP_LIBRARY_SNAPSHOTS}" = "1" ]; then
   # Keep mode: render into a fresh scratch dir; leave docs/snapshots untouched.
+  echo "run-snapshots: keep mode — docs/snapshots untouched, exporting to ${LIBRARY_SNAPSHOTS_EXPORT_DIR}"
   EXPORT_DIR="${LIBRARY_SNAPSHOTS_EXPORT_DIR}"
   rm -rf "${EXPORT_DIR}"
   mkdir -p "${EXPORT_DIR}"
 else
   # Default: start fresh in docs/snapshots, removing all stale output.
+  echo "run-snapshots: default mode — regenerating docs/snapshots"
   EXPORT_DIR="${SNAPSHOT_DIR}"
   rm -rf "${SNAPSHOT_DIR}"
   mkdir -p "${SNAPSHOT_DIR}"

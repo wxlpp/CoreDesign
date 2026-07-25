@@ -36,11 +36,13 @@ Phase 0 已 append-only 预登记以下键（`en.lproj/Localizable.strings` / `.
 
 > **铁律：所有 `String(localized:)` / `Text(...)` 消费必须传 `bundle: .module`**（CLAUDE.md《资源加载》）。漏传 → 键在包资源里查不到 → 静默 fallback 到 key 自身格式，英文输出恰好一样（「2.5 of 5」）而测试/视觉评审都抓不到，直到非英文本地化才暴露。与 `Tag.swift:144` 既有用法一致。
 >
-> 位置键用 `String(localized:bundle:)` 消费（非复数，macOS/iOS 两端解析一致）；复数键（`one` 形态）仅在 iOS 腿正确套用——macOS `swift test` 对复数 `one` 假绿，故 Phase 0 的复数回归测试改用 `Bundle.localizedString(forKey:)` 直验 bundle 内容（见 `SharedFoundationTests`）。
+> 位置键用 `String(localized:bundle:)` 消费（非复数，macOS/iOS 两端解析一致）；复数键（`one` 形态）经 `String(localized:)` 消费时仅在 iOS 腿正确套用——macOS 上 `String(localized:)` 不对 SwiftPM 资源 bundle 的 `.stringsdict` 套 `one` 规则（既有 `AvatarGroup` 的 `%lld more avatars` 同此），故 Phase 0 的复数回归测试改用 `Bundle.localizedString(forKey:)`+`String(format:)` 直验 bundle 内容（见 `SharedFoundationTests`）。
+>
+> **macOS 运行时复数缺口（未认领，交 013 收口）**：因本库 macOS 26+ 也是目标平台，上述缺陷若是 macOS **运行时**层面（非仅 `swift test`），则 macOS 端 VoiceOver 会读 “1 stars”。当前仅 `%lld stars`/`%lld steps` 两个**摘要**键受影响（值播报走 `%@ of %@` 非复数，不受影响）。若 013 确认 macOS 运行时 broken，消费侧改用 `Bundle.localizedString(forKey:)+String(format:)`（测试已示范）或接受 macOS 端语法降级。
 
 ### Timeline 节点状态映射
 `StatusLevel.info/success/warning/danger` → label `"Info"/"Success"/"Warning"/"Error"`（`danger` 播报为 "Error"，比 "Danger" 对 VoiceOver 更清晰）。
 
 ## 3. 快照脚本
 
-`scripts/run-snapshots.sh` 已加 `KEEP_LIBRARY_SNAPSHOTS=1`：keep 模式把所有 `#Preview` 产物渲染进 scratch 目录（`LIBRARY_SNAPSHOTS_EXPORT_DIR`，默认 `$TMPDIR/coredesign-library-snapshots`，每次运行前清空），**完全不碰** `docs/snapshots`——`git diff docs/snapshots` 无条件为空。Phase 1 各 Issue 视觉评审用：`KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 后从 scratch 目录取本组件 `CoreDesign_*.png` 交 ios-visual-reviewer。
+`scripts/run-snapshots.sh` 已加 `KEEP_LIBRARY_SNAPSHOTS=1`：keep 模式把所有 `#Preview` 产物渲染进 scratch 目录，**完全不碰** `docs/snapshots`——`git diff docs/snapshots` 无条件为空。scratch 默认目录为 **per-worktree**（`$TMPDIR/coredesign-library-snapshots-<worktree 目录名>`，每次运行前整目录清空），因此 10 个并行 Issue worktree **照抄默认配方即互不覆盖**——各 Issue 私有 worktree 目录名不同，导出目录自然隔离。Phase 1 各 Issue 视觉评审：直接 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh`，再从脚本回显的 scratch 路径取本组件 `CoreDesign_*.png` 交 ios-visual-reviewer；无需自定义 `LIBRARY_SNAPSHOTS_EXPORT_DIR`（该开关只接受 `0`/`1`，其他值报错退出以防误落破坏性默认分支）。

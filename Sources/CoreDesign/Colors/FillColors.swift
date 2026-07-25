@@ -88,5 +88,5 @@ public extension Color {
     /// > 是低透明白、更透明反而更接近深背景（可能变暗，与「暗色亮扫」直觉相反）。此为 Phase 0
     /// > 的初始取值；**暗色观感留给 Skeleton（Issue #162）的视觉评审裁决**——若暗色需要反向亮扫，
     /// > 允许改为 `Color.mix(with:by:in:)` 派生（如向 `Color.contentPrimary` 微调），此 token 可动。
-    static var skeletonHighlight: Color { Color.fill.opacity(0.35) }
+    static var skeletonHighlight: Color { Color.skeletonBase.opacity(0.35) }
 }

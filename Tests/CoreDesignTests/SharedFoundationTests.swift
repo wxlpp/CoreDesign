@@ -39,15 +39,15 @@ struct SharedFoundationTests {
 
     @Test("Phase 0 预登记的 accessibility 字符串键已注册进资源 bundle")
     func accessibilityLabelKeysResolve() {
-        // value: "\u{0}" 作哨兵——键存在时返回登记值，缺失时返回哨兵而非 key 自身，
-        // 从而真正验证「键已注册」（而非 fallback 到 key 造成的假通过）。
+        // value: "\u{0}" 作哨兵——键缺失时 localizedString 返回哨兵值。断言「返回值 != 哨兵」
+        // 即证「键已注册」，且**不**把「en 值恒等于 key」也捆进来（日后微调某个 en 值不该让本测试误红）。
         let keys = [
             "Rating", "Verification code", "Add tag",   // 组件标签
             "Info", "Success", "Warning", "Error",       // Timeline 节点状态
             "%@ of %@",                                   // 通用位置/数值键
         ]
         for key in keys {
-            #expect(Self.bundle.localizedString(forKey: key, value: "\u{0}", table: nil) == key)
+            #expect(Self.bundle.localizedString(forKey: key, value: "\u{0}", table: nil) != "\u{0}")
         }
     }
 
