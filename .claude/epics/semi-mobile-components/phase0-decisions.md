@@ -30,11 +30,13 @@ Phase 0 已 append-only 预登记以下键（`en.lproj/Localizable.strings` / `.
 
 ### 位置 / 数值播报（`.strings`，通用位置键）
 - `"%@ of %@"` — **唯一的位置键**，两参数均为已格式化字符串，覆盖：
-  - **Rating.accessibilityValue**：`String(localized: "\(value.formatted()) of \(total.formatted())")` → 「2.5 of 5」。**半星精确播报**（`Double` 格式化，不取整），故不用整数键 `"%lld stars"` 表达值。
-  - **Steps 当前步**：`"\(current.formatted()) of \(total.formatted())"` → 「2 of 4」。
-  - **PinCode 格位**：`"\(index.formatted()) of \(count.formatted())"` → 「3 of 6」。
+  - **Rating.accessibilityValue**：`String(localized: "\(value.formatted()) of \(total.formatted())", bundle: .module)` → 「2.5 of 5」。**半星精确播报**（`Double` 格式化，不取整），故不用整数键 `"%lld stars"` 表达值。
+  - **Steps 当前步**：`String(localized: "\(current.formatted()) of \(total.formatted())", bundle: .module)` → 「2 of 4」。
+  - **PinCode 格位**：`String(localized: "\(index.formatted()) of \(count.formatted())", bundle: .module)` → 「3 of 6」。
 
-> 位置键用 `String(localized:)` 消费（非复数，macOS/iOS 两端解析一致）；复数键（`one` 形态）仅在 iOS 腿正确套用——macOS `swift test` 对复数 `one` 假绿，故 Phase 0 的复数回归测试改用 `Bundle.localizedString(forKey:)` 直验 bundle 内容（见 `SharedFoundationTests`）。
+> **铁律：所有 `String(localized:)` / `Text(...)` 消费必须传 `bundle: .module`**（CLAUDE.md《资源加载》）。漏传 → 键在包资源里查不到 → 静默 fallback 到 key 自身格式，英文输出恰好一样（「2.5 of 5」）而测试/视觉评审都抓不到，直到非英文本地化才暴露。与 `Tag.swift:144` 既有用法一致。
+>
+> 位置键用 `String(localized:bundle:)` 消费（非复数，macOS/iOS 两端解析一致）；复数键（`one` 形态）仅在 iOS 腿正确套用——macOS `swift test` 对复数 `one` 假绿，故 Phase 0 的复数回归测试改用 `Bundle.localizedString(forKey:)` 直验 bundle 内容（见 `SharedFoundationTests`）。
 
 ### Timeline 节点状态映射
 `StatusLevel.info/success/warning/danger` → label `"Info"/"Success"/"Warning"/"Error"`（`danger` 播报为 "Error"，比 "Danger" 对 VoiceOver 更清晰）。

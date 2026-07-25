@@ -13,6 +13,8 @@ DEVICE="${SIMULATOR_DEVICE:-iPhone 17 Pro}"
 # changed host preview (e.g. an Issue editing ProgressIndicator) cannot dirty a
 # committed snapshot. Default mode (=0) is byte-for-byte the prior behavior.
 KEEP_LIBRARY_SNAPSHOTS="${KEEP_LIBRARY_SNAPSHOTS:-0}"
+# NOTE: in keep mode this dir is `rm -rf`'d wholesale on each run — point it at a
+# scratch location only, never a shared/committed directory. Default is under $TMPDIR.
 LIBRARY_SNAPSHOTS_EXPORT_DIR="${LIBRARY_SNAPSHOTS_EXPORT_DIR:-${TMPDIR:-/tmp}/coredesign-library-snapshots}"
 
 cd "$(dirname "$0")/.."
