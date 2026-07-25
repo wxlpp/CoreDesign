@@ -66,7 +66,7 @@ CoreDesign 目前有 24 个已收录组件 + 3 个 `.core` 控件 style。以 Se
 - **FR-PinCode 掩码**：安全掩码**可配**（`isSecure` 参数，默认关——OTP 场景常明文便于核对）。
 - **FR-Descriptions 密度**：2 列在 accessibility 大字号（Dynamic Type）下塌成 1 列，避免键值挤压。
 - **FR-12 增强包**：`ProgressIndicator` **新增一个带可选文案参数的 init/重载，保留现有 `init()`**（源码兼容，downstream-probe 可过）；新增 `Modifier/SpinningModifier.swift` 暴露 `View.spinning(_ isActive:text:)` 加载遮罩。
-- **FR-13 共享地基（Phase 0 先行）**：占位底色指定复用 `FillColors`（systemFill 家族，占位标准色）；连线/分隔色指定复用 `BorderColors`/separator；shimmer 高亮色若无现成 token 则在 `FillColors`/`ContentColors` 补一个语义 token。Phase 0 单独 Issue 落地这些共享 token/辅助后，其余组件 Issue 才启动，避免并行抢改色层文件。
+- **FR-13 共享地基（Phase 0 先行）**：占位底色指定复用 `FillColors`（systemFill 家族，占位标准色）；连线/分隔色指定复用 `BorderColors`/separator；shimmer 高亮色若无现成 token 则在 `FillColors`/`ContentColors` 补一个语义 token。Phase 0 单独 Issue 落地这些共享 token/辅助后，其余组件 Issue 才启动，避免并行抢改色层文件。**Phase 0 另需给 `scripts/run-snapshots.sh` 加保留库内 `#Preview` 副产物的开关**（如 `KEEP_LIBRARY_SNAPSHOTS=1` 跳过 `CoreDesign_*` 的删除行），否则并行阶段（NFR-5.1）逐 Issue 视觉评审拿不到截图。
 
 ## Non-Functional Requirements
 
@@ -95,7 +95,7 @@ CoreDesign 目前有 24 个已收录组件 + 3 个 `.core` 控件 style。以 Se
 - **借鉴而非移植**：对齐 Semi 的能力集，视觉/交互对齐 Apple HIG / SwiftUI；不复制 Web 像素级样式。
 - **Radio 的 HIG 取舍**：iOS HIG 无原生 radio（惯例用 checkmark list / `Picker`），但库内已有同样非 HIG 原生的 `CheckBox`——`Radio` 作为其单选对偶提供，视觉与 `CheckBox` 成对，**这是刻意的既有先例延续，非疏漏**；视觉评审据此标准而非「必须 HIG 原生」评判。macOS 原生 `.pickerStyle(.radioGroup)` 因需与 `CheckBox` 跨端视觉成对一致而不采用。
 - **复用现有地基**：`StarShape`（Rating）、`FlowLayout`（TagInput）、glass modifier（FloatButton）、`.core`/`LabeledContentStyle`（Descriptions）、`.redacted`（Skeleton）、现有色层/token。
-- **并行交付 + Phase 0 先行**：Phase 0 落地共享 token/辅助（FR-13）与预置 docs 索引占位（FR-8a）；之后 10 组件拆并行 Issue；`docs/README.md` 与预览宿主注册集中收尾串行，规避 merge/xcodegen 冲突。
+- **并行交付 + Phase 0 先行**：Phase 0 落地共享 token/辅助（FR-13）；之后 10 组件拆并行 Issue；`docs/README.md` 与预览宿主注册集中收尾串行（Phase 3），规避 merge/xcodegen 冲突。
 - **假设**：现有色层足够支撑绝大多数取色，预计仅 shimmer 高亮 1 个新增语义 token；此假设在 Phase 0 验证，若不成立则在 Phase 0 补齐。
 
 ## Out of Scope
