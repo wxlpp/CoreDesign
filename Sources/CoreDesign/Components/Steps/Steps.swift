@@ -158,37 +158,44 @@ public struct Steps: View {
     }
 
     private var horizontalBody: some View {
-        VStack(spacing: CoreSpacing.sm) {
-            HStack(spacing: 0) {
-                ForEach(self.items.indices, id: \.self) { index in
+        // 每一步是一个**等宽列**（指示器居中于其标题正上方）——指示器与文字共用同一套等宽
+        // 布局，避免「指示器行用弹性连线、文字行用等宽列」两套几何导致的中心错位（首/末步最重）。
+        // 连线画在指示器的 background：左半连上一步、右半连下一步，相邻列半段在列边界相接成
+        // 连续线；首列无左半、末列无右半。指示器覆盖线的中心段。
+        let last = self.items.count - 1
+        return HStack(alignment: .top, spacing: 0) {
+            ForEach(Array(self.items.enumerated()), id: \.element.id) { index, _ in
+                VStack(spacing: CoreSpacing.sm) {
                     self.indicator(for: index)
-                    if index < self.items.count - 1 {
-                        self.connector(after: index)
-                            .frame(height: CoreBorderWidth.thick)
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-            }
-            // 指示器行对 VoiceOver 隐藏——进行态已由下方文字行的 accessibilityValue
-            // 表达，重复播报图形化的圆点/数字/checkmark 只会增加噪音。
-            .accessibilityHidden(true)
+                        .frame(maxWidth: .infinity)
+                        .background {
+                            HStack(spacing: 0) {
+                                Rectangle()
+                                    .fill(index > 0 ? self.connectorFill(after: index - 1) : AnyShapeStyle(Color.clear))
+                                    .frame(height: CoreBorderWidth.thick)
+                                Rectangle()
+                                    .fill(index < last ? self.connectorFill(after: index) : AnyShapeStyle(Color.clear))
+                                    .frame(height: CoreBorderWidth.thick)
+                            }
+                        }
+                        // 指示器对 VoiceOver 隐藏——进行态已由下方文字的 accessibilityValue
+                        // 表达，重复播报图形化圆点/数字/checkmark 只增噪音。
+                        .accessibilityHidden(true)
 
-            HStack(alignment: .top, spacing: 0) {
-                ForEach(self.items.indices, id: \.self) { index in
                     self.applyStepAccessibility(
                         self.stepText(for: index, alignment: .center)
                             .multilineTextAlignment(.center),
                         index: index
                     )
-                    .frame(maxWidth: .infinity)
                 }
+                .frame(maxWidth: .infinity)
             }
         }
     }
 
     private var verticalBody: some View {
         VStack(spacing: 0) {
-            ForEach(self.items.indices, id: \.self) { index in
+            ForEach(Array(self.items.enumerated()), id: \.element.id) { index, _ in
                 self.applyStepAccessibility(
                     HStack(alignment: .top, spacing: CoreSpacing.md) {
                         VStack(spacing: 0) {
@@ -288,6 +295,15 @@ public struct Steps: View {
         } else {
             Rectangle().fill(Color.dividerDefault)
         }
+    }
+
+    /// 连线取色（`connector(after:)` 的 `ShapeStyle` 形态，供横向布局的背景半段填充复用）：
+    /// 「第 index 步之后」的连线——该步已完成走 `.tint`（不写死 `Color.accent`），否则走
+    /// `Color.dividerDefault`（phase0-decisions.md §1 连线取色决策）。
+    private func connectorFill(after index: Int) -> AnyShapeStyle {
+        self.progress(for: index) == .done
+            ? AnyShapeStyle(.tint)
+            : AnyShapeStyle(Color.dividerDefault)
     }
 
     // MARK: - Text rendering
