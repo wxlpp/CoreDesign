@@ -139,42 +139,56 @@ public struct Descriptions<Content: View>: View {
     }
 
     @ViewBuilder
-    private func groupedRows<Row: View>(groups: [[Int]], rows: [Row]) -> some View {
+    private func groupedRows(groups: [[Int]], rows: [Subview]) -> some View {
+        // 行组身份挂到组内首行 Subview 的**稳定 id**（而非位置 offset）——中途增删行时
+        // 既有组不因位移而重建（避免行内 `@State` 错配 / 过渡动画错乱），与
+        // `InsetGroupedSection` 用 `Subview` 稳定 id 的先例一致。
+        let identified = groups.map { (id: rows[$0[0]].id, indices: $0) }
         switch self.dividerDensity {
         case .row:
             // 每个行组都是顶层视图——`InsetGroupedSection` 自身的 `Group(subviews:)`
             // 会把它们逐一识别为独立的行，按其默认逻辑在相邻行组之间插入分隔线。
-            ForEach(Array(groups.enumerated()), id: \.offset) { _, indices in
-                self.rowContainer(indices: indices, rows: rows)
+            ForEach(identified, id: \.id) { group in
+                self.rowContainer(indices: group.indices, rows: rows)
             }
         case .none:
             // 所有行组包进同一个 `VStack`——对 `InsetGroupedSection` 而言这只是
             // **一个**顶层视图，其分隔线逻辑（行数 − 1）自然产出 0 条分隔线。
             VStack(alignment: .leading, spacing: CoreSpacing.md) {
-                ForEach(Array(groups.enumerated()), id: \.offset) { _, indices in
-                    self.rowContainer(indices: indices, rows: rows)
+                ForEach(identified, id: \.id) { group in
+                    self.rowContainer(indices: group.indices, rows: rows)
                 }
             }
         }
     }
 
     @ViewBuilder
-    private func rowContainer<Row: View>(indices: [Int], rows: [Row]) -> some View {
-        if self.effectiveColumns == .one, indices.count == 1 {
-            rows[indices[0]]
-        } else {
-            Grid(alignment: .leading, horizontalSpacing: CoreSpacing.lg, verticalSpacing: CoreSpacing.xs) {
-                GridRow {
-                    ForEach(indices, id: \.self) { index in
-                        rows[index]
-                            // 奇数行数的最后一组只含 1 个索引——占满整行，而不是
-                            // 空出第二列（`DescriptionsLayout.rowGroups` 已保证
-                            // 这类组恰好 1 个元素）。
-                            .gridCellColumns(indices.count == 1 ? 2 : 1)
+    private func rowContainer(indices: [Int], rows: [Subview]) -> some View {
+        Group {
+            if self.effectiveColumns == .one, indices.count == 1 {
+                rows[indices[0]]
+            } else {
+                Grid(alignment: .leading, horizontalSpacing: CoreSpacing.lg, verticalSpacing: CoreSpacing.xs) {
+                    GridRow {
+                        ForEach(indices, id: \.self) { index in
+                            rows[index]
+                                // 奇数行数的最后一组只含 1 个索引——占满整行，而不是
+                                // 空出第二列（`DescriptionsLayout.rowGroups` 已保证
+                                // 这类组恰好 1 个元素）。
+                                .gridCellColumns(indices.count == 1 ? 2 : 1)
+                        }
                     }
                 }
             }
         }
+        // 行自内边距——`InsetGroupedSection` 的卡片不提供行内边距（既有观感全靠行自带
+        // padding，见 `SettingsRow`）。水平 inset 取 `SettingsRowMetrics.horizontalPadding`，
+        // 与 `.textAligned` 分隔线 inset 同源，从而文字 leading 与分隔线 leading 对齐、
+        // 首末行不顶卡片圆角；垂直取 `CoreSpacing.sm`（对照 `SettingsRow`，但不强制 44pt
+        // minHeight——键值行可比设置行更紧凑）。
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+        .padding(.vertical, CoreSpacing.sm)
     }
 }
 

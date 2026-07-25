@@ -12,9 +12,11 @@ import SwiftUI
 /// 的 `makeBody` 是公开 API，与 `CoreLabelStyle` / `CoreProgressViewStyle` 同一形态。
 ///
 /// 描述列表惯例：字段名（`label`）弱化、值（`content`）强化——`label` 走
-/// `Color.contentSecondary`，`content` 走 `Color.contentPrimary`。布局沿用系统
-/// `LabeledContent` 默认的「label leading、content trailing」排布（`HStack` +
-/// `Spacer`），本 style 只重新着色，不改变几何。
+/// `Color.contentSecondary`，`content` 走 `Color.contentPrimary`。沿用「label leading、
+/// content trailing」的语义排布，但几何由本 style 自建：`HStack(alignment: .firstTextBaseline)`
+/// + `CoreSpacing.sm` 间距 + `Spacer(minLength:)` + 值侧 `.multilineTextAlignment(.trailing)`
+/// （系统默认为 center 对齐——重排 alignment 是本 style 的有意设计，属 style 协议正当用途，
+/// 不是「重造控件」）。
 ///
 /// `Descriptions` 分组容器内的每一行都套用本 style；也可独立套用在任意
 /// `LabeledContent` 上（见下方 `#Preview`）。
