@@ -68,6 +68,10 @@ PinCode(value: $code, length: 6)
 > `onComplete`**——「初值即完成」不是一次「填满」事件，且若触发，在 `NavigationStack` 里
 > `onComplete` 跳转 → 用户 pop 返回 → 再次挂载会形成 push→pop→再 push 循环。若调用方需要
 > 「预填初值也回调一次」，请在自己的 `.task`/`.onAppear` 里显式调用。
+>
+> **验证失败后请清空 `value`**：满态下自动填充/粘贴整体**替换**成另一个完整码会正常再次触发
+> `onComplete`；但若替换是**追加**（罕见），超长部分会被 `prefix(length)` 吞掉、值不变、无反馈。
+> 统一的稳妥做法是——验证失败后把 `value` 清空，让下一个码走干净的「空 → 满」路径。
 
 ## 视觉 Token
 

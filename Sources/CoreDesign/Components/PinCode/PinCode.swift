@@ -214,16 +214,19 @@ public struct PinCode: View {
         }
     }
 
-    /// `onComplete` 转变沿判定（纯函数，可单测）：新值已满**且**旧值（先规整）未满时才为真。
+    /// `onComplete` 触发判定（纯函数，可单测）：新值已满**且**「规整后的旧值 ≠ 新值」时才为真。
     ///
     /// `previousValue` 是 `onChange` 提供的**击键前**旧值——**不能**用 `self.value`：隐藏
-    /// `TextField` 直接绑 `$value`，onChange 触发时 `self.value` 已被写成新值。`previousValue`
-    /// 先经 `sanitizedValue` 规整再判「已满」，以正确处理写回引发的第二轮 onChange
-    /// （old 为超长原始值，严格 `==` 会误判未满 → 重复触发）。
+    /// `TextField` 直接绑 `$value`，onChange 触发时 `self.value` 已被写成新值。
+    ///
+    /// 抑制条件用「规整旧值 == 新值」而非「旧值已满」：后者会漏掉「满态整体替换成另一个完整
+    /// 码」——iOS `.oneTimeCode` 自动填充的招牌场景（用户已手输错码、验证失败未清空，短信到达
+    /// 点自动填充横幅整体替换）就是满→满但内容不同，应当触发。用相等判定：补满触发 ✓；满态多敲/
+    /// 噪声引发的写回第二轮配对恒为 `(raw, sanitize(raw))`、规整后必然相等 → 结构性永假、不重触发 ✓；
+    /// 满态替换新码 → 不等 → 触发 ✓。
     static func shouldFireComplete(previousValue: String, newSanitized: String, length: Int) -> Bool {
-        let previousSanitized = Self.sanitizedValue(from: previousValue, length: length)
-        return Self.isComplete(value: newSanitized, length: length)
-            && !Self.isComplete(value: previousSanitized, length: length)
+        Self.isComplete(value: newSanitized, length: length)
+            && Self.sanitizedValue(from: previousValue, length: length) != newSanitized
     }
 
     // MARK: - Pure logic (unit-testable via `@testable import`)

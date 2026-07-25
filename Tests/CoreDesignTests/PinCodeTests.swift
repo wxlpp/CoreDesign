@@ -171,13 +171,27 @@ struct PinCodeTests {
     // 已写），再以真旧值调两参 `processInput(raw, previousValue: old)`。单参/binding 未预写的
     // 旧测试形态是运行时不存在的上下文（会假绿），已全部废弃。
 
-    @Test("shouldFireComplete：新值满 且 旧值(规整后)未满 才为真（含写回第二轮）")
+    @Test("shouldFireComplete：新值满 且『规整旧值 ≠ 新值』才为真（含写回第二轮 / 满态替换）")
     func shouldFireCompleteTruthTable() {
-        #expect(PinCode.shouldFireComplete(previousValue: "123", newSanitized: "1234", length: 4))    // 补满 → fire
-        #expect(!PinCode.shouldFireComplete(previousValue: "1234", newSanitized: "1234", length: 4))  // 满→满
-        // 写回第二轮：旧值超长(count 5≠4) 但规整后 "1234" 已满 → 不 fire（严格 == 会误判未满）
+        #expect(PinCode.shouldFireComplete(previousValue: "123", newSanitized: "1234", length: 4))     // 补满 → fire
+        #expect(!PinCode.shouldFireComplete(previousValue: "1234", newSanitized: "1234", length: 4))   // 满→满同值 → 不 fire
+        // 写回第二轮：旧值超长 `(raw, sanitize(raw))` 规整后与新值相等 → 结构性不 fire
         #expect(!PinCode.shouldFireComplete(previousValue: "12345", newSanitized: "1234", length: 4))
-        #expect(!PinCode.shouldFireComplete(previousValue: "12", newSanitized: "123", length: 4))     // 未满→未满
+        #expect(!PinCode.shouldFireComplete(previousValue: "12", newSanitized: "123", length: 4))      // 未满→未满 → 不 fire
+        // 满态整体替换成另一个完整码（iOS .oneTimeCode 自动填充招牌场景）→ 内容不同 → fire
+        #expect(PinCode.shouldFireComplete(previousValue: "1111", newSanitized: "2222", length: 4))
+    }
+
+    @Test("onComplete：满态自动填充替换成新的完整码时触发（.oneTimeCode 场景）")
+    func onCompleteFiresOnFullReplace() {
+        var captured: String?
+        var count = 0
+        var stored = "2222"   // 自动填充已把新码整体写进 binding
+        let binding = Binding(get: { stored }, set: { stored = $0 })
+        let pin = PinCode(value: binding, length: 4, onComplete: { captured = $0; count += 1 })
+        pin.processInput("2222", previousValue: "1111")   // 旧码 "1111" 已满但内容不同
+        #expect(captured == "2222")
+        #expect(count == 1)
     }
 
     @Test("onComplete：正常补满最后一位触发一次，参数为最终值（主路径回归守卫）")
