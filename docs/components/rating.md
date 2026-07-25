@@ -41,9 +41,10 @@ Rating(value: $rating)
 
 ## 手势与取值
 
-拖拽 / 点按沿控件宽度更新 `value`：按 `step`（`allowsHalfStar ? 0.5 : 1.0`）就近取整后写回
-`Binding`，并 clamp 在 `0...count`。`isReadOnly == true` 或外层 `.disabled(true)` 时手势整体
-不挂载。
+拖拽 / 点按沿控件宽度更新 `value`：按 `step`（`allowsHalfStar ? 0.5 : 1.0`）**向上取整（ceiling）**
+后写回 `Binding`，并 clamp 在 `0...count`——落在第 k 颗星上的点按得 k 分（半星模式下星 k 左半 → k−0.5、
+右半 → k），最左缘得 0（清空）。RTL 布局下按 `layoutDirection` 沿宽度翻折坐标，保证「点视觉上的第 k 颗星」
+两个方向下都得 k 分。`isReadOnly == true` 或外层 `.disabled(true)` 时手势整体不挂载。
 
 > **已知取舍：嵌入纵向 `ScrollView` / `List` 时的手势冲突**——手势用
 > `DragGesture(minimumDistance: 0)` 以保留精确点按语义（拖拽或点按均可设值）。
