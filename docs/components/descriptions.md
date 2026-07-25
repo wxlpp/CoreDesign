@@ -29,8 +29,10 @@
 
 重排系统 `LabeledContent` 的 `label` / `content`（不重新实现控件本身）：`label` 走
 `Color.contentSecondary`（弱化），`content` 走 `Color.contentPrimary`（强化）——
-描述列表惯例：字段名弱化、值强化。布局沿用系统默认的「label leading、content
-trailing」排布，本 style 只重新着色。
+描述列表惯例：字段名弱化、值强化。沿用「label leading、content trailing」的语义排布，
+但几何由本 style 自建：`HStack(alignment: .firstTextBaseline)` + `CoreSpacing.sm` 间距 +
+`Spacer(minLength:)` + 值侧 `.multilineTextAlignment(.trailing)`（重排 alignment 是 style
+协议的正当用途，非「重造控件」）。
 
 ### Descriptions
 

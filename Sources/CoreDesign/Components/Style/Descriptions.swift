@@ -153,8 +153,10 @@ public struct Descriptions<Content: View>: View {
             }
         case .none:
             // 所有行组包进同一个 `VStack`——对 `InsetGroupedSection` 而言这只是
-            // **一个**顶层视图，其分隔线逻辑（行数 − 1）自然产出 0 条分隔线。
-            VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            // **一个**顶层视图，其分隔线逻辑（行数 − 1）自然产出 0 条分隔线。spacing 取 0：
+            // 行已各自带垂直 padding，`.none` 与 `.row` 的行距节奏应一致（只差一条 hairline），
+            // 不该因切换密度从 16pt 跳到 28pt。
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(identified, id: \.id) { group in
                     self.rowContainer(indices: group.indices, rows: rows)
                 }
