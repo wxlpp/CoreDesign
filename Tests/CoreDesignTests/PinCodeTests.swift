@@ -210,4 +210,51 @@ struct PinCodeTests {
         pinCode.processInput("1a2b3c4d5e")
         #expect(stored == "1234")
     }
+
+    // MARK: - onComplete 转变沿（未满→满才触发，防重放）
+
+    @Test("shouldFireComplete：仅未满→满为真；满→满 / 未满→未满为假")
+    func shouldFireCompleteEdge() {
+        #expect(PinCode.shouldFireComplete(oldValue: "123", newSanitized: "1234", length: 4))   // 未满→满 ✓
+        #expect(!PinCode.shouldFireComplete(oldValue: "1234", newSanitized: "1234", length: 4))  // 满→满（重放/噪声）✗
+        #expect(!PinCode.shouldFireComplete(oldValue: "12", newSanitized: "123", length: 4))     // 未满→未满 ✗
+        #expect(!PinCode.shouldFireComplete(oldValue: "", newSanitized: "", length: 4))          // 空→空 ✗
+    }
+
+    @Test("onComplete：已满态再输入不重复触发（防满态双触发 + onAppear 重放）")
+    func onCompleteDoesNotRefireWhenAlreadyComplete() {
+        var callCount = 0
+        var stored = "1234"   // 初始已满（模拟 onAppear 已满初值 / 满态后再输入）
+        let binding = Binding(get: { stored }, set: { stored = $0 })
+        let pinCode = PinCode(value: binding, length: 4, onComplete: { _ in callCount += 1 })
+        pinCode.processInput("1234")    // onAppear 重放
+        pinCode.processInput("12345")   // 满态后多敲一位（被截断回 1234）
+        #expect(callCount == 0)         // 均不触发——旧值已满
+        #expect(stored == "1234")
+    }
+
+    @Test("onComplete：删一位再补回最后一位应再次触发（转变沿复位正确）")
+    func onCompleteRefiresAfterDropAndRefill() {
+        var callCount = 0
+        var stored = ""
+        let binding = Binding(get: { stored }, set: { stored = $0 })
+        let pinCode = PinCode(value: binding, length: 4, onComplete: { _ in callCount += 1 })
+        pinCode.processInput("1234")   // 未满→满：触发 1
+        pinCode.processInput("123")    // 删一位：未满，不触发
+        pinCode.processInput("1234")   // 未满→满：再触发
+        #expect(callCount == 2)
+    }
+
+    // MARK: - accessibility value（非掩码补数字）
+
+    @Test("accessibilityValueText：非掩码且已填时把数字附在位置后")
+    func accessibilityValueAppendsDigitWhenVisible() {
+        #expect(PinCode.accessibilityValueText(index: 3, count: 6, character: "7", isSecure: false) == "3 of 6, 7")
+    }
+
+    @Test("accessibilityValueText：掩码态 / 空格只播位置，不泄露不臆造")
+    func accessibilityValueHidesDigitWhenSecureOrEmpty() {
+        #expect(PinCode.accessibilityValueText(index: 3, count: 6, character: "7", isSecure: true) == "3 of 6")
+        #expect(PinCode.accessibilityValueText(index: 4, count: 6, character: nil, isSecure: false) == "4 of 6")
+    }
 }

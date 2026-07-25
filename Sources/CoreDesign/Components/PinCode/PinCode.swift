@@ -139,7 +139,7 @@ public struct PinCode: View {
         TextField("", text: self.$value)
             .focused(self.$isFocused)
             .textFieldStyle(.plain)
-            .disableAutocorrection(true)
+            .autocorrectionDisabled(true)
             #if os(iOS)
             .textContentType(.oneTimeCode)
             .keyboardType(.numberPad)
@@ -183,7 +183,7 @@ public struct PinCode: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text("Verification code", bundle: .module))
-            .accessibilityValue(Text(verbatim: Self.positionText(index: index + 1, count: self.length)))
+            .accessibilityValue(Text(verbatim: Self.accessibilityValueText(index: index + 1, count: self.length, character: character, isSecure: self.isSecure)))
             .accessibilityAddTraits(isCurrent ? .isSelected : [])
             .accessibilityAction {
                 self.isFocused = true
@@ -192,17 +192,29 @@ public struct PinCode: View {
 
     // MARK: - Processing entry (unit-testable via `@testable import`)
 
-    /// 处理一次原始输入：过滤非数字字符 + clamp 长度，结果写回 `value`；填满 `length`
-    /// 格时触发 `onComplete`。`hiddenTextField` 的 `onChange` 与 `body` 的 `onAppear`
+    /// 处理一次原始输入：过滤非数字字符 + clamp 长度，结果写回 `value`；**仅在「未满→满」
+    /// 的转变沿**触发 `onComplete`。`hiddenTextField` 的 `onChange` 与 `body` 的 `onAppear`
     /// 都经由这一个入口，保证初始值与运行期输入走同一套清洗逻辑。
+    ///
+    /// 转变沿判定基于「写回前的旧 `value` 是否已满」vs「清洗后的新值是否已满」——只有从
+    /// 「未满」跨到「满」才触发。这消除三类误触发：①已满态再键入任意字符（含被过滤的噪声）
+    /// 时的重复触发；②`onAppear` 对已满初始值的重放（NavigationStack 场景下会 push→pop→
+    /// 再 push 成导航循环）。删一位再补回最后一位时旧值已「未满」，故能正确再次触发。
     func processInput(_ raw: String) {
         let sanitized = Self.sanitizedValue(from: raw, length: self.length)
+        let fires = Self.shouldFireComplete(oldValue: self.value, newSanitized: sanitized, length: self.length)
         if sanitized != self.value {
             self.value = sanitized
         }
-        if Self.isComplete(value: sanitized, length: self.length) {
+        if fires {
             self.onComplete?(sanitized)
         }
+    }
+
+    /// `onComplete` 转变沿判定（纯函数，可单测）：新值已满**且**旧值未满时才为真。
+    static func shouldFireComplete(oldValue: String, newSanitized: String, length: Int) -> Bool {
+        Self.isComplete(value: newSanitized, length: length)
+            && !Self.isComplete(value: oldValue, length: length)
     }
 
     // MARK: - Pure logic (unit-testable via `@testable import`)
@@ -244,6 +256,16 @@ public struct PinCode: View {
     /// 形状跑偏都是静默 fallback，需要能被单测锁定。
     static func positionText(index: Int, count: Int) -> String {
         String(localized: "\(index.formatted()) of \(count.formatted())", bundle: .module)
+    }
+
+    /// 格位 accessibility value：位置键（`positionText`）+ 非掩码且已填时把该格数字明文附上
+    /// （数字本身是数值、无需本地化键），让 VoiceOver 用户能逐格复核已输入内容——弥补
+    /// 纯位置播报「听不到填了什么」的缺口。`isSecure` 或空格时只播位置，不泄露/不臆造内容。
+    /// （空格「empty」/掩码「filled」这类措辞需新本地化键，按房规留到 013 统一补登。）
+    static func accessibilityValueText(index: Int, count: Int, character: Character?, isSecure: Bool) -> String {
+        let position = Self.positionText(index: index, count: count)
+        guard !isSecure, let character else { return position }
+        return "\(position), \(character)"
     }
 }
 
