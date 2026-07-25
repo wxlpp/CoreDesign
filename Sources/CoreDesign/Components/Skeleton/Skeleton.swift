@@ -25,7 +25,8 @@ import SwiftUI
 ///
 /// 取色遵循 semi-mobile-components Phase 0 定案：底色 `Color.skeletonBase`
 /// （= `.fill`，系统 `systemFill`）、shimmer 高光 `Color.skeletonHighlight`
-/// （= 底色 `.opacity(0.35)`），见 `Colors/FillColors.swift`——**不新增 colorset**。
+/// （= `skeletonBase.mix(with: .white, by: 0.5)` 向白提亮，#162 裁决），
+/// 见 `Colors/FillColors.swift`——**不新增 colorset**。
 ///
 /// ```swift
 /// Skeleton(isLoading: viewModel.isLoading) {
@@ -220,8 +221,9 @@ public extension View {
     /// 骨架屏 shimmer 扫光叠加。以 `LinearGradient` 遮罩（`.mask`）配合随时间推进的
     /// 位移，在占位形状上方持续扫过一条高亮带，传达"仍在加载"的动态反馈。
     ///
-    /// 高光色取 `Color.skeletonHighlight`（Phase 0 定案，`skeletonBase.opacity(0.35)`
-    /// 派生，不新增 colorset）。尊重 `accessibilityReduceMotion`——开启时跳过动画，
+    /// 高光色取 `Color.skeletonHighlight`（`skeletonBase.mix(with: .white, by: 0.5)`
+    /// 向白提亮，#162 裁决，见 `FillColors.swift` Note，不新增 colorset）。尊重
+    /// `accessibilityReduceMotion`——开启时跳过动画，
     /// 只保留静态占位底色，不产生持续运动。
     ///
     /// `Skeleton` 已在其占位分支自动叠加本 modifier，调用方通常不需要手动调用；

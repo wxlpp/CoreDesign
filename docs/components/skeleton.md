@@ -73,7 +73,7 @@ Skeleton(isLoading: viewModel.isLoading) {
 ## 视觉 Token
 
 - 占位底色：`Color.skeletonBase`（= `Color.fill`，系统 `systemFill`），随系统外观 / 对比度自动更新
-- shimmer 高光：`Color.skeletonHighlight`（= `skeletonBase.opacity(0.35)`），由底色派生，**不新增 colorset**（semi-mobile-components Phase 0 定案，见 `Colors/FillColors.swift`）
+- shimmer 高光：`Color.skeletonHighlight`（= `skeletonBase.mix(with: .white, by: 0.5)` 向白提亮，#162 裁决），由底色派生，**不新增 colorset**（见 `Colors/FillColors.swift` Note）
 - 圆角：`SkeletonLine` 用 `lineHeight / 2`（胶囊化行占位，末行收窄用显式 `frame(width:)` 而非 `.scaleEffect`，避免压扁圆角端）；`SkeletonRect` 默认 `CoreRadius.medium`
 - shimmer 周期：1.4s，`TimelineView(.periodic(from:by:))` 以 ~30fps 驱动（多行同屏时比 `.animation` 的屏幕最高刷新率更省电），不使用 `repeatForever`
 - 可访问性：占位态整体收敛为一个 `accessibilityElement(children: .ignore)` + `"Loading"` 标签（复用 `ProgressIndicator` 已登记的 `Localizable` 键，非新增字符串）
