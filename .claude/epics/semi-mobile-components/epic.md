@@ -2,7 +2,7 @@
 name: semi-mobile-components
 status: backlog
 created: 2026-07-25T08:25:36Z
-updated: 2026-07-25T08:34:08Z
+updated: 2026-07-25T08:37:58Z
 progress: 0%
 prd: .claude/prds/semi-mobile-components.md
 github: (will be set on sync)
@@ -22,7 +22,7 @@ github: (will be set on sync)
 
 - **形态优先级（承 PRD FR-4）**：能复用系统 style 协议的走协议（Descriptions → `.core LabeledContentStyle` + `InsetGroupedSection` 分组）；能用原生 modifier 达成的做成 modifier（Skeleton = `.redacted(.placeholder)` + shimmer 叠加；Spin 能力 = `spinning(_:)` 遮罩 modifier）；否则才是独立 `Components/<Name>/` 组件。这条决定了每个交付物的文件落点与是否新造类型。
 - **色彩单一来源**：仅取第 3-4 层语义 token；占位底色复用 `FillColors`（systemFill 家族），连线/分隔复用 `BorderColors`/separator。**shimmer 高亮优先从 `FillColors` 派生**（`Color.mix(with:by:)`/`.opacity()`，承 accent 衍生态先例），力求**不新增 colorset**——若能派生则免掉 `swift package clean`(NFR-5.2) 与 `ColorAssetGuardTests` 登记两环；确需新 colorset 时，这两环列入 Phase 0(001) 交付物。
-- **节点状态语义复用 `StatusLevel`**：Steps/Timeline 的节点态（完成/当前/错误）优先复用既有 `Components/StatusLevel.swift`（该枚举正是当年合并 Toast/Banner 各自重复状态枚举而来，见其 doc-comment）；两组件不得各自发明 `StepState`/`TimelineNodeState`。若确需新增共享状态枚举，归 Phase 0 定案，不在并行 Issue 里各造。
+- **节点状态语义**：`StatusLevel`（`info/success/warning/danger`，见 `Components/StatusLevel.swift`）**只表达消息级别，不含「当前/未完成」进行态**。故：**Timeline 节点状态色复用 `StatusLevel`**；**Steps 的进行态（未完成/当前/完成）由 `currentIndex` 派生**（private 即可，不新增公开枚举），**错误态取 `StatusLevel.danger`/`StatusColors` 映射**。两组件不得各自新增*公开的*状态语义枚举（当年 `ToastLevel`/`MessageLevel` 合并教训针对的正是「两个公开、case 相同」的枚举）；private 进行态派生不属此列。确需*公开*共享枚举才归 Phase 0 定案。
 - **强调色走 `.tint`**（FR-3），唯一例外 FR-3a：包装系统 `ProgressView` 的文件（ProgressIndicator 增强）必须显式 `.tint(Color.accent)`，SC-5 静态核对对该文件豁免。
 - **双端单一实现**（NFR-2）：不留单端公开符号。Carousel 统一 `ScrollView(.horizontal)` + `.scrollTargetBehavior(.paging)` + `scrollPosition(_:)`（不用 iOS-only `TabView(.page)`）；PinCode 的 `keyboardType`/`.oneTimeCode` 以 `#if os(iOS)` 包裹、macOS 走等价 TextField。
 - **无破坏性**（NFR-6）：ProgressIndicator 增强以新增带文案参数的 init/重载、保留现有 `init()` 实现，不改现有签名。
@@ -59,11 +59,11 @@ public 导出 → `bundle:.module` 资源 → 同文件 `#Preview`（Light/Dark 
 
 - **Phase 0（先行，阻塞后续）**：落地共享地基——
   1. 占位/连线取色定案；shimmer 高亮**优先从 `FillColors` 派生**（免 colorset），确需 colorset 才补 `swift package clean` + `ColorAssetGuardTests` 登记；
-  2. 若各组件 accessibility label/复数需入 `Localizable.strings`(+`.stringsdict`)：**在此预登记全部已枚举的键**（append-only），消除并行阶段抢改单一字符串表的冲突；
+  2. 若各组件 accessibility label/复数需入 `Localizable.strings`(+`.stringsdict`)：**在此预登记全部已枚举的键**（append-only），消除并行阶段抢改单一字符串表的冲突；**并行期发现漏键**则记入该 Issue、组件暂用已登记键或英文字面量+TODO，由 013 统一补登（并行 Issue 不改 `.strings`）；
   3. 给 `scripts/run-snapshots.sh` 加 `KEEP_LIBRARY_SNAPSHOTS=1` 保留开关，并让保留模式把库内 `CoreDesign_*` 产物**导出到 scratch 目录而非 `docs/snapshots`**（该脚本开头 `rm -rf docs/snapshots`，避免并行 worktree 跑评审后误提交已提交的宿主 snapshot）；
   4. 建 `epic/semi-mobile-components` 分支。
   此 Issue 合入 `epic/` 后其余才启动。
-- **Phase 1（并行）**：10 个组件各一 Issue，各自私有 worktree，只写自己的 `Components/<Name>/` 与 `<Name>Tests.swift`，不碰上述共享冲突面；各 Issue 内走 TDD（红→绿）；视觉评审用库内 `#Preview` snapshot 副产物（Phase 0 开关保留、导出到 scratch）逐 Issue 送 ios-visual-reviewer。
+- **Phase 1（并行）**：10 个组件各一 Issue，各自私有 worktree，**只新增/修改归属本交付物的文件**（009 Descriptions 的 `.core LabeledContentStyle` 落 `Components/Style/`；012 改既有 `Components/ProgressIndicator/ProgressIndicator.swift` + 新增 `Modifier/SpinningModifier.swift`）+ 各自 `Tests/CoreDesignTests/<Name>Tests.swift` + 各自 `docs/components/<name>.md`，**不碰 Overview 列出的共享冲突面**；各 Issue 内走 TDD（红→绿）；视觉评审用库内 `#Preview` snapshot 副产物（Phase 0 开关保留、导出到 scratch）逐 Issue 送 ios-visual-reviewer，**并在评审提示里非正式核对 44pt 命中区与大字号布局**（让 013 的共享 suite 断言汇入是「确认」而非「发现」）。
 - **Phase 3（串行收尾，独立任务 013，depends_on 002–012）**：统一注册 `App/Sources/Previews.swift` **与 `App/Sources/ComponentData.swift`（`ComponentMeta.all` + `ComponentCategory` 归类，宿主画廊/detail 导航；两者均编辑既有已提交文件、不新增 App 源文件，不触发 xcodegen 盲区）**、把各组件 touch-target/dynamic-type 断言汇入共享 suite、更新 `docs/README.md` 索引、宿主内 `run-preview.sh` 批量视觉复查（SC-6 整体判定）、Typography 墓碑文档、版本/BREAKING-CHANGES 收尾（纯新增，非破坏）。
 - 每个 Issue PR base = `epic/`，走 auto-fix-pr 闭环；全 auto 流转，仅 epic→main 停下确认。
 
@@ -71,14 +71,14 @@ public 导出 → `bundle:.module` 资源 → 同文件 `#Preview`（Light/Dark 
 
 > 共 **13 个任务**（1 前置 + 11 并行组件/增强 + 1 收尾），刻意超出 ccpm「≤10」软约束：10 组件 + 1 增强包是 PRD 明确的独立并行单元，捆绑会牺牲并行度并制造 worktree/共享文件冲突，与 PRD 的并行设计相悖；故只在首尾各加 1 个阶段性任务，中间保持 1 交付物 = 1 任务。
 
-- **[Phase 0] 001 共享地基**：占位/连线取色定案 + shimmer token（按需）+ `run-snapshots.sh` 保留开关 + 建 `epic/` 分支。（阻塞后续）
+- **[Phase 0] 001 共享地基**：占位/连线取色定案 + shimmer 派生(优先免 colorset) + `Localizable.strings` 预登记已枚举键 + `run-snapshots.sh` 保留开关(导出 scratch、跳过两处删除) + 建 `epic/` 分支。（阻塞后续）
 - **[Phase 1 并行] 002 Skeleton** — `.redacted`+shimmer modifier + 形状画廊
 - **[Phase 1 并行] 003 Steps** — 横/纵、点/数字、tint+状态色
 - **[Phase 1 并行] 004 Timeline** — 节点+连线+状态色
 - **[Phase 1 并行] 005 Rating** — 复用 StarShape、半星、只读
 - **[Phase 1 并行] 006 PinCode** — OTP 分格、oneTimeCode、isSecure
 - **[Phase 1 并行] 007 Radio** — 单选组、与 CheckBox 成对
-- **[Phase 1 并行] 008 TagInput** — 复用 FlowLayout
+- **[Phase 1 并行] 008 TagInput** — 复用 FlowLayout + `Tag(removable:onRemove:)` chip
 - **[Phase 1 并行] 009 Descriptions** — `.core LabeledContentStyle`+InsetGrouped
 - **[Phase 1 并行] 010 FloatButton** — glass FAB
 - **[Phase 1 并行] 011 Carousel** — 跨端 paging + 自动轮播
@@ -106,6 +106,6 @@ public 导出 → `bundle:.module` 资源 → 同文件 `#Preview`（Light/Dark 
 
 - **Phase 0**：0.5–1 天（取色定案 + 脚本开关 + 分支）。
 - **Phase 1**：10 组件并行，单组件约 0.5–1.5 天（Rating/Radio/FloatButton 偏低，Carousel/Timeline/PinCode 偏高）；并行墙钟约 2–3 天。
-- **Phase 3**：0.5–1 天（注册 + 索引 + 复查 + 墓碑 + 发版）。
+- **Phase 3（013）**：1–1.5 天（`Previews.swift`+`ComponentData.swift` 注册 + 为 ~5-7 个新交互组件把 touch-target/dynamic-type 断言汇入共享 suite 并跑 iOS Simulator 腿 + 索引 + 宿主复查 + 墓碑 + 发版）。
 - **关键路径**：Phase 0 → 最慢组件 → Phase 3；并行下总墙钟约 3–5 天。
 - **关键假设**：色层足够（仅 1 个 shimmer token），Phase 0 验证。
