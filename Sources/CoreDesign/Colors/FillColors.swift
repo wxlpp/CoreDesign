@@ -83,5 +83,10 @@ public extension Color {
     ///
     /// 由 `skeletonBase` 经 `.opacity()` 派生的更透明高光——用于 shimmer 渐变的亮带，
     /// 与底色形成微弱明暗差。无需新增 colorset，随底色一并跟随系统外观。
+    ///
+    /// > Note: `.opacity()` 降透明造亮带在亮色下更接近浅背景（变亮 ✓），暗色下 systemFill
+    /// > 是低透明白、更透明反而更接近深背景（可能变暗，与「暗色亮扫」直觉相反）。此为 Phase 0
+    /// > 的初始取值；**暗色观感留给 Skeleton（Issue #162）的视觉评审裁决**——若暗色需要反向亮扫，
+    /// > 允许改为 `Color.mix(with:by:in:)` 派生（如向 `Color.contentPrimary` 微调），此 token 可动。
     static var skeletonHighlight: Color { Color.fill.opacity(0.35) }
 }

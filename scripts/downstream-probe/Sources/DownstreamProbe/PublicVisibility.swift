@@ -136,3 +136,16 @@ func consumeSettingsRowMetrics() -> [CGFloat] {
         SettingsRowMetrics.textAlignedDividerInset,
     ]
 }
+
+// MARK: - Skeleton 取色 token（semi-mobile-components Phase 0 / Issue #161）
+//
+// `Color.skeletonBase` / `skeletonHighlight` 是 Phase 0 新增的公开取色面，供
+// Skeleton（Issue #162）的 shimmer modifier 复用。库内 @testable 测试只能证明
+// 「能编译」（internal 也可达），真正的公开可见性护栏在这里——从外部包消费它们，
+// 若日后漏写/收回 `public`，四条 SwiftPM 命令仍绿而此处会炸。
+// 必须 @MainActor：CoreDesign 开了 `.defaultIsolation(MainActor.self)`，这两个
+// 静态计算属性跨模块非 nonisolated 可达（同 ButtonRoleStyleRole 调色板）。
+@MainActor
+func consumeSkeletonColorTokens() -> [Color] {
+    [Color.skeletonBase, Color.skeletonHighlight]
+}

@@ -41,18 +41,24 @@ struct SharedFoundationTests {
     func accessibilityLabelKeysResolve() {
         // value: "\u{0}" 作哨兵——键存在时返回登记值，缺失时返回哨兵而非 key 自身，
         // 从而真正验证「键已注册」（而非 fallback 到 key 造成的假通过）。
-        for key in ["Rating", "Verification code", "Add tag"] {
+        let keys = [
+            "Rating", "Verification code", "Add tag",   // 组件标签
+            "Info", "Success", "Warning", "Error",       // Timeline 节点状态
+            "%@ of %@",                                   // 通用位置/数值键
+        ]
+        for key in keys {
             #expect(Self.bundle.localizedString(forKey: key, value: "\u{0}", table: nil) == key)
         }
     }
 
-    // MARK: - 骨架屏取色 token（公开可见性 + 非 colorset 派生）
+    // MARK: - 骨架屏取色 token（可引用性 · 非 colorset 派生）
 
-    @Test("Skeleton 取色 token 为公开 API，可从下游模块引用")
+    @Test("Skeleton 取色 token 可引用且编译可用")
     @MainActor
-    func skeletonColorTokensArePublic() {
-        // 仅需能从测试模块（模拟下游）引用即证明其 public 且编译可用；
-        // 取值来源为系统 fill 派生，无新增 colorset。
+    func skeletonColorTokensAreUsable() {
+        // 注意：`@testable import` 下 internal 符号一样可解析，本测试**只**证明
+        // 「token 存在且编译可用」，不构成真正的 public 可见性护栏——后者由
+        // `scripts/downstream-probe` 从外部包 `consumeSkeletonColorTokens()` 守。
         let base = Color.skeletonBase
         let highlight = Color.skeletonHighlight
         _ = base

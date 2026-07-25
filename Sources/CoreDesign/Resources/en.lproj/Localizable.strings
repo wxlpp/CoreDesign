@@ -1,8 +1,11 @@
 /* Component internal UI strings (source language = en). */
+"%@ of %@" = "%@ of %@";
 "Add tag" = "Add tag";
 "Alert" = "Alert";
 "Collapsed" = "Collapsed";
+"Error" = "Error";
 "Expanded" = "Expanded";
+"Info" = "Info";
 "Loading" = "Loading";
 "Menu" = "Menu";
 "Progress" = "Progress";
@@ -10,7 +13,9 @@
 "Remove tag" = "Remove tag";
 "Send" = "Send";
 "Stop" = "Stop";
+"Success" = "Success";
 "Suggestions" = "Suggestions";
 "Tap to dismiss" = "Tap to dismiss";
 "Untitled" = "Untitled";
 "Verification code" = "Verification code";
+"Warning" = "Warning";
