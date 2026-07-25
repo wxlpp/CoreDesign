@@ -109,3 +109,23 @@ public 导出 → `bundle:.module` 资源 → 同文件 `#Preview`（Light/Dark 
 - **Phase 3（013）**：1–1.5 天（`Previews.swift`+`ComponentData.swift` 注册 + 为 ~5-7 个新交互组件把 touch-target/dynamic-type 断言汇入共享 suite 并跑 iOS Simulator 腿 + 索引 + 宿主复查 + 墓碑 + 发版）。
 - **关键路径**：Phase 0 → 最慢组件 → Phase 3；并行下总墙钟约 3–5 天。
 - **关键假设**：色层足够（仅 1 个 shimmer token），Phase 0 验证。
+
+## Tasks Created
+- [ ] 001.md - Phase 0 — 共享地基先行 (parallel: false)
+- [ ] 002.md - Skeleton 骨架屏 (parallel: true)
+- [ ] 003.md - Steps 步骤条 (parallel: true)
+- [ ] 004.md - Timeline 时间线 (parallel: true)
+- [ ] 005.md - Rating 评分 (parallel: true)
+- [ ] 006.md - PinCode 验证码输入 (parallel: true)
+- [ ] 007.md - Radio 单选组 (parallel: true)
+- [ ] 008.md - TagInput 标签输入 (parallel: true)
+- [ ] 009.md - Descriptions 描述列表 (parallel: true)
+- [ ] 010.md - FloatButton 悬浮按钮 (parallel: true)
+- [ ] 011.md - Carousel 走马灯 (parallel: true)
+- [ ] 012.md - ProgressIndicator 增强 + spinning modifier (parallel: true)
+- [ ] 013.md - Phase 3 — 收尾串行(注册/索引/断言汇入/发版) (parallel: false)
+
+Total tasks: 13
+Parallel tasks: 11 (002–012，均 depends_on 001)
+Sequential tasks: 2 (001 前置；013 收尾，depends_on 002–012)
+Estimated total effort: ~85–95 hours（并行墙钟约 3–5 天）
