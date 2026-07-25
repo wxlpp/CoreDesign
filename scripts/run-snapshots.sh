@@ -11,7 +11,8 @@ DEVICE="${SIMULATOR_DEVICE:-iPhone 17 Pro}"
 # docs/snapshots. This makes `git diff docs/snapshots` unconditionally empty in
 # keep mode — it does not depend on byte-identical re-rendering, so a legitimately
 # changed host preview (e.g. an Issue editing ProgressIndicator) cannot dirty a
-# committed snapshot. Default mode (=0) is byte-for-byte the prior behavior.
+# committed snapshot. Default mode (=0) reproduces the prior filesystem/xcodebuild
+# behavior byte-for-byte (only difference is one extra mode-announcement echo line).
 KEEP_LIBRARY_SNAPSHOTS="${KEEP_LIBRARY_SNAPSHOTS:-0}"
 case "${KEEP_LIBRARY_SNAPSHOTS}" in
   0 | 1) ;;
