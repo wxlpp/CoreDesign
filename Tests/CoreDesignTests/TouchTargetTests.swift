@@ -246,5 +246,18 @@ struct TouchTargetTests {
         let height = self.renderedHeight(control)
         #expect(height >= Self.minimumHitTarget, "SegmentedControl 容器实测高度 \(height)pt < 44pt")
     }
+
+    // MARK: - Rating（Issue #165）
+
+    // 星形视觉尺寸（`CoreControlMetrics.iconSize(for:) * 1.5`）在 `.regular` 档只有
+    // 24pt，低于 44pt 下限；`Rating.body` 用 `.frame(minHeight:)` 在 `contentShape`
+    // 之前补足命中区（见 `Rating.swift` body 内注释），本测试锁定这条地板确实生效。
+    @Test("Rating 在 .regular 档实测命中高度 ≥ 44pt")
+    func ratingMeetsMinimumTouchTarget() {
+        let rating = Rating(value: .constant(3))
+            .controlSize(.regular)
+        let height = self.renderedHeight(rating, width: nil)
+        #expect(height >= Self.minimumHitTarget, "Rating 实测高度 \(height)pt < 44pt")
+    }
 }
 #endif

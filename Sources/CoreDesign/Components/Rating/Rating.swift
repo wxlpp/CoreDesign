@@ -63,6 +63,10 @@ public struct Rating: View {
         CoreControlMetrics.iconSize(for: self.controlSize) * 1.5
     }
 
+    /// 手势坐标换算用的控件总宽度。**必须与 `star(at:)` 的 `.frame(width: starSize)` +
+    /// `HStack(spacing: CoreSpacing.xs)` 保持同一套公式**——两处独立算，改一处务必
+    /// 同步改另一处，否则拖拽手势的取值会与星形的真实渲染位置错位（无测试能抓到
+    /// 这类几何失步，因为 `RatingTests` 只用固定宽度单测 `steppedValue` 本身）。
     private var totalWidth: CGFloat {
         guard self.count > 0 else { return 0 }
         return CGFloat(self.count) * self.starSize + CGFloat(self.count - 1) * CoreSpacing.xs
@@ -83,7 +87,19 @@ public struct Rating: View {
                 self.star(at: index)
             }
         }
+        // `frame(minHeight:)` 在 `contentShape` 之前施加——地板，不裁切，与
+        // `TouchTargetTests.swift` 记录的「可信断言」前提一致（`contentShape` 挂在
+        // 撑高之后的最外层）。星形视觉尺寸（`starSize`）在多数 `controlSize` 档位下
+        // 小于 44pt 的 HIG 命中区下限，这里补足纵向命中区而不放大星形本身——多出的
+        // 空间由 HStack 居中吸收，视觉不变。
+        .frame(minHeight: CoreControlMetrics.height(for: self.controlSize))
         .contentShape(Rectangle())
+        // `minimumDistance: 0`——保留精确点按语义（AC 要求「拖拽或点按」都能设值）。
+        // 已知取舍：与原生 `Slider` 一样，把 Rating 嵌进纵向 `ScrollView` / `List`
+        // 时，起手落在星形上的纵向滑动会被本手势而非祖先滚动手势捕获（SwiftUI 对
+        // 后代视图的 `.gesture` 默认优先于祖先容器的滚动手势）。收窄手势识别范围
+        // 需要引入方向判定 / UIKit 手势代理协作，超出本组件当前范围；集成方若需要
+        // Rating 与纵向滚动共存，建议参考 `rating.md`「手势与取值」一节的说明。
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { drag in
@@ -99,10 +115,7 @@ public struct Rating: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Rating", bundle: .module))
         .accessibilityValue(
-            Text(verbatim: String(
-                localized: "\(self.value.formatted()) of \(Double(self.count).formatted())",
-                bundle: .module
-            ))
+            Text(verbatim: Self.accessibilityValueText(value: self.value, count: self.count))
         )
         .modifier(RatingAdjustableModifier(isInteractive: self.isInteractive) { direction in
             switch direction {
@@ -118,6 +131,9 @@ public struct Rating: View {
 
     // MARK: - Star rendering
 
+    // 每颗星固定 `.frame(width: starSize)`——这个宽度与 `HStack(spacing:
+    // CoreSpacing.xs)` 的间距共同决定控件总宽，`totalWidth` 据此独立推导手势坐标
+    // 换算的分母。两处几何若不同步会静默错位，见 `totalWidth` 的 doc comment。
     @ViewBuilder
     private func star(at index: Int) -> some View {
         let fraction = Self.fillFraction(value: self.value, starIndex: index)
@@ -156,6 +172,16 @@ public struct Rating: View {
     /// 任一为真即关闭交互。
     static func isInteractive(isReadOnly: Bool, isEnabled: Bool) -> Bool {
         !isReadOnly && isEnabled
+    }
+
+    /// `accessibilityValue` 文案组装：Phase 0 位置键 `"%@ of %@"`
+    /// （`.claude/epics/semi-mobile-components/phase0-decisions.md` §2），两端均为
+    /// `Double.formatted()`，半星精确播报（不取整）。抽成静态纯函数——与
+    /// `fillFraction` / `steppedValue` / `isInteractive` 同样的理由：`bundle:
+    /// .module` 漏传或插值形状跑偏都是静默 fallback（英文环境下输出恰好不变，
+    /// 直到非英文本地化才暴露），需要能被单测锁定，而不是只靠人工审查一次性确认。
+    static func accessibilityValueText(value: Double, count: Int) -> String {
+        String(localized: "\(value.formatted()) of \(Double(count).formatted())", bundle: .module)
     }
 }
 

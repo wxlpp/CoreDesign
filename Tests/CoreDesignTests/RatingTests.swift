@@ -89,6 +89,28 @@ struct RatingTests {
         #expect(rating.count == 0)
     }
 
+    // MARK: - accessibilityValue 文案组装
+
+    @Test("accessibilityValueText：按 Phase 0 位置键 \"%@ of %@\" 组装，两端为 formatted() 结果")
+    func accessibilityValueTextComposesPositionalKey() {
+        let value = 2.5
+        let count = 5
+        let text = Rating.accessibilityValueText(value: value, count: count)
+        // 不硬编码 locale 相关的字面量（如 "2.5 of 5"）——直接拿同一套 formatted()
+        // 结果重建期望值，避免 CI 运行环境 locale 不同导致假红。
+        #expect(text == "\(value.formatted()) of \(Double(count).formatted())")
+    }
+
+    @Test("accessibilityValueText：半星精确播报，不取整（与整星取整后的文案不同）")
+    func accessibilityValueTextDoesNotRoundHalfStar() {
+        let halfStarText = Rating.accessibilityValueText(value: 2.5, count: 5)
+        let roundedDownText = Rating.accessibilityValueText(value: 2.0, count: 5)
+        let roundedUpText = Rating.accessibilityValueText(value: 3.0, count: 5)
+        #expect(halfStarText != roundedDownText)
+        #expect(halfStarText != roundedUpText)
+        #expect(halfStarText.contains(2.5.formatted()))
+    }
+
     // MARK: - 只读模式下手势 / accessibility adjust action 不生效
 
     @Test("isInteractive：只读时关闭，不论 isEnabled")

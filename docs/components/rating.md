@@ -45,6 +45,13 @@ Rating(value: $rating)
 `Binding`，并 clamp 在 `0...count`。`isReadOnly == true` 或外层 `.disabled(true)` 时手势整体
 不挂载。
 
+> **已知取舍：嵌入纵向 `ScrollView` / `List` 时的手势冲突**——手势用
+> `DragGesture(minimumDistance: 0)` 以保留精确点按语义（拖拽或点按均可设值）。
+> 与原生 `Slider` 一样，这意味着起手落在星形上的纵向滑动会被 Rating 自身的手势
+> 捕获而非冒泡给祖先滚动容器（SwiftUI 对后代视图的 `.gesture` 默认优先于祖先的
+> 滚动手势）。若把 Rating 放进可纵向滚动的列表且需要在星形上也能顺畅滚动，需
+> 自行包一层方向判定或调整命中区域，本组件当前未内置这层协商。
+
 ## 视觉 Token
 
 - 星形：`StarShape()`
@@ -53,12 +60,19 @@ Rating(value: $rating)
 - 未选中态填充：`Color.tertiaryFill`
 - 星间距：`CoreSpacing.xs`
 - 星尺寸：`CoreControlMetrics.iconSize(for: controlSize) * 1.5`，随 `\.controlSize` 环境值变化
+- 命中区：`.frame(minHeight: CoreControlMetrics.height(for: controlSize))`（`.regular` 档
+  44pt）——星形视觉尺寸本身在多数档位下小于这条 HIG 下限，用最小高度地板补足纵向命中区，
+  不放大星形，多余空间由 `HStack` 居中吸收
 
 ## Accessibility
 
 - `accessibilityLabel`：Phase 0 预登记键 `"Rating"`
 - `accessibilityValue`：位置键 `"%@ of %@"`，经
-  `String(localized: "\(value.formatted()) of \(count.formatted())", bundle: .module)`
-  组装，半星精确播报（`Double.formatted()`，不取整），如「2.5 of 5」
+  `String(localized: "\(value.formatted()) of \(Double(count).formatted())", bundle: .module)`
+  组装（`Rating.accessibilityValueText(value:count:)`），半星精确播报（`Double.formatted()`，
+  不取整），如「2.5 of 5」
 - `.accessibilityAdjustableAction`：VoiceOver increment / decrement 按 `step` 调整 `value`，
   clamp 在 `0...count`；`isReadOnly` 为 `true` 或外层 `.disabled(true)` 时不挂载该 action
+- Phase 0 同时预登记了复数摘要键 `"%lld stars"`（如「5 stars」），供未来「满分摘要」类用法
+  使用；`Rating` 本身只消费位置键 `"%@ of %@"`（半星精度更高），未消费 `"%lld stars"`，非
+  遗漏
