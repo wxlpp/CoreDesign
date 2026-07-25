@@ -14,7 +14,7 @@ github: (will be set on sync)
 
 以 Semi Design 能力集为参照，为 CoreDesign 补齐 **10 个移动端友好的通用组件 + 1 个增强包**，实现方式对齐 Apple HIG / SwiftUI 惯例（借鉴能力，非移植 Web 视觉）。所有交付物纯新增、彼此独立、大量复用现有地基（`StarShape` / `FlowLayout` / `Tag(removable:)` / `CircularGlassButtonStyle` / glass modifier / `InsetGroupedSection` / `ProgressIndicator` / `.redacted` / `LabeledContentStyle` / `StatusLevel` / 第 3-4 层色层与 token），因此可高度并行。整体分三阶段：**Phase 0 共享地基先行 → 10 组件并行 → Phase 3 收尾串行**。
 
-**并行共享冲突面（全部收到 Phase 0 预置或 Phase 3 串行，并行 Issue 一律不碰）**：色层文件、`docs/README.md`、`App/Sources/Previews.swift`、`App/Sources/ComponentData.swift`（宿主画廊 registry）、`Sources/CoreDesign/Resources/en.lproj/Localizable.strings`(+`.stringsdict`)（单一共享字符串表，含 accessibility label）、共享测试 suite `Tests/CoreDesignTests/TouchTargetTests.swift`（Issue #123，全交互组件 ≥44pt）与 `DynamicTypeLayoutTests.swift`。并行阶段各 Issue 只写自己的 `Components/<Name>/` 与 `Tests/CoreDesignTests/<Name>Tests.swift`。
+**并行共享冲突面（全部收到 Phase 0 预置或 Phase 3 串行，并行 Issue 一律不碰）**：色层文件、`docs/README.md`、`App/Sources/Previews.swift`、`App/Sources/ComponentData.swift`（宿主画廊 registry）、`Sources/CoreDesign/Resources/en.lproj/Localizable.strings`(+`.stringsdict`)（单一共享字符串表，含 accessibility label）、共享测试 suite `Tests/CoreDesignTests/TouchTargetTests.swift`（Issue #123，全交互组件 ≥44pt）与 `DynamicTypeLayoutTests.swift`。并行阶段各 Issue 只新增/修改归属本交付物的文件（详见 Implementation Strategy 的 Phase 1 段，含 009/012 的归属例外与各自 docs）。
 
 交付物：Skeleton · Steps · Timeline · Rating · PinCode · Radio · TagInput · Descriptions · FloatButton · Carousel · ProgressIndicator 增强(+`spinning(_:)` modifier)。
 
@@ -104,7 +104,7 @@ public 导出 → `bundle:.module` 资源 → 同文件 `#Preview`（Light/Dark 
 
 ## Estimated Effort
 
-- **Phase 0**：0.5–1 天（取色定案 + 脚本开关 + 分支）。
+- **Phase 0**：0.5–1 天（取色定案 + strings 预登记 + 脚本开关 + 分支）。
 - **Phase 1**：10 组件并行，单组件约 0.5–1.5 天（Rating/Radio/FloatButton 偏低，Carousel/Timeline/PinCode 偏高）；并行墙钟约 2–3 天。
 - **Phase 3（013）**：1–1.5 天（`Previews.swift`+`ComponentData.swift` 注册 + 为 ~5-7 个新交互组件把 touch-target/dynamic-type 断言汇入共享 suite 并跑 iOS Simulator 腿 + 索引 + 宿主复查 + 墓碑 + 发版）。
 - **关键路径**：Phase 0 → 最慢组件 → Phase 3；并行下总墙钟约 3–5 天。
