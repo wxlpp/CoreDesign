@@ -15,6 +15,12 @@ import SwiftUI
 /// value 会被钳到 `0...1`，非有限输入归零。
 ///
 /// 灰色底轨 + 可配置彩色填充 + 可选左侧 label 文本。
+///
+/// > **已弃用（0.6.0 起）**：改用系统 `ProgressView(value:)` + `.progressViewStyle(.core)`。
+/// > 二者视觉几乎一致，但 `.core` **响应环境 `.tint`**（`ProgressBar` 反之——它有意
+/// > 拒绝环境 tint、只认自己的 `tint:` 参数），且走系统控件、无障碍与 Dynamic Type
+/// > 更完整。留下 `ProgressBar` 只为下游平滑迁移，后续版本移除。
+@available(*, deprecated, message: "改用 ProgressView(value:).progressViewStyle(.core)——.core 响应环境 .tint，走系统控件。见 docs/components/core-control-styles.md")
 public struct ProgressBar: View {
     let value: Double  // 0.0...1.0
     let tint: Color?
@@ -60,11 +66,5 @@ public struct ProgressBar: View {
     }
 }
 
-#Preview {
-    VStack(spacing: 16) {
-        ProgressBar(value: 0.0)
-        ProgressBar(value: 0.5, label: "50%")
-        ProgressBar(value: 1.0, tint: .statusSuccessEmphasis, label: "Done")
-    }
-    .padding()
-}
+// #Preview 已随弃用移除——迁移期请参考 `.core ProgressView`
+// （见 `docs/components/core-control-styles.md` 与 App 预览宿主的 ".core ProgressView"）。

@@ -16,24 +16,24 @@ import Testing
 @Suite("基础容器 Separator.Inset 逻辑")
 struct SeparatorInsetTests {
 
-    @Test("leadingAmount: none→0, leading(x)→x")
+    @Test("leadingAmount: edgeToEdge→0, leading(x)→x")
     func leadingAmount() {
-        #expect(Separator.Inset.none.leadingAmount == 0)
+        #expect(Separator.Inset.edgeToEdge.leadingAmount == 0)
         #expect(Separator.Inset.leading(24).leadingAmount == 24)
         #expect(Separator.Inset.leading(0).leadingAmount == 0)
         // 负值 clamp 到 0——负 inset 会让分隔线向 leading 外扩、溢出边界。
         #expect(Separator.Inset.leading(-8).leadingAmount == 0)
     }
 
-    @Test("Inset Equatable：leading(0) 与 none 是不同的 case")
+    @Test("Inset Equatable：leading(0) 与 edgeToEdge 是不同的 case")
     func insetEquatable() {
-        #expect(Separator.Inset.none == .none)
+        #expect(Separator.Inset.edgeToEdge == .edgeToEdge)
         #expect(Separator.Inset.leading(4) == .leading(4))
         #expect(Separator.Inset.leading(4) != .leading(8))
-        // `.none` 与 `.leading(0)` **渲染完全相同**（都归结为 `.padding(.leading, 0)`），
+        // `.edgeToEdge` 与 `.leading(0)` **渲染完全相同**（都归结为 `.padding(.leading, 0)`），
         // 但作为枚举值是两个不同 case——合成的 Equatable 应区分它们。这条守卫防的是
-        // 「误把 .none 与 .leading(0) 合并成同一 case」这类 API 变更，不是行为差异。
-        #expect(Separator.Inset.none != .leading(0))
+        // 「误把 .edgeToEdge 与 .leading(0) 合并成同一 case」这类 API 变更，不是行为差异。
+        #expect(Separator.Inset.edgeToEdge != .leading(0))
     }
 }
 

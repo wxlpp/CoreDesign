@@ -10,22 +10,26 @@ import SwiftUI
 /// `SettingsRow` 与 `InsetGroupedSection` **共享**的布局常量——分组分隔线的 leading
 /// inset 从这里推导（图标方块宽 + 图标↔标题间距），不在两个组件里各自硬编码,
 /// 否则图标尺寸一改就错位。
-enum SettingsRowMetrics {
+///
+/// **`public`**：让调用方把自定义行/内容对齐到 `SettingsRow` 的网格（图标列宽、
+/// 分隔线 inset），而不必抄魔数——这正是 SC#10「不写 CoreDesign 之外样式代码」
+/// 复刻设置页对自定义行的支撑。
+public enum SettingsRowMetrics {
     /// iOS 设置那种圆角色块的边长。iOS 系统约 29pt,这里取 30 便于对齐。
-    static let iconSquareSize: CGFloat = 30
+    public static let iconSquareSize: CGFloat = 30
     /// 图标方块 ↔ 标题的水平间距。
-    static let iconTitleGap: CGFloat = CoreSpacing.md
+    public static let iconTitleGap: CGFloat = CoreSpacing.md
     /// 行内容的左右内边距。
-    static let horizontalPadding: CGFloat = CoreSpacing.lg
+    public static let horizontalPadding: CGFloat = CoreSpacing.lg
     /// 图标色块的圆角。
-    static let iconCornerRadius: CGFloat = CoreRadius.small
+    public static let iconCornerRadius: CGFloat = CoreRadius.small
 
     /// 分隔线对齐**标题 leading**（越过图标列）时的 inset——iOS 有图标的分组行惯例。
-    static var iconAlignedDividerInset: CGFloat {
+    public static var iconAlignedDividerInset: CGFloat {
         self.horizontalPadding + self.iconSquareSize + self.iconTitleGap
     }
     /// 分隔线对齐**内容 leading**（无图标列）时的 inset。
-    static var textAlignedDividerInset: CGFloat {
+    public static var textAlignedDividerInset: CGFloat {
         self.horizontalPadding
     }
 }

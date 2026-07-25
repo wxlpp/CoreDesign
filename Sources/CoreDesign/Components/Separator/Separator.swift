@@ -24,16 +24,19 @@ public struct Separator: View {
     /// 分隔线的 leading 缩进方式。
     public enum Inset: Equatable, Sendable {
         /// 无缩进，分隔线贯穿父容器整宽。
-        case none
+        ///
+        /// 命名为 `edgeToEdge` 而非 `none`：`.none` 与 `Optional.none` 同名，调用方持有
+        /// `Inset?` 时写 `.none` 会静默解析成 `Optional.none`（编译器仅在部分位置告警）。
+        case edgeToEdge
         /// 从 leading 缩进指定量（pt）。
         case leading(CGFloat)
 
         /// leading 缩进量（pt）。`internal` 而非 `fileprivate`：供 `@testable` 断言映射。
         /// 负值 clamp 到 0——负 inset 会把分隔线向 leading 外扩、溢出父容器边界，
-        /// 无实际用途，视作 `.none`（贯穿）。
+        /// 无实际用途，视作 `.edgeToEdge`（贯穿）。
         var leadingAmount: CGFloat {
             switch self {
-            case .none: 0
+            case .edgeToEdge: 0
             case let .leading(amount): max(0, amount)
             }
         }
@@ -43,7 +46,7 @@ public struct Separator: View {
 
     private let inset: Inset
 
-    public init(inset: Inset = .none) {
+    public init(inset: Inset = .edgeToEdge) {
         self.inset = inset
     }
 

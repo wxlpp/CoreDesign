@@ -29,7 +29,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件 + 3
 | Banner | [<img src="snapshots/CoreDesignPreview_Previews.swift_Banner.png" width="200">](components/banner.md) | [banner.md](components/banner.md) |
 | StateLabel | [<img src="snapshots/CoreDesignPreview_Previews.swift_StateLabel.png" width="200">](components/state-label.md) | [state-label.md](components/state-label.md) |
 | ProgressIndicator | [<img src="snapshots/CoreDesignPreview_Previews.swift_ProgressIndicator.png" width="200">](components/progress-indicator.md) | [progress-indicator.md](components/progress-indicator.md) |
-| ProgressBar | [<img src="snapshots/CoreDesignPreview_Previews.swift_ProgressBar.png" width="200">](components/progress-bar.md) | [progress-bar.md](components/progress-bar.md) |
+| ~~ProgressBar~~（`0.6.0` 起弃用） | _改用 `ProgressView().progressViewStyle(.core)`_ | [progress-bar.md](components/progress-bar.md)（弃用 + 迁移指引） |
 
 ### Layout 布局
 
