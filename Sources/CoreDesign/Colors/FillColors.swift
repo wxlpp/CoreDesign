@@ -81,12 +81,13 @@ public extension Color {
 
     /// 骨架屏 shimmer 扫光高光色。Skeleton shimmer highlight.
     ///
-    /// 由 `skeletonBase` 经 `.opacity()` 派生的更透明高光——用于 shimmer 渐变的亮带，
-    /// 与底色形成微弱明暗差。无需新增 colorset，随底色一并跟随系统外观。
+    /// 由 `skeletonBase` 经 `Color.mix(with: .white, by:)` 向白提亮派生——shimmer 渐变里
+    /// 比底色更亮的扫光带。无需新增 colorset，随底色一并跟随系统外观。
     ///
-    /// > Note: `.opacity()` 降透明造亮带在亮色下更接近浅背景（变亮 ✓），暗色下 systemFill
-    /// > 是低透明白、更透明反而更接近深背景（可能变暗，与「暗色亮扫」直觉相反）。此为 Phase 0
-    /// > 的初始取值；**暗色观感留给 Skeleton（Issue #162）的视觉评审裁决**——若暗色需要反向亮扫，
-    /// > 允许改为 `Color.mix(with:by:in:)` 派生（如向 `Color.contentPrimary` 微调），此 token 可动。
-    static var skeletonHighlight: Color { Color.skeletonBase.opacity(0.35) }
+    /// > Note（Issue #162 裁决，闭合 Phase 0 留口）：初版曾用 `.opacity(0.35)`，但那是**同色叠加**
+    /// > ——在底色上再叠一层同样的半透明灰只会更**深**，扫光读作暗带而非高光（评审 #176 确认）。
+    /// > 改为向 `.white` 掺色 0.5：两端外观下都得到比底色明显更亮的扫光带（暗色下即「亮扫」，
+    /// > 亮色下近白）。承 `InteractionColors` accent 衍生态「对系统色调制」的先例，token 可动——
+    /// > 后续若视觉评审要微调，改这里的掺色因子即可，`Skeleton` 组件复用本 token、不在组件内绕开。
+    static var skeletonHighlight: Color { Color.skeletonBase.mix(with: .white, by: 0.5) }
 }

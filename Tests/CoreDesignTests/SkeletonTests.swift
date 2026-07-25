@@ -81,6 +81,61 @@ struct SkeletonLineTests {
         #expect(line.spacing == CoreSpacing.sm)
         #expect(line.lastLineWidthFraction == 0.5)
     }
+
+    @Test("lastLineWidthFraction above 1 clamps to 1")
+    func lastLineWidthFractionClampsAboveOne() {
+        let line = SkeletonLine(lastLineWidthFraction: 1.5)
+        #expect(line.lastLineWidthFraction == 1)
+    }
+
+    @Test("lastLineWidthFraction below 0 clamps to 0")
+    func lastLineWidthFractionClampsBelowZero() {
+        let line = SkeletonLine(lastLineWidthFraction: -0.3)
+        #expect(line.lastLineWidthFraction == 0)
+    }
+
+    @Test("isLastLine is true only for the final row of a multi-line block")
+    func isLastLineOnlyForFinalRowOfMultiLine() {
+        let line = SkeletonLine(lineCount: 3)
+        #expect(line.isLastLine(0) == false)
+        #expect(line.isLastLine(1) == false)
+        #expect(line.isLastLine(2) == true)
+    }
+
+    @Test("isLastLine is always false for a single line")
+    func isLastLineFalseForSingleLine() {
+        let line = SkeletonLine(lineCount: 1)
+        #expect(line.isLastLine(0) == false)
+    }
+
+    @Test("width(forLineAt:containerWidth:) narrows only the last line of a multi-line block")
+    func widthForLineNarrowsOnlyLastLine() {
+        let line = SkeletonLine(lineCount: 3, lastLineWidthFraction: 0.7)
+        let containerWidth: CGFloat = 200
+        #expect(line.width(forLineAt: 0, containerWidth: containerWidth) == containerWidth)
+        #expect(line.width(forLineAt: 1, containerWidth: containerWidth) == containerWidth)
+        #expect(line.width(forLineAt: 2, containerWidth: containerWidth) == containerWidth * 0.7)
+    }
+
+    @Test("width(forLineAt:containerWidth:) never narrows a single line")
+    func widthForLineFullWidthForSingleLine() {
+        let line = SkeletonLine(lineCount: 1, lastLineWidthFraction: 0.5)
+        let containerWidth: CGFloat = 150
+        #expect(line.width(forLineAt: 0, containerWidth: containerWidth) == containerWidth)
+    }
+
+    @Test("totalHeight sums line heights plus inter-line spacing")
+    func totalHeightSumsLinesAndSpacing() {
+        let line = SkeletonLine(lineCount: 3, lineHeight: 12, spacing: 4)
+        // 3 * 12 + 2 * 4 = 44
+        #expect(line.totalHeight == 44)
+    }
+
+    @Test("totalHeight for a single line has no spacing contribution")
+    func totalHeightSingleLineNoSpacing() {
+        let line = SkeletonLine(lineCount: 1, lineHeight: 12, spacing: 4)
+        #expect(line.totalHeight == 12)
+    }
 }
 
 @Suite("SkeletonRect")
