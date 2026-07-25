@@ -2,6 +2,8 @@
 
 水平进度条 / Horizontal progress bar.
 
+> **⚠️ 已弃用（`0.6.0` 起）**：改用系统 `ProgressView(value:).progressViewStyle(.core)`（见 [core-control-styles.md](core-control-styles.md)）。二者视觉几乎一致，但 `.core` **响应环境 `.tint`**、走系统控件，无障碍与 Dynamic Type 更完整；`ProgressBar` 有意拒绝环境 tint、只认自己的 `tint:` 参数。`ProgressBar` 保留至下游迁移完成后移除。
+
 灰色底轨 + 可配置彩色填充 + 可选左侧 label 文本。`value` 自动 clamp 到 `0...1`。
 
 ## API

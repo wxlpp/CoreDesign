@@ -2,10 +2,33 @@
 
 破坏性变更按版本 / Issue 记录在此，下游升级前请对照。
 
-> 已发布的 git tag：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）、`v0.3.0`（2026-07-23）、
-> `v0.4.0`（2026-07-24，Phase 2 新组件）、`v0.4.1`（2026-07-24，非破坏性收尾）。
-> `v0.5.0`（2026-07-24，文本入参统一——含破坏性变更，见下）。
+> 版本清单：
+> - **已发布**：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）、`v0.3.0`（2026-07-23）、
+>   `v0.4.0`（2026-07-24，Phase 2 新组件）、`v0.4.1`（2026-07-24，非破坏性收尾）、
+>   `v0.5.0`（2026-07-24，文本入参统一——含破坏性变更）。
+> - **未发布**：`v0.6.0`（Separator.Inset 改名 + ProgressBar 弃用 + SettingsRowMetrics 公开，见下）。
+>
 > 本文件早期版本曾写「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
+
+## `0.6.0`（收尾攒项 2/5/8，未发布）
+
+### 签名变更（source-breaking）
+
+| 组件 | 旧 | 新（`0.6.0`） |
+|---|---|---|
+| `Separator.Inset` | `case none`（贯穿） | `case edgeToEdge`（贯穿） |
+
+**迁移**：`Separator(inset: .none)` → `Separator(inset: .edgeToEdge)`；`init` 默认值同步改为 `.edgeToEdge`。**理由**：`.none` 与 `Optional.none` 同名，调用方持有 `Inset?` 时写 `.none` 会静默解析成 `Optional.none`（编译器仅在部分位置告警）——改名消除该遮蔽。
+
+### 弃用（source-compatible，带警告）
+
+| 符号 | 替代 |
+|---|---|
+| `ProgressBar`（`@available(*, deprecated)`） | 系统 `ProgressView(value:).progressViewStyle(.core)`——`.core` **响应环境 `.tint`**、走系统控件（`ProgressBar` 有意拒绝环境 tint）。见 [components/core-control-styles.md](components/core-control-styles.md)。`ProgressBar` 保留至下游迁移完成后移除 |
+
+### 新增（非破坏）
+
+- `SettingsRowMetrics` 从 `internal` 改为 **`public`**——让调用方把自定义行/内容对齐到 `SettingsRow` 的网格（图标列宽 `iconSquareSize`、分隔线 inset `iconAlignedDividerInset` / `textAlignedDividerInset` 等），不必抄魔数（SC#10「不写 CoreDesign 之外样式代码」对自定义行的支撑）。
 
 ## `0.5.0`（文本入参统一，2026-07-24）
 

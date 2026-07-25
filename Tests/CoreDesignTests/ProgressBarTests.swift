@@ -2,7 +2,11 @@ import SwiftUI
 import Testing
 @testable import CoreDesign
 
-@Suite("ProgressBar")
+// ProgressBar 自 0.6.0 起弃用（导向 .core ProgressView），但在移除前仍保留其
+// value 钳制 / 非有限输入归零等行为守卫。测试内会产生 deprecation 警告——这是
+// 有意的（@Suite 宏不兼容 @available(deprecated)，无法在此处静默），移除 ProgressBar
+// 时本文件一并删。
+@Suite("ProgressBar（弃用守卫）")
 @MainActor
 struct ProgressBarTests {
     @Test("init with value stores clamped value")

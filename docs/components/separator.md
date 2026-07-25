@@ -6,9 +6,11 @@
 
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| inset | Separator.Inset | .none | 分隔线的 leading 缩进方式：`.none`（贯穿）/ `.leading(CGFloat)`（缩进指定量） |
+| inset | Separator.Inset | .edgeToEdge | 分隔线的 leading 缩进方式：`.edgeToEdge`（贯穿）/ `.leading(CGFloat)`（缩进指定量） |
 
-`Inset.leading` 传负值会被 clamp 到 0（视作 `.none`，负值向外扩会溢出父容器边界，无实际用途）。
+`Inset.leading` 传负值会被 clamp 到 0（视作 `.edgeToEdge`，负值向外扩会溢出父容器边界，无实际用途）。
+
+> `0.6.0` 起 `case none` 改名 `.edgeToEdge`——避免与 `Optional.none` 遮蔽（持有 `Inset?` 时写 `.none` 会静默解析成 `Optional.none`）。
 
 ## 预览 / Preview
 
