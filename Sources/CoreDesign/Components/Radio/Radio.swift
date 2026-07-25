@@ -97,6 +97,11 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
             Image(systemName: selected ? "largecircle.fill.circle" : "circle")
                 .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
                 .foregroundStyle(selected ? Color.contentPrimary : Color.gray)
+                // SF Symbol 自带隐式 accessibility label（如 "circle"），若不隐藏，
+                // 下方 `.accessibilityElement(children: .combine)` 会把它拼进朗读
+                // 结果（"circle, 基础版, Button, Selected"）。与 `CoreProgressViewStyle` /
+                // `Sidebar` 同一手法：纯装饰性 icon 先 hide 再 combine。
+                .accessibilityHidden(true)
             Text(option.title)
         }
         // 与 CheckBoxToggleStyle 同一手法：无 minHeight/contentShape 时命中区域会
