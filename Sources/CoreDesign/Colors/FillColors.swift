@@ -64,4 +64,24 @@ public extension Color {
             return Color(nsColor: .quaternarySystemFill)
         #endif
     }
+
+    // MARK: - Skeleton 占位取色（semi-mobile-components Phase 0 定案）
+    //
+    // 取色决策：骨架屏占位与 shimmer 高亮**不新增 colorset**，一律从 `systemFill` 族派生
+    // ——底色直接取 `.fill`（系统填充，含透明度、随外观/对比度自动更新），高光由底色经
+    // `.opacity()` 调制出更透明的扫光带（承 accent 衍生态「对系统色调制、不取固定色阶」先例）。
+    // 由此免掉新增 colorset 才需要的 `swift package clean` 与 `ColorAssetGuardTests` 登记两环。
+    // `Skeleton` 的 shimmer modifier 应复用这两个 token，不要各自重新取色。
+
+    /// 骨架屏占位底色。Skeleton placeholder base fill.
+    ///
+    /// 直接复用系统 `systemFill`，随系统外观/对比度自动更新；用于骨架屏 line / rect / circle
+    /// 占位形状的底色（`.redacted(reason: .placeholder)` 之外、需要显式绘制占位形状时）。
+    static var skeletonBase: Color { Color.fill }
+
+    /// 骨架屏 shimmer 扫光高光色。Skeleton shimmer highlight.
+    ///
+    /// 由 `skeletonBase` 经 `.opacity()` 派生的更透明高光——用于 shimmer 渐变的亮带，
+    /// 与底色形成微弱明暗差。无需新增 colorset，随底色一并跟随系统外观。
+    static var skeletonHighlight: Color { Color.fill.opacity(0.35) }
 }
