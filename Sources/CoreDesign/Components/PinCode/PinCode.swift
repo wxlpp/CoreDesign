@@ -111,10 +111,11 @@ public struct PinCode: View {
             self.hiddenTextField
             self.cellsRow
         }
-        // 挂载时先跑一遍处理流水线——若调用方传入的初始 `value` 本身带有非数字字符
-        // 或超出 `length`，格子渲染前先规整，避免第一帧就显示未清洗的原始值。
+        // 挂载时先规整初始 `value`（去非数字/截断），避免第一帧显示未清洗的原始值；
+        // 但**挂载路径不触发 `onComplete`**（`firesOnComplete: false`）——「初值即完成」不是
+        // 一次「填满」事件，且重放会在 NavigationStack 里 push→pop→再 push 成循环。
         .onAppear {
-            self.processInput(self.value)
+            self.processInput(self.value, previousValue: self.value, firesOnComplete: false)
         }
     }
 
@@ -146,8 +147,9 @@ public struct PinCode: View {
             #endif
             .opacity(0.01)
             .accessibilityHidden(true)
-            .onChange(of: self.value) { _, newValue in
-                self.processInput(newValue)
+            .onChange(of: self.value) { oldValue, newValue in
+                // 穿透 SwiftUI 提供的**真**击键前旧值——`self.value` 此刻已是新值，不可用。
+                self.processInput(newValue, previousValue: oldValue)
             }
     }
 
@@ -200,9 +202,10 @@ public struct PinCode: View {
     /// 「未满」跨到「满」才触发。这消除三类误触发：①已满态再键入任意字符（含被过滤的噪声）
     /// 时的重复触发；②`onAppear` 对已满初始值的重放（NavigationStack 场景下会 push→pop→
     /// 再 push 成导航循环）。删一位再补回最后一位时旧值已「未满」，故能正确再次触发。
-    func processInput(_ raw: String) {
+    func processInput(_ raw: String, previousValue: String, firesOnComplete: Bool = true) {
         let sanitized = Self.sanitizedValue(from: raw, length: self.length)
-        let fires = Self.shouldFireComplete(oldValue: self.value, newSanitized: sanitized, length: self.length)
+        let fires = firesOnComplete
+            && Self.shouldFireComplete(previousValue: previousValue, newSanitized: sanitized, length: self.length)
         if sanitized != self.value {
             self.value = sanitized
         }
@@ -211,10 +214,16 @@ public struct PinCode: View {
         }
     }
 
-    /// `onComplete` 转变沿判定（纯函数，可单测）：新值已满**且**旧值未满时才为真。
-    static func shouldFireComplete(oldValue: String, newSanitized: String, length: Int) -> Bool {
-        Self.isComplete(value: newSanitized, length: length)
-            && !Self.isComplete(value: oldValue, length: length)
+    /// `onComplete` 转变沿判定（纯函数，可单测）：新值已满**且**旧值（先规整）未满时才为真。
+    ///
+    /// `previousValue` 是 `onChange` 提供的**击键前**旧值——**不能**用 `self.value`：隐藏
+    /// `TextField` 直接绑 `$value`，onChange 触发时 `self.value` 已被写成新值。`previousValue`
+    /// 先经 `sanitizedValue` 规整再判「已满」，以正确处理写回引发的第二轮 onChange
+    /// （old 为超长原始值，严格 `==` 会误判未满 → 重复触发）。
+    static func shouldFireComplete(previousValue: String, newSanitized: String, length: Int) -> Bool {
+        let previousSanitized = Self.sanitizedValue(from: previousValue, length: length)
+        return Self.isComplete(value: newSanitized, length: length)
+            && !Self.isComplete(value: previousSanitized, length: length)
     }
 
     // MARK: - Pure logic (unit-testable via `@testable import`)
