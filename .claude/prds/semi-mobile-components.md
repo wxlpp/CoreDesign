@@ -48,7 +48,7 @@ CoreDesign 目前有 24 个已收录组件 + 3 个 `.core` 控件 style。以 Se
 - **FR-5 资源加载**：任何资源查找传 `bundle: .module`。
 - **FR-6 `#Preview` 冒烟**：每个交付物同文件提供 `#Preview`（含 Light/Dark 或关键状态画廊）。
 - **FR-7 测试**：以 Swift Testing 覆盖受控状态/边界/格式化逻辑（每个有可测逻辑者 ≥1 `@Test`）。**判定盲区**：`Tests/` 下 `#if os(iOS)` 的 suite 在 macOS 上是空 suite，`swift test` 通过为假绿——凡涉 iOS-only 行为的测试，以 CI 的 xcodebuild iOS Simulator 腿为准。
-- **FR-8 文档**：每个交付物在 `docs/components/<name>.md` 落文档并登记进 `docs/README.md` 索引。**并行冲突规避（FR-8a）**：`docs/README.md` 索引更新集中到 Phase 3 收尾串行执行（或经 Phase 0 预置占位行），并行 Issue 各自只写自己的 `docs/components/<name>.md`，避免连环 merge 冲突。
+- **FR-8 文档**：每个交付物在 `docs/components/<name>.md` 落文档并登记进 `docs/README.md` 索引。**并行冲突规避（FR-8a）**：`docs/README.md` 索引更新与 `App/Sources/Previews.swift` 注册**一律集中到 Phase 3 收尾串行执行**（不采用 Phase 0 占位行方案），并行 Issue 各自只写自己的 `docs/components/<name>.md`，避免连环 merge 冲突。
 - **FR-9 目录约定**：组件放 `Sources/CoreDesign/Components/<Name>/`；可复用 modifier 放 `Modifier/`；跨组件辅助放 `Utils/`；单组件辅助与组件同文件。
 
 **各交付物能力集（借鉴 Semi，落地移动端）**：
@@ -62,8 +62,10 @@ CoreDesign 目前有 24 个已收录组件 + 3 个 `.core` 控件 style。以 Se
 - **FR-TagInput**：`Binding<[String]>`；输入新增/删除 token；复用 `FlowLayout`。
 - **FR-Descriptions**：`.core LabeledContentStyle` + `InsetGroupedSection` 分组；1/2 列；分隔密度。
 - **FR-FloatButton**：图标（+可选文字）；复用 glass 按钮形态；调用方自定位（文档给出与 `.safeAreaBar`/`BottomInputBar` 的取舍边界与推荐 overlay 用法）。
-- **FR-11 Carousel 双端**：iOS 用 `TabView(.page)` 或 `.scrollTargetBehavior(.paging)` + `scrollPosition`；**macOS 无 `.page` style**，统一采用 `ScrollView(.horizontal)` + `.scrollTargetBehavior(.paging)` + `scrollPosition(_:)` 的跨端实现，避免单端符号（满足 NFR-2）。自动轮播用 `Timer`/`.task` 驱动 `scrollPosition`。
-- **FR-12 增强包**：`ProgressIndicator` 增加可选文案参数（不破坏现有 init）；新增 `Modifier/SpinningModifier.swift` 暴露 `View.spinning(_ isActive:text:)` 加载遮罩。
+- **FR-11 Carousel 双端**：统一采用 `ScrollView(.horizontal)` + `.scrollTargetBehavior(.paging)` + `scrollPosition(_:)` 的**单一跨端实现**（不做 iOS/macOS 双路径；macOS 无 `.page` style，故不用 `TabView(.page)`），避免单端符号（满足 NFR-2）。自动轮播用 `.task`/异步序列驱动 `scrollPosition`。
+- **FR-PinCode 掩码**：安全掩码**可配**（`isSecure` 参数，默认关——OTP 场景常明文便于核对）。
+- **FR-Descriptions 密度**：2 列在 accessibility 大字号（Dynamic Type）下塌成 1 列，避免键值挤压。
+- **FR-12 增强包**：`ProgressIndicator` **新增一个带可选文案参数的 init/重载，保留现有 `init()`**（源码兼容，downstream-probe 可过）；新增 `Modifier/SpinningModifier.swift` 暴露 `View.spinning(_ isActive:text:)` 加载遮罩。
 - **FR-13 共享地基（Phase 0 先行）**：占位底色指定复用 `FillColors`（systemFill 家族，占位标准色）；连线/分隔色指定复用 `BorderColors`/separator；shimmer 高亮色若无现成 token 则在 `FillColors`/`ContentColors` 补一个语义 token。Phase 0 单独 Issue 落地这些共享 token/辅助后，其余组件 Issue 才启动，避免并行抢改色层文件。
 
 ## Non-Functional Requirements
@@ -73,11 +75,11 @@ CoreDesign 目前有 24 个已收录组件 + 3 个 `.core` 控件 style。以 Se
 - **NFR-3 深浅色 + 动态字体**：随系统外观/对比度自动更新；文本相关组件支持 Dynamic Type。
 - **NFR-4 无障碍**：交互组件提供合理 accessibility label/trait/value（Rating adjustable、PinCode、Radio、FloatButton 尤其）。
 - **NFR-5 验证完备（覆盖本仓库验证盲区）**：除 `swift build`+`swift test` 外——
-  1. UI/视觉改动跑 `scripts/run-preview.sh` 截图，交 ios-visual-reviewer；
+  1. **视觉评审机制（并行阶段 vs 收尾）**：`run-preview.sh` 只能截到已注册进预览宿主 `App/Sources/Previews.swift` 的组件，而该注册按 FR-8a/NFR-5.4 集中收尾。故**并行阶段**：各组件 Issue 以库内 `#Preview` 的 snapshot 副产物（`scripts/run-snapshots.sh` 生成、暂存不提交）交 ios-visual-reviewer 逐 Issue 评审；**Phase 3 收尾**：统一注册 `Previews.swift` 页并跑 `run-preview.sh` 在真机宿主内批量复查，SC-6 的整体「无 BLOCK」以此为准。`Previews.swift` 与 `docs/README.md` 同属集中串行改动，不在并行 Issue 中各自编辑。
   2. 新增 colorset 后必须 `swift package clean` 再构建/测试（增量构建不拷新目录，静默失败）；
   3. 改/删公开符号需同步 `scripts/downstream-probe` 与 `App/` 预览宿主（本 PRD 纯新增，风险低但仍需确认预览宿主可构建）；
   4. **worktree + xcodegen 盲区**：并行 Issue 各在私有 worktree，若需 `xcodegen generate` 注册新预览页，会把 `App/project.yml` 的 package `name` 按目录名写坏并清空 scheme——按 `App/project.yml` 顶部注释恢复；优先避免在 worktree 内跑 xcodegen，把预览宿主页注册集中到收尾。
-- **NFR-6 无破坏性**：纯新增，不改动/移除现有公开符号（`ProgressIndicator` 增强以新增可选参数、保留旧 init 的方式做）；需新增第 3/4 层 token 时补进对应色层文件而非改现有语义。
+- **NFR-6 无破坏性**：纯新增，不改动/移除现有公开符号（`ProgressIndicator` 增强按 FR-12：新增带文案参数的 init/重载、保留现有 `init()`，不改现有签名）；需新增第 3/4 层 token 时补进对应色层文件而非改现有语义。
 
 ## Success Criteria
 
@@ -91,7 +93,7 @@ CoreDesign 目前有 24 个已收录组件 + 3 个 `.core` 控件 style。以 Se
 ## Constraints & Assumptions
 
 - **借鉴而非移植**：对齐 Semi 的能力集，视觉/交互对齐 Apple HIG / SwiftUI；不复制 Web 像素级样式。
-- **Radio 的 HIG 取舍**：iOS HIG 无原生 radio（惯例用 checkmark list / `Picker`），但库内已有同样非 HIG 原生的 `CheckBox`——`Radio` 作为其单选对偶提供，视觉与 `CheckBox` 成对，**这是刻意的既有先例延续，非疏漏**；视觉评审据此标准而非「必须 HIG 原生」评判。
+- **Radio 的 HIG 取舍**：iOS HIG 无原生 radio（惯例用 checkmark list / `Picker`），但库内已有同样非 HIG 原生的 `CheckBox`——`Radio` 作为其单选对偶提供，视觉与 `CheckBox` 成对，**这是刻意的既有先例延续，非疏漏**；视觉评审据此标准而非「必须 HIG 原生」评判。macOS 原生 `.pickerStyle(.radioGroup)` 因需与 `CheckBox` 跨端视觉成对一致而不采用。
 - **复用现有地基**：`StarShape`（Rating）、`FlowLayout`（TagInput）、glass modifier（FloatButton）、`.core`/`LabeledContentStyle`（Descriptions）、`.redacted`（Skeleton）、现有色层/token。
 - **并行交付 + Phase 0 先行**：Phase 0 落地共享 token/辅助（FR-13）与预置 docs 索引占位（FR-8a）；之后 10 组件拆并行 Issue；`docs/README.md` 与预览宿主注册集中收尾串行，规避 merge/xcodegen 冲突。
 - **假设**：现有色层足够支撑绝大多数取色，预计仅 shimmer 高亮 1 个新增语义 token；此假设在 Phase 0 验证，若不成立则在 Phase 0 补齐。
