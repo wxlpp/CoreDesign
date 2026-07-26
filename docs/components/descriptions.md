@@ -96,4 +96,5 @@ LabeledContent("Status") { Text("Active") }
 - 分组卡片背景 / 圆角 / 分隔线：全部继承 `InsetGroupedSection`（`Color.surfaceCard`、`CoreShape.rounded(CoreRadius.medium)`、`Separator`）
 - 行内 label / content 配色：`Color.contentSecondary` / `Color.contentPrimary`
 - 两列网格列间距：`CoreSpacing.lg`；行内 label ↔ content 最小间距：`CoreSpacing.sm`
-- `.none` 密度下行组纵向间距：`CoreSpacing.md`
+- 行内边距：横向 `SettingsRowMetrics.horizontalPadding`（与 `.textAligned` 分隔线 inset 同源）、纵向 `CoreSpacing.sm`
+- 行距：由行自内边距（上下各 `CoreSpacing.sm`）决定，两种密度一致（`.row` 多一条 hairline，`.none` 无额外组间距）
