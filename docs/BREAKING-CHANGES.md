@@ -9,6 +9,13 @@
 > `v0.7.0`（2026-07-26，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning——纯新增，无破坏性变更）。
 > 本文件早期版本曾写「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
 
+## `0.7.1`（`semi-mobile-components` 收口，未发布）
+
+**非破坏性** —— 仅取色语义修正与测试补充，无 API 变更，对下游零破坏。
+
+- **`CheckBox` / `Radio` 未选中态取色**（Issue #189）：从硬编码 `Color.gray`（`systemGray`，固定不透明）改为语义 token `Color.contentSecondary`（桥接系统 `.secondaryLabel`）。`CheckBox` 自 `v0.1.0` 发布，本次一并对齐（两组件文档均声明「同一套 token」，只改其一会造成成对组件视觉分叉）。观感变化：纯色背景下肉眼几乎不可辨；在 raised/tinted 背景上因 `.secondaryLabel` 的半透明特性会有轻微原生混色，并新增 Increase Contrast 无障碍适配——属修正硬编码色、非破坏。
+- **`DynamicTypeLayoutTests` 补 Rating/Radio/TagInput/Timeline 大字号断言**（Issue #188）：仅测试新增。
+
 ## `0.7.0`（`semi-mobile-components` epic 收尾，2026-07-26）
 
 **非破坏性** —— 全部为纯新增，无删除/改名/签名变更，对下游零破坏，无需迁移。
