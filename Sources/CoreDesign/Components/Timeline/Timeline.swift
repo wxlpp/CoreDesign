@@ -52,6 +52,11 @@ public struct TimelineItem: Identifiable {
     ///   - status: 节点状态。当 `node` 已显式提供时，`status` 只作为语义标记保留
     ///     （例如未来筛选/排序场景），不再驱动默认圆点颜色——颜色完全由 `node` 自身决定。
     ///   - node: 自定义节点视图（图标 / 头像等），完全替代默认圆点，不叠加任何强制颜色。
+    ///     **尺寸约束**：节点方框固定 24×24pt（`Timeline.nodeColumnWidth`）且**不裁剪**——
+    ///     自定义 node 应 ≤ 24×24；更大的视图（如 32–40pt 头像）会上下溢出方框、上沿侵入
+    ///     上一行、下沿被连线穿过。需要更大节点时请自行把内容缩放到 24pt（如
+    ///     `.frame(width: 24, height: 24)` + `.clipShape(Circle())`），或等节点列高度自适应
+    ///     的后续增强（归 Phase 3 视觉评审裁决）。
     ///   - content: 节点右侧内容，任意视图。
     public init<Node: View, Content: View>(
         id: UUID = UUID(),
@@ -78,8 +83,12 @@ public struct TimelineItem: Identifiable {
 ///
 /// 节点状态色直接复用 `StatusLevel`（`info/success/warning/danger`），映射到
 /// `StatusColors` 的 emphasis 档（见 `Timeline.nodeColor(for:)`）；连线颜色复用
-/// `Color.dividerDefault`（= 系统 `separator` 色），hairline 宽度（`CoreBorderWidth.thin`），
-/// 随系统外观自动更新。
+/// `Color.dividerDefault`（= 系统 `separator` 色），随系统外观自动更新。
+///
+/// > 连线宽度取 `CoreBorderWidth.thin`（1pt）而非 phase0-decisions §1 所述的 separator
+/// > hairline——竖向长连线在 hairline（0.5pt / 1 物理像素）下过淡、断续感明显，1pt 观感更实。
+/// > 这是对「连线宽度对齐 Separator」决策的**有意偏离**（与 Steps 横向连线取 `.thick` 同源，
+/// > 均因指示性连线需要比分隔线更强的存在感），phase0/013 收口时统一记录。
 ///
 /// ## 布局
 ///

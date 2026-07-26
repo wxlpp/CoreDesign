@@ -72,7 +72,9 @@ Timeline(items: [
 ## 布局
 
 每行是 `HStack(alignment: .top)`：左侧固定 `24×24pt` 的节点方框（默认圆点或自定义
-`node` 均在此方框内居中），右侧 `content`。连线以 `.background(alignment:)` 挂在整行
+`node` 均在此方框内居中），右侧 `content`。**自定义 `node` 应 ≤ 24×24pt**——方框不裁剪，
+更大的视图（如 32–40pt 头像）会溢出、上沿侵入上一行、下沿被连线穿过；需要更大节点时请自行
+缩放到 24pt（`.frame(width:24,height:24)` + `.clipShape(...)`）。连线以 `.background(alignment:)` 挂在整行
 `HStack` 之下——`.background` 的内容会被提议整行**已解析出的具体尺寸**，让
 `Rectangle().frame(maxHeight: .infinity)` 能正确撑到「本行实际高度」，不受
 `VStack`/`ScrollView` 这类按内容 hug 高度的祖先容器影响。最后一条节点不渲染连线（用
@@ -84,7 +86,9 @@ Timeline(items: [
 - 默认圆点颜色：`StatusColors` emphasis 档，按 `StatusLevel` 映射——
   `info → statusAccentEmphasis` / `success → statusSuccessEmphasis` /
   `warning → statusAttentionEmphasis` / `danger → statusDangerEmphasis`
-- 连线：`Color.dividerDefault`（= 系统 `separator` 色），`CoreBorderWidth.thin` 宽度
+- 连线：`Color.dividerDefault`（= 系统 `separator` 色），`CoreBorderWidth.thin`（1pt）宽度——
+  竖向长连线用 1pt 比 separator hairline（0.5pt）观感更实，是对 phase0「连线对齐 separator」
+  决策的有意偏离（与 Steps 横向连线同源，指示性连线需强于分隔线；phase0/013 统一记录）
 - 行间距：`CoreSpacing.lg`（最后一条不追加）；节点列与 content 横向间距 `CoreSpacing.md`
 
 ## Accessibility
