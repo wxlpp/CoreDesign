@@ -63,7 +63,7 @@ RadioGroup(
 ## 视觉 Token（与 CheckBox 成对）
 
 - 选中态：`largecircle.fill.circle` SF Symbol，`Color.contentPrimary`
-- 未选中态：`circle` SF Symbol，`Color.gray`
+- 未选中态：`circle` SF Symbol，`Color.contentSecondary`
 - 图标字号：`CoreControlMetrics.iconSize(for: .regular)`（16pt），与 `CheckBoxToggleStyle` 一致
 - 图标 ↔ 文字间距：`CoreSpacing.sm`
 - 命中区：`.frame(minHeight: CoreControlMetrics.height(for: .regular))`（44pt 地板）+ `.contentShape(Rectangle())`，复刻 `CheckBoxToggleStyle` 的手法——单靠 icon + label 的 intrinsic 高度会远低于 44pt，需要显式撑高整行命中区
@@ -76,4 +76,4 @@ RadioGroup(
 
 SwiftUI 在 macOS 上原生提供 `Picker` + `.pickerStyle(.radioGroup)`，是 Apple 官方更推荐的 radio 实现路径。但该 style **仅 macOS 可用**，iOS/iPadOS 没有对应渲染，且其视觉（系统原生单选圆钮）与本仓库已有的 `CheckBoxToggleStyle`（手写方框 + SF Symbol）语汇不一致。
 
-CoreDesign 的 Semi 组件集里 Radio 与 CheckBox 是并列的表单控件——为保持跨端（iOS/macOS 同一套视觉）一致，以及与既有 CheckBox 语汇（icon-swap 手法、`Color.contentPrimary`/`Color.gray` 取色、44pt 命中区手法）延续，`RadioGroup` 复刻 `CheckBoxToggleStyle` 的手写实现，只把方框图标换成 Semi 风格的圆点图标（`circle` / `largecircle.fill.circle`），而不采用 `.pickerStyle(.radioGroup)`。
+CoreDesign 的 Semi 组件集里 Radio 与 CheckBox 是并列的表单控件——为保持跨端（iOS/macOS 同一套视觉）一致，以及与既有 CheckBox 语汇（icon-swap 手法、`Color.contentPrimary`/`Color.contentSecondary` 取色、44pt 命中区手法）延续，`RadioGroup` 复刻 `CheckBoxToggleStyle` 的手写实现，只把方框图标换成 Semi 风格的圆点图标（`circle` / `largecircle.fill.circle`），而不采用 `.pickerStyle(.radioGroup)`。
