@@ -41,6 +41,15 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Content: View
 
     @State private var selection: ID?
 
+    /// Reduce Motion 开启时不启动自动轮播（WCAG 2.2.2：>5s 自动更新内容须可暂停；
+    /// 走马灯没有终端用户级暂停手段，故按系统偏好关掉自动推进，仅保留手势/页点跳转）。
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// 页点命中区内衬：把 `CoreSpacing.xs`(4pt) 视觉圆点的隐形命中 frame 撑到 44pt（`(44-4)/2`）。
+    private static var pageDotHitInset: CGFloat {
+        (CoreControlMetrics.height(for: .regular) - CoreSpacing.xs) / 2
+    }
+
     /// - Parameters:
     ///   - data: 走马灯页数据源，元素须 `Identifiable`。
     ///   - autoAdvance: 是否自动轮播，默认 `true`。置 `false` 时完全不启动定时循环，
@@ -100,7 +109,8 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Content: View
     /// `selection` 触发 SwiftUI 用新 id 重启本 task，形成周期循环。`Task.sleep` 抛出
     /// （视图消失 / id 再次变化导致取消）或取消标志在睡眠后为真时都直接返回，不推进。
     private func tickAutoAdvance() async {
-        guard self.autoAdvance else { return }
+        // Reduce Motion 关自动轮播；`interval <= .zero` 会形成 sleep(0)→推进→重启的高频自旋，防护掉。
+        guard self.autoAdvance, !self.reduceMotion, self.interval > .zero else { return }
         let ids = self.ids
         guard ids.count > 1 else { return }
         do {
@@ -143,9 +153,13 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Content: View
                         // pending 描边同一层级）。
                         .fill(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.fill))
                         .frame(width: CoreSpacing.xs, height: CoreSpacing.xs)
-                        // 视觉尺寸之外单独放大命中区域，不改变圆点观感。
-                        .frame(minWidth: CoreSpacing.lg, minHeight: CoreSpacing.lg)
+                        // 命中区扩到 44pt：对称 `padding` 撑开命中 frame + 负 `padding` 抵消布局
+                        // （`Tag` 同款手法）——圆点视觉与胶囊布局不变，仅隐形命中区放大到 44×44。
+                        // 相邻页点命中区会横向重叠，符合页点作为 scrubber 式控件的交互（精确点单点
+                        // 非主交互，主交互是滑动/就近落点）。
+                        .padding(Self.pageDotHitInset)
                         .contentShape(Rectangle())
+                        .padding(-Self.pageDotHitInset)
                 }
                 .buttonStyle(.plain)
                 // 「第 N / 共 M 页」——Phase 0 预登记的位置键 `"%@ of %@"`
