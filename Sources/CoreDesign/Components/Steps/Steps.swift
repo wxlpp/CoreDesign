@@ -148,6 +148,14 @@ public struct Steps: View {
     private static let dotDiameter: CGFloat = 12
     private static let numberedDiameter: CGFloat = 28
 
+    /// 当前样式的指示器直径——横向连线的中央空档宽度取此值，使半段止于指示器边缘。
+    private var indicatorDiameter: CGFloat {
+        switch self.indicatorStyle {
+        case .dot: Self.dotDiameter
+        case .numbered: Self.numberedDiameter
+        }
+    }
+
     // MARK: - Body
 
     public var body: some View {
@@ -161,7 +169,9 @@ public struct Steps: View {
         // 每一步是一个**等宽列**（指示器居中于其标题正上方）——指示器与文字共用同一套等宽
         // 布局，避免「指示器行用弹性连线、文字行用等宽列」两套几何导致的中心错位（首/末步最重）。
         // 连线画在指示器的 background：左半连上一步、右半连下一步，相邻列半段在列边界相接成
-        // 连续线；首列无左半、末列无右半。指示器覆盖线的中心段。
+        // 连续线；首列无左半、末列无右半。background HStack 的 `spacing` 取指示器直径——中央
+        // 留出与指示器等宽的空档，使两半段**止于指示器边缘**而非从空心 pending 指示器（描边圆、
+        // 内腔透明）的内部穿过（实心 current/done/error 也一并受益、观感更贴 Semi）。
         let last = self.items.count - 1
         return HStack(alignment: .top, spacing: 0) {
             ForEach(Array(self.items.enumerated()), id: \.element.id) { index, _ in
@@ -169,7 +179,7 @@ public struct Steps: View {
                     self.indicator(for: index)
                         .frame(maxWidth: .infinity)
                         .background {
-                            HStack(spacing: 0) {
+                            HStack(spacing: self.indicatorDiameter) {
                                 Rectangle()
                                     .fill(index > 0 ? self.connectorFill(after: index - 1) : AnyShapeStyle(Color.clear))
                                     .frame(height: CoreBorderWidth.thick)
