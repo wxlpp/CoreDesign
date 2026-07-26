@@ -17,7 +17,7 @@
 
 ## 与 FlowLayout / Tag 的复用关系
 
-- **折行**：复用 `FlowLayout(spacing: CoreSpacing.xs)`——输入框作为其最后一个
+- **折行**：复用 `FlowLayout(spacing: CoreSpacing.sm)`（8pt 为 `Tag` 删除按钮命中区纵向溢出所需下限，系对 168.md AC 写死的 `.xs` 的有意偏离，防相邻行删除按钮命中区重叠误删）——输入框作为其最后一个
   子视图，随已有标签数量自然换行到新行，不改动 `FlowLayout` 本身。
 - **chip**：复用 `Tag(_:color:removable:onRemove:)`——拿到现成的 44pt 命中区
   删除按钮与已登记的 `"Remove tag"` 本地化键，不重造删除交互。`tagColor`
@@ -55,7 +55,7 @@ TagInput(tags: $tags, placeholder: "Add tag") { committed in
 
 ## 视觉 Token
 
-- 折行容器：`FlowLayout(spacing: CoreSpacing.xs)`
+- 折行容器：`FlowLayout(spacing: CoreSpacing.sm)`（8pt，见上「折行」节的命中区偏离说明）
 - chip：`Tag(color: tagColor, removable: true, onRemove:)`
 - 输入框字号：`CoreControlMetrics.fontToken(for: .regular)`
 - 输入框文字色：`Color.contentPrimary`
