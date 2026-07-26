@@ -226,5 +226,72 @@ struct DynamicTypeLayoutTests {
         #expect(normal > 0, "渲染失败")
         #expect(ax5 > normal, "PinCode 在 accessibility5 未撑高（\(normal) → \(ax5)）——格内数字字号未随 Dynamic Type 缩放")
     }
+
+    // MARK: - Rating / Radio / TagInput / Timeline 补充覆盖（Issue #188）
+    //
+    // Descriptions 塌列断言之外，semi-mobile-components epic 引入的另外四个组件此前
+    // 没有 accessibility 大字号下的关键布局断言。逐组件挑一条有实义的判据，手法沿用
+    // 上方既有断言（`renderedHeight` + large → accessibility5 对比）。
+
+    @Test("Rating 星形在 accessibility5 下仍正常渲染、不塌成 0 高度（星形边长走固定 iconSize、不随 Dynamic Type 缩放——记录现状，非回归判据，只守住不消失/不裁切）")
+    func ratingStarsRenderAtAccessibility5WithoutCollapsing() {
+        let rating = Rating(value: .constant(3), count: 5)
+        let ax5 = self.renderedHeight(rating, at: .accessibility5)
+        #expect(ax5 > 0, "Rating 在 accessibility5 下渲染失败或塌缩为 0 高度")
+        // `frame(minHeight:)` 命中区地板保证下限，即便星形本身不随字号缩放。
+        #expect(
+            ax5 >= CoreControlMetrics.height(for: .regular),
+            "Rating 在 accessibility5 下高度（\(ax5)）低于 44pt 命中区地板——minHeight 地板失效"
+        )
+    }
+
+    @Test("RadioGroup 在 accessibility5 下总高随 Dynamic Type 增长（长标题折行 + 逐行命中区撑高）")
+    func radioGroupGrowsWithDynamicType() {
+        let group = RadioGroup(
+            selection: .constant("basic"),
+            options: [
+                RadioOption(value: "basic", title: "A sufficiently long radio option title to wrap at accessibility sizes"),
+                RadioOption(value: "pro", title: "Another option"),
+            ]
+        )
+        let small = self.renderedHeight(group, at: .large)
+        let ax5 = self.renderedHeight(group, at: .accessibility5)
+        #expect(small > 0, "渲染失败（uiImage nil）")
+        #expect(ax5 > small, "RadioGroup 在 accessibility5 未撑高——长标题没有随 Dynamic Type 缩放/折行，或被裁切")
+    }
+
+    @Test("TagInput 多标签在 accessibility5 下随 Dynamic Type 折行增多、总高增长")
+    func tagInputGrowsWithDynamicTypeAsTagsWrap() {
+        let tagInput = TagInput(
+            tags: .constant([
+                "bug", "enhancement", "help wanted", "documentation",
+                "good first issue", "dependencies", "question", "wontfix",
+            ])
+        )
+        let small = self.renderedHeight(tagInput, at: .large)
+        let ax5 = self.renderedHeight(tagInput, at: .accessibility5)
+        #expect(small > 0, "渲染失败（uiImage nil）")
+        #expect(ax5 > small, "TagInput 在 accessibility5 未撑高——chip 文字/输入框没有随 Dynamic Type 缩放折行")
+    }
+
+    @Test("Timeline 节点+内容行在 accessibility5 下行高随 Dynamic Type 增长、不重叠裁切")
+    func timelineGrowsWithDynamicTypeWithoutOverlap() {
+        let timeline = Timeline(items: [
+            TimelineItem(status: .info) {
+                VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                    Text("A sufficiently long timeline entry title to wrap at accessibility sizes")
+                        .coreFont(.callout)
+                    Text("2026-07-20 10:00").coreFont(.footnote)
+                }
+            },
+            TimelineItem(status: .success) {
+                Text("Second entry").coreFont(.callout)
+            },
+        ])
+        let small = self.renderedHeight(timeline, at: .large)
+        let ax5 = self.renderedHeight(timeline, at: .accessibility5)
+        #expect(small > 0, "渲染失败（uiImage nil）")
+        #expect(ax5 > small, "Timeline 在 accessibility5 未撑高——节点+内容行文字没有随 Dynamic Type 缩放，或行间发生重叠裁切")
+    }
 }
 #endif
