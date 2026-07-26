@@ -452,9 +452,14 @@ private struct SkeletonPreviewsPreviewGallery: View {
 }
 
 #Preview("Float Button") {
+    // 有界画布：FAB 需要深色背景才能看清玻璃质感，但不应像早期版本那样用
+    // `.ignoresSafeArea()` 铺满整屏——那会让快照按设备全屏尺寸渲染，PNG 压缩率
+    // 极差（4.6MB vs 其它组件的几百 KB）。改为固定尺寸卡片 + clipShape，与
+    // ComponentData.swift 里 app 内 FloatButtonPreview 的有界卡片形态一致；
+    // 背景改纯色（而非渐变）——平滑渐变本身也是 PNG 压缩率差的主因，纯色块
+    // 几乎无损压缩，同时仍能反衬出玻璃按钮的通透质感。
     ZStack {
-        LinearGradient(colors: [.indigo, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
-            .ignoresSafeArea()
+        Color.indigo
 
         VStack(spacing: CoreSpacing.xl) {
             Button {} label: {
@@ -472,6 +477,10 @@ private struct SkeletonPreviewsPreviewGallery: View {
         }
         .padding(CoreSpacing.xxxl)
     }
+    .frame(width: 320, height: 280)
+    .clipShape(CoreShape.rounded(CoreRadius.large))
+    .padding()
+    .background(Color.surfaceCanvas)
 }
 
 #Preview("Carousel") {
