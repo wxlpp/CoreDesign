@@ -153,13 +153,16 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Content: View
                         // pending 描边同一层级）。
                         .fill(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.fill))
                         .frame(width: CoreSpacing.xs, height: CoreSpacing.xs)
-                        // 命中区扩到 44pt：对称 `padding` 撑开命中 frame + 负 `padding` 抵消布局
-                        // （`Tag` 同款手法）——圆点视觉与胶囊布局不变，仅隐形命中区放大到 44×44。
-                        // 相邻页点命中区会横向重叠，符合页点作为 scrubber 式控件的交互（精确点单点
-                        // 非主交互，主交互是滑动/就近落点）。
-                        .padding(Self.pageDotHitInset)
+                        // 命中区**纵向**扩到 44pt（满足 `TouchTargetTests` 的「可点击高度 ≥44pt」），
+                        // **横向**只扩到点距(8pt)——每个页点是独立 `Button`，SwiftUI 对重叠兄弟按
+                        // z-order 裁决（非「就近」），若横向也扩到 44 会大面积重叠、点谁都跳到最右页。
+                        // 横向按点距平铺、零重叠 → 落点自然归属视觉上最近的点。用「padding 撑开命中
+                        // frame + 负 padding 抵消布局」（`Tag` 同款手法），圆点视觉与胶囊布局不变。
+                        .padding(.vertical, Self.pageDotHitInset)
+                        .padding(.horizontal, CoreSpacing.xxs)
                         .contentShape(Rectangle())
-                        .padding(-Self.pageDotHitInset)
+                        .padding(.horizontal, -CoreSpacing.xxs)
+                        .padding(.vertical, -Self.pageDotHitInset)
                 }
                 .buttonStyle(.plain)
                 // 「第 N / 共 M 页」——Phase 0 预登记的位置键 `"%@ of %@"`
