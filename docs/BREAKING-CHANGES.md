@@ -46,7 +46,7 @@
 - `ProgressIndicator` 带文案时的 accessibility label 改播报文案本身（`self.text ?? Text("Loading", bundle: .module)`），此前恒播 `"Loading"`。
 - `spinning` 遮罩改用 `ContainerRelativeShape()` 替代 `Rectangle()`，避免直角材质溢出圆角内容轮廓。
 - `PinCode` 隐藏承接输入的 `TextField` 补 `.fixedSize()`——此前在某些外层宽度大于格子行实际宽度的场景下（如宿主画廊详情页）会撑满可用宽度，导致其 0.01 透明度的文字内容露出到格子行左侧边界之外（Phase 3 视觉复查发现，截图可见「重影」，非本次改动引入，已一并修复）。
-- `PinCode`（downstream-probe 一并覆盖新增公开面）等各组件 `docs/components/*.md` 结尾「运行 `run-snapshots.sh` 生成于 `docs/snapshots`」的样板措辞统一订正——与 `phase0-decisions.md` §3 的实际生成路径（默认模式依赖 `App/Sources/Previews.swift` 注册；组件自带 `#Preview` 走 `KEEP_LIBRARY_SNAPSHOTS=1` 到本地 scratch 目录）对齐（全仓库 30 个 `docs/components/*.md` 一并订正，含既有组件）。
+- 各组件 `docs/components/*.md` 结尾「运行 `run-snapshots.sh` 生成于 `docs/snapshots`」的样板措辞统一订正——与 `phase0-decisions.md` §3 的实际生成路径（默认模式依赖 `App/Sources/Previews.swift` 注册；组件自带 `#Preview` 走 `KEEP_LIBRARY_SNAPSHOTS=1` 到本地 scratch 目录）对齐（本 PR 共订正 32 个 `docs/components/*.md`，含既有组件）。
 - `ToastHostTests` 时序 flaky 修复：`.serialized` trait + buffer 从 0.3–0.5s 放宽到 0.8–1.2s（`Suite` 与整套测试并跑时的调度抖动会吃掉窄余量）。
 - Steps/Timeline 连线宽度对 phase0-decisions「hairline」的有意偏离（`Timeline` 取 `CoreBorderWidth.thin`、`Steps` 横向连线取 `.thick`）在各自源文件 doc comment 中已有记录，本次未额外改动。
 - `%lld steps` 复数摘要键（Phase 0 预登记）裁决**不消费**——已在 `Steps.swift` doc comment 中记录理由（每步已有「N of M」位置播报，容器层再插入总览摘要需要重新设计 accessibility 树分层，收益与改动面不成比例）；键保留在 `.stringsdict` 供未来复用。

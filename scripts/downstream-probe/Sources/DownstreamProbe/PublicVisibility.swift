@@ -278,12 +278,28 @@ func consumeExtendedFloatTierAccessor() -> some View {
         .buttonStyle(.extendedFloat(size: .regular))
 }
 
+// `.extendedFloat` 工厂经 opaque 传递会强制类型 public，但 `init(size:)` 的可见性回退抓不到——
+// 直接构造 + 读 `.size` 把 init 与属性也钉进契约。
+@MainActor
+func consumeExtendedFloatButtonStyleType() -> ControlSize {
+    ExtendedFloatButtonStyle(size: .large).size
+}
+
 // MARK: SpinningModifier / View.spinning(_:text:)（Issue #172）
 
 @MainActor
 func consumeSpinningModifier() -> some View {
     Text("content")
         .spinning(true, text: "Refreshing…")
+}
+
+// `.spinning(...)` 返回 opaque `some View`，`SpinningModifier` 类型/init/属性即使回退成 internal
+// 也照样编译——直接 `.modifier(SpinningModifier(...))` + 读两个 public 属性，把类型契约真正钉住
+// （AC #173：probe 须覆盖 SpinningModifier 本身，防「恒绿、契约形同虚设」）。
+@MainActor
+func consumeSpinningModifierType() -> (Bool, LocalizedStringKey?) {
+    let modifier = SpinningModifier(isActive: true, text: "Refreshing…")
+    return (modifier.isActive, modifier.text)
 }
 
 // MARK: ProgressIndicator(text:) 两个新 init（Issue #172，NFR-6：原 init() 无破坏未变，不在此重复覆盖）
