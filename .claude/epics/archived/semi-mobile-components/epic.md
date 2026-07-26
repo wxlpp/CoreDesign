@@ -1,9 +1,9 @@
 ---
 name: semi-mobile-components
-status: backlog
+status: completed
 created: 2026-07-25T08:25:36Z
 updated: 2026-07-25T08:56:03Z
-progress: 0%
+progress: 100%
 prd: .claude/prds/semi-mobile-components.md
 github: https://github.com/wxlpp/CoreDesign/issues/160
 ---
