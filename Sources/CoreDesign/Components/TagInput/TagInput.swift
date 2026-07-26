@@ -80,7 +80,11 @@ public struct TagInput: View {
     }
 
     public var body: some View {
-        FlowLayout(spacing: CoreSpacing.xs) {
+        // 间距取 `.sm`(8pt) 而非 168.md AC 写的 `.xs`(4pt)：`Tag(removable:)` 的删除按钮
+        // 44pt 命中区纵向溢出 chip 视觉边界约 8pt(见 `Tag.swift` 警告)，相邻可交互元素间距
+        // < 8pt 会让上下行删除按钮命中区重叠、形成看不见的误删陷阱。这是对 AC 的**有意偏离**
+        // (AC 与 `Tag` 的文档化命中区约束冲突，以后者为准)。
+        FlowLayout(spacing: CoreSpacing.sm) {
             ForEach(Array(self.tags.enumerated()), id: \.offset) { index, tag in
                 Tag(tag, color: self.tagColor, removable: true) {
                     self.tags = Self.removingTag(at: index, from: self.tags)
@@ -93,6 +97,9 @@ public struct TagInput: View {
                 .foregroundStyle(Color.contentPrimary)
                 .frame(minWidth: Self.minimumInputWidth)
                 .frame(minHeight: CoreControlMetrics.height(for: .regular))
+                // TODO(013): Phase 0 预登记了 `"Add tag"` 键但此处 verbatim 消费 placeholder
+                // (String 签名 + 仿 SearchField 先例，当前 en-only 无运行时影响)。013 收口时二选一：
+                // 补 `LocalizedStringKey` 重载走 `bundle: .module`(与 #156 方向一致)，或删掉该死键。
                 .accessibilityLabel(Text(self.placeholder))
                 .onSubmit {
                     self.commitDraft()
