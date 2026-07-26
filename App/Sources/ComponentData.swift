@@ -53,6 +53,9 @@ extension ComponentMeta {
         ComponentMeta(id: "button", name: "Button", description: "3 种 ButtonStyle：solid / light / borderless，按 role 参数化配色", category: .button) {
             ButtonPreview()
         },
+        ComponentMeta(id: "float-button", name: "FloatButton", description: "悬浮按钮：ExtendedFloatButtonStyle 胶囊玻璃 + CircularGlassButtonStyle 圆形玻璃", category: .button) {
+            FloatButtonPreview()
+        },
 
         // Form
         ComponentMeta(id: "label-icon", name: "Form Icons", description: "表单图标：LabelIcon / ChevronRightIcon / DangerIcon", category: .form) {
@@ -67,6 +70,18 @@ extension ComponentMeta {
         ComponentMeta(id: "bottom-input-bar", name: "BottomInputBar", description: "底部输入栏 modifier，带自动补全 + 提交逻辑", category: .form) {
             BottomInputBarPreview()
         },
+        ComponentMeta(id: "rating", name: "Rating", description: "Binding<Double> 驱动的星级评分，支持半星步进 + 只读模式", category: .form) {
+            RatingPreview()
+        },
+        ComponentMeta(id: "pin-code", name: "PinCode", description: "验证码 / PIN 分格输入，隐藏 TextField 承接系统键盘 + iOS 单条码 OTP 自动填充", category: .form) {
+            PinCodePreview()
+        },
+        ComponentMeta(id: "radio-group", name: "RadioGroup", description: "互斥单选组，与 CheckBox 成对的视觉语汇", category: .form) {
+            RadioGroupPreview()
+        },
+        ComponentMeta(id: "tag-input", name: "TagInput", description: "标签输入框：Tag chip + 内联 TextField，回车/逗号提交", category: .form) {
+            TagInputPreview()
+        },
 
         // Indicator
         ComponentMeta(id: "badge", name: "Badge", description: "5 状态等级指示器：info / success / warning / danger / neutral", category: .indicator) {
@@ -78,6 +93,18 @@ extension ComponentMeta {
         ComponentMeta(id: "banner", name: "Banner", description: "通知横幅，支持 info / success / warning / danger 四级", category: .indicator) {
             BannerPreview()
         },
+        ComponentMeta(id: "progress-indicator", name: "ProgressIndicator", description: "通用圆形加载指示器，可选文案渲染于 spinner 下方", category: .indicator) {
+            ProgressIndicatorGalleryPreview()
+        },
+        ComponentMeta(id: "skeleton", name: "Skeleton", description: "骨架屏容器：SkeletonLine / SkeletonRect / SkeletonCircle 占位形状 + shimmer 扫光", category: .indicator) {
+            SkeletonPreview()
+        },
+        ComponentMeta(id: "steps", name: "Steps", description: "横向 / 纵向步骤条，点状 / 数字两种指示器样式", category: .indicator) {
+            StepsPreview()
+        },
+        ComponentMeta(id: "timeline", name: "Timeline", description: "纵向时间线：节点（默认圆点或自定义）+ 连线 + 内容", category: .indicator) {
+            TimelinePreview()
+        },
 
         // Layout
         ComponentMeta(id: "avatar", name: "Avatar", description: "头像组件，按名称首字母生成", category: .layout) {
@@ -85,6 +112,9 @@ extension ComponentMeta {
         },
         ComponentMeta(id: "list-row", name: "ListRow", description: "3-槽位泛型列表行：leading / label / trailing", category: .layout) {
             ListRowPreview()
+        },
+        ComponentMeta(id: "carousel", name: "Carousel", description: "走马灯：ScrollView 分页滚动 + 自动轮播 + 页点指示器", category: .layout) {
+            CarouselPreview()
         },
 
         // Container（Phase 2）
@@ -108,6 +138,9 @@ extension ComponentMeta {
         },
         ComponentMeta(id: "section-header-footer", name: "Section Header / Footer", description: "iOS 分组页眉（大写 footnote 灰）/ 页脚说明", category: .container) {
             SectionHeaderFooterPreview()
+        },
+        ComponentMeta(id: "descriptions", name: "Descriptions", description: "描述列表：.core LabeledContentStyle + InsetGroupedSection，1/2 列 + 大字号自动塌列", category: .container) {
+            DescriptionsPreview()
         },
 
         // Form（Phase 2 .core style）
@@ -135,6 +168,9 @@ extension ComponentMeta {
                 .font(CoreTypography.Token.footnote.font)
                 .foregroundStyle(Color.contentMuted)
         }, demoAction: { AnyView(ToastDemoButton()) }),
+        ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:) 加载遮罩 modifier，吸收 Semi Design Spin 能力", category: .feedback) {
+            SpinningPreview()
+        },
     ]
 }
 
@@ -475,5 +511,180 @@ private struct SettingsScreenDemo: View {
             .padding()
         }
         .background(Color.surfaceCanvas)
+    }
+}
+
+// MARK: - Phase 3 Previews（semi-mobile-components epic，0.7.0）
+
+private struct FloatButtonPreview: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [.indigo, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .clipShape(CoreShape.rounded(CoreRadius.medium))
+
+            HStack(spacing: CoreSpacing.lg) {
+                Button {} label: {
+                    Label("New", systemImage: "plus")
+                }
+                .buttonStyle(.extendedFloat(size: .regular))
+                .foregroundStyle(.white)
+
+                Button {} label: {
+                    Image(systemName: "paperplane")
+                        .font(.system(size: CoreControlMetrics.iconSize(for: .regular), weight: .semibold))
+                }
+                .buttonStyle(.circularGlass(size: .regular))
+                .foregroundStyle(.white)
+            }
+            .padding(CoreSpacing.xl)
+        }
+    }
+}
+
+private struct RatingPreview: View {
+    @State private var value: Double = 3.5
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            Rating(value: self.$value, allowsHalfStar: true)
+            Rating(value: .constant(4), isReadOnly: true)
+        }
+    }
+}
+
+private struct PinCodePreview: View {
+    @State private var code = "12"
+    var body: some View {
+        PinCode(value: self.$code, length: 6)
+    }
+}
+
+private struct RadioGroupPreview: View {
+    @State private var selection = "pro"
+    var body: some View {
+        RadioGroup(
+            selection: self.$selection,
+            options: [
+                RadioOption(value: "basic", title: "Basic"),
+                RadioOption(value: "pro", title: "Pro"),
+                RadioOption(value: "enterprise", title: "Enterprise"),
+            ]
+        )
+    }
+}
+
+private struct TagInputPreview: View {
+    @State private var tags: [String] = ["bug", "enhancement"]
+    var body: some View {
+        // Phase 3 / #173 视觉复查发现：默认 tagColor（.contentSecondary）经 Tag 的
+        // `.opacity(0.12)` 背景公式，在暗色纯黑画布上对比度接近不可辨——这是 Tag 既有
+        // 公式对中性色的固有表现，不是本次改动引入的缺陷（组件默认值本身不在本任务改动
+        // 范围内）。画廊演示改用更有辨识度的 .blue，让暗色变体清晰可读；调用方仍可自由
+        // 传入任意颜色，含中性色。
+        TagInput(tags: self.$tags, placeholder: "Add tag", tagColor: .blue)
+    }
+}
+
+private struct ProgressIndicatorGalleryPreview: View {
+    var body: some View {
+        VStack(spacing: CoreSpacing.md) {
+            ProgressIndicator()
+                .controlSize(.regular)
+            ProgressIndicator(text: "Loading…")
+                .controlSize(.large)
+        }
+    }
+}
+
+private struct SkeletonPreview: View {
+    @State private var isLoading = true
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            Toggle(isOn: self.$isLoading) { Text("isLoading") }
+                .tint(Color.accent)
+            Skeleton(isLoading: self.isLoading) {
+                HStack(alignment: .top, spacing: CoreSpacing.md) {
+                    SkeletonCircle(diameter: 40)
+                    SkeletonLine(lineCount: 2)
+                }
+            } content: {
+                HStack(alignment: .top, spacing: CoreSpacing.md) {
+                    Circle().fill(Color.accent).frame(width: 40, height: 40)
+                    VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                        Text("王晓龙").coreFont(.subheadline)
+                        Text("CoreDesign 维护者").coreFont(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct StepsPreview: View {
+    static let items: [StepItem] = [
+        StepItem(title: "Cart"),
+        StepItem(title: "Shipping"),
+        StepItem(title: "Payment"),
+        StepItem(title: "Confirm"),
+    ]
+    var body: some View {
+        Steps(items: Self.items, currentIndex: 1, axis: .horizontal, indicatorStyle: .numbered)
+    }
+}
+
+private struct TimelinePreview: View {
+    var body: some View {
+        Timeline(items: [
+            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
+            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
+            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
+        ])
+    }
+}
+
+private struct CarouselPreviewItem: Identifiable {
+    let id: Int
+    let title: String
+    let color: Color
+}
+
+private struct CarouselPreview: View {
+    private let cards: [CarouselPreviewItem] = [
+        CarouselPreviewItem(id: 0, title: "第一页", color: .blue),
+        CarouselPreviewItem(id: 1, title: "第二页", color: .purple),
+        CarouselPreviewItem(id: 2, title: "第三页", color: .orange),
+    ]
+    var body: some View {
+        Carousel(self.cards, autoAdvance: false) { item in
+            CoreShape.rounded(CoreRadius.large)
+                .fill(item.color.gradient)
+                .overlay {
+                    Text(item.title).coreFont(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
+                }
+        }
+        .frame(height: 120)
+    }
+}
+
+private struct DescriptionsPreview: View {
+    var body: some View {
+        Descriptions(header: "Order") {
+            LabeledContent("Status") { Text("Active") }
+            LabeledContent("Total") { Text("$42.00") }
+            LabeledContent("Placed") { Text("2026-07-20") }
+        }
+    }
+}
+
+private struct SpinningPreview: View {
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("卡片标题").coreFont(.headline)
+                Text("被 spinning 遮罩覆盖时应保持自身尺寸不变。")
+                    .coreFont(.subheadline)
+                    .foregroundStyle(Color.contentSecondary)
+            }
+        }
+        .spinning(true, text: "Refreshing…")
     }
 }
