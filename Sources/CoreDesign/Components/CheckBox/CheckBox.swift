@@ -18,8 +18,9 @@ import SwiftUI
 /// - 与 Apple `ToggleStyle` 协议形态对齐（`makeBody(configuration:)` + `Configuration` 类型别名）。
 /// - icon 字号 `CoreControlMetrics.iconSize(for: .regular)`（16pt），与 `bodyMedium` 默认 UI 文字视觉等重。
 /// - icon ↔ label 间距 `CoreSpacing.sm`（8pt）。
-/// - 选中态 `checkmark.square.fill` 用 `Color.contentPrimary`、未选中 `square` 用 `Color.gray`。
-/// - light / dark 行为：`Color.contentPrimary` / `Color.gray` 自动适配系统外观。
+/// - 选中态 `checkmark.square.fill` 用 `Color.contentPrimary`、未选中 `square` 用 `Color.contentSecondary`。
+/// - light / dark 行为：`Color.contentPrimary` / `Color.contentSecondary` 自动适配系统外观
+///   （分别桥接 `.label` / `.secondaryLabel`）。
 ///
 ///   > 此处原写 `Color.primary`。第 4 层曾定义同名别名而遮蔽了 SwiftUI 内建成员，
 ///   > 使该图标实际渲染成品牌色而非系统 label 色——与本注释原先的描述相反。
@@ -38,7 +39,7 @@ public struct CheckBoxToggleStyle: ToggleStyle {
             } else {
                 Image(systemName: "square")
                     .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
-                    .foregroundStyle(Color.gray)
+                    .foregroundStyle(Color.contentSecondary)
             }
             configuration.label
         }

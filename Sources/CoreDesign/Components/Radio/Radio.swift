@@ -35,7 +35,7 @@ public struct RadioOption<SelectionValue: Hashable & Sendable>: Identifiable, Se
 
 /// Semi 风格单选组 / Semi-style radio group：`Binding<SelectionValue>` 驱动的互斥选择控件，
 /// 视觉上与既有 `Components/CheckBox/`（`CheckBoxToggleStyle`）成对——同一套 token
-/// （`Color.contentPrimary` / `Color.gray`、`CoreControlMetrics.iconSize(for: .regular)`、
+/// （`Color.contentPrimary` / `Color.contentSecondary`、`CoreControlMetrics.iconSize(for: .regular)`、
 /// `CoreSpacing.sm`、44pt 命中区手法），只是把方框换成圆点。
 ///
 /// 未采用 macOS 原生 `.pickerStyle(.radioGroup)`：Apple 原生更推荐该 style，但本仓库
@@ -106,7 +106,7 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
             // 目录归类为遗留名，虽未废弃仍可用，但新起点统一改走推荐名）。
             Image(systemName: selected ? "circle.inset.filled" : "circle")
                 .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
-                .foregroundStyle(selected ? Color.contentPrimary : Color.gray)
+                .foregroundStyle(selected ? Color.contentPrimary : Color.contentSecondary)
                 // SF Symbol 自带隐式 accessibility label（如 "circle"），若不隐藏，
                 // 下方 `.accessibilityElement(children: .combine)` 会把它拼进朗读
                 // 结果（"circle, 基础版, Button, Selected"）。与 `CoreProgressViewStyle` /
