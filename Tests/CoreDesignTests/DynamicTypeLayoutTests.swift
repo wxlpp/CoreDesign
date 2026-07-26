@@ -160,5 +160,71 @@ struct DynamicTypeLayoutTests {
             "SegmentedControl 高度随字号变化了（\(normal) → \(ax5)）——若已改为 minHeight，本断言与其注释需同步更新"
         )
     }
+
+    // MARK: - semi-mobile-components epic 塌列 / Dynamic Type 断言（Phase 3 / #173 汇入）
+
+    @Test("Descriptions：columns: .two 在 accessibility5 下真正塌成单列——渲染高度收敛到与 columns: .one 一致，而非仅仅字号变大")
+    func descriptionsTwoColumnCollapsesToOneColumnAtAccessibilitySize() {
+        @ViewBuilder
+        func rows() -> some View {
+            LabeledContent("Status") { Text("Active") }
+            LabeledContent("Total") { Text("$42.00") }
+        }
+
+        let twoColumn = Descriptions(columns: .two) { rows() }
+        let oneColumn = Descriptions(columns: .one) { rows() }
+
+        // 常规字号下 `.two` 把两行配成一个 Grid 行（并排），应明显矮于把两行各自
+        // 独占一行的 `.one`——这是「未塌列」的正常状态，先确认基线成立。
+        let twoAtLarge = self.renderedHeight(twoColumn, at: .large)
+        let oneAtLarge = self.renderedHeight(oneColumn, at: .large)
+        #expect(twoAtLarge > 0 && oneAtLarge > 0, "渲染失败（uiImage nil）")
+        #expect(twoAtLarge < oneAtLarge, "常规字号下 .two 应比 .one 矮（两行并排成一组）——基线不成立，下面的塌列断言无意义")
+
+        // accessibility5 下 `DescriptionsLayout.effectiveColumns` 强制 `.two` → `.one`
+        // （见 DescriptionsTests.swift 的纯函数覆盖）；本测试从**渲染**角度验证同一
+        // 结论——真正塌列后，`.two` 应与显式传入 `.one` 渲染出（近似）相同的高度。
+        let twoAtAX5 = self.renderedHeight(twoColumn, at: .accessibility5)
+        let oneAtAX5 = self.renderedHeight(oneColumn, at: .accessibility5)
+        let delta: CGFloat = abs(twoAtAX5 - oneAtAX5)
+        #expect(
+            delta < 1,
+            "columns: .two 未在 accessibility5 下渲染成与 .one 一致的高度（two=\(twoAtAX5), one=\(oneAtAX5)）——塌列失效或行分组逻辑跑偏"
+        )
+    }
+
+    @Test("Steps 纵向布局在 accessibility5 下随 Dynamic Type 撑高、不裁切（标题 + 描述两行文字）")
+    func stepsVerticalGrowsWithDynamicTypeWithoutClipping() {
+        let steps = Steps(
+            items: [
+                StepItem(title: "A sufficiently long step title to wrap at accessibility sizes", description: "With a description line too"),
+                StepItem(title: "Second step"),
+            ],
+            currentIndex: 0,
+            axis: .vertical
+        )
+        let small = self.renderedHeight(steps, at: .large)
+        let ax5 = self.renderedHeight(steps, at: .accessibility5)
+        #expect(small > 0, "渲染失败（uiImage nil）")
+        #expect(ax5 > small, "Steps 纵向布局在 accessibility5 未撑高——标题/描述文字没有随 Dynamic Type 缩放或被裁切")
+    }
+
+    @Test("PinCode 格位在 accessibility5 下随 Dynamic Type 撑高、不裁切（现状记录）")
+    func pinCodeGrowsWithDynamicType() {
+        // `PinCode.cellSize` 本身取 `CoreControlMetrics.height(for: controlSize)`——
+        // 一个固定 pt 值、不经 `ScaledMetric`，格子外框 `.frame(width:height:)` 名义上
+        // 是精确尺寸而非地板。但格内数字用 `.coreFont(.title2)`，字号本身随 Dynamic
+        // Type 缩放（见上方「全部 12 档 token」断言）；`.frame(width:height:)` 默认
+        // 不裁切溢出内容，字号变大时文本视觉尺寸超出该 frame 的名义边界，
+        // `ImageRenderer` 量到的整体渲染高度因此仍随之增长（实测 large=44pt →
+        // accessibility5=65pt）——这与 `SegmentedControl`（用
+        // `frame(height:)` + 明确裁切策略）的钳制现状不同源，此处记录实际渲染行为，
+        // 供未来若改用 `ScaledMetric` 驱动 `cellSize` 本身时对照回归。
+        let pinCode = PinCode(value: .constant("123456"), length: 6)
+        let normal = self.renderedHeight(pinCode, at: .large)
+        let ax5 = self.renderedHeight(pinCode, at: .accessibility5)
+        #expect(normal > 0, "渲染失败")
+        #expect(ax5 > normal, "PinCode 在 accessibility5 未撑高（\(normal) → \(ax5)）——格内数字字号未随 Dynamic Type 缩放")
+    }
 }
 #endif

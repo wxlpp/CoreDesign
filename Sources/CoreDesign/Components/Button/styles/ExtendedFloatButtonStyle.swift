@@ -50,17 +50,29 @@ public struct ExtendedFloatButtonStyle: ButtonStyle {
         self.size = size
     }
 
+    @Environment(\.isEnabled) private var isEnabled
+
     private var resolvedHeight: CGFloat {
         CoreControlMetrics.height(for: self.size)
+    }
+
+    /// 胶囊横向内边距——随 `size` 档位缩放（Phase 3 / #173 收口项：此前恒定
+    /// `CoreSpacing.lg`，`.regular` 与默认 `.large` 档视觉密度不成比例）。直接复用
+    /// `CoreControlMetrics.horizontalPadding(for:)`，与库内其它 `ButtonStyle` /
+    /// `SearchField` 等控件的横向 padding 取值同一来源，不新造独立标度。
+    private var resolvedHorizontalPadding: CGFloat {
+        CoreControlMetrics.horizontalPadding(for: self.size)
     }
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(minHeight: self.resolvedHeight)
-            .padding(.horizontal, CoreSpacing.lg)
+            .padding(.horizontal, self.resolvedHorizontalPadding)
             .contentShape(Capsule(style: .continuous))
             .floatingGlass(in: Capsule(style: .continuous), isInteractive: true)
-            .opacity(configuration.isPressed ? 0.9 : 1)
+            // 禁用视觉，与 `CircularGlassButtonStyle` 同一手法（见其 doc-comment）：
+            // 禁用态固定 0.4 不透明度，覆盖按压态的 0.9，二者不叠乘。
+            .opacity(self.isEnabled ? (configuration.isPressed ? 0.9 : 1) : 0.4)
     }
 }
 

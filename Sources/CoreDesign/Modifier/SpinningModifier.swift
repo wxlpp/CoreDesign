@@ -44,7 +44,14 @@ public struct SpinningModifier: ViewModifier {
             .overlay {
                 if self.isActive {
                     ZStack {
-                        Rectangle()
+                        // `ContainerRelativeShape()` 而非 `Rectangle()`（Phase 3 / #173
+                        // 收口项：直角材质遮罩会溢出圆角内容轮廓，如包在 `Card` 外时遮罩
+                        // 四角比卡片本身更方）。`ContainerRelativeShape` 在调用方未显式声明
+                        // `.containerShape(_:)` 时优雅退化为矩形（与旧行为一致，非破坏性），
+                        // 调用方若想让遮罩贴合自身圆角，只需外加
+                        // `.containerShape(CoreShape.rounded(CoreRadius.medium))` 一类声明，
+                        // 不需要改本组件；`.clipShape` 是调用方侧的另一个可选逃生舱。
+                        ContainerRelativeShape()
                             .fill(.regularMaterial)
                         self.indicator
                     }

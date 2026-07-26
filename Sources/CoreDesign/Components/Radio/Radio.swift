@@ -100,7 +100,11 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
         // 与 CheckBox 成对：`.top` 对齐，标签折行成多行时圆点仍钉在首行顶部，
         // 不随文本垂直居中（否则同一表单里 Radio 与 CheckBox 长标签下会肉眼可见地错位）。
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
-            Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+            // SF Symbol 裁决（semi-mobile-components Phase 3 / #173，来源 #175 评审 suggestion
+            // 4）：选中态改用 `circle.inset.filled`（同心圆环+实心内圈，视觉上更贴近「单选按钮」
+            // 语义）而非 `largecircle.fill.circle`（大实心圆压小圆环，SF Symbols 3 起被官方
+            // 目录归类为遗留名，虽未废弃仍可用，但新起点统一改走推荐名）。
+            Image(systemName: selected ? "circle.inset.filled" : "circle")
                 .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
                 .foregroundStyle(selected ? Color.contentPrimary : Color.gray)
                 // SF Symbol 自带隐式 accessibility label（如 "circle"），若不隐藏，

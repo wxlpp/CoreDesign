@@ -136,6 +136,15 @@ public struct PinCode: View {
     /// 真实可聚焦的系统输入控件，保留系统键盘 / 光标 / 粘贴 / iOS 单条码 OTP
     /// 自动填充横幅等原生行为；对 accessibility 树隐藏，键盘唤起改由格子的
     /// `accessibilityAction` 转发。
+    ///
+    /// Phase 3 / #173 视觉复查发现的修复：`TextField` 不加约束时会撑满 `ZStack` 提议的
+    /// 全部可用宽度（而非贴合自身文字内容），当外层给出的宽度**大于** `cellsRow` 的实际
+    /// 宽度时（例如宿主画廊详情页的固定列宽），`ZStack` 默认居中对齐让较窄的 `cellsRow`
+    /// 整体右移，而占满全宽的 `TextField` 其文字仍从最左侧起排——0.01 透明度的文字因此
+    /// 露出在 `cellsRow` 左侧边界之外的空白区域（截图可见「12」重影），不再被任何不透明
+    /// 格子遮挡。`.fixedSize()` 让 `TextField` 退回到贴合自身文字内容的 ideal 宽度，
+    /// 使其在 `ZStack` 中与更宽的 `cellsRow` 居中对齐、落在格子的不透明背景之下，
+    /// 从而真正不可见（而不仅仅是"透明度很低但仍会露出"）。
     private var hiddenTextField: some View {
         TextField("", text: self.$value)
             .focused(self.$isFocused)
@@ -145,6 +154,7 @@ public struct PinCode: View {
             .textContentType(.oneTimeCode)
             .keyboardType(.numberPad)
             #endif
+            .fixedSize()
             .opacity(0.01)
             .accessibilityHidden(true)
             .onChange(of: self.value) { oldValue, newValue in

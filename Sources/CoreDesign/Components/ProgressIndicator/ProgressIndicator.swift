@@ -61,15 +61,17 @@ public struct ProgressIndicator: View {
                 // 重载延续这一写法，不改为 `.tint` 环境取色。
                 .tint(Color.accent)
                 .controlSize(self.controlSize)
-                .accessibilityLabel(Text("Loading", bundle: .module))
+                // 带文案时播报文案本身（更具体），不带文案时回退到通用 "Loading"
+                // 键（Phase 3 / #173 收口项：此前恒播 "Loading"，文案态下 VoiceOver
+                // 用户听不到调用方传入的具体说明，如 "Refreshing…"）。
+                .accessibilityLabel(self.text ?? Text("Loading", bundle: .module))
 
             if let text = self.text {
                 text
                     .coreFont(.footnote)
                     .foregroundStyle(Color.contentSecondary)
-                    // VoiceOver 语义复用上方 ProgressView 既有的 "Loading" label
-                    // （不重复定义）——这段可视文案只是补充说明，隐藏避免双重播报，
-                    // 与 `CoreProgressViewStyle.currentValueLabel` 同款处理。
+                    // VoiceOver 语义已由上方 ProgressView 的 accessibilityLabel 播报
+                    // 同一段文案（见上）——这里的可视文案隐藏，避免双重播报。
                     .accessibilityHidden(true)
             }
         }

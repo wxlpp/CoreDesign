@@ -246,5 +246,65 @@ struct TouchTargetTests {
         let height = self.renderedHeight(control)
         #expect(height >= Self.minimumHitTarget, "SegmentedControl 容器实测高度 \(height)pt < 44pt")
     }
+
+    // MARK: - semi-mobile-components epic 新交互组件（Phase 3 / #173 汇入）
+    //
+    // 以下组件的 `contentShape` 均挂在 `frame(minHeight:)`（或等价的固定 frame）
+    // **之后**的最外层，满足文件头注释「可信断言」前提——与上面 Button / ListRow /
+    // CheckBox 同一档，不属于 `SearchField` / `BottomInputBar` 那类内层收窄例外。
+
+    @Test("Rating 在 .regular 档实测命中高度 ≥ 44pt（星形视觉尺寸本身小于 44pt，靠 frame(minHeight:) 补足）")
+    func ratingMeetsMinimumTouchTarget() {
+        let rating = Rating(value: .constant(3))
+            .controlSize(.regular)
+        let height = self.renderedHeight(rating, width: nil)
+        #expect(height >= Self.minimumHitTarget, "Rating 实测高度 \(height)pt < 44pt")
+    }
+
+    @Test("RadioGroup 单选项实测命中高度 ≥ 44pt")
+    func radioGroupMeetsMinimumTouchTarget() {
+        let group = RadioGroup(
+            selection: .constant("basic"),
+            options: [RadioOption(value: "basic", title: "Basic")]
+        )
+        let height = self.renderedHeight(group, width: nil)
+        #expect(height >= Self.minimumHitTarget, "RadioGroup 单选项实测高度 \(height)pt < 44pt")
+    }
+
+    @Test("PinCode 在 .regular 档实测高度 ≥ 44pt（格子本身即 CoreControlMetrics.height(for:)，无需 contentShape 撑高）")
+    func pinCodeMeetsMinimumTouchTarget() {
+        let pinCode = PinCode(value: .constant("12"), length: 6)
+            .controlSize(.regular)
+        let height = self.renderedHeight(pinCode, width: nil)
+        #expect(height >= Self.minimumHitTarget, "PinCode 实测高度 \(height)pt < 44pt")
+    }
+
+    @Test("TagInput 空态输入框实测高度 ≥ 44pt（TextField 自身 frame(minHeight:)，非 contentShape 撑高）")
+    func tagInputMeetsMinimumTouchTarget() {
+        // chip 上的删除按钮命中区不在本文件可信覆盖范围——理由与文件头「例外（四）·
+        // Tag 的移除按钮」完全一致（TagInput 的 chip 直接复用 `Tag(removable:)`）。
+        // 本测试只覆盖内联 `TextField` 本身的布局高度，这条不落入该例外
+        // （`TextField` 没有对称 padding 撑开 + 负 padding 抵消的手法，布局高度即命中高度）。
+        let field = TagInput(tags: .constant([]), placeholder: "Add tag")
+        let height = self.renderedHeight(field, width: 320)
+        #expect(height >= Self.minimumHitTarget, "TagInput 空态实测高度 \(height)pt < 44pt")
+    }
+
+    @Test("ExtendedFloatButtonStyle 默认档（.large）与显式 .regular 档均实测 ≥ 44pt")
+    func extendedFloatButtonMeetsMinimumTouchTarget() {
+        let defaultButton = Button {} label: {
+            Label("New", systemImage: "plus")
+        }
+        .buttonStyle(.extendedFloat)
+        let regularButton = Button {} label: {
+            Label("New", systemImage: "plus")
+        }
+        .buttonStyle(.extendedFloat(size: .regular))
+
+        let defaultHeight = self.renderedHeight(defaultButton, width: nil)
+        let regularHeight = self.renderedHeight(regularButton, width: nil)
+        #expect(defaultHeight >= Self.minimumHitTarget, "ExtendedFloatButtonStyle 默认档实测高度 \(defaultHeight)pt < 44pt")
+        #expect(regularHeight >= Self.minimumHitTarget, "ExtendedFloatButtonStyle .regular 档实测高度 \(regularHeight)pt < 44pt")
+    }
 }
 #endif

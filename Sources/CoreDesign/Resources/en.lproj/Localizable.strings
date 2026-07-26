@@ -1,6 +1,5 @@
 /* Component internal UI strings (source language = en). */
 "%@ of %@" = "%@ of %@";
-"Add tag" = "Add tag";
 "Alert" = "Alert";
 "Collapsed" = "Collapsed";
 "Error" = "Error";
