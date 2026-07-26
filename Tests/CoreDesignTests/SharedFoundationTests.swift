@@ -42,7 +42,10 @@ struct SharedFoundationTests {
         // value: "\u{0}" 作哨兵——键缺失时 localizedString 返回哨兵值。断言「返回值 != 哨兵」
         // 即证「键已注册」，且**不**把「en 值恒等于 key」也捆进来（日后微调某个 en 值不该让本测试误红）。
         let keys = [
-            "Rating", "Verification code", "Add tag",   // 组件标签
+            "Rating", "Verification code",               // 组件标签
+            // 注意："Add tag" 曾在 Phase 0 预登记，Phase 3（#173）收口时确认
+            // TagInput 未消费（verbatim 渲染 placeholder，仿 SearchField 先例），
+            // 已连同本条断言一并从 Localizable.strings 移除——不在此处保留死键。
             "Info", "Success", "Warning", "Error",       // Timeline 节点状态
             "%@ of %@",                                   // 通用位置/数值键
         ]

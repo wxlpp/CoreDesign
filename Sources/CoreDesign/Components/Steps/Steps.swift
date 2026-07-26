@@ -82,6 +82,14 @@ public enum StepsIndicatorStyle: Sendable, Equatable {
 /// 位置键 `"%@ of %@"`（`Steps.positionText(current:total:)`，`bundle: .module`
 /// 必传——见 phase0-decisions.md §2）播报「2 of 4」；错误态额外播报已登记键
 /// `"Error"`，二者可同时出现（当前步骤同时也是错误态时用 `, ` 拼接）。
+///
+/// > Note: Phase 0 额外预登记了复数摘要键 `"%lld steps"`（`.stringsdict`），意图是给
+/// > 整个 `Steps` 控件一个总步数摘要播报。Phase 3（#173）收口裁决：**不消费**，保留
+/// > 为已注册但未使用的键——每一步已单独播报「2 of 4」形式的位置信息（含总数），
+/// > 额外在容器层再插入一个「共 N 步」摘要 element 会产生双重播报，且需要重新设计
+/// > 整个 accessibility 树的 `.contain`/`.ignore` 分层（当前逐步 element 已独立、
+/// > 未被容器统一包裹），收益与改动/回归面不成比例，故不在本次范围内展开。若未来
+/// > 确有「先给总览再逐步导航」的产品需求，`"%lld steps"` 键已就绪可直接复用。
 public struct Steps: View {
     let items: [StepItem]
     let currentIndex: Int
@@ -298,6 +306,13 @@ public struct Steps: View {
     /// 相邻两步之间的连线：`index`（左 / 上侧）步骤已完成（`.done`）时走 `.tint`
     /// （呼应完成态指示器强调色），否则走 `Color.dividerDefault`
     /// （phase0-decisions.md §1 连线取色决策）。
+    ///
+    /// > Note: 连线宽度取 `CoreBorderWidth.thick`（本文件 `horizontalBody` 的 background
+    /// > `HStack` 半段与 `verticalBody` 的 `.frame(width:)`），而非 phase0-decisions §1
+    /// > 所述的 separator hairline——指示性连线需要比分隔线更强的存在感，与 `Timeline`
+    /// > 竖向连线取 `CoreBorderWidth.thin`（同样偏离 hairline，理由相同）同源。这是对
+    /// > 「连线宽度对齐 Separator」决策的**有意偏离**，Phase 3 / #173 收口统一记录于此
+    /// > 与 `Timeline.swift` 两处（互相引用，非各自孤立决定）。
     @ViewBuilder
     private func connector(after index: Int) -> some View {
         if self.progress(for: index) == .done {

@@ -97,9 +97,11 @@ public struct TagInput: View {
                 .foregroundStyle(Color.contentPrimary)
                 .frame(minWidth: Self.minimumInputWidth)
                 .frame(minHeight: CoreControlMetrics.height(for: .regular))
-                // TODO(013): Phase 0 预登记了 `"Add tag"` 键但此处 verbatim 消费 placeholder
-                // (String 签名 + 仿 SearchField 先例，当前 en-only 无运行时影响)。013 收口时二选一：
-                // 补 `LocalizedStringKey` 重载走 `bundle: .module`(与 #156 方向一致)，或删掉该死键。
+                // Phase 3 / #173 收口裁决：`placeholder` 保持 `String`（仿 `SearchField.placeholder`
+                // 先例，verbatim 消费，非本地化）而不追加 `LocalizedStringKey` 重载——`TagInput`
+                // 是运行期任意占位文案场景（调用方可能传入分类名等动态字符串），与
+                // `SearchField` 同款处理更一致；Phase 0 预登记的 `"Add tag"` 键因此确认为死键，
+                // 已从 `Localizable.strings` 移除（`SharedFoundationTests` 同步移除断言）。
                 .accessibilityLabel(Text(self.placeholder))
                 .onSubmit {
                     self.commitDraft()

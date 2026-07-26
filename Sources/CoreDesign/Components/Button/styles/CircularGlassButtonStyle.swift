@@ -36,6 +36,8 @@ public struct CircularGlassButtonStyle: ButtonStyle {
         self.diameter = diameter
     }
 
+    @Environment(\.isEnabled) private var isEnabled
+
     private var resolvedDiameter: CGFloat {
         self.diameter ?? CoreControlMetrics.height(for: self.size)
     }
@@ -51,7 +53,11 @@ public struct CircularGlassButtonStyle: ButtonStyle {
                 shape: Circle(),
                 isPressed: configuration.isPressed
             ))
-            .opacity(configuration.isPressed ? 0.9 : 1)
+            // 禁用视觉（Phase 3 / #173 收口项：此前 `\.isEnabled` 完全未读取，禁用态与
+            // 启用态渲染无区别）。与按压态的 `.opacity` 反馈同一手法、同一层叠加——
+            // 禁用态固定在比按压态更低的不透明度（0.4，接近 `InteractionColors` 的
+            // `accentDisabled` 观感基准），并关闭按压态的额外淡出，避免二者叠乘。
+            .opacity(self.isEnabled ? (configuration.isPressed ? 0.9 : 1) : 0.4)
     }
 }
 
