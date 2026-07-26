@@ -5,8 +5,51 @@
 > 已发布的 git tag：`v0.1.0`（2026-07-19）、`v0.2.0`（2026-07-21）、`v0.3.0`（2026-07-23）、
 > `v0.4.0`（2026-07-24，Phase 2 新组件）、`v0.4.1`（2026-07-24，非破坏性收尾）、
 > `v0.5.0`（2026-07-24，文本入参统一——含破坏性变更）、
-> `v0.6.0`（2026-07-25，Separator.Inset 改名 + ProgressBar 弃用 + SettingsRowMetrics 公开——含破坏性变更）。
+> `v0.6.0`（2026-07-25，Separator.Inset 改名 + ProgressBar 弃用 + SettingsRowMetrics 公开——含破坏性变更）、
+> `v0.7.0`（2026-07-26，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning——纯新增，无破坏性变更）。
 > 本文件早期版本曾写「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
+
+## `0.7.0`（`semi-mobile-components` epic 收尾，2026-07-26）
+
+**非破坏性** —— 全部为纯新增，无删除/改名/签名变更，对下游零破坏，无需迁移。
+
+### 新增组件（10 个，`semi-mobile-components` epic Phase 1，Issue #162–#171）
+
+| 组件 | 说明 | 文档 |
+|---|---|---|
+| `Skeleton` / `SkeletonLine` / `SkeletonRect` / `SkeletonCircle` + `View.skeletonShimmer()` | 骨架屏容器 + 占位形状 + shimmer 扫光 modifier | [skeleton.md](components/skeleton.md) |
+| `Steps` / `StepItem` / `StepsAxis` / `StepsIndicatorStyle` | 横向 / 纵向步骤条，点状 / 数字两种指示器 | [steps.md](components/steps.md) |
+| `Timeline` / `TimelineItem` | 纵向时间线，默认圆点或自定义节点 | [timeline.md](components/timeline.md) |
+| `Rating` | `Binding<Double>` 星级评分，支持半星步进 + 只读 | [rating.md](components/rating.md) |
+| `PinCode` | 验证码 / PIN 分格输入，隐藏 `TextField` 承接系统键盘 | [pin-code.md](components/pin-code.md) |
+| `RadioGroup` / `RadioOption` | 互斥单选组，与 `CheckBox` 成对的视觉语汇 | [radio.md](components/radio.md) |
+| `TagInput` | 标签输入框：`Tag` chip + 内联 `TextField` | [tag-input.md](components/tag-input.md) |
+| `Descriptions` / `DescriptionsColumns` / `DescriptionsDividerDensity` | 描述列表：`.core LabeledContentStyle` + `InsetGroupedSection`，1/2 列 + 大字号自动塌列 | [descriptions.md](components/descriptions.md) |
+| `ExtendedFloatButtonStyle` + `.extendedFloat` / `.extendedFloat(size:)` | 胶囊玻璃悬浮按钮样式（与既有 `CircularGlassButtonStyle` 并列） | [float-button.md](components/float-button.md) |
+| `Carousel` | 走马灯：`ScrollView` 分页滚动 + 自动轮播 + 页点指示器 | [carousel.md](components/carousel.md) |
+
+### 增强（Issue #172）
+
+- `ProgressIndicator` 新增 `init(text: LocalizedStringKey)` 与 `init<S: StringProtocol>(text: S)`——可选文案渲染于 spinner 下方；原 `init()` 签名不变（NFR-6 无破坏）。带文案时 accessibility label 播报文案本身而非固定 `"Loading"`（收口修复，见下）。
+- `SpinningModifier` + `View.spinning(_:text:)`——为任意内容整体叠加加载遮罩（吸收 Semi Design `Spin` 能力）。
+
+### Typography 墓碑
+
+`Typography`（PRD 原 12 组件候选之一）判定 parity 已由 `.coreFont(_:)` + 原生 `Text` modifier 达成，
+不作为独立组件实现，见 [typography.md](components/typography.md)。
+
+### Phase 1 评审累积收口项（Phase 3 / #173 统一处理）
+
+- `Radio` 单选圆点 SF Symbol 从遗留名 `largecircle.fill.circle` 改为推荐名 `circle.inset.filled`。
+- `TagInput` 的 `"Add tag"` Phase 0 预登记键确认为死键（组件 verbatim 消费 placeholder，仿 `SearchField` 先例），已从 `Localizable.strings` 移除。
+- `FloatButton`（`CircularGlassButtonStyle` / `ExtendedFloatButtonStyle`）新增 `\.isEnabled` 禁用视觉（此前禁用态与启用态渲染无区别）；`ExtendedFloatButtonStyle` 胶囊横向 padding 改随 `size` 档位缩放（`CoreControlMetrics.horizontalPadding(for:)`），不再固定 `CoreSpacing.lg`。
+- `ProgressIndicator` 带文案时的 accessibility label 改播报文案本身（`self.text ?? Text("Loading", bundle: .module)`），此前恒播 `"Loading"`。
+- `spinning` 遮罩改用 `ContainerRelativeShape()` 替代 `Rectangle()`，避免直角材质溢出圆角内容轮廓。
+- `PinCode` 隐藏承接输入的 `TextField` 补 `.fixedSize()`——此前在某些外层宽度大于格子行实际宽度的场景下（如宿主画廊详情页）会撑满可用宽度，导致其 0.01 透明度的文字内容露出到格子行左侧边界之外（Phase 3 视觉复查发现，截图可见「重影」，非本次改动引入，已一并修复）。
+- `PinCode`（downstream-probe 一并覆盖新增公开面）等各组件 `docs/components/*.md` 结尾「运行 `run-snapshots.sh` 生成于 `docs/snapshots`」的样板措辞统一订正——与 `phase0-decisions.md` §3 的实际生成路径（默认模式依赖 `App/Sources/Previews.swift` 注册；组件自带 `#Preview` 走 `KEEP_LIBRARY_SNAPSHOTS=1` 到本地 scratch 目录）对齐（全仓库 30 个 `docs/components/*.md` 一并订正，含既有组件）。
+- `ToastHostTests` 时序 flaky 修复：`.serialized` trait + buffer 从 0.3–0.5s 放宽到 0.8–1.2s（`Suite` 与整套测试并跑时的调度抖动会吃掉窄余量）。
+- Steps/Timeline 连线宽度对 phase0-decisions「hairline」的有意偏离（`Timeline` 取 `CoreBorderWidth.thin`、`Steps` 横向连线取 `.thick`）在各自源文件 doc comment 中已有记录，本次未额外改动。
+- `%lld steps` 复数摘要键（Phase 0 预登记）裁决**不消费**——已在 `Steps.swift` doc comment 中记录理由（每步已有「N of M」位置播报，容器层再插入总览摘要需要重新设计 accessibility 树分层，收益与改动面不成比例）；键保留在 `.stringsdict` 供未来复用。
 
 ## `0.6.0`（收尾攒项 2/5/8，2026-07-25）
 
