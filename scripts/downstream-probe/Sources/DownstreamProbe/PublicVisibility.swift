@@ -136,3 +136,180 @@ func consumeSettingsRowMetrics() -> [CGFloat] {
         SettingsRowMetrics.textAlignedDividerInset,
     ]
 }
+
+// MARK: - Skeleton 取色 token（semi-mobile-components Phase 0 / Issue #161）
+//
+// `Color.skeletonBase` / `skeletonHighlight` 是 Phase 0 新增的公开取色面，供
+// Skeleton（Issue #162）的 shimmer modifier 复用。库内 @testable 测试只能证明
+// 「能编译」（internal 也可达），真正的公开可见性护栏在这里——从外部包消费它们，
+// 若日后漏写/收回 `public`，四条 SwiftPM 命令仍绿而此处会炸。
+// 必须 @MainActor：CoreDesign 开了 `.defaultIsolation(MainActor.self)`，这两个
+// 静态计算属性跨模块非 nonisolated 可达（同 ButtonRoleStyleRole 调色板）。
+@MainActor
+func consumeSkeletonColorTokens() -> [Color] {
+    [Color.skeletonBase, Color.skeletonHighlight]
+}
+
+// MARK: - semi-mobile-components epic 全部新增公开面（Phase 3 / #173）
+//
+// Phase 1（002–012）10 个组件 + Phase 0 骨架屏取色 token（上面已覆盖）在各自 Issue 里
+// 有意不改本文件——173.md AC 明确要求本次统一追加，避免「downstream-probe 构建通过」
+// 被误当成「新公开类型的可见性契约已被验证」（下游对新符号零引用时，probe 对它们
+// 恒绿，见 #175 Radio 评审 suggestion 5）。以下按组件分节，每节至少覆盖一个公开
+// 类型/init 的实际消费路径。
+
+// MARK: RadioGroup / RadioOption（Issue #167）
+
+@MainActor
+func consumeRadioGroup() -> some View {
+    RadioGroup(
+        selection: .constant("basic"),
+        options: [
+            RadioOption(value: "basic", title: "Basic"),
+            RadioOption(value: "pro", title: "Pro"),
+        ],
+        axis: .horizontal,
+        spacing: CoreSpacing.sm
+    )
+}
+
+// MARK: Skeleton（Issue #162）——占位形状树 + shimmer modifier
+
+@MainActor
+func consumeSkeletonShapes() -> some View {
+    Skeleton(isLoading: true) {
+        HStack {
+            SkeletonCircle(diameter: 40)
+            SkeletonLine(lineCount: 2)
+            SkeletonRect(width: 80, height: 40)
+        }
+        .skeletonShimmer()
+    } content: {
+        Text("content")
+    }
+}
+
+// MARK: Rating（Issue #165）
+
+@MainActor
+func consumeRating() -> some View {
+    Rating(value: .constant(3.5), count: 5, allowsHalfStar: true, isReadOnly: false)
+}
+
+// MARK: Steps（Issue #163）
+
+@MainActor
+func consumeSteps() -> some View {
+    Steps(
+        items: [StepItem(title: "Cart", description: "Review", isError: false)],
+        currentIndex: 0,
+        axis: .vertical,
+        indicatorStyle: .numbered
+    )
+}
+
+// MARK: Timeline（Issue #164）——两个 designated init 都需覆盖
+
+@MainActor
+func consumeTimeline() -> some View {
+    Timeline(items: [
+        TimelineItem(status: .success) { Text("默认圆点节点") },
+        TimelineItem(status: .info) {
+            Image(systemName: "star")
+        } content: {
+            Text("自定义节点")
+        },
+    ])
+}
+
+// MARK: PinCode（Issue #166）
+
+@MainActor
+func consumePinCode() -> some View {
+    PinCode(value: .constant("123"), length: 6, isSecure: true, onComplete: { _ in })
+}
+
+// MARK: TagInput（Issue #168）
+
+@MainActor
+func consumeTagInput() -> some View {
+    TagInput(
+        tags: .constant(["bug"]),
+        placeholder: "Add tag",
+        tagColor: .contentSecondary,
+        allowDuplicates: false,
+        onCommit: { _ in }
+    )
+}
+
+// MARK: Descriptions（Issue #169）
+
+@MainActor
+func consumeDescriptions() -> some View {
+    Descriptions(columns: .one, dividerDensity: .none, header: "Order") {
+        LabeledContent("Status") { Text("Active") }
+    }
+}
+
+// MARK: Carousel（Issue #171）
+
+private struct DownstreamProbeCarouselItem: Identifiable {
+    let id: Int
+}
+
+@MainActor
+func consumeCarousel() -> some View {
+    Carousel([DownstreamProbeCarouselItem(id: 0)], autoAdvance: false, interval: .seconds(4)) { item in
+        Text("\(item.id)")
+    }
+}
+
+// MARK: ExtendedFloatButtonStyle（Issue #170）——静态工厂 + 档位工厂两条访问器路径
+
+@MainActor
+func consumeExtendedFloatAccessor() -> some View {
+    Button("float") {}
+        .buttonStyle(.extendedFloat)
+}
+
+@MainActor
+func consumeExtendedFloatTierAccessor() -> some View {
+    Button("float") {}
+        .buttonStyle(.extendedFloat(size: .regular))
+}
+
+// `.extendedFloat` 工厂经 opaque 传递会强制类型 public，但 `init(size:)` 的可见性回退抓不到——
+// 直接构造 + 读 `.size` 把 init 与属性也钉进契约。
+@MainActor
+func consumeExtendedFloatButtonStyleType() -> ControlSize {
+    ExtendedFloatButtonStyle(size: .large).size
+}
+
+// MARK: SpinningModifier / View.spinning(_:text:)（Issue #172）
+
+@MainActor
+func consumeSpinningModifier() -> some View {
+    Text("content")
+        .spinning(true, text: "Refreshing…")
+}
+
+// `.spinning(...)` 返回 opaque `some View`，`SpinningModifier` 类型/init/属性即使回退成 internal
+// 也照样编译——直接 `.modifier(SpinningModifier(...))` + 读两个 public 属性，把类型契约真正钉住
+// （AC #173：probe 须覆盖 SpinningModifier 本身，防「恒绿、契约形同虚设」）。
+@MainActor
+func consumeSpinningModifierType() -> (Bool, LocalizedStringKey?) {
+    let modifier = SpinningModifier(isActive: true, text: "Refreshing…")
+    return (modifier.isActive, modifier.text)
+}
+
+// MARK: ProgressIndicator(text:) 两个新 init（Issue #172，NFR-6：原 init() 无破坏未变，不在此重复覆盖）
+
+@MainActor
+func consumeProgressIndicatorLocalizedText() -> some View {
+    ProgressIndicator(text: "Loading…")
+}
+
+@MainActor
+func consumeProgressIndicatorVerbatimText(_ status: String) -> some View {
+    ProgressIndicator(text: status)
+}

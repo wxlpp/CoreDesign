@@ -1,0 +1,80 @@
+# Skeleton
+
+骨架屏加载态 / Skeleton loading placeholder.
+
+`Skeleton` 是 `isLoading` 与真实内容之间的切换容器：`true` 时展示占位形状树，`false` 时展示调用方通过 `@ViewBuilder content` 传入的真实内容，两者用 `.animation` 平滑过渡。占位形状树自动叠加 `.redacted(reason: .placeholder)`（语义标记，广播 `redactionReasons` 供系统/无障碍识别，对纯色填充形状本身无内建视觉效果——`.redacted` 的自动灰条渲染只作用于 `Text`/`Image`）与 `.skeletonShimmer()`（实际产生扫光动效的一层）。占位形状由 `SkeletonLine` / `SkeletonRect` / `SkeletonCircle` 三种独立 view 组成，可单独使用，也可以任意 `HStack` / `VStack` 拼装出复合骨架布局（如"头像 + 两行文本"）。
+
+## API
+
+### Skeleton
+
+| 参数 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| isLoading | Bool | - | `true` 展示 `placeholder`，`false` 展示 `content` |
+| placeholder | () -> some View | - | `@ViewBuilder`，占位形状树，会被自动叠加 `.redacted(reason: .placeholder)` + `.skeletonShimmer()` |
+| content | () -> some View | - | `@ViewBuilder`，`isLoading == false` 时展示的真实内容 |
+
+### SkeletonLine
+
+| 参数 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| lineCount | Int | 1 | 行数，小于 1 会被 clamp 到 1 |
+| lineHeight | CGFloat | 12 | 每行高度（pt），随 Dynamic Type 缩放（`@ScaledMetric(relativeTo: .footnote)`） |
+| spacing | CGFloat | CoreSpacing.xs | 行间距 |
+| lastLineWidthFraction | CGFloat | 0.7 | 最后一行宽度相对整宽的比例，clamp 到 `0...1`，仅 `lineCount > 1` 时生效 |
+
+### SkeletonRect
+
+| 参数 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| width | CGFloat? | nil | 固定宽度；`nil` 时撑满父容器宽度 |
+| height | CGFloat | 120 | 固定高度 |
+| cornerRadius | CGFloat | CoreRadius.medium | 圆角半径 |
+
+### SkeletonCircle
+
+| 参数 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| diameter | CGFloat | 40 | 直径 |
+
+### `.skeletonShimmer()`
+
+`View` 扩展 modifier，叠加持续扫过的高亮渐变带。`Skeleton` 已在占位分支自动叠加，独立使用 `SkeletonLine` / `SkeletonRect` / `SkeletonCircle` 而不经过 `Skeleton` 容器时可直接调用。响应 `accessibilityReduceMotion`：开启时跳过动画，只保留静态占位底色。
+
+## 预览 / Preview
+
+运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `CoreDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
+
+## 使用示例 / Usage
+
+```swift
+// 独立使用单一形状
+SkeletonLine(lineCount: 3)
+SkeletonRect(height: 160)
+SkeletonCircle(diameter: 48)
+
+// 通过 Skeleton 容器在占位态与真实内容之间切换
+Skeleton(isLoading: viewModel.isLoading) {
+    HStack(alignment: .top, spacing: CoreSpacing.md) {
+        SkeletonCircle(diameter: 40)
+        SkeletonLine(lineCount: 2)
+    }
+} content: {
+    HStack(alignment: .top, spacing: CoreSpacing.md) {
+        Avatar(name: viewModel.name)
+        VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            Text(viewModel.name)
+            Text(viewModel.subtitle).foregroundStyle(.secondary)
+        }
+    }
+}
+```
+
+## 视觉 Token
+
+- 占位底色：`Color.skeletonBase`（= `Color.fill`，系统 `systemFill`），随系统外观 / 对比度自动更新
+- shimmer 高光：`Color.skeletonHighlight`（= `skeletonBase.mix(with: .white, by: 0.5)` 向白提亮，#162 裁决），由底色派生，**不新增 colorset**（见 `Colors/FillColors.swift` Note）
+- 圆角：`SkeletonLine` 用 `lineHeight / 2`（胶囊化行占位，末行收窄用显式 `frame(width:)` 而非 `.scaleEffect`，避免压扁圆角端）；`SkeletonRect` 默认 `CoreRadius.medium`
+- shimmer 周期：1.4s，`TimelineView(.periodic(from:by:))` 以 ~30fps 驱动（多行同屏时比 `.animation` 的屏幕最高刷新率更省电），不使用 `repeatForever`
+- 可访问性：占位态整体收敛为一个 `accessibilityElement(children: .ignore)` + `"Loading"` 标签（复用 `ProgressIndicator` 已登记的 `Localizable` 键，非新增字符串）
+- reduce motion：`accessibilityReduceMotion` 开启时 `.skeletonShimmer()` 不叠加动画，只保留静态底色

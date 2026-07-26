@@ -158,6 +158,9 @@ private struct ToastSnapshotHarness: View {
             .controlSize(.regular)
         ProgressIndicator()
             .controlSize(.large)
+        // Issue #172 增强：可选文案 init，渲染于 spinner 下方。
+        ProgressIndicator(text: "Loading…")
+            .controlSize(.large)
     }
     .padding()
 }
@@ -312,6 +315,220 @@ private struct ToastSnapshotHarness: View {
         }
         .disclosureGroupStyle(.core)
         .tint(.red)
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+// MARK: - Phase 3（semi-mobile-components epic，0.7.0）
+
+#Preview("Skeleton") {
+    SkeletonPreviewsPreviewGallery()
+        .padding()
+        .background(Color.surfaceCanvas)
+}
+
+private struct SkeletonPreviewsPreviewGallery: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            HStack(alignment: .top, spacing: CoreSpacing.md) {
+                SkeletonCircle(diameter: 40)
+                SkeletonLine(lineCount: 2)
+            }
+            SkeletonRect(height: 100)
+        }
+    }
+}
+
+#Preview("Steps") {
+    VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+        Steps(
+            items: [
+                StepItem(title: "Cart", description: "Review items"),
+                StepItem(title: "Shipping", description: "Add address"),
+                StepItem(title: "Payment", description: "Enter card details"),
+                StepItem(title: "Confirm", description: "Review & place order"),
+            ],
+            currentIndex: 1,
+            axis: .horizontal,
+            indicatorStyle: .dot
+        )
+        Steps(
+            items: [
+                StepItem(title: "Cart"),
+                StepItem(title: "Shipping"),
+                StepItem(title: "Payment"),
+                StepItem(title: "Confirm"),
+            ],
+            currentIndex: 2,
+            axis: .vertical,
+            indicatorStyle: .numbered
+        )
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Timeline") {
+    Timeline(items: [
+        TimelineItem(status: .success) {
+            Text("审核通过").coreFont(.callout)
+        },
+        TimelineItem(status: .warning) {
+            Text("即将过期提醒").coreFont(.callout)
+        },
+        TimelineItem(status: .danger) {
+            Text("处理失败").coreFont(.callout)
+        },
+    ])
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Rating") {
+    VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+        Rating(value: .constant(3))
+        Rating(value: .constant(2.5), allowsHalfStar: true)
+        Rating(value: .constant(3.5), allowsHalfStar: true, isReadOnly: true)
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("PinCode") {
+    VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+        PinCode(value: .constant("123"), length: 6)
+        PinCode(value: .constant("42"), length: 4, isSecure: true)
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Radio Group") {
+    VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+        RadioGroup(
+            selection: .constant("pro"),
+            options: [
+                RadioOption(value: "basic", title: "Basic"),
+                RadioOption(value: "pro", title: "Pro"),
+                RadioOption(value: "enterprise", title: "Enterprise"),
+            ]
+        )
+        RadioGroup(
+            selection: .constant(2),
+            options: [
+                RadioOption(value: 1, title: "S"),
+                RadioOption(value: 2, title: "M"),
+                RadioOption(value: 3, title: "L"),
+            ],
+            axis: .horizontal
+        )
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("TagInput") {
+    // tagColor: .blue——见 ComponentData.swift 的 TagInputPreview 同款注释：默认
+    // .contentSecondary 经 Tag 的 .opacity(0.12) 背景公式在暗色画布上对比度过低。
+    TagInput(
+        tags: .constant(["bug", "enhancement", "help wanted"]),
+        placeholder: "Add tag",
+        tagColor: .blue
+    )
+    .padding()
+    .frame(width: 320)
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Descriptions") {
+    Descriptions(header: "Order") {
+        LabeledContent("Status") { Text("Active") }
+        LabeledContent("Total") { Text("$42.00") }
+        LabeledContent("Placed") { Text("2026-07-20") }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Float Button") {
+    // 有界画布：FAB 需要深色背景才能看清玻璃质感，但不应像早期版本那样用
+    // `.ignoresSafeArea()` 铺满整屏——那会让快照按设备全屏尺寸渲染，PNG 压缩率
+    // 极差（4.6MB vs 其它组件的几百 KB）。改为固定尺寸卡片 + clipShape，与
+    // ComponentData.swift 里 app 内 FloatButtonPreview 的有界卡片形态一致；
+    // 背景改纯色（而非渐变）——平滑渐变本身也是 PNG 压缩率差的主因，纯色块
+    // 几乎无损压缩，同时仍能反衬出玻璃按钮的通透质感。
+    ZStack {
+        Color.indigo
+
+        VStack(spacing: CoreSpacing.xl) {
+            Button {} label: {
+                Label("New", systemImage: "plus")
+            }
+            .buttonStyle(.extendedFloat)
+            .foregroundStyle(.white)
+
+            Button {} label: {
+                Image(systemName: "paperplane")
+                    .font(.system(size: CoreControlMetrics.iconSize(for: .regular), weight: .semibold))
+            }
+            .buttonStyle(.circularGlass)
+            .foregroundStyle(.white)
+        }
+        .padding(CoreSpacing.xxxl)
+    }
+    .frame(width: 320, height: 280)
+    .clipShape(CoreShape.rounded(CoreRadius.large))
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Carousel") {
+    CarouselPreviewsPreviewGallery()
+        .frame(height: 160)
+        .padding()
+        .background(Color.surfaceCanvas)
+}
+
+private struct CarouselPreviewsPreviewGalleryItem: Identifiable {
+    let id: Int
+    let title: String
+    let color: Color
+}
+
+private struct CarouselPreviewsPreviewGallery: View {
+    private let cards: [CarouselPreviewsPreviewGalleryItem] = [
+        CarouselPreviewsPreviewGalleryItem(id: 0, title: "第一页", color: .blue),
+        CarouselPreviewsPreviewGalleryItem(id: 1, title: "第二页", color: .purple),
+        CarouselPreviewsPreviewGalleryItem(id: 2, title: "第三页", color: .orange),
+    ]
+
+    var body: some View {
+        Carousel(self.cards, autoAdvance: false) { item in
+            CoreShape.rounded(CoreRadius.large)
+                .fill(item.color.gradient)
+                .overlay {
+                    Text(item.title)
+                        .coreFont(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, CoreSpacing.xs)
+        }
+    }
+}
+
+#Preview("Spinning") {
+    VStack(spacing: CoreSpacing.lg) {
+        Card {
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("卡片标题").coreFont(.headline)
+                Text("被 spinning 遮罩覆盖时应保持自身尺寸不变。")
+                    .coreFont(.subheadline)
+                    .foregroundStyle(Color.contentSecondary)
+            }
+        }
+        .spinning(true, text: "Refreshing…")
     }
     .padding()
     .background(Color.surfaceCanvas)

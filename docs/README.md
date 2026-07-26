@@ -1,6 +1,6 @@
 # CoreDesign 组件库 / Component Library
 
-iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style。
+iOS 26+ / macOS 26+ SwiftUI 设计系统，含 34 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。
 
 ## 组件索引 / Component Index
 
@@ -9,6 +9,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件（�
 | 组件 | 预览 | 文档 |
 |---|---|---|
 | Button | [<img src="snapshots/CoreDesignPreview_Previews.swift_Button.png" width="200">](components/button.md) | [button.md](components/button.md) |
+| FloatButton（ExtendedFloatButtonStyle / CircularGlassButtonStyle） | [<img src="snapshots/CoreDesignPreview_Previews.swift_Float_Button.png" width="200">](components/float-button.md) | [float-button.md](components/float-button.md) |
 
 ### Form 表单
 
@@ -19,6 +20,11 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件（�
 | BottomInputBar | [<img src="snapshots/CoreDesignPreview_Previews.swift_BottomInputBar.png" width="200">](components/bottom-input-bar.md) | [bottom-input-bar.md](components/bottom-input-bar.md) |
 | LabelIcon / ChevronRightIcon / DangerIcon | [<img src="snapshots/CoreDesignPreview_Previews.swift_Form_Icons.png" width="200">](components/form-icons.md) | [form-icons.md](components/form-icons.md) |
 | `.core` Control Styles（ProgressView / Label / DisclosureGroup）| [<img src="snapshots/CoreDesignPreview_Previews.swift_Core_Control_Styles.png" width="200">](components/core-control-styles.md) | [core-control-styles.md](components/core-control-styles.md) |
+| Rating | [<img src="snapshots/CoreDesignPreview_Previews.swift_Rating.png" width="200">](components/rating.md) | [rating.md](components/rating.md) |
+| PinCode | [<img src="snapshots/CoreDesignPreview_Previews.swift_PinCode.png" width="200">](components/pin-code.md) | [pin-code.md](components/pin-code.md) |
+| RadioGroup / RadioOption | [<img src="snapshots/CoreDesignPreview_Previews.swift_Radio_Group.png" width="200">](components/radio.md) | [radio.md](components/radio.md) |
+| TagInput | [<img src="snapshots/CoreDesignPreview_Previews.swift_TagInput.png" width="200">](components/tag-input.md) | [tag-input.md](components/tag-input.md) |
+| ~~Typography~~ | _未实现，parity 已由 `.coreFont(_:)` + 原生 `Text` modifier 达成_ | [typography.md](components/typography.md)（墓碑 + 迁移指引） |
 
 ### Indicator 指示器
 
@@ -28,8 +34,11 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件（�
 | Tag | [<img src="snapshots/CoreDesignPreview_Previews.swift_Tag.png" width="200">](components/tag.md) | [tag.md](components/tag.md) |
 | Banner | [<img src="snapshots/CoreDesignPreview_Previews.swift_Banner.png" width="200">](components/banner.md) | [banner.md](components/banner.md) |
 | StateLabel | [<img src="snapshots/CoreDesignPreview_Previews.swift_StateLabel.png" width="200">](components/state-label.md) | [state-label.md](components/state-label.md) |
-| ProgressIndicator | [<img src="snapshots/CoreDesignPreview_Previews.swift_ProgressIndicator.png" width="200">](components/progress-indicator.md) | [progress-indicator.md](components/progress-indicator.md) |
+| ProgressIndicator（含 `text:` 文案 init） | [<img src="snapshots/CoreDesignPreview_Previews.swift_ProgressIndicator.png" width="200">](components/progress-indicator.md) | [progress-indicator.md](components/progress-indicator.md) |
 | ~~ProgressBar~~（`0.6.0` 起弃用） | _改用 `ProgressView().progressViewStyle(.core)`_ | [progress-bar.md](components/progress-bar.md)（弃用 + 迁移指引） |
+| Skeleton（SkeletonLine / SkeletonRect / SkeletonCircle） | [<img src="snapshots/CoreDesignPreview_Previews.swift_Skeleton.png" width="200">](components/skeleton.md) | [skeleton.md](components/skeleton.md) |
+| Steps | [<img src="snapshots/CoreDesignPreview_Previews.swift_Steps.png" width="200">](components/steps.md) | [steps.md](components/steps.md) |
+| Timeline | [<img src="snapshots/CoreDesignPreview_Previews.swift_Timeline.png" width="200">](components/timeline.md) | [timeline.md](components/timeline.md) |
 
 ### Layout 布局
 
@@ -39,6 +48,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件（�
 | AvatarGroup | [<img src="snapshots/CoreDesignPreview_Previews.swift_AvatarGroup.png" width="200">](components/avatar-group.md) | [avatar-group.md](components/avatar-group.md) |
 | ListRow | [<img src="snapshots/CoreDesignPreview_Previews.swift_ListRow.png" width="200">](components/list-row.md) | [list-row.md](components/list-row.md) |
 | FlowLayout | [<img src="snapshots/CoreDesignPreview_Previews.swift_FlowLayout.png" width="200">](components/flow-layout.md) | [flow-layout.md](components/flow-layout.md) |
+| Carousel | [<img src="snapshots/CoreDesignPreview_Previews.swift_Carousel.png" width="200">](components/carousel.md) | [carousel.md](components/carousel.md) |
 
 ### Container 容器（Phase 2 · `0.4.0`）
 
@@ -49,6 +59,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件（�
 | SectionHeader / SectionFooter | [<img src="snapshots/CoreDesignPreview_Previews.swift_Section_Header_Footer.png" width="200">](components/section-header-footer.md) | [section-header-footer.md](components/section-header-footer.md) |
 | InsetGroupedSection | [<img src="snapshots/CoreDesignPreview_Previews.swift_InsetGroupedSection.png" width="200">](components/inset-grouped-section.md) | [inset-grouped-section.md](components/inset-grouped-section.md) |
 | SettingsRow | [<img src="snapshots/CoreDesignPreview_Previews.swift_SettingsRow.png" width="200">](components/settings-row.md) | [settings-row.md](components/settings-row.md) |
+| Descriptions | [<img src="snapshots/CoreDesignPreview_Previews.swift_Descriptions.png" width="200">](components/descriptions.md) | [descriptions.md](components/descriptions.md) |
 
 ### Navigation 导航
 
@@ -63,6 +74,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 24 个 Apple HIG 对齐组件（�
 |---|---|---|
 | Toast | [<img src="snapshots/CoreDesignPreview_Previews.swift_Toast.png" width="200">](components/toast.md) | [toast.md](components/toast.md) |
 | ~~EmptyState~~ | _已于 #97 移除 — 改用 SwiftUI [`ContentUnavailableView`](https://developer.apple.com/documentation/swiftui/contentunavailableview)_ | [empty-state.md](components/empty-state.md)（墓碑 + 迁移指引） |
+| spinning（`View.spinning(_:text:)` modifier） | [<img src="snapshots/CoreDesignPreview_Previews.swift_Spinning.png" width="200">](components/spinning.md) | [spinning.md](components/spinning.md) |
 
 ## 生成预览图 / Generating Snapshots
 
