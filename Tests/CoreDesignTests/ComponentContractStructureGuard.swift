@@ -55,17 +55,27 @@ struct ComponentContractStructureGuard {
         // ⚠️ 讽刺的是：不剪前导它本来就挡得住——**trim 是为「行尾空格」加的健壮性，
         // 副作用正好开了这个洞**。
         // 1–3 空格前导在本仓文风里本就不该出现 ⇒ 误红是 fail-safe 方向，可接受。
-        let headings = Set(
-            text.split(separator: "\n", omittingEmptySubsequences: false)
-                .map { line -> String in
-                    var t = String(line)
-                    while let last = t.last, last == " " || last == "\t" || last == "\r" {
-                        t.removeLast()
-                    }
-                    return t
+        let trimmedLines = text.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { line -> String in
+                var t = String(line)
+                while let last = t.last, last == " " || last == "\t" || last == "\r" {
+                    t.removeLast()
                 }
-        )
+                return t
+            }
+        let headings = Set(trimmedLines)
         let missing = Self.requiredSections.filter { !headings.contains($0) }
         #expect(missing.isEmpty, "公约文档缺这些必需节：\n\(missing.joined(separator: "\n"))")
+
+        // ⚠️ 只查存在性不查顺序，没有安全网（简报 Step 1）——补顺序断言：
+        // 5 个必需节 + 附录 A 的行号必须严格递增（即节顺序未被打乱，且都在附录 A 之前）。
+        // 只在上面「存在性」已全绿时才查，否则 firstIndex(of:) 会缺项，误报顺序错。
+        if missing.isEmpty {
+            let appendixHeading = "## 附录 A：判定法的实测走查"
+            let orderedHeadings = Self.requiredSections + [appendixHeading]
+            let lineNumbers = orderedHeadings.compactMap { trimmedLines.firstIndex(of: $0) }
+            #expect(lineNumbers.count == orderedHeadings.count, "找不到附录 A 标题：\(appendixHeading)")
+            #expect(lineNumbers == lineNumbers.sorted(), "节顺序被打乱，应为：\n\(orderedHeadings.joined(separator: "\n"))")
+        }
     }
 }
