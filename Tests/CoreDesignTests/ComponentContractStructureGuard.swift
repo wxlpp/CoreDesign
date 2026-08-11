@@ -25,7 +25,7 @@ struct ComponentContractStructureGuard {
     ]
 
     /// 5 个承重 `###` 小节——tiebreaker、优先级固定、边界条款、终局条款、头号反例，
-    /// 是三轮评审换来的全部增量。h2 保留、这些小节被掏空是这份文档最现实的烂法，
+    /// 是四轮评审换来的全部增量。h2 保留、这些小节被掏空是这份文档最现实的烂法，
     /// 比删 h2 更隐蔽（`## 1.` 之类骨架完好，读者不会觉得"缺了什么"）。
     /// ⚠️ 字面量必须与 `docs/component-contract.md` 一字不差。
     static let requiredSubsections = [
@@ -34,6 +34,9 @@ struct ComponentContractStructureGuard {
         "### 边界条款：样式不得携带行为",
         "### ⚠️ 终局条款：四条都不适用时怎么办",
         "### ⚠️ 头号反例：把 Bool 换成两 case enum **不是**替代路径",
+        // 第四轮增量：没有它，`SegmentedControlStyleConfiguration.Segment.isSelected`
+        // 就会成为 #39 的 J-1 在公约自己认可的先例上的误报。
+        "### ⚠️ 例外：Style Configuration 上的状态描述 Bool 不受本节约束",
     ]
 
     static var contractURL: URL {
