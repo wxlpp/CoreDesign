@@ -9,8 +9,24 @@
 
 **照着走，不要凭感觉。** 按顺序回答，第一个命中的答案即结论。
 
+> ⚠️ **祖父条款（先于以下步骤判断）**：组件已经**发布了公开的样式协议**
+> （如 `SegmentedControlStyle`、`BannerStyle`）⇒ **不再走下面的判定法**，
+> 直接登记 `kind: semantic` + `decidedBy: precedent`。判定法只约束**新增**
+> 扩展点的决策，不倒过来审判已发布协议——public 协议一旦发布，删它是
+> 破坏性变更，判定法不可能推翻既成事实。
+>
+> ⚠️ **弃用条款（同样先于以下步骤判断）**：组件已标记
+> `@available(*, deprecated)`（如 `ProgressBar`）⇒ **不分类**，登记表记
+> `kind: excluded` 并附一句弃用去向说明。判定法回答的是「这个组件现在该
+> 长什么 API」——对一个即将删除的组件问这个问题没有意义。
+
 1. **Apple 有对应的原生样式协议吗？**（`ButtonStyle` / `LabelStyle` / `ProgressViewStyle`
    / `DisclosureGroupStyle` / `ToggleStyle` / `MenuStyle` …）
+   ⚠️ **操作化判据**：**有** = 能写出一句「本组件可改写为『系统控件 + 该协议的
+   自定义 style』且不丢功能」的声明，**且该协议有公开的 `makeBody` 定制点**
+   （第三方能实现）。写不出这句声明、或协议无公开定制点 ⇒ **视为「无」，
+   继续步骤 2**（例：macOS 的 `.radioGroup` `PickerStyle` 没有公开的
+   `makeBody` 定制点，第三方无法实现 ⇒ 对 `Radio` 视为「无」）。
    → **有** ⇒ 语义组件，且**必须实现原生协议**（优先级固定，细则见第 2 节）
 2. **调用方会合理地想要一个「看起来完全不同、但含义相同」的版本吗？**
    ⚠️ **操作化门槛**：能**当场举出 ≥2 个业界真实存在的替代形态**才算「会」
@@ -20,8 +36,9 @@
    结构里的单元换了种画法（例如都是「每位一个独立格子」，格子本身画成方框 /
    圆点 / 下划线），这些算**同一结构的皮肤变体**，不算「长相完全不同」，
    不计入 ≥2——即使能举出三个，只要它们共享同一个布局骨架，就仍算**举得犹豫**。
-   例：评分 —— 星（App Store）/ 数字条（IMDb）/ 表情（NPS 量表）⇒ **结构本身不同**
-   （离散符号计数 / 连续条形 / 单一图形），举得出，答「会」。
+   例：评分——当前形态是星（App Store 风格，离散符号计数），**替代枚举不把它算进去**：
+   数字条（IMDb，连续条形）/ 表情（NPS 量表，单一图形）⇒ 两者**结构本身不同**、
+   且都**不含当前形态**，举得出 ≥2，答「会」。
    例：骨架屏占位 —— 只有一种合理长相 ⇒ 举不出，落步骤 4。
    → **会** ⇒ 语义组件，需要扩展点
 3. **组件的视觉是它含义的一部分吗？**（换个长相就不是这个东西了）
@@ -33,9 +50,11 @@
 **默认判为规定性组件 / 不给扩展点**，并在登记表里记
 `kind: prescriptive` + `decidedBy: tiebreaker` + **写明两可的理由**。
 
-> **登记表** = `docs/component-registry.json`（随 #38 落地）。`kind` 字段只有
-> `semantic` / `prescriptive` 两个取值；`decidedBy` 字段记录这次判定是由判定法
-> 的哪一步产出的结论（如 `step2` / `step3` / `tiebreaker`）。
+> **登记表** = `docs/component-registry.json`（随 #38 落地）。`kind` 字段取值
+> `semantic` / `prescriptive` / `excluded`（已弃用组件，见上方弃用条款）；
+> `decidedBy` 字段记录这次判定是由判定法的哪一步产出的结论
+> （`step2` / `step3` / `tiebreaker`），或 `precedent`（见上方祖父条款，
+> 不经判定法、直接沿用已发布协议的先例结论）。
 
 **为什么默认这一侧**：少给扩展点是**可逆的**（后续按需补，不破坏 API）；
 多给扩展点**不可逆**（public 协议一旦发布，删它是破坏性变更）。
@@ -59,7 +78,8 @@
 
 本仓已有的正确先例（形态 A）：`CoreLabelStyle` / `CoreProgressViewStyle` /
 `CoreDisclosureGroupStyle` / `CoreLabeledContentStyle`（均在
-`Sources/CoreDesign/Components/Style/`）、以及 `Button` 的各 `ButtonStyle` 实现。
+`Sources/CoreDesign/Components/Style/`）、以及 `Button` 的各 `ButtonStyle` 实现、
+`CheckBoxToggleStyle: ToggleStyle`（`CheckBox` 组件，见附录 A.0）。
 
 ⚠️ **「正确先例」仅指「实现原生协议」这一点**：`SolidButtonStyle.swift` /
 `LightButtonStyle.swift` 的参数表内至今带 `glass: Bool` public 参数——正是本节
@@ -84,6 +104,17 @@
 ## 3. 配置开关的四条替代路径
 
 **规则**：public API 里不要出现 Bool 参数。想加一个时，从下面四条里选。
+
+### ⚠️ 例外：Style Configuration 上的状态描述 Bool 不受本节约束
+
+**Style Configuration 类型上向 style 实现者描述状态的 Bool 字段**（对标 Apple 的
+`ButtonStyleConfiguration.isPressed` / `ToggleStyleConfiguration.isOn`）**不是
+配置开关，不受本节约束**。第 2 节要求的形态 A/B 结构性地必然产生这类 Bool——
+`SegmentedControlStyleConfiguration.Segment.isSelected`（`SegmentedControl.swift`）
+就是一例：它描述的是「这个 segment 现在是不是选中态」，供 style 实现者据此画出
+选中 / 未选中的外观差异。下面四条替代路径对它全部无意义（不是被压扁的取值域、
+不是可选内容槽、不独立于组件构造、不作用于一整棵子树），终局条款的 (b)「论证
+删掉」也不成立——style 实现者不知道当前状态就画不出正确外观。
 
 ### ⚠️ 终局条款：四条都不适用时怎么办
 
@@ -114,12 +145,18 @@ J-1 的谓词是「**任何 Bool**」，做的是纯符号比对 ⇒
 **判据**：两 case enum 只有在**存在真实的第三 case 或连续取值域**时才算替代路径。
 造不出第三种合理取值，就说明它本来就是布尔旋钮 ⇒ 回去从下面四条里重选。
 
+⚠️ **判据范围限定**：本判据只适用于**「把已存在的 Bool 参数改写成两 case enum」**
+这个动作本身，不倒过来审判**本来就是 enum、且与系统类型同构**的既有域——例如
+`StepsAxis`（`horizontal` / `vertical`）与 SwiftUI 自己的 `Axis` 同构、同样只有
+两个 case，它不是「Bool 换皮」，是复刻系统惯例，**豁免于本判据**。
+
 ### 3.1 专用 init / 专用参数
 
 **适用**：布尔背后其实是一个**被压扁的取值域**。
 
 例：`Rating(allowsHalfStar: Bool)` → `Rating(step: Double)`。
-`Rating.swift:19` 证明 `step` 本来就是内部概念，Bool 只是它的二值投影。
+`Rating` 的手势注释证明 `step`（`allowsHalfStar ? 0.5 : 1.0`）本来就是内部概念，
+Bool 只是它的二值投影。
 
 ⚠️ **取值域不限于连续量**：只要满足第 3 节头号反例判据（**存在真实第三 case**）的
 enum，同样算被压扁的取值域，归入本条——`step: Double` 只是其中一种形状，判据在于
@@ -133,8 +170,8 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 **适用**：布尔控制的是**要不要渲染一块调用方能提供的内容**，尤其当它配着回调时。
 
 例：`Tag(removable: Bool, onRemove: (() -> Void)?)` → 尾随 `@ViewBuilder` 槽。
-一并消除 `Tag.swift:83` 记录的自相矛盾状态：「`onRemove == nil` 时按钮仍可见但
-`.disabled(true)`」。
+一并消除 `Tag.init(onRemove:)` 参数文档记录的自相矛盾状态：「`onRemove == nil`
+时按钮仍可见但 `.disabled(true)`」。
 
 **反例**：把 `Skeleton(isLoading: Bool)` 变成槽 —— **错**。它控制的是
 **组件自身处于哪个状态**，不是「渲染谁提供的内容」。那种情况见 3.4。
@@ -159,7 +196,7 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 
 ⚠️ **优先复用系统环境值，不要自造平行开关**。
 例：`Rating(isReadOnly: Bool)` 与 `@Environment(\.isEnabled)` 语义重叠
-——`Rating.swift:20` 写明「`isReadOnly` 或外层 `.disabled(true)` 时手势整体不挂载」,
+——`Rating` 的手势注释写明「`isReadOnly` 或外层 `.disabled(true)` 时手势整体不挂载」,
 **两条路径做同一件事**。
 
 **反例（重要）**：直接把 `isReadOnly` 删掉、让调用方用 `.disabled(true)` —— **不够**。
@@ -173,15 +210,19 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 | 类别 | 判别特征 | 类型 |
 |---|---|---|
 | **A. 组件自带 chrome** | 文案**写在组件源码里**，调用方看不见也改不了 | `LocalizedStringResource` |
-| **B. 调用方传入的可本地化文案** | 调用方传，但内容是**界面文案**（标题、说明、占位符） | 见下 |
+| **B. 调用方传入的可本地化文案** | 调用方传，但内容是**界面文案**（标题、说明、占位符） | **新增用 `LocalizedStringKey`；存量迁移见下** |
 | **C. 用户数据** | 调用方传，内容是**用户自己产生的**（设定名、章节标题） | `String`，**不得改** |
 
 ⚠️ **B 类是 CoreDesign 文本 API 的大头，不是 A 类。** `SectionHeader` /
 `InsetGroupedSection(header:footer:)` / `ProgressIndicator(text:)` / `SettingsRow` 都是 B。
 
+⚠️ **裁决：新增 B 类参数用 `LocalizedStringKey`**，与本仓既有 `SectionHeader` 一致、
+`Bundle.main` 解析语义不变，**不是** `LocalizedStringResource`。
+
 ⚠️ **B 类改造有隐藏破坏性**：现有 B 类 API 有成文的 `Bundle.main` 解析语义
-（`SectionHeader.swift`）。改 `LocalizedStringResource` 会**改变 bundle 解析行为**
-——属破坏性变更，必须进 `docs/BREAKING-CHANGES.md`（归 #42）。
+（`SectionHeader.swift`）。把**存量**改成 `LocalizedStringResource` 会**改变 bundle
+解析行为**——属破坏性变更，必须进 `docs/BREAKING-CHANGES.md`，节奏归 #42；
+**新增**参数不受此限，直接用 `LocalizedStringKey`，不必等 #42。
 
 **本仓现状**：`Package.swift` 已有 `defaultLocalization: "en"`，`en.lproj/Localizable.strings`
 里 chrome 已本地化。⇒ **CoreDesign 侧不需要新增本地化基建**；
@@ -200,13 +241,27 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 | `tint` | 强调色取自 `tint`，不硬编码色相 |
 | `accessibilityReduceMotion` | 开启时去掉装饰性动画（保留必要的状态转场） |
 
-**现状交叉核对**：`Rating` 已读取 `controlSize` / `isEnabled` / `layoutDirection`
-（`Rating.swift:36-38`）——本清单与它不矛盾，是对它的推广。
+**现状交叉核对**：`Rating` 已通过 `@Environment` 读取 `controlSize` / `isEnabled` /
+`layoutDirection`——本清单与它不矛盾，是对它的推广。
 
 ## 附录 A：判定法的实测走查
 
 用 PRD 点名的**两可样本**验证判定法能产出确定结论。
 ⚠️ 出现「卡住、无法判定」即判定法失败——必须回去改，不许在这里打圆场。
+
+### A.0 `CheckBox` —— 步骤 1 真正走「有」这条分支的样本
+
+补上终审指出的缺口：下面 A.1 / A.4 两个样本走步骤 1 都答「无」，判定法「有」
+这条分支从未被演练过。`CheckBoxToggleStyle: ToggleStyle`（`CheckBox` 组件）是
+现成样本——它没有叫 `CheckBoxStyle` 的自造协议，对应的是 Apple 原生 `ToggleStyle`。
+
+| 步骤 | 结论 |
+|---|---|
+| 1. Apple 有原生协议吗？ | ✅ **有**——CheckBox 可改写为「`Toggle` + 自定义 `ToggleStyle`」且不丢功能；`ToggleStyle` 有公开的 `makeBody` 定制点（第三方能实现，`CheckBoxToggleStyle` 本身就是证明） |
+| — | ⇒ **语义组件，且必须实现原生协议** |
+
+⇒ 结论：**语义组件，必须实现原生协议**。与现状一致（`CheckBoxToggleStyle` 已经
+这么做）。**未卡住，且这次真的走到了步骤 1 的「有」分支。**
 
 ### A.1 `Rating(allowsHalfStar:)`
 
@@ -215,7 +270,7 @@ PRD 原文：「控制**手势步进粒度**（0.5 vs 1.0），同时影响渲�
 | 步骤 | 结论 |
 |---|---|
 | 1. Apple 有原生协议吗？ | ❌ 无 `RatingStyle` 之类 |
-| 2. 想要「长相不同、含义相同」的版本吗？ | ✅ **想要**——星 / 数字 / 表情 |
+| 2. 想要「长相不同、含义相同」的版本吗？ | ✅ **想要**——替代枚举：数字条 / 表情（当前形态「星」不计入替代枚举） |
 | — | ⇒ **语义组件，需要扩展点** |
 
 ⇒ 结论：**语义组件，需要扩展点**。**未卡住。**
@@ -223,7 +278,7 @@ PRD 原文：「控制**手势步进粒度**（0.5 vs 1.0），同时影响渲�
 ### A.2 `Tag(removable:)`
 
 PRD 原文：「与 `onRemove` 闭包耦合 ⇒ 既是外观也是行为」。
-`Tag.swift:83` 实证：「`onRemove == nil` 时按钮仍可见但 `.disabled(true)`」
+`Tag.init(onRemove:)` 参数文档实证：「`onRemove == nil` 时按钮仍可见但 `.disabled(true)`」
 ——一个参数控制了「画不画按钮」与「按钮能不能点」两件事。
 
 | 步骤 | 结论 |
@@ -237,15 +292,15 @@ PRD 原文：「与 `onRemove` 闭包耦合 ⇒ 既是外观也是行为」。
 
 ### A.1 续：`allowsHalfStar` 这个参数改成什么形状
 
-`Rating.swift:19` 的文档注释写明它算出 `step`（`allowsHalfStar ? 0.5 : 1.0`）供手势
+`Rating` 的手势注释写明它算出 `step`（`allowsHalfStar ? 0.5 : 1.0`）供手势
 取整用 ⇒ 按 **3.1**，它是**被压成布尔的连续量**，替代路径是**专用参数**（`step`）。
 
 ⚠️ **不塞进样式协议** —— 手势粒度是行为，违反第 2 节的「样式不得携带行为」。
 
 ### A.2 续：`removable` 这个参数改成什么形状
 
-Bool + 配套闭包 ⇒ 按 **3.2** 走**子视图槽**，一并消除 `Tag.swift:83` 记录的自相矛盾
-状态：「`onRemove == nil` 时按钮仍可见但 `.disabled(true)`」。
+Bool + 配套闭包 ⇒ 按 **3.2** 走**子视图槽**，一并消除 `Tag.init(onRemove:)` 参数
+文档记录的自相矛盾状态：「`onRemove == nil` 时按钮仍可见但 `.disabled(true)`」。
 
 ### A.3 `surface(_ kind:, bordered: Bool = true)`（modifier 形态）
 

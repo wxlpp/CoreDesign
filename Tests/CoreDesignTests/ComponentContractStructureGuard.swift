@@ -24,6 +24,18 @@ struct ComponentContractStructureGuard {
         "## 5. 环境值清单",
     ]
 
+    /// 5 个承重 `###` 小节——tiebreaker、优先级固定、边界条款、终局条款、头号反例，
+    /// 是三轮评审换来的全部增量。h2 保留、这些小节被掏空是这份文档最现实的烂法，
+    /// 比删 h2 更隐蔽（`## 1.` 之类骨架完好，读者不会觉得"缺了什么"）。
+    /// ⚠️ 字面量必须与 `docs/component-contract.md` 一字不差。
+    static let requiredSubsections = [
+        "### ⚠️ Tiebreaker：两可时怎么办",
+        "### ⚠️ 优先级固定：A 永远优先于 B",
+        "### 边界条款：样式不得携带行为",
+        "### ⚠️ 终局条款：四条都不适用时怎么办",
+        "### ⚠️ 头号反例：把 Bool 换成两 case enum **不是**替代路径",
+    ]
+
     static var contractURL: URL {
         URL(fileURLWithPath: #filePath)          // Tests/CoreDesignTests/xxx.swift
             .deletingLastPathComponent()          // Tests/CoreDesignTests
@@ -66,6 +78,11 @@ struct ComponentContractStructureGuard {
         let headings = Set(trimmedLines)
         let missing = Self.requiredSections.filter { !headings.contains($0) }
         #expect(missing.isEmpty, "公约文档缺这些必需节：\n\(missing.joined(separator: "\n"))")
+
+        // ⚠️ 终审 S3：h2 保留、承重 `###` 小节被掏空是比删 h2 更现实的烂法——
+        // 同款行锚定机制（复用上面已算出的 `headings`），零新机器。
+        let missingSubsections = Self.requiredSubsections.filter { !headings.contains($0) }
+        #expect(missingSubsections.isEmpty, "公约文档缺这些承重小节：\n\(missingSubsections.joined(separator: "\n"))")
 
         // ⚠️ 只查存在性不查顺序，没有安全网（简报 Step 1）——补顺序断言：
         // 5 个必需节 + 附录 A 的行号必须严格递增（即节顺序未被打乱，且都在附录 A 之前）。
