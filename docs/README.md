@@ -2,6 +2,9 @@
 
 iOS 26+ / macOS 26+ SwiftUI 设计系统，含 34 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。
 
+> 新增或改造组件前先读 [`component-contract.md`](component-contract.md)——
+> 判定法、样式扩展点、配置开关的替代路径。
+
 ## 组件索引 / Component Index
 
 ### Button 按钮
