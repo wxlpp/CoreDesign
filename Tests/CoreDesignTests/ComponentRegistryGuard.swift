@@ -140,6 +140,28 @@ struct ComponentRegistryGuard {
         print("组件 \(r.components.count) 个：\(r.components.sorted())")
         print("Style 实现 \(r.styleImpls.count) 个：\(r.styleImpls.sorted())")
     }
+
+    @Test("CoreDesign 侧：登记表覆盖全部组件类型，且无幽灵条目")
+    func registryCoversCoreDesignTypes() throws {
+        let entries = try Self.loadRegistry()
+        let scanned = try Self.scanTypes(root: Self.coreDesignSources).components
+        #expect(scanned.count > 15, "只扫到 \(scanned.count) 个类型 —— 扫描器失效")   // 与 Task 1 自检同下界
+
+        // ⚠️ **分仓比对**（AC 原文要求「分 repo 计数吻合」）：合并成一个 Set 后
+        // 查不出「登记在错误 repo 下」，两仓同名类型还会静默合并。
+        let registered = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
+
+        // ⚠️ **双向**：单向只能抓「登记表多写了」，抓不到「源码新增了组件而没登记」
+        //（后者正是本判据存在的理由）。
+        #expect(scanned.subtracting(registered).isEmpty,
+                "这些 CoreDesign 类型在源码里但登记表没有：\(scanned.subtracting(registered).sorted())")
+        #expect(registered.subtracting(scanned).isEmpty,
+                "登记表有幽灵条目（CoreDesign 源码里找不到）：\(registered.subtracting(scanned).sorted())")
+
+        // ⚠️ **StoryUI 侧的缺口要显式报告，不能静默当作「通过」**（裁决 D2）。
+        let n = entries.filter { $0.repo == "storyui" }.count
+        print("⚠️ StoryUI 侧 \(n) 条未做源码比对——CI 只 checkout 本仓；「源码新增组件而没登记」在 #43 落地前无机器拦截。")
+    }
 }
 
 /// 收 public struct，**分类**放进 components / styleImpls。

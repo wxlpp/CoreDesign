@@ -47,5 +47,494 @@
     "needsExtensionPoint": false,
     "textParams": [],
     "notes": "公约附录 A.4 的样本：候选形态（分格框/锁屏圆点/逐位下划线）共享「每位一格」骨架，属皮肤变体，举得犹豫 ⇒ 落 tiebreaker。"
+  },
+  {
+    "component": "AsyncButton",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "title", "category": "B" }
+    ],
+    "notes": "⚠️ 本任务书明确点名的陷阱：上一轮误判为 step1，本轮从步骤 2 重走。步骤 1 视为『无』——ButtonStyle.makeBody 是同步渲染函数，看不到 Task 生命周期 / isRunning / 防双击这些异步状态，改写成『Button + 自定义 ButtonStyle』会丢功能。步骤 2：loading 态候选（遮罩替换 label / 侧边追加 spinner / 禁用+进度环）共享『pending 期间替换或叠加内容』同一骨架，且外观已完全委派给包裹的既有 ButtonStyle（.solid/.light/.borderless/.circularGlass）——AsyncButton 自身不拥有独立可换皮的视觉表面，举得犹豫。步骤 3：自动忙碌反馈（isRunning 时 spinner 替换 label）正是 AsyncButton 存在的定义性理由——去掉它就只是『Button + Task』，不再是 AsyncButton ⇒ 视觉是含义的一部分 ⇒ 规定性组件，不给扩展点。"
+  },
+  {
+    "component": "Avatar",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "tiebreaker",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "name", "category": "C" }
+    ],
+    "notes": "步骤 1 无（无 AvatarStyle 原生协议）。步骤 2：候选生成算法（首字母+哈希色，现状 / 几何 identicon 图案 / 通用人形图标）虽然渲染算法不同，但都共享『从身份字符串确定性派生视觉占位』这一同一骨架，只是画法不同，举得犹豫 ⇒ 落步骤 4 tiebreaker，规定性组件不给扩展点。textParams：name 是调用方传入的姓名/身份数据，非产品固定 chrome ⇒ C 类，不得改造本地化。"
+  },
+  {
+    "component": "AvatarGroup",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "步骤 1 无（无 AvatarGroupStyle）。步骤 2：候选布局（网格排列 / 纯计数徽标）与现状重叠堆叠比，重叠交叠正是业界（Slack/Discord/Figma）『头像组』的定义性视觉惯例——换成网格观感上会读成另一个组件（头像列表），视觉是含义的一部分 ⇒ 步骤 3，规定性组件不给扩展点。"
+  },
+  {
+    "component": "Badge",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "text", "category": "B" }
+    ],
+    "notes": "步骤 1 无（无 BadgeStyle）。步骤 2：候选形态（pill 填充 / 描边 / 圆点指示）共享『低 chrome 状态色块』骨架，颜色本身即语义（文档原话），皮肤变体举得犹豫。步骤 3：Badge 与 Tag 的唯一区分点就是固定的 Capsule 视觉与 5 固定 level 语义绑定，视觉是含义的一部分 ⇒ 规定性组件，不给扩展点。textParams：text 便利 init 的内容是调用方选定的固定状态描述（『Beta』/『Draft』/『Merged』），界面标签而非用户数据 ⇒ B 类（现状 String 类型，未来若迁移见 BREAKING-CHANGES 节奏）。"
+  },
+  {
+    "component": "Banner",
+    "repo": "coredesign",
+    "kind": "semantic",
+    "decidedBy": "precedent",
+    "nativeProtocol": null,
+    "customStyleProtocol": "BannerStyle",
+    "needsExtensionPoint": true,
+    "textParams": [],
+    "notes": "祖父条款：BannerStyle 已发布公开协议（CLAUDE.md『组件 style 协议』一节记录的既有形态，PlainBannerStyle / BorderedBannerStyle 两个内置实现），不走判定法。label 是 @ViewBuilder 泛型槽位，无固定 String 便利 init，无 textParams 可记。"
+  },
+  {
+    "component": "Card",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "步骤 1 无。步骤 2/3：文档自述『Card 不引入平行的容器体系』——是 `.surface(.content, bordered:)` 的具名薄封装，本身无独立视觉身份可换皮；已有的外观变化（有/无描边）由既有 Bool 参数覆盖（#39/#41 处置范围，非本任务）。视觉即含义 ⇒ 步骤 3 规定性，不给扩展点。"
+  },
+  {
+    "component": "Carousel",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "步骤 1 无（无 CarouselStyle；显式排除 TabView(.page) 见文件头注释 NFR-2）。步骤 2：候选分页指示器（点状现状 / 数字『3/5』/ 箭头翻页）共享『横向分页容器 + 位置指示』骨架，仅指示器画法不同，皮肤变体，举得犹豫；分页交互（滑动手势/自动轮播/reduce-motion 响应）与视觉本身绑定紧密 ⇒ 步骤 3 视觉是含义的一部分，规定性组件。"
+  },
+  {
+    "component": "ChevronRightIcon",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "纯装饰图标，固定渲染系统 chevron.forward（LTR/RTL 自动镜像），语义固定为『进入下一级』——长相即含义 ⇒ 步骤 3 规定性，不给扩展点。无 public 文本参数。"
+  },
+  {
+    "component": "DangerIcon",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "纯装饰指示符，固定渲染 exclamationmark.circle.fill + 固定 statusDangerForeground 色——长相即含义 ⇒ 步骤 3 规定性，不给扩展点。accessibilityLabel『Alert』是内建 chrome（A 类），非公开参数，无 textParams 可记。"
+  },
+  {
+    "component": "Descriptions",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "header", "category": "by-type" }
+    ],
+    "notes": "步骤 1 无。文档自述『换皮不重造』——分组卡片/分隔线视觉全部继承 InsetGroupedSection，值槽位样式全部继承已实现的 CoreLabeledContentStyle（`.core`），Descriptions 自身只负责 1/2 列切分与分隔线密度，两者均已是恰当的 enum 配置（非 Bool hack），无独立视觉身份需要扩展点 ⇒ 步骤 3 规定性。textParams：header 类型为 `LocalizedStringKey?`，无 StringProtocol 孪生重载（单一、已是正确类型），由类型直接判定 ⇒ by-type。"
+  },
+  {
+    "component": "FloatingGlassModifier",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "AD-2 裁决纳入登记的公开 ViewModifier（非 View，但按公约同样适用判定法）。步骤 1 无（本身不是『系统控件的样式』，是独立的玻璃背景+描边处理）。步骤 2/3：这个 modifier 存在的唯一理由就是产出『浮层玻璃』这个特定视觉——换一种外观处理调用方应直接改用别的 modifier（如 `.surface`），而不是期待 FloatingGlassModifier 换皮 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。isInteractive 是行为态 Bool（是否可交互，非配置开关），豁免于第 3 节。"
+  },
+  {
+    "component": "InsetGroupedSection",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "header", "category": "B" },
+      { "name": "footer", "category": "B" }
+    ],
+    "notes": "步骤 1：List(.insetGrouped) 是最接近的原生形态，但 ADR-2 明确『只复刻观感，不复刻 List 的数据/滚动/编辑能力』——用 List 改写会丢掉『能直接嵌进已有 ScrollView/VStack』这一本组件存在的核心理由，改写丢功能 ⇒ 视为无，继续步骤 2。步骤 2：候选列表视觉（insetGrouped 卡片 / plain 无卡片 / sidebar 风格）虽是 Apple 认可的不同 ListStyle，但组件名『InsetGroupedSection』把具体风格钉死在名字里——业界与本设计系统的惯例是『想要别的列表风格就换一个具名兄弟组件』（对照 ListRow vs SettingsRow 的关系），而非给同一个组件挂样式协议 ⇒ 视觉即含义，步骤 3 规定性。⚠️ textParams：公约第 4 节明确点名『InsetGroupedSection(header:footer:)』属 B 类——header / footer 均为 LocalizedStringKey + StringProtocol 双重载，界面分组文案，B 类，此前种子漏填，本轮补齐。"
+  },
+  {
+    "component": "LabelIcon",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "纯装饰 app-tile 风格图标（底层 app.fill 色块 + 上层 SF Symbol），固定叠合结构——长相即含义 ⇒ 步骤 3 规定性，不给扩展点。systemName 是符号标识符不是展示文案，不计入 textParams。"
+  },
+  {
+    "component": "ListRow",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "步骤 1 无。步骤 2/3：三槽位薄结构布局（leading/label/trailing），默认贴画布无卡片化；『想要 iOS 设置页观感』文档明确指向换用兄弟组件 SettingsRow + InsetGroupedSection，而非本组件换皮 ⇒ 视觉/角色定位即含义，步骤 3 规定性，不给扩展点。三个槽位均为 @ViewBuilder，无固定 String 便利 init，无 textParams。"
+  },
+  {
+    "component": "RadioGroup",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "RadioOption.title", "category": "C" }
+    ],
+    "notes": "步骤 1：公约正文点名的样本——macOS 的 `.pickerStyle(.radioGroup)` 没有公开的 makeBody 定制点，第三方无法实现 ⇒ 视为『无』，继续步骤 2。步骤 2：候选形态（分段控件 / 下拉选择器）与『行列表 + 逐项可见指示器』的交互模型本质不同（可见性/展开方式不同，不是纯外观差异），且分段控件已是本设计系统里独立注册的兄弟组件（SegmentedControl）——选择哪种呈现是『选组件』层面的决策，不是『同组件换样式』；举不出真正同含义的替代形态。步骤 3：逐项可见 + 圆点指示器正是『radio group』区别于分段/下拉选择的定义性视觉 ⇒ 视觉即含义，规定性组件。textParams：RadioOption.title 文档明确『与 Tag / CheckBoxToggleStyle 一致，标签文案本地化由调用方自负责』⇒ 比照 Tag 归为 C 类（调用方自定义数据，非产品固定 chrome）。"
+  },
+  {
+    "component": "Rating",
+    "repo": "coredesign",
+    "kind": "semantic",
+    "decidedBy": "step2",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": true,
+    "textParams": [],
+    "notes": "已在公约附录 A.1 走查过：步骤 1 无（无 RatingStyle）；步骤 2『会』——替代枚举数字条（IMDb 连续条形）/ 表情（NPS 单一图形）两者结构本身不同、且都不含当前『星』形态，举得出 ≥2 ⇒ 语义组件，需要扩展点。⚠️ 现状缺口：源码里尚无 RatingStyle 协议实现（customStyleProtocol 为 null）——判定法给出『应该有扩展点』的结论，但该扩展点尚未落地，留给后续任务补齐，不属于本任务判断错误。allowsHalfStar 的形状取舍已在附录 A.1 续给出（3.1 专用参数 step，非本任务范围）。"
+  },
+  {
+    "component": "SearchField",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "tiebreaker",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "placeholder", "category": "C" }
+    ],
+    "notes": "⚠️ 同类陷阱（任务书明确点名）：本组件是『包着系统 TextField、加了行为（焦点管理/清除按钮/frame 策略）的 wrapper』，不因套壳就当作 step1——TextField 无可用样式协议覆盖这整套复合行为，本身也不是纯样式关系。步骤 1 无。步骤 2：候选（前置图标+清除按钮现状 / 系统 `.searchable()` 提升到 toolbar 的形态）因交互位置/生命周期不同不算『同含义』替代；纯外观候选（pill/方角、图标位置）是皮肤变体 ⇒ 举得犹豫，落 tiebreaker，规定性组件不给扩展点。textParams：placeholder 类型为裸 String（无 LocalizedStringKey 重载），文档未给出迁移意图；比照同款处理的 TagInput.placeholder（该文件注释明确『运行期任意占位文案场景，调用方可能传入分类名等动态字符串』）判定为 C 类（有意保持 verbatim 动态内容，不是待迁移的界面 chrome）。"
+  },
+  {
+    "component": "SectionFooter",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "text", "category": "B" }
+    ],
+    "notes": "步骤 1 无。文档自述『只负责文本样式』，与 SectionHeader 同源、仅大小写/字重差异，视觉固定为 footnote 灰色说明文字 ⇒ 步骤 3 规定性，不给扩展点。textParams：text 为 LocalizedStringKey + StringProtocol 双重载的分组说明文案，界面文案 ⇒ B 类，与公约第 4 节明确点名的 SectionHeader 同一性质。"
+  },
+  {
+    "component": "SectionHeader",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "title", "category": "B" }
+    ],
+    "notes": "步骤 1 无。文档自述『只负责文本样式，不带分组外边距』，大写 + footnote 灰是固定的 iOS 分组标题惯例 ⇒ 步骤 3 规定性，不给扩展点。⚠️ textParams：公约第 4 节**明确点名** SectionHeader 属 B 类（调用方传入的可本地化文案）——title 为 LocalizedStringKey + StringProtocol 双重载，B 类。"
+  },
+  {
+    "component": "Separator",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "纯装饰分隔线，hairline 宽度 + 语义 token 颜色固定 ⇒ 长相即含义，步骤 3 规定性。inset 是 CGFloat/enum 几何参数，非文本，无 textParams。"
+  },
+  {
+    "component": "SettingsRow",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "title", "category": "B" },
+      { "name": "subtitle", "category": "B" }
+    ],
+    "notes": "步骤 1 无。步骤 2/3：iOS 设置行的固定骨架（图标方块 + 标题 + 副标题 + accessory），『想要不同列表行观感』的答案是换用兄弟组件 ListRow，而非本组件换皮（同 InsetGroupedSection 的推理）⇒ 视觉即含义，步骤 3 规定性，不给扩展点。⚠️ textParams：公约第 4 节**明确点名** SettingsRow 属 B 类——title / subtitle 均为 LocalizedStringKey + StringProtocol 双重载的界面文案，B 类，此前种子遗漏，本轮补齐。"
+  },
+  {
+    "component": "SettingsRowChevron",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "纯装饰 disclosure chevron，与 ChevronRightIcon 同构（固定渲染 chevron.forward，自动镜像 RTL）——长相即含义 ⇒ 步骤 3 规定性，不给扩展点。无公开文本参数。"
+  },
+  {
+    "component": "SidebarDocumentRow",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "title", "category": "C" },
+      { "name": "detail", "category": "C" }
+    ],
+    "notes": "四个 sidebar row 共享 SidebarRow 骨架，步骤 1 无，步骤 2/3：想要不同外观的 sidebar 行是通过选择四个具名兄弟组件（Navigation/Utility/Document/Tag Row）之一实现，不是给单个组件挂样式协议 ⇒ 视觉即含义，步骤 3 规定性。textParams：title 为调用方文档标题、detail 为计数/日期——均是调用方数据产生的运行期内容（类比公约第 4 节 C 类范例『章节标题』），⇒ C 类。"
+  },
+  {
+    "component": "SidebarNavigationRow",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "title", "category": "B" }
+    ],
+    "notes": "同 SidebarDocumentRow 的骨架/推理，步骤 3 规定性，不给扩展点（选中态 floating-glass 背景是内建固定行为，非可换皮扩展点）。textParams：title 是导航目的地标签（如『Home』『Notifications』），由调用方/App 固定选定，非用户数据 ⇒ B 类。"
+  },
+  {
+    "component": "SidebarSection",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "title", "category": "B" }
+    ],
+    "notes": "侧栏分组标题容器，固定的『标题 + 可选 chevron + 溢出字形』头部结构 ⇒ 步骤 3 规定性，不给扩展点。textParams：title 是分组类别名（如『Workspace』『Tools』），与 SectionHeader 同一性质 ⇒ B 类。"
+  },
+  {
+    "component": "SidebarStatusFooter",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "title", "category": "B" },
+      { "name": "detail", "category": "C" }
+    ],
+    "notes": "非交互式状态点 + 两行文本页脚，固定结构 ⇒ 步骤 3 规定性，不给扩展点。textParams：title 是系统生成的固定状态描述（如『All systems operational』）⇒ B 类；detail 是运行期动态生成的相对时间文本（如『Updated just now』），随时间变化的数据而非固定 chrome ⇒ C 类。"
+  },
+  {
+    "component": "SidebarTagRow",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "title", "category": "C" }
+    ],
+    "notes": "以『#』字形开头的标签行，固定装饰前缀 ⇒ 步骤 3 规定性，不给扩展点。textParams：title 是调用方/仓库自定义的标签名（如『swiftui』），比照 Tag 的 C 类推理（用户/项目自定义分类数据）⇒ C 类。"
+  },
+  {
+    "component": "SidebarUtilityRow",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "title", "category": "B" }
+    ],
+    "notes": "单动作工具行，固定结构（图标 + 标题 + 可选装饰性 trailing 图标）⇒ 步骤 3 规定性，不给扩展点。textParams：title 是固定工具动作标签（如『Settings』『Trash』）⇒ B 类。"
+  },
+  {
+    "component": "Skeleton",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "占位/真实内容切换容器，redacted + shimmer 叠加固定 ⇒ 长相即含义，步骤 3 规定性。isLoading 为 Bool 但驱动的是『展示哪一棵子树』而非样式开关，不落入第 3 节配置开关范畴。"
+  },
+  {
+    "component": "SkeletonCircle",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "头像占位圆形，纯几何形状（Color.skeletonBase 填充）⇒ 长相即含义，步骤 3 规定性，不给扩展点。"
+  },
+  {
+    "component": "SkeletonLine",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "文本行占位形状，纯几何圆角矩形 ⇒ 长相即含义，步骤 3 规定性，不给扩展点。"
+  },
+  {
+    "component": "SkeletonRect",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "图片/卡片占位形状，纯几何矩形 ⇒ 长相即含义，步骤 3 规定性，不给扩展点。"
+  },
+  {
+    "component": "SpinningModifier",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "text", "category": "by-type" }
+    ],
+    "notes": "AD-2 裁决纳入登记的公开 ViewModifier。步骤 1 无。步骤 2/3：本 modifier 的唯一目的就是『material 遮罩 + 居中 ProgressIndicator』这个特定视觉处理（复用已注册的 ProgressIndicator 提供 loading 观感），换外观应直接不用本 modifier ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。textParams：text 类型为 `LocalizedStringKey?`，无 StringProtocol 孪生重载 ⇒ by-type。"
+  },
+  {
+    "component": "StateLabel",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "label", "category": "B" }
+    ],
+    "notes": "六固定 case 状态 pill，与 Badge 同一套『颜色即语义、无装饰性材质』规则 ⇒ 步骤 3 视觉即含义，规定性，不给扩展点。textParams：label 便利 init 内容是调用方选定的状态描述（默认取 style 内建文案，或覆盖为『Saving…』『Save failed』等界面生成文案）⇒ B 类。"
+  },
+  {
+    "component": "Steps",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "StepItem.title", "category": "B" },
+      { "name": "StepItem.description", "category": "B" }
+    ],
+    "notes": "步骤 1 无。指示器已有恰当 enum 配置（StepsIndicatorStyle：dot/numbered），非 Bool hack；候选『进度条式向导』结构上是完全不同的组件（本仓已有独立注册的 ProgressBar/ProgressIndicator），不是 Steps 换皮 ⇒ 视觉即含义，步骤 3 规定性。textParams：StepItem.title / description 是调用方定义的固定流程步骤名（如『Cart』『Shipping』），界面标签而非用户数据 ⇒ B 类。"
+  },
+  {
+    "component": "Tag",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "text", "category": "C" }
+    ],
+    "notes": "步骤 1 无。文档自述与 Badge 的区分点：Tag 用 CoreRadius.small 圆角矩形（非 Capsule），这一形状差异本身就是与 Badge 划清边界的机制——换成 pill 会与 Badge 视觉混淆 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。textParams：text 便利 init 内容对应 GitHub issue label 风格的任意分类标签（调用方/仓库自定义调色板+文案），公约第 4 节 C 类范例正是这类『调用方自定义分类』内容 ⇒ C 类。"
+  },
+  {
+    "component": "TagInput",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "tiebreaker",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "placeholder", "category": "C" }
+    ],
+    "notes": "⚠️ 同类陷阱（任务书点名的 SearchField 一类）：本组件是包裹系统 TextField、叠加 chip 列表 + 拆分提交行为的 wrapper。步骤 1 无（TextField 无法覆盖 chip 列表 + 逗号拆分提交这套复合行为）。步骤 2：候选（下拉多选 / 纯逗号分隔文本框）与『chip + 行内输入』的交互模型不同，不算真正同含义的替代；纯 chip 视觉变体已完全由内部复用的 Tag 组件承担，TagInput 自身没有独立可换皮的表面 ⇒ 举得犹豫，落 tiebreaker，规定性组件不给扩展点。textParams：placeholder 源码注释明确『TagInput 是运行期任意占位文案场景（调用方可能传入分类名等动态字符串），与 SearchField 同款处理』——保持裸 String、明确不追加 LocalizedStringKey 重载的裁决 ⇒ C 类。"
+  },
+  {
+    "component": "TelegramGlassButtonModifier",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "AD-2 裁决纳入登记的公开 ViewModifier，供 Solid/Light/CircularGlass 三个 ButtonStyle 共享的『四层玻璃结构』内部构件。步骤 1 无。步骤 2/3：存在的唯一理由就是这套四层结构（底色内缩+玻璃壳+描边+按压反馈）本身的视觉，border/pressFeedback 已是恰当参数化（非 Bool 换皮）⇒ 视觉即含义，步骤 3 规定性，不给扩展点。"
+  },
+  {
+    "component": "Timeline",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "纵向时间线布局容器（节点+连线+内容），节点色复用 StatusLevel、连线宽度已在文件内注明为『有意偏离』的取值层决策 ⇒ 长相即含义，步骤 3 规定性，不给扩展点。TimelineItem.content/node 均为 @ViewBuilder，无固定 String 文本参数。"
+  },
+  {
+    "component": "UnderlinedTabBar",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "title", "category": "B" }
+    ],
+    "notes": "步骤 1 无。步骤 2/3：下划线指示器是与本仓已独立注册的兄弟组件 SegmentedControl（pill 指示）划清场景边界的定义性视觉（文档：『UnderlinedTabBar 面向可滚动场景，SegmentedControl 面向 ≤5 项紧凑场景』）——想要 pill 观感应换用 SegmentedControl，不是给本组件换皮 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。textParams：title 由 `(Item) -> String` 闭包解出的 tab 标签文本，是 App 固定定义的分类导航标签（非用户自由输入）⇒ B 类。"
   }
 ]
