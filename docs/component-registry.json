@@ -536,5 +536,285 @@
       { "name": "title", "category": "B" }
     ],
     "notes": "步骤 1 无。步骤 2/3：下划线指示器是与本仓已独立注册的兄弟组件 SegmentedControl（pill 指示）划清场景边界的定义性视觉（文档：『UnderlinedTabBar 面向可滚动场景，SegmentedControl 面向 ≤5 项紧凑场景』）——想要 pill 观感应换用 SegmentedControl，不是给本组件换皮 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。textParams：title 由 `(Item) -> String` 闭包解出的 tab 标签文本，是 App 固定定义的分类导航标签（非用户自由输入）⇒ B 类。"
+  },
+  {
+    "component": "ManuscriptReader",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "只读正文阅读面，与 ManuscriptEditor 共用同一个 StoryTextView（TextKit 2）底座，仅 isEditable 不同。步骤 1 无（UIViewRepresentable 场景没有可用的 SwiftUI 原生样式协议）。步骤 2/3：外观完全由调用方传入的 typography/theme 值类型决定（已是恰当参数化，非 Bool hack），组件本身不拥有独立于这两个入参之外的可换皮视觉表面 ⇒ 视觉即含义，步骤 3 规定性。文本以 AttributedString 承载，不落入 textParams 的 A/B/C 三分法（该判据面向 String/LocalizedStringKey/Resource 类型的展示文案参数）。"
+  },
+  {
+    "component": "SuggestionStream",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "AI 流式建议卡：Markdown 正文 + 固定四态动作按钮。步骤 1 无。步骤 2/3：结构（正文块 + 光标 + 失败文案 + 动作区）与流式生成场景强绑定，换一种呈现即是换一个不同语义的组件 ⇒ 视觉即含义，步骤 3 规定性。展示文本全部来自 SuggestionStreamState（内嵌数据结构字段），组件自身 init 无裸 String 展示参数。"
+  },
+  {
+    "component": "WritingStatusBar",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "写作状态栏：字数 / 目标进度（ProgressView(.core)）/ 保存三态。步骤 1 无（组件本身是复合视图，非单一系统控件的样式扩展）。步骤 2/3：字数文案 + 进度条 + 保存态是这块状态栏的全部定义，换一种呈现无实际意义 ⇒ 步骤 3 规定性。展示文本由 WritingStatusBarState 派生（wordCountText/saveText 均为 internal 纯函数），组件 init 本身无裸 String 参数。"
+  },
+  {
+    "component": "FocusModeContainer",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "专注模式容器：紧凑宽度下隐藏状态栏/工具栏，仅留退出按钮。步骤 1 无。步骤 2/3：这是一个行为容器（分工归属见 spec §4.1），不是外观容器——『隐藏 chrome + 退出入口』本身就是它存在的唯一理由，没有『换一种长相但功能不变』的空间 ⇒ 步骤 3 规定性。exitButtonAccessibilityLabel 是固定 a11y chrome（内部静态函数，非公开参数），不进 textParams。"
+  },
+  {
+    "component": "StoryTextView",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "正文的 TextKit 2 UIViewRepresentable 底座，ManuscriptReader / ManuscriptEditor 共用。步骤 1 无（UIViewRepresentable 没有 SwiftUI 原生样式协议可套）。步骤 2/3：这是渲染引擎本身，『长相』就是 TextKit 排版结果，不存在独立于排版实现之外的可换皮视觉 ⇒ 步骤 3 规定性。initialText 为 AttributedString，不落入 textParams 三分法。"
+  },
+  {
+    "component": "ManuscriptEditor",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "可编辑正文面，与 ManuscriptReader 同一 StoryTextView 底座（isEditable = true）。理由同 ManuscriptReader：步骤 1 无，步骤 3 视觉即含义（外观完全由 typography/theme 值参数化，组件自身无独立可换皮表面）。无裸 String 展示参数。"
+  },
+  {
+    "component": "ContextPicker",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "多选设定条目选择器，供上层拼进 prompt。步骤 1 无。步骤 2/3：视觉完全委派给内部复用的 InsetGroupedSection + SettingsRow（`.core` 系统样式已由 CoreDesign 层处理），ContextPicker 自身不引入独立视觉身份，是纯领域组合层 ⇒ 步骤 3 规定性。展示文本（CodexText.* 与 state.states 里的条目标题/副标题）均来自内嵌数据/常量，组件 init 本身无裸 String 参数。"
+  },
+  {
+    "component": "CodexEntryForm",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "设定条目编辑表单：四个固定位 + 模板字段（后者薄封装转发给 DynamicForm）。步骤 1 无。步骤 2/3：文档自述『薄封装，不重新实现动态表单』，控件与视觉完全来自 DynamicForm/InsetGroupedSection/SettingsRow/TagInput，本组件不持有独立样式表面 ⇒ 步骤 3 规定性。无裸 String init 参数（type/draft/闭包）。"
+  },
+  {
+    "component": "CodexEntryDetail",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "设定条目详情：Card 头部 + DynamicFormSummary 只读渲染。步骤 1 无。步骤 2/3：文档自述『薄封装，不重新实现只读渲染』，与 CodexCard『未填字段是否显示』的取舍相反是领域决策，不是可换皮的样式轴 ⇒ 步骤 3 规定性。无裸 String init 参数（仅 state）。"
+  },
+  {
+    "component": "CodexCard",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "设定条目卡：建在 CoreDesign Card 上，卡面字段完全由 FieldDef.onCard 驱动。步骤 1 无。步骤 2/3：泛化条目卡是一套领域渲染规则（CodexCardRules），不是外观选择——换视觉即换掉『卡片回答“这是什么”』这条定义 ⇒ 步骤 3 规定性。无裸 String init 参数（仅 state + onTap 闭包）。"
+  },
+  {
+    "component": "CodexEntryList",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "设定条目列表：按类型分组 + 筛选。步骤 1 无。步骤 2/3：筛选条显式记录『不用 SegmentedControl』（类型数不定、AX5 下等宽分段会挤没文字）与『不用横向 ScrollView』（ImageRenderer 下不渲）两条被否决的候选——这些是功能性淘汰而非风格偏好，当前 FlowLayout chip 形态是唯一满足约束的解 ⇒ 步骤 3 规定性，不给扩展点。无裸 String init 参数（仅 state + 闭包）。"
+  },
+  {
+    "component": "DynamicFormSummary",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "同一份 [FieldDef] 的只读渲染，建在 CoreDesign Descriptions 之上（AC 明写复用）。步骤 1 无。步骤 2/3：六种 FieldKind 到展示形态（纯文本/数值/单选/标签 chip/实体引用行）的映射是领域规则，不是外观选择；Descriptions 本身已是 prescriptive（见 coredesign 条目），本组件不叠加独立视觉 ⇒ 步骤 3 规定性。fieldDefs/values 为结构化数据，无裸 String init 参数。"
+  },
+  {
+    "component": "DynamicForm",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "header", "category": "B" },
+      { "name": "footer", "category": "B" }
+    ],
+    "notes": "按 [FieldDef] 动态出 UI 的通用表单子系统，AC 明文『控件全部复用 CoreDesign，不新造』（InsetGroupedSection/SettingsRow/TagInput/RadioGroup/Avatar）。步骤 1 无。步骤 2/3：本组件不持有独立于所复用控件之外的视觉身份 ⇒ 步骤 3 规定性。textParams：header/footer 是调用方为这张表单起的分组标题/说明（如演示里的『工单』），界面标签而非用户数据，与 InsetGroupedSection 的 header/footer 同一性质 ⇒ B 类（现状裸 String，非本任务的迁移范围）。"
+  },
+  {
+    "component": "ApprovalRequestCard",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "待审批工具调用卡片组，三档形态（空/排队/列表）。步骤 1 无。步骤 2/3：三档形态与审批工作流的实际状态一一对应（AC 要求可区分取消与拒绝），不是外观自由度 ⇒ 步骤 3 规定性。展示文本（prompt/agentID/toolID）来自 ApprovalRequestState 数据字段，组件 init 本身无裸 String 参数。"
+  },
+  {
+    "component": "OutlineTree",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "卷—章—节三层大纲树：展开/折叠、选中、拖拽重排。步骤 1 无——文档明确记录『没有用 DisclosureGroup + .core style』是刻意的不复用（展开与选中需要两个独立命中区，CoreDisclosureGroupStyle 把整行包成一个 Button 做不到）。步骤 2：候选形态（缩进列表现状 / 思维导图 / 看板）结构上是完全不同的交互模型（拖拽手势、选中语义均不同），不是同一组件的换皮，比照公约 §3.4 Slider/Gauge『行为重叠但视觉诉求不同应拆成不同组件』的推理，这里换个视觉即是换个组件 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。展示文本来自 OutlineNodeState.title 等数据字段，组件自身无裸 String init 参数。"
+  },
+  {
+    "component": "DelegationTimeline",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "委派列表（平坦，非树）。步骤 1 无。步骤 2/3：『平坦，不是树』是文档记录的领域事实（嵌套委派技术上不可能收到孙 worker 的 spawn 事件），不是外观选择；四态终局（running/settled/failed/interrupted）要求视觉互不相同（安全约束，非风格自由）⇒ 步骤 3 规定性。展示文本来自 DelegationEntryState 数据字段，组件 init 本身无裸 String 参数。"
+  },
+  {
+    "component": "StoryScaffold",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "大纲/正文/AI 面板三栏自适应布局骨架。步骤 1 无（结构性布局引擎，非样式扩展场景）。步骤 2/3：spec §5.2 明确记录『二栏 + inspector，不是三栏 NSV』是基于 `NavigationSplitViewVisibility` 实测局限（三栏 NSV 无法只留 content 列）做出的技术裁决，不是外观偏好——换一种布局形状需要换一套完全不同的状态管理与几何验证，不是同组件换皮 ⇒ 步骤 3 规定性，不给扩展点。无裸 String 展示参数（三个内容槽均为 @ViewBuilder）。"
+  },
+  {
+    "component": "AgentMessageList",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "agent 过程消息流，五类角色（user/assistant/thought/system/error）各自固定渲染形态。步骤 1 无。步骤 2/3：文档反复强调『三种“文本流”必须分开渲染』『reasoning 与 thought 长得不一样』——五类形态互不相同是正确性约束（避免用户混淆消息语义），不是风格自由度 ⇒ 步骤 3 规定性，不给扩展点。展示文本来自 AgentMessage/AgentMessageRole 关联值，组件 init 本身无裸 String 参数。"
+  },
+  {
+    "component": "TodoBoard",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "父 session 任务清单看板（三态：pending/inProgress/completed）。步骤 1 无。步骤 2/3：三态图标+着色映射固定，是状态语义的直接表达，非风格选择 ⇒ 步骤 3 规定性。展示文本来自 AgentTodoItem.displayText（数据字段），组件 init 本身无裸 String 参数。"
+  },
+  {
+    "component": "RunMetricsBar",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "运行指标条：token 用量 + 会话轮次，两组分隔展示。步骤 1 无。步骤 2/3：spec §3.1 明确要求 token 与轮次『不是一组数字』必须视觉分组——这是防止用户误算平均值的正确性约束，不是外观选择 ⇒ 步骤 3 规定性。展示文本来自 RunMetricsBarState 数据字段与固定分组标题（『token（含委派子树）』/『本会话』，内部常量非公开参数），组件 init 本身无裸 String 参数。"
+  },
+  {
+    "component": "StreamingIndicator",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "流式状态指示器，六态（waiting/streaming/completed/stoppedByCondition/interrupted/failed）。步骤 1 无。步骤 2：候选形态（图标胶囊现状 / 纯色圆点 / 顶部进度条）共享『紧凑状态徽标』骨架，属皮肤变体；但本组件的核心约束是『.completed 与 .stoppedByCondition 必须长得不一样』——这是安全性要求（防止把未完成误读为完成），不是要不要给扩展点的问题，扩展点反而会削弱这条约束的可控性 ⇒ 步骤 3 视觉是含义的一部分（哪怕含义是『互相区分』），规定性组件。展示文本（title/detail）为组件内部纯函数产出，非公开参数。"
+  },
+  {
+    "component": "ToolCallRow",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "工具调用行，四阶段 + 五种 render 形态（含 .streaming/.custom 的 HostContent 接管口）。步骤 1 无（展开区已复用 CoreDisclosureGroupStyle，行本身不是单一系统控件的样式扩展场景）。步骤 2/3：`.oneLine` / `.default` / `.hidden` 三种内建形态服务不同的『这条工具该占多少注意力』的领域判断，`HostContent` 泛型已经是本组件对『调用方想要完全不同呈现』的正式扩展口——但那是内容接管（谁来渲染），不是样式协议（长什么样），公约第 2 节的三选一形态里没有『内容接管闭包』这一档，判定法本身对这类『泛型槽位即扩展点』没有覆盖，记为已知盲区。当前内建三态本身长相固定 ⇒ 步骤 3 规定性。展示文本来自 ToolCallRowState 数据字段与固定 chrome 常量，组件 init 本身无裸 String 参数。"
+  },
+  {
+    "component": "ToolRenderHandoffPlaceholder",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "`.streaming` / `.custom` 未被接管时的兜底可见提示。步骤 1 无。步骤 2/3：文档明确『刻意渲成可见的交接提示而不是空视图』——存在的唯一理由就是这个可见性本身，换外观等于取消它的作用 ⇒ 步骤 3 规定性，不给扩展点。text 是根据 render 关联值拼接的内部计算属性，非公开参数。"
+  },
+  {
+    "component": "ChapterStatusBadge",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      { "name": "label", "category": "B" }
+    ],
+    "notes": "章节三态徽章，文档自述『建在 CoreDesign StateLabel 上，胶囊/图标/配色/对比度全部来自上游，本件一处都不重造』。步骤 1 无（StateLabel 本身已是 prescriptive，无原生协议）。步骤 2/3：三态到色相（黄/紫/红）的映射是刻意的无障碍设计（避免与 StateLabelStyle 的 attention 黄冲突），换色即破坏可区分性 ⇒ 步骤 3 规定性，不给扩展点。textParams：label 是 App 层本地化出口（覆盖内置中文 defaultLabel），界面文案 ⇒ B 类。⚠️ 相关但不同的观察：defaultLabel（内置中文『草稿/完成/待修』）是 43.md 已经点名的『组件持有默认文案』——对 #6『App 层持有用户文案』立场的有意偏离，非本条 textParams 覆盖范围（defaultLabel 不是 public init 参数，是内部枚举 extension 计算属性），留给 #43 的 spec 逐一回答。"
+  },
+  {
+    "component": "ChapterCard",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "章节卡片：标题/摘要/字数/状态四项，文档自述『建在 CoreDesign Card 上，本件一处都不重造』。步骤 1 无。步骤 2/3：四项固定槽位是这张卡的完整定义，进度条固定走 `ProgressView(.core)`（ProgressBar 已弃用不用）⇒ 步骤 3 规定性，不给扩展点。展示文本来自 ChapterCardState 数据字段（title/summary），组件 init 本身无裸 String 参数（仅 state + onSelect 闭包）。"
   }
 ]

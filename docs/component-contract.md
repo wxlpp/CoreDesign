@@ -358,6 +358,29 @@ modifier **internal 化**（只经 `public extension View` 暴露，即 `Surface
 —— 那是**破坏性变更**，节奏归 #42，**属于被搁置而非被否决的选项**。
 将来收窄 API 面时不要把本条读成反对意见。
 
+#### AD-3 裁决：AC #49 点名的三个 style（`CoreLabelStyle`/`CoreProgressViewStyle`/
+`CoreDisclosureGroupStyle`）在新登记单位下无对应物
+
+`38.md:49` 点名这三个类型「标出对应协议名」，但按 D1 它们是 **Style 实现**，不是登记表
+条目（登记单位是「组件」，见本文件第 1 节判定法与 `ComponentRegistryGuard.swift` 的
+`ScanResult.styleImpls` 分类）。Task 2 实测核对（`grep -rn
+".progressViewStyle(.core)\|.labelStyle(.core)\|.disclosureGroupStyle(.core)"`）：
+三者均被直接施加在**裸系统控件**上（`ProgressView().progressViewStyle(.core)` /
+`Label { } icon: { }.labelStyle(.core)` / `DisclosureGroup().disclosureGroupStyle(.core)`），
+调用方既包括本仓 Preview，也包括 StoryUI 的 `WritingStatusBar` / `ChapterCard`
+（`.progressViewStyle(.core)`）与 `DelegationTimeline` / `AgentMessageList` /
+`ToolCallRow`（`.disclosureGroupStyle(.core)`）——**没有一个登记表条目通过这三个 style
+提供扩展点**。`ProgressIndicator` 是本仓唯一 `nativeProtocol: ProgressViewStyle` 的组件，
+但它走的是自己的固定 `.circular` + `Color.accent`（FR-3a 例外），不消费 `.core`。
+
+⇒ **裁决：选二选一里的第 2 条——登记为 AC 偏离**。`38.md:49` 这句 AC 在「登记单位 = 组件」
+下无对应物，不是漏做，是 AC 原文与登记单位定义之间的张力（同 D1 的既有说明）。三个
+style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `scannerFindsCoreDesignTypes`
+（`styleImpls` 打印清单）与 J-3 判据（#40，读取 `nativeProtocol` 交叉核对源码）覆盖，
+不需要在登记表里额外造三条不对应任何真实组件的幽灵条目——那会立即被
+`registryCoversCoreDesignTypes` 的双向差集判红（`registered.subtracting(scanned)`
+非空，因为它们在 `styleImpls` 而非 `components` 集合里）。
+
 ### A.4 `PinCode` —— 一个真的落到 tiebreaker 的样本
 
 | 步骤 | 结论 |
