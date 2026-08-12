@@ -96,7 +96,10 @@
 > `38-plan.md:27-28` 把它记成对 `38.md` AC 的偏离，却从未回写进本公约——于是弃用条款
 > 强制生成的 `kind: excluded` 条目，长期没有一个合法的 `decidedBy` 取值能描述它。上面
 > 这段警告讲的正是「枚举漏值 ⇒ 两份规范性文档打架 ⇒ 公约是更权威的那份」，而它自己
-> 上方 3 行正在重演同一件事——已在此补上 `exclusion`，同一种病在本条款里记录了两次。
+> 上方 3 行正在重演同一件事——已在此补上 `exclusion`。
+> ⚠️ **后来又发生了第三次**（`textParams[].category` 的 `by-type`）。⇒ 三例的完整对照
+> 与**通则**（哪一方有义务同步、范围限哪几个字段）见第 4 节末尾的
+> **「通则：判定法枚举的三方同步义务」**——**本条款不再逐次追记，以那一处为准**。
 
 **为什么默认这一侧**：少给扩展点是**可逆的**（后续按需补，不破坏 API）；
 多给扩展点**不可逆**（public 协议一旦发布，删它是破坏性变更）。
@@ -270,20 +273,49 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 里 chrome 已本地化。⇒ **CoreDesign 侧不需要新增本地化基建**；
 缺 `defaultLocalization` 的是 **StoryUI**（归 #43）。
 
-### 4.5 登记表的第四个 `category` 取值：`by-type`
+### 登记表的第四个 `category` 取值：`by-type`
 
 三分法管的是**需要人工判别**的参数。登记表（`docs/component-registry.json`）的
 `textParams[].category` 因此有**第四个取值** `by-type`：参数类型**已经是**
-`LocalizedStringKey` / `LocalizedStringResource`、且**无 `String` 孪生重载**时，
-分类由类型直接判定，**不落 A/B/C 的人工三分**。出处 `38.md:42`；守卫侧见
+`LocalizedStringKey` / `LocalizedStringResource`、且**无接受裸字符串的孪生重载**
+（`String` **或** `StringProtocol`）时，分类由类型直接判定，**不落 A/B/C 的人工三分**。
+出处 `oh-my-story` 仓的 `.claude/epics/component-contract/38.md:42`；守卫侧见
 `Tests/CoreDesignTests/ComponentRegistryGuard.swift:39` 的 `validCategories`。
-现状 2 条在用（`Descriptions.header`、`SpinningModifier.text`）。
+现状 2 条在用（`Descriptions.header`、`SpinningModifier.text`），**均在 CoreDesign 侧**；
+StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 
-⚠️ **这是同一种病的第三例**——`by-type` 在守卫、登记表、`38.md` 三方都合法且在用，
-唯独本节（**按本文件 §「登记表」块自己写下的原则，公约是更权威的那份**）零处提及。
-前两例是 `step1`（第一版枚举漏，`38.md` 的 schema 里有）与 `exclusion`（同样只在
-登记表与守卫里存在）。⇒ **本文件新增任何 schema 取值时，必须回头检查三方是否同向，
-而不是只在引入它的那一侧记一笔偏离。**
+⚠️ **「无孪生重载」是本节的实际筛子**：第 4 节点名的四件
+（`SectionHeader` / `InsetGroupedSection(header:footer:)` / `ProgressIndicator(text:)` /
+`SettingsRow`）**全部带 `init<S: StringProtocol>` 重载**，因此仍是 **B 类**，不受本节影响。
+措辞必须同时写 `String` 与 `StringProtocol`——只写前者，严格读者可主张
+「这些类型上并没有 `String` 重载」而把 8 条 B 误判成 `by-type`。
+
+⚠️ **A 类按定义不会出现在 `textParams[]` 里**：A 的定义是「文案写在组件源码里，
+调用方看不见也改不了」，而 `textParams[]` 收的是 **public 参数**——参数按定义对调用方
+可见。⇒ 实测 31 个参数中 A 计数恒为 **0**，这是预期，不是覆盖缺口。三方仍各自保留 A
+取值（它是三分法本身的一部分，只是不经由参数这条路进登记表）。
+
+---
+
+#### 通则：判定法枚举的三方同步义务
+
+⚠️ **这是同一种病的第三例**。三例都是「取值在一处合法且在用，另一处零提及」：
+
+| 例 | 引入方 | 漏的一方 |
+|---|---|---|
+| `step1` | `38.md` 的 schema | **本公约**（第一版枚举漏） |
+| `exclusion` | 守卫 `validDecidedBy` + 登记表 | **本公约**（`kind` 同步了 `excluded`，`decidedBy` 没同步） |
+| `by-type` | `38.md:42` + 守卫 `validCategories` | **本公约**（第 4 节标题就叫「三分法」） |
+
+⇒ **任何一方**（本公约 / 守卫的 `validXxx` 域 / 任务书 schema / 登记表实际取值）
+**新增判定法枚举字段的取值**时——即 `kind`、`decidedBy`、`textParams[].category`
+这三个字段——**必须回头核对四方是否同向，而不是只在引入它的那一侧记一笔偏离。**
+
+⚠️ **义务人是「新增取值的那一方」，不是本公约**：三例的引入方**没有一次是本公约**，
+若把主语写成「本文件新增取值时」，这条规矩对三个致病者**一个都约束不到**。
+
+⚠️ **范围仅限上列三个字段**：`repo` / `nativeProtocol` / `needsExtensionPoint` 等
+不是判定法产出的枚举，本公约从未也不必镜像它们。
 
 ## 5. 环境值清单
 
