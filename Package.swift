@@ -17,6 +17,9 @@ let package = Package(
             targets: ["CoreDesign"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
@@ -27,7 +30,11 @@ let package = Package(
         ),
         .testTarget(
             name: "CoreDesignTests",
-            dependencies: ["CoreDesign"],
+            dependencies: [
+                "CoreDesign",
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+            ],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
     ],
