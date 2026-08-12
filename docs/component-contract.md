@@ -279,8 +279,8 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 `textParams[].category` 因此有**第四个取值** `by-type`：参数类型**已经是**
 `LocalizedStringKey` / `LocalizedStringResource`、且**无接受裸字符串的孪生重载**
 （`String` **或** `StringProtocol`）时，分类由类型直接判定，**不落 A/B/C 的人工三分**。
-出处 `oh-my-story` 仓的 `.claude/epics/component-contract/38.md:42`；守卫侧见
-`Tests/CoreDesignTests/ComponentRegistryGuard.swift:39` 的 `validCategories`。
+出处 `oh-my-story` 仓的 `.claude/epics/component-contract/38.md` 的 Acceptance Criteria 里 `textParams` 那条 bullet；守卫侧见
+`Tests/CoreDesignTests/ComponentRegistryGuard.swift` 的 `validCategories`。
 现状 2 条在用（`Descriptions.header`、`SpinningModifier.text`），**均在 CoreDesign 侧**；
 StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 
@@ -310,7 +310,7 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 |---|---|---|
 | `step1` | `38.md` 的 schema | **本公约**（第一版枚举漏） |
 | `exclusion` | 守卫 `validDecidedBy` + 登记表 | **本公约**（`kind` 同步了 `excluded`，`decidedBy` 没同步） |
-| `by-type` | `38.md:42` + 守卫 `validCategories` | **本公约**（第 4 节标题就叫「三分法」） |
+| `by-type` | `38.md` 的 `textParams` bullet + 守卫 `validCategories` | **本公约**（第 4 节标题就叫「三分法」） |
 
 ⇒ **任何一方**（本公约 / 守卫的 `validXxx` 域 / 任务书 schema / 登记表实际取值）
 **新增判定法枚举字段的取值**时——即 `kind`、`decidedBy`、`textParams[].category`
@@ -460,6 +460,27 @@ public——只是都不是 `View`/`ViewModifier`。
 已在终审 C1 补录（`component-registry.json`，`kind: semantic` / `decidedBy: step2`，
 条目名沿用 README 行名 `Toast`，不拆成三条按类型登记）；`Sidebar` 的四个辅助类型不满足
 （README 没有以它们为行名的索引条目），因此不登记，不受本裁决牵连。
+
+⚠️ **本复合条件的作用域必须限定，否则它只是换了一个过宽的条件**（终审第 3 轮 I-1）：
+**它仅适用于「该 README 行名下没有任何 `public struct: View/ViewModifier` 类型」
+——即扫描器结构上看不见它——的情形**，`Toast` 属此类。行名下**存在**可被扫描器采集的
+类型时，仍按**类型逐条登记，条目名用类型名**，不合并成聚合条目。
+
+反例（若不加这条限定，按字面会推出与登记表现状相反的结论）：
+
+| README 行 | 无限定时按字面 | 登记表实际 |
+|---|---|---|
+| `Skeleton（SkeletonLine / SkeletonRect / SkeletonCircle）` | 1 条聚合条目 | **4 条** |
+| `Sidebar` | 1 条聚合条目 `Sidebar` | **6 条**，且**没有**叫 `Sidebar` 的条目 |
+| `LabelIcon / ChevronRightIcon / DangerIcon` | 1 条 | 3 条 |
+| `SectionHeader / SectionFooter` | 1 条 | 2 条 |
+
+⚠️ **复合条件也不是必要条件**：45 条 coredesign 条目里有 **14 条**根本不是任何 README
+行名（`AsyncButton` / `FloatingGlassModifier` / `TelegramGlassButtonModifier` /
+`SettingsRowChevron` 等）。它们由扫描器的双向差集**强制要求登记**——把复合条件当必要
+条件读，会推出这 14 条「不该登记」，与判据直接冲突。⇒ **复合条件只是「扫描器看不见的
+东西如何进表」这一条补充通路，不是登记单位的总定义。**
+
 `PublicTypeCollector` 结构上仍看不到 `Toast` 名下的三个类型（它只认
 `public struct: View/ViewModifier`），因此 `Toast` 条目额外加入了
 `ComponentRegistryGuard.knownOffScannerComponents` 白名单，避免被完整性判据的双向
@@ -472,7 +493,7 @@ modifier **internal 化**（只经 `public extension View` 暴露，即 `Surface
 
 #### AD-3 裁决：AC #49 点名的三个 style（`CoreLabelStyle`/`CoreProgressViewStyle`/`CoreDisclosureGroupStyle`）在新登记单位下无对应物
 
-`38.md:49` 点名这三个类型「标出对应协议名」，但按 D1 它们是 **Style 实现**，不是登记表
+`38.md` 的 AC「标出对应协议名」一条点名这三个类型，但按 D1 它们是 **Style 实现**，不是登记表
 条目（登记单位是「组件」，见本文件第 1 节判定法与 `ComponentRegistryGuard.swift` 的
 `ScanResult.styleImpls` 分类）。Task 2 实测核对（`grep -rn
 ".progressViewStyle(.core)\|.labelStyle(.core)\|.disclosureGroupStyle(.core)"`）：
@@ -484,7 +505,7 @@ modifier **internal 化**（只经 `public extension View` 暴露，即 `Surface
 提供扩展点**。`ProgressIndicator` 是本仓唯一 `nativeProtocol: ProgressViewStyle` 的组件，
 但它走的是自己的固定 `.circular` + `Color.accent`（FR-3a 例外），不消费 `.core`。
 
-⇒ **裁决：选二选一里的第 2 条——登记为 AC 偏离**。`38.md:49` 这句 AC 在「登记单位 = 组件」
+⇒ **裁决：选二选一里的第 2 条——登记为 AC 偏离**。`38.md` 那句「标出对应协议名」的 AC 在「登记单位 = 组件」
 下无对应物，不是漏做，是 AC 原文与登记单位定义之间的张力（同 D1 的既有说明）。三个
 style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `scannerFindsCoreDesignTypes`
 （`styleImpls` 打印清单）与 J-3 判据（#40，读取 `nativeProtocol` 交叉核对源码）覆盖，

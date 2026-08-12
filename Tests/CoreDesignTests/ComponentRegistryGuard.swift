@@ -83,7 +83,7 @@ struct ComponentRegistryGuard {
 
     /// `decidedBy` ⇒ `kind` 的强制映射（公约 `docs/component-contract.md:82-83`
     /// 「tiebreaker ⇒ prescriptive」、步骤 3 ⇒ 规定性、步骤 1/2 ⇒ 语义、祖父条款
-    /// （`precedent`）⇒ semantic）。⚠️ 终审 M1：`38.md:66` 点名「AC 要求而守卫不查
+    /// （`precedent`）⇒ semantic）。⚠️ 终审 M1：`38.md` 点名「AC 要求而守卫不查
     /// ⇒ #30 的病型复刻」，本表把它落成机器判据。`exclusion` 不进本表——它对应
     /// `kind: excluded`，已由下面 `registrySchemaIsValid` 里
     /// `(e.kind == "excluded") == (e.decidedBy == "exclusion")` 单独断言，不需要
@@ -278,7 +278,7 @@ struct ComponentRegistryGuard {
 
         // ⚠️ 终审 M1：`decidedBy` ⇒ `kind` 的映射公约 `:82-83` 已经写死
         // （tiebreaker ⇒ prescriptive、step1/2 ⇒ semantic、step3 ⇒ prescriptive、
-        // precedent ⇒ semantic），但此前守卫没查——`38.md:66` 点名的正是这类
+        // precedent ⇒ semantic），但此前守卫没查——`38.md`「AC 要求而守卫不查，正是 #30 的病型复刻」点名的正是这类
         // 「AC 要求而守卫不查」的 #30 病型复刻。当前 70 条全部满足，补上零成本。
         for e in entries where e.decidedBy != "exclusion" {
             if let expected = Self.expectedKindForDecidedBy[e.decidedBy] {
