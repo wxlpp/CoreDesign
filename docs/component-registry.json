@@ -52,14 +52,14 @@
     "component": "AsyncButton",
     "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [
       { "name": "title", "category": "B" }
     ],
-    "notes": "⚠️ 本任务书明确点名的陷阱：上一轮误判为 step1，本轮从步骤 2 重走。步骤 1 视为『无』——ButtonStyle.makeBody 是同步渲染函数，看不到 Task 生命周期 / isRunning / 防双击这些异步状态，改写成『Button + 自定义 ButtonStyle』会丢功能。步骤 2：loading 态候选（遮罩替换 label / 侧边追加 spinner / 禁用+进度环）共享『pending 期间替换或叠加内容』同一骨架，且外观已完全委派给包裹的既有 ButtonStyle（.solid/.light/.borderless/.circularGlass）——AsyncButton 自身不拥有独立可换皮的视觉表面，举得犹豫。步骤 3：自动忙碌反馈（isRunning 时 spinner 替换 label）正是 AsyncButton 存在的定义性理由——去掉它就只是『Button + Task』，不再是 AsyncButton ⇒ 视觉是含义的一部分 ⇒ 规定性组件，不给扩展点。"
+    "notes": "⚠️ 本任务书明确点名的陷阱：上一轮误判为 step1，本轮从步骤 2 重走。步骤 1 视为『无』——ButtonStyle.makeBody 是同步渲染函数，看不到 Task 生命周期 / isRunning / 防双击这些异步状态，改写成『Button + 自定义 ButtonStyle』会丢功能。步骤 2：loading 态候选（遮罩替换 label / 侧边追加 spinner / 禁用+进度环）共享『pending 期间替换或叠加内容』同一骨架，且外观已完全委派给包裹的既有 ButtonStyle（.solid/.light/.borderless/.circularGlass）——按公约皮肤变体条款（即使能举出三个，只要共享同一骨架仍算举得犹豫），这些候选不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4 tiebreaker，默认规定性组件、不给扩展点。佐证（与默认结论方向一致，不是另立的决定性理由）：自动忙碌反馈（isRunning 时 spinner 替换 label）是 AsyncButton 存在的定义性理由——去掉它就只是 Button + Task，不再是 AsyncButton。"
   },
   {
     "component": "Avatar",
@@ -89,14 +89,14 @@
     "component": "Badge",
     "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [
       { "name": "text", "category": "B" }
     ],
-    "notes": "步骤 1 无（无 BadgeStyle）。步骤 2：候选形态（pill 填充 / 描边 / 圆点指示）共享『低 chrome 状态色块』骨架，颜色本身即语义（文档原话），皮肤变体举得犹豫。步骤 3：Badge 与 Tag 的唯一区分点就是固定的 Capsule 视觉与 5 固定 level 语义绑定，视觉是含义的一部分 ⇒ 规定性组件，不给扩展点。textParams：text 便利 init 的内容是调用方选定的固定状态描述（『Beta』/『Draft』/『Merged』），界面标签而非用户数据 ⇒ B 类（现状 String 类型，未来若迁移见 BREAKING-CHANGES 节奏）。"
+    "notes": "步骤 1 无（无 BadgeStyle）。步骤 2：候选形态（pill 填充 / 描边 / 圆点指示）共享『低 chrome 状态色块』骨架，颜色本身即语义（文档原话）——按公约皮肤变体条款，这些候选不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4 tiebreaker，默认规定性组件、不给扩展点。佐证（与默认结论方向一致，不是另立的决定性理由）：Badge 与 Tag 的唯一区分点就是固定的 Capsule 视觉与 5 固定 level 语义绑定。textParams：text 便利 init 的内容是调用方选定的固定状态描述（『Beta』/『Draft』/『Merged』），界面标签而非用户数据 ⇒ B 类（现状 String 类型，未来若迁移见 BREAKING-CHANGES 节奏）。"
   },
   {
     "component": "Banner",
@@ -124,12 +124,12 @@
     "component": "Carousel",
     "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "步骤 1 无（无 CarouselStyle；显式排除 TabView(.page) 见文件头注释 NFR-2）。步骤 2：候选分页指示器（点状现状 / 数字『3/5』/ 箭头翻页）共享『横向分页容器 + 位置指示』骨架，仅指示器画法不同，皮肤变体，举得犹豫；分页交互（滑动手势/自动轮播/reduce-motion 响应）与视觉本身绑定紧密 ⇒ 步骤 3 视觉是含义的一部分，规定性组件。"
+    "notes": "步骤 1 无（无 CarouselStyle；显式排除 TabView(.page) 见文件头注释 NFR-2）。步骤 2：候选分页指示器（点状现状 / 数字『3/5』/ 箭头翻页）共享『横向分页容器 + 位置指示』骨架，仅指示器画法不同——按公约皮肤变体条款，这些候选不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4 tiebreaker，默认规定性组件、不给扩展点。佐证（与默认结论方向一致，不是另立的决定性理由）：分页交互（滑动手势/自动轮播/reduce-motion 响应）与视觉本身绑定紧密。"
   },
   {
     "component": "ChevronRightIcon",
