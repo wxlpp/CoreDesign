@@ -353,6 +353,11 @@ public 的 `ViewModifier` 类型**照常登记进 `component-registry.json`，�
 对象」。Task 2 填表遇到 `SpinningModifier` 等三个公开 `ViewModifier` 时，按此裁决
 正常走判定法，不必现场发明。
 
+⚠️ **本裁决拍的是「现状 public 面」，不是背书它们永久 public。** 另一条出路是把这三个
+modifier **internal 化**（只经 `public extension View` 暴露，即 `SurfaceModifier` 的范式）
+—— 那是**破坏性变更**，节奏归 #42，**属于被搁置而非被否决的选项**。
+将来收窄 API 面时不要把本条读成反对意见。
+
 ### A.4 `PinCode` —— 一个真的落到 tiebreaker 的样本
 
 | 步骤 | 结论 |
