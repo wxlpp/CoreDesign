@@ -24,11 +24,16 @@ struct ComponentContractStructureGuard {
         "## 5. 环境值清单",
     ]
 
-    /// **6 个**承重 `###` 小节——tiebreaker、优先级固定、边界条款、终局条款、头号反例、
-    /// Style Configuration 状态 Bool 豁免，是四轮评审换来的全部增量。
+    /// **10 个**承重 `###`/`####` 小节——tiebreaker、优先级固定、边界条款、终局条款、
+    /// 头号反例、Style Configuration 状态 Bool 豁免，是四轮评审换来的增量；
+    /// `by-type` 取值定义、三方同步通则、AD-2、AD-3 四条是 Issue #38 Task 2 本轮
+    /// 新增的承重内容。
     /// ⚠️ **数字与下面数组的元素数必须一致**：第一版注释写「5 个」并逐一列举，
     /// 而数组在同一轮里已补到 6 个——**新增的那条不在列举里，最容易被后人当成多余而误删**
-    /// （Copilot round 1 报出）。改数组时**同步改这里的数字与列举**。
+    /// （Copilot round 1 报出）。本轮终审 I1 发现同一种病复发：数组停在 6 个，而公约
+    /// 本轮又新增了 4 段承重内容（`by-type` 取值定义、通则、AD-2、AD-3）一个都没进来
+    /// ——**整段删掉 `swift test` 照绿**。改数组时**同步改这里的数字与列举**，这条警告
+    /// 本身就是本条判据反复失守的证据，不是虚言。
     /// h2 保留、这些小节被掏空是这份文档最现实的烂法，
     /// 比删 h2 更隐蔽（`## 1.` 之类骨架完好，读者不会觉得"缺了什么"）。
     /// ⚠️ 字面量必须与 `docs/component-contract.md` 一字不差。
@@ -41,6 +46,15 @@ struct ComponentContractStructureGuard {
         // 第四轮增量：没有它，`SegmentedControlStyleConfiguration.Segment.isSelected`
         // 就会成为 #39 的 J-1 在公约自己认可的先例上的误报。
         "### ⚠️ 例外：Style Configuration 上的状态描述 Bool 不受本节约束",
+        // 终审 I1 补的四条（Issue #38 Task 2 本轮新增，此前未进本数组）：
+        "### 登记表的第四个 `category` 取值：`by-type`",
+        "#### 通则：判定法枚举的三方同步义务",
+        "#### AD-2 裁决：「这不是组件」的范围——ViewModifier 是否进登记表",
+        // ⚠️ 终审 M3：公约里这条标题原来跨两行写（Markdown 会把第二行渲染成独立段落，
+        // 标题实际只是半句话），本数组的字面量因此也只抄了半句——**把公约标题排版
+        // 修好会立刻把本判据打红**，所以两处必须同轮改。现已把公约标题合并成一行，
+        // 这里同步改成完整字面量。
+        "#### AD-3 裁决：AC #49 点名的三个 style（`CoreLabelStyle`/`CoreProgressViewStyle`/`CoreDisclosureGroupStyle`）在新登记单位下无对应物",
     ]
 
     static var contractURL: URL {
@@ -100,6 +114,36 @@ struct ComponentContractStructureGuard {
             let lineNumbers = orderedHeadings.compactMap { trimmedLines.firstIndex(of: $0) }
             #expect(lineNumbers.count == orderedHeadings.count, "找不到附录 A 标题：\(appendixHeading)")
             #expect(lineNumbers == lineNumbers.sorted(), "节顺序被打乱，应为：\n\(orderedHeadings.joined(separator: "\n"))")
+        }
+    }
+
+    @Test("公约文本提及守卫允许域里的每一个取值（终审 I1(b)：给通则装上牙）")
+    func contractMentionsEveryGuardAllowedValue() throws {
+        let text = try String(contentsOf: Self.contractURL, encoding: .utf8)
+        #expect(text.count > 1000, "公约文档只有 \(text.count) 字符 —— 疑似没读到或是个空壳")
+
+        // ⚠️ **终审 I1(b)——规矩存放在受害者处，不在致病者处**：公约第 4 节末尾的
+        // 「通则：判定法枚举的三方同步义务」只是一段散文，约束的是人（读了才会遵守）；
+        // 三个真正的致病者——`ComponentRegistryGuard.validKinds` /
+        // `validDecidedBy` / `validCategories`、以及 oh-my-story 的任务书 schema
+        // ——一次都不是公约本身，没有任何机器判据把改 `validXxx` 的人指向公约。
+        // 这里把通则落成判据：三个允许域集合里的**每个取值**都必须能在公约文本里
+        // 找到——backtick 包裹的字面量（`kind`/`decidedBy`/`by-type` 在公约里都是
+        // 这么写的），或 A/B/C 用文案三分法表格的加粗写法（`**A. ...**` 这类）。
+        // ⚠️ 范围限于「取值必须被公约提及」这个方向——不反向断言公约提到的每个词都在
+        // `validXxx` 里（那会把公约里的普通中文字符也算进去，无意义）。
+        func isMentioned(_ value: String) -> Bool {
+            text.contains("`\(value)`") || text.contains("**\(value).")
+        }
+
+        for value in ComponentRegistryGuard.validKinds.sorted() {
+            #expect(isMentioned(value), "公约文本里找不到 kind 取值 `\(value)`——validKinds 与公约脱节")
+        }
+        for value in ComponentRegistryGuard.validDecidedBy.sorted() {
+            #expect(isMentioned(value), "公约文本里找不到 decidedBy 取值 `\(value)`——validDecidedBy 与公约脱节")
+        }
+        for value in ComponentRegistryGuard.validCategories.sorted() {
+            #expect(isMentioned(value), "公约文本里找不到 textParams category 取值 `\(value)`——validCategories 与公约脱节")
         }
     }
 }

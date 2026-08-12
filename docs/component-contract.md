@@ -40,15 +40,38 @@
    · 举不出**且说不清理由**、或**举得犹豫** ⇒ 视为答不上来，**落步骤 4**
    （第一版只写了后两个出口中的一个，于是「不会 → 步骤 3」这条路在字面上不存在、
    步骤 3 成死代码——而附录 A.2 走了步骤 3、A.4 落了步骤 4，**两个样本对同一门槛
-   给出相反走法**。影响的是 `decidedBy` 元数据与「写明两可理由」的义务归属。）
+   给出相反走法**。影响的是 `decidedBy` 元数据与「写明两可理由」的义务归属。
+   **这不是本条款唯一一次同类翻车**：补上皮肤变体条款后，Issue #38 Task 2 走查
+   出第二起——皮肤变体候选与「能说清长相即含义的理由」两个判据同时命中时，
+   `AsyncButton`/`Badge`/`Carousel`/`StreamingIndicator` 四个样本再次分裂成两条
+   相反走法，见下方皮肤变体条款末尾的裁断。**同一种病（新增判据分支时没有连带
+   审视它与既有出口的交叉情形）在同一条款里犯了两次**——补丁式加新句、不回头
+   检查旧句是否还能自洽，本身就是本 epic 反复出现的失败模式。）
    ⚠️ **皮肤变体不计入 ≥2**：候选形态如果共享**同一个底层布局结构**，只是把
    结构里的单元换了种画法（例如都是「每位一个独立格子」，格子本身画成方框 /
    圆点 / 下划线），这些算**同一结构的皮肤变体**，不算「长相完全不同」，
    不计入 ≥2——即使能举出三个，只要它们共享同一个布局骨架，就仍算**举得犹豫**。
+   ⚠️ **与出口 2 的交叉情形已裁断**：皮肤变体候选之外，若还能额外说清一句
+   「长相即含义」的理由，**不要因此改套出口 2（『举不出但能说清理由 ⇒ 步骤 3』）**。
+   「不计入 ≥2」不等价于「举不出」——它就是「举得犹豫」本身：本段结论词与出口 3
+   逐字同款，是刻意的绑定，不是巧合措辞。「长相即含义」的理由此时只能
+   作为 tiebreaker 默认结论的**佐证**写进 notes，不能借它跳过 tiebreaker、直接判
+   `decidedBy: step3`。落点固定为**步骤 4，`decidedBy: tiebreaker`**。
    例：评分——当前形态是星（App Store 风格，离散符号计数），**替代枚举不把它算进去**：
    数字条（IMDb，连续条形）/ 表情（NPS 量表，单一图形）⇒ 两者**结构本身不同**、
    且都**不含当前形态**，举得出 ≥2，答「会」。
-   例：骨架屏占位 —— 只有一种合理长相 ⇒ 举不出，落步骤 4。
+   例：骨架屏占位 —— `SkeletonCircle`/`SkeletonLine`/`SkeletonRect` 分别用固定几何形状
+   （圆形 / 圆角矩形 / 矩形）代表头像 / 文本行 / 图片卡片将来会长出的内容形状：圆形换成
+   方形，占位对象就从「头像」读成「图片」——形状本身就是它在声明自己占位哪类内容，
+   换形状即换语义。举不出替代形态，且**能额外说清「长相即含义」的理由**（不是仅仅
+   「只有一种合理长相」这句消极描述），进步骤 3。
+   ⚠️ **「只有一种合理长相」这个措辞本身不构成理由**——它只说明「举不出」，而据出口
+   2/3 的分野，光「举不出」还落不到步骤 3，必须**额外**说清为什么换了长相就不是这
+   东西，否则该往步骤 4 走（对照皮肤变体条款：候选存在但不计入 ≥2 时同样是「举得
+   犹豫」而非自动获得步骤 3）。见登记表 `SkeletonCircle`/`SkeletonLine`/`SkeletonRect`
+   三条判例——notes 对应的正是「形状 = 占位内容类型的声明」这条积极理由，不是「没有别的
+   选择」这句消极描述。（`Skeleton` 本身是容器，notes 理由是「redacted + shimmer 叠加
+   固定」，与「形状 = 内容类型」这条推理无关，不计入本处引证。）
    → **会** ⇒ 语义组件，需要扩展点
 3. **组件的视觉是它含义的一部分吗？**（换个长相就不是这个东西了）
    → **是** ⇒ 规定性组件，不给扩展点
@@ -63,10 +86,20 @@
 > `semantic` / `prescriptive` / `excluded`（已弃用组件，见上方弃用条款）；
 > `decidedBy` 字段记录这次判定是由判定法的哪一步产出的结论
 > （**`step1`** / `step2` / `step3` / `tiebreaker`），或 `precedent`（见上方祖父条款,
-> 不经判定法、直接沿用已发布协议的先例结论）。
+> 不经判定法、直接沿用已发布协议的先例结论），或 `exclusion`（见上方弃用条款，不经判定法，
+> `kind: excluded` 组件专用）。
 > ⚠️ **`step1` 不能漏** —— 附录 A.0（`CheckBox`）演示的正是「步骤 1 答『有』」
 > 直接产出结论的情形。第一版枚举漏了它，而交接文件 `38.md` 的 schema 里有
 > —— 两份规范性文档打架，且公约是更权威的那份。
+> ⚠️ **这不是第一次**——`exclusion` 同样只在登记表（`ProgressBar` 条目）与守卫代码
+> （`Tests/CoreDesignTests/ComponentRegistryGuard.swift` 的 `validDecidedBy`）里出现过，
+> `38-plan.md:27-28` 把它记成对 `38.md` AC 的偏离，却从未回写进本公约——于是弃用条款
+> 强制生成的 `kind: excluded` 条目，长期没有一个合法的 `decidedBy` 取值能描述它。上面
+> 这段警告讲的正是「枚举漏值 ⇒ 两份规范性文档打架 ⇒ 公约是更权威的那份」，而它自己
+> 上方 3 行正在重演同一件事——已在此补上 `exclusion`。
+> ⚠️ **后来又发生了第三次**（`textParams[].category` 的 `by-type`）。⇒ 三例的完整对照
+> 与**通则**（哪一方有义务同步、范围限哪几个字段）见第 4 节末尾的
+> **「通则：判定法枚举的三方同步义务」**——**本条款不再逐次追记，以那一处为准**。
 
 **为什么默认这一侧**：少给扩展点是**可逆的**（后续按需补，不破坏 API）；
 多给扩展点**不可逆**（public 协议一旦发布，删它是破坏性变更）。
@@ -80,8 +113,8 @@
 
 | 形态 | 何时用 |
 |---|---|
-| **A. 实现 Apple 原生协议** | 只要 Apple 提供了对应协议 |
-| **B. 自定义样式协议** | 语义组件，且 Apple 无对应协议 |
+| **A. 实现 Apple 原生协议** | **第 1 节判定为「有」时**（⚠️ 终审 M3：不是「只要 Apple 提供了对应协议」这种字面存在性——第 1 节的操作化判据已经排除了「协议无公开 `makeBody` 定制点」的情形，例如 `RadioGroup` 面对的 `.radioGroup` `PickerStyle`；两句对同一组件必须给出同一个答案，此处与第 1 节对齐，不能各判各的） |
+| **B. 自定义样式协议** | 语义组件，且 Apple 无对应协议（含第 1 节判定为「无」的情形） |
 | **C. 不给扩展点** | 规定性组件 |
 
 ### ⚠️ 优先级固定：A 永远优先于 B
@@ -240,6 +273,55 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 里 chrome 已本地化。⇒ **CoreDesign 侧不需要新增本地化基建**；
 缺 `defaultLocalization` 的是 **StoryUI**（归 #43）。
 
+### 登记表的第四个 `category` 取值：`by-type`
+
+三分法管的是**需要人工判别**的参数。登记表（`docs/component-registry.json`）的
+`textParams[].category` 因此有**第四个取值** `by-type`：参数类型**已经是**
+`LocalizedStringKey` / `LocalizedStringResource`、且**无接受裸字符串的孪生重载**
+（`String` **或** `StringProtocol`）时，分类由类型直接判定，**不落 A/B/C 的人工三分**。
+出处 `oh-my-story` 仓的 `.claude/epics/component-contract/38.md` 的 Acceptance Criteria 里 `textParams` 那条 bullet；守卫侧见
+`Tests/CoreDesignTests/ComponentRegistryGuard.swift` 的 `validCategories`。
+现状 2 条在用（`Descriptions.header`、`SpinningModifier.text`），**均在 CoreDesign 侧**；
+StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
+
+⚠️ **「无孪生重载」是本节的实际筛子**：第 4 节点名的四件
+（`SectionHeader` / `InsetGroupedSection(header:footer:)` / `ProgressIndicator(text:)` /
+`SettingsRow`）**全部带 `init<S: StringProtocol>` 重载**，因此仍是 **B 类**，不受本节影响。
+措辞必须同时写 `String` 与 `StringProtocol`——只写前者，严格读者可主张
+「这些类型上并没有 `String` 重载」而把 6 条 B 误判成 `by-type`（终审 M5 核实：
+`SectionHeader.title` 1 条 + `InsetGroupedSection.header/footer` 2 条 +
+`ProgressIndicator.text` 1 条 + `SettingsRow.title/subtitle` 2 条 = 6，此前的
+「8」对不上这四件登记表的实际 `textParams` 总数，本次改正）。
+
+⚠️ **A 类按定义不会出现在 `textParams[]` 里**：A 的定义是「文案写在组件源码里，
+调用方看不见也改不了」，而 `textParams[]` 收的是 **public 参数**——参数按定义对调用方
+可见。⇒ 实测 `textParams[]` 中 A 计数恒为 **0**（现状 33 条：B 22 / C 9 / by-type 2，
+不写裸分母是为了不再重蹈本节前一版「31」的覆辙——分母每次改登记表都会变，写死的数字
+会立刻变成化石），这是预期，不是覆盖缺口。三方仍各自保留 A 取值（它是三分法本身的一
+部分，只是不经由参数这条路进登记表）。
+
+---
+
+#### 通则：判定法枚举的三方同步义务
+
+⚠️ **这是同一种病的第三例**。三例都是「取值在一处合法且在用，另一处零提及」：
+
+| 例 | 引入方 | 漏的一方 |
+|---|---|---|
+| `step1` | `38.md` 的 schema | **本公约**（第一版枚举漏） |
+| `exclusion` | 守卫 `validDecidedBy` + 登记表 | **本公约**（`kind` 同步了 `excluded`，`decidedBy` 没同步） |
+| `by-type` | `38.md` 的 `textParams` bullet + 守卫 `validCategories` | **本公约**（第 4 节标题就叫「三分法」） |
+
+⇒ **任何一方**（本公约 / 守卫的 `validXxx` 域 / 任务书 schema / 登记表实际取值）
+**新增判定法枚举字段的取值**时——即 `kind`、`decidedBy`、`textParams[].category`
+这三个字段——**必须回头核对四方是否同向，而不是只在引入它的那一侧记一笔偏离。**
+
+⚠️ **义务人是「新增取值的那一方」，不是本公约**：三例的引入方**没有一次是本公约**，
+若把主语写成「本文件新增取值时」，这条规矩对三个致病者**一个都约束不到**。
+
+⚠️ **范围仅限上列三个字段**：`repo` / `nativeProtocol` / `needsExtensionPoint` 等
+不是判定法产出的枚举，本公约从未也不必镜像它们。
+
 ## 5. 环境值清单
 
 组件**必须**响应下列环境值。逐条写明「怎么算响应到位」：
@@ -328,6 +410,108 @@ Bool + 配套闭包 ⇒ 按 **3.2** 走**子视图槽**，一并消除 `Tag.init
 
 ⇒ 结论：**不合规**。最终处置（豁免或改造）**留给 #41 试点**，本任务只给判据。
 ⚠️ 这条会让 J-1 上线后到 #41 完成前保持红——**预期状态**，见 #39 的交付说明。
+
+#### AD-2 裁决：「这不是组件」的范围——ViewModifier 是否进登记表
+
+上面 A.3 那句「这不是组件」容易被误读成「`ViewModifier` 这一整类不进
+`docs/component-registry.json`」——实测不是这么回事，必须在这里把范围钉死：
+
+- `SurfaceModifier`（A.3 的样本）**本身不是 `public` 类型**——`struct SurfaceModifier:
+  ViewModifier` 无 `public` 修饰符，只经 `public extension View { func surface(...) }`
+  这一层暴露。它没有可被扫描器采集、可被判定法审查的 public 类型，「这不是组件」说的
+  是**这一种写法**（内部 struct + public View extension 方法）没有公开的类型级 API 形状
+  需要判定法回答，不是在说「凡是 `ViewModifier` 都不算组件」。
+- `SpinningModifier` / `FloatingGlassModifier` / `TelegramGlassButtonModifier`
+  三个是 **`public struct ... : ViewModifier`**——它们本身就是公开类型，有自己的
+  init 参数表，一样有「这个参数该长什么形状」的问题，且扫描器（`PublicTypeCollector`,
+  `Tests/CoreDesignTests/ComponentRegistryGuard.swift`）设计上就把 `View` 与
+  `ViewModifier` 归为同一类「组件」一并采集。
+
+⇒ **裁决**：登记单位是「有 public 类型的 API 表面」，不是「是不是 `ViewModifier`」。
+public 的 `ViewModifier` 类型**照常登记进 `component-registry.json`，判定法同样适用**
+（`nativeProtocol`/`customStyleProtocol`/`needsExtensionPoint` 对它们同样有意义——
+样式扩展点判据不关心宿主类型是 `View` 还是 `ViewModifier`）；A.3 的「这不是组件」
+限定为「像 `SurfaceModifier` 这样连 public 类型都没有的 modifier 写法，没有可登记的
+对象」。Task 2 填表遇到 `SpinningModifier` 等三个公开 `ViewModifier` 时，按此裁决
+正常走判定法，不必现场发明。
+
+⚠️ **终审 C1 实测命中第二例，点名写死**：`BottomInputBar`（`docs/README.md:23` 索引）
+与 `SurfaceModifier` 是**同一种写法**——`struct BottomInputBar: View` 没有 `public`
+修饰符，唯一暴露的 public 表面是 `public extension View { func bottomInputBar(...) }`
+（`BottomInputBar.swift:19` / `:458`）。它没有可被 `PublicTypeCollector` 采集、可被
+判定法审查的 public 类型 ⇒ 按本裁决**排除**出登记表，不因为「README 索引过」或
+「参数很多」就破例登记。它的 6 个 public Bool 与 `placeholder: String` 参数仍是真实的
+public API 面，需要治理——已移交 `oh-my-story` 的 `39.md`（J-1/FR-4），只是不经登记表
+这条路径。
+
+⚠️ **`Toast` 是反例，同样点名写死，以示裁决边界不是含糊的**：`Toast`（`docs/README.md:78`
+索引）表面上也是「class + struct 组合」，但它**确实有 public 类型**——`ToastHost`
+（public class）、`ToastItem`（public struct）、`ToastDefaults`（public enum）三个都是
+public——只是都不是 `View`/`ViewModifier`。
+
+⚠️ **终审 I4 收窄：「有 public 类型的 API 表面」单独不是充分条件。** 若照字面直接当
+充分条件用，会得到两个坏结论：(1) **超发**——`Sidebar.swift` 的 `SidebarTextStyle` /
+`StatusLevel` / `ButtonRoleStyleRole` / `CoreSpacing` 同样「有 public 类型的 API
+表面」，但都未登记，字面读法会推出它们「都应当登记」，与现状矛盾；(2) **给不出
+`Toast` 这个条目名**——机械套用会得到 `ToastHost` / `ToastItem` / `ToastDefaults`
+三条按类型各自登记，而不是一条名为 `Toast` 的聚合条目。真正生效的是**复合条件**：
+「有 public 类型的 API 表面 **且被 `docs/README.md` 组件索引收录**（未弃用）」⇒
+**以该 README 行名登记为一条聚合条目**——`Toast` 满足（`docs/README.md:78`），
+已在终审 C1 补录（`component-registry.json`，`kind: semantic` / `decidedBy: step2`，
+条目名沿用 README 行名 `Toast`，不拆成三条按类型登记）；`Sidebar` 的四个辅助类型不满足
+（README 没有以它们为行名的索引条目），因此不登记，不受本裁决牵连。
+
+⚠️ **本复合条件的作用域必须限定，否则它只是换了一个过宽的条件**（终审第 3 轮 I-1）：
+**它仅适用于「该 README 行名下没有任何 `public struct: View/ViewModifier` 类型」
+——即扫描器结构上看不见它——的情形**，`Toast` 属此类。行名下**存在**可被扫描器采集的
+类型时，仍按**类型逐条登记，条目名用类型名**，不合并成聚合条目。
+
+反例（若不加这条限定，按字面会推出与登记表现状相反的结论）：
+
+| README 行 | 无限定时按字面 | 登记表实际 |
+|---|---|---|
+| `Skeleton（SkeletonLine / SkeletonRect / SkeletonCircle）` | 1 条聚合条目 | **4 条** |
+| `Sidebar` | 1 条聚合条目 `Sidebar` | **6 条**，且**没有**叫 `Sidebar` 的条目 |
+| `LabelIcon / ChevronRightIcon / DangerIcon` | 1 条 | 3 条 |
+| `SectionHeader / SectionFooter` | 1 条 | 2 条 |
+
+⚠️ **复合条件也不是必要条件**：45 条 coredesign 条目里有 **14 条**根本不是任何 README
+行名（`AsyncButton` / `FloatingGlassModifier` / `TelegramGlassButtonModifier` /
+`SettingsRowChevron` 等）。它们由扫描器的双向差集**强制要求登记**——把复合条件当必要
+条件读，会推出这 14 条「不该登记」，与判据直接冲突。⇒ **复合条件只是「扫描器看不见的
+东西如何进表」这一条补充通路，不是登记单位的总定义。**
+
+`PublicTypeCollector` 结构上仍看不到 `Toast` 名下的三个类型（它只认
+`public struct: View/ViewModifier`），因此 `Toast` 条目额外加入了
+`ComponentRegistryGuard.knownOffScannerComponents` 白名单，避免被完整性判据的双向
+差集误判为幽灵条目——白名单是**已知盲区的临时豁免**，不是对本裁决的修改。
+
+⚠️ **本裁决拍的是「现状 public 面」，不是背书它们永久 public。** 另一条出路是把这三个
+modifier **internal 化**（只经 `public extension View` 暴露，即 `SurfaceModifier` 的范式）
+—— 那是**破坏性变更**，节奏归 #42，**属于被搁置而非被否决的选项**。
+将来收窄 API 面时不要把本条读成反对意见。
+
+#### AD-3 裁决：AC #49 点名的三个 style（`CoreLabelStyle`/`CoreProgressViewStyle`/`CoreDisclosureGroupStyle`）在新登记单位下无对应物
+
+`38.md` 的 AC「标出对应协议名」一条点名这三个类型，但按 D1 它们是 **Style 实现**，不是登记表
+条目（登记单位是「组件」，见本文件第 1 节判定法与 `ComponentRegistryGuard.swift` 的
+`ScanResult.styleImpls` 分类）。Task 2 实测核对（`grep -rn
+".progressViewStyle(.core)\|.labelStyle(.core)\|.disclosureGroupStyle(.core)"`）：
+三者均被直接施加在**裸系统控件**上（`ProgressView().progressViewStyle(.core)` /
+`Label { } icon: { }.labelStyle(.core)` / `DisclosureGroup().disclosureGroupStyle(.core)`），
+调用方既包括本仓 Preview，也包括 StoryUI 的 `WritingStatusBar` / `ChapterCard`
+（`.progressViewStyle(.core)`）与 `DelegationTimeline` / `AgentMessageList` /
+`ToolCallRow`（`.disclosureGroupStyle(.core)`）——**没有一个登记表条目通过这三个 style
+提供扩展点**。`ProgressIndicator` 是本仓唯一 `nativeProtocol: ProgressViewStyle` 的组件，
+但它走的是自己的固定 `.circular` + `Color.accent`（FR-3a 例外），不消费 `.core`。
+
+⇒ **裁决：选二选一里的第 2 条——登记为 AC 偏离**。`38.md` 那句「标出对应协议名」的 AC 在「登记单位 = 组件」
+下无对应物，不是漏做，是 AC 原文与登记单位定义之间的张力（同 D1 的既有说明）。三个
+style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `scannerFindsCoreDesignTypes`
+（`styleImpls` 打印清单）与 J-3 判据（#40，读取 `nativeProtocol` 交叉核对源码）覆盖，
+不需要在登记表里额外造三条不对应任何真实组件的幽灵条目——那会立即被
+`registryCoversCoreDesignTypes` 的双向差集判红（`registered.subtracting(scanned)`
+非空，因为它们在 `styleImpls` 而非 `components` 集合里）。
 
 ### A.4 `PinCode` —— 一个真的落到 tiebreaker 的样本
 
