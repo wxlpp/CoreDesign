@@ -288,12 +288,17 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 （`SectionHeader` / `InsetGroupedSection(header:footer:)` / `ProgressIndicator(text:)` /
 `SettingsRow`）**全部带 `init<S: StringProtocol>` 重载**，因此仍是 **B 类**，不受本节影响。
 措辞必须同时写 `String` 与 `StringProtocol`——只写前者，严格读者可主张
-「这些类型上并没有 `String` 重载」而把 8 条 B 误判成 `by-type`。
+「这些类型上并没有 `String` 重载」而把 6 条 B 误判成 `by-type`（终审 M5 核实：
+`SectionHeader.title` 1 条 + `InsetGroupedSection.header/footer` 2 条 +
+`ProgressIndicator.text` 1 条 + `SettingsRow.title/subtitle` 2 条 = 6，此前的
+「8」对不上这四件登记表的实际 `textParams` 总数，本次改正）。
 
 ⚠️ **A 类按定义不会出现在 `textParams[]` 里**：A 的定义是「文案写在组件源码里，
 调用方看不见也改不了」，而 `textParams[]` 收的是 **public 参数**——参数按定义对调用方
-可见。⇒ 实测 31 个参数中 A 计数恒为 **0**，这是预期，不是覆盖缺口。三方仍各自保留 A
-取值（它是三分法本身的一部分，只是不经由参数这条路进登记表）。
+可见。⇒ 实测 `textParams[]` 中 A 计数恒为 **0**（现状 33 条：B 22 / C 9 / by-type 2，
+不写裸分母是为了不再重蹈本节前一版「31」的覆辙——分母每次改登记表都会变，写死的数字
+会立刻变成化石），这是预期，不是覆盖缺口。三方仍各自保留 A 取值（它是三分法本身的一
+部分，只是不经由参数这条路进登记表）。
 
 ---
 
@@ -442,10 +447,21 @@ public API 面，需要治理——已移交 `oh-my-story` 的 `39.md`（J-1/FR-
 ⚠️ **`Toast` 是反例，同样点名写死，以示裁决边界不是含糊的**：`Toast`（`docs/README.md:78`
 索引）表面上也是「class + struct 组合」，但它**确实有 public 类型**——`ToastHost`
 （public class）、`ToastItem`（public struct）、`ToastDefaults`（public enum）三个都是
-public——只是都不是 `View`/`ViewModifier`。按本裁决字面「登记单位是有 public 类型的 API
-表面」，`Toast` **应当登记**，已在终审 C1 补录（`component-registry.json`，
-`kind: semantic` / `decidedBy: step2`）。`PublicTypeCollector` 结构上仍看不到这三个
-类型（它只认 `public struct: View/ViewModifier`），因此 `Toast` 条目额外加入了
+public——只是都不是 `View`/`ViewModifier`。
+
+⚠️ **终审 I4 收窄：「有 public 类型的 API 表面」单独不是充分条件。** 若照字面直接当
+充分条件用，会得到两个坏结论：(1) **超发**——`Sidebar.swift` 的 `SidebarTextStyle` /
+`StatusLevel` / `ButtonRoleStyleRole` / `CoreSpacing` 同样「有 public 类型的 API
+表面」，但都未登记，字面读法会推出它们「都应当登记」，与现状矛盾；(2) **给不出
+`Toast` 这个条目名**——机械套用会得到 `ToastHost` / `ToastItem` / `ToastDefaults`
+三条按类型各自登记，而不是一条名为 `Toast` 的聚合条目。真正生效的是**复合条件**：
+「有 public 类型的 API 表面 **且被 `docs/README.md` 组件索引收录**（未弃用）」⇒
+**以该 README 行名登记为一条聚合条目**——`Toast` 满足（`docs/README.md:78`），
+已在终审 C1 补录（`component-registry.json`，`kind: semantic` / `decidedBy: step2`，
+条目名沿用 README 行名 `Toast`，不拆成三条按类型登记）；`Sidebar` 的四个辅助类型不满足
+（README 没有以它们为行名的索引条目），因此不登记，不受本裁决牵连。
+`PublicTypeCollector` 结构上仍看不到 `Toast` 名下的三个类型（它只认
+`public struct: View/ViewModifier`），因此 `Toast` 条目额外加入了
 `ComponentRegistryGuard.knownOffScannerComponents` 白名单，避免被完整性判据的双向
 差集误判为幽灵条目——白名单是**已知盲区的临时豁免**，不是对本裁决的修改。
 
@@ -454,8 +470,7 @@ modifier **internal 化**（只经 `public extension View` 暴露，即 `Surface
 —— 那是**破坏性变更**，节奏归 #42，**属于被搁置而非被否决的选项**。
 将来收窄 API 面时不要把本条读成反对意见。
 
-#### AD-3 裁决：AC #49 点名的三个 style（`CoreLabelStyle`/`CoreProgressViewStyle`/
-`CoreDisclosureGroupStyle`）在新登记单位下无对应物
+#### AD-3 裁决：AC #49 点名的三个 style（`CoreLabelStyle`/`CoreProgressViewStyle`/`CoreDisclosureGroupStyle`）在新登记单位下无对应物
 
 `38.md:49` 点名这三个类型「标出对应协议名」，但按 D1 它们是 **Style 实现**，不是登记表
 条目（登记单位是「组件」，见本文件第 1 节判定法与 `ComponentRegistryGuard.swift` 的

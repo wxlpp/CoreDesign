@@ -50,7 +50,11 @@ struct ComponentContractStructureGuard {
         "### 登记表的第四个 `category` 取值：`by-type`",
         "#### 通则：判定法枚举的三方同步义务",
         "#### AD-2 裁决：「这不是组件」的范围——ViewModifier 是否进登记表",
-        "#### AD-3 裁决：AC #49 点名的三个 style（`CoreLabelStyle`/`CoreProgressViewStyle`/",
+        // ⚠️ 终审 M3：公约里这条标题原来跨两行写（Markdown 会把第二行渲染成独立段落，
+        // 标题实际只是半句话），本数组的字面量因此也只抄了半句——**把公约标题排版
+        // 修好会立刻把本判据打红**，所以两处必须同轮改。现已把公约标题合并成一行，
+        // 这里同步改成完整字面量。
+        "#### AD-3 裁决：AC #49 点名的三个 style（`CoreLabelStyle`/`CoreProgressViewStyle`/`CoreDisclosureGroupStyle`）在新登记单位下无对应物",
     ]
 
     static var contractURL: URL {

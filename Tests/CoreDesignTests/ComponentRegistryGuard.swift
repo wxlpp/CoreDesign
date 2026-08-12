@@ -19,11 +19,18 @@ func compareRegistryToScan(scanned: Set<String>, registered: Set<String>) -> (mi
 // J-2/J-3 也在类型上跑；而 docs/README.md 一行可能是三个类型
 // （`Skeleton（SkeletonLine / SkeletonRect / SkeletonCircle）`），判据没法在「行」上跑。
 //
+// ⚠️ **例外（终审 I4 收窄，AD-2 同步）**：`Toast` 是「以 README 行名命名的聚合条目」——
+// 它的 public 表面由 `ToastHost`/`ToastItem`/`ToastDefaults` 三个类型组成，登记表按
+// README 行名 `Toast` 记一条，不拆成三条按类型登记。这不是推翻上一条不变量，而是 AD-2
+// 收窄后的复合条件（「有 public 类型的 API 表面 **且被 README 组件索引收录**」）在
+// 「一行对应多个非 View/ViewModifier 类型」时的落地方式——见
+// `docs/component-contract.md` AD-2 裁决「终审 I4 收窄」段。
+//
 // ⚠️ **本守卫只覆盖 CoreDesign 侧**（裁决 D2）。StoryUI 侧的源码↔登记表比对移交 #43
 // —— CI 三个 job 都只 checkout 本仓，读另一个（私有）仓会让本仓 CI 永久红。
 // 登记表**仍收全两仓**，只是 StoryUI 侧的条目在 #43 落地前无机器拦截。
 //
-// ⚠️ **终审 C1 第 3 点——README 索引 ↔ 登记表对账，一次性人工核对，非机器判据**：
+// ⚠️ **终审 C1 第 3 点——README 索引 ↔ 登记表对账，一次性人工核对结果（历史记录）**：
 // `docs/README.md` 的组件索引表共 **37 行**（不含表头/分隔行，`grep -n "^|" docs/README.md`
 // 数出的真实数据行）。逐行核对去向：
 //   - **35 行本有归宿**：直接对应 `component-registry.json` 条目（含一行映射多条目的情形，
@@ -35,18 +42,18 @@ func compareRegistryToScan(scanned: Set<String>, registered: Set<String>) -> (mi
 //     裁决 D1：Layout 不是组件）。
 //   - **2 行漏网**：`BottomInputBar`（`:23`）与 `Toast`（`:78`）——README 已索引、未弃用、
 //     有真实 public API 表面，但完整性判据结构上抓不到（见下方 `PublicTypeCollector`
-//     的「第四个盲区」文档）。已在本次终审处置：`Toast` 补登记表 + 加入
+//     的「第四个盲区」文档）。已在终审 C1 处置：`Toast` 补登记表 + 加入
 //     `knownOffScannerComponents` 白名单；`BottomInputBar` 定性为排除，写死进
 //     `docs/component-contract.md` AD-2 与 oh-my-story 的 `38-plan.md` 排除清单。
 // ⇒ 处置后：37 = 37 有归宿，0 漏网。
 //
-// ⚠️ **为什么这里只留comment，不加机器判据**：理想判据是「README 索引行数 vs 登记表 +
-// styleImpls + 显式排除清单，差额必须逐条有归宿」，但 README 表格里一行可能编码 0～4 个
-// 登记表条目（纯 style 括注、多类型合并、墓碑行、真实排除）,把这条规则写成不脆弱的解析器
-// 成本明显高于本次 C1 的最小必要修复——一个只匹配「行数」的断言挡不住新增行本身编码错误
-// 类别（例如把新组件写成墓碑格式），反而可能造成误导性的绿。本次选择**把这次人工对账的
-// 结论留痕在此**，下次新增 README 行时人工核对本注释是否需要更新（`swift test` 不会替你
-// 检查这件事——这是本条判据的已知局限，不是假装成机器判据）。
+// ⚠️ **终审第 2 轮 I1：上面这段「37 = 37」已机器化，不再只是注释**——见
+// `readmeIndexReconcilesWithRegistry` 测试。理由：注释里这份对账**不会自己保鲜**——
+// 整个 `Tests/` 下此前没有一处真的读 `docs/README.md`，`Toast`/`BottomInputBar` 这两行
+// 漏网恰恰就是靠「下次新增行时人工核对本注释」这种机制没能发现的，继续只写注释等于把
+// 已经证伪的机制原样再用一次。下面这条判据把「README 第一列的每个候选名，必须落进
+// 登记表 / styleImpls / 已知墓碑 / 已知排除四个桶之一」变成断言，本节的散文对账结果
+// 保留作**已归档的一次性核对记录**，不再是判据本身的落点。
 @Suite("组件登记表")
 struct ComponentRegistryGuard {
 
@@ -106,6 +113,105 @@ struct ComponentRegistryGuard {
     /// 出现在这里——排除的条目本来就不该在 `component-registry.json` 里有条目，
     /// 无需白名单豁免。
     static let knownOffScannerComponents: Set<String> = ["Toast"]
+
+    // MARK: - README 索引 ↔ 登记表对账（终审第 2 轮 I1）
+
+    /// 墓碑行：源码已整体删除或从未落地，不需要登记表条目，也不应该再出现在 `scanned` 里
+    /// （若出现，说明组件「复活」了，需要回填登记表并把名字从这张表移走）。
+    static let knownReadmeTombstones: Set<String> = ["Typography", "EmptyState"]
+
+    /// 显式排除：裁决明确「不登记」的 README 行名。`FlowLayout` 是裁决 D1（Layout 不是
+    /// 组件）；`BottomInputBar` 是裁决 AD-2（没有可被判定法审查的 public 类型，详见
+    /// `docs/component-contract.md` AD-2）。同样反向不得出现在 `scanned` 里——出现即说明
+    /// 源码形态变了，排除裁决需要重新核对。
+    static let knownExcludedReadmeRows: Set<String> = ["FlowLayout", "BottomInputBar"]
+
+    /// AD-3 裁决覆盖的「style 实现，不是登记表条目」行：这些 README 主名本身不是
+    /// public View/ViewModifier 类型（`Button`/`FloatButton` 是套了自定义 `ButtonStyle`
+    /// 的原生 `Button`，`.core Control Styles` 是套了 `.core` style 的原生系统控件），
+    /// 因此永远不会出现在 `registered` 里，也不指望出现在 `scanned` 里——它们的存在性
+    /// 由 `scannerFindsCoreDesignTypes` 打印的 `styleImpls` 清单与 AD-3 裁决本身覆盖。
+    static let knownStyleAnnotationRowNames: Set<String> = ["Button", "FloatButton", ".core Control Styles"]
+
+    /// README 行里与主组件同格但本身不是 `View`（因此不登记、不进 `scanned`）的辅助类型。
+    /// 现状只有 `RadioOption`：`RadioGroup / RadioOption` 一行，`RadioOption` 是
+    /// `Identifiable & Sendable` 的数据结构，不是 `View`。
+    static let knownReadmeAuxiliaryNames: Set<String> = ["RadioOption"]
+
+    /// README 行名与登记表条目名不同字面量的别名（现状只有 `spinning`：README 行用的是
+    /// modifier 函数名 `View.spinning(_:text:)`，登记表与扫描器认的是类型名
+    /// `SpinningModifier`）。
+    static let knownReadmeAliases: [String: String] = ["spinning": "SpinningModifier"]
+
+    /// README 行名是「容器名」、登记表按子类型分别登记（不存在与容器同名的条目）时，
+    /// 只要求登记表里存在以该前缀开头的条目。现状只有 `Sidebar`：README 一行索引，
+    /// 登记表按 `SidebarDocumentRow` / `SidebarNavigationRow` / `SidebarSection` /
+    /// `SidebarStatusFooter` / `SidebarTagRow` / `SidebarUtilityRow` 六条子类型分别登记，
+    /// 没有一条叫 `Sidebar`。
+    static let knownReadmeContainerPrefixes: [String: String] = ["Sidebar": "Sidebar"]
+
+    /// 从 README 组件索引表的第一列原始文本里提取候选名。
+    ///
+    /// ⚠️ **只解析括号前的主名 + 顶层 `/` 切分，不递归解析括号内容**：括号里可能是
+    /// 子类型枚举（`Skeleton（SkeletonLine / ...）`）、style 实现清单
+    /// （`FloatButton（ExtendedFloatButtonStyle / ...）`）、纯注释性文字
+    /// （`ProgressIndicator（含 text: 文案 init）`）三种不同形状，通用规则区分不出
+    /// 「这是需要单独核对的名字」还是「这是一句话注释」——本判据只保证**主名**（能捕获
+    /// 「新增 README 行但没登记」这个真正撞上过的失败），括号内容不独立核对，是已知的
+    /// 精度上限，不是假装成全量解析。
+    static func candidateNames(fromReadmeCell raw: String) -> (names: [String], isTombstone: Bool) {
+        let isTombstone = raw.contains("~~")
+        var s = raw.replacingOccurrences(of: "~~", with: "")
+        s = s.replacingOccurrences(of: "`", with: "")
+        let parenChars: Set<Character> = ["（", "("]
+        if let idx = s.firstIndex(where: { parenChars.contains($0) }) {
+            s = String(s[s.startIndex..<idx])
+        }
+        let names = s.split(separator: "/")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return (names, isTombstone)
+    }
+
+    /// 单个候选名是否有归宿。四个正常桶 + 墓碑专属桶（`isTombstone` 时才检查
+    /// `knownReadmeTombstones`，避免一个正常行的名字意外撞上墓碑清单被放行）。
+    static func resolveReadmeCandidate(_ name: String, isTombstone: Bool, registered: Set<String>) -> Bool {
+        if registered.contains(name) { return true }
+        if isTombstone { return Self.knownReadmeTombstones.contains(name) }
+        if Self.knownExcludedReadmeRows.contains(name) { return true }
+        if Self.knownStyleAnnotationRowNames.contains(name) { return true }
+        if Self.knownReadmeAuxiliaryNames.contains(name) { return true }
+        if let alias = Self.knownReadmeAliases[name] { return registered.contains(alias) }
+        if let prefix = Self.knownReadmeContainerPrefixes[name] {
+            return registered.contains(where: { $0.hasPrefix(prefix) })
+        }
+        return false
+    }
+
+    /// 抽出 `docs/README.md` 「## 组件索引」小节里的表格数据行（跳过表头与分隔行），
+    /// 每个元素是该行第一列的原始文本。
+    static func readmeIndexRows(_ text: String) -> [String] {
+        guard let sectionStart = text.range(of: "## 组件索引") else { return [] }
+        let sectionEnd = text.range(
+            of: "## 生成预览图", range: sectionStart.upperBound..<text.endIndex
+        )?.lowerBound ?? text.endIndex
+        let section = text[sectionStart.upperBound..<sectionEnd]
+
+        return section.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line -> String? in
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("|") else { return nil }
+            // ⚠️ `trimmed` 以 "|" 开头，`split(separator: "|")` 会在 index 0 产出一个
+            // 空字符串（前导定界符前的内容），第一个真实单元格是 index 1，不是 index 0。
+            let cells = trimmed.split(separator: "|", omittingEmptySubsequences: false)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+            guard cells.count > 1 else { return nil }
+            let first = cells[1]
+            guard !first.isEmpty else { return nil }
+            guard first != "组件" else { return nil }                       // 表头行
+            guard !first.allSatisfy({ $0 == "-" }) else { return nil }      // 分隔行
+            return first
+        }
+    }
 
     /// ⚠️ 用 `#filePath` 推导，worktree 与主仓两种布局下都稳（上三级到仓库根）。
     static var repoRoot: URL {
@@ -180,6 +286,21 @@ struct ComponentRegistryGuard {
                         "\(e.component)：decidedBy=\(e.decidedBy) 按公约必须 kind=\(expected)，实际是 \(e.kind)")
             }
         }
+
+        // ⚠️ 终审第 2 轮 M1：`expectedKindForDecidedBy` 是 `if let` 可选查表——往
+        // `validDecidedBy` 新增一个取值却忘了同步这张映射表时，上面的循环对新取值
+        // 静默不做任何断言（`if let expected = ...` 找不到就直接跳过）。这条断言把
+        // 「两张表必须同步」本身钉成判据：`validDecidedBy` 的每个非 `exclusion` 取值
+        // 都必须在 `expectedKindForDecidedBy` 里有对应键，`exclusion` 单独走上面
+        // `registrySchemaIsValid` 里 `(kind == "excluded") == (decidedBy == "exclusion")`
+        // 那条断言，不重复出现在这张表里。
+        let m1SyncMessage = """
+        validDecidedBy 与 expectedKindForDecidedBy 不同步——新增 decidedBy 取值必须同步\
+        加进 expectedKindForDecidedBy（除非它和 exclusion 一样另有专门断言），否则 M1\
+        判据对新取值静默无声
+        """
+        #expect(Set(Self.expectedKindForDecidedBy.keys).union(["exclusion"]) == Self.validDecidedBy,
+                "\(m1SyncMessage)")
 
         for e in entries {
             #expect(Self.validKinds.contains(e.kind), "\(e.component) kind=\(e.kind) 不在允许域")
@@ -258,6 +379,66 @@ struct ComponentRegistryGuard {
         // ⚠️ **StoryUI 侧的缺口要显式报告，不能静默当作「通过」**（裁决 D2）。
         let n = entries.filter { $0.repo == "storyui" }.count
         print("⚠️ StoryUI 侧 \(n) 条未做源码比对——CI 只 checkout 本仓；「源码新增组件而没登记」在 #43 落地前无机器拦截。")
+
+        // ⚠️ 终审第 2 轮 M2：`knownOffScannerComponents` 白名单本身没有自洽断言——
+        // 既不断言成员必须在登记表里（已经隐含在上面 `registered.subtracting(...)`,
+        // 若成员不在登记表里减去它是无意义操作，但也不会报错），也不断言成员真的
+        // **扫不到**。若将来扫描器能力扩展到认出 `Toast` 那一类声明，这条白名单会
+        // 静默把它从双向差集的两个方向一起抹掉，判据不会提醒「白名单条目已经不需要
+        // 白名单了」。用未减去白名单的原始 `scanned` 集合核对：
+        let registeredCoreDesign = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
+        #expect(Self.knownOffScannerComponents.isSubset(of: registeredCoreDesign),
+                "knownOffScannerComponents 里有条目不在登记表里，白名单本身失去了豁免对象")
+        let m2ExpiredMessage = """
+        白名单条目已经能被扫描器看到 ⇒ 该移出 knownOffScannerComponents，\
+        否则将来扫描器能力扩展、真扫到它时，判据不会提醒你这条豁免已经过期
+        """
+        #expect(scanned.isDisjoint(with: Self.knownOffScannerComponents), "\(m2ExpiredMessage)")
+    }
+
+    @Test("README 组件索引每个候选名都有归宿：登记表 / styleImpls / 已知墓碑 / 已知排除四选一")
+    func readmeIndexReconcilesWithRegistry() throws {
+        let entries = try Self.loadRegistry()
+        let registered = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
+        let scanned = try Self.scanTypes(root: Self.coreDesignSources).components
+
+        let readmeText = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
+        )
+        let rows = Self.readmeIndexRows(readmeText)
+        // ⚠️ 非空断言先行：解析器失效（标题文案改了、表格语法变了）会让下面「零候选名 ⇒
+        // 零漏网 ⇒ 绿」静默通过——本次终审留痕的人工核对结果是 37 行，下界给宽松量级。
+        let parseFailureMessage = """
+        README 组件索引只解析到 \(rows.count) 行 —— 解析器可能失效，不是真的「组件索引缩水了」
+        """
+        #expect(rows.count > 20, "\(parseFailureMessage)")
+
+        var unresolved: [String] = []
+        for raw in rows {
+            let (names, isTombstone) = Self.candidateNames(fromReadmeCell: raw)
+            for name in names
+            where !Self.resolveReadmeCandidate(name, isTombstone: isTombstone, registered: registered) {
+                unresolved.append("「\(raw)」→ 「\(name)」")
+            }
+        }
+        let unresolvedMessage = """
+        README 组件索引里这些候选名，既不在登记表也不在任何已知豁免清单（墓碑 / 排除 / \
+        style 注记 / 辅助类型 / 别名 / 容器前缀）里，是本判据存在的理由——正是这类「新增 \
+        README 行但没登记」曾经放过 Toast / BottomInputBar：\n\(unresolved.joined(separator: "\n"))
+        """
+        #expect(unresolved.isEmpty, "\(unresolvedMessage)")
+
+        // ⚠️ **反向**：已知墓碑 / 已知排除项若在源码里「复活」了，也要红——否则墓碑清单
+        // 本身会悄悄变成过期信息，没人会因为「判据还是绿的」而想起去核对它。
+        let resurrectedTombstones = Self.knownReadmeTombstones.intersection(scanned)
+        let tombstoneMessage = """
+        这些墓碑组件在源码里又出现了，需要回填登记表并把名字从 knownReadmeTombstones \
+        移走：\(resurrectedTombstones.sorted())
+        """
+        #expect(resurrectedTombstones.isEmpty, "\(tombstoneMessage)")
+        let resurrectedExclusions = Self.knownExcludedReadmeRows.intersection(scanned)
+        #expect(resurrectedExclusions.isEmpty,
+                "这些排除项在源码里被扫描器采集到了，需要重新裁决是否登记：\(resurrectedExclusions.sorted())")
     }
 }
 
