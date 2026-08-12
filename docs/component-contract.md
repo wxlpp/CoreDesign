@@ -329,6 +329,30 @@ Bool + 配套闭包 ⇒ 按 **3.2** 走**子视图槽**，一并消除 `Tag.init
 ⇒ 结论：**不合规**。最终处置（豁免或改造）**留给 #41 试点**，本任务只给判据。
 ⚠️ 这条会让 J-1 上线后到 #41 完成前保持红——**预期状态**，见 #39 的交付说明。
 
+#### AD-2 裁决：「这不是组件」的范围——ViewModifier 是否进登记表
+
+上面 A.3 那句「这不是组件」容易被误读成「`ViewModifier` 这一整类不进
+`docs/component-registry.json`」——实测不是这么回事，必须在这里把范围钉死：
+
+- `SurfaceModifier`（A.3 的样本）**本身不是 `public` 类型**——`struct SurfaceModifier:
+  ViewModifier` 无 `public` 修饰符，只经 `public extension View { func surface(...) }`
+  这一层暴露。它没有可被扫描器采集、可被判定法审查的 public 类型，「这不是组件」说的
+  是**这一种写法**（内部 struct + public View extension 方法）没有公开的类型级 API 形状
+  需要判定法回答，不是在说「凡是 `ViewModifier` 都不算组件」。
+- `SpinningModifier` / `FloatingGlassModifier` / `TelegramGlassButtonModifier`
+  三个是 **`public struct ... : ViewModifier`**——它们本身就是公开类型，有自己的
+  init 参数表，一样有「这个参数该长什么形状」的问题，且扫描器（`PublicTypeCollector`,
+  `Tests/CoreDesignTests/ComponentRegistryGuard.swift`）设计上就把 `View` 与
+  `ViewModifier` 归为同一类「组件」一并采集。
+
+⇒ **裁决**：登记单位是「有 public 类型的 API 表面」，不是「是不是 `ViewModifier`」。
+public 的 `ViewModifier` 类型**照常登记进 `component-registry.json`，判定法同样适用**
+（`nativeProtocol`/`customStyleProtocol`/`needsExtensionPoint` 对它们同样有意义——
+样式扩展点判据不关心宿主类型是 `View` 还是 `ViewModifier`）；A.3 的「这不是组件」
+限定为「像 `SurfaceModifier` 这样连 public 类型都没有的 modifier 写法，没有可登记的
+对象」。Task 2 填表遇到 `SpinningModifier` 等三个公开 `ViewModifier` 时，按此裁决
+正常走判定法，不必现场发明。
+
 ### A.4 `PinCode` —— 一个真的落到 tiebreaker 的样本
 
 | 步骤 | 结论 |

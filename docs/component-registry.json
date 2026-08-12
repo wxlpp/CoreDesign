@@ -1,9 +1,9 @@
 [
-  { "component": "AsyncButton", "repo": "coredesign",
+  { "component": "ProgressIndicator", "repo": "coredesign",
     "kind": "semantic", "decidedBy": "step1",
-    "nativeProtocol": "ButtonStyle", "customStyleProtocol": null,
+    "nativeProtocol": "ProgressViewStyle", "customStyleProtocol": null,
     "needsExtensionPoint": true, "textParams": [],
-    "notes": "步骤 1 答「有」：AsyncButton 内部即 Button，样式扩展点直接复用原生 ButtonStyle（源码注释：与既有 4 个 ButtonStyle 正交，调用方依旧用 .buttonStyle(...) 设置外观），不自造平行协议。" },
+    "notes": "步骤 1 答「有」：ProgressIndicator.swift:53-78 的 body 全部内容是外观——ProgressView + 下方文案 + accent tint + controlSize，零 @State / 零 Task，可改写为『ProgressView(label 承载文案) + 自定义 ProgressViewStyle』且不丢功能。ProgressViewStyle 有公开的 makeBody 定制点（第三方能实现），本仓 Style/CoreProgressViewStyle.swift:37 的 makeBody 就是可实现性证明。⇒ 语义组件，必须实现原生协议。" },
   { "component": "SegmentedControl", "repo": "coredesign", "kind": "semantic", "decidedBy": "precedent",
     "nativeProtocol": null, "customStyleProtocol": "SegmentedControlStyle", "needsExtensionPoint": true,
     "textParams": [],

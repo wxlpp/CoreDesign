@@ -85,6 +85,12 @@ struct ComponentRegistryGuard {
         // ⚠️ 非空断言：零条目会让下面所有断言静默通过。
         #expect(entries.count >= 4, "登记表只有 \(entries.count) 条 —— 疑似没读到或是空壳")
 
+        // ⚠️ **重名检查**（评审 Suggestion 2）：Task 2 的完整性判据做的是登记表条目名与
+        // 扫描器名单的双向差集——重名条目会让「同一个名字出现两次」在差集运算里被吞掉
+        // （差集看的是 Set，不看基数），现在两条同名条目全绿，必须在这里单独拦。
+        #expect(Set(entries.map(\.component)).count == entries.count,
+                "登记表存在重名 component 条目——差集判据会把重名静默吞掉")
+
         for e in entries {
             #expect(Self.validKinds.contains(e.kind), "\(e.component) kind=\(e.kind) 不在允许域")
             #expect(Self.validDecidedBy.contains(e.decidedBy), "\(e.component) decidedBy=\(e.decidedBy) 不在允许域")
@@ -104,6 +110,20 @@ struct ComponentRegistryGuard {
                     "\(e.component)：kind=excluded 与 decidedBy=exclusion 必须同时成立")
             #expect(!(e.nativeProtocol != nil && e.customStyleProtocol != nil),
                     "\(e.component) 同时标了原生协议与自有协议 —— 正是 J-3 要禁的形态")
+            // ⚠️ 评审 Suggestion 3：现有断言只反向核对了 prescriptive/excluded ⇒
+            // !needsExtensionPoint，没断言正向的 semantic ⇒ needsExtensionPoint。
+            if e.kind == "semantic" {
+                #expect(e.needsExtensionPoint, "\(e.component) 判为 semantic 却不给扩展点 —— 自相矛盾")
+            }
+            // ⚠️ 评审 Suggestion 3：decidedBy 与对应协议字段的隐式不变量——step1 走的是
+            // 判定法步骤 1「有原生协议」分支，precedent 走的是祖父条款「已发布自有协议」,
+            // 两者各自的协议字段不能是 nil，否则条目自己都说不清自己是怎么判出来的。
+            if e.decidedBy == "step1" {
+                #expect(e.nativeProtocol != nil, "\(e.component) decidedBy=step1 却没填 nativeProtocol")
+            }
+            if e.decidedBy == "precedent" {
+                #expect(e.customStyleProtocol != nil, "\(e.component) decidedBy=precedent 却没填 customStyleProtocol")
+            }
         }
     }
 
@@ -123,6 +143,18 @@ struct ComponentRegistryGuard {
 }
 
 /// 收 public struct，**分类**放进 components / styleImpls。
+///
+/// ⚠️ **第三个盲区（评审 Suggestion 1，未做机器拦截，留痕即可）**：本类只覆写了
+/// `visit(_ node: StructDeclSyntax)`，public **enum / class / actor** 挂
+/// `View` / `ViewModifier` / 本清单里任一 Style 协议 conformance 会**整体不可见**——
+/// 不进 `components` 也不进 `styleImpls`，扫描器会「成功」返回一个偏小但看起来正常的集合，
+/// 与 Step 3 记录的另外两个盲区（extension 挂载的 conformance、`Style` 结尾但未命中协议清单）
+/// 性质相同：零命中不代表没有遗漏，只代表「用这一种匹配方式看，没看到」。
+/// 评审实测：`grep -rnE "public (enum|class|actor) [A-Za-z]+\s*:[^{]*\b(View|ViewModifier|
+/// ButtonStyle|PrimitiveButtonStyle|ToggleStyle|LabelStyle|ProgressViewStyle|
+/// DisclosureGroupStyle|LabeledContentStyle)\b" Sources/CoreDesign/` 零命中——当前
+/// CoreDesign 全部组件 / style 实现确实都是 `struct`，但这是**现状核对**，不是**结构保证**，
+/// 后续新增一个 `enum`/`class`/`actor` 组件会被本扫描器静默漏采。
 private nonisolated final class PublicTypeCollector: SyntaxVisitor {
     var components: Set<String> = []
     var styleImpls: Set<String> = []
