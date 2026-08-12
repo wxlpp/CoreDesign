@@ -764,12 +764,12 @@
     "component": "StreamingIndicator",
     "repo": "storyui",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "流式状态指示器，六态（waiting/streaming/completed/stoppedByCondition/interrupted/failed）。步骤 1 无。步骤 2：候选形态（图标胶囊现状 / 纯色圆点 / 顶部进度条）共享『紧凑状态徽标』骨架，属皮肤变体；但本组件的核心约束是『.completed 与 .stoppedByCondition 必须长得不一样』——这是安全性要求（防止把未完成误读为完成），不是要不要给扩展点的问题，扩展点反而会削弱这条约束的可控性 ⇒ 步骤 3 视觉是含义的一部分（哪怕含义是『互相区分』），规定性组件。展示文本（title/detail）为组件内部纯函数产出，非公开参数。"
+    "notes": "流式状态指示器，六态（waiting/streaming/completed/stoppedByCondition/interrupted/failed）。步骤 1 无。步骤 2：候选形态（图标胶囊现状 / 纯色圆点 / 顶部进度条）共享『紧凑状态徽标』骨架，属皮肤变体——按公约皮肤变体条款（即使能额外说清『长相即含义』的理由，皮肤变体候选也不改套步骤 3，仍落步骤 4），这些候选不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4 tiebreaker，默认规定性组件、不给扩展点。佐证（与默认结论方向一致，不是另立的决定性理由）：本组件的核心约束是『.completed 与 .stoppedByCondition 必须长得不一样』——这是安全性要求（防止把未完成误读为完成），扩展点会削弱这条约束的可控性。展示文本（title/detail）为组件内部纯函数产出，非公开参数。"
   },
   {
     "component": "ToolCallRow",
