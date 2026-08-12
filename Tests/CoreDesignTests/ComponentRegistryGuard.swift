@@ -131,7 +131,25 @@ struct ComponentRegistryGuard {
     /// 的原生 `Button`，`.core Control Styles` 是套了 `.core` style 的原生系统控件），
     /// 因此永远不会出现在 `registered` 里，也不指望出现在 `scanned` 里——它们的存在性
     /// 由 `scannerFindsCoreDesignTypes` 打印的 `styleImpls` 清单与 AD-3 裁决本身覆盖。
-    static let knownStyleAnnotationRowNames: Set<String> = ["Button", "FloatButton", ".core Control Styles"]
+    ///
+    /// ⚠️ **不是纯白名单——每一项都绑定「扫描器必须真的采到的 style 实现」**
+    /// （PR #193 Copilot 第 3 轮 suppressed comment）：第一版只有一个名字集合，
+    /// 于是这三行是被**硬编码放行**的，`styleImpls` 一次都没被用到——测试名却写着
+    /// 「登记表 / styleImpls / 已知墓碑 / 已知排除**四选一**」。后果不只是描述不实：
+    /// 把 `Sources/CoreDesign/Components/Style/` 整个删掉，这三行照样绿。
+    /// ⇒ 改成映射，值是该行必须存在的 style 实现类型名；判据要求它们真的出现在
+    /// `coreDesignScan().styleImpls` 里，把白名单变成**承重**的判据。
+    static let knownStyleAnnotationRows: [String: Set<String>] = [
+        // 这三个是 `Button` 行背后的 ButtonStyle 实现（README 行名本身不是类型名）。
+        "Button": ["SolidButtonStyle", "LightButtonStyle", "CoreBorderlessButtonStyle"],
+        // README 行自己就把这两个名字写在括号里：`FloatButton（ExtendedFloatButtonStyle / …）`。
+        "FloatButton": ["ExtendedFloatButtonStyle", "CircularGlassButtonStyle"],
+        // `.core` Control Styles（ProgressView / Label / DisclosureGroup）——AD-3 点名的三个,
+        // 外加同族的 `CoreLabeledContentStyle`。
+        ".core Control Styles": [
+            "CoreProgressViewStyle", "CoreLabelStyle", "CoreDisclosureGroupStyle", "CoreLabeledContentStyle",
+        ],
+    ]
 
     /// README 行里与主组件同格但本身不是 `View`（因此不登记、不进 `scanned`）的辅助类型。
     /// 现状只有 `RadioOption`：`RadioGroup / RadioOption` 一行，`RadioOption` 是
@@ -175,11 +193,20 @@ struct ComponentRegistryGuard {
 
     /// 单个候选名是否有归宿。四个正常桶 + 墓碑专属桶（`isTombstone` 时才检查
     /// `knownReadmeTombstones`，避免一个正常行的名字意外撞上墓碑清单被放行）。
-    static func resolveReadmeCandidate(_ name: String, isTombstone: Bool, registered: Set<String>) -> Bool {
+    ///
+    /// ⚠️ **`styleImpls` 是真参数，不是摆设**（PR #193 Copilot 第 3 轮）：style 注记行
+    /// 不再靠名字白名单直接放行，而是要求 `knownStyleAnnotationRows` 给它列出的每个
+    /// style 实现类型都真的被扫描器采到。测试名里的「styleImpls」这一项此前是空话。
+    static func resolveReadmeCandidate(
+        _ name: String, isTombstone: Bool, registered: Set<String>, styleImpls: Set<String>
+    ) -> Bool {
         if registered.contains(name) { return true }
         if isTombstone { return Self.knownReadmeTombstones.contains(name) }
         if Self.knownExcludedReadmeRows.contains(name) { return true }
-        if Self.knownStyleAnnotationRowNames.contains(name) { return true }
+        if let required = Self.knownStyleAnnotationRows[name] {
+            // 该行背后的 style 实现必须全部还在源码里——删光 `Components/Style/` 就该红。
+            return required.isSubset(of: styleImpls)
+        }
         if Self.knownReadmeAuxiliaryNames.contains(name) { return true }
         if let alias = Self.knownReadmeAliases[name] { return registered.contains(alias) }
         if let prefix = Self.knownReadmeContainerPrefixes[name] {
@@ -427,11 +454,12 @@ struct ComponentRegistryGuard {
         #expect(scanned.isDisjoint(with: Self.knownOffScannerComponents), "\(m2ExpiredMessage)")
     }
 
-    @Test("README 组件索引每个候选名都有归宿：登记表 / styleImpls / 已知墓碑 / 已知排除四选一")
+    @Test("README 组件索引每个候选名都有归宿：登记表 / styleImpls（须真的扫到）/ 墓碑 / 排除 / 辅助类型 / 别名 / 容器前缀")
     func readmeIndexReconcilesWithRegistry() throws {
         let entries = try Self.loadRegistry()
         let registered = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
-        let scanned = try Self.coreDesignScan().components
+        let scan = try Self.coreDesignScan()
+        let scanned = scan.components
 
         let readmeText = try String(
             contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
@@ -448,7 +476,9 @@ struct ComponentRegistryGuard {
         for raw in rows {
             let (names, isTombstone) = Self.candidateNames(fromReadmeCell: raw)
             for name in names
-            where !Self.resolveReadmeCandidate(name, isTombstone: isTombstone, registered: registered) {
+            where !Self.resolveReadmeCandidate(
+                name, isTombstone: isTombstone, registered: registered, styleImpls: scan.styleImpls
+            ) {
                 unresolved.append("「\(raw)」→ 「\(name)」")
             }
         }
