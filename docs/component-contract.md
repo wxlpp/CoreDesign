@@ -270,6 +270,21 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 里 chrome 已本地化。⇒ **CoreDesign 侧不需要新增本地化基建**；
 缺 `defaultLocalization` 的是 **StoryUI**（归 #43）。
 
+### 4.5 登记表的第四个 `category` 取值：`by-type`
+
+三分法管的是**需要人工判别**的参数。登记表（`docs/component-registry.json`）的
+`textParams[].category` 因此有**第四个取值** `by-type`：参数类型**已经是**
+`LocalizedStringKey` / `LocalizedStringResource`、且**无 `String` 孪生重载**时，
+分类由类型直接判定，**不落 A/B/C 的人工三分**。出处 `38.md:42`；守卫侧见
+`Tests/CoreDesignTests/ComponentRegistryGuard.swift:39` 的 `validCategories`。
+现状 2 条在用（`Descriptions.header`、`SpinningModifier.text`）。
+
+⚠️ **这是同一种病的第三例**——`by-type` 在守卫、登记表、`38.md` 三方都合法且在用，
+唯独本节（**按本文件 §「登记表」块自己写下的原则，公约是更权威的那份**）零处提及。
+前两例是 `step1`（第一版枚举漏，`38.md` 的 schema 里有）与 `exclusion`（同样只在
+登记表与守卫里存在）。⇒ **本文件新增任何 schema 取值时，必须回头检查三方是否同向，
+而不是只在引入它的那一侧记一笔偏离。**
+
 ## 5. 环境值清单
 
 组件**必须**响应下列环境值。逐条写明「怎么算响应到位」：
