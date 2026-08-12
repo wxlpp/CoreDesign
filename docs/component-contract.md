@@ -113,8 +113,8 @@
 
 | 形态 | 何时用 |
 |---|---|
-| **A. 实现 Apple 原生协议** | 只要 Apple 提供了对应协议 |
-| **B. 自定义样式协议** | 语义组件，且 Apple 无对应协议 |
+| **A. 实现 Apple 原生协议** | **第 1 节判定为「有」时**（⚠️ 终审 M3：不是「只要 Apple 提供了对应协议」这种字面存在性——第 1 节的操作化判据已经排除了「协议无公开 `makeBody` 定制点」的情形，例如 `RadioGroup` 面对的 `.radioGroup` `PickerStyle`；两句对同一组件必须给出同一个答案，此处与第 1 节对齐，不能各判各的） |
+| **B. 自定义样式协议** | 语义组件，且 Apple 无对应协议（含第 1 节判定为「无」的情形） |
 | **C. 不给扩展点** | 规定性组件 |
 
 ### ⚠️ 优先级固定：A 永远优先于 B
@@ -429,6 +429,25 @@ public 的 `ViewModifier` 类型**照常登记进 `component-registry.json`，�
 限定为「像 `SurfaceModifier` 这样连 public 类型都没有的 modifier 写法，没有可登记的
 对象」。Task 2 填表遇到 `SpinningModifier` 等三个公开 `ViewModifier` 时，按此裁决
 正常走判定法，不必现场发明。
+
+⚠️ **终审 C1 实测命中第二例，点名写死**：`BottomInputBar`（`docs/README.md:23` 索引）
+与 `SurfaceModifier` 是**同一种写法**——`struct BottomInputBar: View` 没有 `public`
+修饰符，唯一暴露的 public 表面是 `public extension View { func bottomInputBar(...) }`
+（`BottomInputBar.swift:19` / `:458`）。它没有可被 `PublicTypeCollector` 采集、可被
+判定法审查的 public 类型 ⇒ 按本裁决**排除**出登记表，不因为「README 索引过」或
+「参数很多」就破例登记。它的 6 个 public Bool 与 `placeholder: String` 参数仍是真实的
+public API 面，需要治理——已移交 `oh-my-story` 的 `39.md`（J-1/FR-4），只是不经登记表
+这条路径。
+
+⚠️ **`Toast` 是反例，同样点名写死，以示裁决边界不是含糊的**：`Toast`（`docs/README.md:78`
+索引）表面上也是「class + struct 组合」，但它**确实有 public 类型**——`ToastHost`
+（public class）、`ToastItem`（public struct）、`ToastDefaults`（public enum）三个都是
+public——只是都不是 `View`/`ViewModifier`。按本裁决字面「登记单位是有 public 类型的 API
+表面」，`Toast` **应当登记**，已在终审 C1 补录（`component-registry.json`，
+`kind: semantic` / `decidedBy: step2`）。`PublicTypeCollector` 结构上仍看不到这三个
+类型（它只认 `public struct: View/ViewModifier`），因此 `Toast` 条目额外加入了
+`ComponentRegistryGuard.knownOffScannerComponents` 白名单，避免被完整性判据的双向
+差集误判为幽灵条目——白名单是**已知盲区的临时豁免**，不是对本裁决的修改。
 
 ⚠️ **本裁决拍的是「现状 public 面」，不是背书它们永久 public。** 另一条出路是把这三个
 modifier **internal 化**（只经 `public extension View` 暴露，即 `SurfaceModifier` 的范式）
