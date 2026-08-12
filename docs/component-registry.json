@@ -1,0 +1,19 @@
+[
+  { "component": "AsyncButton", "repo": "coredesign",
+    "kind": "semantic", "decidedBy": "step1",
+    "nativeProtocol": "ButtonStyle", "customStyleProtocol": null,
+    "needsExtensionPoint": true, "textParams": [],
+    "notes": "步骤 1 答「有」：AsyncButton 内部即 Button，样式扩展点直接复用原生 ButtonStyle（源码注释：与既有 4 个 ButtonStyle 正交，调用方依旧用 .buttonStyle(...) 设置外观），不自造平行协议。" },
+  { "component": "SegmentedControl", "repo": "coredesign", "kind": "semantic", "decidedBy": "precedent",
+    "nativeProtocol": null, "customStyleProtocol": "SegmentedControlStyle", "needsExtensionPoint": true,
+    "textParams": [],
+    "notes": "祖父条款：已发布公开样式协议，不走判定法——删它是破坏性变更，判定法推翻不了既成事实。" },
+  { "component": "ProgressBar", "repo": "coredesign", "kind": "excluded", "decidedBy": "exclusion",
+    "nativeProtocol": null, "customStyleProtocol": null, "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "弃用条款：@available(*, deprecated)，改用 ProgressView + .core 样式。不分类。" },
+  { "component": "PinCode", "repo": "coredesign", "kind": "prescriptive", "decidedBy": "tiebreaker",
+    "nativeProtocol": null, "customStyleProtocol": null, "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "公约附录 A.4 的样本：候选形态（分格框/锁屏圆点/逐位下划线）共享「每位一格」骨架，属皮肤变体，举得犹豫 ⇒ 落 tiebreaker。" }
+]
