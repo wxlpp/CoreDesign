@@ -237,7 +237,15 @@ struct ComponentRegistryGuard {
             return ScanResult()
         }
         var result = ScanResult()
-        for case let url as URL in FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)!
+        // ⚠️ **不要强制解包**（PR #193 Copilot 第 1 轮）：`enumerator(at:)` 在权限 / IO
+        // 异常时返回 `nil`，`!` 会让整个测试进程崩掉——判据连「为什么失败」都报不出来。
+        // 与上面两处（路径不存在、解析出错）保持同一纪律：**失败要变成可读的测试失败，
+        // 不是崩溃**。
+        guard let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
+            Issue.record("无法枚举源码目录：\(root.path)（权限或 IO 异常）—— 判据无法工作，这不是「零违规」")
+            return ScanResult()
+        }
+        for case let url as URL in walker
         where url.pathExtension == "swift" {
             let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
             // ⚠️ **解析保真检查**：parser major 与工具链不配套时会静默产出 error node
