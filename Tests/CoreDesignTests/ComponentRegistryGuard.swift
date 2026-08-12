@@ -229,6 +229,29 @@ struct ComponentRegistryGuard {
     /// 混在一个 Set 里会让完整性判据的双向差集**永久非空**。
     struct ScanResult { var components: Set<String> = []; var styleImpls: Set<String> = [] }
 
+    /// `Sources/CoreDesign` 扫描结果的缓存。
+    ///
+    /// 本仓 `Package.swift` 设了 `.defaultIsolation(MainActor.self)`，测试因此**串行**执行
+    /// ——三条判据各扫一遍 74 个源文件，实测单次 1.03s、本 suite 合计 3.22s，恰是 3×。
+    /// 缓存后降到一次（PR #193 Copilot 第 2 轮 suppressed comment；数字是应它的建议实测的，
+    /// 不是估算）。MainActor 串行同时意味着这个可变静态量不需要额外同步。
+    ///
+    /// ⚠️ **只缓存「成功且非空」的结果，这是本缓存的关键约束**：`scanTypes` 的三条失败
+    /// 路径（路径不存在 / 无法枚举 / 解析出错）都会返回或产出**空集**。若把空集也缓存下来,
+    /// 第一条判据吃到失败、后两条却拿着缓存里的空集算差集 ⇒「零类型 ⇒ 零缺失 ⇒ **绿**」
+    /// ——正是本 issue 反复栽的「测量工具制造自己的绿」。⇒ 空结果不入缓存，让后续判据
+    /// **重新扫、重新失败**，每条都各自报出自己的诊断。
+    private static var cachedCoreDesignScan: ScanResult?
+
+    /// 三条判据统一走这个入口，不要直接调 `scanTypes(root: coreDesignSources)`。
+    static func coreDesignScan() throws -> ScanResult {
+        if let cached = Self.cachedCoreDesignScan { return cached }
+        let result = try Self.scanTypes(root: Self.coreDesignSources)
+        // 见上：空结果说明扫描失败，不缓存。
+        if !result.components.isEmpty { Self.cachedCoreDesignScan = result }
+        return result
+    }
+
     /// ⚠️ **必须先断言路径存在**：`FileManager.enumerator(at:)` 对不存在的路径
     /// **静默产出空序列** ⇒「零类型 ⇒ 零缺失 ⇒ 绿」会静默通过。
     static func scanTypes(root: URL) throws -> ScanResult {
@@ -348,7 +371,7 @@ struct ComponentRegistryGuard {
 
     @Test("扫描器真的扫到了 CoreDesign 的类型")
     func scannerFindsCoreDesignTypes() throws {
-        let r = try Self.scanTypes(root: Self.coreDesignSources)
+        let r = try Self.coreDesignScan()
         // ⚠️ 非空断言先行：扫描器失效时「零类型 ⇒ 零缺失 ⇒ 绿」会静默通过。
         // ⚠️ 下界是**量级**断言，不是精确数 —— 精确数由本次运行给出（见 print）。
         #expect(r.components.count > 15, "只扫到 \(r.components.count) 个组件类型 —— 扫描器失效")
@@ -363,7 +386,7 @@ struct ComponentRegistryGuard {
     @Test("CoreDesign 侧：登记表覆盖全部组件类型，且无幽灵条目")
     func registryCoversCoreDesignTypes() throws {
         let entries = try Self.loadRegistry()
-        let scanned = try Self.scanTypes(root: Self.coreDesignSources).components
+        let scanned = try Self.coreDesignScan().components
         #expect(scanned.count > 15, "只扫到 \(scanned.count) 个类型 —— 扫描器失效")   // 与 Task 1 自检同下界
 
         // ⚠️ **分仓比对**（AC 原文要求「分 repo 计数吻合」）：合并成一个 Set 后
@@ -408,7 +431,7 @@ struct ComponentRegistryGuard {
     func readmeIndexReconcilesWithRegistry() throws {
         let entries = try Self.loadRegistry()
         let registered = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
-        let scanned = try Self.scanTypes(root: Self.coreDesignSources).components
+        let scanned = try Self.coreDesignScan().components
 
         let readmeText = try String(
             contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
