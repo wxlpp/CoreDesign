@@ -50,13 +50,17 @@ import Testing
 /// 里面那对 `(Bool)`。真正堵住它的是 `classifyBoolParameterType` 剥掉 `Optional<...>`
 /// 外壳后对泛型实参**递归调用自身**——递归覆盖了实参位的**括号嵌套**（`Optional<(Bool)>`
 /// / `Optional<((Bool))>`），不必对「`Optional` × 括号」逐条枚举拼法。
-/// ⚠️ **但递归不等于「任意组合都盖到」**（Task 1 评审收口 spot-check）：递归调用的是
-/// **同一个** `classifyBoolParameterType`，所以它的已知残余会**在实参位原样复现**——
-/// 最典型的是残余组 4（标点周围空白）：`Optional<Swift . Bool>` 的实参 `Swift . Bool`
-/// 在递归里同样过不了 `normalizeWhitespace`（只折叠空白**串**、不消空白**位置**），
+/// ⚠️ **括号轴与空白轴均为真**（空白轴已随残余组 4 在 Task 2 修复，见
+/// `normalizeWhitespace` 的顶层 `\s*([.<>])\s*` 收紧）：递归调用的是**同一个**
+/// `classifyBoolParameterType`，它的已知残余会**在实参位原样复现**——最典型的是
+/// 残余组 4（标点周围空白）：`Optional<Swift . Bool>` 的实参 `Swift . Bool` 曾经在
+/// 递归里同样过不了 `normalizeWhitespace`（只折叠空白**串**、不消空白**位置**），
 /// 返回 `.boolCarrying` ⇒ 外层的 `== .plainBool` 检查不成立 ⇒ 整体落兜底，
-/// **同款免豁免逃逸**。⇒ 此处只宣称**括号轴**为真（有测试见证）；空白轴受残余组 4
-/// 同款限制、随它一并移交 Task 2；specifier 在泛型实参位不合法，无关。
+/// 同款免豁免逃逸。Task 2 在 `normalizeWhitespace` 里补上对 `.`/`<`/`>` 两侧空白的
+/// 收紧之后，因为该函数在 `classifyBoolParameterType` **顶层对每次递归调用都会重新
+/// 执行**，这条残余在实参位的复现形态随之**自动**覆盖——比这里「靠递归重跑」本身
+/// 的论证还强，不需要对「Optional × 空白」逐条枚举拼法；specifier 在泛型实参位
+/// 不合法，无关。
 /// （四组残余的完整清单见 `stripComments` 上方的三通道文档。）
 /// `@autoclosure () -> (Bool)` 同理：返回位的括号在归一化后单独剥（见
 /// `classifyBoolParameterType` 里 `sawAutoclosure` 分支），不依赖这里的「最外层」剥离。
@@ -161,8 +165,8 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 ///      修法：autoclosure 返回位改成**递归调用** `classifyBoolParameterType` 自身，
 ///      不再对返回位单独手写「剥括号后精确比较」。
 ///   2. **specifier 无空格**：`consuming(Bool)` / `borrowing(Bool)` —— 原匹配强制要求
-///      specifier 后随空格；修法：specifier 后随空格**或** `(` 均可剥离（用「下一字符
-///      非标识符延续字符」防误撞真实标识符前缀）。
+///      specifier 后随空格；修法：specifier 后随空格**或** `(` 均可剥离（下一字符只能是
+///      这两者之一的白名单，防误撞真实标识符前缀）。
 ///   3. **attribute 无空格**：`@autoclosure() -> Bool` —— 原实现按空白终止切出
 ///      `"@autoclosure()"` ≠ `"@autoclosure"`；修法：识别出粘连的空 `()` 属于后面
 ///      函数类型的参数表（不是 attribute 实参），只消费 attribute 名本身，把 `()`
@@ -292,8 +296,8 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
         // `borrowing(Bool)` 合法，调用点与 `f(flag: true)` 逐字相同，原先的匹配强制
         // 要求 specifier 后随一个空格（`hasPrefix(specifier + " ")`），把这条路漏掉了。
         // 改成：specifier 后随空格**或**直接随 `(`（不消费 `(`，留给下面第 2 步的
-        // 「多余外层括号」剥离），且用「下一个字符不是标识符延续字符」防住
-        // `consumingFlag` 这类真正的标识符被误当 specifier 前缀撞上。
+        // 「多余外层括号」剥离）——这是一个白名单（下一字符只能是这两者之一），
+        // 防住 `consumingFlag` 这类真正的标识符被误当 specifier 前缀撞上。
         for specifier in ["inout", "borrowing", "consuming", "sending", "__owned", "__shared"]
         where t.hasPrefix(specifier) {
             let rest = t.dropFirst(specifier.count)
