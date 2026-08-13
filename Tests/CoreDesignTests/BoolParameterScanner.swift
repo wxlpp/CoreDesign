@@ -57,10 +57,17 @@ import Testing
 /// `(Bool/*x*/)` / `Optional<Bool/*x*/>` 的调用点与 `f(flag: true)` 逐字相同，改写成本
 /// 比 `(Bool)` 还低。补上这条后，「调用点不变的类型文本改写」这条逃逸通道可以给出穷尽
 /// 论证——完整三通道论证见 `stripComments` 的文档，不在此重复。
+///
+/// ⚠️ **反引号转义标识符是这条逃逸通道的第五个 token 侧自由度**（Task 1 评审第 4 轮
+/// Important-2）：`` `Bool` `` 是 `Bool` 的合法拼法，`func f(flag: `Bool`)` 的调用点
+/// 与 `f(flag: true)` 逐字相同，改写成本比裁决 (b‴) 的 `(Bool)` 还低——只需两个反引号。
+/// 全局剥除后与其余四条（括号 / Optional 糖 / specifier·attribute / 空白）并列，见
+/// `classifyBoolParameterType` 里的剥离与那里更新后的穷尽论证。
 nonisolated enum BoolParamKind: Sendable, Equatable {
     /// 参数类型就是 `Bool`（含 `Bool?` / `Optional<Bool>` / `Swift.Bool`
     /// / `consuming Bool` / `borrowing Bool` / `sending Bool`
-    /// / `@autoclosure () -> Bool` / `(Bool)` / `((Bool))`，剥掉注释后同上均适用）
+    /// / `@autoclosure () -> Bool` / `(Bool)` / `((Bool))` / `` `Bool` ``
+    /// （反引号转义标识符），剥掉注释后同上均适用）
     /// ⇒ J-1 命中。
     case plainBool
     /// 类型文本里还有 `Bool` 标识符，但类型本身不是 `Bool`：
@@ -132,18 +139,32 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 /// - (i) **调用点不变的类型文本改写**：括号（裁决 (b‴)）✓、Optional 语法糖 / 名义拼法
 ///   （`Optional<Bool>` / `Swift.Optional<Swift.Bool>` 等，由裁决 (b‴‴) 的递归分类
 ///   覆盖，不是逐条枚举拼法）✓、ownership specifier / attribute（裁决 (b′)/(b″)）✓、
-///   空白（trim + `normalizeWhitespace` 归一化）✓、**注释**（本条）✓。类型文本的
-///   字母表就是 token + trivia：token 侧已被上述四条结构化处理，trivia 侧只剩注释这
-///   一类没盖到，补上之后通道 (i) **穷尽**。
+///   空白（trim + `normalizeWhitespace` 归一化）✓、**反引号转义标识符**
+///   （`` `Bool` ``，Task 1 评审第 4 轮 Important-2，全局剥除）✓、**注释**（本条）✓。
+///   类型文本的字母表就是 token + trivia：token 侧已被上述五条结构化处理（括号、
+///   Optional 糖、specifier/attribute、空白、反引号），trivia 侧是注释，而注释本身的
+///   行终止符集合是 `{'\n', '\r'}`（Swift 词法把 lone `\r` 也当换行，Task 1 评审第 4 轮
+///   Important-1，见 `stripComments`）——两侧都已盖到，通道 (i) **穷尽**。
 /// - (ii) **声明位置搬家**：`init` / `func` / `subscript` / `enum case` / protocol
 ///   requirement 已采（裁决 (e)），宏展开 / attribute 已留痕（见类文档「已知盲区」）。
 /// - (iii) **名字解析间接层**：`typealias`（裁决 (f)）已清点 + 空断言，泛型洗 Bool
 ///   已留痕。
 ///
-/// 剥法：`//` 剥到行尾；`/* … */` **必须按深度计数扫描，不能用非贪婪正则**
+/// 剥法：`//` 剥到行尾（行终止符集合是 `{'\n', '\r'}`——Swift 词法把 lone `\r` 也当
+/// 换行，只认 `\n` 会把 `\r` 连同其后字符一起吞掉，Task 1 评审第 4 轮 Important-1）；
+/// `/* … */` **必须按深度计数扫描，不能用非贪婪正则**
 /// （`/\*.*?\*/` 在 `/* a /* b */ c */` 这类合法的嵌套块注释里会在内层 `*/` 提前闭合，
 /// 剩下 ` c */` 污染结果）。每处注释替换成**单个空格**，避免把注释两侧的 token 意外
 /// 粘连（`consuming/*x*/Bool` 不能剥成 `consumingBool`）。
+///
+/// ⚠️ **已知留痕，不做机器拦截（Task 1 评审第 4 轮 Suggestion-1/2）**：
+/// - **不识别字符串字面量**：类型位置唯一合法的字符串字面量出现在
+///   `@convention(c, cType: "…")` 实参里，串内若含 `/*` 会被本函数误当块注释起点剥掉。
+///   失败方向是 **fail-closed（安全）**：误剥导致文本对不上 `Bool`，落 `.boolCarrying`
+///   兜底（清点、不放行），不会把非命中误判成命中；本仓当前该 attribute 零使用。
+/// - **不处理未闭合的 `/*`**：这种输入只能来自解析失败的源码——`scanBoolParams(root:)`
+///   已经在 `tree.hasError` 那道检查上拦截了这种情况（见该函数文档），本函数不需要
+///   自己再判一次；方向同样是 fail-closed，不是盲区。
 nonisolated private func stripComments(_ t: String) -> String {
     let chars = Array(t)
     var result = ""
@@ -170,7 +191,11 @@ nonisolated private func stripComments(_ t: String) -> String {
             continue
         }
         if chars[i] == "/", i + 1 < chars.count, chars[i + 1] == "/" {
-            while i < chars.count, chars[i] != "\n" { i += 1 }
+            // ⚠️ **终止符必须同时认 `\n` 与 `\r`**（Task 1 评审第 4 轮 Important-1）：
+            // Swift 词法把 lone `\r` 也当行终止符，只认 `\n` 会把 `\r` 及其后所有字符
+            // 当成注释内容一并吞掉——`(Bool // c\r)` 会把 `\r)` 也吃掉，剩下的文本再也
+            // 凑不出 `Bool`，落进兜底判成 `.boolCarrying` ⇒ 免豁免逃逸（fail-open）。
+            while i < chars.count, chars[i] != "\n", chars[i] != "\r" { i += 1 }
             result.append(" ")
             continue
         }
@@ -190,7 +215,14 @@ nonisolated private func normalizeWhitespace(_ t: String) -> String {
 }
 
 nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
-    var t = normalizeWhitespace(stripComments(raw))
+    // ⚠️ **反引号转义标识符必须全局剥除**（Task 1 评审第 4 轮 Important-2）：
+    // `` `Bool` `` 是 `Bool` 的合法拼法（反引号只用来给标识符转义关键字冲突，不改变
+    // 标识符本身），`func f(flag: `Bool`)` 的调用点与 `f(flag: true)` 逐字相同——比
+    // 括号（裁决 (b‴)）还便宜的免豁免逃逸：`` "`Bool`" `` ≠ `"Bool"`，不剥的话滑进
+    // `\bBool\b` 兜底判成 `.boolCarrying`。类型文本里反引号只包裹标识符，全局删除
+    // 是安全的；`` Optional<`Bool`> ``、`` Swift.`Bool` `` 等组合由既有的 Optional
+    // 递归分类自然覆盖，不必单独枚举。
+    var t = normalizeWhitespace(stripComments(raw)).replacingOccurrences(of: "`", with: "")
 
     // 1) 剥 specifier 与 attribute。两者可以交替出现（`borrowing @Sendable …`），
     //    所以放在同一个循环里剥到剥不动为止。

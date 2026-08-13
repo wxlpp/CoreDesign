@@ -145,6 +145,20 @@ struct BoolParameterScannerTests {
         // （`/\*.*?\*/`）会在内层 `*/` 提前闭合，剩下 ` c */` 污染结果，这条断言正是为了
         // 见证「按深度计数」这个实现本身，不是随便挑一个块注释形态。
         #expect(classifyBoolParameterType("Bool/* a /* b */ c */") == .plainBool)
+
+        // ⚠️ Task 1 评审第 4 轮 Important-1（trivia 侧反例）：Swift 词法把 lone `\r`
+        // 也当行终止符，`//` 剥离若只认 `\n` 会把 `\r` 及其后字符一起吞掉——
+        // `(Bool // c\r)` 原本会把 `\r)` 吃掉，剩下的文本再也凑不出 `Bool`，
+        // 落进兜底判成 `.boolCarrying` ⇒ 免豁免逃逸。终止符必须同时认 `\n` 与 `\r`。
+        #expect(classifyBoolParameterType("(Bool // c\r)") == .plainBool)
+
+        // ⚠️ Task 1 评审第 4 轮 Important-2（token 侧反例）：反引号转义标识符是
+        // `Bool` 的合法拼法，`func f(flag: `Bool`)` 调用点与 `f(flag: true)` 逐字相同
+        // ——`` "`Bool`" `` ≠ `"Bool"`，不剥的话滑进 `\bBool\b` 兜底判成 `.boolCarrying`
+        // ⇒ 免豁免逃逸。必须全局剥除反引号。
+        #expect(classifyBoolParameterType("`Bool`") == .plainBool)
+        // 组合形态：反引号 + Optional 泛型实参位，见证既有递归自然覆盖，不必单独枚举。
+        #expect(classifyBoolParameterType("Optional<`Bool`>") == .plainBool)
     }
 
     // MARK: - 访问级别
