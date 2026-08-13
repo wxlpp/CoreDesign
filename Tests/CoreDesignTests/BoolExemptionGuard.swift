@@ -13,11 +13,13 @@ import Testing
 // 或需要一张巨大的 SwiftUI 白名单——而白名单在本 epic 已被定性为负债
 // （见 `ComponentRegistryGuard.knownOffScannerComponents` 的文档注释）。
 //
-// ⚠️ **豁免基线是两份文件**（`39-plan.md` 选型 2）：`docs/bool-exemptions.json` 是清单本身，
-// `docs/bool-exemptions-baseline.json` 只记一个上限。一份文件时「改清单」与「改基线」是
-// **同一个动作**，棘轮的唯一实现只能是「diff `main` 的历史版本」，而本仓 CI 是
-// `actions/checkout@v4` 默认 `fetch-depth: 1`（历史里没有 `main`），且五个 CoreDesign
-// 任务集成在 `epic/component-contract`、`main` 上在 #42 之前根本没有这个文件
+// ⚠️ **豁免基线设计为两份文件**（`39-plan.md` 选型 2）：`docs/bool-exemptions.json` 是清单
+// 本身，本 Task（4）已消费它；`docs/bool-exemptions-baseline.json` 只记一个上限，
+// **随 Task 5 落地**——本文件此刻还读不到它，`baselineURL` 这个静态量是为 Task 5 预留的
+// 座位，先声明、后使用。一份文件时「改清单」与「改基线」是**同一个动作**，棘轮的唯一
+// 实现只能是「diff `main` 的历史版本」，而本仓 CI 是 `actions/checkout@v4` 默认
+// `fetch-depth: 1`（历史里没有 `main`），且五个 CoreDesign 任务集成在
+// `epic/component-contract`、`main` 上在 #42 之前根本没有这个文件
 // ⇒ 那条路要么永久红、要么退化成「文件读不到 ⇒ 绿」。详见 `39-plan.md`。
 //
 // ⚠️ **`decidedBy` 在本文件里指「裁决人」，与 `ComponentRegistryGuard.Entry.decidedBy`
@@ -88,6 +90,27 @@ struct BoolExemptionGuard {
         "View.surface#bordered",
         "SegmentedControlStyleConfiguration.Segment.init#isSelected",
     ]
+
+    /// **公约 A.3 已裁决、但按 39.md 的 AC 刻意不放进豁免清单的违规**。
+    ///
+    /// ⚠️ **这不是第二份豁免清单**：豁免清单说「这是可接受的 API」，本集合说
+    /// 「这是一条**已知违规**，处置人是 #41，数量不许涨」。它只有一个成员、写死在
+    /// 测试代码里、**不占 `maxEntries` 的格子、不受棘轮保护**，也不打算受——
+    /// 它存在的唯一理由是让 `j1NoUnexemptedBoolParameters` 里那条 `withKnownIssue`
+    /// **不掩盖新出现的违规**（`withKnownIssue` 会把块内**任何** issue 都算成已知，
+    /// 所以「新违规」必须走**块外**的这条 canary，见 `39-plan.md` 的三种未来表）。
+    ///
+    /// ⚠️ **它会自我到期，且有两道**：#41 删掉或改造 `surface(bordered:)` 之后，
+    /// (1) `j1NoUnexemptedBoolParameters` 的 `withKnownIssue` 块内不再记录到 issue
+    /// ⇒ Swift Testing 判「Known issue was not recorded」⇒ **主判据自己红**；
+    /// (2) `j1ViolationSetIsExactlyTheContractPending` 的 `disappeared` 断言也红。
+    /// 两道都逼 #41 同轮清掉这个常量。⚠️ 第 (1) 道在「新违规与 #41 改造**同时**发生」
+    /// 时会失效（块内仍有 issue），所以第 (2) 道不能省。
+    static let pendingViolationKeys: Set<String> = ["View.surface#bordered"]
+
+    static func exemptedKeys() throws -> Set<String> {
+        Set(try Self.loadExemptions().compactMap(\.parameter))
+    }
 
     // MARK: - 豁免清单 schema（J-4 的豁免基线部分）
 
@@ -233,5 +256,96 @@ struct BoolExemptionGuard {
             #expect(parameter.contains("#") && parameter.contains("."),
                     "豁免键「\(parameter)」不是 `Owner.decl#param` 形状")
         }
+    }
+
+    // MARK: - Task 4 的判据：双向精确匹配
+
+    @Test("J-1：public 声明不得含未豁免的 Bool 参数（⚠️ surface(bordered:) 记为 known issue，归 #41）")
+    func j1NoUnexemptedBoolParameters() throws {
+        let scan = try Self.boolScan()
+        #expect(scan.keys.count > 20, "只扫到 \(scan.keys.count) 个豁免键 —— 扫描器失效")   // 与 Task 2 同下界
+
+        let diff = compareBoolHitsToExemptions(hits: scan.keys, exempted: try Self.exemptedKeys())
+
+        // ⚠️ **双向**：单向只能抓一头。
+        // · violations = 源码里有、清单里没有 ⇒ 未豁免的 Bool 参数
+        // · stale      = 清单里有、源码里没有 ⇒ 过期条目（AC 明写它同样判红）
+
+        // ⚠️ **stale 在 withKnownIssue 之外**：过期条目与 surface(bordered:) 无关，
+        // 不该被那条 known issue 顺带吞掉。
+        let staleMessage = """
+        豁免清单里这些条目在源码里已经找不到了：\(diff.stale.sorted())
+        —— 过期条目同样判红（AC 原文）。删掉它们，并**同轮下调**
+        bool-exemptions-baseline.json 的 maxEntries（棘轮不留 slack，见 baselineRatchet 判据）。
+        """
+        #expect(diff.stale.isEmpty, "\(staleMessage)")
+
+        let violationMessage = """
+        这些 public Bool 参数不在 docs/bool-exemptions.json 里：\(diff.violations.sorted())
+
+        ⚠️ **到 #41 完成前，这里预期恰好有一条 `View.surface#bordered`**——公约附录 A.3 已裁决
+        它「不合规」、且 39.md 的 AC 明写它**不放入初始豁免清单**，处置（豁免或改造）留给 #41。
+        这是**预期状态**，不是本判据的缺陷。
+        ⚠️ **若上面的清单不是恰好这一条，说明出现了新违规**，请看
+        `j1ViolationSetIsExactlyTheContractPending`——那条判据在 known issue **之外**，
+        专门抓这种情况。新增的 Bool 参数要么改掉，要么按公约第 3 节终局条款**先试 (b) 删除**、
+        (b) 不成立才走 (a) 记入豁免基线（并同轮抬高 bool-exemptions-baseline.json 的 maxEntries）。
+        """
+
+        // ⚠️⚠️ **这里是全文件最容易做错的地方，改动前先读 `39-plan.md`
+        // 「`surface(bordered:)` 的处置」一节。**
+        //
+        // `withKnownIssue` 只包住 **J-1 的字面陈述**（violations 必须为空）。它今天恰好被
+        // `View.surface#bordered` 这一条打破——公约 A.3 已裁决、39.md 的 AC 明写它不入豁免清单。
+        //
+        // 为什么用 known issue 而不是让 CI 字面红（AC 偏离，已登记）：
+        // · 两个仓的 epic/main **都没有分支保护** ⇒ 字面红拦不住任何合并，只是信号；
+        // · 而字面红会让 `.github/workflows/ci.yml` 里「仅已知 flake 才重跑」的保护
+        //   **恒走「直接判红」分支** ⇒ 整个 epic 期间 ToastHostTests 的 flake 重试变成死代码,
+        //   代价由 #40 / #43 支付；
+        // · known issue 的到期是**机器强制**的（见下），不依赖任何人给 #41 加 AC
+        //   ——那正是 epic.md 备选方案（预置进豁免清单）被否决的理由，对本方案不适用。
+        //
+        // ⚠️ **`withKnownIssue` 会把块内任何 issue 都算成「已知」** ⇒ 块内**只能**放这一条断言。
+        // 「新违规」由块外的 `j1ViolationSetIsExactlyTheContractPending` 抓，
+        // 「过期条目」由上面块外的 stale 断言抓。**不要把它们挪进来。**
+        //
+        // ⚠️ **自动到期**：#41 删掉/改造 `bordered` 之后块内不再记录 issue，
+        // Swift Testing 会判「Known issue was not recorded」⇒ 本判据**自己红**，
+        // 逼 #41 同轮清掉这里与 `pendingViolationKeys`。
+        // 本仓已有同款先例：`SystemBackgroundColorsMacOSTests.swift:62-64`。
+        withKnownIssue(
+            """
+            公约附录 A.3 已裁决 `View.surface(_:bordered:)` 不合规，39.md 的 AC 明写它
+            **不放入初始豁免清单**（因此它不占 maxEntries、不受棘轮保护）；
+            处置（豁免或改造）归 #41。#41 一落地，本 known issue 会因「未被记录」自动判红。
+            """
+        ) {
+            #expect(diff.violations.isEmpty, "\(violationMessage)")
+        }
+    }
+
+    /// ⚠️ **本条是「新违规」的唯一非 known-issue 出口**：`j1NoUnexemptedBoolParameters`
+    /// 里那条 `withKnownIssue` 会把块内任何 issue 都算成已知，所以新违规**必须**在这里红。
+    /// 它同时是 `surface(bordered:)` 到期的第二道闸（`disappeared` 方向）——
+    /// 在「新违规与 #41 改造同时发生」时，known issue 那道会失效，只剩这一道。
+    @Test("未豁免违规集合恰好等于公约 A.3 点名的那一条（这条是**绿**的，专抓新违规）")
+    func j1ViolationSetIsExactlyTheContractPending() throws {
+        let scan = try Self.boolScan()
+        #expect(scan.keys.count > 20, "只扫到 \(scan.keys.count) 个豁免键 —— 扫描器失效")
+
+        let diff = compareBoolHitsToExemptions(hits: scan.keys, exempted: try Self.exemptedKeys())
+        let unexpected = diff.violations.subtracting(Self.pendingViolationKeys)
+        #expect(unexpected.isEmpty,
+                "出现了公约未预期的未豁免 Bool 参数：\(unexpected.sorted()) —— 这不是 surface(bordered:) 那条预期的红")
+
+        let disappeared = Self.pendingViolationKeys.subtracting(diff.violations)
+        let disappearedMessage = """
+        这些条目已不再是未豁免违规：\(disappeared.sorted())
+        —— 若 #41 已经删除/改造了它们，请**同轮**把它们从 pendingViolationKeys 移走
+        （若改造成了别的形状而仍带 Bool，还要同轮进豁免清单 + 抬高 maxEntries）。
+        本条断言的存在就是为了不让这个待办被忘掉：它不会自己保鲜，所以由判据保鲜。
+        """
+        #expect(disappeared.isEmpty, "\(disappearedMessage)")
     }
 }
