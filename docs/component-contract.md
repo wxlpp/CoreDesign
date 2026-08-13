@@ -185,6 +185,11 @@
 ⇒ 这么切的理由是：**内容**（改措辞、补日期，常改且无害）与**容量**（放宽豁免面，
 罕改且必须署名）是两根不同的轴。切开之后，「豁免面被放宽过几次」的完整台账就是
 `git log -p docs/bool-exemptions-baseline.json`，不会被清单里的无害编辑淹没。
+⚠️ 这句话说的是**豁免面**（`docs/bool-exemptions.json` + 其 `maxEntries`）本身的
+台账，不含 `pendingViolationKeys`（`BoolExemptionGuard.swift` 里写死的、按公约 A.3
+已裁决为已知违规、刻意不放进豁免清单的那个集合）——它是一条平行通道，不占
+`maxEntries`、不受本节棘轮保护，它自己的台账就在 `BoolExemptionGuard.swift` 自身的
+`git log` 里，不在这份文件描述的范围内。
 
 ⚠️ **两个出口必须有序，不能并列。** 并列时执行者的激励是反的：
 (a) 只需写一条 JSON + 理由，(b) 是破坏性变更 + 迁移 —— 文字说「(b) 最常见」，

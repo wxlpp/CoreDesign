@@ -1,4 +1,6 @@
 import Foundation
+import SwiftParser
+import SwiftSyntax
 import Testing
 
 // J-1（public 声明不得含未豁免的 Bool 参数）+ 豁免基线 + 棘轮的守卫。
@@ -146,6 +148,64 @@ struct BoolExemptionGuard {
         "ButtonRoleStyleRole": .nonViewPublicType,
         "SegmentedControlStyleConfiguration.Segment": .nonViewPublicType,
     ]
+
+    // MARK: - Important-2 (a)：`.externalProtocolExtension` 的正向核对
+    //
+    // ⚠️ **评审 Important-2**：三种 `OwnerExclusionKind` 里只有 `.styleImplementation`
+    // 绑了正向核对（`scan.styleImpls.contains(owner)`）；`.externalProtocolExtension`
+    // 与 `.nonViewPublicType` 都只有负向断言（`!scan.components.contains` 等），
+    // 互换标签（把 `StepItem` 改标成 `.externalProtocolExtension`，或把 `View` 改标成
+    // `.nonViewPublicType`）时两边都能滑过去，两个负向分类之间不可分辨。
+    // ⇒ 给 `.externalProtocolExtension` 补一条正向核对，让它真正配得上文档里
+    // 「本仓根本没有该类型的声明」这句话——直接扫 `Sources/CoreDesign` 里的**全部**
+    // `struct`/`class`/`enum`/`protocol`/`actor` 声明（⚠️ **不限嵌套层级，不止顶层**：
+    // 下面的 `DeclaredTypeNameCollector` 对这五种节点统一返回 `.visitChildren`，
+    // 会继续递归进类型内部，把嵌套类型也一并采到——这对本条判据的目的是**更安全**而非
+    // 缺陷，因为「本仓是否存在同名类型」这个问题本就不该只问顶层；不限访问级别、不限是否
+    // 符合某个协议，因为 `View`/`ButtonStyle` 这类外部协议名如果被本仓意外声明成同名类型,
+    // 不管它是不是 public、嵌在哪一层，都足以推翻「本仓没有这个类型」这句话），断言宿主名
+    // 不在其中。
+    //
+    // ⚠️ 这条覆盖不了 `.nonViewPublicType` vs `.externalProtocolExtension` 互换的**另一
+    // 半**——`StepItem` 改标成 `.externalProtocolExtension` 时，`declaredTypeNames()`
+    // 会真的命中 `StepItem`（它确实是本仓声明的 struct）⇒ 这条新断言会红，等价于把
+    // 这一半也钉死了。互换的反方向（`View` 改标成 `.nonViewPublicType`）由
+    // `.nonViewPublicType` 分支已有的 `!scan.components.contains(root)` 覆盖不到
+    // （`View` 本来就不在 `scan.components` 里，那条断言不会红）——这一半仍是本文件
+    // 承认的**残余等价性**，未被机器判据钉死，留痕于 `OwnerExclusionKind.nonViewPublicType`
+    // 的文档。
+    private static var cachedDeclaredTypeNames: Set<String>?
+
+    /// 本仓 `Sources/CoreDesign` 下所有具名类型声明的名字（`struct`/`class`/`enum`/
+    /// `protocol`/`actor`，不限访问级别、不限嵌套层级）。⚠️ 缓存约束与 `cachedScan`
+    /// 同款：只缓存「成功且非空」的结果，失败路径重新扫、重新报出自己的诊断。
+    static func declaredTypeNames() throws -> Set<String> {
+        if let cached = Self.cachedDeclaredTypeNames { return cached }
+        guard FileManager.default.fileExists(atPath: Self.coreDesignSources.path) else {
+            Issue.record(
+                "源码路径不存在：\(Self.coreDesignSources.path) —— 判据无法工作，这不是「本仓没有该类型」"
+            )
+            return []
+        }
+        guard let walker = FileManager.default.enumerator(
+            at: Self.coreDesignSources, includingPropertiesForKeys: nil
+        ) else {
+            Issue.record("无法枚举源码目录：\(Self.coreDesignSources.path)（权限或 IO 异常）—— 判据无法工作")
+            return []
+        }
+        var names: Set<String> = []
+        for case let url as URL in walker where url.pathExtension == "swift" {
+            let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
+            if tree.hasError {
+                Issue.record("解析出错：\(url.lastPathComponent) —— swift-syntax major 可能与工具链不配套")
+            }
+            let collector = DeclaredTypeNameCollector()
+            collector.walk(tree)
+            names.formUnion(collector.names)
+        }
+        if !names.isEmpty { Self.cachedDeclaredTypeNames = names }
+        return names
+    }
 
     /// 从豁免键 `Owner.decl#param` 里取回宿主名。
     /// `SegmentedControlStyleConfiguration.Segment.init#isSelected` ⇒
@@ -482,10 +542,28 @@ struct BoolExemptionGuard {
         )
         let readmeRows = ComponentRegistryGuard.readmeIndexRows(readmeText)
         #expect(readmeRows.count > 20, "README 组件索引只解析到 \(readmeRows.count) 行 —— 解析器可能失效")
+        // ⚠️ **M-3 留痕，不改逻辑**：`formUnion` 无差别收进每一行的候选名，没有按
+        // `isTombstone` 排除墓碑行（`~~Foo~~` 剥掉 `~~` 后名字照收）。方向是安全的——
+        // 某个 `.nonViewPublicType` 宿主若哪天以**墓碑**（已从 README 移除）形态出现，
+        // 会误触下面 `!readmeNames.contains(root)` 的「该登记」红，而不是漏报；
+        // 当前台账（`StepItem` / `ButtonRoleStyleRole` /
+        // `SegmentedControlStyleConfiguration.Segment`）与已知墓碑清单
+        // （`ComponentRegistryGuard.knownReadmeTombstones`）无交集，误红不会发生。
         var readmeNames: Set<String> = []
         for raw in readmeRows {
             readmeNames.formUnion(ComponentRegistryGuard.candidateNames(fromReadmeCell: raw).names)
         }
+        // ⚠️ **Important-1**：`readmeRows.count > 20` 只保证「解析到了行」，不保证
+        // `candidateNames(fromReadmeCell:)` 从这些行里聚合出了名字——若该函数的括号
+        // 剥离 / `/` 切分逻辑对每行都返回空数组，行数照旧 > 20、`readmeNames` 却是空集
+        // ⇒ 下面 `.nonViewPublicType` 分支的 `!readmeNames.contains(root)` 空转恒真，
+        // README 绊线静默失效。行数与名字数当前同量级，下界给宽松量级。
+        #expect(readmeNames.count > 20, "README 候选名解析失效：\(readmeRows.count) 行只聚合出 \(readmeNames.count) 个名字")
+
+        // Important-2 (a)：`.externalProtocolExtension` 的正向核对，见该常量声明处文档。
+        let declaredTypeNames = try Self.declaredTypeNames()
+        #expect(declaredTypeNames.count > 30,
+                "只扫到 \(declaredTypeNames.count) 个类型声明 —— 扫描器失效")
 
         var unaccounted: [String] = []
         for key in try Self.exemptedKeys() {
@@ -500,6 +578,12 @@ struct BoolExemptionGuard {
             case .externalProtocolExtension:
                 #expect(!scan.components.contains(owner) && !scan.styleImpls.contains(owner),
                         "「\(owner)」被标为外部协议扩展，但本仓源码里就有这个类型 —— 分类过期，该重新裁决")
+                // ⚠️ Important-2 (a)：正向核对——上面两条只查「View/ViewModifier/style
+                // 协议的 public struct」这个窄桶，这里直接查本仓**全部**类型声明（含嵌套、
+                // 不限访问级别），真正对得起 `OwnerExclusionKind.externalProtocolExtension`
+                // 文档里「本仓根本没有该类型的声明」这句话。
+                #expect(!declaredTypeNames.contains(owner),
+                        "「\(owner)」被标为外部协议扩展（本仓没有同名类型声明），但本仓源码里确实声明了一个同名类型 —— 分类过期，该重新裁决")
             case .styleImplementation:
                 #expect(scan.styleImpls.contains(owner),
                         "「\(owner)」被标为 style 实现，但扫描器的 styleImpls 里没有它 —— 删光 Components/Button/styles/ 也会命中这条")
@@ -525,5 +609,41 @@ struct BoolExemptionGuard {
         let nowRegistered = Set(Self.ownersWithoutRegistryEntry.keys).intersection(registered)
         #expect(nowRegistered.isEmpty,
                 "这些宿主已经进了登记表，该从 ownersWithoutRegistryEntry 移走：\(nowRegistered.sorted())")
+    }
+}
+
+/// 采集 `Sources/CoreDesign` 里**所有**具名类型声明的名字（`struct`/`class`/`enum`/
+/// `protocol`/`actor`），不限访问级别、不限嵌套层级、不看是否符合任何协议——供
+/// `BoolExemptionGuard.declaredTypeNames()` 用，是 Important-2 (a) 「本仓根本没有
+/// 该类型的声明」这句话的正向核对。⚠️ **不是「顶层」采集器**：五个 `visit` 都返回
+/// `.visitChildren`，会继续递归进类型内部，嵌套类型同样被采到——对「这个名字在本仓
+/// 是否被声明过一次」这个问题而言这是期望行为，不是失控的副作用。
+/// ⚠️ 与 `ComponentRegistryGuard.PublicTypeCollector` 是两个不同的采集器：那个只收
+/// public 且符合 `View`/`ViewModifier`/style 协议的 struct（为登记表核对服务），
+/// 这个收全部访问级别、全部声明关键字、任意嵌套层级（为上面更宽的问题服务）。
+private nonisolated final class DeclaredTypeNameCollector: SyntaxVisitor {
+    var names: Set<String> = []
+
+    init() { super.init(viewMode: .sourceAccurate) }
+
+    override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.names.insert(node.name.text)
+        return .visitChildren
+    }
+    override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.names.insert(node.name.text)
+        return .visitChildren
+    }
+    override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.names.insert(node.name.text)
+        return .visitChildren
+    }
+    override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.names.insert(node.name.text)
+        return .visitChildren
+    }
+    override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.names.insert(node.name.text)
+        return .visitChildren
     }
 }
