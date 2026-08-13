@@ -1,0 +1,206 @@
+[
+  {
+    "parameter": "View.focusRing#visible",
+    "reason": "焦点环的显隐开关。不能按终局条款 (b) 直接删除：现有调用点靠它在同一棵视图树上切换焦点态，删掉后调用方只能在 if 里挂/摘 modifier，会打断 SwiftUI 的视图 identity 与焦点环的淡入淡出。正确形态是收成 FocusRingVisibility 语义类型或改由环境值驱动，属破坏性变更，处置归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "View.spinning#isActive",
+    "reason": "加载遮罩的显隐开关。删除不成立：SpinningModifier 的转场依赖 modifier 常驻，改成条件挂载会丢动画与视图 identity。四条替代路径里最接近的是 3.4 环境值，但遮罩是局部而非整棵子树的选择，需要先给出语义类型，改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "View.floatingGlass#isInteractive",
+    "reason": "⚠️ 不是原样透传：body 内把 Bool 换算成 Glass 值（isInteractive ? Glass.regular.interactive() : Glass.regular，见 FloatingGlassModifier.swift:20），SwiftUI 这一层接的是 Glass 类型，这个 Bool 参数是本仓自己发明的。终局条款先试 (b) 删除：删掉即关闭对系统 interactive 玻璃效果的暴露，属功能删减，(b) 不成立 ⇒ 记入豁免 (a)。3.1 式替代路径（直接收 Glass，或收一个语义枚举再仓内换算成 Glass）结构上可用，属 #41 的仓内改造范围，不是等 Apple 给非 Bool 形态。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "View.sidebarSelectedBackground#isSelected",
+    "reason": "描述行当前是不是选中态，供 modifier 画出选中/未选中背景，属公约第 3 节例外条款所指的状态描述 Bool（对标 ButtonStyleConfiguration.isPressed），不是配置开关。删除不成立——modifier 不知道当前状态就画不出正确外观。永久豁免，不归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "View.bottomInputBar#autoShowSuggestions",
+    "reason": "控制建议条是否在出现时自动展开。BottomInputBar 按公约 AD-2 排除出登记表（struct 无 public 修饰符），因此没有登记表分类上下文可交叉核对，按裸判据处理。删除不成立：两种行为都有真实调用方。整个 bottomInputBar 的七个 Bool 应合并成一个配置值类型，改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "View.bottomInputBar#wandEnabled",
+    "reason": "是否显示魔杖按钮。删除不成立：按钮的有无是调用方的真实分歧，删掉就是单方面砍掉一种形态。正确形态是 3.2 子视图槽（把按钮交给调用方提供）或并进配置值类型，属破坏性变更，改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "View.bottomInputBar#sendEnabled",
+    "reason": "发送按钮是否可用。与 @Environment(\\.isEnabled) 语义重叠（公约 3.4），但输入栏整体不该被 disable、只有发送这一个动作要禁，直接删掉改用 .disabled(true) 会连带整条输入栏的禁用外观。删除不成立，改造留给 #41 决定是拆组件还是收成状态类型。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "View.bottomInputBar#showMenuButton",
+    "reason": "是否显示左侧菜单按钮。与 wandEnabled 同型：删除即单方面砍掉一种真实使用形态，不成立。正确形态是 3.2 子视图槽或并进配置值类型，改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "View.bottomInputBar#isRunning",
+    "reason": "描述宿主任务当前是否在运行，输入栏据此把发送按钮换成停止按钮。这是状态描述而非配置开关，删除不成立——输入栏不知道运行态就画不出正确按钮。正确形态是收成一个三态的运行状态枚举（idle/running/stopping），改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "View.bottomInputBar#showShuffleButton",
+    "reason": "是否显示随机按钮。与 wandEnabled / showMenuButton 同型：删除即砍掉一种真实形态，不成立。三个按钮显隐开关应一起收成 3.2 子视图槽或一个按钮集合类型，改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "View.bottomInputBar#autoFocus",
+    "reason": "出现时是否自动聚焦输入框。⚠️ 这一条是 39.md 简报漏列的第七个 Bool（BottomInputBar.swift:468），由扫描器实测补入。删除不成立：自动聚焦与否是调用场景的真实分歧（弹出式输入要，常驻输入栏不要）。正确形态是走 3.4 环境值或与 externalFocus 合并成一个焦点策略类型，改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "ButtonStyle.solid#glass",
+    "reason": "legacy Telegram 玻璃模式开关的静态工厂入口。公约第 2 节点名它是布尔 hack，SegmentedControl 已经做过同款升级（glass: Bool 升级为 SegmentedControlStyle 协议）。删除是正确处置但属破坏性变更，要同步 App/ 预览宿主、Tests/、scripts/downstream-probe 与 StoryUI 四处迁移面，节奏归 #41/#42。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "ButtonStyle.light#glass",
+    "reason": "同 ButtonStyle.solid#glass：legacy Telegram 玻璃模式开关的静态工厂入口，公约第 2 节点名的布尔 hack。删除是正确处置但属破坏性变更，四处迁移面同步，节奏归 #41/#42。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "SolidButtonStyle.init#glass",
+    "reason": "legacy Telegram 玻璃模式开关。公约第 2 节明写它不构成对该文件的整体背书、仍属第 3 节待处置项。删除是正确处置（改走样式协议，照 SegmentedControlStyle 的先例），但属破坏性变更，节奏归 #41/#42。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "LightButtonStyle.init#glass",
+    "reason": "同 SolidButtonStyle.init#glass：legacy Telegram 玻璃模式开关，公约第 2 节点名的布尔 hack。删除是正确处置但属破坏性变更，节奏归 #41/#42。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "TelegramGlassButtonModifier.init#isPressed",
+    "reason": "向 modifier 描述按钮当前是不是按下态，供它画出按压外观，属公约第 3 节例外条款所指的状态描述 Bool（对标 ButtonStyleConfiguration.isPressed）。删除不成立——不知道状态就画不出外观。永久豁免，不归 #41。⚠️ 它与同一个 init 里的 pressFeedback 性质相反，两者必须分条豁免，不得整个 init 一起放行。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "TelegramGlassButtonModifier.init#pressFeedback",
+    "reason": "是否给触觉反馈——这是配置开关，不是状态描述，公约的 Style Configuration 例外条款对它不适用。删除不成立：关掉触觉是无障碍与场景的真实诉求。正确形态是 3.4 环境值（触觉偏好本就作用于整棵子树，且可与系统偏好对齐），改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "SpinningModifier.init#isActive",
+    "reason": "加载遮罩的显隐开关，与 View.spinning#isActive 是同一概念的类型级入口。删除不成立：转场依赖 modifier 常驻。改造需与 View.spinning 同轮，归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "FloatingGlassModifier.init#isInteractive",
+    "reason": "与 View.floatingGlass#isInteractive 是同一概念的类型级入口，同样不是透传——body 内把 Bool 换算成 Glass 值（isInteractive ? Glass.regular.interactive() : Glass.regular）。终局条款先试 (b) 删除：删掉即关闭对系统 interactive 玻璃效果的暴露，属功能删减，(b) 不成立 ⇒ 记入豁免 (a)。改造需与 View.floatingGlass 同轮走 3.1 式替代（收 Glass 或语义枚举），归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "SidebarSection.init#showsChevron",
+    "reason": "PRD 点名的已知违规实例。是否显示展开箭头是纯外观旋钮。删除不成立：无箭头的分组标题是真实用法（不可折叠的分组）。正确形态是把可折叠性收成语义类型（如 SidebarSectionDisclosure），改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "SidebarNavigationRow.init#isSelected",
+    "reason": "描述该行当前是不是选中态，行据此画出选中背景，属公约第 3 节例外条款所指的状态描述 Bool。删除不成立——行不知道自己选没选中就画不出正确外观（对比原生 List 的 selection binding：本组件刻意不持有 selection，由调用方驱动）。永久豁免，不归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "TagInput.init#allowDuplicates",
+    "reason": "PRD 点名的已知违规实例。是否允许重复标签是**校验规则**，按公约第 2 节边界条款不得进样式协议。删除不成立：两种校验策略都有真实需求。正确形态是收成一个去重策略类型（none/caseInsensitive/exact 等，满足头号反例判据的第三 case），改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "PinCode.init#isSecure",
+    "reason": "PRD 点名的已知违规实例。是否掩码显示已输入的位。删除不成立：明文与掩码都是真实用法（验证码 vs 密码）。PinCode 已由公约附录 A.4 判为规定性组件（tiebreaker），不给样式扩展点，因此正确形态是专用取值域（如 PinCodeEntryMode）而非样式协议，改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "Rating.init#allowsHalfStar",
+    "reason": "PRD 点名的已知违规实例。公约附录 A.1 续已给出处置：它是被压成布尔的连续量（手势注释里的 step = allowsHalfStar ? 0.5 : 1.0），按 3.1 改成 step: Double。删除不成立——半星评分是真实需求，删掉就是砍功能。改造本身归 #41（39.md Technical Details 明写本任务只需正确识别并暂时豁免）。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "Rating.init#isReadOnly",
+    "reason": "PRD 点名的已知违规实例。公约 3.4 已分析：与 @Environment(\\.isEnabled) 行为重叠，但直接删掉改用 .disabled(true) 会连带禁用态灰色外观，而只读评分的典型用途（显示平均分）要正常外观 ⇒ 终局条款 (b) 的删除路径**已被公约显式否决**。正确解法可能是拆成 Rating / RatingDisplay 两个语义组件，取舍归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "Card.init#bordered",
+    "reason": "PRD 点名的已知违规实例。公约 3.3 的反例原文点名它：挪成 .card(bordered: false) 是换了个位置的同一个布尔旋钮，不算替代路径。删除不成立：无描边卡片是真实形态。Card 是 .surface(.content) 的薄封装，处置须与 View.surface#bordered 同轮，归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "Skeleton.init#isLoading",
+    "reason": "PRD 点名的已知违规实例。公约 3.2 的反例原文点名它：变成子视图槽是错的，它控制的是组件自身处于哪个状态。删除不成立——组件不知道在不在加载就不知道渲染占位还是内容。正确形态按 3.4 走环境值或收成加载状态类型，改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "Carousel.init#autoAdvance",
+    "reason": "PRD 点名的已知违规实例。是否自动轮播是**行为**，按公约第 2 节边界条款不得进样式协议。删除不成立：自动与手动轮播都是真实用法。正确形态是把它与轮播间隔合并成一个取值域（如 autoAdvance: Duration?，nil 表示不自动），满足 3.1 的被压扁取值域判据，改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "StepItem.init#isError",
+    "reason": "描述该步骤是不是错误态，Steps 据此固定走 StatusColors 的 danger 映射。⚠️ 这一条不在 PRD 的十条清单里，由扫描器实测补入。删除不成立——错误态是数据模型的一部分，不是外观旋钮。正确形态是复用本仓已有的 StatusLevel 枚举（真实的多 case 取值域，满足头号反例判据），改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "Tag.init#removable",
+    "reason": "PRD 点名的已知违规实例。公约附录 A.2 续已给出处置：Bool + 配套闭包，按 3.2 走尾随 @ViewBuilder 槽，一并消除 Tag.init(onRemove:) 文档记录的自相矛盾状态（onRemove == nil 时按钮仍可见但 .disabled(true)）。删除不成立——可移除 chip 是真实用法。改造归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "Badge.init#outlined",
+    "reason": "PRD 点名的已知违规实例。公约 3.1 的反例原文点名它：换成 borderWidth: CGFloat 是错的，描边与否是外观变体，该走第 2 节的样式而不是换个参数类型。删除不成立：描边 badge 是真实形态。改造须先给 Badge 定样式扩展点，归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "ButtonRoleStyleRole.resolvedColor#isEnabled",
+    "reason": "向 role 枚举询问「在这个启用/按压组合下该用哪个颜色」，是状态描述而非配置开关，属公约第 3 节例外条款覆盖的形态（调用方是各 ButtonStyle 的 makeBody，它从 @Environment(\\.isEnabled) 读到状态再转述给 role）。删除不成立——不知道状态就算不出颜色。永久豁免，不归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "ButtonRoleStyleRole.resolvedColor#isPressed",
+    "reason": "与同函数的 isEnabled 同型：向 role 枚举转述 ButtonStyleConfiguration.isPressed，是状态描述而非配置开关，属公约第 3 节例外条款覆盖的形态。删除不成立——不知道按压态就算不出按压色。永久豁免，不归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "SegmentedControlStyleConfiguration.Segment.init#isSelected",
+    "reason": "公约第 3 节例外条款**逐字点名**的样本：描述这个 segment 现在是不是选中态，供 style 实现者画出选中/未选中的外观差异。第 2 节要求的形态 A/B 结构性地必然产生这类 Bool。四条替代路径对它全部无意义，终局条款 (b) 的删除路径已被公约显式否决。永久豁免，不归 #41。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-08-13"
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "maxEntries": 34,
+  "sourceSites": 38,
+  "raisedBy": "wxlpp",
+  "raisedOn": "2026-08-13",
+  "rationale": "#39 建立初始豁免基线：J-1 扫描器实测到 35 个 public Bool 参数豁免键（对应 38 处源码位置，键碰撞由 sourceSites 单独钉住），其中 View.surface#bordered 按公约附录 A.3 与 39.md 的 AC 刻意不豁免（处置留给 #41），其余 34 个逐条走公约第 3 节终局条款（先试 (b) 删除、不成立才用 (a)）后记入清单。此后每次抬高 maxEntries 或 sourceSites 都要在这里追加一次署名、日期与理由——但这只保证变化在 diff 里可见：sourceSites 未纳入 maxEntries 那套跨历史破例流程（scripts/bool-exemptions-ratchet.sh 只读 maxEntries，不读 sourceSites），跨历史闸移交 #41/#43。本文件的 git log 是 maxEntries 变更的完整台账，不是「豁免面被放宽」的完整台账：pendingViolationKeys 通道与 sourceSites 之外的键碰撞仍是已知残余，见 docs/component-contract.md 与 BoolExemptionGuard.swift 的 Baseline 文档。"
+}
