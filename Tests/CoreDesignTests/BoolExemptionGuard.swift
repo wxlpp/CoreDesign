@@ -14,10 +14,10 @@ import Testing
 // （见 `ComponentRegistryGuard.knownOffScannerComponents` 的文档注释）。
 //
 // ⚠️ **豁免基线设计为两份文件**（`39-plan.md` 选型 2）：`docs/bool-exemptions.json` 是清单
-// 本身，本 Task（4）已消费它；`docs/bool-exemptions-baseline.json` 只记一个上限，
-// **随 Task 5 落地**——本文件此刻还读不到它，`baselineURL` 这个静态量是为 Task 5 预留的
-// 座位，先声明、后使用。一份文件时「改清单」与「改基线」是**同一个动作**，棘轮的唯一
-// 实现只能是「diff `main` 的历史版本」，而本仓 CI 是 `actions/checkout@v4` 默认
+// 本身，Task 4 已消费它；`docs/bool-exemptions-baseline.json` 只记一个上限，
+// 已随 Task 5 落地——`baselineRatchetHoldsExactly` 判据读取它并与清单条目数严格相等比对。
+// 一份文件时「改清单」与「改基线」是**同一个动作**，棘轮的唯一实现只能是
+// 「diff `main` 的历史版本」，而本仓 CI 是 `actions/checkout@v4` 默认
 // `fetch-depth: 1`（历史里没有 `main`），且五个 CoreDesign 任务集成在
 // `epic/component-contract`、`main` 上在 #42 之前根本没有这个文件
 // ⇒ 那条路要么永久红、要么退化成「文件读不到 ⇒ 绿」。详见 `39-plan.md`。
@@ -137,6 +137,30 @@ struct BoolExemptionGuard {
 
     static func loadExemptions() throws -> [Exemption] {
         try JSONDecoder().decode([Exemption].self, from: Data(contentsOf: Self.exemptionsURL))
+    }
+
+    // MARK: - 棘轮基线 schema（Task 5）
+
+    /// 棘轮上限。**独立成一份文件**是 #39 的选型裁决（`39-plan.md` 选型 2）：
+    ///
+    /// 一份文件时，「改清单」与「抬高上限」是**同一个动作**，棘轮的唯一可能实现只剩
+    /// 「diff `main` 的历史版本」，而 (1) 本仓 CI 用 `actions/checkout@v4` 默认
+    /// `fetch-depth: 1`，历史里没有 `main`；(2) 五个 CoreDesign 任务集成在
+    /// `epic/component-contract`，`main` 上在 #42 之前根本没有豁免文件 ⇒ 那条路要么
+    /// 永久红、要么退化成「文件读不到 ⇒ 零条目 ⇒ 绿」；(3) 就算 git 可用，清单文件
+    /// 会因改措辞、补日期而频繁变动，「上限被抬高」这个**破例动作**混在里面读不出来。
+    ///
+    /// ⇒ 按规则真正关心的轴切开：**内容**（常改、无害）vs **容量**（罕改、必须署名）。
+    /// `git log -p docs/bool-exemptions-baseline.json` 就是完整台账，一条不多一条不少。
+    struct Baseline: Codable {
+        let maxEntries: Int?
+        let raisedBy: String?
+        let raisedOn: String?
+        let rationale: String?
+    }
+
+    static func loadBaseline() throws -> Baseline {
+        try JSONDecoder().decode(Baseline.self, from: Data(contentsOf: Self.baselineURL))
     }
 
     // MARK: - Task 2 的判据
@@ -347,5 +371,48 @@ struct BoolExemptionGuard {
         本条断言的存在就是为了不让这个待办被忘掉：它不会自己保鲜，所以由判据保鲜。
         """
         #expect(disappeared.isEmpty, "\(disappearedMessage)")
+    }
+
+    @Test("棘轮：豁免清单条目数与基线 maxEntries 严格相等，且基线自身四字段齐全")
+    func baselineRatchetHoldsExactly() throws {
+        // ⚠️ **非空断言先行**：基线文件读不到 ⇒ 无从比对 ⇒ 静默变绿。
+        #expect(
+            FileManager.default.fileExists(atPath: Self.baselineURL.path),
+            "棘轮基线不存在：\(Self.baselineURL.path) —— 判据无法工作，这不是「上限没被抬高」"
+        )
+        let baseline = try Self.loadBaseline()
+
+        guard let maxEntries = baseline.maxEntries else {
+            Issue.record("棘轮基线缺 maxEntries 字段"); return
+        }
+        #expect(maxEntries > 0, "maxEntries=\(maxEntries) —— 零上限不是「很严」，是判据没配置")
+        for (name, value) in [("raisedBy", baseline.raisedBy), ("raisedOn", baseline.raisedOn),
+                              ("rationale", baseline.rationale)] {
+            guard let value, !value.trimmingCharacters(in: .whitespaces).isEmpty else {
+                Issue.record("棘轮基线缺 \(name) 字段 —— 抬高上限是破例动作，必须留下署名、日期与理由")
+                continue
+            }
+            for banned in Self.bannedReasonPhrases where value.contains(banned) {
+                Issue.record("棘轮基线的 \(name) 里是占位词「\(banned)」")
+            }
+        }
+        #expect(baseline.raisedOn?.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil,
+                "棘轮基线 raisedOn=\(baseline.raisedOn ?? "<缺失>") 不是 YYYY-MM-DD")
+        #expect((baseline.rationale?.count ?? 0) >= 40,
+                "棘轮基线 rationale 只有 \(baseline.rationale?.count ?? 0) 字符，像占位")
+
+        let count = try Self.loadExemptions().count
+        #expect(count <= maxEntries, """
+        棘轮：豁免清单 \(count) 条 > 上限 \(maxEntries)。
+        扩张豁免面是**破例**——要新增豁免，必须**同轮**抬高 docs/bool-exemptions-baseline.json
+        的 maxEntries，并更新 raisedBy / raisedOn / rationale（理由要写清这条新豁免
+        为什么过不了公约第 3 节终局条款 (b)「论证它本不该存在、走删除」）。
+        """)
+        #expect(count >= maxEntries, """
+        棘轮 slack：豁免清单 \(count) 条 < 上限 \(maxEntries)，中间空出了 \(maxEntries - count) 个额度。
+        缩小清单后**必须同轮把 maxEntries 降到新值**——留着 slack 等于给未来的新增
+        留了一个**免审白名单额度**（那正是 `<=` 版本判据的真实漏洞，本条等式专门堵它）。
+        棘轮的「只许缩」靠的就是这条把已释放的额度立刻收回来。
+        """)
     }
 }
