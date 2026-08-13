@@ -152,21 +152,36 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 ///   （`` `Bool` ``，评审第 4 轮 Important-2）✓、**注释**（本条，行终止符集合
 ///   `{'\n', '\r'}`——Swift 词法把 lone `\r` 也当换行，见 `stripComments`）✓。
 ///
-///   ⚠️ **4 组已知残余**（评审第 5 轮实测：均 `swiftc -typecheck` 合法、`hasError == false`、
-///   调用点与 `f(flag: true)` 逐字相同，却落 `.boolCarrying` ⇒ 免豁免逃逸。**本仓当前
-///   全部零命中**，不影响 `keys=35`）：
+///   ⚠️ **4 组已知残余，Task 2 已修**（评审第 5 轮实测：均 `swiftc -typecheck` 合法、
+///   `hasError == false`、调用点与 `f(flag: true)` 逐字相同，曾落 `.boolCarrying` ⇒
+///   免豁免逃逸。**本仓当前全部零命中，修复未改变 `keys=35`**——见 Task 2 report 的
+///   实测输出）：
 ///   1. **组合糖**：`@autoclosure () -> Bool?` / `@autoclosure () -> Optional<Bool>` /
 ///      `@autoclosure () -> (Bool)?` —— 裁决 (b″) 与 `Bool?` 裁决**各自成立、组合漏了**；
-///      autoclosure 返回位只剥括号后精确比较，没有递归分类。
-///   2. **specifier 无空格**：`consuming(Bool)` / `borrowing(Bool)` —— 匹配强制要求
-///      specifier 后随空格。（`inout(Bool)` 方向碰巧正确，但那是「恰好」。）
-///   3. **attribute 无空格**：`@autoclosure() -> Bool` —— attribute 名只认空白终止，
-///      切出 `"@autoclosure()"` ≠ `"@autoclosure"`。
-///   4. **标点周围空白**：`Swift . Bool` / `Optional <Bool>` —— `normalizeWhitespace`
-///      只收敛空白**串**、不消除 `.` 与 `<` 周围的空白；「空白 ✓」只对**折叠**成立、
-///      对**位置**不成立。
-///   ⇒ **移交 Task 2 作为落 J-1 判据前的前置修复**（评审已验证：4 组形态本仓零命中，
-///   修复不触碰 Task 2 要冻结的 35/34/34 计数与豁免清单语义）。
+///      修法：autoclosure 返回位改成**递归调用** `classifyBoolParameterType` 自身，
+///      不再对返回位单独手写「剥括号后精确比较」。
+///   2. **specifier 无空格**：`consuming(Bool)` / `borrowing(Bool)` —— 原匹配强制要求
+///      specifier 后随空格；修法：specifier 后随空格**或** `(` 均可剥离（用「下一字符
+///      非标识符延续字符」防误撞真实标识符前缀）。
+///   3. **attribute 无空格**：`@autoclosure() -> Bool` —— 原实现按空白终止切出
+///      `"@autoclosure()"` ≠ `"@autoclosure"`；修法：识别出粘连的空 `()` 属于后面
+///      函数类型的参数表（不是 attribute 实参），只消费 attribute 名本身，把 `()`
+///      留给 `sawAutoclosure` 分支按 `"() -> Bool"` 认。
+///   4. **标点周围空白**：`Swift . Bool` / `Optional <Bool>` —— 原 `normalizeWhitespace`
+///      只收敛空白**串**、不消除 `.` 与 `<`/`>` 周围的空白；修法：折叠后再收紧这三个
+///      标点两侧的空白，因为在函数顶部执行、每次递归调用都会重跑，泛型实参位的复现
+///      形态（`Optional<Swift . Bool>`）随之一并覆盖，不需要单独处理。
+///
+///   另外**折入**（不算独立残余组，是 Task 2 补的一族别名）：`Swift.CBool`
+///   （stdlib `typealias CBool = Bool`，与 `Bool`/`Swift.Bool` 同属一个类型的不同拼法）
+///   现与 `Bool`/`Swift.Bool` 一起精确比较判 `.plainBool`。`ObjCBool` / `DarwinBoolean`
+///   是独立的 `ExpressibleByBooleanLiteral` 类型（不是 `Bool` 的别名），并入需要新裁决，
+///   **只在 `PublicBoolParamCollector` 类文档的「已知盲区」留痕，未做机器拦截**
+///   （本仓零使用）。
+///
+///   ⚠️ **修复之后仍然不宣称穷尽**——上面 4 组是「已撞见并修复」，不是「所有残余的
+///   完整清单」；下一组残余大概率还是靠撞见，不是靠推导发现。**这条本身就是三轮反例
+///   教训的应用**，不要因为这一轮修完了就把措辞改回「穷尽」。
 ///
 ///   ⚠️ **为什么撤回「穷尽」这个措辞**：本分类器在 `trimmedDescription` **摊平后的字符串**
 ///   上**重造词法/语法分析**，而「token × trivia 的摆放位置」是**乘积**级自由度——只能
@@ -241,8 +256,19 @@ nonisolated private func stripComments(_ t: String) -> String {
 /// 做局部 trim（例如剥外层括号那一步），注释剥离后若残留内嵌换行会让那些 trim 漏剥，
 /// 逐字比较假阴性。
 nonisolated private func normalizeWhitespace(_ t: String) -> String {
-    t.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+    let collapsed = t.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
         .trimmingCharacters(in: .whitespacesAndNewlines)
+    // ⚠️ **Task 2 前置修复：残余组 4（标点周围空白）**——上面的折叠只收敛空白**串**，
+    // 不消除空白**位置**：`Swift . Bool` 折叠后仍是 `"Swift . Bool"`，逐字不等于
+    // `"Swift.Bool"`；`Optional <Bool>` 同理不等于 `Optional<Bool>` 前缀。两者调用点
+    // 都与 `f(flag: true)` 逐字相同 ⇒ 免豁免逃逸。这里额外收紧 `.` / `<` / `>` 两侧的
+    // 空白（不含 `,`——逗号两侧空白不影响元组 vs. 非元组的判定，不需要动）。
+    // ⇒ 因为本函数在 `classifyBoolParameterType` 顶部对**每次递归调用**都会重新执行，
+    // `Optional<Swift . Bool>` 这类泛型实参位的复现形态在递归时被同一次修复覆盖，
+    // 不需要在 `optionalGenericArgument` 那一层单独处理。
+    return collapsed.replacingOccurrences(
+        of: #"\s*([.<>])\s*"#, with: "$1", options: .regularExpression
+    )
 }
 
 nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
@@ -262,10 +288,18 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
     var sawAutoclosure = false
     while true {
         var stripped = false
+        // ⚠️ **Task 2 前置修复：残余组 2（specifier 后无空格）**——`consuming(Bool)` /
+        // `borrowing(Bool)` 合法，调用点与 `f(flag: true)` 逐字相同，原先的匹配强制
+        // 要求 specifier 后随一个空格（`hasPrefix(specifier + " ")`），把这条路漏掉了。
+        // 改成：specifier 后随空格**或**直接随 `(`（不消费 `(`，留给下面第 2 步的
+        // 「多余外层括号」剥离），且用「下一个字符不是标识符延续字符」防住
+        // `consumingFlag` 这类真正的标识符被误当 specifier 前缀撞上。
         for specifier in ["inout", "borrowing", "consuming", "sending", "__owned", "__shared"]
-        where t.hasPrefix(specifier + " ") {
+        where t.hasPrefix(specifier) {
+            let rest = t.dropFirst(specifier.count)
+            guard let next = rest.first, next == " " || next == "(" else { continue }
             if specifier == "inout" { sawInout = true }
-            t = String(t.dropFirst(specifier.count + 1)).trimmingCharacters(in: .whitespaces)
+            t = String(rest).trimmingCharacters(in: .whitespaces)
             stripped = true
             break
         }
@@ -273,8 +307,24 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
         // 一个 attribute 到第一个空白为止（`@convention(c)` 括号里没有空白，安全）。
         if !stripped, t.hasPrefix("@") {
             let attribute = String(t.prefix(while: { !$0.isWhitespace }))
-            if attribute == "@autoclosure" { sawAutoclosure = true }
-            t = String(t.dropFirst(attribute.count)).trimmingCharacters(in: .whitespaces)
+            // ⚠️ **Task 2 前置修复：残余组 3（attribute 后无空格）**——
+            // `@autoclosure() -> Bool` 里 `@autoclosure` 与返回箭头之间没有空白，
+            // `prefix(while:)` 会把紧跟着的 `()` 一起切进来，切出 `"@autoclosure()"`
+            // ≠ `"@autoclosure"`，`sawAutoclosure` 判不出来。**这对 `()` 不是 attribute
+            // 实参**（`@autoclosure` 不接受参数）——它是后面函数类型 `() -> Bool` 的
+            // 空参数表，只是恰好没有空格分隔，被 `prefix(while:)` 误粘住了。
+            // 修法：识别出这种粘连后，**只消费 attribute 名本身**（`"@autoclosure"`），
+            // 把 `()` 原样留在 `t` 里交给下面的 `sawAutoclosure` 分支按
+            // `"() -> Bool"` 的形态去认，而不是把它当 attribute 的一部分吞掉丢弃。
+            // 普通写法（`@autoclosure ` 后随空格）不受影响：此时 `attribute` 本就不含
+            // 粘连的 `()`，两条分支消费的长度相同。
+            let attributeName = attribute.hasSuffix("()") ? String(attribute.dropLast(2)) : attribute
+            if attributeName == "@autoclosure" {
+                sawAutoclosure = true
+                t = String(t.dropFirst(attributeName.count)).trimmingCharacters(in: .whitespaces)
+            } else {
+                t = String(t.dropFirst(attribute.count)).trimmingCharacters(in: .whitespaces)
+            }
             stripped = true   // `t` 严格变短 ⇒ 循环必然终止
         }
         if !stripped { break }
@@ -291,13 +341,18 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
         // ⚠️ **返回位同样要剥括号**（Task 1 评审第 2 轮 Important-B）：
         // `@autoclosure () -> (Bool)` 去空白后是 `"()->(Bool)"`，逐字不等于 `"()->Bool"`
         // ——不剥的话又是一条免豁免逃逸，与裁决 (b‴) 判 `(Bool)` 命中的理由完全同源。
+        //
+        // ⚠️ **Task 2 前置修复：残余组 1（组合糖）**——`@autoclosure () -> Bool?` /
+        // `@autoclosure () -> Optional<Bool>` / `@autoclosure () -> (Bool)?` 原先只
+        // 精确比较 `returnType == "Bool"`，裁决 (b″) 与 `Bool?` 裁决各自成立、组合漏了。
+        // 修法：返回位改成**递归调用 `classifyBoolParameterType` 自身**，而不是继续
+        // 手写「剥括号再精确比较」——返回位本质上就是一个普通的类型文本，`Bool?` /
+        // `Optional<Bool>` / `(Bool)?` 这些形态在顶层已经被递归分类覆盖，不需要在这里
+        // 重新枚举一遍。
         let normalized = t.replacingOccurrences(of: " ", with: "")
         if normalized.hasPrefix("()->") {
-            var returnType = String(normalized.dropFirst(4))
-            while isRedundantOuterParen(returnType) {
-                returnType = String(returnType.dropFirst().dropLast())
-            }
-            if returnType == "Bool" || returnType == "Swift.Bool" { return .plainBool }
+            let returnType = String(normalized.dropFirst(4))
+            if classifyBoolParameterType(returnType) == .plainBool { return .plainBool }
         }
     }
 
@@ -319,7 +374,16 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
         }
         if !stripped { break }
     }
-    if t == "Bool" || t == "Swift.Bool" { return .plainBool }
+    // ⚠️ **Task 2 前置修复：跨模块 Bool 别名族——`Swift.CBool`**（`typealias CBool = Bool`
+    // 是 stdlib 自带的别名，`flag: CBool` + 调用点 `f(flag: true)` 零成本，而裁决 (f) 的
+    // 空断言（`publicBoolTypeAliases`）只清点**本仓声明**的 alias，管不到 stdlib 里已经
+    // 定义好的这一个）。`CBool` 就是 `Bool` 本身（不是包一层的独立名义类型），并进这里的
+    // 精确拼法等价类，不需要单独的裁决分支。
+    // ⚠️ **`ObjCBool` / `DarwinBoolean` 不在此列**——它们是 `ExpressibleByBooleanLiteral`
+    // 的独立类型（不是 `Bool` 的别名），调用点同样能写 `true`，但把它们并入 `.plainBool`
+    // 需要新的裁决（它们不是「同一个类型的另一种拼法」）。本仓当前零使用，先留痕在这里，
+    // 不做机器拦截——与 `PublicBoolParamCollector` 类文档「已知盲区」的其余条目同族。
+    if t == "Bool" || t == "Swift.Bool" || t == "CBool" || t == "Swift.CBool" { return .plainBool }
     // ⚠️ **`Optional<T>` 结构化递归分类，不是枚举穷尽拼法**（Task 1 评审第 2 轮
     // Important-B）：真实形态空间是「`Optional`/`Swift.Optional` × `Bool`/`Swift.Bool`
     // × 括号 × 空白」的乘积——`Optional<(Bool)>`、`Optional< Bool >` 都曾滑过旧的
@@ -527,6 +591,14 @@ private func collectBoolParams(tree: SourceFileSyntax, fileName: String) -> Bool
 ///   不是独立的机器拦截缺口：本仓侧 conformer 仍要写出具体的 `public init(flag: Bool)`
 ///   才能满足 requirement，那条会被正常采到；这里只留痕，与 `typealias`（裁决 (f)）
 ///   条目呼应，不单独扩展扫描器。
+/// - **`ObjCBool` / `DarwinBoolean` 未折入 `.plainBool`**（Task 2 前置修复留痕）：
+///   两者都是 `ExpressibleByBooleanLiteral` 的独立具名类型（不是 `Bool` 的别名），
+///   `flag: ObjCBool` + 调用点 `f(flag: true)` 一样零成本编译，但把它们并入
+///   `.plainBool` 是与 `Swift.CBool`（本仓已折入，见 `classifyBoolParameterType` 里
+///   `"CBool"` / `"Swift.CBool"` 那两个精确比较分支）不同性质的裁决——`CBool` 与 `Bool`
+///   是**同一个类型**的不同拼法，`ObjCBool`/`DarwinBoolean` 是**不同类型**只是字面量可转换。
+///   本仓当前两者均零使用，先留痕不做机器拦截；若后续出现真实用例，需要单独裁决是否
+///   以及如何把这类「非别名但可转换」的类型并入判据。
 private nonisolated final class PublicBoolParamCollector: SyntaxVisitor {
     var hits: [BoolParamHit] = []
     var carrying: [BoolParamHit] = []
