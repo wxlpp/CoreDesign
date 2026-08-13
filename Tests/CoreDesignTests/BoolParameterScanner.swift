@@ -48,10 +48,18 @@ import Testing
 /// `((Bool))`），不包括嵌在 `Optional<...>` 泛型实参位里的括号——`Optional<(Bool)>`
 /// 的最外层是 `Optional<...>` 这层泛型，不是括号，`isRedundantOuterParen` 从不会碰到
 /// 里面那对 `(Bool)`。真正堵住它的是 `classifyBoolParameterType` 剥掉 `Optional<...>`
-/// 外壳后对泛型实参**递归调用自身**——递归天然覆盖了实参位的任意括号 / 空白 / specifier
-/// 组合，不必再对「`Optional` × 括号 × 空白」的乘积逐条枚举拼法。`@autoclosure () -> (Bool)`
-/// 同理：返回位的括号在归一化后单独剥（见 `classifyBoolParameterType` 里 `sawAutoclosure`
-/// 分支），不依赖这里的「最外层」剥离。
+/// 外壳后对泛型实参**递归调用自身**——递归覆盖了实参位的**括号嵌套**（`Optional<(Bool)>`
+/// / `Optional<((Bool))>`），不必对「`Optional` × 括号」逐条枚举拼法。
+/// ⚠️ **但递归不等于「任意组合都盖到」**（Task 1 评审收口 spot-check）：递归调用的是
+/// **同一个** `classifyBoolParameterType`，所以它的已知残余会**在实参位原样复现**——
+/// 最典型的是残余组 4（标点周围空白）：`Optional<Swift . Bool>` 的实参 `Swift . Bool`
+/// 在递归里同样过不了 `normalizeWhitespace`（只折叠空白**串**、不消空白**位置**），
+/// 返回 `.boolCarrying` ⇒ 外层的 `== .plainBool` 检查不成立 ⇒ 整体落兜底，
+/// **同款免豁免逃逸**。⇒ 此处只宣称**括号轴**为真（有测试见证）；空白轴受残余组 4
+/// 同款限制、随它一并移交 Task 2；specifier 在泛型实参位不合法，无关。
+/// （四组残余的完整清单见 `stripComments` 上方的三通道文档。）
+/// `@autoclosure () -> (Bool)` 同理：返回位的括号在归一化后单独剥（见
+/// `classifyBoolParameterType` 里 `sawAutoclosure` 分支），不依赖这里的「最外层」剥离。
 ///
 /// ⚠️ **类型文本内的注释同样是免豁免逃逸**（裁决 (b‴‴‴)，Task 1 评审第 3 轮 Important-1）：
 /// `(Bool/*x*/)` / `Optional<Bool/*x*/>` 的调用点与 `f(flag: true)` 逐字相同，改写成本
