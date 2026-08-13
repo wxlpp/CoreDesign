@@ -89,6 +89,33 @@ struct BoolExemptionGuard {
         "SegmentedControlStyleConfiguration.Segment.init#isSelected",
     ]
 
+    // MARK: - 豁免清单 schema（J-4 的豁免基线部分）
+
+    /// ⚠️ **四个字段全部声明为可选，是刻意的**：若写成非可选，缺字段会让
+    /// `JSONDecoder` 直接 throw，测试以「解码失败」这种笼统形态红掉，报不出
+    /// **是哪一条的哪个字段**缺了；AC 要求的是「缺一即红」并指出缺在哪。
+    /// ⇒ 解码时全收可选，由下面的判据逐字段断言。
+    struct Exemption: Codable {
+        let parameter: String?
+        let reason: String?
+        let decidedBy: String?      // 裁决人（与登记表 Entry.decidedBy 同名不同义，见文件头）
+        let decidedOn: String?      // ISO 日期 YYYY-MM-DD
+    }
+
+    /// 空话拦截词表（AC：理由为空或仅含「历史遗留」「TODO」这类占位词 → 红）。
+    ///
+    /// ⚠️ **是「占位符」不是「占位」**：本仓的 `Skeleton` 就是**骨架屏占位**组件，
+    /// 它那条豁免的理由里「渲染占位还是内容」是**领域词**不是空话
+    /// ——词表写成「占位」会把一条写得很具体的理由误杀。写 plan 时实测撞上过一次，
+    /// 收窄到「占位符」。空理由本身由 `reason.count >= 40` 与「必须含『删除』」两条拦。
+    static let bannedReasonPhrases: [String] = [
+        "历史遗留", "TODO", "TBD", "FIXME", "fixme", "待定", "占位符", "暂无", "见上", "同上",
+    ]
+
+    static func loadExemptions() throws -> [Exemption] {
+        try JSONDecoder().decode([Exemption].self, from: Data(contentsOf: Self.exemptionsURL))
+    }
+
     // MARK: - Task 2 的判据
 
     @Test("扫描器真的扫到了 public Bool 参数，且覆盖公约点名的每一条")
@@ -143,5 +170,68 @@ struct BoolExemptionGuard {
         for name in scan.publicBoolProperties.sorted() { print("  \(name)") }
         print("【裁决 (f) 含 Bool 的 public typealias，必须为 0】\(scan.publicBoolTypeAliases.count) 处：")
         for name in scan.publicBoolTypeAliases.sorted() { print("  \(name)") }
+    }
+
+    @Test("J-4：豁免基线存在、可解析、每条四字段齐全且理由不是空话")
+    func exemptionBaselineIsWellFormed() throws {
+        // ⚠️ **非空断言先行**：文件读不到 ⇒ 零条目 ⇒ 下面每条 for 循环都空转 ⇒ 静默变绿。
+        #expect(
+            FileManager.default.fileExists(atPath: Self.exemptionsURL.path),
+            "豁免基线不存在：\(Self.exemptionsURL.path) —— 判据无法工作，这不是「零豁免」"
+        )
+        let entries = try Self.loadExemptions()
+        #expect(entries.count >= 12,
+                "豁免清单只有 \(entries.count) 条 —— AC 要求至少覆盖 PRD 的 10 条 + 两个 glass，疑似没读到或是空壳")
+
+        var seen: Set<String> = []
+        for (index, entry) in entries.enumerated() {
+            let label = "第 \(index + 1) 条（parameter=\(entry.parameter ?? "<缺失>")）"
+
+            guard let parameter = entry.parameter, !parameter.trimmingCharacters(in: .whitespaces).isEmpty else {
+                Issue.record("\(label)：缺 parameter 字段")
+                continue
+            }
+            // ⚠️ 重名会让下面的差集判据静默吞掉一条（Set 不看基数），单独拦。
+            #expect(seen.insert(parameter).inserted, "\(label)：parameter 重复出现")
+
+            guard let reason = entry.reason, !reason.trimmingCharacters(in: .whitespaces).isEmpty else {
+                Issue.record("\(label)：缺 reason 字段"); continue
+            }
+            guard let decidedBy = entry.decidedBy, !decidedBy.trimmingCharacters(in: .whitespaces).isEmpty else {
+                Issue.record("\(label)：缺 decidedBy（裁决人）字段"); continue
+            }
+            guard let decidedOn = entry.decidedOn, !decidedOn.trimmingCharacters(in: .whitespaces).isEmpty else {
+                Issue.record("\(label)：缺 decidedOn（日期）字段"); continue
+            }
+
+            #expect(reason.count >= 40, "\(label)：理由只有 \(reason.count) 字符，像占位")
+            for banned in Self.bannedReasonPhrases where reason.contains(banned) {
+                Issue.record("\(label)：理由含空话占位词「\(banned)」")
+            }
+            // ⚠️ 公约第 3 节终局条款 (a) 原文：「理由里**必须包含「为什么删不掉」**，
+            // 而不只是「为什么四条都不适用」」。⇒ 每条理由必须正面处理删除这条出口。
+            #expect(reason.contains("删除"),
+                    "\(label)：理由没提「删除」——公约终局条款是**有序**的，先试 (b) 删除、(b) 不成立才用 (a) 记入豁免，理由必须写清为什么删不掉")
+
+            #expect(decidedOn.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil,
+                    "\(label)：decidedOn=\(decidedOn) 不是 YYYY-MM-DD")
+            for banned in Self.bannedReasonPhrases where decidedBy.contains(banned) {
+                Issue.record("\(label)：裁决人字段里是占位词「\(banned)」，不是一个人")
+            }
+        }
+    }
+
+    @Test("豁免清单的每个键都是扫描器能产出的形状")
+    func exemptionKeysAreScannerShaped() throws {
+        let entries = try Self.loadExemptions()
+        #expect(!entries.isEmpty, "豁免清单为空 —— 非空断言，见 exemptionBaselineIsWellFormed")
+        for entry in entries {
+            guard let parameter = entry.parameter else { continue }
+            // ⚠️ 键的形状是 `Owner.decl#param`，由扫描器产出、不是人自由发挥的文本。
+            // 形状检查挡的是「手写豁免时把 PRD 的 `Badge(outlined:)` 原样抄进来」这种，
+            // 那样它永远匹配不上、只会以「过期条目」的面目红掉，诊断绕远路。
+            #expect(parameter.contains("#") && parameter.contains("."),
+                    "豁免键「\(parameter)」不是 `Owner.decl#param` 形状")
+        }
     }
 }
