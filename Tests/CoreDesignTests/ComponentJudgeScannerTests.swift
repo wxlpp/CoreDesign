@@ -69,6 +69,17 @@ struct ComponentJudgeScannerTests {
             stripSomeOrAnyPrefix("someCustomType") == nil,
             "剥离函数本身也必须对无空格的 some 前缀返回 nil，不能只靠下游巧合兜底"
         )
+        // ⚠️ 上面两个负例即使实现写成 `hasPrefix("some")` 也照样绿（剥出的
+        // `CustomType` / `AnyCustomType` 本来就不在 StringProtocol 集合里）——它们钉的是
+        // 剥离函数那一层。下面这两条才是**唯一会在错误实现下变成假阳性**的输入：
+        // `hasPrefix("some")` 会把 `someStringProtocol` 剥成 `StringProtocol`、恰好撞进
+        // 集合而误判 .bareText。缺了它们，「词边界安全」这个宣称就没有承重的反例。
+        for spelling in ["someStringProtocol", "anyStringProtocol"] {
+            #expect(
+                classifyTextParameterType(spelling, stringProtocolGenerics: []) == .notText,
+                "「\(spelling)」没有空格分隔，不是 opaque/existential 写法，剥前缀就会撞进 StringProtocol 集合误判"
+            )
+        }
     }
 
     @Test("返回位是文本的函数类型判为文本（登记表把 `(Item) -> String` 记成 textParams）")
