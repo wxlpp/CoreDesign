@@ -123,7 +123,7 @@ nonisolated enum BoolParamKind: Sendable, Equatable {
 /// 判法：整个字符串必须被最外层这一对括号**完整包裹**（左边第一个 `(` 与右边最后一个
 /// `)` 是同一对，中途不提前闭合——防住 `(A) -> (B)` 这类两段式，虽然当前语法用不到），
 /// 且这对括号内部**顶层**不能有逗号（有逗号就是元组的分隔符，不是多余分组）。
-nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
+nonisolated func isRedundantOuterParen(_ t: String) -> Bool {
     guard t.hasPrefix("("), t.hasSuffix(")") else { return false }
     let chars = Array(t)
     var depth = 0
@@ -288,7 +288,13 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 /// - **不处理未闭合的 `/*`**：这种输入只能来自解析失败的源码——`scanBoolParams(root:)`
 ///   已经在 `tree.hasError` 那道检查上拦截了这种情况（见该函数文档），本函数不需要
 ///   自己再判一次；方向同样是 fail-closed，不是盲区。
-nonisolated private func stripComments(_ t: String) -> String {
+/// ⚠️ **#40 复用点**：本函数与 `normalizeWhitespace` / `isRedundantOuterParen` /
+/// `optionalGenericArgument` 由 `private` 放开为 internal，供
+/// `ComponentJudgeScanner.swift` 的 `classifyTextParameterType` 复用同一套剥离规则
+/// ——FR-4 面对的类型文本自由度与 J-1 同源，重写一份等于把这里 5 组已撞见并修复的
+/// 残余（组合糖 / specifier 无空格 / attribute 无空格 / 标点周围空白 / `_const`）
+/// 在另一个文件里从零再撞一遍。
+nonisolated func stripComments(_ t: String) -> String {
     let chars = Array(t)
     var result = ""
     result.reserveCapacity(chars.count)
@@ -332,7 +338,7 @@ nonisolated private func stripComments(_ t: String) -> String {
 /// 单个空格再首尾 trim。⚠️ 不能省略这一步：下游多处用 `.whitespaces`（**不含换行**）
 /// 做局部 trim（例如剥外层括号那一步），注释剥离后若残留内嵌换行会让那些 trim 漏剥，
 /// 逐字比较假阴性。
-nonisolated private func normalizeWhitespace(_ t: String) -> String {
+nonisolated func normalizeWhitespace(_ t: String) -> String {
     let collapsed = t.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
         .trimmingCharacters(in: .whitespacesAndNewlines)
     // ⚠️ **Task 2 前置修复：残余组 4（标点周围空白）**——上面的折叠只收敛空白**串**，
@@ -350,29 +356,28 @@ nonisolated private func normalizeWhitespace(_ t: String) -> String {
     )
 }
 
-nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
-    // ⚠️ **反引号转义标识符必须全局剥除**（Task 1 评审第 4 轮 Important-2）：
-    // `` `Bool` `` 是 `Bool` 的合法拼法（反引号只用来给标识符转义关键字冲突，不改变
-    // 标识符本身），`func f(flag: `Bool`)` 的调用点与 `f(flag: true)` 逐字相同——比
-    // 括号（裁决 (b‴)）还便宜的免豁免逃逸：`` "`Bool`" `` ≠ `"Bool"`，不剥的话滑进
-    // `\bBool\b` 兜底判成 `.boolCarrying`。类型文本里反引号只包裹标识符，全局删除
-    // 是安全的；`` Optional<`Bool`> ``、`` Swift.`Bool` `` 等组合由既有的 Optional
-    // 递归分类自然覆盖，不必单独枚举。
-    var t = normalizeWhitespace(stripComments(raw)).replacingOccurrences(of: "`", with: "")
+// MARK: - 类型文本剥离层（Task 1 抽出，#40 复用）/ Type-text stripping layer
 
-    // 1) 剥 specifier 与 attribute。两者可以交替出现（`borrowing @Sendable …`），
-    //    所以放在同一个循环里剥到剥不动为止。
-    //    `inout` 与 `@autoclosure` 各自单独裁决。
+/// 类型文本剥掉「装饰层」（注释 / 空白 / 反引号 / specifier / attribute）之后的结果。
+///
+/// ⚠️ **抽出的唯一目的是复用，不是重构口味**：`classifyBoolParameterType` 与
+/// `classifyTextParameterType`（`ComponentJudgeScanner.swift`）面对的是**同一个**
+/// 「token × trivia 摆放位置」的乘积空间；两份实现必然漂移，而本 epic 已经有 8 次以上
+/// 「加了新块、没改旧句」的实例。`sawInout` / `sawAutoclosure` 作为**结果字段**返回，
+/// 是因为两个调用方对它们的裁决不同：J-1 的 `inout Bool` 是双向通道（`.boolCarrying`），
+/// FR-4 的 `@autoclosure () -> String` 与 `(Item) -> String` 同属「文本经此进入组件」。
+struct StrippedTypeText: Equatable, Sendable {
+    let text: String
+    let sawInout: Bool
+    let sawAutoclosure: Bool
+}
+
+nonisolated func stripTypeDecorations(_ raw: String) -> StrippedTypeText {
+    var t = normalizeWhitespace(stripComments(raw)).replacingOccurrences(of: "`", with: "")
     var sawInout = false
     var sawAutoclosure = false
     while true {
         var stripped = false
-        // ⚠️ **Task 2 前置修复：残余组 2（specifier 后无空格）**——`consuming(Bool)` /
-        // `borrowing(Bool)` 合法，调用点与 `f(flag: true)` 逐字相同，原先的匹配强制
-        // 要求 specifier 后随一个空格（`hasPrefix(specifier + " ")`），把这条路漏掉了。
-        // 改成：specifier 后随空格**或**直接随 `(`（不消费 `(`，留给下面第 2 步的
-        // 「多余外层括号」剥离）——这是一个白名单（下一字符只能是这两者之一），
-        // 防住 `consumingFlag` 这类真正的标识符被误当 specifier 前缀撞上。
         for specifier in ["inout", "borrowing", "consuming", "sending", "__owned", "__shared", "_const"]
         where t.hasPrefix(specifier) {
             let rest = t.dropFirst(specifier.count)
@@ -382,45 +387,8 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
             stripped = true
             break
         }
-        // `@autoclosure` / `@escaping` / `@Sendable` / `@MainActor` / `@convention(c)` …
-        // 一个 attribute 到第一个空白为止（`@convention(c)` 括号里没有空白，安全）。
         if !stripped, t.hasPrefix("@") {
             let attribute = String(t.prefix(while: { !$0.isWhitespace }))
-            // ⚠️ **Task 2 前置修复：残余组 3（attribute 后无空格）**——
-            // `@autoclosure() -> Bool` 里 `@autoclosure` 与返回箭头之间没有空白，
-            // `prefix(while:)` 会把紧跟着的 `()` 一起切进来，切出 `"@autoclosure()"`
-            // ≠ `"@autoclosure"`，`sawAutoclosure` 判不出来。**这对 `()` 不是 attribute
-            // 实参**（`@autoclosure` 不接受参数）——它是后面函数类型 `() -> Bool` 的
-            // 空参数表，只是恰好没有空格分隔，被 `prefix(while:)` 误粘住了。
-            // 修法：识别出这种粘连后，**只消费 attribute 名本身**（`"@autoclosure"`），
-            // 把 `()` 原样留在 `t` 里交给下面的 `sawAutoclosure` 分支按
-            // `"() -> Bool"` 的形态去认，而不是把它当 attribute 的一部分吞掉丢弃。
-            // 普通写法（`@autoclosure ` 后随空格）不受影响：此时 `attribute` 本就不含
-            // 粘连的 `()`，两条分支消费的长度相同。
-            //
-            // ⚠️ **Task 2 评审第 2 轮 Important-1：粘连兄弟形态 `@autoclosure()->Bool`
-            // （箭头也无空格）比上面这条更黑**——全串无空白，`prefix(while:)` 会把
-            // **整串**都切进 `attribute`（`"@autoclosure()->Bool"`），`hasSuffix("()")`
-            // 为假（结尾是 `Bool`，不是 `()`）⇒ 走 else 分支把整串当 attribute 吞掉，
-            // `t` 被清空成 `""`，`sawAutoclosure` 从未置位，兜底 `\bBool\b` 在空串无
-            // 匹配 ⇒ 落 `.notBool`——命中、清点、留痕三层同时看不见，比这里其余残余
-            // （落 `.boolCarrying`，至少清点）更黑。
-            // 修法：新增 `hasPrefix("@autoclosure()")` 分支（**必须**带闭合括号，
-            // 不能只判 `hasPrefix("@autoclosure(")`——那样会连「(」到「)」之间**除空白
-            // 外还有其它内容**的假想输入一起吞掉（`@autoclosure` 不接受参数，语言层面
-            // 这种输入不合法，但字符串匹配不该隐式依赖这一点，下面第三条分支单独校验）。
-            //
-            // ⚠️ **Task 8 终审 Important-2：`@autoclosure( ) -> Bool`（括号内有空白）
-            // 曾被误判为「不同类，正确落 `.boolCarrying`」**——按裁决 (b″) 判命中的两条
-            // 理由（零成本改写 + 调用点仍是一个 Bool 参数）对它逐字成立，与已判
-            // `.plainBool` 的 `@autoclosure() -> Bool` 只差括号里一个空格，此前的区分
-            // 理由是纯词法的（`prefix(while:)` 在哪截停），不是裁决层面的——是「绿得
-            // 理由不对」的镜像：新块写反了旧句。`attribute` 在这种输入下恰好等于未闭合
-            // 的 `"@autoclosure("`（空白截断了 `prefix(while:)`），真正的 `)` 还在 `t`
-            // 剩余部分里——下面第三条分支往后找到它，校验中间只有空白（`@autoclosure`
-            // 不接受参数，非空白内容不是这个形态），与上面两条分支一样只消费 attribute
-            // 名本身（不含 `(`），把 `"(...)"` 原样留给下面的 `sawAutoclosure` 分支按
-            // `"()->Bool"` 的形态去认。
             let attributeName: String
             if attribute.hasSuffix("()") {
                 attributeName = String(attribute.dropLast(2))
@@ -443,38 +411,15 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
         }
         if !stripped { break }
     }
-    if sawInout {
-        // ⚠️ 裁决 (b′)：`inout Bool` 是双向状态通道，归 .boolCarrying；
-        // `inout Cache` 这类非 Bool 仍要落到下面的 .notBool。
-        return t.range(of: #"\bBool\b"#, options: .regularExpression) != nil ? .boolCarrying : .notBool
-    }
-    if sawAutoclosure {
-        // ⚠️ 裁决 (b″)：`@autoclosure () -> Bool` 的调用点与 `flag: Bool` 逐字相同
-        // ⇒ 与 `consuming Bool` 同类，判命中。空白写法不唯一，先归一化再比。
-        //
-        // ⚠️ **返回位同样要剥括号**（Task 1 评审第 2 轮 Important-B）：
-        // `@autoclosure () -> (Bool)` 去空白后是 `"()->(Bool)"`，逐字不等于 `"()->Bool"`
-        // ——不剥的话又是一条免豁免逃逸，与裁决 (b‴) 判 `(Bool)` 命中的理由完全同源。
-        //
-        // ⚠️ **Task 2 前置修复：残余组 1（组合糖）**——`@autoclosure () -> Bool?` /
-        // `@autoclosure () -> Optional<Bool>` / `@autoclosure () -> (Bool)?` 原先只
-        // 精确比较 `returnType == "Bool"`，裁决 (b″) 与 `Bool?` 裁决各自成立、组合漏了。
-        // 修法：返回位改成**递归调用 `classifyBoolParameterType` 自身**，而不是继续
-        // 手写「剥括号再精确比较」——返回位本质上就是一个普通的类型文本，`Bool?` /
-        // `Optional<Bool>` / `(Bool)?` 这些形态在顶层已经被递归分类覆盖，不需要在这里
-        // 重新枚举一遍。
-        let normalized = t.replacingOccurrences(of: " ", with: "")
-        if normalized.hasPrefix("()->") {
-            let returnType = String(normalized.dropFirst(4))
-            if classifyBoolParameterType(returnType) == .plainBool { return .plainBool }
-        }
-    }
+    return StrippedTypeText(text: t, sawInout: sawInout, sawAutoclosure: sawAutoclosure)
+}
 
-    // 2) 剥 Optional 语法糖与「多余」的外层括号，交替剥到剥不动为止
-    //    ——顺序不能固定死：`(Bool)?` 要先剥 `?` 再剥括号，`(Bool?)` 反过来，
-    //    `((Bool))` 要剥两层括号，三者都必须能剥到 `"Bool"`。裁决 (b‴)。
-    //    ⚠️ **这一步只剥最外层**——`Optional<(Bool)>` 这类泛型实参位的括号剥不到，
-    //    留给下面的 Optional 递归分类处理（Task 1 评审第 2 轮 Important-B）。
+/// 交替剥 Optional 语法糖（`?` / `!`）与「多余」的外层括号，剥到剥不动为止。
+/// ⚠️ 顺序不能固定死：`(Bool)?` 要先剥 `?` 再剥括号，`(Bool?)` 反过来，`((Bool))`
+/// 要剥两层；元组的外层括号由 `isRedundantOuterParen` 挡住，不会被误剥。
+/// ⚠️ **只剥最外层**——泛型实参位（`Optional<(Bool)>`）留给调用方的递归分类处理。
+nonisolated func stripOptionalSugarAndRedundantParens(_ raw: String) -> String {
+    var t = raw
     while true {
         var stripped = false
         while t.hasSuffix("?") || t.hasSuffix("!") {
@@ -488,6 +433,30 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
         }
         if !stripped { break }
     }
+    return t
+}
+
+nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
+    // 1) 剥 specifier 与 attribute（含注释 / 空白 / 反引号）——见 `stripTypeDecorations`。
+    let stripped = stripTypeDecorations(raw)
+    var t = stripped.text
+    if stripped.sawInout {
+        // ⚠️ 裁决 (b′)：`inout Bool` 是双向状态通道，归 .boolCarrying；
+        // `inout Cache` 这类非 Bool 仍要落到下面的 .notBool。
+        return t.range(of: #"\bBool\b"#, options: .regularExpression) != nil ? .boolCarrying : .notBool
+    }
+    if stripped.sawAutoclosure {
+        // ⚠️ 裁决 (b″)：`@autoclosure () -> Bool` 的调用点与 `flag: Bool` 逐字相同 ⇒ 判命中。
+        // 返回位递归分类，覆盖残余组 1（组合糖）。
+        let normalized = t.replacingOccurrences(of: " ", with: "")
+        if normalized.hasPrefix("()->") {
+            let returnType = String(normalized.dropFirst(4))
+            if classifyBoolParameterType(returnType) == .plainBool { return .plainBool }
+        }
+    }
+
+    // 2) 剥 Optional 语法糖与「多余」的外层括号——见 `stripOptionalSugarAndRedundantParens`。
+    t = stripOptionalSugarAndRedundantParens(t)
     // ⚠️ **Task 2 前置修复：跨模块 Bool 别名族——`Swift.CBool`**（`typealias CBool = Bool`
     // 是 stdlib 自带的别名，`flag: CBool` + 调用点 `f(flag: true)` 零成本，而裁决 (f) 的
     // 空断言（`publicBoolTypeAliases`）只清点**本仓声明**的 alias，管不到 stdlib 里已经
@@ -530,7 +499,7 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
 /// 万一某种拼法凑巧仍以 `>` 结尾，切出的实参也会包含多余的 `.Y<Z` 尾巴。**误配对时
 /// 失败方向是安全的**：切歪的实参递归分类不到 `Bool`，落 `.boolCarrying` 兜底
 /// （清点、不放行），不会把非命中误判成 `.plainBool`。
-nonisolated private func optionalGenericArgument(_ t: String) -> String? {
+nonisolated func optionalGenericArgument(_ t: String) -> String? {
     for prefix in ["Optional<", "Swift.Optional<"] where t.hasPrefix(prefix) && t.hasSuffix(">") {
         let start = t.index(t.startIndex, offsetBy: prefix.count)
         let end = t.index(before: t.endIndex)
