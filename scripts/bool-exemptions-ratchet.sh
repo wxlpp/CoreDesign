@@ -90,6 +90,26 @@ BASE_MAX=$(printf '%s' "$BASE_JSON" | read_field maxEntries)
 BASE_ON=$(printf '%s' "$BASE_JSON" | read_field raisedOn)
 BASE_WHY=$(printf '%s' "$BASE_JSON" | read_field rationale)
 
+# ⚠️ **Task 8 终审 I-4**：`read_field` 只检查 key 是否存在，不检查值的**类型**——
+#    `maxEntries` 若被写成 `null` / 字符串 / 浮点数，Python 端会把它原样 `print` 出来
+#    （`null` → `"None"`），下面 `[ -lt ]`/`[ -eq ]` 在这种非整数输入上会报
+#    `integer expression expected` 但**不会**在 `set -e` 下终止脚本（`[` 处在 `if`
+#    条件位，退出码不为 0 不会触发 `set -e`），两条比较都判假 ⇒ 直接落进「已抬高」
+#    分支、**exit 0**——这正是脚本自己在上面第 81 行写的「不 fail-open：读不到基线
+#    ≠『上限没被抬高』」原则在这里被破了一次。
+#    这里先做整数校验，非整数一律 exit 3（与 `read_field` 缺字段同码，同样不与
+#    「棘轮违规」的 1 撞码）。
+for pair in "CUR_MAX:$CUR_MAX" "BASE_MAX:$BASE_MAX"; do
+  label="${pair%%:*}"
+  value="${pair#*:}"
+  case "$value" in
+    ''|*[!0-9]*)
+      echo "❌ ${label}=${value} 不是非负整数 —— maxEntries 必须是整数，判据无法工作（这不是「上限没被抬高」）" >&2
+      exit 3
+      ;;
+  esac
+done
+
 echo "base(${BASE_REF}) maxEntries=${BASE_MAX}  →  HEAD maxEntries=${CUR_MAX}"
 
 if [ "$CUR_MAX" -lt "$BASE_MAX" ]; then

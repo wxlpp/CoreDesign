@@ -155,14 +155,23 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 /// - (i) **调用点不变的类型文本改写** —— **已覆盖并测试**的形态：括号（裁决 (b‴)）✓、
 ///   Optional 语法糖 / 名义拼法（`Optional<Bool>` / `Swift.Optional<Swift.Bool>` 等，由
 ///   裁决 (b‴‴) 的递归分类覆盖，不是逐条枚举拼法）✓、ownership specifier / attribute
-///   （裁决 (b′)/(b″)）✓、空白折叠（trim + `normalizeWhitespace`）✓、**反引号转义标识符**
+///   （裁决 (b′)/(b″)）**△（不是 ✓，见下方「specifier 白名单是开放集」，这条通道
+///   结构上不可能穷尽）**、空白折叠（trim + `normalizeWhitespace`）✓、**反引号转义标识符**
 ///   （`` `Bool` ``，评审第 4 轮 Important-2）✓、**注释**（本条，行终止符集合
 ///   `{'\n', '\r'}`——Swift 词法把 lone `\r` 也当换行，见 `stripComments`）✓。
 ///
-///   ⚠️ **4 组已知残余，Task 2 已修**（评审第 5 轮实测：均 `swiftc -typecheck` 合法、
-///   `hasError == false`、调用点与 `f(flag: true)` 逐字相同，曾落 `.boolCarrying` ⇒
-///   免豁免逃逸。**本仓当前全部零命中，修复未改变 `keys=35`**——见 Task 2 report 的
-///   实测输出）：
+///   ⚠️ **specifier 白名单是开放集，不是可以穷尽枚举的封闭表**（Task 8 终审 Important-1，
+///   第十处定义域盲区：`_const`）：`classifyBoolParameterType` 在 `trimmedDescription`
+///   摊平后的**字符串**上重造词法，而 specifier / attribute 的 token 集合是**由 Swift
+///   工具链单方面扩张的开放集**（`sending` 与 `borrowing` 本身就是 Swift 5.9/6.0 才加的；
+///   `_const` 这类下划线前缀 token 连语言演进提案都不需要）。**白名单 ⊂ 开放集 ⇒ 差集
+///   恒非空 ⇒ 只能靠撞见。**下面第 5 组是「撞见并修复的最新一个 token」，不是「补完
+///   之后这条通道就封闭了」——不要把这条修复读成「specifier 白名单现在穷尽了」。
+///
+///   ⚠️ **5 组已知残余，Task 2 + Task 8 终审已修**（评审实测：均 `swiftc -typecheck` 合法、
+///   `hasError == false`、调用点与 `f(flag: true)` 逐字相同，曾落 `.boolCarrying`（组 5
+///   之前）或 `.boolCarrying` 未判命中 ⇒ 免豁免逃逸。**本仓当前全部零命中，修复未改变
+///   `keys=35`**——见 Task 2 report 与 Task 8 终审 report 的实测输出）：
 ///   1. **组合糖**：`@autoclosure () -> Bool?` / `@autoclosure () -> Optional<Bool>` /
 ///      `@autoclosure () -> (Bool)?` —— 裁决 (b″) 与 `Bool?` 裁决**各自成立、组合漏了**；
 ///      修法：autoclosure 返回位改成**递归调用** `classifyBoolParameterType` 自身，
@@ -170,7 +179,8 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 ///   2. **specifier 无空格**：`consuming(Bool)` / `borrowing(Bool)` —— 原匹配强制要求
 ///      specifier 后随空格；修法：specifier 后随空格**或** `(` 均可剥离（下一字符只能是
 ///      这两者之一的白名单，防误撞真实标识符前缀）。
-///   3. **attribute 无空格（含粘连兄弟形态，Task 2 评审第 2 轮 Important-1 补）**：
+///   3. **attribute 无空格（含粘连兄弟形态，Task 2 评审第 2 轮 Important-1 补 +
+///      Task 8 终审 Important-2 补）**：
 ///      `@autoclosure() -> Bool` —— 原实现按空白终止切出 `"@autoclosure()"` ≠
 ///      `"@autoclosure"`；修法：识别出粘连的空 `()` 属于后面函数类型的参数表（不是
 ///      attribute 实参），只消费 attribute 名本身，把 `()` 留给 `sawAutoclosure`
@@ -179,14 +189,38 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 ///      `prefix(while:)` 切出**整串**当 attribute 吞掉，`t` 被清空、`sawAutoclosure`
 ///      未置位，落 `.notBool`——命中/清点/留痕三层同时看不见，比这里落 `.boolCarrying`
 ///      的其余残余更黑。追加修法：`hasPrefix("@autoclosure()")`（**必须**带闭合括号）
-///      单独识别这个粘连兄弟形态。**注意区分**：`@autoclosure( )->Bool`（括号内有
-///      空格）是不同类，`prefix(while:)` 会在那个空格处截停出恰好 `"@autoclosure("`，
-///      仍正确落 `.boolCarrying`（若判断少了闭合括号会把两者混为一谈，见下方代码里
-///      `hasSuffix`/`hasPrefix` 分支的注释）。
+///      单独识别这个粘连兄弟形态。
+///      ⚠️ **`@autoclosure( )->Bool`（括号内有空格）不是「不同类、正确落
+///      `.boolCarrying`」——这是 Task 8 终审 Important-2 抓到的一处裁决层错误**：
+///      按裁决 (b″) 判命中的两条理由（「零成本改写就开免豁免通道」「调用点仍是一个
+///      Bool 参数」）对它逐字成立，与已判 `.plainBool` 的 `@autoclosure() -> Bool`
+///      只差括号里一个空格，注释此前给的区分理由是纯**词法**的（`prefix(while:)`
+///      在哪截停），不是裁决层面的——是「绿得理由不对」的镜像：新块写反了旧句。
+///      修法：`(` 与下一个 `)` 之间若确实**只有空白**（不要求紧邻无空格），同样只
+///      消费 attribute 名本身、把 `"(...)"`（含内部空白）留给 `sawAutoclosure`
+///      分支去认——与 `hasPrefix("@autoclosure()")` 分支同一手法，只是改成先找到
+///      匹配的 `)` 再校验中间是否全空白，不再要求 `(` 后紧邻 `)`。**不能只写
+///      `hasPrefix("@autoclosure(")`**（少一个闭合括号）：那会把本条与
+///      `@autoclosure(x)->Bool` 这类假想的、真的带参数内容的形态（若未来出现）混为
+///      一谈，见下方代码里该分支的注释。
 ///   4. **标点周围空白**：`Swift . Bool` / `Optional <Bool>` —— 原 `normalizeWhitespace`
 ///      只收敛空白**串**、不消除 `.` 与 `<`/`>` 周围的空白；修法：折叠后再收紧这三个
 ///      标点两侧的空白，因为在函数顶部执行、每次递归调用都会重跑，泛型实参位的复现
 ///      形态（`Optional<Swift . Bool>`）随之一并覆盖，不需要单独处理。
+///   5. **specifier 白名单遗漏的下一个 token（Task 8 终审 Important-1）**：`_const Bool`
+///      ——`_const` 是与 `borrowing`/`consuming`/`sending` 同族的 ownership/compile-time
+///      specifier（Embedded Swift），原白名单 `["inout", "borrowing", "consuming",
+///      "sending", "__owned", "__shared"]` 没列到它，`public init(flag: _const Bool)`
+///      的调用点 `A(flag: true)` 逐字不变、`swiftc -typecheck` 零诊断，不剥的话滑进
+///      `\bBool\b` 兜底判成 `.boolCarrying`（清点、不判违规）⇒ 免豁免逃逸。
+///      ⚠️ **补充事实，加强而非削弱其严重性**：`_const` 会强制调用点**只能传字面量**
+///      （`A(flag: x)` 报「expect a compile-time constant literal」），把这个 API
+///      钉死成「只能写 `f(flag: true)`」——这正是公约要治的「换皮成本几乎为零」的
+///      Bool 旋钮形态，甚至比 `consuming`/`sending` 更彻底地排除了非字面量调用。
+///      修法：把 `"_const"` 并入 specifier 白名单，剥法与其余非 `inout` specifier
+///      相同（单向，剥完判 `.plainBool`）。**这条修复本身不使 specifier 通道穷尽**
+///      ——见上方「specifier 白名单是开放集」，下一个 token（无论是未来的语言提案还是
+///      又一个下划线前缀标注）大概率还是要靠撞见才会被发现，不是本条修复能预先堵死的。
 ///
 ///   另外**折入**（不算独立残余组，是 Task 2 补的一族别名）：`Swift.CBool`
 ///   （stdlib `typealias CBool = Bool`，与 `Bool`/`Swift.Bool` 同属一个类型的不同拼法）
@@ -312,7 +346,7 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
         // 改成：specifier 后随空格**或**直接随 `(`（不消费 `(`，留给下面第 2 步的
         // 「多余外层括号」剥离）——这是一个白名单（下一字符只能是这两者之一），
         // 防住 `consumingFlag` 这类真正的标识符被误当 specifier 前缀撞上。
-        for specifier in ["inout", "borrowing", "consuming", "sending", "__owned", "__shared"]
+        for specifier in ["inout", "borrowing", "consuming", "sending", "__owned", "__shared", "_const"]
         where t.hasPrefix(specifier) {
             let rest = t.dropFirst(specifier.count)
             guard let next = rest.first, next == " " || next == "(" else { continue }
@@ -345,15 +379,29 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
             // 匹配 ⇒ 落 `.notBool`——命中、清点、留痕三层同时看不见，比这里其余残余
             // （落 `.boolCarrying`，至少清点）更黑。
             // 修法：新增 `hasPrefix("@autoclosure()")` 分支（**必须**带闭合括号，
-            // 不能只判 `hasPrefix("@autoclosure(")`——`@autoclosure( )->Bool`
-            // 括号内有一个空格，此时 `prefix(while:)` 会在这个空格处截停，`attribute`
-            // 恰好等于 `"@autoclosure("`，与不带闭合括号的前缀判断重合，会把这个
-            // **不同类**、仍应落 `.boolCarrying` 的形态一并误判成 `.plainBool`；
-            // 带闭合括号的 `hasPrefix` 只在 `()` 紧邻无空格时成立，能正确把两者分开）。
+            // 不能只判 `hasPrefix("@autoclosure(")`——那样会连「(」到「)」之间**除空白
+            // 外还有其它内容**的假想输入一起吞掉（`@autoclosure` 不接受参数，语言层面
+            // 这种输入不合法，但字符串匹配不该隐式依赖这一点，下面第三条分支单独校验）。
+            //
+            // ⚠️ **Task 8 终审 Important-2：`@autoclosure( ) -> Bool`（括号内有空白）
+            // 曾被误判为「不同类，正确落 `.boolCarrying`」**——按裁决 (b″) 判命中的两条
+            // 理由（零成本改写 + 调用点仍是一个 Bool 参数）对它逐字成立，与已判
+            // `.plainBool` 的 `@autoclosure() -> Bool` 只差括号里一个空格，此前的区分
+            // 理由是纯词法的（`prefix(while:)` 在哪截停），不是裁决层面的——是「绿得
+            // 理由不对」的镜像：新块写反了旧句。`attribute` 在这种输入下恰好等于未闭合
+            // 的 `"@autoclosure("`（空白截断了 `prefix(while:)`），真正的 `)` 还在 `t`
+            // 剩余部分里——下面第三条分支往后找到它，校验中间只有空白（`@autoclosure`
+            // 不接受参数，非空白内容不是这个形态），与上面两条分支一样只消费 attribute
+            // 名本身（不含 `(`），把 `"(...)"` 原样留给下面的 `sawAutoclosure` 分支按
+            // `"()->Bool"` 的形态去认。
             let attributeName: String
             if attribute.hasSuffix("()") {
                 attributeName = String(attribute.dropLast(2))
             } else if attribute.hasPrefix("@autoclosure()") {
+                attributeName = "@autoclosure"
+            } else if attribute == "@autoclosure(",
+                let closeParen = t.dropFirst(attribute.count).firstIndex(of: ")"),
+                t.dropFirst(attribute.count)[..<closeParen].allSatisfy(\.isWhitespace) {
                 attributeName = "@autoclosure"
             } else {
                 attributeName = attribute

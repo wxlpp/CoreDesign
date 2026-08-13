@@ -275,12 +275,31 @@ struct BoolExemptionGuard {
     /// 会因改措辞、补日期而频繁变动，「上限被抬高」这个**破例动作**混在里面读不出来。
     ///
     /// ⇒ 按规则真正关心的轴切开：**内容**（常改、无害）vs **容量**（罕改、必须署名）。
-    /// `git log -p docs/bool-exemptions-baseline.json` 就是完整台账，一条不多一条不少。
+    /// `git log -p docs/bool-exemptions-baseline.json` 是 **`maxEntries` 变更**的完整
+    /// 台账，一条不多一条不少。
+    ///
+    /// ⚠️ **这不是「豁免面被放宽」的完整台账**（Task 8 终审 Important-3 收窄措辞，
+    /// 详细论证见 `docs/component-contract.md` 对应段落）：至少两条通道不经过
+    /// `maxEntries`、因此不出现在这份 git log 里——
+    /// (A) `pendingViolationKeys`（本文件里写死的集合，不占 `maxEntries`、不受棘轮
+    /// 保护，往里加一个键就是一次完整的 J-1 豁免）；
+    /// (B) 键碰撞（`BoolScanResult.keys` 是 `Set`，新增一个 public 声明只要键已在
+    /// 清单里就不增加清单条目数，`sourceSites` 之前未被断言、`hits.count` 可以漂移
+    /// 而这里的 git log 看不出来——已在 `baselineRatchetHoldsExactly` 补严格等式堵上）。
     struct Baseline: Codable {
         let maxEntries: Int?
         let raisedBy: String?
         let raisedOn: String?
         let rationale: String?
+        /// ⚠️ **Task 8 终审 I-3 通道 B 的机器闸**：`scanBoolParams` 产出的
+        /// `hits.count`（源码位置数，含同键多处声明的重复计数）此前只有
+        /// `scannerFindsPublicBoolParameters` 里的量级下界 `> 20`，真实数字 38
+        /// 只出现在 `print` 里、从未被任何等式断言钉住——新增一个 public 声明只要
+        /// 键已经在 `docs/bool-exemptions.json` 里就能全绿过关、`keys.count` 与
+        /// `maxEntries` 都不变，这条键碰撞通道因此对棘轮不可见。这里补一个与
+        /// `maxEntries` 同款的严格等式钉住 `scan.hits.count`，直接把通道关掉、
+        /// 纳入同一份台账；改这个数同样需要走本文件其余字段的破例流程。
+        let sourceSites: Int?
     }
 
     static func loadBaseline() throws -> Baseline {
@@ -497,7 +516,7 @@ struct BoolExemptionGuard {
         #expect(disappeared.isEmpty, "\(disappearedMessage)")
     }
 
-    @Test("棘轮：豁免清单条目数与基线 maxEntries 严格相等，且基线自身四字段齐全")
+    @Test("棘轮：豁免清单条目数与基线 maxEntries 严格相等、源码位置数与 sourceSites 严格相等，且基线自身字段齐全")
     func baselineRatchetHoldsExactly() throws {
         // ⚠️ **非空断言先行**：基线文件读不到 ⇒ 无从比对 ⇒ 静默变绿。
         #expect(
@@ -537,6 +556,32 @@ struct BoolExemptionGuard {
         缩小清单后**必须同轮把 maxEntries 降到新值**——留着 slack 等于给未来的新增
         留了一个**免审白名单额度**（那正是 `<=` 版本判据的真实漏洞，本条等式专门堵它）。
         棘轮的「只许缩」靠的就是这条把已释放的额度立刻收回来。
+        """)
+
+        // ⚠️ **Task 8 终审 I-3 通道 B 的机器闸**：`keys.count`（去重后的豁免键集合）
+        // 与 `maxEntries` 的等式拦不住「新增一个 public 声明，但它的键恰好已经在清单里」
+        // 这种**键碰撞**——`BoolParamHit.key` 只按 `Owner.decl#param` 聚合，两处不同的
+        // 源码位置可以共用同一个键（本仓当前真实的键碰撞：`Tag.init#removable` 2 处、
+        // `SidebarNavigationRow.init#isSelected` 2 处、`Badge.init#outlined` 2 处
+        // ——35 个键、38 处源码位置，多出的 3 正好是这三次碰撞，见
+        // `scannerFindsPublicBoolParameters` 的 print 明细）。新增一个键碰撞不会让
+        // `keys.count` 或清单条目数变化，棘轮对它不可见；
+        // 唯一会变化的量是 `hits.count`（源码位置数），而它此前只有
+        // `scannerFindsPublicBoolParameters` 里的量级下界 `> 20`、真实数字只出现在
+        // `print` 里，从未被任何等式钉住。这里补一条与 `maxEntries` 同款的严格相等，
+        // 把这条通道纳入同一份「抬高需要署名」的台账（见 `Baseline.sourceSites` 文档）。
+        guard let sourceSites = baseline.sourceSites else {
+            Issue.record("棘轮基线缺 sourceSites 字段 —— Task 8 终审补的键碰撞棘轮无法工作")
+            return
+        }
+        #expect(sourceSites > 0, "sourceSites=\(sourceSites) —— 零不是「很严」，是判据没配置")
+        let scan = try Self.boolScan()
+        #expect(scan.hits.count == sourceSites, """
+        豁免键碰撞棘轮：源码里的 Bool 参数位置数 \(scan.hits.count) ≠ 基线 sourceSites \(sourceSites)。
+        `keys.count` 与 `maxEntries` 的等式拦不住「新增一个 public 声明但它的键已在清单里」这种键碰撞
+        ——它不增加 `keys.count`，只增加 `hits.count`。若这个数变了，请核实是否出现了新的键碰撞
+        （多处源码位置共用同一个豁免键），并**同轮**更新 docs/bool-exemptions-baseline.json 的
+        sourceSites（连同 raisedBy / raisedOn / rationale，与 maxEntries 走同一套破例流程）。
         """)
     }
 

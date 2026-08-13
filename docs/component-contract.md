@@ -183,8 +183,20 @@
 **清单条目数与 `maxEntries` 严格相等**——清单增一条必须同轮抬高上限，缩一条必须同轮
 下调（**不留额度**，否则未来的新增可以免审吃掉这段 slack）。
 ⇒ 这么切的理由是：**内容**（改措辞、补日期，常改且无害）与**容量**（放宽豁免面，
-罕改且必须署名）是两根不同的轴。切开之后，「豁免面被放宽过几次」的完整台账就是
-`git log -p docs/bool-exemptions-baseline.json`，不会被清单里的无害编辑淹没。
+罕改且必须署名）是两根不同的轴。切开之后，`git log -p docs/bool-exemptions-baseline.json`
+就是 **`maxEntries` 变更**的完整台账，不会被清单里的无害编辑淹没。
+⚠️ **这不是「豁免面被放宽」的完整台账**（Task 8 终审 Important-3 收窄措辞）：
+`maxEntries` 只钉住**总量**，至少有两条不经过它、因此不出现在这份 git log 里的通道，
+两条都是**已知残余、未拦截**：
+- **通道 A（`pendingViolationKeys`）**：`BoolExemptionGuard.swift` 里写死的这个集合
+  不受本节棘轮保护、不占 `maxEntries`（见该常量文档），往里加一个键就是一次完整的
+  J-1 豁免，只需改那一个文件的一行，不经过这里描述的两文件流程。
+- **通道 B（键碰撞）**：扫描命中集 `keys` 是 `Set`，新增一个 public 声明只要键已经
+  在清单里就不增加清单条目数——`maxEntries` 与清单条目数都不会变化，这份 git log
+  同样看不出来。`hits.count`（源码位置数，含键碰撞）此前未被任何断言钉住；
+  Task 8 终审已在 `docs/bool-exemptions-baseline.json` 补 `sourceSites` 字段
+  与配套的严格等式断言堵上这条通道（见 `BoolExemptionGuard.swift` 的
+  `baselineRatchetHoldsExactly`）。
 ⚠️ 这句话说的是**豁免面**（`docs/bool-exemptions.json` + 其 `maxEntries`）本身的
 台账，不含 `pendingViolationKeys`（`BoolExemptionGuard.swift` 里写死的、按公约 A.3
 已裁决为已知违规、刻意不放进豁免清单的那个集合）——它是一条平行通道，不占

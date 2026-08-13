@@ -121,6 +121,18 @@ jobs:
     # ⚠️ 只在 PR 上跑：它要比对 **base 分支 tip** 与 HEAD 两个 revision，push 事件上没有
     # 有意义的比对对象。树内那一半（清单条目数 ≡ maxEntries）随 swift test 在每个
     # 事件上都跑，不依赖本 job。
+    #
+    # ⚠️⚠️ **这个 `if:` 是一个真实的棘轮缺口，不是「无害地跳过一个用不到的检查」**
+    # （Task 8 终审 M-4）：两个仓的 `epic/component-contract` 分支**都没有分支保护**
+    # （见 `docs/component-contract.md` / `epic.md` 对该事实的记录），因此 `push` 到
+    # `epic/**`（本文件顶部 `on.push.branches` 已声明会触发）是**唯一能绕开 PR** 的路径
+    # ——而这个 job 恰好完全不在 push 事件上跑。跨历史棘轮（本 job）与树内等式
+    # （`BoolExemptionGuard.baselineRatchetHoldsExactly`，随 `swift test` 在 push 上
+    # 也会跑）合起来才是「完整棘轮」这句话，在直接 push 场景下**只剩树内那一半**：
+    # 树内等式只能拦住「清单条目数与 maxEntries 不一致」，拦不住「清单与 maxEntries
+    # 被**一起**、**在同一次 push 里**抬高」——那种改法两者仍然相等，树内判据看不出
+    # 「上限被抬高」这个破例动作本身。直接 push 到 `epic/**` 因此仍是一条未被机器
+    # 挡住的路径，只能靠人工 review 或后续补分支保护堵上，本条注释只留痕、不实现。
     if: github.event_name == 'pull_request'
     # ⚠️ 刻意用 ubuntu 而非 macos：本 job 只要 git + python3，而 macOS runner 按 10×
     # 计费（见本文件顶部 push 触发器那段注释的同一考量）。
