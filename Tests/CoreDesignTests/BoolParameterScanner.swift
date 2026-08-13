@@ -416,7 +416,9 @@ nonisolated func stripTypeDecorations(_ raw: String) -> StrippedTypeText {
                 // `prefix(while:)`），真正的 `)` 还在 `t` 剩余部分里——上面已经往后找到
                 // 它并校验中间只有空白（`@autoclosure` 不接受参数，非空白内容不是这个
                 // 形态），与 `hasPrefix("@autoclosure()")` 分支一样只消费 attribute 名
-                // 本身（不含 `(`），把 `"(...)"` 原样留给下面的 `sawAutoclosure` 分支去认。
+                // 本身（不含 `(`），把 `"(...)"` 原样留给**调用方的** `sawAutoclosure` 裁决
+                // 分支去认（抽取后该分支不在本函数内；且 `StrippedTypeText` 已预告会有
+                // 第二个裁决不同的消费方，故不用「下面的分支」这种单数方位指称）。
                 // ⚠️ **不能只写 `hasPrefix("@autoclosure(")`**（少一个闭合括号）：那会把
                 // 本条与 `@autoclosure(x)->Bool` 这类假想的、真的带参数内容的形态
                 // （若未来出现）混为一谈，所以这里显式要求闭合括号存在、且括号内容全为
@@ -447,7 +449,8 @@ nonisolated func stripTypeDecorations(_ raw: String) -> StrippedTypeText {
 /// `hasPrefix("(")` 判定是否要剥括号，带前导空白或内嵌注释的原始类型文本会**静默剥
 /// 不动**（原样返回，不报错、不 crash）——不是「大多数情况能用，边角报错」，是「不满足
 /// 前置条件时悄悄不生效」。当前唯一调用方 `classifyBoolParameterType` 满足这个前置
-/// 条件；本函数已放开为 internal 供 `ComponentJudgeScanner.swift` 复用（见
+/// 条件；本函数是 #40 Task 1 新建的（不是「放开」既有 private 函数——放开的是另外 4 个
+/// 辅助函数），默认 internal，供 `ComponentJudgeScanner.swift` 复用（见
 /// `stripComments` 文档「#40 复用点」），新增调用方前必须先过 `stripTypeDecorations`。
 nonisolated func stripOptionalSugarAndRedundantParens(_ raw: String) -> String {
     var t = raw
