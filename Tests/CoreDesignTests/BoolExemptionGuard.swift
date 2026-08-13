@@ -115,6 +115,12 @@ struct BoolExemptionGuard {
     /// 一个豁免宿主为什么不可能有 `component-registry.json` 条目。
     enum OwnerExclusionKind: Sendable {
         /// 扩展的是 SwiftUI / 外部协议，本仓根本没有该类型的声明（`View` / `ButtonStyle`）。
+        /// ⚠️ **Task 8 S-1**：这句「根本没有该类型的声明」由 `declaredTypeNames()` 核对，
+        /// 而它**不采集 `typealias`**（`DeclaredTypeNameCollector` 只访问
+        /// `struct`/`class`/`enum`/`protocol`/`actor`）——若本仓出现
+        /// `typealias View = ...` 这类遮蔽声明，本条判据看不见，「根本没有」这句话
+        /// 会略宽于实际核对范围。当前 `grep -rn "typealias View\b\|typealias ButtonStyle\b"`
+        /// 零命中，不构成现存漏洞，留痕供未来审阅。
         case externalProtocolExtension
         /// style **实现**——按公约 AD-3 不是登记表条目。
         case styleImplementation
@@ -179,6 +185,15 @@ struct BoolExemptionGuard {
     /// 本仓 `Sources/CoreDesign` 下所有具名类型声明的名字（`struct`/`class`/`enum`/
     /// `protocol`/`actor`，不限访问级别、不限嵌套层级）。⚠️ 缓存约束与 `cachedScan`
     /// 同款：只缓存「成功且非空」的结果，失败路径重新扫、重新报出自己的诊断。
+    ///
+    /// ⚠️ **Task 8 S-2**：`DeclaredTypeNameCollector` 只存**叶子名**（`node.name.text`），
+    /// 不拼点分路径——嵌套类型 `Outer.Inner` 只留下 `"Inner"`。若未来
+    /// `ownersWithoutRegistryEntry` 把某个**点分宿主**（如 `Foo.Bar`）标成
+    /// `.externalProtocolExtension`，这里的 `declaredTypeNames.contains(owner)` 传入的
+    /// 是完整点分字符串 `"Foo.Bar"`，而集合里只有叶子名 `"Bar"`，两者恒不相等
+    /// ⇒ 该分类的正向核对会空转恒绿（假阴性）。当前 `ownersWithoutRegistryEntry` 里
+    /// 标 `.externalProtocolExtension` 的两个宿主（`View`/`ButtonStyle`）都是顶层单段名，
+    /// 不触发；留痕供未来审阅。
     static func declaredTypeNames() throws -> Set<String> {
         if let cached = Self.cachedDeclaredTypeNames { return cached }
         guard FileManager.default.fileExists(atPath: Self.coreDesignSources.path) else {
