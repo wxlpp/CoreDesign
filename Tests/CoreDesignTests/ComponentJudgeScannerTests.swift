@@ -110,4 +110,99 @@ struct ComponentJudgeScannerTests {
             )
         }
     }
+
+    // MARK: - 文本参数采集器 / Text parameter collector
+
+    @Test("采集器：public init 的裸文本参数进 bareTextKeys")
+    func collectorPicksUpPublicInitBareText() {
+        let scan = scanComponentJudgeInputs(source: """
+        public struct Widget {
+            public init(title: String, count: Int) {}
+        }
+        """, fileName: "Widget.swift")
+        #expect(scan.bareTextKeys == ["Widget.init#title"])
+        #expect(scan.localizedTextKeys.isEmpty)
+    }
+
+    @Test("采集器：非 public 与 private 容器整体不可见")
+    func collectorSkipsNonPublic() {
+        let scan = scanComponentJudgeInputs(source: """
+        public struct A { init(title: String) {} }
+        struct B { public init(title: String) {} }
+        private struct C { public init(title: String) {} }
+        """, fileName: "X.swift")
+        #expect(scan.bareTextKeys.isEmpty, "三种都不是有效 public，扫到任何一条都是多报")
+    }
+
+    @Test("采集器：public extension 给成员与嵌套具名类型发默认 public（裁决 g）")
+    func collectorHandlesPublicExtension() {
+        let scan = scanComponentJudgeInputs(source: """
+        public extension Widget {
+            init(subtitle: String) {}
+            struct Options { public init(hint: String) {} }
+        }
+        """, fileName: "X.swift")
+        #expect(scan.bareTextKeys == ["Widget.init#subtitle", "Widget.Options.init#hint"])
+    }
+
+    @Test("采集器：`init<S: StringProtocol>` 的泛型形参判裸文本（含 where 子句写法）")
+    func collectorResolvesStringProtocolGenerics() {
+        let scan = scanComponentJudgeInputs(source: """
+        public struct A {
+            public init<S: StringProtocol>(title: S, subtitle: S?) {}
+            public init<T>(name: T) where T: StringProtocol {}
+            public init<U>(other: U) {}
+        }
+        """, fileName: "X.swift")
+        #expect(scan.bareTextKeys == ["A.init#title", "A.init#subtitle", "A.init#name"])
+    }
+
+    @Test("采集器：init 与 func 分桶（FR-4 主判据只吃 init）")
+    func collectorTagsInitializers() {
+        let scan = scanComponentJudgeInputs(source: """
+        public struct A {
+            public init(title: String) {}
+            public func show(_ message: String) {}
+        }
+        """, fileName: "X.swift")
+        #expect(Set(scan.textParams.filter(\.isInitializer).map(\.key)) == ["A.init#title"])
+        #expect(Set(scan.textParams.filter { !$0.isInitializer }.map(\.key)) == ["A.show#message"])
+    }
+
+    @Test("采集器：`#if` 两支都走、`#Preview` 整块跳过")
+    func collectorWalksBothIfConfigBranchesAndSkipsPreview() {
+        let scan = scanComponentJudgeInputs(source: """
+        #if os(iOS)
+        public struct A { public init(title: String) {} }
+        #else
+        public struct A { public init(caption: String) {} }
+        #endif
+        #Preview("x") { PreviewOnly(text: "y") }
+        public struct PreviewOnly { public init(text: String) {} }
+        """, fileName: "X.swift")
+        #expect(scan.bareTextKeys == ["A.init#title", "A.init#caption", "PreviewOnly.init#text"],
+                "`#if` 只走一支会漏采；`#Preview` 块内不得采集，块外的同名类型声明照采")
+    }
+
+    @Test("采集器：Binding / 回调进 carrying，不进 bareText")
+    func collectorSeparatesCarrying() {
+        let scan = scanComponentJudgeInputs(source: """
+        public struct A {
+            public init(text: Binding<String>, onSubmit: ((String) -> Void)?) {}
+        }
+        """, fileName: "X.swift")
+        #expect(scan.bareTextKeys.isEmpty)
+        #expect(scan.carryingKeys == ["A.init#text", "A.init#onSubmit"])
+    }
+
+    @Test("真实源码扫描：文本参数三个桶的实测规模")
+    func realScanMagnitudes() throws {
+        let scan = try scanComponentJudgeInputs(root: ComponentRegistryGuard.coreDesignSources)
+        // ⚠️ 非空断言先行：扫描器失效时「零命中 ⇒ 零违规 ⇒ 绿」会静默通过。
+        #expect(scan.bareTextKeys.count > 20, "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效")
+        #expect(scan.localizedTextKeys.count > 5, "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")
+        print("裸文本 \(scan.bareTextKeys.count) 个：\(scan.bareTextKeys.sorted())")
+        print("LSK/LSR \(scan.localizedTextKeys.count) 个：\(scan.localizedTextKeys.sorted())")
+        print("carrying \(scan.carryingKeys.count) 个：\(scan.carryingKeys.sorted())")
+    }
 }

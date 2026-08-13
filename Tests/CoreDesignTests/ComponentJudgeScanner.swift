@@ -185,3 +185,307 @@ nonisolated func textIdentifierPresent(_ t: String) -> Bool {
         options: .regularExpression
     ) != nil
 }
+
+// MARK: - 命中项 / Hit
+
+/// 一处「public 声明上的文本型参数」。
+struct TextParamHit: Hashable, Comparable, Sendable {
+    /// 宿主：具名类型用点分全名（`SegmentedControlStyleConfiguration.Segment`）；
+    /// extension 上的成员用**被扩展的类型名**（`View` / `Color` / `Tag`）。
+    let owner: String
+    /// `init` 或函数名。
+    let decl: String
+    /// 参数的**内部名**（`_ titleKey:` 取 `titleKey`）。
+    let parameter: String
+    let file: String
+    let line: Int
+    let kind: TextParamKind
+    /// FR-4 的主判据只吃 `init`（AC 原文：「每个 public init 的文本型参数」）；
+    /// `func` 侧同样采集，但只进「留痕桶」——见 `ComponentTextParamGuard` 的
+    /// `functionSideTextParams` 断言与那里的移交说明。
+    let isInitializer: Bool
+
+    /// 与登记表对账用的键。⚠️ 刻意不含标签表：`SectionHeader.init(_ titleKey:)` 与
+    /// `init<S: StringProtocol>(_ title:)` 是同一个 API 概念的两个入口，键里带完整标签表
+    /// 会让它们变成两条互不相干的条目，反而看不出「同一个文案入口的两种写法」。
+    var key: String { "\(self.owner).\(self.decl)#\(self.parameter)" }
+
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.key == rhs.key ? lhs.line < rhs.line : lhs.key < rhs.key
+    }
+}
+
+// MARK: - 扫描结果 / Scan result
+
+struct ComponentJudgeScanResult: Sendable {
+    var textParams: [TextParamHit] = []
+
+    var bareTextKeys: Set<String> { Set(self.textParams.filter { $0.kind == .bareText }.map(\.key)) }
+    var localizedTextKeys: Set<String> { Set(self.textParams.filter { $0.kind == .localizedText }.map(\.key)) }
+    var carryingKeys: Set<String> { Set(self.textParams.filter { $0.kind == .textCarrying }.map(\.key)) }
+}
+
+// MARK: - 扫描入口 / Scan entry points
+
+/// ⚠️ **必须先断言路径存在**：`FileManager.enumerator(at:)` 对不存在的路径**静默产出
+/// 空序列** ⇒「零命中 ⇒ 零违规 ⇒ 绿」会静默通过（#38/#39 同款纪律）。
+func scanComponentJudgeInputs(root: URL) throws -> ComponentJudgeScanResult {
+    guard FileManager.default.fileExists(atPath: root.path) else {
+        Issue.record("源码路径不存在：\(root.path) —— 判据无法工作，这不是「零违规」")
+        return ComponentJudgeScanResult()
+    }
+    // ⚠️ **不要强制解包**：`enumerator(at:)` 在权限 / IO 异常时返回 nil，`!` 会让测试
+    // 进程崩掉，判据连「为什么失败」都报不出来。
+    guard let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
+        Issue.record("无法枚举源码目录：\(root.path)（权限或 IO 异常）—— 判据无法工作，这不是「零违规」")
+        return ComponentJudgeScanResult()
+    }
+    var result = ComponentJudgeScanResult()
+    for case let url as URL in walker where url.pathExtension == "swift" {
+        let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
+        // ⚠️ **解析保真检查**：parser major 与工具链不配套时会静默产出 error node
+        // ⇒ 声明被漏采，而扫描器照样「成功」返回一个偏小的集合。
+        if tree.hasError {
+            Issue.record("解析出错：\(url.lastPathComponent) —— swift-syntax major 可能与工具链不配套")
+        }
+        result.merge(collectComponentJudgeInputs(tree: tree, fileName: url.lastPathComponent))
+    }
+    return result
+}
+
+/// 合成输入入口——常驻单测用它逐类证伪边界形态，不碰磁盘。
+func scanComponentJudgeInputs(source: String, fileName: String = "Synthetic.swift") -> ComponentJudgeScanResult {
+    collectComponentJudgeInputs(tree: SwiftParser.Parser.parse(source: source), fileName: fileName)
+}
+
+private func collectComponentJudgeInputs(tree: SourceFileSyntax, fileName: String) -> ComponentJudgeScanResult {
+    let converter = SourceLocationConverter(fileName: fileName, tree: tree)
+    let collector = ComponentJudgeCollector(fileName: fileName, converter: converter)
+    collector.walk(tree)
+    var result = ComponentJudgeScanResult()
+    result.textParams = collector.textParams
+    return result
+}
+
+extension ComponentJudgeScanResult {
+    mutating func merge(_ other: ComponentJudgeScanResult) {
+        self.textParams += other.textParams
+    }
+}
+
+// MARK: - 采集器 / Collector
+
+/// 采集**有效 public** 的 `init` / `func` 上的文本型参数。
+///
+/// ⚠️ **可见性判定与 #39 的 `PublicBoolParamCollector` 同构**（裁决 (e)/(g) 同样适用）：
+/// protocol 帧要压栈（requirement 语法上不能写访问修饰符）、`public extension` 给嵌套
+/// 具名类型发默认 public、`#if` 两支都要走、`#Preview` 在文件顶层落在
+/// `MacroExpansionExprSyntax` 而非 decl 侧（两处都要跳）。这些不是可选项，是结构性缺口。
+/// ⚠️ **本类不复用 `PublicBoolParamCollector` 的实例**——那个类是 `private`，且它的
+/// `visit` 已经绑定「读 Bool 参数」的语义。两者共用的是**裁决**（写在这段注释里）与
+/// **类型文本剥离层**（`stripTypeDecorations`，Task 1 抽出的真代码），可见性帧机的复制
+/// 是已知代价，由 `ComponentJudgeScannerTests` 里 `collectorSkipsNonPublic` /
+/// `collectorHandlesPublicExtension` 两条测试对齐同一批边界形态。
+///
+/// ⚠️ **已知盲区（留痕，未做机器拦截）**：
+/// - `subscript` 未采（FR-4 的 AC 只点名 `init`；`func` 侧已采但只进留痕桶）。
+/// - `enum case` 关联值未采（`case a(title: String)` 在调用点是一个文本参数）。本仓
+///   public enum 的关联值零文本参数；与 #39 裁决 (e) 对 Bool 的处置**方向相反**，
+///   是本任务刻意收窄到 AC 原文范围的结果，不是遗漏 —— 移交 #41/#43。
+/// - 宏展开产物看不见（跳 `#Preview` 的代价）；本仓无生成 public 声明的宏。
+private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
+    var textParams: [TextParamHit] = []
+
+    private let fileName: String
+    private let converter: SourceLocationConverter
+
+    private struct Frame {
+        let name: String
+        let isPublic: Bool
+        let isPrivate: Bool
+        let isInternal: Bool
+        let isExtension: Bool
+        var isProtocol: Bool = false
+    }
+    private var frames: [Frame] = []
+
+    init(fileName: String, converter: SourceLocationConverter) {
+        self.fileName = fileName
+        self.converter = converter
+        super.init(viewMode: .sourceAccurate)
+    }
+
+    // MARK: 访问级别
+
+    private static func access(_ modifiers: DeclModifierListSyntax) -> (pub: Bool, priv: Bool, int: Bool) {
+        let names = Set(modifiers.map { $0.name.text })
+        return (
+            names.contains("public") || names.contains("open"),
+            names.contains("private") || names.contains("fileprivate"),
+            names.contains("internal")
+        )
+    }
+
+    private func isEffectivelyPublic(_ modifiers: DeclModifierListSyntax) -> Bool {
+        let a = Self.access(modifiers)
+        if a.priv || a.int { return false }
+        if self.frames.contains(where: { $0.isPrivate || $0.isInternal }) { return false }
+        if self.frames.contains(where: { !$0.isExtension && !$0.isPublic }) { return false }
+        guard let innermost = self.frames.last else { return a.pub }
+        if innermost.isExtension { return innermost.isPublic || a.pub }
+        if innermost.isProtocol { return innermost.isPublic }
+        return a.pub
+    }
+
+    private var owner: String {
+        self.frames.isEmpty ? "(top-level)" : self.frames.map(\.name).joined(separator: ".")
+    }
+
+    // MARK: 容器帧
+
+    private func pushType(_ name: String, _ modifiers: DeclModifierListSyntax, isProtocol: Bool = false) {
+        let a = Self.access(modifiers)
+        let hasExplicitAccess = a.pub || a.priv || a.int
+        let inheritsPublicFromExtension =
+            !hasExplicitAccess
+            && self.frames.last?.isExtension == true
+            && self.frames.last?.isPublic == true
+        self.frames.append(
+            Frame(
+                name: name,
+                isPublic: a.pub || inheritsPublicFromExtension,
+                isPrivate: a.priv, isInternal: a.int, isExtension: false, isProtocol: isProtocol
+            )
+        )
+    }
+
+    override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.pushType(node.name.text, node.modifiers); return .visitChildren
+    }
+    override func visitPost(_ node: StructDeclSyntax) { self.frames.removeLast() }
+
+    override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.pushType(node.name.text, node.modifiers); return .visitChildren
+    }
+    override func visitPost(_ node: EnumDeclSyntax) { self.frames.removeLast() }
+
+    override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.pushType(node.name.text, node.modifiers); return .visitChildren
+    }
+    override func visitPost(_ node: ClassDeclSyntax) { self.frames.removeLast() }
+
+    override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.pushType(node.name.text, node.modifiers); return .visitChildren
+    }
+    override func visitPost(_ node: ActorDeclSyntax) { self.frames.removeLast() }
+
+    override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.pushType(node.name.text, node.modifiers, isProtocol: true); return .visitChildren
+    }
+    override func visitPost(_ node: ProtocolDeclSyntax) { self.frames.removeLast() }
+
+    override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
+        var extended = node.extendedType.trimmedDescription
+        if let angle = extended.firstIndex(of: "<") { extended = String(extended[..<angle]) }
+        let a = Self.access(node.modifiers)
+        self.frames.append(
+            Frame(
+                name: extended.trimmingCharacters(in: .whitespaces),
+                isPublic: a.pub, isPrivate: a.priv, isInternal: a.int, isExtension: true
+            )
+        )
+        return .visitChildren
+    }
+    override func visitPost(_ node: ExtensionDeclSyntax) { self.frames.removeLast() }
+
+    /// `#if os(iOS)` 的两个分支都要走：只走一支会漏采另一支的声明。
+    override func visit(_ node: IfConfigDeclSyntax) -> SyntaxVisitorContinueKind {
+        for clause in node.clauses {
+            if let elements = clause.elements { self.walk(elements) }
+        }
+        return .skipChildren
+    }
+
+    /// 跳过 `#Preview` 等宏展开块。⚠️ **两处都要跳**：`#Preview` 在文件顶层实际解析成
+    /// `MacroExpansionExprSyntax`，只跳 decl 侧堵不住（#39 Task 1 评审现场抓到过）。
+    override func visit(_ node: MacroExpansionDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+    override func visit(_ node: MacroExpansionExprSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+
+    // MARK: 声明
+
+    override func visit(_ node: InitializerDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.collect(
+            node.signature.parameterClause.parameters, decl: "init", modifiers: node.modifiers,
+            generics: Self.stringProtocolGenericNames(node.genericParameterClause, node.genericWhereClause),
+            isInitializer: true, at: node
+        )
+        return .skipChildren
+    }
+
+    override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.collect(
+            node.signature.parameterClause.parameters, decl: node.name.text, modifiers: node.modifiers,
+            generics: Self.stringProtocolGenericNames(node.genericParameterClause, node.genericWhereClause),
+            isInitializer: false, at: node
+        )
+        return .skipChildren
+    }
+
+    /// 取出「被约束为 `StringProtocol` 的泛型形参名」集合。
+    ///
+    /// ⚠️ **两种写法都要认**：本仓 7 处 `init<S: StringProtocol>` 用的是内联约束，但
+    /// `init<T>(...) where T: StringProtocol` 完全等价、且改写成本为零 —— 只认一种就
+    /// 开出一条免登记逃逸。⚠️ 这**不使该轴穷尽**：`where T == String`、
+    /// `some ExpressibleByStringLiteral` 等形态仍判不了，见 `classifyTextParameterType`
+    /// 文档的「已知盲区」。
+    private static func stringProtocolGenericNames(
+        _ clause: GenericParameterClauseSyntax?, _ whereClause: GenericWhereClauseSyntax?
+    ) -> Set<String> {
+        var names: Set<String> = []
+        for parameter in clause?.parameters ?? [] {
+            guard let inherited = parameter.inheritedType?.trimmedDescription else { continue }
+            if Self.mentionsStringProtocol(inherited) { names.insert(parameter.name.text) }
+        }
+        for requirement in whereClause?.requirements ?? [] {
+            guard let conformance = requirement.requirement.as(ConformanceRequirementSyntax.self) else { continue }
+            if Self.mentionsStringProtocol(conformance.rightType.trimmedDescription) {
+                names.insert(conformance.leftType.trimmedDescription)
+            }
+        }
+        return names
+    }
+
+    /// `StringProtocol` / `Swift.StringProtocol` / `StringProtocol & Sendable` 都算。
+    private static func mentionsStringProtocol(_ text: String) -> Bool {
+        text.split(separator: "&")
+            .map { $0.trimmingCharacters(in: .whitespaces).split(separator: ".").last.map(String.init) ?? "" }
+            .contains("StringProtocol")
+    }
+
+    private func collect(
+        _ parameters: FunctionParameterListSyntax,
+        decl: String,
+        modifiers: DeclModifierListSyntax,
+        generics: Set<String>,
+        isInitializer: Bool,
+        at node: some SyntaxProtocol
+    ) {
+        guard self.isEffectivelyPublic(modifiers) else { return }
+        let line = self.converter.location(for: node.positionAfterSkippingLeadingTrivia).line
+        for parameter in parameters {
+            // `_ titleKey: LocalizedStringKey` ⇒ 取 `titleKey`；完全匿名的 `_: String`
+            // ⇒ 键里就是 `_`（**不跳过**，跳过等于给它开洞）。
+            let name = (parameter.secondName ?? parameter.firstName).text
+            let kind = classifyTextParameterType(
+                parameter.type.trimmedDescription, stringProtocolGenerics: generics
+            )
+            guard kind != .notText else { continue }
+            self.textParams.append(
+                TextParamHit(
+                    owner: self.owner, decl: decl, parameter: name, file: self.fileName,
+                    line: line, kind: kind, isInitializer: isInitializer
+                )
+            )
+        }
+    }
+}
