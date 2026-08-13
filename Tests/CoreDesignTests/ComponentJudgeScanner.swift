@@ -42,7 +42,37 @@ nonisolated let localizedTextTypeNames: Set<String> = [
     "LocalizedStringResource", "Foundation.LocalizedStringResource",
 ]
 
-/// 取函数类型**最外层**的返回类型文本；不是函数类型则返回 `nil`。
+/// 剥掉 `some ` / `any ` 前缀之后剩下的部分若在此集合里，判定为 `StringProtocol` 的
+/// opaque（`some`）/ existential（`any`）写法。
+nonisolated let stringProtocolOpaqueOrExistentialTypeNames: Set<String> = [
+    "StringProtocol", "Swift.StringProtocol",
+]
+
+/// 剥掉 `some ` / `any ` 前缀（若存在），返回剩余类型文本；不是这两种前缀则返回 `nil`。
+///
+/// ⚠️ **必须按词边界判断，不能用 `hasPrefix("some")` / `hasPrefix("any")`**：要求前缀
+/// 后面紧跟一个空格（`"some "` / `"any "`，输入已经过 `stripTypeDecorations` 的空白归一
+/// 化，token 间只会有单个空格）——`someCustomType` 的 `"some"` 后面紧跟 `C` 不是空格，
+/// 不会被剥掉；反之 `hasPrefix("some")`（不带空格）会把 `someCustomType` 误剥成
+/// `CustomType`。这与 #39 `@autoclosure(` 那条「前缀判断必须连带边界字符」是同一种陷阱。
+nonisolated func stripSomeOrAnyPrefix(_ t: String) -> String? {
+    for prefix in ["some ", "any "] where t.hasPrefix(prefix) {
+        return String(t.dropFirst(prefix.count))
+    }
+    return nil
+}
+
+/// 取函数类型**最右侧（非最外层）** depth-0 `->` 右侧的类型文本；不是函数类型则返回 `nil`。
+///
+/// ⚠️ **函数名与实现按最右侧箭头取，不是「最外层返回类型」**（#40 Task 2 评审
+/// Minor-3——此前的文档把这两者混为一谈）：对柯里化 `(A) -> (B) -> C`（`->` 右结合，
+/// 最外层返回类型实际是 `(B) -> C`），下面的循环里 `lastArrow` 每遇到一个 depth 0 的
+/// 箭头就覆盖，循环结束时留下的是**最后（最右）**一个，所以本函数对这个输入返回的是
+/// `C`，不是 `(B) -> C`。评审已推演：四分类结果在两种取法下**恒相同**——最终落地的
+/// 是否文本这个结论一致（`(B) -> C` 本身若递归下去，只要 `C` 不是文本，整个链条就不是
+/// `.bareText`/`.localizedText`；`(B) -> C` 这个中间形态本身不会被 `bareTextTypeNames`
+/// / `localizedTextTypeNames` 精确匹配上，只能落进 `textIdentifierPresent` 兜底，
+/// 而兜底不关心取的是哪一段），因此不改实现、只在此更正措辞。
 ///
 /// ⚠️ **`->` 必须整体当一个 token 消费**：只写 `case ">"` 递减深度的话，`(A) -> B` 里
 /// 箭头的 `>` 会把深度算错，后面真正的泛型闭合就再也对不上。这里先匹配 `-` + `>` 两字符
@@ -91,10 +121,17 @@ nonisolated func functionReturnTypeText(_ t: String) -> String? {
 ///   参数类型文本是 `"Title"` ⇒ `.notText`，命中/清点两层同时看不见。与 #39 裁决 (f)
 ///   同族；#39 在**声明侧**清点 `publicBoolTypeAliases` 并断言恒为空，FR-4 侧没有对应的
 ///   清点（本仓当前零个含文本的 public typealias）。移交 #41/#43。
-/// - **泛型洗白**：`func f<T>(title: T) where T == String` 与
-///   `f(title: some ExpressibleByStringLiteral)` 判不了（纯语法层解不了名字）。
+/// - **泛型洗白**：`func f<T>(title: T) where T == String`（同类型约束把类型名换成了
+///   别处声明的 `T`，纯语法层解不出 `T` 绑定的是什么）与 `f(title: some
+///   ExpressibleByStringLiteral)`（`ExpressibleByStringLiteral` 不隐含「是文案」——
+///   `Int`/`Bool` 都能遵守它，纯语法层解不出这个协议名背后是不是文本）这两种真正判不了。
 ///   `S: StringProtocol` 这一种**已经**由 `stringProtocolGenerics` 结构性覆盖（见
-///   `ComponentJudgeCollector.stringProtocolGenericNames`），其余形态本仓零命中。
+///   `ComponentJudgeCollector.stringProtocolGenericNames`）；`some StringProtocol` /
+///   `any StringProtocol` ——与前者是**同一声明的语法糖、调用点逐字相同**——也**已经**
+///   由 `stripSomeOrAnyPrefix` 结构性覆盖（#40 Task 2 评审 Important-1：此前这里把这个
+///   形态误并入「判不了」，但它的类型文本逐字含 `StringProtocol`，纯语法层完全可解，
+///   归类是错的）。其余形态（`where T == String`、`some ExpressibleByStringLiteral` 等
+///   真正无法从类型文本解出是否文本的写法）本仓零命中，留痕未拦截。
 /// - **`StaticString` / `AttributedString` 未折入**：两者都能承载界面文案，但把它们
 ///   并入 `.bareText` 是新裁决（不是「`String` 的另一种拼法」）。本仓零使用，先留痕。
 /// - **第二道防线**：上述盲区对**已登记**的参数不构成逃逸——把 `title: String` 改写成
@@ -116,6 +153,16 @@ nonisolated func classifyTextParameterType(
     t = stripOptionalSugarAndRedundantParens(t)
     if bareTextTypeNames.contains(t) || stringProtocolGenerics.contains(t) { return .bareText }
     if localizedTextTypeNames.contains(t) { return .localizedText }
+    // `some StringProtocol` / `any StringProtocol`：与已覆盖的
+    // `init<S: StringProtocol>(title: S)` 是同一声明的语法糖、调用点逐字相同，结构性剥
+    // 掉 opaque/existential 前缀后按 StringProtocol 判 .bareText，结论与泛型形态保持
+    // 一致（#40 Task 2 评审 Important-1：此前这个形态会静默落进下面的 textIdentifierPresent
+    // 兜底判 .notText——`\bString\b` 因词边界在 `StringProtocol` 里不命中，命中层与清点层
+    // 双双不可见）。
+    if let afterPrefix = stripSomeOrAnyPrefix(t),
+        stringProtocolOpaqueOrExistentialTypeNames.contains(afterPrefix) {
+        return .bareText
+    }
 
     // `Optional<T>` 结构化递归（照 #39 裁决 (b‴‴) 的成法，不枚举拼法）。
     if let genericArgument = optionalGenericArgument(t) {

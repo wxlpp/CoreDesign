@@ -44,6 +44,33 @@ struct ComponentJudgeScannerTests {
         #expect(classifyTextParameterType("T", stringProtocolGenerics: ["S"]) == .notText)
     }
 
+    @Test("some/any StringProtocol 判 .bareText —— 与 `<S: StringProtocol>(title: S)` 是同一声明的语法糖、调用点逐字相同（#40 Task 2 评审 Important-1）")
+    func stringProtocolOpaqueOrExistentialIsBare() {
+        for spelling in ["some StringProtocol", "any StringProtocol", "some StringProtocol?", "any StringProtocol?"] {
+            #expect(
+                classifyTextParameterType(spelling, stringProtocolGenerics: []) == .bareText,
+                "「\(spelling)」应判 .bareText —— 类型文本逐字含 StringProtocol，与泛型形态结论必须一致"
+            )
+        }
+        // 负例：词边界——`some`/`any` 后面紧跟标识符字符（不是空格）不得被误剥前缀。
+        // 若误用 `hasPrefix("some")`（不带空格），`someCustomType` 会被剥成
+        // `CustomType`，与本例无关地判 .notText 只是巧合；换一个「剥了之后恰好撞进
+        // StringProtocol 判据」的输入就会被误判 .bareText，所以这里同时钉住剥离结果
+        // 与最终分类两层。
+        #expect(
+            classifyTextParameterType("someCustomType", stringProtocolGenerics: []) == .notText,
+            "「someCustomType」不含空格分隔的 some 前缀，不应被剥掉后误判"
+        )
+        #expect(
+            classifyTextParameterType("anyCustomType", stringProtocolGenerics: []) == .notText,
+            "「anyCustomType」不含空格分隔的 any 前缀，不应被剥掉后误判"
+        )
+        #expect(
+            stripSomeOrAnyPrefix("someCustomType") == nil,
+            "剥离函数本身也必须对无空格的 some 前缀返回 nil，不能只靠下游巧合兜底"
+        )
+    }
+
     @Test("返回位是文本的函数类型判为文本（登记表把 `(Item) -> String` 记成 textParams）")
     func textProducingClosureIsText() {
         #expect(classifyTextParameterType("@escaping (Item) -> String", stringProtocolGenerics: []) == .bareText)
