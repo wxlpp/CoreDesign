@@ -16,8 +16,10 @@ import Testing
 // （见 `ComponentRegistryGuard.knownOffScannerComponents` 的文档注释）。
 //
 // ⚠️ **豁免基线设计为两份文件**（`39-plan.md` 选型 2）：`docs/bool-exemptions.json` 是清单
-// 本身，Task 4 已消费它；`docs/bool-exemptions-baseline.json` 只记一个上限，
-// 已随 Task 5 落地——`baselineRatchetHoldsExactly` 判据读取它并与清单条目数严格相等比对。
+// 本身，Task 4 已消费它；`docs/bool-exemptions-baseline.json` 记 `maxEntries` /
+// `sourceSites` 两个上限 + `raisedBy` / `raisedOn` / `rationale`（共 5 个字段），
+// 已随 Task 5 落地、Task 8 终审补齐 `sourceSites`——`baselineRatchetHoldsExactly`
+// 判据读取它并与清单条目数 / 源码位置数严格相等比对。
 // 一份文件时「改清单」与「改基线」是**同一个动作**，棘轮的唯一实现只能是
 // 「diff `main` 的历史版本」，而本仓 CI 是 `actions/checkout@v4` 默认
 // `fetch-depth: 1`（历史里没有 `main`），且五个 CoreDesign 任务集成在
@@ -291,14 +293,31 @@ struct BoolExemptionGuard {
         let raisedBy: String?
         let raisedOn: String?
         let rationale: String?
-        /// ⚠️ **Task 8 终审 I-3 通道 B 的机器闸**：`scanBoolParams` 产出的
-        /// `hits.count`（源码位置数，含同键多处声明的重复计数）此前只有
+        /// ⚠️ **Task 8 终审 I-3 通道 B 的机器闸——只保证这次变化在 diff 里可见，不是
+        /// 「关掉通道」**（Task 8 终审第 3 轮 Important-2 收窄措辞）：`scanBoolParams`
+        /// 产出的 `hits.count`（源码位置数，含同键多处声明的重复计数）此前只有
         /// `scannerFindsPublicBoolParameters` 里的量级下界 `> 20`，真实数字 38
         /// 只出现在 `print` 里、从未被任何等式断言钉住——新增一个 public 声明只要
         /// 键已经在 `docs/bool-exemptions.json` 里就能全绿过关、`keys.count` 与
         /// `maxEntries` 都不变，这条键碰撞通道因此对棘轮不可见。这里补一个与
-        /// `maxEntries` 同款的严格等式钉住 `scan.hits.count`，直接把通道关掉、
-        /// 纳入同一份台账；改这个数同样需要走本文件其余字段的破例流程。
+        /// `maxEntries` 同款的严格等式钉住 `scan.hits.count`——实际成本仍是**改一行
+        /// JSON**（`sourceSites` 的 `38 → 39`），只是这一行现在会出现在 diff 里、
+        /// 逼一次署名。
+        /// ⚠️ **`sourceSites` 未纳入 `maxEntries` 那套跨历史破例流程**：
+        /// `scripts/bool-exemptions-ratchet.sh` 从头到尾只读 `maxEntries`（该脚本
+        /// `read_field` 的两处调用），完全不读 `sourceSites`——树内这条等式只挡
+        /// 「本次 diff 里 `sourceSites` 与源码位置数不一致」，挡不住「`sourceSites`
+        /// 与 `maxEntries` 在同一次改动里一起被静默抬高」这类跨历史场景；跨历史闸
+        /// 移交 #41/#43。
+        /// ⚠️ **两条评审补的残余，威胁模型未被端到端跑过**：
+        /// 1. **变异证的是「期望值」不是「被测对象」**——迄今三次验证这条断言
+        ///    （37/39/38）都是在改**基线里的数字**后确认变红，从未真的新增一个键
+        ///    碰撞的 public 声明再看它是否变红。方向没错（红能归因到这条断言），
+        ///    但威胁模型那一侧没被端到端跑过。
+        /// 2. **计数型闸门天然可被对冲**——删掉一处已有碰撞位 + 新增一处碰撞位，
+        ///    `hits.count` 仍等于 `sourceSites`、`keys.count` 仍等于 `maxEntries`、
+        ///    清单不变 ⇒ 全绿。要真正关死需要钉**键 → 位置数的多重集**，不是总数；
+        ///    移交 #41/#43。
         let sourceSites: Int?
     }
 

@@ -1,7 +1,8 @@
 import Testing
 
 // 5 类「已撞见并修复」的分类器残余形态（Task 2 前置修复，见 `BoolParameterScanner.swift`
-// 里 `classifyBoolParameterType` 的 5 处改动与 `stripComments` 上方文档「4 组已知残余」）
+// 里 `classifyBoolParameterType` 的 5 处改动与 `stripComments` 上方文档「6 组已知残余」
+// 里的组 1–5——组 6（Task 8 终审第 3 轮新增）只留痕、未修，本文件不覆盖）
 // 的**永久**回归见证。
 //
 // ⚠️ **为什么单独开一个文件，而不是并进 `BoolParameterScannerTests.swift`**：

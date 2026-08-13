@@ -2,8 +2,12 @@
 # 跨历史棘轮：比对 base revision 的豁免上限，确认它没有被**悄悄**抬高。
 #
 # ⚠️ 为什么这一半不放进 `swift test`：它要**两个 revision**，而单元测试只有一个工作树。
-#    树内那一半（清单条目数 ≡ maxEntries）在 `BoolExemptionGuard.baselineRatchetHoldsExactly`,
-#    零 git 依赖、随 `swift test` 跑。两半合起来才是完整的棘轮。
+#    树内那一半（清单条目数 ≡ maxEntries，Task 8 终审起还加了源码位置数 ≡ sourceSites）
+#    在 `BoolExemptionGuard.baselineRatchetHoldsExactly`，零 git 依赖、随 `swift test` 跑。
+#    ⚠️ **「两半合起来才是完整棘轮」对 `sourceSites` 不成立**：本脚本从头到尾只读
+#    `maxEntries`（下方 `read_field` 的两处调用），完全不覆盖 `sourceSites`——树内那半
+#    钉住的这个字段，跨历史这半没有对应校验，两半合起来仍只有一半是完整的；
+#    `sourceSites` 的跨历史闸移交 #41/#43。
 #
 # ⚠️ **比对对象是 base 分支的当前 tip，不是字面的 `main`，也不是
 #    `github.event.pull_request.base.sha`**（对 39.md AC 措辞的一处偏离，已写进交付说明）：

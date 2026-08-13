@@ -64,13 +64,14 @@ import Testing
 /// **每次递归调用**都会重新执行只是第二道保险（覆盖递归自身拆出的、未经过外层
 /// 收紧的子串），不是这条残余唯一被覆盖的原因——不需要对「Optional × 空白」逐条
 /// 枚举拼法；specifier 在泛型实参位不合法，无关。
-/// （四组残余的完整清单见 `stripComments` 上方的三通道文档。）
+/// （六组残余的完整清单见 `stripComments` 上方的三通道文档；其中组 6 只留痕、未修，
+/// 代码修复移交 #41/#43。）
 /// `@autoclosure () -> (Bool)` 同理：返回位的括号在归一化后单独剥（见
 /// `classifyBoolParameterType` 里 `sawAutoclosure` 分支），不依赖这里的「最外层」剥离。
 ///
 /// ⚠️ **类型文本内的注释同样是免豁免逃逸**（裁决 (b‴‴‴)，Task 1 评审第 3 轮 Important-1）：
 /// `(Bool/*x*/)` / `Optional<Bool/*x*/>` 的调用点与 `f(flag: true)` 逐字相同，改写成本
-/// 比 `(Bool)` 还低。⚠️ 这条**不使该通道穷尽**——三通道的覆盖状态与 4 组已知残余见
+/// 比 `(Bool)` 还低。⚠️ 这条**不使该通道穷尽**——三通道的覆盖状态与 6 组已知残余见
 /// `stripComments` 的文档，不在此重复。
 ///
 /// ⚠️ **反引号转义标识符是这条逃逸通道的第五个 token 侧自由度**（Task 1 评审第 4 轮
@@ -168,10 +169,12 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 ///   恒非空 ⇒ 只能靠撞见。**下面第 5 组是「撞见并修复的最新一个 token」，不是「补完
 ///   之后这条通道就封闭了」——不要把这条修复读成「specifier 白名单现在穷尽了」。
 ///
-///   ⚠️ **5 组已知残余，Task 2 + Task 8 终审已修**（评审实测：均 `swiftc -typecheck` 合法、
-///   `hasError == false`、调用点与 `f(flag: true)` 逐字相同，曾落 `.boolCarrying`（组 5
-///   之前）或 `.boolCarrying` 未判命中 ⇒ 免豁免逃逸。**本仓当前全部零命中，修复未改变
-///   `keys=35`**——见 Task 2 report 与 Task 8 终审 report 的实测输出）：
+///   ⚠️ **6 组已知残余：组 1–5 是「已撞见并修复」（Task 2 + Task 8 终审第 2 轮），组 6
+///   是「已撞见、只留痕、未修」（Task 8 终审第 3 轮，代码修复移交 #41/#43，见下方组 6
+///   条目）**（组 1–5 评审实测：均 `swiftc -typecheck` 合法、`hasError == false`、调用点
+///   与 `f(flag: true)` 逐字相同，曾落 `.boolCarrying`（组 5 之前）或 `.boolCarrying`
+///   未判命中 ⇒ 免豁免逃逸。**本仓当前全部零命中，修复未改变 `keys=35`**——见 Task 2
+///   report 与 Task 8 终审 report 的实测输出）：
 ///   1. **组合糖**：`@autoclosure () -> Bool?` / `@autoclosure () -> Optional<Bool>` /
 ///      `@autoclosure () -> (Bool)?` —— 裁决 (b″) 与 `Bool?` 裁决**各自成立、组合漏了**；
 ///      修法：autoclosure 返回位改成**递归调用** `classifyBoolParameterType` 自身，
@@ -221,6 +224,29 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 ///      相同（单向，剥完判 `.plainBool`）。**这条修复本身不使 specifier 通道穷尽**
 ///      ——见上方「specifier 白名单是开放集」，下一个 token（无论是未来的语言提案还是
 ///      又一个下划线前缀标注）大概率还是要靠撞见才会被发现，不是本条修复能预先堵死的。
+///   6. **effects 位夹在 `()` 与 `->` 之间，autoclosure 返回位前缀匹配失效（Task 8 终审
+///      第 3 轮 Important-1，第十一处定义域盲区；只留痕、不修复）**：`@autoclosure ()
+///      throws -> Bool` / `@autoclosure () async -> Bool` / `@autoclosure () async
+///      throws -> Bool` / `@autoclosure () throws(E) -> Bool` / `@autoclosure() throws
+///      -> Bool` / `@autoclosure () throws -> Bool?` —— `sawAutoclosure` 分支去空白后
+///      只认 `normalized.hasPrefix("()->")`，`throws` / `async` / `throws(E)` 夹在
+///      `()` 与 `->` 之间时前缀匹配直接失败，落 `.boolCarrying`，与组 1–5 同款免豁免
+///      逃逸：`swiftc -typecheck -swift-version 6` 对
+///      `public struct Probe { public init(flag: @autoclosure () throws -> Bool)
+///      rethrows { _ = try flag() } }` 零诊断，调用点 `Probe(flag: true)` 合法
+///      （编译器甚至提示 `try Probe(flag: true)` 里的 `try` 多余）。
+///      ⚠️ **不适用上方「specifier 白名单是开放集」的论证**——effects 位不是「工具链
+///      单方面扩张的开放 token 集」：语法上只有 `async` / `throws` / `throws(T)`
+///      **三种**（`rethrows` 不能出现在函数**类型**里），是**封闭集**，可以由构造
+///      （吃 `TypeSyntax` 而非在摊平字符串上重造词法，见下文「为什么撤回『穷尽』」
+///      段落推荐的重构）一次性关掉；用开放集论证覆盖这一条会是一次「**绿得理由
+///      不对**」。
+///      ⚠️ **比组 5 的 `_const` 更该修**：`@autoclosure () throws -> Bool` 是 Swift 里
+///      Bool-autoclosure 的**教科书写法**（`assert` / `precondition` /
+///      `XCTAssertTrue` 全是这个声明），比 `_const`（Embedded Swift 边角）或
+///      `@autoclosure( )`（括号加空格，根本没人这样写）都更可能被真人写出来。
+///      **本仓当前零命中**；修法（剥 `throws` / `async` / `throws(E)`，或走
+///      `TypeSyntax` 重构）**移交 #41/#43，本轮不改实现**。
 ///
 ///   另外**折入**（不算独立残余组，是 Task 2 补的一族别名）：`Swift.CBool`
 ///   （stdlib `typealias CBool = Bool`，与 `Bool`/`Swift.Bool` 同属一个类型的不同拼法）
@@ -229,8 +255,9 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 ///   **只在 `PublicBoolParamCollector` 类文档的「已知盲区」留痕，未做机器拦截**
 ///   （本仓零使用）。
 ///
-///   ⚠️ **修复之后仍然不宣称穷尽**——上面 4 组是「已撞见并修复」，不是「所有残余的
-///   完整清单」；下一组残余大概率还是靠撞见，不是靠推导发现。**这条本身就是三轮反例
+///   ⚠️ **修复之后仍然不宣称穷尽**——上面 6 组里，组 1–5 是「已撞见并修复」，组 6 是
+///   「已撞见、已留痕、代码修复移交 #41/#43」，两者都不是「所有残余的完整清单」；
+///   下一组残余大概率还是靠撞见，不是靠推导发现。**这条本身就是三轮反例
 ///   教训的应用**，不要因为这一轮修完了就把措辞改回「穷尽」。
 ///
 ///   ⚠️ **为什么撤回「穷尽」这个措辞**：本分类器在 `trimmedDescription` **摊平后的字符串**

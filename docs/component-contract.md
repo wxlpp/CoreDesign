@@ -178,8 +178,9 @@
 
 ⚠️ **豁免基线是两份文件，加一条豁免要改两处**（#39 的一/二文件选型裁决）：
 `docs/bool-exemptions.json` 是清单本身（每条四字段：`parameter` / `reason` /
-`decidedBy`（裁决人）/ `decidedOn`），`docs/bool-exemptions-baseline.json` 只记一个
-上限 `maxEntries` 与这次抬高的 `raisedBy` / `raisedOn` / `rationale`。守卫要求
+`decidedBy`（裁决人）/ `decidedOn`），`docs/bool-exemptions-baseline.json` 记两个
+上限（`maxEntries`、`sourceSites`）与这次抬高的 `raisedBy` / `raisedOn` / `rationale`
+——共 5 个字段。守卫要求
 **清单条目数与 `maxEntries` 严格相等**——清单增一条必须同轮抬高上限，缩一条必须同轮
 下调（**不留额度**，否则未来的新增可以免审吃掉这段 slack）。
 ⇒ 这么切的理由是：**内容**（改措辞、补日期，常改且无害）与**容量**（放宽豁免面，
@@ -195,8 +196,10 @@
   在清单里就不增加清单条目数——`maxEntries` 与清单条目数都不会变化，这份 git log
   同样看不出来。`hits.count`（源码位置数，含键碰撞）此前未被任何断言钉住；
   Task 8 终审已在 `docs/bool-exemptions-baseline.json` 补 `sourceSites` 字段
-  与配套的严格等式断言堵上这条通道（见 `BoolExemptionGuard.swift` 的
-  `baselineRatchetHoldsExactly`）。
+  与配套的严格等式断言（见 `BoolExemptionGuard.swift` 的 `baselineRatchetHoldsExactly`），
+  但**只保证这次变化在 diff 里可见**——`scripts/bool-exemptions-ratchet.sh` 从头到尾
+  只读 `maxEntries`、不读 `sourceSites`，`sourceSites` 未纳入该脚本的跨历史破例流程；
+  跨历史闸移交 #41/#43。
 ⚠️ 这句话说的是**豁免面**（`docs/bool-exemptions.json` + 其 `maxEntries`）本身的
 台账，不含 `pendingViolationKeys`（`BoolExemptionGuard.swift` 里写死的、按公约 A.3
 已裁决为已知违规、刻意不放进豁免清单的那个集合）——它是一条平行通道，不占
