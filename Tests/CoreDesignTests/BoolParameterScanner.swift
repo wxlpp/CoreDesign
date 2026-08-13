@@ -55,14 +55,14 @@ import Testing
 ///
 /// ⚠️ **类型文本内的注释同样是免豁免逃逸**（裁决 (b‴‴‴)，Task 1 评审第 3 轮 Important-1）：
 /// `(Bool/*x*/)` / `Optional<Bool/*x*/>` 的调用点与 `f(flag: true)` 逐字相同，改写成本
-/// 比 `(Bool)` 还低。补上这条后，「调用点不变的类型文本改写」这条逃逸通道可以给出穷尽
-/// 论证——完整三通道论证见 `stripComments` 的文档，不在此重复。
+/// 比 `(Bool)` 还低。⚠️ 这条**不使该通道穷尽**——三通道的覆盖状态与 4 组已知残余见
+/// `stripComments` 的文档，不在此重复。
 ///
 /// ⚠️ **反引号转义标识符是这条逃逸通道的第五个 token 侧自由度**（Task 1 评审第 4 轮
 /// Important-2）：`` `Bool` `` 是 `Bool` 的合法拼法，`func f(flag: `Bool`)` 的调用点
 /// 与 `f(flag: true)` 逐字相同，改写成本比裁决 (b‴) 的 `(Bool)` 还低——只需两个反引号。
 /// 全局剥除后与其余四条（括号 / Optional 糖 / specifier·attribute / 空白）并列，见
-/// `classifyBoolParameterType` 里的剥离与那里更新后的穷尽论证。
+/// `classifyBoolParameterType` 里的剥离，以及 `stripComments` 文档里的三通道覆盖状态。
 nonisolated enum BoolParamKind: Sendable, Equatable {
     /// 参数类型就是 `Bool`（含 `Bool?` / `Optional<Bool>` / `Swift.Bool`
     /// / `consuming Bool` / `borrowing Bool` / `sending Bool`
@@ -134,17 +134,40 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 /// ——改写成本比裁决 (b‴) 的 `(Bool)` 还低，只需一对括号 + 一个注释。`//` 行注释同理
 /// （括号内换行合法）。
 ///
-/// ⚠️ **补上这条之后，「调用点不变的类型文本改写」这条逃逸通道可以给出穷尽论证**——
-/// J-1 的免豁免逃逸可以分三类通道：
-/// - (i) **调用点不变的类型文本改写**：括号（裁决 (b‴)）✓、Optional 语法糖 / 名义拼法
-///   （`Optional<Bool>` / `Swift.Optional<Swift.Bool>` 等，由裁决 (b‴‴) 的递归分类
-///   覆盖，不是逐条枚举拼法）✓、ownership specifier / attribute（裁决 (b′)/(b″)）✓、
-///   空白（trim + `normalizeWhitespace` 归一化）✓、**反引号转义标识符**
-///   （`` `Bool` ``，Task 1 评审第 4 轮 Important-2，全局剥除）✓、**注释**（本条）✓。
-///   类型文本的字母表就是 token + trivia：token 侧已被上述五条结构化处理（括号、
-///   Optional 糖、specifier/attribute、空白、反引号），trivia 侧是注释，而注释本身的
-///   行终止符集合是 `{'\n', '\r'}`（Swift 词法把 lone `\r` 也当换行，Task 1 评审第 4 轮
-///   Important-1，见 `stripComments`）——两侧都已盖到，通道 (i) **穷尽**。
+/// J-1 的免豁免逃逸可以分三类通道。⚠️ **三条通道现在都是「已枚举 + 已留痕」，没有一条
+/// 能给出穷尽论证** —— 通道 (i) 曾在 Task 1 评审第 3 轮被宣称为「穷尽」，随后**连续三轮
+/// 被端到端反例证伪**（第 4 轮 2 个、第 5 轮 7 个），该宣称已在第 5 轮撤回，理由见本段末尾。
+/// - (i) **调用点不变的类型文本改写** —— **已覆盖并测试**的形态：括号（裁决 (b‴)）✓、
+///   Optional 语法糖 / 名义拼法（`Optional<Bool>` / `Swift.Optional<Swift.Bool>` 等，由
+///   裁决 (b‴‴) 的递归分类覆盖，不是逐条枚举拼法）✓、ownership specifier / attribute
+///   （裁决 (b′)/(b″)）✓、空白折叠（trim + `normalizeWhitespace`）✓、**反引号转义标识符**
+///   （`` `Bool` ``，评审第 4 轮 Important-2）✓、**注释**（本条，行终止符集合
+///   `{'\n', '\r'}`——Swift 词法把 lone `\r` 也当换行，见 `stripComments`）✓。
+///
+///   ⚠️ **4 组已知残余**（评审第 5 轮实测：均 `swiftc -typecheck` 合法、`hasError == false`、
+///   调用点与 `f(flag: true)` 逐字相同，却落 `.boolCarrying` ⇒ 免豁免逃逸。**本仓当前
+///   全部零命中**，不影响 `keys=35`）：
+///   1. **组合糖**：`@autoclosure () -> Bool?` / `@autoclosure () -> Optional<Bool>` /
+///      `@autoclosure () -> (Bool)?` —— 裁决 (b″) 与 `Bool?` 裁决**各自成立、组合漏了**；
+///      autoclosure 返回位只剥括号后精确比较，没有递归分类。
+///   2. **specifier 无空格**：`consuming(Bool)` / `borrowing(Bool)` —— 匹配强制要求
+///      specifier 后随空格。（`inout(Bool)` 方向碰巧正确，但那是「恰好」。）
+///   3. **attribute 无空格**：`@autoclosure() -> Bool` —— attribute 名只认空白终止，
+///      切出 `"@autoclosure()"` ≠ `"@autoclosure"`。
+///   4. **标点周围空白**：`Swift . Bool` / `Optional <Bool>` —— `normalizeWhitespace`
+///      只收敛空白**串**、不消除 `.` 与 `<` 周围的空白；「空白 ✓」只对**折叠**成立、
+///      对**位置**不成立。
+///   ⇒ **移交 Task 2 作为落 J-1 判据前的前置修复**（评审已验证：4 组形态本仓零命中，
+///   修复不触碰 Task 2 要冻结的 35/34/34 计数与豁免清单语义）。
+///
+///   ⚠️ **为什么撤回「穷尽」这个措辞**：本分类器在 `trimmedDescription` **摊平后的字符串**
+///   上**重造词法/语法分析**，而「token × trivia 的摆放位置」是**乘积**级自由度——只能
+///   靠逐个撞见来枚举，三轮连续被证伪就是经验证据。**全称量词本身是反例制造机。**
+///   真正的收敛修法是让分类器直接吃 `TypeSyntax` 节点（采集器手里本来就有，见下方
+///   `visit` 各处拿到节点后立刻摊平的位置）：括号（单元素 `TupleType`）、
+///   specifier / attribute（`AttributedType` 的结构字段）、Optional 糖（`OptionalType` /
+///   泛型实参）、成员类型、trivia、反引号在**结构层天然消解**，穷尽性**由构造保证**而非
+///   由宣称。该重构超出本 plan 定稿范围，作为 Suggestion 记在此处。
 /// - (ii) **声明位置搬家**：`init` / `func` / `subscript` / `enum case` / protocol
 ///   requirement 已采（裁决 (e)），宏展开 / attribute 已留痕（见类文档「已知盲区」）。
 /// - (iii) **名字解析间接层**：`typealias`（裁决 (f)）已清点 + 空断言，泛型洗 Bool

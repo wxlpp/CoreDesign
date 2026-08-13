@@ -135,8 +135,8 @@ struct BoolParameterScannerTests {
         // 免豁免逃逸——预处理只 trim 首尾空白，从未剥注释，`trimmedDescription` 也只剥
         // 整个节点首尾 trivia、内部注释原样保留。`(Bool/*x*/)` / `Optional<Bool/*x*/>`
         // 的调用点都与 `f(flag: true)` 逐字相同，改写成本比裁决 (b‴) 的 `(Bool)` 还低
-        // ——一对括号 + 一个注释。补上这条后，「调用点不变的类型文本改写」这条逃逸通道
-        // 可以给出穷尽论证——完整论证见 `stripComments` 的文档。
+        // ——一对括号 + 一个注释。⚠️ 这条**不使该通道穷尽**（评审第 5 轮实测 7 个反例、
+        // 4 组根因，已移交 Task 2）——覆盖状态见 `stripComments` 的文档。
         #expect(classifyBoolParameterType("(Bool/*x*/)") == .plainBool)
         #expect(classifyBoolParameterType("Optional<Bool/*x*/>") == .plainBool)
         // `//` 行注释：括号内换行合法。
