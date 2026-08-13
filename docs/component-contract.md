@@ -171,8 +171,20 @@
 ⚠️ 这是现实中最常见的处置，但只要没写出来，执行者面对「四条都不适用」时就只会
 卡住或硬凑，不会想到「也可以直接删掉」。
 
-**(b) 不成立才用 (a)：记入豁免基线** —— 写入 `bool-exemptions.json`（随 #39 落地），
+**(b) 不成立才用 (a)：记入豁免基线** —— 写入 `docs/bool-exemptions.json`（#39 已落地），
 理由里**必须包含「为什么删不掉」**，而不只是「为什么四条都不适用」。
+守卫会真的查这一点：理由文本必须出现「删除」二字，否则判红
+（`Tests/CoreDesignTests/BoolExemptionGuard.swift` 的 `exemptionBaselineIsWellFormed`）。
+
+⚠️ **豁免基线是两份文件，加一条豁免要改两处**（#39 的一/二文件选型裁决）：
+`docs/bool-exemptions.json` 是清单本身（每条四字段：`parameter` / `reason` /
+`decidedBy`（裁决人）/ `decidedOn`），`docs/bool-exemptions-baseline.json` 只记一个
+上限 `maxEntries` 与这次抬高的 `raisedBy` / `raisedOn` / `rationale`。守卫要求
+**清单条目数与 `maxEntries` 严格相等**——清单增一条必须同轮抬高上限，缩一条必须同轮
+下调（**不留额度**，否则未来的新增可以免审吃掉这段 slack）。
+⇒ 这么切的理由是：**内容**（改措辞、补日期，常改且无害）与**容量**（放宽豁免面，
+罕改且必须署名）是两根不同的轴。切开之后，「豁免面被放宽过几次」的完整台账就是
+`git log -p docs/bool-exemptions-baseline.json`，不会被清单里的无害编辑淹没。
 
 ⚠️ **两个出口必须有序，不能并列。** 并列时执行者的激励是反的：
 (a) 只需写一条 JSON + 理由，(b) 是破坏性变更 + 迁移 —— 文字说「(b) 最常见」，
@@ -409,7 +421,20 @@ Bool + 配套闭包 ⇒ 按 **3.2** 走**子视图槽**，一并消除 `Tag.init
 | modifier 承载**布尔旋钮**？ | `bordered` 是 ❌ **不合规** |
 
 ⇒ 结论：**不合规**。最终处置（豁免或改造）**留给 #41 试点**，本任务只给判据。
-⚠️ 这条会让 J-1 上线后到 #41 完成前保持红——**预期状态**，见 #39 的交付说明。
+⚠️ **它不进豁免清单**：`View.surface#bordered` 不在 `docs/bool-exemptions.json` 里，
+因此**不占** `maxEntries` 的格子、**不受**棘轮保护——它不是「被接受的 API」，
+而是一条**已知的、未解决的违规**。
+⚠️ **落法是 `withKnownIssue` 而不是让 CI 字面红**（#39 的裁决，AC 偏离已登记）：
+J-1 主判据 `BoolExemptionGuard.j1NoUnexemptedBoolParameters` 用 Swift Testing 的
+`withKnownIssue` 只包住「未豁免违规集合为空」这一条断言，其余（过期条目、棘轮、
+宿主台账、新违规）照常判红。理由：epic / main 分支**都没有分支保护**，字面红拦不住
+任何合并、只是信号；而它会让 `.github/workflows/ci.yml` 里「仅已知 flake 才重跑」的
+保护恒走「直接判红」分支，等于在整个 epic 期间关掉那道保护。
+⚠️ **到期是机器强制的，不靠任何人记账**：#41 一旦删掉/改造 `bordered`，
+`withKnownIssue` 块内不再记录到 issue ⇒ Swift Testing 判「Known issue was not recorded」
+⇒ 主判据**自己红**。第二道闸是 `j1ViolationSetIsExactlyTheContractPending`：
+它断言「未豁免违规集合**恰好**等于 `View.surface#bordered` 这一条」，
+既在 known issue **之外**抓新出现的未豁免 Bool，也在 `bordered` 消失时判红。
 
 #### AD-2 裁决：「这不是组件」的范围——ViewModifier 是否进登记表
 

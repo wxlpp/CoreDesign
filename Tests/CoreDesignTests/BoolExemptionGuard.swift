@@ -108,6 +108,55 @@ struct BoolExemptionGuard {
     /// 时会失效（块内仍有 issue），所以第 (2) 道不能省。
     static let pendingViolationKeys: Set<String> = ["View.surface#bordered"]
 
+    // MARK: - 与 #38 登记表的交叉核对（39.md 最后一条 AC 的收窄落地）
+
+    /// 一个豁免宿主为什么不可能有 `component-registry.json` 条目。
+    enum OwnerExclusionKind: Sendable {
+        /// 扩展的是 SwiftUI / 外部协议，本仓根本没有该类型的声明（`View` / `ButtonStyle`）。
+        case externalProtocolExtension
+        /// style **实现**——按公约 AD-3 不是登记表条目。
+        case styleImplementation
+        /// 有 public 类型但不是 `View`/`ViewModifier`，且不是 `docs/README.md` 组件索引的行名
+        /// ——按公约 AD-2 终审 I4 的**复合条件**不登记。
+        case nonViewPublicType
+    }
+
+    /// ⚠️ **39.md 最后一条 AC 与公约 AD-2 的张力，处置见 `39-plan.md`「AC 最后一条与 AD-2」**。
+    ///
+    /// AC 原文要求「豁免清单里的每个参数名能在 component-registry.json 对应组件的记录里
+    /// 找到出处」。实测把 34 条豁免的宿主逐个查过 45 条 coredesign 条目后，**7 个宿主
+    /// 根本不可能有条目**，且各有各的 AD 依据（任务书只点了 `BottomInputBar` 一例,
+    /// 实际范围宽得多——凡是自由函数与非组件 public 类型都落在外面）。
+    ///
+    /// ⇒ **收窄**：登记表交叉核对只适用于「宿主本来就该在登记表里」的那部分；
+    /// 其余必须在本台账里显式列出并给出 AD 依据。
+    /// ⇒ **补强**：AC 的原意（「不许凭空捏造出处」）改由一条**更强**的判据保证——
+    /// 豁免键不是人写的自由文本，是**扫描器产出**的 `Owner.decl#param`，
+    /// `j1NoUnexemptedBoolParameters` 的双向差集让「清单里出现源码里不存在的参数」直接判红。
+    ///
+    /// ⚠️ **本台账必须承重，不能是名字白名单**（照抄 #38 把 `knownStyleAnnotationRows`
+    /// 从名字集合升级成映射的教训：升级前把 `Components/Style/` 整个删掉判据照样绿）。
+    /// 下面 `exemptionOwnersReconcileWithRegistry` 对三种分类各自绑定了一条真实核对。
+    static let ownersWithoutRegistryEntry: [String: OwnerExclusionKind] = [
+        "View": .externalProtocolExtension,
+        "ButtonStyle": .externalProtocolExtension,
+        "SolidButtonStyle": .styleImplementation,
+        "LightButtonStyle": .styleImplementation,
+        "StepItem": .nonViewPublicType,
+        "ButtonRoleStyleRole": .nonViewPublicType,
+        "SegmentedControlStyleConfiguration.Segment": .nonViewPublicType,
+    ]
+
+    /// 从豁免键 `Owner.decl#param` 里取回宿主名。
+    /// `SegmentedControlStyleConfiguration.Segment.init#isSelected` ⇒
+    /// `SegmentedControlStyleConfiguration.Segment`（去掉 `#` 之后的参数与最后一段 decl 名）。
+    static func owner(ofExemptionKey key: String) -> String {
+        let head = key.split(separator: "#").first.map(String.init) ?? key
+        var parts = head.split(separator: ".").map(String.init)
+        if parts.count > 1 { parts.removeLast() }
+        return parts.joined(separator: ".")
+    }
+
     static func exemptedKeys() throws -> Set<String> {
         Set(try Self.loadExemptions().compactMap(\.parameter))
     }
@@ -414,5 +463,67 @@ struct BoolExemptionGuard {
         留了一个**免审白名单额度**（那正是 `<=` 版本判据的真实漏洞，本条等式专门堵它）。
         棘轮的「只许缩」靠的就是这条把已释放的额度立刻收回来。
         """)
+    }
+
+    @Test("豁免宿主要么在登记表里，要么在 AD 台账里且该分类真的成立")
+    func exemptionOwnersReconcileWithRegistry() throws {
+        let registered = Set(
+            try ComponentRegistryGuard.loadRegistry()
+                .filter { $0.repo == "coredesign" }.map(\.component)
+        )
+        #expect(registered.count > 30, "登记表只读到 \(registered.count) 条 coredesign 条目 —— 疑似没读到")
+
+        let scan = try ComponentRegistryGuard.coreDesignScan()
+        #expect(scan.components.count > 15, "登记表扫描器只扫到 \(scan.components.count) 个组件类型 —— 失效")
+
+        let readmeText = try String(
+            contentsOf: ComponentRegistryGuard.repoRoot.appendingPathComponent("docs/README.md"),
+            encoding: .utf8
+        )
+        let readmeRows = ComponentRegistryGuard.readmeIndexRows(readmeText)
+        #expect(readmeRows.count > 20, "README 组件索引只解析到 \(readmeRows.count) 行 —— 解析器可能失效")
+        var readmeNames: Set<String> = []
+        for raw in readmeRows {
+            readmeNames.formUnion(ComponentRegistryGuard.candidateNames(fromReadmeCell: raw).names)
+        }
+
+        var unaccounted: [String] = []
+        for key in try Self.exemptedKeys() {
+            let owner = Self.owner(ofExemptionKey: key)
+            if registered.contains(owner) { continue }
+            guard let kind = Self.ownersWithoutRegistryEntry[owner] else {
+                unaccounted.append("\(key) → 宿主「\(owner)」")
+                continue
+            }
+            // ⚠️ 分类必须**承重**：每一种都绑一条真实核对，不是认个名字就放行。
+            switch kind {
+            case .externalProtocolExtension:
+                #expect(!scan.components.contains(owner) && !scan.styleImpls.contains(owner),
+                        "「\(owner)」被标为外部协议扩展，但本仓源码里就有这个类型 —— 分类过期，该重新裁决")
+            case .styleImplementation:
+                #expect(scan.styleImpls.contains(owner),
+                        "「\(owner)」被标为 style 实现，但扫描器的 styleImpls 里没有它 —— 删光 Components/Button/styles/ 也会命中这条")
+            case .nonViewPublicType:
+                let root = owner.split(separator: ".").first.map(String.init) ?? owner
+                #expect(!scan.components.contains(root),
+                        "「\(root)」已被扫描器采集为组件类型 —— 它现在该进登记表了，从台账里移走")
+                // AD-2 终审 I4 的复合条件：「有 public 类型 **且被 README 组件索引收录**」⇒ 登记。
+                #expect(!readmeNames.contains(root),
+                        "「\(root)」已出现在 docs/README.md 的组件索引里 —— 按 AD-2 终审 I4 的复合条件它该登记，重新裁决")
+            }
+        }
+        let unaccountedMessage = """
+        这些豁免的宿主既不在 component-registry.json 里，也不在 ownersWithoutRegistryEntry 台账里：
+        \(unaccounted.sorted().joined(separator: "\n"))
+        —— 39.md 最后一条 AC 的收窄版（见 39-plan.md）：宿主可以没有登记表条目，
+        但必须写明是哪一条 AD 裁决让它没有，并让那条裁决在这里被真的核对一遍。
+        """
+        #expect(unaccounted.isEmpty, "\(unaccountedMessage)")
+
+        // ⚠️ **反向**：台账里的宿主若哪天真进了登记表，台账就过期了，
+        // 而判据不会因为「还是绿的」提醒任何人去核对（#38 终审第 2 轮 M2 同款）。
+        let nowRegistered = Set(Self.ownersWithoutRegistryEntry.keys).intersection(registered)
+        #expect(nowRegistered.isEmpty,
+                "这些宿主已经进了登记表，该从 ownersWithoutRegistryEntry 移走：\(nowRegistered.sorted())")
     }
 }
