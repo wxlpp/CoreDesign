@@ -52,10 +52,16 @@ import Testing
 /// 组合，不必再对「`Optional` × 括号 × 空白」的乘积逐条枚举拼法。`@autoclosure () -> (Bool)`
 /// 同理：返回位的括号在归一化后单独剥（见 `classifyBoolParameterType` 里 `sawAutoclosure`
 /// 分支），不依赖这里的「最外层」剥离。
+///
+/// ⚠️ **类型文本内的注释同样是免豁免逃逸**（裁决 (b‴‴‴)，Task 1 评审第 3 轮 Important-1）：
+/// `(Bool/*x*/)` / `Optional<Bool/*x*/>` 的调用点与 `f(flag: true)` 逐字相同，改写成本
+/// 比 `(Bool)` 还低。补上这条后，「调用点不变的类型文本改写」这条逃逸通道可以给出穷尽
+/// 论证——完整三通道论证见 `stripComments` 的文档，不在此重复。
 nonisolated enum BoolParamKind: Sendable, Equatable {
     /// 参数类型就是 `Bool`（含 `Bool?` / `Optional<Bool>` / `Swift.Bool`
     /// / `consuming Bool` / `borrowing Bool` / `sending Bool`
-    /// / `@autoclosure () -> Bool` / `(Bool)` / `((Bool))`）⇒ J-1 命中。
+    /// / `@autoclosure () -> Bool` / `(Bool)` / `((Bool))`，剥掉注释后同上均适用）
+    /// ⇒ J-1 命中。
     case plainBool
     /// 类型文本里还有 `Bool` 标识符，但类型本身不是 `Bool`：
     /// `Binding<Bool>` / `FocusState<Bool>.Binding?` / `[Bool]` / `(Bool) -> Void`
@@ -113,8 +119,78 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
     return !topLevelComma
 }
 
+/// ⚠️ **类型文本内的注释是仍然开着的免豁免逃逸**（裁决 (b‴‴‴)，Task 1 评审第 3 轮
+/// Important-1）：`classifyBoolParameterType` 的预处理原先只做
+/// `trimmingCharacters(in: .whitespacesAndNewlines)`、从不剥注释；`trimmedDescription`
+/// 也只剥整个节点**首尾** trivia，**内部**注释原样保留。`func f(flag: (Bool/*x*/))` 与
+/// `func f(flag: Optional<Bool/*x*/>)` 的调用点都与 `f(flag: true)` **逐字相同**
+/// ——改写成本比裁决 (b‴) 的 `(Bool)` 还低，只需一对括号 + 一个注释。`//` 行注释同理
+/// （括号内换行合法）。
+///
+/// ⚠️ **补上这条之后，「调用点不变的类型文本改写」这条逃逸通道可以给出穷尽论证**——
+/// J-1 的免豁免逃逸可以分三类通道：
+/// - (i) **调用点不变的类型文本改写**：括号（裁决 (b‴)）✓、Optional 语法糖 / 名义拼法
+///   （`Optional<Bool>` / `Swift.Optional<Swift.Bool>` 等，由裁决 (b‴‴) 的递归分类
+///   覆盖，不是逐条枚举拼法）✓、ownership specifier / attribute（裁决 (b′)/(b″)）✓、
+///   空白（trim + `normalizeWhitespace` 归一化）✓、**注释**（本条）✓。类型文本的
+///   字母表就是 token + trivia：token 侧已被上述四条结构化处理，trivia 侧只剩注释这
+///   一类没盖到，补上之后通道 (i) **穷尽**。
+/// - (ii) **声明位置搬家**：`init` / `func` / `subscript` / `enum case` / protocol
+///   requirement 已采（裁决 (e)），宏展开 / attribute 已留痕（见类文档「已知盲区」）。
+/// - (iii) **名字解析间接层**：`typealias`（裁决 (f)）已清点 + 空断言，泛型洗 Bool
+///   已留痕。
+///
+/// 剥法：`//` 剥到行尾；`/* … */` **必须按深度计数扫描，不能用非贪婪正则**
+/// （`/\*.*?\*/` 在 `/* a /* b */ c */` 这类合法的嵌套块注释里会在内层 `*/` 提前闭合，
+/// 剩下 ` c */` 污染结果）。每处注释替换成**单个空格**，避免把注释两侧的 token 意外
+/// 粘连（`consuming/*x*/Bool` 不能剥成 `consumingBool`）。
+nonisolated private func stripComments(_ t: String) -> String {
+    let chars = Array(t)
+    var result = ""
+    result.reserveCapacity(chars.count)
+    var i = 0
+    var depth = 0
+    while i < chars.count {
+        if depth > 0 {
+            if chars[i] == "/", i + 1 < chars.count, chars[i + 1] == "*" {
+                depth += 1
+                i += 2
+            } else if chars[i] == "*", i + 1 < chars.count, chars[i + 1] == "/" {
+                depth -= 1
+                i += 2
+                if depth == 0 { result.append(" ") }
+            } else {
+                i += 1
+            }
+            continue
+        }
+        if chars[i] == "/", i + 1 < chars.count, chars[i + 1] == "*" {
+            depth = 1
+            i += 2
+            continue
+        }
+        if chars[i] == "/", i + 1 < chars.count, chars[i + 1] == "/" {
+            while i < chars.count, chars[i] != "\n" { i += 1 }
+            result.append(" ")
+            continue
+        }
+        result.append(chars[i])
+        i += 1
+    }
+    return result
+}
+
+/// 把 `stripComments` 留下的空白（含注释替换出的空格、括号内合法的换行）归一化成
+/// 单个空格再首尾 trim。⚠️ 不能省略这一步：下游多处用 `.whitespaces`（**不含换行**）
+/// 做局部 trim（例如剥外层括号那一步），注释剥离后若残留内嵌换行会让那些 trim 漏剥，
+/// 逐字比较假阴性。
+nonisolated private func normalizeWhitespace(_ t: String) -> String {
+    t.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
 nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
-    var t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    var t = normalizeWhitespace(stripComments(raw))
 
     // 1) 剥 specifier 与 attribute。两者可以交替出现（`borrowing @Sendable …`），
     //    所以放在同一个循环里剥到剥不动为止。
@@ -205,9 +281,14 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
 /// 交给递归调用的 `classifyBoolParameterType` 自己 trim）。不是外壳则返回 `nil`。
 ///
 /// ⚠️ 用「前缀 + 末字符」直接切片，不是正则或括号计数：`Optional<T>` 只有一个泛型实参，
-/// 且整段文本来自 `trimmedDescription`（保证语法上是良构的），第一个 `<` 必然是
-/// `optionalGenericArgument` 消费掉的那个，最后一个 `>` 必然与它配对——即使实参本身
-/// 含嵌套泛型（`Optional<Binding<Bool>>`）也不需要额外配平。
+/// 整段文本来自 `trimmedDescription`（保证语法上是良构的），实参本身含嵌套泛型
+/// （`Optional<Binding<Bool>>`）时第一个 `<` 与最后一个 `>` 确实互相配对，不需要额外
+/// 配平。
+/// **这个「配对」宣称对 `Optional<X>.Y<Z>` 这类成员类型文本不成立**（Task 1 评审第 3 轮
+/// Suggestion-2）——`t.hasSuffix(">")` 会先失败（结尾是成员类型的 `>`，不是外壳的），
+/// 万一某种拼法凑巧仍以 `>` 结尾，切出的实参也会包含多余的 `.Y<Z` 尾巴。**误配对时
+/// 失败方向是安全的**：切歪的实参递归分类不到 `Bool`，落 `.boolCarrying` 兜底
+/// （清点、不放行），不会把非命中误判成 `.plainBool`。
 nonisolated private func optionalGenericArgument(_ t: String) -> String? {
     for prefix in ["Optional<", "Swift.Optional<"] where t.hasPrefix(prefix) && t.hasSuffix(">") {
         let start = t.index(t.startIndex, offsetBy: prefix.count)
@@ -376,6 +457,13 @@ private func collectBoolParams(tree: SourceFileSyntax, fileName: String) -> Bool
 ///   `package`（比 `public` 更窄），但会被当成继承 extension 的默认 `public` 而**多**报
 ///   一条——后果是有人被迫来核实一条本不该报的条目，不是漏网。本仓当前 `package` 修饰符
 ///   零使用，先留痕，不做机器拦截；若后续引入 `package`，再补一个 `isPackage` 分支重新裁决。
+/// - **`associatedtype` 默认值洗 Bool 未留痕**（Task 1 评审第 3 轮 Suggestion-1）：
+///   `public protocol P { associatedtype F = Bool; init(flag: F) }` 的 requirement
+///   参数文本是 `"F"` ⇒ `.notBool`，且 `AssociatedTypeDeclSyntax` 不进
+///   `publicBoolTypeAliases`——与上面「泛型洗 Bool 判不了」同族（纯语法解不了名字）。
+///   不是独立的机器拦截缺口：本仓侧 conformer 仍要写出具体的 `public init(flag: Bool)`
+///   才能满足 requirement，那条会被正常采到；这里只留痕，与 `typealias`（裁决 (f)）
+///   条目呼应，不单独扩展扫描器。
 private nonisolated final class PublicBoolParamCollector: SyntaxVisitor {
     var hits: [BoolParamHit] = []
     var carrying: [BoolParamHit] = []

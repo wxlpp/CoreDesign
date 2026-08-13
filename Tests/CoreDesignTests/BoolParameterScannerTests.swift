@@ -10,7 +10,7 @@ import Testing
 // public protocol requirement 里的 Bool 0 条；带 Bool 关联值的 enum case 0 条；
 // `@autoclosure` 0 条；含 Bool 的 public typealias 0 条；
 // `public extension` 里的嵌套具名类型 0 处（`#Preview` 里那几个不算，宏块整块跳过）。
-// ⇒ 全部边界（裁决 a/b/b′/b″/c/e/f/g）的裁决**只能**在合成源码上证伪。
+// ⇒ 全部边界（裁决 a/b/b′/b″/b‴/b‴‴/b‴‴‴/c/e/f/g）的裁决**只能**在合成源码上证伪。
 // 这与 #38 抽 `compareRegistryToScan` 出来写常驻单测是同一个理由。
 //
 // ⚠️ **「本仓当前恰好没有」正是 #38 `Toast`/`BottomInputBar` 翻车的形态**：差集恒空、
@@ -130,6 +130,21 @@ struct BoolParameterScannerTests {
         #expect(classifyBoolParameterType("Optional<Int>") == .notBool)
         // 反例：元组实参递归后仍落 .boolCarrying（裁决 (b‴) 判元组不剥，不受递归影响）。
         #expect(classifyBoolParameterType("Optional<(Bool, Int)>") == .boolCarrying)
+
+        // ⚠️ 裁决 (b‴‴‴)（Task 1 评审第 3 轮 Important-1）：类型文本内的注释是仍然开着的
+        // 免豁免逃逸——预处理只 trim 首尾空白，从未剥注释，`trimmedDescription` 也只剥
+        // 整个节点首尾 trivia、内部注释原样保留。`(Bool/*x*/)` / `Optional<Bool/*x*/>`
+        // 的调用点都与 `f(flag: true)` 逐字相同，改写成本比裁决 (b‴) 的 `(Bool)` 还低
+        // ——一对括号 + 一个注释。补上这条后，「调用点不变的类型文本改写」这条逃逸通道
+        // 可以给出穷尽论证——完整论证见 `stripComments` 的文档。
+        #expect(classifyBoolParameterType("(Bool/*x*/)") == .plainBool)
+        #expect(classifyBoolParameterType("Optional<Bool/*x*/>") == .plainBool)
+        // `//` 行注释：括号内换行合法。
+        #expect(classifyBoolParameterType("(Bool // trailing note\n)") == .plainBool)
+        // 块注释可以嵌套（`/* a /* b */ c */` 合法）——必须按深度计数扫描：非贪婪正则
+        // （`/\*.*?\*/`）会在内层 `*/` 提前闭合，剩下 ` c */` 污染结果，这条断言正是为了
+        // 见证「按深度计数」这个实现本身，不是随便挑一个块注释形态。
+        #expect(classifyBoolParameterType("Bool/* a /* b */ c */") == .plainBool)
     }
 
     // MARK: - 访问级别
