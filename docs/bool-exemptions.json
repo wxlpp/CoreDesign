@@ -13,7 +13,7 @@
   },
   {
     "parameter": "View.floatingGlass#isInteractive",
-    "reason": "原样透传给 SwiftUI 的 .glassEffect(_:in:isInteractive:)，参数名与语义都由 Apple 的签名定死。删除等于关闭对系统能力的暴露，属功能删减而非重构；四条替代路径受制于原生签名一条都不适用。待 Apple 侧给出非 Bool 形态前保持豁免。",
+    "reason": "⚠️ 不是原样透传：body 内把 Bool 换算成 Glass 值（isInteractive ? Glass.regular.interactive() : Glass.regular，见 FloatingGlassModifier.swift:20），SwiftUI 这一层接的是 Glass 类型，这个 Bool 参数是本仓自己发明的。终局条款先试 (b) 删除：删掉即关闭对系统 interactive 玻璃效果的暴露，属功能删减，(b) 不成立 ⇒ 记入豁免 (a)。3.1 式替代路径（直接收 Glass，或收一个语义枚举再仓内换算成 Glass）结构上可用，属 #41 的仓内改造范围，不是等 Apple 给非 Bool 形态。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-08-13"
   },
@@ -109,7 +109,7 @@
   },
   {
     "parameter": "FloatingGlassModifier.init#isInteractive",
-    "reason": "与 View.floatingGlass#isInteractive 是同一概念的类型级入口，原样透传 SwiftUI 的 .glassEffect(isInteractive:)。删除等于关闭对系统能力的暴露，受原生签名约束，四条替代路径不适用。",
+    "reason": "与 View.floatingGlass#isInteractive 是同一概念的类型级入口，同样不是透传——body 内把 Bool 换算成 Glass 值（isInteractive ? Glass.regular.interactive() : Glass.regular）。终局条款先试 (b) 删除：删掉即关闭对系统 interactive 玻璃效果的暴露，属功能删减，(b) 不成立 ⇒ 记入豁免 (a)。改造需与 View.floatingGlass 同轮走 3.1 式替代（收 Glass 或语义枚举），归 #41。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-08-13"
   },

@@ -161,7 +161,7 @@ struct BoolExemptionGuard {
         #expect(scan.publicBoolTypeAliases.isEmpty, "\(aliasMessage)")
 
         // ⚠️ 用 print 不用 `Issue.record`——后者记录的是 failure，会让测试永远红。
-        // ⚠️ **要打名单不只是数**：Task 3 要照这份名单写 `bool-exemptions.json`。
+        // ⚠️ **要打名单不只是数**：Task 3 已照这份名单写好 `bool-exemptions.json`。
         print("【J-1 命中】\(scan.keys.count) 个豁免键 / \(scan.hits.count) 处源码位置：")
         for hit in scan.hits.sorted() { print("  \(hit.key)  ←  \(hit.file):\(hit.line)") }
         print("【裁决 (b) 归类为 .boolCarrying，不判违规】\(scan.carrying.count) 处：")
