@@ -57,10 +57,13 @@ import Testing
 /// 递归里同样过不了 `normalizeWhitespace`（只折叠空白**串**、不消空白**位置**），
 /// 返回 `.boolCarrying` ⇒ 外层的 `== .plainBool` 检查不成立 ⇒ 整体落兜底，
 /// 同款免豁免逃逸。Task 2 在 `normalizeWhitespace` 里补上对 `.`/`<`/`>` 两侧空白的
-/// 收紧之后，因为该函数在 `classifyBoolParameterType` **顶层对每次递归调用都会重新
-/// 执行**，这条残余在实参位的复现形态随之**自动**覆盖——比这里「靠递归重跑」本身
-/// 的论证还强，不需要对「Optional × 空白」逐条枚举拼法；specifier 在泛型实参位
-/// 不合法，无关。
+/// 收紧之后，**最外层全串收紧已覆盖，递归重跑是第二道**（Task 2 评审第 2 轮
+/// Suggestion）：`normalizeWhitespace` 在 `classifyBoolParameterType` **顶层对整个
+/// 传入字符串**先执行一次，`Optional<Swift . Bool>` 这个全串在递归发生**之前**就已经
+/// 被收紧成 `Optional<Swift.Bool>`，实参位的 `Swift . Bool` 早已不存在；该函数在
+/// **每次递归调用**都会重新执行只是第二道保险（覆盖递归自身拆出的、未经过外层
+/// 收紧的子串），不是这条残余唯一被覆盖的原因——不需要对「Optional × 空白」逐条
+/// 枚举拼法；specifier 在泛型实参位不合法，无关。
 /// （四组残余的完整清单见 `stripComments` 上方的三通道文档。）
 /// `@autoclosure () -> (Bool)` 同理：返回位的括号在归一化后单独剥（见
 /// `classifyBoolParameterType` 里 `sawAutoclosure` 分支），不依赖这里的「最外层」剥离。
@@ -167,10 +170,19 @@ nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
 ///   2. **specifier 无空格**：`consuming(Bool)` / `borrowing(Bool)` —— 原匹配强制要求
 ///      specifier 后随空格；修法：specifier 后随空格**或** `(` 均可剥离（下一字符只能是
 ///      这两者之一的白名单，防误撞真实标识符前缀）。
-///   3. **attribute 无空格**：`@autoclosure() -> Bool` —— 原实现按空白终止切出
-///      `"@autoclosure()"` ≠ `"@autoclosure"`；修法：识别出粘连的空 `()` 属于后面
-///      函数类型的参数表（不是 attribute 实参），只消费 attribute 名本身，把 `()`
-///      留给 `sawAutoclosure` 分支按 `"() -> Bool"` 认。
+///   3. **attribute 无空格（含粘连兄弟形态，Task 2 评审第 2 轮 Important-1 补）**：
+///      `@autoclosure() -> Bool` —— 原实现按空白终止切出 `"@autoclosure()"` ≠
+///      `"@autoclosure"`；修法：识别出粘连的空 `()` 属于后面函数类型的参数表（不是
+///      attribute 实参），只消费 attribute 名本身，把 `()` 留给 `sawAutoclosure`
+///      分支按 `"() -> Bool"` 认。⚠️ **这一修法本身在离已修样例一个空格处就失效并
+///      劣化到最黑一类**：`@autoclosure()->Bool`（箭头也无空格）全串无空白，
+///      `prefix(while:)` 切出**整串**当 attribute 吞掉，`t` 被清空、`sawAutoclosure`
+///      未置位，落 `.notBool`——命中/清点/留痕三层同时看不见，比这里落 `.boolCarrying`
+///      的其余残余更黑。追加修法：`hasPrefix("@autoclosure()")`（**必须**带闭合括号）
+///      单独识别这个粘连兄弟形态。**注意区分**：`@autoclosure( )->Bool`（括号内有
+///      空格）是不同类，`prefix(while:)` 会在那个空格处截停出恰好 `"@autoclosure("`，
+///      仍正确落 `.boolCarrying`（若判断少了闭合括号会把两者混为一谈，见下方代码里
+///      `hasSuffix`/`hasPrefix` 分支的注释）。
 ///   4. **标点周围空白**：`Swift . Bool` / `Optional <Bool>` —— 原 `normalizeWhitespace`
 ///      只收敛空白**串**、不消除 `.` 与 `<`/`>` 周围的空白；修法：折叠后再收紧这三个
 ///      标点两侧的空白，因为在函数顶部执行、每次递归调用都会重跑，泛型实参位的复现
@@ -267,8 +279,10 @@ nonisolated private func normalizeWhitespace(_ t: String) -> String {
     // `"Swift.Bool"`；`Optional <Bool>` 同理不等于 `Optional<Bool>` 前缀。两者调用点
     // 都与 `f(flag: true)` 逐字相同 ⇒ 免豁免逃逸。这里额外收紧 `.` / `<` / `>` 两侧的
     // 空白（不含 `,`——逗号两侧空白不影响元组 vs. 非元组的判定，不需要动）。
-    // ⇒ 因为本函数在 `classifyBoolParameterType` 顶部对**每次递归调用**都会重新执行，
-    // `Optional<Swift . Bool>` 这类泛型实参位的复现形态在递归时被同一次修复覆盖，
+    // ⇒ **最外层全串收紧已覆盖，递归重跑是第二道**（Task 2 评审第 2 轮 Suggestion）：
+    // 本函数在 `classifyBoolParameterType` 顶部对**整个传入字符串**先执行一次，
+    // `Optional<Swift . Bool>` 这类泛型实参位的复现形态在**递归发生之前**、对全串的
+    // 那一次调用里就已经被收紧；本函数对**每次递归调用**都会重新执行只是第二道保险，
     // 不需要在 `optionalGenericArgument` 那一层单独处理。
     return collapsed.replacingOccurrences(
         of: #"\s*([.<>])\s*"#, with: "$1", options: .regularExpression
@@ -322,7 +336,28 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
             // `"() -> Bool"` 的形态去认，而不是把它当 attribute 的一部分吞掉丢弃。
             // 普通写法（`@autoclosure ` 后随空格）不受影响：此时 `attribute` 本就不含
             // 粘连的 `()`，两条分支消费的长度相同。
-            let attributeName = attribute.hasSuffix("()") ? String(attribute.dropLast(2)) : attribute
+            //
+            // ⚠️ **Task 2 评审第 2 轮 Important-1：粘连兄弟形态 `@autoclosure()->Bool`
+            // （箭头也无空格）比上面这条更黑**——全串无空白，`prefix(while:)` 会把
+            // **整串**都切进 `attribute`（`"@autoclosure()->Bool"`），`hasSuffix("()")`
+            // 为假（结尾是 `Bool`，不是 `()`）⇒ 走 else 分支把整串当 attribute 吞掉，
+            // `t` 被清空成 `""`，`sawAutoclosure` 从未置位，兜底 `\bBool\b` 在空串无
+            // 匹配 ⇒ 落 `.notBool`——命中、清点、留痕三层同时看不见，比这里其余残余
+            // （落 `.boolCarrying`，至少清点）更黑。
+            // 修法：新增 `hasPrefix("@autoclosure()")` 分支（**必须**带闭合括号，
+            // 不能只判 `hasPrefix("@autoclosure(")`——`@autoclosure( )->Bool`
+            // 括号内有一个空格，此时 `prefix(while:)` 会在这个空格处截停，`attribute`
+            // 恰好等于 `"@autoclosure("`，与不带闭合括号的前缀判断重合，会把这个
+            // **不同类**、仍应落 `.boolCarrying` 的形态一并误判成 `.plainBool`；
+            // 带闭合括号的 `hasPrefix` 只在 `()` 紧邻无空格时成立，能正确把两者分开）。
+            let attributeName: String
+            if attribute.hasSuffix("()") {
+                attributeName = String(attribute.dropLast(2))
+            } else if attribute.hasPrefix("@autoclosure()") {
+                attributeName = "@autoclosure"
+            } else {
+                attributeName = attribute
+            }
             if attributeName == "@autoclosure" {
                 sawAutoclosure = true
                 t = String(t.dropFirst(attributeName.count)).trimmingCharacters(in: .whitespaces)

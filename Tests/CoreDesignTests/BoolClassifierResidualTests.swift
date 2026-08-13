@@ -15,8 +15,11 @@ import Testing
 // 在这份文件落地之前，红→绿的证据只存在于 `.superpowers/sdd/task-2-report.md` §1.1
 // 的转录里（用的是一个已删除、未提交的 scratch 文件），评审侧无法重放——谁把
 // `normalizeWhitespace` 的标点收紧、autoclosure 返回位递归、或 CBool 分支改坏，
-// 全量测试依然会全绿。下面这 12 条断言把那份转录原样落成可重放的回归测试，
-// 分组、命名、断言顺序与 report §1.1 一致。
+// 全量测试依然会全绿。下面前 11 条断言把那份转录原样落成可重放的回归测试，
+// 分组、命名、**断言表达式**顺序与 report §1.1 逐字一致（`@Test` 显示名做了扩写，
+// 不在「逐字一致」范围内）。第 12 条断言是 Task 2 评审第 2 轮 Important-1 本轮新增
+// ——`@autoclosure()->Bool`（残余组 3 的粘连兄弟形态，箭头也无空格）比组 3 已修的
+// 那类更黑，见残余组 3 测试函数与 `BoolParameterScanner.swift` 里的裁决注释。
 @Suite("Bool 分类器残余形态回归")
 struct BoolClassifierResidualTests {
 
@@ -36,6 +39,18 @@ struct BoolClassifierResidualTests {
     @Test("残余组 3：attribute 后无空格——@autoclosure() -> Bool")
     func residualGroup3AttributeWithoutSpace() {
         #expect(classifyBoolParameterType("@autoclosure() -> Bool") == .plainBool)
+        // ⚠️ **本轮新增（Task 2 评审第 2 轮 Important-1）**：组 3 的粘连兄弟形态
+        // ——箭头也无空格。全串无空白 ⇒ `prefix(while:)` 把整串当 attribute 吞掉
+        // ⇒ `t = ""` ⇒ `sawAutoclosure` 未置位 ⇒ 落 `.notBool`（比组 3 已修的
+        // `.boolCarrying` 更黑：命中/清点/留痕三层同时看不见）。变异自证：把
+        // `BoolParameterScanner.swift` 里的 `else if attribute.hasPrefix("@autoclosure()")`
+        // 分支去掉、只留原 `attribute.hasSuffix("()") ? … : attribute` 三元表达式
+        // （即撤回本轮修复）后本条应变红。⚠️ 修法**不能**只写
+        // `hasPrefix("@autoclosure(")`（少一个闭合括号）——那与
+        // `@autoclosure( )->Bool`（括号内有空格，`attribute` 被空白扫描截断成恰好
+        // `"@autoclosure("`）的前缀重合，会把两种不同类的形态混判，见
+        // `BoolParameterScanner.swift` 里该分支的注释。
+        #expect(classifyBoolParameterType("@autoclosure()->Bool") == .plainBool)
     }
 
     @Test("残余组 4：标点周围空白——Swift . Bool / Optional <Bool> / 泛型实参位复现")
