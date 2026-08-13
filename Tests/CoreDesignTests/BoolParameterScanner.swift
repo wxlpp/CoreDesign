@@ -42,6 +42,16 @@ import Testing
 /// （清点、不计违规，与其余「含 Bool 但类型本身不是 Bool」的形态一致处理，不是漏网）。
 /// 同一条评审还挑出白名单漏了第四种拼法：`Swift.Optional<Swift.Bool>`（原先只列了
 /// `Optional<Bool>` / `Optional<Swift.Bool>` / `Swift.Optional<Bool>` 三种）。
+///
+/// ⚠️ **括号剥离只作用于最外层，泛型实参位由 Optional 递归分类覆盖**（Task 1 评审
+/// 第 2 轮 Important-B）：上面「剥到底」说的是字符串**最外层**这一对括号（`(Bool)` /
+/// `((Bool))`），不包括嵌在 `Optional<...>` 泛型实参位里的括号——`Optional<(Bool)>`
+/// 的最外层是 `Optional<...>` 这层泛型，不是括号，`isRedundantOuterParen` 从不会碰到
+/// 里面那对 `(Bool)`。真正堵住它的是 `classifyBoolParameterType` 剥掉 `Optional<...>`
+/// 外壳后对泛型实参**递归调用自身**——递归天然覆盖了实参位的任意括号 / 空白 / specifier
+/// 组合，不必再对「`Optional` × 括号 × 空白」的乘积逐条枚举拼法。`@autoclosure () -> (Bool)`
+/// 同理：返回位的括号在归一化后单独剥（见 `classifyBoolParameterType` 里 `sawAutoclosure`
+/// 分支），不依赖这里的「最外层」剥离。
 nonisolated enum BoolParamKind: Sendable, Equatable {
     /// 参数类型就是 `Bool`（含 `Bool?` / `Optional<Bool>` / `Swift.Bool`
     /// / `consuming Bool` / `borrowing Bool` / `sending Bool`
@@ -138,13 +148,25 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
     if sawAutoclosure {
         // ⚠️ 裁决 (b″)：`@autoclosure () -> Bool` 的调用点与 `flag: Bool` 逐字相同
         // ⇒ 与 `consuming Bool` 同类，判命中。空白写法不唯一，先归一化再比。
+        //
+        // ⚠️ **返回位同样要剥括号**（Task 1 评审第 2 轮 Important-B）：
+        // `@autoclosure () -> (Bool)` 去空白后是 `"()->(Bool)"`，逐字不等于 `"()->Bool"`
+        // ——不剥的话又是一条免豁免逃逸，与裁决 (b‴) 判 `(Bool)` 命中的理由完全同源。
         let normalized = t.replacingOccurrences(of: " ", with: "")
-        if normalized == "()->Bool" || normalized == "()->Swift.Bool" { return .plainBool }
+        if normalized.hasPrefix("()->") {
+            var returnType = String(normalized.dropFirst(4))
+            while isRedundantOuterParen(returnType) {
+                returnType = String(returnType.dropFirst().dropLast())
+            }
+            if returnType == "Bool" || returnType == "Swift.Bool" { return .plainBool }
+        }
     }
 
     // 2) 剥 Optional 语法糖与「多余」的外层括号，交替剥到剥不动为止
     //    ——顺序不能固定死：`(Bool)?` 要先剥 `?` 再剥括号，`(Bool?)` 反过来，
     //    `((Bool))` 要剥两层括号，三者都必须能剥到 `"Bool"`。裁决 (b‴)。
+    //    ⚠️ **这一步只剥最外层**——`Optional<(Bool)>` 这类泛型实参位的括号剥不到，
+    //    留给下面的 Optional 递归分类处理（Task 1 评审第 2 轮 Important-B）。
     while true {
         var stripped = false
         while t.hasSuffix("?") || t.hasSuffix("!") {
@@ -159,13 +181,41 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
         if !stripped { break }
     }
     if t == "Bool" || t == "Swift.Bool" { return .plainBool }
-    if t == "Optional<Bool>" || t == "Optional<Swift.Bool>" || t == "Swift.Optional<Bool>"
-        || t == "Swift.Optional<Swift.Bool>" {
+    // ⚠️ **`Optional<T>` 结构化递归分类，不是枚举穷尽拼法**（Task 1 评审第 2 轮
+    // Important-B）：真实形态空间是「`Optional`/`Swift.Optional` × `Bool`/`Swift.Bool`
+    // × 括号 × 空白」的乘积——`Optional<(Bool)>`、`Optional< Bool >` 都曾滑过旧的
+    // 四条精确字符串枚举。改成剥掉 `Optional<...>` 外壳后对泛型实参**递归**调用本函数：
+    // 只有实参本身判 `.plainBool`（递归会自己剥实参里的括号/空白/specifier），整个
+    // `Optional<T>` 才判 `.plainBool`；`Optional<(Bool, Int)>` 这类元组实参递归后落
+    // `.boolCarrying`（裁决 (b‴) 判元组不剥），不会被误判成 `.plainBool`。
+    // ⚠️ **递归天然收敛、不会爆栈**：`optionalGenericArgument` 每层至少剥掉
+    // `"Optional<"` 与 `">"` 共 10 个字符，字符串严格变短，`Optional<Optional<Bool>>`
+    // 这类嵌套最多递归到嵌套层数就必然触底（不匹配 `Optional<...>` 外壳或匹配到
+    // `"Bool"`），没有环、没有无界增长。
+    if let genericArgument = optionalGenericArgument(t),
+        classifyBoolParameterType(genericArgument) == .plainBool {
         return .plainBool
     }
     // `\bBool\b` 的词边界保证 `MyBool` / `Boolish` 不误命中。
     if t.range(of: #"\bBool\b"#, options: .regularExpression) != nil { return .boolCarrying }
     return .notBool
+}
+
+/// 剥 `Optional<...>` / `Swift.Optional<...>` 外壳，返回泛型实参原文（未 trim，
+/// 交给递归调用的 `classifyBoolParameterType` 自己 trim）。不是外壳则返回 `nil`。
+///
+/// ⚠️ 用「前缀 + 末字符」直接切片，不是正则或括号计数：`Optional<T>` 只有一个泛型实参，
+/// 且整段文本来自 `trimmedDescription`（保证语法上是良构的），第一个 `<` 必然是
+/// `optionalGenericArgument` 消费掉的那个，最后一个 `>` 必然与它配对——即使实参本身
+/// 含嵌套泛型（`Optional<Binding<Bool>>`）也不需要额外配平。
+nonisolated private func optionalGenericArgument(_ t: String) -> String? {
+    for prefix in ["Optional<", "Swift.Optional<"] where t.hasPrefix(prefix) && t.hasSuffix(">") {
+        let start = t.index(t.startIndex, offsetBy: prefix.count)
+        let end = t.index(before: t.endIndex)
+        guard start <= end else { continue }
+        return String(t[start..<end])
+    }
+    return nil
 }
 
 // MARK: - 命中项 / Hit

@@ -117,6 +117,19 @@ struct BoolParameterScannerTests {
         // `f(x: (true, 1))`，不是 `f(x: true)`，命中前提不成立；但含 Bool 标识符，
         // 与 [Bool] / (Bool) -> Void 同类落进兜底，归 .boolCarrying（清点不判违规）。
         #expect(classifyBoolParameterType("(Bool, Int)") == .boolCarrying)
+
+        // ⚠️ 裁决 (b‴‴)（Task 1 评审第 2 轮 Important-B）：括号剥离只在最外层做，
+        // `Optional<...>` 泛型实参位与 `@autoclosure` 返回位的 `(Bool)` 之前是免豁免
+        // 逃逸——harness 探针 + `swiftc -typecheck` 双确认这些形态调用点逐字不变。
+        // 改成对 Optional 泛型实参**递归**分类、对 autoclosure 返回位单独剥括号后堵上。
+        #expect(classifyBoolParameterType("Optional<(Bool)>") == .plainBool)
+        #expect(classifyBoolParameterType("@autoclosure () -> (Bool)") == .plainBool)
+        // 内部空白同样要收：`Optional< Bool >` 与 `Optional<Bool>` 逐字等价。
+        #expect(classifyBoolParameterType("Optional< Bool >") == .plainBool)
+        // 反例：递归不能把非 Bool 的泛型实参误判成命中。
+        #expect(classifyBoolParameterType("Optional<Int>") == .notBool)
+        // 反例：元组实参递归后仍落 .boolCarrying（裁决 (b‴) 判元组不剥，不受递归影响）。
+        #expect(classifyBoolParameterType("Optional<(Bool, Int)>") == .boolCarrying)
     }
 
     // MARK: - 访问级别
@@ -279,7 +292,7 @@ struct BoolParameterScannerTests {
                 "实际归类：\(result.carrying.map(\.key).sorted())")
     }
 
-    @Test("`#if` 两个分支都扫；`#Preview` 里的声明不扫")
+    @Test("`#if` 两个分支都扫；`#Preview` 里的声明不扫（顶层 expr 位 + 成员 decl 位）")
     func ifConfigBothBranchesAndPreviewSkipped() {
         let result = scanBoolParams(source: """
         #if os(iOS)
@@ -291,6 +304,11 @@ struct BoolParameterScannerTests {
             public struct P { public init(flag: Bool) {} }
             AnyView(EmptyView())
         }
+        public struct Container {
+            #Preview("y") {
+                public struct Q { public init(flag: Bool) {} }
+            }
+        }
         """)
         // ⚠️ Task 1 评审 Important-1：`#Preview` 闭包体里放了一个**若被走到就必然入账**的
         // 声明（`P.init(flag:)`）——`SwiftParser` 是纯语法解析，不知道 `P` 是局部类型，
@@ -300,6 +318,17 @@ struct BoolParameterScannerTests {
         // 之前的合成输入 `#Preview` 体内只有 `AnyView(EmptyView())`，没有任何可采集的声明
         // ——即使把 `visit(_:MacroExpansionDeclSyntax)` 的 `.skipChildren` 整行删掉，
         // `keys` 也不会变，「跳过 #Preview」这半个宣称从未被证伪。
+        //
+        // ⚠️ Task 1 评审第 2 轮 Important-A：上面那个顶层 `#Preview("x")` 在
+        // `SwiftParser` 里落在 **expr** 语法节点（`MacroExpansionExprSyntax`），只见证了
+        // `visit(_:MacroExpansionExprSyntax)` 那一处 `.skipChildren`；`Container` 里
+        // **成员位**的 `#Preview("y")` 落在 **decl** 语法节点（`MacroExpansionDeclSyntax`
+        // ——评审已实测该位置确实产出这个节点），见证的是另一处 `.skipChildren`
+        // （`visit(_:MacroExpansionDeclSyntax)`）。两处跳过是各自独立的 override，
+        // 只测顶层 expr 位对 decl 位那一处**零覆盖**——是 Important-1 同一形态的镜像复发：
+        // 拿掉 decl 侧那道防线，这条测试原本不会红。`Container` 必须是 public、`Q` 必须
+        // 是 public，否则就算 decl 位的跳过被拿掉，`Q.init#flag` 也会被访问级挡住，
+        // 见证不到宏跳过本身。
         #expect(result.keys == ["View.onlyIOS#flag", "View.onlyMac#flag"], "实际：\(result.keys.sorted())")
     }
 
