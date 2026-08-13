@@ -26,9 +26,16 @@ struct BoolParameterScannerTests {
         let result = scanBoolParams(source: """
         public struct Probe {
             public static func isComplete(value: String, length: Int) -> Bool { true }
+            public var anchor: Bool { true }
         }
         """)
         #expect(result.hits.isEmpty, "返回类型被误算成参数：\(result.hits.map(\.key))")
+        // ⚠️ Task 1 评审 Important-3：`scanBoolParams(source:)` 有意不查 `tree.hasError`
+        // （`#Preview` 可能触发），所以 `hits.isEmpty` 本身是空断言——若这段 here-doc
+        // 被改坏成语法错误，整棵树变 error node，采集为空，上面那条断言照样绿。
+        // `anchor` 是必然入账的锚点：解析真的成功时它必须出现在 publicBoolProperties 里，
+        // 给「解析成功」这件事本身钉一个非空断言。
+        #expect(result.publicBoolProperties == ["Probe.anchor"], "实际：\(result.publicBoolProperties)")
     }
 
     @Test("同时有 Bool 参数与 Bool 返回值 ⇒ 只命中参数，且命中数等于参数数")
@@ -98,6 +105,18 @@ struct BoolParameterScannerTests {
         // 反向：**没有** @autoclosure 的闭包调用点要写 `{ … }`，不是换皮 ⇒ 维持 .boolCarrying。
         #expect(classifyBoolParameterType("() -> Bool") == .boolCarrying)
         #expect(classifyBoolParameterType("@escaping (Bool) -> Void") == .boolCarrying)
+
+        // ⚠️ 裁决 (b‴)（Task 1 评审 Important-2）：括号包裹比 @autoclosure 还便宜——
+        // `func f(flag: (Bool))` 合法，调用点 `f(flag: true)` 逐字不变，必须剥到底再判。
+        #expect(classifyBoolParameterType("(Bool)") == .plainBool)
+        #expect(classifyBoolParameterType("((Bool))") == .plainBool)
+        // 白名单补第四种拼法：之前只列了 Optional<Bool> / Optional<Swift.Bool> /
+        // Swift.Optional<Bool> 三种，漏了 Swift.Optional<Swift.Bool>，同样滑进 carrying。
+        #expect(classifyBoolParameterType("Swift.Optional<Swift.Bool>") == .plainBool)
+        // 反向：`(Bool, Int)` 是元组，不是多余分组的括号——调用点要写元组字面量
+        // `f(x: (true, 1))`，不是 `f(x: true)`，命中前提不成立；但含 Bool 标识符，
+        // 与 [Bool] / (Bool) -> Void 同类落进兜底，归 .boolCarrying（清点不判违规）。
+        #expect(classifyBoolParameterType("(Bool, Int)") == .boolCarrying)
     }
 
     // MARK: - 访问级别
@@ -116,10 +135,14 @@ struct BoolParameterScannerTests {
         }
         public struct Host {
             static func helper(flag: Bool) -> Bool { flag }
+            public var anchor: Bool { true }
         }
         """)
         #expect(result.hits.isEmpty, "非 public 声明被误采：\(result.hits.map(\.key))")
         #expect(result.carrying.isEmpty, "private extension 的参数被误采：\(result.carrying.map(\.key))")
+        // ⚠️ Task 1 评审 Important-3：同上——两条空集断言都无法区分「解析成功、真的零命中」
+        // 与「解析失败、树是空的」。`anchor` 是必然入账的锚点，钉住「解析确实成功」。
+        #expect(result.publicBoolProperties == ["Host.anchor"], "实际：\(result.publicBoolProperties)")
     }
 
     @Test("public extension 的两种写法都算 public")
@@ -265,9 +288,18 @@ struct BoolParameterScannerTests {
         public extension View { func onlyMac(flag: Bool) {} }
         #endif
         #Preview("x") {
+            public struct P { public init(flag: Bool) {} }
             AnyView(EmptyView())
         }
         """)
+        // ⚠️ Task 1 评审 Important-1：`#Preview` 闭包体里放了一个**若被走到就必然入账**的
+        // 声明（`P.init(flag:)`）——`SwiftParser` 是纯语法解析，不知道 `P` 是局部类型，
+        // 只要 visitor 真的走进宏体就会照采。这条断言因此同时证伪了两件事：
+        // `#if` 两支都被扫到（`View.onlyIOS#flag` / `View.onlyMac#flag`），
+        // **且** `#Preview` 体确实被跳过（`P.init#flag` 不在 keys 里）。
+        // 之前的合成输入 `#Preview` 体内只有 `AnyView(EmptyView())`，没有任何可采集的声明
+        // ——即使把 `visit(_:MacroExpansionDeclSyntax)` 的 `.skipChildren` 整行删掉，
+        // `keys` 也不会变，「跳过 #Preview」这半个宣称从未被证伪。
         #expect(result.keys == ["View.onlyIOS#flag", "View.onlyMac#flag"], "实际：\(result.keys.sorted())")
     }
 

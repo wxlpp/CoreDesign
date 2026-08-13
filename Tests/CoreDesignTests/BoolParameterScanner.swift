@@ -28,10 +28,24 @@ import Testing
 /// ⇒ **不计违规、不需豁免**。裁决 (b′) 判死 specifier 的两条理由（「零成本改写就开出
 /// 免豁免通道」「调用点仍是一个 Bool 参数」）对它**逐字成立** ⇒ 同样判 `.plainBool`。
 /// 本仓 `@autoclosure` 当前**零命中**，与 `Bool?` 同款「先于第一例出现就写死」。
+///
+/// ⚠️ **括号包裹比 `@autoclosure` 还更便宜**（裁决 (b‴)，Task 1 评审 Important-2 补）：
+/// `func f(flag: (Bool))` **合法**，调用点 `f(flag: true)` **逐字不变**——裁决 (b′)/(b″)
+/// 判命中的两条理由对它逐字成立，改写成本比两者都低（只加一对括号）。`trimmedDescription`
+/// 给出的类型文本是 `"(Bool)"` ≠ `"Bool"`，不剥的话会落进 `\bBool\b` 兜底判成
+/// `.boolCarrying` ⇒ **免豁免逃逸**。裁决：剥掉「包裹整个类型、剥完仍是单一类型」的外层
+/// 括号（`(Bool)` → `Bool`，`((Bool))` → `Bool`，要剥到底），判 `.plainBool`。
+/// ⚠️ **元组不能这样剥**：`(Bool, Int)` 的外层括号**不是多余分组**，是元组语法的一部分
+/// ——调用点要写 `f(x: (true, 1))`，不是 `f(x: true)`，与 (b′)/(b″)/(b‴) 「调用点逐字
+/// 不变」的命中前提不成立，不判 `.plainBool`；但类型文本仍含 `Bool` 标识符，与
+/// `[Bool]` / `(Bool) -> Void` 同类落进 `\bBool\b` 兜底，判 `.boolCarrying`
+/// （清点、不计违规，与其余「含 Bool 但类型本身不是 Bool」的形态一致处理，不是漏网）。
+/// 同一条评审还挑出白名单漏了第四种拼法：`Swift.Optional<Swift.Bool>`（原先只列了
+/// `Optional<Bool>` / `Optional<Swift.Bool>` / `Swift.Optional<Bool>` 三种）。
 nonisolated enum BoolParamKind: Sendable, Equatable {
     /// 参数类型就是 `Bool`（含 `Bool?` / `Optional<Bool>` / `Swift.Bool`
     /// / `consuming Bool` / `borrowing Bool` / `sending Bool`
-    /// / `@autoclosure () -> Bool`）⇒ J-1 命中。
+    /// / `@autoclosure () -> Bool` / `(Bool)` / `((Bool))`）⇒ J-1 命中。
     case plainBool
     /// 类型文本里还有 `Bool` 标识符，但类型本身不是 `Bool`：
     /// `Binding<Bool>` / `FocusState<Bool>.Binding?` / `[Bool]` / `(Bool) -> Void`
@@ -63,6 +77,32 @@ nonisolated enum BoolParamKind: Sendable, Equatable {
 /// `@autoclosure`，判 `.plainBool`。
 /// 反过来，**不带** `@autoclosure` 的 `() -> Bool` / `@escaping (Bool) -> Void`
 /// 调用点必须写闭包（`{ true }` / `{ _ in }`），不是换皮 ⇒ 维持 `.boolCarrying` 不变。
+/// `t` 的最外层括号是否是**多余分组**（`(Bool)` / `((Bool))`），而不是元组语法的一部分
+/// （`(Bool, Int)`）——只有前者剥掉之后仍是「同一个类型」，可以继续判定；元组剥了会
+/// 把 `(Bool, Int)` 错改成 `Bool, Int`，语义完全变了，绝不能剥。裁决 (b‴)。
+///
+/// 判法：整个字符串必须被最外层这一对括号**完整包裹**（左边第一个 `(` 与右边最后一个
+/// `)` 是同一对，中途不提前闭合——防住 `(A) -> (B)` 这类两段式，虽然当前语法用不到），
+/// 且这对括号内部**顶层**不能有逗号（有逗号就是元组的分隔符，不是多余分组）。
+nonisolated private func isRedundantOuterParen(_ t: String) -> Bool {
+    guard t.hasPrefix("("), t.hasSuffix(")") else { return false }
+    let chars = Array(t)
+    var depth = 0
+    var topLevelComma = false
+    for (index, char) in chars.enumerated() {
+        if char == "(" {
+            depth += 1
+        } else if char == ")" {
+            depth -= 1
+            // 最外层括号在字符串末尾之前就闭合 ⇒ 这对括号没有包裹整个字符串，不算多余分组。
+            if depth == 0, index != chars.count - 1 { return false }
+        } else if char == ",", depth == 1 {
+            topLevelComma = true
+        }
+    }
+    return !topLevelComma
+}
+
 nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
     var t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -102,13 +142,25 @@ nonisolated func classifyBoolParameterType(_ raw: String) -> BoolParamKind {
         if normalized == "()->Bool" || normalized == "()->Swift.Bool" { return .plainBool }
     }
 
-    // 2) 剥 Optional 语法糖。
-    while t.hasSuffix("?") || t.hasSuffix("!") {
-        t.removeLast()
-        t = t.trimmingCharacters(in: .whitespaces)
+    // 2) 剥 Optional 语法糖与「多余」的外层括号，交替剥到剥不动为止
+    //    ——顺序不能固定死：`(Bool)?` 要先剥 `?` 再剥括号，`(Bool?)` 反过来，
+    //    `((Bool))` 要剥两层括号，三者都必须能剥到 `"Bool"`。裁决 (b‴)。
+    while true {
+        var stripped = false
+        while t.hasSuffix("?") || t.hasSuffix("!") {
+            t.removeLast()
+            t = t.trimmingCharacters(in: .whitespaces)
+            stripped = true
+        }
+        if isRedundantOuterParen(t) {
+            t = String(t.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
+            stripped = true
+        }
+        if !stripped { break }
     }
     if t == "Bool" || t == "Swift.Bool" { return .plainBool }
-    if t == "Optional<Bool>" || t == "Optional<Swift.Bool>" || t == "Swift.Optional<Bool>" {
+    if t == "Optional<Bool>" || t == "Optional<Swift.Bool>" || t == "Swift.Optional<Bool>"
+        || t == "Swift.Optional<Swift.Bool>" {
         return .plainBool
     }
     // `\bBool\b` 的词边界保证 `MyBool` / `Boolish` 不误命中。
@@ -243,10 +295,12 @@ private func collectBoolParams(tree: SourceFileSyntax, fileName: String) -> Bool
 ///
 /// ⚠️ **已知盲区（留痕，未做机器拦截）**：
 /// - public 的 Bool **属性**只收进 `publicBoolProperties` 并打印，不进判据（裁决 (d)）。
-/// - 宏展开产物看不见：`visit(_:MacroExpansionDeclSyntax)` 直接 `.skipChildren`
-///   （目的是跳过 `#Preview`，代价是任何生成 public 声明的宏都会被漏采；本仓当前
-///   没有这类宏）。`MacroDeclSyntax`（`public macro f(flag: Bool)` 的**声明**侧）
-///   同样没访问——本包没有 macro target，加上这一句只为留痕。
+/// - 宏展开产物看不见：`visit(_:MacroExpansionDeclSyntax)` **与**
+///   `visit(_:MacroExpansionExprSyntax)` 都直接 `.skipChildren`（目的是跳过
+///   `#Preview`——它在文件顶层实际落在 expr 语法节点，只跳 decl 侧堵不住，两处都要跳；
+///   见那两处的注释）。代价是任何生成 public 声明的宏都会被漏采（本仓当前没有这类宏）。
+///   `MacroDeclSyntax`（`public macro f(flag: Bool)` 的**声明**侧）同样没访问
+///   ——本包没有 macro target，加上这一句只为留痕。
 /// - **泛型洗 Bool 判不了**：`func f<T>(flag: T) where T == Bool`、
 ///   `func f(flag: some ExpressibleByBooleanLiteral)` 的参数类型文本是 `T` / `some …`
 ///   ⇒ `.notBool`，而调用点仍写 `f(flag: true)`。要拦就得做类型检查，纯语法层做不到
@@ -265,6 +319,13 @@ private func collectBoolParams(tree: SourceFileSyntax, fileName: String) -> Bool
 ///     public ⇒ 否」整支判掉。**这一侧由 `pushType` 与 `visit(_:ProtocolDeclSyntax)`
 ///     两处显式建模堵上**（见那两处），不再是盲区；留在这里是为了记住两侧方向不同，
 ///     别再用单侧表述概括整条。
+/// - **`package` 访问级未建模**（Task 1 评审 Minor-1）：`Self.access(_:)` 只认
+///   `public`/`open`/`private`/`fileprivate`/`internal` 五种，`package` 修饰符落进
+///   「无显式修饰符」那一支。方向是 **fail-closed（多报，不是漏报）**：
+///   `public extension X { package func f(flag: Bool) {} }` 里的 `f` 语义上是
+///   `package`（比 `public` 更窄），但会被当成继承 extension 的默认 `public` 而**多**报
+///   一条——后果是有人被迫来核实一条本不该报的条目，不是漏网。本仓当前 `package` 修饰符
+///   零使用，先留痕，不做机器拦截；若后续引入 `package`，再补一个 `isPackage` 分支重新裁决。
 private nonisolated final class PublicBoolParamCollector: SyntaxVisitor {
     var hits: [BoolParamHit] = []
     var carrying: [BoolParamHit] = []
@@ -451,6 +512,15 @@ private nonisolated final class PublicBoolParamCollector: SyntaxVisitor {
 
     /// 跳过 `#Preview` 等宏展开块——见类文档的盲区说明。
     override func visit(_ node: MacroExpansionDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+
+    /// ⚠️ **`#Preview` 在文件顶层实际解析成 `MacroExpansionExprSyntax`，不是
+    /// `MacroExpansionDeclSyntax`**（Task 1 评审 Important-1 补：给合成输入的 `#Preview`
+    /// 体塞进一个必然入账的声明后现场抓到——`swiftc -typecheck` 的语法树在顶层把
+    /// `#Preview("x") { … }` 落在 expr 侧，不是 decl 侧）。上面那条 `MacroExpansionDeclSyntax`
+    /// 的 `.skipChildren` 对**真实源码里的 `#Preview`** 从未生效过：旧的合成测试因为
+    /// `#Preview` 体内没有放任何可采集声明，这个洞被完全遮住了，测试照绿。
+    /// 这里补上对称处理——两种宏展开语法节点都跳过，`#Preview` 才真的被挡住。
+    override func visit(_ node: MacroExpansionExprSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
 
     // MARK: 声明
 
