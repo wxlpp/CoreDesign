@@ -217,12 +217,60 @@ struct TextParamHit: Hashable, Comparable, Sendable {
 
 // MARK: - 扫描结果 / Scan result
 
+/// 一个**本仓声明**的自有样式协议。
+///
+/// ⚠️ **识别信号是结构性的，不是名字**（任务书明令：不许用裸字符串 `"Style"` 子串匹配）：
+/// 判据是「`protocol` 的成员里有 `func makeBody(configuration:)` requirement」——这正是
+/// Apple `ButtonStyle` / `ToggleStyle` / `ProgressViewStyle` 的形状，也是本仓
+/// `BannerStyle` / `SegmentedControlStyle` 照抄的形状（两者的文档注释原文都写着
+/// 「形态对齐 Apple `ButtonStyle`」）。名字后缀只作为报告里的旁证字段
+/// （`nameHasStyleSuffix`）打印，**不参与任何判定**。
+///
+/// ⚠️ **Apple 的原生样式协议不会被采进来**：它们声明在 SwiftUI 里，不在
+/// `Sources/CoreDesign` 的扫描范围内 ⇒ `styleProtocols` 天然只含本仓自有协议，
+/// J-3 因此不会「用 `ProgressViewStyle` 判 `ProgressIndicator` 的红」。这条是
+/// **构造保证**，不是靠名字清单排除的——后者正是任务书点名要避开的脆弱写法。
+///
+/// ⚠️ **已知盲区（留痕，未做机器拦截）**：requirement 写在 protocol **extension** 里
+/// （`extension Foo { func makeBody(configuration:) }`）或用别的定制点名字（例如
+/// `body(configuration:)`）的样式协议识别不出来。本仓两个自有协议都把 `makeBody`
+/// 写在 protocol 体内（实测零漏），但这是**现状核对**，不是**结构保证**。
+struct StyleProtocolDecl: Hashable, Sendable {
+    let name: String
+    let file: String
+    let line: Int
+    let isPublic: Bool
+    /// 仅供报告打印的旁证，**不参与判定**。
+    let nameHasStyleSuffix: Bool
+}
+
+/// 一处 conformance 声明（类型声明自带的，或 `extension X: P` 补的）。
+struct ConformanceRecord: Hashable, Sendable {
+    /// 具名类型用**简单名**（不含外层点分前缀）；extension 用被扩展类型的基名。
+    let typeName: String
+    /// 继承子句里每一项的**最后一段**（容忍 `SwiftUI.View` 这类限定名）。
+    let inheritedNames: [String]
+    let file: String
+    let line: Int
+}
+
 struct ComponentJudgeScanResult: Sendable {
     var textParams: [TextParamHit] = []
+    var styleProtocols: [StyleProtocolDecl] = []
+    var conformances: [ConformanceRecord] = []
+    /// 类型名（含被 extension 扩展的类型名）→ 声明它的文件名集合。J-3 用它定「组件作用域」。
+    var typeDeclFiles: [String: Set<String>] = [:]
 
     var bareTextKeys: Set<String> { Set(self.textParams.filter { $0.kind == .bareText }.map(\.key)) }
     var localizedTextKeys: Set<String> { Set(self.textParams.filter { $0.kind == .localizedText }.map(\.key)) }
     var carryingKeys: Set<String> { Set(self.textParams.filter { $0.kind == .textCarrying }.map(\.key)) }
+
+    var styleProtocolNames: Set<String> { Set(self.styleProtocols.map(\.name)) }
+
+    /// 采纳了指定协议的类型名集合（声明侧与 extension 侧合并）。
+    func conformers(of protocolName: String) -> Set<String> {
+        Set(self.conformances.filter { $0.inheritedNames.contains(protocolName) }.map(\.typeName))
+    }
 }
 
 // MARK: - 扫描入口 / Scan entry points
@@ -264,12 +312,20 @@ private func collectComponentJudgeInputs(tree: SourceFileSyntax, fileName: Strin
     collector.walk(tree)
     var result = ComponentJudgeScanResult()
     result.textParams = collector.textParams
+    result.styleProtocols = collector.styleProtocols
+    result.conformances = collector.conformances
+    result.typeDeclFiles = collector.typeDeclFiles
     return result
 }
 
 extension ComponentJudgeScanResult {
     mutating func merge(_ other: ComponentJudgeScanResult) {
         self.textParams += other.textParams
+        self.styleProtocols += other.styleProtocols
+        self.conformances += other.conformances
+        for (name, files) in other.typeDeclFiles {
+            self.typeDeclFiles[name, default: []].formUnion(files)
+        }
     }
 }
 
@@ -295,6 +351,9 @@ extension ComponentJudgeScanResult {
 /// - 宏展开产物看不见（跳 `#Preview` 的代价）；本仓无生成 public 声明的宏。
 private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
     var textParams: [TextParamHit] = []
+    var styleProtocols: [StyleProtocolDecl] = []
+    var conformances: [ConformanceRecord] = []
+    var typeDeclFiles: [String: Set<String>] = [:]
 
     private let fileName: String
     private let converter: SourceLocationConverter
@@ -341,6 +400,30 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
         self.frames.isEmpty ? "(top-level)" : self.frames.map(\.name).joined(separator: ".")
     }
 
+    // MARK: 声明索引 / Declaration index
+
+    /// 继承子句里每一项取**最后一段**：容忍 `SwiftUI.View` 这类限定名。
+    private func inheritedNames(_ clause: InheritanceClauseSyntax?) -> [String] {
+        (clause?.inheritedTypes ?? []).map {
+            $0.type.trimmedDescription.split(separator: ".").last.map(String.init) ?? ""
+        }
+    }
+
+    /// 记录「类型名 → 文件」与（有继承子句时）一条 conformance。
+    private func indexDecl(
+        name: String, inheritance: InheritanceClauseSyntax?, at node: some SyntaxProtocol
+    ) {
+        self.typeDeclFiles[name, default: []].insert(self.fileName)
+        let names = self.inheritedNames(inheritance)
+        guard !names.isEmpty else { return }
+        self.conformances.append(
+            ConformanceRecord(
+                typeName: name, inheritedNames: names, file: self.fileName,
+                line: self.converter.location(for: node.positionAfterSkippingLeadingTrivia).line
+            )
+        )
+    }
+
     // MARK: 容器帧
 
     private func pushType(_ name: String, _ modifiers: DeclModifierListSyntax, isProtocol: Bool = false) {
@@ -360,26 +443,48 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
     }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
         self.pushType(node.name.text, node.modifiers); return .visitChildren
     }
     override func visitPost(_ node: StructDeclSyntax) { self.frames.removeLast() }
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
         self.pushType(node.name.text, node.modifiers); return .visitChildren
     }
     override func visitPost(_ node: EnumDeclSyntax) { self.frames.removeLast() }
 
     override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
         self.pushType(node.name.text, node.modifiers); return .visitChildren
     }
     override func visitPost(_ node: ClassDeclSyntax) { self.frames.removeLast() }
 
     override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
         self.pushType(node.name.text, node.modifiers); return .visitChildren
     }
     override func visitPost(_ node: ActorDeclSyntax) { self.frames.removeLast() }
 
     override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
+        // ⚠️ 结构性信号：成员里有 `func makeBody(configuration:)` requirement。
+        let hasMakeBodyRequirement = node.memberBlock.members.contains { member in
+            guard let function = member.decl.as(FunctionDeclSyntax.self),
+                  function.name.text == "makeBody" else { return false }
+            let parameters = function.signature.parameterClause.parameters
+            return parameters.count == 1 && parameters.first?.firstName.text == "configuration"
+        }
+        if hasMakeBodyRequirement {
+            self.styleProtocols.append(
+                StyleProtocolDecl(
+                    name: node.name.text, file: self.fileName,
+                    line: self.converter.location(for: node.positionAfterSkippingLeadingTrivia).line,
+                    isPublic: Self.access(node.modifiers).pub,
+                    nameHasStyleSuffix: node.name.text.hasSuffix("Style")
+                )
+            )
+        }
         self.pushType(node.name.text, node.modifiers, isProtocol: true); return .visitChildren
     }
     override func visitPost(_ node: ProtocolDeclSyntax) { self.frames.removeLast() }
@@ -387,10 +492,12 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
     override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
         var extended = node.extendedType.trimmedDescription
         if let angle = extended.firstIndex(of: "<") { extended = String(extended[..<angle]) }
+        extended = extended.trimmingCharacters(in: .whitespaces)
+        self.indexDecl(name: extended, inheritance: node.inheritanceClause, at: node)
         let a = Self.access(node.modifiers)
         self.frames.append(
             Frame(
-                name: extended.trimmingCharacters(in: .whitespaces),
+                name: extended,
                 isPublic: a.pub, isPrivate: a.priv, isInternal: a.int, isExtension: true
             )
         )

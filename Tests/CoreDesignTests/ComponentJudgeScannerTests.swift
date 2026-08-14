@@ -195,6 +195,76 @@ struct ComponentJudgeScannerTests {
         #expect(scan.carryingKeys == ["A.init#text", "A.init#onSubmit"])
     }
 
+    // MARK: - 自有样式协议 / Custom style protocols
+
+    @Test("样式协议识别：信号是 makeBody(configuration:) requirement，不是名字里有 Style")
+    func styleProtocolSignalIsStructural() {
+        let scan = scanComponentJudgeInputs(source: """
+        public protocol BannerStyle {
+            associatedtype Body: View
+            func makeBody(configuration: Self.Configuration) -> Body
+            typealias Configuration = BannerStyleConfiguration
+        }
+        /// 名字里有 Style，但没有 makeBody requirement ⇒ 不是样式协议。
+        public protocol StyleToken { var name: String { get } }
+        /// 名字里没有 Style，但有 makeBody requirement ⇒ 是样式协议。
+        public protocol Appearance {
+            associatedtype Body: View
+            func makeBody(configuration: Self.Configuration) -> Body
+            typealias Configuration = Int
+        }
+        """, fileName: "X.swift")
+        #expect(scan.styleProtocolNames == ["BannerStyle", "Appearance"],
+                "识别信号必须是 makeBody(configuration:) 的结构，裸 Style 子串匹配既漏又误伤")
+    }
+
+    @Test("样式协议识别：makeBody 的参数标签必须是 configuration")
+    func styleProtocolRequiresConfigurationLabel() {
+        let scan = scanComponentJudgeInputs(source: """
+        public protocol NotAStyle {
+            func makeBody(from input: Int) -> Int
+        }
+        public protocol AlsoNot { func makeBody() -> Int }
+        """, fileName: "X.swift")
+        #expect(scan.styleProtocolNames.isEmpty)
+    }
+
+    @Test("conformance 采集：类型声明与 extension 两条路径都要认")
+    func conformanceCollection() {
+        let scan = scanComponentJudgeInputs(source: """
+        public struct PlainBannerStyle: BannerStyle {}
+        public struct Later {}
+        extension Later: BannerStyle {}
+        public struct Widget: View {}
+        """, fileName: "X.swift")
+        #expect(scan.conformers(of: "BannerStyle") == ["PlainBannerStyle", "Later"])
+        #expect(scan.conformers(of: "View") == ["Widget"])
+        #expect(scan.conformers(of: "ProgressViewStyle").isEmpty)
+    }
+
+    @Test("conformance 采集：容忍限定名与泛型形参（SwiftUI.View / Foo<T>）")
+    func conformanceToleratesQualifiedAndGeneric() {
+        let scan = scanComponentJudgeInputs(source: """
+        public struct A: SwiftUI.View {}
+        public struct B<Item: Hashable>: View {}
+        extension C<Int>: BannerStyle {}
+        """, fileName: "X.swift")
+        #expect(scan.conformers(of: "View") == ["A", "B"])
+        #expect(scan.conformers(of: "BannerStyle") == ["C"])
+    }
+
+    @Test("类型→文件索引：类型声明与 extension 都记进宿主文件")
+    func typeDeclFilesIndex() {
+        var scan = scanComponentJudgeInputs(source: """
+        public struct Widget: View {}
+        """, fileName: "Widget.swift")
+        scan.merge(scanComponentJudgeInputs(source: """
+        public extension Widget { init(title: String) {} }
+        """, fileName: "WidgetExtras.swift"))
+        #expect(scan.typeDeclFiles["Widget"] == ["Widget.swift", "WidgetExtras.swift"])
+        #expect(scan.typeDeclFiles["Nope"] == nil)
+    }
+
     @Test("真实源码扫描：文本参数三个桶的实测规模")
     func realScanMagnitudes() throws {
         let scan = try scanComponentJudgeInputs(root: ComponentRegistryGuard.coreDesignSources)
@@ -204,5 +274,14 @@ struct ComponentJudgeScannerTests {
         print("裸文本 \(scan.bareTextKeys.count) 个：\(scan.bareTextKeys.sorted())")
         print("LSK/LSR \(scan.localizedTextKeys.count) 个：\(scan.localizedTextKeys.sorted())")
         print("carrying \(scan.carryingKeys.count) 个：\(scan.carryingKeys.sorted())")
+        // ⚠️ 非空断言：自有样式协议识别器一旦失效，J-3 的「作用域内没有自有协议 ⇒ 绿」
+        // 就变成假绿（零命中 ⇒ 零违规）。这里先钉住它真的认得出东西。
+        #expect(scan.styleProtocolNames == ["BannerStyle", "SegmentedControlStyle"],
+                "本仓自有样式协议实测恰为这两个；集合变了要么是新增了扩展点（预期变化，同步改这里），要么是识别器失效")
+        #expect(scan.conformers(of: "ProgressViewStyle").contains("CoreProgressViewStyle"),
+                "原生协议 conformance 采集失效 —— J-2 对 nativeProtocol 的核对会因此假绿")
+        print("自有样式协议：\(scan.styleProtocols.map { "\($0.name)@\($0.file):\($0.line) styleSuffix=\($0.nameHasStyleSuffix)" }.sorted())")
+        print("conformance 记录 \(scan.conformances.count) 条；ProgressViewStyle 实现：\(scan.conformers(of: "ProgressViewStyle").sorted())")
+        print("BannerStyle 实现：\(scan.conformers(of: "BannerStyle").sorted())；SegmentedControlStyle 实现：\(scan.conformers(of: "SegmentedControlStyle").sorted())")
     }
 }
