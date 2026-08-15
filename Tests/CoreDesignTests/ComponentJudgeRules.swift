@@ -258,3 +258,158 @@ func judgeNativeProtocolPurity(
     result.violations.sort()
     return result
 }
+
+// MARK: - FR-4：public init 的文本型参数必须有分类条目
+
+struct FR4Result: Sendable {
+    /// 扫描键 → 覆盖它的登记表条目（`"Component.name"`）。
+    var covered: [String: String] = [:]
+    /// FR-4 的红：裸文本参数无分类条目、登记表 `notes` 也没点名它。
+    var violations: [String] = []
+    var diagnostics: [String] = []
+    /// 登记表 `notes` 原文点名了参数名 ⇒ #38 已经人工裁决过「不计入 textParams」。
+    var exemptedByRegistryNotes: [String] = []
+    /// 组件 `kind == "excluded"`：公约弃用条款「不分类」，整体豁免 FR-4 扫描。
+    var exemptedByExcludedKind: [String] = []
+    /// 宿主类型不对应任何登记表条目 ⇒ 判据定义域之外。
+    var unmappedOwners: [String] = []
+    /// 反向差集：登记表有条目、源码里扫不到（`"Component.name"`）。
+    var ghostRegistryParams: [String] = []
+    /// 类型已是 LSK/LSR ⇒ 由类型直接判定，不要求登记表条目（公约 §4）。
+    var localizedByType: [String] = []
+    /// `Binding<String>` / 回调等：清点、打印、不进判据。
+    var carrying: [String] = []
+    /// `func`（非 `init`）上的裸文本参数：AC 只点名 `init`，这里只留痕。
+    var functionSideBareText: [String] = []
+    var skippedRepos: [String: Int] = [:]
+}
+
+/// 一处扫描命中在登记表里可能对应的条目名。
+///
+/// ⚠️ **三种拼法都要认**：登记表的 `name` 有时是**参数名**（`Tag.text`），有时是
+/// **限定名**（`RadioGroup` 条目下的 `RadioOption.title`、`Steps` 条目下的
+/// `StepItem.title`）——因为一个组件的文案入口可能开在它的辅助数据类型上。
+/// 第三种（简单宿主名 + 参数名）覆盖点分宿主
+/// （`SegmentedControlStyleConfiguration.Segment` → `Segment.title`）。
+func textParamCandidateNames(owner: String, parameter: String) -> [String] {
+    let simpleOwner = owner.split(separator: ".").last.map(String.init) ?? owner
+    var names = [parameter, "\(owner).\(parameter)"]
+    if simpleOwner != owner { names.append("\(simpleOwner).\(parameter)") }
+    return names
+}
+
+/// FR-4：每个 public `init` 的裸文本参数必须在登记表 `textParams[]` 里有分类条目。
+///
+/// **正向**（源码 → 登记表）是主判据；**反向**（登记表 → 源码）产出 `ghostRegistryParams`，
+/// 是第二道防线：把 `title: String` 改写成扫描器看不见的形态（`typealias` 洗白、
+/// `where T == String` 泛型洗白），正向会漏判，反向会把那条登记表条目抓成幽灵。
+/// ⚠️ **这不等于「两个方向都穷尽」**：**新增且从未登记**的参数用同样的手法仍能逃逸，
+/// 见 `classifyTextParameterType` 文档的「已知盲区」。写「已覆盖两个方向的这些形态」，
+/// 不写「已覆盖全部」。
+///
+/// ⚠️ **`by-type` 与 A 类不进正向要求**：公约 §4 明确 `LocalizedStringKey` /
+/// `LocalizedStringResource` 由类型直接判定；A 类「文案写在组件源码里」按定义不是 public
+/// 参数，实测 `textParams[]` 中 A 计数恒为 0。⇒ 正向只要求**裸文本**有条目。
+///
+/// ⚠️ **跨仓裁决 (a)**：只对 `repo == "coredesign"` 的条目建索引、只判本仓组件；其余进
+/// `skippedRepos`。
+func judgeTextParamCoverage(
+    entries: [ComponentRegistryGuard.Entry],
+    scan: ComponentJudgeScanResult,
+    ownerAliases: [String: String]
+) -> FR4Result {
+    var result = FR4Result()
+    for entry in entries where entry.repo != "coredesign" {
+        result.skippedRepos[entry.repo, default: 0] += 1
+    }
+    let byComponent = Dictionary(
+        entries.filter { $0.repo == "coredesign" }.map { ($0.component, $0) },
+        uniquingKeysWith: { first, _ in first }
+    )
+
+    /// 正向 + 反向共用的解析：命中 → (组件条目, 命中的登记表条目名)。
+    func resolve(_ hit: TextParamHit) -> (entry: ComponentRegistryGuard.Entry, matched: String?)? {
+        let component = ownerAliases[hit.owner] ?? hit.owner
+        guard let entry = byComponent[component] else { return nil }
+        let candidates = textParamCandidateNames(owner: hit.owner, parameter: hit.parameter)
+        let matched = entry.textParams.first {
+            candidates.contains($0.name) && !$0.category.isEmpty
+        }?.name
+        return (entry, matched)
+    }
+
+    // ---- 正向：源码 → 登记表 ----
+    for hit in scan.textParams.sorted() {
+        switch hit.kind {
+        case .textCarrying:
+            result.carrying.append(hit.key)
+            continue
+        case .notText:
+            continue
+        case .localizedText:
+            result.localizedByType.append(hit.key)
+            continue
+        case .bareText:
+            break
+        }
+        guard hit.isInitializer else {
+            // AC 只点名 `init`。`func` 侧同样是真实的 public 文案入口，但登记表的登记单位
+            // 是「组件的 public 表面」而不是「每个函数」⇒ 只留痕，由调用方固定集合断言钉住。
+            result.functionSideBareText.append(hit.key)
+            continue
+        }
+        guard let resolved = resolve(hit) else {
+            result.unmappedOwners.append(hit.key)
+            continue
+        }
+        if resolved.entry.kind == "excluded" {
+            // 公约弃用条款「不分类」：`ProgressBar.textParams` 留空是刻意的，不是遗漏。
+            result.exemptedByExcludedKind.append(hit.key)
+            continue
+        }
+        if let matched = resolved.matched {
+            result.covered[hit.key] = "\(resolved.entry.component).\(matched)"
+            continue
+        }
+        // ⚠️ **唯一的语义豁免通道，授权者是登记表而不是判据作者**：#38 在 `notes` 里
+        // 点名写过这个参数名（例：`LabelIcon` 的「systemName 是符号标识符不是展示文案，
+        // 不计入 textParams」）⇒ 视为已裁决。没点名 ⇒ 判红，处置是回 #38 补一句 notes，
+        // 不是在判据里硬编码特例。
+        if resolved.entry.notes.contains(hit.parameter) {
+            result.exemptedByRegistryNotes.append(hit.key)
+            continue
+        }
+        result.violations.append(hit.key)
+        result.diagnostics.append(
+            "\(hit.key)（\(hit.file):\(hit.line)）：裸文本参数，登记表条目 \(resolved.entry.component)"
+            + " 的 textParams 里没有 \(textParamCandidateNames(owner: hit.owner, parameter: hit.parameter))"
+            + " 中任何一个，notes 也没点名它"
+        )
+    }
+
+    // ---- 反向：登记表 → 源码 ----
+    var reachable: Set<String> = []
+    for hit in scan.textParams where hit.kind == .bareText || hit.kind == .localizedText {
+        let component = ownerAliases[hit.owner] ?? hit.owner
+        for candidate in textParamCandidateNames(owner: hit.owner, parameter: hit.parameter) {
+            reachable.insert("\(component).\(candidate)")
+        }
+    }
+    for entry in entries where entry.repo == "coredesign" {
+        for textParam in entry.textParams
+        where !reachable.contains("\(entry.component).\(textParam.name)") {
+            result.ghostRegistryParams.append("\(entry.component).\(textParam.name)")
+        }
+    }
+
+    result.violations.sort()
+    result.diagnostics.sort()
+    result.exemptedByRegistryNotes.sort()
+    result.exemptedByExcludedKind.sort()
+    result.unmappedOwners.sort()
+    result.ghostRegistryParams.sort()
+    result.localizedByType.sort()
+    result.carrying.sort()
+    result.functionSideBareText.sort()
+    return result
+}

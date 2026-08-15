@@ -246,4 +246,177 @@ struct ComponentJudgeRulesTests {
         // 非空断言先行：两个空集合也能让上面三条相等 —— 那是「都没跑」不是「一致」。
         #expect(probeHits.count == 2, "两条通道各应命中一次，实际 \(probeHits)")
     }
+
+    // MARK: - FR-4
+
+    /// 合成一份只含文本参数的扫描结果。
+    private func textScan(_ rows: [(String, String, TextParamKind, Bool)]) -> ComponentJudgeScanResult {
+        var result = ComponentJudgeScanResult()
+        result.textParams = rows.map { owner, parameter, kind, isInit in
+            TextParamHit(
+                owner: owner, decl: isInit ? "init" : "show", parameter: parameter,
+                file: "\(owner).swift", line: 1, kind: kind, isInitializer: isInit
+            )
+        }
+        return result
+    }
+
+    @Test("FR-4：裸文本参数在 textParams 里有条目 ⇒ covered")
+    func fr4Covered() {
+        let entries = [
+            makeTestEntry(component: "Tag", kind: "prescriptive", decidedBy: "step3",
+                          needsExtensionPoint: false,
+                          textParams: [ComponentRegistryGuard.TextParam(name: "text", category: "C")]),
+        ]
+        let result = judgeTextParamCoverage(
+            entries: entries, scan: self.textScan([("Tag", "text", .bareText, true)]), ownerAliases: [:]
+        )
+        #expect(result.covered == ["Tag.init#text": "Tag.text"])
+        #expect(result.violations.isEmpty)
+        #expect(result.ghostRegistryParams.isEmpty)
+    }
+
+    @Test("FR-4 变异：新增未登记的裸文本参数 ⇒ 判红；补登记 ⇒ 转绿")
+    func fr4MutationUnregisteredParameter() {
+        let scan = self.textScan([("Tag", "text", .bareText, true), ("Tag", "hint", .bareText, true)])
+        let before = [
+            makeTestEntry(component: "Tag", kind: "prescriptive", decidedBy: "step3",
+                          needsExtensionPoint: false,
+                          textParams: [ComponentRegistryGuard.TextParam(name: "text", category: "C")]),
+        ]
+        let red = judgeTextParamCoverage(entries: before, scan: scan, ownerAliases: [:])
+        #expect(red.violations == ["Tag.init#hint"], "未登记的裸文本参数必须判红")
+
+        let after = [
+            makeTestEntry(component: "Tag", kind: "prescriptive", decidedBy: "step3",
+                          needsExtensionPoint: false,
+                          textParams: [
+                              ComponentRegistryGuard.TextParam(name: "text", category: "C"),
+                              ComponentRegistryGuard.TextParam(name: "hint", category: "B"),
+                          ]),
+        ]
+        let green = judgeTextParamCoverage(entries: after, scan: scan, ownerAliases: [:])
+        #expect(green.violations.isEmpty, "补登记后应转绿 —— AC 原文的『补登记 → 判据变绿』")
+    }
+
+    @Test("FR-4：category 为空串的条目不算覆盖（AC 原文『且分类非空』）")
+    func fr4EmptyCategoryIsNotCoverage() {
+        let entries = [
+            makeTestEntry(component: "Tag", kind: "prescriptive", decidedBy: "step3",
+                          needsExtensionPoint: false,
+                          textParams: [ComponentRegistryGuard.TextParam(name: "text", category: "")]),
+        ]
+        let result = judgeTextParamCoverage(
+            entries: entries, scan: self.textScan([("Tag", "text", .bareText, true)]), ownerAliases: [:]
+        )
+        #expect(result.violations == ["Tag.init#text"])
+    }
+
+    @Test("FR-4：owner 别名 + 限定参数名两条解析路径")
+    func fr4OwnerAliasAndQualifiedName() {
+        let entries = [
+            makeTestEntry(component: "Steps", kind: "prescriptive", decidedBy: "step3",
+                          needsExtensionPoint: false,
+                          textParams: [ComponentRegistryGuard.TextParam(name: "StepItem.title", category: "B")]),
+            makeTestEntry(component: "Toast", kind: "semantic", decidedBy: "step2",
+                          needsExtensionPoint: true,
+                          textParams: [ComponentRegistryGuard.TextParam(name: "message", category: "B")]),
+        ]
+        let result = judgeTextParamCoverage(
+            entries: entries,
+            scan: self.textScan([("StepItem", "title", .bareText, true), ("ToastItem", "message", .bareText, true)]),
+            ownerAliases: ["StepItem": "Steps", "ToastItem": "Toast"]
+        )
+        #expect(result.violations.isEmpty)
+        #expect(result.covered["StepItem.init#title"] == "Steps.StepItem.title")
+        #expect(result.covered["ToastItem.init#message"] == "Toast.message")
+    }
+
+    @Test("FR-4：kind == excluded 的组件整体豁免（弃用条款「不分类」）")
+    func fr4ExcludedKindIsExempt() {
+        let entries = [
+            makeTestEntry(component: "ProgressBar", kind: "excluded", decidedBy: "exclusion",
+                          needsExtensionPoint: false),
+        ]
+        let result = judgeTextParamCoverage(
+            entries: entries, scan: self.textScan([("ProgressBar", "label", .bareText, true)]), ownerAliases: [:]
+        )
+        #expect(result.violations.isEmpty)
+        #expect(result.exemptedByExcludedKind == ["ProgressBar.init#label"],
+                "弃用组件必须落进**具名的豁免桶**并被固定集合断言钉住，不能悄悄不出现在任何桶里")
+    }
+
+    @Test("FR-4：登记表 notes 点名了参数名 ⇒ 豁免；没点名 ⇒ 判红")
+    func fr4RegistryNotesAuthorization() {
+        let authorized = [
+            makeTestEntry(component: "LabelIcon", kind: "prescriptive", decidedBy: "step3",
+                          needsExtensionPoint: false,
+                          notes: "纯装饰图标。systemName 是符号标识符不是展示文案，不计入 textParams。"),
+        ]
+        let ok = judgeTextParamCoverage(
+            entries: authorized, scan: self.textScan([("LabelIcon", "systemName", .bareText, true)]), ownerAliases: [:]
+        )
+        #expect(ok.violations.isEmpty)
+        #expect(ok.exemptedByRegistryNotes == ["LabelIcon.init#systemName"])
+
+        let unauthorized = [
+            makeTestEntry(component: "SidebarUtilityRow", kind: "prescriptive", decidedBy: "step3",
+                          needsExtensionPoint: false, notes: "单动作工具行，固定结构 ⇒ 步骤 3 规定性。"),
+        ]
+        let red = judgeTextParamCoverage(
+            entries: unauthorized, scan: self.textScan([("SidebarUtilityRow", "systemImage", .bareText, true)]),
+            ownerAliases: [:]
+        )
+        #expect(red.violations == ["SidebarUtilityRow.init#systemImage"],
+                "登记表没点名 ⇒ 判据不得自行认定它『不是文案』—— 这类情形要退回 #38 补登记")
+    }
+
+    @Test("FR-4：宿主不对应登记表条目 ⇒ 进 unmappedOwners，不判红也不静默")
+    func fr4UnmappedOwner() {
+        let result = judgeTextParamCoverage(
+            entries: [], scan: self.textScan([("Color", "text", .bareText, true)]), ownerAliases: [:]
+        )
+        #expect(result.violations.isEmpty)
+        #expect(result.unmappedOwners == ["Color.init#text"])
+    }
+
+    @Test("FR-4 反向：登记表有条目、源码扫不到 ⇒ 幽灵条目")
+    func fr4GhostRegistryParam() {
+        let entries = [
+            makeTestEntry(component: "Tag", kind: "prescriptive", decidedBy: "step3",
+                          needsExtensionPoint: false,
+                          textParams: [
+                              ComponentRegistryGuard.TextParam(name: "text", category: "C"),
+                              ComponentRegistryGuard.TextParam(name: "gone", category: "B"),
+                          ]),
+        ]
+        let result = judgeTextParamCoverage(
+            entries: entries, scan: self.textScan([("Tag", "text", .bareText, true)]), ownerAliases: [:]
+        )
+        #expect(result.ghostRegistryParams == ["Tag.gone"],
+                "反向差集是第二道防线：把 `text: String` 改写成扫描器看不见的形态，正向漏判，反向会把它抓成幽灵")
+    }
+
+    @Test("FR-4：LSK/LSR 由类型判定，不要求登记表条目，但必须被识别")
+    func fr4LocalizedByType() {
+        let result = judgeTextParamCoverage(
+            entries: [makeTestEntry(component: "Descriptions", kind: "prescriptive", decidedBy: "step3",
+                                    needsExtensionPoint: false,
+                                    textParams: [ComponentRegistryGuard.TextParam(name: "header", category: "by-type")])],
+            scan: self.textScan([("Descriptions", "header", .localizedText, true)]), ownerAliases: [:]
+        )
+        #expect(result.violations.isEmpty)
+        #expect(result.localizedByType == ["Descriptions.init#header"])
+        #expect(result.ghostRegistryParams.isEmpty, "LSK/LSR 命中也要能消掉反向差集里的对应条目")
+    }
+
+    @Test("FR-4：func 侧裸文本参数进留痕桶，不进主判据")
+    func fr4FunctionSideBucket() {
+        let result = judgeTextParamCoverage(
+            entries: [], scan: self.textScan([("View", "placeholder", .bareText, false)]), ownerAliases: [:]
+        )
+        #expect(result.violations.isEmpty)
+        #expect(result.unmappedOwners.isEmpty)
+        #expect(result.functionSideBareText == ["View.show#placeholder"])
+    }
 }
