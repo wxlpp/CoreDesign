@@ -359,7 +359,7 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 | 判据 | 落点 | 定义域 | 现状 |
 |---|---|---|---|
 | **J-2** 语义组件必须有样式扩展点 | `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift` 的 `ComponentExtensionPointGuard` | `kind == semantic && needsExtensionPoint && repo == coredesign`，实测 5 条 | 3 条满足；`Rating` / `Toast` 是**待补的扩展点**，以 `withKnownIssue` + 块外固定集合 canary 落账，补齐后判据主动判红逼人清理 |
-| **J-3** 标注 `nativeProtocol` 的组件作用域内不得有自有样式协议 | 同文件的 `NativeProtocolPurityGuard` | `nativeProtocol != nil && repo == coredesign`，实测 **1** 条（`ProgressIndicator`） | 零违规。⚠️ 1 条输入的判据靠非空断言挡不住「探针退化成恒空」⇒ 另设**绿色正对照**（把探针反向施加到 `Banner` / `SegmentedControl`，必须命中）。判据**消费**该探针而不内联重写，正对照的红因此能推到判据的探测能力上（规则层 `j3JudgeConsumesTheProbe` 钉住这条结构约束） |
+| **J-3** 标注 `nativeProtocol` 的组件作用域内不得有自有样式协议 | `Tests/CoreDesignTests/NativeProtocolPurityGuard.swift` | `nativeProtocol != nil && repo == coredesign`，实测 **1** 条（`ProgressIndicator`） | 零违规。⚠️ 1 条输入的判据靠非空断言挡不住「探针退化成恒空」⇒ 另设**绿色正对照**（把探针反向施加到 `Banner` / `SegmentedControl`，必须命中）。判据**消费**该探针而不内联重写，正对照的红因此能推到判据的探测能力上（规则层 `j3JudgeConsumesTheProbe` 钉住这条结构约束） |
 | **FR-4** public init 的裸文本参数必须有分类条目 | `Tests/CoreDesignTests/ComponentTextParamGuard.swift` | 宿主可解析到 `repo == coredesign` 登记表条目的 public `init`，实测覆盖 29 条 | 4 条已知违规（三条 Sidebar row 的 `systemImage` + `SidebarUtilityRow.trailingSystemImage`）——与 `LabelIcon.systemName` 同类的 SF Symbol 标识符，但 `notes` 未点名 ⇒ 缺陷已报回 #38 |
 
 **自有样式协议的识别是结构性的，不是名字匹配**：信号为「`protocol` 成员里有
@@ -371,6 +371,13 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 「结构性识别」与「名字后缀识别」**，两种实现在真实源码上结果完全相同。能区分它们的证据全部
 来自合成输入（`ComponentJudgeScannerTests` 里的 `StyleToken`：有 `Style` 无 `makeBody`；
 `Appearance`：有 `makeBody` 无 `Style`）。
+
+⚠️ **三条判据各占一个文件，不要合并**：`swift test --filter` 除类型名 / 函数名外**也按源文件名
+匹配**（实测：J-3 的 suite 曾与 J-2 同在 `ComponentExtensionPointGuard.swift`，于是
+`--filter 'ComponentExtensionPointGuard'` 把 J-3 **一起跑了**——两个 struct 名毫无子串关系；
+把它移进独占文件后、**struct 名一字未改**，同一条 filter 只跑 1 个 suite）。⇒ 一条判据想被
+`--filter` 单独跑起来，**必须独占一个文件**；合并文件会静默破坏 AC「三条判据可独立运行」的取证，
+而合并后的输出看起来完全正常。
 
 **跨仓边界（裁决 (a)，继承 #38 Task 2 的 `registryCoversCoreDesignTypes`）**：三条判据
 都**只对 `repo == "coredesign"` 的条目跑**，其余在输出里**显式报告跳过条数**（现状
@@ -588,8 +595,8 @@ modifier **internal 化**（只经 `public extension View` 暴露，即 `Surface
 ⇒ **裁决：选二选一里的第 2 条——登记为 AC 偏离**。`38.md` 那句「标出对应协议名」的 AC 在「登记单位 = 组件」
 下无对应物，不是漏做，是 AC 原文与登记单位定义之间的张力（同 D1 的既有说明）。三个
 style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `scannerFindsCoreDesignTypes`
-（`styleImpls` 打印清单）与 J-3 判据（#40 已落地，见 `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift`
-的 `NativeProtocolPurityGuard`；读取 `nativeProtocol` 交叉核对源码作用域）覆盖，
+（`styleImpls` 打印清单）与 J-3 判据（#40 已落地，见 `Tests/CoreDesignTests/NativeProtocolPurityGuard.swift`；
+读取 `nativeProtocol` 交叉核对源码作用域）覆盖，
 不需要在登记表里额外造三条不对应任何真实组件的幽灵条目——那会立即被
 `registryCoversCoreDesignTypes` 的双向差集判红（`registered.subtracting(scanned)`
 非空，因为它们在 `styleImpls` 而非 `components` 集合里）。
