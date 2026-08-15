@@ -119,3 +119,142 @@ func judgeExtensionPoints(
     result.diagnostics.sort()
     return result
 }
+
+// MARK: - J-3：标注 nativeProtocol 的组件，作用域内不得有自有样式协议
+
+/// 探针的一处命中：**哪个符号、经哪条通道、出处在哪个文件**。
+///
+/// ⚠️ **为什么不是 `Set<String>`（只回符号名）**：`judgeNativeProtocolPurity` 要填的
+/// `J3Violation` 需要 `channel` 与 `file`。探针若只回名字，判据就得自己再走一遍两条通道
+/// 才能补齐这两个字段 —— 于是同一套逻辑存在两份，Task 8「绿色正对照」的推理链当场断掉
+/// （详见 `customStyleProtocolsInScope` 的文档）。三元组是让判据**无需重走通道**的最小信息量。
+struct ScopedStyleProtocolHit: Hashable, Comparable, Sendable {
+    /// 命中的自有样式协议名。
+    let symbol: String
+    /// `作用域内声明` 或 `组件采纳`。
+    let channel: String
+    /// 命中的出处文件：通道 (i) 是协议声明所在文件，通道 (ii) 是 conformance 所在文件。
+    let file: String
+
+    /// ⚠️ 三个字段全参与排序：`Array.sort()` **不保证稳定**，只比 `symbol` 时「同符号、
+    /// 两条通道」的相对次序不确定，`j3JudgeConsumesTheProbe` 的逐位比对会间歇性红。
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        (lhs.symbol, lhs.channel, lhs.file) < (rhs.symbol, rhs.channel, rhs.file)
+    }
+}
+
+/// J-3 的**探针**：一个组件的作用域里出现的自有样式协议。
+///
+/// **「组件作用域」的机械定义（两条通道，都不做名字匹配）**：
+/// - 通道 (i) **作用域内声明**：`typeDeclFiles[component]` 里的任一文件里声明了自有样式
+///   协议。⚠️ 用**文件**而不是「嵌套在该类型内部」作粒度，是因为本仓两个真实扩展点都写在
+///   文件顶层、与组件并排（`Banner.swift:77` 的 `BannerStyle`、`SegmentedControl.swift:66`
+///   的 `SegmentedControlStyle`）——按「嵌套」判会对这两例零命中，等于判据从未真的运行过。
+/// - 通道 (ii) **组件采纳**：组件类型自身或其 `extension` 的继承子句里出现自有样式协议。
+///
+/// ⚠️ **本函数是 J-3 的唯一探测实现，`judgeNativeProtocolPurity` 必须调用它**（不许把
+/// 两条通道再内联重写一遍）。理由是 Task 8 的「绿色正对照」全靠这个结构才成立：J-3 的真实
+/// 输入只有 **1 条**（`ProgressIndicator`），探针一旦退化成恒返回空集，主判据静默全绿。
+/// 正对照把探针**反向**施加到两个**必须命中**的组件（`Banner` / `SegmentedControl`）上，
+/// 于是得到一条不依赖样本量的活性检查——**但它只有在主判据与探针是同一段代码时才承重**：
+/// 若判据自带一份副本，正对照红了只说明副本之外那份死了，主判据可能照常工作，也可能早就
+/// 写坏了而无人知晓。规则层的 `j3JudgeConsumesTheProbe` 把这条结构约束钉成机器判据。
+///
+/// ⚠️ **已知精度上限（留痕）**：同一个文件里放两个组件时，通道 (i) 会把协议算到两个组件
+/// 头上（多报）。本仓一组件一文件，实测零多报；方向是 fail-closed（多报要人来解释，
+/// 不是漏网）。
+func customStyleProtocolsInScope(
+    of component: String, scan: ComponentJudgeScanResult
+) -> [ScopedStyleProtocolHit] {
+    let names = scan.styleProtocolNames
+    var found: [ScopedStyleProtocolHit] = []
+    let files = scan.typeDeclFiles[component] ?? []
+    // 通道 (i)：组件的作用域文件里声明了自有样式协议。
+    for declaration in scan.styleProtocols where files.contains(declaration.file) {
+        found.append(
+            ScopedStyleProtocolHit(
+                symbol: declaration.name, channel: "作用域内声明", file: declaration.file
+            )
+        )
+    }
+    // 通道 (ii)：组件类型自身或其 extension 采纳了自有样式协议。
+    for record in scan.conformances where record.typeName == component {
+        for adopted in Set(record.inheritedNames).intersection(names).sorted() {
+            found.append(
+                ScopedStyleProtocolHit(symbol: adopted, channel: "组件采纳", file: record.file)
+            )
+        }
+    }
+    found.sort()
+    return found
+}
+
+struct J3Violation: Hashable, Comparable, Sendable {
+    let component: String
+    /// 命中的自有样式协议名。
+    let symbol: String
+    /// `作用域内声明` 或 `组件采纳`。
+    let channel: String
+    let file: String
+
+    /// ⚠️ 四个字段全参与排序（不是只比 `(component, symbol)`）：`Array.sort()` **不保证
+    /// 稳定**，只比前两个字段时「同组件同符号、两条通道」的相对次序不确定，
+    /// `j3JudgeConsumesTheProbe` 里与探针的逐位比对就会间歇性红。
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        (lhs.component, lhs.symbol, lhs.channel, lhs.file)
+            < (rhs.component, rhs.symbol, rhs.channel, rhs.file)
+    }
+}
+
+struct J3Result: Sendable {
+    /// 组件 → 实际扫到的作用域文件集合。**空集合会同时进 `unresolvedScopes`**。
+    var inspected: [String: Set<String>] = [:]
+    /// 作用域解析不出来的组件：这不是「没违规」，是「判据没能运行」。
+    var unresolvedScopes: [String] = []
+    var violations: [J3Violation] = []
+    var skippedRepos: [String: Int] = [:]
+}
+
+/// J-3：登记表标注了 `nativeProtocol` 的组件，其源码作用域内不得出现自有样式协议符号。
+///
+/// ⚠️ **只在 `nativeProtocol != nil` 时触发**（裁决 D3）：`customStyleProtocol` 非空、
+/// `nativeProtocol` 为 `null` 的组件（`SegmentedControl` / `Banner`）**不进定义域**——
+/// 合并两个字段会让它们被自己发布的协议判红。
+///
+/// ⚠️ **跨仓裁决 (a)**：只对 `repo == "coredesign"` 跑，其余进 `skippedRepos`。
+///
+/// ⚠️ **本函数只做三件事：定义域过滤、作用域解析留痕、把探针命中装配成 `J3Violation`。**
+/// 两条通道的探测逻辑**一行都不在这里**——它全在 `customStyleProtocolsInScope` 里。
+/// 这不是分层洁癖：Task 8 的「绿色正对照」证明的是**探针**还活着，只有当主判据的违规逐字
+/// 来自探针时，这条证明才能推到主判据身上。若这里再抄一份通道逻辑，正对照就退化成
+/// 「两段不相干的代码碰巧都还在跑」，而 Task 1 抽取剥离层的立论（两份实现必然漂移）
+/// 也在同一份 plan 里被自己推翻。
+func judgeNativeProtocolPurity(
+    entries: [ComponentRegistryGuard.Entry], scan: ComponentJudgeScanResult
+) -> J3Result {
+    var result = J3Result()
+    for entry in entries where entry.repo != "coredesign" {
+        result.skippedRepos[entry.repo, default: 0] += 1
+    }
+    for entry in entries where entry.repo == "coredesign" && entry.nativeProtocol != nil {
+        let files = scan.typeDeclFiles[entry.component] ?? []
+        result.inspected[entry.component] = files
+        if files.isEmpty {
+            // ⚠️ **零输出不是绿**：扫描器定位不到组件的声明文件时，「作用域里没有自有
+            // 协议」这句话没有信息量，必须单独报出来而不是并进「无违规」。
+            result.unresolvedScopes.append(entry.component)
+        }
+        // 唯一的探测入口。装配 = 给探针命中补上 `component` 字段，不做任何再判定。
+        for hit in customStyleProtocolsInScope(of: entry.component, scan: scan) {
+            result.violations.append(
+                J3Violation(
+                    component: entry.component, symbol: hit.symbol,
+                    channel: hit.channel, file: hit.file
+                )
+            )
+        }
+    }
+    result.unresolvedScopes.sort()
+    result.violations.sort()
+    return result
+}
