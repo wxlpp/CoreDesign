@@ -43,9 +43,9 @@ public nonisolated enum CardKind: Sendable, Equatable {
 /// `.surface(.content)` 的**具名封装** + 默认内边距——iOS 分组卡片/内容容器的最薄外壳。
 ///
 /// Card **不引入平行的容器体系**：它就是 `content` → `.padding(默认值)` →
-/// `.surface(kind.surfaceKind)`（背景 + 描边 + 圆角均由 `SurfaceModifier` 提供，
-/// 不重新实现）。需要更细控制（其余 `SurfaceKind` / 边距 / 形状）的场景，直接用
-/// `View.surface(_:)`。
+/// `.surface(.content)` 或 `.surface(.grouped)`（由 `kind` 二选一；背景 + 描边 + 圆角
+/// 均由 `SurfaceModifier` 提供，不重新实现）。需要更细控制（其余 `SurfaceKind` /
+/// 边距 / 形状）的场景，直接用 `View.surface(_:)`。
 ///
 /// `kind: .grouped` 去描边，只留背景 + 圆角，贴近 iOS 系统分组容器（无描边、靠填充色
 /// 对比定界），与 `InsetGroupedSection` 的卡片外观一致。
