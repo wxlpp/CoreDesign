@@ -258,10 +258,10 @@
     "kind": "semantic",
     "decidedBy": "step2",
     "nativeProtocol": null,
-    "customStyleProtocol": null,
+    "customStyleProtocol": "RatingStyle",
     "needsExtensionPoint": true,
     "textParams": [],
-    "notes": "已在公约附录 A.1 走查过：步骤 1 无（无 RatingStyle）；步骤 2『会』——替代枚举数字条（IMDb 连续条形）/ 表情（NPS 单一图形）两者结构本身不同、且都不含当前『星』形态，举得出 ≥2 ⇒ 语义组件，需要扩展点。⚠️ 现状缺口：源码里尚无 RatingStyle 协议实现（customStyleProtocol 为 null）——判定法给出『应该有扩展点』的结论，但该扩展点尚未落地，留给后续任务补齐，不属于本任务判断错误。allowsHalfStar 的形状取舍已在附录 A.1 续给出（3.1 专用参数 step，非本任务范围）。"
+    "notes": "已在公约附录 A.1 走查过：步骤 1 无（Apple 最近的候选是 ProgressViewStyle，但它的 Configuration 只暴露 fractionCompleted 与 label/currentValueLabel，没有离散档位数 count 与步进粒度 step，而 Rating 的手势语义全建立在这两者上 ⇒ 改写会丢手势取整与 accessibility adjust action ⇒ 按步骤 1 的操作化判据视为无）；步骤 2『会』——替代枚举数字条（IMDb 连续条形）/ 表情（NPS 单一图形）两者结构本身不同、且都不含当前『星』形态，举得出 ≥2 ⇒ 语义组件，需要扩展点。✅ #41 裁决 4c 已补齐：RatingStyle 协议 + StarRatingStyle 默认实现 + EnvironmentValues.ratingStyle + View.ratingStyle(_:)，且 Rating.body 真的经 style.makeBody(configuration:) 渲染（不是只声明协议来骗 J-2 的存在性判定）。allowsHalfStar 已于 #41 裁决 4a 收成 step: Double。"
   },
   {
     "component": "SearchField",

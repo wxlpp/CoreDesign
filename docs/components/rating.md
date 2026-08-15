@@ -58,6 +58,45 @@ Rating(value: $rating)
 > 依据是公约第 3 节替代路径 3.1——`step` 从来不是二值的，`0.5` / `1.0` 只是它最常用的
 > 两个取值，用 Bool 表达等于把一个连续取值域压扁成两个点。
 
+## 样式扩展点 / RatingStyle
+
+`Rating` 与 `RatingDisplay` 的视觉外观由环境里注入的 `RatingStyle` 决定，默认
+`StarRatingStyle`（五角星）。形态对齐 Apple `ButtonStyle` / `ToggleStyle` 与本仓既有的
+`BannerStyle` / `SegmentedControlStyle`：
+
+```swift
+public protocol RatingStyle {
+    associatedtype Body: View
+    @ViewBuilder @MainActor @preconcurrency
+    func makeBody(configuration: Self.Configuration) -> Body
+    typealias Configuration = RatingStyleConfiguration   // { value: Double, count: Int }
+}
+```
+
+```swift
+struct NumericRatingStyle: RatingStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Text("\(configuration.value.formatted()) / \(Double(configuration.count).formatted())")
+    }
+}
+
+VStack {
+    Rating(value: $score)
+    RatingDisplay(value: 4.5)
+}
+.ratingStyle(NumericRatingStyle())   // 一次注入，影响子树里所有实例
+```
+
+> **为什么是自有协议而不是 Apple 原生的 `ProgressViewStyle`**：`ProgressViewStyle.Configuration`
+> 只暴露 `fractionCompleted` 与 `label` / `currentValueLabel`，**没有离散档位数（`count`）
+> 与步进粒度（`step`）**——而评分控件的手势语义全建立在这两者上。改写成
+> `ProgressView + 自定义 style` 会丢掉手势取整与 accessibility adjust action，按公约第 1 节
+> 步骤 1 的操作化判据「写不出『可改写且不丢功能』的声明 ⇒ 视为无」⇒ 走自有协议（形态 B）。
+> 本仓形态 A 的既有先例是 `ProgressIndicator` ↔ `ProgressViewStyle`。
+
+> **`Configuration` 刻意只带 `value` 与 `count`**：`step`（调整粒度）与「是否可交互」都是
+> **行为**，按公约第 2 节的边界条款不得进样式协议。样式实现要画半星只需 `value`。
+
 ## 视觉 Token
 
 - 星形：`StarShape()`

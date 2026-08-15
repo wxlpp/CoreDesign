@@ -74,18 +74,22 @@ public struct Rating: View {
 
     // MARK: - Derived metrics
 
-    private var starSize: CGFloat {
-        CoreControlMetrics.iconSize(for: self.controlSize) * 1.5
-    }
+    /// 手势坐标换算用的控件实测宽度，由 `.onGeometryChange` 写入。
+    ///
+    /// ⚠️ **#41 起改为「量」而不是「算」**：原实现用 `starSize × count + 间距` 独立再算
+    /// 一遍总宽，它自己的文档就写着「两处独立算，改一处务必同步改另一处，否则拖拽手势的
+    /// 取值会与星形的真实渲染位置错位（无测试能抓到这类几何失步）」。裁决 4c 把渲染权交给
+    /// `RatingStyle` 之后，那条隐患从「可能失步」升级成「任何自定义 style 都必然失步」
+    /// ——数字条 / 表情 / 纯文本样式的宽度与星形公式毫无关系。量真实宽度是唯一正确解。
+    ///
+    /// ⚠️ **已知的一帧窗口**：首帧渲染完成、`.onGeometryChange` 回调到达之前该值是 `0`，
+    /// 此时若恰好发生拖拽，`steppedValue` 的 `guard totalWidth > 0 else { return 0 }`
+    /// 会返回 0 分。真实交互不可能落在这一帧内（用户看不见还没布局的视图），且失效方向是
+    /// 「不动」而不是「乱跳」。留痕而不加兜底——加一个 `if measuredWidth == 0 { 用旧公式 }`
+    /// 就等于把刚删掉的第二份几何公式请回来。
+    @State private var measuredWidth: CGFloat = 0
 
-    /// 手势坐标换算用的控件总宽度。**必须与 `star(at:)` 的 `.frame(width: starSize)` +
-    /// `HStack(spacing: CoreSpacing.xs)` 保持同一套公式**——两处独立算，改一处务必
-    /// 同步改另一处，否则拖拽手势的取值会与星形的真实渲染位置错位（无测试能抓到
-    /// 这类几何失步，因为 `RatingTests` 只用固定宽度单测 `steppedValue` 本身）。
-    private var totalWidth: CGFloat {
-        guard self.count > 0 else { return 0 }
-        return CGFloat(self.count) * self.starSize + CGFloat(self.count - 1) * CoreSpacing.xs
-    }
+    @Environment(\.ratingStyle) private var style
 
     /// 手势 / accessibility adjust action 是否生效——只读或外层 `.disabled(true)` 时关闭。
     /// 提取为静态纯函数（见下方 `Rating.isInteractive(isReadOnly:isEnabled:)`），
@@ -97,18 +101,27 @@ public struct Rating: View {
     // MARK: - Body
 
     public var body: some View {
-        HStack(spacing: CoreSpacing.xs) {
-            ForEach(0..<self.count, id: \.self) { index in
-                self.star(at: index)
-            }
-        }
+        // ⚠️ **渲染权交给 `RatingStyle`**（裁决 4c）：与 `Banner.body` 逐字同形。
+        // 只声明协议、登记表填上名字而组件自己照旧硬渲染，能骗过 J-2 的
+        // `customStyleProtocol` 通路（它只查「协议已声明 + 至少一个类型采纳」，
+        // #40 移交清单第 1 条已把这条精度上限写在明处）——那正是本 epic 一直在打的
+        // 「绿得理由不对」。这里不踩那个上限。
+        AnyView(self.style.makeBody(
+            configuration: RatingStyleConfiguration(value: self.value, count: self.count)
+        ))
         // `frame(minHeight:)` 在 `contentShape` 之前施加——地板，不裁切，与
         // `TouchTargetTests.swift` 记录的「可信断言」前提一致（`contentShape` 挂在
-        // 撑高之后的最外层）。星形视觉尺寸（`starSize`）在多数 `controlSize` 档位下
-        // 小于 44pt 的 HIG 命中区下限，这里补足纵向命中区而不放大星形本身——多出的
-        // 空间由 HStack 居中吸收，视觉不变。
+        // 撑高之后的最外层）。星形视觉尺寸在多数 `controlSize` 档位下小于 44pt 的 HIG
+        // 命中区下限，这里补足纵向命中区而不放大星形本身——多出的空间由 HStack 居中吸收，
+        // 视觉不变。
         .frame(minHeight: CoreControlMetrics.height(for: self.controlSize))
         .contentShape(Rectangle())
+        // 手势坐标换算的分母：量真实宽度，见 `measuredWidth` 的文档。
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { newValue in
+            self.measuredWidth = newValue
+        }
         // `minimumDistance: 0`——保留精确点按语义（AC 要求「拖拽或点按」都能设值）。
         // 已知取舍：与原生 `Slider` 一样，把 Rating 嵌进纵向 `ScrollView` / `List`
         // 时，起手落在星形上的纵向滑动会被本手势而非祖先滚动手势捕获（SwiftUI 对
@@ -119,14 +132,14 @@ public struct Rating: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { drag in
                     // RTL 镜像：`drag.location.x` 是视图本地物理坐标（不随 layoutDirection
-                    // 镜像），而 HStack 星序与半星 `.mask` 在 RTL 下都镜像。故 RTL 时把 x 沿
+                    // 镜像），而星序与半星 `.mask` 在 RTL 下都镜像。故 RTL 时把 x 沿
                     // 宽度翻折，保证「点视觉上的第 k 颗星」在两种方向下都得到 k 分。
                     let x = self.layoutDirection == .rightToLeft
-                        ? self.totalWidth - drag.location.x
+                        ? self.measuredWidth - drag.location.x
                         : drag.location.x
                     self.value = Self.steppedValue(
                         atRelativeX: x,
-                        totalWidth: self.totalWidth,
+                        totalWidth: self.measuredWidth,
                         count: self.count,
                         step: self.step
                     )
@@ -148,27 +161,6 @@ public struct Rating: View {
                 break
             }
         })
-    }
-
-    // MARK: - Star rendering
-
-    // 每颗星固定 `.frame(width: starSize)`——这个宽度与 `HStack(spacing:
-    // CoreSpacing.xs)` 的间距共同决定控件总宽，`totalWidth` 据此独立推导手势坐标
-    // 换算的分母。两处几何若不同步会静默错位，见 `totalWidth` 的 doc comment。
-    @ViewBuilder
-    private func star(at index: Int) -> some View {
-        let fraction = Self.fillFraction(value: self.value, starIndex: index)
-        ZStack(alignment: .leading) {
-            StarShape()
-                .fill(Color.tertiaryFill)
-            StarShape()
-                .fill(.tint)
-                .mask(alignment: .leading) {
-                    Rectangle()
-                        .frame(width: self.starSize * fraction, height: self.starSize)
-                }
-        }
-        .frame(width: self.starSize, height: self.starSize)
     }
 
     // MARK: - Pure logic (unit-testable via `@testable import`)
@@ -208,6 +200,150 @@ public struct Rating: View {
     /// 直到非英文本地化才暴露），需要能被单测锁定，而不是只靠人工审查一次性确认。
     static func accessibilityValueText(value: Double, count: Int) -> String {
         String(localized: "\(value.formatted()) of \(Double(count).formatted())", bundle: .module)
+    }
+}
+
+// MARK: - RatingStyleConfiguration
+
+/// 传给 `RatingStyle.makeBody` 的上下文：**只描述外观所需的状态**。
+///
+/// ⚠️ **刻意不带 `step`、不带 `isInteractive`**（公约第 2 节**边界条款**：样式协议的
+/// `Configuration` 不得携带行为）：
+/// - `step` 是手势与 VoiceOver 的调整粒度 —— 行为。样式实现要画半星只需 `value`
+///   （`Rating.fillFraction(value:starIndex:)` 按小数部分算填充比例），不需要知道粒度。
+/// - `isInteractive` 是可交互性 —— 行为；而且它是 `Bool`，放进一个 public 表面会当场
+///   触发 J-1（`BoolExemptionGuard`）。
+///
+/// ⚠️ **memberwise init 刻意保持 internal**（Swift 默认）：`Rating` / `RatingDisplay`
+/// 同模块可构造，下游实现自定义 style 时只需**读**这两个字段。这同时让本类型不出现在
+/// J-1 的 public init 扫描面里。
+public struct RatingStyleConfiguration {
+    /// 当前评分（可含小数——半星 / 任意粒度都由它的小数部分表达）。
+    public let value: Double
+    /// 档位总数（星数）。
+    public let count: Int
+}
+
+// MARK: - RatingStyle
+
+/// `Rating` / `RatingDisplay` 视觉外观的扩展点，形态对齐 Apple `ButtonStyle` / `ToggleStyle`
+/// 与本仓既有的 `BannerStyle` / `SegmentedControlStyle`。
+///
+/// ⚠️ **为什么是自有协议而不是 Apple 原生协议**（#41 裁决 4c，行使公约第 1 节头号规则的
+/// 「A 不适用 ⇒ 才准走 B」方向，理由必须写死否则下一个人会以为漏查了）：形态最近的候选是
+/// `ProgressViewStyle`（一个 0…1 的进度量 + 自定义 `makeBody`），但它的 `Configuration`
+/// 只暴露 `fractionCompleted: Double?` 与 `label` / `currentValueLabel`，**没有离散档位数
+/// （`count`）与步进粒度（`step`）**——而评分控件的手势语义全建立在这两者上
+/// （见 `Rating.steppedValue(atRelativeX:totalWidth:count:step:)`）。改写成
+/// `ProgressView + 自定义 style` 会丢掉手势取整与 accessibility adjust action
+/// ⇒ 按公约第 1 节步骤 1 的操作化判据「写不出『可改写且不丢功能』的声明 ⇒ 视为无」，
+/// 判 **无** ⇒ 走形态 B。本仓形态 A 的既有先例是 `ProgressIndicator` ↔ `ProgressViewStyle`。
+///
+/// 实现该协议以提供新的评分外观（数字条 / 表情 / 纯数字文本等——正是登记表判定法步骤 2
+/// 举出的那几种结构本身不同的替代形态），通过 `View.ratingStyle(_:)` 注入到子树。
+/// 内置实现见 `StarRatingStyle`（默认）。新实现应继续走设计 token
+/// （`CoreSpacing.*` / `CoreControlMetrics.*`）与 `.tint`，避免引入魔法数字与写死的强调色。
+public protocol RatingStyle {
+    associatedtype Body: View
+
+    @ViewBuilder
+    @MainActor @preconcurrency
+    func makeBody(configuration: Self.Configuration) -> Body
+
+    typealias Configuration = RatingStyleConfiguration
+}
+
+// MARK: - StarRatingStyle
+
+/// 默认评分外观：一排五角星，按 `value` 与星索引计算填充比例（整星 / 半星 / 空星三态），
+/// 用 `.mask` 裁切实现半星视觉。
+///
+/// 星形复用 `Shape/StarShape.swift`（不重新实现五角星路径）。选中态填充色经 `.tint`
+/// （`TintShapeStyle`）取值——不写死 `Color.accent`，调用方外加 `.tint(_:)` 会让选中星
+/// 真的变色；未选中态走 `Color.tertiaryFill`（第 3 层中性色）。
+public struct StarRatingStyle: RatingStyle {
+    public init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        StarRatingStyleBody(configuration: configuration)
+    }
+}
+
+/// `StarRatingStyle` 的真实视图主体。
+///
+/// ⚠️ **必须是一个独立的 `View`，不能把 `@Environment` 挂在 `StarRatingStyle` 上**：
+/// 样式实例是被存进 `EnvironmentValues` 的普通值，SwiftUI 不会给它安装环境；只有真正
+/// 进入视图树的 `View` 才拿得到 `\.controlSize`。本仓 `BannerStyle` 的两个实现走的是
+/// 同一条路（把公共主体抽成 `bannerBody(configuration:bordered:)` 自由函数）。
+private struct StarRatingStyleBody: View {
+    let configuration: RatingStyleConfiguration
+
+    @Environment(\.controlSize) private var controlSize
+
+    /// 星形边长：跟随 `\.controlSize`，不随 Dynamic Type 缩放（现状记录见
+    /// `DynamicTypeLayoutTests` 里那条「星形边长走固定 iconSize」的说明）。
+    private var starSize: CGFloat {
+        CoreControlMetrics.iconSize(for: self.controlSize) * 1.5
+    }
+
+    var body: some View {
+        HStack(spacing: CoreSpacing.xs) {
+            ForEach(0..<self.configuration.count, id: \.self) { index in
+                self.star(at: index)
+            }
+        }
+    }
+
+    // 每颗星固定 `.frame(width: starSize)`——这个宽度与 `HStack(spacing: CoreSpacing.xs)`
+    // 的间距共同决定控件总宽。⚠️ #41 之前 `Rating` 用同一套公式**独立再算一遍**
+    // `totalWidth` 供手势换算，两处几何若不同步会静默错位；交出渲染权之后那条隐患会从
+    // 「可能失步」升级成「任何自定义 style 都必然失步」⇒ `Rating` 现在改用
+    // `.onGeometryChange` 量真实宽度，这里不再需要对外暴露任何几何量。
+    @ViewBuilder
+    private func star(at index: Int) -> some View {
+        let fraction = Rating.fillFraction(value: self.configuration.value, starIndex: index)
+        ZStack(alignment: .leading) {
+            StarShape()
+                .fill(Color.tertiaryFill)
+            StarShape()
+                .fill(.tint)
+                .mask(alignment: .leading) {
+                    Rectangle()
+                        .frame(width: self.starSize * fraction, height: self.starSize)
+                }
+        }
+        .frame(width: self.starSize, height: self.starSize)
+    }
+}
+
+// MARK: - RatingStyle environment plumbing
+
+extension EnvironmentValues {
+    /// 当前生效的 `RatingStyle`，默认 `StarRatingStyle`。
+    ///
+    /// 通过 `View.ratingStyle(_:)` 注入到子树；`Rating` 与 `RatingDisplay` 在 `body` 中
+    /// 读取该值并调用 `style.makeBody(configuration:)` 渲染。两个组件共用同一个协议与
+    /// 同一个环境入口——评分的外观语汇只有一套，control / indicator 的差别在交互而不在长相。
+    @Entry var ratingStyle: any RatingStyle = StarRatingStyle()
+}
+
+public extension View {
+    /// 为子树中的所有 `Rating` / `RatingDisplay` 设置外观。
+    ///
+    /// 对应 Apple `View.buttonStyle(_:)` 的注入模式：在父视图调用一次即可影响下游所有实例，
+    /// 无需逐个指定。
+    ///
+    /// ```swift
+    /// VStack {
+    ///     Rating(value: $score)
+    ///     RatingDisplay(value: 4.5)
+    /// }
+    /// .ratingStyle(StarRatingStyle())
+    /// ```
+    ///
+    /// - Parameter style: 任意符合 `RatingStyle` 协议的实现，内置的是 `StarRatingStyle`。
+    func ratingStyle(_ style: some RatingStyle) -> some View {
+        self.environment(\.ratingStyle, style)
     }
 }
 
@@ -272,8 +408,23 @@ private struct RatingPreviewGallery: View {
                 Rating(value: .constant(2), count: 5)
                     .tint(.red)
             }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("自定义 RatingStyle（数字条）").coreFont(.footnote).foregroundStyle(.secondary)
+                Rating(value: self.$wholeStarValue)
+                    .ratingStyle(PreviewNumericRatingStyle())
+            }
         }
         .padding()
         .background(Color.surfaceCanvas)
+    }
+}
+
+/// 仅供 `#Preview` 使用的替代样式——证明 `RatingStyle` 真的换得掉默认星形。
+private struct PreviewNumericRatingStyle: RatingStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Text(verbatim: "\(configuration.value.formatted()) / \(Double(configuration.count).formatted())")
+            .coreFont(.headline)
+            .foregroundStyle(.tint)
     }
 }
