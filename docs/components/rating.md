@@ -11,7 +11,7 @@
 |---|---|---|---|
 | value | Binding\<Double\> | - | 当前评分，双向绑定 |
 | count | Int | 5 | 星数；负数会被 clamp 到 0 |
-| step | Double | 1.0 | 步进粒度（手势 / VoiceOver 按它递增递减）。传 `0.5` 即半星步进。非正值 clamp 回 `1.0`；刻意不设上界（`count == 0` 合法，任何 `step ≤ count` 的上界都会恒不可满足） |
+| step | Double | 1.0 | 步进粒度（手势 / VoiceOver 按它递增递减）。传 `0.5` 即半星步进。非正值或非有限值（如 `.infinity`）clamp 回 `1.0`；刻意不设上界（`count == 0` 合法，任何 `step ≤ count` 的上界都会恒不可满足） |
 
 ## 预览 / Preview
 

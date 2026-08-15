@@ -70,20 +70,26 @@ indicator 身上**完全不成立**——它本来就没有手势与 adjust acti
 **交 #44 / #43**：评估补一条反向断言（登记表里 `kind != "excluded"` 的条目都应在 README 有行）
 与一条快照存在性断言的成本。
 
-### D-41-6：公约正文的三处「前瞻例」在本轮落地后时态失真，但公约正文的修改统一走 #44（S2′）
+### D-41-6：公约正文的三组（八处）「前瞻例」在本轮落地后时态失真，但公约正文的修改统一走 #44（S2′）
 
+**组 1 —— `Rating(allowsHalfStar:)` → `step: Double`**（3 处）：
 - `docs/component-contract.md:234`：`例：Rating(allowsHalfStar: Bool) → Rating(step: Double)。`
 - `:429`（附录 A.1）与 `:456`（A.1 续）：同一个例子的走查记录
+
+**组 2 —— `Rating(isReadOnly:)` 与 `@Environment(\.isEnabled)`**（1 处）：
 - `:275`：`例：Rating(isReadOnly: Bool) 与 @Environment(\.isEnabled) 语义重叠`
+
+**组 3 —— `bordered: Bool`（Surface / Card）家族**（4 处）：
 - `:217`：`bordered: Bool → border: BorderStyle`（本轮实际落地的是 `SurfaceKind.grouped` + `CardKind`，
   与例句给的形状不同——例句本身没错，但读者会以为落地的就是 `BorderStyle`）
 - `:265` / `:267`：`.surface(bordered: false)` 与 `Card(bordered: Bool)` 的反例
 - `:468-494`（附录 A.3）：`surface(_ kind:, bordered: Bool = true)` 的整节裁决，含
   `:481` 「它不进豁免清单」、`:490-494` 「到期是机器强制的：#41 一旦删掉/改造 `bordered`…」
 
-这七处现在描述的都是**已经不存在的 API**。本任务按 S2′ 的纪律**不改公约正文**（与「不改判
-`Badge`/`Tag`、不成文第四出口」同一条：公约正文的修改统一走 #44 SC-8 回写）。
+这三组共八处现在描述的都是**已经不存在的 API**（或——组 3 的 `:217`——例句给出的形状与实际
+落地形状不同）。本任务按 S2′ 的纪律**不改公约正文**（与「不改判 `Badge`/`Tag`、不成文第四
+出口」同一条：公约正文的修改统一走 #44 SC-8 回写）。
 
-**交 #44**：把这七处从「前瞻例 / 待处置」改写为「已落地判例」，并核对落地形状与例句是否一致。
+**交 #44**：把这三组八处从「前瞻例 / 待处置」改写为「已落地判例」，并核对落地形状与例句是否一致。
 
 ---
