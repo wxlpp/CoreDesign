@@ -402,14 +402,24 @@ func judgeTextParamCoverage(
         }
     }
 
-    result.violations.sort()
-    result.diagnostics.sort()
-    result.exemptedByRegistryNotes.sort()
-    result.exemptedByExcludedKind.sort()
-    result.unmappedOwners.sort()
-    result.ghostRegistryParams.sort()
-    result.localizedByType.sort()
-    result.carrying.sort()
-    result.functionSideBareText.sort()
+    // ⚠️ **按键去重，不是简单排序**：`scan.textParams` 的单位是**命中**，一个参数名可以被
+    // 多个 `init` 重载各命中一次（实测：`SettingsRow` 有多个重载都带 `title:
+    // LocalizedStringKey`，`LabelIcon` 有两个重载都带 `systemName`）；而这几个桶的语义单位
+    // 是**扫描键**（`Owner.decl#param`）——`covered` 是以扫描键为主键的字典、`violations` /
+    // `unmappedOwners` 等在判据里一律按 `Set` 比较，都天然去重。只有两个**按计数**断言的
+    // 留痕桶会把这个差异暴露出来：不去重时 `localizedByType` 是 14（命中数），
+    // 去重后是 11（键数，与 Task 3 冒烟打印的 `localizedTextKeys.count` 同口径）。
+    // ⇒ 这正是 plan 在 `covered` 那里警告过的「两者计数单位不同」，只是漏在了这两个桶上。
+    // 统一取**键**作单位：重载数不是 FR-4 关心的量，参数身份才是。
+    func sortedUnique(_ keys: [String]) -> [String] { Array(Set(keys)).sorted() }
+    result.violations = sortedUnique(result.violations)
+    result.diagnostics.sort()   // ⚠️ 不去重：同名参数的两个重载在不同行，明细要各报一条
+    result.exemptedByRegistryNotes = sortedUnique(result.exemptedByRegistryNotes)
+    result.exemptedByExcludedKind = sortedUnique(result.exemptedByExcludedKind)
+    result.unmappedOwners = sortedUnique(result.unmappedOwners)
+    result.ghostRegistryParams = sortedUnique(result.ghostRegistryParams)
+    result.localizedByType = sortedUnique(result.localizedByType)
+    result.carrying = sortedUnique(result.carrying)
+    result.functionSideBareText = sortedUnique(result.functionSideBareText)
     return result
 }

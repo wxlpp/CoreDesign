@@ -410,6 +410,28 @@ struct ComponentJudgeRulesTests {
         #expect(result.ghostRegistryParams.isEmpty, "LSK/LSR 命中也要能消掉反向差集里的对应条目")
     }
 
+    @Test("FR-4：同一个键被多个 init 重载命中时，各桶按键去重（计数单位是键不是命中）")
+    func fr4BucketsAreDedupedByKey() {
+        // 同一个 `SettingsRow.init#title` 被两个重载各命中一次 —— 真实源码里就是这个形态
+        // （SettingsRow 有多个 init 重载都带 `title: LocalizedStringKey`）。
+        let scan = self.textScan([
+            ("SettingsRow", "title", .localizedText, true),
+            ("SettingsRow", "title", .localizedText, true),
+            ("SearchField", "text", .textCarrying, true),
+            ("SearchField", "text", .textCarrying, true),
+            ("Ghost", "a", .bareText, true),
+            ("Ghost", "a", .bareText, true),
+        ])
+        let result = judgeTextParamCoverage(entries: [], scan: scan, ownerAliases: [:])
+        #expect(result.localizedByType == ["SettingsRow.init#title"],
+                "留痕桶的单位是**扫描键**不是命中数：两个重载命中同一个键只算一条，实际 \(result.localizedByType)")
+        #expect(result.carrying == ["SearchField.init#text"])
+        #expect(result.unmappedOwners == ["Ghost.init#a"])
+        // ⚠️ 承重：不去重时上面三条会各得 2 —— 这正是 Task 10 首跑时 localizedByType
+        // 打出 14（命中数）而 Task 3 冒烟打出 11（Set 键数）的原因。
+        #expect(result.localizedByType.count == 1 && result.carrying.count == 1 && result.unmappedOwners.count == 1)
+    }
+
     @Test("FR-4：func 侧裸文本参数进留痕桶，不进主判据")
     func fr4FunctionSideBucket() {
         let result = judgeTextParamCoverage(
