@@ -47,17 +47,22 @@ public struct Rating: View {
     ///     就不是二值的，`0.5` / `1.0` 只是它最常用的两个取值）。
     ///     迁移：`allowsHalfStar: true` → `step: 0.5`；`allowsHalfStar: false` → 省略。
     ///
-    ///     ⚠️ **非正值 clamp 回 `1.0`，不 `precondition`**：`steppedValue` 里的
+    ///     ⚠️ **非正值或非有限值 clamp 回 `1.0`，不 `precondition`**：`steppedValue` 里的
     ///     `guard ... step > 0 else { return 0 }` 决定了 `step <= 0` 的失效形态是
     ///     **整个组件恒返回 0 分**（静默），不是崩溃。clamp 把这个静默失效换成一个
     ///     可用的默认值，且与仓内惯例一致（`count` 的 `max(0, count)`、
     ///     `AvatarGroup.max`、`Separator.Inset.leading`），还能被单测直接断言。
+    ///     `step: .infinity` 单看符号会通过 `step > 0`，但 `steppedValue` 里
+    ///     `(rawValue / .infinity).rounded(.up) * .infinity` = `0 * .infinity` = `NaN`
+    ///     会原样写回 `Binding`（#41 收尾修复）——因此 clamp 条件是
+    ///     `step > 0 && step.isFinite`，不是单独 `step > 0`。
     ///
     ///     ⚠️ **刻意不设上界**：`count == 0` 是合法入参（`max(0, count)` +
     ///     `RatingTests.negativeCountClampsToZero`），任何 `step <= Double(count)` 形态的
     ///     上界在 `count == 0` 时与 `step > 0` 联立无解，会把既有合法调用打成非法；
     ///     而 `step > count` 本身不是失效形态——`steppedValue` 会把结果 clamp 回
-    ///     `0...count`，得到粗粒度但可用的控件。
+    ///     `0...count`，得到粗粒度但可用的控件。`.isFinite` 挡的是非有限值，不是上界
+    ///     ——两条裁决互不冲突。
     ///
     /// ⚠️ **#41 破坏性变更**：`isReadOnly: Bool` 已删除。只读展示态请改用
     /// `RatingDisplay`（indicator）——它没有 binding、没有手势、没有 accessibility
@@ -70,7 +75,7 @@ public struct Rating: View {
     ) {
         self._value = value
         self.count = max(0, count)
-        self.step = step > 0 ? step : 1.0
+        self.step = step > 0 && step.isFinite ? step : 1.0
     }
 
     // MARK: - Derived metrics
