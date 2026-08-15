@@ -1,7 +1,7 @@
 {
-  "maxEntries": 33,
-  "sourceSites": 36,
+  "maxEntries": 29,
+  "sourceSites": 32,
   "raisedBy": "wxlpp",
   "raisedOn": "2026-08-15",
-  "rationale": "#41 裁决 1 落地：View.surface(_:bordered:) 与 Card(bordered:) 这一对布尔旋钮按公约第 3 节替代路径 3.1 还原成语义类型（新增 SurfaceKind.grouped + CardKind），两个参数从源码里消失 ⇒ 豁免清单下调一条（34 → 33，删除的是 Card.init#bordered；View.surface#bordered 本就不在清单里，它是 BoolExemptionGuard.pendingViolationKeys 的成员，随本轮一并清空），源码位置数同轮下调两处（38 → 36，两个参数各占一处）。棘轮允许下调且不留 slack：清单条数与 maxEntries 严格相等、扫描命中数与 sourceSites 严格相等，两条等式都在 withKnownIssue 之外。sourceSites 仍未纳入 maxEntries 那套跨历史破例流程（scripts/bool-exemptions-ratchet.sh 只读 maxEntries），跨历史闸移交 #43。"
+  "rationale": "#41 裁决 3 落地：glass 簇按公约第 3 节终局条款 (b) 删除。#39 记这四条豁免时的 reason 靠「删除属破坏性变更，要同步 App/ 预览宿主、Tests/、scripts/downstream-probe 与 StoryUI 四处迁移面」承重，跨仓实测该句 3/4 为假——App/ 零命中、scripts/downstream-probe 零命中、StoryUI 全仓零命中（glass: 的命中全部落在 .build/checkouts 里 vendored 的 CoreDesign 自身副本），对外零调用点 ⇒ (b) 成立，删除而非记豁免。豁免清单下调四条（33 → 29：ButtonStyle.solid#glass / ButtonStyle.light#glass / SolidButtonStyle.init#glass / LightButtonStyle.init#glass；后两条在 39.md 与 41.md 里被双双漏计成三条，本轮以 json.load 实测为准），源码位置数同轮下调四处（36 → 32）。CircularGlassButtonStyle 与 TelegramGlassButtonModifier 保留：前者命名即语义、不带 Bool，是「组合优先于配置开关」的正解；后者仍被 CircularGlassButtonStyle 与 CoreMenuButton 消费。sourceSites 的跨历史闸仍未实现（ratchet.sh 只读 maxEntries），移交 #43。"
 }

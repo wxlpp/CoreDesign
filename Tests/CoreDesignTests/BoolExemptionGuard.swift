@@ -88,13 +88,12 @@ struct BoolExemptionGuard {
         "Skeleton.init#isLoading",
         "Carousel.init#autoAdvance",
         "TagInput.init#allowDuplicates",
-        "SolidButtonStyle.init#glass",
-        "LightButtonStyle.init#glass",
         "SegmentedControlStyleConfiguration.Segment.init#isSelected",
-        // ⚠️ #41 裁决 1 移出两条：`Card.init#bordered` 与 `View.surface#bordered`
-        // 的源码参数已被 SurfaceKind.grouped / CardKind 取代 ⇒ 留在这里会让 `:343` 的
-        // 子集断言判红。移出的是**参照物条目**，不是「公约没点过它们」——公约附录 A.3
-        // 对 `surface(bordered:)` 的裁决记录仍在，只是被裁决的对象不存在了。
+        // ⚠️ #41 已移出四条：`Card.init#bordered` / `View.surface#bordered`（裁决 1）、
+        // `SolidButtonStyle.init#glass` / `LightButtonStyle.init#glass`（裁决 3）。
+        // 它们的源码参数已不存在 ⇒ 留在这里会让 `:343` 的子集断言判红。移出的是
+        // **参照物条目**，不是「公约没点过它们」——公约与 PRD 的裁决记录仍在，
+        // 只是被裁决的对象走完了终局条款。
     ]
 
     /// **公约 A.3 已裁决、但按 39.md 的 AC 刻意不放进豁免清单的违规**。
@@ -157,6 +156,15 @@ struct BoolExemptionGuard {
         "StepItem": .nonViewPublicType,
         "ButtonRoleStyleRole": .nonViewPublicType,
         "SegmentedControlStyleConfiguration.Segment": .nonViewPublicType,
+        // ⚠️ **#41 裁决 3 之后，三条宿主进入「休眠」态，刻意保留**：
+        // `ButtonStyle`（原挂 `ButtonStyle.solid#glass` / `ButtonStyle.light#glass`）、
+        // `SolidButtonStyle`、`LightButtonStyle` 现在都没有活的豁免键了 ⇒
+        // `exemptionOwnersReconcileWithRegistry` 的循环不会再访问它们，
+        // 它们绑定的那条正向核对（`.styleImplementation` ⇒ `scan.styleImpls.contains`）
+        // 因此**零覆盖**。删掉它们会让 `.styleImplementation` 这个分类彻底失去样本；
+        // 保留则台账里有三条不再承重的行。两害相权取保留 + 留痕：这条不对称是
+        // #41 的一条公约缺陷记录（见 docs/contract-defects.md），交 #44 SC-8 裁断
+        // 「豁免宿主台账是否应随最后一个豁免键一并回收」。
     ]
 
     // MARK: - Important-2 (a)：`.externalProtocolExtension` 的正向核对
@@ -392,7 +400,7 @@ struct BoolExemptionGuard {
         )
         let entries = try Self.loadExemptions()
         #expect(entries.count >= 12,
-                "豁免清单只有 \(entries.count) 条 —— AC 要求至少覆盖 PRD 的 10 条 + 两个 glass，疑似没读到或是空壳")
+                "豁免清单只有 \(entries.count) 条 —— 下界取 PRD 点名的 10 条 + 两条实测补入（StepItem.init#isError / View.bottomInputBar#autoFocus），低于它疑似没读到或是空壳。⚠️ 原文案写的「10 条 + 两个 glass」已随 #41 裁决 3 过期：两个 glass 已按终局条款 (b) 删除、不再在清单里。")
 
         var seen: Set<String> = []
         for (index, entry) in entries.enumerated() {
@@ -556,7 +564,7 @@ struct BoolExemptionGuard {
         // 这种**键碰撞**——`BoolParamHit.key` 只按 `Owner.decl#param` 聚合，两处不同的
         // 源码位置可以共用同一个键（本仓当前真实的键碰撞：`Tag.init#removable` 2 处、
         // `SidebarNavigationRow.init#isSelected` 2 处、`Badge.init#outlined` 2 处
-        // ——33 个键、36 处源码位置，多出的 3 正好是这三次碰撞，见
+        // ——29 个键、32 处源码位置，多出的 3 正好是这三次碰撞，见
         // `scannerFindsPublicBoolParameters` 的 print 明细）。新增一个键碰撞不会让
         // `keys.count` 或清单条目数变化，棘轮对它不可见；
         // 唯一会变化的量是 `hits.count`（源码位置数），而它此前只有

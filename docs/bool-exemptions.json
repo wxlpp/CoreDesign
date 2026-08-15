@@ -66,30 +66,6 @@
     "decidedOn": "2026-08-13"
   },
   {
-    "parameter": "ButtonStyle.solid#glass",
-    "reason": "legacy Telegram 玻璃模式开关的静态工厂入口。公约第 2 节点名它是布尔 hack，SegmentedControl 已经做过同款升级（glass: Bool 升级为 SegmentedControlStyle 协议）。删除是正确处置但属破坏性变更，要同步 App/ 预览宿主、Tests/、scripts/downstream-probe 与 StoryUI 四处迁移面，节奏归 #41/#42。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "ButtonStyle.light#glass",
-    "reason": "同 ButtonStyle.solid#glass：legacy Telegram 玻璃模式开关的静态工厂入口，公约第 2 节点名的布尔 hack。删除是正确处置但属破坏性变更，四处迁移面同步，节奏归 #41/#42。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "SolidButtonStyle.init#glass",
-    "reason": "legacy Telegram 玻璃模式开关。公约第 2 节明写它不构成对该文件的整体背书、仍属第 3 节待处置项。删除是正确处置（改走样式协议，照 SegmentedControlStyle 的先例），但属破坏性变更，节奏归 #41/#42。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "LightButtonStyle.init#glass",
-    "reason": "同 SolidButtonStyle.init#glass：legacy Telegram 玻璃模式开关，公约第 2 节点名的布尔 hack。删除是正确处置但属破坏性变更，节奏归 #41/#42。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
     "parameter": "TelegramGlassButtonModifier.init#isPressed",
     "reason": "向 modifier 描述按钮当前是不是按下态，供它画出按压外观，属公约第 3 节例外条款所指的状态描述 Bool（对标 ButtonStyleConfiguration.isPressed）。删除不成立——不知道状态就画不出外观。永久豁免，不归 #41。⚠️ 它与同一个 init 里的 pressFeedback 性质相反，两者必须分条豁免，不得整个 init 一起放行。",
     "decidedBy": "wxlpp",

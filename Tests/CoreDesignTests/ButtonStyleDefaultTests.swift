@@ -4,31 +4,31 @@ import Testing
 @Suite("Button style defaults")
 @MainActor
 struct ButtonStyleDefaultTests {
-    @Test("solid button style defaults to non-glass")
-    func solidDefaultsToNonGlass() {
-        let style = SolidButtonStyle()
-        #expect(style.glass == false)
-    }
+    // MARK: - solid / light 的公开表面（#41 裁决 3：glass 存储属性已删除）
+    //
+    // ⚠️ 原先这里有四条 `@Test` 盯着 `glass` 存储属性（默认 false / 显式 true 可用 /
+    // 两个工厂默认 false）。#41 按公约第 3 节终局条款 (b) 把 `glass` 整个删掉了——
+    // 跨仓实测对外零调用点（App/ 零命中、scripts/downstream-probe 零命中、StoryUI
+    // 全仓零命中，`glass:` 的命中全在 .build/checkouts 里的 vendored 本库副本），
+    // (b) 成立 ⇒ 前两条与第四条失去被测对象、第三条被测行为整个消失。
+    // 删测试而不是留一个恒真的壳：留壳会让「这个开关还在被守着」这句话变成假话。
+    //
+    // 换上一条**仍然承重**的断言：两个 style 的公开表面现在只按 role 参数化。
+    // 它挡的是「有人顺手给 SolidButtonStyle 再加一个布尔外观开关」——新增的
+    // 存储属性不会让这条红，但新增的 **init 形参**会让 J-1 立刻红
+    //（BoolExemptionGuard 的双向差集），两道合起来覆盖住这个回归面。
 
-    @Test("light button style defaults to non-glass")
-    func lightDefaultsToNonGlass() {
-        let style = LightButtonStyle()
-        #expect(style.glass == false)
-    }
+    @Test("solid / light 只按 role 参数化，直接构造与工厂两条路给出同一个 role")
+    func solidAndLightAreParameterizedByRoleOnly() {
+        #expect(SolidButtonStyle().role == .primary)
+        #expect(LightButtonStyle().role == .primary)
+        #expect(SolidButtonStyle(role: .danger).role == .danger)
+        #expect(LightButtonStyle(role: .secondary).role == .secondary)
 
-    @Test("explicit glass remains available")
-    func explicitGlassRemainsAvailable() {
-        #expect(SolidButtonStyle(glass: true).glass == true)
-        #expect(LightButtonStyle(glass: true).glass == true)
-    }
-
-    @Test("button style factories default to non-glass")
-    func buttonStyleFactoriesDefaultToNonGlass() {
-        let solid: SolidButtonStyle = .solid()
-        let light: LightButtonStyle = .light()
-
-        #expect(solid.glass == false)
-        #expect(light.glass == false)
+        let solid: SolidButtonStyle = .solid(role: .warning)
+        let light: LightButtonStyle = .light(role: .tertiary)
+        #expect(solid.role == .warning)
+        #expect(light.role == .tertiary)
     }
 
     // MARK: - CircularGlassButtonStyle 的档位默认值（Issue #96 / B3e）
