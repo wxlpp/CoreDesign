@@ -150,12 +150,6 @@
     "decidedOn": "2026-08-13"
   },
   {
-    "parameter": "Card.init#bordered",
-    "reason": "PRD 点名的已知违规实例。公约 3.3 的反例原文点名它：挪成 .card(bordered: false) 是换了个位置的同一个布尔旋钮，不算替代路径。删除不成立：无描边卡片是真实形态。Card 是 .surface(.content) 的薄封装，处置须与 View.surface#bordered 同轮，归 #41。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
     "parameter": "Skeleton.init#isLoading",
     "reason": "PRD 点名的已知违规实例。公约 3.2 的反例原文点名它：变成子视图槽是错的，它控制的是组件自身处于哪个状态。删除不成立——组件不知道在不在加载就不知道渲染占位还是内容。正确形态按 3.4 走环境值或收成加载状态类型，改造归 #41。",
     "decidedBy": "wxlpp",

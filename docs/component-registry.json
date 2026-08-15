@@ -132,7 +132,7 @@
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "步骤 1 无。步骤 2/3：文档自述『Card 不引入平行的容器体系』——是 `.surface(.content, bordered:)` 的具名薄封装，本身无独立视觉身份可换皮；已有的外观变化（有/无描边）由既有 Bool 参数覆盖（#39/#41 处置范围，非本任务）。视觉即含义 ⇒ 步骤 3 规定性，不给扩展点。"
+    "notes": "步骤 1 无。步骤 2/3：文档自述『Card 不引入平行的容器体系』——是 `.surface(.content)` / `.surface(.grouped)` 的具名薄封装，本身无独立视觉身份可换皮；已有的外观变化（有/无描边）在 #41 裁决 1 里由 `bordered: Bool` 收成了取值域恰为两个 case 的 `CardKind` 语义枚举（公约第 3 节替代路径 3.1），不是样式扩展点。视觉即含义 ⇒ 步骤 3 规定性，不给扩展点。"
   },
   {
     "component": "Carousel",

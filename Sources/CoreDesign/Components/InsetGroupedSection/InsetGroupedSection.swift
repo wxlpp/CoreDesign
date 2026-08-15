@@ -133,10 +133,10 @@ public struct InsetGroupedSection<Content: View>: View {
                 }
             }
         }
-        // 走 `.surface(.content, bordered: false)`——背景 + 圆角裁剪由 SurfaceModifier
-        // 统一提供、无描边（iOS 分组容器惯例），不再手抄 surfaceCard + radius；裁到圆角
-        // 内避免分隔线溢出缺口。
-        .surface(.content, bordered: false)
+        // 走 `.surface(.grouped)`——背景 + 圆角裁剪由 SurfaceModifier 统一提供、无描边
+        // （iOS 分组容器惯例），不再手抄 surfaceCard + radius；裁到圆角内避免分隔线溢出
+        // 缺口。#41 之前这里写的是 `.surface(.content, bordered: false)`，语义完全相同。
+        .surface(.grouped)
     }
 }
 

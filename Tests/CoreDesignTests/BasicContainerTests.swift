@@ -37,6 +37,44 @@ struct SeparatorInsetTests {
     }
 }
 
+// MARK: - CardKind 取值域（Issue #41 裁决 1）
+//
+// ⚠️ **本 suite 刻意不放进下面的 `#if os(iOS)`**：那一段在 macOS 上既不执行、也**不做
+// 类型检查**（inactive `#if` 分支只做语法解析，本机 `swiftc -typecheck` 实测对分支内的
+// 未定义类型返回 exit 0）。`Card` 的取值域收窄是纯逻辑约束，两端平台都该守，放在这里
+// 才有本地红/绿可言。
+
+@Suite("CardKind 取值域")
+struct CardKindTests {
+
+    @Test("CardKind 恰好只有 .content / .grouped 两个 case")
+    func domainIsExactlyTwoCases() {
+        // ⚠️ **这条断言就是裁决 1「取值域必须收窄，不许全开」的机器化**（41-spec 评审 I5）：
+        // `Card` 是 `.surface(.content)` 的薄封装，若把 `SurfaceKind` 全开，
+        // `Card(kind: .canvas)`（卡片贴画布 ⇒ 隐形，正是 Issue #140 塌缩的形态）、
+        // `Card(kind: .sidebar)` 都会成为合法 API。
+        // 下面的穷尽 switch 是编译期闸：新增 case 会让它编译失败，逼人重新裁决；
+        // 数组则挡住「删了一个 case」。两个方向各挡一半。
+        let all: [CardKind] = [.content, .grouped]
+        #expect(all.count == 2)
+        for kind in all {
+            switch kind {
+            case .content, .grouped: break
+            }
+        }
+    }
+
+    @Test("CardKind 到 SurfaceKind 的映射逐一正确")
+    func mapsToSurfaceKind() {
+        #expect(CardKind.content.surfaceKind == .content)
+        #expect(CardKind.grouped.surfaceKind == .grouped)
+        // `.grouped` 与 `.content` 必须是**不同**的表面语义 —— 若有人把映射写成
+        // 两个 case 都指向 `.content`，`Card(kind: .grouped)` 会静默带上描边，
+        // 上面那条相等断言仍然能过一半，这条负向断言把它堵死。
+        #expect(CardKind.content.surfaceKind != CardKind.grouped.surfaceKind)
+    }
+}
+
 #if os(iOS)
 import UIKit
 
@@ -80,23 +118,29 @@ struct CardVisibilityTests {
         return ok ? pixel : nil
     }
 
-    @Test("Card 渲染出的背景与画布两种外观下都不同色（浮起可见）", arguments: [true, false])
-    func cardBackgroundDiffersFromCanvas(bordered: Bool) {
-        // bordered 与 borderless 两种形态都测——borderless 失去描边这道兜底，可见性
-        // 完全依赖背景对比（恰是 #140 塌缩里更脆弱的形态），更要守。
+    @Test(
+        "Card 渲染出的背景与画布两种外观下都不同色（浮起可见）",
+        arguments: [CardKind.content, .grouped]
+    )
+    func cardBackgroundDiffersFromCanvas(kind: CardKind) {
+        // 两个 kind 都测——`.grouped` 失去描边这道兜底，可见性完全依赖背景对比
+        //（恰是 #140 塌缩里更脆弱的形态），更要守。
+        // ⚠️ #41 把 `Card(bordered: Bool)` 换成了 `Card(kind: CardKind)`：参数变了，
+        // 被守的东西一个字没变——`.grouped` 就是原来的 `bordered: false`（同背景、
+        // 同圆角、描边取 .clear）。改写而非删除，见 41-spec 总账 M12。
         for scheme in [ColorScheme.light, .dark] {
-            // Card 内容用 clear 占位，中心采到的是 Card 自身背景（.surface(.content)）。
-            let card = Card(bordered: bordered) { Color.clear.frame(width: 60, height: 60) }
+            // Card 内容用 clear 占位，中心采到的是 Card 自身背景（.surface(.content/.grouped)）。
+            let card = Card(kind: kind) { Color.clear.frame(width: 60, height: 60) }
             let canvas = Color.surfaceCanvas.frame(width: 100, height: 100)
 
             let cardPixel = self.centerPixel(card, scheme: scheme)
             let canvasPixel = self.centerPixel(canvas, scheme: scheme)
 
-            #expect(cardPixel != nil, "Card 渲染失败（bordered=\(bordered), \(scheme)）")
+            #expect(cardPixel != nil, "Card 渲染失败（kind=\(kind), \(scheme)）")
             #expect(canvasPixel != nil, "画布渲染失败（\(scheme)）")
             #expect(
                 cardPixel != canvasPixel,
-                "Card(bordered: \(bordered)) 背景在 \(scheme) 下与画布同色 → 卡片隐形（Issue #140 塌缩回归）"
+                "Card(kind: \(kind)) 背景在 \(scheme) 下与画布同色 → 卡片隐形（Issue #140 塌缩回归）"
             )
         }
     }
