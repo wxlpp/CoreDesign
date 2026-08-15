@@ -63,15 +63,18 @@ struct BoolExemptionGuard {
 
     // MARK: - 判据体系之外的参照物
 
-    /// **公约与 PRD 白纸黑字点名的 14 个参数**，是本判据的**外部参照物**。
+    /// **公约与 PRD 白纸黑字点名的参数**，是本判据的**外部参照物**（现存 **8** 条；
+    /// 原始基线 **14** 条，#41 已按裁决逐条移出 6 条——见下方数组尾注，#41 收尾时更新，
+    /// S-T3-1）。
     ///
     /// ⚠️ **为什么必须有它**：变异证伪只能证「判据对它**看得见**的东西有效」，
     /// 证不了「它看得见的**够不够**」——#38 就是靠 `docs/README.md` 索引这个判据体系
     /// **之外**的清单，才发现 `Toast` / `BottomInputBar` 两行漏网。这里扮演同一角色的是
-    /// **人写的规范文本**：前 12 条来自 `39.md` Technical Details 的「已知违规实例」
-    /// （PRD 原文 10 条 + `SolidButtonStyle(glass:)` / `LightButtonStyle(glass:)`），
-    /// 后 2 条来自公约本身（附录 A.3 的 `surface(bordered:)`、第 3 节例外条款点名的
-    /// `SegmentedControlStyleConfiguration.Segment.isSelected`）。
+    /// **人写的规范文本**：原始基线里前 12 条来自 `39.md` Technical Details 的「已知违规
+    /// 实例」（PRD 原文 10 条 + `SolidButtonStyle(glass:)` / `LightButtonStyle(glass:)`，
+    /// 其中 5 条已随 #41 裁决移出，现存 **7** 条），后 2 条来自公约本身（附录 A.3 的
+    /// `surface(bordered:)`——已随裁决 1 移出——与第 3 节例外条款点名的
+    /// `SegmentedControlStyleConfiguration.Segment.isSelected`，现存 **1** 条）。
     /// 扫描器的匹配逻辑一旦被改窄（比如漏了 `public extension` 这条路径），这些名字会
     /// 掉出来，判据立刻红。
     ///
@@ -368,7 +371,8 @@ struct BoolExemptionGuard {
         // 零跨文件解析成本。
         // 实测：本仓 `typealias .* = Bool` 零命中（现存四条 typealias 分别是
         // `FlowLayout.Cache = [CGSize]`、`Banner.Label = AnyView` 与两处非 public 的
-        // `Configuration`）⇒ 这条断言当前为空，**不改变** 35 键 / 34 条 / maxEntries=34。
+        // `Configuration`）⇒ 这条断言当前为空，**不改变** 27 键 / 27 条 / maxEntries=27
+        // （sourceSites 30 处；#41 收尾时同步实测值，S-T3-1）。
         let aliasMessage = """
         发现含 Bool 的 public typealias：\(scan.publicBoolTypeAliases.sorted())
         —— 它会让 `init(flag: Flag)` 这种签名在 J-1 的三层（命中 / 清点 / 留痕）里
@@ -493,10 +497,13 @@ struct BoolExemptionGuard {
     }
 
     /// ⚠️ **本条是「新违规」的唯一非 known-issue 出口**：`j1NoUnexemptedBoolParameters`
-    /// 里那条 `withKnownIssue` 会把块内任何 issue 都算成已知，所以新违规**必须**在这里红。
-    /// 它同时是 `surface(bordered:)` 到期的第二道闸（`disappeared` 方向）——
-    /// 在「新违规与 #41 改造同时发生」时，known issue 那道会失效，只剩这一道。
-    @Test("未豁免违规集合恰好等于公约 A.3 点名的那一条（这条是**绿**的，专抓新违规）")
+    /// 里原先包住新违规断言的 `withKnownIssue` 块已在 #41 裁决 1 落地时随
+    /// `View.surface#bordered` 一起删除（见该判据 `:487` 的说明）——现在两条判据都是
+    /// 裸断言，本条不再是「known issue 之外唯一能抓新违规」的独占出口。但断言逻辑本身
+    /// 仍然正确：`pendingViolationKeys` 现为空集 ⇒ `unexpected` 恒等于
+    /// `diff.violations`、`disappeared` 恒为空 ⇒ 本条在空集上继续正确工作，留作「若
+    /// 未来公约又新增一条待处置例外」时的现成骨架（#41 收尾时更新，S-T2-1）。
+    @Test("未豁免违规集合与 pendingViolationKeys（现为空集）恰好相等（这条是**绿**的，专抓新违规）")
     func j1ViolationSetIsExactlyTheContractPending() throws {
         let scan = try Self.boolScan()
         #expect(scan.keys.count > 20, "只扫到 \(scan.keys.count) 个豁免键 —— 扫描器失效")
@@ -504,7 +511,7 @@ struct BoolExemptionGuard {
         let diff = compareBoolHitsToExemptions(hits: scan.keys, exempted: try Self.exemptedKeys())
         let unexpected = diff.violations.subtracting(Self.pendingViolationKeys)
         #expect(unexpected.isEmpty,
-                "出现了公约未预期的未豁免 Bool 参数：\(unexpected.sorted()) —— 这不是 surface(bordered:) 那条预期的红")
+                "出现了公约未预期的未豁免 Bool 参数：\(unexpected.sorted()) —— pendingViolationKeys 现为空集，没有任何预期的红，出现即是新增违规")
 
         let disappeared = Self.pendingViolationKeys.subtracting(diff.violations)
         let disappearedMessage = """

@@ -44,6 +44,6 @@ Card(kind: .grouped) {
 
 ## 视觉 Token
 
-- 背景：`.surface(.content)`，指向 `surfaceRaised`（`secondarySystemGroupedBackground`）——浮于画布之上，深浅双模式下都与 `Color.surfaceCanvas` 拉开
+- 背景：`.content` 与 `.grouped` 两种 `kind` 同取 `.surface(.content)` / `.surface(.grouped)` 的背景 token，都指向 `surfaceRaised`（`secondarySystemGroupedBackground`）——浮于画布之上，深浅双模式下都与 `Color.surfaceCanvas` 拉开。二者背景**完全相同**，`.grouped` 唯一的区别是不描边（靠填充色对比定界，与 `InsetGroupedSection` 一致，见上方 API 表）
 - 内边距：默认 `CoreSpacing.lg`
-- 圆角 / 描边：由 `SurfaceModifier` 统一提供，不在 `Card` 自身重复定义
+- 圆角 / 描边：由 `SurfaceModifier` 统一提供，不在 `Card` 自身重复定义；`.content` 有描边，`.grouped` 无描边
