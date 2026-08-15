@@ -28,6 +28,19 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
     case floating
     /// 覆盖层表面，如菜单与 popover。
     case overlay
+    /// 分组容器表面：贴近 iOS 系统分组容器——**背景 + 圆角、无描边**，靠填充色对比定界。
+    /// 背景与 `.content` 同取 `surfaceRaised`（`secondarySystemGroupedBackground`），
+    /// 因此在深浅双模式下都与 `Color.surfaceCanvas` 拉开、不会塌缩隐形（Issue #140）。
+    ///
+    /// ⚠️ **它是一等容器角色，不是 `.content` 的减法变体**（#41 裁决 1）：iOS 自己把这种
+    /// 形态叫 `.insetGrouped`，本仓也已有同名组件 `InsetGroupedSection` 在用它。
+    /// 取这个名字而不是 `.contentPlain`，依据是「该 case 是否**独立成立为一种容器角色**」
+    /// ——`.contentPlain` 离开 `.content` 就没法定义，是变体名不是角色名。
+    ///
+    /// ⚠️ **只建这一个组合，不铺满 9×2 的积空间**：`bordered` 曾与全部 9 个 kind 正交，
+    /// 但实测 7 处产品调用点 100% 落在 `.content` 上（见 `docs/component-contract.md` 附录 A.3
+    /// 与 #41 spec 的调用点表）。按用到的点建模，不按可能的组合建模。
+    case grouped
     /// 兼容别名：更淡的画布。
     case canvasSubtle
     /// 兼容别名：面板容器。
@@ -49,6 +62,7 @@ private extension SurfaceKind {
         case .control: .surfaceInteractive
         case .floating: .surfaceOverlay
         case .overlay: .surfacePanel
+        case .grouped: .surfaceCard
         case .canvasSubtle: .surfaceCanvasSubtle
         case .panel: .surfacePanel
         case .sidebar: .surfaceSidebar
@@ -64,6 +78,7 @@ private extension SurfaceKind {
         case .control: .borderSubtle
         case .floating: .borderMuted
         case .overlay: .borderDefault
+        case .grouped: .clear
         case .canvasSubtle: .borderMuted
         case .panel: .borderDefault
         case .sidebar: .clear
@@ -79,6 +94,7 @@ private extension SurfaceKind {
         case .control: CoreRadius.small
         case .floating: CoreRadius.large
         case .overlay: CoreRadius.medium
+        case .grouped: CoreRadius.medium
         case .canvasSubtle: CoreRadius.medium
         case .panel: CoreRadius.medium
         case .sidebar: CoreRadius.none
@@ -170,6 +186,7 @@ private struct SurfacePreviewGallery: View {
         ("control", .control),
         ("floating", .floating),
         ("overlay", .overlay),
+        ("grouped", .grouped),
         ("canvasSubtle", .canvasSubtle),
         ("panel", .panel),
         ("sidebar", .sidebar),
