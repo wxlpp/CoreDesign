@@ -17,7 +17,7 @@ import SwiftUI
 /// 选中星真的变色；未选中态走 `Color.tertiaryFill`（第 3 层中性色）。
 ///
 /// 手势：拖拽 / 点按更新 `value`，按 `step`（public init 参数，默认 `1.0`）取整后写回，
-/// clamp 在 `0...count`；`isReadOnly` 或外层 `.disabled(true)` 时手势整体不挂载。
+/// clamp 在 `0...count`；外层 `.disabled(true)` 时手势整体不挂载。
 ///
 /// Accessibility：`.accessibilityAdjustableAction` 让 VoiceOver 的 increment / decrement
 /// 手势按 `step` 调整 `value`；label 用 Phase 0 预登记键 `"Rating"`，value 用位置键
@@ -25,13 +25,12 @@ import SwiftUI
 /// `.claude/epics/semi-mobile-components/phase0-decisions.md` §2），半星精确播报
 /// （`Double.formatted()`，不取整）。
 public struct Rating: View {
-    // 非 `private`：`count` / `step` / `isReadOnly` / `value` 需要在
-    // `@testable import` 的单测里直接断言构造参数是否原样保留（见 RatingTests）。
+    // 非 `private`：`count` / `step` / `value` 需要在 `@testable import` 的单测里直接
+    // 断言构造参数是否原样保留（见 RatingTests）。
     // 这不扩大 public API 表面——外部下游仍只能通过 `init` 设置，读不到这些字段。
     @Binding var value: Double
     let count: Int
     let step: Double
-    let isReadOnly: Bool
 
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
@@ -59,17 +58,19 @@ public struct Rating: View {
     ///     上界在 `count == 0` 时与 `step > 0` 联立无解，会把既有合法调用打成非法；
     ///     而 `step > count` 本身不是失效形态——`steppedValue` 会把结果 clamp 回
     ///     `0...count`，得到粗粒度但可用的控件。
-    ///   - isReadOnly: 只读模式——`true` 时不挂载手势 / accessibility adjust action。
+    ///
+    /// ⚠️ **#41 破坏性变更**：`isReadOnly: Bool` 已删除。只读展示态请改用
+    /// `RatingDisplay`（indicator）——它没有 binding、没有手势、没有 accessibility
+    /// adjust action，且**不走**原生 disabled 的变灰视觉。归并进 `.disabled(true)` 被
+    /// 否决的理由见裁决 4b：展示态不是「不能用」，是「本来就不是控件」。
     public init(
         value: Binding<Double>,
         count: Int = 5,
-        step: Double = 1.0,
-        isReadOnly: Bool = false
+        step: Double = 1.0
     ) {
         self._value = value
         self.count = max(0, count)
         self.step = step > 0 ? step : 1.0
-        self.isReadOnly = isReadOnly
     }
 
     // MARK: - Derived metrics
@@ -84,7 +85,7 @@ public struct Rating: View {
     ///
     /// ⚠️ **已知的一帧窗口**：首帧渲染完成、`.onGeometryChange` 回调到达之前该值是 `0`。
     /// `DragGesture.onChanged` 里对 `self.value` 是**无条件写回**——`steppedValue` 在
-    /// `totalWidth == 0` 时返回 `0`（见 `:182` 的 `guard totalWidth > 0 else { return 0 }`），
+    /// `totalWidth == 0` 时返回 `0`（见 `steppedValue` 的入口 guard），
     /// 若不做兜底，恰好落在这一帧内的拖拽会把 `value` **清成 0 分**（毁值写入，不是
     /// no-op）。因此 `.onChanged` 开头有一条 `guard self.measuredWidth > 0 else { return }`
     /// ——真正的 no-op guard，不引入任何几何计算，失效方向因此才是「不动」而不是「乱跳」或
@@ -94,12 +95,10 @@ public struct Rating: View {
 
     @Environment(\.ratingStyle) private var style
 
-    /// 手势 / accessibility adjust action 是否生效——只读或外层 `.disabled(true)` 时关闭。
-    /// 提取为静态纯函数（见下方 `Rating.isInteractive(isReadOnly:isEnabled:)`），
-    /// 让「只读模式下手势不生效」这条受控逻辑可以脱离 SwiftUI 渲染上下文直接单测。
-    private var isInteractive: Bool {
-        Self.isInteractive(isReadOnly: self.isReadOnly, isEnabled: self.isEnabled)
-    }
+    // ⚠️ **#41 裁决 4b：`isInteractive` 计算属性与静态纯函数一并删除**。
+    // `isReadOnly` 拆进 `RatingDisplay` 之后它退化为「`isEnabled` 恒等」，两处调用点
+    // 直接读 `@Environment(\.isEnabled)`。行为没有丢失，是被类型二分吸收了——
+    // 「只读 ⇒ 不可交互」现在由「用 `RatingDisplay` 这个类型」表达。
 
     // MARK: - Body
 
@@ -152,14 +151,14 @@ public struct Rating: View {
                         step: self.step
                     )
                 },
-            isEnabled: self.isInteractive
+            isEnabled: self.isEnabled
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Rating", bundle: .module))
         .accessibilityValue(
             Text(verbatim: Self.accessibilityValueText(value: self.value, count: self.count))
         )
-        .modifier(RatingAdjustableModifier(isInteractive: self.isInteractive) { direction in
+        .modifier(RatingAdjustableModifier(isEnabled: self.isEnabled) { direction in
             switch direction {
             case .increment:
                 self.value = min(self.value + self.step, Double(self.count))
@@ -192,12 +191,6 @@ public struct Rating: View {
         let rawValue = Double(clampedX / totalWidth) * Double(count)
         let stepped = (rawValue / step).rounded(.up) * step
         return min(max(stepped, 0), Double(count))
-    }
-
-    /// 手势 / accessibility adjust action 的启用条件：只读模式与外层 `.disabled(true)`
-    /// 任一为真即关闭交互。
-    static func isInteractive(isReadOnly: Bool, isEnabled: Bool) -> Bool {
-        !isReadOnly && isEnabled
     }
 
     /// `accessibilityValue` 文案组装：Phase 0 位置键 `"%@ of %@"`
@@ -357,14 +350,18 @@ public extension View {
 
 // MARK: - RatingAdjustableModifier
 
-/// `.accessibilityAdjustableAction` 只读模式下不挂载——用独立 `ViewModifier` 承载条件分支，
+/// `.accessibilityAdjustableAction` 在禁用态不挂载——用独立 `ViewModifier` 承载条件分支，
 /// 避免在 `Rating.body` 里对同一视图重复书写 if/else 两条平行内容。
+///
+/// ⚠️ 形参 #41 起由 `isInteractive` 改名为 `isEnabled`：`isReadOnly` 拆进 `RatingDisplay`
+/// 之后，「可交互」与「已启用」在 `Rating` 身上是同一件事，两个名字只会让人以为还有第二个
+/// 开关。本类型是 `private`，改名不涉及任何 public 表面。
 private struct RatingAdjustableModifier: ViewModifier {
-    let isInteractive: Bool
+    let isEnabled: Bool
     let action: (AccessibilityAdjustmentDirection) -> Void
 
     func body(content: Content) -> some View {
-        if self.isInteractive {
+        if self.isEnabled {
             content.accessibilityAdjustableAction(self.action)
         } else {
             content
@@ -402,8 +399,15 @@ private struct RatingPreviewGallery: View {
             }
 
             VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-                Text("只读").coreFont(.footnote).foregroundStyle(.secondary)
-                Rating(value: .constant(3.5), step: 0.5, isReadOnly: true)
+                Text("只读展示（RatingDisplay）").coreFont(.footnote).foregroundStyle(.secondary)
+                RatingDisplay(value: 3.5)
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("禁用态（.disabled(true) —— 走原生变灰，与展示态不是一回事）")
+                    .coreFont(.footnote).foregroundStyle(.secondary)
+                Rating(value: .constant(3), step: 0.5)
+                    .disabled(true)
             }
 
             VStack(alignment: .leading, spacing: CoreSpacing.sm) {

@@ -1,7 +1,7 @@
 {
-  "maxEntries": 28,
-  "sourceSites": 31,
+  "maxEntries": 27,
+  "sourceSites": 30,
   "raisedBy": "wxlpp",
   "raisedOn": "2026-08-15",
-  "rationale": "#41 裁决 4a 落地：Rating(allowsHalfStar: Bool) 收成 Rating(step: Double)，走公约第 3 节替代路径 3.1（把压扁的取值域还原成真实取值域——step 从来不是二值的，0.5 / 1.0 只是最常用的两个取值）。这是收口不是重写：step 本就是 Rating 内部的计算属性、steppedValue 也早已按 step 取整，手势 / RTL / accessibility 逻辑零改动。豁免清单下调一条（29 → 28，删除的是 Rating.init#allowsHalfStar），源码位置数同轮下调一处（32 → 31）。入参校验走 clamp 而非 precondition：仓内 Sources/ 下 precondition 零命中而 clamp 有三处先例，且 step <= 0 的失效形态是「整个组件恒返回 0 分」这种静默失效而不是崩溃；刻意不设上界，因为 count == 0 合法会让任何 step <= count 的上界恒不可满足。sourceSites 的跨历史闸仍未实现（ratchet.sh 只读 maxEntries），移交 #43。"
+  "rationale": "#41 裁决 4b 落地：Rating 的只读展示态拆成独立的 RatingDisplay（indicator），Rating.init#isReadOnly 随之删除。选拆分而不是归并（删 isReadOnly、统一走 .disabled(true)）的理由：isEnabled=false 走 SwiftUI 原生 disabled 视觉（变灰 + 降低对比度），语义是「这个控件现在不能用」，而展示态不是「不能用」是「本来就不是控件」——归并是语义错配导致的视觉回归，不是 API 收敛。拆分后控制展示态的路径只剩一条：选哪个类型。豁免清单下调一条（28 → 27），源码位置数同轮下调一处（31 → 30）。至此 #41 四项裁决全部落地，本轮累计 34 → 27 条、38 → 30 处。Rating.isInteractive(isReadOnly:isEnabled:) 静态纯函数与其三条独立测试一并删除：行为未丢失，被类型二分吸收（只读由类型表达，禁用由原生 isEnabled 表达）。sourceSites 的跨历史闸仍未实现（scripts/bool-exemptions-ratchet.sh 只读 maxEntries），移交 #43。"
 }

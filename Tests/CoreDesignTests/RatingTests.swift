@@ -111,40 +111,35 @@ struct RatingTests {
         #expect(halfStarText.contains(2.5.formatted()))
     }
 
-    // MARK: - 只读模式下手势 / accessibility adjust action 不生效
-
-    @Test("isInteractive：只读时关闭，不论 isEnabled")
-    func isInteractiveReadOnly() {
-        #expect(Rating.isInteractive(isReadOnly: true, isEnabled: true) == false)
-        #expect(Rating.isInteractive(isReadOnly: true, isEnabled: false) == false)
-    }
-
-    @Test("isInteractive：非只读且 enabled 时开启")
-    func isInteractiveEnabled() {
-        #expect(Rating.isInteractive(isReadOnly: false, isEnabled: true) == true)
-    }
-
-    @Test("isInteractive：非只读但外层 .disabled(true) 时仍关闭")
-    func isInteractiveDisabledEnvironment() {
-        #expect(Rating.isInteractive(isReadOnly: false, isEnabled: false) == false)
-    }
+    // MARK: - 交互开关（#41 裁决 4b：isReadOnly 已删除）
+    //
+    // ⚠️ 原先这里有三条 `@Test` 盯着 `Rating.isInteractive(isReadOnly:isEnabled:)`
+    // （4 组断言）。#41 把展示态拆成了独立的 `RatingDisplay`（indicator），
+    // `Rating` 只剩 control 语义 ⇒ 该函数退化为「`isEnabled` 恒等」，随之删除，
+    // 两处调用点直接读 `@Environment(\.isEnabled)`。
+    //
+    // **行为没有丢失，是被类型二分吸收了**：
+    // · 「只读 ⇒ 不可交互」现在由「用 `RatingDisplay` 这个类型」表达（它根本没有手势
+    //   与 adjust action，见 `RatingDisplayTests`）；
+    // · 「`.disabled(true)` ⇒ 不可交互」由 SwiftUI 原生 `\.isEnabled` 表达，本就不需要
+    //   本仓再写一个纯函数去转述。
+    // 留一个恒真的 `isInteractive(isEnabled:) == isEnabled` 的壳只会让覆盖率好看，
+    // 不增加任何信息。
 
     // MARK: - 构造参数保留
 
-    @Test("count / step / isReadOnly 原样保留")
+    @Test("count / step 原样保留")
     func initStoresParameters() {
-        let rating = Rating(value: .constant(1), count: 7, step: 0.5, isReadOnly: true)
+        let rating = Rating(value: .constant(1), count: 7, step: 0.5)
         #expect(rating.count == 7)
         #expect(rating.step == 0.5)
-        #expect(rating.isReadOnly == true)
     }
 
-    @Test("count 默认 5，step 默认 1.0（整星），isReadOnly 默认 false")
+    @Test("count 默认 5，step 默认 1.0（整星）")
     func initDefaults() {
         let rating = Rating(value: .constant(1))
         #expect(rating.count == 5)
         #expect(rating.step == 1.0)
-        #expect(rating.isReadOnly == false)
     }
 
     // MARK: - step 入参校验（#41 裁决 4a）

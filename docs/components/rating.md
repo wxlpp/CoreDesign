@@ -12,7 +12,6 @@
 | value | Binding\<Double\> | - | 当前评分，双向绑定 |
 | count | Int | 5 | 星数；负数会被 clamp 到 0 |
 | step | Double | 1.0 | 步进粒度（手势 / VoiceOver 按它递增递减）。传 `0.5` 即半星步进。非正值 clamp 回 `1.0`；刻意不设上界（`count == 0` 合法，任何 `step ≤ count` 的上界都会恒不可满足） |
-| isReadOnly | Bool | false | 只读模式——`true` 时不挂载手势 / accessibility adjust action |
 
 ## 预览 / Preview
 
@@ -28,8 +27,8 @@ Rating(value: $rating)
 // 半星步进
 Rating(value: $rating, step: 0.5)
 
-// 只读展示（如评论列表里的历史评分）
-Rating(value: .constant(4.5), step: 0.5, isReadOnly: true)
+// 只读展示请改用 RatingDisplay（见 rating-display.md）——不是 Rating 的一个参数
+RatingDisplay(value: 4.5)
 
 // 自定义星数
 Rating(value: $rating, count: 3)
@@ -44,7 +43,7 @@ Rating(value: $rating)
 拖拽 / 点按沿控件宽度更新 `value`：按 `step`（public init 参数，默认 `1.0`）**向上取整（ceiling）**
 后写回 `Binding`，并 clamp 在 `0...count`——落在第 k 颗星上的点按得 k 分（半星模式下星 k 左半 → k−0.5、
 右半 → k），最左缘得 0（清空）。RTL 布局下按 `layoutDirection` 沿宽度翻折坐标，保证「点视觉上的第 k 颗星」
-两个方向下都得 k 分。`isReadOnly == true` 或外层 `.disabled(true)` 时手势整体不挂载。
+两个方向下都得 k 分。外层 `.disabled(true)` 时手势整体不挂载。
 
 > **已知取舍：嵌入纵向 `ScrollView` / `List` 时的手势冲突**——手势用
 > `DragGesture(minimumDistance: 0)` 以保留精确点按语义（拖拽或点按均可设值）。
@@ -57,6 +56,11 @@ Rating(value: $rating)
 > `allowsHalfStar: true` → `step: 0.5`，`allowsHalfStar: false` → 省略（默认 `1.0`）。
 > 依据是公约第 3 节替代路径 3.1——`step` 从来不是二值的，`0.5` / `1.0` 只是它最常用的
 > 两个取值，用 Bool 表达等于把一个连续取值域压扁成两个点。
+>
+> 同轮删除的还有 `isReadOnly: Bool` —— 只读展示态拆成了独立的
+> [`RatingDisplay`](rating-display.md)。归并进 `.disabled(true)` 被否决：`isEnabled=false`
+> 走的是原生 disabled 视觉（变灰 + 降低对比度），语义是「这个控件现在不能用」，而展示态
+> 不是「不能用」、是「本来就不是控件」。
 
 ## 样式扩展点 / RatingStyle
 
@@ -117,7 +121,7 @@ VStack {
   组装（`Rating.accessibilityValueText(value:count:)`），半星精确播报（`Double.formatted()`，
   不取整），如「2.5 of 5」
 - `.accessibilityAdjustableAction`：VoiceOver increment / decrement 按 `step` 调整 `value`，
-  clamp 在 `0...count`；`isReadOnly` 为 `true` 或外层 `.disabled(true)` 时不挂载该 action
+  clamp 在 `0...count`；外层 `.disabled(true)` 时不挂载该 action（只读展示态请用 `RatingDisplay`，它根本不挂 adjust action）
 - Phase 0 同时预登记了复数摘要键 `"%lld stars"`（如「5 stars」），供未来「满分摘要」类用法
   使用；`Rating` 本身只消费位置键 `"%@ of %@"`（半星精度更高），未消费 `"%lld stars"`，非
   遗漏

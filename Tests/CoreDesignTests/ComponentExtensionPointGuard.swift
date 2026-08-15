@@ -57,8 +57,8 @@ struct ComponentExtensionPointGuard {
 
         // ⚠️ **非空断言先行**（AC 原文点名）：若登记表里一个 semantic 组件都没有，
         // 「零输入 ⇒ 零违规 ⇒ 绿」会静默通过。判据必须能识别并报告这种异常。
-        #expect(result.inspected.count == 5,
-                "J-2 定义域实测 5 条（ProgressIndicator/SegmentedControl/Banner/Rating/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
+        #expect(result.inspected.count == 6,
+                "J-2 定义域实测 6 条（ProgressIndicator/SegmentedControl/Banner/Rating/RatingDisplay/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
         #expect(!result.satisfied.isEmpty,
                 "没有任何语义组件被判为『扩展点存在』—— 扫描器失效时也会长这样，这不是零违规")
         // ⚠️ 扫描器承重自检：三条「已满足」的通路各自真的走通了，而不是集合恰好为空。
@@ -68,6 +68,8 @@ struct ComponentExtensionPointGuard {
                 "customStyleProtocol 通路未走通：\(result.satisfied["Banner"] ?? "(缺)")")
         #expect(result.satisfied["SegmentedControl"]?.contains("SegmentedControlStyle") == true,
                 "customStyleProtocol 通路（第二例）未走通：\(result.satisfied["SegmentedControl"] ?? "(缺)")")
+        #expect(result.satisfied["RatingDisplay"]?.contains("RatingStyle") == true,
+                "customStyleProtocol 通路（#41 新增的第三例，与 Rating 复用同一个协议）未走通：\(result.satisfied["RatingDisplay"] ?? "(缺)")")
 
         // ⚠️ **主判据 —— `withKnownIssue` 只包住这一句**（#39 Task 8 变异实测：块里多包
         // 一句，新违规会被静默吞掉，只有块外的 canary 会红）。

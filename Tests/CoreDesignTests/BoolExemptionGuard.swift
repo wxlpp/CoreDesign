@@ -82,16 +82,17 @@ struct BoolExemptionGuard {
         "Badge.init#outlined",
         "SidebarSection.init#showsChevron",
         "Tag.init#removable",
-        "Rating.init#isReadOnly",
         "PinCode.init#isSecure",
         "Skeleton.init#isLoading",
         "Carousel.init#autoAdvance",
         "TagInput.init#allowDuplicates",
         "SegmentedControlStyleConfiguration.Segment.init#isSelected",
-        // ⚠️ #41 已移出五条：`Card.init#bordered` / `View.surface#bordered`（裁决 1）、
+        // ⚠️ #41 已移出六条：`Card.init#bordered` / `View.surface#bordered`（裁决 1）、
         // `SolidButtonStyle.init#glass` / `LightButtonStyle.init#glass`（裁决 3）、
-        // `Rating.init#allowsHalfStar`（裁决 4a）。它们的源码参数已不存在 ⇒ 留在这里会让
-        // `:343` 的子集断言判红。移出的是**参照物条目**，不是「公约没点过它们」。
+        // `Rating.init#allowsHalfStar`（裁决 4a）、`Rating.init#isReadOnly`（裁决 4b）。
+        // 它们的源码参数已不存在 ⇒ 留在这里会让 `:343` 的子集断言判红。移出的是
+        // **参照物条目**，不是「公约没点过它们」——公约与 PRD 的裁决记录仍在，
+        // 只是被裁决的对象走完了终局条款 / 替代路径。
     ]
 
     /// **公约 A.3 已裁决、但按 39.md 的 AC 刻意不放进豁免清单的违规**。
@@ -562,7 +563,7 @@ struct BoolExemptionGuard {
         // 这种**键碰撞**——`BoolParamHit.key` 只按 `Owner.decl#param` 聚合，两处不同的
         // 源码位置可以共用同一个键（本仓当前真实的键碰撞：`Tag.init#removable` 2 处、
         // `SidebarNavigationRow.init#isSelected` 2 处、`Badge.init#outlined` 2 处
-        // ——28 个键、31 处源码位置，多出的 3 正好是这三次碰撞，见
+        // ——27 个键、30 处源码位置，多出的 3 正好是这三次碰撞，见
         // `scannerFindsPublicBoolParameters` 的 print 明细）。新增一个键碰撞不会让
         // `keys.count` 或清单条目数变化，棘轮对它不可见；
         // 唯一会变化的量是 `hits.count`（源码位置数），而它此前只有
