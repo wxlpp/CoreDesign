@@ -105,4 +105,31 @@ struct RatingStyleTests {
         #expect(recorder.lastConfiguration?.value == 3, "makeBody 收到的 value 与 Rating 的真实构造参数不一致")
         #expect(recorder.lastConfiguration?.count == 5, "makeBody 收到的 count 与 Rating 的真实构造参数不一致")
     }
+
+    // MARK: - `RatingDisplay.body` 真的消费 `style.makeBody`（Task 6 评审 finding I-1）
+    //
+    // 上面那条 spy 测试只渲染了 `Rating`——`RatingDisplay` 侧此前只有 J-2 判据的
+    // `satisfied["RatingDisplay"]` 断言，而那条判据同样只查符号存在性（协议已声明 +
+    // `StarRatingStyle` 采纳）。把 `RatingDisplay.body` 改成硬编码星形、绕开
+    // `self.style`，J-2 与上面那条 `Rating` 专属的 spy 测试会照样全绿——这正是
+    // `Rating.body` 注释里点名的精度上限。这条测试补齐 `RatingDisplay` 一侧的机器钉子，
+    // 复用同一套 spy style / recorder。
+    //
+    // ⚠️ `count == 7` 是刻意的强断言：`RatingDisplay` 判定法论证里讲过
+    // `ProgressViewStyle.Configuration` 会丢掉 `count`（3.5/5 与 7/10 都坍缩成
+    // 0.7）——用非默认的 `count: 7` 断言，同时证明「count 真的被原样传给了 makeBody」。
+    @Test("RatingDisplay.body 真的经 style.makeBody 渲染——不是声明协议但绕过它硬编码星形")
+    func displayBodyRendersThroughStyleMakeBody() {
+        let recorder = MakeBodyCallRecorder()
+        let view = RatingDisplay(value: 3.5, count: 7)
+            .ratingStyle(SpyRatingStyle(recorder: recorder))
+            .frame(width: 100, height: 40)
+
+        let renderer = ImageRenderer(content: view)
+        _ = renderer.cgImage // 强制触发渲染管线对 body 求值
+
+        #expect(recorder.callCount >= 1, "makeBody 从未被调用——RatingDisplay.body 绕过了 self.style，是假扩展点")
+        #expect(recorder.lastConfiguration?.value == 3.5, "makeBody 收到的 value 与 RatingDisplay 的真实构造参数不一致")
+        #expect(recorder.lastConfiguration?.count == 7, "makeBody 收到的 count 与 RatingDisplay 的真实构造参数不一致")
+    }
 }

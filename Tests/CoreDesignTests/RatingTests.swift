@@ -119,8 +119,9 @@ struct RatingTests {
     // 两处调用点直接读 `@Environment(\.isEnabled)`。
     //
     // **行为没有丢失，是被类型二分吸收了**：
-    // · 「只读 ⇒ 不可交互」现在由「用 `RatingDisplay` 这个类型」表达（它根本没有手势
-    //   与 adjust action，见 `RatingDisplayTests`）；
+    // · 「只读 ⇒ 不可交互」现在由「用 `RatingDisplay` 这个类型」表达——它根本没有手势
+    //   与 adjust action，这由**类型结构保证**（无 binding、`body` 里无手势代码路径），
+    //   不是 `RatingDisplayTests` 那三条测试（构造参数 / clamp / a11y 文案）断言出来的；
     // · 「`.disabled(true)` ⇒ 不可交互」由 SwiftUI 原生 `\.isEnabled` 表达，本就不需要
     //   本仓再写一个纯函数去转述。
     // 留一个恒真的 `isInteractive(isEnabled:) == isEnabled` 的壳只会让覆盖率好看，

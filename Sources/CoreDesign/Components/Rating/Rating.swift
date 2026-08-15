@@ -196,7 +196,8 @@ public struct Rating: View {
     /// `accessibilityValue` 文案组装：Phase 0 位置键 `"%@ of %@"`
     /// （`.claude/epics/semi-mobile-components/phase0-decisions.md` §2），两端均为
     /// `Double.formatted()`，半星精确播报（不取整）。抽成静态纯函数——与
-    /// `fillFraction` / `steppedValue` / `isInteractive` 同样的理由：`bundle:
+    /// `fillFraction` / `steppedValue` 同样的理由（#41 前还包括已删除的 `isInteractive`，
+    /// 可交互性判定现由 `\.isEnabled` 承担）：`bundle:
     /// .module` 漏传或插值形状跑偏都是静默 fallback（英文环境下输出恰好不变，
     /// 直到非英文本地化才暴露），需要能被单测锁定，而不是只靠人工审查一次性确认。
     static func accessibilityValueText(value: Double, count: Int) -> String {
@@ -208,12 +209,12 @@ public struct Rating: View {
 
 /// 传给 `RatingStyle.makeBody` 的上下文：**只描述外观所需的状态**。
 ///
-/// ⚠️ **刻意不带 `step`、不带 `isInteractive`**（公约第 2 节**边界条款**：样式协议的
-/// `Configuration` 不得携带行为）：
+/// ⚠️ **刻意不带 `step`、不带可交互性字段（`isEnabled`）**（公约第 2 节**边界条款**：
+/// 样式协议的 `Configuration` 不得携带行为）：
 /// - `step` 是手势与 VoiceOver 的调整粒度 —— 行为。样式实现要画半星只需 `value`
 ///   （`Rating.fillFraction(value:starIndex:)` 按小数部分算填充比例），不需要知道粒度。
-/// - `isInteractive` 是可交互性 —— 行为；而且它是 `Bool`，放进一个 public 表面会当场
-///   触发 J-1（`BoolExemptionGuard`）。
+/// - 可交互性（`isEnabled`）本身是行为，不是外观状态；而且它是 `Bool`，放进一个
+///   public 表面会当场触发 J-1（`BoolExemptionGuard`）。
 ///
 /// ⚠️ **memberwise init 刻意保持 internal**（Swift 默认）：`Rating` / `RatingDisplay`
 /// 同模块可构造，下游实现自定义 style 时只需**读**这两个字段。这同时让本类型不出现在
