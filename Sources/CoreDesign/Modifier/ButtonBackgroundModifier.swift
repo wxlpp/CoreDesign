@@ -13,9 +13,13 @@ import SwiftUI
 /// ——两者结构完全相同，仅填充色、描边 token 与按压不透明度不同。
 ///
 /// > `pressedOpacity` 默认 `nil`（不施加）：`LightButtonStyle` 的按压变暗写在
-/// > 本 modifier **之外**，因为它的 glass 分支同样需要；`SolidButtonStyle` 则只在
-/// > 非 glass 分支变暗，故由本参数承担。合并时保持这一位置差异，否则 Light 的
-/// > glass 分支会丢掉按压反馈。
+/// > 本 modifier **之外**（`.opacity(isPressed ? 0.9 : 1)` 挂在调用链尾）；
+/// > `SolidButtonStyle` 则经本参数在**内部**施加。两者曾经的分工理由（glass /
+/// > 非 glass 分支各自需要）已随 #41 删除 glass 分支而失效，如今纯属历史惯性——
+/// > 但位置差异仍有实际后果：内部路径会被本 modifier 末尾的
+/// > `.animation(.snappy(duration: 0.16), value: isPressed)` 覆盖，外置路径不会，
+/// > 合并二者会改变按压动画时机，属行为变更而非纯重构。此处保留现状以冻结语义，
+/// > 统一化交给后续任务评估。
 private struct ButtonBackgroundModifier<S: InsettableShape>: ViewModifier {
     let shape: S
     let fill: Color
@@ -51,8 +55,10 @@ extension View {
     ///   - shape: 背景与描边的形状。泛型化而非写死 `Capsule`——将来的圆角矩形
     ///     CTA / 方形 icon button 能复用本层，不必再开一个平行实现。
     ///   - pressedOpacity: 按压时的不透明度；`nil` 表示不施加
-    ///     （`LightButtonStyle` 的按压变暗写在本 modifier 之外，因为它的 glass
-    ///     分支同样需要）。
+    ///     （`LightButtonStyle` 的按压变暗写在本 modifier 之外，纯属历史惯性——
+    ///     #41 删除 glass 分支后已无功能分工理由，但内部路径受本 modifier 的
+    ///     `.animation` 覆盖、外置不受，合并会改变按压动画时机，故未跟随
+    ///     一并统一）。
     func buttonBackground(
         shape: some InsettableShape,
         fill: Color,

@@ -276,8 +276,8 @@ struct ComponentJudgeScannerTests {
         print("carrying \(scan.carryingKeys.count) 个：\(scan.carryingKeys.sorted())")
         // ⚠️ 非空断言：自有样式协议识别器一旦失效，J-3 的「作用域内没有自有协议 ⇒ 绿」
         // 就变成假绿（零命中 ⇒ 零违规）。这里先钉住它真的认得出东西。
-        #expect(scan.styleProtocolNames == ["BannerStyle", "SegmentedControlStyle"],
-                "本仓自有样式协议实测恰为这两个；集合变了要么是新增了扩展点（预期变化，同步改这里），要么是识别器失效")
+        #expect(scan.styleProtocolNames == ["BannerStyle", "RatingStyle", "SegmentedControlStyle"],
+                "本仓自有样式协议实测恰为这三个（#41 裁决 4c 新增 RatingStyle）；集合变了要么是新增了扩展点（预期变化，同步改这里），要么是识别器失效")
         #expect(scan.conformers(of: "ProgressViewStyle").contains("CoreProgressViewStyle"),
                 "原生协议 conformance 采集失效 —— J-2 对 nativeProtocol 的核对会因此假绿")
         print("自有样式协议：\(scan.styleProtocols.map { "\($0.name)@\($0.file):\($0.line) styleSuffix=\($0.nameHasStyleSuffix)" }.sorted())")

@@ -388,8 +388,19 @@ private struct SkeletonPreviewsPreviewGallery: View {
 #Preview("Rating") {
     VStack(alignment: .leading, spacing: CoreSpacing.lg) {
         Rating(value: .constant(3))
-        Rating(value: .constant(2.5), allowsHalfStar: true)
-        Rating(value: .constant(3.5), allowsHalfStar: true, isReadOnly: true)
+        Rating(value: .constant(2.5), step: 0.5)
+        Rating(value: .constant(3), step: 0.5)
+            .disabled(true)
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("RatingDisplay") {
+    VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+        RatingDisplay(value: 4)
+        RatingDisplay(value: 3.5)
+        RatingDisplay(value: 7, count: 10)
     }
     .padding()
     .background(Color.surfaceCanvas)

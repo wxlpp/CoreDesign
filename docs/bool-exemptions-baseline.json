@@ -1,7 +1,7 @@
 {
-  "maxEntries": 34,
-  "sourceSites": 38,
+  "maxEntries": 27,
+  "sourceSites": 30,
   "raisedBy": "wxlpp",
-  "raisedOn": "2026-08-13",
-  "rationale": "#39 建立初始豁免基线：J-1 扫描器实测到 35 个 public Bool 参数豁免键（对应 38 处源码位置，键碰撞由 sourceSites 单独钉住），其中 View.surface#bordered 按公约附录 A.3 与 39.md 的 AC 刻意不豁免（处置留给 #41），其余 34 个逐条走公约第 3 节终局条款（先试 (b) 删除、不成立才用 (a)）后记入清单。此后每次抬高 maxEntries 或 sourceSites 都要在这里追加一次署名、日期与理由——但这只保证变化在 diff 里可见：sourceSites 未纳入 maxEntries 那套跨历史破例流程（scripts/bool-exemptions-ratchet.sh 只读 maxEntries，不读 sourceSites），跨历史闸移交 #41/#43。本文件的 git log 是 maxEntries 变更的完整台账，不是「豁免面被放宽」的完整台账：pendingViolationKeys 通道与 sourceSites 之外的键碰撞仍是已知残余，见 docs/component-contract.md 与 BoolExemptionGuard.swift 的 Baseline 文档。"
+  "raisedOn": "2026-08-15",
+  "rationale": "#41 裁决 4b 落地：Rating 的只读展示态拆成独立的 RatingDisplay（indicator），Rating.init#isReadOnly 随之删除。选拆分而不是归并（删 isReadOnly、统一走 .disabled(true)）的理由：isEnabled=false 走 SwiftUI 原生 disabled 视觉（变灰 + 降低对比度），语义是「这个控件现在不能用」，而展示态不是「不能用」是「本来就不是控件」——归并是语义错配导致的视觉回归，不是 API 收敛。拆分后控制展示态的路径只剩一条：选哪个类型。豁免清单下调一条（28 → 27），源码位置数同轮下调一处（31 → 30）。至此 #41 四项裁决全部落地，本轮累计 34 → 27 条、38 → 30 处。Rating.isInteractive(isReadOnly:isEnabled:) 静态纯函数与其三条独立测试一并删除：行为未丢失，被类型二分吸收（只读由类型表达，禁用由原生 isEnabled 表达）。sourceSites 的跨历史闸仍未实现（scripts/bool-exemptions-ratchet.sh 只读 maxEntries），移交 #43。"
 }

@@ -70,8 +70,11 @@ extension ComponentMeta {
         ComponentMeta(id: "bottom-input-bar", name: "BottomInputBar", description: "底部输入栏 modifier，带自动补全 + 提交逻辑", category: .form) {
             BottomInputBarPreview()
         },
-        ComponentMeta(id: "rating", name: "Rating", description: "Binding<Double> 驱动的星级评分，支持半星步进 + 只读模式", category: .form) {
+        ComponentMeta(id: "rating", name: "Rating", description: "Binding<Double> 驱动的星级评分控件，step 参数控制步进粒度", category: .form) {
             RatingPreview()
+        },
+        ComponentMeta(id: "rating-display", name: "RatingDisplay", description: "只读评分展示（indicator）——无手势、不走原生 disabled 变灰", category: .form) {
+            RatingDisplayPreview()
         },
         ComponentMeta(id: "pin-code", name: "PinCode", description: "验证码 / PIN 分格输入，隐藏 TextField 承接系统键盘 + iOS 单条码 OTP 自动填充", category: .form) {
             PinCodePreview()
@@ -545,8 +548,18 @@ private struct RatingPreview: View {
     @State private var value: Double = 3.5
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-            Rating(value: self.$value, allowsHalfStar: true)
-            Rating(value: .constant(4), isReadOnly: true)
+            Rating(value: self.$value, step: 0.5)
+            Rating(value: .constant(4))
+                .disabled(true)
+        }
+    }
+}
+
+private struct RatingDisplayPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            RatingDisplay(value: 4)
+            RatingDisplay(value: 3.5)
         }
     }
 }

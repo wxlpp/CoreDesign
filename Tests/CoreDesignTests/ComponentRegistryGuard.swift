@@ -329,8 +329,8 @@ struct ComponentRegistryGuard {
         // 的机器判据。数字是本次终审实测值（45 + 25 = 70，含终审 C1 新增的 `Toast`
         // 条目——补录前是 44 + 25 = 69），#43 落地后若改用源码比对判据，可以放宽/
         // 移除本断言。
-        #expect(entries.filter { $0.repo == "coredesign" }.count == 45,
-                "CoreDesign 侧条目数不是 45——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        #expect(entries.filter { $0.repo == "coredesign" }.count == 46,
+                "CoreDesign 侧条目数不是 46（#41 裁决 4b 新增 RatingDisplay 后由 45 变为 46）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 

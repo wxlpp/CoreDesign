@@ -37,12 +37,17 @@ struct ComponentExtensionPointGuard {
 
     /// J-2 的**已知缺口**：登记表判定法已给出「应该有扩展点」的结论，源码里的扩展点尚未落地。
     ///
-    /// ⚠️ **这两条是「待补的扩展点」，不是判据 bug**（`40.md` Technical Details 明令）：
-    /// `Rating` 走判定法步骤 2（数字条 / 表情两种结构本身不同的替代形态），`Toast` 同理
-    /// （贴边胶囊 / 全宽横幅 / 居中 HUD）——两条的 `customStyleProtocol` 都还是 `null`，
-    /// 源码里没有 `RatingStyle` / `ToastStyle`。**正确处置是开后续任务补扩展点**，
-    /// 不是回头改 J-2 的判据逻辑，也不是把 `needsExtensionPoint` 改回 `false`。
-    static let knownMissingExtensionPoints: Set<String> = ["Rating", "Toast"]
+    /// ⚠️ **这条是「待补的扩展点」，不是判据 bug**（`40.md` Technical Details 明令）：
+    /// `Toast` 走判定法步骤 2（贴边胶囊 / 全宽横幅 / 居中 HUD 三种结构本身不同的替代形态），
+    /// `customStyleProtocol` 仍是 `null`，源码里没有 `ToastStyle`。**正确处置是开后续任务
+    /// 补扩展点**，不是回头改 J-2 的判据逻辑，也不是把 `needsExtensionPoint` 改回 `false`。
+    ///
+    /// ⚠️ **#41 已把 `Rating` 摘出去**：裁决 4c 补齐了 `RatingStyle`（协议 + `StarRatingStyle`
+    /// + `EnvironmentValues.ratingStyle` + `View.ratingStyle(_:)`，且 `Rating.body` 真的经
+    /// `style.makeBody(configuration:)` 渲染），登记表 `customStyleProtocol` 同轮填上
+    /// ⇒ 它现在走 `satisfied` 分支。集合从 `{Rating, Toast}` 收缩到 `{Toast}` 是**判据能
+    /// 逐条跟踪修复进度**的证据，不是一次性全绿——`Toast` 刻意留在红名单里（41-spec 第一节）。
+    static let knownMissingExtensionPoints: Set<String> = ["Toast"]
 
     @Test("J-2：语义组件必须有样式扩展点（原生协议采纳 或 自有协议定义+使用）")
     func semanticComponentsHaveExtensionPoint() throws {
@@ -52,8 +57,8 @@ struct ComponentExtensionPointGuard {
 
         // ⚠️ **非空断言先行**（AC 原文点名）：若登记表里一个 semantic 组件都没有，
         // 「零输入 ⇒ 零违规 ⇒ 绿」会静默通过。判据必须能识别并报告这种异常。
-        #expect(result.inspected.count == 5,
-                "J-2 定义域实测 5 条（ProgressIndicator/SegmentedControl/Banner/Rating/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
+        #expect(result.inspected.count == 6,
+                "J-2 定义域实测 6 条（ProgressIndicator/SegmentedControl/Banner/Rating/RatingDisplay/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
         #expect(!result.satisfied.isEmpty,
                 "没有任何语义组件被判为『扩展点存在』—— 扫描器失效时也会长这样，这不是零违规")
         // ⚠️ 扫描器承重自检：三条「已满足」的通路各自真的走通了，而不是集合恰好为空。
@@ -63,14 +68,16 @@ struct ComponentExtensionPointGuard {
                 "customStyleProtocol 通路未走通：\(result.satisfied["Banner"] ?? "(缺)")")
         #expect(result.satisfied["SegmentedControl"]?.contains("SegmentedControlStyle") == true,
                 "customStyleProtocol 通路（第二例）未走通：\(result.satisfied["SegmentedControl"] ?? "(缺)")")
+        #expect(result.satisfied["RatingDisplay"]?.contains("RatingStyle") == true,
+                "customStyleProtocol 通路（#41 新增的第三例，与 Rating 复用同一个协议）未走通：\(result.satisfied["RatingDisplay"] ?? "(缺)")")
 
         // ⚠️ **主判据 —— `withKnownIssue` 只包住这一句**（#39 Task 8 变异实测：块里多包
         // 一句，新违规会被静默吞掉，只有块外的 canary 会红）。
-        // ⚠️ 这条豁免的**到期是机器强制的**：`Rating` / `Toast` 补上扩展点之后块内不再
+        // ⚠️ 这条豁免的**到期是机器强制的**：`Toast` 补上扩展点之后块内不再
         // 记录 issue，Swift Testing 会主动判红，逼人回来删掉这段——这正是它优于
         // 「预置一个 expected 集合然后 `#expect(==)`」的地方（后者绿着，没人会回头看）。
         withKnownIssue(
-            "J-2 已知缺口：Rating / Toast 的样式扩展点尚未落地（判定法结论已产出、实现未跟上）。补齐后本块无 issue 记录 ⇒ Swift Testing 主动判红，届时删除本块。"
+            "J-2 已知缺口：Toast 的样式扩展点尚未落地（判定法结论已产出、实现未跟上；Rating 那条已由 #41 裁决 4c 补齐并从本集合摘除）。补齐后本块无 issue 记录 ⇒ Swift Testing 主动判红，届时删除本块。"
         ) {
             #expect(result.missing.isEmpty, "这些语义组件缺样式扩展点：\n\(result.diagnostics.joined(separator: "\n"))")
         }

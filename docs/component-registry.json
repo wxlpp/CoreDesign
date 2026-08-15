@@ -132,7 +132,7 @@
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "步骤 1 无。步骤 2/3：文档自述『Card 不引入平行的容器体系』——是 `.surface(.content, bordered:)` 的具名薄封装，本身无独立视觉身份可换皮；已有的外观变化（有/无描边）由既有 Bool 参数覆盖（#39/#41 处置范围，非本任务）。视觉即含义 ⇒ 步骤 3 规定性，不给扩展点。"
+    "notes": "步骤 1 无。步骤 2/3：文档自述『Card 不引入平行的容器体系』——是 `.surface(.content)` / `.surface(.grouped)` 的具名薄封装，本身无独立视觉身份可换皮；已有的外观变化（有/无描边）在 #41 裁决 1 里由 `bordered: Bool` 收成了取值域恰为两个 case 的 `CardKind` 语义枚举（公约第 3 节替代路径 3.1），不是样式扩展点。视觉即含义 ⇒ 步骤 3 规定性，不给扩展点。"
   },
   {
     "component": "Carousel",
@@ -258,10 +258,21 @@
     "kind": "semantic",
     "decidedBy": "step2",
     "nativeProtocol": null,
-    "customStyleProtocol": null,
+    "customStyleProtocol": "RatingStyle",
     "needsExtensionPoint": true,
     "textParams": [],
-    "notes": "已在公约附录 A.1 走查过：步骤 1 无（无 RatingStyle）；步骤 2『会』——替代枚举数字条（IMDb 连续条形）/ 表情（NPS 单一图形）两者结构本身不同、且都不含当前『星』形态，举得出 ≥2 ⇒ 语义组件，需要扩展点。⚠️ 现状缺口：源码里尚无 RatingStyle 协议实现（customStyleProtocol 为 null）——判定法给出『应该有扩展点』的结论，但该扩展点尚未落地，留给后续任务补齐，不属于本任务判断错误。allowsHalfStar 的形状取舍已在附录 A.1 续给出（3.1 专用参数 step，非本任务范围）。"
+    "notes": "已在公约附录 A.1 走查过：步骤 1 无（Apple 最近的候选是 ProgressViewStyle，但它的 Configuration 只暴露 fractionCompleted 与 label/currentValueLabel，没有离散档位数 count 与步进粒度 step，而 Rating 的手势语义全建立在这两者上 ⇒ 改写会丢手势取整与 accessibility adjust action ⇒ 按步骤 1 的操作化判据视为无）；步骤 2『会』——替代枚举数字条（IMDb 连续条形）/ 表情（NPS 单一图形）两者结构本身不同、且都不含当前『星』形态，举得出 ≥2 ⇒ 语义组件，需要扩展点。✅ #41 裁决 4c 已补齐：RatingStyle 协议 + StarRatingStyle 默认实现 + EnvironmentValues.ratingStyle + View.ratingStyle(_:)，且 Rating.body 真的经 style.makeBody(configuration:) 渲染（不是只声明协议来骗 J-2 的存在性判定）。allowsHalfStar 已于 #41 裁决 4a 收成 step: Double。"
+  },
+  {
+    "component": "RatingDisplay",
+    "repo": "coredesign",
+    "kind": "semantic",
+    "decidedBy": "step2",
+    "nativeProtocol": null,
+    "customStyleProtocol": "RatingStyle",
+    "needsExtensionPoint": true,
+    "textParams": [],
+    "notes": "#41 裁决 4b 新增（Rating 的只读展示态拆出的 indicator）。⚠️ 判定法真走了一遍，结论与 Rating 相同但理由不同，不是照抄：弃用条款与祖父条款均不适用。步骤 1：最近的原生候选仍是 ProgressViewStyle（写法 ProgressView(value:total:) + 自定义 style），但 Rating 那条否决理由（改写会丢手势取整与 accessibility adjust action）在 indicator 身上不成立——它本来就没有手势与 adjust action，必须重新论证。重新论证：ProgressViewStyle.Configuration 只给到 fractionCompleted，而 value/count 这个比值丢掉了 count 本身（3.5/5 与 7/10 的 fractionCompleted 都是 0.7，样式实现无法区分该画 5 档还是 10 档），离散档位数是评分展示的语义核心（『4 星』与『4/10』不是同一个信息）⇒ 改写丢功能 ⇒ 按步骤 1 的操作化判据视为无，进步骤 2。步骤 2『会』：(a) 星形序列（当前）/ (b) 数字条（IMDb 式连续条形，骨架是一条连续条而非离散图形序列）/ (c) 表情（NPS 式单一图形，不是序列）/ (d) 纯数字文本『4.5 / 5』（完全没有图形骨架）——四者布局骨架本身不同，不是同一骨架换画法。⚠️ (d) 是 indicator 特有的形态，control 侧不成立（纯文本无从拖拽）：这正是『结论未必与 Rating 相同』兑现的地方，它比 Rating 多一个合法候选，更加站得住步骤 2 ⇒ 语义组件，需要扩展点。扩展点复用同一个 RatingStyle（不新造第二个协议——否则 J-2 会多出一条红，且评分的外观语汇本就只有一套）。textParams 为空：public init 只有 value: Double 与 count: Int，无文本入口。⚠️ 兄弟组件惯例的边界：Rating / RatingDisplay 是一对具名兄弟组件，但拆的是 control vs indicator 的交互语义（Apple 自己就是这么分的：Slider vs ProgressView、Toggle vs 只读标签），不是外观变体——证据是两者共用同一个 RatingStyle，外观候选并没有被兄弟组件消化掉。这与任务书点名的『未成文第四出口』不是同一回事，记录在此供 #44 SC-8 裁断该出口时引用。"
   },
   {
     "component": "SearchField",
