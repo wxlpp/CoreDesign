@@ -82,11 +82,14 @@ public struct Rating: View {
     /// `RatingStyle` 之后，那条隐患从「可能失步」升级成「任何自定义 style 都必然失步」
     /// ——数字条 / 表情 / 纯文本样式的宽度与星形公式毫无关系。量真实宽度是唯一正确解。
     ///
-    /// ⚠️ **已知的一帧窗口**：首帧渲染完成、`.onGeometryChange` 回调到达之前该值是 `0`，
-    /// 此时若恰好发生拖拽，`steppedValue` 的 `guard totalWidth > 0 else { return 0 }`
-    /// 会返回 0 分。真实交互不可能落在这一帧内（用户看不见还没布局的视图），且失效方向是
-    /// 「不动」而不是「乱跳」。留痕而不加兜底——加一个 `if measuredWidth == 0 { 用旧公式 }`
-    /// 就等于把刚删掉的第二份几何公式请回来。
+    /// ⚠️ **已知的一帧窗口**：首帧渲染完成、`.onGeometryChange` 回调到达之前该值是 `0`。
+    /// `DragGesture.onChanged` 里对 `self.value` 是**无条件写回**——`steppedValue` 在
+    /// `totalWidth == 0` 时返回 `0`（见 `:182` 的 `guard totalWidth > 0 else { return 0 }`），
+    /// 若不做兜底，恰好落在这一帧内的拖拽会把 `value` **清成 0 分**（毁值写入，不是
+    /// no-op）。因此 `.onChanged` 开头有一条 `guard self.measuredWidth > 0 else { return }`
+    /// ——真正的 no-op guard，不引入任何几何计算，失效方向因此才是「不动」而不是「乱跳」或
+    /// 「清零」。**这与「加一个 `if measuredWidth == 0 { 用旧公式 }`」不是同一件事**：后者
+    /// 会把刚删掉的第二份几何公式请回来，前者只是拒绝在没有测量结果时写值。
     @State private var measuredWidth: CGFloat = 0
 
     @Environment(\.ratingStyle) private var style
@@ -131,6 +134,11 @@ public struct Rating: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { drag in
+                    // 首帧窗口兜底：`measuredWidth` 在 `.onGeometryChange` 回调到达前是
+                    // `0`，若不 guard，下面对 `self.value` 的无条件写回会被
+                    // `steppedValue` 的 `totalWidth > 0` 前置条件短路成 0 分（毁值）。
+                    // 见 `measuredWidth` 声明处的文档。
+                    guard self.measuredWidth > 0 else { return }
                     // RTL 镜像：`drag.location.x` 是视图本地物理坐标（不随 layoutDirection
                     // 镜像），而星序与半星 `.mask` 在 RTL 下都镜像。故 RTL 时把 x 沿
                     // 宽度翻折，保证「点视觉上的第 k 颗星」在两种方向下都得到 k 分。

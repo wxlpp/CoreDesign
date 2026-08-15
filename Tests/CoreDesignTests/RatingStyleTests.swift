@@ -54,4 +54,55 @@ struct RatingStyleTests {
         // modifier 本身的存在性：编译得过即证明 public 表面在（`some RatingStyle` 泛型入口）。
         _ = Text(verbatim: "x").ratingStyle(NumericRatingStyle())
     }
+
+    // MARK: - `Rating.body` 真的消费 `style.makeBody`（评审 finding，非人审符号存在性）
+    //
+    // 上面三条只测环境管道（默认值 / Configuration 字段集合 / 注入换出），都能在
+    // `Rating.body` 硬编码星形、完全绕过 `self.style` 的「假扩展点」下继续全绿——
+    // J-2 的 `customStyleProtocol` 判据同样只查符号存在性（协议已声明 + 至少一个类型
+    // 采纳），见 `Rating.body` 上方注释。这条补齐机器判据：用 spy style 记录
+    // `makeBody` 是否真的被调用、收到的 configuration 是否与 `Rating` 的真实构造参数
+    // 一致，经 `ImageRenderer` 触发一次真实的 SwiftUI body 求值——不是「看起来应该会
+    // 调用」的推断。手法与 `CoreControlStyleTintTests.averageColor` 同源（`ImageRenderer`
+    // 是本仓验证「样式真的接入」的既有惯例）。
+
+    /// 记录 `makeBody` 调用次数与最近一次收到的 configuration。class + `@MainActor`——
+    /// 本包 `.defaultIsolation(MainActor.self)`，与渲染发生在同一隔离域，不需要额外同步。
+    @MainActor
+    private final class MakeBodyCallRecorder {
+        private(set) var callCount = 0
+        private(set) var lastConfiguration: RatingStyleConfiguration?
+
+        func record(_ configuration: RatingStyleConfiguration) {
+            self.callCount += 1
+            self.lastConfiguration = configuration
+        }
+    }
+
+    /// 除了记录调用，`makeBody` 仍返回一个非空视图——`ImageRenderer` 需要真实内容
+    /// 才能完成渲染管线，一个空 `EmptyView` 也足够触发求值，但用可见矩形更贴近
+    /// 真实样式实现的形状。
+    private struct SpyRatingStyle: RatingStyle {
+        let recorder: MakeBodyCallRecorder
+
+        func makeBody(configuration: Configuration) -> some View {
+            self.recorder.record(configuration)
+            return Rectangle().fill(Color.red)
+        }
+    }
+
+    @Test("Rating.body 真的经 style.makeBody 渲染——不是声明协议但绕过它硬编码星形")
+    func bodyRendersThroughStyleMakeBody() {
+        let recorder = MakeBodyCallRecorder()
+        let view = Rating(value: .constant(3), count: 5)
+            .ratingStyle(SpyRatingStyle(recorder: recorder))
+            .frame(width: 100, height: 40)
+
+        let renderer = ImageRenderer(content: view)
+        _ = renderer.cgImage // 强制触发渲染管线对 body 求值
+
+        #expect(recorder.callCount >= 1, "makeBody 从未被调用——Rating.body 绕过了 self.style，是假扩展点")
+        #expect(recorder.lastConfiguration?.value == 3, "makeBody 收到的 value 与 Rating 的真实构造参数不一致")
+        #expect(recorder.lastConfiguration?.count == 5, "makeBody 收到的 count 与 Rating 的真实构造参数不一致")
+    }
 }
