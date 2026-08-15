@@ -1,7 +1,7 @@
 {
-  "maxEntries": 29,
-  "sourceSites": 32,
+  "maxEntries": 28,
+  "sourceSites": 31,
   "raisedBy": "wxlpp",
   "raisedOn": "2026-08-15",
-  "rationale": "#41 裁决 3 落地：glass 簇按公约第 3 节终局条款 (b) 删除。#39 记这四条豁免时的 reason 靠「删除属破坏性变更，要同步 App/ 预览宿主、Tests/、scripts/downstream-probe 与 StoryUI 四处迁移面」承重，跨仓实测该句 3/4 为假——App/ 零命中、scripts/downstream-probe 零命中、StoryUI 全仓零命中（glass: 的命中全部落在 .build/checkouts 里 vendored 的 CoreDesign 自身副本），对外零调用点 ⇒ (b) 成立，删除而非记豁免。豁免清单下调四条（33 → 29：ButtonStyle.solid#glass / ButtonStyle.light#glass / SolidButtonStyle.init#glass / LightButtonStyle.init#glass；第 2 条 ButtonStyle.light#glass 在 39.md 与 41.md 里被双双漏计，故上游文档记成三条，本轮以 json.load 实测为准），源码位置数同轮下调四处（36 → 32）。CircularGlassButtonStyle 与 TelegramGlassButtonModifier 保留：前者命名即语义、不带 Bool，是「组合优先于配置开关」的正解；后者仍被 CircularGlassButtonStyle 与 CoreMenuButton 消费。sourceSites 的跨历史闸仍未实现（ratchet.sh 只读 maxEntries），移交 #43。"
+  "rationale": "#41 裁决 4a 落地：Rating(allowsHalfStar: Bool) 收成 Rating(step: Double)，走公约第 3 节替代路径 3.1（把压扁的取值域还原成真实取值域——step 从来不是二值的，0.5 / 1.0 只是最常用的两个取值）。这是收口不是重写：step 本就是 Rating 内部的计算属性、steppedValue 也早已按 step 取整，手势 / RTL / accessibility 逻辑零改动。豁免清单下调一条（29 → 28，删除的是 Rating.init#allowsHalfStar），源码位置数同轮下调一处（32 → 31）。入参校验走 clamp 而非 precondition：仓内 Sources/ 下 precondition 零命中而 clamp 有三处先例，且 step <= 0 的失效形态是「整个组件恒返回 0 分」这种静默失效而不是崩溃；刻意不设上界，因为 count == 0 合法会让任何 step <= count 的上界恒不可满足。sourceSites 的跨历史闸仍未实现（ratchet.sh 只读 maxEntries），移交 #43。"
 }

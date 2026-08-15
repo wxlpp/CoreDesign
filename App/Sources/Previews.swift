@@ -388,8 +388,8 @@ private struct SkeletonPreviewsPreviewGallery: View {
 #Preview("Rating") {
     VStack(alignment: .leading, spacing: CoreSpacing.lg) {
         Rating(value: .constant(3))
-        Rating(value: .constant(2.5), allowsHalfStar: true)
-        Rating(value: .constant(3.5), allowsHalfStar: true, isReadOnly: true)
+        Rating(value: .constant(2.5), step: 0.5)
+        Rating(value: .constant(3.5), step: 0.5, isReadOnly: true)
     }
     .padding()
     .background(Color.surfaceCanvas)

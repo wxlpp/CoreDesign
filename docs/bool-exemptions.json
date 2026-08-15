@@ -114,12 +114,6 @@
     "decidedOn": "2026-08-13"
   },
   {
-    "parameter": "Rating.init#allowsHalfStar",
-    "reason": "PRD 点名的已知违规实例。公约附录 A.1 续已给出处置：它是被压成布尔的连续量（手势注释里的 step = allowsHalfStar ? 0.5 : 1.0），按 3.1 改成 step: Double。删除不成立——半星评分是真实需求，删掉就是砍功能。改造本身归 #41（39.md Technical Details 明写本任务只需正确识别并暂时豁免）。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
     "parameter": "Rating.init#isReadOnly",
     "reason": "PRD 点名的已知违规实例。公约 3.4 已分析：与 @Environment(\\.isEnabled) 行为重叠，但直接删掉改用 .disabled(true) 会连带禁用态灰色外观，而只读评分的典型用途（显示平均分）要正常外观 ⇒ 终局条款 (b) 的删除路径**已被公约显式否决**。正确解法可能是拆成 Rating / RatingDisplay 两个语义组件，取舍归 #41。",
     "decidedBy": "wxlpp",

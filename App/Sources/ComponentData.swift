@@ -545,7 +545,7 @@ private struct RatingPreview: View {
     @State private var value: Double = 3.5
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-            Rating(value: self.$value, allowsHalfStar: true)
+            Rating(value: self.$value, step: 0.5)
             Rating(value: .constant(4), isReadOnly: true)
         }
     }

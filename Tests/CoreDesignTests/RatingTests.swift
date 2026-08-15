@@ -131,19 +131,47 @@ struct RatingTests {
 
     // MARK: - 构造参数保留
 
-    @Test("count / allowsHalfStar / isReadOnly 原样保留")
+    @Test("count / step / isReadOnly 原样保留")
     func initStoresParameters() {
-        let rating = Rating(value: .constant(1), count: 7, allowsHalfStar: true, isReadOnly: true)
+        let rating = Rating(value: .constant(1), count: 7, step: 0.5, isReadOnly: true)
         #expect(rating.count == 7)
-        #expect(rating.allowsHalfStar == true)
+        #expect(rating.step == 0.5)
         #expect(rating.isReadOnly == true)
     }
 
-    @Test("count 默认 5，allowsHalfStar / isReadOnly 默认 false")
+    @Test("count 默认 5，step 默认 1.0（整星），isReadOnly 默认 false")
     func initDefaults() {
         let rating = Rating(value: .constant(1))
         #expect(rating.count == 5)
-        #expect(rating.allowsHalfStar == false)
+        #expect(rating.step == 1.0)
         #expect(rating.isReadOnly == false)
+    }
+
+    // MARK: - step 入参校验（#41 裁决 4a）
+
+    @Test("step 非正值 clamp 回 1.0——挡住「静默恒 0」，不是挡除零")
+    func stepClampsNonPositiveToWholeStar() {
+        // ⚠️ 失效形态不是崩溃：`steppedValue` 的 `guard ... step > 0 else { return 0 }`
+        // 会让 step <= 0 的 Rating **恒返回 0 分**，比崩溃难发现得多。
+        // 走 clamp 而不是 precondition，与仓内惯例一致（Rating.count 的 max(0,count)、
+        // AvatarGroup.max 的 Swift.max(0,max)、Separator.Inset.leading 的 max(0,amount)），
+        // 且 clamp 可单测——precondition 触发 trap，Swift Testing 抓不住。
+        #expect(Rating(value: .constant(1), step: 0).step == 1.0)
+        #expect(Rating(value: .constant(1), step: -0.5).step == 1.0)
+        // clamp 之后组件真的能用：整星步进给出非 0 分。
+        #expect(Rating.steppedValue(atRelativeX: 10, totalWidth: 100, count: 5,
+                                    step: Rating(value: .constant(1), step: 0).step) == 1)
+    }
+
+    @Test("step 不设上界——count == 0 是合法入参，任何 step ≤ count 的上界都会恒不可满足")
+    func stepHasNoUpperBoundBecauseZeroCountIsLegal() {
+        // ⚠️ `Rating(count:)` 的 init 有 `max(0, count)`，`negativeCountClampsToZero`
+        // 已把「count == 0 合法」钉成判据 ⇒ 若给 step 加上界 `step <= Double(count)`，
+        // count == 0 时它与 `step > 0` 联立无解，会把一个既有合法调用打成非法。
+        let zeroCount = Rating(value: .constant(0), count: 0, step: 2)
+        #expect(zeroCount.count == 0)
+        #expect(zeroCount.step == 2)
+        // step > count 也不是失效形态：steppedValue 把结果 clamp 回 0...count。
+        #expect(Rating.steppedValue(atRelativeX: 50, totalWidth: 100, count: 3, step: 10) == 3)
     }
 }

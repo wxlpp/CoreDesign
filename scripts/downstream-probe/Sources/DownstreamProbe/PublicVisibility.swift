@@ -193,7 +193,7 @@ func consumeSkeletonShapes() -> some View {
 
 @MainActor
 func consumeRating() -> some View {
-    Rating(value: .constant(3.5), count: 5, allowsHalfStar: true, isReadOnly: false)
+    Rating(value: .constant(3.5), count: 5, step: 0.5, isReadOnly: false)
 }
 
 // MARK: Steps（Issue #163）

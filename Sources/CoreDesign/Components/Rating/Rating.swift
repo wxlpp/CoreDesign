@@ -16,7 +16,7 @@ import SwiftUI
 /// `.tint`（`TintShapeStyle`）取值——不写死 `Color.accent`，调用方外加 `.tint(_:)` 会让
 /// 选中星真的变色；未选中态走 `Color.tertiaryFill`（第 3 层中性色）。
 ///
-/// 手势：拖拽 / 点按更新 `value`，按 `step`（`allowsHalfStar ? 0.5 : 1.0`）取整后写回，
+/// 手势：拖拽 / 点按更新 `value`，按 `step`（public init 参数，默认 `1.0`）取整后写回，
 /// clamp 在 `0...count`；`isReadOnly` 或外层 `.disabled(true)` 时手势整体不挂载。
 ///
 /// Accessibility：`.accessibilityAdjustableAction` 让 VoiceOver 的 increment / decrement
@@ -25,12 +25,12 @@ import SwiftUI
 /// `.claude/epics/semi-mobile-components/phase0-decisions.md` §2），半星精确播报
 /// （`Double.formatted()`，不取整）。
 public struct Rating: View {
-    // 非 `private`：`count` / `allowsHalfStar` / `isReadOnly` / `value` 需要在
+    // 非 `private`：`count` / `step` / `isReadOnly` / `value` 需要在
     // `@testable import` 的单测里直接断言构造参数是否原样保留（见 RatingTests）。
     // 这不扩大 public API 表面——外部下游仍只能通过 `init` 设置，读不到这些字段。
     @Binding var value: Double
     let count: Int
-    let allowsHalfStar: Bool
+    let step: Double
     let isReadOnly: Bool
 
     @Environment(\.controlSize) private var controlSize
@@ -39,26 +39,40 @@ public struct Rating: View {
 
     /// - Parameters:
     ///   - value: 当前评分，驱动方通过 `Binding<Double>` 双向绑定。
-    ///   - count: 星数，默认 5。
-    ///   - allowsHalfStar: 是否允许半星步进（`true` 时手势按 0.5 递增/递减，否则按 1.0）。
+    ///   - count: 星数，默认 5。负数 clamp 到 0。
+    ///   - step: 步进粒度，默认 `1.0`（整星）。传 `0.5` 即半星步进，手势与 VoiceOver
+    ///     的 increment / decrement 都按它走。
+    ///
+    ///     ⚠️ **#41 破坏性变更**：本参数取代了原来的 `allowsHalfStar: Bool`
+    ///     （公约第 3 节替代路径 3.1「把压扁的取值域还原成真实取值域」——`step` 从来
+    ///     就不是二值的，`0.5` / `1.0` 只是它最常用的两个取值）。
+    ///     迁移：`allowsHalfStar: true` → `step: 0.5`；`allowsHalfStar: false` → 省略。
+    ///
+    ///     ⚠️ **非正值 clamp 回 `1.0`，不 `precondition`**：`steppedValue` 里的
+    ///     `guard ... step > 0 else { return 0 }` 决定了 `step <= 0` 的失效形态是
+    ///     **整个组件恒返回 0 分**（静默），不是崩溃。clamp 把这个静默失效换成一个
+    ///     可用的默认值，且与仓内惯例一致（`count` 的 `max(0, count)`、
+    ///     `AvatarGroup.max`、`Separator.Inset.leading`），还能被单测直接断言。
+    ///
+    ///     ⚠️ **刻意不设上界**：`count == 0` 是合法入参（`max(0, count)` +
+    ///     `RatingTests.negativeCountClampsToZero`），任何 `step <= Double(count)` 形态的
+    ///     上界在 `count == 0` 时与 `step > 0` 联立无解，会把既有合法调用打成非法；
+    ///     而 `step > count` 本身不是失效形态——`steppedValue` 会把结果 clamp 回
+    ///     `0...count`，得到粗粒度但可用的控件。
     ///   - isReadOnly: 只读模式——`true` 时不挂载手势 / accessibility adjust action。
     public init(
         value: Binding<Double>,
         count: Int = 5,
-        allowsHalfStar: Bool = false,
+        step: Double = 1.0,
         isReadOnly: Bool = false
     ) {
         self._value = value
         self.count = max(0, count)
-        self.allowsHalfStar = allowsHalfStar
+        self.step = step > 0 ? step : 1.0
         self.isReadOnly = isReadOnly
     }
 
     // MARK: - Derived metrics
-
-    private var step: Double {
-        self.allowsHalfStar ? 0.5 : 1.0
-    }
 
     private var starSize: CGFloat {
         CoreControlMetrics.iconSize(for: self.controlSize) * 1.5
@@ -240,12 +254,12 @@ private struct RatingPreviewGallery: View {
 
             VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                 Text("半星步进").coreFont(.footnote).foregroundStyle(.secondary)
-                Rating(value: self.$halfStarValue, allowsHalfStar: true)
+                Rating(value: self.$halfStarValue, step: 0.5)
             }
 
             VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                 Text("只读").coreFont(.footnote).foregroundStyle(.secondary)
-                Rating(value: .constant(3.5), allowsHalfStar: true, isReadOnly: true)
+                Rating(value: .constant(3.5), step: 0.5, isReadOnly: true)
             }
 
             VStack(alignment: .leading, spacing: CoreSpacing.sm) {

@@ -11,7 +11,7 @@
 |---|---|---|---|
 | value | Binding\<Double\> | - | 当前评分，双向绑定 |
 | count | Int | 5 | 星数；负数会被 clamp 到 0 |
-| allowsHalfStar | Bool | false | 是否允许半星步进（手势 / VoiceOver 按 0.5 递增递减，关闭时按 1.0） |
+| step | Double | 1.0 | 步进粒度（手势 / VoiceOver 按它递增递减）。传 `0.5` 即半星步进。非正值 clamp 回 `1.0`；刻意不设上界（`count == 0` 合法，任何 `step ≤ count` 的上界都会恒不可满足） |
 | isReadOnly | Bool | false | 只读模式——`true` 时不挂载手势 / accessibility adjust action |
 
 ## 预览 / Preview
@@ -26,10 +26,10 @@
 Rating(value: $rating)
 
 // 半星步进
-Rating(value: $rating, allowsHalfStar: true)
+Rating(value: $rating, step: 0.5)
 
 // 只读展示（如评论列表里的历史评分）
-Rating(value: .constant(4.5), allowsHalfStar: true, isReadOnly: true)
+Rating(value: .constant(4.5), step: 0.5, isReadOnly: true)
 
 // 自定义星数
 Rating(value: $rating, count: 3)
@@ -41,7 +41,7 @@ Rating(value: $rating)
 
 ## 手势与取值
 
-拖拽 / 点按沿控件宽度更新 `value`：按 `step`（`allowsHalfStar ? 0.5 : 1.0`）**向上取整（ceiling）**
+拖拽 / 点按沿控件宽度更新 `value`：按 `step`（public init 参数，默认 `1.0`）**向上取整（ceiling）**
 后写回 `Binding`，并 clamp 在 `0...count`——落在第 k 颗星上的点按得 k 分（半星模式下星 k 左半 → k−0.5、
 右半 → k），最左缘得 0（清空）。RTL 布局下按 `layoutDirection` 沿宽度翻折坐标，保证「点视觉上的第 k 颗星」
 两个方向下都得 k 分。`isReadOnly == true` 或外层 `.disabled(true)` 时手势整体不挂载。
@@ -52,6 +52,11 @@ Rating(value: $rating)
 > 捕获而非冒泡给祖先滚动容器（SwiftUI 对后代视图的 `.gesture` 默认优先于祖先的
 > 滚动手势）。若把 Rating 放进可纵向滚动的列表且需要在星形上也能顺畅滚动，需
 > 自行包一层方向判定或调整命中区域，本组件当前未内置这层协商。
+
+> **#41 破坏性变更**：`allowsHalfStar: Bool` 已替换为 `step: Double`。迁移
+> `allowsHalfStar: true` → `step: 0.5`，`allowsHalfStar: false` → 省略（默认 `1.0`）。
+> 依据是公约第 3 节替代路径 3.1——`step` 从来不是二值的，`0.5` / `1.0` 只是它最常用的
+> 两个取值，用 Bool 表达等于把一个连续取值域压扁成两个点。
 
 ## 视觉 Token
 
