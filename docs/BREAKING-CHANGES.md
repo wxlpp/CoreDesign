@@ -114,6 +114,9 @@ static func light(role: ButtonRoleStyleRole = .primary) -> LightButtonStyle
 | `LightButtonStyle` 的 glass | Capsule | 随 label 伸展 | `Color.surfaceInteractive` | **role 色** |
 | 保留的 `CircularGlassButtonStyle` | **Circle** | **固定直径 frame**（`.large` 默认 50pt） | `Color.surfaceInteractive` | 不设 |
 
+> 表内「前景」为 **enabled 态**；禁用态三者处理各不相同（Solid glass 走 `contentDisabled`、
+> Light 经 `role.resolvedColor` 内部处理、CircularGlass 用 `.opacity(0.4)`）。
+
 ⇒ `CircularGlassButtonStyle` **不是任何一个的等价物**：与 Solid 的 glass 差三处
 （形状、固定尺寸、role 底色不携带），与 Light 的 glass 差两处（形状、固定尺寸——底色反而一致）。
 把带文字 label 的 capsule 玻璃按钮直接换成它，会被压进一个圆里；Solid 侧还会额外丢掉 role 配色。
@@ -121,7 +124,9 @@ static func light(role: ButtonRoleStyleRole = .primary) -> LightButtonStyle
 若你确实在用 `glass: true`，按场景三选一：
 - **(a)** 放弃玻璃观感，改用普通 `.solid(role:)` / `.light(role:)`；
 - **(b)** 圆形 icon 按钮场景改用 `CircularGlassButtonStyle`——**对原 `LightButtonStyle(glass:)`
-  的使用者尤其顺**，底色本来就一致，只需接受圆形与固定尺寸；
+  的使用者尤其顺**，底色本来就一致，只需接受圆形与固定尺寸。
+  ⚠️ 但原 Light glass 的 **role 色前景是由 style 施加的**，`CircularGlassButtonStyle` 不设前景
+  ⇒ 迁移后需自行在 label 上补 `.foregroundStyle(…)`；
 - **(c)** 需要逐字保持旧渲染：自建 style，用 `.backgroundStyle(_:)` 配你要的底色 +
   `TelegramGlassButtonModifier`（**仍是 public、本次未改动**）重建即可。
 
