@@ -122,18 +122,22 @@ static func light(role: ButtonRoleStyleRole = .primary) -> LightButtonStyle
 把带文字 label 的 capsule 玻璃按钮直接换成它，会被压进一个圆里；Solid 侧还会额外丢掉 role 配色。
 
 若你确实在用 `glass: true`，按场景三选一：
-- **(a)** 放弃玻璃观感，改用普通 `.solid(role:)` / `.light(role:)`；
-- **(b)** 圆形 icon 按钮场景改用 `CircularGlassButtonStyle`——**对原 `LightButtonStyle(glass:)`
+- **① 放弃玻璃观感** —— 改用普通 `.solid(role:)` / `.light(role:)`；
+- **② 圆形 icon 按钮场景** —— 改用 `CircularGlassButtonStyle`。**对原 `LightButtonStyle(glass:)`
   的使用者尤其顺**，底色本来就一致，只需接受圆形与固定尺寸。
   ⚠️ 但原 Light glass 的 **role 色前景是由 style 施加的**，`CircularGlassButtonStyle` 不设前景
   ⇒ 迁移后需自行在 label 上补 `.foregroundStyle(…)`；
-- **(c)** 需要逐字保持旧渲染：自建 style，用 `.backgroundStyle(_:)` 配你要的底色 +
+- **③ 需要逐字保持旧渲染** —— 自建 style，用 `.backgroundStyle(_:)` 配你要的底色 +
   `TelegramGlassButtonModifier`（**仍是 public、本次未改动**）重建即可。
 
-⚠️ 这是**唯一一组走「论证删除」而非「记豁免」的变更**：公约第 3 节的终局条款有序——
-先试 (b) 论证删除、(b) 不成立才用 (a) 记豁免。跨仓复核确认 `glass:` **对外零调用点**
-（预览宿主、downstream-probe、StoryUI 全仓零命中），(b) 成立。
-⇒ 上面这段迁移说明预计不影响任何已知下游，是写给未知使用者的。
+⚠️ 这是**唯一一组走「论证删除」而非「记豁免」的变更**。公约第 3 节的终局条款是**有序**的：
+先试**条款 (b)「论证可以删除」**；只有 (b) 不成立时，才退而用**条款 (a)「记入豁免清单」**。
+本次跨仓复核确认 `glass:` **对外零调用点**（预览宿主、downstream-probe、StoryUI 全仓零命中）
+⇒ 条款 (b) 成立，直接删除。
+
+> 注：上面迁移出口的 ①②③ 与这里的公约**条款 (a)/(b)** 是两套互不相干的编号，别对应着读。
+
+⇒ 由于对外零调用点，本组迁移说明预计不影响任何已知下游，是写给未知使用者的。
 
 #### B5. `Rating(allowsHalfStar:isReadOnly:)` → `Rating(step:)` + 新组件 `RatingDisplay`
 
