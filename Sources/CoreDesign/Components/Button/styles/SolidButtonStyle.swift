@@ -69,15 +69,38 @@ public extension ButtonStyle where Self == SolidButtonStyle {
     }
 }
 
-#Preview("Solid — default") {
-    VStack(spacing: 12) {
-        Button {} label: { Text("Primary") }
-            .buttonStyle(.solid(role: .primary))
-        Button {} label: { Text("Danger") }
-            .buttonStyle(.solid(role: .danger))
-        Button {} label: { Text("Disabled") }
-            .buttonStyle(.solid(role: .primary))
-            .disabled(true)
+#Preview("Solid — Light") {
+    SolidButtonStylePreviewGallery()
+        .preferredColorScheme(.light)
+}
+
+#Preview("Solid — Dark") {
+    SolidButtonStylePreviewGallery()
+        .preferredColorScheme(.dark)
+}
+
+/// ⚠️ **五个 role 全列，不是抽样**：`ButtonRoleStyleRole` 是 `color` / `activeColor` /
+/// `disabledColor` 的唯一来源，新增 role 时这里会漏——全列才能让 preview 在视觉上
+/// 兜住「新 role 没配色」这类回归。禁用态单列一条（走 `disabledColor` 通路）。
+private struct SolidButtonStylePreviewGallery: View {
+    var body: some View {
+        VStack(spacing: CoreSpacing.sm) {
+            Button {} label: { Text("Primary") }
+                .buttonStyle(.solid(role: .primary))
+            Button {} label: { Text("Secondary") }
+                .buttonStyle(.solid(role: .secondary))
+            Button {} label: { Text("Tertiary") }
+                .buttonStyle(.solid(role: .tertiary))
+            Button {} label: { Text("Warning") }
+                .buttonStyle(.solid(role: .warning))
+            Button {} label: { Text("Danger") }
+                .buttonStyle(.solid(role: .danger))
+            Button {} label: { Text("Disabled") }
+                .buttonStyle(.solid(role: .primary))
+                .disabled(true)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color.surfaceCanvas)
     }
-    .padding()
 }

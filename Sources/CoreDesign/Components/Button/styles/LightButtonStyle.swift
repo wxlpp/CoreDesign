@@ -55,14 +55,39 @@ public extension ButtonStyle where Self == LightButtonStyle {
     }
 }
 
-#Preview("Light — default") {
-    VStack(spacing: 12) {
-        Button {} label: { Text("Cancel") }
-            .buttonStyle(.light(role: .secondary))
-        Button {} label: { Text("Disabled") }
-            .buttonStyle(.light(role: .secondary))
-            .disabled(true)
+#Preview("Light — Light") {
+    LightButtonStylePreviewGallery()
+        .preferredColorScheme(.light)
+}
+
+#Preview("Light — Dark") {
+    LightButtonStylePreviewGallery()
+        .preferredColorScheme(.dark)
+}
+
+/// ⚠️ **明暗两态对 `LightButtonStyle` 不是走过场**：它是本仓唯一按 `colorScheme`
+/// 分支的按钮样式——暗色走 `.glassEffect`、亮色改用柔和阴影（见本文件 `makeBody`）。
+/// 两个 preview 覆盖的是**两条不同的渲染路径**，不是同一实现的换色。
+/// 五个 role 全列的理由同 `SolidButtonStyle`：新增 role 时漏配色能在视觉上兜住。
+private struct LightButtonStylePreviewGallery: View {
+    var body: some View {
+        VStack(spacing: CoreSpacing.sm) {
+            Button {} label: { Text("Primary") }
+                .buttonStyle(.light(role: .primary))
+            Button {} label: { Text("Secondary") }
+                .buttonStyle(.light(role: .secondary))
+            Button {} label: { Text("Tertiary") }
+                .buttonStyle(.light(role: .tertiary))
+            Button {} label: { Text("Warning") }
+                .buttonStyle(.light(role: .warning))
+            Button {} label: { Text("Danger") }
+                .buttonStyle(.light(role: .danger))
+            Button {} label: { Text("Disabled") }
+                .buttonStyle(.light(role: .secondary))
+                .disabled(true)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color.surfaceCanvas)
     }
-    .padding()
-    .background(Color.surfaceCanvas)
 }
