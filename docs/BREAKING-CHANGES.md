@@ -48,8 +48,14 @@ func surface(_ kind: SurfaceKind) -> some View
 .surface(.content)                     // 背景 + 描边 + 圆角，等价于原 bordered: true
 ```
 
-⚠️ `.grouped` 与原 `bordered: false` **三个维度逐字等价**（背景 `surfaceCard`、描边 `.clear`、
-圆角 `CoreRadius.medium`），视觉无变化。
+⚠️ `.grouped` 与原 `.content, bordered: false` **三个维度逐字等价**（背景 `surfaceCard`、
+描边 `.clear`、圆角 `CoreRadius.medium`），视觉无变化。
+
+⚠️ **但等价只在 `.content` 上成立**：`bordered` 是与全部 9 个 kind 正交的参数，
+`.surface(.overlay, bordered: false)` / `.surface(.card, bordered: false)` 这类组合
+**在新 API 下没有等价替代**。之所以只补 `.grouped` 一个 case 而不铺满 9×2 的积空间：
+仓内实测 **7 处调用点 100% 落在 `.content` 上**，按用到的点建模、不按可能的组合建模。
+若你在用其他 kind 的无描边组合，请提 issue——那会是一个新的容器角色，需要单独命名。
 
 #### B2. `Card(bordered:)` → `Card(kind:)`
 
@@ -92,12 +98,26 @@ static func light(role: ButtonRoleStyleRole = .primary) -> LightButtonStyle
 **迁移**：
 
 ```swift
-.buttonStyle(.solid(role: .primary, glass: false))  →  .buttonStyle(.solid(role: .primary))
-.buttonStyle(.light(role: .secondary, glass: false)) → .buttonStyle(.light(role: .secondary))
-// glass: true 没有等价替代——它是 legacy Telegram 玻璃模式，已随本版本删除。
-// 需要玻璃观感的圆形按钮请改用命名即语义的 CircularGlassButtonStyle（未改动）。
-.buttonStyle(.solid(role: .primary, glass: true))   →  .buttonStyle(CircularGlassButtonStyle())
+// glass: false（默认值）——纯删参，行为完全不变
+.buttonStyle(.solid(role: .primary, glass: false))   →  .buttonStyle(.solid(role: .primary))
+.buttonStyle(.light(role: .secondary, glass: false)) →  .buttonStyle(.light(role: .secondary))
 ```
+
+⚠️ **`glass: true` 没有行为保持的替代写法，别做机械替换。**
+删掉的是 legacy Telegram 玻璃模式：它的渲染是 **Capsule 形状 + 宽度随 label 伸展 +
+玻璃底色取 role 色**（`backgroundStyle(backgroundColor)`）。
+
+本仓保留的 `CircularGlassButtonStyle` 虽然也是玻璃观感，但**三处都不一样**：
+**Circle 形状 + 固定直径 frame**（`.large` 默认 50pt）+ **底色固定 `surfaceInteractive`
+（role 色不携带）**。⇒ 把一个带文字 label 的 capsule 玻璃按钮直接换成它，会被压进一个圆里
+并丢掉 role 配色——**它只适用于圆形 icon 按钮，不是 `glass: true` 的等价物**。
+
+若你确实在用 `glass: true`：请按实际需要选择（a）改用普通 `.solid` / `.light`（放弃玻璃观感）、
+（b）圆形 icon 场景改用 `CircularGlassButtonStyle`、或（c）自建 style 复用
+`TelegramGlassButtonModifier`（仍是 public 且未改动）。
+
+> 本仓跨仓复核确认 `glass:` **对外零调用点**（预览宿主、downstream-probe、StoryUI 全仓
+> 零命中），所以本条预计不影响任何已知下游——写在这里是给未知使用者的。
 
 ⚠️ 这是**唯一一组走「论证删除」而非「记豁免」的变更**：公约第 3 节的终局条款有序——
 先试 (b) 论证删除、(b) 不成立才用 (a) 记豁免。跨仓复核确认 `glass:` **对外零调用点**
@@ -140,9 +160,16 @@ clamp 回 `1.0`，不会崩溃。
 
 ```swift
 public nonisolated enum SurfaceKind: Sendable, Equatable {
-    case canvas, content, control, floating, overlay
-    case canvasSubtle, panel, sidebar, card
-    case grouped        // ← 本版本新增
+    case canvas
+    case content
+    case control
+    case floating
+    case overlay
+    case grouped        // ← 本版本新增（声明位置在 overlay 与 canvasSubtle 之间）
+    case canvasSubtle
+    case panel
+    case sidebar
+    case card
 }
 ```
 
