@@ -6,8 +6,221 @@
 > `v0.4.0`（2026-07-24，Phase 2 新组件）、`v0.4.1`（2026-07-24，非破坏性收尾）、
 > `v0.5.0`（2026-07-24，文本入参统一——含破坏性变更）、
 > `v0.6.0`（2026-07-25，Separator.Inset 改名 + ProgressBar 弃用 + SettingsRowMetrics 公开——含破坏性变更）、
-> `v0.7.0`（2026-07-26，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning + 收口的取色修正——纯新增，无破坏性变更）。
+> `v0.7.0`（2026-07-26，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning + 收口的取色修正——纯新增，无破坏性变更）、
+> `v0.8.0`（2026-08-16，`component-contract` epic：把 5 组压扁成 Bool 的 API 还原成语义类型——**含破坏性变更**）。
 > 本文件早期版本曾写「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
+
+## `0.8.0`（`component-contract` epic 试点改造，2026-08-16）
+
+**含破坏性变更** —— 删除 **9 条 public 声明**（归为 5 组），另有 1 处「加枚举 case 但可能打断下游构建」。
+本节的清单**不是凭 diff 印象写的**：由脚本从 `v0.7.0` 与发布 commit 的源码各提取一次 public
+表面后做集合差得出（public 声明 642 → 652，public enum case 60 → 63），脚本全文见
+`oh-my-story` 仓 `.claude/epics/component-contract/42-spec.md` 的附录。
+
+> **为什么是一次 minor 而不是 1.0.0**：本库 0.x 阶段以 minor 携带破坏性变更，`v0.5.0`
+> （文本入参统一）、`v0.6.0`（`Separator.Inset` 改名）已有两次先例，见下方各节。
+
+### 主题：把「压扁成 Bool 的取值域」还原成语义类型
+
+本次 5 组破坏性变更同源——它们都是把一个 `Bool` 参数还原成它真正表达的东西：
+语义枚举、连续量、或干脆是两个不同的组件。判定依据是本 epic 产出的组件公约
+（`docs/component-contract.md`）第 3 节的四条替代路径。
+
+---
+
+#### B1. `View.surface(_:bordered:)` → 删除 `bordered` 参数
+
+```swift
+// 变更前
+func surface(_ kind: SurfaceKind, bordered: Bool = true) -> some View
+// 变更后
+func surface(_ kind: SurfaceKind) -> some View
+```
+
+**迁移**：`bordered: false` 表达的其实是「换一种容器角色」，改用新增的 `SurfaceKind.grouped`：
+
+```swift
+// 旧
+.surface(.content, bordered: false)
+.surface(.content, bordered: true)     // 或省略
+// 新
+.surface(.grouped)                     // 背景 + 圆角、无描边，等价于原 bordered: false
+.surface(.content)                     // 背景 + 描边 + 圆角，等价于原 bordered: true
+```
+
+⚠️ `.grouped` 与原 `.content, bordered: false` **三个维度逐字等价**（背景 `surfaceCard`、
+描边 `.clear`、圆角 `CoreRadius.medium`），视觉无变化。
+
+⚠️ **但等价只在 `.content` 上成立**：`bordered` 是与全部 9 个 kind 正交的参数，
+`.surface(.overlay, bordered: false)` / `.surface(.card, bordered: false)` 这类组合
+**在新 API 下没有等价替代**。之所以只补 `.grouped` 一个 case 而不铺满 9×2 的积空间：
+**本仓 + 跨仓（StoryUI）实测 7 处产品调用点 100% 落在 `.content` 上**——按用到的点建模、
+不按可能的组合建模。（口径：**产品代码**的显式调用点，不含测试与 `#Preview`；
+其中 CoreDesign 侧 1 处、StoryUI 侧 6 处。）
+若你在用其他 kind 的无描边组合，请提 issue——那会是一个新的容器角色，需要单独命名。
+
+#### B2. `Card(bordered:)` → `Card(kind:)`
+
+```swift
+// 变更前
+public init(padding: CGFloat = CoreSpacing.lg, alignment: Alignment = .leading,
+            bordered: Bool = true, @ViewBuilder content: () -> Content)
+// 变更后
+public init(padding: CGFloat = CoreSpacing.lg, alignment: Alignment = .leading,
+            kind: CardKind = .content, @ViewBuilder content: () -> Content)
+```
+
+**迁移**：
+
+```swift
+Card(bordered: false) { … }   →   Card(kind: .grouped) { … }
+Card(bordered: true)  { … }   →   Card() { … }
+```
+
+⚠️ **`CardKind` 只有 `.content` / `.grouped` 两个 case，刻意不暴露完整 `SurfaceKind`**——
+`Card` 是 `.content` 的薄封装，开放 `.canvas` / `.sidebar` 会把它拓宽成万能容器，
+且 `Card(kind: .canvas)` 正是 Issue #140「卡片贴画布导致隐形」的形态。
+
+#### B3 / B4. `SolidButtonStyle` 与 `LightButtonStyle` 删除 `glass` 开关
+
+各删 3 条声明（存储属性 + init 参数 + 静态工厂参数）：
+
+```swift
+// 变更前
+public init(role: ButtonRoleStyleRole = .primary, glass: Bool = false)
+public let glass: Bool
+static func solid(role: ButtonRoleStyleRole = .primary, glass: Bool = false) -> SolidButtonStyle
+static func light(role: ButtonRoleStyleRole = .primary, glass: Bool = false) -> LightButtonStyle
+// 变更后
+public init(role: ButtonRoleStyleRole = .primary)
+static func solid(role: ButtonRoleStyleRole = .primary) -> SolidButtonStyle
+static func light(role: ButtonRoleStyleRole = .primary) -> LightButtonStyle
+```
+
+**迁移**：
+
+```swift
+// glass: false（默认值）——纯删参，行为完全不变
+.buttonStyle(.solid(role: .primary, glass: false))   →  .buttonStyle(.solid(role: .primary))
+.buttonStyle(.light(role: .secondary, glass: false)) →  .buttonStyle(.light(role: .secondary))
+```
+
+⚠️ **`glass: true` 没有行为保持的替代写法，别做机械替换。**
+删掉的是 legacy Telegram 玻璃模式。**两个 style 的 glass 分支渲染并不相同**，迁移前先看清你用的是哪个：
+
+| | 形状 | 宽度 | 玻璃底色 | 前景 |
+|---|---|---|---|---|
+| `SolidButtonStyle` 的 glass | Capsule | 随 label 伸展 | **role 色**（`backgroundStyle(backgroundColor)`） | 纯白 |
+| `LightButtonStyle` 的 glass | Capsule | 随 label 伸展 | `Color.surfaceInteractive` | **role 色** |
+| 保留的 `CircularGlassButtonStyle` | **Circle** | **固定直径 frame**（`.large` 默认 50pt） | `Color.surfaceInteractive` | 不设 |
+
+> 表内「前景」为 **enabled 态**；禁用态三者处理各不相同（Solid glass 走 `contentDisabled`、
+> Light 经 `role.resolvedColor` 内部处理、CircularGlass 用 `.opacity(0.4)`）。
+
+⇒ `CircularGlassButtonStyle` **不是任何一个的等价物**：与 Solid 的 glass 差三处
+（形状、固定尺寸、role 底色不携带），与 Light 的 glass 差两处（形状、固定尺寸——底色反而一致）。
+把带文字 label 的 capsule 玻璃按钮直接换成它，会被压进一个圆里；Solid 侧还会额外丢掉 role 配色。
+
+若你确实在用 `glass: true`，按场景三选一：
+- **① 放弃玻璃观感** —— 改用普通 `.solid(role:)` / `.light(role:)`；
+- **② 圆形 icon 按钮场景** —— 改用 `CircularGlassButtonStyle`。**对原 `LightButtonStyle(glass:)`
+  的使用者尤其顺**，底色本来就一致，只需接受圆形与固定尺寸。
+  ⚠️ 但原 Light glass 的 **role 色前景是由 style 施加的**，`CircularGlassButtonStyle` 不设前景
+  ⇒ 迁移后需自行在 label 上补 `.foregroundStyle(…)`；
+- **③ 需要逐字保持旧渲染** —— 自建 style，用 `.backgroundStyle(_:)` 配你要的底色 +
+  `TelegramGlassButtonModifier`（**仍是 public、本次未改动**）重建即可。
+
+⚠️ 这是**唯一一组走「论证删除」而非「记豁免」的变更**。公约第 3 节的终局条款是**有序**的：
+先试**条款 (b)「论证可以删除」**；只有 (b) 不成立时，才退而用**条款 (a)「记入豁免清单」**。
+本次跨仓复核确认 `glass:` **对外零调用点**（预览宿主、downstream-probe、StoryUI 全仓零命中）
+⇒ 条款 (b) 成立，直接删除。
+
+> 注：上面迁移出口的 ①②③ 与这里的公约**条款 (a)/(b)** 是两套互不相干的编号，别对应着读。
+
+⇒ 由于对外零调用点，本组迁移说明预计不影响任何已知下游，是写给未知使用者的。
+
+#### B5. `Rating(allowsHalfStar:isReadOnly:)` → `Rating(step:)` + 新组件 `RatingDisplay`
+
+```swift
+// 变更前
+public init(value: Binding<Double>, count: Int = 5,
+            allowsHalfStar: Bool = false, isReadOnly: Bool = false)
+// 变更后
+public init(value: Binding<Double>, count: Int = 5, step: Double = 1.0)
+```
+
+**迁移（两条，分别对应两个被删参数）**：
+
+```swift
+// ① allowsHalfStar → step：Bool 其实是被压扁的连续量（原实现内部就是 allowsHalfStar ? 0.5 : 1.0）
+Rating(value: $v, allowsHalfStar: true)   →  Rating(value: $v, step: 0.5)
+Rating(value: $v, allowsHalfStar: false)  →  Rating(value: $v)          // step 默认 1.0
+Rating(value: $v, step: 0.25)             // 新能力：任意步进粒度，不再只有两档
+
+// ② isReadOnly → 换组件（⚠️ 不是 .disabled(true)，见下）
+Rating(value: .constant(4), isReadOnly: true)  →  RatingDisplay(value: 4)
+```
+
+⚠️ **`isReadOnly: true` 的迁移目标是 `RatingDisplay`，不是 `.disabled(true)`。**
+`.disabled(true)` 走的是 SwiftUI 原生 disabled 视觉——**变灰 + 降对比度**，语义是
+「这个控件现在不能用」；而只读评分的典型用途是**展示态**（列表里显示某本书的评分），
+它不是「不能用」，是「本来就不是控件」。用 `.disabled(true)` 迁移会让所有展示态评分变灰，
+是语义错配导致的视觉回归。拆成两个类型之后，「控制展示态」只剩一条路径：**选哪个类型**。
+
+⚠️ `step` 的入参校验走 clamp 不 trap：`step <= 0` 或非有限值（如 `.infinity`）会被
+clamp 回 `1.0`，不会崩溃。
+
+---
+
+### ⚠️ 非删除、但可能打断下游构建：`SurfaceKind` 新增 `.grouped`
+
+```swift
+public nonisolated enum SurfaceKind: Sendable, Equatable {
+    case canvas
+    case content
+    case control
+    case floating
+    case overlay
+    case grouped        // ← 本版本新增（声明位置在 overlay 与 canvasSubtle 之间）
+    case canvasSubtle
+    case panel
+    case sidebar
+    case card
+}
+```
+
+`SurfaceKind` 是 public、非 `@frozen` 的 enum，且 CoreDesign 以 SwiftPM 源码分发、
+**不开 library evolution** ⇒ **下游若对它做穷尽 `switch`，加一个 case 就编译不过**
+（`switch must be exhaustive`）。
+
+**迁移**：给这类 `switch` 补 `default:` 或 `case .grouped:` 分支。
+
+> 之所以把它单列而不是塞进「新增」段落：它是本次唯一一个**不在删除清单里、却可能打断
+> 下游构建**的变更。本仓自查 `scripts/downstream-probe` 对 `SurfaceKind` 是透传、无穷尽
+> switch，故 CI 不会因此变红——但下游第三方使用者不受此保护。
+
+### 新增（非破坏性）
+
+- **`CardKind`** —— `Card` 的容器观感取值域（`.content` / `.grouped`）。
+- **`RatingDisplay`** —— 只读评分展示组件（indicator）：`RatingDisplay(value:count:)`，
+  无 binding、无手势、无 accessibility adjust action。
+- **`RatingStyle` 样式扩展点** —— `RatingStyle` 协议 + `RatingStyleConfiguration` +
+  `StarRatingStyle`（默认实现）+ `View.ratingStyle(_:)`，形态与既有 `BannerStyle` 一致。
+  `Rating` 与 `RatingDisplay` 共用同一个扩展点。
+  ⚠️ **`RatingStyleConfiguration` 没有 public init**（与 Apple 的 `ButtonStyleConfiguration`
+  一致）——下游自定义 style 时无法自造 configuration 做预览/单测，只能经 `Rating` /
+  `RatingDisplay` 渲染触发。
+
+### 本次无 B 类变更（文本参数 → `LocalizedStringResource`）
+
+本版本**没有任何裸 `String` 文本参数转 `LocalizedStringResource`**，故不涉及
+`Bundle.main` 解析语义的变化。两条证据：
+
+1. FR-4 判据的四条计数全程未变（`registryTextParams == 30` / `covered == 29` /
+   `localizedByType == 11` / `carrying == 8`）；
+2. ⚠️ 计数不变只约束**基数**不约束**集合**（一进一出会全部不动），故另有 diff 级证据：
+   `v0.7.0..HEAD` 的 `Sources/` 全量 diff 中**零文本参数签名变更、零 `LocalizedStringResource`
+   增删**；新增的 `RatingDisplay.init(value:count:)` 不带文本参数。
 
 ## `0.7.0` 收口部分（`semi-mobile-components` 收尾，**已随 v0.7.0 发布**）
 
