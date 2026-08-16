@@ -65,9 +65,17 @@ public extension ButtonStyle where Self == LightButtonStyle {
         .preferredColorScheme(.dark)
 }
 
-/// ⚠️ **明暗两态对 `LightButtonStyle` 不是走过场**：它是本仓唯一按 `colorScheme`
-/// 分支的按钮样式——暗色走 `.glassEffect`、亮色改用柔和阴影（见本文件 `makeBody`）。
-/// 两个 preview 覆盖的是**两条不同的渲染路径**，不是同一实现的换色。
+/// 明暗两态检验的是**语义色 token 在两种外观下是否都拉得开对比**——
+/// `makeBody` 里没有任何 `colorScheme` 分支，两态的差异全部来自
+/// `Color.surfaceInteractive` / `Color.borderSubtle` / `role.resolvedColor` 这三处
+/// 系统语义色的自动适配。填充与描边都很弱（`surfaceInteractive` + `borderSubtle`），
+/// 正是这种低 chrome 的样式最容易在某一种外观下糊掉，所以两态都要看。
+///
+/// ⚠️ 仓库 `CLAUDE.md` 曾写「`LightButtonStyle` 会按 `colorScheme` 分支：暗色用
+/// `glassEffect`，亮色用柔和阴影代替」——**实测为假**（本文件零 `colorScheme`、
+/// 零 `.glassEffect` 调用；#41 之前的 base `95c29cf` 上同样零命中，不是本轮删掉的）。
+/// 该句已在同一个 commit 里改正，此处留痕以免它再被抄回来。
+///
 /// 五个 role 全列的理由同 `SolidButtonStyle`：新增 role 时漏配色能在视觉上兜住。
 private struct LightButtonStylePreviewGallery: View {
     var body: some View {
