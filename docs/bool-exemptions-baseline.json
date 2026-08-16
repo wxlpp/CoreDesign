@@ -2,6 +2,6 @@
   "maxEntries": 27,
   "sourceSites": 30,
   "raisedBy": "wxlpp",
-  "raisedOn": "2026-08-15",
+  "raisedOn": "2026-08-16",
   "rationale": "#41 裁决 4b 落地：Rating 的只读展示态拆成独立的 RatingDisplay（indicator），Rating.init#isReadOnly 随之删除。选拆分而不是归并（删 isReadOnly、统一走 .disabled(true)）的理由：isEnabled=false 走 SwiftUI 原生 disabled 视觉（变灰 + 降低对比度），语义是「这个控件现在不能用」，而展示态不是「不能用」是「本来就不是控件」——归并是语义错配导致的视觉回归，不是 API 收敛。拆分后控制展示态的路径只剩一条：选哪个类型。豁免清单下调一条（28 → 27），源码位置数同轮下调一处（31 → 30）。至此 #41 四项裁决全部落地，本轮累计 34 → 27 条、38 → 30 处。Rating.isInteractive(isReadOnly:isEnabled:) 静态纯函数与其三条独立测试一并删除：行为未丢失，被类型二分吸收（只读由类型表达，禁用由原生 isEnabled 表达）。sourceSites 的跨历史闸仍未实现（scripts/bool-exemptions-ratchet.sh 只读 maxEntries），移交 #43。"
 }
