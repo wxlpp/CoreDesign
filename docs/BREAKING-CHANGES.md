@@ -54,7 +54,9 @@ func surface(_ kind: SurfaceKind) -> some View
 ⚠️ **但等价只在 `.content` 上成立**：`bordered` 是与全部 9 个 kind 正交的参数，
 `.surface(.overlay, bordered: false)` / `.surface(.card, bordered: false)` 这类组合
 **在新 API 下没有等价替代**。之所以只补 `.grouped` 一个 case 而不铺满 9×2 的积空间：
-仓内实测 **7 处调用点 100% 落在 `.content` 上**，按用到的点建模、不按可能的组合建模。
+**本仓 + 跨仓（StoryUI）实测 7 处产品调用点 100% 落在 `.content` 上**——按用到的点建模、
+不按可能的组合建模。（口径：**产品代码**的显式调用点，不含测试与 `#Preview`；
+其中 CoreDesign 侧 1 处、StoryUI 侧 6 处。）
 若你在用其他 kind 的无描边组合，请提 issue——那会是一个新的容器角色，需要单独命名。
 
 #### B2. `Card(bordered:)` → `Card(kind:)`
@@ -104,24 +106,29 @@ static func light(role: ButtonRoleStyleRole = .primary) -> LightButtonStyle
 ```
 
 ⚠️ **`glass: true` 没有行为保持的替代写法，别做机械替换。**
-删掉的是 legacy Telegram 玻璃模式：它的渲染是 **Capsule 形状 + 宽度随 label 伸展 +
-玻璃底色取 role 色**（`backgroundStyle(backgroundColor)`）。
+删掉的是 legacy Telegram 玻璃模式。**两个 style 的 glass 分支渲染并不相同**，迁移前先看清你用的是哪个：
 
-本仓保留的 `CircularGlassButtonStyle` 虽然也是玻璃观感，但**三处都不一样**：
-**Circle 形状 + 固定直径 frame**（`.large` 默认 50pt）+ **底色固定 `surfaceInteractive`
-（role 色不携带）**。⇒ 把一个带文字 label 的 capsule 玻璃按钮直接换成它，会被压进一个圆里
-并丢掉 role 配色——**它只适用于圆形 icon 按钮，不是 `glass: true` 的等价物**。
+| | 形状 | 宽度 | 玻璃底色 | 前景 |
+|---|---|---|---|---|
+| `SolidButtonStyle` 的 glass | Capsule | 随 label 伸展 | **role 色**（`backgroundStyle(backgroundColor)`） | 纯白 |
+| `LightButtonStyle` 的 glass | Capsule | 随 label 伸展 | `Color.surfaceInteractive` | **role 色** |
+| 保留的 `CircularGlassButtonStyle` | **Circle** | **固定直径 frame**（`.large` 默认 50pt） | `Color.surfaceInteractive` | 不设 |
 
-若你确实在用 `glass: true`：请按实际需要选择（a）改用普通 `.solid` / `.light`（放弃玻璃观感）、
-（b）圆形 icon 场景改用 `CircularGlassButtonStyle`、或（c）自建 style 复用
-`TelegramGlassButtonModifier`（仍是 public 且未改动）。
+⇒ `CircularGlassButtonStyle` **不是任何一个的等价物**：与 Solid 的 glass 差三处
+（形状、固定尺寸、role 底色不携带），与 Light 的 glass 差两处（形状、固定尺寸——底色反而一致）。
+把带文字 label 的 capsule 玻璃按钮直接换成它，会被压进一个圆里；Solid 侧还会额外丢掉 role 配色。
 
-> 本仓跨仓复核确认 `glass:` **对外零调用点**（预览宿主、downstream-probe、StoryUI 全仓
-> 零命中），所以本条预计不影响任何已知下游——写在这里是给未知使用者的。
+若你确实在用 `glass: true`，按场景三选一：
+- **(a)** 放弃玻璃观感，改用普通 `.solid(role:)` / `.light(role:)`；
+- **(b)** 圆形 icon 按钮场景改用 `CircularGlassButtonStyle`——**对原 `LightButtonStyle(glass:)`
+  的使用者尤其顺**，底色本来就一致，只需接受圆形与固定尺寸；
+- **(c)** 需要逐字保持旧渲染：自建 style，用 `.backgroundStyle(_:)` 配你要的底色 +
+  `TelegramGlassButtonModifier`（**仍是 public、本次未改动**）重建即可。
 
 ⚠️ 这是**唯一一组走「论证删除」而非「记豁免」的变更**：公约第 3 节的终局条款有序——
 先试 (b) 论证删除、(b) 不成立才用 (a) 记豁免。跨仓复核确认 `glass:` **对外零调用点**
 （预览宿主、downstream-probe、StoryUI 全仓零命中），(b) 成立。
+⇒ 上面这段迁移说明预计不影响任何已知下游，是写给未知使用者的。
 
 #### B5. `Rating(allowsHalfStar:isReadOnly:)` → `Rating(step:)` + 新组件 `RatingDisplay`
 
