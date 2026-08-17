@@ -1,7 +1,9 @@
 # 公约修订记录 / Contract Revision Log
 
-> ⚠️ **本文件内的所有行号均为基线 `0c863a0`（`origin/epic/component-contract`）上的实测值**，
+> ⚠️ **本文件内的所有行号均指「改动前」位置，基线为 `0c863a0`（`origin/epic/component-contract`）上的实测值**，
 > 后续会随上游改动漂移；核对时请 checkout 该 SHA。
+> **「改动后」一律不写行号**——本轮回写自身就会让公约行号整体位移，写了当天即失真。
+> 引用 oh-my-story 侧文件（如 `43-report.md`）的行号时，基线是 oh-my-story `fbcee17`。
 > （本文件属「时点记录」档，允许写行号；`docs/component-contract.md` 属 living document 档，
 > 一律不写行号，改写「文件名 + 符号名 / 计数」。）
 
