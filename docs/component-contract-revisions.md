@@ -120,30 +120,51 @@
   > `SettingsRow`：「…『想要不同列表行观感』的答案是换用兄弟组件 ListRow，而非本组件换皮
   > （同 InsetGroupedSection 的推理）⇒ 视觉即含义，步骤 3 规定性，不给扩展点。」
   > `InsetGroupedSection`：「…而非给同一个组件挂样式协议 ⇒ 视觉即含义，步骤 3 规定性。」
-- **改动后（逐字，节选）**：见 `docs/component-registry.json` 各条目；统一形态是
-  「步骤 2（候选作用域）：… 三条件逐条 ①②③ ⇒ 不计入候选，步骤 2 举不出。
-  步骤 3（独立理由，与上面的作用域排除**分开成立**，不引用任何兄弟组件）：… ⇒ 换了长相就不是这东西。」
+- **改动后（逐字，节选，两种形态，不可混为一谈——评审 I-C 拆分）**：
+  - **改判形态**（真正落到「翻转 `decidedBy`」的段落）：`ListRow` / `SidebarDocumentRow` /
+    `InsetGroupedSection` 三条用的是 R-1 落地时写下的样板段——`⚠️ #44 检验：不过 ⇒ 改判
+    （step3 → tiebreaker）。走公约「事后补写的效力边界」条款规定的修订回路…理由：公约新增的
+    「候选形态的作用域」条款明令『本条只排除候选、不决定落点，不得用本条直接推出 step3』…`，
+    统一以「⇒ 落点回到步骤 4 tiebreaker；kind 与 needsExtensionPoint 不变」收尾；
+    `SettingsRow` / `UnderlinedTabBar` / `RadioGroup` 经评审 C-1/C-2/C-A 复核后追加的是**各自
+    独立撰写**的「反事实必要性压测」段落（不是同一份样板），结尾同样收在「⇒ 落点回到步骤 4
+    tiebreaker」。这才是本节标题「改动后」真正对应的文本。
+  - **补痕形态**（首轮判「过」时留下的历史记录，**不是**最终结论，按「只增不删」原样保留在
+    notes 中段，不代表当前 `decidedBy`）：`SettingsRow` / `UnderlinedTabBar` / `RadioGroup`
+    三条 notes 中段仍保留 `bd3cdde` 写入的「步骤 2（候选作用域）：… 三条件逐条 ①②③ ⇒
+    不计入候选，步骤 2 举不出。步骤 3（独立理由，与上面的作用域排除**分开成立**，不引用任何
+    兄弟组件）：… ⇒ 换了长相就不是这东西」这一形态——这段文字描述的是**评审复核前**的
+    误判过程，本表上一版曾把它误当成「改动后」的统一形态来描述，与实际落盘的「改判形态」
+    不是同一份文本（评审 I-C）。
 - **逐条结论表**：
 
   | 条目 | 检验 | 处置 | 拆出的独立理由（一句，不引用任何兄弟组件名） |
   |---|---|---|---|
-  | `RadioGroup` | 过 | 维持 step3（除追加的「已核对」标记外零改动） | 逐项可见 + 圆点指示器正是 radio group 的定义性视觉，构成方式本身即传达「可选中一项」的语义 |
+  | `RadioGroup` | **不过**（评审 C-A 复核后改判，Task 4 第 2 轮评审） | 改判 tiebreaker | 首轮理由「逐项可见 + 圆点指示器正是 radio group 的定义性视觉」点名的正是步骤 2 排除的候选（分段控件，兄弟组件 `SegmentedControl`），带关系性，未通过「不引用兄弟组件名」的检验；真正反事实是换一种指示器画法（如 iOS 系统单选列表的尾部勾号），逐项可见/互斥单选/标记选中项全部保留，含义未变；组件源码自证是与 `CheckBoxToggleStyle` 同套 token 的皮肤级差异（只是把方框换成圆点）；落点依据皮肤变体条款——圆点/勾号/方框共享「每项一行 + 标签 + 选中指示符」骨架，不计入 ≥2 ⇒ 落 tiebreaker，同构判例 `PinCode` 即此落点 |
   | `UnderlinedTabBar` | **不过**（评审 C-2 复核后改判） | 改判 tiebreaker | 首轮理由「换成定宽指示器就必须先把标签数压到可一屏排下」是稻草人反事实——指示器本身是 `Capsule()` 且随所在 tab 宽度（即标签文本宽度）伸缩，把它换成「包住文本的胶囊」放回同一个横向可滚动容器，随宽度伸缩/随标签滚动/标记选中态/走强调色这些性质全部保留，含义未变，反事实没有证明「换了长相就不是这东西」；重新压测找不到独立的定义性视觉，形状差异（线 vs 胶囊）只是同一骨架的皮肤变体 |
-  | `SettingsRow` | **不过**（评审 C-1 复核后改判） | 改判 tiebreaker | 首轮理由「图标方块 + 标题 + 副标题 + accessory 的固定骨架」被组件自身公开 API 证伪——两个便利 init 的 `icon` 参数均默认 `nil`、`accessory` 合法取 `EmptyView`，`SettingsRowMetrics.textAlignedDividerInset` 证明「无图标」是组件自身支持的一等配置而非被排除的候选；重新压测后剥离图标与 accessory 仅剩通用文本行布局，找不到独立的定义性视觉，仅剩材料等价于被公约禁止的「只有一种合理长相」 |
+  | `SettingsRow` | **不过**（评审 C-1 复核后改判） | 改判 tiebreaker | 首轮理由「图标方块 + 标题 + 副标题 + accessory 的固定骨架」被组件自身公开 API 证伪——四个公开 init 的 `icon` 参数均默认 `nil`、`accessory` 合法取 `EmptyView`（主证据），`SettingsRowMetrics.textAlignedDividerInset` 是佐证，共同证明「无图标」是组件自身支持的一等配置而非被排除的候选；重新压测后剥离图标与 accessory 仅剩通用文本行布局，找不到独立的定义性视觉，仅剩材料等价于被公约禁止的「只有一种合理长相」 |
   | `ListRow` | 不过 | 改判 tiebreaker | 剥离兄弟组件对照后仅剩「三槽位薄结构」（过于通用、不具排他性）与「无卡片化」（消极/否定式描述，依赖「非卡片化」定义自身，不构成积极理由），拆不出独立的「换了长相就不是这东西」 |
   | `SidebarDocumentRow` | 不过 | 改判 tiebreaker | 剥离对四个具名兄弟行的角色对照后无材料剩余；新写的候选差异点（图标+标题+计数/日期）仍需靠对照其余三个兄弟行的组合才能说清「为什么是文档」，写出来仍带关系性 |
   | `InsetGroupedSection` | 不过 | 改判 tiebreaker | 唯一候选材料「组件名把风格钉死在名字里」等价于「只有一种合理长相」；压力测试候选论证「圆角卡片=分组语义」后发现不成立（plain 风格配 header/footer 同样能传达分组，卡片化非分组语义的必要条件），找不到不依赖兄弟组件对照的独立理由 |
 
-  ⚠️ **评审修复追记（C-1/C-2）**：`SettingsRow` 与 `UnderlinedTabBar` 两行是本轮评审
-  发现「过」判用了与另外三条不同的松尺后，按同一把「反事实必要性压测」重新测出的结果——
-  首轮误判过程与被证伪的原始理由见 `docs/component-registry.json` 对应条目 notes 里保留
-  的 `d6c5de8` 原始文本（未删除，仅在其后追加压测结论）。**改判后总数 = 5 条**
-  （`ListRow` / `SidebarDocumentRow` / `InsetGroupedSection` / `SettingsRow` /
-  `UnderlinedTabBar`），维持 `step3` 的只剩 `RadioGroup` 一条——这与 `44-spec.md` §1.2.1
-  三档实测表自身的结论（六条里只有 `RadioGroup` 是干净的）一致，是压测统一严尺后的正确
-  结果，不是过度改判。
-  ⚠️ **I-2 补记**：上面「改动后（逐字，节选）」段描述的统一形态（「样板句 + 该组件专属
-  一句独立理由」）对 `ListRow` / `SidebarDocumentRow` / `InsetGroupedSection` 三条已在
+  ⚠️ **评审修复追记（C-1/C-2/C-A，Task 4 第 2 轮评审）**：`SettingsRow` 与
+  `UnderlinedTabBar` 两行是**第 1 轮评审**发现「过」判用了与另外三条不同的松尺后，按
+  同一把「反事实必要性压测」重新测出的结果；`RadioGroup` 是**第 2 轮评审**对六条里
+  唯一没被构造过反事实的一条补测的结果——三者用的是同一把尺，不是分批放宽的三种标准。
+  首轮误判过程与被证伪的原始理由由 `bd3cdde` 写入，原文保留在这三条 notes 中段（`d6c5de8`
+  原始文本 → 紧接 `bd3cdde` 段 → 压测结论追加其后；上一版台账误记成「保留的是 `d6c5de8`
+  原始文本」，已按第 2 轮评审 C-B 更正）。**改判后总数 = 6 条**（`ListRow` /
+  `SidebarDocumentRow` / `InsetGroupedSection` / `SettingsRow` / `UnderlinedTabBar` /
+  `RadioGroup`），**六条候选全部改判，无一条维持 `step3`**。
+  ⚠️ **不再援引与 `44-spec.md` §1.2.1 三档实测表一致作为正确性论据**（第 2 轮评审
+  I-A）：spec 那张表给 `RadioGroup` 判 ✅ 依据的是 `notes` 的**结构形态**（两段分立），
+  不是「理由扛得住反事实」这一实质结论——拿结构合规当实质结论的旁证是范畴错误，而且
+  它给压测提供了一个隐性停止规则（最终改判集与 spec 三档一一对应，唯一未改判的正好是
+  spec 判 ✅ 的那条，压测因此可能提前停手）。第 1 轮评审的问题是「软化方向与预期一致」，
+  第 2 轮险些是「加严停在预期边界上」，两次踩的是同一个锚点。此处不再复用这条一致性论证，
+  仅作事后观察记录，不作判据。
+  ⚠️ **I-2 补记**：上面「改判形态」段描述的样板句（「样板句 + 该组件专属一句独立理由」）
+  对 `ListRow` / `SidebarDocumentRow` / `InsetGroupedSection` 三条已在
   `component-registry.json` 各自 notes 里补齐专属说明——`ListRow` 首句本身非关系性材料
   （只是不够）、`SidebarDocumentRow` 样板句准确适用、`InsetGroupedSection` 承重句是
   「组件名钉死风格」而非兄弟组件依赖，三者失真程度不同，不能一概而论。
@@ -155,16 +176,17 @@
   （`component-registry.json` 的 `InsetGroupedSection` 条目同步追加）。
 
 - **落点**：`docs/component-registry.json`（`notes`；改判条目另改 `decidedBy`）。
-  ⚠️ `RadioGroup` **除追加的「已核对」标记外零改动**——它的 `notes` 本来就是「作用域排除 +
-  独立理由」的标准形态。
+  ⚠️ **第 2 轮评审 C-A 更正**：`RadioGroup` **不再是**「除追加的『已核对』标记外零改动」——
+  经反事实必要性压测复核，`decidedBy` 由 `step3` 改判为 `tiebreaker`，与其余五条同一处置。
 - **连带改动**：无（不动公约正文、不动判据）。
-- **验证**：`decidedBy` 的 `step3 + tiebreaker` 合计恒为 64（改判 5 条 ⇒ `51 / 13`，
-  评审修复后 `SettingsRow` / `UnderlinedTabBar` 由「过」改判为「不过」，改判数由 3 升至
-  5）；登记表条目数 `71 = 46 + 25` 不变；七条判据 filter 全绿且 `No matching` 0 次；
-  `swift test` → `370 tests in 61 suites passed … with 3 known issues`；FR-4 危险字面量
+- **验证**：`decidedBy` 的 `step3 + tiebreaker` 合计恒为 64（**六条全改判 ⇒ `50 / 14`**；
+  改判数变化轨迹：首轮 3 条 → 第 1 轮评审修复（C-1/C-2）升至 5 条 → 第 2 轮评审修复
+  （C-A）升至 6 条，六条候选全部改判，无一条维持 `step3`）；登记表条目数 `71 = 46 + 25`
+  不变；七条判据 filter 全绿且 `No matching` 0 次；`swift test` →
+  `370 tests in 61 suites passed … with 3 known issues`；FR-4 危险字面量
   笛卡尔积核对覆盖**全部被改条目**（`ListRow`/`SidebarDocumentRow`/`InsetGroupedSection`/
   `SettingsRow`/`UnderlinedTabBar`/`RadioGroup`/`TagInput`/`Tag`，8 条 × 3 字面量，
-  `/tmp/44-crossscan.py D4` 的 `TARGETS` 本就是这份全集，不只是原报告叙述的「判『过』的
+  `44-crossscan.py D4` 的 `TARGETS` 本就是这份全集，不只是原报告叙述的「判『过』的
   3 条」）：零命中，`LabelIcon` 的 `systemName` 反向核对仍在（I-4）。
 - **⚠️ 补痕 vs 改判的效力区分**（依据 R-2）：**补痕是补强记录，落点与 `decidedBy` 不变**；
   **改判是翻转落点，必须走本回路并在此留痕**——这正是 R-2 规定的做法。
@@ -179,4 +201,26 @@
 
 ## 三、本轮未改判 / 未回写的项（诚实留痕）
 
-<!-- 由 Task 12 追加 -->
+<!-- 由 Task 12 追加；以下两条由 Task 4 第 2 轮评审（I-B / I-D）提前登记，
+     不等 Task 12 凭记忆补——完整定稿仍由 Task 12 收口。 -->
+
+### （提前登记）新尺只覆盖了登记表的一小部分，其余 `step3` 判例仍是旧尺落盘（评审 I-B）
+
+本轮新增的「候选形态的作用域」条款 + 「反事实必要性压测」严尺，**只对本任务处置的六条候选**
+（`RadioGroup` / `UnderlinedTabBar` / `SettingsRow` / `ListRow` / `SidebarDocumentRow` /
+`InsetGroupedSection`）实际跑过——且这六条**全部改判**为 `tiebreaker`。改判前登记表
+`step3` 判例基线为 `56`（`d6c5de8`），改判后为 `50`；换句话说，**登记表当前 `50` 条
+`step3` 判例里，没有一条是在这把新尺下被验证「确实过」的**——目前新尺只产出过「不过」
+的实例（六个全改判），一个「过」的正例都没留下；其余 `50` 条 `step3` 仍是在这两条新
+条款出台前、按当时（更松的）标准落盘的，从未被新尺复核过。⇒ 登记表现在**同时挂着两把
+尺**：6 条经过新尺压测（结果全部翻转），50 条仍按旧尺服役。详见
+`docs/contract-defects.md` D-44-1。
+
+### （提前登记）公约「候选形态的作用域」小节「登记表两侧都有成文样本」在 `step3` 侧可能归零（评审 I-D）
+
+若六条全改判（本轮已确认成立）、且 `Tag`（Task 5 待裁）在同一把反事实必要性压测下也
+判「不过」，则公约「候选形态的作用域」小节那句「登记表两侧都有成文样本，不是
+空设：`Tag`（作用域排除后**另有**积极理由 ⇒ `step3`）与 `TagInput`（…⇒ `tiebreaker`）」
+的 **`step3` 侧样本归零**，该句当场变假——`Tag` 是该句唯一点名的 `step3` 侧例子，
+若它也倒向 `tiebreaker`，整条款的「两侧都有」就没有任何幸存实例。详见
+`docs/contract-defects.md` D-44-2；不在本任务改公约正文，只登记，裁断权在 epic 层面。
