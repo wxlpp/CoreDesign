@@ -463,14 +463,14 @@ R-10 才是同源——位置、层级、`### R-` 计数均未变，仅更正节
   |---|---|---|
   | 第 2 节「正确先例」旁注（`:129-132` 整段） | 原措辞声称该 public 参数仍在、且称它仍在第 3 节的处置范围内（⚠️ **刻意不逐字引原句**：原句正好落在本 Task 归零清单的模式里，逐字引会在**扫描面一旦扩到本台账时**自破断言 —— 与第 2 轮评审 C-2 同型。今日归零断言只扫 `docs/component-contract.md`，但不留这个雷） | 两文件的文档注释现写「**#41 破坏性变更**：`glass: Bool`（legacy Telegram 玻璃模式开关）**已按公约第 3 节**」，public 参数已删。⚠️ **描述必须写准**：`git grep -n --untracked 'glass:' -- Sources/` 命中 **11 处、分布在 4 个文件**（`CircularGlassButtonStyle.swift:12` / `LightButtonStyle.swift:14` / `SolidButtonStyle.swift:18` `:20` / `SegmentedControl.swift` 六处），internal `let glass: Bool` 有**两处**（`:129` / `:458`）——**不是「全在 `SegmentedControl.swift`」、也不是「一处 internal 字段」**（初稿两处失实，已更正） |
   | 3.4「反例（重要）」段 | 「**取舍留给 #41，但不许默认归并**」 | `Sources/CoreDesign/Components/Rating/RatingDisplay.swift` 已存在，登记表已有 `RatingDisplay` 条目 |
-  | 第 3 节豁免基线段 | 「跨历史闸**移交 #41/#43**」 | #41/#43 均已落地且**都没做**（`bool-exemptions-baseline.json` 的 `rationale` 原话自承） |
+  | 第 3 节豁免基线段 | 「跨历史闸**移交 #41/#43**」 | #41 已落地未做；`#43` **仍开放**（`gh issue list --repo wxlpp/oh-my-story --state all` 实测 `state=OPEN`），跨历史闸两侧均未实现（`bool-exemptions-baseline.json` 的 `rationale` 原话自承） |
   | AD-2 的 `BottomInputBar` 段 | 「真正的处置**移交 #41/#42**」 | 组件仍在；`View.bottomInputBar#placeholder` 仍在 `knownFunctionSideBareText` 桶里 |
 - **⚠️ 经核对判「不改」的 4 处必须逐条留痕——「核对过、结论是不改」与「没核对」在成品上必须可区分**
   （这正是本 epic 反复栽的地方）。**一行一处，不许合并**：
   | 处（原行） | 原话片段 | 结论 | 依据 |
   |---|---|---|---|
   | 第 4 节 B 类存量改造（`:301`） | 「属破坏性变更，必须进 `docs/BREAKING-CHANGES.md`，节奏归 #42」 | ✅ 已核对｜结论：不改 | 它是**规则**（存量 B 类改造的节奏归属），不是前瞻例；#42 已落地不改变该规则的表述 |
-  | 第 4 节本地化基建（`:306`） | 「缺 `defaultLocalization` 的是 **StoryUI**（归 #43）」 | ✅ 已核对｜结论：不改 | #43 已补 `defaultLocalization`，但该句描述的**跨仓归属**至今有效（这一侧仍归 StoryUI 维护） |
+  | 第 4 节本地化基建（`:306`） | 「缺 `defaultLocalization` 的是 **StoryUI**（归 #43）」 | ✅ 已核对｜结论：不改 | 实测：StoryUI `Packages/StoryUI/Package.swift` 至今无 `defaultLocalization`（`awk 'index($0,"defaultLocalization")'` 命中 **0**）；#43 **明确裁决不声明它**（`43-spec.md` Q2 原话：「本任务不声明它」）——该句仍成立。「（归 #43）」这个指向单独表态：`#43` **仍开放**（`gh` 实测 `state=OPEN`）⇒ 指向仍有效 ⇒ 不改 |
   | 判据落点表的跨仓边界句（`:386`） | 「「这条不归本仓判据管，已移交 #43」，不是「查不出问题所以放行」」 | ✅ 已核对｜结论：不改 | 它描述的是**跨仓边界语义**（三条判据只对 `repo == coredesign` 跑），#43 落地后依然如此 |
   | AD-2 末尾（`:578`） | 「那是**破坏性变更**，节奏归 #42，**属于被搁置而非被否决的选项**」 | ✅ 已核对｜结论：不改 | 三个 modifier 的 internal 化确实未做，且原文**自称「被搁置」**——它本来就不是前瞻例，是一条明示的搁置记录 |
   ⚠️ **这四行各自带的核对标记是可断言的**（Step 7 的计数断言 `= 4`，行锚定只数表行）。
@@ -478,9 +478,12 @@ R-10 才是同源——位置、层级、`### R-` 计数均未变，仅更正节
   而断言期望 `= 3` 所以照绿**——「机制建对了、基数标错了」比没有断言更危险，因为它给出
   「已经数过了」的假信号。⇒ **判定表与留痕表必须同一批数据、逐处一行**：
   Step 2 的判定表现已拆成 `:301` / `:306` / `:386` / `:578` 四行独立行，与本表一一对应。
-- **改动前（逐字）**：见下方「形状核对结果」表的「例句形状」列与 Step 2 判定表的「内容」列
-  ——13 处的改动前原文逐处记在那两张表里（本条记录不重复抄一遍，但**每一处都有逐字原文可对照**）。
-- **改动后（逐字）**：见 Task 10 Step 3–6 给出的替换文本（每处一段 markdown 代码块，逐字可比对）。
+- **改动前（逐字）**：见下方「形状核对结果」表的「例句形状」列，与 `oh-my-story` 仓
+  `issue-44-closeout` 分支 `.claude/epics/component-contract/44-plan.md`「### Task 10」
+  节 Step 2 判定表的「内容」列——13 处的改动前原文逐处记在那两张表里（本条记录不重复
+  抄一遍，但**每一处都有逐字原文可对照**）。
+- **改动后（逐字）**：见同一文件 `44-plan.md`「### Task 10」节 Step 3–6 给出的替换文本
+  （每处一段 markdown 代码块，逐字可比对）。
 - **形状核对结果（缺陷原文明令的那一步）**：
   | 组 | 例句形状 | 实际落地形状 | 一致？ | 处置 |
   |---|---|---|---|---|
@@ -489,7 +492,9 @@ R-10 才是同源——位置、层级、`### R-` 计数均未变，仅更正节
   | 组 3 | `bordered: Bool` → **`border: BorderStyle`** | **`SurfaceKind.grouped` + `CardKind`** | ❌ **不一致** | **保留例句 + 标注差异**（缺陷原文给的两个选项之一），并明写「**本仓从未落地过 `BorderStyle` 这个类型**」 |
   ⚠️ **组 3 只改时态就会让公约声称已落地一个不存在的 API**——本 epic 已抓到七例文档与源码不符，
   那样等于预订第八例。**不改写例句的理由**：它演示的是「两 case enum 不算替代路径」，
-  而 `SurfaceKind` 有 7 个 case、不是两 case enum，换成落地形状会毁掉反例的教学价值。
+  而 `SurfaceKind` 实测有 **10** 个 case（`canvas` / `content` / `control` / `floating` /
+`overlay` / `grouped` / `canvasSubtle` / `panel` / `sidebar` / `card`）、不是两 case
+enum，换成落地形状会毁掉反例的教学价值。
 - **落点**：`docs/component-contract.md` 共 13 处（8 前瞻例 + 普查另抓的 5 处增量）。
 - **连带改动**：无（不新增 `###` 小节，`requiredSubsections` 保持 14 条）。
 - **验证**：`v0.8.0` 标注命中 0 → ≥10；`SurfaceKind.grouped` 0 → ≥2；`CardKind` 0 → ≥2；
@@ -574,3 +579,17 @@ A、C 参数的兜底不是——唯一挡住这两处的是「B 类参数的」
 在公约里加范围说明 + 把 C 侧缺口登记为缺陷，不做静默重分类——把这两条 C 扫进 A 是未
 声明的连带改判（会改动登记表 `textParams` 分类），超出「补一行三分法」的范围；但装
 作没这回事就是留白。详见 `docs/contract-defects.md` `D-44-4`。
+
+### （提前登记）C-1/C-2 的两处指向改为 close-out.md「## 四、移交清单」，需 Task 12 落地登记（Task 10 评审）
+
+`docs/component-contract.md` 第 3 节豁免基线段（跨历史闸 `#41`/`#43`）与 AD-2 段
+（`BottomInputBar` / `View.bottomInputBar#placeholder`）原指向本文件「已知判据缺口」节，
+但该节 G-1~G-8 无一行对应这两处，是**空指针**（Task 10 评审 C-2）。本次改指向
+`oh-my-story` 仓 `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」，
+但该文件当前「## 四」为空——**这两条移交项本身尚未真正登记**，需 Task 12 收口时把
+以下两条实际写入 close-out.md「## 四」：
+1. `sourceSites` 跨历史闸：`scripts/bool-exemptions-ratchet.sh` 只读 `maxEntries`、
+   不读 `sourceSites`，跨历史破例流程未实现；承接者 `#43`（`gh` 实测仍 `OPEN`）。
+2. `BottomInputBar` / `View.bottomInputBar#placeholder`：组件仍无可登记的 public
+   类型表面，`placeholder` 落在 FR-4 定义域之外、无机器判据分类；两条出路是删组件，
+   或给它一个可登记的 public 类型表面。

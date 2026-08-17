@@ -287,9 +287,11 @@
   与配套的严格等式断言（见 `BoolExemptionGuard.swift` 的 `baselineRatchetHoldsExactly`），
   但**只保证这次变化在 diff 里可见**——`scripts/bool-exemptions-ratchet.sh` 从头到尾
   只读 `maxEntries`、不读 `sourceSites`，`sourceSites` 未纳入该脚本的跨历史破例流程；
-  跨历史闸**至今未实现**（#41/#43 均已落地且都未做；`docs/bool-exemptions-baseline.json` 的
+  跨历史闸**至今未实现**（#41 已落地未做；`#43` **仍开放**，跨历史闸的承接者是它；
+  `docs/bool-exemptions-baseline.json` 的
   `rationale` 原话即「`sourceSites` 的跨历史闸仍未实现（`scripts/bool-exemptions-ratchet.sh`
-  只读 `maxEntries`）」）⇒ 见本文件「已知判据缺口」节的移交去向。**不再指向已关闭的 issue。**
+  只读 `maxEntries`）」）⇒ 见 `oh-my-story` 仓
+  `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」。
 ⚠️ 这句话说的是**豁免面**（`docs/bool-exemptions.json` + 其 `maxEntries`）本身的
 台账，不含 `pendingViolationKeys`（`BoolExemptionGuard.swift` 里写死的、按公约 A.3
 已裁决为已知违规、刻意不放进豁免清单的那个集合）——它是一条平行通道，不占
@@ -308,9 +310,19 @@ J-1 的谓词是「**任何 Bool**」，做的是纯符号比对 ⇒
 **机器判据完全挡不住**，而它只是换了名字的同一个布尔旋钮。
 ⚠️ **本例句是构造出来演示「两 case enum 逃逸」的，不是本仓的落地形状**：
 `bordered` 在 `v0.8.0` 的实际处置是**删除参数**、改走 `SurfaceKind.grouped`（`View.surface(_:)`）
-与 `CardKind`（`Card(kind:)`）这两个**独立成立的角色枚举**（#41 裁决 1/2，见
+与 `CardKind`（`Card(kind:)`）这两个**独立成立的角色枚举**（#41 裁决 1，见
 `docs/BREAKING-CHANGES.md` B1/B2）——**本仓从未落地过 `BorderStyle` 这个类型**。
 例句保留是因为它演示的逃逸路径本身仍然有效；标注是为了不让读者以为 `BorderStyle` 已存在。
+⚠️ **`CardKind` 恰好也只有两个 case**（`.content` / `.grouped`，`CardKind` 自己的文档
+注释自称「刻意只有两个 case」）——字面上它落在上面「头号反例」判据的射程内，但它
+**合规**，与 `bordered: Bool` 不是同一回事。理由（#41 裁决 1，两点独立成立）：
+① **取值域是刻意收窄的结果，不是巧合**——`Card` 是 `.surface(.content)` 的薄封装，
+若开放全部 `SurfaceKind`，`Card(kind: .canvas)` 这类组合会把薄封装拓宽成万能容器
+（卡片贴画布 ⇒ 隐形，正是 Issue #140 的塌缩回归形态），两个 case 是有意为之的范围
+限定；② `.grouped` 本身按上面「取值域的命名规矩」判据**独立成立为一种容器角色**
+（iOS 自己把这种形态叫 `.insetGrouped`，本仓 `InsetGroupedSection` 已在用同名角色），
+不是「换个名字的同一个布尔旋钮」。⇒ **两 case 数本身不是判据**，「是否独立成立为
+角色」才是；`CardKind` 靠②过审，`bordered: Bool` 过不了②。
 
 **这是最廉价的逃逸路径，而公约文档是唯一能封住它的地方。**
 
@@ -398,7 +410,7 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 
 **反例**：把 `Card(bordered: Bool)` 挪成 `.card(bordered: false)` —— **错**。
 换了个位置的同一个布尔旋钮，不是替代路径。
-⚠️ **已于 `v0.8.0` 落地**（#41 裁决 2）：`Card(bordered:)` 删除，改为 `Card(kind: CardKind)`
+⚠️ **已于 `v0.8.0` 落地**（#41 裁决 1）：`Card(bordered:)` 删除，改为 `Card(kind: CardKind)`
 ——走的是 3.1（还原成真实取值域），**不是** 3.3。
 
 ### 3.4 环境值
@@ -710,6 +722,11 @@ Bool + 配套闭包 ⇒ 按 **3.2** 走**子视图槽**，一并消除 `Tag.init
 ⇒ 结论：**不合规**（当年判决）。**最终处置已于 `v0.8.0` 落地**：删除参数（#41 裁决 1），
 走的是第 3 节终局条款的出口 **(b) 论证这个参数本不该存在**——这也是终局条款「(b) 是现实中
 最常见的处置」这句话的第一个实证。
+⚠️ **以下两段（『它不进豁免清单』/『落法是 `withKnownIssue`』）是 `v0.8.0` 之前的落法
+记录，不是现状**：`bordered` 参数已删除，`BoolExemptionGuard.swift` 里包住它的
+`withKnownIssue` 块也已随之删除（见上方「本节已从『待办项』转为已落地判例」段与下面
+「到期确实是机器强制的」段）；保留这两段是为了让「当年为什么选 `withKnownIssue`
+而不是让 CI 字面红」可追溯。
 ⚠️ **它不进豁免清单**：`View.surface#bordered` 不在 `docs/bool-exemptions.json` 里，
 因此**不占** `maxEntries` 的格子、**不受**棘轮保护——它不是「被接受的 API」，
 而是一条**已知的、未解决的违规**。
@@ -760,7 +777,8 @@ public API 面，需要治理——6 个 Bool 已由 `39.md` 的 J-1 覆盖（�
 而 `BottomInputBar` 按本裁决**不登记** ⇒ 它的 `placeholder` 落在 FR-4 的**定义域之外**
 （`ComponentTextParamGuard.knownFunctionSideBareText`，有固定集合断言盯着，不是静默略过）。
 真正的处置 #41/#42 **均未做**：`BottomInputBar` 仍在，`View.bottomInputBar#placeholder`
-至今没有任何机器判据给它分类 ⇒ 见本文件「已知判据缺口」节的移交去向。
+至今没有任何机器判据给它分类 ⇒ 见 `oh-my-story` 仓
+`.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」。
 两条出路仍是：删掉这个组件，或给它一个可登记的 public 类型表面。
 
 ⚠️ **`Toast` 是反例，同样点名写死，以示裁决边界不是含糊的**：`Toast`（`docs/README.md:78`
