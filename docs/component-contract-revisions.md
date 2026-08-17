@@ -452,6 +452,53 @@ R-10 才是同源——位置、层级、`### R-` 计数均未变，仅更正节
   `requiredSubsections` 14 不变；`swift test --filter ComponentContractStructureGuard`
   → `2 tests in 1 suite passed`；`swift test` → `370 … 3 known issues`。
 
+### R-12｜D-41-6 三组八处「前瞻例」时态失真 + 普查出的五处增量
+
+- **来源试点**：#41（三项裁决落地后，公约正文的前瞻例集体失真；#41 按 S2′ 纪律不改公约正文，统一走 #44）。
+- **撞上公约哪一条**：3.1 例句 / 3.3 表格与反例 / 3.4 例句与反例段 / 头号反例例句 / 附录 A.1 / A.1 续 / A.3 整节 / 第 2 节「正确先例」段的 `glass` 旁注 / 第 3 节豁免基线段的跨历史闸指向 / AD-2 的 `BottomInputBar` 处置指向。
+- **⚠️ 处置面是 13 处，不是 8 处**：`44-spec.md` 记的「三组八处」是 #41 的缺陷原文；本任务按
+  「逐处核对」的要求做了**全量前瞻引用普查**（`awk` 扫 `留给 #4` / `移交 #4` / `归 #4` /
+  `待处置` / `至今带` / `仍属` / `一旦删掉`，**`TOTAL=11`**），逐条核对源码后判出**5 处增量失真**：
+  | 增量 | 内容 | 实测依据 |
+  |---|---|---|
+  | 第 2 节「正确先例」旁注（`:129-132` 整段） | 原措辞声称该 public 参数仍在、且称它仍在第 3 节的处置范围内（⚠️ **刻意不逐字引原句**：原句正好落在本 Task 归零清单的模式里，逐字引会在**扫描面一旦扩到本台账时**自破断言 —— 与第 2 轮评审 C-2 同型。今日归零断言只扫 `docs/component-contract.md`，但不留这个雷） | 两文件的文档注释现写「**#41 破坏性变更**：`glass: Bool`（legacy Telegram 玻璃模式开关）**已按公约第 3 节**」，public 参数已删。⚠️ **描述必须写准**：`git grep -n --untracked 'glass:' -- Sources/` 命中 **11 处、分布在 4 个文件**（`CircularGlassButtonStyle.swift:12` / `LightButtonStyle.swift:14` / `SolidButtonStyle.swift:18` `:20` / `SegmentedControl.swift` 六处），internal `let glass: Bool` 有**两处**（`:129` / `:458`）——**不是「全在 `SegmentedControl.swift`」、也不是「一处 internal 字段」**（初稿两处失实，已更正） |
+  | 3.4「反例（重要）」段 | 「**取舍留给 #41，但不许默认归并**」 | `Sources/CoreDesign/Components/Rating/RatingDisplay.swift` 已存在，登记表已有 `RatingDisplay` 条目 |
+  | 第 3 节豁免基线段 | 「跨历史闸**移交 #41/#43**」 | #41/#43 均已落地且**都没做**（`bool-exemptions-baseline.json` 的 `rationale` 原话自承） |
+  | AD-2 的 `BottomInputBar` 段 | 「真正的处置**移交 #41/#42**」 | 组件仍在；`View.bottomInputBar#placeholder` 仍在 `knownFunctionSideBareText` 桶里 |
+- **⚠️ 经核对判「不改」的 4 处必须逐条留痕——「核对过、结论是不改」与「没核对」在成品上必须可区分**
+  （这正是本 epic 反复栽的地方）。**一行一处，不许合并**：
+  | 处（原行） | 原话片段 | 结论 | 依据 |
+  |---|---|---|---|
+  | 第 4 节 B 类存量改造（`:301`） | 「属破坏性变更，必须进 `docs/BREAKING-CHANGES.md`，节奏归 #42」 | ✅ 已核对｜结论：不改 | 它是**规则**（存量 B 类改造的节奏归属），不是前瞻例；#42 已落地不改变该规则的表述 |
+  | 第 4 节本地化基建（`:306`） | 「缺 `defaultLocalization` 的是 **StoryUI**（归 #43）」 | ✅ 已核对｜结论：不改 | #43 已补 `defaultLocalization`，但该句描述的**跨仓归属**至今有效（这一侧仍归 StoryUI 维护） |
+  | 判据落点表的跨仓边界句（`:386`） | 「「这条不归本仓判据管，已移交 #43」，不是「查不出问题所以放行」」 | ✅ 已核对｜结论：不改 | 它描述的是**跨仓边界语义**（三条判据只对 `repo == coredesign` 跑），#43 落地后依然如此 |
+  | AD-2 末尾（`:578`） | 「那是**破坏性变更**，节奏归 #42，**属于被搁置而非被否决的选项**」 | ✅ 已核对｜结论：不改 | 三个 modifier 的 internal 化确实未做，且原文**自称「被搁置」**——它本来就不是前瞻例，是一条明示的搁置记录 |
+  ⚠️ **这四行各自带的核对标记是可断言的**（Step 7 的计数断言 `= 4`，行锚定只数表行）。
+  ⚠️ **初稿把 `:301`/`:306`/`:386` 并成一行判「不改」，却只写了 3 行留痕 ⇒ `:386` 没有留痕行，
+  而断言期望 `= 3` 所以照绿**——「机制建对了、基数标错了」比没有断言更危险，因为它给出
+  「已经数过了」的假信号。⇒ **判定表与留痕表必须同一批数据、逐处一行**：
+  Step 2 的判定表现已拆成 `:301` / `:306` / `:386` / `:578` 四行独立行，与本表一一对应。
+- **改动前（逐字）**：见下方「形状核对结果」表的「例句形状」列与 Step 2 判定表的「内容」列
+  ——13 处的改动前原文逐处记在那两张表里（本条记录不重复抄一遍，但**每一处都有逐字原文可对照**）。
+- **改动后（逐字）**：见 Task 10 Step 3–6 给出的替换文本（每处一段 markdown 代码块，逐字可比对）。
+- **形状核对结果（缺陷原文明令的那一步）**：
+  | 组 | 例句形状 | 实际落地形状 | 一致？ | 处置 |
+  |---|---|---|---|---|
+  | 组 1 | `Rating(step: Double)` | `Rating(step: Double)` | ✅ | 只改时态 + 标注 `v0.8.0` |
+  | 组 2 | `isReadOnly` 与 `isEnabled` 重叠 ⇒ 拆分 | 拆分为 `Rating` + `RatingDisplay`（共用 `RatingStyle`） | ✅ | 改时态 + 补拆分而非归并的理由 |
+  | 组 3 | `bordered: Bool` → **`border: BorderStyle`** | **`SurfaceKind.grouped` + `CardKind`** | ❌ **不一致** | **保留例句 + 标注差异**（缺陷原文给的两个选项之一），并明写「**本仓从未落地过 `BorderStyle` 这个类型**」 |
+  ⚠️ **组 3 只改时态就会让公约声称已落地一个不存在的 API**——本 epic 已抓到七例文档与源码不符，
+  那样等于预订第八例。**不改写例句的理由**：它演示的是「两 case enum 不算替代路径」，
+  而 `SurfaceKind` 有 7 个 case、不是两 case enum，换成落地形状会毁掉反例的教学价值。
+- **落点**：`docs/component-contract.md` 共 13 处（8 前瞻例 + 普查另抓的 5 处增量）。
+- **连带改动**：无（不新增 `###` 小节，`requiredSubsections` 保持 14 条）。
+- **验证**：`v0.8.0` 标注命中 0 → ≥10；`SurfaceKind.grouped` 0 → ≥2；`CardKind` 0 → ≥2；
+  **七条**失真措辞（`至今带` / `一旦删掉` / `仍属`+`待处置项` 的连写形态 / `取舍留给 #41` / `留给 #41 试点` /
+  `跨历史闸移交 #41/#43` / `真正的处置移交 #41/#42`）全部归 0；
+  `border: BorderStyle` **刻意保留 1 处**（附标注）；`^### ` 23 与 `requiredSubsections` 14 均不变；
+  `swift test --filter ComponentContractStructureGuard` → `2 tests in 1 suite passed`；
+  `swift test` → `370 tests in 61 suites passed … with 3 known issues`。
+
 <!-- R-12 由 Task 10 追加。
      ⚠️ 全部 R- 条目共 12 条（R-1~R-12），本节 8 条、第一节 4 条。 -->
 
