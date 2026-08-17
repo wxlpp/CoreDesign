@@ -24,10 +24,10 @@ struct ComponentContractStructureGuard {
         "## 5. 环境值清单",
     ]
 
-    /// **10 个**承重 `###`/`####` 小节——tiebreaker、优先级固定、边界条款、终局条款、
+    /// **11 个**承重 `###`/`####` 小节——tiebreaker、优先级固定、边界条款、终局条款、
     /// 头号反例、Style Configuration 状态 Bool 豁免，是四轮评审换来的增量；
     /// `by-type` 取值定义、三方同步通则、AD-2、AD-3 四条是 Issue #38 Task 2 本轮
-    /// 新增的承重内容。
+    /// 新增的承重内容。#44 回写的「候选形态的作用域」是第 11 条。
     /// ⚠️ **数字与下面数组的元素数必须一致**：第一版注释写「5 个」并逐一列举，
     /// 而数组在同一轮里已补到 6 个——**新增的那条不在列举里，最容易被后人当成多余而误删**
     /// （Copilot round 1 报出）。本轮终审 I1 发现同一种病复发：数组停在 6 个，而公约
@@ -55,6 +55,9 @@ struct ComponentContractStructureGuard {
         // 修好会立刻把本判据打红**，所以两处必须同轮改。现已把公约标题合并成一行，
         // 这里同步改成完整字面量。
         "#### AD-3 裁决：AC #49 点名的三个 style（`CoreLabelStyle`/`CoreProgressViewStyle`/`CoreDisclosureGroupStyle`）在新登记单位下无对应物",
+        // #44 SC-8 回写：判定法步骤 2 的作用域规则（不是第四出口）。没有它，
+        // 6 条 step3 判例援引的那条规矩在公约里零提及。
+        "### ⚠️ 候选形态的作用域：由兄弟组件承担的形态不计入候选",
     ]
 
     static var contractURL: URL {
