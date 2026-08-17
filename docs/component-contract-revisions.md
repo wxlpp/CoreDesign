@@ -608,6 +608,6 @@ A、C 参数的兜底不是——唯一挡住这两处的是「B 类参数的」
 | 既有 `tiebreaker` 条目（8 条，改判前基线）按新作用域条款重新路由 | **不做** | R-1 的「不追溯」条款明令：重 derive 须走本回路。本轮**没有**任何这 8 条里的条目被重新路由——`StreamingIndicator` 式重诉通路已被封住 |
 | `InsetGroupedSection` / `SettingsRow` 在公约第 4 节被点名 | **不构成对其 `decidedBy`/`kind` 的钉死** | R-2：「钉为范例」按结论逐条计；那两处是 **textParams 语境** |
 | 公约第 3 节「归 #42」的 B 类存量改造节奏、「归 #43」的 `defaultLocalization`、AD-2 末尾「被搁置而非被否决」 | **不改** | 经核对仍成立：前者是**规则**不是前瞻例，后两者描述的事实至今有效（R-12 已记） |
-| `bordered: Bool` → `border: BorderStyle` 例句 | **保留例句 + 标注差异**，不改写成落地形状 | 它演示的是「两 case enum 不算替代路径」，而 `SurfaceKind` 有 7 个 case ⇒ 换成落地形状会毁掉反例的教学价值。缺陷原文允许「标注差异」（R-12） |
+| `bordered: Bool` → `border: BorderStyle` 例句 | **保留例句 + 标注差异**，不改写成落地形状 | 它演示的是「两 case enum 不算替代路径」，而 `SurfaceKind` 实测有 10 个 case（见本文件 R-12：`canvas`/`content`/`control`/`floating`/`overlay`/`grouped`/`canvasSubtle`/`panel`/`sidebar`/`card`）⇒ 换成落地形状会毁掉反例的教学价值。缺陷原文允许「标注差异」（R-12） |
 | 判据实现（G-1 ~ G-8 的修复） | **不做** | `44-spec.md` 第四节：不新建判据、不改判据实现 ⇒ 全部移交，见 `close-out.md` `## 四` |
-| `D-44-1`（新尺只覆盖 6+1=7 条、其余约 49 条 `step3` 判例未复核）/ `D-44-4`（C 类同形态兜底未随 #43-1 处置）| **不裁**，如实登记 | 裁断权在 epic 层面（用户），Task 12 只登记移交，不代裁；见 `close-out.md` `## 四` 4.4 |
+| `D-44-1`（新尺只覆盖 6+1=7 条、其余 49 条 `step3` 判例未复核）/ `D-44-4`（C 类同形态兜底未随 #43-1 处置）| **不裁**，如实登记 | 裁断权在 epic 层面（用户），Task 12 只登记移交，不代裁；见 `close-out.md` `## 四` 4.4 |

@@ -58,7 +58,7 @@ struct ComponentContractStructureGuard {
         // 这里同步改成完整字面量。
         "#### AD-3 裁决：AC #49 点名的三个 style（`CoreLabelStyle`/`CoreProgressViewStyle`/`CoreDisclosureGroupStyle`）在新登记单位下无对应物",
         // #44 SC-8 回写：判定法步骤 2 的作用域规则（不是第四出口）。没有它，
-        // 6 条 step3 判例援引的那条规矩在公约里零提及。
+        // 6 条援引兄弟组件惯例的判例所援引的那条规矩在公约里零提及。
         "### ⚠️ 候选形态的作用域：由兄弟组件承担的形态不计入候选",
         // #44 SC-8 回写：事后补写 notes 的效力边界。没有它，任何已发布判例都可由
         // 一次 notes 补写悄悄翻转（`SkeletonCircle` 是现成的可被翻转样本）。

@@ -122,6 +122,9 @@
 `TagInput`（作用域排除后**没有**积极理由——`notes` 原话「`TagInput` 自身没有独立可换皮的
 表面 ⇒ 举得犹豫」⇒ `tiebreaker`）。同一条排除条款，两种落点。
 
+⚠️ 该样本的独立理由经 #44 反事实必要性压测判「不过」，见 docs/contract-defects.md
+D-44-2 / D-44-3——本句「两侧都有成文样本」的 `step3` 侧当前没有一个能扛住新尺的正例。
+
 ⚠️ **与皮肤变体条款的交叉——优先序（缺了这条就是同一种病的第三次）**：
 一个候选可能**同时**命中本条与皮肤变体条款（`Tag` 的 pill 就是：既是 `Badge` 的领域，
 又与 `Tag` 自身共享「低 chrome 状态色块」骨架）。两条款对落点的规定是**冲突**的——
@@ -291,7 +294,7 @@
   `docs/bool-exemptions-baseline.json` 的
   `rationale` 原话即「`sourceSites` 的跨历史闸仍未实现（`scripts/bool-exemptions-ratchet.sh`
   只读 `maxEntries`）」）⇒ 见 `oh-my-story` 仓
-  `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」。
+  `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」（该文件随 #44 收口 PR 落地）。
 ⚠️ 这句话说的是**豁免面**（`docs/bool-exemptions.json` + 其 `maxEntries`）本身的
 台账，不含 `pendingViolationKeys`（`BoolExemptionGuard.swift` 里写死的、按公约 A.3
 已裁决为已知违规、刻意不放进豁免清单的那个集合）——它是一条平行通道，不占
@@ -687,6 +690,9 @@ PRD 原文：「与 `onRemove` 闭包耦合 ⇒ 既是外观也是行为」。
 
 ⇒ 结论：**规定性组件，不给扩展点**。**未卡住。**
 
+⚠️ 该样本的独立理由经 #44 反事实必要性压测判「不过」，见 docs/contract-defects.md
+D-44-2 / D-44-3——步骤 3「✅ 是」的判定未被翻转，但支撑它的独立理由已确认站不住。
+
 ### A.1 续：`allowsHalfStar` 这个参数改成什么形状
 
 `Rating` 的手势注释写明它算出 `step`（`allowsHalfStar ? 0.5 : 1.0`）供手势
@@ -778,7 +784,7 @@ public API 面，需要治理——6 个 Bool 已由 `39.md` 的 J-1 覆盖（�
 （`ComponentTextParamGuard.knownFunctionSideBareText`，有固定集合断言盯着，不是静默略过）。
 真正的处置 #41/#42 **均未做**：`BottomInputBar` 仍在，`View.bottomInputBar#placeholder`
 至今没有任何机器判据给它分类 ⇒ 见 `oh-my-story` 仓
-`.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」。
+`.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」（该文件随 #44 收口 PR 落地）。
 两条出路仍是：删掉这个组件，或给它一个可登记的 public 类型表面。
 
 ⚠️ **`Toast` 是反例，同样点名写死，以示裁决边界不是含糊的**：`Toast`（`docs/README.md:78`
