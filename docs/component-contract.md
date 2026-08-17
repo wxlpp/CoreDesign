@@ -524,6 +524,25 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 / `StringProtocol` 孪生重载；登记为 B/C 的参数必须有裸串入口。现状 2 条 `by-type`
 （`Descriptions.header` / `SpinningModifier.text`）+ 28 条 B/C 全部满足。
 
+### ⚠️ 已知判据缺口：本公约有规定、机器判据够不到的地方
+
+⚠️ **本节是「诚实留痕」，不是待办清单。** 列在这里的每一条都是**当前靠人守**的规矩——
+读到它就该知道「判据绿了**不代表**这一条被查过」。实现层的修复各自有移交去向。
+⚠️ **公约缺陷的定义明文包含「判据漏判」**（`docs/contract-defects.md` 开篇），
+因此这些条目**同样要回写公约**，不能因为「实现层不在本任务范围」就整条划出。
+
+| # | 缺口 | 判据侧现状 | 靠什么补位 | 实现层 |
+|---|---|---|---|---|
+| **G-1** | J-2 的 `customStyleProtocol` 通路**只查符号存在性**，查不出「组件真的把定制权交出去了」 | 判绿条件是「协议已声明 + 至少一个类型采纳」（`Tests/CoreDesignTests/ComponentJudgeRules.swift`）。组件完全可以声明协议、登记表填上名字，而 `body` 里照旧硬渲染 ⇒ J-2 照绿 | **一条人来守的规矩 + spy 测试**：#41 的 `Rating` / `RatingDisplay` 用「`body` 真的经 `style.makeBody(configuration:)` 渲染」的测试补位，#43 同款。**靠人自觉，不是靠判据** | 做成机器判据需要语义判断、成本明显更高 ⇒ 移交，本公约先把精度上限写在明处 |
+| **G-3** | README 组件索引的对账是**单向**的，且不检查快照存在性 | `ComponentRegistryGuard.readmeIndexReconcilesWithRegistry` 只做 README → 登记表方向：索引**缺行不会红**；也不检查该行 `<img src="snapshots/...">` 指向的 PNG 是否真的存在 | 无——靠人补。#41 新增 `RatingDisplay` 时索引行与快照全靠人手补 | 补一条反向断言（`kind != "excluded"` 的条目都应在 README 有行）+ 一条快照存在性断言 ⇒ 移交 |
+| **G-4** | **A 类的类型要求有规定、无判据，且本仓参考实现自己不合规** | 公约要求「A 类必须用 `LocalizedStringResource`」，而 CoreDesign `Sources/` 下 `LocalizedStringResource` 命中 **0**（实测）；`StateLabel.swift` 的 `StateLabelStyle.Spec.defaultLabel`（A 类 chrome，值是 `"Active"`/`"Draft"` 等英文）是裸 `String`。⚠️ **A 类文案不经任何一路进入 FR-4 的机器视野**：源码侧 FR-4 只扫 public `init` 参数、A 类不是参数；登记表侧 `textParams[]` 收 public 参数、A 计数恒为 0 | 无 | ⚠️ **本公约在此明写：A 类的类型要求当前无机器判据，靠评审**；并把 CoreDesign 侧 `StateLabel.defaultLabel` 登记为**已知例外**。StoryUI 的 `ChapterStatus.defaultLabel` 是整个 epic 中**唯一**遵守该条的地方——这个不对称必须记录，否则下一个人会以为 `String` 是既定惯例。`StateLabel` 的改造 ⇒ 移交 |
+| **G-5** | 跨仓登记表守卫的 `derivedDataCandidates()` 有**陈旧命中**风险（失效方向**静默**） | StoryUI 侧 `CrossRepoRegistryGuard` 做 8 级有界上溯、`allEntries()` first-hit-wins。若 `.build/checkouts` 缺席而上层恰有一份陈旧的 `SourcePackages/checkouts/CoreDesign`，守卫会**静默读到旧版登记表**——判据照常绿，但对的是过期事实 | 概率极低（需同时满足两个条件），按 #43 终审裁定**留痕而非加固** | 若要收紧，落点是在 `allEntries()` 里核对「该 checkout 的 git 版本 ≟ `Package.resolved` 的 pin」⇒ 移交 |
+| **G-6** | 同一扫描器的两处口径边缘（失效方向 **fail-loud**） | (i) `visit(_:StructDeclSyntax)` 只看结构体自身修饰符 ⇒ 嵌在非 public 容器内、有效访问级实为 internal 的 `public struct` 仍被计入；(ii) `*Demo` 排除后返回 `.visitChildren` ⇒ Demo 内嵌的 public View 也会被采集 | 今日**零命中**（25 = 25 逐名闭合可证），且失效方向是多扫 ⇒ `missing` ⇒ 红 | 留痕即可 |
+| **G-7** | `ComponentIndexGuardTests` 的 27-slug roster 是**手工清单**，有方向性盲区 | 新 View 从未进 roster 时，文档索引与 roster **一起**漏掉它、两集合仍相等、判据永绿 | 无 | 移交 |
+| **G-8** | FR-4 的 StoryUI 侧 `storyuiTextParams == 3` 只做「计数 + 条目名」核对，**无参数级源码扫描** | 工作量取舍，**非能力边界**——测试 target 已依赖 swift-syntax，基建现成；参数级扫描是独立一块工程 | 无 | 移交 |
+
+⚠️ **本节不给「G-2」留空**——它在下一段单独裁断（`ownersWithoutRegistryEntry` 台账的回收口径），
+因为那条不只要留痕，还要**给出裁断**。
 
 ## 5. 环境值清单
 
