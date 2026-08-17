@@ -158,15 +158,20 @@ struct BoolExemptionGuard {
         "StepItem": .nonViewPublicType,
         "ButtonRoleStyleRole": .nonViewPublicType,
         "SegmentedControlStyleConfiguration.Segment": .nonViewPublicType,
-        // ⚠️ **#41 裁决 3 之后，三条宿主进入「休眠」态，刻意保留**：
+        // ⚠️ **#41 裁决 3 之后，三条宿主进入「休眠」态**：
         // `ButtonStyle`（原挂 `ButtonStyle.solid#glass` / `ButtonStyle.light#glass`）、
         // `SolidButtonStyle`、`LightButtonStyle` 现在都没有活的豁免键了 ⇒
-        // `exemptionOwnersReconcileWithRegistry` 的循环不会再访问它们，
-        // 它们绑定的那条正向核对（`.styleImplementation` ⇒ `scan.styleImpls.contains`）
-        // 因此**零覆盖**。删掉它们会让 `.styleImplementation` 这个分类彻底失去样本；
-        // 保留则台账里有三条不再承重的行。两害相权取保留 + 留痕：这条不对称是
-        // #41 的一条公约缺陷记录（见 docs/contract-defects.md），交 #44 SC-8 裁断
-        // 「豁免宿主台账是否应随最后一个豁免键一并回收」。
+        // `exemptionOwnersReconcileWithRegistry` 的循环不会再访问它们。但三者归类不同，
+        // 不要一并说成都绑 `.styleImplementation`（曾在此处写错，#44 Task 9 评审 I-2
+        // 纠正）：`SolidButtonStyle` / `LightButtonStyle` 才绑 `.styleImplementation`，
+        // 它们绑定的正向核对（`scan.styleImpls.contains`）因此**零覆盖**——删掉这两行
+        // 会让 `.styleImplementation` 这个分类彻底失去样本，两害相权取保留 + 留痕。
+        // `ButtonStyle` 绑的是 `.externalProtocolExtension`，该分类由 `View` 撑着
+        // 11 个活豁免键、正向核对非零覆盖 ⇒ 不落在「保留唯一样本」的理由里。
+        // #44 SC-8 裁断（`docs/component-contract.md` G-2 的裁断）：`SolidButtonStyle`/
+        // `LightButtonStyle` 保留，`ButtonStyle` 按裁断 (ii)② 的回收条件今天已满足、
+        // 结论为可回收——本文件暂未删它是留给回收动作本身的移交，不是裁断未决。
+        // 这条不对称是 #41 的一条公约缺陷记录（见 docs/contract-defects.md）。
     ]
 
     // MARK: - Important-2 (a)：`.externalProtocolExtension` 的正向核对

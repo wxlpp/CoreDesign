@@ -536,7 +536,7 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 | # | 缺口 | 判据侧现状 | 靠什么补位 | 实现层 |
 |---|---|---|---|---|
 | **G-1** | J-2 的 `customStyleProtocol` 通路**只查符号存在性**，查不出「组件真的把定制权交出去了」 | 判绿条件是「协议已声明 + 至少一个类型采纳」（规则层 `Tests/CoreDesignTests/ComponentJudgeRules.swift`；消费该规则的 suite 是下方 J-2 行落点 `ComponentExtensionPointGuard.swift`，两者对应同一条判据的不同层次）。组件完全可以声明协议、登记表填上名字，而 `body` 里照旧硬渲染 ⇒ J-2 照绿 | **一条人来守的规矩 + spy 测试**：#41 的 `Rating` / `RatingDisplay` 用「`body` 真的经 `style.makeBody(configuration:)` 渲染」的测试补位，#43 同款。**靠人自觉，不是靠判据** | 做成机器判据需要语义判断、成本明显更高 ⇒ 移交，本公约先把精度上限写在明处 |
-| **G-2** | `BoolExemptionGuard.ownersWithoutRegistryEntry` 台账**不随最后一个豁免键回收** | 三条宿主（`ButtonStyle` / `SolidButtonStyle` / `LightButtonStyle`）在 #41 删掉 `glass` 之后已**没有任何活的豁免键**；`exemptionOwnersReconcileWithRegistry` 的循环按豁免键遍历 ⇒ 不再访问它们 ⇒ 它们绑定的正向核对（`.styleImplementation` ⇒ `scan.styleImpls.contains(owner)`）**零覆盖**，而判据仍是绿的 | 见下方**裁断**（本次成文） | 台账条目的标注与回收触发条件的落地 ⇒ 移交 |
+| **G-2** | `BoolExemptionGuard.ownersWithoutRegistryEntry` 台账**不随最后一个豁免键回收** | 三条宿主（`ButtonStyle` / `SolidButtonStyle` / `LightButtonStyle`）在 #41 删掉 `glass` 之后都已**没有任何活的豁免键**；`exemptionOwnersReconcileWithRegistry` 的循环按豁免键遍历 ⇒ 不再访问它们。但三者归类不同：`SolidButtonStyle` / `LightButtonStyle` 绑 `.styleImplementation`，它们绑定的正向核对（`scan.styleImpls.contains(owner)`）**零覆盖**，判据仍是绿的。`ButtonStyle` 绑的是 `.externalProtocolExtension`——该分类另有 `View` 的 11 个活豁免键撑着，正向核对**非零覆盖**，`ButtonStyle` 单独按下方裁断 (ii)② 的回收条件**今天已满足**，单独表态见下方裁断 | 无——保留的行不承重，靠人守；处置口径见下方**裁断** | 台账条目的标注与回收触发条件的落地 ⇒ 移交 |
 | **G-3** | README 组件索引的对账是**单向**的，且不检查快照存在性 | `ComponentRegistryGuard.readmeIndexReconcilesWithRegistry` 只做 README → 登记表方向：索引**缺行不会红**；也不检查该行 `<img src="snapshots/...">` 指向的 PNG 是否真的存在 | 无——靠人补。#41 新增 `RatingDisplay` 时索引行与快照全靠人手补 | 补一条反向断言（`kind != "excluded"` 的条目都应在 README 有行）+ 一条快照存在性断言 ⇒ 移交 |
 | **G-4** | **A 类的类型要求有规定、无判据，且本仓参考实现自己不合规** | 公约要求「A 类必须用 `LocalizedStringResource`」，而 CoreDesign `Sources/` 下 `LocalizedStringResource` 命中 **0**（实测）；`StateLabel.swift` 的 `StateLabelStyle.Spec.defaultLabel`（A 类 chrome，值是 `"Active"`/`"Draft"` 等英文）是裸 `String`。⚠️ **A 类文案不经任何一路进入 FR-4 的机器视野**：源码侧 FR-4 只扫 public `init` 参数、A 类不是参数；登记表侧 `textParams[]` 收 public 参数、A 计数恒为 0 | 评审（无机器判据） | ⚠️ **本公约在此明写：A 类的类型要求当前无机器判据，靠评审**；并把 CoreDesign 侧 `StateLabel.defaultLabel` 登记为**已知例外**。StoryUI 的 `ChapterStatus.defaultLabel` 是整个 epic 中**唯一**遵守该条的地方——这个不对称必须记录，否则下一个人会以为 `String` 是既定惯例。`StateLabel` 的改造 ⇒ 移交 |
 | **G-5** | 跨仓登记表守卫的 `derivedDataCandidates()` 有**陈旧命中**风险（失效方向**静默**） | StoryUI 侧 `CrossRepoRegistryGuard` 做 8 级有界上溯、`allEntries()` first-hit-wins。若 `.build/checkouts` 缺席而上层恰有一份陈旧的 `SourcePackages/checkouts/CoreDesign`，守卫会**静默读到旧版登记表**——判据照常绿，但对的是过期事实 | 概率极低（需同时满足两个条件），按 #43 终审裁定**留痕而非加固** | 若要收紧，落点是在 `allEntries()` 里核对「该 checkout 的 git 版本 ≟ `Package.resolved` 的 pin」⇒ 移交 |
@@ -550,21 +550,41 @@ D-41-4 移交给 #44 的原话要求裁断两件事：**(i) 台账条目是否�
 **(ii) 分类的「样本保留」需求该怎么表达**。逐条给出结论：
 
 **(i) 裁断：不随最后一个豁免键回收——但保留必须是「显式标注的保留」，不是「沉默的保留」。**
-理由：`ownersWithoutRegistryEntry` 的每个分类值（如 `.styleImplementation`）需要**至少一个活样本**，
-否则该分类分支彻底失去覆盖——删掉三条宿主会让 `.styleImplementation` 这一档没有任何样本，
-判据的这条分支从此不再被任何真实输入走过。而**静默保留**与**显式标注保留**的区别，正是
-「这三行还承不承重」能不能被下一个人读出来。⇒ **保留 + 标注**，不是**保留 + 沉默**。
+理由：三条宿主行**今天已经零覆盖**——`SolidButtonStyle` / `LightButtonStyle` 绑定的
+`.styleImplementation` 正向核对一次都不会被执行，删与不删这两条宿主行，覆盖率都是 0，
+「删掉会让它失去覆盖」这个说法不成立（它本来就没有覆盖）。更直接的理由是 `switch kind` 对
+`OwnerExclusionKind` 穷尽分支，**分支代码不随台账行的存在与否而增删**——台账行今天的
+价值不是「喂给机器判据」，是**文档性样本**：`.styleImplementation` 这个分类值**唯一的
+成文样本**，以及它背后的 AD 依据（AD-3），删掉它会让下一个人遇到这个分类时要重新从源码
+反推。⇒ 保留的是**样本**，不是**覆盖率**；覆盖缺口本身由 G-2 这一行留痕，回收/加固的
+处置移交实现层。而**静默保留**与**显式标注保留**的区别，正是「这几行还承不承重」能不能
+被下一个人读出来。⇒ **保留 + 标注**，不是**保留 + 沉默**。
+
+**(i) 对 `ButtonStyle` 的单独表态**：`ButtonStyle` 绑定的是 `.externalProtocolExtension`，
+不是 `.styleImplementation`——它不落在 (i) 要保的「唯一成文样本」范围内（`.externalProtocolExtension`
+分类另有 `View` 的 11 个活豁免键撑着正向核对，从不缺样本）。⇒ `ButtonStyle` **按 (ii)②
+的回收条件今天已满足**，本次裁断结论是**可回收**；(i) 的保留结论只覆盖
+`SolidButtonStyle` / `LightButtonStyle` 这两行。回收动作本身（删除台账里的
+`ButtonStyle` 行）属于改判据实现，本任务不做 ⇒ 移交实现层。
 
 **(ii)「样本保留」的表达形式（三条，缺一不可）：**
 1. 台账条目旁必须注明 **`样本保留`** 字样，并写清它**保留的是哪一个分类值的样本**；
-2. 必须写清**回收的触发条件**——即「什么时候可以删掉它」（例：该分类另有活的豁免键宿主时）；
+2. 必须写清**回收的触发条件**——即「什么时候可以删掉它」：**仅当移除后该分类在台账中
+   仍 ≥1 行时**方可回收；**(i) 对每个分类的最后一行恒优先于 ②**——顺序未定义会反噬样本：
+   同一分类下先死的豁免键按 ② 被删、后死的按 (i) 被留，若不钉死优先序，「最终留下谁」
+   取决于键死亡的先后，且 ② 有可能在轮到 (i) 之前就把某分类删到 0 行；
 3. 必须写清**它当前不承重**这件事，即「按豁免键遍历的正向核对已不再访问它」。
 ⇒ 三条齐备时，条目是**有据的样本**；缺任何一条，它就退化成一行「不知道还有没有用」的死账，
 下一个人只能凭猜删或凭猜留。
 
 ⚠️ **本裁断只回写公约，不改判据实现**（`44-spec.md` 第四节）。把上述三条标注真正写进
 `Tests/CoreDesignTests/BoolExemptionGuard.swift` 的 `ownersWithoutRegistryEntry`、
-以及（若采纳）给「分类值至少一个活样本」加一条断言，都属实现层 ⇒ **移交**。
+以及（若采纳）**对 `ownersWithoutRegistryEntry` 全表跑一遍分类核对**（不局限于当前有活键
+的宿主），都属实现层 ⇒ **移交**。⚠️ 这条全表核对与「给分类值加一条至少一个活样本的断言」
+不是同一件事：后者只断言**样本存在**（抓的是「分类缺席」），一次核对完就通过，抓不到
+`SolidButtonStyle` 被改名/删除后台账行**静默变成假样本**这种腐坏；前者对台账每一行的
+分类标注都做一次正向核对，能抓住腐坏，是更简单也更完整的补法，评估后一并移交实现层，
+本任务不实现。
 ⚠️ **「移交裁断权 ≠ 完成裁断」**——D-41-4 要的是裁断，本节给的就是裁断；移交出去的只有落地动作。
 
 ## 5. 环境值清单
