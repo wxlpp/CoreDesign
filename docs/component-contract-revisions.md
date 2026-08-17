@@ -97,6 +97,13 @@
   （「…而非本组件换皮 ⇒ 视觉即含义，步骤 3」）。
   ⚠️ 若不处置，公约当天就带着 4 条**违反自身新条款**的既有判例——结构上复刻 D-41-1
   （规矩与自身先例不自洽），而 D-41-1 恰是本次回写要修的第一条缺陷。
+  ⚠️ **评审修复追记（I-5，自洽性核对）**：本段列的「4 条」是**原始 notes 结构性违反**
+  新条款的清单（`SettingsRow` 在内）；下方逐条结论表最终判定 `SettingsRow` 为「不过 ⇒
+  改判」与这里的列举一致——首轮交付曾把 `SettingsRow` 误判为「过 ⇒ 维持」，与本段矛盾，
+  经复核压测（见下方表格与逐条说明）已改判，矛盾消解。`UnderlinedTabBar` 不在本段「4 条」
+  之列（它原 notes 多包一层「定义性视觉」措辞，不是直接的兄弟组件推出），但同样在复核压测
+  中未能独立成立，最终结论表里也改判——两者是通过**同一把尺**（反事实必要性压测）各自
+  测出的结果，不是同一处矛盾的两个症状。
 - **判据**：拆出的独立理由能否通过**公约第 1 节步骤 2** 的那条检验——原话
   「**『只有一种合理长相』这个措辞本身不构成理由**……必须**额外**说清为什么换了长相就不是这东西」。
   **不是**看 spec 的预期。
@@ -120,19 +127,45 @@
 
   | 条目 | 检验 | 处置 | 拆出的独立理由（一句，不引用任何兄弟组件名） |
   |---|---|---|---|
-  | `RadioGroup` | 过 | 维持 step3（零改动 + 已核对标记） | 逐项可见 + 圆点指示器正是 radio group 的定义性视觉，构成方式本身即传达「可选中一项」的语义 |
-  | `UnderlinedTabBar` | 过 | 维持 step3（补痕） | 下划线宽度随当前标签文本宽度变化、随标签横向滚动而移动，「指示器贴内容走」的画法本身承载可滚动多标签导航的含义，换成定宽指示器就必须先把标签数压到可一屏排下 |
-  | `SettingsRow` | 过 | 维持 step3（补痕） | 图标方块 + 标题 + 副标题 + accessory 的固定骨架就是 iOS 设置页习语本身，读者据此认出「这是一行系统设置项」 |
+  | `RadioGroup` | 过 | 维持 step3（除追加的「已核对」标记外零改动） | 逐项可见 + 圆点指示器正是 radio group 的定义性视觉，构成方式本身即传达「可选中一项」的语义 |
+  | `UnderlinedTabBar` | **不过**（评审 C-2 复核后改判） | 改判 tiebreaker | 首轮理由「换成定宽指示器就必须先把标签数压到可一屏排下」是稻草人反事实——指示器本身是 `Capsule()` 且随所在 tab 宽度（即标签文本宽度）伸缩，把它换成「包住文本的胶囊」放回同一个横向可滚动容器，随宽度伸缩/随标签滚动/标记选中态/走强调色这些性质全部保留，含义未变，反事实没有证明「换了长相就不是这东西」；重新压测找不到独立的定义性视觉，形状差异（线 vs 胶囊）只是同一骨架的皮肤变体 |
+  | `SettingsRow` | **不过**（评审 C-1 复核后改判） | 改判 tiebreaker | 首轮理由「图标方块 + 标题 + 副标题 + accessory 的固定骨架」被组件自身公开 API 证伪——两个便利 init 的 `icon` 参数均默认 `nil`、`accessory` 合法取 `EmptyView`，`SettingsRowMetrics.textAlignedDividerInset` 证明「无图标」是组件自身支持的一等配置而非被排除的候选；重新压测后剥离图标与 accessory 仅剩通用文本行布局，找不到独立的定义性视觉，仅剩材料等价于被公约禁止的「只有一种合理长相」 |
   | `ListRow` | 不过 | 改判 tiebreaker | 剥离兄弟组件对照后仅剩「三槽位薄结构」（过于通用、不具排他性）与「无卡片化」（消极/否定式描述，依赖「非卡片化」定义自身，不构成积极理由），拆不出独立的「换了长相就不是这东西」 |
   | `SidebarDocumentRow` | 不过 | 改判 tiebreaker | 剥离对四个具名兄弟行的角色对照后无材料剩余；新写的候选差异点（图标+标题+计数/日期）仍需靠对照其余三个兄弟行的组合才能说清「为什么是文档」，写出来仍带关系性 |
   | `InsetGroupedSection` | 不过 | 改判 tiebreaker | 唯一候选材料「组件名把风格钉死在名字里」等价于「只有一种合理长相」；压力测试候选论证「圆角卡片=分组语义」后发现不成立（plain 风格配 header/footer 同样能传达分组，卡片化非分组语义的必要条件），找不到不依赖兄弟组件对照的独立理由 |
 
+  ⚠️ **评审修复追记（C-1/C-2）**：`SettingsRow` 与 `UnderlinedTabBar` 两行是本轮评审
+  发现「过」判用了与另外三条不同的松尺后，按同一把「反事实必要性压测」重新测出的结果——
+  首轮误判过程与被证伪的原始理由见 `docs/component-registry.json` 对应条目 notes 里保留
+  的 `d6c5de8` 原始文本（未删除，仅在其后追加压测结论）。**改判后总数 = 5 条**
+  （`ListRow` / `SidebarDocumentRow` / `InsetGroupedSection` / `SettingsRow` /
+  `UnderlinedTabBar`），维持 `step3` 的只剩 `RadioGroup` 一条——这与 `44-spec.md` §1.2.1
+  三档实测表自身的结论（六条里只有 `RadioGroup` 是干净的）一致，是压测统一严尺后的正确
+  结果，不是过度改判。
+  ⚠️ **I-2 补记**：上面「改动后（逐字，节选）」段描述的统一形态（「样板句 + 该组件专属
+  一句独立理由」）对 `ListRow` / `SidebarDocumentRow` / `InsetGroupedSection` 三条已在
+  `component-registry.json` 各自 notes 里补齐专属说明——`ListRow` 首句本身非关系性材料
+  （只是不够）、`SidebarDocumentRow` 样板句准确适用、`InsetGroupedSection` 承重句是
+  「组件名钉死风格」而非兄弟组件依赖，三者失真程度不同，不能一概而论。
+  ⚠️ **I-3 补环**：`InsetGroupedSection` 的「sidebar 风格」候选实际**没有**通过候选作用域
+  条款的条件 ③ 被排除（无兄弟组件真实承担）——它仍留在步骤 2 的枚举里；真正把落点按在
+  步骤 4 而非步骤 2「≥2 ⇒ 语义组件」的是**皮肤变体条款**：insetGrouped / plain / sidebar
+  三种候选共享「header + 行 + footer」同一骨架，只换 chrome 画法，按皮肤变体条款不计入
+  ≥2 ⇒ 举得犹豫 ⇒ 落 tiebreaker。这一环此前在 R-3 与 notes 里均未写出，本次补上
+  （`component-registry.json` 的 `InsetGroupedSection` 条目同步追加）。
+
 - **落点**：`docs/component-registry.json`（`notes`；改判条目另改 `decidedBy`）。
-  ⚠️ `RadioGroup` **零改动**——它的 `notes` 本来就是「作用域排除 + 独立理由」的标准形态。
+  ⚠️ `RadioGroup` **除追加的「已核对」标记外零改动**——它的 `notes` 本来就是「作用域排除 +
+  独立理由」的标准形态。
 - **连带改动**：无（不动公约正文、不动判据）。
-- **验证**：`decidedBy` 的 `step3 + tiebreaker` 合计恒为 64（改判 3 条 ⇒ `53 / 11`）；
-  登记表条目数 `71 = 46 + 25` 不变；七条判据 filter 全绿且 `No matching` 0 次；
-  `swift test` → `370 tests in 61 suites passed … with 3 known issues`。
+- **验证**：`decidedBy` 的 `step3 + tiebreaker` 合计恒为 64（改判 5 条 ⇒ `51 / 13`，
+  评审修复后 `SettingsRow` / `UnderlinedTabBar` 由「过」改判为「不过」，改判数由 3 升至
+  5）；登记表条目数 `71 = 46 + 25` 不变；七条判据 filter 全绿且 `No matching` 0 次；
+  `swift test` → `370 tests in 61 suites passed … with 3 known issues`；FR-4 危险字面量
+  笛卡尔积核对覆盖**全部被改条目**（`ListRow`/`SidebarDocumentRow`/`InsetGroupedSection`/
+  `SettingsRow`/`UnderlinedTabBar`/`RadioGroup`/`TagInput`/`Tag`，8 条 × 3 字面量，
+  `/tmp/44-crossscan.py D4` 的 `TARGETS` 本就是这份全集，不只是原报告叙述的「判『过』的
+  3 条」）：零命中，`LabelIcon` 的 `systemName` 反向核对仍在（I-4）。
 - **⚠️ 补痕 vs 改判的效力区分**（依据 R-2）：**补痕是补强记录，落点与 `decidedBy` 不变**；
   **改判是翻转落点，必须走本回路并在此留痕**——这正是 R-2 规定的做法。
 - **`TagInput` 复核**：`TagInput` 三条件全过（`Tag` 在登记表内、上文写明组件名、`Tag` 真实承担 chip 形态），作用域排除后本组件没有额外的「长相即含义」理由 ⇒ 落 `tiebreaker`，**不改结论**。
