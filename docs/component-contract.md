@@ -31,6 +31,14 @@
    继续步骤 2**（例：macOS 的 `.radioGroup` `PickerStyle` 没有公开的
    `makeBody` 定制点，第三方无法实现 ⇒ 对 `Radio` 视为「无」）。
    → **有** ⇒ 语义组件，且**必须实现原生协议**（优先级固定，细则见第 2 节）
+   ⚠️ **否决理由不可继承**（#41 撞上，缺陷 D-41-3）：从既有组件拆出的新组件**一律重走判定法**，
+   **不得继承来源组件的结论；结论可以相同，理由必须各自成立**。
+   实例：`Rating` 对步骤 1 的否决理由是「改写成 `ProgressView` + 自定义 `ProgressViewStyle`
+   会丢手势取整与 accessibility adjust action」——而拆出的 `RatingDisplay` **本来就没有**手势与
+   adjust action，该理由在它身上完全不成立，必须重新论证（重新论证的结论是：
+   `ProgressViewStyle.Configuration` 只给 `fractionCompleted`，`value/count` 这个比值丢掉了
+   `count` 本身，而离散档位数是评分展示的语义核心）。
+   ⚠️ 这条对**所有**步骤都成立，写在步骤 1 只因为 D-41-3 是在步骤 1 暴露的。
 2. **调用方会合理地想要一个「看起来完全不同、但含义相同」的版本吗？**
    ⚠️ **操作化门槛**：能**当场举出 ≥2 个业界真实存在的替代形态**才算「会」
    （**替代 = 不含组件当前的形态**）。
@@ -394,6 +402,14 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 | **A. 组件自带 chrome** | 文案**写在组件源码里**，调用方看不见也改不了 | `LocalizedStringResource` |
 | **B. 调用方传入的可本地化文案** | 调用方传，但内容是**界面文案**（标题、说明、占位符） | **新增用 `LocalizedStringKey`；存量迁移见下** |
 | **C. 用户数据** | 调用方传，内容是**用户自己产生的**（设定名、章节标题） | `String`，**不得改** |
+
+⚠️ **B 类参数的缺省兜底按 A 类处置**（#43 撞上，缺陷 #43-1）：调用方可传参覆盖、但**缺省时
+由组件源码提供**的兜底文案（如 StoryUI `ChapterStatus.defaultLabel`），**文案本身写在组件
+源码里** ⇒ 按 **A 类**处置，用 `LocalizedStringResource`。
+⇒ 据此**收窄 A 的判别特征**：上表「改不了」指的是**调用方不能经由公开 API 修改这份默认值本身**，
+**不是**「调用方不能覆盖最终渲染的文案」。
+（第一版只写「文案写在组件源码里，调用方看不见也改不了」，而兜底文案是「看得见、能覆盖，
+但改不了那份默认值」——三分法对这一形态给不出答案，#43 只能做解释性裁定填空白。）
 
 ⚠️ **B 类是 CoreDesign 文本 API 的大头，不是 A 类。** `SectionHeader` /
 `InsetGroupedSection(header:footer:)` / `ProgressIndicator(text:)` / `SettingsRow` 都是 B。
