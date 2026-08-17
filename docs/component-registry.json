@@ -198,7 +198,7 @@
     "component": "InsetGroupedSection",
     "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
@@ -212,7 +212,7 @@
         "category": "B"
       }
     ],
-    "notes": "步骤 1：List(.insetGrouped) 是最接近的原生形态，但 ADR-2 明确『只复刻观感，不复刻 List 的数据/滚动/编辑能力』——用 List 改写会丢掉『能直接嵌进已有 ScrollView/VStack』这一本组件存在的核心理由，改写丢功能 ⇒ 视为无，继续步骤 2。步骤 2：候选列表视觉（insetGrouped 卡片 / plain 无卡片 / sidebar 风格）虽是 Apple 认可的不同 ListStyle，但组件名『InsetGroupedSection』把具体风格钉死在名字里——业界与本设计系统的惯例是『想要别的列表风格就换一个具名兄弟组件』（对照 ListRow vs SettingsRow 的关系），而非给同一个组件挂样式协议 ⇒ 视觉即含义，步骤 3 规定性。⚠️ textParams：公约第 4 节明确点名『InsetGroupedSection(header:footer:)』属 B 类——header / footer 均为 LocalizedStringKey + StringProtocol 双重载，界面分组文案，B 类，此前种子漏填，本轮补齐。"
+    "notes": "步骤 1：List(.insetGrouped) 是最接近的原生形态，但 ADR-2 明确『只复刻观感，不复刻 List 的数据/滚动/编辑能力』——用 List 改写会丢掉『能直接嵌进已有 ScrollView/VStack』这一本组件存在的核心理由，改写丢功能 ⇒ 视为无，继续步骤 2。步骤 2：候选列表视觉（insetGrouped 卡片 / plain 无卡片 / sidebar 风格）虽是 Apple 认可的不同 ListStyle，但组件名『InsetGroupedSection』把具体风格钉死在名字里——业界与本设计系统的惯例是『想要别的列表风格就换一个具名兄弟组件』（对照 ListRow vs SettingsRow 的关系），而非给同一个组件挂样式协议 ⇒ 视觉即含义，步骤 3 规定性。⚠️ textParams：公约第 4 节明确点名『InsetGroupedSection(header:footer:)』属 B 类——header / footer 均为 LocalizedStringKey + StringProtocol 双重载，界面分组文案，B 类，此前种子漏填，本轮补齐。 ⚠️ #44 检验：不过 ⇒ 改判（step3 → tiebreaker）。走公约「事后补写的效力边界」条款规定的修订回路，留痕见 docs/component-contract-revisions.md 的 R-3。理由：公约新增的「候选形态的作用域」条款明令『本条只排除候选、不决定落点，不得用本条直接推出 step3』，而本条目原判 step3 的理由整句依赖兄弟组件惯例；抽掉惯例后拆不出独立的「换了长相就不是这东西」的理由——公约第 1 节步骤 2 的原话是『「只有一种合理长相」这个措辞本身不构成理由』，必须额外说清。 ⇒ 落点回到步骤 4 tiebreaker；kind 与 needsExtensionPoint 不变。这是新条款的第一个改判。"
   },
   {
     "component": "LabelIcon",
@@ -229,12 +229,12 @@
     "component": "ListRow",
     "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "步骤 1 无。步骤 2/3：三槽位薄结构布局（leading/label/trailing），默认贴画布无卡片化；『想要 iOS 设置页观感』文档明确指向换用兄弟组件 SettingsRow + InsetGroupedSection，而非本组件换皮 ⇒ 视觉/角色定位即含义，步骤 3 规定性，不给扩展点。三个槽位均为 @ViewBuilder，无固定 String 便利 init，无 textParams。"
+    "notes": "步骤 1 无。步骤 2/3：三槽位薄结构布局（leading/label/trailing），默认贴画布无卡片化；『想要 iOS 设置页观感』文档明确指向换用兄弟组件 SettingsRow + InsetGroupedSection，而非本组件换皮 ⇒ 视觉/角色定位即含义，步骤 3 规定性，不给扩展点。三个槽位均为 @ViewBuilder，无固定 String 便利 init，无 textParams。 ⚠️ #44 检验：不过 ⇒ 改判（step3 → tiebreaker）。走公约「事后补写的效力边界」条款规定的修订回路，留痕见 docs/component-contract-revisions.md 的 R-3。理由：公约新增的「候选形态的作用域」条款明令『本条只排除候选、不决定落点，不得用本条直接推出 step3』，而本条目原判 step3 的理由整句依赖兄弟组件惯例；抽掉惯例后拆不出独立的「换了长相就不是这东西」的理由——公约第 1 节步骤 2 的原话是『「只有一种合理长相」这个措辞本身不构成理由』，必须额外说清。 ⇒ 落点回到步骤 4 tiebreaker；kind 与 needsExtensionPoint 不变。这是新条款的第一个改判。"
   },
   {
     "component": "RadioGroup",
@@ -250,7 +250,7 @@
         "category": "C"
       }
     ],
-    "notes": "步骤 1：公约正文点名的样本——macOS 的 `.pickerStyle(.radioGroup)` 没有公开的 makeBody 定制点，第三方无法实现 ⇒ 视为『无』，继续步骤 2。步骤 2：候选形态（分段控件 / 下拉选择器）与『行列表 + 逐项可见指示器』的交互模型本质不同（可见性/展开方式不同，不是纯外观差异），且分段控件已是本设计系统里独立注册的兄弟组件（SegmentedControl）——选择哪种呈现是『选组件』层面的决策，不是『同组件换样式』；举不出真正同含义的替代形态。步骤 3：逐项可见 + 圆点指示器正是『radio group』区别于分段/下拉选择的定义性视觉 ⇒ 视觉即含义，规定性组件。textParams：RadioOption.title 文档明确『与 Tag / CheckBoxToggleStyle 一致，标签文案本地化由调用方自负责』⇒ 比照 Tag 归为 C 类（调用方自定义数据，非产品固定 chrome）。"
+    "notes": "步骤 1：公约正文点名的样本——macOS 的 `.pickerStyle(.radioGroup)` 没有公开的 makeBody 定制点，第三方无法实现 ⇒ 视为『无』，继续步骤 2。步骤 2：候选形态（分段控件 / 下拉选择器）与『行列表 + 逐项可见指示器』的交互模型本质不同（可见性/展开方式不同，不是纯外观差异），且分段控件已是本设计系统里独立注册的兄弟组件（SegmentedControl）——选择哪种呈现是『选组件』层面的决策，不是『同组件换样式』；举不出真正同含义的替代形态。步骤 3：逐项可见 + 圆点指示器正是『radio group』区别于分段/下拉选择的定义性视觉 ⇒ 视觉即含义，规定性组件。textParams：RadioOption.title 文档明确『与 Tag / CheckBoxToggleStyle 一致，标签文案本地化由调用方自负责』⇒ 比照 Tag 归为 C 类（调用方自定义数据，非产品固定 chrome）。 ⚠️ #44 检验：过（零改动）。按公约新增的「候选形态的作用域」条款复核：本条目原 notes 已是标准形态——先在步骤 2 内部用作用域排除候选（分段控件由兄弟组件 SegmentedControl 承担，三条件全过），再独立给出步骤 3 的积极理由（逐项可见 + 圆点指示器是 radio group 区别于分段/下拉选择的定义性视觉）。抽掉兄弟组件引用后该理由仍独立成立 ⇒ 通过公约第 1 节步骤 2 的「必须额外说清」检验。落点、decidedBy、上文一字未改；本句是「已核对」的留痕，使本条目与「压根没看」可区分。"
   },
   {
     "component": "Rating",
@@ -351,7 +351,7 @@
         "category": "B"
       }
     ],
-    "notes": "步骤 1 无。步骤 2/3：iOS 设置行的固定骨架（图标方块 + 标题 + 副标题 + accessory），『想要不同列表行观感』的答案是换用兄弟组件 ListRow，而非本组件换皮（同 InsetGroupedSection 的推理）⇒ 视觉即含义，步骤 3 规定性，不给扩展点。⚠️ textParams：公约第 4 节**明确点名** SettingsRow 属 B 类——title / subtitle 均为 LocalizedStringKey + StringProtocol 双重载的界面文案，B 类，此前种子遗漏，本轮补齐。"
+    "notes": "步骤 1 无。步骤 2/3：iOS 设置行的固定骨架（图标方块 + 标题 + 副标题 + accessory），『想要不同列表行观感』的答案是换用兄弟组件 ListRow，而非本组件换皮（同 InsetGroupedSection 的推理）⇒ 视觉即含义，步骤 3 规定性，不给扩展点。⚠️ textParams：公约第 4 节**明确点名** SettingsRow 属 B 类——title / subtitle 均为 LocalizedStringKey + StringProtocol 双重载的界面文案，B 类，此前种子遗漏，本轮补齐。 ⚠️ #44 检验：过（补痕，落点与 decidedBy 不变）。按公约「候选形态的作用域」条款拆开表述——(1) 作用域排除：「不同列表行观感」这一候选由兄弟组件 ListRow 承担，三条件逐条：① ListRow 在 component-registry.json 内；② 上文已写明组件名；③ ListRow 的条目自述「三槽位薄结构布局，默认贴画布无卡片化」，正是被排除的那个候选 ⇒ 不计入本组件候选，步骤 2 举不出。(2) 独立理由（不引用任何兄弟组件）：本组件的存在理由是复刻 iOS 设置页习语，而「图标方块 + 标题 + 副标题 + accessory」这套固定骨架就是该习语本身——读者是靠这套骨架认出「这是一行系统设置项」的；把图标方块换成头像圆、把 accessory 拿掉，读到的就变成通讯录行或普通内容行 ⇒ 换了长相就不是这东西。"
   },
   {
     "component": "SettingsRowChevron",
@@ -368,7 +368,7 @@
     "component": "SidebarDocumentRow",
     "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
@@ -382,7 +382,7 @@
         "category": "C"
       }
     ],
-    "notes": "四个 sidebar row 共享 SidebarRow 骨架，步骤 1 无，步骤 2/3：想要不同外观的 sidebar 行是通过选择四个具名兄弟组件（Navigation/Utility/Document/Tag Row）之一实现，不是给单个组件挂样式协议 ⇒ 视觉即含义，步骤 3 规定性。textParams：title 为调用方文档标题、detail 为计数/日期——均是调用方数据产生的运行期内容（类比公约第 4 节 C 类范例『章节标题』），⇒ C 类。"
+    "notes": "四个 sidebar row 共享 SidebarRow 骨架，步骤 1 无，步骤 2/3：想要不同外观的 sidebar 行是通过选择四个具名兄弟组件（Navigation/Utility/Document/Tag Row）之一实现，不是给单个组件挂样式协议 ⇒ 视觉即含义，步骤 3 规定性。textParams：title 为调用方文档标题、detail 为计数/日期——均是调用方数据产生的运行期内容（类比公约第 4 节 C 类范例『章节标题』），⇒ C 类。 ⚠️ #44 检验：不过 ⇒ 改判（step3 → tiebreaker）。走公约「事后补写的效力边界」条款规定的修订回路，留痕见 docs/component-contract-revisions.md 的 R-3。理由：公约新增的「候选形态的作用域」条款明令『本条只排除候选、不决定落点，不得用本条直接推出 step3』，而本条目原判 step3 的理由整句依赖兄弟组件惯例；抽掉惯例后拆不出独立的「换了长相就不是这东西」的理由——公约第 1 节步骤 2 的原话是『「只有一种合理长相」这个措辞本身不构成理由』，必须额外说清。 ⇒ 落点回到步骤 4 tiebreaker；kind 与 needsExtensionPoint 不变。这是新条款的第一个改判。"
   },
   {
     "component": "SidebarNavigationRow",
@@ -594,7 +594,7 @@
         "category": "C"
       }
     ],
-    "notes": "⚠️ 同类陷阱（任务书点名的 SearchField 一类）：本组件是包裹系统 TextField、叠加 chip 列表 + 拆分提交行为的 wrapper。步骤 1 无（TextField 无法覆盖 chip 列表 + 逗号拆分提交这套复合行为）。步骤 2：候选（下拉多选 / 纯逗号分隔文本框）与『chip + 行内输入』的交互模型不同，不算真正同含义的替代；纯 chip 视觉变体已完全由内部复用的 Tag 组件承担，TagInput 自身没有独立可换皮的表面 ⇒ 举得犹豫，落 tiebreaker，规定性组件不给扩展点。textParams：placeholder 源码注释明确『TagInput 是运行期任意占位文案场景（调用方可能传入分类名等动态字符串），与 SearchField 同款处理』——保持裸 String、明确不追加 LocalizedStringKey 重载的裁决 ⇒ C 类。"
+    "notes": "⚠️ 同类陷阱（任务书点名的 SearchField 一类）：本组件是包裹系统 TextField、叠加 chip 列表 + 拆分提交行为的 wrapper。步骤 1 无（TextField 无法覆盖 chip 列表 + 逗号拆分提交这套复合行为）。步骤 2：候选（下拉多选 / 纯逗号分隔文本框）与『chip + 行内输入』的交互模型不同，不算真正同含义的替代；纯 chip 视觉变体已完全由内部复用的 Tag 组件承担，TagInput 自身没有独立可换皮的表面 ⇒ 举得犹豫，落 tiebreaker，规定性组件不给扩展点。textParams：placeholder 源码注释明确『TagInput 是运行期任意占位文案场景（调用方可能传入分类名等动态字符串），与 SearchField 同款处理』——保持裸 String、明确不追加 LocalizedStringKey 重载的裁决 ⇒ C 类。 ⚠️ #44 复核：本条目是公约「候选形态的作用域」条款的正例之一——三条件全过（Tag 在登记表内、上文写明组件名、Tag 真实承担 chip 形态），且作用域排除后本组件没有额外的「长相即含义」理由 ⇒ 落 tiebreaker。它与 Tag（排除后另有积极理由 ⇒ step3）合起来是「本条只排除候选、不决定落点」的两侧实证。落点不变，本次为记录补强，不是改判。"
   },
   {
     "component": "TelegramGlassButtonModifier",
@@ -632,7 +632,7 @@
         "category": "B"
       }
     ],
-    "notes": "步骤 1 无。步骤 2/3：下划线指示器是与本仓已独立注册的兄弟组件 SegmentedControl（pill 指示）划清场景边界的定义性视觉（文档：『UnderlinedTabBar 面向可滚动场景，SegmentedControl 面向 ≤5 项紧凑场景』）——想要 pill 观感应换用 SegmentedControl，不是给本组件换皮 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。textParams：title 由 `(Item) -> String` 闭包解出的 tab 标签文本，是 App 固定定义的分类导航标签（非用户自由输入）⇒ B 类。"
+    "notes": "步骤 1 无。步骤 2/3：下划线指示器是与本仓已独立注册的兄弟组件 SegmentedControl（pill 指示）划清场景边界的定义性视觉（文档：『UnderlinedTabBar 面向可滚动场景，SegmentedControl 面向 ≤5 项紧凑场景』）——想要 pill 观感应换用 SegmentedControl，不是给本组件换皮 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。textParams：title 由 `(Item) -> String` 闭包解出的 tab 标签文本，是 App 固定定义的分类导航标签（非用户自由输入）⇒ B 类。 ⚠️ #44 检验：过（补痕，落点与 decidedBy 不变）。按公约「候选形态的作用域」条款把上文的两件事拆开表述——(1) 作用域排除：pill 指示候选由兄弟组件 SegmentedControl 承担，三条件逐条：① SegmentedControl 在 component-registry.json 内；② 上文已写明组件名；③ pill 指示确是它真实承担的形态 ⇒ 该候选不计入本组件候选，步骤 2 举不出。(2) 独立理由（不引用任何兄弟组件）：下划线指示器的宽度由当前标签的文本宽度决定、随标签横向滚动而移动，因此可承载任意多个不定宽标签；这条「指示器贴着内容走」的画法本身就是「可滚动多标签导航」这个含义的载体——换成定宽指示器就必须先把标签数压到可一屏排下，它表达的就不再是同一件事 ⇒ 换了长相就不是这东西。上文引的文档原话（面向可滚动场景 vs ≤5 项紧凑场景）原样保留，未被替换。"
   },
   {
     "component": "ManuscriptReader",
