@@ -723,7 +723,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 | `D-44-4`（C 类同形态兜底） | **本轮解不了 ⇒ 登记 + 移交** | 三次转向全部被推翻（改 B 撞 #173 / 判「缺口不成立」答错维度 / 写实质理由被公约 B 类括注当场否掉）。⚠️ 裁断是「**考察过的三条路径都不成立**」，**不是**「给不出理由」这个全称否定——移交必带的第四件事当场证伪了那个全称否定 |
 | 原「`D-52-1`」（`StateLabel` 兜底未按 A 处置） | **撤销**，不新建缺陷号 | 它是**已登记的 G-4**，且 `wxlpp/oh-my-story` 的 **#49 已承接**（实测 `OPEN`，标题逐字含「公约缺口 G-4」） |
 | 公约 G-4 行的「A 计数恒为 **0**」 | **不加时点限定** | 它按定义为真：`defaultLabel` 是 internal `struct Spec` 字段、不是 public `init` 参数，而 `textParams[]` 只收 public 参数；先例 `ChapterStatusBadge` 已裁。加 hedge = 往真陈述里注入假 hedge |
-| `SidebarNavigationRow` / `StateLabel`（原 carve-out 两条） | **本轮不改判**，并入移交 A 并标「优先处理」 | ① 不被任何一条 D-44 裁断要求（`D-44-1` 的裁断恰恰是「不补跑」）；② **无连带面分析**——`Tag` 改判做了 7 处连带逐条处置，这两条一处都没做，而实测至少有一处真连带：`ChapterStatusBadge`（`step3`）的机制**整条挂在** `StateLabel` / `StateLabelStyle` 上；③ `StateLabel` 与 **#49 / G-4 重叠**，两条改动的顺序与互不干扰需单独设计 |
+| `SidebarNavigationRow` / `StateLabel`（原 carve-out 两条） | **本轮不改判**，并入移交 A 并标「优先处理」 | ① 不被任何一条 D-44 裁断要求（`D-44-1` 的裁断恰恰是「不补跑」）；② **无连带面分析**——`Tag` 改判做了 8 处连带逐条处置，这两条一处都没做，而实测至少有一处真连带：`ChapterStatusBadge`（`step3`）的机制**整条挂在** `StateLabel` / `StateLabelStyle` 上；③ `StateLabel` 与 **#49 / G-4 重叠**，两条改动的顺序与互不干扰需单独设计 |
 | `Skeleton*`（四条） | **不改判** | #41 明令本 epic 不改判它。本轮只改**公约对其 `notes` 的描述**（`D-52-3`），并把两处自反登记为 `D-52-4` 移交 |
 | 附录 A.5（`step3` 走查样例） | **不新增** | 全量审计合格实例 0；最接近的 `AvatarGroup` / `OutlineTree` 自身举出了 ≥2 却仍登记 `step3`，是待复核条目；且它们当前未被公约点名（实测命中 0），写进附录会抢在复核前把它们的 `step3` 钉死。**承认空缺优于硬造样本** |
 | 公约 B 类判别特征的括注 / `textParams` 分类 | **不改** | `D-44-4` 已裁定本轮解不了 ⇒ 登记 + 移交。实测 `textParams` 的 B/C/by-type 计数本轮零变动 |
