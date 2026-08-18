@@ -580,19 +580,20 @@ A、C 参数的兜底不是——唯一挡住这两处的是「B 类参数的」
 声明的连带改判（会改动登记表 `textParams` 分类），超出「补一行三分法」的范围；但装
 作没这回事就是留白。详见 `docs/contract-defects.md` `D-44-4`。
 
-### （提前登记）C-1/C-2 的两处指向改为 close-out.md「## 四、移交清单」，需 Task 12 落地登记（Task 10 评审）
+### （提前登记，Task 12 已落地登记）C-1/C-2 的两处指向改为 close-out.md「## 四、移交清单」（Task 10 评审）
 
 `docs/component-contract.md` 第 3 节豁免基线段（跨历史闸 `#41`/`#43`）与 AD-2 段
 （`BottomInputBar` / `View.bottomInputBar#placeholder`）原指向本文件「已知判据缺口」节，
 但该节 G-1~G-8 无一行对应这两处，是**空指针**（Task 10 评审 C-2）。本次改指向
-`oh-my-story` 仓 `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」，
-但该文件当前「## 四」为空——**这两条移交项本身尚未真正登记**，需 Task 12 收口时把
-以下两条实际写入 close-out.md「## 四」：
+`oh-my-story` 仓 `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」。
+⚠️ **现状已更新**：`close-out.md` `### 4.1` 现已实际登记以下两条，且均已回填真实
+issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 1. `sourceSites` 跨历史闸：`scripts/bool-exemptions-ratchet.sh` 只读 `maxEntries`、
-   不读 `sourceSites`，跨历史破例流程未实现；承接者 `#43`（`gh` 实测仍 `OPEN`）。
+   不读 `sourceSites`，跨历史破例流程未实现；建议去向 **`#50`**（原「承接者 `#43`」
+   已过期——`#43` 的 AC 不含跨历史闸，见 `close-out.md` `## 〇` 裁-1）。
 2. `BottomInputBar` / `View.bottomInputBar#placeholder`：组件仍无可登记的 public
    类型表面，`placeholder` 落在 FR-4 定义域之外、无机器判据分类；两条出路是删组件，
-   或给它一个可登记的 public 类型表面。
+   或给它一个可登记的 public 类型表面；建议去向 **`#50`**。
 
 ### （Task 12 收口）本轮未改判 / 未回写的项（诚实留痕）
 
@@ -609,5 +610,5 @@ A、C 参数的兜底不是——唯一挡住这两处的是「B 类参数的」
 | `InsetGroupedSection` / `SettingsRow` 在公约第 4 节被点名 | **不构成对其 `decidedBy`/`kind` 的钉死** | R-2：「钉为范例」按结论逐条计；那两处是 **textParams 语境** |
 | 公约第 3 节「归 #42」的 B 类存量改造节奏、「归 #43」的 `defaultLocalization`、AD-2 末尾「被搁置而非被否决」 | **不改** | 经核对仍成立：前者是**规则**不是前瞻例，后两者描述的事实至今有效（R-12 已记） |
 | `bordered: Bool` → `border: BorderStyle` 例句 | **保留例句 + 标注差异**，不改写成落地形状 | 它演示的是「两 case enum 不算替代路径」，而 `SurfaceKind` 实测有 10 个 case（见本文件 R-12：`canvas`/`content`/`control`/`floating`/`overlay`/`grouped`/`canvasSubtle`/`panel`/`sidebar`/`card`）⇒ 换成落地形状会毁掉反例的教学价值。缺陷原文允许「标注差异」（R-12） |
-| 判据实现（G-1 ~ G-8 的修复） | **不做** | `44-spec.md` 第四节：不新建判据、不改判据实现 ⇒ 全部移交，见 `close-out.md` `## 四` |
-| `D-44-1`（新尺只覆盖 6+1=7 条、其余 49 条 `step3` 判例未复核）/ `D-44-4`（C 类同形态兜底未随 #43-1 处置）| **不裁**，如实登记 | 裁断权在 epic 层面（用户），Task 12 只登记移交，不代裁；见 `close-out.md` `## 四` 4.4 |
+| 判据实现（G-1 ~ G-8 的修复） | **不做** | `44-spec.md` 第四节：不新建判据、不改判据实现 ⇒ 全部移交，见 `close-out.md` `## 四`（`G-4` 另单独移交 `#49`，其余 G-1/G-2/G-3/G-5/G-7/G-8 移交 `#48`） |
+| `D-44-1`（新尺只覆盖 6+1=7 条、其余 49 条 `step3` 判例未复核）/ `D-44-4`（C 类同形态兜底未随 #43-1 处置）| **不裁**，如实登记 | 裁断权在 epic 层面（用户），Task 12 只登记移交，不代裁；见 `close-out.md` `## 四` 4.4（**已开 `#52` 承接**「摆到用户面前」，裁断本身仍待用户） |

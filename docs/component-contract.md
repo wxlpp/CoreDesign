@@ -294,7 +294,7 @@ D-44-2 / D-44-3——本句「两侧都有成文样本」的 `step3` 侧当前�
   `docs/bool-exemptions-baseline.json` 的
   `rationale` 原话即「`sourceSites` 的跨历史闸仍未实现（`scripts/bool-exemptions-ratchet.sh`
   只读 `maxEntries`）」）⇒ 见 `oh-my-story` 仓
-  `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」（该文件随 #44 收口 PR 落地）。
+  `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」（该文件随 #44 收口 PR 落地；已开 issue `#50` 承接）。
 ⚠️ 这句话说的是**豁免面**（`docs/bool-exemptions.json` + 其 `maxEntries`）本身的
 台账，不含 `pendingViolationKeys`（`BoolExemptionGuard.swift` 里写死的、按公约 A.3
 已裁决为已知违规、刻意不放进豁免清单的那个集合）——它是一条平行通道，不占
@@ -784,7 +784,7 @@ public API 面，需要治理——6 个 Bool 已由 `39.md` 的 J-1 覆盖（�
 （`ComponentTextParamGuard.knownFunctionSideBareText`，有固定集合断言盯着，不是静默略过）。
 真正的处置 #41/#42 **均未做**：`BottomInputBar` 仍在，`View.bottomInputBar#placeholder`
 至今没有任何机器判据给它分类 ⇒ 见 `oh-my-story` 仓
-`.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」（该文件随 #44 收口 PR 落地）。
+`.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」（该文件随 #44 收口 PR 落地；已开 issue `#50` 承接）。
 两条出路仍是：删掉这个组件，或给它一个可登记的 public 类型表面。
 
 ⚠️ **`Toast` 是反例，同样点名写死，以示裁决边界不是含糊的**：`Toast`（`docs/README.md:78`
