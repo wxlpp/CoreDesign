@@ -463,14 +463,14 @@ R-10 才是同源——位置、层级、`### R-` 计数均未变，仅更正节
   |---|---|---|
   | 第 2 节「正确先例」旁注（`:129-132` 整段） | 原措辞声称该 public 参数仍在、且称它仍在第 3 节的处置范围内（⚠️ **刻意不逐字引原句**：原句正好落在本 Task 归零清单的模式里，逐字引会在**扫描面一旦扩到本台账时**自破断言 —— 与第 2 轮评审 C-2 同型。今日归零断言只扫 `docs/component-contract.md`，但不留这个雷） | 两文件的文档注释现写「**#41 破坏性变更**：`glass: Bool`（legacy Telegram 玻璃模式开关）**已按公约第 3 节**」，public 参数已删。⚠️ **描述必须写准**：`git grep -n --untracked 'glass:' -- Sources/` 命中 **11 处、分布在 4 个文件**（`CircularGlassButtonStyle.swift:12` / `LightButtonStyle.swift:14` / `SolidButtonStyle.swift:18` `:20` / `SegmentedControl.swift` 六处），internal `let glass: Bool` 有**两处**（`:129` / `:458`）——**不是「全在 `SegmentedControl.swift`」、也不是「一处 internal 字段」**（初稿两处失实，已更正） |
   | 3.4「反例（重要）」段 | 「**取舍留给 #41，但不许默认归并**」 | `Sources/CoreDesign/Components/Rating/RatingDisplay.swift` 已存在，登记表已有 `RatingDisplay` 条目 |
-  | 第 3 节豁免基线段 | 「跨历史闸**移交 #41/#43**」 | #41 已落地未做；`#43` **仍开放**（`gh issue list --repo wxlpp/oh-my-story --state all` 实测 `state=OPEN`），跨历史闸两侧均未实现（`bool-exemptions-baseline.json` 的 `rationale` 原话自承） |
+  | 第 3 节豁免基线段 | 「跨历史闸**移交 #41/#43**」 | #41 已落地未做；`#43` 在 **#44 处置当时**仍开放（`gh` 实测 `state=OPEN`）⇒ 当时判它是承接者。⚠️ **该时点判断其后失效**：PR #46 合入使 `#43` 关闭，跨历史闸改由 **#50** 承接——公约正文已同批改成不依赖 issue 开闭状态的表述（「两者的工作都已完成而这条闸都没做」），跨历史闸两侧均未实现（`bool-exemptions-baseline.json` 的 `rationale` 原话自承） |
   | AD-2 的 `BottomInputBar` 段 | 「真正的处置**移交 #41/#42**」 | 组件仍在；`View.bottomInputBar#placeholder` 仍在 `knownFunctionSideBareText` 桶里 |
 - **⚠️ 经核对判「不改」的 4 处必须逐条留痕——「核对过、结论是不改」与「没核对」在成品上必须可区分**
   （这正是本 epic 反复栽的地方）。**一行一处，不许合并**：
   | 处（原行） | 原话片段 | 结论 | 依据 |
   |---|---|---|---|
   | 第 4 节 B 类存量改造（`:301`） | 「属破坏性变更，必须进 `docs/BREAKING-CHANGES.md`，节奏归 #42」 | ✅ 已核对｜结论：不改 | 它是**规则**（存量 B 类改造的节奏归属），不是前瞻例；#42 已落地不改变该规则的表述 |
-  | 第 4 节本地化基建（`:306`） | 「缺 `defaultLocalization` 的是 **StoryUI**（归 #43）」 | ✅ 已核对｜结论：不改 | 实测：StoryUI `Packages/StoryUI/Package.swift` 至今无 `defaultLocalization`（`awk 'index($0,"defaultLocalization")'` 命中 **0**）；#43 **明确裁决不声明它**（`43-spec.md` Q2 原话：「本任务不声明它」）——该句仍成立。「（归 #43）」这个指向单独表态：`#43` **仍开放**（`gh` 实测 `state=OPEN`）⇒ 指向仍有效 ⇒ 不改 |
+  | 第 4 节本地化基建（`:306`） | 「缺 `defaultLocalization` 的是 **StoryUI**（归 #43）」 | ✅ 已核对｜结论：不改 | 实测：StoryUI `Packages/StoryUI/Package.swift` 至今无 `defaultLocalization`（`awk 'index($0,"defaultLocalization")'` 命中 **0**）；#43 **明确裁决不声明它**（`43-spec.md` Q2 原话：「本任务不声明它」）——该句仍成立。「（归 #43）」这个指向单独表态：**#44 处置当时** `#43` 仍开放 ⇒ 指向有效 ⇒ 不改。⚠️ 其后 PR #46 合入使 `#43` 关闭，但**本行的结论不变**——它依据的是「StoryUI 至今无 `defaultLocalization` 且 #43 明确裁决不声明」这个**事实**，与 issue 开闭无关 |
   | 判据落点表的跨仓边界句（`:386`） | 「「这条不归本仓判据管，已移交 #43」，不是「查不出问题所以放行」」 | ✅ 已核对｜结论：不改 | 它描述的是**跨仓边界语义**（三条判据只对 `repo == coredesign` 跑），#43 落地后依然如此 |
   | AD-2 末尾（`:578`） | 「那是**破坏性变更**，节奏归 #42，**属于被搁置而非被否决的选项**」 | ✅ 已核对｜结论：不改 | 三个 modifier 的 internal 化确实未做，且原文**自称「被搁置」**——它本来就不是前瞻例，是一条明示的搁置记录 |
   ⚠️ **这四行各自带的核对标记是可断言的**（Step 7 的计数断言 `= 4`，行锚定只数表行）。

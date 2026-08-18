@@ -290,7 +290,7 @@ D-44-2 / D-44-3——本句「两侧都有成文样本」的 `step3` 侧当前�
   与配套的严格等式断言（见 `BoolExemptionGuard.swift` 的 `baselineRatchetHoldsExactly`），
   但**只保证这次变化在 diff 里可见**——`scripts/bool-exemptions-ratchet.sh` 从头到尾
   只读 `maxEntries`、不读 `sourceSites`，`sourceSites` 未纳入该脚本的跨历史破例流程；
-  跨历史闸**至今未实现**（#41 已落地未做；`#43` **仍开放**，跨历史闸的承接者是它；
+  跨历史闸**至今未实现**——曾移交 `#41` / `#43`，两者的工作都已完成而这条闸**都没做**；
   `docs/bool-exemptions-baseline.json` 的
   `rationale` 原话即「`sourceSites` 的跨历史闸仍未实现（`scripts/bool-exemptions-ratchet.sh`
   只读 `maxEntries`）」）⇒ 见 `oh-my-story` 仓
