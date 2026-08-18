@@ -283,7 +283,9 @@ A.2 对 `Tag` 的点名钉死的正是它的 `step3` 结论」——翻转它等
 「该组剩余候选（实心 chip / 描边 chip）**为本轮推演，登记表与源码均未成文枚举**……
 **若 Task 12 认定 `Tag` 无成文剩余候选，则本连锁只剩第一条路径**，结论不变」——#52 作出了
 该 hedge 要求的那个认定：改判前（CoreDesign `511576f`）实测「实心 chip」/「描边 chip」在
-`docs/component-registry.json` 与 `docs/component-contract.md` 命中**均为 0**（⚠️ 本段
+`docs/component-registry.json`、`docs/component-contract.md` 与
+`Sources/CoreDesign/Components/Tag/Tag.swift` **三处**命中**均为 0**（⚠️ 三处缺一不可：本条 hedge
+原话点名的是「登记表**与源码**」，只扫前两个会漏掉源码那一半）（⚠️ 本段
 自身与 #52 回写文本对这两个词的引用不计入该计数——它们描述的是改判前的状态）
 ⇒ **`Tag` 无成文剩余候选** ⇒ 皮肤变体路径不承重，**结论不变**（仍是 `tiebreaker`）。
 
