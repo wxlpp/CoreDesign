@@ -12,6 +12,9 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 
 与 Primer 版本锁定不同，Apple HIG 不是一个可钉版本号的 git tag——它是一套持续演进的设计原则 + 一批稳定的系统 API（`Font.TextStyle`、`UIColor`/`NSColor` 语义色族、`ControlSize`）。本文件因此不记录"锁定到哪个版本"，而是记录**每个 token 与哪条 HIG 原则 / 哪个系统 API 对应，以及取值背后的理由**——这是下游评估升级影响、以及未来维护者理解"这个数字为什么是这个数字"的依据。
 
+> 本文件是**视觉地基**（token 取值理由）。组件的 **API 地基**——参数该长什么形状、
+> 何时给样式扩展点——在 [`component-contract.md`](component-contract.md)。
+
 ## Token 源映射表
 
 | CoreDesign token | Apple HIG / 系统 API 依据 |

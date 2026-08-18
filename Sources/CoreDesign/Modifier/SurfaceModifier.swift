@@ -28,6 +28,19 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
     case floating
     /// 覆盖层表面，如菜单与 popover。
     case overlay
+    /// 分组容器表面：贴近 iOS 系统分组容器——**背景 + 圆角、无描边**，靠填充色对比定界。
+    /// 背景与 `.content` 同取 `surfaceRaised`（`secondarySystemGroupedBackground`），
+    /// 因此在深浅双模式下都与 `Color.surfaceCanvas` 拉开、不会塌缩隐形（Issue #140）。
+    ///
+    /// ⚠️ **它是一等容器角色，不是 `.content` 的减法变体**（#41 裁决 1）：iOS 自己把这种
+    /// 形态叫 `.insetGrouped`，本仓也已有同名组件 `InsetGroupedSection` 在用它。
+    /// 取这个名字而不是 `.contentPlain`，依据是「该 case 是否**独立成立为一种容器角色**」
+    /// ——`.contentPlain` 离开 `.content` 就没法定义，是变体名不是角色名。
+    ///
+    /// ⚠️ **只建这一个组合，不铺满 9×2 的积空间**：`bordered` 曾与全部 9 个 kind 正交，
+    /// 但实测 7 处产品调用点 100% 落在 `.content` 上（见 `docs/component-contract.md` 附录 A.3
+    /// 与 #41 spec 的调用点表）。按用到的点建模，不按可能的组合建模。
+    case grouped
     /// 兼容别名：更淡的画布。
     case canvasSubtle
     /// 兼容别名：面板容器。
@@ -49,6 +62,7 @@ private extension SurfaceKind {
         case .control: .surfaceInteractive
         case .floating: .surfaceOverlay
         case .overlay: .surfacePanel
+        case .grouped: .surfaceCard
         case .canvasSubtle: .surfaceCanvasSubtle
         case .panel: .surfacePanel
         case .sidebar: .surfaceSidebar
@@ -64,6 +78,7 @@ private extension SurfaceKind {
         case .control: .borderSubtle
         case .floating: .borderMuted
         case .overlay: .borderDefault
+        case .grouped: .clear
         case .canvasSubtle: .borderMuted
         case .panel: .borderDefault
         case .sidebar: .clear
@@ -79,6 +94,7 @@ private extension SurfaceKind {
         case .control: CoreRadius.small
         case .floating: CoreRadius.large
         case .overlay: CoreRadius.medium
+        case .grouped: CoreRadius.medium
         case .canvasSubtle: CoreRadius.medium
         case .panel: CoreRadius.medium
         case .sidebar: CoreRadius.none
@@ -100,16 +116,16 @@ private extension SurfaceKind {
 /// > `.coreShadow(_:)`（详见 `CoreElevation`，由 Task 4 提供）。
 struct SurfaceModifier: ViewModifier {
     let kind: SurfaceKind
-    var bordered: Bool = true
 
     func body(content: Content) -> some View {
         let shape = CoreShape.rounded(self.kind.cornerRadius)
-        // `bordered: false` 时描边取 `.clear`——走同一条 overlay 路径（保持视图标识稳定），
-        // `.clear` 不产生任何像素，效果等同去描边。用于贴近 iOS 系统分组容器（无描边、
-        // 靠填充色对比定界）。
-        let borderColor = self.bordered ? self.kind.border : Color.clear
         // strokeBorder 内描边（路径在形状内部），避免后续 clipShape 把居中描边的外侧一半裁掉
         // 导致视觉上 1pt 变细。strokeBorder + clipShape 组合保证边框完整可见。
+        //
+        // ⚠️ **#41 裁决 1：`bordered: Bool` 已删除**。原先「`bordered: false` 时描边取
+        // `.clear`」这条分支，现在由 `SurfaceKind.grouped`（border 直接就是 `.clear`）
+        // 表达——把压扁的取值域还原成语义类型，见公约第 3 节替代路径 3.1。
+        // 描边一律走同一条 overlay 路径（保持视图标识稳定），`.clear` 不产生任何像素。
         //
         // Task #125 视觉终审发现：`.canvas` / `.sidebar` 这类**页面级容器**此前也带
         // `borderDefault` 描边 + 圆角裁剪，于是 `ListRow`（用 `.surface(.canvas)`）
@@ -122,7 +138,7 @@ struct SurfaceModifier: ViewModifier {
         // 且 `.clear` 描边不产生任何像素。
         return content
             .background(shape.fill(self.kind.background))
-            .overlay(shape.strokeBorder(borderColor, lineWidth: CoreBorderWidth.thin))
+            .overlay(shape.strokeBorder(self.kind.border, lineWidth: CoreBorderWidth.thin))
             .clipShape(shape)
     }
 }
@@ -130,7 +146,6 @@ struct SurfaceModifier: ViewModifier {
 // MARK: - View Extension
 
 public extension View {
-    /// 将容器表面 token（背景 + 1pt 边框 + 圆角）一次性应用到当前视图。
     /// 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角）。
     ///
     /// 调用示例 / Usage:
@@ -139,15 +154,22 @@ public extension View {
     /// VStack { ... }
     ///     .padding(CoreSpacing.md)
     ///     .surface(.card)
+    ///
+    /// // 无描边的分组容器观感（原 `.surface(.content, bordered: false)`）
+    /// VStack { ... }
+    ///     .surface(.grouped)
     /// ```
     ///
-    /// - Parameters:
-    ///   - kind: 容器语义类别 / Container semantic kind.
-    ///   - bordered: 是否画描边，默认 `true`。置 `false` 只保留背景 + 圆角、去描边——
-    ///     贴近 iOS 系统分组容器（无描边、靠填充色对比定界）。
+    /// ⚠️ **`bordered: Bool` 已于 #41 删除**：它不是二值旋钮，而是在 `.content` 的两种
+    /// 容器观感之间做选择（实测 7 处产品调用点 100% 传 `false` 且 100% 落在 `.content`
+    /// 上）——正是公约第 3 节替代路径 3.1「把压扁的取值域还原成语义类型」的教科书形态。
+    /// 迁移：`.surface(.content, bordered: false)` → `.surface(.grouped)`；
+    /// `.surface(kind, bordered: true)` → `.surface(kind)`。
+    ///
+    /// - Parameter kind: 容器语义类别 / Container semantic kind.
     /// - Returns: 已应用 surface 装饰的视图 / The view with surface decoration applied.
-    func surface(_ kind: SurfaceKind, bordered: Bool = true) -> some View {
-        self.modifier(SurfaceModifier(kind: kind, bordered: bordered))
+    func surface(_ kind: SurfaceKind) -> some View {
+        self.modifier(SurfaceModifier(kind: kind))
     }
 }
 
@@ -170,6 +192,7 @@ private struct SurfacePreviewGallery: View {
         ("control", .control),
         ("floating", .floating),
         ("overlay", .overlay),
+        ("grouped", .grouped),
         ("canvasSubtle", .canvasSubtle),
         ("panel", .panel),
         ("sidebar", .sidebar),

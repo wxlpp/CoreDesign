@@ -115,3 +115,53 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build downstream probe
         run: cd scripts/downstream-probe && swift build
+
+  bool-ratchet:
+    name: Bool exemption ratchet
+    # ⚠️ 只在 PR 上跑：它要比对 **base 分支 tip** 与 HEAD 两个 revision，push 事件上没有
+    # 有意义的比对对象。树内那一半（清单条目数 ≡ maxEntries）随 swift test 在每个
+    # 事件上都跑，不依赖本 job。
+    #
+    # ⚠️⚠️ **这个 `if:` 是一个真实的棘轮缺口，不是「无害地跳过一个用不到的检查」**
+    # （Task 8 终审 M-4）：两个仓的 `epic/component-contract` 分支**都没有分支保护**
+    # （见 `docs/component-contract.md` / `epic.md` 对该事实的记录），因此 `push` 到
+    # `epic/**`（本文件顶部 `on.push.branches` 已声明会触发）是**唯一能绕开 PR** 的路径
+    # ——而这个 job 恰好完全不在 push 事件上跑。跨历史棘轮（本 job）与树内等式
+    # （`BoolExemptionGuard.baselineRatchetHoldsExactly`，随 `swift test` 在 push 上
+    # 也会跑）合起来才是「完整棘轮」这句话，在直接 push 场景下**只剩树内那一半**：
+    # 树内等式现在拦两条——「清单条目数与 maxEntries 不一致」与「源码位置数与
+    # sourceSites 不一致」（Task 8 终审新增，见
+    # `BoolExemptionGuard.baselineRatchetHoldsExactly`）——但两条都拦不住「对应字段
+    # 与清单 / 源码位置数**一起**、**在同一次 push 里**抬高」：那种改法两者仍然相等，
+    # 树内判据看不出「上限被抬高」这个破例动作本身。⚠️ **`sourceSites` 比
+    # `maxEntries` 更弱一层**：即使换到 PR 场景，`maxEntries` 好歹有本 job 跑的跨历史
+    # 脚本兜底，`scripts/bool-exemptions-ratchet.sh` 完全不读 `sourceSites`——它在
+    # push 与 PR 两种场景下都没有跨历史校验，只挡「本次 diff 里不一致」，跨历史闸
+    # 移交 #41/#43。直接 push 到 `epic/**` 因此仍是一条未被机器挡住的路径，只能靠
+    # 人工 review 或后续补分支保护堵上，本条注释只留痕、不实现。
+    if: github.event_name == 'pull_request'
+    # ⚠️ 刻意用 ubuntu 而非 macos：本 job 只要 git + python3，而 macOS runner 按 10×
+    # 计费（见本文件顶部 push 触发器那段注释的同一考量）。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ⚠️ 默认 fetch-depth: 1 拿不到 base 的历史 —— 那正是「一份文件方案」在本仓
+          # 行不通的头号原因（见 docs/bool-exemptions-baseline.json 的守卫注释）。
+          fetch-depth: 0
+
+      - name: Bool exemption ratchet
+        # ⚠️ **比对 base 分支的当前 tip，不用 `github.event.pull_request.base.sha`。**
+        # base.sha 是 GitHub 在 **PR 创建时**记录的快照，**不跟随 base 分支推进**。
+        # 具体后果：#39 合入 epic 之后，一个更早开出的 PR（如并行的 #40）拿到的 base.sha
+        # 早于 #39 的合入点 ⇒ 那个 sha 上没有基线文件 ⇒ 脚本走「base 上无文件」分支
+        # ⇒ **静默 fail-open**（而绿色 job 里的那行 ⚠️ 没有人会看到）。
+        # 这正是本 epic 反复在堵的「文件读不到 ⇒ 绿」的 CI 变体。
+        # ⇒ 用 `origin/$GITHUB_BASE_REF`：它永远是「合并后会变成什么」的那个 base。
+        # 脚本侧同时改成 fail-closed（base 上无文件且本次也没新增它 ⇒ exit 1）。
+        run: |
+          set -euo pipefail
+          # fetch-depth: 0 已经拉全历史，这一步只是确保远端跟踪分支存在（防御性，幂等）。
+          git fetch --no-tags --quiet origin \
+            "+refs/heads/${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}"
+          bash scripts/bool-exemptions-ratchet.sh "origin/${GITHUB_BASE_REF}"

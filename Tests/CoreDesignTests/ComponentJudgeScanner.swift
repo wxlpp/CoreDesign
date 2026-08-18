@@ -1,0 +1,598 @@
+import Foundation
+import SwiftParser
+import SwiftSyntax
+import Testing
+
+// MARK: - 文本型参数分类 / Text parameter classification
+
+/// 一个参数与 FR-4 的关系。
+///
+/// ⚠️ **四分而不是二分，与 #39 的 `BoolParamKind` 同构，理由也同源**：朴素实现会在
+/// 声明文本里找 `String` 子串，于是把四类东西混为一谈——(a) `Binding<String>` /
+/// `[String]` 这类**双向或容器**通道、(b) `(String) -> Void` 这类把文本**传出去**的
+/// 回调、(c) 真正的文案入口、(d) 类型已是 `LocalizedStringKey`/`LocalizedStringResource`
+/// 因而由类型直接判定的入口。只有 (c) 需要登记表 `textParams[]` 的 A/B/C 分类条目；
+/// (d) 走公约 §4「第四个 category 取值 `by-type`」，**要被识别、不要求登记**（AC 原文：
+/// 「不能被当成『未知类型』漏判」）；(a)(b) 归 `.textCarrying`，**清点、打印、不进判据**。
+nonisolated enum TextParamKind: Sendable, Equatable {
+    /// 裸文本入口：`String` / `String?` / `Substring` / `S where S: StringProtocol`
+    /// / 返回位是裸文本的函数类型（`(Item) -> String`）⇒ FR-4 要求登记表有分类条目。
+    case bareText
+    /// `LocalizedStringKey` / `LocalizedStringResource`（含可选、含返回位）⇒ 由类型直接判定。
+    case localizedText
+    /// 类型文本里还有文本标识符，但它不是「调用方填文案」的入口：
+    /// `Binding<String>` / `[String]` / `(String) -> Void` / `inout String` …
+    case textCarrying
+    case notText
+}
+
+/// 「裸文本」的精确拼法等价类。
+///
+/// ⚠️ **`Substring` 一并折入**：`init(title: Substring)` 的调用点与 `String` 版几乎
+/// 同价（`s[...]` 直接传），而登记表按「文案入口」登记，不按具体串类型登记。本仓当前
+/// `Substring` 零命中，与 #39 的 `Bool?` 一样**先于第一例出现就写死**，免得将来靠
+/// 「恰好没匹配上」蒙混。
+nonisolated let bareTextTypeNames: Set<String> = [
+    "String", "Swift.String", "Substring", "Swift.Substring",
+]
+
+/// 由类型直接判定分类（公约 §4 的 `by-type`）的两个类型及其限定名拼法。
+nonisolated let localizedTextTypeNames: Set<String> = [
+    "LocalizedStringKey", "SwiftUI.LocalizedStringKey",
+    "LocalizedStringResource", "Foundation.LocalizedStringResource",
+]
+
+/// 剥掉 `some ` / `any ` 前缀之后剩下的部分若在此集合里，判定为 `StringProtocol` 的
+/// opaque（`some`）/ existential（`any`）写法。
+nonisolated let stringProtocolOpaqueOrExistentialTypeNames: Set<String> = [
+    "StringProtocol", "Swift.StringProtocol",
+]
+
+/// 剥掉 `some ` / `any ` 前缀（若存在），返回剩余类型文本；不是这两种前缀则返回 `nil`。
+///
+/// ⚠️ **必须按词边界判断，不能用 `hasPrefix("some")` / `hasPrefix("any")`**：要求前缀
+/// 后面紧跟一个空格（`"some "` / `"any "`，输入已经过 `stripTypeDecorations` 的空白归一
+/// 化，token 间只会有单个空格）——`someCustomType` 的 `"some"` 后面紧跟 `C` 不是空格，
+/// 不会被剥掉；反之 `hasPrefix("some")`（不带空格）会把 `someCustomType` 误剥成
+/// `CustomType`。这与 #39 `@autoclosure(` 那条「前缀判断必须连带边界字符」是同一种陷阱。
+nonisolated func stripSomeOrAnyPrefix(_ t: String) -> String? {
+    for prefix in ["some ", "any "] where t.hasPrefix(prefix) {
+        return String(t.dropFirst(prefix.count))
+    }
+    return nil
+}
+
+/// 取函数类型**最右侧（非最外层）** depth-0 `->` 右侧的类型文本；不是函数类型则返回 `nil`。
+///
+/// ⚠️ **函数名与实现按最右侧箭头取，不是「最外层返回类型」**（#40 Task 2 评审
+/// Minor-3——此前的文档把这两者混为一谈）：对柯里化 `(A) -> (B) -> C`（`->` 右结合，
+/// 最外层返回类型实际是 `(B) -> C`），下面的循环里 `lastArrow` 每遇到一个 depth 0 的
+/// 箭头就覆盖，循环结束时留下的是**最后（最右）**一个，所以本函数对这个输入返回的是
+/// `C`，不是 `(B) -> C`。评审已推演：四分类结果在两种取法下**恒相同**——最终落地的
+/// 是否文本这个结论一致（`(B) -> C` 本身若递归下去，只要 `C` 不是文本，整个链条就不是
+/// `.bareText`/`.localizedText`；`(B) -> C` 这个中间形态本身不会被 `bareTextTypeNames`
+/// / `localizedTextTypeNames` 精确匹配上，只能落进 `textIdentifierPresent` 兜底，
+/// 而兜底不关心取的是哪一段），因此不改实现、只在此更正措辞。
+///
+/// ⚠️ **`->` 必须整体当一个 token 消费**：只写 `case ">"` 递减深度的话，`(A) -> B` 里
+/// 箭头的 `>` 会把深度算错，后面真正的泛型闭合就再也对不上。这里先匹配 `-` + `>` 两字符
+/// 并整体跳过，`>` 分支只处理真正的泛型闭合。
+/// ⚠️ **只认最外层（depth == 0）的箭头**：`Optional<(Item) -> String>` 的箭头在深度 1，
+/// 这里返回 `nil`，交给调用方的 `Optional<...>` 递归分支处理，不在这里重复一套拆解。
+nonisolated func functionReturnTypeText(_ t: String) -> String? {
+    let chars = Array(t)
+    var depth = 0
+    var lastArrow: Int?
+    var i = 0
+    while i < chars.count {
+        if chars[i] == "-", i + 1 < chars.count, chars[i + 1] == ">" {
+            if depth == 0 { lastArrow = i }
+            i += 2
+            continue
+        }
+        switch chars[i] {
+        case "(", "<", "[": depth += 1
+        case ")", ">", "]": depth -= 1
+        default: break
+        }
+        i += 1
+    }
+    guard let arrow = lastArrow else { return nil }
+    return String(chars[(arrow + 2)...]).trimmingCharacters(in: .whitespaces)
+}
+
+/// FR-4 的参数类型分类。
+///
+/// ⚠️ **剥离层直接复用 #39 的 `stripTypeDecorations` / `stripOptionalSugarAndRedundantParens`**
+/// （Task 1 抽出）：注释 / 空白 / 反引号 / 多余括号 / Optional 语法糖 / specifier /
+/// attribute 这六个轴上，FR-4 面对的免登记逃逸与 J-1 的免豁免逃逸**逐字同源**——
+/// `init(title: (String))` 与 `init(flag: (Bool))` 的调用点都逐字不变。复用而不是重写，
+/// 是因为那六个轴上 #39 已经撞出并修复了 5 组残余；重写一份必然要把它们再撞一遍。
+///
+/// ⚠️ **`sawAutoclosure` 在这里不需要单独裁决**（与 J-1 不同）：J-1 必须把
+/// `@autoclosure () -> Bool`（换皮）与 `() -> Bool`（真闭包）分开；FR-4 的规则更宽——
+/// **返回位是文本的函数类型一律算文本入口**，因为登记表本来就是这么记的
+/// （`SegmentedControl.title` / `UnderlinedTabBar.title` 的类型是 `(Item) -> String`，
+/// 登记表 `notes` 原文：「title 由 `(Item) -> String` 闭包解出的分段标签文本」）。
+/// ⇒ 两种写法都走同一条返回位递归分支，`sawAutoclosure` 无须读。
+///
+/// ⚠️ **已知盲区（留痕，未做机器拦截）**——不是「已覆盖全部」：
+/// - **`typealias` 洗白**：`public typealias Title = String` 后写 `init(title: Title)`，
+///   参数类型文本是 `"Title"` ⇒ `.notText`，命中/清点两层同时看不见。与 #39 裁决 (f)
+///   同族；#39 在**声明侧**清点 `publicBoolTypeAliases` 并断言恒为空，FR-4 侧没有对应的
+///   清点（本仓当前零个含文本的 public typealias）。移交 #41/#43。
+/// - **泛型洗白**：`func f<T>(title: T) where T == String`（同类型约束把类型名换成了
+///   别处声明的 `T`，纯语法层解不出 `T` 绑定的是什么）与 `f(title: some
+///   ExpressibleByStringLiteral)`（`ExpressibleByStringLiteral` 不隐含「是文案」——
+///   `Int`/`Bool` 都能遵守它，纯语法层解不出这个协议名背后是不是文本）这两种真正判不了。
+///   `S: StringProtocol` 这一种**已经**由 `stringProtocolGenerics` 结构性覆盖（见
+///   `ComponentJudgeCollector.stringProtocolGenericNames`）；`some StringProtocol` /
+///   `any StringProtocol` ——与前者是**同一声明的语法糖、调用点逐字相同**——也**已经**
+///   由 `stripSomeOrAnyPrefix` 结构性覆盖（#40 Task 2 评审 Important-1：此前这里把这个
+///   形态误并入「判不了」，但它的类型文本逐字含 `StringProtocol`，纯语法层完全可解，
+///   归类是错的）。其余形态（`where T == String`、`some ExpressibleByStringLiteral` 等
+///   真正无法从类型文本解出是否文本的写法）本仓零命中，留痕未拦截。
+/// - **`StaticString` / `AttributedString` 未折入**：两者都能承载界面文案，但把它们
+///   并入 `.bareText` 是新裁决（不是「`String` 的另一种拼法」）。本仓零使用，先留痕。
+/// - **第二道防线**：上述盲区对**已登记**的参数不构成逃逸——把 `title: String` 改写成
+///   任何一种扫描器看不见的形态，登记表里那条 `textParams` 会在 FR-4 的**反向差集**
+///   （`ghostRegistryParams`）里变成幽灵条目而判红（见 `judgeTextParamCoverage`）。
+///   逃逸只对**新增且从未登记**的参数成立。
+nonisolated func classifyTextParameterType(
+    _ raw: String, stringProtocolGenerics: Set<String>
+) -> TextParamKind {
+    let stripped = stripTypeDecorations(raw)
+    var t = stripped.text
+
+    // `inout String` 是双向通道，与 `Binding<String>` 同类 —— 显式判 .textCarrying,
+    // 不是「恰好没匹配上」。
+    if stripped.sawInout {
+        return textIdentifierPresent(t) ? .textCarrying : .notText
+    }
+
+    t = stripOptionalSugarAndRedundantParens(t)
+    if bareTextTypeNames.contains(t) || stringProtocolGenerics.contains(t) { return .bareText }
+    if localizedTextTypeNames.contains(t) { return .localizedText }
+    // `some StringProtocol` / `any StringProtocol`：与已覆盖的
+    // `init<S: StringProtocol>(title: S)` 是同一声明的语法糖、调用点逐字相同，结构性剥
+    // 掉 opaque/existential 前缀后按 StringProtocol 判 .bareText，结论与泛型形态保持
+    // 一致（#40 Task 2 评审 Important-1：此前这个形态会静默落进下面的 textIdentifierPresent
+    // 兜底判 .notText——`\bString\b` 因词边界在 `StringProtocol` 里不命中，命中层与清点层
+    // 双双不可见）。
+    if let afterPrefix = stripSomeOrAnyPrefix(t),
+        stringProtocolOpaqueOrExistentialTypeNames.contains(afterPrefix) {
+        return .bareText
+    }
+
+    // `Optional<T>` 结构化递归（照 #39 裁决 (b‴‴) 的成法，不枚举拼法）。
+    if let genericArgument = optionalGenericArgument(t) {
+        let inner = classifyTextParameterType(genericArgument, stringProtocolGenerics: stringProtocolGenerics)
+        if inner == .bareText || inner == .localizedText { return inner }
+    }
+    // 返回位是文本的函数类型 ⇒ 文本经这条闭包进入组件。
+    if let returned = functionReturnTypeText(t) {
+        let inner = classifyTextParameterType(returned, stringProtocolGenerics: stringProtocolGenerics)
+        if inner == .bareText || inner == .localizedText { return inner }
+    }
+    return textIdentifierPresent(t) ? .textCarrying : .notText
+}
+
+/// 类型文本里是否还出现了文本类型的**标识符**（词边界匹配，`MyStringish` / `StringLike`
+/// 不误命中）。命中即归 `.textCarrying`：清点、打印、不进判据。
+nonisolated func textIdentifierPresent(_ t: String) -> Bool {
+    t.range(
+        of: #"\b(String|Substring|LocalizedStringKey|LocalizedStringResource)\b"#,
+        options: .regularExpression
+    ) != nil
+}
+
+// MARK: - 命中项 / Hit
+
+/// 一处「public 声明上的文本型参数」。
+struct TextParamHit: Hashable, Comparable, Sendable {
+    /// 宿主：具名类型用点分全名（`SegmentedControlStyleConfiguration.Segment`）；
+    /// extension 上的成员用**被扩展的类型名**（`View` / `Color` / `Tag`）。
+    let owner: String
+    /// `init` 或函数名。
+    let decl: String
+    /// 参数的**内部名**（`_ titleKey:` 取 `titleKey`）。
+    let parameter: String
+    let file: String
+    let line: Int
+    let kind: TextParamKind
+    /// FR-4 的主判据只吃 `init`（AC 原文：「每个 public init 的文本型参数」）；
+    /// `func` 侧同样采集，但只进「留痕桶」——见 `ComponentTextParamGuard` 的
+    /// `functionSideTextParams` 断言与那里的移交说明。
+    let isInitializer: Bool
+
+    /// 与登记表对账用的键。⚠️ 刻意不含标签表：`SectionHeader.init(_ titleKey:)` 与
+    /// `init<S: StringProtocol>(_ title:)` 是同一个 API 概念的两个入口，键里带完整标签表
+    /// 会让它们变成两条互不相干的条目，反而看不出「同一个文案入口的两种写法」。
+    var key: String { "\(self.owner).\(self.decl)#\(self.parameter)" }
+
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.key == rhs.key ? lhs.line < rhs.line : lhs.key < rhs.key
+    }
+}
+
+// MARK: - 扫描结果 / Scan result
+
+/// 一个**本仓声明**的自有样式协议。
+///
+/// ⚠️ **识别信号是结构性的，不是名字**（任务书明令：不许用裸字符串 `"Style"` 子串匹配）：
+/// 判据是「`protocol` 的成员里有 `func makeBody(configuration:)` requirement」——这正是
+/// Apple `ButtonStyle` / `ToggleStyle` / `ProgressViewStyle` 的形状，也是本仓
+/// `BannerStyle` / `SegmentedControlStyle` 照抄的形状（两者的文档注释原文都写着
+/// 「形态对齐 Apple `ButtonStyle`」）。名字后缀只作为报告里的旁证字段
+/// （`nameHasStyleSuffix`）打印，**不参与任何判定**。
+///
+/// ⚠️ **Apple 的原生样式协议不会被采进来**：它们声明在 SwiftUI 里，不在
+/// `Sources/CoreDesign` 的扫描范围内 ⇒ `styleProtocols` 天然只含本仓自有协议，
+/// J-3 因此不会「用 `ProgressViewStyle` 判 `ProgressIndicator` 的红」。这条是
+/// **构造保证**，不是靠名字清单排除的——后者正是任务书点名要避开的脆弱写法。
+///
+/// ⚠️ **已知盲区（留痕，未做机器拦截）**：requirement 写在 protocol **extension** 里
+/// （`extension Foo { func makeBody(configuration:) }`）或用别的定制点名字（例如
+/// `body(configuration:)`）的样式协议识别不出来。本仓两个自有协议都把 `makeBody`
+/// 写在 protocol 体内（实测零漏），但这是**现状核对**，不是**结构保证**。
+struct StyleProtocolDecl: Hashable, Sendable {
+    let name: String
+    let file: String
+    let line: Int
+    let isPublic: Bool
+    /// 仅供报告打印的旁证，**不参与判定**。
+    let nameHasStyleSuffix: Bool
+}
+
+/// 一处 conformance 声明（类型声明自带的，或 `extension X: P` 补的）。
+struct ConformanceRecord: Hashable, Sendable {
+    /// 具名类型用**简单名**（不含外层点分前缀）；extension 用被扩展类型的基名。
+    let typeName: String
+    /// 继承子句里每一项的**最后一段**（容忍 `SwiftUI.View` 这类限定名）。
+    let inheritedNames: [String]
+    let file: String
+    let line: Int
+}
+
+struct ComponentJudgeScanResult: Sendable {
+    var textParams: [TextParamHit] = []
+    var styleProtocols: [StyleProtocolDecl] = []
+    var conformances: [ConformanceRecord] = []
+    /// 类型名（含被 extension 扩展的类型名）→ 声明它的文件名集合。J-3 用它定「组件作用域」。
+    var typeDeclFiles: [String: Set<String>] = [:]
+
+    var bareTextKeys: Set<String> { Set(self.textParams.filter { $0.kind == .bareText }.map(\.key)) }
+    var localizedTextKeys: Set<String> { Set(self.textParams.filter { $0.kind == .localizedText }.map(\.key)) }
+    var carryingKeys: Set<String> { Set(self.textParams.filter { $0.kind == .textCarrying }.map(\.key)) }
+
+    var styleProtocolNames: Set<String> { Set(self.styleProtocols.map(\.name)) }
+
+    /// 采纳了指定协议的类型名集合（声明侧与 extension 侧合并）。
+    func conformers(of protocolName: String) -> Set<String> {
+        Set(self.conformances.filter { $0.inheritedNames.contains(protocolName) }.map(\.typeName))
+    }
+}
+
+// MARK: - 扫描入口 / Scan entry points
+
+/// ⚠️ **必须先断言路径存在**：`FileManager.enumerator(at:)` 对不存在的路径**静默产出
+/// 空序列** ⇒「零命中 ⇒ 零违规 ⇒ 绿」会静默通过（#38/#39 同款纪律）。
+func scanComponentJudgeInputs(root: URL) throws -> ComponentJudgeScanResult {
+    guard FileManager.default.fileExists(atPath: root.path) else {
+        Issue.record("源码路径不存在：\(root.path) —— 判据无法工作，这不是「零违规」")
+        return ComponentJudgeScanResult()
+    }
+    // ⚠️ **不要强制解包**：`enumerator(at:)` 在权限 / IO 异常时返回 nil，`!` 会让测试
+    // 进程崩掉，判据连「为什么失败」都报不出来。
+    guard let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
+        Issue.record("无法枚举源码目录：\(root.path)（权限或 IO 异常）—— 判据无法工作，这不是「零违规」")
+        return ComponentJudgeScanResult()
+    }
+    var result = ComponentJudgeScanResult()
+    for case let url as URL in walker where url.pathExtension == "swift" {
+        let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
+        // ⚠️ **解析保真检查**：parser major 与工具链不配套时会静默产出 error node
+        // ⇒ 声明被漏采，而扫描器照样「成功」返回一个偏小的集合。
+        if tree.hasError {
+            Issue.record("解析出错：\(url.lastPathComponent) —— swift-syntax major 可能与工具链不配套")
+        }
+        result.merge(collectComponentJudgeInputs(tree: tree, fileName: url.lastPathComponent))
+    }
+    return result
+}
+
+/// 合成输入入口——常驻单测用它逐类证伪边界形态，不碰磁盘。
+func scanComponentJudgeInputs(source: String, fileName: String = "Synthetic.swift") -> ComponentJudgeScanResult {
+    collectComponentJudgeInputs(tree: SwiftParser.Parser.parse(source: source), fileName: fileName)
+}
+
+private func collectComponentJudgeInputs(tree: SourceFileSyntax, fileName: String) -> ComponentJudgeScanResult {
+    let converter = SourceLocationConverter(fileName: fileName, tree: tree)
+    let collector = ComponentJudgeCollector(fileName: fileName, converter: converter)
+    collector.walk(tree)
+    var result = ComponentJudgeScanResult()
+    result.textParams = collector.textParams
+    result.styleProtocols = collector.styleProtocols
+    result.conformances = collector.conformances
+    result.typeDeclFiles = collector.typeDeclFiles
+    return result
+}
+
+extension ComponentJudgeScanResult {
+    mutating func merge(_ other: ComponentJudgeScanResult) {
+        self.textParams += other.textParams
+        self.styleProtocols += other.styleProtocols
+        self.conformances += other.conformances
+        for (name, files) in other.typeDeclFiles {
+            self.typeDeclFiles[name, default: []].formUnion(files)
+        }
+    }
+}
+
+// MARK: - 采集器 / Collector
+
+/// 采集**有效 public** 的 `init` / `func` 上的文本型参数。
+///
+/// ⚠️ **可见性判定与 #39 的 `PublicBoolParamCollector` 同构**（裁决 (e)/(g) 同样适用）：
+/// protocol 帧要压栈（requirement 语法上不能写访问修饰符）、`public extension` 给嵌套
+/// 具名类型发默认 public、`#if` 两支都要走、`#Preview` 在文件顶层落在
+/// `MacroExpansionExprSyntax` 而非 decl 侧（两处都要跳）。这些不是可选项，是结构性缺口。
+/// ⚠️ **本类不复用 `PublicBoolParamCollector` 的实例**——那个类是 `private`，且它的
+/// `visit` 已经绑定「读 Bool 参数」的语义。两者共用的是**裁决**（写在这段注释里）与
+/// **类型文本剥离层**（`stripTypeDecorations`，Task 1 抽出的真代码），可见性帧机的复制
+/// 是已知代价，由 `ComponentJudgeScannerTests` 里 `collectorSkipsNonPublic` /
+/// `collectorHandlesPublicExtension` 两条测试对齐同一批边界形态。
+///
+/// ⚠️ **已知盲区（留痕，未做机器拦截）**：
+/// - `subscript` 未采（FR-4 的 AC 只点名 `init`；`func` 侧已采但只进留痕桶）。
+/// - `enum case` 关联值未采（`case a(title: String)` 在调用点是一个文本参数）。本仓
+///   public enum 的关联值零文本参数；与 #39 裁决 (e) 对 Bool 的处置**方向相反**，
+///   是本任务刻意收窄到 AC 原文范围的结果，不是遗漏 —— 移交 #41/#43。
+/// - 宏展开产物看不见（跳 `#Preview` 的代价）；本仓无生成 public 声明的宏。
+private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
+    var textParams: [TextParamHit] = []
+    var styleProtocols: [StyleProtocolDecl] = []
+    var conformances: [ConformanceRecord] = []
+    var typeDeclFiles: [String: Set<String>] = [:]
+
+    private let fileName: String
+    private let converter: SourceLocationConverter
+
+    private struct Frame {
+        let name: String
+        let isPublic: Bool
+        let isPrivate: Bool
+        let isInternal: Bool
+        let isExtension: Bool
+        var isProtocol: Bool = false
+    }
+    private var frames: [Frame] = []
+
+    init(fileName: String, converter: SourceLocationConverter) {
+        self.fileName = fileName
+        self.converter = converter
+        super.init(viewMode: .sourceAccurate)
+    }
+
+    // MARK: 访问级别
+
+    private static func access(_ modifiers: DeclModifierListSyntax) -> (pub: Bool, priv: Bool, int: Bool) {
+        let names = Set(modifiers.map { $0.name.text })
+        return (
+            names.contains("public") || names.contains("open"),
+            names.contains("private") || names.contains("fileprivate"),
+            names.contains("internal")
+        )
+    }
+
+    private func isEffectivelyPublic(_ modifiers: DeclModifierListSyntax) -> Bool {
+        let a = Self.access(modifiers)
+        if a.priv || a.int { return false }
+        if self.frames.contains(where: { $0.isPrivate || $0.isInternal }) { return false }
+        if self.frames.contains(where: { !$0.isExtension && !$0.isPublic }) { return false }
+        guard let innermost = self.frames.last else { return a.pub }
+        if innermost.isExtension { return innermost.isPublic || a.pub }
+        if innermost.isProtocol { return innermost.isPublic }
+        return a.pub
+    }
+
+    private var owner: String {
+        self.frames.isEmpty ? "(top-level)" : self.frames.map(\.name).joined(separator: ".")
+    }
+
+    // MARK: 声明索引 / Declaration index
+
+    /// 继承子句里每一项取**最后一段**：容忍 `SwiftUI.View` 这类限定名。
+    private func inheritedNames(_ clause: InheritanceClauseSyntax?) -> [String] {
+        (clause?.inheritedTypes ?? []).map {
+            $0.type.trimmedDescription.split(separator: ".").last.map(String.init) ?? ""
+        }
+    }
+
+    /// 记录「类型名 → 文件」与（有继承子句时）一条 conformance。
+    private func indexDecl(
+        name: String, inheritance: InheritanceClauseSyntax?, at node: some SyntaxProtocol
+    ) {
+        self.typeDeclFiles[name, default: []].insert(self.fileName)
+        let names = self.inheritedNames(inheritance)
+        guard !names.isEmpty else { return }
+        self.conformances.append(
+            ConformanceRecord(
+                typeName: name, inheritedNames: names, file: self.fileName,
+                line: self.converter.location(for: node.positionAfterSkippingLeadingTrivia).line
+            )
+        )
+    }
+
+    // MARK: 容器帧
+
+    private func pushType(_ name: String, _ modifiers: DeclModifierListSyntax, isProtocol: Bool = false) {
+        let a = Self.access(modifiers)
+        let hasExplicitAccess = a.pub || a.priv || a.int
+        let inheritsPublicFromExtension =
+            !hasExplicitAccess
+            && self.frames.last?.isExtension == true
+            && self.frames.last?.isPublic == true
+        self.frames.append(
+            Frame(
+                name: name,
+                isPublic: a.pub || inheritsPublicFromExtension,
+                isPrivate: a.priv, isInternal: a.int, isExtension: false, isProtocol: isProtocol
+            )
+        )
+    }
+
+    override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
+        self.pushType(node.name.text, node.modifiers); return .visitChildren
+    }
+    override func visitPost(_ node: StructDeclSyntax) { self.frames.removeLast() }
+
+    override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
+        self.pushType(node.name.text, node.modifiers); return .visitChildren
+    }
+    override func visitPost(_ node: EnumDeclSyntax) { self.frames.removeLast() }
+
+    override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
+        self.pushType(node.name.text, node.modifiers); return .visitChildren
+    }
+    override func visitPost(_ node: ClassDeclSyntax) { self.frames.removeLast() }
+
+    override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
+        self.pushType(node.name.text, node.modifiers); return .visitChildren
+    }
+    override func visitPost(_ node: ActorDeclSyntax) { self.frames.removeLast() }
+
+    override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
+        // ⚠️ 结构性信号：成员里有 `func makeBody(configuration:)` requirement。
+        let hasMakeBodyRequirement = node.memberBlock.members.contains { member in
+            guard let function = member.decl.as(FunctionDeclSyntax.self),
+                  function.name.text == "makeBody" else { return false }
+            let parameters = function.signature.parameterClause.parameters
+            return parameters.count == 1 && parameters.first?.firstName.text == "configuration"
+        }
+        if hasMakeBodyRequirement {
+            self.styleProtocols.append(
+                StyleProtocolDecl(
+                    name: node.name.text, file: self.fileName,
+                    line: self.converter.location(for: node.positionAfterSkippingLeadingTrivia).line,
+                    isPublic: Self.access(node.modifiers).pub,
+                    nameHasStyleSuffix: node.name.text.hasSuffix("Style")
+                )
+            )
+        }
+        self.pushType(node.name.text, node.modifiers, isProtocol: true); return .visitChildren
+    }
+    override func visitPost(_ node: ProtocolDeclSyntax) { self.frames.removeLast() }
+
+    override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
+        var extended = node.extendedType.trimmedDescription
+        if let angle = extended.firstIndex(of: "<") { extended = String(extended[..<angle]) }
+        extended = extended.trimmingCharacters(in: .whitespaces)
+        self.indexDecl(name: extended, inheritance: node.inheritanceClause, at: node)
+        let a = Self.access(node.modifiers)
+        self.frames.append(
+            Frame(
+                name: extended,
+                isPublic: a.pub, isPrivate: a.priv, isInternal: a.int, isExtension: true
+            )
+        )
+        return .visitChildren
+    }
+    override func visitPost(_ node: ExtensionDeclSyntax) { self.frames.removeLast() }
+
+    /// `#if os(iOS)` 的两个分支都要走：只走一支会漏采另一支的声明。
+    override func visit(_ node: IfConfigDeclSyntax) -> SyntaxVisitorContinueKind {
+        for clause in node.clauses {
+            if let elements = clause.elements { self.walk(elements) }
+        }
+        return .skipChildren
+    }
+
+    /// 跳过 `#Preview` 等宏展开块。⚠️ **两处都要跳**：`#Preview` 在文件顶层实际解析成
+    /// `MacroExpansionExprSyntax`，只跳 decl 侧堵不住（#39 Task 1 评审现场抓到过）。
+    override func visit(_ node: MacroExpansionDeclSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+    override func visit(_ node: MacroExpansionExprSyntax) -> SyntaxVisitorContinueKind { .skipChildren }
+
+    // MARK: 声明
+
+    override func visit(_ node: InitializerDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.collect(
+            node.signature.parameterClause.parameters, decl: "init", modifiers: node.modifiers,
+            generics: Self.stringProtocolGenericNames(node.genericParameterClause, node.genericWhereClause),
+            isInitializer: true, at: node
+        )
+        return .skipChildren
+    }
+
+    override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.collect(
+            node.signature.parameterClause.parameters, decl: node.name.text, modifiers: node.modifiers,
+            generics: Self.stringProtocolGenericNames(node.genericParameterClause, node.genericWhereClause),
+            isInitializer: false, at: node
+        )
+        return .skipChildren
+    }
+
+    /// 取出「被约束为 `StringProtocol` 的泛型形参名」集合。
+    ///
+    /// ⚠️ **两种写法都要认**：本仓 7 处 `init<S: StringProtocol>` 用的是内联约束，但
+    /// `init<T>(...) where T: StringProtocol` 完全等价、且改写成本为零 —— 只认一种就
+    /// 开出一条免登记逃逸。⚠️ 这**不使该轴穷尽**：`where T == String`、
+    /// `some ExpressibleByStringLiteral` 等形态仍判不了，见 `classifyTextParameterType`
+    /// 文档的「已知盲区」。
+    private static func stringProtocolGenericNames(
+        _ clause: GenericParameterClauseSyntax?, _ whereClause: GenericWhereClauseSyntax?
+    ) -> Set<String> {
+        var names: Set<String> = []
+        for parameter in clause?.parameters ?? [] {
+            guard let inherited = parameter.inheritedType?.trimmedDescription else { continue }
+            if Self.mentionsStringProtocol(inherited) { names.insert(parameter.name.text) }
+        }
+        for requirement in whereClause?.requirements ?? [] {
+            guard let conformance = requirement.requirement.as(ConformanceRequirementSyntax.self) else { continue }
+            if Self.mentionsStringProtocol(conformance.rightType.trimmedDescription) {
+                names.insert(conformance.leftType.trimmedDescription)
+            }
+        }
+        return names
+    }
+
+    /// `StringProtocol` / `Swift.StringProtocol` / `StringProtocol & Sendable` 都算。
+    private static func mentionsStringProtocol(_ text: String) -> Bool {
+        text.split(separator: "&")
+            .map { $0.trimmingCharacters(in: .whitespaces).split(separator: ".").last.map(String.init) ?? "" }
+            .contains("StringProtocol")
+    }
+
+    private func collect(
+        _ parameters: FunctionParameterListSyntax,
+        decl: String,
+        modifiers: DeclModifierListSyntax,
+        generics: Set<String>,
+        isInitializer: Bool,
+        at node: some SyntaxProtocol
+    ) {
+        guard self.isEffectivelyPublic(modifiers) else { return }
+        let line = self.converter.location(for: node.positionAfterSkippingLeadingTrivia).line
+        for parameter in parameters {
+            // `_ titleKey: LocalizedStringKey` ⇒ 取 `titleKey`；完全匿名的 `_: String`
+            // ⇒ 键里就是 `_`（**不跳过**，跳过等于给它开洞）。
+            let name = (parameter.secondName ?? parameter.firstName).text
+            let kind = classifyTextParameterType(
+                parameter.type.trimmedDescription, stringProtocolGenerics: generics
+            )
+            guard kind != .notText else { continue }
+            self.textParams.append(
+                TextParamHit(
+                    owner: self.owner, decl: decl, parameter: name, file: self.fileName,
+                    line: line, kind: kind, isInitializer: isInitializer
+                )
+            )
+        }
+    }
+}

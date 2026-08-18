@@ -1,6 +1,9 @@
 # CoreDesign 组件库 / Component Library
 
-iOS 26+ / macOS 26+ SwiftUI 设计系统，含 34 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。
+iOS 26+ / macOS 26+ SwiftUI 设计系统，含 35 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。
+
+> 新增或改造组件前先读 [`component-contract.md`](component-contract.md)——
+> 判定法、样式扩展点、配置开关的替代路径。
 
 ## 组件索引 / Component Index
 
@@ -21,6 +24,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 34 个 Apple HIG 对齐组件（�
 | LabelIcon / ChevronRightIcon / DangerIcon | [<img src="snapshots/CoreDesignPreview_Previews.swift_Form_Icons.png" width="200">](components/form-icons.md) | [form-icons.md](components/form-icons.md) |
 | `.core` Control Styles（ProgressView / Label / DisclosureGroup）| [<img src="snapshots/CoreDesignPreview_Previews.swift_Core_Control_Styles.png" width="200">](components/core-control-styles.md) | [core-control-styles.md](components/core-control-styles.md) |
 | Rating | [<img src="snapshots/CoreDesignPreview_Previews.swift_Rating.png" width="200">](components/rating.md) | [rating.md](components/rating.md) |
+| RatingDisplay | [<img src="snapshots/CoreDesignPreview_Previews.swift_RatingDisplay.png" width="200">](components/rating-display.md) | [rating-display.md](components/rating-display.md) |
 | PinCode | [<img src="snapshots/CoreDesignPreview_Previews.swift_PinCode.png" width="200">](components/pin-code.md) | [pin-code.md](components/pin-code.md) |
 | RadioGroup / RadioOption | [<img src="snapshots/CoreDesignPreview_Previews.swift_Radio_Group.png" width="200">](components/radio.md) | [radio.md](components/radio.md) |
 | TagInput | [<img src="snapshots/CoreDesignPreview_Previews.swift_TagInput.png" width="200">](components/tag-input.md) | [tag-input.md](components/tag-input.md) |
