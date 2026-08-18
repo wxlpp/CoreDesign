@@ -31,6 +31,19 @@
    继续步骤 2**（例：macOS 的 `.radioGroup` `PickerStyle` 没有公开的
    `makeBody` 定制点，第三方无法实现 ⇒ 对 `Radio` 视为「无」）。
    → **有** ⇒ 语义组件，且**必须实现原生协议**（优先级固定，细则见第 2 节）
+   ⚠️ **否决理由不可继承**（#41 撞上，缺陷 D-41-3）：从既有组件拆出的新组件**一律重走判定法**，
+   **不得继承来源组件的结论；结论可以相同，理由必须各自成立**。
+   实例：`Rating` 对步骤 1 的否决理由是「改写成 `ProgressView` + 自定义 `ProgressViewStyle`
+   会丢手势取整与 accessibility adjust action」——而拆出的 `RatingDisplay` **本来就没有**手势与
+   adjust action，该理由在它身上完全不成立，必须重新论证（重新论证的结论是：
+   `ProgressViewStyle.Configuration` 只给 `fractionCompleted`，`value/count` 这个比值丢掉了
+   `count` 本身，而离散档位数是评分展示的语义核心）。
+   ⚠️ 这条对**所有**步骤都成立，写在步骤 1 只因为 D-41-3 是在步骤 1 暴露的。
+   ⚠️ **本条位于弃用条款 > 祖父条款 > 本条这个次序的最后**：命中前两条的组件仍不进
+   判定法；「重走」只约束真正进入判定法的新组件。（不是理论撞车：`RatingDisplay` 的
+   登记表 `customStyleProtocol` 就是复用既有的 `RatingStyle`，其 notes 明确推荐扩展点
+   复用同一个 `RatingStyle`——下一个复用已发布协议的拆分兄弟组件会同时命中祖父条款与
+   本条，此时祖父条款胜出，不必重走判定法。）
 2. **调用方会合理地想要一个「看起来完全不同、但含义相同」的版本吗？**
    ⚠️ **操作化门槛**：能**当场举出 ≥2 个业界真实存在的替代形态**才算「会」
    （**替代 = 不含组件当前的形态**）。
@@ -72,10 +85,85 @@
    三条判例——notes 对应的正是「形状 = 占位内容类型的声明」这条积极理由，不是「没有别的
    选择」这句消极描述。（`Skeleton` 本身是容器，notes 理由是「redacted + shimmer 叠加
    固定」，与「形状 = 内容类型」这条推理无关，不计入本处引证。）
+   ⚠️ **候选还有一条作用域约束**：由本设计系统的**另一个具名组件**承担的形态，不计入本
+   组件的候选——见本节下方「候选形态的作用域」小节。它**只排除候选、不决定落点**，
+   排除后仍要走完步骤 2 → 3 → 4。
    → **会** ⇒ 语义组件，需要扩展点
 3. **组件的视觉是它含义的一部分吗？**（换个长相就不是这个东西了）
    → **是** ⇒ 规定性组件，不给扩展点
 4. **以上都答不上来** ⇒ **tiebreaker（见下）**
+
+### ⚠️ 候选形态的作用域：由兄弟组件承担的形态不计入候选
+
+**这是步骤 2 的入口条件，不是第四个出口。** 三条出路回答的是「候选枚举完之后往哪走」；
+本条回答的是「**什么算候选**」——层级不同，并列会让判定法逻辑错位；写成「第四出口」还会
+让它变成万能逃生口（任何组件都能声称「想要别的观感？用兄弟组件」），而作为**步骤 2 的
+作用域规则**，它天然受下面三条可证伪条件约束。
+
+> **候选形态的作用域**：枚举替代形态时，**由本设计系统的另一个具名组件承担的形态，
+> 不计入本组件的候选**——「想要那种观感」的正确答案是**换用那个组件**，不是给本组件
+> 加扩展点。
+
+⚠️ **援引本条必须同时满足三条，缺一不可**：
+
+1. **被点名的兄弟组件必须真实存在于 `docs/component-registry.json`**（不是「将来可以做一个」）；
+2. `notes` 里**写明是哪一个**（组件名），不许写「换用别的组件」这种无指向表述；
+3. **被点名的兄弟组件必须真实承担被排除的那个候选形态**（其登记表条目或文档可佐证）。
+   ⚠️ 只有前两条的话，随便点名一个**真实存在但与该候选无关**的组件即可绕过——两条件都
+   满足、候选照样被排除。正例模板：`Tag` 的 pill 候选 → `Badge`（`Badge` 的 `notes` 自己
+   就写着它与 `Tag` 的唯一区分点是**固定的 Capsule（pill）视觉**——它**真的承担**这个形态）。
+   ⚠️ **反例**：不能拿「兄弟组件把该形态列为自己的**候选**」来满足本条——`Badge` 的 `notes` 里
+   「候选形态（pill 填充 / 描边 / 圆点指示）……这些候选**不计入** ≥2」说的恰是 `Badge`
+   **没有采用**它们。若那样也算数，本条就退化成 ①② 的重复，反绕过功能归零。
+
+⚠️ **本条只排除候选，不决定落点**：候选排除后仍要走完步骤 2 → 3 → 4。能**额外**说清
+「长相即含义」⇒ `step3`；说不清 ⇒ `tiebreaker`。**不得**用本条直接推出 `step3`。
+登记表两侧都有成文样本，不是空设：`Tag`（作用域排除后**另有**积极理由 ⇒ `step3`）与
+`TagInput`（作用域排除后**没有**积极理由——`notes` 原话「`TagInput` 自身没有独立可换皮的
+表面 ⇒ 举得犹豫」⇒ `tiebreaker`）。同一条排除条款，两种落点。
+
+⚠️ `Tag` 的独立理由经 #44 反事实必要性压测判「不过」，见 docs/contract-defects.md
+D-44-2 / D-44-3——本句「两侧都有成文样本」的 `step3` 侧当前没有一个能扛住新尺的正例。
+
+⚠️ **与皮肤变体条款的交叉——优先序（缺了这条就是同一种病的第三次）**：
+一个候选可能**同时**命中本条与皮肤变体条款（`Tag` 的 pill 就是：既是 `Badge` 的领域，
+又与 `Tag` 自身共享「低 chrome 状态色块」骨架）。两条款对落点的规定是**冲突**的——
+皮肤变体条款明文规定「落点固定为步骤 4，`decidedBy: tiebreaker`」，本条却允许继续走 3。
+
+**裁断：本条（组件间边界）优先于皮肤变体条款（组件内变体）。**
+理由：皮肤变体条款要解决的是「同一个组件的同一个骨架换画法」；一旦该形态**由另一个具名
+组件承担**，它就不再是「本组件的皮肤」——两条款的**适用对象**根本不同，不是强度之争。
+⇒ 命中本条时，先按本条排除候选；排除后若**本组件自己**仍有共享骨架的候选，
+再对**那些**候选适用皮肤变体条款。
+
+⚠️ **不追溯**：本条**不构成对既有 `tiebreaker` 条目重新路由的依据**。已落盘条目要按本条
+重 derive，须走下面「事后补写的效力边界」的修订回路——否则 `StreamingIndicator` 式条目
+（其「顶部进度条」候选可论证为 `ProgressIndicator` 的领域）的重诉通路就是敞开的。
+
+⚠️ **边界反例，不要误援引**：`Rating` / `RatingDisplay` 是一对具名兄弟组件，但它们拆的是
+**control vs indicator 的交互语义**（Apple 自己就这么分：`Slider` vs `ProgressView`），
+不是外观变体——证据是两者**共用同一个 `RatingStyle`**，外观候选并没有被兄弟组件消化掉。
+⇒ **不属于本条的适用范围**（`RatingDisplay` 条目的 `notes` 原文已记下这一点）。
+
+### ⚠️ 事后补写的效力边界：只能补强记录，不得单方面翻转落点
+
+事后往登记表 `notes` 补枚举候选、补援引，**只能补强现有结论的记录，不得单方面翻转落点**
+（`decidedBy` / `kind`）。要翻转，必须走**公约修订回路**——记入 `docs/contract-defects.md`
+→ 回写本公约 → 在 `docs/component-contract-revisions.md` 逐条留痕——**不能只改一条 `notes`**。
+
+⚠️ **「钉为范例」按结论逐条计，不按组件整体计**：某个组件被本公约正文点名，只对**被点名的
+那个结论**构成钉死。例：`InsetGroupedSection` / `SettingsRow` 在第 4 节被点名，那是
+**textParams 语境**，**不构成**对它们 `decidedBy` / `kind` 的钉死；而附录 A.2 对 `Tag` 的
+点名钉死的正是它的 `step3` 结论。按组件整体计会把前者误挡。
+
+⚠️ **未钉死条目同样要走回路**：本条对「翻转须走修订回路」的要求**不限于**钉死判例——
+任何已落盘条目的 `decidedBy` / `kind` 翻转都要留痕。钉死与否的区别只在**补强**：
+钉死判例的补强也须在修订记录里**显式声明「不改结论」**。
+
+⚠️ **理由**：`SkeletonCircle` 当前判 `step3` **不是因为候选真的枚举不出**，而是因为它的
+`notes` **从未枚举过候选**。若允许事后补枚举直接翻转，任何已发布判例都可由后来者的一次
+`notes` 补写悄悄推翻——判例就不再是判例。
+（`Skeleton*` 本身**不因本条改判**；本条只是把它暴露的规则空白补上。）
 
 ### ⚠️ Tiebreaker：两可时怎么办
 
@@ -127,9 +215,12 @@
 `CheckBoxToggleStyle: ToggleStyle`（`CheckBox` 组件，见附录 A.0）。
 
 ⚠️ **「正确先例」仅指「实现原生协议」这一点**：`SolidButtonStyle.swift` /
-`LightButtonStyle.swift` 的参数表内至今带 `glass: Bool` public 参数——正是本节
-下方引用的 `SegmentedControl.swift` 注释所斥的「布尔 hack」，**不构成整体背书**，
-其 `glass: Bool` 仍属第 3 节待处置项。
+`LightButtonStyle.swift` 曾在参数表内暴露 `glass: Bool` public 参数——正是本节
+下方引用的 `SegmentedControl.swift` 注释所斥的「布尔 hack」，故此处**不构成整体背书**。
+该参数**已于 `v0.8.0` 删除**（#41 裁决 3；迁移写法见 `docs/BREAKING-CHANGES.md` 的 B3/B4），
+**已按第 3 节处置完毕，不再属该节的处置范围**。
+⚠️ `SegmentedControl.swift` 内仍有名为 `glass` 的**内部**字段（**两处，均非 public**），
+那是形态 B 的实现细节，**不受第 3 节约束**。
 
 本仓已有的形态 B 先例，**公约认可**：`SegmentedControlStyle`、`BannerStyle`
 ——Apple 对这两类控件确无原生协议。
@@ -199,7 +290,11 @@
   与配套的严格等式断言（见 `BoolExemptionGuard.swift` 的 `baselineRatchetHoldsExactly`），
   但**只保证这次变化在 diff 里可见**——`scripts/bool-exemptions-ratchet.sh` 从头到尾
   只读 `maxEntries`、不读 `sourceSites`，`sourceSites` 未纳入该脚本的跨历史破例流程；
-  跨历史闸移交 #41/#43。
+  跨历史闸**至今未实现**——曾移交 `#41` / `#43`，两者的工作都已完成而这条闸**都没做**；
+  `docs/bool-exemptions-baseline.json` 的
+  `rationale` 原话即「`sourceSites` 的跨历史闸仍未实现（`scripts/bool-exemptions-ratchet.sh`
+  只读 `maxEntries`）」）⇒ 见 `oh-my-story` 仓
+  `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」（该文件随 #44 收口 PR 落地；已开 issue `#50` 承接）。
 ⚠️ 这句话说的是**豁免面**（`docs/bool-exemptions.json` + 其 `maxEntries`）本身的
 台账，不含 `pendingViolationKeys`（`BoolExemptionGuard.swift` 里写死的、按公约 A.3
 已裁决为已知违规、刻意不放进豁免清单的那个集合）——它是一条平行通道，不占
@@ -216,6 +311,21 @@
 J-1 的谓词是「**任何 Bool**」，做的是纯符号比对 ⇒
 `bordered: Bool` → `border: BorderStyle`（`.bordered` / `.none` 两个 case）
 **机器判据完全挡不住**，而它只是换了名字的同一个布尔旋钮。
+⚠️ **本例句是构造出来演示「两 case enum 逃逸」的，不是本仓的落地形状**：
+`bordered` 在 `v0.8.0` 的实际处置是**删除参数**、改走 `SurfaceKind.grouped`（`View.surface(_:)`）
+与 `CardKind`（`Card(kind:)`）这两个**独立成立的角色枚举**（#41 裁决 1，见
+`docs/BREAKING-CHANGES.md` B1/B2）——**本仓从未落地过 `BorderStyle` 这个类型**。
+例句保留是因为它演示的逃逸路径本身仍然有效；标注是为了不让读者以为 `BorderStyle` 已存在。
+⚠️ **`CardKind` 恰好也只有两个 case**（`.content` / `.grouped`，`CardKind` 自己的文档
+注释自称「刻意只有两个 case」）——字面上它落在上面「头号反例」判据的射程内，但它
+**合规**，与 `bordered: Bool` 不是同一回事。理由（#41 裁决 1，两点独立成立）：
+① **取值域是刻意收窄的结果，不是巧合**——`Card` 是 `.surface(.content)` 的薄封装，
+若开放全部 `SurfaceKind`，`Card(kind: .canvas)` 这类组合会把薄封装拓宽成万能容器
+（卡片贴画布 ⇒ 隐形，正是 Issue #140 的塌缩回归形态），两个 case 是有意为之的范围
+限定；② `.grouped` 本身按上面「取值域的命名规矩」判据**独立成立为一种容器角色**
+（iOS 自己把这种形态叫 `.insetGrouped`，本仓 `InsetGroupedSection` 已在用同名角色），
+不是「换个名字的同一个布尔旋钮」。⇒ **两 case 数本身不是判据**，「是否独立成立为
+角色」才是；`CardKind` 靠②过审，`bordered: Bool` 过不了②。
 
 **这是最廉价的逃逸路径，而公约文档是唯一能封住它的地方。**
 
@@ -227,11 +337,45 @@ J-1 的谓词是「**任何 Bool**」，做的是纯符号比对 ⇒
 `StepsAxis`（`horizontal` / `vertical`）与 SwiftUI 自己的 `Axis` 同构、同样只有
 两个 case，它不是「Bool 换皮」，是复刻系统惯例，**豁免于本判据**。
 
+### ⚠️ 取值域的命名规矩：「角色 + 修饰词」允许，禁的是**裸**修饰词
+
+按 3.1 把布尔还原成取值域时，新 case 的命名受一条规矩约束（原文在
+`Sources/CoreDesign/Modifier/SurfaceModifier.swift` 的 `SurfaceKind` 文档注释）：
+**不引入裸修饰词**（如 `.subtle`、`.muted`）；每个 case 直接对应一种容器角色。
+
+⚠️ **这条规矩此前与自身先例不自洽**（#41 撞上，缺陷 D-41-1）：同一个枚举里
+`case canvasSubtle` 正是「角色 + 修饰词」形态，且其文档自标「兼容别名」。
+规矩没裁断的两件事，本次一并写死：
+
+- **(a)「角色 + 修饰词」不是禁区，但也不是通行证**：禁的是**裸**修饰词单独成 case
+  （`.subtle` ❌）；带角色前缀只解除「凡带修饰词即禁」的误读，**不构成独立的合规
+  依据**——合规与否**一律回到下面的判据**。
+  ⚠️ 本条**不给**「角色 + 修饰词」形态的正例：本仓现有的 `.canvasSubtle` 是靠 (b)
+  的兼容别名豁免存活的，**它过不了判据**（「更淡的画布」离开 `canvas` 无法定义，
+  与判据判负的 `.contentPlain` 同型），因此不能充当「通过审判」的证据。**一个豁免
+  于审判的 case 不是正例。**
+- **(b)「兼容别名」是独立一档，且优先于 (a)/判据**：为保持源码兼容而保留的 case
+  （如 `SurfaceKind.canvasSubtle`）**不受本规矩审判**，但须同时满足两点：
+  ① **必须在文档注释里显式标注该档位**——不许默默留着，标注缺失时按普通 case 审判；
+  ② **该档只适用于本条款成文之前已存在的 case**——新增 case 一律走判据，**不得以
+  标注取得豁免**。命中 (b) 后不再走判据审判，但该豁免**不使它成为 (a) 的正例**。
+
+**判据（#41 为 `.grouped` 命名时实测可用，本次成文）**：一个新 case 是否合规，问
+「**该 case 是否独立成立为一种容器角色**」——
+`.grouped` 独立成立（iOS 自己把这种形态叫 `.insetGrouped`，本仓也已有同名组件
+`InsetGroupedSection` 在用它）；`.contentPlain` 离开 `.content` 就没法定义，
+是**变体名**不是**角色名** ⇒ 不合规。
+
+⚠️ **为什么必须写进公约**：#41 当时是靠一条**自造**判据才收敛的。自造判据能用一次，
+但它不在公约里，下一个人不会知道要用它——这正是本 epic 反复出现的「规矩在源码注释里、
+决策在别处」的病型。
+
 ### 3.1 专用 init / 专用参数
 
 **适用**：布尔背后其实是一个**被压扁的取值域**。
 
-例：`Rating(allowsHalfStar: Bool)` → `Rating(step: Double)`。
+例：`Rating(allowsHalfStar: Bool)` → `Rating(step: Double)`（**已于 `v0.8.0` 落地**，#41 裁决 4a；
+迁移写法见 `docs/BREAKING-CHANGES.md` 的 B5）。
 `Rating` 的手势注释证明 `step`（`allowsHalfStar ? 0.5 : 1.0`）本来就是内部概念，
 Bool 只是它的二值投影。
 
@@ -264,8 +408,13 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 | 形态 | modifier 表达**语义选择** | modifier 承载**布尔旋钮** |
 | 例 | `.surface(.content)` —— `kind` 选表面语义 | `.surface(bordered: false)` |
 
+⚠️ 上表的 `.surface(bordered: false)` 是**判据示意**，该参数已于 `v0.8.0` 删除（#41 裁决 1）；
+保留它是因为它是这条判据最清晰的反例形状。
+
 **反例**：把 `Card(bordered: Bool)` 挪成 `.card(bordered: false)` —— **错**。
 换了个位置的同一个布尔旋钮，不是替代路径。
+⚠️ **已于 `v0.8.0` 落地**（#41 裁决 1）：`Card(bordered:)` 删除，改为 `Card(kind: CardKind)`
+——走的是 3.1（还原成真实取值域），**不是** 3.3。
 
 ### 3.4 环境值
 
@@ -273,6 +422,7 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 
 ⚠️ **优先复用系统环境值，不要自造平行开关**。
 例：`Rating(isReadOnly: Bool)` 与 `@Environment(\.isEnabled)` 语义重叠
+（**已于 `v0.8.0` 落地**，#41 裁决 4b：`isReadOnly` 已删除）
 ——`Rating` 的手势注释写明「`isReadOnly` 或外层 `.disabled(true)` 时手势整体不挂载」,
 **两条路径做同一件事**。
 
@@ -280,7 +430,12 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 `disabled` 会连带**禁用态的灰色外观**，而只读评分的典型用途是「显示平均分」,
 需要**正常外观**。⇒ 这类「行为重叠但视觉诉求不同」的情形，
 正确解法可能是**拆成两个语义组件**（交互 `Rating` vs 展示 `RatingDisplay`,
-类比 `Slider` vs `Gauge`）。**取舍留给 #41，但不许默认归并。**
+类比 `Slider` vs `Gauge`）。
+**已于 `v0.8.0` 落地为拆分方案**（#41 裁决 4b）：交互 `Rating` + 展示 `RatingDisplay`，
+两者共用同一个 `RatingStyle`；**未采用归并**。
+⚠️ 拆分而非归并的理由（#41 实测）：`isEnabled == false` 走 SwiftUI 原生 disabled 视觉
+（变灰 + 降低对比度），语义是「这个控件现在不能用」，而展示态不是「不能用」是「本来就不是控件」
+——归并会造成语义错配导致的视觉回归，不是 API 收敛。拆分后控制展示态的路径只剩一条：**选哪个类型**。
 
 ## 4. 文案类型三分法
 
@@ -289,6 +444,22 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 | **A. 组件自带 chrome** | 文案**写在组件源码里**，调用方看不见也改不了 | `LocalizedStringResource` |
 | **B. 调用方传入的可本地化文案** | 调用方传，但内容是**界面文案**（标题、说明、占位符） | **新增用 `LocalizedStringKey`；存量迁移见下** |
 | **C. 用户数据** | 调用方传，内容是**用户自己产生的**（设定名、章节标题） | `String`，**不得改** |
+
+⚠️ **B 类参数的缺省兜底按 A 类处置**（#43 撞上，缺陷 #43-1）：调用方可传参覆盖、但**缺省时
+由组件源码提供**的兜底文案（如 StoryUI `ChapterStatus.defaultLabel`），**文案本身写在组件
+源码里** ⇒ 按 **A 类**处置，用 `LocalizedStringResource`。
+⇒ 据此**明确 A 判别特征中两个词的所指**：「**看不见**」指**调用方不能经由公开 API 读到
+这份文案字面量**（`defaultLabel` 是 internal ⇒ 看不见），**不是**「看不到渲染结果」；
+「**改不了**」指**不能修改这份默认值本身**，**不是**「不能覆盖最终渲染的文案」。两项都
+按前一义读，兜底文案才落进 A。
+（第一版只写「文案写在组件源码里，调用方看不见也改不了」——「看不见」「改不了」各自都有
+两义：字面量意义上兜底文案确实**看不见**（`defaultLabel` 是 internal）、也**改不了**
+（不能修改默认值本身）；但渲染意义上它「看得见」（渲染结果可见）、「改得了」（能传参覆盖
+最终显示的文案）。三分法对这一形态给不出答案，#43 只能做解释性裁定填空白。）
+⚠️ **本条的范围**：只裁 **B 类参数**的兜底。本仓另有形态相同但登记为 **C 类**的兜底
+（`SearchField` / `TagInput` 的 `placeholder`，缺省值 `"Search"` / `"Add tag"` 由组件
+源码提供），**本条不处置**——它们的分类要不要一并改，属登记表层面的连带改判，已记为缺陷
+（`docs/contract-defects.md` D-44-4）。
 
 ⚠️ **B 类是 CoreDesign 文本 API 的大头，不是 A 类。** `SectionHeader` /
 `InsetGroupedSection(header:footer:)` / `ProgressIndicator(text:)` / `SettingsRow` 都是 B。
@@ -329,8 +500,10 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 调用方看不见也改不了」，而 `textParams[]` 收的是 **public 参数**——参数按定义对调用方
 可见。⇒ 实测 `textParams[]` 中 A 计数恒为 **0**（现状 33 条：B 22 / C 9 / by-type 2，
 不写裸分母是为了不再重蹈本节前一版「31」的覆辙——分母每次改登记表都会变，写死的数字
-会立刻变成化石），这是预期，不是覆盖缺口。三方仍各自保留 A 取值（它是三分法本身的一
-部分，只是不经由参数这条路进登记表）。
+会立刻变成化石），这是预期，不是覆盖缺口。
+⚠️ 但「A 不进 `textParams[]`」只说明**这条路不该覆盖 A**，**不等于 A 的类型要求有
+判据**——A 类的类型要求当前无任何机器判据，见本节末「已知判据缺口」G-4。
+三方仍各自保留 A 取值（它是三分法本身的一部分，只是不经由参数这条路进登记表）。
 
 ---
 
@@ -390,6 +563,66 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 / `StringProtocol` 孪生重载；登记为 B/C 的参数必须有裸串入口。现状 2 条 `by-type`
 （`Descriptions.header` / `SpinningModifier.text`）+ 28 条 B/C 全部满足。
 
+### ⚠️ 已知判据缺口：本公约有规定、机器判据够不到的地方
+
+⚠️ **本节是「诚实留痕」，不是待办清单。** 列在这里的每一条都是**当前靠人守**的规矩——
+读到它就该知道「判据绿了**不代表**这一条被查过」。实现层的修复各自有移交去向。
+⚠️ **公约缺陷的定义明文包含「判据漏判」**（`docs/contract-defects.md` 开篇），
+因此这些条目**同样要回写公约**，不能因为「实现层不在本任务范围」就整条划出。
+
+| # | 缺口 | 判据侧现状 | 靠什么补位 | 实现层 |
+|---|---|---|---|---|
+| **G-1** | J-2 的 `customStyleProtocol` 通路**只查符号存在性**，查不出「组件真的把定制权交出去了」 | 判绿条件是「协议已声明 + 至少一个类型采纳」（规则层 `Tests/CoreDesignTests/ComponentJudgeRules.swift`；消费该规则的 suite 是下方 J-2 行落点 `ComponentExtensionPointGuard.swift`，两者对应同一条判据的不同层次）。组件完全可以声明协议、登记表填上名字，而 `body` 里照旧硬渲染 ⇒ J-2 照绿 | **一条人来守的规矩 + spy 测试**：#41 的 `Rating` / `RatingDisplay` 用「`body` 真的经 `style.makeBody(configuration:)` 渲染」的测试补位，#43 同款。**靠人自觉，不是靠判据** | 做成机器判据需要语义判断、成本明显更高 ⇒ 移交，本公约先把精度上限写在明处 |
+| **G-2** | `BoolExemptionGuard.ownersWithoutRegistryEntry` 台账**不随最后一个豁免键回收** | 三条宿主（`ButtonStyle` / `SolidButtonStyle` / `LightButtonStyle`）在 #41 删掉 `glass` 之后都已**没有任何活的豁免键**；`exemptionOwnersReconcileWithRegistry` 的循环按豁免键遍历 ⇒ 不再访问它们。但三者归类不同：`SolidButtonStyle` / `LightButtonStyle` 绑 `.styleImplementation`，它们绑定的正向核对（`scan.styleImpls.contains(owner)`）**零覆盖**，判据仍是绿的。`ButtonStyle` 绑的是 `.externalProtocolExtension`——该分类另有 `View` 的 11 个活豁免键撑着，正向核对**非零覆盖**，`ButtonStyle` 单独按下方裁断 (ii)② 的回收条件**今天已满足**，单独表态见下方裁断 | 无——保留的行不承重，靠人守；处置口径见下方**裁断** | 台账条目的标注与回收触发条件的落地 ⇒ 移交 |
+| **G-3** | README 组件索引的对账是**单向**的，且不检查快照存在性 | `ComponentRegistryGuard.readmeIndexReconcilesWithRegistry` 只做 README → 登记表方向：索引**缺行不会红**；也不检查该行 `<img src="snapshots/...">` 指向的 PNG 是否真的存在 | 无——靠人补。#41 新增 `RatingDisplay` 时索引行与快照全靠人手补 | 补一条反向断言（`kind != "excluded"` 的条目都应在 README 有行）+ 一条快照存在性断言 ⇒ 移交 |
+| **G-4** | **A 类的类型要求有规定、无判据，且本仓参考实现自己不合规** | 公约要求「A 类必须用 `LocalizedStringResource`」，而 CoreDesign `Sources/` 下 `LocalizedStringResource` 命中 **0**（实测）；`StateLabel.swift` 的 `StateLabelStyle.Spec.defaultLabel`（A 类 chrome，值是 `"Active"`/`"Draft"` 等英文）是裸 `String`。⚠️ **A 类文案不经任何一路进入 FR-4 的机器视野**：源码侧 FR-4 只扫 public `init` 参数、A 类不是参数；登记表侧 `textParams[]` 收 public 参数、A 计数恒为 0 | 评审（无机器判据） | ⚠️ **本公约在此明写：A 类的类型要求当前无机器判据，靠评审**；并把 CoreDesign 侧 `StateLabel.defaultLabel` 登记为**已知例外**。StoryUI 的 `ChapterStatus.defaultLabel` 是整个 epic 中**唯一**遵守该条的地方——这个不对称必须记录，否则下一个人会以为 `String` 是既定惯例。`StateLabel` 的改造 ⇒ 移交 |
+| **G-5** | 跨仓登记表守卫的 `derivedDataCandidates()` 有**陈旧命中**风险（失效方向**静默**） | StoryUI 侧 `CrossRepoRegistryGuard` 做 8 级有界上溯、`allEntries()` first-hit-wins。若 `.build/checkouts` 缺席而上层恰有一份陈旧的 `SourcePackages/checkouts/CoreDesign`，守卫会**静默读到旧版登记表**——判据照常绿，但对的是过期事实 | 概率极低（需同时满足两个条件），按 #43 终审裁定**留痕而非加固** | 若要收紧，落点是在 `allEntries()` 里核对「该 checkout 的 git 版本 ≟ `Package.resolved` 的 pin」⇒ 移交 |
+| **G-6** | StoryUI 侧 `CrossRepoRegistryGuard` 的 View 扫描：同一扫描器的两处口径边缘（失效方向 **fail-loud**） | (i) `visit(_:StructDeclSyntax)` 只看结构体自身修饰符 ⇒ 嵌在非 public 容器内、有效访问级实为 internal 的 `public struct` 仍被计入；(ii) `*Demo` 排除后返回 `.visitChildren` ⇒ Demo 内嵌的 public View 也会被采集 | 今日**零命中**（扫描命中集与登记表条目逐名闭合可证），且失效方向是多扫 ⇒ `missing` ⇒ 红 | 留痕即可 |
+| **G-7** | `ComponentIndexGuardTests` 的 27-slug roster 是**手工清单**，有方向性盲区 | 新 View 从未进 roster 时，文档索引与 roster **一起**漏掉它、两集合仍相等、判据永绿 | 无 | 移交 |
+| **G-8** | FR-4 的 StoryUI 侧 `storyuiTextParams == 3` 只做「计数 + 条目名」核对，**无参数级源码扫描** | 工作量取舍，**非能力边界**——测试 target 已依赖 swift-syntax，基建现成；参数级扫描是独立一块工程 | 无 | 移交 |
+
+#### G-2 的裁断（#44 本次成文，D-41-4 原文要求的正是「裁断」而不只是留痕）
+
+D-41-4 移交给 #44 的原话要求裁断两件事：**(i) 台账条目是否应随最后一个豁免键一并回收**；
+**(ii) 分类的「样本保留」需求该怎么表达**。逐条给出结论：
+
+**(i) 裁断：不随最后一个豁免键回收——但保留必须是「显式标注的保留」，不是「沉默的保留」。**
+理由：三条宿主行**今天已经零覆盖**——`SolidButtonStyle` / `LightButtonStyle` 绑定的
+`.styleImplementation` 正向核对一次都不会被执行，删与不删这两条宿主行，覆盖率都是 0，
+「删掉会让它失去覆盖」这个说法不成立（它本来就没有覆盖）。更直接的理由是 `switch kind` 对
+`OwnerExclusionKind` 穷尽分支，**分支代码不随台账行的存在与否而增删**——台账行今天的
+价值不是「喂给机器判据」，是**文档性样本**：`.styleImplementation` 这个分类值**唯一的
+成文样本**，以及它背后的 AD 依据（AD-3），删掉它会让下一个人遇到这个分类时要重新从源码
+反推。⇒ 保留的是**样本**，不是**覆盖率**；覆盖缺口本身由 G-2 这一行留痕，回收/加固的
+处置移交实现层。而**静默保留**与**显式标注保留**的区别，正是「这几行还承不承重」能不能
+被下一个人读出来。⇒ **保留 + 标注**，不是**保留 + 沉默**。
+
+**(i) 对 `ButtonStyle` 的单独表态**：`ButtonStyle` 绑定的是 `.externalProtocolExtension`，
+不是 `.styleImplementation`——它不落在 (i) 要保的「唯一成文样本」范围内（`.externalProtocolExtension`
+分类另有 `View` 的 11 个活豁免键撑着正向核对，从不缺样本）。⇒ `ButtonStyle` **按 (ii)②
+的回收条件今天已满足**，本次裁断结论是**可回收**；(i) 的保留结论只覆盖
+`SolidButtonStyle` / `LightButtonStyle` 这两行。回收动作本身（删除台账里的
+`ButtonStyle` 行）属于改判据实现，本任务不做 ⇒ 移交实现层。
+
+**(ii)「样本保留」的表达形式（三条，缺一不可）：**
+1. 台账条目旁必须注明 **`样本保留`** 字样，并写清它**保留的是哪一个分类值的样本**；
+2. 必须写清**回收的触发条件**——即「什么时候可以删掉它」：**仅当移除后该分类在台账中
+   仍 ≥1 行时**方可回收；**(i) 对每个分类的最后一行恒优先于 ②**——顺序未定义会反噬样本：
+   同一分类下先死的豁免键按 ② 被删、后死的按 (i) 被留，若不钉死优先序，「最终留下谁」
+   取决于键死亡的先后，且 ② 有可能在轮到 (i) 之前就把某分类删到 0 行；
+3. 必须写清**它当前不承重**这件事，即「按豁免键遍历的正向核对已不再访问它」。
+⇒ 三条齐备时，条目是**有据的样本**；缺任何一条，它就退化成一行「不知道还有没有用」的死账，
+下一个人只能凭猜删或凭猜留。
+
+⚠️ **本裁断只回写公约，不改判据实现**（`44-spec.md` 第四节）。把上述三条标注真正写进
+`Tests/CoreDesignTests/BoolExemptionGuard.swift` 的 `ownersWithoutRegistryEntry`、
+以及（若采纳）**对 `ownersWithoutRegistryEntry` 全表跑一遍分类核对**（不局限于当前有活键
+的宿主），都属实现层 ⇒ **移交**。⚠️ 这条全表核对与「给分类值加一条至少一个活样本的断言」
+不是同一件事：后者只断言**样本存在**（抓的是「分类缺席」），一次核对完就通过，抓不到
+`SolidButtonStyle` 被改名/删除后台账行**静默变成假样本**这种腐坏；前者对台账每一行的
+分类标注都做一次正向核对，能抓住腐坏，是更简单也更完整的补法，评估后一并移交实现层，
+本任务不实现。
+⚠️ **「移交裁断权 ≠ 完成裁断」**——D-41-4 要的是裁断，本节给的就是裁断；移交出去的只有落地动作。
 
 ## 5. 环境值清单
 
@@ -428,6 +661,10 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 
 ### A.1 `Rating(allowsHalfStar:)`
 
+⚠️ **本走查已落地**（`v0.8.0`，#41 裁决 4a/4c）：`allowsHalfStar` 已收成 `step: Double`，
+且 `RatingStyle` 协议 + `StarRatingStyle` 默认实现 + `View.ratingStyle(_:)` 已补齐
+——本节从「前瞻例」转为**已落地判例**。
+
 PRD 原文：「控制**手势步进粒度**（0.5 vs 1.0），同时影响渲染 ⇒ 外观还是行为？」
 
 | 步骤 | 结论 |
@@ -453,6 +690,9 @@ PRD 原文：「与 `onRemove` 闭包耦合 ⇒ 既是外观也是行为」。
 
 ⇒ 结论：**规定性组件，不给扩展点**。**未卡住。**
 
+⚠️ 该样本的独立理由经 #44 反事实必要性压测判「不过」，见 docs/contract-defects.md
+D-44-2 / D-44-3——步骤 3「✅ 是」的判定未被翻转，但支撑它的独立理由已确认站不住。
+
 ### A.1 续：`allowsHalfStar` 这个参数改成什么形状
 
 `Rating` 的手势注释写明它算出 `step`（`allowsHalfStar ? 0.5 : 1.0`）供手势
@@ -460,12 +700,20 @@ PRD 原文：「与 `onRemove` 闭包耦合 ⇒ 既是外观也是行为」。
 
 ⚠️ **不塞进样式协议** —— 手势粒度是行为，违反第 2 节的「样式不得携带行为」。
 
+⚠️ **已落地**（`v0.8.0`）：`step: Double` 已是 `Rating` 的正式参数，形状与本节例句一致。
+
 ### A.2 续：`removable` 这个参数改成什么形状
 
 Bool + 配套闭包 ⇒ 按 **3.2** 走**子视图槽**，一并消除 `Tag.init(onRemove:)` 参数
 文档记录的自相矛盾状态：「`onRemove == nil` 时按钮仍可见但 `.disabled(true)`」。
 
 ### A.3 `surface(_ kind:, bordered: Bool = true)`（modifier 形态）
+
+⚠️ **本节已从「待办项」转为已落地判例**（`v0.8.0`，#41 裁决 1）：
+`View.surface(_:bordered:)` 的 `bordered` 参数**已删除**，容器角色改由 `SurfaceKind.grouped`
+承担；`View.surface#bordered` 已不在任何违规集合里，`BoolExemptionGuard` 里包住它的
+`withKnownIssue` 块也已随之删除（见 `BoolExemptionGuard.swift` 中三处 `#41 裁决 1` 的留痕注释）。
+下面保留原判决记录，是为了让「为什么它当年被判不合规」可追溯。
 
 这不是组件，是 **View extension 上的 public modifier** —— 用来验证 **3.3** 的 modifier 条款。
 
@@ -477,7 +725,14 @@ Bool + 配套闭包 ⇒ 按 **3.2** 走**子视图槽**，一并消除 `Tag.init
 | modifier 表达**语义选择**？ | `.surface(.content)` 的 `kind` 是 ✅ |
 | modifier 承载**布尔旋钮**？ | `bordered` 是 ❌ **不合规** |
 
-⇒ 结论：**不合规**。最终处置（豁免或改造）**留给 #41 试点**，本任务只给判据。
+⇒ 结论：**不合规**（当年判决）。**最终处置已于 `v0.8.0` 落地**：删除参数（#41 裁决 1），
+走的是第 3 节终局条款的出口 **(b) 论证这个参数本不该存在**——这也是终局条款「(b) 是现实中
+最常见的处置」这句话的第一个实证。
+⚠️ **以下两段（『它不进豁免清单』/『落法是 `withKnownIssue`』）是 `v0.8.0` 之前的落法
+记录，不是现状**：`bordered` 参数已删除，`BoolExemptionGuard.swift` 里包住它的
+`withKnownIssue` 块也已随之删除（见上方「本节已从『待办项』转为已落地判例」段与下面
+「到期确实是机器强制的」段）；保留这两段是为了让「当年为什么选 `withKnownIssue`
+而不是让 CI 字面红」可追溯。
 ⚠️ **它不进豁免清单**：`View.surface#bordered` 不在 `docs/bool-exemptions.json` 里，
 因此**不占** `maxEntries` 的格子、**不受**棘轮保护——它不是「被接受的 API」，
 而是一条**已知的、未解决的违规**。
@@ -487,11 +742,10 @@ J-1 主判据 `BoolExemptionGuard.j1NoUnexemptedBoolParameters` 用 Swift Testin
 宿主台账、新违规）照常判红。理由：epic / main 分支**都没有分支保护**，字面红拦不住
 任何合并、只是信号；而它会让 `.github/workflows/ci.yml` 里「仅已知 flake 才重跑」的
 保护恒走「直接判红」分支，等于在整个 epic 期间关掉那道保护。
-⚠️ **到期是机器强制的，不靠任何人记账**：#41 一旦删掉/改造 `bordered`，
-`withKnownIssue` 块内不再记录到 issue ⇒ Swift Testing 判「Known issue was not recorded」
-⇒ 主判据**自己红**。第二道闸是 `j1ViolationSetIsExactlyTheContractPending`：
-它断言「未豁免违规集合**恰好**等于 `View.surface#bordered` 这一条」，
-既在 known issue **之外**抓新出现的未豁免 Bool，也在 `bordered` 消失时判红。
+⚠️ **到期确实是机器强制的，且已经兑现**：#41 删掉 `bordered` 之后，`withKnownIssue` 块内不再
+记录到 issue ⇒ Swift Testing 判「Known issue was not recorded」⇒ 主判据自己红，逼人回来清理
+——`BoolExemptionGuard.swift` 里那个块因此已被删除。第二道闸
+`j1ViolationSetIsExactlyTheContractPending` 同轮转为裸判据。
 
 #### AD-2 裁决：「这不是组件」的范围——ViewModifier 是否进登记表
 
@@ -527,9 +781,11 @@ public API 面，需要治理——6 个 Bool 已由 `39.md` 的 J-1 覆盖（�
 台账，不经登记表）。⚠️ **`placeholder: String` 这一侧的旧句「已移交 39.md（J-1/FR-4）」
 与落地结果不符，本次改正**：#39 只做了 J-1；#40 的 FR-4 判据以**登记表条目**为定义域，
 而 `BottomInputBar` 按本裁决**不登记** ⇒ 它的 `placeholder` 落在 FR-4 的**定义域之外**
-（`ComponentTextParamGuard.knownFunctionSideBareText`，有固定集合断言盯着，不是静默略过），
-**至今没有任何机器判据给它分类**。真正的处置移交 #41/#42（删掉这个组件，或给它一个
-可登记的 public 类型表面）。
+（`ComponentTextParamGuard.knownFunctionSideBareText`，有固定集合断言盯着，不是静默略过）。
+真正的处置 #41/#42 **均未做**：`BottomInputBar` 仍在，`View.bottomInputBar#placeholder`
+至今没有任何机器判据给它分类 ⇒ 见 `oh-my-story` 仓
+`.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」（该文件随 #44 收口 PR 落地；已开 issue `#50` 承接）。
+两条出路仍是：删掉这个组件，或给它一个可登记的 public 类型表面。
 
 ⚠️ **`Toast` 是反例，同样点名写死，以示裁决边界不是含糊的**：`Toast`（`docs/README.md:78`
 索引）表面上也是「class + struct 组合」，但它**确实有 public 类型**——`ToastHost`
