@@ -124,6 +124,11 @@ indicator 身上**完全不成立**——它本来就没有手势与 adjust acti
   `#52` 授权范围不含 `A.1`）；排除清单里属本仓的逐条列出：`Descriptions` /
   `SettingsRowChevron` / `SectionFooter`。⚠️ `StateLabel` 与 **#49 / G-4 重叠**，issue
   正文已写明两条改动的顺序与互不干扰。
+  ⚠️ **#53 处置留痕（`A.1` 尾巴）**：#53 已按完整修订回路改掉 `A.1` 走查表步骤 2 的提问
+  措辞（→「能举出 ≥2 个业界真实替代形态吗？」），**结论不变**（`Rating` 仍 `step2`）；
+  同批改掉 `A.2` 末尾那条「`A.1` 尚未改」的自认段（Step 5 一改它即失真）。台账留痕见
+  `docs/component-contract-revisions.md` `R-14`。⚠️ **本条不另开 `D-53-x` 号**——该缺陷的
+  登记处就是本段，#53 只是执行它移交的处置。
 - **移交 B（StoryUI 侧，24 条）** ⇒ `wxlpp/oh-my-story` **#54**。需在
   `oh-my-story` 仓做**源码级压测**；排除清单里属该仓的逐条列出：`ManuscriptEditor` /
   `DynamicForm` / `ContextPicker` / `CodexEntryForm`。⚠️ **这项成本本条原记录未覆盖**——

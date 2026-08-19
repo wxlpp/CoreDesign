@@ -605,7 +605,8 @@ enum，换成落地形状会毁掉反例的教学价值。
   `swift test` → `370 tests in 61 suites passed … with 3 known issues`。
 
 <!-- R-12 由 Task 10 追加。
-     ⚠️ 全部 R- 条目共 13 条（R-1~R-13），本节 8 条、第一节 5 条（含 Task 7 追加的 R-13）。 -->
+     ⚠️ 全部 R- 条目共 14 条（R-1~R-14），本节 8 条、第一节 5 条（含 Task 7 追加的 R-13）、
+     四、#53 移交 A 段 1 条（本 task 追加的 R-14）。 -->
 
 ## 三、本轮未改判 / 未回写的项（诚实留痕）
 
@@ -739,3 +740,46 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 逐条列在移交 A / B 的 issue 正文里（`Descriptions` / `SettingsRowChevron` / `SectionFooter`
 属 CoreDesign 侧；`ManuscriptEditor` / `DynamicForm` / `ContextPicker` / `CodexEntryForm`
 属 StoryUI 侧）。⚠️ **这三组都是真问题**，只是按「当前矛盾 vs 待复核」的界线落在移交侧。
+
+## 四、#53 移交 A（CoreDesign 侧 25 条 `step3` 补跑复核）
+
+### R-14｜#53 §3.4：附录 A.1 走查步骤 2 的提问措辞改为可证伪句式（**结论不变**）
+
+- **来源试点**：#53（移交 A，`D-44-1`「移交 A」段点名的「`A.1` 尾巴」）。`Rating` 的
+  `decidedBy` 是 `step2`，**不在本 issue「25 条 `step3`」的范围内**——挂在本轮是因为它与
+  移交 A 其余条目共享同一个「措辞可证伪性」维度，且同属 CoreDesign 侧公约文本修订。
+- **撞上公约哪一条**：第 1 节「⚠️ 事后补写的效力边界」小节规定的修订回路（记入
+  `docs/contract-defects.md` → 回写本公约 → 台账逐条留痕）。issue #53 逐字要求「翻转措辞
+  仍需走完整修订回路，**即便结论不变**」⇒ 本条即便不翻转落点也走满三步。另撞上附录 A.2
+  末尾自认段「⚠️ **A.1 尚未改**——它是本公约里**唯一**仍在用……的走查」——该句在本条落地
+  的同一刻失真。
+- **改动前（逐字）**：
+  - `docs/component-contract.md` 附录 A.1 走查表：
+    `| 2. 想要「长相不同、含义相同」的版本吗？ | ✅ **想要**——替代枚举：数字条 / 表情（当前形态「星」不计入替代枚举） |`
+  - `docs/component-contract.md` 附录 A.2 末尾：
+    `⚠️ **A.1 尚未改**——它是本公约里**唯一**仍在用上面这句被本段判为「无法证伪」的措辞的走查（#52 的授权范围不含 A.1，故不顺手改；已记入 `docs/contract-defects.md`）。`
+- **改动后（逐字）**：
+  - A.1 走查表步骤 2 改为
+    `| 2. 能举出 ≥2 个业界真实替代形态吗？ | ✅ **举得出 ≥2**——数字条（IMDb，连续条形）/ 表情（NPS 量表，单一图形）；当前形态「星」不计入替代枚举，且两者**结构本身不同**（连续条形 vs 单一图形，不是同一布局骨架换画法）⇒ **不命中皮肤变体条款**，计入 ≥2 |`
+  - A.2 末尾自认段改为 `⚠️ **A.1 已于 #53 改**——它**曾是**本公约里**唯一**仍在用……`
+    整段（含「只改提问句式，不改 A.1 已落地的判定结论」与指向本条的台账指针）。
+- **落点**：`docs/component-contract.md`（附录 A.1 走查表 1 处 + 附录 A.2 末尾自认段 1 处）；
+  `docs/contract-defects.md`（`D-44-1`「移交 A」段追加 #53 处置留痕）；本文件（本条）。
+- **连带改动**（逐条，实测）：
+  1. 附录 A.2 末尾的「A.1 尚未改」自认段 —— **本轮同批改**（不改即失真：改完 A.1 之后
+     「唯一仍在用旧措辞的走查」在公约里命中为 0）；
+  2. `docs/contract-defects.md` `D-44-1`「移交 A」段 —— 追加处置留痕，**不新开缺陷号**
+     （该缺陷的登记处即该段）；
+  3. **A.1 已落地的判定结论不动** —— `Rating.decidedBy` 实测仍 `step2`，
+     `docs/component-registry.json` 本条**零改动**；
+  4. 「A.1 续」小节（`allowsHalfStar` → `step: Double`）**不受影响**：它记的是参数形状，
+     不是步骤 2 的提问措辞 —— 实测无需改。
+  5. `Tests/` **零改动**：结构守卫只锚 `##` / `###` 标题行，A.1 改的是表格行与正文段，
+     两者都不在白名单里。
+- **验证**：`swift test` → `Test run with 370 tests in 61 suites passed ... with 3 known issues`
+  （与基线 `18f92fc` 一致）；`swift test --filter ComponentContractStructureGuard` →
+  `2 tests in 1 suite passed`、`No matching test cases were run` 计数 **0**（⚠️ 中文显示名
+  会造成「跑 0 个测试 + 退出 0」，必须核条数，只看退出码是假绿）；去格式化后全文
+  「想要「长相不同、含义相同」的版本吗？」命中 **0**（改前为 1）；
+  `docs/component-registry.json` / `docs/bool-exemptions*.json` / `Tests/` 均
+  `git diff --quiet` 退出码 0；不变量四项全 `PASS`。
