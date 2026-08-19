@@ -605,8 +605,9 @@ enum，换成落地形状会毁掉反例的教学价值。
   `swift test` → `370 tests in 61 suites passed … with 3 known issues`。
 
 <!-- R-12 由 Task 10 追加。
-     ⚠️ 全部 R- 条目共 15 条（R-1~R-15），本节 8 条、第一节 5 条（含 Task 7 追加的 R-13）、
-     四、#53 移交 A 段 2 条（Task 1 追加的 R-14、本 task 追加的 R-15）。 -->
+     ⚠️ 全部 R- 条目共 16 条（R-1~R-16），本节 8 条、第一节 5 条（含 Task 7 追加的 R-13）、
+     四、#53 移交 A 段 3 条（Task 1 追加的 R-14、Task 2 追加的 R-15、Task 3（本 task）
+     追加的 R-16）。 -->
 
 ## 三、本轮未改判 / 未回写的项（诚实留痕）
 
@@ -820,3 +821,46 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   「(A)(B)判的是组件实质」**1** 次、「供#54引用」**1** 次；`docs/component-registry.json`
   / `docs/bool-exemptions*.json` / `Tests/` 均 `git diff --quiet` 退出码 0；
   不变量四项全 `PASS`。
+
+### R-16｜#53 §3.3：`D-52-4` 移交裁断——`Skeleton*` 两处自反逐条裁定「成立」（不改判）
+
+- **来源试点**：#53（移交 A / spec §3.3），承接 `D-52-4` 移交时要求的裁断。
+- **撞上公约哪一条**：第 1 节步骤 2 的骨架屏例段（公约**仅存的** `step3` 教学范例）与其下的
+  「⚠️ 照抄本范例前先看 D-52-4」指针句；以及步骤 3 (B) 的「不依赖任何兄弟组件名」条款。
+- **改动前（逐字）**：
+  ```
+  ⚠️ 照抄本范例前先看 D-52-4：本范例的反事实机制是否属非关系性（「圆形换成方形」
+  是否隐含依赖兄弟 SkeletonRect），以及 SkeletonRect.cornerRadius 是 public、能渲成圆形
+  这一点是否构成与 SettingsRow 同型的公开 API 自反——两条均已登记、未裁。
+  ```
+- **改动后（逐字）**：
+  ```
+  ⚠️ 照抄本范例前先看 D-52-4：本范例的反事实机制是否属非关系性（「圆形换成方形」
+  是否隐含依赖兄弟 SkeletonRect），以及 SkeletonRect.cornerRadius 是 public、能渲成圆形
+  这一点是否构成与 SettingsRow 同型的公开 API 自反——两条已登记，并已由 #53 裁断：
+  两点均成立（见 docs/contract-defects.md D-52-4 的 #53 裁断段）。
+  ⇒ 本范例仍留在此处，但它不再是「非关系性积极理由」的合格样例：它的 Y（「图片」）
+  要靠兄弟 SkeletonRect 才指得出名 ⇒ 机制是关系性的；且 SkeletonRect.cornerRadius
+  public 可调、CoreShape.rounded 未对 radius 做上限 clamp ⇒ 公开 API 自证骨架不固定。
+  ⚠️ Skeleton* 四条本轮不改判（#41 明令本 epic 不改判它）——#53 只出结论 + 登记，
+  改判须另走完整修订回路，承接处见 docs/contract-defects.md D-52-4 的 #53 裁断段末尾。
+  ⚠️ 连带：段 2 式的实质压测不得照抄本范例的句型——凡「换成 X 就读成 Y」里的 Y
+  只能靠一个具名兄弟组件指出来的，一律按 (B) 的关系性条款判不过。
+  ```
+- **落点**：`docs/component-contract.md`（第 1 节指针句 1 处）；`docs/contract-defects.md`
+  （`D-52-4` 追加 `#### ⚠️ #53 裁断` 段）；本文件（本条）。
+- **连带改动**（逐条，实测）：
+  1. 骨架屏例段本体**保留**——删它等于在没有替代样例的情况下抽掉公约唯一的 `step3`
+     教学范例，超出「只出结论」的授权；
+  2. `docs/component-registry.json` 的 `Skeleton` / `SkeletonCircle` / `SkeletonLine` /
+     `SkeletonRect` 四条**零改动**（实测 `decidedBy` 仍全 `step3`）；
+  3. `D-52-3`（公约对 `Skeleton*.notes` 描述失实，已修）**不受影响**——本条裁的是机制的
+     关系性与公开 API 自反，不是 `notes` 描述是否失实；
+  4. 段 2（Task 5）的补写句型判据由本条产出，已在公约指针句「⚠️ **连带**」处写明；
+  5. `Tests/` **零改动**——结构守卫只锚标题行（`##`/`###`/`####`），本条改的是
+     `D-52-4` 下新增的 `####` 段与正文缩进段，二者均不在白名单里。
+- **验证**：`swift test` 尾行 `370 tests in 61 suites passed ... with 3 known issues`；
+  `swift test --filter ComponentContractStructureGuard` → `2 tests in 1 suite passed`、
+  `No matching test cases were run` 计数 **0**；`Skeleton*` 四条 `decidedBy` 实测仍全
+  `step3`；`git diff --quiet docs/component-registry.json Tests` 退出码 0；不变量四项全
+  `PASS`。

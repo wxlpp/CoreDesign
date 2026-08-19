@@ -103,7 +103,15 @@
    该失实已登记为缺陷（`docs/contract-defects.md` D-52-3）。
    ⚠️ **照抄本范例前先看 D-52-4**：本范例的反事实机制是否属**非关系性**（「圆形换成方形」
    是否隐含依赖兄弟 `SkeletonRect`），以及 `SkeletonRect.cornerRadius` 是 public、能渲成圆形
-   这一点是否构成与 `SettingsRow` 同型的公开 API 自反——两条均**已登记、未裁**。
+   这一点是否构成与 `SettingsRow` 同型的公开 API 自反——两条**已登记，并已由 #53 裁断：
+   两点均成立**（见 `docs/contract-defects.md` D-52-4 的 #53 裁断段）。
+   ⇒ **本范例仍留在此处，但它不再是「非关系性积极理由」的合格样例**：它的 Y（「图片」）
+   要靠兄弟 `SkeletonRect` 才指得出名 ⇒ 机制是关系性的；且 `SkeletonRect.cornerRadius`
+   public 可调、`CoreShape.rounded` 未对 radius 做上限 clamp ⇒ 公开 API 自证骨架不固定。
+   ⚠️ **`Skeleton*` 四条本轮不改判**（#41 明令本 epic 不改判它）——#53 只出结论 + 登记，
+   改判须另走完整修订回路，承接处见 `docs/contract-defects.md` D-52-4 的 #53 裁断段末尾。
+   ⚠️ **连带**：段 2 式的实质压测**不得**照抄本范例的句型——凡「换成 X 就读成 Y」里的 Y
+   只能靠一个具名兄弟组件指出来的，一律按 (B) 的关系性条款判不过。
    （`Skeleton` 本身是容器，notes 理由是「redacted + shimmer 叠加固定」，与「形状 =
    内容类型」这条推理无关，不计入本处引证。）
    ⚠️ **候选还有一条作用域约束**：由本设计系统的**另一个具名组件**承担的形态，不计入本
