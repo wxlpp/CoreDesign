@@ -605,9 +605,9 @@ enum，换成落地形状会毁掉反例的教学价值。
   `swift test` → `370 tests in 61 suites passed … with 3 known issues`。
 
 <!-- R-12 由 Task 10 追加。
-     ⚠️ 全部 R- 条目共 16 条（R-1~R-16），本节 8 条、第一节 5 条（含 Task 7 追加的 R-13）、
-     四、#53 移交 A 段 3 条（Task 1 追加的 R-14、Task 2 追加的 R-15、Task 3（本 task）
-     追加的 R-16）。 -->
+     ⚠️ 全部 R- 条目共 17 条（R-1~R-17），本节 8 条、第一节 5 条（含 Task 7 追加的 R-13）、
+     四、#53 移交 A 段 4 条（Task 1 追加的 R-14、Task 2 追加的 R-15、Task 3 追加的 R-16、
+     Task 6（本 task）追加的 R-17）。 -->
 
 ## 三、本轮未改判 / 未回写的项（诚实留痕）
 
@@ -863,4 +863,112 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   `swift test --filter ComponentContractStructureGuard` → `2 tests in 1 suite passed`、
   `No matching test cases were run` 计数 **0**；`Skeleton*` 四条 `decidedBy` 实测仍全
   `step3`；`git diff --quiet docs/component-registry.json Tests` 退出码 0；不变量四项全
+  `PASS`。
+
+### R-17｜#53 段 1「直接改判」档批量落地：`Card`/`Separator` 正式改判 `step3` → `tiebreaker`
+
+- **来源试点**：#53 移交 A 段 1「直接改判」档，`53-triage.md` 派生名单共 **2** 条
+  （`Card`、`Separator`；委托方 `Descriptions`/`SettingsRowChevron`/`SectionFooter`
+  三条虽同为「直接改判」档位，按 §3.2 归 Task 8 独立重走，已扣除）。
+- **撞上公约哪一条**：第 1 节步骤 3「操作化门槛」小节的 (A)(B) 两条件（`Card`/`Separator`
+  的 `notes` 均零候选零 elaboration ⇒ (A) 不成立；均以消极结论收尾、无反事实句 ⇒ (B)
+  不成立）+「⚠️ (A)(B) 判的是组件实质，`notes` 现状只是证据」再解释段（`D-53-1`/`R-15`
+  落地）中「事后补写的效力边界」规定的修订回路（翻转须走该回路）+ 该段末尾「⚠️ 步骤 3
+  (B) 明列的『只有一种合理长相』『结构固定』『视觉即含义』这类消极描述或结论复述不算」
+  一句——`Card`/`Separator` 原 `notes` 均落在这条明令排除的措辞里。
+- **改动前（逐字）**：
+  - `Card.decidedBy`：`"step3"`；`notes`：`步骤 1 无。步骤 2/3：文档自述『Card 不引入平行
+    的容器体系』——是 `.surface(.content)` / `.surface(.grouped)` 的具名薄封装，本身无独立
+    视觉身份可换皮；已有的外观变化（有/无描边）在 #41 裁决 1 里由 `bordered: Bool` 收成了
+    取值域恰为两个 case 的 `CardKind` 语义枚举（公约第 3 节替代路径 3.1），不是样式扩展
+    点。视觉即含义 ⇒ 步骤 3 规定性，不给扩展点。`
+  - `Separator.decidedBy`：`"step3"`；`notes`：`纯装饰分隔线，hairline 宽度 + 语义 token
+    颜色固定 ⇒ 长相即含义，步骤 3 规定性。inset 是 CGFloat/enum 几何参数，非文本，无
+    textParams。`
+- **改动后（逐字）**：
+  - `Card.decidedBy` = `"tiebreaker"`（`kind` 仍 `"prescriptive"`——判定法对 `step3` 与
+    `tiebreaker` 是同一个 `kind` 映射，无需同步；`needsExtensionPoint` 仍 `false`；
+    `textParams` 不变）。`notes` **只增不删**，末尾追加：
+    `⚠️ #53 改判（段 1「直接改判」档，`D-53-2` / `R-17`）：`decidedBy` 由 `step3` 改判为
+    `tiebreaker`。可核验理由（引 `53-survey.md` 条目 2 + `53-triage.md` #2）：(A) 不成立
+    ——枚举候选 0 个、零 elaboration（notes 唯一提到的『外观变化』有/无描边是 Card 自己已有
+    的历史变体，已被 `CardKind` 枚举吸收，不是被排除的外部候选形态），属公约明令的『没写
+    候选≠真的举不出』常见失效模式；(B) 不成立——`notes` 全篇只有『本身无独立视觉身份可换
+    皮』『视觉即含义』两句消极描述/结论复述，无一句『换成 X 就读成 Y』的反事实句。关键不是
+    『没写好』：`notes` 自陈 Card 是 `.surface(.content)` / `.surface(.grouped)` 的具名薄
+    封装，本身无独立视觉身份——这是组件文档自己承认的架构事实（调用方可直接用
+    `.surface(.content)` 达到同样效果），无需段 2 读源码即可判定实质也不满足 ⇒ 直接改判。
+    回路：`D-53-2` / `R-17`。`（追加段 528 字，`notes` 由 230 → 758 字符）
+  - `Separator.decidedBy` = `"tiebreaker"`（`kind`/`needsExtensionPoint`/`textParams` 同上
+    不动）。`notes` **只增不删**，末尾追加：
+    `⚠️ #53 改判（段 1「直接改判」档，`D-53-2` / `R-17`）：`decidedBy` 由 `step3` 改判为
+    `tiebreaker`。可核验理由（引 `53-survey.md` 条目 10 + `53-triage.md` #10，独立于公约
+    第 1 节步骤 3 操作化门槛小节末尾『合格理由』范例句复核，未引该段作为依据——该段用的正是
+    同款 Separator 论证，引它会构成循环论证）：(A) 不成立——枚举候选 0 个、零 elaboration，
+    属公约明令的『没写候选≠真的举不出』常见失效模式；(B) 不成立——`notes`（95 字）全篇仅
+    『长相即含义』结论复述收尾，无反事实句。`notes` 描述的 Separator 视觉全部内容仅为
+    『hairline 宽度 + 语义 token 颜色固定』——这是分隔线的具体画法参数；而『分隔相邻内容
+    区块』这一功能语义，在留白/间距不渲染任何可见线条的情况下同样能达成，是与 hairline
+    分隔线并存的常见等效手段，`notes` 全文未论证为何必须用可见细线而非留白传达『分隔』。
+    ⚠️ 『留白同样承担分隔』是外部设计常识、不在 `notes` 里（不依赖 `Separator.swift` 源码，
+    但确实依赖 notes 之外的知识）。⚠️ 本条不宣称『独立推导』——同款论证逐字预存于 spec §二
+    范例、plan 判定纪律块、公约第 1 节步骤 3 操作化门槛小节末尾『合格理由』范例句三处，
+    判定前均已读过，锚定效应无法排除；此处只主张与预存范例同向、且论证经独立核验成立
+    （换成留白/更大间距『这是两块内容』的含义不会丢失，只是画法不同）⇒ 实质也不满足，可
+    直接改判。独立复核结论与公约范例一致（非相反），不触发『须同批修订』标记。回路：
+    `D-53-2` / `R-17`。`（追加段 809 字，`notes` 由 95 → 904 字符）
+- **落点**：`docs/component-registry.json`（`Card`、`Separator` 各 1 条，共 2 条）；
+  `docs/contract-defects.md`（新建 `D-53-2`，合并登记，逐条列名 + 逐条理由）；
+  `docs/component-contract.md`（实测承重引证处数 **0**——两条在该文档的既有引证均判非
+  承重，见下方连带改动 1、2，理由已给，不回写）；本文件（本条）。
+- **连带改动**（逐条做，不合并，`docs/component-contract.md` / `docs/contract-defects.md`
+  / `docs/component-contract-revisions.md` / `docs/README.md` / `docs/BREAKING-CHANGES.md`
+  / `docs/DESIGN-FOUNDATION.md` 六文件逐条命中扫描）：
+  1. **`Card` 连带面（实测 7 处，均非承重）**：`docs/component-contract.md` 第 3 节
+     `CardKind`/`bordered: Bool` 替代路径讨论（419–431、517、519 一带）——语境是 Bool
+     豁免枚举化案例，不涉及 `decidedBy`/`kind:prescriptive` 判定，非承重；
+     `docs/contract-defects.md` D-41 系列 Bool 豁免枚举化试点列表（12、82–85）——同一
+     `bordered:Bool` 语境，非承重；`docs/contract-defects.md`（212–213）「出现过『候选』
+     或『替代』二字……其中 `Card` 的『替代路径』指的是公约第 3 节的 Bool 替代路径、不是
+     形态候选」——**该处文本自己已明确排除**被误读为判定论据的可能，非承重；
+     `docs/component-contract-revisions.md` R-9/R-11 一带（362、592、600）同一
+     `bordered:Bool` 语境，非承重；`docs/README.md`（61）为截图索引表，非承重；
+     `docs/BREAKING-CHANGES.md` B2 `Card(bordered:) → Card(kind:)` 变更日志专题
+     （51、62、70、76、77、80、81、204、443）与组件名录列举（326、448）——均为历史记录/
+     索引语境，非承重。⚠️ 另有 6 处**子串误命中**已排除（不计入连带面）：
+     `component-contract.md:987`（"ChapterCard" 含 "Card" 子串）、`contract-defects.md:194`
+     （"ApprovalRequestCard" 含 "Card" 子串）、`BREAKING-CHANGES.md:336/454/458/460`
+     （"CommentCard"/"surfaceCard" 均含 "Card" 子串）——均与组件 `Card` 本身无关。
+  2. **`Separator` 连带面（实测 5 处，均非承重）**：`docs/component-contract.md`（151）
+     「合格理由形如『留白 / 空隙同样承担分隔，`Separator` 的具体画法不承载含义』」——本
+     task 的专项处置对象（Imp-2 约束）：独立复核结论与该句一致（非相反），故判非承重、
+     不改写，仅在 `docs/component-registry.json` 的 `Separator.notes` 与本条「改动后」
+     里写明「未引该段作为依据、独立复核结论与之一致」；`docs/contract-defects.md`
+     （584）`D-53-1` 判定歧义表格中的 `Separator` 示例行「留白也能分隔 ⇒ 实质大概率也不
+     满足」——同理，事先示例、结论一致，非承重、不改写；`docs/README.md`（62）截图索引表，
+     非承重；`docs/BREAKING-CHANGES.md`（8、21、286、288）`Separator.Inset` 改名变更日志
+     专题——改的是参数命名，非判定结论，非承重；`docs/BREAKING-CHANGES.md`（326、448）
+     组件名录列举——索引语境，非承重。⚠️ 另有 1 处**子串误命中**已排除：
+     `DESIGN-FOUNDATION.md:59`（`BorderColors` 的 `opaqueSeparator` token 族，含
+     "Separator" 子串，指系统边框色 token、非组件 `Separator`）。
+  3. `docs/components/*.md`（`card.md`/`separator.md` 在内）实测**无任何** `decidedBy` /
+     判定结论陈述——全库 `grep -rn "decidedBy\|判定结论" docs/components/*.md` 命中 **0**
+     ⇒ 不构成连带面。
+  4. `Tests/` **零改动**——`ComponentRegistryGuard` 对 `step3 → prescriptive` 与
+     `tiebreaker → prescriptive` 是**同一个** `kind` 映射断言，两个 `decidedBy` 值对它
+     等价；`ComponentJudgeRulesTests` 里出现的 `Card`/`SidebarUtilityRow`/`Steps`/
+     `Descriptions` 等全部经 `makeTestEntry` 合成 fixture 构造，不读取真实
+     `component-registry.json`，本条改动不触碰它们。
+  5. `docs/bool-exemptions.json` / `docs/bool-exemptions-baseline.json` **零改动**——本条
+     只动 `decidedBy`/`notes`，不涉及任何 Bool 参数豁免登记。
+- **验证**：`decidedBy` 分布 `step3` 49 → 47、`tiebreaker` 15 → 17（coredesign `step3`
+  余量 25 → 23）；`step3 + tiebreaker`（`kind:prescriptive` 计数）改判前后不变；
+  `D-53-2` 已登记（去格式化命中）**1**；`R-17` 已留痕（去格式化命中）**1**；
+  `git diff --quiet Tests` 退出码 **0**；`git diff --quiet docs/bool-exemptions.json
+  docs/bool-exemptions-baseline.json` 退出码 **0**；`swift test --filter
+  ComponentRegistryGuard` → `... tests in 1 suite passed`，`swift test --filter
+  ComponentTextParamGuard` → `... tests in 1 suite passed`，两者整段输出均**不出现**
+  `No matching test cases were run`；`swift test` 尾行 `370 tests in 61 suites passed
+  ... with 3 known issues`；不变量复算（`step3+tiebreaker`==`kind:prescriptive` 计数
+  关系成立 / `textParams` B/C 计数不变 / 豁免棘轮零改动 / registry 71 条不变）四项全
   `PASS`。

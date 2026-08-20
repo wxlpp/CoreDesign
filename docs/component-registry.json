@@ -127,12 +127,12 @@
     "component": "Card",
     "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "步骤 1 无。步骤 2/3：文档自述『Card 不引入平行的容器体系』——是 `.surface(.content)` / `.surface(.grouped)` 的具名薄封装，本身无独立视觉身份可换皮；已有的外观变化（有/无描边）在 #41 裁决 1 里由 `bordered: Bool` 收成了取值域恰为两个 case 的 `CardKind` 语义枚举（公约第 3 节替代路径 3.1），不是样式扩展点。视觉即含义 ⇒ 步骤 3 规定性，不给扩展点。"
+    "notes": "步骤 1 无。步骤 2/3：文档自述『Card 不引入平行的容器体系』——是 `.surface(.content)` / `.surface(.grouped)` 的具名薄封装，本身无独立视觉身份可换皮；已有的外观变化（有/无描边）在 #41 裁决 1 里由 `bordered: Bool` 收成了取值域恰为两个 case 的 `CardKind` 语义枚举（公约第 3 节替代路径 3.1），不是样式扩展点。视觉即含义 ⇒ 步骤 3 规定性，不给扩展点。 ⚠️ #53 改判（段 1「直接改判」档，`D-53-2` / `R-17`）：`decidedBy` 由 `step3` 改判为 `tiebreaker`。可核验理由（引 `53-survey.md` 条目 2 + `53-triage.md` #2）：(A) 不成立——枚举候选 0 个、零 elaboration（notes 唯一提到的『外观变化』有/无描边是 Card **自己已有**的历史变体，已被 `CardKind` 枚举吸收，不是被排除的外部候选形态），属公约明令的『没写候选≠真的举不出』常见失效模式；(B) 不成立——`notes` 全篇只有『本身无独立视觉身份可换皮』『视觉即含义』两句消极描述/结论复述，无一句『换成 X 就读成 Y』的反事实句。关键不是『没写好』：`notes` 自陈 Card 是 `.surface(.content)` / `.surface(.grouped)` 的具名薄封装，本身无独立视觉身份——这是组件文档自己承认的架构事实（调用方可直接用 `.surface(.content)` 达到同样效果），无需段 2 读源码即可判定实质也不满足 ⇒ 直接改判。回路：`D-53-2` / `R-17`。"
   },
   {
     "component": "Carousel",
@@ -326,12 +326,12 @@
     "component": "Separator",
     "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "纯装饰分隔线，hairline 宽度 + 语义 token 颜色固定 ⇒ 长相即含义，步骤 3 规定性。inset 是 CGFloat/enum 几何参数，非文本，无 textParams。"
+    "notes": "纯装饰分隔线，hairline 宽度 + 语义 token 颜色固定 ⇒ 长相即含义，步骤 3 规定性。inset 是 CGFloat/enum 几何参数，非文本，无 textParams。 ⚠️ #53 改判（段 1「直接改判」档，`D-53-2` / `R-17`）：`decidedBy` 由 `step3` 改判为 `tiebreaker`。可核验理由（引 `53-survey.md` 条目 10 + `53-triage.md` #10，**独立于**公约第 1 节步骤 3 操作化门槛小节末尾『合格理由』范例句复核，**未引该段作为依据**——该段用的正是同款 Separator 论证，引它会构成循环论证）：(A) 不成立——枚举候选 0 个、零 elaboration，属公约明令的『没写候选≠真的举不出』常见失效模式；(B) 不成立——`notes`（95 字）全篇仅『长相即含义』结论复述收尾，无反事实句。`notes` 描述的 Separator 视觉全部内容仅为『hairline 宽度 + 语义 token 颜色固定』——这是分隔线的具体画法参数；而『分隔相邻内容区块』这一功能语义，在留白/间距不渲染任何可见线条的情况下同样能达成，是与 hairline 分隔线并存的常见等效手段，`notes` 全文未论证为何必须用可见细线而非留白传达『分隔』。⚠️ 『留白同样承担分隔』是外部设计常识、**不在** `notes` 里（不依赖 `Separator.swift` 源码，但确实依赖 notes 之外的知识）。⚠️ 本条**不宣称『独立推导』**——同款论证逐字预存于 spec §二范例、plan 判定纪律块、公约第 1 节步骤 3 操作化门槛小节末尾『合格理由』范例句三处，判定前均已读过，锚定效应无法排除；此处只主张与预存范例**同向**、且论证经独立核验成立（换成留白/更大间距『这是两块内容』的含义不会丢失，只是画法不同）⇒ 实质也不满足，可直接改判。独立复核结论与公约范例**一致**（非相反），不触发『须同批修订』标记。回路：`D-53-2` / `R-17`。"
   },
   {
     "component": "SettingsRow",
