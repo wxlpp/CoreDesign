@@ -388,7 +388,7 @@
     "component": "SidebarNavigationRow",
     "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
@@ -398,7 +398,7 @@
         "category": "B"
       }
     ],
-    "notes": "同 SidebarDocumentRow 的骨架/推理，步骤 3 规定性，不给扩展点（选中态 floating-glass 背景是内建固定行为，非可换皮扩展点）。textParams：title 是导航目的地标签（如『Home』『Notifications』），由调用方/App 固定选定，非用户数据 ⇒ B 类。"
+    "notes": "同 SidebarDocumentRow 的骨架/推理，步骤 3 规定性，不给扩展点（选中态 floating-glass 背景是内建固定行为，非可换皮扩展点）。textParams：title 是导航目的地标签（如『Home』『Notifications』），由调用方/App 固定选定，非用户数据 ⇒ B 类。 ⚠️ #53 §3.1 carve-out 三步程序改判（D-41-3：否决理由不可继承，对所有步骤都成立）：① 剥离委托句——把「同 SidebarDocumentRow 的骨架/推理，步骤 3 规定性」从判定依据里拿掉（判定依据的剥离，不是 notes 的删除，notes 只增不删）。② 按段 1/段 2 独立重走——剥离后本条目自身仅剩「不给扩展点（选中态 floating-glass 背景是内建固定行为，非可换皮扩展点）」，这是 needsExtensionPoint 的结论复述，不含独立于兄弟组件的候选枚举或反事实机制（「换成 X 就读成 Y」句式），(A)(B) 操作化门槛均不成立（引 53-survey.md 条目 12：枚举候选 0 个、无反事实机制、兄弟组件名是理由唯一来源）。源码级补充核验（非必需但已做，Sources/CoreDesign/Components/Sidebar/Sidebar.swift:116-159,167-198,391-416）：SidebarNavigationRow 与已判 tiebreaker 的 SidebarDocumentRow/SidebarUtilityRow/SidebarTagRow 共用同一 private SidebarRow 骨架；选中态视觉唯一来源 sidebarSelectedBackground(_:) 是 public 的 View 扩展 modifier，文档原话「自定义行复用它即可与内置选中样式保持一致」——组件本身不持有任何调用方拿不到的独立视觉身份，与 D-53-2 判 Card 直接改判所用的「可被薄封装底层直接替代」标准同构。⇒ 直接改判，无需进段 2（本条本身没有可供三道门槛压测的额外候选材料，不存在需要读源码/业界调研才能发现的额外信息）。③ 走完整修订回路（含连带面分析，见 D-53-15）。⇒ decidedBy: step3 → tiebreaker（kind / needsExtensionPoint 不动）。⚠️ 不是「兄弟已 tiebreaker ⇒ 跟着改判」——本条按剥离后的独立材料判定，只是与兄弟结论方向相同。回路：D-53-15 / R-30。"
   },
   {
     "component": "SidebarSection",
@@ -532,7 +532,7 @@
     "component": "StateLabel",
     "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
@@ -542,7 +542,7 @@
         "category": "B"
       }
     ],
-    "notes": "六固定 case 状态 pill，与 Badge 同一套『颜色即语义、无装饰性材质』规则 ⇒ 步骤 3 视觉即含义，规定性，不给扩展点。textParams：label 便利 init 内容是调用方选定的状态描述（默认取 style 内建文案，或覆盖为『Saving…』『Save failed』等界面生成文案）⇒ B 类。"
+    "notes": "六固定 case 状态 pill，与 Badge 同一套『颜色即语义、无装饰性材质』规则 ⇒ 步骤 3 视觉即含义，规定性，不给扩展点。textParams：label 便利 init 内容是调用方选定的状态描述（默认取 style 内建文案，或覆盖为『Saving…』『Save failed』等界面生成文案）⇒ B 类。 ⚠️ #53 §3.1 carve-out 三步程序改判（D-41-3：否决理由不可继承，对所有步骤都成立）：① 剥离委托句——把「与 Badge 同一套『颜色即语义、无装饰性材质』规则」从判定依据里拿掉（判定依据的剥离，不是 notes 的删除，notes 只增不删）。② 按段 1/段 2 独立重走——剥离后本条目自身仅剩「六固定 case 状态 pill」（组件描述，非理由）与「视觉即含义，规定性，不给扩展点」——「视觉即含义」正是公约第 1 节步骤 3 (B) 操作化门槛明文列出的消极结论复述短语之一，不构成合格的反事实理由，(A)(B) 均不成立（引 53-survey.md 条目 22：枚举候选 0 个、无反事实机制、兄弟组件名是理由唯一来源）。源码级补充核验（非必需但已做，Sources/CoreDesign/Components/StateLabel/StateLabel.swift 与 Sources/CoreDesign/Components/Badge/Badge.swift）：StateLabel = Capsule(style: .continuous) 填充 status*Emphasis + 固定图标 + label；Badge = Capsule(style: .continuous) 填充 status*Subtle（可选描边）+ label——两者共享同一「pill + 状态色即语义」骨架，StateLabel 相对 Badge 的唯一差异是内建图标与 6 态默认文案，不是独立于 Badge 的视觉身份。⇒ 直接改判，无需进段 2（无额外候选材料可供三道门槛压测）。③ 走完整修订回路（含连带面分析，见 D-53-16）。⇒ decidedBy: step3 → tiebreaker（kind / needsExtensionPoint 不动）。⚠️ 不是「兄弟已 tiebreaker ⇒ 跟着改判」——本条按剥离后的独立材料判定，只是与兄弟结论方向相同。 ⚠️ 与 #49 的顺序（并行安全声明）：实测 #49 尚未开工（Sources/CoreDesign/Components/StateLabel/StateLabel.swift:31 仍为 `let defaultLabel: String`，未变成 `LocalizedStringResource`）⇒ #53 本轮先行。本次改动只动 decidedBy 与 notes（本段），textParams 与 Sources/ 零改动，与 #49 计划中的 A 类类型改造（defaultLabel: String → LocalizedStringResource，公约缺口 G-4）互不覆盖，并行安全。 ⚠️ 跨仓对齐（给 #54，本 issue 不改判）：ChapterStatusBadge（repo=storyui，decidedBy=step3）的机制整条挂在 StateLabel / StateLabelStyle 上（其自身 notes 原话「建在 CoreDesign StateLabel 上，胶囊/图标/配色/对比度全部来自上游，本件一处都不重造」）；StateLabel 本轮判死（tiebreaker）后，ChapterStatusBadge 就变成新的「当前就矛盾」条目，而 #52 的 carve-out 判准恰好漏掉它（它未「声明套用规则」，是被建在上游之上而非声明套用同一规则）——对齐详情见 docs/contract-defects.md D-53-16「给 #54 的对齐」段。回路：D-53-16 / R-31。"
   },
   {
     "component": "Steps",

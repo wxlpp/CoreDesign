@@ -605,10 +605,11 @@ enum，换成落地形状会毁掉反例的教学价值。
   `swift test` → `370 tests in 61 suites passed … with 3 known issues`。
 
 <!-- R-12 由 Task 10 追加。
-     ⚠️ 全部 R- 条目共 29 条（R-1~R-29），本节 8 条、第一节 5 条（含 Task 7 追加的 R-13）、
-     四、#53 移交 A 段 16 条（Task 1 追加的 R-14、Task 2 追加的 R-15、Task 3 追加的 R-16、
-     Task 6 追加的 R-17、Task 7（本 task）追加的 R-18~R-29，段 2「待压测」档 12 条逐条独立
-     登记，spec §六之二：不并入批量条目）。 -->
+     ⚠️ 全部 R- 条目共 31 条（R-1~R-31），本节 8 条、第一节 5 条（含 Task 7 追加的 R-13）、
+     四、#53 移交 A 段 18 条（Task 1 追加的 R-14、Task 2 追加的 R-15、Task 3 追加的 R-16、
+     Task 6 追加的 R-17、Task 7 追加的 R-18~R-29（段 2「待压测」档 12 条逐条独立登记）、
+     Task 9 追加的 R-30~R-31（§3.1 carve-out 两条 `SidebarNavigationRow`/`StateLabel`，
+     三步程序改判后逐条独立登记，spec §六之二：专项 4 项一律独立登记，不并入批量条目）。 -->
 
 ## 三、本轮未改判 / 未回写的项（诚实留痕）
 
@@ -1237,3 +1238,75 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   语境，**0 处**构成对本条 `decidedBy` 的钉死，不回写 `docs/component-contract.md`。
 - **验证**：见台账「## 六、#53 移交 A 段 2 逐条独立登记：机械校验」批量输出（`decidedBy` 分布、
   `D-53-14` / `R-29` 各去格式化命中 1、`git diff --quiet` 系列退出码、`swift test` 系列）。
+
+### R-30｜#53 §3.1 carve-out：`SidebarNavigationRow` 三步程序改判 `step3` → `tiebreaker`
+
+- **来源试点**：#53 §3.1 carve-out 两条之一（`53-triage.md`「池 = 19 条：25 − 2 条
+  carve-out（`SidebarNavigationRow`/`StateLabel`，§3.1）− 4 条 `Skeleton*`」——本条从未
+  进入段 1/段 2 三分池），本条独立登记（spec §六之二：专项 4 项一律独立登记，不并入批量
+  条目）。⚠️ 走的是**三步程序**（剥离委托句 → 段 1/段 2 独立重走，结论不预设 → 完整修订
+  回路），**不是**「兄弟 `SidebarDocumentRow` 已 `tiebreaker` ⇒ 跟着改判」——那仍是
+  `D-41-3` 意义上的理由继承，只是继承了相反的结论。
+- **撞上公约哪一条**：`D-41-3`「否决理由不可继承（对所有步骤都成立）」+ 第 1 节步骤 3
+  「操作化门槛」(A)(B) 两条件（`(A)(B) 判的是组件实质」再解释段，`D-53-1`/`R-15`）。
+- **改动前（逐字）**：`SidebarNavigationRow.decidedBy`：`"step3"`；`notes`：`同 SidebarDocumentRow 的骨架/推理，步骤 3 规定性，不给扩展点（选中态 floating-glass 背景是内建固定行为，非可换皮扩展点）。textParams：title 是导航目的地标签（如『Home』『Notifications』），由调用方/App 固定选定，非用户数据 ⇒ B 类。`
+- **改动后（逐字）**：`SidebarNavigationRow.decidedBy` = `"tiebreaker"`（`kind` 仍
+  `"prescriptive"`；`needsExtensionPoint` 仍不动；`textParams` 不变）。`notes` **只增不删**，
+  末尾追加（946 字，`notes` 由 157 → 1103 字符）：
+  `⚠️ #53 §3.1 carve-out 三步程序改判（D-41-3：否决理由不可继承，对所有步骤都成立）：① 剥离委托句——把「同 SidebarDocumentRow 的骨架/推理，步骤 3 规定性」从判定依据里拿掉（判定依据的剥离，不是 notes 的删除，notes 只增不删）。② 按段 1/段 2 独立重走——剥离后本条目自身仅剩「不给扩展点（选中态 floating-glass 背景是内建固定行为，非可换皮扩展点）」，这是 needsExtensionPoint 的结论复述，不含独立于兄弟组件的候选枚举或反事实机制（「换成 X 就读成 Y」句式），(A)(B) 操作化门槛均不成立（引 53-survey.md 条目 12：枚举候选 0 个、无反事实机制、兄弟组件名是理由唯一来源）。源码级补充核验（非必需但已做，Sources/CoreDesign/Components/Sidebar/Sidebar.swift:116-159,167-198,391-416）：SidebarNavigationRow 与已判 tiebreaker 的 SidebarDocumentRow/SidebarUtilityRow/SidebarTagRow 共用同一 private SidebarRow 骨架；选中态视觉唯一来源 sidebarSelectedBackground(_:) 是 public 的 View 扩展 modifier，文档原话「自定义行复用它即可与内置选中样式保持一致」——组件本身不持有任何调用方拿不到的独立视觉身份，与 D-53-2 判 Card 直接改判所用的「可被薄封装底层直接替代」标准同构。⇒ 直接改判，无需进段 2（本条本身没有可供三道门槛压测的额外候选材料，不存在需要读源码/业界调研才能发现的额外信息）。③ 走完整修订回路（含连带面分析，见 D-53-15）。⇒ decidedBy: step3 → tiebreaker（kind / needsExtensionPoint 不动）。⚠️ 不是「兄弟已 tiebreaker ⇒ 跟着改判」——本条按剥离后的独立材料判定，只是与兄弟结论方向相同。回路：D-53-15 / R-30。`
+- **落点**：`docs/component-registry.json`（`SidebarNavigationRow` 1 条）；
+  `docs/contract-defects.md`（新建 `D-53-15`）；`docs/component-contract.md`（连带面见下，
+  实测承重引证 0 处，不回写）；本文件（本条）。
+- **连带改动**（逐条扫描 `docs/component-contract.md` / `docs/contract-defects.md` /
+  `docs/component-contract-revisions.md` / `docs/README.md` / `docs/BREAKING-CHANGES.md` /
+  `docs/DESIGN-FOUNDATION.md` 六文件，去格式化后核对跨行断开引证）：`docs/component-contract.md`
+  命中 0 处；`docs/contract-defects.md` 命中 2 处（`D-44-1` 移交清单「优先处理」提及、
+  `D-53-13`（`SidebarTagRow`）源码事实段提到共享骨架），均为**登记单位/结构性事实描述**语境，
+  不钉死本条 `decidedBy`，**非承重**；`docs/component-contract-revisions.md` 命中 3 处（`R-1`
+  的「作用域条款条件①②零成本」举例列表、`D-44-1`「移交清单」的历史记录、本条自身），均为
+  **枚举/历史记录**语境，**非承重**；`docs/README.md` 命中 0 处（该组件索引挂在 `sidebar.md`
+  下，实测 `SidebarNavigationRow` 字样不单独出现在索引表里）；`docs/BREAKING-CHANGES.md` /
+  `docs/DESIGN-FOUNDATION.md` 命中 0 处。⇒ **0 处**构成承重钉死，`docs/component-contract.md`
+  **不回写**。
+- **验证**：见 Step 5 机械校验输出（`decidedBy` 分布、`D-53-15` / `R-30` 各去格式化命中 1、
+  `git diff --quiet` 系列退出码、`swift test` 系列）。
+
+### R-31｜#53 §3.1 carve-out：`StateLabel` 三步程序改判 `step3` → `tiebreaker`（含 #49 顺序声明与 #54 跨仓对齐）
+
+- **来源试点**：#53 §3.1 carve-out 两条之二（`53-triage.md`「池 = 19 条：25 − 2 条
+  carve-out（`SidebarNavigationRow`/`StateLabel`，§3.1）− 4 条 `Skeleton*`」——本条从未
+  进入段 1/段 2 三分池），本条独立登记（spec §六之二：专项 4 项一律独立登记，不并入批量
+  条目）。⚠️ 走的是**三步程序**（剥离委托句 → 段 1/段 2 独立重走，结论不预设 → 完整修订
+  回路），**不是**「兄弟 `Badge` 已 `tiebreaker` ⇒ 跟着改判」——那仍是 `D-41-3` 意义上的
+  理由继承，只是继承了相反的结论。
+- **撞上公约哪一条**：`D-41-3`「否决理由不可继承（对所有步骤都成立）」+ 第 1 节步骤 3
+  「操作化门槛」(A)(B) 两条件（`(A)(B) 判的是组件实质」再解释段，`D-53-1`/`R-15`）+ 第 1
+  节步骤 3 (B) 明列的消极短语清单（「视觉即含义」在列）。
+- **改动前（逐字）**：`StateLabel.decidedBy`：`"step3"`；`notes`：`六固定 case 状态 pill，与 Badge 同一套『颜色即语义、无装饰性材质』规则 ⇒ 步骤 3 视觉即含义，规定性，不给扩展点。textParams：label 便利 init 内容是调用方选定的状态描述（默认取 style 内建文案，或覆盖为『Saving…』『Save failed』等界面生成文案）⇒ B 类。`
+- **改动后（逐字）**：`StateLabel.decidedBy` = `"tiebreaker"`（`kind` 仍 `"prescriptive"`；
+  `needsExtensionPoint` 仍不动；`textParams` 不变）。`notes` **只增不删**，末尾追加（1540
+  字，`notes` 由 162 → 1702 字符）：
+  `⚠️ #53 §3.1 carve-out 三步程序改判（D-41-3：否决理由不可继承，对所有步骤都成立）：① 剥离委托句——把「与 Badge 同一套『颜色即语义、无装饰性材质』规则」从判定依据里拿掉（判定依据的剥离，不是 notes 的删除，notes 只增不删）。② 按段 1/段 2 独立重走——剥离后本条目自身仅剩「六固定 case 状态 pill」（组件描述，非理由）与「视觉即含义，规定性，不给扩展点」——「视觉即含义」正是公约第 1 节步骤 3 (B) 操作化门槛明文列出的消极结论复述短语之一，不构成合格的反事实理由，(A)(B) 均不成立（引 53-survey.md 条目 22：枚举候选 0 个、无反事实机制、兄弟组件名是理由唯一来源）。源码级补充核验（非必需但已做，Sources/CoreDesign/Components/StateLabel/StateLabel.swift 与 Sources/CoreDesign/Components/Badge/Badge.swift）：StateLabel = Capsule(style: .continuous) 填充 status*Emphasis + 固定图标 + label；Badge = Capsule(style: .continuous) 填充 status*Subtle（可选描边）+ label——两者共享同一「pill + 状态色即语义」骨架，StateLabel 相对 Badge 的唯一差异是内建图标与 6 态默认文案，不是独立于 Badge 的视觉身份。⇒ 直接改判，无需进段 2（无额外候选材料可供三道门槛压测）。③ 走完整修订回路（含连带面分析，见 D-53-16）。⇒ decidedBy: step3 → tiebreaker（kind / needsExtensionPoint 不动）。⚠️ 不是「兄弟已 tiebreaker ⇒ 跟着改判」——本条按剥离后的独立材料判定，只是与兄弟结论方向相同。 ⚠️ 与 #49 的顺序（并行安全声明）：实测 #49 尚未开工（Sources/CoreDesign/Components/StateLabel/StateLabel.swift:31 仍为 `let defaultLabel: String`，未变成 `LocalizedStringResource`）⇒ #53 本轮先行。本次改动只动 decidedBy 与 notes（本段），textParams 与 Sources/ 零改动，与 #49 计划中的 A 类类型改造（defaultLabel: String → LocalizedStringResource，公约缺口 G-4）互不覆盖，并行安全。 ⚠️ 跨仓对齐（给 #54，本 issue 不改判）：ChapterStatusBadge（repo=storyui，decidedBy=step3）的机制整条挂在 StateLabel / StateLabelStyle 上（其自身 notes 原话「建在 CoreDesign StateLabel 上，胶囊/图标/配色/对比度全部来自上游，本件一处都不重造」）；StateLabel 本轮判死（tiebreaker）后，ChapterStatusBadge 就变成新的「当前就矛盾」条目，而 #52 的 carve-out 判准恰好漏掉它（它未「声明套用规则」，是被建在上游之上而非声明套用同一规则）——对齐详情见 docs/contract-defects.md D-53-16「给 #54 的对齐」段。回路：D-53-16 / R-31。`
+- **落点**：`docs/component-registry.json`（`StateLabel` 1 条）；`docs/contract-defects.md`
+  （新建 `D-53-16`，含「给 #54 的对齐」段）；`docs/component-contract.md`（连带面见下，实测
+  承重引证 0 处，不回写——公约现有两处 `StateLabel` 引用均在 G-4「A 类文案类型」语境，
+  与 `decidedBy`/`kind` 无关，见下）；本文件（本条）。
+- **连带改动**（逐条扫描六文件，去格式化后核对跨行断开引证）：`docs/component-contract.md`
+  命中 2 处，均在「已知判据缺口」`G-4` 行——`StateLabel.defaultLabel` 是裸 `String`（A 类
+  判据缺口的已知例外记录），这是关于 `defaultLabel` **类型**（A 类 vs B 类文案）的另一条
+  独立判断轴，与本条改判的 `decidedBy`/`kind`（视觉是否 prescriptive）**无关**，**非承重**，
+  不回写。`docs/contract-defects.md` 命中若干处，均属 `D-44-1`「优先处理」移交清单记录、
+  `D-52-1` 撤销留痕（`G-4` 重叠说明）等**历史记录/移交清单**语境，**非承重**。
+  `docs/component-contract-revisions.md` 命中若干处（`R-7`「本仓现成实例」、`R-10`「已知
+  例外」、`D-52-1` 处置表「原 carve-out 两条」行），同样是 `G-4`/A 类文案类型语境的历史
+  记录，与 `decidedBy` 判定**不同轴**，**非承重**。`docs/README.md` 命中 1 处（组件索引表
+  行），**非承重**。`docs/BREAKING-CHANGES.md` / `docs/DESIGN-FOUNDATION.md` 命中 0 处。
+  ⇒ **0 处**构成对本条 `decidedBy` 的承重钉死，`docs/component-contract.md` **不回写**。
+- **跨仓对齐**（给 #54，本 issue 不改判，详见 `D-53-16`）：`ChapterStatusBadge`（`storyui`
+  侧，`decidedBy: step3`）机制整条挂在 `StateLabel`/`StateLabelStyle` 上，`StateLabel` 判死
+  后它成为新的「当前就矛盾」条目，且 `#52` 的 carve-out 判准未覆盖它（未「声明套用规则」的
+  措辞形态）——对齐要求已写入 `D-53-16`，`ChapterStatusBadge.decidedBy` 本轮**零改动**
+  （实测见 Step 4 校验：`[('storyui', 'step3')]`）。
+- **验证**：见 Step 5 机械校验输出（`decidedBy` 分布、`D-53-16` / `R-31` 各去格式化命中 1、
+  `StateLabel notes 只增` / `ChapterStatusBadge 未动` 断言、`跨仓对齐记录已写` 计数、
+  `git diff --quiet` 系列退出码、`swift test` 系列）。
