@@ -642,3 +642,258 @@ registry 这一处因**不在本清单里**而漏掉（`dfd1f00` 漏改并在 co
 **回路指针**：公约回写——实测 `docs/component-contract.md` 两条在该文档的引证（`Card`
 的 `CardKind`/`bordered:Bool` 迁移语境、`Separator` 的「合格理由」范例句）均判非承重，
 **0 处**回写（见台账 `R-17`「连带改动」的逐条扫描）；台账 `R-17`。
+
+---
+
+## #53 移交 A 段 2：CoreDesign 侧「待压测」档 12 条源码级压测改判（逐条独立登记）
+
+**批量口径边界（spec §六之二）**：段 2（待压测档）是本轮判断密度最高的部分——每条独立读
+源码、逐条枚举、逐条走豁免路径，**不适用** `D-53-2` 那种「合并登记」口径。以下 `D-53-3` ~
+`D-53-14` 共 **12** 条，每条一个缺陷号 + 台账一个 `R-` 号（`R-18` ~ `R-29`），逐条自足
+（不写「见 53-stress.md」了事）。
+
+**取证总源**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md`「结论汇总」表
+（17 条待压测中，12 条改判、0 条保留、5 条按「## ⚠️ #53 裁定」段移交后续 issue、本轮零改动：
+`SidebarStatusFooter` / `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）。
+
+**⚠️ 落点口径说明（`Descriptions` / `SettingsRowChevron` / `SectionFooter` 三条）**：
+`53-triage.md` 在段 1/2 三分时把这三条标注为「委托方，Task 8 独立重走」（依赖兄弟
+`InsetGroupedSection` / `ChevronRightIcon` / `SectionHeader` 的档位先定）。但三条与其依赖的
+兄弟同属本轮「待压测」批、由同一次 `53-stress.md` 压测**一并**处理——兄弟档位在同一份文件里
+已先行落定为 `tiebreaker`（`InsetGroupedSection` 更早、`ChevronRightIcon`/`SectionHeader` 与
+这三条同批），三条各自的结论（见 `D-53-6`/`D-53-11`/`D-53-9`）也已逐条论证**不依赖**兄弟档位
+本身（承重的是各自的公开 API 反证 + 第 2 项实质问句）。`53-stress.md` 收口时的「## ⚠️ #53
+裁定」段与「## 统计」段据此把三条计入本轮「改判」12 条、末尾明写「本轮实际落地 14 条：
+Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委托方待兄弟先定」的前提确认为
+已满足，三条随本批（Task 7）一并落地，**不再等待独立的「Task 8」处理**。`D-53-2`／`R-17`
+（Task 6 落地时）沿用的是 `53-triage.md` 较早的委托方措辞，未反映这一收口结果——本条据实
+更正落点，`D-53-2`／`R-17` 原文按「只增不删」不作回改，仅在此处记录口径演进，供 #54 与后续
+复核参考。
+
+### D-53-3：`AvatarGroup` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 1 节；
+`53-survey.md` 证据行 1。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift:18,22,46,32-39,49-53,56-69,77-86。public init(max:avatars:) 只暴露 max 与 @ViewBuilder 头像槽；重叠靠 HStack(spacing: overlapOffset) 的负数（-6/-8/-10，按 controlSize），单元画法固定为 clipShape(Circle())+strokeBorder(surfaceCanvas)。
+
+**② (A) 诚实枚举**：候选 1 = **并排不重叠的头像行 + 溢出计数**（来源：Google Docs 协作者栏、Microsoft Teams 成员条），豁免路径：皮肤变体走通（与现状同一 HStack 骨架，只差 spacing 正负号）；作用域 ③ 对 Avatar 落空（Avatar 只承担单个头像占位，不承担多头像并排排列）。 候选 2 = **纯计数徽标（无头像脸，只有『+12』文本块）**（来源：GitHub Contributors 计数、Linear issue assignee 计数），豁免路径：皮肤变体未走通（拿掉整个『每人一圆』单元骨架）；作用域 ③ 对 Badge 落空（Badge 只承担固定状态描述文案，不承担成员计数）。
+
+**③ 皮肤变体交叉裁断**：候选 1 命中皮肤变体（AvatarGroup.swift:46 的 HStack spacing 正负号是并排/重叠的唯一差异，单元画法逐字不变）⇒ 不计入 ≥2；候选 2 非皮肤但只有 1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 2 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：佐证（命中皮肤变体裁断，只能作佐证，不得据以判 step3）：把重叠交叠改成并排等距排列，这一组头像就从『同属一个组、数量被压缩显示的成员集合』读成『一份逐个列出的人员名单』——重叠本身在声明『这里还有没画出来的人』。Y=『逐个列出的人员名单』有 Google Docs/Microsoft Teams 业界锚点、不引兄弟组件名，已单独过 (B)。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-3` / `R-18`。
+
+### D-53-4：`ChevronRightIcon` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 2 节；
+`53-survey.md` 证据行 3。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Components/Form/Form.swift:87-98。public init() 零公开参数；body 只有 Image(systemName:"chevron.forward") + accessibilityHidden(true)；配色字号全部继承父容器（doc :84-86），doc 自留『未来可加默认参数走 CoreControlMetrics.iconSize(for:)』的扩展口。
+
+**② (A) 诚实枚举**：候选 1 = **右向实心三角**（来源：SF Symbols arrowtriangle.forward.fill、macOS NSOutlineView 展开指示符），豁免路径：皮肤变体走通；作用域 ③ 落空（登记表内无 Triangle*/Disclosure* 组件）。 候选 2 = **右箭头字形**（来源：Material Symbols arrow_forward_ios、Gmail/Google 设置页），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **『>』半角字符**（来源：早期 Web 面包屑、iOS 前身纯文本披露符），豁免路径：皮肤变体走通；作用域 ③ 落空。
+
+**③ 皮肤变体交叉裁断**：三者共享『单一字形占 trailing 一格、指向阅读方向下一级』同一骨架，差异只是字形画法 ⇒ 全部不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4（与 Tag 的路径同型）。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：无合格句：唯一可写的『拿掉字形就从入口读成只读值』不是替代形态而是删除组件，论证等于论证『本组件存在有用』，不是『换个长相就不是这个东西』。不引兄弟组件名（SettingsRowChevron 只出现在枚举记录里）。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-4` / `R-19`。
+
+### D-53-5：`DangerIcon` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 3 节；
+`53-survey.md` 证据行 4。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Components/Form/Form.swift:107-120。public init() 零公开参数；body 为 Image(systemName:"exclamationmark.circle.fill")+foregroundStyle(statusDangerForeground)+accessibilityLabel("Alert")；尺寸继承父容器字号（doc :103）。
+
+**② (A) 诚实枚举**：候选 1 = **三角形感叹号**（来源：SF Symbols exclamationmark.triangle.fill（与 circle.fill 并列提供）、Xcode issue navigator、Material Symbols warning），豁免路径：皮肤变体走通；作用域 ③ 落空（StateLabel 是文本状态标签、Badge 是状态色块，均不承担字形本身）。 候选 2 = **八边形/停止牌**（来源：SF Symbols exclamationmark.octagon.fill、Material dangerous、交通停止标志惯例），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **纯色圆点（无字形）**（来源：GitHub/Slack 的未读与告警红点），豁免路径：皮肤变体未走通（拿掉字形层，骨架不同）；作用域 ③ 落空（Sidebar.swift:355-363 的状态点是 SidebarStatusFooter 内部私有渲染，登记表内无独立状态点组件）。
+
+**③ 皮肤变体交叉裁断**：候选 1、2 命中皮肤变体（同为『实心几何外框 + 内嵌感叹号 + 语义危险色』骨架，差异只是外框画法）；候选 3 非皮肤但只有 1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。SF Symbols 同族并列提供 circle/triangle/octagon 三种外框是可当场核验的反例，『枚举为 0 的残余侧路』实测走不了。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：无合格句：拟句『换成中性灰读成附加说明』论证的是颜色 token 而非长相，属偷换；另一拟句『换成三角读成 warning』被源码自陈证伪——Form.swift:115-117 明写 danger(红)/warning(橙) 在本库靠颜色而非外框区分，是公约警告的『形式合格的假句』正面样本。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-5` / `R-20`。
+
+### D-53-6：`Descriptions` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 4 节；
+`53-survey.md` 证据行 5。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Components/Style/Descriptions.swift:99,112-122,128-139,191-193。public init(columns:dividerDensity:header:content:) 已带 DescriptionsColumns(.one/.two)×DescriptionsDividerDensity(.none/.row) 共 4 种公开可选长相；body 把全部 chrome 委托给 InsetGroupedSection(header:dividerInset:.textAligned) 与 .labeledContentStyle(.core)，本组件自己只画内边距。
+
+**② (A) 诚实枚举**：候选 1 = **带边框的键值表格**（来源：Ant Design Descriptions 的 bordered prop——同名组件把有边框/无边框列表作为同一组件的两种长相发布），豁免路径：皮肤变体走通（同为『每行 label+value』骨架）；作用域 ③ 落空（InsetGroupedSection 承担的恰是无边框圆角卡片）。 候选 2 = **label 在值上方的纵向布局**（来源：Ant Design layout="vertical"、HTML <dl> 默认纵向），豁免路径：皮肤变体未走通（label/value 相对几何关系变了，非换画法）；作用域 ③ 落空。 候选 3 = **无卡片纯文本键值段**（来源：Semi Design Descriptions 的 plain 风格），豁免路径：皮肤变体走通；作用域 ③ 落空。
+
+**③ 皮肤变体交叉裁断**：候选 1、3 命中皮肤变体（与 InsetGroupedSection 条目 I-3 裁断同型：insetGrouped/plain/sidebar 三者共享 header+行+footer 骨架）；候选 2 非皮肤但只有 1 个 < 2 ⇒ 举得犹豫。第 2 项实质问句独立答『是』（换成表格/纵向布局仍是一张键值描述列表）⇒ 两条路径同向落步骤 4。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：无合格句：通读源码 :99-195，本组件自己决定的渲染事实只有『1/2 列切分 + 分隔线密度 + 行内边距』，三样全部是公开参数或从 SettingsRowMetrics 借来的常量，写不出一句 X 不是公开参数值的『换成 X 就读成 Y』。⚠️ 53-triage.md 曾标注本条为『委托方，Task 8 独立重走』（依赖兄弟 InsetGroupedSection）——本结论不依赖该兄弟档位（InsetGroupedSection 已是 tiebreaker，且承重的是第 2 项实质答案 + 第 1 项公开 API 反证），随本批（Task 7）与其余 11 条一并处置，见文末『落点口径说明』。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-6` / `R-21`。
+
+### D-53-7：`FloatingGlassModifier` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 5 节；
+`53-survey.md` 证据行 6。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Modifier/FloatingGlassModifier.swift:10-17,19-35,38-45,55；Sidebar.swift:404-406。public struct 带 public let shape: S（任意 InsettableShape）+ isInteractive: Bool；View.floatingGlass(in:isInteractive:) 默认值只是 Capsule，仓内实际调用点传过 CoreShape.rounded(.large)/(.medium)。body 三层：inset(by:).fill(.background.opacity(0.64)) + .glassEffect(glass,in:shape) + overlay(strokeBorder(borderSubtle))。
+
+**② (A) 诚实枚举**：候选 1 = **不透明面 + 投影（elevation）**（来源：Material Design 3 elevation/surface tint、Android FAB/bottom sheet），豁免路径：皮肤变体走通（同为『shape 轮廓 + 一层背景处理 + 一条边缘描边』骨架）；作用域 ③ 落空（Card 承担的是内容表面而非浮层）。 候选 2 = **半透明模糊/振动材质（非玻璃）**（来源：iOS 7–17 UIBlurEffect、macOS NSVisualEffectView（Liquid Glass 直接前身，真实在产）），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **纯描边无填充浮层框**（来源：Ant Design/Bootstrap popover 默认白底细描边），豁免路径：皮肤变体走通；作用域 ③ 落空。
+
+**③ 皮肤变体交叉裁断**：三者与现状共享『调用方给定 shape 作轮廓 + 一层背景处理 + 一条边缘描边』同一骨架（源码即 :22-34 的 background+overlay 两句）⇒ 全部不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：无合格句：拟句『换成不透明白底读不出浮在内容之上』是假句——Material elevation 用阴影表达同一层级关系，业界几十年在用，Y 不成立（形式合格但内容为假，非关系性）。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-7` / `R-22`。
+
+### D-53-8：`LabelIcon` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 6 节；
+`53-survey.md` 证据行 7。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Components/Form/Form.swift:27-75。两个 public init（:36 systemName+backgroundColor:Color、:48 systemName+backgroundStyle:some ShapeStyle）——上层字形与底层着色（任意 ShapeStyle，含 gradient/material）均由调用方传入；组件自己固定的只剩 24pt/16pt 两个几何常量与 Color.contentInverse。
+
+**② (A) 诚实枚举**：候选 1 = **无底色单色字形图标**（来源：Material list item leading icon、WhatsApp/Telegram 早期设置页），豁免路径：皮肤变体未走通（两层叠合的底层整个删掉，一层 vs 两层是骨架差异）；作用域 ③ 落空（SettingsRowIcon 承担同样的圆角色块+反白字形，不是无底字形；ChevronRightIcon/DangerIcon 是 trailing 指示符不是 leading 类别图标）。 候选 2 = **圆形底 + 字形**（来源：Google/Android 联系人与设置项圆形图标底、Gmail 圆形分类图标），豁免路径：皮肤变体走通（同为两层叠合，只换底层形状）；作用域 ③ 落空。 候选 3 = **emoji/图片替代字形**（来源：Notion 页面图标、Slack 自定义频道图标），豁免路径：皮肤变体走通（仍是『底+前景』两层）；作用域 ③ 落空。
+
+**③ 皮肤变体交叉裁断**：候选 2、3 命中皮肤变体；候选 1 非皮肤但只有 1 个 < 2 ⇒ 举得犹豫。第 2 项实质问句独立答『是』（去掉方块底只留单色字形，仍是这一行的类别图标）⇒ 落步骤 4。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：无合格句：拟句『反白字形换同色字形读不出图标』既非形态替换也为假；真正固定的 24/16pt 常量是几何取值，公约明写取值层固定不构成含义（不引兄弟组件名）。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-8` / `R-23`。
+
+### D-53-9：`SectionFooter` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 7 节；
+`53-survey.md` 证据行 8。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Components/Section/SectionFooter.swift:20-41。整个渲染是 3 个 modifier——coreFont(.footnote)(:37)+foregroundStyle(contentSecondary)(:38)+frame(maxWidth:.infinity,alignment:.leading)(:39)；两个 public init 只区分 LocalizedStringKey 与 StringProtocol，不产生视觉差异。
+
+**② (A) 诚实枚举**：候选 1 = **caption 字号 + 前缀信息字形的 helper text**（来源：Material supporting text（常带 leading icon）、Ant Design Form.Item extra），豁免路径：皮肤变体走通（同为『分组下方一段说明文本』骨架）；作用域 ③ 落空（Banner 承担带背景的提示块，不是分组说明文字）。 候选 2 = **浅底说明块**（来源：Ant Design Alert 型 form 说明、GitHub 设置页灰底说明框），豁免路径：皮肤变体走通（加背景仍是同一段文本的 chrome）。 候选 3 = **与卡片同宽的分隔线 + 说明**（来源：macOS 系统设置分组脚注排版），豁免路径：皮肤变体走通。
+
+**③ 皮肤变体交叉裁断**：三个候选全部命中皮肤变体——结构性理由：本组件的全部渲染就是排版本身（3 个 modifier），组件自身 = 一套字号/字色/对齐时，其任何替代必然共享『一段文本置于分组下方』这唯一骨架，只能是皮肤变体 ⇒ 举得出但全是皮肤变体 ⇒ 举得犹豫 ⇒ 落步骤 4。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：佐证（命中皮肤变体裁断，只能作佐证）：把 footnote 灰换成 body 黑，这段字就从『对上面这组的说明』读成『正文内容的一部分』。Y=『正文内容』落在 :37-38 两个渲染事实上、不引兄弟组件名（SectionHeader 一词不出现在句中）。⚠️ 53-triage.md 曾标注本条为『委托方，Task 8 独立重走』（依赖兄弟 SectionHeader）——SectionHeader 在同批（本 task）已一并改判 tiebreaker，随本批与其余 11 条一并处置，见文末『落点口径说明』。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-9` / `R-24`。
+
+### D-53-10：`SectionHeader` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 8 节；
+`53-survey.md` 证据行 9。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Components/Section/SectionHeader.swift:15-17,25-51。渲染=5 个 modifier——coreFont(.footnote)+textCase(.uppercase)+foregroundStyle(contentSecondary)+frame(...)+accessibilityAddTraits(.isHeader)。doc comment 自陈『刻意用 .insetGrouped 惯例（大写）而非 .sidebar 风格（非大写）——Phase 1 视觉终审发现 demo 误用 .sidebar list style 导致 header 非大写』——本仓自记的『同一分组标题确有非大写在产渲染』事实。
+
+**② (A) 诚实枚举**：候选 1 = **title-case、非大写的 sidebar 风格分组标题**（来源：SwiftUI .sidebar list style 系统渲染（本仓 :15-17 自述实测过）、macOS Finder 边栏分组标题），豁免路径：皮肤变体走通；作用域 ③ 对 SidebarSection（标题走 .headline+contentPrimary）看似满足，但排除后仍要走完步骤 2→3→4，不改变落点。 候选 2 = **较大字号加粗的 Material subheader**（来源：Material subheader、iOS .plain 列表 title-case header），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **带 trailing 动作/计数的分组标题行**（来源：Slack 频道分组头、Notion 数据库分组头），豁免路径：皮肤变体未走通（多了 trailing 槽，骨架不同）；作用域 ③ 对 SidebarSection（头部确有 trailing 字形，Sidebar.swift:62-67）满足 ⇒ 被正当排除。
+
+**③ 皮肤变体交叉裁断**：排除候选 3 后，候选 1、2 与现状共享『一行文本置于分组之上』唯一骨架，差别全在字号/字重/大小写/色 ⇒ 皮肤变体、不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4（与 SectionFooter 同一条结构性理由：组件自身=一套排版规则时，替代必为皮肤变体）。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：佐证（命中皮肤变体裁断，只能作佐证）：把大写与 footnote 灰同时换成 body 黑常规大小写，这一行就从『分组标题』读成『该组的第一条内容』。Y 落在 :43-44 两个渲染事实、不引兄弟组件名；说服力已被本条第 1 项源码自证削弱（.sidebar 风格下非大写系统 header 在产且不会被误读成正文）。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-10` / `R-25`。
+
+### D-53-11：`SettingsRowChevron` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 9 节；
+`53-survey.md` 证据行 11。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Components/SettingsRow/SettingsRow.swift:56-65。public init() 零公开参数；body 为 Image(systemName:"chevron.forward")+.font(.footnote.weight(.semibold))+foregroundStyle(contentTertiary)+accessibilityHidden(true)。本仓自证：本组件与 ChevronRightIcon（Form.swift:87-98）渲染同一个 SF Symbol，却给出两套字号与配色——同一披露语义在本设计系统内部就有两种在产长相。
+
+**② (A) 诚实枚举**：候选 1 = **右向实心三角**（来源：SF Symbols arrowtriangle.forward.fill、macOS NSOutlineView），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 2 = **右箭头**（来源：Material Symbols arrow_forward_ios、Google 设置页），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **『>』字符**（来源：早期 Web 面包屑），豁免路径：皮肤变体走通；作用域 ③ 落空。⚠️ 作用域条款不能拿 ChevronRightIcon 来援引：它承担的是同一个 chevron.forward 形态、不是被排除的那三个候选中的任何一个，属公约反例警告的『点名一个真实存在但与该候选无关的组件不算数』。
+
+**③ 皮肤变体交叉裁断**：三个候选共享『单一字形占 trailing 一格、指向阅读方向下一级』同一骨架 ⇒ 不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：无合格句：本条现状 notes 的全部视觉理由是『与 ChevronRightIcon 同构』，纯关系性表述；剥掉兄弟名后源码里只剩字号与色 token 两个取值，写不出非关系性的『换成 X 读成 Y』——D-52-4 #53 裁断所判关系性类型的教科书样本，本条因此不尝试补写，直接改判。⚠️ 53-triage.md 曾标注本条为『委托方，Task 8 独立重走』（依赖兄弟 ChevronRightIcon）——ChevronRightIcon 在同批（本 task）已一并改判 tiebreaker，随本批与其余 11 条一并处置，见文末『落点口径说明』。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-11` / `R-26`。
+
+### D-53-12：`SidebarSection` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 10 节；
+`53-survey.md` 证据行 13。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Components/Sidebar/Sidebar.swift:33-80。public init(title:showsChevron:content:)（:34-42）——showsChevron 就是公开外观开关（:51）；头部（:46-68）：Text(title).headline+primary、条件 chevron、Spacer、Image("ellipsis")。⚠️ 决定性渲染事实：溢出字形『…』在源码注释 :65-67 被自陈为『装饰性占位符，当前无 action』且对 VoiceOver 隐藏。
+
+**② (A) 诚实枚举**：候选 1 = **折叠三角（disclosure triangle）头部**（来源：Xcode navigator、macOS Finder 边栏、VS Code 侧栏分组），豁免路径：皮肤变体走通（同为『标题+折叠字形』骨架）；作用域 ③ 落空。 候选 2 = **纯大写小标签头、无任何字形**（来源：iOS 分组列表 header、Slack 早期频道分组），豁免路径：皮肤变体走通；作用域 ③ 对 SectionHeader（大写 footnote 灰分组标题）满足三条件 ⇒ 被正当排除。 候选 3 = **头部带计数徽标/未读数**（来源：Discord 频道分组、Notion 侧栏分组），豁免路径：皮肤变体未走通（多一个数据槽）；作用域 ③ 落空。
+
+**③ 皮肤变体交叉裁断**：候选 1 命中皮肤变体；候选 2 被作用域条款排除（组件间边界优先于皮肤变体，公约 :220-224）；剩余非皮肤候选只有候选 3，1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。第 2 项实质问句独立答『是』（chevron 换折叠三角、『…』拿掉后仍是带标题的侧栏分组）⇒ 两条路径同向。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：无合格句：头部三件东西——chevron 由公开 showsChevron 控制、『…』自陈为无动作装饰占位符（:65-67）、标题只是 .headline 排版——没有一个是『换掉就不是这个东西』的承重视觉，不是关系性问题而是没有机制。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-12` / `R-27`。
+
+### D-53-13：`SidebarTagRow` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 12 节；
+`53-survey.md` 证据行 15。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Components/Sidebar/Sidebar.swift:307-334,116-159。public init(title:action:)——只有文案与动作，无外观参数；leading『#』（Text("#").title2，:320-321）、trailing chevron（自陈『装饰性指示箭头』，:323-328）都写死。结构性反证：本组件是私有共享骨架 SidebarRow（:116-159）的一次实例化，leading/trailing 是该骨架的两个 @ViewBuilder 槽（:121-122），同一骨架也被 SidebarNavigationRow/SidebarUtilityRow/SidebarDocumentRow 实例化。
+
+**② (A) 诚实枚举**：候选 1 = **标签字形前缀**（来源：SF Symbols tag.fill、Apple 提醒事项/邮件标签行、Things 3），豁免路径：皮肤变体走通（SidebarRow leading 槽换填充物）；作用域 ③ 对 SidebarUtilityRow（任意 SF Symbol 前缀的工具行，:239-240）满足 ⇒ 被正当排除。 候选 2 = **彩色圆点前缀**（来源：Linear label、Todoist 项目/标签色点、Notion 多选属性色点），豁免路径：皮肤变体走通（仍是 leading 槽的一种填法）；作用域 ③ 落空。 候选 3 = **无前缀的彩色 chip 行**（来源：Notion、Things 3 把标签渲染成 chip 而非行），豁免路径：皮肤变体未走通（不再是行结构）；作用域 ③ 对 Tag（自述 GitHub issue label 风格圆角矩形 chip）满足 ⇒ 被正当排除。
+
+**③ 皮肤变体交叉裁断**：两个候选被作用域条款正当排除后，本组件自己剩下候选 2（彩色圆点前缀），与现状共享逐字同一的 SidebarRow 源码骨架（:116-159）⇒ 不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：佐证（命中皮肤变体裁断，只能作佐证）：把『#』前缀换成一个彩色圆点，这一行就从『按名字寻址的话题/频道』读成『被打了某种颜色标记的条目』。Y=『颜色标记条目』有 Linear/Todoist 业界锚点，不引兄弟组件名（Tag 只出现在枚举记录里）。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-13` / `R-28`。
+
+### D-53-14：`TelegramGlassButtonModifier` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
+
+**取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 16 节；
+`53-survey.md` 证据行 24。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+输出为空，源码事实与基线逐字一致）。
+
+**① 源码事实**：Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift:58-95。四个公开存储属性——shape:S（任意 InsettableShape）、isPressed:Bool、border:Color?、pressFeedback:Bool；body（:78-94）逐层：第 1 层轮廓由调用方 shape 给、底色由调用方 backgroundStyle 注入（doc :16-17）；第 3 层描边色是公开 border（仓内 CoreMenuButton 传 .borderSubtle 换掉默认半透明白）；第 4 层按压反馈可由公开 pressFeedback 整个关掉。
+
+**② (A) 诚实枚举**：候选 1 = **实心填充按钮容器**（来源：Material Design 3 filled button、Apple .borderedProminent），豁免路径：皮肤变体走通；作用域 ① 落空（被点名的 Solid/Light/CircularGlass 三个 ButtonStyle 均不在 71 条登记表内）。 候选 2 = **描边/tonal 容器**（来源：Material 3 outlined/tonal button、Ant Design default 与 dashed 按钮），豁免路径：皮肤变体走通；作用域 ① 同样落空。 候选 3 = **无容器的纯文字按钮**（来源：Material text button、Apple .plain），豁免路径：皮肤变体未走通（去掉全部容器层）；作用域 ③ 落空。
+
+**③ 皮肤变体交叉裁断**：候选 1、2 命中皮肤变体（三者共享『调用方给定 shape 内缩填底 + 一层表面处理 + 一条描边 + 按压缩放』同一骨架，源码即 :80-93 四句固定次序，候选只换第 2 层画法）；非皮肤候选只剩候选 3，1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。
+
+**④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
+可核验说明义务未触发。
+
+**⑤ (B) 判定**：无合格句：第 1 项已证四层里三层可换（轮廓/底色/描边色/按压反馈），任何『换掉这套结构就不是它』的句子与公开 API 直接冲突（与判死 SettingsRow 的同一把刀在本条的复现）。
+
+**⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-14` / `R-29`。
