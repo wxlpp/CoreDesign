@@ -871,6 +871,10 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 - **来源试点**：#53 移交 A 段 1「直接改判」档，`53-triage.md` 派生名单共 **2** 条
   （`Card`、`Separator`；委托方 `Descriptions`/`SettingsRowChevron`/`SectionFooter`
   三条虽同为「直接改判」档位，按 §3.2 归 Task 8 独立重走，已扣除）。
+  ⚠️ **勘误指针（Task 8 改造后更正，只增不删，原文保留）**：上句「归 Task 8 独立重走」
+  现已过期——三条已随段 2（`R-21`/`R-24`/`R-26`）一并落判 `tiebreaker`，不再等待独立的
+  Task 8 重走；`D-53-6`/`D-53-9`/`D-53-11` 已补齐 addendum，详见
+  `docs/contract-defects.md`「## #53 移交 A 段 2」小节「⚠️ 落点口径说明」段。
 - **撞上公约哪一条**：第 1 节步骤 3「操作化门槛」小节的 (A)(B) 两条件（`Card`/`Separator`
   的 `notes` 均零候选零 elaboration ⇒ (A) 不成立；均以消极结论收尾、无反事实句 ⇒ (B)
   不成立）+「⚠️ (A)(B) 判的是组件实质，`notes` 现状只是证据」再解释段（`D-53-1`/`R-15`
