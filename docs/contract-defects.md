@@ -1177,7 +1177,7 @@ String`，未变成 `LocalizedStringResource` ⇒ #53 本轮先行。本次改�
 重跑首稿按候选枚举同样落成因②（候选数 2），但经 #59 评审复核，作用域条件 ③ 对候选 2
 （整条着色的状态横幅）应按**形态级**读法核验（问 `Banner` 承不承担该候选**形态**，不是
 承不承担「侧栏页脚」这个角色）——`Banner` 真实承担该形态且有 `docs/components/banner.md`
-文档佐证 ⇒ 该候选被正当排除，非皮肤候选数降为 1，**改判为 (A) 仍不成立（成因①）、重跑后落出口 3、出口 3（举得犹豫）**，
+文档佐证 ⇒ 该候选被正当排除，非皮肤候选数降为 1，**改判为 (A) 仍不成立（成因①）、重跑后落出口 3（举得犹豫）**，
 落步骤 4 ⇒ `tiebreaker`（不落地）。逐条取证见 `oh-my-story` 仓
 `.claude/epics/component-contract/59-rejudge.md`。
 
@@ -1236,7 +1236,7 @@ issue 的硬边界严格分开）。
 
 | 档 | 条数 | 名单 |
 |---|---|---|
-| 非皮肤未排除 **≥2** ⇒ 按 `D-53-17` 应落**成因②** | 6 | `SidebarStatusFooter` / `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline` / **`AvatarGroup`** |
+| 非皮肤未排除 **≥2** ⇒ 按 `D-53-17` 应落**成因②** | 6 | `SidebarStatusFooter` / `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline` / **`AvatarGroup`**  ⚠️ #59 重裁后此分布已变（`SidebarStatusFooter` 降为成因① ⇒ `tiebreaker`，成因② 为 5 条），见本条下方 #59 裁断段。|
 | **刀尖（恰 1）** —— 再举出一个非皮肤候选就翻进成因② | 5 | `DangerIcon` / `Descriptions` / `LabelIcon` / `SidebarSection` / `TelegramGlassButtonModifier` |
 | 0 | 6 | 其余 |
 
@@ -1331,8 +1331,8 @@ vs 语义需要扩展点），而决定落在哪侧的是一个无停止规则�
   图标」由 #53 的皮肤变体改判为**槽**（非皮肤候选数由 0 变 1），仍 < 2，落点不变；
   `SidebarStatusFooter` 见 `D-53-17` #59 裁断段——首稿按候选枚举落成因②（候选数 2），
   经 #59 评审复核作用域条件 ③ 应按**形态级**读法核验（`Banner` 承担的是候选**形态**
-  本身、不是「侧栏页脚」这个角色），`Banner` 正当排除该候选后计数降为 1，改判为 (A) 仍不成立（成因①）、重跑后落出口 3、
-  出口 3，落 `tiebreaker`（`kind` / `needsExtensionPoint` 不动）。
+  本身、不是「侧栏页脚」这个角色），`Banner` 正当排除该候选后计数降为 1，改判为 (A) 仍不成立（成因①）、重跑后落
+  **出口 3**（举得犹豫），落 `tiebreaker`（`kind` / `needsExtensionPoint` 不动）。
 - **落出口 1 的共 5 条**：`AvatarGroup` / `SidebarUtilityRow` / `SpinningModifier` /
   `Steps` / `Timeline`，按方案 C 落盘（见 `D-53-17` #59 裁断段）。
 
