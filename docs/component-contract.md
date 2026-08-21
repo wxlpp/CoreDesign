@@ -272,7 +272,7 @@
 
 ⚠️ **本条只排除候选，不决定落点**：候选排除后仍要走完步骤 2 → 3 → 4。能**额外**说清
 「长相即含义」⇒ `step3`；说不清 ⇒ `tiebreaker`。**不得**用本条直接推出 `step3`。
-> **实测状态（#52 全量审计；#53 已补跑 CoreDesign 侧）**：登记表现有全部 `step3` 条目中，
+> **实测状态（#52 全量审计；#53 已补跑 CoreDesign 侧；#59 已按修订后判据重判 17 条压测样本）**：登记表现有全部 `step3` 条目中，
 > **没有一条被确认合格**——没有一条同时满足「步骤 2 的答案站得住」与「有不引兄弟组件的
 > 反事实机制」；⚠️ **另有 4 条两可、#52 未裁**（见 `oh-my-story` 仓
 > `.claude/epics/component-contract/52-step3-audit.md` 的「档 5：存疑」，该文件已随 #52 落地于
@@ -280,6 +280,21 @@
 > 「**未确认有**」，不是「**确证无**」。
 > ⚠️ **#53（移交 A）在 CoreDesign 侧补跑后仍未出现合格者**（逐条裁定见 `oh-my-story` 仓
 > `.claude/epics/component-contract/53-triage.md` 与 `53-stress.md`）。
+> ⚠️ **#59 按修订后的判据重判后，`step3` 集合本身变了，且仍未出现合格者**：#59 裁定
+> `D-53-17`（(A) 不成立 ⇒ **重跑步骤 2**）与 `D-53-18`（槽 / 排布 / 装饰三分法 + 枚举
+> 停止规则）后，`53-stress.md` 的**全部 17 条**按新判据逐条重判（记录见 `oh-my-story` 仓
+> `.claude/epics/component-contract/59-rejudge.md`）——落「出口 1（语义组件、需要扩展点）」
+> 的 **5** 条按方案 C 如实改 `decidedBy: step2` / `kind: semantic` /
+> `needsExtensionPoint: true`（`AvatarGroup` / `SidebarUtilityRow` / `SpinningModifier` /
+> `Steps` / `Timeline`），扩展点实现移交 `wxlpp/oh-my-story#60`；
+> 其余落**步骤 4**。⇒ `step3` 条目数 **33 → 28**（移出的：`SidebarStatusFooter` /
+> `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）。
+> ⚠️ **重判后仍无一条被确认合格**——本段开头那句全称断言在新集合上**重新核过**，仍为真。
+> ⚠️ **`21 + 4 + 24 = 49` 的口径不变**：#59 重判的 17 条**全部落在已计入的 21 条之内**
+> （#53 段 1 的 19 条池 + 2 条 carve-out），既没有把 `Skeleton*` 4 条拉进门槛，也没有
+> 触碰 StoryUI 侧 24 条。
+> ⚠️ **登记表在一段时期内两把尺并存**（#59 裁定不回溯，见步骤 3 门槛下方的「本轮口径
+> 修订的生效范围」段）：读到一条既判条目时，须知它可能是旧口径下的结论。
 > ⚠️ **门槛的执行状态按作用域分三段读，不许合并成一句全称断言**：
 > - **已执行 (A)(B) 门槛的是 21 条**——#53 段 1 的 **19 条池** + `SidebarNavigationRow` /
 >   `StateLabel` 两条 carve-out（§3.1 三步程序独立重走）；对这 21 条，「步骤 2 靠未枚举候选
