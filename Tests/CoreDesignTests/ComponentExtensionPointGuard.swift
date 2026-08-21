@@ -47,7 +47,15 @@ struct ComponentExtensionPointGuard {
     /// `style.makeBody(configuration:)` 渲染），登记表 `customStyleProtocol` 同轮填上
     /// ⇒ 它现在走 `satisfied` 分支。集合从 `{Rating, Toast}` 收缩到 `{Toast}` 是**判据能
     /// 逐条跟踪修复进度**的证据，不是一次性全绿——`Toast` 刻意留在红名单里（41-spec 第一节）。
-    static let knownMissingExtensionPoints: Set<String> = ["Toast"]
+    /// ⚠️ **#59 增补（判定法修订的到期通路，不是「改守卫迁就」）**：#59 裁定
+    /// `D-53-17`（(A) 不成立 ⇒ 重跑步骤 2）后，按修订后的判据重判 `53-stress.md`
+    /// 全部 17 条，落「出口 1（语义组件、需要扩展点）」的条目按方案 C 如实改
+    /// `decidedBy: step2` / `kind: semantic` / `needsExtensionPoint: true`，扩展点
+    /// 实现移交 **wxlpp/oh-my-story#60**。⇒ 与 `Toast` 完全同构：判定法结论已产出、
+    /// 实现未跟上。按本集合下方注释的口径（「变小 ⇒ 已知缺口补上了，同步删除」），
+    /// 该集合本就随判定结论增删 ⇒ 本轮增补。逐条取证见 oh-my-story
+    /// `.claude/epics/component-contract/59-rejudge.md`。
+    static let knownMissingExtensionPoints: Set<String> = ["AvatarGroup", "SidebarUtilityRow", "SpinningModifier", "Steps", "Timeline", "Toast"]
 
     @Test("J-2：语义组件必须有样式扩展点（原生协议采纳 或 自有协议定义+使用）")
     func semanticComponentsHaveExtensionPoint() throws {
@@ -57,8 +65,8 @@ struct ComponentExtensionPointGuard {
 
         // ⚠️ **非空断言先行**（AC 原文点名）：若登记表里一个 semantic 组件都没有，
         // 「零输入 ⇒ 零违规 ⇒ 绿」会静默通过。判据必须能识别并报告这种异常。
-        #expect(result.inspected.count == 6,
-                "J-2 定义域实测 6 条（ProgressIndicator/SegmentedControl/Banner/Rating/RatingDisplay/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
+        #expect(result.inspected.count == 11,
+                "J-2 定义域实测 11 条（AvatarGroup/Banner/ProgressIndicator/Rating/RatingDisplay/SegmentedControl/SidebarUtilityRow/SpinningModifier/Steps/Timeline/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
         #expect(!result.satisfied.isEmpty,
                 "没有任何语义组件被判为『扩展点存在』—— 扫描器失效时也会长这样，这不是零违规")
         // ⚠️ 扫描器承重自检：三条「已满足」的通路各自真的走通了，而不是集合恰好为空。
@@ -77,7 +85,7 @@ struct ComponentExtensionPointGuard {
         // 记录 issue，Swift Testing 会主动判红，逼人回来删掉这段——这正是它优于
         // 「预置一个 expected 集合然后 `#expect(==)`」的地方（后者绿着，没人会回头看）。
         withKnownIssue(
-            "J-2 已知缺口：Toast 的样式扩展点尚未落地（判定法结论已产出、实现未跟上；Rating 那条已由 #41 裁决 4c 补齐并从本集合摘除）。补齐后本块无 issue 记录 ⇒ Swift Testing 主动判红，届时删除本块。"
+            "J-2 已知缺口：Toast + #59 按修订后判定法改判为语义组件的条目（AvatarGroup, SidebarUtilityRow, SpinningModifier, Steps, Timeline）的样式扩展点尚未落地（判定法结论已产出、实现未跟上；扩展点实现移交 wxlpp/oh-my-story#60；Rating 那条已由 #41 裁决 4c 补齐并从本集合摘除）。补齐后本块无 issue 记录 ⇒ Swift Testing 主动判红，届时删除本块。"
         ) {
             #expect(result.missing.isEmpty, "这些语义组件缺样式扩展点：\n\(result.diagnostics.joined(separator: "\n"))")
         }
