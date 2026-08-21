@@ -1383,7 +1383,9 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 - **改动后（逐字）**：见 `docs/component-contract.md` 该处现文——(B) 不成立 ⇒ 落步骤 4；
   (A) 不成立 ⇒ 重跑步骤 2 按三出口走（三个出口都可能，且明令不得预判成因① 必落步骤 4）；
   新增「终止保证」两句：**(A) 成立 ⇒ 枚举满足停止规则（必要条件 ⇒，不是充要 ⇔）**、
-  **重跑至多一次，仍不满足 ⇒ 落步骤 4**；同批新增「本轮口径修订的生效范围（不回溯）」段。
+  **重跑至多一次，重跑后 (A) 仍不成立 ⇒ 落步骤 4**（⚠️ 不写「仍不满足」——宾语缺失会被读成
+「仍不满足**停止规则**」，那是公约明文要封的字面空洞）；同批新增「本轮口径修订的生效范围
+（不回溯）」段。
 - **落点**：`docs/component-contract.md`（步骤 3 门槛 1 处 + 不回溯段 1 处 + 第 1 节
   「实测状态」段 1 处）；`docs/component-registry.json`（17 条，其中落方案 C 的
   5 条：`AvatarGroup` / `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）；
@@ -1401,6 +1403,16 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
      ⚠️ **实测第四处（plan 未预见，扩围授权）**：`Tests/CoreDesignTests/ComponentJudgeMutationTests.swift`
      三处硬编码期望值同步（随 `knownMissingExtensionPoints` / `inspected.count` 变化连带调整），
      依据同上——两文件同受 J-2「集合随判定结论增删」的到期通路覆盖，不视为越出「`Tests/` 唯一例外」的窄口。
+
+  ⚠️ **授权来源须写明，不留无主语的「本轮裁定」**（#59 终审 A-1 点名）：`59-spec.md` §七
+     的 `Tests/` 例外**逐字**只授权了 `ComponentExtensionPointGuard.swift` 三处，并明令
+     「除此之外若有守卫变红，**停下报告**」。下面这两处都是**执行中新发现、由 #59 的
+     controller 当场扩围授权**的，不是 spec 预先写好的：
+     · 第 1 点末尾的 `ComponentJudgeMutationTests.swift` 三处期望值（plan 未预见）；
+     · 第 2 点的 FR-4 判据修正。
+     两处的共同依据是「**判据本身的问题，不是内容错误**」，与 J-2 到期通路同理；
+     implementer 都**先停下报告**、由 controller 裁定后才动手（符合 §七 的停下义务）。
+     ⚠️ 逐行核过**无夹带**：前者仅 3 处字面期望值列表，后者仅豁免匹配一句 + doc comment。
 
   2. `Tests/CoreDesignTests/ComponentJudgeRules.swift:378` —— **FR-4 判据修正**（缺陷
      `D-53-19`，修复落在 `b804cf5`）。`notes` 豁免通道原为**裸子串**
