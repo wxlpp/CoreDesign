@@ -375,7 +375,19 @@ func judgeTextParamCoverage(
         // 点名写过这个参数名（例：`LabelIcon` 的「systemName 是符号标识符不是展示文案，
         // 不计入 textParams」）⇒ 视为已裁决。没点名 ⇒ 判红，处置是回 #38 补一句 notes，
         // 不是在判据里硬编码特例。
-        if resolved.entry.notes.contains(hit.parameter) {
+        // ⚠️ **豁免要求参数名与 `textParams` 同句共现，不是全文子串命中**（#59 Task 6 实测
+        // 暴露：旧写法 `notes.contains(hit.parameter)` 会被 `SidebarUtilityRow` 的 notes
+        // 误伤——该 notes 在论证候选形态时提到「systemImage 是必填无默认值的公开参数」，
+        // 这只是论证过程中顺带提及参数名，从未裁决它算不算 textParams，却被子串匹配错记成
+        // 「已豁免」。「把未裁决写成已裁决」正是本 epic 反复在抓的错误方向，故收紧为：按
+        // `。`/`；`/换行断句，只有同一句里参数名与 `textParams` 同时出现才算裁决语——如
+        // `LabelIcon` 例句「systemName 是符号标识符不是展示文案，不计入 textParams。」）。
+        let isNotedAsDecided = resolved.entry.notes
+            .split(whereSeparator: { $0 == "。" || $0 == "；" || $0.isNewline })
+            .contains { sentence in
+                sentence.contains(hit.parameter) && sentence.contains("textParams")
+            }
+        if isNotedAsDecided {
             result.exemptedByRegistryNotes.append(hit.key)
             continue
         }
