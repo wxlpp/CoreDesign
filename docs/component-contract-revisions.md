@@ -605,13 +605,17 @@ enum，换成落地形状会毁掉反例的教学价值。
   `swift test` → `370 tests in 61 suites passed … with 3 known issues`。
 
 <!-- R-12 由 Task 10 追加。
-     ⚠️ 全部 R- 条目共 32 条（R-1~R-32），本节 8 条、第一节 5 条（含 Task 7 追加的 R-13）、
+     ⚠️ 全部 R- 条目共 35 条（R-1~R-35），本节 8 条、第一节 5 条（含 Task 7 追加的 R-13）、
      四、#53 移交 A 段 19 条（Task 1 追加的 R-14、Task 2 追加的 R-15、Task 3 追加的 R-16、
      Task 6 追加的 R-17、Task 7 追加的 R-18~R-29（段 2「待压测」档 12 条逐条独立登记）、
      Task 9 追加的 R-30~R-31（§3.1 carve-out 两条 `SidebarNavigationRow`/`StateLabel`，
      三步程序改判后逐条独立登记，spec §六之二：专项 4 项一律独立登记，不并入批量条目）、
      #53 Task 10（本 epic 的收口任务）追加的 R-32（第 1 节「实测状态」段按出口条件「一条
-     都没有」分支改写）。 -->
+     都没有」分支改写）。
+     五、#59 判定法本体三条修订 3 条（Task 3 追加的 R-33「(A) 不成立 ⇒ 重跑步骤 2 +
+     终止保证 + 不回溯」、Task 2 追加的 R-34「皮肤变体条款的槽/排布/装饰三分法」、
+     Task 1 追加的 R-35「步骤 2 的枚举停止规则」——三条裁断各走一次完整修订回路，
+     逐条独立登记，不并成一条）。 -->
 
 ## 三、本轮未改判 / 未回写的项（诚实留痕）
 
@@ -1360,3 +1364,121 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   21/4/24 分段` 两处 count==1、`旧的无作用域全称句已消失` count==0、`公约无尖括号
   占位符残留`（`<逐条列出组件名>` / `<组件名>` 均 0）、`递延承接已指名` / `作用域限制
   已写` 各 ≥1、四项不变量全 `PASS`、`swift test` 系列全绿。
+
+---
+
+## 五、#59 判定法本体三条修订（`D-53-17` / `D-53-18`）
+
+<!-- R-33 / R-34 / R-35 各对应一条裁断，逐条独立登记（三条各自走完整修订回路，
+     合并成一条会让「哪条裁断改了哪段文字」不可复现）。上方计数注释已同批改为 35 条。 -->
+
+### R-33｜`D-53-17`：(A) 不成立 ⇒ 重跑步骤 2 + 终止保证 + 不回溯
+
+- **来源试点**：#53 段 2 源码级压测（`53-stress.md` 遗留观察）自行发现，`D-53-17` 登记；
+  实测样本 5 条（`SidebarStatusFooter` / `SidebarUtilityRow` / `SpinningModifier` /
+  `Steps` / `Timeline`）落在成因②。
+- **撞上公约哪一条**：第 1 节步骤 3 操作化门槛（改动前 `:132`）——「两条任一不成立 ⇒
+  视为答不上来，落步骤 4」，与步骤 2 三出口在成因② 下**方向相反**。
+- **改动前（逐字）**：`   - **两条任一不成立 ⇒ 视为答不上来，落步骤 4。**`
+- **改动后（逐字）**：见 `docs/component-contract.md` 该处现文——(B) 不成立 ⇒ 落步骤 4；
+  (A) 不成立 ⇒ 重跑步骤 2 按三出口走（三个出口都可能，且明令不得预判成因① 必落步骤 4）；
+  新增「终止保证」两句：**(A) 成立 ⇒ 枚举满足停止规则（必要条件 ⇒，不是充要 ⇔）**、
+  **重跑至多一次，仍不满足 ⇒ 落步骤 4**；同批新增「本轮口径修订的生效范围（不回溯）」段。
+- **落点**：`docs/component-contract.md`（步骤 3 门槛 1 处 + 不回溯段 1 处 + 第 1 节
+  「实测状态」段 1 处）；`docs/component-registry.json`（17 条，其中落方案 C 的
+  5 条：`AvatarGroup` / `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）；
+  `docs/contract-defects.md`（`D-53-17` #59 裁断段）；本文件（本条）。
+- **连带改动**：
+  1. `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift` —— **三处，spec §七 的唯一
+     例外**：① `knownMissingExtensionPoints` 由 `["Toast"]` 增补为 `["AvatarGroup",
+     "SidebarUtilityRow", "SpinningModifier", "Steps", "Timeline", "Toast"]`（并补一段
+     doc comment 说明这是判定法修订的到期通路）；② `inspected.count == 6` → `== 11`
+     及其诊断文案里的名单；③ `withKnownIssue` 文案增列新条目并指向 `wxlpp/oh-my-story#60`。
+     ⚠️ 依据：J-2 自己的 doc comment（`:38-50`，`Toast` 先例）与 `:91` 注释（「变小 ⇒ 已知
+     缺口补上了，同步删除」）明写该集合**随判定结论增删** ⇒ 到期通路，不是改守卫迁就。
+     `Sources/` 零改动，其余 `Tests/` 零改动（`git diff --name-only` 实测）。
+     ⚠️ **实测第四处（plan 未预见，扩围授权）**：`Tests/CoreDesignTests/ComponentJudgeMutationTests.swift`
+     三处硬编码期望值同步（随 `knownMissingExtensionPoints` / `inspected.count` 变化连带调整），
+     依据同上——两文件同受 J-2「集合随判定结论增删」的到期通路覆盖，不视为越出「`Tests/` 唯一例外」的窄口。
+  2. `docs/component-contract.md` 第 1 节「实测状态」段 —— 该段自带「状态变化须走修订回路」
+     义务，方案 C 移出条目后 `step3` 集合变了 ⇒ 同批更新（`step3` 33 → 28）。
+  3. **去格式化全文探针**（六份 `docs/*.md` × 旧门槛措辞）实测：`docs/contract-defects.md`
+     与 `docs/component-contract-revisions.md` 里的「两条任一不成立」命中属**逐字引用 /
+     历史记录**语境（`D-53-17` 缺陷描述本身逐字引了旧原文），**非承重，不改**；
+     `docs/README.md` / `docs/BREAKING-CHANGES.md` / `docs/DESIGN-FOUNDATION.md` 命中 0 处。
+  4. `docs/components/*.md` 逐份扫描（**38 份**）：**0 处**提及 `decidedBy` /
+     `step3` / `tiebreaker` ⇒ 不回写。
+      （两数字来自 `docs/components/*.md` 的逐份实测扫描）
+- **验证**：见 Task 3 / 6 / 7 / 8 各 Step 的机械校验输出——公约 `两条任一不成立` 去格式化
+  命中 **0**；`INV` 不变量全 `PASS`（registry 71 / `decidedBy⇒kind` / `kind⇔needsExt` /
+  `textParams` **B 22 / C 9 / by-type 2** / 豁免 27 + 30）；登记表改动集合恰为 17 条、
+  `notes` 全部只增、`textParams` 零漂移；`swift test --filter ComponentExtensionPointGuard`
+  → `1 test in 1 suite passed … with 1 known issue`（`No matching` 0 次）；
+  `swift test` → `370 tests in 61 suites passed … with 3 known issues`。
+
+### R-34｜`D-53-18` 缺陷①：皮肤变体条款补槽 / 排布 / 装饰三分法
+
+- **来源试点**：#53 PR 层降级评审实测——同一份 `53-stress.md` 里「增删一个视觉槽」被判了
+  两种相反结果（`SectionHeader` / `SidebarSection` 判非皮肤，`SectionFooter` 判皮肤变体）。
+- **撞上公约哪一条**：第 1 节皮肤变体条款（改动前 `:64-67`）——只写「共享同一个底层布局
+  结构，只是把结构里的单元换了种画法」，**没规定增删槽算不算结构差异**。
+- **改动前（逐字）**：
+  `   ⚠️ **皮肤变体不计入 ≥2**：候选形态如果共享**同一个底层布局结构**，只是把`
+  `   结构里的单元换了种画法（例如都是「每位一个独立格子」，格子本身画成方框 /`
+  `   圆点 / 下划线），这些算**同一结构的皮肤变体**，不算「长相完全不同」，`
+  `   不计入 ≥2——即使能举出三个，只要它们共享同一个布局骨架，就仍算**举得犹豫**。`
+  （上述四行**保留未动**，本条是在其后**插入**三分法段。）
+- **改动后（逐字）**：见 `docs/component-contract.md` 该处现文——新增「槽 / 排布 / 装饰
+  三分法」三档定义 + 四条补充规则（纯装饰层限定「自陈不足以定性」、槽的计数变化、组件与
+  周围内容的空间关系也算排布、混合优先级「含任一槽/排布差异即整体计入非皮肤」）+ 「为什么
+  必须把装饰单列」（不单列则本条款自己的正典例塌方）+ 「不推翻既有判定」四例。
+- **落点**：`docs/component-contract.md`（皮肤变体条款 1 处）；`docs/contract-defects.md`
+  （`D-53-18` #59 裁断段缺陷① 部分）；重判结论落在 `docs/component-registry.json`
+  （随 `R-33` 一并落盘）；本文件（本条）。
+- **连带改动**：`Tests/CoreDesignTests/ComponentContractStructureGuard.swift` —— **零改动**：
+  本条只在既有 `###` 小节内插入正文，`^### ` 标题数 **23 不变**、`^#### ` **4 不变**、`requiredSubsections`
+  **14 条不变**（实测断言见 Task 2 Step 3）。⚠️ 结构守卫**只锚标题行** ⇒ 它绿**不构成
+  内容验证**，内容由本条的去格式化探针（十个探针各命中 1 次）承担。
+- **验证**：Task 2 Step 3 的探针输出（`槽 / 排布 / 装饰三分法`、`增删一个承载内容的子视图
+  位置`、`子视图之间的空间关系改变`、`同一槽内的画法变化`、`自陈不足以定性`、`槽的计数变化
+  也算槽差异`、`组件与周围内容的空间关系改变也算排布`、`混合变化的优先级`、`一个候选只要
+  含有任一「槽」或「排布」差异，即整体计入非皮肤`、`这个正典例自身会翻成骨架差异` 各 1 次）；
+  `PASS 标题数 h3=23 / h4=4 不变`；`INV` 全 `PASS`；`swift test --filter ComponentContractStructureGuard`
+  → `2 tests in 1 suite passed`（`No matching` 0 次）。
+
+### R-35｜`D-53-18` 缺陷②：步骤 2 补枚举停止规则
+
+- **来源试点**：#53 PR 层降级评审——公约只给「≥2」这个门槛，**没给「枚举到什么程度算
+  诚实枚举完毕」**⇒ 每条举 2 个还是 3 个由分析者自由裁量，而成因② 的判定完全依赖这个计数
+  ⇒ 「落地 / 移交」的切分不可复现，且两侧处置方向相反。
+- **撞上公约哪一条**：第 1 节步骤 2 的操作化门槛（改动前 `:47-53`）。
+- **改动前（逐字）**：
+  `   ⚠️ **操作化门槛**：能**当场举出 ≥2 个业界真实存在的替代形态**才算「会」`
+  `   （**替代 = 不含组件当前的形态**）。`
+  （两行**保留未动**，本条是在其后**插入**停止规则段。）
+- **改动后（逐字）**：见 `docs/component-contract.md` 该处现文——「≥2 是门槛不是停止点」，
+  停止规则二选一（**至少 3 个具名业界候选** / **写明已穷尽并给出查过哪些设计体系 / 产品**）；
+  「已穷尽」的**核验下限** = **Apple HIG / Material Design / Fluent / Ant Design** 四家
+  + 至少一个最贴近的真实产品（报两个冷门体系就宣称穷尽不成立）；**来源义务两侧一致**
+  （每个候选给设计体系名 + 具体形态或产品名 + 场景，泛称不算）。
+- **落点**：`docs/component-contract.md`（步骤 2 1 处）；`docs/contract-defects.md`
+  （`D-53-18` #59 裁断段缺陷② 部分）；本文件（本条）。
+- **连带改动**：重判时的实测迁移成本（`oh-my-story` `.claude/epics/component-contract/59-rejudge.md`
+  「统计」节「本轮补枚举 / 补来源的」逐条明细）——17 条中 **8 条**触发补枚举 / 补来源：
+  ① `AvatarGroup` 补第 3 个具名候选（网格平铺头像矩阵：Slack Huddle / Google Meet / Discord）——
+  旧记录只有 2 个候选，新停止规则下不满足「≥3」分支；② `ChevronRightIcon` 候选 3 泛称来源
+  「早期 Web 面包屑」替换为 Bootstrap 5.3 `breadcrumb` 官方文档「Dividers」示例；③ `SettingsRowChevron`
+  同款替换（两条同源条目口径一致）；④ `SidebarSection` 候选 3 来源替换为 Slack 折叠分组头未读
+  计数徽标 / VS Code 侧栏分组头变更数徽标；⑤ `SidebarStatusFooter` 候选 3 去掉泛称、补一个具名
+  来源（macOS 系统设置「软件更新」纯文字状态行）；⑥ `SidebarUtilityRow` 候选 1、2 来源替换为
+  Ant Design `Menu` 无 icon 项 / macOS Finder 下拉菜单项 / Fluent 2 trailing affordance / iOS 设置
+  二级页「行首无图标」；⑦ `Steps` 候选 1、3 各去掉一句泛称，候选 1 补 Google 表单分段进度条；
+  ⑧ `Timeline` 候选 2 来源替换为 PowerPoint SmartArt「Basic Timeline」/ Final Cut Pro 横向事件
+  时间线。⚠️ 8 处全部走「补或替换具名来源」这一支，无候选因来源不合格被判不成立后剔除计数。
+  `Tests/` 零改动；结构守卫零改动（未新增标题）。
+- **验证**：Task 1 Step 5 的探针输出（`枚举的停止规则`、`至少 3 个具名业界候选`、
+  `写明已穷尽`、`Apple HIG、Material Design、Fluent、Ant Design`、
+  `外加至少一个与该组件形态最贴近的真实产品`、`报两个冷门体系就宣称穷尽`、
+  `设计体系名 + 具体形态`、`产品名 + 场景`、`三个出口，不是两个` 各 1 次）；
+  `PASS 标题数 h3=23 / h4=4 不变`；`INV` 全 `PASS`；`swift test --filter ComponentContractStructureGuard`
+  → `2 tests in 1 suite passed`（`No matching` 0 次）。
