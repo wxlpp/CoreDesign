@@ -1396,10 +1396,30 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
      及其诊断文案里的名单；③ `withKnownIssue` 文案增列新条目并指向 `wxlpp/oh-my-story#60`。
      ⚠️ 依据：J-2 自己的 doc comment（`:38-50`，`Toast` 先例）与 `:91` 注释（「变小 ⇒ 已知
      缺口补上了，同步删除」）明写该集合**随判定结论增删** ⇒ 到期通路，不是改守卫迁就。
-     `Sources/` 零改动，其余 `Tests/` 零改动（`git diff --name-only` 实测）。
+     `Sources/` 零改动。⚠️ **本行原写「其余 `Tests/` 零改动」，那是失实的**——
+     本分支还改了 `ComponentJudgeRules.swift`（见下面第 2 点），实测 `Tests/` 共动 **3** 个文件。
      ⚠️ **实测第四处（plan 未预见，扩围授权）**：`Tests/CoreDesignTests/ComponentJudgeMutationTests.swift`
      三处硬编码期望值同步（随 `knownMissingExtensionPoints` / `inspected.count` 变化连带调整），
      依据同上——两文件同受 J-2「集合随判定结论增删」的到期通路覆盖，不视为越出「`Tests/` 唯一例外」的窄口。
+
+  2. `Tests/CoreDesignTests/ComponentJudgeRules.swift:378` —— **FR-4 判据修正**（缺陷
+     `D-53-19`，修复落在 `b804cf5`）。`notes` 豁免通道原为**裸子串**
+     `resolved.entry.notes.contains(hit.parameter)`，区分不了「**裁决**该参数」与
+     「论证里**顺带提及**参数名」。本轮 `SidebarUtilityRow` 落 `step2` 的 `notes` 追加
+     文本在论证里写了「`systemImage` 是必填无默认值的公开参数」⇒ 被误判为已裁决豁免
+     ⇒ `violations` 由基线 **4 条**降为 **3 条**，击穿 `ComponentTextParamGuard.swift`
+     的两条固定集合断言（`:130` canary 与 `:143`「豁免集合恒为 `LabelIcon.init#systemName`」）。
+     ⚠️ `:143` 那条断言的原注是「授权者是登记表 `notes` 而不是判据作者，集合变化必须
+     有人过目」——**它正是为这种误判设的防线，它红了，说明防线有效**。
+     **改法**：`:378` 改为「参数名与 `textParams` **同句共现**」（按 `。`/`；`/换行断句）
+     才算裁决语。**依据**是 FR-4 自己的注释（`:374-377`）：豁免通道的例子是 `LabelIcon`
+     的「systemName 是符号标识符不是展示文案，**不计入 textParams**」——那是**裁决语**，
+     参数名与 `textParams` 同句。实测该改动对全库 5 个 symbol 类参数**全部判对**
+     （唯一真豁免 `LabelIcon` 保住，误触发消除，`violations` 回到基线 4 条）。
+     ⚠️ **这是判据缺陷、不是内容错误**；另两条路都更差——改 `notes` 措辞被纪律禁止
+     （`notes` 是判定结论的如实记录），计入已知集合会造成**假豁免**（该参数从未被裁决过
+     textParams 归类，记成「已豁免」即「把未裁写成已裁」）。授权依据：`Tests/` 窄口
+     扩围裁定，与 J-2 到期通路同理。
   2. `docs/component-contract.md` 第 1 节「实测状态」段 —— 该段自带「状态变化须走修订回路」
      义务，方案 C 移出条目后 `step3` 集合变了 ⇒ 同批更新（`step3` 33 → 28）。
   3. **去格式化全文探针**（六份 `docs/*.md` × 旧门槛措辞）实测：`docs/contract-defects.md`
