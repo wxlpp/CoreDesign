@@ -1146,6 +1146,59 @@ String`，未变成 `LocalizedStringResource` ⇒ #53 本轮先行。本次改�
 建议先补一条**不预判方向的中性指针**（形如「⚠️ 本门槛存在已知未裁冲突，见 `D-53-17`」）
 走一次小修订，那不构成既成事实。
 
+#### ✅ #59 裁断（本条已裁，递延理由消失，已回写公约）
+
+**裁断**：门槛原文「两条任一不成立 ⇒ 视为答不上来，落步骤 4」拆成两条——
+**(B) 不成立 ⇒ 落步骤 4**；**(A) 不成立 ⇒ 重跑步骤 2，按三出口走**。
+**根因**：(A) 的定义就是「步骤 2 的答案站得住」，它不成立只说明**原答案不可信**，
+**不说明新答案是「答不上来」**——原文把这两件事划了等号。
+
+⚠️ **重跑后三个出口都可能**（不是两个）：举得出 ≥2 个非皮肤候选 ⇒ 出口 1；举不出但
+能说清「长相即含义」⇒ 出口 2 ⇒ 步骤 3；举不出且说不清、或举得犹豫 ⇒ 步骤 4。
+⚠️ **不得预判「成因① 重跑必然落步骤 4」**：原答案只是「没写候选」，不是「写了且为空」。
+
+**终止保证**（写进公约，两句缺一不可）：
+1. **(A) 成立 ⇒ 步骤 2 的枚举满足停止规则**（≥3 个具名业界候选，或写明已穷尽并给出
+   查过哪些设计体系 / 产品）。⚠️ **必要条件（⇒），不是充要（⇔）**——写成充要会让
+   「≥3」分支退化成纯形式条件，故来源义务两侧一致（每个候选给可核验来源）。
+2. ⚠️ **兜底（独立保证终止）**：**重跑至多一次**；仍不满足停止规则 ⇒ 落步骤 4。
+
+**落点**：`docs/component-contract.md` 第 1 节步骤 3 操作化门槛（原 `:132` 那一行）。
+
+**本条 5 条实测样本的重判结论**（⚠️ **它们的成因② 资格是旧判据下算出的，本轮同样从
+候选枚举重走，未查表**）：`SidebarStatusFooter` / `SidebarUtilityRow` / `SpinningModifier` /
+`Steps` / `Timeline` ⇒ 4 条（`SidebarUtilityRow` / `SpinningModifier` / `Steps` /
+`Timeline`）重走后**仍是成因②**（非皮肤且未被排除候选数分别为 2 / 2 / 3 / 3，均 ≥2）⇒
+重跑步骤 2 一次 ⇒ 落**出口 1**（语义组件、需要扩展点）。`SidebarStatusFooter` 是**唯一例外**：
+重跑首稿按候选枚举同样落成因②（候选数 2），但经 #59 评审复核，作用域条件 ③ 对候选 2
+（整条着色的状态横幅）应按**形态级**读法核验（问 `Banner` 承不承担该候选**形态**，不是
+承不承担「侧栏页脚」这个角色）——`Banner` 真实承担该形态且有 `docs/components/banner.md`
+文档佐证 ⇒ 该候选被正当排除，非皮肤候选数降为 1，**改判 (A) 成立、出口 3（举得犹豫）**，
+落步骤 4 ⇒ `tiebreaker`（不落地）。逐条取证见 `oh-my-story` 仓
+`.claude/epics/component-contract/59-rejudge.md`。
+
+**重判范围 = `53-stress.md` 全部 17 条**（不是挑出来的几条）：「候选上限 7 条」是预期
+不是边界。实测落出口 1 的共 **5** 条：`AvatarGroup` / `SidebarUtilityRow` /
+`SpinningModifier` / `Steps` / `Timeline`。
+
+**落盘（方案 C，已裁）**：这些条目的 `decidedBy` → `step2`、`kind` → `semantic`、
+`needsExtensionPoint` → `true`，并在 `notes` 写明「扩展点待实现，见
+`wxlpp/oh-my-story#60`」。**理由**：本 epic 反复栽的病是「新尺没回写」（`D-53-1` 为此
+立过纪律），「只出名单不改登记表」会是同一个病的第 N 次复发；C 虽让登记表暂时超前于
+代码，但那是**如实记录判定结论**。
+
+⚠️ **连带（J-2 守卫的到期通路，不是「改守卫迁就」）**：新条目进入 J-2 定义域
+（`ComponentJudgeRules.swift:70-72`）而扩展点 API 不存在 ⇒
+`ComponentExtensionPointGuard.swift` 的 `inspected.count`（`:60`）与块外 canary
+（`:87`）会红。J-2 自己的 doc comment（`:38-50`）正描述了这个形态并留了正门
+（`Toast` 是现成先例），`:91` 注释明写 `knownMissingExtensionPoints` 本就**随判定结论
+增删** ⇒ 本轮增补红名单 + 同步计数 + 改 `withKnownIssue` 文案，**授权范围仅此三处**。
+
+⚠️ **承接**：扩展点实现见 **`wxlpp/oh-my-story#60`**（动 `Sources/`，是行为改变，与本
+issue 的硬边界严格分开）。
+
+**台账**：`docs/component-contract-revisions.md` `R-33`。
+
 
 ### D-53-18：皮肤变体判据不统一 + 枚举无停止规则 ⇒ 「落地 / 移交」的切分不可复现
 
@@ -1214,3 +1267,121 @@ vs 语义需要扩展点），而决定落在哪侧的是一个无停止规则�
 
 ⚠️ **本条同样命中 `D-53-1` 引用的那条纪律**：公约正文对这两个判据缺陷**零提及**。
 递延理由同 `D-53-17`（裁断方向未定时写指针难免暗示倾向），中性指针的建议措辞见该条。
+
+#### ✅ #59 裁断（本条两个缺陷均已裁，递延理由消失，已回写公约）
+
+**缺陷① 的裁断 —— 槽 / 排布 / 装饰三分法**（落点：公约皮肤变体条款，原 `:64-67` 之后）：
+- **槽** = 增删一个承载内容的子视图位置 ⇒ **骨架差异，计入 ≥2**；
+- **排布** = 子视图之间的空间关系改变（换轴 / 重叠↔并排 / 分居两侧 / 网格↔线性）
+  ⇒ **骨架差异，计入 ≥2**；
+- **装饰** = 同一槽内的画法变化 + 纯装饰层 ⇒ **皮肤变体，不计入 ≥2**。
+
+**四条补充规则**（缺一即不可判）：
+1. **「纯装饰层」的限定**：不承载状态 / 内容语义的层；**判「装饰」须写明依据**，源码或
+   a11y 的**自陈不足以定性**——`SidebarStatusFooter` 的状态圆点自陈「纯装饰」且
+   `accessibilityHidden`，但**颜色即状态** ⇒ 它是**槽**。
+2. **槽的计数变化也算槽差异**（`N 个槽 → 1 个槽`）。
+3. **组件与周围内容的空间关系改变也算排布**（遮罩有无伴随「占据整个容器 ↔ 占据行内
+   一小块」）。
+4. **混合优先级**：含任一槽 / 排布差异 ⇒ **整体计入非皮肤**（装饰不抵消）。
+
+⚠️ **「装饰」必须单列**：不单列的话，本条款自己的正典例（格子画成方框 / 圆点 / 下划线，
+方框有描边而下划线没有）会翻成骨架差异，**皮肤变体条款整体塌方**。
+⚠️ **不推翻 #53 已作出的判定**：`SectionHeader` / `SidebarSection` 走**槽**，`Timeline`
+的左右交替与横向走**排布**——四者旧口径下即判非皮肤，新口径同向。
+
+**缺陷② 的裁断 —— 枚举停止规则**（落点：公约步骤 2，原 `:47-53`）：**至少 3 个具名业界
+候选，或写明已穷尽**；写「已穷尽」须给出查过哪些设计体系 / 产品，**不得裸断言**，且名单
+须覆盖**最小基线**（**Apple HIG / Material Design / Fluent / Ant Design** 四家 + 至少一个
+最贴近的真实产品）。⚠️ **来源义务两侧一致**：每个候选须给**设计体系名 + 具体形态**或
+**产品名 + 场景**；泛称不算。
+
+**重判结论（范围 = 全部 17 条，不预设名单）**：逐条记录见 `oh-my-story` 仓
+`.claude/epics/component-contract/59-rejudge.md`。
+- 本轮**补枚举 / 补来源**的：`AvatarGroup` 候选 3「网格平铺的头像矩阵」本轮补足第 3 个
+  具名来源（Slack Huddle / Google Meet / Discord）以满足「≥3 个具名候选」分支；
+  `ChevronRightIcon` 与 `SettingsRowChevron` 的「`>` 字符」候选来源均由 #53 的泛称
+  「早期 Web 面包屑」——公约逐字点名的不合格例子——替换为具名来源（Bootstrap 5.3
+  `breadcrumb` 官方文档「Dividers」小节示例 `--bs-breadcrumb-divider: '>';`，经 Context7
+  拉取官方文档核实）这三处。⚠️ 同类泛称处置在本批另有多处（`SidebarSection` 候选 3、
+  `SidebarStatusFooter` 候选 3、`SidebarUtilityRow` 候选 1/2、`Steps` 候选 1/3、`Timeline`
+  候选 2），均逐条记于 `59-rejudge.md`，不逐一复述。
+- `AvatarGroup`（本条点名的直接不一致、也是 #53「0 条保留 `step3`」结论唯一的薄弱点）
+  重判后落 **`step2` / `semantic` / `true`**，理由：三个候选（重叠↔并排 = 排布、纯计数
+  徽标 = 槽、网格↔线性 = 排布）经作用域三条件复核均未被排除 ⇒ 非皮肤候选数 = 3 ≥ 2
+  ⇒ (A) 不成立、成因② ⇒ 重跑步骤 2 一次 ⇒ 落出口 1。
+- 「刀尖」5 条（`DangerIcon` / `Descriptions` / `LabelIcon` / `SidebarSection` /
+  `TelegramGlassButtonModifier`）重判后落 **`tiebreaker` / `prescriptive` / `false`**：
+  五条重判后非皮肤且未被排除候选数均 < 2（`DangerIcon` = 1、`Descriptions` = 1、
+  `LabelIcon` = 1、`SidebarSection` = 1、`TelegramGlassButtonModifier` = 0——最后一条的
+  候选 3「去掉全部容器层」由 #53 判非皮肤翻转为装饰，计数由 1 降为 0），出口 3 落步骤 4，
+  落点与 #53 一致但归类依据多处改写（详见 `59-rejudge.md` 各节）。
+- 此前不在处置表内的 5 条（`ChevronRightIcon` / `FloatingGlassModifier` / `SectionHeader` /
+  `SettingsRowChevron` / `SidebarTagRow`）**同样逐条重判**，落 **`tiebreaker` /
+  `prescriptive` / `false`**：非皮肤且未被排除候选数均为 0（`ChevronRightIcon` /
+  `FloatingGlassModifier` / `SettingsRowChevron` / `SidebarTagRow`）或 1（`SectionHeader`，
+  候选 3「trailing 动作 / 计数槽」经作用域条件 ③ 重核后由「被 `SidebarSection` 正当排除」
+  改为「不排除」，计数仍 < 2），出口 3 落步骤 4。
+- 池中剩余的 `SectionFooter` 与 `SidebarStatusFooter` 同样逐条重判并落
+  **`tiebreaker` / `prescriptive` / `false`**：`SectionFooter` 候选 1「helper text 前缀
+  图标」由 #53 的皮肤变体改判为**槽**（非皮肤候选数由 0 变 1），仍 < 2，落点不变；
+  `SidebarStatusFooter` 见 `D-53-17` #59 裁断段——首稿按候选枚举落成因②（候选数 2），
+  经 #59 评审复核作用域条件 ③ 应按**形态级**读法核验（`Banner` 承担的是候选**形态**
+  本身、不是「侧栏页脚」这个角色），`Banner` 正当排除该候选后计数降为 1，改判 (A) 成立、
+  出口 3，落 `tiebreaker`（`kind` / `needsExtensionPoint` 不动）。
+- **落出口 1 的共 5 条**：`AvatarGroup` / `SidebarUtilityRow` / `SpinningModifier` /
+  `Steps` / `Timeline`，按方案 C 落盘（见 `D-53-17` #59 裁断段）。
+
+#### ⚠️ #59 同批裁定：**不回溯**（明文裁定，不是遗漏）
+
+裁断改皮肤判据、加枚举义务，都会改变**任何**旧判定的成立条件，而 #53 之前判定的条目
+**多数从未枚举过候选**。⇒ **本次口径修订不触发全量回溯**：
+- **新口径约束**：今后的**新判定**，以及 #53 / #54 **本轮正在处理**的条目；
+- **既判条目**（17 条压测样本之外）**不主动回溯**，在**下次因其它原因被复核时**适用新口径。
+
+**理由**：全量回溯相当于把 #53 的压测工作在全库 71 条重做一遍（#53 光 25 条就跑了 10 个
+task），且会阻断 #54。
+⚠️ **代价如实记录**：登记表会在一段时期内**两把尺并存**——任何人读到一条既判条目时，
+**须知它可能是旧口径下的结论**。该裁定已同批写进公约（步骤 3 门槛下方「本轮口径修订的
+生效范围」段）。
+
+**台账**：`docs/component-contract-revisions.md` `R-34`（缺陷①）/ `R-35`（缺陷②）；
+不回溯裁定随 `R-33` 记录（与门槛修订同批落地）。
+
+
+### D-53-19：FR-4 的「登记表 notes 豁免」用裸子串匹配，区分不了「裁决」与「顺带提及」
+
+**缺陷**：`Tests/CoreDesignTests/ComponentJudgeRules.swift:378`（#59 修复前）用
+`resolved.entry.notes.contains(hit.parameter)` 判定某个 `textParams` 命中是否已被登记表
+`notes` 豁免——**全文裸子串匹配**，不要求参数名与「裁决语」同句出现。
+
+**发现过程**：#59 Task 6 落盘时撞出。`SidebarUtilityRow` 落 `step2` 的 `notes` 追加文本在
+论证候选形态时写了「`systemImage` 是必填无默认值的公开参数」，这只是论证过程中**顺带
+提及**参数名、从未裁决它算不算 `textParams`，却被裸子串匹配误记成「已豁免」。
+
+**实测后果**：`violations` 由基线 **4 条**降为 **3 条**（少了
+`SidebarUtilityRow.init#systemImage`），击穿 `ComponentTextParamGuard.swift` 的两条固定
+集合断言（`:130` canary 与 `:143`「豁免集合恒为 `LabelIcon.init#systemName`」）。⚠️
+`:143` 那条断言正是为这类误判设的防线（原注「授权者是登记表 notes 而不是判据作者，集合
+变化必须有人过目」）——它红了，说明防线有效。
+
+**处置（裁定）**：**修判据**，不是另两条路。
+- 改 `notes` 措辞避开子串命中 ⇒ **纪律明令禁止**（不为过守卫改要写进产物的文案），且
+  `notes` 是判定结论的如实记录；
+- 计入已知集合 ⇒ 造成**假豁免**：`SidebarUtilityRow.init#systemImage` 从未被裁决过
+  `textParams` 归类，记成「已豁免」正是本 epic 反复在抓的「把未裁写成已裁」；
+- ⇒ 实改：`:378` 由裸子串改为「参数名与 `textParams` **同句共现**」（按 `。`/`；`/换行
+  断句）才算裁决语。**依据**是 FR-4 自己的注释（`:374-377`）：豁免通道的例句是
+  `LabelIcon`「`systemName` 是符号标识符不是展示文案，**不计入 textParams**。」——那是
+  **裁决语**，参数名与 `textParams` 同句。⚠️ **已实测**该改动对全库 5 个 symbol 类参数
+  **全部判对**（唯一真豁免 `LabelIcon` 保住，误触发消除），落在 `b804cf5`。
+
+⚠️ **本条是「判据缺陷」，不是「内容错误」**——`SidebarUtilityRow.notes` 的文本本身如实
+记录了判定过程，没有写错；错的是 FR-4 判定豁免的**匹配规则**过宽，把「提及」误读成
+「裁决」。**授权依据**：#59 对 `Tests/` 窄口扩围的裁定（与 `D-53-17` 的 J-2 到期通路
+授权同理——判据本身的口径缺陷，发现于本轮落盘、修复范围严格限定在触发该缺陷的那一处
+判据代码，即 `judgeTextParamCoverage` 函数内豁免匹配这一句）。
+
+**落点**：`Tests/CoreDesignTests/ComponentJudgeRules.swift`（豁免匹配收紧为同句共现）。
+
+**台账**：随 `b804cf5` 落地；`docs/component-contract-revisions.md` 台账记录见 Task 10。
