@@ -64,6 +64,13 @@ struct ComponentRegistryGuard {
         let decidedBy: String               // step1|step2|step3|tiebreaker|precedent|exclusion
         let nativeProtocol: String?         // Apple 原生协议名
         let customStyleProtocol: String?    // 自有协议名
+        // ⚠️ 形态 D（`docs/component-contract.md` §2「样式扩展点：四选一」，由 `D-59-1` 裁定）。
+        // D1 外观槽：写 `TypeName.paramName`（如 `TimelineItem.node`）；D2 配置枚举：写枚举名。
+        // ⚠️ **只在「该组件的候选形态能被这个槽/枚举完整承载」时才填** —— 覆盖不全就别填，
+        // 填了不覆盖比不填更糟（J-2 会判绿，而设计空间其实没开）。J-2 只能核「源码里真的
+        // 存在这个槽/枚举」，**核不了「够不够」** —— 那是作者的判断，须在 notes 写明。
+        let styleSlot: String?              // 形态 D1：`TypeName.paramName`
+        let styleEnum: String?              // 形态 D2：公开枚举名
         // ⚠️ 上两者必须分开（裁决 D3）：#40 的 J-3 是「标注了 nativeProtocol 的组件
         // 源码中不得出现自定义样式协议符号」—— 一字段两用会让 SegmentedControl
         // 被自己的协议判红。

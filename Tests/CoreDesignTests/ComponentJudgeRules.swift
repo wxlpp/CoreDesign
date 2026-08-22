@@ -15,6 +15,8 @@ func makeTestEntry(
     decidedBy: String,
     nativeProtocol: String? = nil,
     customStyleProtocol: String? = nil,
+    styleSlot: String? = nil,
+    styleEnum: String? = nil,
     needsExtensionPoint: Bool,
     textParams: [ComponentRegistryGuard.TextParam] = [],
     notes: String = "合成条目，仅用于规则层单测"
@@ -22,6 +24,7 @@ func makeTestEntry(
     ComponentRegistryGuard.Entry(
         component: component, repo: repo, kind: kind, decidedBy: decidedBy,
         nativeProtocol: nativeProtocol, customStyleProtocol: customStyleProtocol,
+        styleSlot: styleSlot, styleEnum: styleEnum,
         needsExtensionPoint: needsExtensionPoint, textParams: textParams, notes: notes
     )
 }
@@ -106,10 +109,33 @@ func judgeExtensionPoints(
                 result.satisfied[entry.component] =
                     "原生协议 \(native)（实现：\(implementations.sorted().joined(separator: ", "))）"
             }
+        } else if let slot = entry.styleSlot {
+            // 形态 D1「外观槽」（公约 §2，由 `D-59-1` 裁定）。
+            // ⚠️ **必须核源码真的有这个槽** —— 只看字段非空就判绿，等于「填个字符串就过」，
+            // 那是本 epic 反复抓到的「测量工具制造自己的绿」。
+            if scan.styleSlotKeys.contains(slot) {
+                result.satisfied[entry.component] = "外观槽 \(slot)（形态 D1）"
+            } else {
+                result.missing.append(entry.component)
+                result.diagnostics.append(
+                    "\(entry.component)：登记表 styleSlot=\(slot)，但源码里无该公开 @ViewBuilder init 参数"
+                    + "（采集口径：**只认公开 init 参数**，私有 body 里的 @ViewBuilder 计算属性调用方够不着、不算扩展点）"
+                )
+            }
+        } else if let styleEnum = entry.styleEnum {
+            // 形态 D2「配置枚举」。同样必须核源码。
+            if scan.styleEnumNames.contains(styleEnum) {
+                result.satisfied[entry.component] = "配置枚举 \(styleEnum)（形态 D2）"
+            } else {
+                result.missing.append(entry.component)
+                result.diagnostics.append(
+                    "\(entry.component)：登记表 styleEnum=\(styleEnum)，但源码里无该公开 enum 声明"
+                )
+            }
         } else {
             result.missing.append(entry.component)
             result.diagnostics.append(
-                "\(entry.component)：登记表既无 nativeProtocol 也无 customStyleProtocol"
+                "\(entry.component)：登记表 nativeProtocol / customStyleProtocol / styleSlot / styleEnum 四者皆空"
                 + " —— 语义组件必须有扩展点（这是**待补的扩展点**，不是判据 bug：判定法结论已产出、实现未跟上）"
             )
         }

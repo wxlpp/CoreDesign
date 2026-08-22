@@ -86,14 +86,105 @@ struct ComponentJudgeRulesTests {
         #expect(bad.missing == ["ProgressIndicator"])
     }
 
-    @Test("J-2：两个协议字段都为 null ⇒ 判红（Rating / Toast 的形态）")
+    @Test("J-2：四个扩展点字段全为 null ⇒ 判红（Rating / Toast 的形态）")
     func j2NoExtensionPointAtAll() {
         let entries = [
             makeTestEntry(component: "Rating", kind: "semantic", decidedBy: "step2", needsExtensionPoint: true),
         ]
         let result = judgeExtensionPoints(entries: entries, scan: self.scan())
         #expect(result.missing == ["Rating"])
-        #expect(result.diagnostics.contains { $0.contains("既无 nativeProtocol 也无 customStyleProtocol") })
+        #expect(result.diagnostics.contains { $0.contains("四者皆空") })
+    }
+
+    // MARK: 形态 D（`docs/component-contract.md` §2，由 `D-59-1` 裁定）
+
+    @Test("J-2 形态 D1：styleSlot 在源码里真实存在 ⇒ 满足")
+    func j2StyleSlotSatisfied() {
+        let source = """
+        public struct TimelineItem {
+            public init(@ViewBuilder node: () -> Node, @ViewBuilder content: () -> Content) {}
+        }
+        """
+        let scan = scanComponentJudgeInputs(source: source)
+        let entries = [
+            makeTestEntry(
+                component: "Timeline", kind: "semantic", decidedBy: "step2",
+                styleSlot: "TimelineItem.node", needsExtensionPoint: true
+            ),
+        ]
+        let result = judgeExtensionPoints(entries: entries, scan: scan)
+        #expect(result.missing.isEmpty)
+        #expect(result.satisfied["Timeline"]?.contains("形态 D1") == true)
+    }
+
+    @Test("J-2 形态 D1 变异：styleSlot 源码里不存在 ⇒ 判红（不是填了就算）")
+    func j2StyleSlotMutationMissing() {
+        let scan = scanComponentJudgeInputs(source: "public struct Timeline {}")
+        let entries = [
+            makeTestEntry(
+                component: "Timeline", kind: "semantic", decidedBy: "step2",
+                styleSlot: "TimelineItem.node", needsExtensionPoint: true
+            ),
+        ]
+        let result = judgeExtensionPoints(entries: entries, scan: scan)
+        #expect(result.missing == ["Timeline"])
+        #expect(result.diagnostics.contains { $0.contains("无该公开 @ViewBuilder init 参数") })
+    }
+
+    @Test("J-2 形态 D1 变异：私有 body 里的 @ViewBuilder 不算扩展点（调用方够不着）")
+    func j2StyleSlotMutationPrivateBodyDoesNotCount() {
+        // ⚠️ 这正是 `Timeline.swift:220` 的 `private var nodeView` 那种形态 —— 若采集器
+        // 把它也采进来，J-2 会把「组件自己有个私有 ViewBuilder」误判成「已给扩展点」。
+        let source = """
+        public struct Timeline {
+            @ViewBuilder
+            private var nodeView: some View { EmptyView() }
+        }
+        """
+        let scan = scanComponentJudgeInputs(source: source)
+        #expect(scan.styleSlotKeys.isEmpty, "私有计算属性不该被采成外观槽：\(scan.styleSlotKeys)")
+        let entries = [
+            makeTestEntry(
+                component: "Timeline", kind: "semantic", decidedBy: "step2",
+                styleSlot: "Timeline.nodeView", needsExtensionPoint: true
+            ),
+        ]
+        let result = judgeExtensionPoints(entries: entries, scan: scan)
+        #expect(result.missing == ["Timeline"])
+    }
+
+    @Test("J-2 形态 D2：styleEnum 真实存在 ⇒ 满足；不存在 ⇒ 判红")
+    func j2StyleEnumBothWays() {
+        let scan = scanComponentJudgeInputs(source: """
+        public enum StepsIndicatorStyle { case dot, numbered }
+        """)
+        let ok = judgeExtensionPoints(
+            entries: [makeTestEntry(
+                component: "Steps", kind: "semantic", decidedBy: "step2",
+                styleEnum: "StepsIndicatorStyle", needsExtensionPoint: true
+            )], scan: scan)
+        #expect(ok.missing.isEmpty)
+        #expect(ok.satisfied["Steps"]?.contains("形态 D2") == true)
+
+        let bad = judgeExtensionPoints(
+            entries: [makeTestEntry(
+                component: "Steps", kind: "semantic", decidedBy: "step2",
+                styleEnum: "NoSuchEnum", needsExtensionPoint: true
+            )], scan: scan)
+        #expect(bad.missing == ["Steps"])
+        #expect(bad.diagnostics.contains { $0.contains("无该公开 enum 声明") })
+    }
+
+    @Test("J-2 形态 D2 变异：internal enum 不算（不是公开 API 面）")
+    func j2StyleEnumMutationInternalDoesNotCount() {
+        let scan = scanComponentJudgeInputs(source: "enum StepsIndicatorStyle { case dot }")
+        #expect(scan.styleEnumNames.isEmpty, "internal enum 不该被采：\(scan.styleEnumNames)")
+        let result = judgeExtensionPoints(
+            entries: [makeTestEntry(
+                component: "Steps", kind: "semantic", decidedBy: "step2",
+                styleEnum: "StepsIndicatorStyle", needsExtensionPoint: true
+            )], scan: scan)
+        #expect(result.missing == ["Steps"])
     }
 
     @Test("J-2 定义域：非 semantic / 不要扩展点 / 非本仓的条目都不进 inspected")

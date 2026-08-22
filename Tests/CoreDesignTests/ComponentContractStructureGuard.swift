@@ -18,7 +18,7 @@ struct ComponentContractStructureGuard {
     /// 5 个必需节。⚠️ 字面量必须与 `docs/component-contract.md` 一字不差。
     static let requiredSections = [
         "## 1. 判定法：语义组件 vs 规定性组件",
-        "## 2. 样式扩展点：三选一",
+        "## 2. 样式扩展点：四选一",
         "## 3. 配置开关的四条替代路径",
         "## 4. 文案类型三分法",
         "## 5. 环境值清单",
