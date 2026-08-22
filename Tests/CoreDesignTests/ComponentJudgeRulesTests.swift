@@ -175,6 +175,40 @@ struct ComponentJudgeRulesTests {
         #expect(bad.diagnostics.contains { $0.contains("无该公开 enum 声明") })
     }
 
+    @Test("J-2 形态 D 变异：两个扩展点字段同时非空 ⇒ 靠后那条通路被静默略过")
+    func j2MultipleExtensionPointFieldsSilentlySkipped() {
+        // ⚠️ 这条记录的是判定链的**已知形状**，不是期望行为：J-2 按
+        // customStyleProtocol → nativeProtocol → styleSlot → styleEnum 顺序裁决，
+        // 靠前的命中就 return ⇒ 同时填两个时，靠后那条**从未被核对**而判据照样绿。
+        // 真正的防线在 `ComponentRegistryGuard` 的「四字段至多一个非空」断言上（登记表侧），
+        // 本测试钉住「规则层确实会静默略过」这个事实，防止有人误以为规则层自己拦得住。
+        // ⚠️ 协议必须带 `makeBody(configuration:)` requirement 才会被采成 styleProtocol
+        //（`ComponentJudgeScanner` 的结构性信号），空协议采不到。
+        let scan = scanComponentJudgeInputs(source: """
+        public protocol FakeStyle {
+            associatedtype Body: View
+            func makeBody(configuration: Configuration) -> Body
+        }
+        public struct FakeStyleImpl: FakeStyle {}
+        """)
+        let entries = [
+            makeTestEntry(
+                component: "Ghost", kind: "semantic", decidedBy: "step2",
+                customStyleProtocol: "FakeStyle",
+                styleSlot: "NoSuchType.noSuchParam",   // 源码里不存在 —— 单独填必判红
+                needsExtensionPoint: true
+            ),
+        ]
+        let result = judgeExtensionPoints(entries: entries, scan: scan)
+        // customStyleProtocol 先命中 ⇒ 判绿，styleSlot 那条假值**没被核**。
+        #expect(result.missing.isEmpty, "判定链靠前的 customStyleProtocol 命中后应直接满足")
+        #expect(result.satisfied["Ghost"]?.contains("自有协议") == true)
+        #expect(
+            result.satisfied["Ghost"]?.contains("D1") != true,
+            "styleSlot 那条通路确实未被核对 —— 这正是登记表侧要拦的形态"
+        )
+    }
+
     @Test("J-2 形态 D2 变异：internal enum 不算（不是公开 API 面）")
     func j2StyleEnumMutationInternalDoesNotCount() {
         let scan = scanComponentJudgeInputs(source: "enum StepsIndicatorStyle { case dot }")
