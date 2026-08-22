@@ -704,34 +704,34 @@
     "component": "ContextPicker",
     "repo": "storyui",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "多选设定条目选择器，供上层拼进 prompt。步骤 1 无。步骤 2/3：视觉完全委派给内部复用的 InsetGroupedSection + SettingsRow（`.core` 系统样式已由 CoreDesign 层处理），ContextPicker 自身不引入独立视觉身份，是纯领域组合层 ⇒ 步骤 3 规定性。展示文本（CodexText.* 与 state.states 里的条目标题/副标题）均来自内嵌数据/常量，组件 init 本身无裸 String 参数。"
+    "notes": "多选设定条目选择器，供上层拼进 prompt。步骤 1 无。步骤 2/3：视觉完全委派给内部复用的 InsetGroupedSection + SettingsRow（`.core` 系统样式已由 CoreDesign 层处理），ContextPicker 自身不引入独立视觉身份，是纯领域组合层 ⇒ 步骤 3 规定性。展示文本（CodexText.* 与 state.states 里的条目标题/副标题）均来自内嵌数据/常量，组件 init 本身无裸 String 参数。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 自陈「自身不引入独立视觉身份，是纯领域组合层」，视觉全权委派给登记表内已命名的 InsetGroupedSection 与 SettingsRow 两个兄弟组件，此为源码可核验的架构事实而非推测；调用方想要不同长相的正确路径是改用这两个兄弟组件本身，类比 #53 Card 直接改判先例 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
   },
   {
     "component": "CodexEntryForm",
     "repo": "storyui",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "设定条目编辑表单：四个固定位 + 模板字段（后者薄封装转发给 DynamicForm）。步骤 1 无。步骤 2/3：文档自述『薄封装，不重新实现动态表单』，控件与视觉完全来自 DynamicForm/InsetGroupedSection/SettingsRow/TagInput，本组件不持有独立样式表面 ⇒ 步骤 3 规定性。无裸 String init 参数（type/draft/闭包）。"
+    "notes": "设定条目编辑表单：四个固定位 + 模板字段（后者薄封装转发给 DynamicForm）。步骤 1 无。步骤 2/3：文档自述『薄封装，不重新实现动态表单』，控件与视觉完全来自 DynamicForm/InsetGroupedSection/SettingsRow/TagInput，本组件不持有独立样式表面 ⇒ 步骤 3 规定性。无裸 String init 参数（type/draft/闭包）。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 自陈「薄封装，不重新实现动态表单」「本组件不持有独立样式表面」，控件与视觉逐一列举来自四个具名兄弟组件（DynamicForm/InsetGroupedSection/SettingsRow/TagInput），同为源码可核验的架构事实；四个去处均已在登记表内，调用方想要不同长相应改用对应兄弟组件本身，类比 #53 Card 直接改判先例 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
   },
   {
     "component": "CodexEntryDetail",
     "repo": "storyui",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "设定条目详情：Card 头部 + DynamicFormSummary 只读渲染。步骤 1 无。步骤 2/3：文档自述『薄封装，不重新实现只读渲染』，与 CodexCard『未填字段是否显示』的取舍相反是领域决策，不是可换皮的样式轴 ⇒ 步骤 3 规定性。无裸 String init 参数（仅 state）。"
+    "notes": "设定条目详情：Card 头部 + DynamicFormSummary 只读渲染。步骤 1 无。步骤 2/3：文档自述『薄封装，不重新实现只读渲染』，与 CodexCard『未填字段是否显示』的取舍相反是领域决策，不是可换皮的样式轴 ⇒ 步骤 3 规定性。无裸 String init 参数（仅 state）。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 自陈「薄封装，不重新实现只读渲染」，字段渲染整段委托给具名兄弟组件 DynamicFormSummary，这是源码可核验的架构事实（组件自认不重新实现渲染，只做 Card 头部包装与标签行）；次要理由「与 CodexCard 的留白策略相反」同样显式引用具名兄弟组件；该委托关系不因 DynamicFormSummary 本轮（见本文件 `### 9.`）已压测判定为 step2/semantic/needsExtensionPoint:true 而改变方向——按 D-41-3（否决理由不可继承）剥离的是「借兄弟裁定结论说话」这类关系性理由，不影响「委托关系本身是架构事实」这一支撑，本组件的可换皮空间仍旧完全在兄弟组件一侧 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
   },
   {
     "component": "CodexCard",
@@ -889,12 +889,12 @@
     "component": "ToolRenderHandoffPlaceholder",
     "repo": "storyui",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "`.streaming` / `.custom` 未被接管时的兜底可见提示。步骤 1 无。步骤 2/3：文档明确『刻意渲成可见的交接提示而不是空视图』——存在的唯一理由就是这个可见性本身，换外观等于取消它的作用 ⇒ 步骤 3 规定性，不给扩展点。text 是根据 render 关联值拼接的内部计算属性，非公开参数。"
+    "notes": "`.streaming` / `.custom` 未被接管时的兜底可见提示。步骤 1 无。步骤 2/3：文档明确『刻意渲成可见的交接提示而不是空视图』——存在的唯一理由就是这个可见性本身，换外观等于取消它的作用 ⇒ 步骤 3 规定性，不给扩展点。text 是根据 render 关联值拼接的内部计算属性，非公开参数。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 给出的反事实句「换外观等于取消它的作用」实为偷换概念——把「改变外观」等同于「变不可见」，两件不同的事；只要仍然可见，交接提示完全存在多种不同的视觉样式选择（替换图标、改用不同文案措辞、改用不同的容器 chrome），普通设计常识即可看出这一结论不成立，无需读源码验证即可判定实质也不满足 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
   },
   {
     "component": "ChapterStatusBadge",
