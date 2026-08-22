@@ -64,6 +64,13 @@ struct ComponentRegistryGuard {
         let decidedBy: String               // step1|step2|step3|tiebreaker|precedent|exclusion
         let nativeProtocol: String?         // Apple 原生协议名
         let customStyleProtocol: String?    // 自有协议名
+        // ⚠️ 形态 D（`docs/component-contract.md` §2「样式扩展点：四选一」，由 `D-59-1` 裁定）。
+        // D1 外观槽：写 `TypeName.paramName`（如 `TimelineItem.node`）；D2 配置枚举：写枚举名。
+        // ⚠️ **只在「该组件的候选形态能被这个槽/枚举完整承载」时才填** —— 覆盖不全就别填，
+        // 填了不覆盖比不填更糟（J-2 会判绿，而设计空间其实没开）。J-2 只能核「源码里真的
+        // 存在这个槽/枚举」，**核不了「够不够」** —— 那是作者的判断，须在 notes 写明。
+        let styleSlot: String?              // 形态 D1：`TypeName.paramName`
+        let styleEnum: String?              // 形态 D2：公开枚举名
         // ⚠️ 上两者必须分开（裁决 D3）：#40 的 J-3 是「标注了 nativeProtocol 的组件
         // 源码中不得出现自定义样式协议符号」—— 一字段两用会让 SegmentedControl
         // 被自己的协议判红。
@@ -381,6 +388,22 @@ struct ComponentRegistryGuard {
                     "\(e.component)：kind=excluded 与 decidedBy=exclusion 必须同时成立")
             #expect(!(e.nativeProtocol != nil && e.customStyleProtocol != nil),
                     "\(e.component) 同时标了原生协议与自有协议 —— 正是 J-3 要禁的形态")
+            // ⚠️ **四个扩展点字段至多一个非空**（形态 D 由 `D-59-1` 裁定后补上这条）。
+            // J-2 的判定链是 customStyleProtocol → nativeProtocol → styleSlot → styleEnum，
+            // **靠前的命中就 return** ⇒ 两个字段同时非空时，靠后那条通路**从未被核对**，
+            // 而判据照样绿。这与本文件上一条断言防的是同一种病（#38 裁决 D3「分开读」
+            // 没说过可以同时填），形态 D 的两个新字段必须一并纳入。
+            let extensionPointFields = [
+                e.nativeProtocol, e.customStyleProtocol, e.styleSlot, e.styleEnum,
+            ].compactMap { $0 }
+            #expect(
+                extensionPointFields.count <= 1,
+                """
+                \(e.component) 同时标了 \(extensionPointFields.count) 个扩展点字段\
+                （nativeProtocol / customStyleProtocol / styleSlot / styleEnum 至多填一个）\
+                 —— J-2 只会按判定链的第一个裁决，其余通路静默略过
+                """
+            )
             // ⚠️ 评审 Suggestion 3：现有断言只反向核对了 prescriptive/excluded ⇒
             // !needsExtensionPoint，没断言正向的 semantic ⇒ needsExtensionPoint。
             if e.kind == "semantic" {

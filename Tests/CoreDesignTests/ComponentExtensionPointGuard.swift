@@ -141,4 +141,5 @@ struct ComponentExtensionPointGuard {
         print("J-2 已知缺口 \(result.missing)（待补扩展点，移交后续任务）")
         print("⚠️ J-2 跳过 storyui \(result.skippedRepos["storyui"] ?? 0) 条：CI 只 checkout 本仓，跨仓核对移交 #43。")
     }
+
 }

@@ -245,6 +245,29 @@ struct StyleProtocolDecl: Hashable, Sendable {
 }
 
 /// 一处 conformance 声明（类型声明自带的，或 `extension X: P` 补的）。
+/// 形态 D1「外观槽」的一条采集记录：某个类型的 `init` 里带 `@ViewBuilder` 的公开参数。
+///
+/// ⚠️ **只采 `init` 参数、且只采公开可见的** —— 私有 body 里的 `@ViewBuilder` 计算属性
+/// （如 `Timeline.swift:220` 的 `private var nodeView`）**不是**扩展点，调用方够不着它。
+/// 若把那种也采进来，J-2 会把「组件自己有个私有 ViewBuilder」误判成「已给扩展点」。
+struct StyleSlotDecl: Hashable, Sendable {
+    let typeName: String
+    let paramName: String
+    let file: String
+    let line: Int
+    /// `TypeName.paramName` —— 登记表 `styleSlot` 字段的比对键。
+    var key: String { "\(self.typeName).\(self.paramName)" }
+}
+
+/// 形态 D2「配置枚举」的一条采集记录：公开 `enum` 声明。
+struct StyleEnumDecl: Hashable, Sendable {
+    let name: String
+    let file: String
+    let line: Int
+    /// case 名集合 —— 供「候选形态能否被 case 一一覆盖」的人工核对使用。
+    let caseNames: Set<String>
+}
+
 struct ConformanceRecord: Hashable, Sendable {
     /// 具名类型用**简单名**（不含外层点分前缀）；extension 用被扩展类型的基名。
     let typeName: String
@@ -258,6 +281,8 @@ struct ComponentJudgeScanResult: Sendable {
     var textParams: [TextParamHit] = []
     var styleProtocols: [StyleProtocolDecl] = []
     var conformances: [ConformanceRecord] = []
+    var styleSlots: [StyleSlotDecl] = []
+    var styleEnums: [StyleEnumDecl] = []
     /// 类型名（含被 extension 扩展的类型名）→ 声明它的文件名集合。J-3 用它定「组件作用域」。
     var typeDeclFiles: [String: Set<String>] = [:]
 
@@ -266,6 +291,11 @@ struct ComponentJudgeScanResult: Sendable {
     var carryingKeys: Set<String> { Set(self.textParams.filter { $0.kind == .textCarrying }.map(\.key)) }
 
     var styleProtocolNames: Set<String> { Set(self.styleProtocols.map(\.name)) }
+
+    /// 形态 D1 的比对键集合，形如 `TimelineItem.node`。
+    var styleSlotKeys: Set<String> { Set(self.styleSlots.map(\.key)) }
+    /// 形态 D2 的公开枚举名集合。
+    var styleEnumNames: Set<String> { Set(self.styleEnums.map(\.name)) }
 
     /// 采纳了指定协议的类型名集合（声明侧与 extension 侧合并）。
     func conformers(of protocolName: String) -> Set<String> {
@@ -314,6 +344,8 @@ private func collectComponentJudgeInputs(tree: SourceFileSyntax, fileName: Strin
     result.textParams = collector.textParams
     result.styleProtocols = collector.styleProtocols
     result.conformances = collector.conformances
+    result.styleSlots = collector.styleSlots
+    result.styleEnums = collector.styleEnums
     result.typeDeclFiles = collector.typeDeclFiles
     return result
 }
@@ -323,6 +355,10 @@ extension ComponentJudgeScanResult {
         self.textParams += other.textParams
         self.styleProtocols += other.styleProtocols
         self.conformances += other.conformances
+        // ⚠️ 新增字段必须同时接进这里 —— 磁盘扫描入口逐文件走 `merge`，漏接会让该字段
+        // 在真实扫描下**恒为空**，而合成输入的单测照样绿（那条路径不走 merge）。
+        self.styleSlots += other.styleSlots
+        self.styleEnums += other.styleEnums
         for (name, files) in other.typeDeclFiles {
             self.typeDeclFiles[name, default: []].formUnion(files)
         }
@@ -353,6 +389,8 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
     var textParams: [TextParamHit] = []
     var styleProtocols: [StyleProtocolDecl] = []
     var conformances: [ConformanceRecord] = []
+    var styleSlots: [StyleSlotDecl] = []
+    var styleEnums: [StyleEnumDecl] = []
     var typeDeclFiles: [String: Set<String>] = [:]
 
     private let fileName: String
@@ -450,6 +488,20 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
         self.indexDecl(name: node.name.text, inheritance: node.inheritanceClause, at: node)
+        // ⚠️ 形态 D2「配置枚举」：只采**公开**的。可见性判据与外观槽同源。
+        if self.isEffectivelyPublic(node.modifiers) {
+            var cases: Set<String> = []
+            for member in node.memberBlock.members {
+                guard let decl = member.decl.as(EnumCaseDeclSyntax.self) else { continue }
+                for element in decl.elements { cases.insert(element.name.text) }
+            }
+            self.styleEnums.append(
+                StyleEnumDecl(
+                    name: node.name.text, file: self.fileName,
+                    line: node.startLocation(converter: self.converter).line, caseNames: cases
+                )
+            )
+        }
         self.pushType(node.name.text, node.modifiers); return .visitChildren
     }
     override func visitPost(_ node: EnumDeclSyntax) { self.frames.removeLast() }
@@ -526,7 +578,31 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
             generics: Self.stringProtocolGenericNames(node.genericParameterClause, node.genericWhereClause),
             isInitializer: true, at: node
         )
+        self.collectStyleSlots(node)
         return .skipChildren
+    }
+
+    /// 采形态 D1「外观槽」：`init` 参数里带 `@ViewBuilder` 的公开参数。
+    ///
+    /// ⚠️ **可见性沿用 `isEffectivelyPublic` 那套判据**（父类型链上有 private/internal 就不算）
+    /// —— 一个 internal 类型上的 `@ViewBuilder` 参数调用方够不着，不构成扩展点。
+    private func collectStyleSlots(_ node: InitializerDeclSyntax) {
+        guard let typeName = self.frames.last?.name else { return }
+        guard self.isEffectivelyPublic(node.modifiers) else { return }
+        for parameter in node.signature.parameterClause.parameters {
+            let hasViewBuilder = parameter.attributes.contains { attribute in
+                guard case let .attribute(attr) = attribute else { return false }
+                return attr.attributeName.trimmedDescription == "ViewBuilder"
+            }
+            guard hasViewBuilder else { continue }
+            // ⚠️ 外部标签优先：调用方写的是外部标签，登记表 `styleSlot` 也该按调用方视角写。
+            let name = (parameter.firstName.text == "_"
+                ? parameter.secondName?.text : parameter.firstName.text) ?? parameter.firstName.text
+            let line = node.startLocation(converter: self.converter).line
+            self.styleSlots.append(
+                StyleSlotDecl(typeName: typeName, paramName: name, file: self.fileName, line: line)
+            )
+        }
     }
 
     override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
