@@ -259,6 +259,13 @@ bug）触发、**本轮不落地** 5 条（`SidebarStatusFooter` / `SidebarUtili
 （`AvatarGroup` / `OutlineTree`）都栽在 (A) 上——它们各自举出了 ≥2 个替代形态却仍登记
 `step3`，是**待复核条目**，不是可用样例。
 
+⚠️ **#54 勘误指针**（只增不删，上文原样保留）：`OutlineTree` 在 **#54（移交 B）本轮 24 条
+之内**，已按 #59 的判据复核完毕 ⇒ 上文「**待复核条目**」这个状态对它**已失真**；`AvatarGroup`
+（`repo: coredesign`，不受 `:134` canary 约束）已由 **#59** 复核并**落盘**（`decidedBy: step2`，
+`kind: semantic`）。两条的现落点与依据见本文件 `## #54 移交 B` 段与 `54-report.md`；
+`AvatarGroup` 现文见本文件 `### D-53-3` 段与 `docs/component-registry.json` 同名条目。
+⚠️ 上文是 **#44 时点**的正确记录，本指针只更新状态、不改写它。
+
 **已落地**：公约「候选形态的作用域」小节的「登记表两侧都有成文样本」一句已删除、替换为实测
 状态陈述；同批处置了两处引用它的文本（公约里逐字引「本句『两侧都有成文样本』」的那条注、
 以及 `docs/component-registry.json` 的 `TagInput.notes` 里「两侧实证」那句）。台账
@@ -1446,3 +1453,264 @@ task），且会阻断 #54。
 `FloatingGlassModifier` 判装饰 vs `SidebarUtilityRow` 判槽）正是靠这个未定口径分开的。
 ⚠️ 同源问题：`59-rejudge.md` 统计节自陈「真正需要公约将来补明的是『**承载语义的背景层**』
 该落槽还是落排布」—— 该规则空白此前只活在另一个仓的 task 记录里，本条一并登记。
+
+---
+
+## #54 移交 B：StoryUI 侧 24 条 `step3` 补跑复核
+
+范围：`docs/component-registry.json` 中 `decidedBy == "step3" && repo == "storyui"` 的 24 条。
+判据来源：本仓 `docs/component-contract.md` 现文（`D-53-1` / `D-53-17` / `D-53-18` + #59 三条裁断）。
+逐条记录：`oh-my-story` 仓 `.claude/epics/component-contract/54-triage.md`（段 1）/
+`54-stress.md`（段 2）/ `54-report.md`（收口视图）。
+源码基线：`oh-my-story` `092950d`，`Packages/StoryUI/Sources/StoryUI` 子树零改动（已实测）。
+
+⚠️ **本轮落盘口径（判定先行、落盘阻塞）**：落**步骤 4** 的条目正常改判 `tiebreaker`；
+落**出口 1** 的条目 **本轮不落盘**，只进判定报告 + 本节缺陷登记。理由：落 `step2`
+（`kind: semantic`）会碰 `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift:134`
+那条 canary，而它守的是「跨仓判据未落地前，StoryUI 侧不得出现 `semantic`」，其自述解除
+路径是「必须移交 **#43** 落地跨仓判据，不得靠裁决 (a) 的跳过静默放过」。改它等于绕过它要
+守的那条路。⚠️ **代价如实记**：登记表在一段时期内**不反映**这些条目的新判定——但报告与本
+节有完整记录，与 #53 的「移交 5 条不落地」是同款处置口径。
+
+⚠️ **`D-59-1` 在 StoryUI 侧没有机器执行者**：J-2 的定义域是
+`entry.repo == "coredesign" && …`（`Tests/CoreDesignTests/ComponentJudgeRules.swift:71`），
+对这 24 条连看都不看。本轮判出出口 1 的条目里带公开 `@ViewBuilder` 槽的那些
+（候选池：`FocusModeContainer.content` / `StoryScaffold` 的 `outline`/`manuscript`/`assistant`
+三槽 / `ToolCallRow.hostContent`）**已有槽而 J-2 不认**，逐条见下方对应条目。
+
+**本轮撞上的缺陷**：本节共登记 `D-54-1` ～ `D-54-7`，无零缺陷情形。
+
+### D-54-1：步骤 2 停止规则「补足后重判」与兜底句「来源经抽查不实 ⇒ 落步骤 4」对同一情形指向相反结论
+
+**来源**：本轮段 2 压测撞出——`ManuscriptEditor` 候选 2（初稿来源「Typora split view」）与
+`DynamicForm` 候选 3（初稿来源「Notion 属性面板『浮动卡片』」）经抽查发现来源失实，需要
+补/换来源，但「重跑步骤 2 至多一次」的名额已在同一条目的候选枚举本身用掉。
+
+**缺陷**：公约对「满足停止规则但来源经抽查不实」这一情形写了两条指向相反的处置路径：
+- **正面文本依据**：`docs/component-contract.md:63-65`——「不满足 ⇒ 枚举视为未完成，
+  不得据以走任一出口，**补足后重判**」——这本身就是不耗重跑名额的修补通道。
+- **正面冲突条款**：`docs/component-contract.md:199-204`（兜底句）——「重跑后 (A) 仍不
+  成立（**含**「不满足停止规则」，也**含**「满足停止规则但来源经抽查不实」这类情形）
+  ⇒ **落步骤 4**」——把同一情形算进「(A) 仍不成立」，直接落步骤 4。
+⚠️ 两条款对**同一情形**指向相反结论——登记的是一对冲突条款，不是孤立的一种读法。
+
+**证据**：`54-stress.md:141-145`（`ManuscriptEditor` I-1 更正）、`54-stress.md:195-200`
+（`DynamicForm` I-2 更正）、`54-stress.md:1213-1256`（orchestrator 裁定原文 + 补 ①②）。
+
+**本轮处置**：换 / 补来源不触发第二次重跑（视为履行来源义务本身的独立修补，不是重新
+回答候选枚举问题），据 `:63-65` 的「补足后重判」通道执行，不落 `:199-204` 的步骤 4。
+为防止这一读法被滥用为「假来源可无限免费换」，本次执行严格遵守三条边界：
+1. **候选形态不变**——评审逐一核过：`ManuscriptEditor` 仍是「Ulysses/iA Writer 纯源码」+
+   「分栏编辑器」+「Notion 块编辑」三个候选**形态**未变；`DynamicForm` 仍是「表格」+
+   「向导」+「卡片式」三个候选**形态**未变，只换来源文本本身；
+2. **评审窗口内（落盘前）**——换来源发生在 Task 3 评审-修复循环内、任何一条落盘之前，
+   不是既判条目事后被抽查再改；
+3. **留痕点名被推翻的旧来源**——被换掉的旧来源在条目正文里显式留痕点名并写明核实为假
+   的理由，不是静默替换。
+
+⚠️ **实核结果（本 task 对 `54-stress.md` 全文实核，不照抄转述）**：本轮（含 Task 3、
+Task 5 顺手修正）实际发生「来源被核实为假/机制误归属并替换」的共 **6 处**：
+1. `ManuscriptEditor` 候选 2：「Typora split view」经核实为假（Typora 实际**没有**
+   源码/预览分栏）→ 换成 VS Code「Open Preview to the Side」（`54-stress.md:141-145`，I-1）。
+2. `DynamicForm` 候选 3：「Notion 属性面板『浮动卡片』」经核实为假（Notion 属性面板实为
+   纵向行列表）→ 换成 Google Forms 编辑器逐题卡片（`54-stress.md:195-200`，I-2）。
+3. `CodexEntryList` 候选 2：「本组件源码注释自述的历史实现」经核实不满足来源义务
+   （非设计体系名/产品名）→ 换成 Material Design Filter Chips（`54-stress.md:234-239`，C-5）。
+4. `CodexCard` 候选 2 附带的「Contacts App 的『全部联系人』网格视图」经核实为假
+   （iOS/macOS 通讯录无网格视图）→ 剥离，候选 2 改由 iOS Photos「人物」相册网格独立
+   承担来源（`54-stress.md:333-336`）。
+5. `FocusModeContainer` 候选 1：「VS Code Zen Mode 的 hover 浮出细条」经核实机制误归属
+   （该行为实为 macOS 原生全屏系统级行为，非 Zen Mode 自身特性）→ 改为直接以 **macOS
+   系统全屏体验** 为来源（`54-stress.md:433-441`）。
+6. `StoryTextView` 候选 3：「Grammarly 编辑器——逐标记浮动图标徽标」经核实为假
+   （Grammarly 真实呈现是颜色下划线，浮动图标是文本框角落的单一全局部件）→ 改用
+   Adobe Acrobat「Add Note to Text」行内批注图标（`54-stress.md:561-571`）。
+
+另有 `ChapterStatusBadge` 候选 1 出处一处（I-3，`54-stress.md:71-73`）经更正——由
+「`Badge` 自身 `notes` 自述」更正为「`StateLabel` `notes` 对 `Badge` 的转述」，但这是
+**引文归属**更正，不是真实世界来源被推翻替换，**不计入**上述 6 条。⚠️ 上游转述本条为
+「7 条」并附一份混有 `RunMetricsBar`（Windows 任务管理器/Xcode debug usage-over-time/
+VS Code Copilot 状态栏）、`StoryScaffold`（Apple Notes/Mail iPad 三栏/Apple HIG Sheets/
+2016–2019 Twitter for iPad）、`ChapterCard`（Apple 备忘录列表行，日期**在行首**，非转述
+所称的「尾部」）等来源的清单——经查这些均是**首次枚举即采用的合法来源**，从未被判定
+为假而替换，不构成「换掉的来源」；转述计数与清单均与 `54-stress.md` 原文不符，本条以
+实核结果（6 处）为准。
+
+**⚠️ 承接**：由 #54 收口新开的承接 issue 负责（Task 10 回填真实号）——须裁「重跑限制的
+是候选枚举本身、还是也覆盖来源补正」这一读法本身是否要写进公约正文。
+
+### D-54-2：判定法未区分「内容槽」与「外观扩展点」两种槽义——本轮三条实证
+
+**来源**：`D-59-1`（本文件 `### D-59-1` 段）已指出 J-2 字面不检查组件是否已持有某种
+扩展点。本轮 StoryUI 24 条压测撞出三条真实实例。
+
+**缺陷**：`FocusModeContainer`（`content` 槽，`FocusModeContainer.swift:32`）、
+`StoryScaffold`（`outline`/`manuscript`/`assistant` 三槽，`StoryScaffold.swift:47`）、
+`ToolCallRow`（`hostContent` 泛型槽，`ToolCallRow.swift:159`）三条组件本轮均判出口 1
+（`needsExtensionPoint: true`），但它们已经持有公开 `@ViewBuilder` 内容槽——判定法
+（J-2，`Tests/CoreDesignTests/ComponentJudgeRules.swift:71`）字面只问「候选枚举 → 是否
+需要扩展点」，不检查组件是否已持有某种扩展点，也不区分「内容槽」（装什么内容）与
+「外观扩展点」（chrome 长什么样）两种不同槽义。
+
+**证据**：`54-stress.md:417-422`（`FocusModeContainer` 特殊材料注记）、`54-stress.md:479-487`
+（`D-59-1` 回填）、`54-stress.md:927-932`（`StoryScaffold` 特殊材料注记）、
+`54-stress.md:1040-1048`（`ToolCallRow` 特殊材料注记）。⚠️ 评审逐条核过：三条组件各自的
+压测都独立证明「槽够不着的自有视觉」确实存在——`FocusModeContainer` 的退出按钮样式/
+位置/触发方式与 `content` 槽无关；`StoryScaffold` 的三栏骨架组织方式与三槽的内容本身
+无关；`ToolCallRow` 的三种内建形态（`oneLine`/`default`/`hidden`）的图标/展开交互与
+`hostContent` 槽无关——三条切分均成立，**未变成万能挡箭牌**。⚠️ 但这是因为三条恰好都
+真有「槽够不着的自有视觉」，**第四次援引「已有槽 ⇒ 不必再判 `needsExtensionPoint`」时
+未必成立**——不能形成惯例挡箭牌。
+
+**本轮处置**：判定成立、本轮不落盘（撞 `:134` canary，见 `D-54-7`），登记本条供承接
+issue 参考。
+
+**⚠️ 承接**：由 #54 收口新开的承接 issue 负责（Task 10 回填真实号）——评审建议把这三条
+单列一类复审，判定法是否要显式区分「内容槽」与「外观扩展点」两种槽义。
+
+### D-54-3：`CodexEntryDetail` 落进 registry 的追加文本内含「见本文件 `### 9.`」—— 在永久归宿里指向错误
+
+**来源**：`docs/component-registry.json`（`storyui` 条目 `CodexEntryDetail`），Task 7 落盘。
+
+**缺陷**：该条目 `notes` 追加文本逐字含「该委托关系不因 `DynamicFormSummary` 本轮
+（见本文件 `### 9.`）已压测判定为 `step2`/`semantic`/`needsExtensionPoint:true` 而改变
+方向」。「本文件」在原产地 `54-stress.md` 里成立（`### 9. DynamicFormSummary` 就在同一
+文件内，`54-stress.md:369`），但该句逐字搬进 `docs/component-registry.json` 落盘后，
+读者在 registry 或 CoreDesign `docs/` 目录里找不到 `### 9.`——该锚点实际位于**另一个仓**
+`oh-my-story/.claude/epics/component-contract/54-stress.md`。
+
+**证据**：`docs/component-registry.json`（`component: "CodexEntryDetail"` 条目 `notes`
+字段逐字含「见本文件 `### 9.`」）；`54-stress.md:369`（`### 9. DynamicFormSummary`
+实际所在位置，与 registry 落盘处不同仓）。
+
+**本轮处置**：登记勘误，**不回改**已落盘的 `notes`（回改会破坏纯追加的审计链——
+registry.json 的 `notes` 字段本轮起全部只增不删）。勘误：「见本文件 `### 9.`」中的
+「本文件」应读作 `oh-my-story` 仓 `.claude/epics/component-contract/54-stress.md` 的
+`### 9. DynamicFormSummary` 节，不是 `component-registry.json` 本身或 CoreDesign `docs/`
+目录下任何文件。后续约定：模板改为写**绝对定位**（如「见 `54-stress.md` 的 `### 9.`」）
+而不是「本文件」，避免文本跨仓落盘后指代失真复发。
+
+**⚠️ 承接**：由 #54 收口新开的承接 issue 负责（Task 10 回填真实号）。
+
+### D-54-4：`ChapterStatusBadge` 论证基座矛盾——`D-53-16` 点名的优先处理项，本轮已通过整节重做处置
+
+**来源**：`D-53-16`（本文件 `### D-53-16` 段）「跨仓对齐记录」要求 #54 将
+`ChapterStatusBadge` 按「当前就矛盾」优先级处理——其 `step3` 结论的翼一（「建在
+CoreDesign `StateLabel` 上，胶囊/图标/配色/对比度全部来自上游」）挂在已于 #53 判死
+`tiebreaker` 的 `StateLabel` 上。
+
+**缺陷**：`54-triage.md` 第 23 行确认：剥离翼一（依赖 `StateLabel` 的关系性理由）后，
+翼二（三态 → 色相黄/紫/红的映射是刻意的无障碍设计）本身是否构成合格 (B) 不能由基座
+塌方直接回答，需独立压测。
+
+**证据**：`54-stress.md:47-123`（`### 1. ChapterStatusBadge` 整节重做记录，评审
+C-2/C-3/C-4）；`docs/contract-defects.md ### D-53-16` 段的跨仓对齐要求。
+
+**本轮处置**：公约槽定义（图标/文本为具名槽类型）直读——候选 2（Ant Design 纯色圆点，
+无图标）、候选 3（GitHub 纯图标，无胶囊无文字）均属去掉图标/文字槽的槽差异，非皮肤且
+未被作用域排除，2 ≥ 2 ⇒ 出口 1：`decidedBy` 由 `step3` 改判 `step2`/`semantic`/
+`needsExtensionPoint:true`。翼一的论证基座矛盾因此不再是「结论仍留 step3」的悬案——
+重做后的判定路径根本不经过翼一，直接落槽定义终止于步骤 2，不再依赖 `StateLabel` 的
+落点。⚠️ 代价如实记：与其余 19 条出口 1 条目同款，本条本轮不落盘（撞 `:134` canary），
+registry 该条目 `decidedBy` 本轮零改动，登记表在一段时期内仍显示 `step3`。
+
+**⚠️ 承接**：由 #54 收口新开的承接 issue 负责（Task 10 回填真实号）——须移交 #43
+落地跨仓判据后方可落盘 `step2`。
+
+### D-54-5：`ManuscriptEditor` 理由继承违反 `D-41-3`，本轮已重新独立枚举处置
+
+**来源**：`D-41-3`（本文件 `### D-41-3` 段）「否决理由不可继承，对所有步骤成立」。
+
+**缺陷**：`ManuscriptEditor` 原 `notes` 核心论证为「理由同 `ManuscriptReader`」，是纯
+委托句，源码无独立论证——`54-triage.md` 第 6 行标记该条目「枚举 0 个候选，且 notes
+明写『理由同 ManuscriptReader』，未做独立枚举」。
+
+**证据**：`54-stress.md:124-168`（`### 2. ManuscriptEditor` 独立压测记录）；
+`54-triage.md` 行 6。
+
+**本轮处置**：按 `D-41-3` 整句剥离委托句，`ManuscriptEditor` 独立重新枚举：候选 1
+纯 Markdown 源码可见编辑器（Ulysses/iA Writer）、候选 2 源码+预览左右分栏（VS Code）、
+候选 3 块编辑器（Notion）——三者互不共享骨架，均非皮肤且未被作用域排除，3 ≥ 2 ⇒
+出口 1：`decidedBy` 由 `step3` 改判 `step2`/`semantic`/`needsExtensionPoint:true`。
+理由继承问题因此不再是「结论悬空」的状态——`ManuscriptEditor` 现有一份完全独立于
+`ManuscriptReader` 的枚举与结论（尽管两者结论方向恰好相同、均落出口 1，这是巧合而非
+继承关系）。⚠️ 代价如实记：本条本轮不落盘（撞 `:134` canary，同 `D-54-4`），registry
+该条目 `decidedBy` 本轮零改动。
+
+**⚠️ 承接**：由 #54 收口新开的承接 issue 负责（Task 10 回填真实号）。
+
+### D-54-6：`D-59-2` 空白的本轮处置记录——选定读法（无条件登记）
+
+**来源**：`D-59-2`（本文件 `### D-59-2` 段）「未处置、留作观察」——三分法「装饰」自辩
+与补充规则 1 之间缺一条明确的适用顺序（先问承载语义、还是先问装饰层增删）；以及
+「承载语义的背景层」该落槽还是落排布。
+
+**缺陷**：判据本身对这条适用顺序未写明，Task 3/4/5/6 逐轮压测均可能撞上该缝隙，需要
+一个本批统一、无条件写死的读法（不等真撞上才裁）。
+
+**证据**：`54-stress.md`「## D-59-2 空白：本轮选定读法」节（Task 4/5 回填）。
+
+**本轮处置**：选定读法（无条件写死，撞不撞上都要有）——补充规则 1 优先于装饰自辩：
+先问该层承不承载状态/内容语义，承载即判槽，不承载才轮到问装饰层增删；「承载语义的
+背景层」归槽（不归排布）。依据：公约补充规则 1 自身给出的反例段（`SidebarStatusFooter`
+状态圆点自陈「纯装饰」仍判槽，理由只有「承载状态语义」一条）已示范这一顺序；`D-59-2`
+自己记录的 `PinCode` 处置（锁屏圆点按补充规则 1 重判为槽）同样先用承载语义判槽。
+**本轮是否撞上**（穷尽 24 条逐条核验）：**否**——`ChapterStatusBadge` 经 C-2/C-3/C-4
+重做后直读槽定义，不经该判例；`StoryTextView` 候选 2、`ManuscriptReader` 候选 3 涉及
+「某层是否承载语义」表述但均不承重（各自已有其他候选独立支撑 ≥2 结论）；其余条目候选
+归类全部落在纯粹的排布或内容槽层面，不系于「背景层该落槽还是排布」这一具体缝隙。
+**本轮不改判据**：选定读法只在本批内生效，判据修订须另走完整修订回路。
+
+**⚠️ 承接**：由 #54 收口新开的承接 issue 负责（Task 10 回填真实号）——该读法本身应
+登记供后续修订回路收口。
+
+### D-54-7：出口 1 条目（20 条）不落盘登记——逐条判定结论、canary 情况、公开槽情况
+
+**来源**：`docs/component-registry.json` 中 `repo=="storyui" && decidedBy=="step3"` 的
+24 条，本轮压测后其中 20 条落出口 1（`step2`/`semantic`/`needsExtensionPoint:true`）。
+
+**缺陷**：这 20 条因落 `step2` 会碰 `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift:134`
+的 canary（`entries.filter { $0.repo == "storyui" && $0.kind == "semantic" }.isEmpty`，
+自述解除路径「必须移交 #43 落地跨仓判据，不得靠裁决 (a) 的跳过静默放过」），本轮不落盘，
+只进判定报告 + 本条缺陷登记。⚠️ `D-59-1` 在 StoryUI 侧没有机器执行者：J-2 定义域是
+`entry.repo == "coredesign" && …`（`Tests/CoreDesignTests/ComponentJudgeRules.swift:71`），
+对这 20 条连看都不看。
+
+**证据**：`54-stress.md ### 1.`～`### 22.`（除 D1～D4 缩略节外的 20 节逐条判定记录）；
+`54-report.md` §3/§4（收口视图）。20 条逐条：
+
+| 组件 | 非皮肤候选数 | 有无公开 `@ViewBuilder` 槽 | 压测节 |
+|---|---|---|---|
+| `ChapterStatusBadge` | 2 | 无 | `54-stress.md ### 1.` |
+| `ManuscriptEditor` | 3 | 无 | `54-stress.md ### 2.` |
+| `DynamicForm` | 3 | 无 | `54-stress.md ### 3.` |
+| `CodexEntryList` | 2 | 无 | `54-stress.md ### 6.` |
+| `OutlineTree` | 3 | 无 | `54-stress.md ### 7.` |
+| `CodexCard` | 2 | 无 | `54-stress.md ### 8.` |
+| `DynamicFormSummary` | 3 | 无 | `54-stress.md ### 9.` |
+| `FocusModeContainer` | 2 | 有（`content`，见 `D-54-2`） | `54-stress.md ### 10.` |
+| `ManuscriptReader` | 3 | 无 | `54-stress.md ### 11.` |
+| `StoryTextView` | 2 | 无 | `54-stress.md ### 12.` |
+| `SuggestionStream` | 3 | 无 | `54-stress.md ### 13.` |
+| `WritingStatusBar` | 2 | 无 | `54-stress.md ### 14.` |
+| `AgentMessageList` | 3 | 无 | `54-stress.md ### 15.` |
+| `ApprovalRequestCard` | 3 | 无 | `54-stress.md ### 16.` |
+| `ChapterCard` | 3 | 无 | `54-stress.md ### 17.` |
+| `DelegationTimeline` | 3 | 无 | `54-stress.md ### 18.` |
+| `RunMetricsBar` | 3 | 无 | `54-stress.md ### 19.` |
+| `StoryScaffold` | 3 | 有（`outline`/`manuscript`/`assistant`，见 `D-54-2`） | `54-stress.md ### 20.` |
+| `TodoBoard` | 3 | 无 | `54-stress.md ### 21.` |
+| `ToolCallRow` | 3 | 有（`hostContent`，见 `D-54-2`） | `54-stress.md ### 22.` |
+
+J-2 对全部 20 条一律「看不见」（定义域不含 `storyui`，`ComponentJudgeRules.swift:71`）。
+
+**本轮处置**：判定先行、落盘阻塞——20 条判定已在段 2 压测中完成并逐条记录，`decidedBy`
+本轮全部零改动。⚠️ 代价如实记：登记表在一段时期内不反映这 20 条的新判定——但本条与
+`54-report.md` §3/§4 有完整记录，与 #53「移交 5 条不落地」是同款处置口径。
+
+**⚠️ 承接**：由 #54 收口新开的承接 issue 负责（Task 10 回填真实号）。
+
+⚠️ **`54-landing.json` 状态说明**：该文件是 #54 段 1/段 2 判定完成后的一次性落盘输入
+清单（`tiebreaker`/`exit1_no_landing`/`keep_step3` 三组名单），供 Task 7 落盘时消费，
+本轮起视为 **frozen**（已执行、不再是活清单）——后续若名单需要变更，应另开新文件或在
+本节登记变更记录，不直接改写该文件内容。
