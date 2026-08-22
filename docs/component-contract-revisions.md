@@ -1565,3 +1565,48 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   「一条判据一条台账」的口径不同，特此写明以免后来者按条数对不上账。
 - **承接**：`Skeleton*` 4 条门槛、20 条出口 1 的落盘、`D-54-9` 的判据裁断，均由 #54 收口
   新开的承接 issue 负责（**`wxlpp/oh-my-story#61`**）。
+
+### R-37｜公约 §2 承认第四种形态 D「样式扩展点」（裁 `D-59-1`）
+
+- **来源试点**：`D-59-1`（#59 的 PR 层降级评审抓出，#54 收口后裁定）。J-2 只认
+  `nativeProtocol` / `customStyleProtocol` 两字段，而红名单 6 条两字段全空 ⇒ `#60` 事实上
+  被判据**逼着为它们各发一个 public 协议**，而公约祖父条款规定 public 协议**发布后不可撤**。
+- **撞上公约哪一条**：第 2 节「样式扩展点：三选一」（A 原生协议 / B 自有协议 / C 不给）。
+- **改动前（逐字）**：见基线 `5241175` 的 `docs/component-contract.md` §2 ——
+  标题 `## 2. 样式扩展点：三选一`；前言「扩展点只有**三种**合法形态」；表格三行 A/B/C。
+- **改动后（逐字）**：见现文。标题改「四选一」，表格加 D 行，并新增五个小节：
+  ① 形态 D 的两种落地（**D1 外观槽** / **D2 配置枚举**）+ 本仓既有实例；
+  ② **外观槽 ≠ 内容槽**的操作化判据（两条：有默认画法 / 替换的是组件的视觉主张）；
+  ③ **D2 的边界：枚举是封闭集合** —— 候选形态须能被 case 一一覆盖，否则 D2 不成立；
+  ④ **优先序 A > B > D > C**，且「D 不是 B 的降级替代品」；
+  ⑤ **候选形态清单 ≠ 扩展点需求集**（`D-59-1` 第 1 条同批裁定）。
+- **落点**：`docs/component-contract.md`（§2 标题 + 前言 + 表格 + 五个新小节）；
+  `Tests/CoreDesignTests/ComponentJudgeScanner.swift`（`StyleSlotDecl` / `StyleEnumDecl`
+  两种采集 + `ScanResult` 字段与查询 + **`merge` 接线**）；
+  `Tests/CoreDesignTests/ComponentRegistryGuard.swift`（`Entry` 加 `styleSlot` / `styleEnum`）；
+  `Tests/CoreDesignTests/ComponentJudgeRules.swift`（J-2 两条判定分支）；
+  `Tests/CoreDesignTests/ComponentContractStructureGuard.swift`（标题字面量同步）；
+  `Tests/CoreDesignTests/ComponentJudgeRulesTests.swift`（5 条测试）；本文件（本条）。
+- **验证**：
+  - **守卫真的在守**：先只改标题「三选一」→「四选一」、**不动守卫**，跑
+    `ComponentContractStructureGuard` 实测**变红**（`2 tests in 1 suite failed`），
+    再同步字面量、回绿。⇒ 该守卫对本次改动**不是恒绿**。
+  - **J-2 新分支不是恒绿**：5 条测试 = 1 正例 + **4 条变异** —— ① `styleSlot` 在源码不存在
+    ⇒ 判红；② **私有 body 里的 `@ViewBuilder` 不被采**（`Timeline.swift:220` 那种形态，
+    采进来会把「组件自己有个私有 ViewBuilder」误判成「已给扩展点」）；③ `styleEnum` 不存在
+    ⇒ 判红；④ **`internal enum` 不被采**（不是公开 API 面）。
+  - **采集器实测有效**：临时探针跑真实源码，采到 `styleSlots` **30 条**（含
+    `TimelineItem.node` @`Timeline.swift:61`）、`styleEnums` **25 条**（含
+    `StepsIndicatorStyle` cases=`["dot","numbered"]` @`Steps.swift:49`）。探针跑完即删。
+  - **回归**：`swift test` 末行 `Test run with 375 tests in 61 suites passed ... with 3
+    known issues.`（370 + 5 条新测试；3 条 known issue 与本次改动无关）。
+- **连带改动**：⚠️ **`merge` 必须同时接新字段** —— 磁盘扫描入口逐文件走
+  `ComponentJudgeScanResult.merge`，漏接会让字段在**真实扫描下恒为空**，而合成输入的单测
+  **照样绿**（那条路径不走 `merge`）。已在 `merge` 处留注释说明。
+- **⚠️ 一条被推翻的预测，如实记录**：裁定时的选项预览写了「红名单 6 → 预计 4」。**实核
+  推翻**——`Steps` 的 `StepsIndicatorStyle` 表达不了其候选 1 的结构变化（撞 D2 的封闭集合
+  边界）、`Timeline` 的 `node` 槽管不了候选 1/2 的**排布**差异 ⇒ 两条**故意不填**新字段，
+  红名单仍为 **6**。**填了不覆盖比不填更糟**：J-2 能核「槽/枚举是否存在」，**核不了「够不
+  够」**。⇒ 本次改的是**判据的表达力**，不是**红名单的长度**。
+- **承接**：`wxlpp/oh-my-story#60` 逐条判定各用哪种形态落地。⚠️ 不得因为公约现在承认了
+  形态 D 就默认走 D —— 优先序 **A > B > D > C**，且 D 要过两道操作化判据。
