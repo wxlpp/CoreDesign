@@ -141,4 +141,73 @@ struct StepsTests {
         #expect(steps.axis == .horizontal)
         #expect(steps.indicatorStyle == .dot)
     }
+
+    // MARK: - StepsPresentation（`#60` 形态 D2）
+
+    @Test("Steps：presentation 默认 .steps —— 现有调用方零影响")
+    func stepsPresentationDefaultsToSteps() {
+        // ⚠️ 这条是**破坏性变更的防线**：若默认值不是 .steps，所有既有调用方的渲染会静默
+        // 改变。新参数带默认值 ⇒ 源码兼容；默认值 == 现状 ⇒ 行为兼容。两者缺一不可。
+        let steps = Steps(items: [StepItem(title: "A")], currentIndex: 0)
+        #expect(steps.presentation == .steps)
+    }
+
+    @Test("Steps：presentation 原样保留")
+    func stepsStoresPresentation() {
+        for presentation in [StepsPresentation.steps, .segmentedBar, .navigation, .text] {
+            let steps = Steps(
+                items: [StepItem(title: "A")], currentIndex: 0, presentation: presentation
+            )
+            #expect(steps.presentation == presentation)
+        }
+    }
+
+    @Test("StepsPresentation：四个 case 互不相等（Equatable 不是恒真）")
+    func stepsPresentationEquatableIsNotDegenerate() {
+        // ⚠️ 防恒真：若 == 被误实现成恒真，上一条测试会全绿而毫无保护。
+        let all: [StepsPresentation] = [.steps, .segmentedBar, .navigation, .text]
+        for (i, lhs) in all.enumerated() {
+            for (j, rhs) in all.enumerated() where i != j {
+                #expect(lhs != rhs, "\(lhs) 与 \(rhs) 不应相等")
+            }
+        }
+    }
+
+    @Test("Steps：indicatorStyle 与 presentation 正交 —— 两者独立保留，互不改写")
+    func stepsIndicatorStyleAndPresentationAreOrthogonal() {
+        // ⚠️ 公约 §2 形态 D2 的正交性约定：indicatorStyle 只在 .steps 呈现下**生效**，
+        // 但在其余呈现下**仍被原样保留**（不被静默改写成默认值）——「不生效」是渲染层的
+        // 事，不是存储层的事。把它改写掉会让调用方切回 .steps 时丢配置。
+        let steps = Steps(
+            items: [StepItem(title: "A")], currentIndex: 0,
+            indicatorStyle: .numbered, presentation: .text
+        )
+        #expect(steps.indicatorStyle == .numbered, "非 .steps 呈现下 indicatorStyle 仍应原样保留")
+        #expect(steps.presentation == .text)
+    }
+
+    @Test("Steps：四种呈现都能构造且 body 可求值（不 crash）")
+    func stepsAllPresentationsRender() {
+        // ⚠️ 这条只证「不 crash」，**不证渲染正确** —— 视觉正确性靠 #Preview 人工抽查，
+        // 本仓无快照测试。不要把它读成「四种呈现都对」。
+        let items = [StepItem(title: "A"), StepItem(title: "B", isError: true), StepItem(title: "C")]
+        for presentation in [StepsPresentation.steps, .segmentedBar, .navigation, .text] {
+            for axis in [StepsAxis.horizontal, .vertical] {
+                let steps = Steps(items: items, currentIndex: 1, axis: axis, presentation: presentation)
+                _ = steps.body
+            }
+        }
+    }
+
+    @Test("Steps：.text 呈现只消费 items.count 与 currentIndex —— 逐条内容不参与")
+    func stepsTextPresentationCollapsesItems() {
+        // ⚠️ 这正是判定时把该候选判为「**槽**」（N 个槽塌成 1 个）的依据：逐条标题不被渲染。
+        // 两组 items 标题完全不同但条数相同 ⇒ .text 呈现下应产出同一段文案。
+        let a = [StepItem(title: "Cart"), StepItem(title: "Shipping")]
+        let b = [StepItem(title: "完全不同"), StepItem(title: "的标题")]
+        let sa = Steps(items: a, currentIndex: 0, presentation: .text)
+        let sb = Steps(items: b, currentIndex: 0, presentation: .text)
+        #expect(sa.items.count == sb.items.count)
+        #expect(sa.presentation == sb.presentation)
+    }
 }

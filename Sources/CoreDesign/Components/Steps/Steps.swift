@@ -55,6 +55,38 @@ public enum StepsIndicatorStyle: Sendable, Equatable {
     case numbered
 }
 
+// MARK: - StepsPresentation
+
+/// `Steps` 的**整体呈现形态**——与 `StepsIndicatorStyle` **正交**：本枚举决定「这组步骤
+/// 数据画成什么结构」，后者只决定「`.steps` 结构下那些离散指示器长什么样」。
+///
+/// ⚠️ **为什么不把这些 case 加进 `StepsIndicatorStyle`**（`#60` 形态选择的自查结论）：
+/// 那个枚举的语义是「离散指示器长什么样」，其消费者 `indicatorDiameter` 的注释逐字是
+/// 「横向连线的中央空档宽度取此值」——整个骨架预设了「每步一个指示器 + 连线」。而下面三种
+/// 新形态里，`.segmentedBar` 没有离散指示器、`.navigation` 去掉连线、`.text` 连 `items`
+/// 循环都不适用 ⇒ 它们改的**不是指示器样式，是整个 body 结构**。塞进去会污染既有语义。
+///
+/// 判定依据：`docs/component-contract.md` §2 形态 **D2（配置枚举）**——本组件的候选形态是
+/// 封闭集合（本仓自己枚举的三个业界形态 + 现状），故用枚举承载而非发 public 协议。
+/// public 协议受祖父条款约束、**发布后不可撤**，枚举加 case 可演进。
+///
+/// ⚠️ **正交性的代价**：`indicatorStyle` 只在 `.steps` 下有意义，其余三种呈现里**不生效**；
+/// `axis` 同理只对 `.steps` 与 `.navigation` 有意义。这是**有意的静默**——传了不生效不是
+/// 错误、只是无效，因此不加运行期断言；本文档即约定。
+public enum StepsPresentation: Sendable, Equatable {
+    /// 默认：离散指示器 + 连线（现状形态，`axis` 与 `indicatorStyle` 均在此形态下生效）。
+    case steps
+    /// 分段式进度条：N 个离散位置塌成一条连续条，已完成的段填充。
+    /// 业界来源：Ant Design Steps 的 percent 形态 / Google 表单底部按页分段的进度条。
+    case segmentedBar
+    /// 导航式步骤条：去掉公共轴线与连线，每一步成为彼此直接拼接的块。
+    /// 业界来源：Ant Design Steps `type="navigation"` / Shopify Polaris 结账步骤导航。
+    case navigation
+    /// 纯文本：N 个指示器槽与标题槽连同连线塌成一个文本槽。
+    /// 业界来源：Typeform 的「1 of 5」进度文案。
+    case text
+}
+
 // MARK: - Steps
 
 /// **材质层**: 内容. **表面角色**: 内容.
@@ -95,6 +127,7 @@ public struct Steps: View {
     let currentIndex: Int
     let axis: StepsAxis
     let indicatorStyle: StepsIndicatorStyle
+    let presentation: StepsPresentation
 
     /// - Parameters:
     ///   - items: 步骤列表。
@@ -103,18 +136,22 @@ public struct Steps: View {
     ///     其余 → pending。不做范围 clamp——调用方可传出界值（如
     ///     `items.count` 表示「全部完成」），`progress(for:)` 对越界索引仍能
     ///     正确求值（全部落 `.done`）。
-    ///   - axis: 排列方向，默认 `.horizontal`。
-    ///   - indicatorStyle: 指示器样式，默认 `.dot`。
+    ///   - axis: 排列方向，默认 `.horizontal`。⚠️ 只对 `.steps` 与 `.navigation` 呈现有意义。
+    ///   - indicatorStyle: 指示器样式，默认 `.dot`。⚠️ **只对 `.steps` 呈现有意义**——其余
+    ///     呈现里没有离散指示器可言，传了不生效（见 `StepsPresentation` 的正交性说明）。
+    ///   - presentation: 整体呈现形态，默认 `.steps`（现状形态）⇒ **现有调用方零影响**。
     public init(
         items: [StepItem],
         currentIndex: Int,
         axis: StepsAxis = .horizontal,
-        indicatorStyle: StepsIndicatorStyle = .dot
+        indicatorStyle: StepsIndicatorStyle = .dot,
+        presentation: StepsPresentation = .steps
     ) {
         self.items = items
         self.currentIndex = currentIndex
         self.axis = axis
         self.indicatorStyle = indicatorStyle
+        self.presentation = presentation
     }
 
     // MARK: - Progress derivation
@@ -167,9 +204,15 @@ public struct Steps: View {
     // MARK: - Body
 
     public var body: some View {
-        switch self.axis {
-        case .horizontal: self.horizontalBody
-        case .vertical: self.verticalBody
+        switch self.presentation {
+        case .steps:
+            switch self.axis {
+            case .horizontal: self.horizontalBody
+            case .vertical: self.verticalBody
+            }
+        case .segmentedBar: self.segmentedBarBody
+        case .navigation: self.navigationBody
+        case .text: self.textBody
         }
     }
 
@@ -236,6 +279,113 @@ public struct Steps: View {
                 )
             }
         }
+    }
+
+    // MARK: - Alternative presentations（`#60` 形态 D2）
+
+    /// `.segmentedBar`：N 个离散位置塌成一条连续条，每段对应一步、已完成的段填充。
+    ///
+    /// ⚠️ 取色复用 `connectorFill(after:)` 的同一套决策（done 走 `.tint`、其余走
+    /// `Color.dividerDefault`），使四种呈现的「完成/未完成」语义在视觉上一致。
+    /// ⚠️ 段高取 `CoreSpacing.xs` 而非连线的 `CoreBorderWidth.thick` —— 这里是**进度条**
+    /// 不是连线，需要可读的填充面积。
+    private var segmentedBarBody: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            HStack(spacing: CoreSpacing.xxs) {
+                ForEach(Array(self.items.enumerated()), id: \.element.id) { index, item in
+                    Capsule()
+                        .fill(self.segmentFill(for: index, item: item))
+                        .frame(height: CoreSpacing.xs)
+                }
+            }
+            self.progressCaption
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: self.progressText))
+    }
+
+    /// `.segmentedBar` 的单段取色：error 走 danger，其余复用连线的 done/pending 决策。
+    private func segmentFill(for index: Int, item: StepItem) -> AnyShapeStyle {
+        if item.isError { return AnyShapeStyle(Color.statusDangerEmphasis) }
+        return self.connectorFill(after: index - 1 >= 0 ? index - 1 : index)
+    }
+
+    /// `.navigation`：去掉公共轴线与连线，每一步是彼此直接拼接的块。
+    ///
+    /// ⚠️ `axis` 在本呈现下**仍有意义**（横向拼接 vs 纵向堆叠），这是它与 `.segmentedBar`
+    /// / `.text` 的区别 —— 后两者的 `axis` 无处安放。
+    @ViewBuilder
+    private var navigationBody: some View {
+        switch self.axis {
+        case .horizontal:
+            HStack(spacing: CoreSpacing.xxs) {
+                ForEach(Array(self.items.enumerated()), id: \.element.id) { index, _ in
+                    self.navigationBlock(for: index)
+                }
+            }
+        case .vertical:
+            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                ForEach(Array(self.items.enumerated()), id: \.element.id) { index, _ in
+                    self.navigationBlock(for: index)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    /// `.navigation` 的单块：无指示器、无连线，靠背景与文字色承载进行态。
+    private func navigationBlock(for index: Int) -> some View {
+        let item = self.items[index]
+        // ⚠️ 无障碍复用既有的 `applyStepAccessibility(_:index:)`——四种呈现共用同一套
+        // 语义标注，不为新呈现另造一套（否则同一组数据在不同呈现下 VoiceOver 读法会分裂）。
+        return self.applyStepAccessibility(
+            self.stepText(for: index, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, CoreSpacing.md)
+                .padding(.vertical, CoreSpacing.sm)
+                .background(self.navigationBlockFill(for: index, item: item))
+                .clipShape(RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)),
+            index: index
+        )
+    }
+
+    /// `.navigation` 单块背景：当前步用 `.tint` 的弱化底，其余透明——不引入新 token。
+    private func navigationBlockFill(for index: Int, item: StepItem) -> AnyShapeStyle {
+        if item.isError { return AnyShapeStyle(Color.statusDangerEmphasis.opacity(0.12)) }
+        return self.progress(for: index) == .current
+            ? AnyShapeStyle(Color.accentColor.opacity(0.12))
+            : AnyShapeStyle(Color.clear)
+    }
+
+    /// `.text`：N 个指示器槽与标题槽连同连线塌成一个文本槽（Typeform 的「1 of 5」形态）。
+    ///
+    /// ⚠️ 本呈现下 `items` 的**逐条内容不被渲染**，只用其 `count` 与当前索引 —— 这正是
+    /// 判定时把该候选判为「**槽**」（N 个槽塌成 1 个）的原因。
+    private var textBody: some View {
+        self.progressCaption
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: self.progressText))
+    }
+
+    /// `.segmentedBar` 与 `.text` 共用的进度文案。
+    private var progressCaption: some View {
+        Text(verbatim: self.progressText)
+            .font(.footnote)
+            .foregroundStyle(Color.contentSecondary)
+    }
+
+    /// 进度文案与无障碍标签共用的文本（A 类：文案写在组件源码里，调用方不传）。
+    ///
+    /// ⚠️ **本地化写法跟随本仓现行实践** `String(localized:bundle:.module)`
+    /// （`AvatarGroup.swift:91` 的 `"\(count) more avatars"`、`PinCode.swift:280` 的
+    /// `"\(index) of \(count)"` 同款）。
+    /// ⚠️ 公约第 3 节规定 A 类**应用 `LocalizedStringResource`**，但本仓目前**零先例**，
+    /// 该迁移由 `wxlpp/oh-my-story#49` 统一做（公约缺口 G-4：「A 类有规定、无判据、
+    /// 无参考实现」）。⇒ 本组件**不单独引入新模式** —— 一个组件先迁会让本仓同时存在两套
+    /// A 类写法，而 #49 要收的正是这种分裂。迁移时本处随其余 A 类文案一并改。
+    private var progressText: String {
+        let step = min(self.currentIndex + 1, self.items.count)
+        return String(localized: "Step \(step.formatted()) of \(self.items.count.formatted())", bundle: .module)
     }
 
     // MARK: - Indicator rendering
