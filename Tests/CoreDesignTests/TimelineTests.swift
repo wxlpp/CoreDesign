@@ -143,4 +143,60 @@ struct TimelineTests {
         let timeline = Timeline(items: [])
         #expect(timeline.items.isEmpty)
     }
+    // MARK: - TimelineLayout（`#60` 形态 D2）
+
+    @Test("Timeline：layout 默认 .vertical —— 现有调用方零影响")
+    func timelineLayoutDefaultsToVertical() {
+        // ⚠️ 破坏性变更的防线：新参数带默认值（源码兼容）+ 默认值 == 现状（行为兼容）。
+        let timeline = Timeline(items: [TimelineItem(status: .info) { Text(verbatim: "A") }])
+        #expect(timeline.layout == .vertical)
+    }
+
+    @Test("Timeline：layout 原样保留")
+    func timelineStoresLayout() {
+        for layout in [TimelineLayout.vertical, .alternate, .horizontal, .grouped] {
+            let timeline = Timeline(
+                items: [TimelineItem(status: .info) { Text(verbatim: "A") }], layout: layout
+            )
+            #expect(timeline.layout == layout)
+        }
+    }
+
+    @Test("TimelineLayout：四个 case 互不相等（Equatable 不是恒真）")
+    func timelineLayoutEquatableIsNotDegenerate() {
+        let all: [TimelineLayout] = [.vertical, .alternate, .horizontal, .grouped]
+        for (i, lhs) in all.enumerated() {
+            for (j, rhs) in all.enumerated() where i != j {
+                #expect(lhs != rhs, "\(lhs) 与 \(rhs) 不应相等")
+            }
+        }
+    }
+
+    @Test("Timeline：.grouped 下 node: 槽仍被原样保留（不生效 ≠ 被改写）")
+    func timelineGroupedPreservesNodeSlot() {
+        // ⚠️ 公约 §2 形态 D2 的正交性约定：.grouped 不渲染节点列 ⇒ node: 槽**不生效**，
+        // 但存储层**仍保留**它——「不生效」是渲染层的事，不是存储层的事。改写掉会让调用方
+        // 切回 .vertical 时丢配置。
+        let item = TimelineItem(status: .info) {
+            Text(verbatim: "custom-node")
+        } content: {
+            Text(verbatim: "content")
+        }
+        let timeline = Timeline(items: [item], layout: .grouped)
+        #expect(timeline.items.first?.node != nil, ".grouped 下 node 槽仍应原样保留")
+        #expect(timeline.layout == .grouped)
+    }
+
+    @Test("Timeline：四种布局都能构造且 body 可求值（不 crash）")
+    func timelineAllLayoutsRender() {
+        // ⚠️ 只证「不 crash」，**不证渲染正确** —— 视觉正确性靠 #Preview 人工抽查。
+        let items = [
+            TimelineItem(status: .info) { Text(verbatim: "A") },
+            TimelineItem(status: .danger) { Text(verbatim: "B") },
+            TimelineItem(status: .success) { Text(verbatim: "C") },
+        ]
+        for layout in [TimelineLayout.vertical, .alternate, .horizontal, .grouped] {
+            _ = Timeline(items: items, layout: layout).body
+        }
+    }
 }

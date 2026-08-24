@@ -71,6 +71,35 @@ public struct TimelineItem: Identifiable {
     }
 }
 
+// MARK: - TimelineLayout
+
+/// `Timeline` 的**整体排布形态**——与 `TimelineItem` 的 `node:` 外观槽**正交**：
+/// 本枚举决定「这组节点怎么排」，`node:` 决定「单个节点画成什么」。
+///
+/// 判定依据：`docs/component-contract.md` §2 形态 **D2（配置枚举）**。⚠️ **为什么不是 D1**：
+/// `TimelineItem.node:` 确是**真外观槽**（有默认画法 `TimelineRowView.nodeView`、替换的是
+/// 组件的视觉主张），但它管的是**单个节点的画法**，而下面三个候选是**容器级排布**
+/// （左右交替 / 换轴 / 删掉整个节点列）—— 槽**够不着**容器。⇒ D1 不完整成立。
+///
+/// ⚠️ **正交性的代价**（与 `StepsPresentation` 同一处置）：`.grouped` 下**不渲染节点列**
+/// ⇒ 调用方传的 `node:` 槽**无处安放、静默不生效**。这是有意的静默——传了不生效不是错误、
+/// 只是无效，因此不加运行期断言；`TimelineItem` 的存储层仍**原样保留** `node`，切回其余
+/// 布局时不丢配置。
+public enum TimelineLayout: Sendable, Equatable {
+    /// 默认：左侧固定节点列 + 右侧内容，节点间竖向连线（现状形态）。
+    case vertical
+    /// 左右交替：内容在中轴两侧交替排布。
+    /// 业界来源：Ant Design Timeline 的 `mode="alternate"`。
+    case alternate
+    /// 横向：节点沿水平轴排列，内容在节点下方。
+    /// 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
+    case horizontal
+    /// 无连线的分组列表：删掉节点列与连线，只留内容。
+    /// 业界来源：Apple 邮件与信息的日期分组 / GitHub 活动流。
+    /// ⚠️ 本形态下 `TimelineItem.node:` 槽不生效（见上方正交性说明）。
+    case grouped
+}
+
 // MARK: - Timeline
 
 /// **材质层**: 内容. **表面角色**: 内容.
@@ -130,16 +159,74 @@ public struct TimelineItem: Identifiable {
 /// 不代为覆盖。
 public struct Timeline: View {
     let items: [TimelineItem]
+    let layout: TimelineLayout
 
-    /// - Parameter items: 时间线节点数据，按数组顺序纵向排列。
-    public init(items: [TimelineItem]) {
+    /// - Parameters:
+    ///   - items: 时间线节点数据，按数组顺序排列。
+    ///   - layout: 整体排布形态，默认 `.vertical`（现状形态）⇒ **现有调用方零影响**。
+    ///     ⚠️ `.grouped` 下 `TimelineItem.node:` 槽不生效，见 `TimelineLayout` 的正交性说明。
+    public init(items: [TimelineItem], layout: TimelineLayout = .vertical) {
         self.items = items
+        self.layout = layout
     }
 
     public var body: some View {
+        switch self.layout {
+        case .vertical: self.verticalBody
+        case .alternate: self.alternateBody
+        case .horizontal: self.horizontalBody
+        case .grouped: self.groupedBody
+        }
+    }
+
+    private var verticalBody: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.none) {
             ForEach(self.items) { item in
                 TimelineRowView(item: item, isLast: Self.isLastItem(item, in: self.items))
+            }
+        }
+    }
+
+    /// `.alternate`：内容在中轴两侧交替 —— 偶数索引在左、奇数在右。
+    private var alternateBody: some View {
+        VStack(spacing: CoreSpacing.none) {
+            ForEach(Array(self.items.enumerated()), id: \.element.id) { index, item in
+                TimelineRowView(
+                    item: item,
+                    isLast: Self.isLastItem(item, in: self.items),
+                    alignment: index.isMultiple(of: 2) ? .leading : .trailing
+                )
+            }
+        }
+    }
+
+    /// `.horizontal`：节点沿水平轴排列，内容在节点下方。
+    ///
+    /// ⚠️ 横向下**不画节点间连线** —— 竖向连线的实现（`TimelineRowView` 的 background
+    /// `Rectangle` + `padding(.top:)`）依赖「节点在上、内容在下」的纵向几何，换轴后那套
+    /// padding 计算不成立。横向连线属独立形态，本轮不引入（`#60` 承接）。
+    private var horizontalBody: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: CoreSpacing.lg) {
+                ForEach(self.items) { item in
+                    VStack(alignment: .center, spacing: CoreSpacing.sm) {
+                        TimelineNodeView(item: item)
+                            .frame(width: Self.nodeColumnWidth, height: Self.nodeColumnWidth)
+                        item.content
+                    }
+                }
+            }
+        }
+    }
+
+    /// `.grouped`：删掉节点列与连线，只留内容 —— 判定时判「**槽**」的依据正是这一点。
+    ///
+    /// ⚠️ 本形态下 `item.node` **不被渲染**（存储层仍保留，见 `TimelineLayout` 正交性说明）。
+    private var groupedBody: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            ForEach(self.items) { item in
+                item.content
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -189,19 +276,50 @@ public struct Timeline: View {
 
 // MARK: - TimelineRowView
 
+/// 节点方框内的画法（internal）：有 `node:` 槽走槽，否则走默认圆点。
+///
+/// ⚠️ 从 `TimelineRowView` 抽出来，供 `.horizontal` 布局复用 —— 同一套节点画法在四种布局
+/// 下必须一致，各写一份会让「传了 `node:` 在某个布局下长得不一样」这种 bug 无声发生。
+struct TimelineNodeView: View {
+    let item: TimelineItem
+
+    var body: some View {
+        if let node = self.item.node {
+            node
+        } else {
+            Circle()
+                .fill(Timeline.nodeColor(for: self.item.status))
+                .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
+                .accessibilityLabel(
+                    Text(LocalizedStringKey(Timeline.accessibilityLabelKey(for: self.item.status)), bundle: .module)
+                )
+        }
+    }
+}
+
 /// 单条时间线行（internal）：节点方框 + 连线（背景）+ content。
 private struct TimelineRowView: View {
     let item: TimelineItem
     let isLast: Bool
+    /// 内容相对中轴的一侧 —— `.alternate` 布局按索引奇偶交替传入；其余布局恒为 `.leading`。
+    var alignment: HorizontalAlignment = .leading
 
     var body: some View {
         HStack(alignment: .top, spacing: CoreSpacing.md) {
-            self.nodeView
+            if self.alignment == .trailing {
+                self.item.content
+                    .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+
+            TimelineNodeView(item: self.item)
                 .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
 
-            self.item.content
-                .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if self.alignment == .leading {
+                self.item.content
+                    .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .background(alignment: .topLeading) {
             if !self.isLast {
@@ -214,20 +332,6 @@ private struct TimelineRowView: View {
                     // 水平居中于节点方框。
                     .padding(.leading, (Timeline.nodeColumnWidth - CoreBorderWidth.thin) / 2)
             }
-        }
-    }
-
-    @ViewBuilder
-    private var nodeView: some View {
-        if let node = self.item.node {
-            node
-        } else {
-            Circle()
-                .fill(Timeline.nodeColor(for: self.item.status))
-                .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
-                .accessibilityLabel(
-                    Text(LocalizedStringKey(Timeline.accessibilityLabelKey(for: self.item.status)), bundle: .module)
-                )
         }
     }
 }

@@ -55,7 +55,7 @@ struct ComponentExtensionPointGuard {
     /// 实现未跟上。按本集合下方注释的口径（「变小 ⇒ 已知缺口补上了，同步删除」），
     /// 该集合本就随判定结论增删 ⇒ 本轮增补。逐条取证见 oh-my-story
     /// `.claude/epics/component-contract/59-rejudge.md`。
-    static let knownMissingExtensionPoints: Set<String> = ["AvatarGroup", "SidebarUtilityRow", "SpinningModifier", "Timeline", "Toast"]
+    static let knownMissingExtensionPoints: Set<String> = ["AvatarGroup", "SidebarUtilityRow", "SpinningModifier", "Toast"]
 
     @Test("J-2：语义组件必须有样式扩展点（原生协议采纳 或 自有协议定义+使用）")
     func semanticComponentsHaveExtensionPoint() throws {
@@ -85,7 +85,7 @@ struct ComponentExtensionPointGuard {
         // 记录 issue，Swift Testing 会主动判红，逼人回来删掉这段——这正是它优于
         // 「预置一个 expected 集合然后 `#expect(==)`」的地方（后者绿着，没人会回头看）。
         withKnownIssue(
-            "J-2 已知缺口：Toast + #59 按修订后判定法改判为语义组件的条目（AvatarGroup, SidebarUtilityRow, SpinningModifier, Timeline）的样式扩展点尚未落地（Steps 已由 #60 以公约 §2 形态 D2「配置枚举 StepsPresentation」补齐并从本集合摘除）（判定法结论已产出、实现未跟上；扩展点实现移交 wxlpp/oh-my-story#60；Rating 那条已由 #41 裁决 4c 补齐并从本集合摘除）。补齐后本块无 issue 记录 ⇒ Swift Testing 主动判红，届时删除本块。"
+            "J-2 已知缺口：Toast + #59 按修订后判定法改判为语义组件的条目（AvatarGroup, SidebarUtilityRow, SpinningModifier）的样式扩展点尚未落地（Steps / Timeline 已由 #60 以公约 §2 形态 D2「配置枚举」补齐并从本集合摘除）（判定法结论已产出、实现未跟上；扩展点实现移交 wxlpp/oh-my-story#60；Rating 那条已由 #41 裁决 4c 补齐并从本集合摘除）。补齐后本块无 issue 记录 ⇒ Swift Testing 主动判红，届时删除本块。"
         ) {
             #expect(result.missing.isEmpty, "这些语义组件缺样式扩展点：\n\(result.diagnostics.joined(separator: "\n"))")
         }
