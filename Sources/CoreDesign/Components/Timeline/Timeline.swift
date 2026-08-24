@@ -248,6 +248,11 @@ public struct Timeline: View {
         }
         let slot = Swift.max(0, (rowWidth - fixed) / 2)
         let width = Swift.max(rowWidth, fixed)
+        // ⚠️ **已知不一致**（PR #206 第 4 轮 review 的 S11，不阻塞）：`rowWidth < fixed`（48pt）
+        // 时这里的 `nodeCenterX` 取 `fixed / 2 = 24`，而连线走 `.background(alignment: .top)`
+        // 用的是**真实的** `bounds.width / 2 < 24` ⇒ 两者分家。触发条件是父级强行给一个比
+        // `sizeThatFits` 回报值（恒 ≥ 48）更窄的 frame —— 实际够不到，且 48pt 以下这个三列
+        // 布局本来就没有意义。
         return AlternateRowMetrics(slotWidth: slot, nodeCenterX: width / 2, rowWidth: width)
     }
 
@@ -271,7 +276,6 @@ public struct Timeline: View {
                 ForEach(self.items) { item in
                     VStack(alignment: .center, spacing: CoreSpacing.sm) {
                         TimelineNodeView(item: item)
-                            .frame(width: Self.nodeColumnWidth, height: Self.nodeColumnWidth)
                         item.content
                     }
                 }
@@ -363,6 +367,19 @@ struct TimelineNodeView: View {
     let item: TimelineItem
 
     var body: some View {
+        self.nodeContent
+            // ⚠️ **方框装在这里，不在调用点** —— `Timeline` 的公共文档承诺 `node:` 槽有个
+            // 「固定 24×24pt 方框、不裁剪」，四种布局必须一致。原先三个调用点各写一遍
+            // `.frame(width: nodeColumnWidth, height: nodeColumnWidth)`，于是 PR #206 第 3 轮
+            // 把 `.alternate` 搬进 `Layout` 时**漏掉了它那一份**：默认圆点只有 10pt，被
+            // `anchor: .topLeading` 钉在 24pt 列左上角 ⇒ 比中轴左偏 7pt、连线从旁边擦过去。
+            // 收进本视图后，这条契约从「三处约定」变成**一处不变量**，同型缺失在结构上不再
+            // 可能发生（PR #206 第 4 轮 review 的 S9）。
+            .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
+    }
+
+    @ViewBuilder
+    private var nodeContent: some View {
         if let node = self.item.node {
             node
         } else {
@@ -389,7 +406,6 @@ private struct TimelineRowView: View {
     var body: some View {
         HStack(alignment: .top, spacing: CoreSpacing.md) {
             TimelineNodeView(item: self.item)
-                .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
 
             self.item.content
                 .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
@@ -420,17 +436,9 @@ private struct TimelineAlternateRowView: View {
     var body: some View {
         TimelineAlternateRowLayout {
             self.slot(.leading)
-            // ⚠️ **`.frame` 不能省，`place` 的 proposal 顶不了它的班**（PR #206 第 4 轮
-            // review 抓到）：proposal 只是「提议」，而 `TimelineNodeView` 的默认圆点是
-            // `Circle().frame(width: nodeDiameter, height: nodeDiameter)`，对任何提议都
-            // 回报 10×10。搬去 `Layout` 时删掉这行，圆点就被 `anchor: .topLeading` 钉在
-            // 24pt 列的左上角 ⇒ 比中轴左偏 (24-10)/2 = 7pt、比设计上移 7pt，连线整条从
-            // 圆点右侧擦过去、不穿过任何一个点。
-            // ⚠️ 另外这也是 `node:` 槽的公开契约（本文件类型文档「节点方框固定 24×24pt」）：
-            // 四种布局必须一致装框，否则同一个自定义 `node:` 在不同布局下长得不一样 ——
-            // 正是 `TimelineNodeView` 抽出来要防的那类 bug。
+            // ⚠️ 24×24 方框由 `TimelineNodeView` **自带**（见该类型），这里不再重复装 ——
+            // 第 3 轮搬进 `Layout` 时漏装那一份，导致 10pt 圆点被钉在列左上角、脱轴 7pt。
             TimelineNodeView(item: self.item)
-                .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
             self.slot(.trailing)
         }
         // 连线居中于**整行** —— 三列几何下行中心恰好就是节点中心，见
