@@ -218,18 +218,45 @@ struct TimelineTests {
         #expect(w * 2 + fixed == 320)
 
         // ⚠️ **承重断言**：节点中心 x 必须等于行中心 x —— 连线是按整行居中画的，这条不成立
-        // 连线就穿不过节点。节点 x = slot + md，节点中心 = slot + md + nodeColumnWidth / 2。
+        // 连线就穿不过节点。
+        // ⚠️ **本测试的覆盖边界，写明以免被读成比实际更强的保证**（PR #206 第 4 轮的教训是
+        // 「假护栏比没护栏更危险」）：它锁的是**几何计算**。节点横向不脱轴现在由
+        // `placeSubviews` 的 `anchor: .top` + 本函数的 `nodeCenterX` 共同保证 —— 那是结构性
+        // 的，节点视图自身尺寸再变也居中。但节点视图上的 `.frame(24×24)` 保的是**另外两件
+        // 本测试够不着的事**：纵向上连线起点空档（`TimelineConnector` 的 `padding(.top, 24)`
+        // 假定节点占满 24pt，圆点若只有 10pt，空档从 7pt 变 14pt），以及 `node:` 槽「固定
+        // 24×24 方框」的公开契约（四种布局必须一致，否则同一个自定义节点在不同布局下长得
+        // 不一样）。删掉那行 `.frame`，**本测试照绿** —— 实测过。那两件事只能靠渲染验证：
+        // 跑 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 后**量**「连线 x − 圆点中心 x」
+        // 是否为 0，别只看整体像不像（第 4 轮我就是把「三行共线」读成了「连线穿过节点」）。
+        //
+        // ⚠️ **断言必须读 `alternateRowMetrics` 的 `nodeCenterX`，不能在测试里重写一遍公式**
+        // （PR #206 第 4 轮 review 抓到）：上一版算的是 `slot + md + nodeColumnWidth / 2`，
+        // 即**节点列的中心**，而不是布局实际把节点放在哪。于是「删掉节点的 `.frame(24×24)`、
+        // 让 10pt 圆点被 `anchor: .topLeading` 钉在列左上角」这个真实回归发生时，它照绿 ——
+        // 又一条「量的是本来就对的那一半」。现在 `Layout` 与本测试共用同一份 metrics。
         // ⚠️ **`as [CGFloat]` 不能省**：不标注时数组推断为 `[Double]`，`rowWidth / 2` 就是
-        // `Double`，而 `nodeCenter` 是 `CGFloat`。SE-0307 的 CGFloat/Double 隐式转换让这行
-        // **照常编译**，但 `#expect` 宏跨这两个类型展开出的比较是**恒假**的 —— 实测：打印
-        // 出来 `diff=0.0`、两边都显示 `160.0`，断言却报 failed。这比写错断言更阴险（正常
-        // 写法看不出问题，且反过来用 `!=` 会得到一个恒真的假守卫）。两边保持同类型。
+        // `Double`，而另一边是 `CGFloat`。SE-0307 的隐式转换让这行**照常编译**，但 `#expect`
+        // 跨这两个类型展开出的比较是**恒假**的 —— 实测：打印出来 `diff=0.0`、两边都显示
+        // `160.0`，断言却报 failed。反过来用 `!=` 则得到一个恒真的假守卫。两边保持同类型。
         for rowWidth in [320.0, 390.0, 744.0, 1024.0] as [CGFloat] {
-            let slot = Timeline.alternateSlotWidth(forRowWidth: rowWidth)
-            let nodeCenter = slot + CoreSpacing.md + Timeline.nodeColumnWidth / 2
+            let metrics = Timeline.alternateRowMetrics(forRowWidth: rowWidth)
             let rowCenter: CGFloat = rowWidth / 2
-            #expect(nodeCenter == rowCenter,
-                    "行宽 \(rowWidth)：节点中心 \(nodeCenter) 必须等于行中心 \(rowCenter)")
+            #expect(metrics.nodeCenterX == rowCenter,
+                    "行宽 \(rowWidth)：节点中心 \(metrics.nodeCenterX) 必须等于行中心 \(rowCenter)")
+            // 两槽 + 节点列 + 两处间距必须正好铺满行宽。
+            let fixed = Timeline.nodeColumnWidth + 2 * CoreSpacing.md
+            #expect(metrics.slotWidth * 2 + fixed == rowWidth)
+        }
+
+        // ⚠️ 非有限行宽必须被挡住 —— `.infinity` / `.nan` 会一路带进 `place` 的 proposal。
+        // `Swift.max(0, .nan)` 返回 `.nan`，不显式 guard 是拦不住的。
+        for bad in [CGFloat.infinity, -CGFloat.infinity, CGFloat.nan] {
+            let metrics = Timeline.alternateRowMetrics(forRowWidth: bad)
+            #expect(metrics.slotWidth.isFinite, "槽宽必须有限，实际 \(metrics.slotWidth)")
+            #expect(metrics.nodeCenterX.isFinite)
+            #expect(metrics.rowWidth.isFinite)
+            #expect(metrics.slotWidth >= 0)
         }
 
         // 退化：窄到放不下固定部分时返回 0，**不产生负宽** —— 负值传进 place 的 proposal 会 crash。

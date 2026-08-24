@@ -396,7 +396,6 @@ private struct SkeletonPreviewsPreviewGallery: View {
 }
 
 
-
 #Preview("Timeline") {
     Timeline(items: [
         TimelineItem(status: .success) {
@@ -438,10 +437,18 @@ private struct SkeletonPreviewsPreviewGallery: View {
 }
 
 #Preview("Timeline Alternate Widths") {
-    // ⚠️ **这条是 `.alternate` 宽度响应性的护栏**，不是装饰。它替代「旋转屏幕看一眼」：
     // 同一份数据放进三种**不同宽度**的容器，节点必须在各自容器里居中（三条中轴各自不同、
-    // 但每条都在自己容器的正中）。PR #206 第 2 轮的 `@State` + `onGeometryChange` 写法在
-    // 这里会立刻现形 —— 那版首帧测到一个宽度后就**永久冻结**，三个容器会画出同一个槽宽。
+    // 但每条都在自己容器的正中），且连线必须**穿过**圆点而不是从旁边擦过。
+    //
+    // ⚠️ **它证不了「冻结」**（PR #206 第 4 轮 review 纠正了我上一版的注释，那句话是假的）：
+    // `@State` 是**按视图实例**存的，三个 `.frame(width:)` 里是三个独立 identity，冻结版会
+    // 各自在自己的首帧测到自己的容器宽、各自正确收敛，画出来和现在**一模一样**。冻结的定义
+    // 是「**同一个实例**的 proposal 随时间变化时不跟随」（旋转 / 拖分栏 / 缩窗口），而这里
+    // 没有任何 proposal 随时间变化。
+    // ⇒ 「不会冻结」由 `TimelineAlternateRowLayout` **无存储状态**这一结构事实保证（槽宽每次
+    // `sizeThatFits` / `placeSubviews` 都从 proposal 现算），不由本预览保证。留着它是因为
+    // 「不同宽度下各自居中 + 连线穿过圆点」本身值得看 —— 第 4 轮的 7pt 偏移正是在这张图上
+    // 被量出来的。
     VStack(alignment: .leading, spacing: CoreSpacing.xl) {
         ForEach([200.0, 280.0, 360.0] as [CGFloat], id: \.self) { width in
             VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
@@ -482,8 +489,12 @@ private struct SkeletonPreviewsPreviewGallery: View {
 @MainActor
 enum PreviewSnapshotFixtures {
     /// `Steps` 三种新呈现共用的样本 —— 同一份数据换 `presentation`，差异才归因于呈现本身。
-    /// ⚠️ 用 `var` 而非 `let`：`StepItem.init` 的 `id: UUID = UUID()` 默认值是
-    /// MainActor 隔离的，`static let` 会在 nonisolated 上下文里求值而编译失败。
+    /// ⚠️ 用 `var` 而非 `let`：实测（Xcode 26.4 / Swift 6，本 App target 开
+    /// `-default-isolation MainActor`）`static let stepsSnapshotItems: [StepItem] = [...]`
+    /// 报 `main actor-isolated default value in a nonisolated context` —— `StepItem.init`
+    /// 的 `id: UUID = UUID()` 默认值是 MainActor 隔离的，而 `static let` 的初始化表达式
+    /// 求值在 nonisolated 上下文。改 computed `var` + 类型上的 `@MainActor` 后通过。
+    /// （限定为这个具体形态，不是「`@MainActor` 类型上的 `static let` 一律非法」。）
     static var stepsSnapshotItems: [StepItem] {
         [
             StepItem(title: "Cart"),

@@ -259,6 +259,20 @@ struct StyleSlotDecl: Hashable, Sendable {
     var key: String { "\(self.typeName).\(self.paramName)" }
 }
 
+/// 参数类型 → 基名：剥掉 `?` / `!`、泛型实参、点分前缀，取最后一段。
+/// `SwiftUI.StepsAxis?` → `StepsAxis`；`[StepItem]` → `""`（容器类型不参与 D2 接线）。
+///
+/// ⚠️ 文件级 `internal` 而非 collector 的 static 成员 —— 后者是 `private`，单测够不着，
+/// 而这是纯字符串处理、值得单独钉住（含**已知限度**：`Binding<Enum>` 会在 `<` 处截断，
+/// 见 `ComponentJudgeScannerTests.baseTypeNameKnownLimits`）。
+nonisolated func componentJudgeBaseTypeName(_ raw: String) -> String {
+    var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    while text.hasSuffix("?") || text.hasSuffix("!") { text.removeLast() }
+    if let angle = text.firstIndex(of: "<") { text = String(text[text.startIndex..<angle]) }
+    guard !text.contains("["), !text.contains("("), !text.contains(" ") else { return "" }
+    return text.split(separator: ".").last.map(String.init) ?? ""
+}
+
 /// 形态 D2「配置枚举」的一条**接线**记录：某个公开 `init` 参数以该 enum 为类型。
 ///
 /// ⚠️ 为什么需要它：只核「公开 enum 声明存在」的话，登记表填**任意**一个本仓已有的
@@ -640,7 +654,7 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
         guard self.isEffectivelyPublic(node.modifiers) else { return }
         let line = node.startLocation(converter: self.converter).line
         for parameter in node.signature.parameterClause.parameters {
-            let base = Self.baseTypeName(parameter.type.trimmedDescription)
+            let base = componentJudgeBaseTypeName(parameter.type.trimmedDescription)
             guard !base.isEmpty else { continue }
             let name = (parameter.firstName.text == "_"
                 ? parameter.secondName?.text : parameter.firstName.text) ?? parameter.firstName.text
@@ -651,16 +665,6 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
                 )
             )
         }
-    }
-
-    /// 参数类型 → 基名：剥掉 `?` / `!`、泛型实参、点分前缀，取最后一段。
-    /// `SwiftUI.StepsAxis?` → `StepsAxis`；`[StepItem]` → `` （容器类型不参与 D2 接线）。
-    static func baseTypeName(_ raw: String) -> String {
-        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        while text.hasSuffix("?") || text.hasSuffix("!") { text.removeLast() }
-        if let angle = text.firstIndex(of: "<") { text = String(text[text.startIndex..<angle]) }
-        guard !text.contains("["), !text.contains("("), !text.contains(" ") else { return "" }
-        return text.split(separator: ".").last.map(String.init) ?? ""
     }
 
     override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {

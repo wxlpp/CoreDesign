@@ -226,6 +226,10 @@ struct TopBarIndicator: View {
         .clipped()
         .accessibilityElement()
         .accessibilityLabel(Text("Loading", bundle: .module))
+        // ⚠️ `.updatesFrequently` **不产生任何播报**，只告诉 VoiceOver「这个元素会频繁变化、
+        // 聚焦时按需重读、不必缓存」。**不加**主动 announcement —— 那会打断当前朗读，而
+        // `.topBar` 的语义恰恰是「后台在跑、你继续用」，打断与语义直接冲突。
+        .accessibilityAddTraits(.updatesFrequently)
     }
 
     /// 顶条高度。⚠️ 取 `CoreSpacing.xs`（4pt）而非 `xxs`（2pt）：2pt 在高分屏上淡到几乎看不见，

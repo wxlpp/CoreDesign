@@ -224,16 +224,36 @@ public struct Timeline: View {
         }
     }
 
-    /// `.alternate` 的单侧内容槽宽度。三列几何：`槽 | nodeColumnWidth | 槽`，两处间距各
-    /// `CoreSpacing.md`。窄到放不下固定部分时返回 `0`（不产生负宽 —— 负值传进
-    /// `.frame(width:)` / `Layout` 的 place 会 crash）。
+    /// `.alternate` 单行的三列几何。**`Layout` 与测试共用这一份** —— 测试若自己重写一遍
+    /// 公式，就变成「量本来就对的那一半」，改动 `placeSubviews` 也照绿（PR #206 第 4 轮
+    /// review 抓到的正是这个形态）。
+    struct AlternateRowMetrics: Equatable {
+        /// 单侧内容槽宽度。
+        let slotWidth: CGFloat
+        /// 节点列**中心**相对行左边缘的 x。连线按整行居中画 ⇒ 这个值必须等于 `rowWidth / 2`。
+        let nodeCenterX: CGFloat
+        /// 行宽（回声，便于断言「两槽 + 固定部分正好铺满」）。
+        let rowWidth: CGFloat
+    }
+
+    /// 由行宽求三列几何。三列：`槽 | nodeColumnWidth | 槽`，两处间距各 `CoreSpacing.md`。
     ///
-    /// ⚠️ 由 `TimelineAlternateRowLayout` 消费。**节点列的 x 只取决于本函数与行宽**，与索引
-    /// 奇偶无关 ⇒ 所有行的节点中心落在同一条竖线上，而 `slot + md + nodeColumnWidth / 2`
-    /// 恰好等于行宽的一半 ⇒ 居中画的连线正好穿过节点中心。
-    nonisolated static func alternateSlotWidth(forRowWidth rowWidth: CGFloat) -> CGFloat {
+    /// ⚠️ 窄到放不下固定部分、或行宽非有限（`.infinity` / `.nan`，见
+    /// `TimelineAlternateRowLayout.sizeThatFits`）时槽宽取 `0` —— 负值或非有限值传进
+    /// `place` 的 proposal 会让布局崩掉。
+    nonisolated static func alternateRowMetrics(forRowWidth rowWidth: CGFloat) -> AlternateRowMetrics {
         let fixed = Self.nodeColumnWidth + 2 * CoreSpacing.md
-        return Swift.max(0, (rowWidth - fixed) / 2)
+        guard rowWidth.isFinite else {
+            return AlternateRowMetrics(slotWidth: 0, nodeCenterX: fixed / 2, rowWidth: fixed)
+        }
+        let slot = Swift.max(0, (rowWidth - fixed) / 2)
+        let width = Swift.max(rowWidth, fixed)
+        return AlternateRowMetrics(slotWidth: slot, nodeCenterX: width / 2, rowWidth: width)
+    }
+
+    /// 单侧内容槽宽度（`alternateRowMetrics` 的便捷投影）。
+    nonisolated static func alternateSlotWidth(forRowWidth rowWidth: CGFloat) -> CGFloat {
+        Self.alternateRowMetrics(forRowWidth: rowWidth).slotWidth
     }
 
     /// `.horizontal`：节点沿水平轴排列，内容在节点下方。
@@ -400,7 +420,17 @@ private struct TimelineAlternateRowView: View {
     var body: some View {
         TimelineAlternateRowLayout {
             self.slot(.leading)
+            // ⚠️ **`.frame` 不能省，`place` 的 proposal 顶不了它的班**（PR #206 第 4 轮
+            // review 抓到）：proposal 只是「提议」，而 `TimelineNodeView` 的默认圆点是
+            // `Circle().frame(width: nodeDiameter, height: nodeDiameter)`，对任何提议都
+            // 回报 10×10。搬去 `Layout` 时删掉这行，圆点就被 `anchor: .topLeading` 钉在
+            // 24pt 列的左上角 ⇒ 比中轴左偏 (24-10)/2 = 7pt、比设计上移 7pt，连线整条从
+            // 圆点右侧擦过去、不穿过任何一个点。
+            // ⚠️ 另外这也是 `node:` 槽的公开契约（本文件类型文档「节点方框固定 24×24pt」）：
+            // 四种布局必须一致装框，否则同一个自定义 `node:` 在不同布局下长得不一样 ——
+            // 正是 `TimelineNodeView` 抽出来要防的那类 bug。
             TimelineNodeView(item: self.item)
+                .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
             self.slot(.trailing)
         }
         // 连线居中于**整行** —— 三列几何下行中心恰好就是节点中心，见
@@ -438,20 +468,19 @@ private struct TimelineAlternateRowView: View {
 ///
 /// 三个 subview 的顺序固定为 `[左槽, 节点, 右槽]`。节点列的 x 只取决于槽宽与间距、**与索引
 /// 奇偶无关** ⇒ 所有行的节点中心落在同一条竖线上。
-struct TimelineAlternateRowLayout: Layout {
+private struct TimelineAlternateRowLayout: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rowWidth = proposal.replacingUnspecifiedDimensions().width
-        let slot = Timeline.alternateSlotWidth(forRowWidth: rowWidth)
-        // ⚠️ 高度取三者最大值：空槽是零高的 `Color.clear`，节点是定高方框，内容侧决定行高。
-        let heights = Self.subviewHeights(subviews, slotWidth: slot)
-        return CGSize(width: rowWidth, height: heights.max() ?? 0)
+        let metrics = Self.metrics(for: proposal, subviews: subviews)
+        let heights = Self.subviewHeights(subviews, slotWidth: metrics.slotWidth)
+        return CGSize(width: metrics.rowWidth, height: heights.max() ?? 0)
     }
 
     func placeSubviews(
         in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
     ) {
         guard subviews.count == 3 else { return }
-        let slot = Timeline.alternateSlotWidth(forRowWidth: bounds.width)
+        let metrics = Timeline.alternateRowMetrics(forRowWidth: bounds.width)
+        let slot = metrics.slotWidth
         let node = Timeline.nodeColumnWidth
         let gap = CoreSpacing.md
 
@@ -459,8 +488,10 @@ struct TimelineAlternateRowLayout: Layout {
             at: CGPoint(x: bounds.minX, y: bounds.minY), anchor: .topLeading,
             proposal: ProposedViewSize(width: slot, height: nil)
         )
+        // ⚠️ 锚到**行中心**而不是「左边缘 + 槽宽 + 间距」：节点自身尺寸再变也不脱轴，
+        // 与连线（`.background(alignment: .top)`，同样按行居中）用的是同一个 x。
         subviews[1].place(
-            at: CGPoint(x: bounds.minX + slot + gap, y: bounds.minY), anchor: .topLeading,
+            at: CGPoint(x: bounds.minX + metrics.nodeCenterX, y: bounds.minY), anchor: .top,
             proposal: ProposedViewSize(width: node, height: node)
         )
         subviews[2].place(
@@ -470,7 +501,34 @@ struct TimelineAlternateRowLayout: Layout {
         )
     }
 
-    /// 三个 subview 在各自提议下的高度。抽出来便于 `sizeThatFits` 单点复用。
+    /// 由 proposal 求本行几何。
+    ///
+    /// ⚠️ **不能直接用 `proposal.replacingUnspecifiedDimensions().width`**（PR #206 第 4 轮
+    /// review 抓到）：它对未指定宽度的缺省是 **10×10**，于是 `Timeline(..., layout: .alternate)`
+    /// 放进 `ScrollView(.horizontal)`、或外加 `.fixedSize(horizontal: true, ...)`、或任何按
+    /// ideal 宽度询问的容器时，整行会塌成 10pt 宽、两个槽被提议 0 宽。换 `Layout` 之前的
+    /// `HStack` 写法在这里能给出合理的 ideal 宽（各槽回报固有宽），所以这是 `Layout` 引入
+    /// 的**新**退化。宽度未指定或非有限时，回退到「两侧内容固有宽的较大者」撑出行宽。
+    private static func metrics(
+        for proposal: ProposedViewSize, subviews: Subviews
+    ) -> Timeline.AlternateRowMetrics {
+        if let width = proposal.width, width.isFinite {
+            return Timeline.alternateRowMetrics(forRowWidth: width)
+        }
+        guard subviews.count == 3 else { return Timeline.alternateRowMetrics(forRowWidth: 0) }
+        let idealSlot = Swift.max(
+            subviews[0].sizeThatFits(.unspecified).width,
+            subviews[2].sizeThatFits(.unspecified).width
+        )
+        let rowWidth = idealSlot * 2 + Timeline.nodeColumnWidth + 2 * CoreSpacing.md
+        return Timeline.alternateRowMetrics(forRowWidth: rowWidth)
+    }
+
+    /// 三个 subview 在各自提议下的高度。
+    ///
+    /// ⚠️ 节点那项取 `nodeColumnWidth` 是**因为视图侧显式装了 `.frame(24×24)`**，不是因为
+    /// `place` 的 proposal ——  两者必须同步改（PR #206 第 4 轮：`.frame` 被删掉后这里的
+    /// 硬编码 24 还停在旧世界，成了错误几何的帮凶）。
     private static func subviewHeights(_ subviews: Subviews, slotWidth: CGFloat) -> [CGFloat] {
         guard subviews.count == 3 else { return [] }
         return [
