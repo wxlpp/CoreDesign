@@ -193,6 +193,28 @@ private struct ToastSnapshotHarness: View {
             Circle().fill(.green).frame(width: 24, height: 24)
             Circle().fill(.red).frame(width: 24, height: 24)
         }
+        // `#60` 形态 D2 新增的三种排布。⚠️ 注册在**本文件**才会进 `docs/snapshots/` ——
+        // `run-snapshots.sh` 默认模式只保留 `CoreDesignPreview_*`（本文件驱动），库内
+        // `#Preview` 产出的 `CoreDesign_*` 会被 `find -delete` 删掉（PR #206 第 2 轮
+        // Copilot review 抓到：只往库内加 `#Preview` 进不了快照流水线）。
+        AvatarGroup(max: 3, layout: .spaced) {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+            Circle().fill(.green).frame(width: 32, height: 32)
+            Circle().fill(.red).frame(width: 32, height: 32)
+            Circle().fill(.orange).frame(width: 32, height: 32)
+        }
+        AvatarGroup(max: 3, layout: .grid) {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+            Circle().fill(.green).frame(width: 32, height: 32)
+            Circle().fill(.red).frame(width: 32, height: 32)
+            Circle().fill(.orange).frame(width: 32, height: 32)
+            Circle().fill(.purple).frame(width: 32, height: 32)
+        }
+        AvatarGroup(layout: .countOnly) {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+            Circle().fill(.green).frame(width: 32, height: 32)
+            Circle().fill(.red).frame(width: 32, height: 32)
+        }
     }
     .padding()
 }
@@ -364,10 +386,15 @@ private struct SkeletonPreviewsPreviewGallery: View {
             axis: .vertical,
             indicatorStyle: .numbered
         )
+        // `#60` 形态 D2 新增的三种呈现（见 AvatarGroup 处关于「为什么必须注册在本文件」）。
+        Steps(items: PreviewSnapshotFixtures.stepsSnapshotItems, currentIndex: 2, presentation: .segmentedBar)
+        Steps(items: PreviewSnapshotFixtures.stepsSnapshotItems, currentIndex: 1, presentation: .navigation)
+        Steps(items: PreviewSnapshotFixtures.stepsSnapshotItems, currentIndex: 1, presentation: .text)
     }
     .padding()
     .background(Color.surfaceCanvas)
 }
+
 
 #Preview("Timeline") {
     Timeline(items: [
@@ -383,6 +410,111 @@ private struct SkeletonPreviewsPreviewGallery: View {
     ])
     .padding()
     .background(Color.surfaceCanvas)
+}
+
+#Preview("Timeline Layouts") {
+    // `#60` 形态 D2 新增的三种排布。⚠️ `.alternate` 那组特意混入一个**宽内容**（220pt）——
+    // 「节点恒在同一条中轴」恰恰只在内容固有宽度超过半槽时才会破，全用短文本的样本
+    // 结构上暴露不出这个 case。
+    ScrollView {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            Timeline(
+                items: [
+                    TimelineItem(status: .info) {
+                        Color.statusAccentEmphasis.frame(width: 220, height: 32)
+                    },
+                    TimelineItem(status: .success) { Text("短").coreFont(.callout) },
+                    TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) },
+                ],
+                layout: .alternate
+            )
+            Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .horizontal)
+            Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .grouped)
+        }
+        .padding()
+    }
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Timeline Alternate Widths") {
+    // 同一份数据放进三种**不同宽度**的容器，节点必须在各自容器里居中（三条中轴各自不同、
+    // 但每条都在自己容器的正中），且连线必须**穿过**圆点而不是从旁边擦过。
+    //
+    // ⚠️ **它证不了「冻结」**（PR #206 第 4 轮 review 纠正了我上一版的注释，那句话是假的）：
+    // `@State` 是**按视图实例**存的，三个 `.frame(width:)` 里是三个独立 identity，冻结版会
+    // 各自在自己的首帧测到自己的容器宽、各自正确收敛，画出来和现在**一模一样**。冻结的定义
+    // 是「**同一个实例**的 proposal 随时间变化时不跟随」（旋转 / 拖分栏 / 缩窗口），而这里
+    // 没有任何 proposal 随时间变化。
+    // ⚠️ **量出来的 0.5px（≈0.167pt）是光栅残差，不是布局偏移，别去「修」它**：10pt 圆点
+    // @3x 占 30px ⇒ 中心落在 x.5；1pt 连线 @3x 占 3px ⇒ 中心落在整数。两者奇偶必然不同，
+    // 差半个像素消不掉。真正的回归长什么样有参照：第 3 轮那次是 **7.2pt**（= (24-10)/2）。
+    //
+    // ⇒ 「不会冻结」由 `TimelineAlternateRowLayout` **无存储状态**这一结构事实保证（槽宽每次
+    // `sizeThatFits` / `placeSubviews` 都从 proposal 现算），不由本预览保证。留着它是因为
+    // 「不同宽度下各自居中 + 连线穿过圆点」本身值得看 —— 第 4 轮的 7pt 偏移正是在这张图上
+    // 被量出来的。
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        ForEach([200.0, 280.0, 360.0] as [CGFloat], id: \.self) { width in
+            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                Text(verbatim: "容器宽 \(Int(width))pt")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+                Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .alternate)
+                    .frame(width: width)
+                    .background(Color.surfaceRaised)
+            }
+        }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Spinning Presentations") {
+    // `#60` 形态 D2 新增的两种**非阻塞**呈现。`.overlay`（默认）另有 ComponentData 那条。
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        Card {
+            Text("topBar：顶边细条，内容不被遮罩").coreFont(.subheadline)
+        }
+        .spinning(true, presentation: .topBar)
+
+        HStack(spacing: CoreSpacing.lg) {
+            Text("保存中").coreFont(.callout).spinning(true, presentation: .inline)
+            Text("已保存").coreFont(.callout).spinning(false, presentation: .inline)
+        }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+/// 快照 `#Preview` 共用的样本数据（`enum` 作命名空间，不产生实例）。
+///
+/// ⚠️ `@MainActor` 必需：`StepItem` / `TimelineItem` 的 init 在库侧是 MainActor 隔离的，
+/// 而 `enum` 的 static 成员默认落在 nonisolated 上下文，不标注会编译失败。
+@MainActor
+enum PreviewSnapshotFixtures {
+    /// `Steps` 三种新呈现共用的样本 —— 同一份数据换 `presentation`，差异才归因于呈现本身。
+    /// ⚠️ 用 `var` 而非 `let`：实测（Xcode 26.4 / Swift 6，本 App target 开
+    /// `-default-isolation MainActor`）`static let stepsSnapshotItems: [StepItem] = [...]`
+    /// 报 `main actor-isolated default value in a nonisolated context` —— `StepItem.init`
+    /// 的 `id: UUID = UUID()` 默认值是 MainActor 隔离的，而 `static let` 的初始化表达式
+    /// 求值在 nonisolated 上下文。改 computed `var` + 类型上的 `@MainActor` 后通过。
+    /// （限定为这个具体形态，不是「`@MainActor` 类型上的 `static let` 一律非法」。）
+    static var stepsSnapshotItems: [StepItem] {
+        [
+            StepItem(title: "Cart"),
+            StepItem(title: "Shipping"),
+            StepItem(title: "Payment"),
+            StepItem(title: "Confirm"),
+        ]
+    }
+
+    static var timelineItems: [TimelineItem] {
+        [
+            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
+            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
+            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
+        ]
+    }
 }
 
 #Preview("Rating") {

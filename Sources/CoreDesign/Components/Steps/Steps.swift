@@ -55,6 +55,38 @@ public enum StepsIndicatorStyle: Sendable, Equatable {
     case numbered
 }
 
+// MARK: - StepsPresentation
+
+/// `Steps` 的**整体呈现形态**——与 `StepsIndicatorStyle` **正交**：本枚举决定「这组步骤
+/// 数据画成什么结构」，后者只决定「`.steps` 结构下那些离散指示器长什么样」。
+///
+/// ⚠️ **为什么不把这些 case 加进 `StepsIndicatorStyle`**（`#60` 形态选择的自查结论）：
+/// 那个枚举的语义是「离散指示器长什么样」，其消费者 `indicatorDiameter` 的注释逐字是
+/// 「横向连线的中央空档宽度取此值」——整个骨架预设了「每步一个指示器 + 连线」。而下面三种
+/// 新形态里，`.segmentedBar` 没有离散指示器、`.navigation` 去掉连线、`.text` 连 `items`
+/// 循环都不适用 ⇒ 它们改的**不是指示器样式，是整个 body 结构**。塞进去会污染既有语义。
+///
+/// 判定依据：`docs/component-contract.md` §2 形态 **D2（配置枚举）**——本组件的候选形态是
+/// 封闭集合（本仓自己枚举的三个业界形态 + 现状），故用枚举承载而非发 public 协议。
+/// public 协议受祖父条款约束、**发布后不可撤**，枚举加 case 可演进。
+///
+/// ⚠️ **正交性的代价**：`indicatorStyle` 只在 `.steps` 下有意义，其余三种呈现里**不生效**；
+/// `axis` 同理只对 `.steps` 与 `.navigation` 有意义。这是**有意的静默**——传了不生效不是
+/// 错误、只是无效，因此不加运行期断言；本文档即约定。
+public enum StepsPresentation: Sendable, Equatable {
+    /// 默认：离散指示器 + 连线（现状形态，`axis` 与 `indicatorStyle` 均在此形态下生效）。
+    case steps
+    /// 分段式进度条：N 个离散位置塌成一条连续条，已完成的段填充。
+    /// 业界来源：Ant Design Steps 的 percent 形态 / Google 表单底部按页分段的进度条。
+    case segmentedBar
+    /// 导航式步骤条：去掉公共轴线与连线，每一步成为彼此直接拼接的块。
+    /// 业界来源：Ant Design Steps `type="navigation"` / Shopify Polaris 结账步骤导航。
+    case navigation
+    /// 纯文本：N 个指示器槽与标题槽连同连线塌成一个文本槽。
+    /// 业界来源：Typeform 的「1 of 5」进度文案。
+    case text
+}
+
 // MARK: - Steps
 
 /// **材质层**: 内容. **表面角色**: 内容.
@@ -95,6 +127,7 @@ public struct Steps: View {
     let currentIndex: Int
     let axis: StepsAxis
     let indicatorStyle: StepsIndicatorStyle
+    let presentation: StepsPresentation
 
     /// - Parameters:
     ///   - items: 步骤列表。
@@ -103,18 +136,22 @@ public struct Steps: View {
     ///     其余 → pending。不做范围 clamp——调用方可传出界值（如
     ///     `items.count` 表示「全部完成」），`progress(for:)` 对越界索引仍能
     ///     正确求值（全部落 `.done`）。
-    ///   - axis: 排列方向，默认 `.horizontal`。
-    ///   - indicatorStyle: 指示器样式，默认 `.dot`。
+    ///   - axis: 排列方向，默认 `.horizontal`。⚠️ 只对 `.steps` 与 `.navigation` 呈现有意义。
+    ///   - indicatorStyle: 指示器样式，默认 `.dot`。⚠️ **只对 `.steps` 呈现有意义**——其余
+    ///     呈现里没有离散指示器可言，传了不生效（见 `StepsPresentation` 的正交性说明）。
+    ///   - presentation: 整体呈现形态，默认 `.steps`（现状形态）⇒ **现有调用方零影响**。
     public init(
         items: [StepItem],
         currentIndex: Int,
         axis: StepsAxis = .horizontal,
-        indicatorStyle: StepsIndicatorStyle = .dot
+        indicatorStyle: StepsIndicatorStyle = .dot,
+        presentation: StepsPresentation = .steps
     ) {
         self.items = items
         self.currentIndex = currentIndex
         self.axis = axis
         self.indicatorStyle = indicatorStyle
+        self.presentation = presentation
     }
 
     // MARK: - Progress derivation
@@ -167,9 +204,15 @@ public struct Steps: View {
     // MARK: - Body
 
     public var body: some View {
-        switch self.axis {
-        case .horizontal: self.horizontalBody
-        case .vertical: self.verticalBody
+        switch self.presentation {
+        case .steps:
+            switch self.axis {
+            case .horizontal: self.horizontalBody
+            case .vertical: self.verticalBody
+            }
+        case .segmentedBar: self.segmentedBarBody
+        case .navigation: self.navigationBody
+        case .text: self.textBody
         }
     }
 
@@ -236,6 +279,200 @@ public struct Steps: View {
                 )
             }
         }
+    }
+
+    // MARK: - Alternative presentations（`#60` 形态 D2）
+
+    /// `.segmentedBar`：N 个离散位置塌成一条连续条，每段对应一步、已完成的段填充。
+    ///
+    /// ⚠️ **段与文案表达的是两件事，不是同一件事的两种写法**（PR #206 第 2 轮 review 要求
+    /// 定案）：段填充判据是 `index < currentIndex`（**已完成**几步），caption / 无障碍
+    /// 文案是 `currentIndex + 1`（**当前在**第几步）。所以 `currentIndex == 2, count == 4`
+    /// 时是「2 段填充 + 读 3 of 4」—— 已完成 2 步、正在第 3 步，二者同时为真，互补而非矛盾。
+    /// 采用这个口径而不是让文案跟着填充数走，是为了与 `.steps` / `.navigation` 逐步播报的
+    /// 「2 of 4」（`positionText`，也是 1-based 当前步）**逐字一致**：同一组数据换个
+    /// `presentation`，VoiceOver 的读法不该变。
+    ///
+    /// ⚠️ 取色复用 `connectorFill(after:)` 的同一套决策（done 走 `.tint`、其余走
+    /// `Color.dividerDefault`），使四种呈现的「完成/未完成」语义在视觉上一致。
+    /// ⚠️ 段高取 `CoreSpacing.xs` 而非连线的 `CoreBorderWidth.thick` —— 这里是**进度条**
+    /// 不是连线，需要可读的填充面积。
+    private var segmentedBarBody: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            HStack(spacing: CoreSpacing.xxs) {
+                ForEach(Array(self.items.enumerated()), id: \.element.id) { index, item in
+                    Capsule()
+                        .fill(self.segmentFill(for: index, item: item))
+                        .frame(height: CoreSpacing.xs)
+                }
+            }
+            self.progressCaption
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: self.progressText))
+        .modifier(CollapsedErrorValue(hasError: self.hasErrorStep))
+    }
+
+    /// `.segmentedBar` 的单段取色：error 走 danger，已完成走 `.tint`，其余走
+    /// `Color.dividerDefault`（与连线同一套「完成/未完成」视觉语义）。
+    private func segmentFill(for index: Int, item: StepItem) -> AnyShapeStyle {
+        switch Self.segmentState(index: index, currentIndex: self.currentIndex, isError: item.isError) {
+        case .error: AnyShapeStyle(Color.statusDangerEmphasis)
+        case .filled: AnyShapeStyle(.tint)
+        case .empty: AnyShapeStyle(Color.dividerDefault)
+        }
+    }
+
+    /// `.segmentedBar` 单段的三态。非 `public`（同 `StepsProgress` 的可测试性取舍）。
+    enum SegmentState: Equatable {
+        case error
+        case filled
+        case empty
+    }
+
+    /// `.segmentedBar` 的单段判据。纯函数。
+    ///
+    /// ⚠️ **这个函数存在的唯一理由是可断言性**（PR #206 第 2 轮 review 抓到）：上一版把
+    /// 判据直接写在 `segmentFill` 里返回 `AnyShapeStyle`，`ShapeStyle` 断言不了，于是
+    /// 「守它」的测试只能改去断言 `progress(for:currentIndex:)` —— 而那个函数在 `main`
+    /// 上就是对的、从没被改过。实测：把判据改回错误的 `index - 1`，整个测试套件**照样
+    /// 403 全绿**。判据必须自己是可断言的，否则守卫是装饰。
+    ///
+    /// ⚠️ 判据是 `index < currentIndex`（即 `progress(for: index) == .done`）—— **每段对应
+    /// 它自己那一步**。原错位写法在 `index > 0` 时取 `index - 1`，于是第 `index` 段跟着
+    /// **前一步**走，`currentIndex == 1` 时未完成的第 1 段会因第 0 步已完成而被填充。
+    static func segmentState(index: Int, currentIndex: Int, isError: Bool) -> SegmentState {
+        if isError { return .error }
+        return Self.progress(for: index, currentIndex: currentIndex) == .done ? .filled : .empty
+    }
+
+    /// `.navigation`：去掉公共轴线与连线，每一步是彼此直接拼接的块。
+    ///
+    /// ⚠️ `axis` 在本呈现下**仍有意义**（横向拼接 vs 纵向堆叠），这是它与 `.segmentedBar`
+    /// / `.text` 的区别 —— 后两者的 `axis` 无处安放。
+    @ViewBuilder
+    private var navigationBody: some View {
+        switch self.axis {
+        case .horizontal:
+            HStack(spacing: CoreSpacing.xxs) {
+                ForEach(Array(self.items.enumerated()), id: \.element.id) { index, _ in
+                    self.navigationBlock(for: index)
+                }
+            }
+        case .vertical:
+            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                ForEach(Array(self.items.enumerated()), id: \.element.id) { index, _ in
+                    self.navigationBlock(for: index)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    /// `.navigation` 的单块：无指示器、无连线，靠背景与文字色承载进行态。
+    private func navigationBlock(for index: Int) -> some View {
+        let item = self.items[index]
+        // ⚠️ 无障碍复用既有的 `applyStepAccessibility(_:index:)`——四种呈现共用同一套
+        // 语义标注，不为新呈现另造一套（否则同一组数据在不同呈现下 VoiceOver 读法会分裂）。
+        return self.applyStepAccessibility(
+            self.stepText(for: index, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, CoreSpacing.md)
+                .padding(.vertical, CoreSpacing.sm)
+                .background(self.navigationBlockFill(for: index, item: item))
+                .clipShape(RoundedRectangle(cornerRadius: CoreRadius.small, style: .continuous)),
+            index: index
+        )
+    }
+
+    /// `.navigation` 单块背景：当前步用 `.tint` 的弱化底，其余透明——不引入新 token。
+    private func navigationBlockFill(for index: Int, item: StepItem) -> AnyShapeStyle {
+        if item.isError { return AnyShapeStyle(Color.statusDangerEmphasis.opacity(0.12)) }
+        // ⚠️ 走 `.tint`（`TintShapeStyle`）不写死 `Color.accentColor` —— 后者读的是宿主 App
+        // 的 asset，**不读** SwiftUI 的逐视图 `.tint(_:)` 环境值，于是
+        // `Steps(..., presentation: .navigation).tint(.orange)` 会出现「指示器变了、当前块
+        // 底色没变」的分裂（PR #206 review 抓到）。CLAUDE.md「`.core` style 的强调色必须走
+        // `.tint` 通路」是同一条约定，本文件 `connectorFill(after:)` / `dotIndicator` 亦同。
+        return self.progress(for: index) == .current
+            ? AnyShapeStyle(TintShapeStyle.tint.opacity(0.12))
+            : AnyShapeStyle(Color.clear)
+    }
+
+    /// `.text`：N 个指示器槽与标题槽连同连线塌成一个文本槽（Typeform 的「1 of 5」形态）。
+    ///
+    /// ⚠️ 本呈现下 `items` 的**逐条内容不被渲染**，只用其 `count` 与当前索引 —— 这正是
+    /// 判定时把该候选判为「**槽**」（N 个槽塌成 1 个）的原因。
+    ///
+    /// ⚠️ **已知的信息损失，明文承认**（PR #206 第 2 轮 review 要求定案）：因为显示序号被
+    /// 夹进 `1...count`，本形态下「停在最后一步」（`currentIndex == count - 1`）与「全部完成」
+    /// （`currentIndex == count`，`init` 文档明列的正式用法）产出**同一段文案**，不可区分。
+    /// 这是「N 个槽塌成 1 个文本槽」的固有代价：一个文本槽装不下「当前位置」+「是否全部完成」
+    /// 两位信息。需要区分这两个状态的调用方应改用 `.segmentedBar`（末段填充与否可见）或
+    /// `.steps`，而不是在本形态上加旁路。
+    private var textBody: some View {
+        self.progressCaption
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(verbatim: self.progressText))
+            .modifier(CollapsedErrorValue(hasError: self.hasErrorStep))
+    }
+
+    /// `.segmentedBar` / `.text` 这两种**塌成单个 element** 的呈现的 `accessibilityValue`。
+    ///
+    /// ⚠️ PR #206 review 抓到的无障碍回归：这两种呈现把整棵树塌成一个 label 只带
+    /// `progressText`，于是 `StepItem.isError` 对 VoiceOver **完全消失** —— 而
+    /// `.steps` / `.navigation` 走 `applyStepAccessibility(_:index:)` 是逐步播报
+    /// 已登记键 `"Error"` 的。红色段 / 纯文本摘要在视觉上还能看出出错，读屏用户则拿不到
+    /// 任何线索。⇒ 在**不展开**塌陷（那会毁掉这两种呈现的存在理由）的前提下，用容器级
+    /// `accessibilityValue` 把「这组步骤里存在错误步」这一位信息补回来。
+    ///
+    /// ⚠️ 复用 `applyStepAccessibility` 那条通路的**同一个**已登记键 `"Error"`，不另造
+    /// 「有错误」之类的新文案 —— 同一组数据在四种呈现下 VoiceOver 用词不该分裂。
+    private var hasErrorStep: Bool {
+        self.items.contains(where: \.isError)
+    }
+
+    /// 塌陷呈现的错误态 `accessibilityValue` 文案。纯函数，便于单测锁定「无错误步 ⇒ nil」。
+    static func collapsedValueText(hasError: Bool) -> String? {
+        hasError ? String(localized: "Error", bundle: .module) : nil
+    }
+
+    /// `.segmentedBar` 与 `.text` 共用的进度文案。
+    private var progressCaption: some View {
+        Text(verbatim: self.progressText)
+            .coreFont(.footnote)
+            .foregroundStyle(Color.contentSecondary)
+    }
+
+    /// 进度文案与无障碍标签共用的文本（A 类：文案写在组件源码里，调用方不传）。
+    ///
+    /// ⚠️ 公约第 3 节规定 A 类**应用 `LocalizedStringResource`**，但本仓目前**零先例**，
+    /// 该迁移由 `wxlpp/oh-my-story#49` 统一做（公约缺口 G-4：「A 类有规定、无判据、
+    /// 无参考实现」）。⇒ 本组件**不单独引入新模式** —— 一个组件先迁会让本仓同时存在两套
+    /// A 类写法，而 #49 要收的正是这种分裂。迁移时本处随其余 A 类文案一并改。
+    private var progressText: String {
+        Self.progressSummary(currentIndex: self.currentIndex, total: self.items.count)
+    }
+
+    /// `.segmentedBar` / `.text` 的进度摘要。纯函数，便于单测锁定越界与退化边界
+    /// （`.text` 呈现的**全部**可观察产出就是这一个字符串，见 `StepsTests`）。
+    ///
+    /// ⚠️ **复用 Phase 0 已登记键** `"%@ of %@"`（`positionText(current:total:)`），
+    /// 不另造 `"Step %@ of %@"`：后者在 `Resources/en.lproj/Localizable.strings` 里
+    /// **没有条目**，`String(localized:bundle:)` 会静默 fallback 到 key 自身，英文下输出
+    /// 恰好像对的、直到非英文本地化才暴露（PR #206 review 抓到，与 `positionText` /
+    /// `Rating.accessibilityValueText` 那条「漏传 bundle 静默 fallback」是同族陷阱）。
+    /// ⇒ 顺带让 `.text` 的产出与逐步 `accessibilityValue` 的「2 of 4」**逐字一致**。
+    ///
+    /// ⚠️ **显示序号对越界 `currentIndex` 做 clamp**：`init` 文档明说存储层不 clamp、
+    /// 允许传 `items.count`（全部完成）乃至负值，`progress(for:)` 对越界仍能正确求值；
+    /// 但**显示用**的序号必须落在 `1...total` —— 负索引会读成「-3 of 3」，而裸
+    /// `currentIndex + 1` 在 `Int.max` 上直接 trap（PR #206 review 抓到）。先夹到
+    /// `0...(total - 1)` 再 `+ 1`，两端都不会溢出。
+    /// `total == 0`（空 `items`）退化为「0 of 0」，不构造出不存在的第 1 步。
+    static func progressSummary(currentIndex: Int, total: Int) -> String {
+        guard total > 0 else { return Self.positionText(current: 0, total: 0) }
+        let step = min(max(currentIndex, 0), total - 1) + 1
+        return Self.positionText(current: step, total: total)
     }
 
     // MARK: - Indicator rendering
@@ -414,6 +651,23 @@ public struct Steps: View {
     }
 }
 
+/// `.segmentedBar` / `.text` 的错误态 `accessibilityValue` 挂载器（`private`，仅本文件）。
+///
+/// ⚠️ 无错误步时**整个不挂载**，而不是挂一个空字符串 —— 后者会让 VoiceOver 在 label
+/// 之后读出一个空值停顿，且把「没有错误」和「有一个读不出名字的值」混为一谈。这与
+/// `applyStepAccessibility(_:index:)` 对逐步 value 的处理（`nil` 时走不挂载分支）同口径。
+private struct CollapsedErrorValue: ViewModifier {
+    let hasError: Bool
+
+    func body(content: Content) -> some View {
+        if let value = Steps.collapsedValueText(hasError: self.hasError) {
+            content.accessibilityValue(Text(verbatim: value))
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Steps — Light") {
@@ -480,6 +734,53 @@ private struct StepsPreviewGallery: View {
                 self.section(".tint(.orange) 覆盖") {
                     Steps(items: Self.basicItems, currentIndex: 2, axis: .horizontal, indicatorStyle: .dot)
                         .tint(.orange)
+                }
+
+                // MARK: `#60` 形态 D2 新增的三种呈现
+                // ⚠️ PR #206 review 指出新形态只有 `_ = body` 构造测试、预览仍只画默认形态。
+                // 以下逐形态 + 边界数据补齐。
+                // 本仓的快照流水线**只生成 PNG、不做基线比对** —— `scripts/run-snapshots.sh`
+                // 经 `App/Tests/SnapshotTests.swift`（`SnapshottingTests`）收集 `#Preview` 出图，但没有
+                // 「与基线逐像素比对然后判红」的那一步 ⇒ **它检测不了视觉回归**，只是把图摆出来供人看。
+                // 且默认模式只保留 `App/Sources/Previews.swift` 驱动的 `CoreDesignPreview_*`，库内
+                // `#Preview` 产出的 `CoreDesign_*` 会被 `find -delete` 删掉（要留得加 `KEEP_LIBRARY_SNAPSHOTS=1`，
+                // 且只落本地 scratch）。⇒ 新形态**已同步注册进 `App/Sources/Previews.swift`**，否则进不了流水线。
+
+                self.section("分段条 · segmentedBar") {
+                    Steps(items: Self.basicItems, currentIndex: 2, presentation: .segmentedBar)
+                }
+
+                self.section("分段条 · 含错误态（红段 + VoiceOver 播报 Error）") {
+                    Steps(items: Self.errorItems, currentIndex: 2, presentation: .segmentedBar)
+                }
+
+                self.section("分段条 · 边界：currentIndex 越界为负") {
+                    Steps(items: Self.basicItems, currentIndex: -3, presentation: .segmentedBar)
+                }
+
+                self.section("导航式 · navigation · 横向") {
+                    Steps(items: Self.basicItems, currentIndex: 1, axis: .horizontal, presentation: .navigation)
+                }
+
+                self.section("导航式 · navigation · 纵向 · 含错误态") {
+                    Steps(items: Self.errorItems, currentIndex: 2, axis: .vertical, presentation: .navigation)
+                }
+
+                self.section("导航式 · .tint(.orange)（当前块底色须跟着变）") {
+                    Steps(items: Self.basicItems, currentIndex: 1, presentation: .navigation)
+                        .tint(.orange)
+                }
+
+                self.section("纯文本 · text") {
+                    Steps(items: Self.basicItems, currentIndex: 1, presentation: .text)
+                }
+
+                self.section("纯文本 · 边界：currentIndex == count —— 与停在末步产出相同（已知损失）") {
+                    Steps(items: Self.basicItems, currentIndex: Self.basicItems.count, presentation: .text)
+                }
+
+                self.section("纯文本 · 边界：空 items") {
+                    Steps(items: [], currentIndex: 0, presentation: .text)
                 }
             }
             .padding()

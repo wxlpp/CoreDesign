@@ -259,6 +259,37 @@ struct StyleSlotDecl: Hashable, Sendable {
     var key: String { "\(self.typeName).\(self.paramName)" }
 }
 
+/// 参数类型 → 基名：剥掉 `?` / `!`、泛型实参、点分前缀，取最后一段。
+/// `SwiftUI.StepsAxis?` → `StepsAxis`；`[StepItem]` → `""`（容器类型不参与 D2 接线）。
+///
+/// ⚠️ 文件级 `internal` 而非 collector 的 static 成员 —— 后者是 `private`，单测够不着，
+/// 而这是纯字符串处理、值得单独钉住（含**已知限度**：`Binding<Enum>` 会在 `<` 处截断，
+/// 见 `ComponentJudgeScannerTests.baseTypeNameKnownLimits`）。
+nonisolated func componentJudgeBaseTypeName(_ raw: String) -> String {
+    var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    while text.hasSuffix("?") || text.hasSuffix("!") { text.removeLast() }
+    if let angle = text.firstIndex(of: "<") { text = String(text[text.startIndex..<angle]) }
+    guard !text.contains("["), !text.contains("("), !text.contains(" ") else { return "" }
+    return text.split(separator: ".").last.map(String.init) ?? ""
+}
+
+/// 形态 D2「配置枚举」的一条**接线**记录：某个公开 `init` 参数以该 enum 为类型。
+///
+/// ⚠️ 为什么需要它：只核「公开 enum 声明存在」的话，登记表填**任意**一个本仓已有的
+/// 公开 enum 名就能判绿 —— 组件代码一行不写。这正是 D1 那条臂用 `styleSlotKeys`
+/// （`类型名.参数名`）避免的形态，D2 一开始漏掉了（PR #206 第 2 轮 review 抓到）。
+struct StyleEnumUse: Hashable, Sendable {
+    /// 参数类型的基名（剥掉 `?` / 泛型实参 / 点分前缀后的最后一段）。
+    let enumName: String
+    /// 承载该 `init` 的类型名。
+    let hostType: String
+    let paramName: String
+    let file: String
+    let line: Int
+    /// `HostType.enumName` —— 诊断用。
+    var key: String { "\(self.hostType).\(self.enumName)" }
+}
+
 /// 形态 D2「配置枚举」的一条采集记录：公开 `enum` 声明。
 struct StyleEnumDecl: Hashable, Sendable {
     let name: String
@@ -283,6 +314,7 @@ struct ComponentJudgeScanResult: Sendable {
     var conformances: [ConformanceRecord] = []
     var styleSlots: [StyleSlotDecl] = []
     var styleEnums: [StyleEnumDecl] = []
+    var styleEnumUses: [StyleEnumUse] = []
     /// 类型名（含被 extension 扩展的类型名）→ 声明它的文件名集合。J-3 用它定「组件作用域」。
     var typeDeclFiles: [String: Set<String>] = [:]
 
@@ -296,6 +328,10 @@ struct ComponentJudgeScanResult: Sendable {
     var styleSlotKeys: Set<String> { Set(self.styleSlots.map(\.key)) }
     /// 形态 D2 的公开枚举名集合。
     var styleEnumNames: Set<String> { Set(self.styleEnums.map(\.name)) }
+    /// 形态 D2 的**接线**索引：enum 名 → 以它为参数类型的公开 `init` 的宿主类型集合。
+    var styleEnumHosts: [String: Set<String>] {
+        self.styleEnumUses.reduce(into: [:]) { $0[$1.enumName, default: []].insert($1.hostType) }
+    }
 
     /// 采纳了指定协议的类型名集合（声明侧与 extension 侧合并）。
     func conformers(of protocolName: String) -> Set<String> {
@@ -345,6 +381,7 @@ private func collectComponentJudgeInputs(tree: SourceFileSyntax, fileName: Strin
     result.styleProtocols = collector.styleProtocols
     result.conformances = collector.conformances
     result.styleSlots = collector.styleSlots
+    result.styleEnumUses = collector.styleEnumUses
     result.styleEnums = collector.styleEnums
     result.typeDeclFiles = collector.typeDeclFiles
     return result
@@ -358,6 +395,7 @@ extension ComponentJudgeScanResult {
         // ⚠️ 新增字段必须同时接进这里 —— 磁盘扫描入口逐文件走 `merge`，漏接会让该字段
         // 在真实扫描下**恒为空**，而合成输入的单测照样绿（那条路径不走 merge）。
         self.styleSlots += other.styleSlots
+        self.styleEnumUses += other.styleEnumUses
         self.styleEnums += other.styleEnums
         for (name, files) in other.typeDeclFiles {
             self.typeDeclFiles[name, default: []].formUnion(files)
@@ -390,6 +428,7 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
     var styleProtocols: [StyleProtocolDecl] = []
     var conformances: [ConformanceRecord] = []
     var styleSlots: [StyleSlotDecl] = []
+    var styleEnumUses: [StyleEnumUse] = []
     var styleEnums: [StyleEnumDecl] = []
     var typeDeclFiles: [String: Set<String>] = [:]
 
@@ -579,6 +618,7 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
             isInitializer: true, at: node
         )
         self.collectStyleSlots(node)
+        self.collectStyleEnumUses(node)
         return .skipChildren
     }
 
@@ -601,6 +641,28 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
             let line = node.startLocation(converter: self.converter).line
             self.styleSlots.append(
                 StyleSlotDecl(typeName: typeName, paramName: name, file: self.fileName, line: line)
+            )
+        }
+    }
+
+    /// 采形态 D2 的**接线**：公开 `init` 的每个参数类型基名（可见性判据与 D1 同源）。
+    ///
+    /// ⚠️ 采的是**全部**参数类型、不预筛「看起来像枚举的」—— 是否为公开 enum 由规则层与
+    /// `styleEnumNames` 求交决定，扫描器只负责如实记录接线事实。
+    private func collectStyleEnumUses(_ node: InitializerDeclSyntax) {
+        guard let hostType = self.frames.last?.name else { return }
+        guard self.isEffectivelyPublic(node.modifiers) else { return }
+        let line = node.startLocation(converter: self.converter).line
+        for parameter in node.signature.parameterClause.parameters {
+            let base = componentJudgeBaseTypeName(parameter.type.trimmedDescription)
+            guard !base.isEmpty else { continue }
+            let name = (parameter.firstName.text == "_"
+                ? parameter.secondName?.text : parameter.firstName.text) ?? parameter.firstName.text
+            self.styleEnumUses.append(
+                StyleEnumUse(
+                    enumName: base, hostType: hostType, paramName: name,
+                    file: self.fileName, line: line
+                )
             )
         }
     }

@@ -25,7 +25,32 @@
 | items | [StepItem] | - | 步骤列表 |
 | currentIndex | Int | - | 当前所在步骤索引（0-based），驱动进行态派生 |
 | axis | StepsAxis | .horizontal | 排列方向：`.horizontal` / `.vertical` |
-| indicatorStyle | StepsIndicatorStyle | .dot | 指示器样式：`.dot` / `.numbered` |
+| indicatorStyle | StepsIndicatorStyle | .dot | 指示器样式：`.dot` / `.numbered`。⚠️ **只对 `.steps` 呈现有意义** |
+| presentation | StepsPresentation | .steps | 整体呈现形态，见下表。默认 `.steps` = 现状形态 ⇒ 现有调用方零影响 |
+
+### `StepsPresentation`（`#60` 形态 D2「配置枚举」）
+
+决定「这组步骤数据画成什么**结构**」，与 `StepsIndicatorStyle`（「离散指示器长什么样」）
+**正交**。
+
+| case | 说明 | 业界来源 |
+|---|---|---|
+| `.steps` | 默认：离散指示器 + 连线（现状形态） | —— |
+| `.segmentedBar` | 分段式进度条：N 个离散位置塌成一条连续条，已完成的段填充 | Ant Design Steps 的 percent 形态 / Google 表单分段进度条 |
+| `.navigation` | 导航式步骤条：去掉公共轴线与连线，每一步是彼此直接拼接的块 | Ant Design Steps `type="navigation"` / Shopify Polaris 结账步骤导航 |
+| `.text` | 纯文本：N 个指示器槽与标题槽连同连线塌成一个文本槽（如「2 of 4」） | Typeform 的「1 of 5」进度文案 |
+
+⚠️ `.segmentedBar` 依赖调用方给出**确定的宽度提议**：各段是弹性 `Capsule`，放进横向
+`ScrollView` 一类不约束宽度的容器时会退化为 SwiftUI Shape 的缺省尺寸。需要在这类容器里
+使用时，请显式给一个 `.frame(width:)`。
+
+⚠️ **正交性的代价**（有意的静默，传了不生效**不报错**）：
+
+| 参数 | `.steps` | `.segmentedBar` | `.navigation` | `.text` |
+|---|---|---|---|---|
+| `axis` | ✅ | ❌ | ✅ | ❌ |
+| `indicatorStyle` | ✅ | ❌ | ❌ | ❌ |
+| `items` 逐条内容 | ✅ | 仅 `isError` | ✅ | ❌ 只用 `count` |
 
 ## 预览 / Preview
 
@@ -62,6 +87,19 @@ Steps(items: items, currentIndex: items.count)
 // 覆盖强调色——完成 / 当前节点走 .tint，不写死 Color.accent
 Steps(items: items, currentIndex: 2)
     .tint(.orange)
+
+// 分段式进度条：不画离散指示器，每段对应一步
+Steps(items: items, currentIndex: 2, presentation: .segmentedBar)
+
+// 导航式：无轴线无连线，每步一个拼接块；axis 在此形态下仍生效
+Steps(items: items, currentIndex: 1, axis: .vertical, presentation: .navigation)
+
+// 纯文本：只消费 items.count 与 currentIndex，逐条标题不渲染
+Steps(items: items, currentIndex: 1, presentation: .text)   // 「2 of 4」
+
+// 导航式同样响应 .tint —— 当前块底色走 .tint，不写死 Color.accentColor
+Steps(items: items, currentIndex: 1, presentation: .navigation)
+    .tint(.orange)
 ```
 
 ## 进行态派生
@@ -72,9 +110,29 @@ Steps(items: items, currentIndex: 2)
 - `index == currentIndex` → **current**（当前）
 - `index > currentIndex` → **pending**（未完成）
 
-`currentIndex` 可以传出界值（如 `items.count`）表示「全部完成」；不做 clamp。该派生逻辑
+`currentIndex` 可以传出界值（如 `items.count`）表示「全部完成」；**存储层不做 clamp**。该派生逻辑
 是组件内部实现细节，**不对外暴露成公开枚举**——下游只能通过 `currentIndex: Int` 驱动，
 无法读取内部进行态类型本身。
+
+### `.segmentedBar` 的段与文案表达两件事
+
+段填充判据是 `index < currentIndex`（**已完成**几步），caption 与无障碍文案是
+`currentIndex + 1`（**当前在**第几步）。`currentIndex == 2, count == 4` ⇒ 2 段填充 + 读
+「3 of 4」：已完成 2 步、正在第 3 步，二者同时为真。文案不跟着填充数走，是为了与
+`.steps` / `.navigation` 逐步播报的「2 of 4」逐字一致 —— 同一组数据换 `presentation`，
+VoiceOver 读法不该变。
+
+### `.text` 的已知信息损失
+
+因为显示序号被夹进 `1...count`，`.text` 下「停在最后一步」（`currentIndex == count - 1`）
+与「全部完成」（`currentIndex == count`）产出**同一段文案**，不可区分。这是「N 个槽塌成
+1 个文本槽」的固有代价。需要区分这两个状态请改用 `.segmentedBar`（末段填充与否可见）或
+`.steps`。
+
+⚠️ `.segmentedBar` / `.text` 的**显示序号**是唯一例外：它经
+`Steps.progressSummary(currentIndex:total:)` 夹进 `1...items.count` 再显示——否则负索引
+会读成「-3 of 3」，而 `Int.max` 上的 `currentIndex + 1` 会直接 trap。夹的只是**显示值**，
+`progress(for:)` 的派生口径不变。空 `items` 退化为「0 of 0」。
 
 ## 视觉 Token
 
@@ -102,3 +160,9 @@ Steps(items: items, currentIndex: 2)
     .module)` 组装（`Steps.positionText(current:total:)`），1-based 播报，如「2 of 4」；
     错误态额外播报已登记键 `"Error"`；当前步骤同时是错误态时以 `", "` 拼接两者；
     均不成立时不挂载 `accessibilityValue`
+- **`.segmentedBar` / `.text` 塌成单个 element**（`.accessibilityElement(children: .ignore)`）：
+  `accessibilityLabel` 为进度文案（同上位置键 `"%@ of %@"`，与逐步 `accessibilityValue`
+  **逐字一致**）；`items` 中存在任一 `isError` 步骤时，容器级 `accessibilityValue` 播报
+  同一个已登记键 `"Error"`（`Steps.collapsedValueText(hasError:)`）——塌陷不该让错误态
+  对读屏用户消失，而红色段 / 纯文本摘要在视觉上仍看得出出错
+- `.navigation` 与 `.steps` 共用逐步的 `applyStepAccessibility(_:index:)`，读法完全一致

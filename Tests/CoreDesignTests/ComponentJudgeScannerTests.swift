@@ -284,4 +284,23 @@ struct ComponentJudgeScannerTests {
         print("conformance 记录 \(scan.conformances.count) 条；ProgressViewStyle 实现：\(scan.conformers(of: "ProgressViewStyle").sorted())")
         print("BannerStyle 实现：\(scan.conformers(of: "BannerStyle").sorted())；SegmentedControlStyle 实现：\(scan.conformers(of: "SegmentedControlStyle").sorted())")
     }
+
+    @Test("baseTypeName：已知限度 —— 泛型包装会在 `<` 处截断，接线记录随之丢失")
+    func baseTypeNameKnownLimits() {
+        // ⚠️ **钉住已知限度，不是期望行为**（与 `j2StyleEnumWiringCannotJudgeSemantics` 同款）。
+        // 今天无条目命中，将来真有人把形态枚举做成 `Binding<Layout>` 而被判「没接线」时，
+        // 第一时间能查到这是已知形状、不是判据坏了。
+        #expect(componentJudgeBaseTypeName("Binding<StepsPresentation>") == "Binding",
+                "泛型实参被丢弃 ⇒ 包在 Binding 里的形态枚举登记不到接线")
+
+        // 正常形态：剥可选、剥点分前缀。
+        #expect(componentJudgeBaseTypeName("StepsPresentation") == "StepsPresentation")
+        #expect(componentJudgeBaseTypeName("StepsPresentation?") == "StepsPresentation")
+        #expect(componentJudgeBaseTypeName("SwiftUI.HorizontalEdge") == "HorizontalEdge")
+
+        // 容器 / 闭包 / 带空格的类型一律不参与 D2 接线（返回空串）。
+        #expect(componentJudgeBaseTypeName("[StepItem]").isEmpty)
+        #expect(componentJudgeBaseTypeName("@escaping () -> Avatars").isEmpty)
+        #expect(componentJudgeBaseTypeName("some View").isEmpty)
+    }
 }

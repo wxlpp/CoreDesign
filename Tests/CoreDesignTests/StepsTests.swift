@@ -141,4 +141,140 @@ struct StepsTests {
         #expect(steps.axis == .horizontal)
         #expect(steps.indicatorStyle == .dot)
     }
+
+    // MARK: - StepsPresentation（`#60` 形态 D2）
+
+    @Test("Steps：presentation 默认 .steps —— 现有调用方零影响")
+    func stepsPresentationDefaultsToSteps() {
+        // ⚠️ 这条是**破坏性变更的防线**：若默认值不是 .steps，所有既有调用方的渲染会静默
+        // 改变。新参数带默认值 ⇒ 源码兼容；默认值 == 现状 ⇒ 行为兼容。两者缺一不可。
+        let steps = Steps(items: [StepItem(title: "A")], currentIndex: 0)
+        #expect(steps.presentation == .steps)
+    }
+
+    @Test("Steps：presentation 原样保留")
+    func stepsStoresPresentation() {
+        for presentation in [StepsPresentation.steps, .segmentedBar, .navigation, .text] {
+            let steps = Steps(
+                items: [StepItem(title: "A")], currentIndex: 0, presentation: presentation
+            )
+            #expect(steps.presentation == presentation)
+        }
+    }
+
+    @Test("StepsPresentation：四个 case 互不相等（Equatable 不是恒真）")
+    func stepsPresentationEquatableIsNotDegenerate() {
+        // ⚠️ 防恒真：若 == 被误实现成恒真，上一条测试会全绿而毫无保护。
+        let all: [StepsPresentation] = [.steps, .segmentedBar, .navigation, .text]
+        for (i, lhs) in all.enumerated() {
+            for (j, rhs) in all.enumerated() where i != j {
+                #expect(lhs != rhs, "\(lhs) 与 \(rhs) 不应相等")
+            }
+        }
+    }
+
+    @Test("Steps：indicatorStyle 与 presentation 正交 —— 两者独立保留，互不改写")
+    func stepsIndicatorStyleAndPresentationAreOrthogonal() {
+        // ⚠️ 公约 §2 形态 D2 的正交性约定：indicatorStyle 只在 .steps 呈现下**生效**，
+        // 但在其余呈现下**仍被原样保留**（不被静默改写成默认值）——「不生效」是渲染层的
+        // 事，不是存储层的事。把它改写掉会让调用方切回 .steps 时丢配置。
+        let steps = Steps(
+            items: [StepItem(title: "A")], currentIndex: 0,
+            indicatorStyle: .numbered, presentation: .text
+        )
+        #expect(steps.indicatorStyle == .numbered, "非 .steps 呈现下 indicatorStyle 仍应原样保留")
+        #expect(steps.presentation == .text)
+    }
+
+    @Test("Steps：四种呈现都能构造且 body 可求值（不 crash）")
+    func stepsAllPresentationsRender() {
+        // ⚠️ 这条只证「不 crash」，**不证渲染正确**。不要把它读成「四种呈现都对」。
+        // ⚠️ 「本仓无快照测试」是本行原有的说法，**不准确**，已按实情改写（PR #206 第 2 轮
+        // Copilot review 抓到；我上一轮正是沿用了这句、又把它复制扩散到四处新注释）：
+        // 快照流水线是有的（`scripts/run-snapshots.sh` + `App/Tests/SnapshotTests.swift`），
+        // 但它**只出图、不做基线比对** ⇒ 检测不了视觉回归；且本 package 测试里没有任何
+        // 「渲染后断言」的能力。要看图得跑那个脚本，且组件须注册进 `App/Sources/Previews.swift`。
+        let items = [StepItem(title: "A"), StepItem(title: "B", isError: true), StepItem(title: "C")]
+        for presentation in [StepsPresentation.steps, .segmentedBar, .navigation, .text] {
+            for axis in [StepsAxis.horizontal, .vertical] {
+                let steps = Steps(items: items, currentIndex: 1, axis: axis, presentation: presentation)
+                _ = steps.body
+            }
+        }
+    }
+
+    @Test("Steps：.text 呈现只消费 items.count 与 currentIndex —— 逐条内容不参与")
+    func stepsTextPresentationCollapsesItems() {
+        // ⚠️ 这正是判定时把该候选判为「**槽**」（N 个槽塌成 1 个）的依据：逐条标题不被渲染。
+        // 两组 items 标题完全不同但条数相同 ⇒ .text 呈现下应产出同一段文案。
+        //
+        // ⚠️ 断言打在 `progressSummary(currentIndex:total:)` 这个**真实产出**上，而不是
+        // `sa.items.count == sb.items.count` 那种构造后立即为真的恒等式（PR #206 review
+        // 抓到原写法：`textBody` 改成渲染每条标题、或干脆忽略 `currentIndex`，那两条断言
+        // 照样全绿 —— 它保护不了任何被文档承诺的行为）。`.text` 呈现的**全部**可观察产出
+        // 就是这一个字符串，所以锁住它就等于锁住了这个形态。
+        let a = [StepItem(title: "Cart"), StepItem(title: "Shipping")]
+        let b = [StepItem(title: "完全不同"), StepItem(title: "的标题")]
+        let summaryA = Steps.progressSummary(currentIndex: 0, total: a.count)
+        let summaryB = Steps.progressSummary(currentIndex: 0, total: b.count)
+        #expect(summaryA == summaryB, "逐条标题不同但条数相同 ⇒ .text 产出必须逐字一致")
+        #expect(summaryA == Steps.positionText(current: 1, total: 2),
+                "实际产出 \(summaryA) —— .text 的文案必须复用已登记键 \"%@ of %@\"")
+
+        // 同一组 items、不同 currentIndex ⇒ 产出必须变化（证明 currentIndex 真被消费）。
+        #expect(Steps.progressSummary(currentIndex: 0, total: a.count)
+                != Steps.progressSummary(currentIndex: 1, total: a.count))
+    }
+
+    @Test("Steps.progressSummary：越界 currentIndex 被夹进 1...total，且不溢出")
+    func stepsProgressSummaryClampsOutOfRangeIndex() {
+        // `init` 文档明说存储层不 clamp、允许传越界值（`items.count` = 全部完成、乃至负数），
+        // 但**显示序号**必须落在 1...total。PR #206 review 抓到原写法两处越界：
+        // 负索引读成「-3 of 3」、`Int.max` 上 `currentIndex + 1` 直接 trap。
+        #expect(Steps.progressSummary(currentIndex: -4, total: 3) == Steps.positionText(current: 1, total: 3))
+        #expect(Steps.progressSummary(currentIndex: 0, total: 3) == Steps.positionText(current: 1, total: 3))
+        #expect(Steps.progressSummary(currentIndex: 2, total: 3) == Steps.positionText(current: 3, total: 3))
+        // currentIndex == count（`init` 文档明列的「全部完成」用法）
+        #expect(Steps.progressSummary(currentIndex: 3, total: 3) == Steps.positionText(current: 3, total: 3))
+        // ⚠️ 这一条是**反溢出**断言：裸 `currentIndex + 1` 在此处 trap，测试会崩而非失败。
+        #expect(Steps.progressSummary(currentIndex: .max, total: 3) == Steps.positionText(current: 3, total: 3))
+        #expect(Steps.progressSummary(currentIndex: .min, total: 3) == Steps.positionText(current: 1, total: 3))
+        // 空 items 退化：不构造出不存在的第 1 步。
+        #expect(Steps.progressSummary(currentIndex: 0, total: 0) == Steps.positionText(current: 0, total: 0))
+    }
+
+    @Test("Steps：.segmentedBar / .text 塌成单 element 后，错误态仍经 accessibilityValue 播报")
+    func stepsCollapsedPresentationsKeepErrorSemantics() {
+        // PR #206 review 抓到的无障碍回归：这两种呈现 `.accessibilityElement(children: .ignore)`
+        // 后只留一个装 progressText 的 label，`StepItem.isError` 对 VoiceOver 完全消失。
+        #expect(Steps.collapsedValueText(hasError: false) == nil,
+                "无错误步 ⇒ 不挂 accessibilityValue，避免播报空值")
+        #expect(Steps.collapsedValueText(hasError: true) == String(localized: "Error", bundle: .module))
+        // ⚠️ 复用 `applyStepAccessibility` 通路的**同一个**已登记键，不另造新文案 ——
+        // 同一组数据在四种呈现下 VoiceOver 用词不该分裂。
+        #expect(Steps.collapsedValueText(hasError: true)
+                == Steps.accessibilityValueText(index: 0, currentIndex: 1, total: 3, isError: true))
+    }
+
+    @Test("Steps：.segmentedBar 的每段对应它自己那一步，不跟着前一步走")
+    func stepsSegmentedBarSegmentTracksItsOwnStep() {
+        // ⚠️ 断言打在 `segmentState(index:currentIndex:isError:)` —— 段填充判据**本身**。
+        // 上一版打在 `progress(for:currentIndex:)` 上，那个函数在 main 上就是对的、
+        // 从没被改过：实测把判据改回错误的 `index - 1`，整套测试照样 403 全绿
+        // （PR #206 第 2 轮 review 抓到的恒真测试）。
+        //
+        // currentIndex == 1 ⇒ 只有第 0 步完成 ⇒ 只有第 0 段填充。
+        #expect(Steps.segmentState(index: 0, currentIndex: 1, isError: false) == .filled)
+        #expect(Steps.segmentState(index: 1, currentIndex: 1, isError: false) == .empty,
+                "第 1 段对应当前步（未完成），不能因第 0 步已完成而被填充 —— 这正是原错位形态")
+        #expect(Steps.segmentState(index: 2, currentIndex: 1, isError: false) == .empty)
+
+        // 边界：currentIndex == 0 时一段都不填；currentIndex == count 时全填。
+        #expect(Steps.segmentState(index: 0, currentIndex: 0, isError: false) == .empty)
+        #expect(Steps.segmentState(index: 2, currentIndex: 3, isError: false) == .filled)
+
+        // error 覆盖进行态，与指示器同口径。
+        #expect(Steps.segmentState(index: 0, currentIndex: 5, isError: true) == .error)
+        #expect(Steps.segmentState(index: 9, currentIndex: 0, isError: true) == .error)
+    }
 }

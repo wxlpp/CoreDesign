@@ -123,15 +123,51 @@ func judgeExtensionPoints(
                 )
             }
         } else if let styleEnum = entry.styleEnum {
-            // 形态 D2「配置枚举」。同样必须核源码。
-            if scan.styleEnumNames.contains(styleEnum) {
-                result.satisfied[entry.component] = "配置枚举 \(styleEnum)（形态 D2）"
-            } else {
+            // 形态 D2「配置枚举」。同样必须核源码，且**两道**：声明存在 + 真的接进公开 init。
+            //
+            // ⚠️ 只核声明存在是不够的（PR #206 第 2 轮 review 抓到）：`styleEnumNames` 是
+            // `Sources/CoreDesign` 下**任意**公开 enum 的名字集合，于是登记表填一个本仓
+            // 早就有的枚举名，组件代码一行不写也判绿。相邻的 D1 臂用 `类型名.参数名` 作键、
+            // 本来就核到了接线，D2 这条漏了。
+            //
+            // ⚠️ **本判据的限度（必须写明，不写就会被当成比实际更强的保证）**：它能核
+            // 「这个公开枚举真的接在了某个组件的公开 `init` 上」，**核不了**「这个枚举承载的
+            // 是不是真正的形态候选」。`Steps` 的 `StepsAxis`（排列方向）同样是公开枚举、
+            // 同样接在 `Steps.init` 上 —— 把登记表指向它照样绿。「枚举承载的是形态候选」
+            // 属公约 §2 的**人工判定**，与 D1 的 `styleSlot` 可以被填成内容槽同源。
+            // 机器守的是「没接线就不算」，不是「填对了才算」。
+            let hosts = scan.styleEnumHosts[styleEnum] ?? []
+            if !scan.styleEnumNames.contains(styleEnum) {
                 result.missing.append(entry.component)
                 result.diagnostics.append(
                     "\(entry.component)：登记表 styleEnum=\(styleEnum)，但源码里无该公开 enum 声明"
                 )
+            } else if hosts.isEmpty {
+                result.missing.append(entry.component)
+                result.diagnostics.append(
+                    "\(entry.component)：登记表 styleEnum=\(styleEnum) 的公开 enum 声明存在，"
+                    + "但它**没有出现在任何公开 `init` 的参数类型**里 —— 声明了没接线，调用方够不着，"
+                    + "不构成扩展点（采集口径：只认公开 init 参数，与 D1 外观槽同源）"
+                )
+            } else if !hosts.contains(entry.component) {
+                // ⚠️ **宿主必须是本条目自己**（PR #206 第 3 轮 review 抓到）：只判 `hosts` 非空的话，
+                // 「组件代码一行不写也判绿」并没关死，只是从「借一个本仓已有的枚举名」变成
+                // 「借**另一个组件**的形态枚举」。实测（当时）：把 `AvatarGroup` 的 styleEnum
+                // 指向 `StepsPresentation` ⇒ hosts = {Steps} 非空 ⇒ 判绿 ⇒ 407 全绿，而且这类
+                // 条目**从不进 `missing`**，`ComponentExtensionPointGuard` 的棘轮结构上也抓不到。
+                result.missing.append(entry.component)
+                result.diagnostics.append(
+                    "\(entry.component)：登记表 styleEnum=\(styleEnum) 接线于 "
+                    + "\(hosts.sorted().joined(separator: ", "))，**不含本条目 \(entry.component)** —— "
+                    + "借了别的组件的枚举，本组件自己的公开 init 上没有这个扩展点"
+                )
+            } else {
+                result.satisfied[entry.component] =
+                    "配置枚举 \(styleEnum)（形态 D2，接线于 \(hosts.sorted().joined(separator: ", "))）"
             }
+            // ⚠️ **判据到此为止的真实保证**：「这个公开枚举确实接在了**本条目对应类型**的公开
+            // `init` 上」。仍**核不了**「枚举承载的是不是真正的形态候选」—— 见
+            // `j2StyleEnumWiringCannotJudgeSemantics`，那条限度是不可机器化的，与本条不同源。
         } else {
             result.missing.append(entry.component)
             result.diagnostics.append(

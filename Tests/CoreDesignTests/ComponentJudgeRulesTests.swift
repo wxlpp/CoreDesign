@@ -155,8 +155,12 @@ struct ComponentJudgeRulesTests {
 
     @Test("J-2 形态 D2：styleEnum 真实存在 ⇒ 满足；不存在 ⇒ 判红")
     func j2StyleEnumBothWays() {
+        // ⚠️ 枚举必须**接进公开 init** 才算满足，见下一条变异用例。
         let scan = scanComponentJudgeInputs(source: """
         public enum StepsIndicatorStyle { case dot, numbered }
+        public struct Steps {
+            public init(indicatorStyle: StepsIndicatorStyle = .dot) {}
+        }
         """)
         let ok = judgeExtensionPoints(
             entries: [makeTestEntry(
@@ -173,6 +177,98 @@ struct ComponentJudgeRulesTests {
             )], scan: scan)
         #expect(bad.missing == ["Steps"])
         #expect(bad.diagnostics.contains { $0.contains("无该公开 enum 声明") })
+    }
+
+    @Test("J-2 形态 D2 变异：enum 声明了但没接进任何公开 init ⇒ 必须判红")
+    func j2StyleEnumDeclaredButNotWired() {
+        // ⚠️ 这条堵的是 PR #206 第 2 轮 review 抓到的洞：D2 臂原先只核「公开 enum 声明存在」，
+        // 于是登记表填一个本仓早就有的枚举名，**组件代码一行不写**也判绿。实测（当时）：
+        // 把 `Steps` 的 styleEnum 指向 `StepsAxis`，整套测试 403 全绿。
+        let scan = scanComponentJudgeInputs(source: """
+        public enum StepsPresentation { case steps, segmentedBar }
+        public struct Steps {
+            public init(items: [Int], currentIndex: Int) {}
+        }
+        """)
+        let result = judgeExtensionPoints(
+            entries: [makeTestEntry(
+                component: "Steps", kind: "semantic", decidedBy: "step2",
+                styleEnum: "StepsPresentation", needsExtensionPoint: true
+            )], scan: scan)
+        #expect(result.missing == ["Steps"], "声明了没接线 ⇒ 调用方够不着 ⇒ 不算扩展点")
+        #expect(result.diagnostics.contains { $0.contains("没有出现在任何公开") })
+
+        // 对照：同一份登记表，只要把参数接上就转绿 —— 证明判红的原因是「没接线」而非别的。
+        let wired = scanComponentJudgeInputs(source: """
+        public enum StepsPresentation { case steps, segmentedBar }
+        public struct Steps {
+            public init(items: [Int], currentIndex: Int, presentation: StepsPresentation = .steps) {}
+        }
+        """)
+        let ok = judgeExtensionPoints(
+            entries: [makeTestEntry(
+                component: "Steps", kind: "semantic", decidedBy: "step2",
+                styleEnum: "StepsPresentation", needsExtensionPoint: true
+            )], scan: wired)
+        #expect(ok.missing.isEmpty)
+        #expect(ok.satisfied["Steps"]?.contains("接线于 Steps") == true)
+    }
+
+    @Test("J-2 形态 D2 变异：enum 接在别的组件上 ⇒ 本条目必须判红（不许跨组件借线）")
+    func j2StyleEnumWiredToAnotherComponent() {
+        // ⚠️ PR #206 第 3 轮 review 抓到：上一轮只判了 `hosts.isEmpty`，没检查 hosts 里有没有
+        // 本条目自己。于是「组件代码一行不写也判绿」并没关死 —— 借另一个组件的形态枚举即可。
+        // 实测（当时）：把 `AvatarGroup` 的 styleEnum 指向 `StepsPresentation` ⇒ 407 全绿。
+        // 更要命的是这类条目**从不进 `missing`** ⇒ `ComponentExtensionPointGuard` 的棘轮
+        // （`Set(result.missing) == knownMissingExtensionPoints`）结构上也抓不到。
+        let scan = scanComponentJudgeInputs(source: """
+        public enum StepsPresentation { case steps, segmentedBar }
+        public struct Steps {
+            public init(presentation: StepsPresentation = .steps) {}
+        }
+        public struct AvatarGroup {
+            public init(max: Int = 3) {}
+        }
+        """)
+        let borrowed = judgeExtensionPoints(
+            entries: [makeTestEntry(
+                component: "AvatarGroup", kind: "semantic", decidedBy: "step2",
+                styleEnum: "StepsPresentation", needsExtensionPoint: true
+            )], scan: scan)
+        #expect(borrowed.missing == ["AvatarGroup"], "枚举接在 Steps 上，AvatarGroup 自己没有扩展点")
+        #expect(borrowed.diagnostics.contains { $0.contains("不含本条目") })
+
+        // 对照：同一份源码，条目换成真正接了线的 Steps ⇒ 绿。证明判红的原因是「宿主不匹配」。
+        let own = judgeExtensionPoints(
+            entries: [makeTestEntry(
+                component: "Steps", kind: "semantic", decidedBy: "step2",
+                styleEnum: "StepsPresentation", needsExtensionPoint: true
+            )], scan: scan)
+        #expect(own.missing.isEmpty)
+    }
+
+    @Test("J-2 形态 D2 的限度：接线判据核不了『枚举承载的是不是形态候选』")
+    func j2StyleEnumWiringCannotJudgeSemantics() {
+        // ⚠️ 这条**不是**期望行为，是钉住判据的**已知限度**，防止有人把它读成比实际更强的
+        // 保证。`StepsAxis`（排列方向）与 `StepsPresentation`（形态）在机器眼里完全同形：
+        // 都是公开枚举、都接在 `Steps.init` 上 ⇒ 登记表指向前者照样绿。
+        // 「枚举承载的是形态候选」属公约 §2 的**人工判定**，与 D1 的 styleSlot 可以被填成
+        // 内容槽同源。机器守的是「没接线就不算」，不是「填对了才算」。
+        // ⚠️ 两个枚举都接在**同一个** `Steps` 上 —— 宿主匹配那道门槛过得去
+        // （见 `j2StyleEnumWiredToAnotherComponent`），剩下的才是真正不可机器化的那一半。
+        let scan = scanComponentJudgeInputs(source: """
+        public enum StepsAxis { case horizontal, vertical }
+        public enum StepsPresentation { case steps, segmentedBar }
+        public struct Steps {
+            public init(axis: StepsAxis = .horizontal, presentation: StepsPresentation = .steps) {}
+        }
+        """)
+        let result = judgeExtensionPoints(
+            entries: [makeTestEntry(
+                component: "Steps", kind: "semantic", decidedBy: "step2",
+                styleEnum: "StepsAxis", needsExtensionPoint: true
+            )], scan: scan)
+        #expect(result.missing.isEmpty, "已知限度：指向一个同样接了线的普通配置枚举，判据看不出来")
     }
 
     @Test("J-2 形态 D 变异：两个扩展点字段同时非空 ⇒ 靠后那条通路被静默略过")

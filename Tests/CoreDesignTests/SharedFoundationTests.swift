@@ -29,6 +29,16 @@ struct SharedFoundationTests {
         #expect(plural("%lld stars", 3) == "3 stars")
     }
 
+    @Test("AvatarGroup 总数复数键：one/other 形态正确")
+    func avatarGroupTotalPlural() {
+        // ⚠️ `.countOnly`（`#60`）消费的键。**必须在这里断言**，不能在 `AvatarGroupTests`
+        // 里用 `String(localized:)` 自比自 —— 那样左右两边走同一条 fallback，键注册与否
+        // 结果一样绿（PR #206 第 2 轮 review 抓到的恒真测试）。本 suite 走
+        // `Bundle.localizedString`，才真正区分「已注册」与「fallback」，见文件头注释。
+        #expect(plural("%lld avatars", 1) == "1 avatar")
+        #expect(plural("%lld avatars", 5) == "5 avatars")
+    }
+
     @Test("Steps 步数复数键：one/other 形态正确")
     func stepsPlural() {
         #expect(plural("%lld steps", 1) == "1 step")
