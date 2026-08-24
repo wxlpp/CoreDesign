@@ -86,4 +86,16 @@ struct AvatarGroupTests {
             "两个标签语义不同，文案不该相同"
         )
     }
+
+    @Test("AvatarGroupAccessibility：totalLabel 在 count == 1 时用单数形")
+    func avatarGroupTotalLabelUsesSingularForOne() {
+        // PR #206 review 抓到：单一插值键 `"\(count) avatars"` 会读出「1 avatars」。
+        // 本仓的本地化资源只有 `.strings`、无 `.stringsdict` 复数规则表 ⇒ 在 Swift 侧分支。
+        let singular = AvatarGroupAccessibility.totalLabel(for: 1)
+        #expect(!singular.contains("avatars"), "count == 1 必须读单数，实际：\(singular)")
+        #expect(singular == String(localized: "1 avatar", bundle: .module))
+        // 复数分支不受影响。
+        #expect(AvatarGroupAccessibility.totalLabel(for: 2).contains("avatars"))
+        #expect(AvatarGroupAccessibility.totalLabel(for: 0).contains("avatars"))
+    }
 }

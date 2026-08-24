@@ -302,12 +302,18 @@ public struct Steps: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: self.progressText))
+        .modifier(CollapsedErrorValue(hasError: self.hasErrorStep))
     }
 
     /// `.segmentedBar` 的单段取色：error 走 danger，其余复用连线的 done/pending 决策。
+    ///
+    /// ⚠️ 取 `connectorFill(after: index)` 即 `progress(for: index) == .done` —— **每段对应
+    /// 它自己那一步**。PR #206 review 抓到的错位：原写法在 `index > 0` 时取 `index - 1`，
+    /// 于是第 `index` 段跟着**前一步**的完成态走，`currentIndex == 1` 时未完成的第 1 段会
+    /// 因第 0 步已完成而被填充，与上方注释「已完成的段填充」直接矛盾。
     private func segmentFill(for index: Int, item: StepItem) -> AnyShapeStyle {
         if item.isError { return AnyShapeStyle(Color.statusDangerEmphasis) }
-        return self.connectorFill(after: index - 1 >= 0 ? index - 1 : index)
+        return self.connectorFill(after: index)
     }
 
     /// `.navigation`：去掉公共轴线与连线，每一步是彼此直接拼接的块。
@@ -352,8 +358,13 @@ public struct Steps: View {
     /// `.navigation` 单块背景：当前步用 `.tint` 的弱化底，其余透明——不引入新 token。
     private func navigationBlockFill(for index: Int, item: StepItem) -> AnyShapeStyle {
         if item.isError { return AnyShapeStyle(Color.statusDangerEmphasis.opacity(0.12)) }
+        // ⚠️ 走 `.tint`（`TintShapeStyle`）不写死 `Color.accentColor` —— 后者读的是宿主 App
+        // 的 asset，**不读** SwiftUI 的逐视图 `.tint(_:)` 环境值，于是
+        // `Steps(..., presentation: .navigation).tint(.orange)` 会出现「指示器变了、当前块
+        // 底色没变」的分裂（PR #206 review 抓到）。CLAUDE.md「`.core` style 的强调色必须走
+        // `.tint` 通路」是同一条约定，本文件 `connectorFill(after:)` / `dotIndicator` 亦同。
         return self.progress(for: index) == .current
-            ? AnyShapeStyle(Color.accentColor.opacity(0.12))
+            ? AnyShapeStyle(TintShapeStyle.tint.opacity(0.12))
             : AnyShapeStyle(Color.clear)
     }
 
@@ -365,27 +376,66 @@ public struct Steps: View {
         self.progressCaption
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: self.progressText))
+            .modifier(CollapsedErrorValue(hasError: self.hasErrorStep))
+    }
+
+    /// `.segmentedBar` / `.text` 这两种**塌成单个 element** 的呈现的 `accessibilityValue`。
+    ///
+    /// ⚠️ PR #206 review 抓到的无障碍回归：这两种呈现把整棵树塌成一个 label 只带
+    /// `progressText`，于是 `StepItem.isError` 对 VoiceOver **完全消失** —— 而
+    /// `.steps` / `.navigation` 走 `applyStepAccessibility(_:index:)` 是逐步播报
+    /// 已登记键 `"Error"` 的。红色段 / 纯文本摘要在视觉上还能看出出错，读屏用户则拿不到
+    /// 任何线索。⇒ 在**不展开**塌陷（那会毁掉这两种呈现的存在理由）的前提下，用容器级
+    /// `accessibilityValue` 把「这组步骤里存在错误步」这一位信息补回来。
+    ///
+    /// ⚠️ 复用 `applyStepAccessibility` 那条通路的**同一个**已登记键 `"Error"`，不另造
+    /// 「有错误」之类的新文案 —— 同一组数据在四种呈现下 VoiceOver 用词不该分裂。
+    private var hasErrorStep: Bool {
+        self.items.contains(where: \.isError)
+    }
+
+    /// 塌陷呈现的错误态 `accessibilityValue` 文案。纯函数，便于单测锁定「无错误步 ⇒ nil」。
+    static func collapsedValueText(hasError: Bool) -> String? {
+        hasError ? String(localized: "Error", bundle: .module) : nil
     }
 
     /// `.segmentedBar` 与 `.text` 共用的进度文案。
     private var progressCaption: some View {
         Text(verbatim: self.progressText)
-            .font(.footnote)
+            .coreFont(.footnote)
             .foregroundStyle(Color.contentSecondary)
     }
 
     /// 进度文案与无障碍标签共用的文本（A 类：文案写在组件源码里，调用方不传）。
     ///
-    /// ⚠️ **本地化写法跟随本仓现行实践** `String(localized:bundle:.module)`
-    /// （`AvatarGroup.swift:91` 的 `"\(count) more avatars"`、`PinCode.swift:280` 的
-    /// `"\(index) of \(count)"` 同款）。
     /// ⚠️ 公约第 3 节规定 A 类**应用 `LocalizedStringResource`**，但本仓目前**零先例**，
     /// 该迁移由 `wxlpp/oh-my-story#49` 统一做（公约缺口 G-4：「A 类有规定、无判据、
     /// 无参考实现」）。⇒ 本组件**不单独引入新模式** —— 一个组件先迁会让本仓同时存在两套
     /// A 类写法，而 #49 要收的正是这种分裂。迁移时本处随其余 A 类文案一并改。
     private var progressText: String {
-        let step = min(self.currentIndex + 1, self.items.count)
-        return String(localized: "Step \(step.formatted()) of \(self.items.count.formatted())", bundle: .module)
+        Self.progressSummary(currentIndex: self.currentIndex, total: self.items.count)
+    }
+
+    /// `.segmentedBar` / `.text` 的进度摘要。纯函数，便于单测锁定越界与退化边界
+    /// （`.text` 呈现的**全部**可观察产出就是这一个字符串，见 `StepsTests`）。
+    ///
+    /// ⚠️ **复用 Phase 0 已登记键** `"%@ of %@"`（`positionText(current:total:)`），
+    /// 不另造 `"Step %@ of %@"`：后者在 `Resources/en.lproj/Localizable.strings` 里
+    /// **没有条目**，`String(localized:bundle:)` 会静默 fallback 到 key 自身，英文下输出
+    /// 恰好像对的、直到非英文本地化才暴露（PR #206 review 抓到，与 `positionText` /
+    /// `Rating.accessibilityValueText` 那条「漏传 bundle 静默 fallback」是同族陷阱）。
+    /// ⇒ 顺带让 `.text` 的产出与逐步 `accessibilityValue` 的「2 of 4」**逐字一致**。
+    ///
+    /// ⚠️ **显示序号对越界 `currentIndex` 做 clamp**：`init` 文档明说存储层不 clamp、
+    /// 允许传 `items.count`（全部完成）乃至负值，`progress(for:)` 对越界仍能正确求值；
+    /// 但**显示用**的序号必须落在 `1...total` —— 负索引会读成「-3 of 3」，而裸
+    /// `currentIndex + 1` 在 `Int.max` 上直接 trap（PR #206 review 抓到）。先夹到
+    /// `0...(total - 1)` 再 `+ 1`，两端都不会溢出。
+    /// `total == 0`（空 `items`）退化为「0 of 0」，不构造出不存在的第 1 步。
+    static func progressSummary(currentIndex: Int, total: Int) -> String {
+        guard total > 0 else { return Self.positionText(current: 0, total: 0) }
+        let step = min(max(currentIndex, 0), total - 1) + 1
+        return Self.positionText(current: step, total: total)
     }
 
     // MARK: - Indicator rendering
@@ -564,6 +614,23 @@ public struct Steps: View {
     }
 }
 
+/// `.segmentedBar` / `.text` 的错误态 `accessibilityValue` 挂载器（internal）。
+///
+/// ⚠️ 无错误步时**整个不挂载**，而不是挂一个空字符串 —— 后者会让 VoiceOver 在 label
+/// 之后读出一个空值停顿，且把「没有错误」和「有一个读不出名字的值」混为一谈。这与
+/// `applyStepAccessibility(_:index:)` 对逐步 value 的处理（`nil` 时走不挂载分支）同口径。
+private struct CollapsedErrorValue: ViewModifier {
+    let hasError: Bool
+
+    func body(content: Content) -> some View {
+        if let value = Steps.collapsedValueText(hasError: self.hasError) {
+            content.accessibilityValue(Text(verbatim: value))
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Steps — Light") {
@@ -630,6 +697,49 @@ private struct StepsPreviewGallery: View {
                 self.section(".tint(.orange) 覆盖") {
                     Steps(items: Self.basicItems, currentIndex: 2, axis: .horizontal, indicatorStyle: .dot)
                         .tint(.orange)
+                }
+
+                // MARK: `#60` 形态 D2 新增的三种呈现
+                // ⚠️ 本仓**无快照测试**，`#Preview` 是这些分支唯一的视觉冒烟通路
+                // （CLAUDE.md「`#Preview` 是组件的主要视觉冒烟检查方式」）——
+                // PR #206 review 指出新形态只有 `_ = body` 构造测试、预览仍只画默认形态，
+                // 于是布局回归在明暗两端都无人可见。以下逐形态 + 边界数据补齐。
+
+                self.section("分段条 · segmentedBar") {
+                    Steps(items: Self.basicItems, currentIndex: 2, presentation: .segmentedBar)
+                }
+
+                self.section("分段条 · 含错误态（红段 + VoiceOver 播报 Error）") {
+                    Steps(items: Self.errorItems, currentIndex: 2, presentation: .segmentedBar)
+                }
+
+                self.section("分段条 · 边界：currentIndex 越界为负") {
+                    Steps(items: Self.basicItems, currentIndex: -3, presentation: .segmentedBar)
+                }
+
+                self.section("导航式 · navigation · 横向") {
+                    Steps(items: Self.basicItems, currentIndex: 1, axis: .horizontal, presentation: .navigation)
+                }
+
+                self.section("导航式 · navigation · 纵向 · 含错误态") {
+                    Steps(items: Self.errorItems, currentIndex: 2, axis: .vertical, presentation: .navigation)
+                }
+
+                self.section("导航式 · .tint(.orange)（当前块底色须跟着变）") {
+                    Steps(items: Self.basicItems, currentIndex: 1, presentation: .navigation)
+                        .tint(.orange)
+                }
+
+                self.section("纯文本 · text") {
+                    Steps(items: Self.basicItems, currentIndex: 1, presentation: .text)
+                }
+
+                self.section("纯文本 · 边界：currentIndex == count（全部完成）") {
+                    Steps(items: Self.basicItems, currentIndex: Self.basicItems.count, presentation: .text)
+                }
+
+                self.section("纯文本 · 边界：空 items") {
+                    Steps(items: [], currentIndex: 0, presentation: .text)
                 }
             }
             .padding()

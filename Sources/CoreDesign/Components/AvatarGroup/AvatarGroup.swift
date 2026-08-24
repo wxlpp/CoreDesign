@@ -5,16 +5,8 @@
 
 import SwiftUI
 
-// MARK: - AvatarGroup
+// MARK: - AvatarGroupLayout
 
-/// **材质层**: 内容. **表面角色**: 内容.
-///
-/// 堆叠头像组。
-///
-/// **无玻璃**——靠 `CoreBorderWidth.thin` 细描边分隔堆叠的头像与溢出计数 pill。
-///
-/// 前 N 个 avatar 交叠显示，超出 `max` 的部分显示 "+N" 计数 pill。
-/// 使用 `Group(subviews:)` 遍历子视图。
 /// `AvatarGroup` 的**排布形态**——与 `avatars:` 槽**正交**：本枚举决定「这组头像怎么排」，
 /// `avatars:` 提供「排什么」。
 ///
@@ -41,6 +33,20 @@ public enum AvatarGroupLayout: Sendable, Equatable {
     case countOnly
 }
 
+// MARK: - AvatarGroup
+
+/// **材质层**: 内容. **表面角色**: 内容.
+///
+/// 堆叠头像组。
+///
+/// **无玻璃**——靠 `CoreBorderWidth.thin` 细描边分隔堆叠的头像与溢出计数 pill。
+///
+/// 前 N 个 avatar 交叠显示，超出 `max` 的部分显示 "+N" 计数 pill。
+/// 使用 `Group(subviews:)` 遍历子视图。
+///
+/// ⚠️ 上面这段组件说明**必须紧贴本 struct**：它原先写在 `AvatarGroupLayout` 的文档块
+/// 正上方且两块之间没有分隔，于是 Swift 把**整块**注释归给了那个枚举，`AvatarGroup`
+/// 自己反而没有组件级 DocC（PR #206 review 抓到）。改动本文件头部时别把两块又并回去。
 public struct AvatarGroup<Avatars: View>: View {
     let max: Int
     let layout: AvatarGroupLayout
@@ -185,28 +191,94 @@ enum AvatarGroupAccessibility {
     ///
     /// ⚠️ 与 `overflowLabel` 语义**不同**，不可复用：后者是「还有 N 个**没显示**」，
     /// 这里是「一共 N 个」。VoiceOver 读错会让用户以为还有更多头像被折叠。
+    ///
+    /// ⚠️ **单数走独立分支**：单一插值键会在 `count == 1` 时读出「1 avatars」
+    /// （PR #206 review 抓到）。本仓的本地化资源只有 `.strings`、没有 `.stringsdict`
+    /// 复数规则表，`String(localized:)` 拿不到 plural variant ⇒ 在 Swift 侧分支是当前
+    /// 唯一可行修法。真正的复数化随 `wxlpp/oh-my-story#49` 的 A 类文案迁移一并做。
     static func totalLabel(for count: Int) -> String {
-        String(localized: "\(count) avatars", bundle: .module)
+        count == 1
+            ? String(localized: "1 avatar", bundle: .module)
+            : String(localized: "\(count) avatars", bundle: .module)
     }
 }
 
 // MARK: - Preview
 
-#Preview {
-    VStack(spacing: 20) {
-        AvatarGroup {
-            Circle().fill(.blue).frame(width: 32, height: 32)
-            Circle().fill(.green).frame(width: 32, height: 32)
-            Circle().fill(.red).frame(width: 32, height: 32)
-            Circle().fill(.orange).frame(width: 32, height: 32)
-            Circle().fill(.purple).frame(width: 32, height: 32)
+#Preview("AvatarGroup — Light") {
+    AvatarGroupPreviewGallery()
+        .preferredColorScheme(.light)
+}
+
+#Preview("AvatarGroup — Dark") {
+    AvatarGroupPreviewGallery()
+        .preferredColorScheme(.dark)
+}
+
+/// ⚠️ 本仓**无快照测试**，`#Preview` 是这些分支唯一的视觉冒烟通路（CLAUDE.md
+/// 「`#Preview` 是组件的主要视觉冒烟检查方式」）—— PR #206 review 指出 `.spaced` /
+/// `.grid` / `.countOnly` 只有 storage/body 求值测试、预览仍只画默认 `.overlapped`，
+/// 于是尺寸、溢出与无障碍渲染在明暗两端都无人可见。以下逐形态 + 溢出边界补齐。
+private struct AvatarGroupPreviewGallery: View {
+    @ViewBuilder
+    private var sampleAvatars: some View {
+        Circle().fill(.blue).frame(width: 32, height: 32)
+        Circle().fill(.green).frame(width: 32, height: 32)
+        Circle().fill(.red).frame(width: 32, height: 32)
+        Circle().fill(.orange).frame(width: 32, height: 32)
+        Circle().fill(.purple).frame(width: 32, height: 32)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+                self.section("交叠 · overlapped（默认，max: 3 ⇒ 溢出 +2）") {
+                    AvatarGroup { self.sampleAvatars }
+                }
+
+                self.section("交叠 · 无溢出（max: 5）") {
+                    AvatarGroup(max: 5) { self.sampleAvatars }
+                }
+
+                self.section("并排 · spaced（max: 3 ⇒ 溢出 +2）") {
+                    AvatarGroup(max: 3, layout: .spaced) { self.sampleAvatars }
+                }
+
+                self.section("网格 · grid（max: 3 ⇒ 3 列 + 溢出徽标）") {
+                    AvatarGroup(max: 3, layout: .grid) { self.sampleAvatars }
+                }
+
+                self.section("网格 · 列数被内容数压低（max: 8、内容 5）") {
+                    AvatarGroup(max: 8, layout: .grid) { self.sampleAvatars }
+                }
+
+                self.section("纯计数 · countOnly（读作「一共 5 个」，max 不生效）") {
+                    AvatarGroup(max: 3, layout: .countOnly) { self.sampleAvatars }
+                }
+
+                self.section("纯计数 · 边界：单数（须读「1 avatar」而非「1 avatars」）") {
+                    AvatarGroup(layout: .countOnly) {
+                        Circle().fill(.blue).frame(width: 32, height: 32)
+                    }
+                }
+
+                self.section("小尺寸 · .controlSize(.small)") {
+                    AvatarGroup(max: 2, layout: .spaced) { self.sampleAvatars }
+                        .controlSize(.small)
+                }
+            }
+            .padding()
         }
-        AvatarGroup(max: 2) {
-            Circle().fill(.blue).frame(width: 24, height: 24)
-            Circle().fill(.green).frame(width: 24, height: 24)
-            Circle().fill(.red).frame(width: 24, height: 24)
+        .background(Color.surfaceCanvas)
+    }
+
+    @ViewBuilder
+    private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            Text(verbatim: title)
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSecondary)
+            content()
         }
     }
-    .padding()
-    .background(Color.surfaceCanvas)
 }

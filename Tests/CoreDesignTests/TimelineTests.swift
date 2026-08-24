@@ -199,4 +199,29 @@ struct TimelineTests {
             _ = Timeline(items: items, layout: layout).body
         }
     }
+
+    @MainActor
+    @Test("Timeline：.grouped 删掉节点列后，默认节点项的状态语义经 accessibilityValue 补回")
+    func timelineGroupedKeepsDefaultNodeStatusSemantics() {
+        // PR #206 review 抓到的无障碍回归：.grouped 不渲染节点列 ⇒ 默认圆点原本挂在自己
+        // 身上的 Info/Success/Warning/Error 标签一并消失，而 Timeline 的公共文档仍承诺
+        // 默认节点携带这些状态语义。视觉上「没有节点」是本形态的定义，状态信息不该跟着没。
+        let defaultNodeItem = TimelineItem(status: .danger) { Text(verbatim: "失败") }
+        #expect(defaultNodeItem.node == nil, "前提：这是默认节点项")
+        _ = Timeline.applyGroupedStatusValue(Text(verbatim: "失败"), item: defaultNodeItem)
+
+        // ⚠️ danger → "Error" 是非字面对应，锁住它（与 accessibilityLabelKey 那条同源）。
+        #expect(Timeline.accessibilityLabelKey(for: .danger) == "Error")
+        #expect(Timeline.accessibilityLabelKey(for: .info) == "Info")
+
+        // ⚠️ 传了 node: 的项**不补** —— 其无障碍语义由调用方在自己的节点视图里决定，
+        // 本形态既然不渲染那个节点，也就不该替调用方臆造一个状态播报。
+        let customNodeItem = TimelineItem(status: .danger) {
+            Circle()
+        } content: {
+            Text(verbatim: "失败")
+        }
+        #expect(customNodeItem.node != nil, "前提：这是自定义节点项")
+        _ = Timeline.applyGroupedStatusValue(Text(verbatim: "失败"), item: customNodeItem)
+    }
 }

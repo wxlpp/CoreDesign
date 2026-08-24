@@ -203,11 +203,63 @@ struct StepsTests {
     func stepsTextPresentationCollapsesItems() {
         // ⚠️ 这正是判定时把该候选判为「**槽**」（N 个槽塌成 1 个）的依据：逐条标题不被渲染。
         // 两组 items 标题完全不同但条数相同 ⇒ .text 呈现下应产出同一段文案。
+        //
+        // ⚠️ 断言打在 `progressSummary(currentIndex:total:)` 这个**真实产出**上，而不是
+        // `sa.items.count == sb.items.count` 那种构造后立即为真的恒等式（PR #206 review
+        // 抓到原写法：`textBody` 改成渲染每条标题、或干脆忽略 `currentIndex`，那两条断言
+        // 照样全绿 —— 它保护不了任何被文档承诺的行为）。`.text` 呈现的**全部**可观察产出
+        // 就是这一个字符串，所以锁住它就等于锁住了这个形态。
         let a = [StepItem(title: "Cart"), StepItem(title: "Shipping")]
         let b = [StepItem(title: "完全不同"), StepItem(title: "的标题")]
-        let sa = Steps(items: a, currentIndex: 0, presentation: .text)
-        let sb = Steps(items: b, currentIndex: 0, presentation: .text)
-        #expect(sa.items.count == sb.items.count)
-        #expect(sa.presentation == sb.presentation)
+        let summaryA = Steps.progressSummary(currentIndex: 0, total: a.count)
+        let summaryB = Steps.progressSummary(currentIndex: 0, total: b.count)
+        #expect(summaryA == summaryB, "逐条标题不同但条数相同 ⇒ .text 产出必须逐字一致")
+        #expect(summaryA == Steps.positionText(current: 1, total: 2),
+                "实际产出 \(summaryA) —— .text 的文案必须复用已登记键 \"%@ of %@\"")
+
+        // 同一组 items、不同 currentIndex ⇒ 产出必须变化（证明 currentIndex 真被消费）。
+        #expect(Steps.progressSummary(currentIndex: 0, total: a.count)
+                != Steps.progressSummary(currentIndex: 1, total: a.count))
+    }
+
+    @Test("Steps.progressSummary：越界 currentIndex 被夹进 1...total，且不溢出")
+    func stepsProgressSummaryClampsOutOfRangeIndex() {
+        // `init` 文档明说存储层不 clamp、允许传越界值（`items.count` = 全部完成、乃至负数），
+        // 但**显示序号**必须落在 1...total。PR #206 review 抓到原写法两处越界：
+        // 负索引读成「-3 of 3」、`Int.max` 上 `currentIndex + 1` 直接 trap。
+        #expect(Steps.progressSummary(currentIndex: -4, total: 3) == Steps.positionText(current: 1, total: 3))
+        #expect(Steps.progressSummary(currentIndex: 0, total: 3) == Steps.positionText(current: 1, total: 3))
+        #expect(Steps.progressSummary(currentIndex: 2, total: 3) == Steps.positionText(current: 3, total: 3))
+        // currentIndex == count（`init` 文档明列的「全部完成」用法）
+        #expect(Steps.progressSummary(currentIndex: 3, total: 3) == Steps.positionText(current: 3, total: 3))
+        // ⚠️ 这一条是**反溢出**断言：裸 `currentIndex + 1` 在此处 trap，测试会崩而非失败。
+        #expect(Steps.progressSummary(currentIndex: .max, total: 3) == Steps.positionText(current: 3, total: 3))
+        #expect(Steps.progressSummary(currentIndex: .min, total: 3) == Steps.positionText(current: 1, total: 3))
+        // 空 items 退化：不构造出不存在的第 1 步。
+        #expect(Steps.progressSummary(currentIndex: 0, total: 0) == Steps.positionText(current: 0, total: 0))
+    }
+
+    @Test("Steps：.segmentedBar / .text 塌成单 element 后，错误态仍经 accessibilityValue 播报")
+    func stepsCollapsedPresentationsKeepErrorSemantics() {
+        // PR #206 review 抓到的无障碍回归：这两种呈现 `.accessibilityElement(children: .ignore)`
+        // 后只留一个装 progressText 的 label，`StepItem.isError` 对 VoiceOver 完全消失。
+        #expect(Steps.collapsedValueText(hasError: false) == nil,
+                "无错误步 ⇒ 不挂 accessibilityValue，避免播报空值")
+        #expect(Steps.collapsedValueText(hasError: true) == String(localized: "Error", bundle: .module))
+        // ⚠️ 复用 `applyStepAccessibility` 通路的**同一个**已登记键，不另造新文案 ——
+        // 同一组数据在四种呈现下 VoiceOver 用词不该分裂。
+        #expect(Steps.collapsedValueText(hasError: true)
+                == Steps.accessibilityValueText(index: 0, currentIndex: 1, total: 3, isError: true))
+    }
+
+    @Test("Steps：.segmentedBar 的每段对应它自己那一步，不跟着前一步走")
+    func stepsSegmentedBarSegmentTracksItsOwnStep() {
+        // PR #206 review 抓到的错位：原实现在 index > 0 时取 `index - 1` 的完成态，于是
+        // `currentIndex == 1` 时未完成的第 1 段会因第 0 步已完成而被填充，与「已完成的段
+        // 填充」的文档承诺矛盾。取色本身是 ShapeStyle、不可直接断言，故锁住它依赖的
+        // 那个纯函数：段 index 的填充判据必须是 `progress(for: index) == .done`。
+        #expect(Steps.progress(for: 0, currentIndex: 1) == .done, "第 0 步已完成 ⇒ 第 0 段填充")
+        #expect(Steps.progress(for: 1, currentIndex: 1) == .current, "第 1 步是当前步 ⇒ 第 1 段不填充")
+        #expect(Steps.progress(for: 2, currentIndex: 1) == .pending)
     }
 }

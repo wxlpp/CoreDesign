@@ -26,7 +26,25 @@ vertical timeline: node + connecting line + trailing content.
 
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| items | [TimelineItem] | - | 时间线节点数据，按数组顺序纵向排列 |
+| items | [TimelineItem] | - | 时间线节点数据，按数组顺序排列 |
+| layout | TimelineLayout | .vertical | 整体排布形态，见下表。默认 `.vertical` = 现状形态 ⇒ 现有调用方零影响 |
+
+### `TimelineLayout`（`#60` 形态 D2「配置枚举」）
+
+决定「这组节点怎么**排**」，与 `TimelineItem.node:` 外观槽（「单个节点画成什么」）**正交**
+——槽管单节点画法，够不着容器级排布。
+
+| case | 说明 | 业界来源 |
+|---|---|---|
+| `.vertical` | 默认：左侧固定节点列 + 右侧内容，节点间竖向连线（现状形态） | —— |
+| `.alternate` | 左右交替：节点恒在**中轴**，内容按索引奇偶在两侧交替 | Ant Design Timeline `mode="alternate"` |
+| `.horizontal` | 横向：节点沿水平轴排列，内容在节点下方（可横向滚动） | PowerPoint SmartArt Basic Timeline / Final Cut Pro 横向事件线 |
+| `.grouped` | 无连线的分组列表：删掉节点列与连线，只留内容 | Apple 邮件 / 信息的日期分组、GitHub 活动流 |
+
+⚠️ **正交性的代价**（有意的静默，传了不生效**不报错**）：`.grouped` 不渲染节点列 ⇒
+`TimelineItem.node:` 槽**不生效**。存储层原样保留 `node`，切回其余布局时不丢配置。
+⚠️ `.horizontal` **不画节点间连线**——竖向连线的实现依赖「节点在上、内容在下」的纵向几何，
+换轴后那套 padding 计算不成立；横向连线属独立形态，本轮不引入。
 
 ## 预览 / Preview
 
@@ -69,6 +87,17 @@ Timeline(items: [
 > 可变状态驱动（增删节点），调用方应显式传入稳定 `id`，否则每次视图刷新重建
 > `TimelineItem` 会产生新 identity，引发不必要的插入/删除动画。
 
+```swift
+// 左右交替：节点恒在中轴，内容按索引奇偶换边
+Timeline(items: items, layout: .alternate)
+
+// 横向：节点沿水平轴排列，内容在节点下方（无连线，可横向滚动）
+Timeline(items: items, layout: .horizontal)
+
+// 分组列表：删掉节点列与连线，只留内容（node: 槽在此形态下不生效）
+Timeline(items: items, layout: .grouped)
+```
+
 ## 布局
 
 每行是 `HStack(alignment: .top)`：左侧固定 `24×24pt` 的节点方框（默认圆点或自定义
@@ -79,6 +108,12 @@ Timeline(items: [
 `Rectangle().frame(maxHeight: .infinity)` 能正确撑到「本行实际高度」，不受
 `VStack`/`ScrollView` 这类按内容 hug 高度的祖先容器影响。最后一条节点不渲染连线（用
 `id` 而非位置索引判定，见 `Timeline.isLastItem(_:in:)`）。
+
+`.alternate` 走**另一套几何**：`弹性左槽 | 固定节点列 | 弹性右槽`（`TimelineAlternateRowView`）。
+节点列的水平位置与索引奇偶**无关** —— 内容只是换边占用左槽或右槽，另一侧留等宽空槽。
+因此中轴（节点中心）在所有行之间是同一条竖线，连线随之居中即可与所有节点对齐。
+⚠️ 这不是给 `.vertical` 的两列行传一个 alignment 就能得到的：那样只会把节点挪到行尾，
+而连线仍钉在 `.topLeading`，两者各画各的。
 
 ## 视觉 Token
 
@@ -101,6 +136,12 @@ Timeline(items: [
   .module)` 消费。
 - **自定义 `node` 不叠加该 label**——自定义内容可能自带其他语义（例如头像 + 姓名），由
   调用方自行决定 accessibility 表达，本组件不代为覆盖。
+- **`.grouped` 下补回状态语义**：该形态不渲染节点列，默认圆点原本挂在自己身上的
+  `Info`/`Success`/`Warning`/`Error` 标签会随之消失。故对**无自定义 `node`** 的项，把同一
+  个已登记键挂到 content 的 `accessibilityValue` 上（`Timeline.applyGroupedStatusValue(_:item:)`）
+  ——用 `accessibilityValue` 而非 `accessibilityLabel`，避免覆盖调用方 content 自身的语义。
+  传了 `node:` 的项**不补**：其无障碍表达由调用方决定，本形态既然不渲染那个节点，也就不
+  替调用方臆造状态播报。
 - 节点右侧 `content` 的 accessibility 语义完全由调用方内容自身决定（`Timeline` 不对其
   做 `.accessibilityElement(children: .combine)` 合并），保证 content 内若含多个可交互
   元素（如按钮）时 VoiceOver 仍能逐一定位。

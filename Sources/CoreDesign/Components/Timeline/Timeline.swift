@@ -77,7 +77,7 @@ public struct TimelineItem: Identifiable {
 /// 本枚举决定「这组节点怎么排」，`node:` 决定「单个节点画成什么」。
 ///
 /// 判定依据：`docs/component-contract.md` §2 形态 **D2（配置枚举）**。⚠️ **为什么不是 D1**：
-/// `TimelineItem.node:` 确是**真外观槽**（有默认画法 `TimelineRowView.nodeView`、替换的是
+/// `TimelineItem.node:` 确是**真外观槽**（有默认画法 `TimelineNodeView`、替换的是
 /// 组件的视觉主张），但它管的是**单个节点的画法**，而下面三个候选是**容器级排布**
 /// （左右交替 / 换轴 / 删掉整个节点列）—— 槽**够不着**容器。⇒ D1 不完整成立。
 ///
@@ -187,14 +187,21 @@ public struct Timeline: View {
         }
     }
 
-    /// `.alternate`：内容在中轴两侧交替 —— 偶数索引在左、奇数在右。
+    /// `.alternate`：内容在**中轴**两侧交替 —— 偶数索引在左、奇数在右。
+    ///
+    /// ⚠️ 走**独立的居中三列行**（`TimelineAlternateRowView`）而不是给 `TimelineRowView`
+    /// 传一个 `alignment`：后者是「节点列在最左 + 内容在右」的两列几何，它的连线画在
+    /// `.background(alignment: .topLeading)` 并按 `nodeColumnWidth` 做 leading padding。
+    /// 把内容换到左侧只会让**节点跑到行尾、连线仍留在最左**，两者各画各的、中轴根本不存在
+    /// （PR #206 review 抓到）。交替形态的定义就是「节点恒在中轴、内容左右换边」⇒ 几何上
+    /// 必须是「弹性左槽 | 固定节点列 | 弹性右槽」，节点列的水平位置与索引奇偶无关。
     private var alternateBody: some View {
         VStack(spacing: CoreSpacing.none) {
             ForEach(Array(self.items.enumerated()), id: \.element.id) { index, item in
-                TimelineRowView(
+                TimelineAlternateRowView(
                     item: item,
                     isLast: Self.isLastItem(item, in: self.items),
-                    alignment: index.isMultiple(of: 2) ? .leading : .trailing
+                    contentSide: index.isMultiple(of: 2) ? .leading : .trailing
                 )
             }
         }
@@ -225,9 +232,34 @@ public struct Timeline: View {
     private var groupedBody: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.md) {
             ForEach(self.items) { item in
-                item.content
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                Self.applyGroupedStatusValue(
+                    item.content
+                        .frame(maxWidth: .infinity, alignment: .leading),
+                    item: item
+                )
             }
+        }
+    }
+
+    /// `.grouped` 下把默认节点携带的状态语义补回给内容。
+    ///
+    /// ⚠️ PR #206 review 抓到的无障碍回归：本形态不渲染节点列，于是**默认圆点**原本挂在
+    /// 自己身上的 `Info` / `Success` / `Warning` / `Error` 标签一并消失 —— 而 `Timeline`
+    /// 的公共文档仍承诺默认节点携带这些状态语义。视觉上「没有节点」是本形态的定义，
+    /// 状态信息却不该跟着消失。
+    ///
+    /// ⚠️ 用 `accessibilityValue` 而**不是** `accessibilityLabel`：label 是调用方 `content`
+    /// 自己的语义，覆盖它会吞掉真正要读的内容。
+    /// ⚠️ 只对**无自定义节点**的项补 —— 传了 `node:` 的项，其无障碍语义由调用方在自己的
+    /// 节点视图里决定，本形态既然不渲染那个节点，也就不该替调用方臆造一个状态播报。
+    @ViewBuilder
+    static func applyGroupedStatusValue(_ content: some View, item: TimelineItem) -> some View {
+        if item.node == nil {
+            content.accessibilityValue(
+                Text(LocalizedStringKey(Self.accessibilityLabelKey(for: item.status)), bundle: .module)
+            )
+        } else {
+            content
         }
     }
 
@@ -298,41 +330,89 @@ struct TimelineNodeView: View {
 }
 
 /// 单条时间线行（internal）：节点方框 + 连线（背景）+ content。
+///
+/// ⚠️ 本视图的几何是**「节点列在最左 + 内容在右」的两列**，连线随之钉死在
+/// `.topLeading`。`.alternate` 需要的是「节点恒在中轴」，那是另一套几何 ⇒ 由
+/// `TimelineAlternateRowView` 承担，不要给本视图加 `alignment` 参数把节点挪到行尾
+/// （连线不会跟着走，PR #206 review 抓到过这个形态）。
 private struct TimelineRowView: View {
     let item: TimelineItem
     let isLast: Bool
-    /// 内容相对中轴的一侧 —— `.alternate` 布局按索引奇偶交替传入；其余布局恒为 `.leading`。
-    var alignment: HorizontalAlignment = .leading
 
     var body: some View {
         HStack(alignment: .top, spacing: CoreSpacing.md) {
-            if self.alignment == .trailing {
-                self.item.content
-                    .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+            TimelineNodeView(item: self.item)
+                .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
+
+            self.item.content
+                .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(alignment: .topLeading) {
+            if !self.isLast {
+                TimelineConnector()
+                    // 水平居中于最左侧的节点方框。
+                    .padding(.leading, (Timeline.nodeColumnWidth - CoreBorderWidth.thin) / 2)
             }
+        }
+    }
+}
+
+/// `.alternate` 的单行（internal）：**弹性左槽 | 固定节点列 | 弹性右槽**。
+///
+/// 节点列的水平位置与索引奇偶**无关** —— 三列宽度分配固定，内容只是换边占用左槽或右槽，
+/// 另一侧留空。因此中轴（节点中心）在整列行之间是**同一条竖线**，连线随之居中即可与所有
+/// 节点对齐。这正是 `TimelineRowView` 的两列几何做不到的（PR #206 review 抓到：给它传
+/// `alignment` 只把节点挪到行尾，连线仍留在最左，两者各画各的）。
+private struct TimelineAlternateRowView: View {
+    let item: TimelineItem
+    let isLast: Bool
+    /// 本行内容占左槽还是右槽。节点列不受它影响。
+    let contentSide: HorizontalEdge
+
+    var body: some View {
+        HStack(alignment: .top, spacing: CoreSpacing.md) {
+            self.slot(.leading)
 
             TimelineNodeView(item: self.item)
                 .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
 
-            if self.alignment == .leading {
-                self.item.content
-                    .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            self.slot(.trailing)
         }
-        .background(alignment: .topLeading) {
+        // 连线居中于**整行**——与节点列在三列布局中的居中位置重合。
+        .background(alignment: .top) {
             if !self.isLast {
-                Rectangle()
-                    .fill(Color.dividerDefault)
-                    .frame(width: CoreBorderWidth.thin)
-                    .frame(maxHeight: .infinity)
-                    // 起点落在节点方框底部——见 `Timeline` doc comment「布局」一节。
-                    .padding(.top, Timeline.nodeColumnWidth)
-                    // 水平居中于节点方框。
-                    .padding(.leading, (Timeline.nodeColumnWidth - CoreBorderWidth.thin) / 2)
+                TimelineConnector()
             }
         }
+    }
+
+    /// 一侧的内容槽：本行内容归属该侧时渲染内容，否则渲染等宽空槽以维持三列几何。
+    @ViewBuilder
+    private func slot(_ side: HorizontalEdge) -> some View {
+        if side == self.contentSide {
+            self.item.content
+                .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
+                .frame(maxWidth: .infinity, alignment: side == .leading ? .trailing : .leading)
+        } else {
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 0)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// 节点之间的竖向连线（internal）—— `.vertical` 与 `.alternate` 共用同一段画法，
+/// 两处各写一份会让「改了粗细/起点只改到一半」这类偏差无声发生。
+private struct TimelineConnector: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.dividerDefault)
+            .frame(width: CoreBorderWidth.thin)
+            .frame(maxHeight: .infinity)
+            // 起点落在节点方框底部——见 `Timeline` doc comment「布局」一节。
+            .padding(.top, Timeline.nodeColumnWidth)
     }
 }
 
@@ -415,9 +495,64 @@ private struct TimelinePreviewGallery: View {
                         },
                     ])
                 }
+
+                // MARK: `#60` 形态 D2 新增的三种排布
+                // ⚠️ 本仓**无快照测试**，`#Preview` 是这些分支唯一的视觉冒烟通路
+                // （CLAUDE.md「`#Preview` 是组件的主要视觉冒烟检查方式」）——
+                // PR #206 review 指出新排布只有 storage/body 求值测试、预览仍只画默认
+                // `.vertical`，交替轴线是否真的对齐、分组项的状态播报是否还在，都无人可见。
+
+                self.section("交替 · alternate（节点须在**同一条中轴**上，连线贯穿）") {
+                    Timeline(items: Self.statusItems, layout: .alternate)
+                }
+
+                self.section("交替 · 单条（无连线）") {
+                    Timeline(items: [Self.statusItems[0]], layout: .alternate)
+                }
+
+                self.section("横向 · horizontal（可横向滚动，无连线）") {
+                    Timeline(items: Self.statusItems, layout: .horizontal)
+                }
+
+                self.section("分组 · grouped（无节点列；默认节点项仍播报状态）") {
+                    Timeline(items: Self.statusItems, layout: .grouped)
+                }
+
+                self.section("分组 · 自定义节点项（状态播报交还调用方，不臆造）") {
+                    Timeline(
+                        items: [
+                            TimelineItem(status: .success) {
+                                Image(systemName: "checkmark.circle.fill")
+                            } content: {
+                                Text("订单已发货").coreFont(.callout)
+                            },
+                        ],
+                        layout: .grouped
+                    )
+                }
             }
             .padding()
         }
         .background(Color.surfaceCanvas)
+    }
+
+    /// 四种排布共用的一组样本 —— 同一份数据换 `layout`，差异才归因于排布本身。
+    private static var statusItems: [TimelineItem] {
+        [
+            TimelineItem(status: .info) { Text("已创建").coreFont(.callout) },
+            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
+            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
+            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
+        ]
+    }
+
+    @ViewBuilder
+    private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            Text(verbatim: title)
+                .coreFont(.footnote)
+                .foregroundStyle(.secondary)
+            content()
+        }
     }
 }

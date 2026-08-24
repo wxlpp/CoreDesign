@@ -5,27 +5,8 @@
 
 import SwiftUI
 
-// MARK: - SpinningModifier
+// MARK: - SpinningPresentation
 
-/// 为任意内容整体叠加一层加载遮罩（吸收 Semi Design `Spin` 能力，Issue #172）。
-///
-/// `isActive == true` 时：底层内容对交互与 VoiceOver 都不可达
-/// （`.allowsHitTesting(false)` + `.accessibilityHidden(true)`），上覆半透明
-/// `.regularMaterial` 遮罩 + 居中的 `ProgressIndicator`（`text` 非 nil 时带文案）。
-/// `isActive == false` 时内容原样渲染——遮罩视图整体条件渲染，不常驻空遮罩。
-///
-/// **不直接包装系统 `ProgressView`**——遮罩内的 loading 视觉复用已经处理好
-/// tint 的 `ProgressIndicator` 组件（本 Issue 第一部分产出），因此本文件**不落入**
-/// `ProgressIndicator.swift` 的 FR-3a 例外范围：本文件若需要强调色，须正常走
-/// `.tint`（当前实现无此需求）。
-///
-/// ```swift
-/// ContentView()
-///     .spinning(viewModel.isLoading)
-///
-/// ContentView()
-///     .spinning(viewModel.isLoading, text: "Refreshing…")
-/// ```
 /// `spinning` 的**呈现形态**。
 ///
 /// 判定依据：`docs/component-contract.md` §2 形态 **D2（配置枚举）**。⚠️ **D1 事实上不可用**：
@@ -46,6 +27,40 @@ public enum SpinningPresentation: Sendable, Equatable {
     case inline
 }
 
+// MARK: - SpinningModifier
+
+/// 为任意内容叠加加载指示（吸收 Semi Design `Spin` 能力，Issue #172）。
+///
+/// ⚠️ 上面这段组件说明**必须紧贴本 struct**：它原先写在 `SpinningPresentation` 的文档块
+/// 正上方且两块之间没有分隔，于是 Swift 把**整块**注释归给了那个枚举，`SpinningModifier`
+/// 自己反而没有组件级 DocC（PR #206 review 抓到）。改动本文件头部时别把两块又并回去。
+///
+/// **交互与无障碍契约按 `presentation` 分岔**（`#60` 引入 `.topBar` / `.inline` 后不再
+/// 全局成立，PR #206 review 抓到原文档把 `.overlay` 的阻塞语义写成了整个 modifier 的）：
+///
+/// - `.overlay`（默认）：`isActive == true` 时底层内容对交互与 VoiceOver **都不可达**
+///   （`.allowsHitTesting(false)` + `.accessibilityHidden(true)`），上覆半透明
+///   `.regularMaterial` 遮罩 + 居中的 `ProgressIndicator`（`text` 非 nil 时带文案）。
+///   `isActive == false` 时内容原样渲染——遮罩视图整体条件渲染，不常驻空遮罩。
+/// - `.topBar` / `.inline`：**非阻塞**。底层内容始终可交互、对 VoiceOver 始终可达；
+///   激活时只在顶边加一条细进度条 / 在行内追加一个指示器。表达的是「后台正在加载、
+///   内容仍可用」，而不是「此刻不可操作」。
+///
+/// **不直接包装系统 `ProgressView`**——遮罩内的 loading 视觉复用已经处理好
+/// tint 的 `ProgressIndicator` 组件（本 Issue 第一部分产出），因此本文件**不落入**
+/// `ProgressIndicator.swift` 的 FR-3a 例外范围：本文件若需要强调色，须正常走
+/// `.tint`（当前实现无此需求）。
+///
+/// ```swift
+/// ContentView()
+///     .spinning(viewModel.isLoading)
+///
+/// ContentView()
+///     .spinning(viewModel.isLoading, text: "Refreshing…")
+///
+/// ContentView()
+///     .spinning(viewModel.isLoading, presentation: .topBar)
+/// ```
 public struct SpinningModifier: ViewModifier {
     public let isActive: Bool
     public let text: LocalizedStringKey?
@@ -95,6 +110,13 @@ public struct SpinningModifier: ViewModifier {
     /// `.inline`：原位行内指示器，**不铺遮罩**。
     ///
     /// ⚠️ 同 `.topBar`：非阻塞形态，不禁用交互。
+    ///
+    /// ⚠️ **`HStack` 常驻，`isActive == false` 时也包着内容** —— 这是有意的，不是漏改
+    /// （PR #206 review 提出改为「非激活直接返回 `content`」）。改成 `if/else` 两个分支后，
+    /// `isActive` 每次翻转都会换掉 `content` 的**视图身份**，SwiftUI 随之销毁重建被修饰的
+    /// 整棵子树：`@State` 清零、输入焦点丢失、进行中的动画被打断。代价远大于「多包一层
+    /// 单子视图 `HStack`」带来的对齐差异（单子视图的 `HStack` 把收到的 proposal 原样转交，
+    /// 只有垂直对齐基准从容器默认变为 `.center`）。⇒ 记在文档里，不改结构。
     private func inlineBody(_ content: Content) -> some View {
         HStack(spacing: CoreSpacing.sm) {
             content
@@ -196,6 +218,31 @@ private struct SpinningModifierPreviewGallery: View {
                     .foregroundStyle(Color.contentSecondary)
                 self.card
                     .spinning(true, text: "Refreshing…")
+            }
+
+            // MARK: `#60` 形态 D2 新增的两种呈现
+            // ⚠️ 本仓**无快照测试**，`#Preview` 是这两个分支唯一的视觉冒烟通路
+            // （CLAUDE.md「`#Preview` 是组件的主要视觉冒烟检查方式」）——
+            // PR #206 review 指出新形态既无渲染测试、预览又只画默认 `.overlay`，
+            // 于是「非阻塞」这一核心语义（内容仍可点、顶条/行内指示器位置）无人可见。
+
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(".topBar（顶边细条，内容不被遮罩、仍可交互）")
+                    .coreFont(.footnote)
+                    .foregroundStyle(Color.contentSecondary)
+                self.card
+                    .spinning(true, presentation: .topBar)
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(".inline（行内指示器；非激活时 HStack 常驻，几何不跳变）")
+                    .coreFont(.footnote)
+                    .foregroundStyle(Color.contentSecondary)
+                HStack(spacing: CoreSpacing.lg) {
+                    Text("保存中").coreFont(.callout).spinning(true, presentation: .inline)
+                    Text("已保存").coreFont(.callout).spinning(false, presentation: .inline)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding()
