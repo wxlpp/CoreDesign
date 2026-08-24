@@ -119,6 +119,10 @@ public struct AvatarGroup<Avatars: View>: View {
     private func gridBody(
         visible: SubviewsCollection.SubSequence, overflow: Int
     ) -> some View {
+        // ⚠️ `.fixedSize(horizontal:)` 在下方 —— `LazyVGrid` 会接受被提议的**全部**宽度并把
+        // `.fixed` 列按 `alignment`（缺省 `.center`）摆在中间，于是 `.grid` 会横跨整行并居中，
+        // 而 `.overlapped` / `.spaced` 走 `HStack` 是贴合内容的。同一组件四种形态的对齐行为
+        // 不该分裂（PR #206 第 2 轮 review 抓到）。
         let columns = Swift.max(1, Swift.min(self.max, visible.count))
         LazyVGrid(
             columns: Array(repeating: GridItem(.fixed(self.avatarSize), spacing: CoreSpacing.xxs), count: columns),
@@ -131,6 +135,7 @@ public struct AvatarGroup<Avatars: View>: View {
                 self.overflowBadge(overflow)
             }
         }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     /// `.countOnly`：N 个头像塌成一个总数徽标。
@@ -192,14 +197,18 @@ enum AvatarGroupAccessibility {
     /// ⚠️ 与 `overflowLabel` 语义**不同**，不可复用：后者是「还有 N 个**没显示**」，
     /// 这里是「一共 N 个」。VoiceOver 读错会让用户以为还有更多头像被折叠。
     ///
-    /// ⚠️ **单数走独立分支**：单一插值键会在 `count == 1` 时读出「1 avatars」
-    /// （PR #206 review 抓到）。本仓的本地化资源只有 `.strings`、没有 `.stringsdict`
-    /// 复数规则表，`String(localized:)` 拿不到 plural variant ⇒ 在 Swift 侧分支是当前
-    /// 唯一可行修法。真正的复数化随 `wxlpp/oh-my-story#49` 的 A 类文案迁移一并做。
+    /// ⚠️ **复数走 `.stringsdict` 规则表**，键 `%lld avatars`（`one` / `other`），与上方
+    /// `overflowLabel` 消费的 `%lld more avatars` 同一机制。注册守卫在
+    /// `SharedFoundationTests` 的复数键块。
+    ///
+    /// ⚠️ 本条修过两次，第一次修错了，记在这里防第三次：Copilot 抓到 `count == 1` 会读出
+    /// 「1 avatars」是对的，但当时的修法是在 Swift 侧写 `count == 1 ? "1 avatar" : ...`
+    /// **两个新字面键**，理由写成「本仓没有 `.stringsdict`」—— 该文件一直都在，就在本函数
+    /// 上方三行的 `overflowLabel` 脚下。那两个键谁都没注册，`String(localized:bundle:)`
+    /// 静默 fallback 到 key 自身，英文下看着对、换语言整条不翻译，正是本 PR 自己在
+    /// `Steps.progressSummary` 处写下的那个陷阱。⇒ 收回单键、走规则表。
     static func totalLabel(for count: Int) -> String {
-        count == 1
-            ? String(localized: "1 avatar", bundle: .module)
-            : String(localized: "\(count) avatars", bundle: .module)
+        String(localized: "\(count) avatars", bundle: .module)
     }
 }
 

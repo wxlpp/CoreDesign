@@ -95,12 +95,14 @@ public struct SpinningModifier: ViewModifier {
     /// ⚠️ **不禁用底层交互、不隐藏无障碍** —— 这正是它与 `.overlay` 的语义差别：顶条表达
     /// 「后台正在加载」，内容仍可用；遮罩表达「此刻不可操作」。若照抄 `.overlay` 的
     /// `allowsHitTesting(false)`，就把一个非阻塞形态做成了阻塞形态。
+    ///
+    /// ⚠️ 顶条由 `TopBarIndicator` **自绘**，不用 `ProgressView().progressViewStyle(.linear)`
+    /// —— 详见该类型的文档，那里记着为什么（PR #206 第 2 轮 review 抓到）。
     private func topBarBody(_ content: Content) -> some View {
         content
             .overlay(alignment: .top) {
                 if self.isActive {
-                    ProgressView()
-                        .progressViewStyle(.linear)
+                    TopBarIndicator()
                         .transition(.opacity)
                 }
             }
@@ -162,6 +164,59 @@ public struct SpinningModifier: ViewModifier {
         } else {
             ProgressIndicator()
         }
+    }
+}
+
+/// `.topBar` 的顶边细进度条（internal）：一条 `.tint` 色的短条在顶边循环扫过。
+///
+/// ⚠️ **自绘而不是 `ProgressView().progressViewStyle(.linear)`**，三条理由
+/// （PR #206 第 2 轮 review 抓到，上一版就是那样写的）：
+///
+/// 1. **它会推翻本文件与 epic 的明文决议**。`SpinningModifier` 的类型文档、
+///    `docs/components/spinning.md` 的「FR-3a 例外范围说明」、
+///    `.claude/epics/archived/semi-mobile-components/172.md` 三处都写着「本文件**不**直接
+///    包装系统 `ProgressView`，因此**不落入** `ProgressIndicator` 的 FR-3a 例外范围」。
+///    包一个进来，这三处当场失真。
+/// 2. **会让同一个 API 的两个形态对 `.tint` 的响应分裂**。FR-3a 的成因正是「包装系统
+///    `ProgressView` 时 `.tint(_:)` 的重载解析落到 SwiftUI 环境 accent 而非本库 accent」；
+///    `.overlay` 走 `ProgressIndicator`（其内显式 `.tint(Color.accent)`）。于是
+///    `.spinning(true, presentation: .topBar).tint(.orange)` 变橙、`.overlay` 不变 —— 同一
+///    modifier 的两个形态行为不一致，且无人定案。
+/// 3. **`.linear` 的不确定态渲染是未定案行为**。`ProgressView()` 无 `value` 即不确定态，
+///    而本仓自己的 `CoreProgressViewStyle` 在不确定态是**退回系统环形 spinner** 的
+///    （见该文件文档）—— 说明「线性 + 不确定」这个组合在本仓没有确定的视觉答案。押在它
+///    身上，还恰好落在 `swift test` 照不到的 iOS 渲染腿上。
+///
+/// ⚠️ **自带 `accessibilityLabel`**：裸 `ProgressView()` 不带任何无障碍标签，切到
+/// `.topBar` 后读屏用户对「开始加载 / 加载结束」拿不到任何信号 —— 而 `.overlay` 走的
+/// `ProgressIndicator` 是自带 `"Loading"` 语义的。键 `"Loading"` 已在
+/// `Localizable.strings` 注册，这里复用同一个，不另造文案。
+private struct TopBarIndicator: View {
+    /// 扫过的亮条占轨道宽度的比例。
+    private static let barWidthRatio: CGFloat = 0.3
+    private static let period: TimeInterval = 1.1
+
+    @State private var sweeping = false
+
+    var body: some View {
+        GeometryReader { proxy in
+            let barWidth = proxy.size.width * Self.barWidthRatio
+            CoreShape.rounded(CoreRadius.small)
+                // ⚠️ `.tint` 不写死 `Color.accent`（FR-12 / ADR-3）—— 与 `.overlay` 形态
+                // 经 `ProgressIndicator` 得到的强调色通路保持一致。
+                .fill(.tint)
+                .frame(width: barWidth)
+                .offset(x: self.sweeping ? proxy.size.width : -barWidth)
+                .animation(
+                    .linear(duration: Self.period).repeatForever(autoreverses: false),
+                    value: self.sweeping
+                )
+        }
+        .frame(height: CoreSpacing.xxs)
+        .clipped()
+        .onAppear { self.sweeping = true }
+        .accessibilityElement()
+        .accessibilityLabel(Text("Loading", bundle: .module))
     }
 }
 

@@ -285,6 +285,14 @@ public struct Steps: View {
 
     /// `.segmentedBar`：N 个离散位置塌成一条连续条，每段对应一步、已完成的段填充。
     ///
+    /// ⚠️ **段与文案表达的是两件事，不是同一件事的两种写法**（PR #206 第 2 轮 review 要求
+    /// 定案）：段填充判据是 `index < currentIndex`（**已完成**几步），caption / 无障碍
+    /// 文案是 `currentIndex + 1`（**当前在**第几步）。所以 `currentIndex == 2, count == 4`
+    /// 时是「2 段填充 + 读 3 of 4」—— 已完成 2 步、正在第 3 步，二者同时为真，互补而非矛盾。
+    /// 采用这个口径而不是让文案跟着填充数走，是为了与 `.steps` / `.navigation` 逐步播报的
+    /// 「2 of 4」（`positionText`，也是 1-based 当前步）**逐字一致**：同一组数据换个
+    /// `presentation`，VoiceOver 的读法不该变。
+    ///
     /// ⚠️ 取色复用 `connectorFill(after:)` 的同一套决策（done 走 `.tint`、其余走
     /// `Color.dividerDefault`），使四种呈现的「完成/未完成」语义在视觉上一致。
     /// ⚠️ 段高取 `CoreSpacing.xs` 而非连线的 `CoreBorderWidth.thick` —— 这里是**进度条**
@@ -305,15 +313,37 @@ public struct Steps: View {
         .modifier(CollapsedErrorValue(hasError: self.hasErrorStep))
     }
 
-    /// `.segmentedBar` 的单段取色：error 走 danger，其余复用连线的 done/pending 决策。
-    ///
-    /// ⚠️ 取 `connectorFill(after: index)` 即 `progress(for: index) == .done` —— **每段对应
-    /// 它自己那一步**。PR #206 review 抓到的错位：原写法在 `index > 0` 时取 `index - 1`，
-    /// 于是第 `index` 段跟着**前一步**的完成态走，`currentIndex == 1` 时未完成的第 1 段会
-    /// 因第 0 步已完成而被填充，与上方注释「已完成的段填充」直接矛盾。
+    /// `.segmentedBar` 的单段取色：error 走 danger，已完成走 `.tint`，其余走
+    /// `Color.dividerDefault`（与连线同一套「完成/未完成」视觉语义）。
     private func segmentFill(for index: Int, item: StepItem) -> AnyShapeStyle {
-        if item.isError { return AnyShapeStyle(Color.statusDangerEmphasis) }
-        return self.connectorFill(after: index)
+        switch Self.segmentState(index: index, currentIndex: self.currentIndex, isError: item.isError) {
+        case .error: AnyShapeStyle(Color.statusDangerEmphasis)
+        case .filled: AnyShapeStyle(.tint)
+        case .empty: AnyShapeStyle(Color.dividerDefault)
+        }
+    }
+
+    /// `.segmentedBar` 单段的三态。非 `public`（同 `StepsProgress` 的可测试性取舍）。
+    enum SegmentState: Equatable {
+        case error
+        case filled
+        case empty
+    }
+
+    /// `.segmentedBar` 的单段判据。纯函数。
+    ///
+    /// ⚠️ **这个函数存在的唯一理由是可断言性**（PR #206 第 2 轮 review 抓到）：上一版把
+    /// 判据直接写在 `segmentFill` 里返回 `AnyShapeStyle`，`ShapeStyle` 断言不了，于是
+    /// 「守它」的测试只能改去断言 `progress(for:currentIndex:)` —— 而那个函数在 `main`
+    /// 上就是对的、从没被改过。实测：把判据改回错误的 `index - 1`，整个测试套件**照样
+    /// 403 全绿**。判据必须自己是可断言的，否则守卫是装饰。
+    ///
+    /// ⚠️ 判据是 `index < currentIndex`（即 `progress(for: index) == .done`）—— **每段对应
+    /// 它自己那一步**。原错位写法在 `index > 0` 时取 `index - 1`，于是第 `index` 段跟着
+    /// **前一步**走，`currentIndex == 1` 时未完成的第 1 段会因第 0 步已完成而被填充。
+    static func segmentState(index: Int, currentIndex: Int, isError: Bool) -> SegmentState {
+        if isError { return .error }
+        return Self.progress(for: index, currentIndex: currentIndex) == .done ? .filled : .empty
     }
 
     /// `.navigation`：去掉公共轴线与连线，每一步是彼此直接拼接的块。
@@ -372,6 +402,13 @@ public struct Steps: View {
     ///
     /// ⚠️ 本呈现下 `items` 的**逐条内容不被渲染**，只用其 `count` 与当前索引 —— 这正是
     /// 判定时把该候选判为「**槽**」（N 个槽塌成 1 个）的原因。
+    ///
+    /// ⚠️ **已知的信息损失，明文承认**（PR #206 第 2 轮 review 要求定案）：因为显示序号被
+    /// 夹进 `1...count`，本形态下「停在最后一步」（`currentIndex == count - 1`）与「全部完成」
+    /// （`currentIndex == count`，`init` 文档明列的正式用法）产出**同一段文案**，不可区分。
+    /// 这是「N 个槽塌成 1 个文本槽」的固有代价：一个文本槽装不下「当前位置」+「是否全部完成」
+    /// 两位信息。需要区分这两个状态的调用方应改用 `.segmentedBar`（末段填充与否可见）或
+    /// `.steps`，而不是在本形态上加旁路。
     private var textBody: some View {
         self.progressCaption
             .accessibilityElement(children: .ignore)
@@ -614,7 +651,7 @@ public struct Steps: View {
     }
 }
 
-/// `.segmentedBar` / `.text` 的错误态 `accessibilityValue` 挂载器（internal）。
+/// `.segmentedBar` / `.text` 的错误态 `accessibilityValue` 挂载器（`private`，仅本文件）。
 ///
 /// ⚠️ 无错误步时**整个不挂载**，而不是挂一个空字符串 —— 后者会让 VoiceOver 在 label
 /// 之后读出一个空值停顿，且把「没有错误」和「有一个读不出名字的值」混为一谈。这与
@@ -734,7 +771,7 @@ private struct StepsPreviewGallery: View {
                     Steps(items: Self.basicItems, currentIndex: 1, presentation: .text)
                 }
 
-                self.section("纯文本 · 边界：currentIndex == count（全部完成）") {
+                self.section("纯文本 · 边界：currentIndex == count —— 与停在末步产出相同（已知损失）") {
                     Steps(items: Self.basicItems, currentIndex: Self.basicItems.count, presentation: .text)
                 }
 

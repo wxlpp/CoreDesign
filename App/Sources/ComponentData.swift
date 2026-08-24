@@ -102,10 +102,10 @@ extension ComponentMeta {
         ComponentMeta(id: "skeleton", name: "Skeleton", description: "骨架屏容器：SkeletonLine / SkeletonRect / SkeletonCircle 占位形状 + shimmer 扫光", category: .indicator) {
             SkeletonPreview()
         },
-        ComponentMeta(id: "steps", name: "Steps", description: "横向 / 纵向步骤条，点状 / 数字两种指示器样式", category: .indicator) {
+        ComponentMeta(id: "steps", name: "Steps", description: "步骤条：4 种呈现（steps / segmentedBar / navigation / text）× 点状 / 数字指示器", category: .indicator) {
             StepsPreview()
         },
-        ComponentMeta(id: "timeline", name: "Timeline", description: "纵向时间线：节点（默认圆点或自定义）+ 连线 + 内容", category: .indicator) {
+        ComponentMeta(id: "timeline", name: "Timeline", description: "时间线：4 种排布（vertical / alternate / horizontal / grouped），节点 + 连线 + 内容", category: .indicator) {
             TimelinePreview()
         },
 
@@ -171,8 +171,11 @@ extension ComponentMeta {
                 .font(CoreTypography.Token.footnote.font)
                 .foregroundStyle(Color.contentMuted)
         }, demoAction: { AnyView(ToastDemoButton()) }),
-        ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:) 加载遮罩 modifier，吸收 Semi Design Spin 能力", category: .feedback) {
+        ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:presentation:)：overlay 遮罩（阻塞）/ topBar / inline（非阻塞）", category: .feedback) {
             SpinningPreview()
+        },
+        ComponentMeta(id: "spinning-nonblocking", name: "Spinning · 非阻塞", description: "topBar 顶条 / inline 行内：不铺遮罩、不禁用交互", category: .feedback) {
+            SpinningNonBlockingPreview()
         },
     ]
 }
@@ -639,18 +642,48 @@ private struct StepsPreview: View {
         StepItem(title: "Payment"),
         StepItem(title: "Confirm"),
     ]
+    // ⚠️ 设备端画廊是 `#Preview` 之外的**第二条**视觉通路，且是唯一跑在真机 / 模拟器上的
+    // 那条（`swift test` 与 CI 都不构建 App/）。`#60` 新增的呈现必须在这里出现，否则它们在
+    // 真机上零覆盖（PR #206 第 2 轮 review 抓到）。
     var body: some View {
-        Steps(items: Self.items, currentIndex: 1, axis: .horizontal, indicatorStyle: .numbered)
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            Steps(items: Self.items, currentIndex: 1, axis: .horizontal, indicatorStyle: .numbered)
+            Steps(items: Self.items, currentIndex: 2, presentation: .segmentedBar)
+            Steps(items: Self.items, currentIndex: 1, presentation: .navigation)
+            Steps(items: Self.items, currentIndex: 1, presentation: .text)
+        }
     }
 }
 
 private struct TimelinePreview: View {
-    var body: some View {
-        Timeline(items: [
+    private static var items: [TimelineItem] {
+        [
             TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
             TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
             TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
-        ])
+        ]
+    }
+
+    // ⚠️ `.alternate` 与 `.horizontal` 的几何**只在渲染时可见**，`swift build` / `swift test`
+    // 一定绿 —— 这条通路是它们在真机上唯一的检查点（PR #206 第 2 轮 review 抓到）。
+    // `.alternate` 那条特意混入一个**宽内容**（固定 220pt），因为「节点恒在同一条中轴」
+    // 恰恰是在内容固有宽度超过半槽时才会破。
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            Timeline(items: Self.items)
+            Timeline(
+                items: [
+                    TimelineItem(status: .info) {
+                        Color.statusAccentEmphasis.frame(width: 220, height: 32)
+                    },
+                    TimelineItem(status: .success) { Text("短").coreFont(.callout) },
+                    TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) },
+                ],
+                layout: .alternate
+            )
+            Timeline(items: Self.items, layout: .horizontal)
+            Timeline(items: Self.items, layout: .grouped)
+        }
     }
 }
 
@@ -699,5 +732,22 @@ private struct SpinningPreview: View {
             }
         }
         .spinning(true, text: "Refreshing…")
+    }
+}
+
+private struct SpinningNonBlockingPreview: View {
+    // ⚠️ `.topBar` 的扫条动画与 `.inline` 的几何只在渲染时可见（PR #206 第 2 轮 review）。
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            Card {
+                Text("topBar：顶边细条，内容不被遮罩、仍可交互").coreFont(.subheadline)
+            }
+            .spinning(true, presentation: .topBar)
+
+            HStack(spacing: CoreSpacing.lg) {
+                Text("保存中").coreFont(.callout).spinning(true, presentation: .inline)
+                Text("已保存").coreFont(.callout).spinning(false, presentation: .inline)
+            }
+        }
     }
 }

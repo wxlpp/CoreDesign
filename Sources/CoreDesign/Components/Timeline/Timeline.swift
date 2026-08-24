@@ -158,6 +158,9 @@ public enum TimelineLayout: Sendable, Equatable {
 /// 内容可能自带其他语义（例如头像 + 姓名），由调用方自行决定 accessibility 表达，本组件
 /// 不代为覆盖。
 public struct Timeline: View {
+    /// `.alternate` 的实测行宽（仅该布局消费）。见 `alternateBody` 的说明。
+    @State private var measuredWidth: CGFloat = 0
+
     let items: [TimelineItem]
     let layout: TimelineLayout
 
@@ -196,22 +199,47 @@ public struct Timeline: View {
     /// （PR #206 review 抓到）。交替形态的定义就是「节点恒在中轴、内容左右换边」⇒ 几何上
     /// 必须是「弹性左槽 | 固定节点列 | 弹性右槽」，节点列的水平位置与索引奇偶无关。
     private var alternateBody: some View {
+        // ⚠️ **槽宽必须由实测行宽算出、显式下发**，不能只靠两个 `.frame(maxWidth: .infinity)`
+        // 各拿一半（PR #206 第 2 轮 review 抓到）：`maxWidth: .infinity` **不会把子视图压到
+        // 它自己的固有宽度以下**。内容一旦有大于半宽的固有宽度（固定尺寸图片 / `.fixedSize()`
+        // 文本 / 不可断行的长 token），内容槽就拿走多于一半，节点列随之偏离行中心，而连线
+        // 是按整行居中画的 ⇒ 中轴逐行左右横跳，「同一条竖线」当场不成立。
+        //
+        // ⚠️ 用 `onGeometryChange` 而不是 `GeometryReader` 包住：后者会贪掉纵向空间，让本
+        // 就按内容 hug 高度的 `VStack` 塌成 proposal 高。前者只观测、不参与布局。
+        // 首帧 `measuredWidth == 0`，此时 `slotWidth` 传 `nil`，退回弹性槽（与上一版等价的
+        // 观感），测到宽度后才转为定宽 —— 不会出现「首帧内容被压成 0 宽」的闪烁。
         VStack(spacing: CoreSpacing.none) {
             ForEach(Array(self.items.enumerated()), id: \.element.id) { index, item in
                 TimelineAlternateRowView(
                     item: item,
                     isLast: Self.isLastItem(item, in: self.items),
-                    contentSide: index.isMultiple(of: 2) ? .leading : .trailing
+                    contentSide: index.isMultiple(of: 2) ? .leading : .trailing,
+                    slotWidth: Self.alternateSlotWidth(forRowWidth: self.measuredWidth)
                 )
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { self.measuredWidth = $0 }
+    }
+
+    /// `.alternate` 的单侧内容槽宽度；行宽未知（首帧）或窄到放不下时返回 `nil`（退回弹性槽）。
+    ///
+    /// 三列几何：`槽 | nodeColumnWidth | 槽`，两个 `HStack` 间距各 `CoreSpacing.md`。
+    static func alternateSlotWidth(forRowWidth rowWidth: CGFloat) -> CGFloat? {
+        let fixed = Self.nodeColumnWidth + 2 * CoreSpacing.md
+        guard rowWidth > fixed else { return nil }
+        return (rowWidth - fixed) / 2
     }
 
     /// `.horizontal`：节点沿水平轴排列，内容在节点下方。
     ///
     /// ⚠️ 横向下**不画节点间连线** —— 竖向连线的实现（`TimelineRowView` 的 background
     /// `Rectangle` + `padding(.top:)`）依赖「节点在上、内容在下」的纵向几何，换轴后那套
-    /// padding 计算不成立。横向连线属独立形态，本轮不引入（`#60` 承接）。
+    /// padding 计算不成立。横向连线属独立形态，本轮不引入。
+    ///
+    /// ⚠️ 这条原先写作「`#60` 承接」，但**本 PR 就是 #60** —— 合并即成悬空引用（与
+    /// `ComponentExtensionPointGuard` 里那两条「不再指向 #60」的缺口同型，PR #206 第 2 轮
+    /// review 抓到）。横向连线**尚无承接 issue**，需要时另开。
     private var horizontalBody: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: CoreSpacing.lg) {
@@ -232,35 +260,27 @@ public struct Timeline: View {
     private var groupedBody: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.md) {
             ForEach(self.items) { item in
-                Self.applyGroupedStatusValue(
-                    item.content
-                        .frame(maxWidth: .infinity, alignment: .leading),
-                    item: item
-                )
+                GroupedRow(item: item)
             }
         }
     }
 
-    /// `.grouped` 下把默认节点携带的状态语义补回给内容。
+    /// `.grouped` 下该项要补播的状态键；无需补播时为 `nil`。纯函数。
     ///
     /// ⚠️ PR #206 review 抓到的无障碍回归：本形态不渲染节点列，于是**默认圆点**原本挂在
     /// 自己身上的 `Info` / `Success` / `Warning` / `Error` 标签一并消失 —— 而 `Timeline`
     /// 的公共文档仍承诺默认节点携带这些状态语义。视觉上「没有节点」是本形态的定义，
     /// 状态信息却不该跟着消失。
     ///
-    /// ⚠️ 用 `accessibilityValue` 而**不是** `accessibilityLabel`：label 是调用方 `content`
-    /// 自己的语义，覆盖它会吞掉真正要读的内容。
     /// ⚠️ 只对**无自定义节点**的项补 —— 传了 `node:` 的项，其无障碍语义由调用方在自己的
     /// 节点视图里决定，本形态既然不渲染那个节点，也就不该替调用方臆造一个状态播报。
-    @ViewBuilder
-    static func applyGroupedStatusValue(_ content: some View, item: TimelineItem) -> some View {
-        if item.node == nil {
-            content.accessibilityValue(
-                Text(LocalizedStringKey(Self.accessibilityLabelKey(for: item.status)), bundle: .module)
-            )
-        } else {
-            content
-        }
+    ///
+    /// ⚠️ **判据抽成返回 `String?` 的纯函数，而不是留在 `some View` 里**（PR #206 第 2 轮
+    /// review 抓到）：上一版是 `static func applyGroupedStatusValue(_:item:) -> some View`，
+    /// 号称「提成 static 是为了可测」，但不透明 `View` 断言不了，测试只能 `_ =` 掉返回值。
+    /// 实测：把 `item.node == nil` 改成 `if false`，整套测试**照样 403 全绿**。
+    static func groupedStatusKey(for item: TimelineItem) -> String? {
+        item.node == nil ? Self.accessibilityLabelKey(for: item.status) : nil
     }
 
     // MARK: - Layout metrics
@@ -369,6 +389,8 @@ private struct TimelineAlternateRowView: View {
     let isLast: Bool
     /// 本行内容占左槽还是右槽。节点列不受它影响。
     let contentSide: HorizontalEdge
+    /// 单侧槽宽；`nil` = 行宽未知（首帧），退回弹性槽。见 `Timeline.alternateSlotWidth(forRowWidth:)`。
+    let slotWidth: CGFloat?
 
     var body: some View {
         HStack(alignment: .top, spacing: CoreSpacing.md) {
@@ -388,17 +410,54 @@ private struct TimelineAlternateRowView: View {
     }
 
     /// 一侧的内容槽：本行内容归属该侧时渲染内容，否则渲染等宽空槽以维持三列几何。
+    ///
+    /// ⚠️ 有 `slotWidth` 时用**定宽** `.frame(width:)` —— 它会把超宽内容压进槽内，而
+    /// `.frame(maxWidth: .infinity)` 不会（见 `Timeline.alternateBody` 的说明）。
     @ViewBuilder
     private func slot(_ side: HorizontalEdge) -> some View {
+        let alignment: Alignment = side == .leading ? .topTrailing : .topLeading
         if side == self.contentSide {
-            self.item.content
+            let content = self.item.content
                 .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
-                .frame(maxWidth: .infinity, alignment: side == .leading ? .trailing : .leading)
+            if let width = self.slotWidth {
+                content.frame(width: width, alignment: alignment)
+            } else {
+                content.frame(maxWidth: .infinity, alignment: alignment)
+            }
         } else {
             Color.clear
-                .frame(maxWidth: .infinity)
-                .frame(height: 0)
+                .frame(width: self.slotWidth, height: 0)
+                .frame(maxWidth: self.slotWidth == nil ? .infinity : nil)
                 .accessibilityHidden(true)
+        }
+    }
+}
+
+/// `.grouped` 的单行（internal）：只渲染 content，并把默认节点丢失的状态语义补回。
+///
+/// ⚠️ **必须先 `.accessibilityElement(children: .combine)` 收成单个元素再挂
+/// `accessibilityValue`**（PR #206 第 2 轮 review 抓到）：`accessibilityValue` 加在一个
+/// 本身不是单一无障碍元素的容器上时，SwiftUI 会把它**下发给所有后代元素**。而
+/// `item.content` 是调用方任意视图 —— 本文件 `.vertical` 预览里的标准形态就是
+/// `VStack { Text(标题); Text(时间) }` 两个元素，不 combine 会读成「已创建, Success」
+/// +「2026-07-20 10:00, Success」，状态播两遍。
+///
+/// ⚠️ 这是 `.grouped` **有意偏离** `.vertical` 的一处：后者刻意不合并 content
+/// （见 `Timeline` 文档「content 的 accessibility 语义完全由调用方决定」），因为节点与
+/// content 本就是分离的两块；而 `.grouped` 删掉了节点列，整行读作一条分组记录才成立
+/// （Apple 邮件 / 信息的日期分组即此形态）。`.combine` 保留后代的可交互性（可交互元素
+/// 提升为该元素的自定义 action），不是 `.ignore` 那种丢弃。
+private struct GroupedRow: View {
+    let item: TimelineItem
+
+    var body: some View {
+        let base = self.item.content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+        if let key = Timeline.groupedStatusKey(for: self.item) {
+            base.accessibilityValue(Text(LocalizedStringKey(key), bundle: .module))
+        } else {
+            base
         }
     }
 }

@@ -40,6 +40,10 @@
 | `.navigation` | 导航式步骤条：去掉公共轴线与连线，每一步是彼此直接拼接的块 | Ant Design Steps `type="navigation"` / Shopify Polaris 结账步骤导航 |
 | `.text` | 纯文本：N 个指示器槽与标题槽连同连线塌成一个文本槽（如「2 of 4」） | Typeform 的「1 of 5」进度文案 |
 
+⚠️ `.segmentedBar` 依赖调用方给出**确定的宽度提议**：各段是弹性 `Capsule`，放进横向
+`ScrollView` 一类不约束宽度的容器时会退化为 SwiftUI Shape 的缺省尺寸。需要在这类容器里
+使用时，请显式给一个 `.frame(width:)`。
+
 ⚠️ **正交性的代价**（有意的静默，传了不生效**不报错**）：
 
 | 参数 | `.steps` | `.segmentedBar` | `.navigation` | `.text` |
@@ -109,6 +113,21 @@ Steps(items: items, currentIndex: 1, presentation: .navigation)
 `currentIndex` 可以传出界值（如 `items.count`）表示「全部完成」；**存储层不做 clamp**。该派生逻辑
 是组件内部实现细节，**不对外暴露成公开枚举**——下游只能通过 `currentIndex: Int` 驱动，
 无法读取内部进行态类型本身。
+
+### `.segmentedBar` 的段与文案表达两件事
+
+段填充判据是 `index < currentIndex`（**已完成**几步），caption 与无障碍文案是
+`currentIndex + 1`（**当前在**第几步）。`currentIndex == 2, count == 4` ⇒ 2 段填充 + 读
+「3 of 4」：已完成 2 步、正在第 3 步，二者同时为真。文案不跟着填充数走，是为了与
+`.steps` / `.navigation` 逐步播报的「2 of 4」逐字一致 —— 同一组数据换 `presentation`，
+VoiceOver 读法不该变。
+
+### `.text` 的已知信息损失
+
+因为显示序号被夹进 `1...count`，`.text` 下「停在最后一步」（`currentIndex == count - 1`）
+与「全部完成」（`currentIndex == count`）产出**同一段文案**，不可区分。这是「N 个槽塌成
+1 个文本槽」的固有代价。需要区分这两个状态请改用 `.segmentedBar`（末段填充与否可见）或
+`.steps`。
 
 ⚠️ `.segmentedBar` / `.text` 的**显示序号**是唯一例外：它经
 `Steps.progressSummary(currentIndex:total:)` 夹进 `1...items.count` 再显示——否则负索引

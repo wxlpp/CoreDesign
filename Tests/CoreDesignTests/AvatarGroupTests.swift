@@ -87,15 +87,18 @@ struct AvatarGroupTests {
         )
     }
 
-    @Test("AvatarGroupAccessibility：totalLabel 在 count == 1 时用单数形")
-    func avatarGroupTotalLabelUsesSingularForOne() {
-        // PR #206 review 抓到：单一插值键 `"\(count) avatars"` 会读出「1 avatars」。
-        // 本仓的本地化资源只有 `.strings`、无 `.stringsdict` 复数规则表 ⇒ 在 Swift 侧分支。
-        let singular = AvatarGroupAccessibility.totalLabel(for: 1)
-        #expect(!singular.contains("avatars"), "count == 1 必须读单数，实际：\(singular)")
-        #expect(singular == String(localized: "1 avatar", bundle: .module))
-        // 复数分支不受影响。
-        #expect(AvatarGroupAccessibility.totalLabel(for: 2).contains("avatars"))
-        #expect(AvatarGroupAccessibility.totalLabel(for: 0).contains("avatars"))
+    @Test("AvatarGroupAccessibility：totalLabel 走 %lld avatars 复数键，不自造字面键")
+    func avatarGroupTotalLabelUsesRegisteredPluralKey() {
+        // ⚠️ **单复数形态本身在 `SharedFoundationTests.avatarGroupTotalPlural` 断言**，
+        // 不在这里 —— 本 suite 用 `String(localized:)`，它在 macOS 的 `swift test` 腿上
+        // 不对 SwiftPM 资源 bundle 的 `.stringsdict` 套用 `one` 规则（CLAUDE.md 记载的
+        // 「macOS 对 iOS 行为假绿」盲区），拿它断言「1 avatar」会左右两边一起 fallback、
+        // 恒真（PR #206 第 2 轮 review 抓到）。那条断言必须走 `Bundle.localizedString`。
+        //
+        // 这里只锁本函数的**契约面**：产出跟随 count 变化、且与 overflowLabel 语义不同。
+        #expect(AvatarGroupAccessibility.totalLabel(for: 1)
+                != AvatarGroupAccessibility.totalLabel(for: 5),
+                "totalLabel 必须消费 count")
+        #expect(AvatarGroupAccessibility.totalLabel(for: 5).contains("5"))
     }
 }

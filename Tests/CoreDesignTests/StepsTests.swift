@@ -254,12 +254,23 @@ struct StepsTests {
 
     @Test("Steps：.segmentedBar 的每段对应它自己那一步，不跟着前一步走")
     func stepsSegmentedBarSegmentTracksItsOwnStep() {
-        // PR #206 review 抓到的错位：原实现在 index > 0 时取 `index - 1` 的完成态，于是
-        // `currentIndex == 1` 时未完成的第 1 段会因第 0 步已完成而被填充，与「已完成的段
-        // 填充」的文档承诺矛盾。取色本身是 ShapeStyle、不可直接断言，故锁住它依赖的
-        // 那个纯函数：段 index 的填充判据必须是 `progress(for: index) == .done`。
-        #expect(Steps.progress(for: 0, currentIndex: 1) == .done, "第 0 步已完成 ⇒ 第 0 段填充")
-        #expect(Steps.progress(for: 1, currentIndex: 1) == .current, "第 1 步是当前步 ⇒ 第 1 段不填充")
-        #expect(Steps.progress(for: 2, currentIndex: 1) == .pending)
+        // ⚠️ 断言打在 `segmentState(index:currentIndex:isError:)` —— 段填充判据**本身**。
+        // 上一版打在 `progress(for:currentIndex:)` 上，那个函数在 main 上就是对的、
+        // 从没被改过：实测把判据改回错误的 `index - 1`，整套测试照样 403 全绿
+        // （PR #206 第 2 轮 review 抓到的恒真测试）。
+        //
+        // currentIndex == 1 ⇒ 只有第 0 步完成 ⇒ 只有第 0 段填充。
+        #expect(Steps.segmentState(index: 0, currentIndex: 1, isError: false) == .filled)
+        #expect(Steps.segmentState(index: 1, currentIndex: 1, isError: false) == .empty,
+                "第 1 段对应当前步（未完成），不能因第 0 步已完成而被填充 —— 这正是原错位形态")
+        #expect(Steps.segmentState(index: 2, currentIndex: 1, isError: false) == .empty)
+
+        // 边界：currentIndex == 0 时一段都不填；currentIndex == count 时全填。
+        #expect(Steps.segmentState(index: 0, currentIndex: 0, isError: false) == .empty)
+        #expect(Steps.segmentState(index: 2, currentIndex: 3, isError: false) == .filled)
+
+        // error 覆盖进行态，与指示器同口径。
+        #expect(Steps.segmentState(index: 0, currentIndex: 5, isError: true) == .error)
+        #expect(Steps.segmentState(index: 9, currentIndex: 0, isError: true) == .error)
     }
 }

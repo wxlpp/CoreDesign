@@ -200,19 +200,46 @@ struct TimelineTests {
         }
     }
 
+    @Test("Timeline.alternateSlotWidth：三列几何的槽宽，窄行退回弹性")
+    func timelineAlternateSlotWidth() {
+        // ⚠️ `.alternate` 的「节点恒在同一条中轴」全靠这个槽宽成立：只用两个
+        // `.frame(maxWidth: .infinity)` 分不到等宽 —— 它不会把超过半宽固有宽度的内容压回去
+        // （PR #206 第 2 轮 review 抓到），必须实测行宽后显式下发定宽。
+        let fixed = Timeline.nodeColumnWidth + 2 * CoreSpacing.md
+
+        // 正常行宽：两槽等分剩余空间 ⇒ 节点列几何居中。
+        let w = Timeline.alternateSlotWidth(forRowWidth: 320)
+        #expect(w == (320 - fixed) / 2)
+        // 两槽 + 固定部分必须正好铺满行宽，否则节点列不在中心。
+        #expect(w.map { $0 * 2 + fixed } == 320)
+
+        // 首帧行宽未知 ⇒ nil ⇒ 退回弹性槽，不把内容压成 0 宽。
+        #expect(Timeline.alternateSlotWidth(forRowWidth: 0) == nil)
+        // 窄到放不下节点列本身 ⇒ 同样退回弹性，不产生负宽（`.frame(width:)` 传负值会 crash）。
+        #expect(Timeline.alternateSlotWidth(forRowWidth: fixed) == nil)
+        #expect(Timeline.alternateSlotWidth(forRowWidth: fixed - 1) == nil)
+        #expect(Timeline.alternateSlotWidth(forRowWidth: -10) == nil)
+        // 刚过临界即为正宽。
+        #expect((Timeline.alternateSlotWidth(forRowWidth: fixed + 2) ?? -1) > 0)
+    }
+
     @MainActor
     @Test("Timeline：.grouped 删掉节点列后，默认节点项的状态语义经 accessibilityValue 补回")
     func timelineGroupedKeepsDefaultNodeStatusSemantics() {
         // PR #206 review 抓到的无障碍回归：.grouped 不渲染节点列 ⇒ 默认圆点原本挂在自己
         // 身上的 Info/Success/Warning/Error 标签一并消失，而 Timeline 的公共文档仍承诺
         // 默认节点携带这些状态语义。视觉上「没有节点」是本形态的定义，状态信息不该跟着没。
+        // ⚠️ 断言打在 `groupedStatusKey(for:)` 的**返回值**上。上一版调的是
+        // `applyGroupedStatusValue(_:item:) -> some View` 并 `_ =` 丢弃返回值 —— 不透明
+        // View 断言不了，实测把 `item.node == nil` 改成 `if false`，整套测试照样 403
+        // 全绿（PR #206 第 2 轮 review 抓到的恒真测试）。
         let defaultNodeItem = TimelineItem(status: .danger) { Text(verbatim: "失败") }
         #expect(defaultNodeItem.node == nil, "前提：这是默认节点项")
-        _ = Timeline.applyGroupedStatusValue(Text(verbatim: "失败"), item: defaultNodeItem)
+        // ⚠️ danger → "Error" 是非字面对应，一并锁住。
+        #expect(Timeline.groupedStatusKey(for: defaultNodeItem) == "Error")
 
-        // ⚠️ danger → "Error" 是非字面对应，锁住它（与 accessibilityLabelKey 那条同源）。
-        #expect(Timeline.accessibilityLabelKey(for: .danger) == "Error")
-        #expect(Timeline.accessibilityLabelKey(for: .info) == "Info")
+        let infoItem = TimelineItem(status: .info) { Text(verbatim: "已创建") }
+        #expect(Timeline.groupedStatusKey(for: infoItem) == "Info")
 
         // ⚠️ 传了 node: 的项**不补** —— 其无障碍语义由调用方在自己的节点视图里决定，
         // 本形态既然不渲染那个节点，也就不该替调用方臆造一个状态播报。
@@ -222,6 +249,13 @@ struct TimelineTests {
             Text(verbatim: "失败")
         }
         #expect(customNodeItem.node != nil, "前提：这是自定义节点项")
-        _ = Timeline.applyGroupedStatusValue(Text(verbatim: "失败"), item: customNodeItem)
+        #expect(Timeline.groupedStatusKey(for: customNodeItem) == nil,
+                "自定义节点项不补状态播报，否则会覆盖调用方自己的语义")
+
+        // 四种状态的键与默认节点那条通路同源，不另立一套。
+        for status in [StatusLevel.info, .success, .warning, .danger] {
+            let item = TimelineItem(status: status) { Text(verbatim: "x") }
+            #expect(Timeline.groupedStatusKey(for: item) == Timeline.accessibilityLabelKey(for: status))
+        }
     }
 }

@@ -69,5 +69,5 @@ AvatarGroup(layout: .countOnly) { avatars }
 - `.countOnly` 徽标读 `"<N> avatars"` / `count == 1` 时读 `"1 avatar"`
   （`AvatarGroupAccessibility.totalLabel(for:)`）。⚠️ 与 `+N` 的 `"more avatars"` **语义不同**：
   前者「一共 N 个」、后者「还有 N 个没显示」，误复用会让 VoiceOver 用户以为还有更多被折叠。
-  ⚠️ 单数走独立分支而非复数规则表——本仓的本地化资源只有 `.strings`、无 `.stringsdict`，
-  真正的复数化随 `wxlpp/oh-my-story#49` 的 A 类文案迁移一并做
+  ⚠️ 走 `Localizable.stringsdict` 的 `%lld avatars` 复数规则键（`one` / `other`），与
+  `+N` 的 `%lld more avatars` 同一机制；注册守卫在 `SharedFoundationTests` 的复数键块
