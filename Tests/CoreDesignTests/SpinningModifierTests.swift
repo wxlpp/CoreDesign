@@ -24,6 +24,61 @@ struct SpinningModifierStorageTests {
         #expect(inactive.isActive == false)
         #expect(inactive.text == nil)
     }
+
+    // MARK: - SpinningPresentation（`#60` 形态 D2）
+
+    @Test("SpinningModifier：presentation 默认 .overlay —— 现有调用方零影响")
+    func spinningPresentationDefaultsToOverlay() {
+        // ⚠️ 破坏性变更的防线：新参数带默认值（源码兼容）+ 默认值 == 现状（行为兼容）。
+        let modifier = SpinningModifier(isActive: true)
+        #expect(modifier.presentation == .overlay)
+    }
+
+    @Test("SpinningModifier：presentation 原样保留")
+    func spinningStoresPresentation() {
+        for presentation in [SpinningPresentation.overlay, .topBar, .inline] {
+            let modifier = SpinningModifier(isActive: true, presentation: presentation)
+            #expect(modifier.presentation == presentation)
+        }
+    }
+
+    @Test("SpinningPresentation：三个 case 互不相等（Equatable 不是恒真）")
+    func spinningPresentationEquatableIsNotDegenerate() {
+        let all: [SpinningPresentation] = [.overlay, .topBar, .inline]
+        for (i, lhs) in all.enumerated() {
+            for (j, rhs) in all.enumerated() where i != j {
+                #expect(lhs != rhs, "\(lhs) 与 \(rhs) 不应相等")
+            }
+        }
+    }
+
+    @Test("SpinningModifier：.topBar 下 text 仍被原样保留（不生效 ≠ 被改写）")
+    func spinningTopBarPreservesText() {
+        // ⚠️ 正交性约定：.topBar 无文案位 ⇒ text 不生效，但存储层仍保留它。
+        let modifier = SpinningModifier(isActive: true, text: "Loading", presentation: .topBar)
+        #expect(modifier.text != nil, ".topBar 下 text 仍应原样保留")
+        #expect(modifier.presentation == .topBar)
+    }
+
+    @Test("SpinningModifier：三种形态 × isActive 都能构造")
+    func spinningAllPresentationsConstruct() {
+        // ⚠️ 只证「能构造」。**不求值 body** —— `ViewModifier.Content` 是不透明类型，
+        // 造不出实例；`EmptyView() as! Content` 能编译但运行时必崩（曾写成那样，已改）。
+        // ⚠️ 因此本条**不证渲染正确**，更**不证非阻塞语义**——`allowsHitTesting` /
+        // `accessibilityHidden` 是渲染树属性，本仓无 ViewInspector 类工具，测不到。
+        // 那条语义靠源码注释 + 人工评审守，见 `topBarBody` / `inlineBody` 的注释。
+        // ⚠️ 别把这条读成「三种形态都对」。
+        for presentation in [SpinningPresentation.overlay, .topBar, .inline] {
+            for isActive in [true, false] {
+                let modifier = SpinningModifier(
+                    isActive: isActive, text: "L", presentation: presentation
+                )
+                #expect(modifier.isActive == isActive)
+                #expect(modifier.presentation == presentation)
+            }
+        }
+    }
+
 }
 
 #if os(iOS)
