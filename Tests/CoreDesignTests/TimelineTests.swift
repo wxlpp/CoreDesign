@@ -200,27 +200,45 @@ struct TimelineTests {
         }
     }
 
-    @Test("Timeline.alternateSlotWidth：三列几何的槽宽，窄行退回弹性")
+    @Test("Timeline.alternateSlotWidth：三列几何的槽宽，且节点中心恰落在行中心")
     func timelineAlternateSlotWidth() {
-        // ⚠️ `.alternate` 的「节点恒在同一条中轴」全靠这个槽宽成立：只用两个
-        // `.frame(maxWidth: .infinity)` 分不到等宽 —— 它不会把超过半宽固有宽度的内容压回去
-        // （PR #206 第 2 轮 review 抓到），必须实测行宽后显式下发定宽。
+        // ⚠️ `.alternate` 的「节点恒在同一条中轴」全靠这个槽宽成立。这块栽过两次
+        // （PR #206 两轮 review）：
+        // 1. 纯 `.frame(maxWidth: .infinity)` 分不到等宽 —— 它不会把超过半宽固有宽度的
+        //    内容压回去，节点被推离行中心；
+        // 2. 改用 `@State` + `onGeometryChange` 回填实测行宽 —— **反馈环自锁**，定宽槽让
+        //    行宽恒等于观测值，观测值再不变化 ⇒ 宽度永久冻结在首帧，旋转屏幕都不跟随。
+        // 现在槽宽是 `ProposedViewSize` 的**纯函数**，由 `TimelineAlternateRowLayout` 消费。
         let fixed = Timeline.nodeColumnWidth + 2 * CoreSpacing.md
 
-        // 正常行宽：两槽等分剩余空间 ⇒ 节点列几何居中。
+        // 正常行宽：两槽等分剩余空间。
         let w = Timeline.alternateSlotWidth(forRowWidth: 320)
         #expect(w == (320 - fixed) / 2)
         // 两槽 + 固定部分必须正好铺满行宽，否则节点列不在中心。
-        #expect(w.map { $0 * 2 + fixed } == 320)
+        #expect(w * 2 + fixed == 320)
 
-        // 首帧行宽未知 ⇒ nil ⇒ 退回弹性槽，不把内容压成 0 宽。
-        #expect(Timeline.alternateSlotWidth(forRowWidth: 0) == nil)
-        // 窄到放不下节点列本身 ⇒ 同样退回弹性，不产生负宽（`.frame(width:)` 传负值会 crash）。
-        #expect(Timeline.alternateSlotWidth(forRowWidth: fixed) == nil)
-        #expect(Timeline.alternateSlotWidth(forRowWidth: fixed - 1) == nil)
-        #expect(Timeline.alternateSlotWidth(forRowWidth: -10) == nil)
+        // ⚠️ **承重断言**：节点中心 x 必须等于行中心 x —— 连线是按整行居中画的，这条不成立
+        // 连线就穿不过节点。节点 x = slot + md，节点中心 = slot + md + nodeColumnWidth / 2。
+        // ⚠️ **`as [CGFloat]` 不能省**：不标注时数组推断为 `[Double]`，`rowWidth / 2` 就是
+        // `Double`，而 `nodeCenter` 是 `CGFloat`。SE-0307 的 CGFloat/Double 隐式转换让这行
+        // **照常编译**，但 `#expect` 宏跨这两个类型展开出的比较是**恒假**的 —— 实测：打印
+        // 出来 `diff=0.0`、两边都显示 `160.0`，断言却报 failed。这比写错断言更阴险（正常
+        // 写法看不出问题，且反过来用 `!=` 会得到一个恒真的假守卫）。两边保持同类型。
+        for rowWidth in [320.0, 390.0, 744.0, 1024.0] as [CGFloat] {
+            let slot = Timeline.alternateSlotWidth(forRowWidth: rowWidth)
+            let nodeCenter = slot + CoreSpacing.md + Timeline.nodeColumnWidth / 2
+            let rowCenter: CGFloat = rowWidth / 2
+            #expect(nodeCenter == rowCenter,
+                    "行宽 \(rowWidth)：节点中心 \(nodeCenter) 必须等于行中心 \(rowCenter)")
+        }
+
+        // 退化：窄到放不下固定部分时返回 0，**不产生负宽** —— 负值传进 place 的 proposal 会 crash。
+        #expect(Timeline.alternateSlotWidth(forRowWidth: 0) == 0)
+        #expect(Timeline.alternateSlotWidth(forRowWidth: fixed) == 0)
+        #expect(Timeline.alternateSlotWidth(forRowWidth: fixed - 1) == 0)
+        #expect(Timeline.alternateSlotWidth(forRowWidth: -10) == 0)
         // 刚过临界即为正宽。
-        #expect((Timeline.alternateSlotWidth(forRowWidth: fixed + 2) ?? -1) > 0)
+        #expect(Timeline.alternateSlotWidth(forRowWidth: fixed + 2) > 0)
     }
 
     @MainActor

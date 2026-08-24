@@ -214,6 +214,39 @@ struct ComponentJudgeRulesTests {
         #expect(ok.satisfied["Steps"]?.contains("接线于 Steps") == true)
     }
 
+    @Test("J-2 形态 D2 变异：enum 接在别的组件上 ⇒ 本条目必须判红（不许跨组件借线）")
+    func j2StyleEnumWiredToAnotherComponent() {
+        // ⚠️ PR #206 第 3 轮 review 抓到：上一轮只判了 `hosts.isEmpty`，没检查 hosts 里有没有
+        // 本条目自己。于是「组件代码一行不写也判绿」并没关死 —— 借另一个组件的形态枚举即可。
+        // 实测（当时）：把 `AvatarGroup` 的 styleEnum 指向 `StepsPresentation` ⇒ 407 全绿。
+        // 更要命的是这类条目**从不进 `missing`** ⇒ `ComponentExtensionPointGuard` 的棘轮
+        // （`Set(result.missing) == knownMissingExtensionPoints`）结构上也抓不到。
+        let scan = scanComponentJudgeInputs(source: """
+        public enum StepsPresentation { case steps, segmentedBar }
+        public struct Steps {
+            public init(presentation: StepsPresentation = .steps) {}
+        }
+        public struct AvatarGroup {
+            public init(max: Int = 3) {}
+        }
+        """)
+        let borrowed = judgeExtensionPoints(
+            entries: [makeTestEntry(
+                component: "AvatarGroup", kind: "semantic", decidedBy: "step2",
+                styleEnum: "StepsPresentation", needsExtensionPoint: true
+            )], scan: scan)
+        #expect(borrowed.missing == ["AvatarGroup"], "枚举接在 Steps 上，AvatarGroup 自己没有扩展点")
+        #expect(borrowed.diagnostics.contains { $0.contains("不含本条目") })
+
+        // 对照：同一份源码，条目换成真正接了线的 Steps ⇒ 绿。证明判红的原因是「宿主不匹配」。
+        let own = judgeExtensionPoints(
+            entries: [makeTestEntry(
+                component: "Steps", kind: "semantic", decidedBy: "step2",
+                styleEnum: "StepsPresentation", needsExtensionPoint: true
+            )], scan: scan)
+        #expect(own.missing.isEmpty)
+    }
+
     @Test("J-2 形态 D2 的限度：接线判据核不了『枚举承载的是不是形态候选』")
     func j2StyleEnumWiringCannotJudgeSemantics() {
         // ⚠️ 这条**不是**期望行为，是钉住判据的**已知限度**，防止有人把它读成比实际更强的
@@ -221,6 +254,8 @@ struct ComponentJudgeRulesTests {
         // 都是公开枚举、都接在 `Steps.init` 上 ⇒ 登记表指向前者照样绿。
         // 「枚举承载的是形态候选」属公约 §2 的**人工判定**，与 D1 的 styleSlot 可以被填成
         // 内容槽同源。机器守的是「没接线就不算」，不是「填对了才算」。
+        // ⚠️ 两个枚举都接在**同一个** `Steps` 上 —— 宿主匹配那道门槛过得去
+        // （见 `j2StyleEnumWiredToAnotherComponent`），剩下的才是真正不可机器化的那一半。
         let scan = scanComponentJudgeInputs(source: """
         public enum StepsAxis { case horizontal, vertical }
         public enum StepsPresentation { case steps, segmentedBar }

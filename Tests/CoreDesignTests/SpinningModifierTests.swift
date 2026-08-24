@@ -79,6 +79,48 @@ struct SpinningModifierStorageTests {
         }
     }
 
+
+    @Test("TopBarIndicator.offset：相位覆盖整条轨道，首尾衔接不跳变")
+    func topBarIndicatorSweepCoversTrack() {
+        // ⚠️ PR #206 第 3 轮：上一版顶条**静态快照里完全不可见** —— 初始
+        // `offset(x: -barWidth)` 把条推到视口外，再被 `.clipped()` 裁掉，而动画依赖
+        // `@State` + `.onAppear` + `.repeatForever` 的时序。现在按时钟求相位，可断言。
+        let track: CGFloat = 200
+        let bar = track * TopBarIndicator.barWidthRatio
+        let epoch = Date(timeIntervalSinceReferenceDate: 0)
+
+        // 相位 0：条完全在左侧视口外（贴着左边缘外侧）。
+        #expect(TopBarIndicator.offset(at: epoch, trackWidth: track) == -bar)
+
+        // 相位 1（下一周期起点）：与相位 0 逐字相同 ⇒ 循环无跳变。
+        let nextPeriod = Date(timeIntervalSinceReferenceDate: TopBarIndicator.period)
+        #expect(TopBarIndicator.offset(at: nextPeriod, trackWidth: track)
+                == TopBarIndicator.offset(at: epoch, trackWidth: track))
+
+        // 相位 0.5：条已进入轨道中段 ⇒ 可见。这条是「顶条真的会动且会出现」的承重断言。
+        let mid = Date(timeIntervalSinceReferenceDate: TopBarIndicator.period / 2)
+        let midOffset = TopBarIndicator.offset(at: mid, trackWidth: track)
+        #expect(midOffset > 0 && midOffset < track, "相位 0.5 时亮条必须落在轨道内，实际 \(midOffset)")
+
+        // 单调推进：**一个周期内**相位越大位移越大（不回退、不抖动）。
+        // ⚠️ 上界取开区间：`step == 10` 时 `t == period`，`truncatingRemainder` 归零、相位
+        // 回绕到起点 —— 那是正确行为（由上面「首尾衔接」那条断言覆盖），不是单调性违例。
+        var previous = -CGFloat.infinity
+        for step in 0..<10 {
+            let t = TopBarIndicator.period * Double(step) / 10
+            let offset = TopBarIndicator.offset(at: Date(timeIntervalSinceReferenceDate: t), trackWidth: track)
+            #expect(offset >= previous)
+            previous = offset
+        }
+    }
+
+    @Test("TopBarIndicator：轨道常驻 ⇒ 任意相位下顶条都占据可见高度")
+    func topBarIndicatorHasVisibleTrack() {
+        // ⚠️ 「顶条存在」不能取决于亮条此刻扫到哪 —— 相位落在两端时亮条整个在视口外。
+        // 高度是常量且为正 ⇒ 轨道恒占位；2pt 曾细到在高分屏上几乎看不见，现取 4pt。
+        #expect(TopBarIndicator.height == CoreSpacing.xs)
+        #expect(TopBarIndicator.height > 0)
+    }
 }
 
 #if os(iOS)
@@ -112,4 +154,5 @@ struct SpinningModifierSizeTests {
         #expect(maskedOnWithTextSize == plainSize, "带文案的遮罩同样不应改变内容尺寸")
     }
 }
+
 #endif

@@ -188,8 +188,12 @@ struct StepsTests {
 
     @Test("Steps：四种呈现都能构造且 body 可求值（不 crash）")
     func stepsAllPresentationsRender() {
-        // ⚠️ 这条只证「不 crash」，**不证渲染正确** —— 视觉正确性靠 #Preview 人工抽查，
-        // 本仓无快照测试。不要把它读成「四种呈现都对」。
+        // ⚠️ 这条只证「不 crash」，**不证渲染正确**。不要把它读成「四种呈现都对」。
+        // ⚠️ 「本仓无快照测试」是本行原有的说法，**不准确**，已按实情改写（PR #206 第 2 轮
+        // Copilot review 抓到；我上一轮正是沿用了这句、又把它复制扩散到四处新注释）：
+        // 快照流水线是有的（`scripts/run-snapshots.sh` + `App/Tests/SnapshotTests.swift`），
+        // 但它**只出图、不做基线比对** ⇒ 检测不了视觉回归；且本 package 测试里没有任何
+        // 「渲染后断言」的能力。要看图得跑那个脚本，且组件须注册进 `App/Sources/Previews.swift`。
         let items = [StepItem(title: "A"), StepItem(title: "B", isError: true), StepItem(title: "C")]
         for presentation in [StepsPresentation.steps, .segmentedBar, .navigation, .text] {
             for axis in [StepsAxis.horizontal, .vertical] {

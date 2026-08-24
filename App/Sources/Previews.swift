@@ -193,6 +193,28 @@ private struct ToastSnapshotHarness: View {
             Circle().fill(.green).frame(width: 24, height: 24)
             Circle().fill(.red).frame(width: 24, height: 24)
         }
+        // `#60` 形态 D2 新增的三种排布。⚠️ 注册在**本文件**才会进 `docs/snapshots/` ——
+        // `run-snapshots.sh` 默认模式只保留 `CoreDesignPreview_*`（本文件驱动），库内
+        // `#Preview` 产出的 `CoreDesign_*` 会被 `find -delete` 删掉（PR #206 第 2 轮
+        // Copilot review 抓到：只往库内加 `#Preview` 进不了快照流水线）。
+        AvatarGroup(max: 3, layout: .spaced) {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+            Circle().fill(.green).frame(width: 32, height: 32)
+            Circle().fill(.red).frame(width: 32, height: 32)
+            Circle().fill(.orange).frame(width: 32, height: 32)
+        }
+        AvatarGroup(max: 3, layout: .grid) {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+            Circle().fill(.green).frame(width: 32, height: 32)
+            Circle().fill(.red).frame(width: 32, height: 32)
+            Circle().fill(.orange).frame(width: 32, height: 32)
+            Circle().fill(.purple).frame(width: 32, height: 32)
+        }
+        AvatarGroup(layout: .countOnly) {
+            Circle().fill(.blue).frame(width: 32, height: 32)
+            Circle().fill(.green).frame(width: 32, height: 32)
+            Circle().fill(.red).frame(width: 32, height: 32)
+        }
     }
     .padding()
 }
@@ -364,10 +386,16 @@ private struct SkeletonPreviewsPreviewGallery: View {
             axis: .vertical,
             indicatorStyle: .numbered
         )
+        // `#60` 形态 D2 新增的三种呈现（见 AvatarGroup 处关于「为什么必须注册在本文件」）。
+        Steps(items: PreviewSnapshotFixtures.stepsSnapshotItems, currentIndex: 2, presentation: .segmentedBar)
+        Steps(items: PreviewSnapshotFixtures.stepsSnapshotItems, currentIndex: 1, presentation: .navigation)
+        Steps(items: PreviewSnapshotFixtures.stepsSnapshotItems, currentIndex: 1, presentation: .text)
     }
     .padding()
     .background(Color.surfaceCanvas)
 }
+
+
 
 #Preview("Timeline") {
     Timeline(items: [
@@ -383,6 +411,95 @@ private struct SkeletonPreviewsPreviewGallery: View {
     ])
     .padding()
     .background(Color.surfaceCanvas)
+}
+
+#Preview("Timeline Layouts") {
+    // `#60` 形态 D2 新增的三种排布。⚠️ `.alternate` 那组特意混入一个**宽内容**（220pt）——
+    // 「节点恒在同一条中轴」恰恰只在内容固有宽度超过半槽时才会破，全用短文本的样本
+    // 结构上暴露不出这个 case。
+    ScrollView {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            Timeline(
+                items: [
+                    TimelineItem(status: .info) {
+                        Color.statusAccentEmphasis.frame(width: 220, height: 32)
+                    },
+                    TimelineItem(status: .success) { Text("短").coreFont(.callout) },
+                    TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) },
+                ],
+                layout: .alternate
+            )
+            Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .horizontal)
+            Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .grouped)
+        }
+        .padding()
+    }
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Timeline Alternate Widths") {
+    // ⚠️ **这条是 `.alternate` 宽度响应性的护栏**，不是装饰。它替代「旋转屏幕看一眼」：
+    // 同一份数据放进三种**不同宽度**的容器，节点必须在各自容器里居中（三条中轴各自不同、
+    // 但每条都在自己容器的正中）。PR #206 第 2 轮的 `@State` + `onGeometryChange` 写法在
+    // 这里会立刻现形 —— 那版首帧测到一个宽度后就**永久冻结**，三个容器会画出同一个槽宽。
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        ForEach([200.0, 280.0, 360.0] as [CGFloat], id: \.self) { width in
+            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                Text(verbatim: "容器宽 \(Int(width))pt")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+                Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .alternate)
+                    .frame(width: width)
+                    .background(Color.surfaceRaised)
+            }
+        }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Spinning Presentations") {
+    // `#60` 形态 D2 新增的两种**非阻塞**呈现。`.overlay`（默认）另有 ComponentData 那条。
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        Card {
+            Text("topBar：顶边细条，内容不被遮罩").coreFont(.subheadline)
+        }
+        .spinning(true, presentation: .topBar)
+
+        HStack(spacing: CoreSpacing.lg) {
+            Text("保存中").coreFont(.callout).spinning(true, presentation: .inline)
+            Text("已保存").coreFont(.callout).spinning(false, presentation: .inline)
+        }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+/// 快照 `#Preview` 共用的样本数据（`enum` 作命名空间，不产生实例）。
+///
+/// ⚠️ `@MainActor` 必需：`StepItem` / `TimelineItem` 的 init 在库侧是 MainActor 隔离的，
+/// 而 `enum` 的 static 成员默认落在 nonisolated 上下文，不标注会编译失败。
+@MainActor
+enum PreviewSnapshotFixtures {
+    /// `Steps` 三种新呈现共用的样本 —— 同一份数据换 `presentation`，差异才归因于呈现本身。
+    /// ⚠️ 用 `var` 而非 `let`：`StepItem.init` 的 `id: UUID = UUID()` 默认值是
+    /// MainActor 隔离的，`static let` 会在 nonisolated 上下文里求值而编译失败。
+    static var stepsSnapshotItems: [StepItem] {
+        [
+            StepItem(title: "Cart"),
+            StepItem(title: "Shipping"),
+            StepItem(title: "Payment"),
+            StepItem(title: "Confirm"),
+        ]
+    }
+
+    static var timelineItems: [TimelineItem] {
+        [
+            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
+            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
+            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
+        ]
+    }
 }
 
 #Preview("Rating") {

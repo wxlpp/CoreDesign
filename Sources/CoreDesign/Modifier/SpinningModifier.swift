@@ -191,32 +191,62 @@ public struct SpinningModifier: ViewModifier {
 /// `.topBar` 后读屏用户对「开始加载 / 加载结束」拿不到任何信号 —— 而 `.overlay` 走的
 /// `ProgressIndicator` 是自带 `"Loading"` 语义的。键 `"Loading"` 已在
 /// `Localizable.strings` 注册，这里复用同一个，不另造文案。
-private struct TopBarIndicator: View {
+/// ⚠️ `internal` 而非 `private`：`barWidthRatio` / `period` / `height` /
+/// `offset(at:trackWidth:)` 要被 `@testable import` 的单测读到。与 `Steps.StepsProgress`
+/// 同一取舍 —— 退一档到默认 internal，仍不出现在下游可见的公开 API 表面。
+struct TopBarIndicator: View {
     /// 扫过的亮条占轨道宽度的比例。
-    private static let barWidthRatio: CGFloat = 0.3
-    private static let period: TimeInterval = 1.1
-
-    @State private var sweeping = false
+    static let barWidthRatio: CGFloat = 0.3
+    /// 扫一趟的周期（秒）。
+    static let period: TimeInterval = 1.1
+    /// 轨道底色相对 `.tint` 的不透明度。
+    private static let trackOpacity: Double = 0.2
 
     var body: some View {
         GeometryReader { proxy in
             let barWidth = proxy.size.width * Self.barWidthRatio
-            CoreShape.rounded(CoreRadius.small)
-                // ⚠️ `.tint` 不写死 `Color.accent`（FR-12 / ADR-3）—— 与 `.overlay` 形态
-                // 经 `ProgressIndicator` 得到的强调色通路保持一致。
-                .fill(.tint)
-                .frame(width: barWidth)
-                .offset(x: self.sweeping ? proxy.size.width : -barWidth)
-                .animation(
-                    .linear(duration: Self.period).repeatForever(autoreverses: false),
-                    value: self.sweeping
-                )
+            ZStack(alignment: .leading) {
+                // ⚠️ **轨道必须常驻**：没有它时，「顶条存在」这件事完全取决于亮条此刻扫到哪 ——
+                // 相位落在两端时条整个在视口外、被 `.clipped()` 裁掉，看上去就是**什么都没有**。
+                // 上一版正是这样：初始 `offset(x: -barWidth)` ⇒ 静态快照里 `.topBar` 完全不可见
+                // （PR #206 第 3 轮 review 预判、随后被快照实测证实）。
+                Capsule().fill(.tint.opacity(Self.trackOpacity))
+
+                TimelineView(.animation) { context in
+                    Capsule()
+                        // ⚠️ `.tint` 不写死 `Color.accent`（FR-12 / ADR-3）—— 与 `.overlay`
+                        // 形态经 `ProgressIndicator` 得到的强调色通路保持一致。
+                        .fill(.tint)
+                        .frame(width: barWidth)
+                        .offset(x: Self.offset(at: context.date, trackWidth: proxy.size.width))
+                }
+            }
         }
-        .frame(height: CoreSpacing.xxs)
+        .frame(height: Self.height)
         .clipped()
-        .onAppear { self.sweeping = true }
         .accessibilityElement()
         .accessibilityLabel(Text("Loading", bundle: .module))
+    }
+
+    /// 顶条高度。⚠️ 取 `CoreSpacing.xs`（4pt）而非 `xxs`（2pt）：2pt 在高分屏上淡到几乎看不见，
+    /// 且常见顶条（NProgress / YouTube / Turbo）都在 3–4pt。形状用 `Capsule` 而不是
+    /// `CoreShape.rounded(CoreRadius.small)` —— 6pt 圆角作用在 4pt 高上必然被夹成胶囊，
+    /// 写一个永远取不到的半径是无效表达（PR #206 第 3 轮 review）。
+    static let height: CGFloat = CoreSpacing.xs
+
+    /// 亮条在给定时刻的水平位移。**纯函数** —— 便于单测锁定「相位覆盖整条轨道且首尾衔接」。
+    ///
+    /// ⚠️ 用 `TimelineView(.animation)` 按时钟求相位，**不用** `@State` + `.onAppear` +
+    /// `.repeatForever`：后者的动画要在「插入」与「状态翻转」两次更新之间正确挂上才会动，
+    /// 是 SwiftUI 里出名的「首帧不动」高发形态，而它一旦不动就退化成一条静止色条 —— 恰是
+    /// 换掉 `ProgressView(.linear)` 想避开的结局。按时钟算则没有时序前提，也天然可测。
+    static func offset(at date: Date, trackWidth: CGFloat) -> CGFloat {
+        let barWidth = trackWidth * Self.barWidthRatio
+        let elapsed = date.timeIntervalSinceReferenceDate
+            .truncatingRemainder(dividingBy: Self.period)
+        let phase = CGFloat(elapsed / Self.period)
+        // 从「完全在左侧视口外」扫到「完全在右侧视口外」。
+        return -barWidth + (trackWidth + barWidth) * phase
     }
 }
 
@@ -276,10 +306,16 @@ private struct SpinningModifierPreviewGallery: View {
             }
 
             // MARK: `#60` 形态 D2 新增的两种呈现
-            // ⚠️ 本仓**无快照测试**，`#Preview` 是这两个分支唯一的视觉冒烟通路
-            // （CLAUDE.md「`#Preview` 是组件的主要视觉冒烟检查方式」）——
-            // PR #206 review 指出新形态既无渲染测试、预览又只画默认 `.overlay`，
+            // ⚠️ PR #206 review 指出新形态既无渲染测试、预览又只画默认 `.overlay`，
             // 于是「非阻塞」这一核心语义（内容仍可点、顶条/行内指示器位置）无人可见。
+            // ⚠️ **光栅快照也证不了这条语义** —— PNG 里看不出 `allowsHitTesting` 与
+            // `accessibilityHidden`。那两位只能靠 iOS 腿的交互/无障碍检查，本仓目前没有。
+            // 本仓的快照流水线**只生成 PNG、不做基线比对** —— `scripts/run-snapshots.sh`
+            // 经 `App/Tests/SnapshotTests.swift`（`SnapshottingTests`）收集 `#Preview` 出图，但没有
+            // 「与基线逐像素比对然后判红」的那一步 ⇒ **它检测不了视觉回归**，只是把图摆出来供人看。
+            // 且默认模式只保留 `App/Sources/Previews.swift` 驱动的 `CoreDesignPreview_*`，库内
+            // `#Preview` 产出的 `CoreDesign_*` 会被 `find -delete` 删掉（要留得加 `KEEP_LIBRARY_SNAPSHOTS=1`，
+            // 且只落本地 scratch）。⇒ 新形态**已同步注册进 `App/Sources/Previews.swift`**，否则进不了流水线。
 
             VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                 Text(".topBar（顶边细条，内容不被遮罩、仍可交互）")

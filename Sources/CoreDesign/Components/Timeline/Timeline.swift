@@ -158,8 +158,6 @@ public enum TimelineLayout: Sendable, Equatable {
 /// 内容可能自带其他语义（例如头像 + 姓名），由调用方自行决定 accessibility 表达，本组件
 /// 不代为覆盖。
 public struct Timeline: View {
-    /// `.alternate` 的实测行宽（仅该布局消费）。见 `alternateBody` 的说明。
-    @State private var measuredWidth: CGFloat = 0
 
     let items: [TimelineItem]
     let layout: TimelineLayout
@@ -199,36 +197,43 @@ public struct Timeline: View {
     /// （PR #206 review 抓到）。交替形态的定义就是「节点恒在中轴、内容左右换边」⇒ 几何上
     /// 必须是「弹性左槽 | 固定节点列 | 弹性右槽」，节点列的水平位置与索引奇偶无关。
     private var alternateBody: some View {
-        // ⚠️ **槽宽必须由实测行宽算出、显式下发**，不能只靠两个 `.frame(maxWidth: .infinity)`
-        // 各拿一半（PR #206 第 2 轮 review 抓到）：`maxWidth: .infinity` **不会把子视图压到
-        // 它自己的固有宽度以下**。内容一旦有大于半宽的固有宽度（固定尺寸图片 / `.fixedSize()`
-        // 文本 / 不可断行的长 token），内容槽就拿走多于一半，节点列随之偏离行中心，而连线
-        // 是按整行居中画的 ⇒ 中轴逐行左右横跳，「同一条竖线」当场不成立。
+        // ⚠️ **槽宽由 `TimelineAlternateRowLayout` 从 proposal 直接算**，既不能靠两个
+        // `.frame(maxWidth: .infinity)` 各拿一半，也不能靠 `@State` 回填实测宽度。
+        // 两版都错过，都记在这里：
         //
-        // ⚠️ 用 `onGeometryChange` 而不是 `GeometryReader` 包住：后者会贪掉纵向空间，让本
-        // 就按内容 hug 高度的 `VStack` 塌成 proposal 高。前者只观测、不参与布局。
-        // 首帧 `measuredWidth == 0`，此时 `slotWidth` 传 `nil`，退回弹性槽（与上一版等价的
-        // 观感），测到宽度后才转为定宽 —— 不会出现「首帧内容被压成 0 宽」的闪烁。
+        // 1. **纯弹性槽**（初版）：`maxWidth: .infinity` **不会把子视图压到它自己的固有宽度
+        //    以下**。内容一旦有大于半宽的固有宽度（固定尺寸图片 / `.fixedSize()` 文本 /
+        //    不可断行的长 token），内容槽就拿走多于一半，节点列偏离行中心，而连线是按整行
+        //    居中画的 ⇒ 中轴逐行左右横跳。
+        // 2. **`@State` + `onGeometryChange` 回填**（第二版）：**反馈环自锁**。观测的是
+        //    `VStack` 自己的已解析宽度，而定宽槽让行宽恒等于 `measuredWidth`，`VStack` 宽度
+        //    随之恒定 ⇒ 观测值再不变化 ⇒ action 再不触发 ⇒ 宽度**永久冻结在首帧那个值**：
+        //    旋转屏幕 / 拖 Split View / 缩窗口都不跟随，且首帧那次若碰上溢出行，溢出后的
+        //    行宽会被当作基准固化下来，整块比容器还宽。
+        //
+        // ⇒ 用 `Layout`：它在 `sizeThatFits` / `placeSubviews` 里**直接拿到 `ProposedViewSize`**，
+        // 一趟出结果 —— 无 `@State`、无反馈环、无首帧闪烁，proposal 变了自然重算。
         VStack(spacing: CoreSpacing.none) {
             ForEach(Array(self.items.enumerated()), id: \.element.id) { index, item in
                 TimelineAlternateRowView(
                     item: item,
                     isLast: Self.isLastItem(item, in: self.items),
-                    contentSide: index.isMultiple(of: 2) ? .leading : .trailing,
-                    slotWidth: Self.alternateSlotWidth(forRowWidth: self.measuredWidth)
+                    contentSide: index.isMultiple(of: 2) ? .leading : .trailing
                 )
             }
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { self.measuredWidth = $0 }
     }
 
-    /// `.alternate` 的单侧内容槽宽度；行宽未知（首帧）或窄到放不下时返回 `nil`（退回弹性槽）。
+    /// `.alternate` 的单侧内容槽宽度。三列几何：`槽 | nodeColumnWidth | 槽`，两处间距各
+    /// `CoreSpacing.md`。窄到放不下固定部分时返回 `0`（不产生负宽 —— 负值传进
+    /// `.frame(width:)` / `Layout` 的 place 会 crash）。
     ///
-    /// 三列几何：`槽 | nodeColumnWidth | 槽`，两个 `HStack` 间距各 `CoreSpacing.md`。
-    static func alternateSlotWidth(forRowWidth rowWidth: CGFloat) -> CGFloat? {
+    /// ⚠️ 由 `TimelineAlternateRowLayout` 消费。**节点列的 x 只取决于本函数与行宽**，与索引
+    /// 奇偶无关 ⇒ 所有行的节点中心落在同一条竖线上，而 `slot + md + nodeColumnWidth / 2`
+    /// 恰好等于行宽的一半 ⇒ 居中画的连线正好穿过节点中心。
+    nonisolated static func alternateSlotWidth(forRowWidth rowWidth: CGFloat) -> CGFloat {
         let fixed = Self.nodeColumnWidth + 2 * CoreSpacing.md
-        guard rowWidth > fixed else { return nil }
-        return (rowWidth - fixed) / 2
+        return Swift.max(0, (rowWidth - fixed) / 2)
     }
 
     /// `.horizontal`：节点沿水平轴排列，内容在节点下方。
@@ -287,7 +292,9 @@ public struct Timeline: View {
 
     /// 节点方框边长（pt）——默认圆点与自定义 `node` 均在此方框内居中对齐，保证连线的
     /// 竖直起点（方框底部）不因节点内容尺寸不同而错位。
-    static let nodeColumnWidth: CGFloat = 24
+    /// ⚠️ `nonisolated`：`TimelineAlternateRowLayout` 的 `Layout` 见证方法是 nonisolated 的，
+    /// 而本库默认 MainActor 隔离。不可变常量跨隔离读取无数据竞争风险。
+    nonisolated static let nodeColumnWidth: CGFloat = 24
 
     /// 默认圆点节点直径（pt）。
     static let nodeDiameter: CGFloat = 10
@@ -389,19 +396,15 @@ private struct TimelineAlternateRowView: View {
     let isLast: Bool
     /// 本行内容占左槽还是右槽。节点列不受它影响。
     let contentSide: HorizontalEdge
-    /// 单侧槽宽；`nil` = 行宽未知（首帧），退回弹性槽。见 `Timeline.alternateSlotWidth(forRowWidth:)`。
-    let slotWidth: CGFloat?
 
     var body: some View {
-        HStack(alignment: .top, spacing: CoreSpacing.md) {
+        TimelineAlternateRowLayout {
             self.slot(.leading)
-
             TimelineNodeView(item: self.item)
-                .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
-
             self.slot(.trailing)
         }
-        // 连线居中于**整行**——与节点列在三列布局中的居中位置重合。
+        // 连线居中于**整行** —— 三列几何下行中心恰好就是节点中心，见
+        // `Timeline.alternateSlotWidth(forRowWidth:)` 的说明。
         .background(alignment: .top) {
             if !self.isLast {
                 TimelineConnector()
@@ -409,27 +412,72 @@ private struct TimelineAlternateRowView: View {
         }
     }
 
-    /// 一侧的内容槽：本行内容归属该侧时渲染内容，否则渲染等宽空槽以维持三列几何。
+    /// 一侧的内容槽：本行内容归属该侧时渲染内容，否则渲染空槽以维持三列几何。
     ///
-    /// ⚠️ 有 `slotWidth` 时用**定宽** `.frame(width:)` —— 它会把超宽内容压进槽内，而
-    /// `.frame(maxWidth: .infinity)` 不会（见 `Timeline.alternateBody` 的说明）。
+    /// ⚠️ 槽宽由 `TimelineAlternateRowLayout` 在 place 时下发，这里**不**加任何 `.frame`
+    /// 宽度约束 —— 加了会与 Layout 的提议打架。
     @ViewBuilder
     private func slot(_ side: HorizontalEdge) -> some View {
-        let alignment: Alignment = side == .leading ? .topTrailing : .topLeading
         if side == self.contentSide {
-            let content = self.item.content
+            self.item.content
                 .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
-            if let width = self.slotWidth {
-                content.frame(width: width, alignment: alignment)
-            } else {
-                content.frame(maxWidth: .infinity, alignment: alignment)
-            }
+                .frame(maxWidth: .infinity, alignment: side == .leading ? .trailing : .leading)
         } else {
             Color.clear
-                .frame(width: self.slotWidth, height: 0)
-                .frame(maxWidth: self.slotWidth == nil ? .infinity : nil)
+                .frame(height: 0)
                 .accessibilityHidden(true)
         }
+    }
+}
+
+/// `.alternate` 单行的三列布局（internal）：**弹性左槽 | 固定节点列 | 弹性右槽**。
+///
+/// ⚠️ **为什么是 `Layout` 而不是 `HStack` + `.frame`**：见 `Timeline.alternateBody` 里记的
+/// 两次失败。要点是 `Layout` 能**直接读到 `ProposedViewSize`** —— 槽宽是父级提议的纯函数，
+/// 不需要把已解析尺寸绕回 `@State`，因而没有那个会自锁冻结的反馈环，proposal 一变就重算。
+///
+/// 三个 subview 的顺序固定为 `[左槽, 节点, 右槽]`。节点列的 x 只取决于槽宽与间距、**与索引
+/// 奇偶无关** ⇒ 所有行的节点中心落在同一条竖线上。
+struct TimelineAlternateRowLayout: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rowWidth = proposal.replacingUnspecifiedDimensions().width
+        let slot = Timeline.alternateSlotWidth(forRowWidth: rowWidth)
+        // ⚠️ 高度取三者最大值：空槽是零高的 `Color.clear`，节点是定高方框，内容侧决定行高。
+        let heights = Self.subviewHeights(subviews, slotWidth: slot)
+        return CGSize(width: rowWidth, height: heights.max() ?? 0)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+    ) {
+        guard subviews.count == 3 else { return }
+        let slot = Timeline.alternateSlotWidth(forRowWidth: bounds.width)
+        let node = Timeline.nodeColumnWidth
+        let gap = CoreSpacing.md
+
+        subviews[0].place(
+            at: CGPoint(x: bounds.minX, y: bounds.minY), anchor: .topLeading,
+            proposal: ProposedViewSize(width: slot, height: nil)
+        )
+        subviews[1].place(
+            at: CGPoint(x: bounds.minX + slot + gap, y: bounds.minY), anchor: .topLeading,
+            proposal: ProposedViewSize(width: node, height: node)
+        )
+        subviews[2].place(
+            at: CGPoint(x: bounds.minX + slot + gap + node + gap, y: bounds.minY),
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: slot, height: nil)
+        )
+    }
+
+    /// 三个 subview 在各自提议下的高度。抽出来便于 `sizeThatFits` 单点复用。
+    private static func subviewHeights(_ subviews: Subviews, slotWidth: CGFloat) -> [CGFloat] {
+        guard subviews.count == 3 else { return [] }
+        return [
+            subviews[0].sizeThatFits(ProposedViewSize(width: slotWidth, height: nil)).height,
+            Timeline.nodeColumnWidth,
+            subviews[2].sizeThatFits(ProposedViewSize(width: slotWidth, height: nil)).height,
+        ]
     }
 }
 
@@ -441,6 +489,13 @@ private struct TimelineAlternateRowView: View {
 /// `item.content` 是调用方任意视图 —— 本文件 `.vertical` 预览里的标准形态就是
 /// `VStack { Text(标题); Text(时间) }` 两个元素，不 combine 会读成「已创建, Success」
 /// +「2026-07-20 10:00, Success」，状态播两遍。
+///
+/// ⚠️ **已知边界**：`.combine` 之后挂的 `accessibilityValue` 会**覆盖**调用方 content 自带的
+/// value —— content 里若塞了 `ProgressView` / `Slider` 这类带值控件，其百分比 / 数值会被
+/// 状态文案顶掉。今天没有用例命中（`.grouped` 的实际用法是分组列表行，content 基本是文本），
+/// 但需要保留细粒度 value 语义的调用方应改用 `.vertical`。SwiftUI 读不到「content 已有的
+/// value」，因而拼接不可行；`accessibilityCustomContent` 是另一条路，但要引入新的 A 类文案键，
+/// 留给 `wxlpp/oh-my-story#49` 的文案迁移一并定。
 ///
 /// ⚠️ 这是 `.grouped` **有意偏离** `.vertical` 的一处：后者刻意不合并 content
 /// （见 `Timeline` 文档「content 的 accessibility 语义完全由调用方决定」），因为节点与
@@ -556,10 +611,14 @@ private struct TimelinePreviewGallery: View {
                 }
 
                 // MARK: `#60` 形态 D2 新增的三种排布
-                // ⚠️ 本仓**无快照测试**，`#Preview` 是这些分支唯一的视觉冒烟通路
-                // （CLAUDE.md「`#Preview` 是组件的主要视觉冒烟检查方式」）——
-                // PR #206 review 指出新排布只有 storage/body 求值测试、预览仍只画默认
+                // ⚠️ PR #206 review 指出新排布只有 storage/body 求值测试、预览仍只画默认
                 // `.vertical`，交替轴线是否真的对齐、分组项的状态播报是否还在，都无人可见。
+                // 本仓的快照流水线**只生成 PNG、不做基线比对** —— `scripts/run-snapshots.sh`
+                // 经 `App/Tests/SnapshotTests.swift`（`SnapshottingTests`）收集 `#Preview` 出图，但没有
+                // 「与基线逐像素比对然后判红」的那一步 ⇒ **它检测不了视觉回归**，只是把图摆出来供人看。
+                // 且默认模式只保留 `App/Sources/Previews.swift` 驱动的 `CoreDesignPreview_*`，库内
+                // `#Preview` 产出的 `CoreDesign_*` 会被 `find -delete` 删掉（要留得加 `KEEP_LIBRARY_SNAPSHOTS=1`，
+                // 且只落本地 scratch）。⇒ 新形态**已同步注册进 `App/Sources/Previews.swift`**，否则进不了流水线。
 
                 self.section("交替 · alternate（节点须在**同一条中轴**上，连线贯穿）") {
                     Timeline(items: Self.statusItems, layout: .alternate)

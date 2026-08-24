@@ -737,10 +737,14 @@ private struct StepsPreviewGallery: View {
                 }
 
                 // MARK: `#60` 形态 D2 新增的三种呈现
-                // ⚠️ 本仓**无快照测试**，`#Preview` 是这些分支唯一的视觉冒烟通路
-                // （CLAUDE.md「`#Preview` 是组件的主要视觉冒烟检查方式」）——
-                // PR #206 review 指出新形态只有 `_ = body` 构造测试、预览仍只画默认形态，
-                // 于是布局回归在明暗两端都无人可见。以下逐形态 + 边界数据补齐。
+                // ⚠️ PR #206 review 指出新形态只有 `_ = body` 构造测试、预览仍只画默认形态。
+                // 以下逐形态 + 边界数据补齐。
+                // 本仓的快照流水线**只生成 PNG、不做基线比对** —— `scripts/run-snapshots.sh`
+                // 经 `App/Tests/SnapshotTests.swift`（`SnapshottingTests`）收集 `#Preview` 出图，但没有
+                // 「与基线逐像素比对然后判红」的那一步 ⇒ **它检测不了视觉回归**，只是把图摆出来供人看。
+                // 且默认模式只保留 `App/Sources/Previews.swift` 驱动的 `CoreDesignPreview_*`，库内
+                // `#Preview` 产出的 `CoreDesign_*` 会被 `find -delete` 删掉（要留得加 `KEEP_LIBRARY_SNAPSHOTS=1`，
+                // 且只落本地 scratch）。⇒ 新形态**已同步注册进 `App/Sources/Previews.swift`**，否则进不了流水线。
 
                 self.section("分段条 · segmentedBar") {
                     Steps(items: Self.basicItems, currentIndex: 2, presentation: .segmentedBar)
