@@ -217,18 +217,22 @@ public extension SidebarNavigationRow where Leading == AnyView {
 /// 判定依据：`docs/component-contract.md` §2 形态 **D2（配置枚举）**，兑现 `#59` 判定的
 /// `needsExtensionPoint: true`（登记表 `kind: semantic` / `decidedBy: step2`）。
 ///
-/// ⚠️ **为什么是 D2 而不是 D1**（形态 D 内部无次序，公约 `:541-545`；本条是按 `:561`
-/// 「实现 issue 必须独立做一次设计判断」作出的选择，**不主张 D1 不成立**）：
+/// ⚠️ **为什么是 D2 而不是 D1**（形态 D 内部无次序 —— 见公约「优先序：A > B > D > C」小节；本条是按公约
+/// 「**实现 issue 对每一条必须独立做一次设计判断，不得照单实现候选清单**」作出的选择，
+/// **不主张 D1 不成立**）：
 /// D1（给 `leading` 开 `@ViewBuilder` 槽）**做得到同样的覆盖**，但要么把本类型泛型化成
 /// `SidebarUtilityRow<Leading>`（现有 `type(of:) == SidebarUtilityRow.self` 断言即编译不过），
 /// 要么走 `AnyView` 擦除并付本仓对擦除设的成文门槛。D2 只加一个带默认值的参数，
 /// **类型名不变**；且开放槽会把一个封闭的候选空间（有字形 / 无字形）敞成任意视图。
 ///
 /// ⚠️ **两个 case 各自独立成立为一种形态角色**，不是「一个布尔旋钮的两个投影」——
-/// 参照公约 `:650-659` 的 `CardKind` 裁定「**两 case 数本身不是判据**，『是否独立成立为
-/// 角色』才是」。`.textOnly` 有具名业界来源（Ant Design Menu 默认无 icon 项 /
+/// 参照公约对 `CardKind` 的裁定：「**两 case 数本身不是判据**，『是否独立成立为角色』才是」
+/// （见公约「⚠️ 头号反例：把 Bool 换成两 case enum **不是**替代路径」一节）。`.textOnly` 有具名业界来源（Ant Design Menu 默认无 icon 项 /
 /// macOS Finder 下拉菜单项），由 `#59` 判为**槽**差异。
-public enum SidebarUtilityRowPresentation: Sendable, Equatable {
+// `CaseIterable` 是给护栏用的（PR #209 终审 S5）：`SidebarLeadingSlotRenderTests` 遍历
+// `allCases` 做尺寸/命中区断言 ⇒ **将来新增第三个 case 会自动被现有护栏覆盖**，
+// 不会因为测试里硬编码了两个 case 而漏测。
+public enum SidebarUtilityRowPresentation: Sendable, Equatable, CaseIterable {
     /// 默认：leading 字形 + 标题（现状形态）。
     case iconLeading
     /// 纯文字行：**不渲染 leading 字形、也不占位**。

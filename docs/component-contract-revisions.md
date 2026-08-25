@@ -1614,8 +1614,9 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   > **已 closed** —— 其范围一分为二：`Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier`
   > 四条已由 **CoreDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
   > 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
-  > `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
-> 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态。
+  > `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由
+  > `#64` 以形态 D2 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」
+  > 系 #64 落地前的状态。
 
 ---
 
