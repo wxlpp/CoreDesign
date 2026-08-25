@@ -10,9 +10,19 @@ import AppKit
 
 // `SidebarUtilityRowPresentation`（#64，公约 §2 形态 D2）的**渲染护栏**。
 //
-// ⚠️ **本 suite 是跨平台的**，与仓内其余 5 个 `ImageRenderer` 量测 suite
+// ⚠️ **本 suite 里相等类与不等类的位图断言互为对方的「非退化前置」，不得单独删除或
+// 单腿门控**（PR #209 复审 S-3）：
+//   · `textOnlyIgnoresSystemImage`（三张位图**相等**）的退化路径是「三张全是空图 ⇒ 恒真」,
+//     由 `leadingGlyphIsDrivenBySystemImage` 证明 gearshape/trash 在本平台**确能**产生差异来兜住；
+//   · `leadingGlyphIsDrivenBySystemImage`（两张位图**不等**）的退化路径是「渲染非确定性 ⇒
+//     任意两图恒不等」，由本 suite 三条相等断言从反面兜住。
+// 这个互锁是**隐式**的 —— 删掉或 iOS-gate 其中一半，另一半会**静默**退化成恒真。
+//
+// ⚠️ **本 suite 是跨平台的**，与仓内其余 5 个 **iOS-only** 的 `ImageRenderer` suite
 // （`TouchTargetTests` / `DynamicTypeLayoutTests` / `SpinningModifierSizeTests` /
 // `SettingsRowHeightTests` / `CardVisibilityTests`）**不同** —— 它们全部包在 `#if os(iOS)` 里。
+// （这 5 个是按「iOS-only」分的类。按「读不读几何尺寸」再分是另一个口径，见 `pixels(_:)`
+//  的 DocC —— 两处数目不同不是笔误。）
 // 独占一个文件正是为了不被后人顺手包进 `#if os(iOS)`、让护栏静默变单腿。
 //
 // ⚠️ **与 `SpinningModifierTests.swift:11-12` 那条相反先例对账**：那里写「只在 iOS 腿跑
@@ -48,8 +58,9 @@ struct SidebarLeadingSlotRenderTests {
     private func intrinsicSize(_ view: some View) -> CGSize {
         let renderer = ImageRenderer(content: view)
         // scale 影响绝对值（实测 1 → 111.0 / 2 → 110.5 / 3 → 110.333）。
-        // 仓内用 `ImageRenderer` 的 suite 共 7 个，其中 **6 个显式设 `scale = 1`**
-        // （唯一没设的是 `RatingStyleTests`，它不读尺寸、只借渲染触发 body 求值）。
+        // 仓内用 `ImageRenderer` 的 suite **除 `RatingStyleTests` 外都显式设 `scale = 1`**
+        // （那一个不读尺寸、只借渲染触发 body 求值，故不关心 scale）。
+        // ⚠️ 这里**不写「共 N 个」** —— 本文件落地当天那个数就已经变了（复审 S-2）。
         renderer.scale = 1
         #if canImport(UIKit)
         return renderer.uiImage?.size ?? .zero
@@ -64,11 +75,20 @@ struct SidebarLeadingSlotRenderTests {
     /// `RatingStyleTests`（借渲染触发 `makeBody` 求值）已确立「用 `ImageRenderer` 取真实
     /// 位图作证」的惯例，且这两个 suite **是跨平台的**（无 `#if os(iOS)`）。
     ///
-    /// ⚠️ **但别把这条先例读成「ImageRenderer 在本仓一向跨平台」**（PR #209 终审 S3）：
-    /// 上面那两个**都不量几何**。真正读 `uiImage.size` 做**尺寸测量**的先例有 5 个
-    /// （`BasicContainer` / `DynamicTypeLayout` / `SettingsGroup` / `SpinningModifier` /
-    /// `TouchTarget`），**它们全部 iOS-only**。本 suite 做的是尺寸测量却选择跨平台，
-    /// 因此是**该类里的头一个** —— 理由与代价见文件顶部说明，不是「随大流」。
+    /// ⚠️ **但别把这条先例读成「ImageRenderer 在本仓一向跨平台」**（PR #209 终审 S3 /
+    /// 复审 I-1）：上面那两个**都不量几何**。真正读出**尺寸**的先例是 **4** 个 ——
+    /// `DynamicTypeLayoutTests` / `SettingsRowHeightTests` / `TouchTargetTests` 读
+    /// `uiImage?.size`，`SpinningModifierSizeTests` 读 `cgImage.width/height`；
+    /// **四个全部 iOS-only**。
+    /// ⚠️ **`CardVisibilityTests` 不在此列** —— 它虽然 iOS-only 且用 `ImageRenderer`，
+    /// 但只取**中心像素**验背景对比、不读尺寸，与上面那两个跨平台先例同类。
+    /// （终审 S3 那版把它算进「尺寸测量」得出 5，是错的。）
+    /// ⇒ 本 suite 做的是尺寸测量却选择跨平台，因此是**该类里的头一个**，不是「随大流」。
+    ///
+    /// ⚠️ **位图字节比较的已知脆弱面**（PR #209 Copilot CLI 复审提出，本轮未观察到）：
+    /// macOS 的 `tiffRepresentation` 可能嵌入色彩配置 / 压缩元数据，若将来 ImageIO 的
+    /// 默认设置变了，**相等**类断言可能在 macOS 腿上变脆。真出现时**先查元数据差异**
+    /// （而不是先改成宽松比较）—— 正确修法是比较解码后的像素缓冲，不是加容差。
     private func pixels(_ view: some View) -> Data? {
         let renderer = ImageRenderer(content: view)
         renderer.scale = 1
@@ -146,20 +166,20 @@ struct SidebarLeadingSlotRenderTests {
         // ⇒ 差值断言管「槽在不在」，本条管「槽里画的是不是真由入参决定的字形」，两条各挡一半。
     }
 
-    @Test("三种呈现的命中高度均 ≥ 44pt")
+    @Test("全部呈现组合的命中高度均 ≥ 44pt")
     func allPresentationsMeetMinimumTouchTarget() {
-        let cases: [(String, CGSize)] = [
-            (".iconLeading", self.intrinsicSize(self.row(.iconLeading))),
-            (".textOnly", self.intrinsicSize(self.row(.textOnly))),
-            (".textOnly + trailing", self.intrinsicSize(self.row(.textOnly, trailing: "chevron.forward"))),
-        ]
-        for (name, size) in cases {
-            #expect(size.height >= Self.minimumHitTarget,
-                    "\(name) 实测高度 \(size.height)pt < \(Self.minimumHitTarget)pt")
+        // ⚠️ 与 `rowHeightMatchesCurrentToken` 同样遍历 `allCases`（复审 S5）—— 上一版这里
+        // 硬编码了三个组合，加第三个 case 时不会自动覆盖。
+        for presentation in SidebarUtilityRowPresentation.allCases {
+            for trailing in [nil, "chevron.forward"] as [String?] {
+                let size = self.intrinsicSize(self.row(presentation, trailing: trailing))
+                #expect(size.height >= Self.minimumHitTarget,
+                        "\(presentation) trailing=\(trailing ?? "nil") 实测高度 \(size.height)pt < \(Self.minimumHitTarget)pt")
+            }
         }
     }
 
-    @Test("现状钉：三种呈现的高度互等且为 50（≠ a11y 契约，改 token 时须回来改这个数）")
+    @Test("现状钉：全部呈现组合的高度互等且为 50（≠ a11y 契约，改 token 时须回来改这个数）")
     func rowHeightMatchesCurrentToken() {
         // ⚠️ **本条与上面的 ≥44pt 是两件事，不要合并**（PR #209 终审 I2）：
         // `≥ 44` 是**外部 a11y 契约**的地板，因此那条必须写字面量 44、且不能收紧；
@@ -191,6 +211,14 @@ struct SidebarLeadingSlotRenderTests {
         // 对 systemImage **完全不敏感**，那条约定就降级成卫生问题，不再是正确性依赖。
         // 对比对象特意取 `leadingGlyphIsDrivenBySystemImage` 里被证实**能**产生位图差异的
         // 那两个字形（`gearshape` / `trash`）—— 否则本条可能只是选了两个碰巧同形的图标。
+        //
+        // ⚠️ **强度自陈**（PR #209 Copilot CLI 复审提出，如实记下）：**相对今天的代码形态，
+        // 本条接近恒真** —— 目前 `systemImage` 只在唯一那个 `if presentation == .iconLeading`
+        // 分支里被用到，所以 `.textOnly` 下它当然不影响渲染。
+        // ⇒ 本条挡的**不是**今天的实现，而是一类**未来回归**：有人把 `systemImage` 插进
+        // `.textOnly` 也走的路径（a11y label、title 拼接、tooltip、埋点字符串……）。
+        // 那时它会立刻判红，而「写 `""`」的约定就会从卫生问题变成正确性依赖。
+        // ⇒ 别因为「它现在总是绿」就删掉它；也别把它当成对当前实现的有力证明。
         let blank = self.pixels(self.row(.textOnly, systemImage: ""))
         let gear = self.pixels(self.row(.textOnly, systemImage: "gearshape"))
         let trash = self.pixels(self.row(.textOnly, systemImage: "trash"))
@@ -221,8 +249,15 @@ struct SidebarLeadingSlotRenderTests {
         // （两个变体等量受影响）**不会**红。
         // ⚠️ 反过来，对**四条兄弟行一起变**的**骨架级**改动本条**结构性失明** —— 因为它断的是
         // 两条行「相对相等」，而 `SidebarRow` 是共用骨架、改动对两条等量生效。
-        // 实测：`iconSize` 20→16 时 Util=Nav=107.0、`spacing`→0 时 Util=Nav=95.0，**两次都绿**，
-        // 全靠承重差值断言抓（24 / 20 ≠ 28）。⇒ 看到「承重红、兜底绿」是**预期**，别去"加强"本条。
+        // 实测（**骨架局部变异**：改 `SidebarRow` 里用哪个 token / 写死数值，**不是**改
+        // `CoreControlMetrics` 的 token 取值）：leading 那格 20→16 时 Util=Nav=107.0、
+        // 间距→0 时 Util=Nav=95.0，**两次都绿**，全靠承重差值断言抓（24 / 20 ≠ 28）。
+        // ⇒ 看到「承重红、兜底绿」是**预期**，别去"加强"本条。
+        //
+        // ⚠️ **别照字面做成「改 token 取值」的实验**（复审 I-2）：承重断言的期望值本身也是
+        // token 表达式（`iconSize(for: .large) + CoreSpacing.sm`），改 `CoreControlMetrics`
+        // 的返回值会让**期望值同步移动** ⇒ 承重也绿。这是那条断言的**已知双向移动面**，
+        // 由 `rowHeightMatchesCurrentToken` 的字面量 `50` 从另一侧兜住。
         let util = self.intrinsicSize(self.row(.iconLeading))
         let nav = self.intrinsicSize(
             SidebarNavigationRow(systemImage: "gearshape", title: "Settings", isSelected: false) {}
