@@ -94,8 +94,8 @@ struct ComponentExtensionPointGuard {
             `Toast` 从来不在 #60 范围内，是 #59 之前就存在的既有缺口 ⇒ 承接
             **wxlpp/oh-my-story#65**。\
             已摘除的：Steps / Timeline / AvatarGroup / SpinningModifier 由 wxlpp/oh-my-story#60 \
-            （CoreDesign PR #206，已合并）\
-            以公约 §2 形态 D2「配置枚举」补齐（本 PR）；Rating 由 #41 裁决 4c 补齐。\
+            以公约 §2 形态 D2「配置枚举」补齐（CoreDesign PR #206，已合并）；\
+            Rating 由 #41 裁决 4c 补齐。\
             补齐后本块无 issue 记录 ⇒ Swift Testing 主动判红，届时删除本块。
             """
         ) {
