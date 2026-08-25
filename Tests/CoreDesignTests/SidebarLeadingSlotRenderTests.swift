@@ -33,6 +33,16 @@ struct SidebarLeadingSlotRenderTests {
     /// 44 是**外部 a11y 契约数**、不由本仓 token 决定；先例 `TouchTargetTests.swift:61` 同款。
     private static let minimumHitTarget: CGFloat = 44
 
+    /// ⚠️ **为什么用严格 `==` 而不是带容差的近似比较**（PR #209 Copilot review 提出，实测后未采纳）：
+    /// 期望值 `iconSize(.large) + CoreSpacing.sm` = 20 + 8 = **28，两个常量都是整数**；
+    /// `renderer.scale = 1` 已钉死 ⇒ 位图像素数即 pt 数，取整不会污染**差值**。
+    /// 实测两条腿都精确相等：macOS `swift test` 419 tests 全绿、iOS Simulator 腿
+    /// 460 tests 全绿（本 suite 在两边都真的跑了）。
+    /// ⚠️ 且**容差会削弱护栏** —— 它要挡的是「leading 位仍占着地方」，那是**整格 20pt 或
+    /// 8pt 间距**的偏差；一旦允许 ±ε，将来「差值 27.5」这类真实的小偏移就会被放过。
+    /// ⇒ 若某天它在某平台上真的出现亚像素差异，**正确处置是查清那个平台为何不同**
+    /// （多半是 scale 或字体度量被改了），而不是加容差把信号盖掉。
+    ///
     /// 内容固有尺寸。⚠️ **永不接受宽度约束** —— 被测视图一旦被钉成固定宽度，两个变体的
     /// 宽度就都等于那个值、**差值恒 0**，护栏静默失效且不会红。
     /// （`TouchTargetTests.renderedHeight` 的默认参数是 `width: 320`，**不要复用它**。）
@@ -99,7 +109,8 @@ struct SidebarLeadingSlotRenderTests {
         // 行尾字形不应影响 leading 侧的差值。
         let iconLeading = self.intrinsicSize(self.row(.iconLeading, trailing: "chevron.forward"))
         let expected = CoreControlMetrics.iconSize(for: .large) + CoreSpacing.sm
-        #expect(iconLeading.width - withTrailing.width == expected)
+        #expect(iconLeading.width - withTrailing.width == expected,
+                "行尾字形影响了 leading 侧差值：实测差 \(iconLeading.width - withTrailing.width)，期望 \(expected)")
     }
 
     @Test("兜底：SidebarUtilityRow 与 SidebarNavigationRow 同 title 时宽度逐点相等")
@@ -117,6 +128,6 @@ struct SidebarLeadingSlotRenderTests {
         )
         #expect(util.width > 0)
         #expect(util.width == nav.width,
-                "两者走同一骨架、同 titleLineLimit、同 isSelected: false、trailing 皆空 ⇒ 宽度应相等")
+                "两者走同一骨架、同 titleLineLimit、同 isSelected: false、trailing 皆空 ⇒ 宽度应相等；实测 Util=\(util.width) / Nav=\(nav.width)")
     }
 }
