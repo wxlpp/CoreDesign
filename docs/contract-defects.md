@@ -1211,7 +1211,8 @@ issue 的硬边界严格分开）。
 > **已 closed** —— 其范围一分为二：`Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier`
 > 四条已由 **CoreDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
 > 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
-> `wxlpp/oh-my-story#64`。J-2 红名单剩 `SidebarUtilityRow`（#64）+ `Toast`（#65）两条。
+> `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
+> 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态。
 
 
 **台账**：`docs/component-contract-revisions.md` `R-33`。
@@ -1452,6 +1453,11 @@ task），且会阻断 #54。
 里 `trailingSystemImage` 有 `= nil`），而它判「槽」的承重证据逐字就是这一点。
 ⇒ 落点：公约 §2 的「候选形态清单 ≠ 扩展点需求集」小节。
 
+⚠️ **后续（只增不删，本段原文一字未改）**：上面那条「决定性实例」的**模态断言部分**已由
+**`D-64-1`** 补强 —— `wxlpp/oh-my-story#64` 以形态 D2 实现了候选 1 而 `systemImage`
+**保持必填无默认**，即「必须让该参数可省」存在反例。**事实描述部分仍逐字为真**，落点结论
+**不变**。详见本文件 `### D-64-1`。
+
 **裁断二：正式承认形态 D「样式扩展点」（D1 外观槽 + D2 配置枚举），J-2 随之扩识别。**
 ⚠️ **动机是不可逆性的不对称**：public 协议受祖父条款约束、**发布后不可撤**，而槽与枚举
 **可演进**。在判定法仍处修订期时让判据把设计空间压成「必发 public 协议」，等于把**可逆的
@@ -1495,7 +1501,8 @@ task），且会阻断 #54。
 > **已 closed** —— 其范围一分为二：`Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier`
 > 四条已由 **CoreDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
 > 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
-> `wxlpp/oh-my-story#64`。J-2 红名单剩 `SidebarUtilityRow`（#64）+ `Toast`（#65）两条。
+> `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
+> 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态。
 
 
 ### D-59-2：三分法未对公约自己的正典例（附录 A.4 `PinCode`）跑过补充规则 1
@@ -1984,3 +1991,51 @@ commit message 事实断言未经命令核验即写入的**第 5 次复发**。c
 
 **⚠️ 承接**：由 #54 收口新开的承接 issue 负责（**`wxlpp/oh-my-story#61`**）——裁定「候选形态改写
 是否消耗重跑名额」，并据此确认或改判这两条的落点。
+
+---
+
+### D-64-1：`D-59-1` 决定性实例的模态断言过强；并预防未来重判的自指陷阱
+
+**来源**：`wxlpp/oh-my-story#64`（CoreDesign 实现 `SidebarUtilityRowPresentation`）。
+**性质**：**补强，不改结论** —— 不翻转任何落点，`SidebarUtilityRow` 的
+`kind: semantic` / `decidedBy: step2` / `needsExtensionPoint: true` 三字段一字未改。
+
+#### ① `D-59-1` / 公约 §2 决定性实例的三句分层
+
+三处引文性质不同，**不得打成一包**：
+
+1. 公约「其候选 1（纯文字工具行）就**必须让该参数可省**」是**模态过强**：#64 以 D2 配置枚举
+   实现候选 1，`systemImage` **保持必填无默认** ⇒ **存在反例**。
+   （实现方式：`.textOnly` case 下 `body` 的 leading 闭包不渲染字形；`EmptyView` 在 `HStack`
+   里布局透明 ⇒ 既不占 iconSize 那格、也不吃 `CoreSpacing.sm` 间距。实测有字形 111.0 /
+   `.textOnly` 83.0 / 差值 28.0。）
+2. **事实描述**（`systemImage` 必填无默认、同一 `init` 里 `trailingSystemImage` 有 `= nil`）
+   与 `D-59-1` 裁断一「已裁」段的同款陈述 **落地后仍为真**，不受影响。
+3. **机制断言**（「判定用当前形态的刚性证明差异存在，实现要把那个刚性拆掉」）**部分成立**：
+   `.textOnly` 下整行位置数确由三变二（承重证据的第 3 个合取项被触及）。
+   ⚠️ **但本轮并未拆掉共享骨架那格 iconSize** —— `SidebarRow` 的
+   `.frame(width: CoreControlMetrics.iconSize(for: .large))` **一字未改**，承重证据的
+   第 2 个合取项（骨架固定留一格）**仍然为真**。
+
+#### ② 未来重判的自指陷阱（预防）
+
+公约明写「既判条目不主动回溯，**在下次因其它原因被复核时**适用新口径」。届时读源码的人会
+看到：本组件**自己**已支持纯文字行（`.textOnly`）与字形移尾（`.textOnly` + 既有尾图标参数）。
+
+⚠️ 一次**机械**的重判可能推出「这两个候选已不构成本组件的外观**差异** ⇒ 计数 2 → 0 ⇒
+举得犹豫 ⇒ 落步骤 4 ⇒ `needsExtensionPoint: false`」—— **反过来要求拆掉刚建的扩展点**。
+
+⇒ **记录事实供届时判断**：候选 1 / 2 是**业界形态**（来源与判定见 `#59`，取证在 `oh-my-story`
+的 `59-rejudge.md` 第 13 节），本轮以 D2 承载它们；**组件支持某形态 ≠ 该形态不再是候选**
+—— 否则任何「实现了扩展点」的组件都会在下次重判时自动失去扩展点资格，判定法将不动点。
+
+#### ③ 行号基线
+
+`Sidebar.swift` 的行号基线在 #64 变更：本轮三处插入（枚举 / `init` 参数 / `body` 分支）
+**首处落在原 `:212`（空行位）**。
+
+⇒ **`:211` 及以前的引用两端皆准、不受影响** —— 含 `:116-159`（`SidebarRow`）、
+`:167-198`（`SidebarNavigationRow`）、`:200-211`（`AnyView` 便利 extension）三批区间。
+⇒ **`:212` 及以后**的引用按 #64 之前的代码状态读（落地后：枚举声明在 `:231`、
+`SidebarUtilityRow` 在 `:255`，原 `:221` 的 `systemImage` 行位移约 +36）。
+

@@ -1614,5 +1614,35 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   > **已 closed** —— 其范围一分为二：`Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier`
   > 四条已由 **CoreDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
   > 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
-  > `wxlpp/oh-my-story#64`。J-2 红名单剩 `SidebarUtilityRow`（#64）+ `Toast`（#65）两条。
+  > `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
+> 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态。
+
+---
+
+### R-38｜`D-59-1` 决定性实例的现状注记（**补强，不改结论**）
+
+- **来源试点**：`wxlpp/oh-my-story#64`（CoreDesign 实现 `SidebarUtilityRowPresentation`，
+  形态 D2）。落地后发现公约 §2「决定性实例」里的一句**模态断言**被自身实现证伪。
+- **撞上公约哪一条**：第 2 节「候选形态清单 ≠ 扩展点需求集」小节的决定性实例段
+  （「其候选 1（纯文字工具行）就**必须让该参数可省** ⇒ 拆掉自己成立的前提」）。
+- **⚠️ 本条是「补强」，显式声明不改结论**（公约对钉死判例的补强有此要求）：
+  - **不翻转任何落点**：`SidebarUtilityRow` 的 `kind: semantic` / `decidedBy: step2` /
+    `needsExtensionPoint: true` **三字段一字未改**；
+  - **不改写原文**：决定性实例段**原句保留**，仅在其后追加一条引用块形式的现状注记
+    （照 `d5a2719` 确立的成法：保留原句 + 紧随注记）。
+- **改动前（逐字）**：见基线 `8f07dc7` 的 `docs/component-contract.md` §2 决定性实例段，
+  结尾为「……允许得出「承认差异存在、但本轮不开扩展点」的结论（那属于形态 C，须在 `notes`
+  写明理由）。」，其后无注记。
+- **改动后（逐字）**：同段原文一字未动，其后新增 `> ⚠️ **上面这段是 #59 当时的裁定记录……**`
+  引用块，内含三句分层（模态过强 / 事实仍为真 / 机制断言部分成立）+ 落点不变声明 + 行号基线。
+- **实测依据**：`EmptyView` 在 `HStack` 里**布局透明** —— 即使被
+  `.foregroundStyle().frame(width: iconSize).accessibilityHidden(true)` 整条包住，也既不占
+  那格 20pt、也不吃 `CoreSpacing.sm` 那 8pt。真组件量测：有字形 111.0 / `.textOnly` 83.0 /
+  差值 28.0 == `iconSize(.large) + CoreSpacing.sm`，与「骨架真条件化」逐点相同。
+  ⇒ 实现候选 1 **不需要**让该参数可省、**也不需要**改共享骨架。
+- **连带**：`docs/contract-defects.md` 新开 `D-64-1`（三节：① 三句分层；② 未来重判的自指
+  陷阱预防；③ 行号基线），并在 `D-59-1` 段尾加指针（只增不删）。
+- **验证**：`swift test --filter ComponentContractStructureGuard` 绿（注记用引用块而非 ≥4
+  空格缩进 —— 后者会让守卫把标题读成代码块而判红）；`swift test` 419 tests / 62 suites 全绿；
+  `54-invariants.py` 12 项全 PASS。
 

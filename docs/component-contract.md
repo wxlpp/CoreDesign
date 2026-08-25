@@ -316,7 +316,8 @@
 > > 里的 `AvatarGroup` / `SpinningModifier` / `Steps` / `Timeline` **已由 #60 落地**
 > > （公约 §2 形态 D2「配置枚举」，CoreDesign PR #206）；`SidebarUtilityRow` 被
 > > `60-form-decision.md` §5 判为「建议退回重判，不在本轮开扩展点」，**已不在 #60 范围内**，
-> > 承接 `wxlpp/oh-my-story#64`。J-2 红名单剩 `SidebarUtilityRow`（#64）+ `Toast`（#65）两条；
+> > 承接 `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
+> 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态；
 > > #60 已 closed。⇒ `step3` 条目数 **33 → 28**（移出的：`SidebarStatusFooter` /
 > `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）。
 > ⚠️ **重判后仍无一条被确认合格**——本段开头那句全称断言在新集合上**重新核过**，仍为真。
@@ -560,6 +561,24 @@
 ⇒ 这不是个别现象，而是结构决定的：**判定用当前形态的刚性证明差异存在，实现要把那个刚性
 拆掉**。⇒ **实现 issue 对每一条必须独立做一次设计判断，不得照单实现候选清单**；允许得出
 「承认差异存在、但本轮不开扩展点」的结论（那属于形态 C，须在 `notes` 写明理由）。
+
+> ⚠️ **上面这段是 #59 当时的裁定记录，不改写（改写等于篡改记录）。现状注记（`D-64-1`，
+> 补强、不改结论）**：
+>
+> · 「其候选 1……就**必须让该参数可省**」是**模态过强** —— `wxlpp/oh-my-story#64` 以形态
+>   **D2（配置枚举）**实现了候选 1，而 `systemImage` **保持必填无默认** ⇒ 存在反例。
+> · 括号里的**事实描述**（`systemImage` 必填无默认、`trailingSystemImage` 有 `= nil`）
+>   **落地后仍为真**。
+> · **机制断言**（「实现要把那个刚性拆掉」）**部分成立**：`.textOnly` 下整行位置数确由三变二，
+>   **但共享骨架 `SidebarRow` 那格 iconSize 一字未改** —— 承重证据的「骨架固定留一格」
+>   这一合取项仍然为真。
+> · **落点结论不变**：`SidebarUtilityRow` 仍是 `kind: semantic` / `decidedBy: step2` /
+>   `needsExtensionPoint: true`，本轮只是**兑现**它。
+>
+> ⚠️ **行号基线**：`Sidebar.swift` 的行号在 #64 变更，首处插入落在原 `:212`（空行位）
+> ⇒ **`:211` 及以前的引用两端皆准**（含 `:116-159` / `:167-198` / `:200-211` 三批区间）；
+> 上文括号里的 `:221` 属 `:212` 之后，须按 #64 之前的代码状态读。详见
+> `docs/contract-defects.md` 的 `D-64-1` ③。
 
 ### 边界条款：样式不得携带行为
 
