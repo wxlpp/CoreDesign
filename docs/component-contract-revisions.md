@@ -1610,3 +1610,9 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   够」**。⇒ 本次改的是**判据的表达力**，不是**红名单的长度**。
 - **承接**：`wxlpp/oh-my-story#60` 逐条判定各用哪种形态落地。⚠️ 不得因为公约现在承认了
   形态 D 就默认走 D —— 优先序 **A > B > D > C**，且 D 要过两道操作化判据。
+  > ⚠️ **上句是当时的承接记录，现状已变**（不改写原句，改写等于篡改台账）：`wxlpp/oh-my-story#60`
+  > **已 closed** —— 其范围一分为二：`Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier`
+  > 四条已由 **CoreDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
+  > 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
+  > `wxlpp/oh-my-story#64`。J-2 红名单剩 `SidebarUtilityRow`（#64）+ `Toast`（#65）两条。
+

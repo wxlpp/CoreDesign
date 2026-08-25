@@ -315,8 +315,9 @@
 > > ⚠️ **上句是 #59 当时的裁定记录，不是现状**（不改写，改写等于篡改记录）。现状：那 5 条
 > > 里的 `AvatarGroup` / `SpinningModifier` / `Steps` / `Timeline` **已由 #60 落地**
 > > （公约 §2 形态 D2「配置枚举」，CoreDesign PR #206）；`SidebarUtilityRow` 被
-> > `60-form-decision.md` §5 判为「建议退回重判，不在本轮开扩展点」，**已不在 #60 范围内、
-> > 尚无承接 issue**。J-2 红名单剩 `SidebarUtilityRow` + `Toast` 两条。⇒ `step3` 条目数 **33 → 28**（移出的：`SidebarStatusFooter` /
+> > `60-form-decision.md` §5 判为「建议退回重判，不在本轮开扩展点」，**已不在 #60 范围内**，
+> > 承接 `wxlpp/oh-my-story#64`。J-2 红名单剩 `SidebarUtilityRow`（#64）+ `Toast`（#65）两条；
+> > #60 已 closed。⇒ `step3` 条目数 **33 → 28**（移出的：`SidebarStatusFooter` /
 > `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）。
 > ⚠️ **重判后仍无一条被确认合格**——本段开头那句全称断言在新集合上**重新核过**，仍为真。
 > ⚠️ **`21 + 4 + 24 = 49` 的口径不变**：#59 重判的 17 条**全部落在已计入的 21 条之内**

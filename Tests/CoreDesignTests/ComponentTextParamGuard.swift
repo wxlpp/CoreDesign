@@ -33,7 +33,9 @@ struct ComponentTextParamGuard {
     /// 为同一类参数（SF Symbol 标识符）写过裁决——「systemName 是符号标识符不是展示文案，
     /// 不计入 textParams」——但四条 Sidebar row 的 `systemImage` / `trailingSystemImage`
     /// 在各自 `notes` 里**零提及**（实测：三条 notes 里 `systemImage` 子串命中数均为 0）。
-    /// **正确修法是回 #38 在这些 notes 里补一句**（成本一句话），不是在判据里硬编码
+    /// **正确修法是在这些 notes 里补一句**（成本一句话），承接
+    /// **`wxlpp/oh-my-story#51`** —— 原写作「回 #38 补」，但 **#38 已 CLOSED**，往已关闭的
+    /// issue 移交等于移交蒸发；#51 的标题就是「原『#38 本位』，但 #38 已关闭」。不是在判据里硬编码
     /// 特例、更不是把它们塞进 `textParams` 当成文案分类（那会把 SF Symbol 标识符错记成
     /// 界面文案）。缺陷报告见 Task 12。
     static let knownUnregisteredSymbolParams: Set<String> = [
@@ -114,13 +116,15 @@ struct ComponentTextParamGuard {
                 "扫到的覆盖数 \(result.covered.count) 与登记表 \(registryTextParams) 条不在同一量级 —— 两侧口径可能已经脱节")
 
         // ⚠️ **主判据 —— `withKnownIssue` 只包住这一句**（#39 Task 8 变异实测：块里多包
-        // 一句，新违规会被静默吞掉）。到期由机器强制：#38 补上 notes 之后块内不再记录
+        // 一句，新违规会被静默吞掉）。到期由机器强制：`wxlpp/oh-my-story#51` 补上 notes 之后块内不再记录
         // issue，Swift Testing 主动判红，逼人回来删掉这段。
         withKnownIssue(
             """
             FR-4 已知缺口：四条 Sidebar row 的 systemImage / trailingSystemImage 是 SF Symbol 标识符，\
             与 LabelIcon.systemName 同类，但 #38 只在 LabelIcon 的 notes 里写了裁决、Sidebar 侧没写。\
-            处置：回 #38 补 notes（见 40 的缺陷报告），不是改判据、不是塞进 textParams。
+            处置：补 notes（见 40 的缺陷报告），不是改判据、不是塞进 textParams。\
+            ⚠️ 承接 **wxlpp/oh-my-story#51** —— 原写作「回 #38 补」，但 **#38 已 CLOSED**，\
+            指向已关闭的 issue 等于移交蒸发（#51 正是为此新开的，其标题即「原『#38 本位』，但 #38 已关闭」）。
             """
         ) {
             #expect(result.violations.isEmpty, "这些裸文本参数没有分类条目：\n\(result.diagnostics.joined(separator: "\n"))")
@@ -131,7 +135,7 @@ struct ComponentTextParamGuard {
                 """
                 FR-4 违规集合变了：实际 \(result.violations)，已知 \(Self.knownUnregisteredSymbolParams.sorted())。\
                 变大 ⇒ 新增了未登记的裸文本参数（上面的 withKnownIssue 会把它静默吞掉，靠本条抓）；\
-                变小 ⇒ #38 已补登记，同步删除 knownUnregisteredSymbolParams 与上面的 withKnownIssue 块
+                变小 ⇒ 已补登记（承接 wxlpp/oh-my-story#51），同步删除 knownUnregisteredSymbolParams 与上面的 withKnownIssue 块
                 """)
 
         // ⚠️ **反向差集**：登记表有条目、源码扫不到 ⇒ 幽灵条目。这是把参数改写成扫描器
@@ -154,7 +158,7 @@ struct ComponentTextParamGuard {
                 """
                 定义域外集合变了：实际 \(result.unmappedOwners)，已知 \(Self.knownUnmappedOwnerParams.sorted())。\
                 新条目意味着出现了『有裸文本参数、但宿主不对应任何登记表条目』的类型 —— 要么补 ownerAliases，\
-                要么退回 #38 判断它该不该登记，**不能**默默跳过
+                要么退回登记表判断它该不该登记（#38 已 CLOSED，判定归属见 wxlpp/oh-my-story#51），**不能**默默跳过
                 """)
 
         // ⚠️ **承重核对**：弃用豁免的对象必须真的还在源码里、真的还是 excluded。

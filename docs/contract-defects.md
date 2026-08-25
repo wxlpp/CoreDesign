@@ -1207,6 +1207,12 @@ String`，未变成 `LocalizedStringResource` ⇒ #53 本轮先行。本次改�
 
 ⚠️ **承接**：扩展点实现见 **`wxlpp/oh-my-story#60`**（动 `Sources/`，是行为改变，与本
 issue 的硬边界严格分开）。
+> ⚠️ **上句是当时的承接记录，现状已变**（不改写原句，改写等于篡改台账）：`wxlpp/oh-my-story#60`
+> **已 closed** —— 其范围一分为二：`Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier`
+> 四条已由 **CoreDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
+> 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
+> `wxlpp/oh-my-story#64`。J-2 红名单剩 `SidebarUtilityRow`（#64）+ `Toast`（#65）两条。
+
 
 **台账**：`docs/component-contract-revisions.md` `R-33`。
 
@@ -1484,6 +1490,13 @@ task），且会阻断 #54。
 **⚠️ 承接**：`wxlpp/oh-my-story#60` —— 逐条判定各用哪种形态落地。⚠️ **不得**因为公约现在
 承认了形态 D 就默认走 D：优先序是 **A > B > D > C**，且 D 的成立要过「外观槽 ≠ 内容槽」
 与「枚举是封闭集合」两道操作化判据。
+
+> ⚠️ **上句是当时的承接记录，现状已变**（不改写原句，改写等于篡改台账）：`wxlpp/oh-my-story#60`
+> **已 closed** —— 其范围一分为二：`Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier`
+> 四条已由 **CoreDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
+> 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
+> `wxlpp/oh-my-story#64`。J-2 红名单剩 `SidebarUtilityRow`（#64）+ `Toast`（#65）两条。
+
 
 ### D-59-2：三分法未对公约自己的正典例（附录 A.4 `PinCode`）跑过补充规则 1
 
