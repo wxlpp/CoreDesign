@@ -55,7 +55,7 @@ struct ComponentExtensionPointGuard {
     /// 实现未跟上。按本集合下方注释的口径（「变小 ⇒ 已知缺口补上了，同步删除」），
     /// 该集合本就随判定结论增删 ⇒ 本轮增补。逐条取证见 oh-my-story
     /// `.claude/epics/component-contract/59-rejudge.md`。
-    static let knownMissingExtensionPoints: Set<String> = ["SidebarUtilityRow", "Toast"]
+    static let knownMissingExtensionPoints: Set<String> = ["Toast"]
 
     @Test("J-2：语义组件必须有样式扩展点（原生协议采纳 或 自有协议定义+使用）")
     func semanticComponentsHaveExtensionPoint() throws {
@@ -86,13 +86,13 @@ struct ComponentExtensionPointGuard {
         // 「预置一个 expected 集合然后 `#expect(==)`」的地方（后者绿着，没人会回头看）。
         withKnownIssue(
             """
-            J-2 已知缺口，剩 2 条：`Toast` 与 `SidebarUtilityRow` 的样式扩展点尚未落地。\
-            ⚠️ **两条都不指向 #60** —— 别把它们读成「#60 待做」，#60 已 closed：\
-            `SidebarUtilityRow` 被 60-form-decision.md §5 判为「建议退回重判，不在本轮开扩展点」\
-            （三个候选跨槽/排布两类、判定自噬），须先重判形态才谈得上实现 ⇒ 承接
-            **wxlpp/oh-my-story#64**；\
-            `Toast` 从来不在 #60 范围内，是 #59 之前就存在的既有缺口 ⇒ 承接
-            **wxlpp/oh-my-story#65**。\
+            J-2 已知缺口，剩 **1** 条：`Toast` 的样式扩展点尚未落地。\
+            ⚠️ `Toast` **不指向 #60** —— 它从来不在 #60 范围内，是 #59 之前就存在的既有缺口
+            ⇒ 承接 **wxlpp/oh-my-story#65**。\
+            ⚠️ `SidebarUtilityRow` 已由 **wxlpp/oh-my-story#64** 以公约 §2 形态 D2「配置枚举」
+            补齐（`SidebarUtilityRowPresentation`）并从本集合摘除 —— 它曾被 60-form-decision.md §5
+            判为「建议退回重判」，#64 的处置是**不重判、直接兑现既有判定**（实现扩展点是满足
+            `needsExtensionPoint: true` 的要求，不构成对该判定的挑战），详见 D-64-1。\
             已摘除的：Steps / Timeline / AvatarGroup / SpinningModifier 由 wxlpp/oh-my-story#60 \
             以公约 §2 形态 D2「配置枚举」补齐（CoreDesign PR #206，已合并）；\
             Rating 由 #41 裁决 4c 补齐。\
