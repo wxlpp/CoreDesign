@@ -21,8 +21,9 @@ import AppKit
 // ⚠️ **本 suite 是跨平台的**，与仓内其余 5 个 **iOS-only** 的 `ImageRenderer` suite
 // （`TouchTargetTests` / `DynamicTypeLayoutTests` / `SpinningModifierSizeTests` /
 // `SettingsRowHeightTests` / `CardVisibilityTests`）**不同** —— 它们全部包在 `#if os(iOS)` 里。
-// （这 5 个是按「iOS-only」分的类。按「读不读几何尺寸」再分是另一个口径，见 `pixels(_:)`
-//  的 DocC —— 两处数目不同不是笔误。）
+// （这 5 个是按「iOS-only」分的类。按「**断不断言**几何尺寸」再分是另一个口径，见
+//  `pixels(_:)` 的 DocC —— 两处数目不同不是笔误。⚠️ 判据是「**断言**对象是不是渲染
+//  几何」，**不是**「代码里出不出现 `.width`」：后者几乎人人都有，见那段的说明。）
 // 独占一个文件正是为了不被后人顺手包进 `#if os(iOS)`、让护栏静默变单腿。
 //
 // ⚠️ **与 `SpinningModifierTests.swift:11-12` 那条相反先例对账**：那里写「只在 iOS 腿跑
@@ -76,14 +77,19 @@ struct SidebarLeadingSlotRenderTests {
     /// 位图作证」的惯例，且这两个 suite **是跨平台的**（无 `#if os(iOS)`）。
     ///
     /// ⚠️ **但别把这条先例读成「ImageRenderer 在本仓一向跨平台」**（PR #209 终审 S3 /
-    /// 复审 I-1）：上面那两个**都不量几何**。真正读出**尺寸**的先例是 **4** 个 ——
-    /// `DynamicTypeLayoutTests` / `SettingsRowHeightTests` / `TouchTargetTests` 读
-    /// `uiImage?.size`，`SpinningModifierSizeTests` 读 `cgImage.width/height`；
-    /// **四个全部 iOS-only**。
-    /// ⚠️ **`CardVisibilityTests` 不在此列** —— 它虽然 iOS-only 且用 `ImageRenderer`，
-    /// 但只取**中心像素**验背景对比、不读尺寸，与上面那两个跨平台先例同类。
-    /// （终审 S3 那版把它算进「尺寸测量」得出 5，是错的。）
-    /// ⇒ 本 suite 做的是尺寸测量却选择跨平台，因此是**该类里的头一个**，不是「随大流」。
+    /// 复审 I-1 / 三审 N-1）：上面那两个**不以几何为断言对象**。
+    ///
+    /// ⚠️ **判据是「渲染几何是不是`#expect` 的对象」，不是「代码里出不出现 `.width`」。**
+    /// 后者分不开任何东西 —— `CardVisibilityTests`（`BasicContainerTests.swift:110`）与
+    /// `CoreControlStyleTintTests`（`:24-25`）都读了 `cgImage.width/height`，但一个用于
+    /// 把图平移到 1×1 上下文采中心像素、一个用于建像素缓冲，**都不拿尺寸做断言**。
+    /// （前两版分别写成「读 `uiImage.size`」「不读尺寸」，两句都会被 `git grep cg.width`
+    /// 当场核出「假」—— 结论对、措辞可证伪，正是本仓台账反复记的那个病型。）
+    ///
+    /// ⇒ 以渲染几何为**断言对象**的先例是 **4** 个：`DynamicTypeLayoutTests` /
+    /// `SettingsRowHeightTests` / `TouchTargetTests` 断言 `uiImage?.size`，
+    /// `SpinningModifierSizeTests` 断言 `cgImage.width/height`；**四个全部 iOS-only**。
+    /// ⇒ 本 suite 同样以几何为断言对象却选择跨平台，因此是**该类里的头一个**，不是「随大流」。
     ///
     /// ⚠️ **位图字节比较的已知脆弱面**（PR #209 Copilot CLI 复审提出，本轮未观察到）：
     /// macOS 的 `tiffRepresentation` 可能嵌入色彩配置 / 压缩元数据，若将来 ImageIO 的
