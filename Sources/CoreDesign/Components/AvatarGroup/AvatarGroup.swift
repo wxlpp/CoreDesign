@@ -205,8 +205,8 @@ enum AvatarGroupAccessibility {
     /// 「1 avatars」是对的，但当时的修法是在 Swift 侧写 `count == 1 ? "1 avatar" : ...`
     /// **两个新字面键**，理由写成「本仓没有 `.stringsdict`」—— 该文件一直都在，就在本函数
     /// 上方三行的 `overflowLabel` 脚下。那两个键谁都没注册，`String(localized:bundle:)`
-    /// 静默 fallback 到 key 自身，英文下看着对、换语言整条不翻译，正是本 PR 自己在
-    /// `Steps.progressSummary` 处写下的那个陷阱。⇒ 收回单键、走规则表。
+    /// 静默 fallback 到 key 自身，英文下看着对、换语言整条不翻译，正是同一批改动里
+    /// `Steps.progressSummary` 处白纸黑字写下的那个陷阱（CoreDesign PR #206）。⇒ 收回单键、走规则表。
     static func totalLabel(for count: Int) -> String {
         String(localized: "\(count) avatars", bundle: .module)
     }
