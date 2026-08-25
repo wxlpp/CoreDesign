@@ -3,10 +3,10 @@
     "accessibility_enabled" : false,
     "preview" : {
       "container_display_name" : "Previews",
-      "container_type_name" : "CoreDesignPreview.$s17CoreDesignPreview0019Previewsswift_DJEEdfMX229_0_33_3BEB43DB02743A1C460645E7626C1D93Ll0C0fMf17_15PreviewRegistryfMu_",
+      "container_type_name" : "CoreDesignPreview.$s17CoreDesignPreview0019Previewsswift_DJEEdfMX251_0_33_3BEB43DB02743A1C460645E7626C1D93Ll0C0fMf17_15PreviewRegistryfMu_",
       "display_name" : "Card",
       "index" : 0,
-      "line" : 230,
+      "line" : 252,
       "orientation" : "portrait"
     },
     "simulator" : {

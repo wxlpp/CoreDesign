@@ -3,18 +3,18 @@
     "accessibility_enabled" : false,
     "preview" : {
       "container_display_name" : "Previews",
-      "container_type_name" : "CoreDesignPreview.$s17CoreDesignPreview0019Previewsswift_DJEEdfMX530_0_33_3BEB43DB02743A1C460645E7626C1D93Ll0C0fMf30_15PreviewRegistryfMu_",
-      "display_name" : "RatingDisplay",
+      "container_type_name" : "CoreDesignPreview.$s17CoreDesignPreview0019Previewsswift_DJEEdfMX414_0_33_3BEB43DB02743A1C460645E7626C1D93Ll0C0fMf26_15PreviewRegistryfMu_",
+      "display_name" : "Timeline Layouts",
       "index" : 0,
-      "line" : 531,
+      "line" : 415,
       "orientation" : "portrait"
     },
     "simulator" : {
       "device_name" : "iPhone 17 Pro",
       "model_identifier" : "iPhone18,1"
     },
-    "test_name" : "-[SnapshotTests portrait-Previews-0-31]"
+    "test_name" : "-[SnapshotTests portrait-Previews-0-27]"
   },
-  "display_name" : "RatingDisplay",
+  "display_name" : "Timeline Layouts",
   "group" : "CoreDesignPreview\/Previews.swift"
 }
