@@ -269,7 +269,9 @@ public struct Timeline: View {
     ///
     /// ⚠️ 这条原先写作「`#60` 承接」，但**本 PR 就是 #60** —— 合并即成悬空引用（与
     /// `ComponentExtensionPointGuard` 里那两条「不再指向 #60」的缺口同型，PR #206 第 2 轮
-    /// review 抓到）。横向连线**尚无承接 issue**，需要时另开。
+    /// review 抓到）。横向连线**尚无承接 issue，且这是有意的** —— 它是一个无需求驱动的
+    /// 增强，不是缺口；要做时再开，别把它读成待办。（对照：那两条**是**缺口，已分别承接
+    /// 于 `wxlpp/oh-my-story#64` / `#65`。）
     private var horizontalBody: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: CoreSpacing.lg) {
