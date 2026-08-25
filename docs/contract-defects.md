@@ -2117,5 +2117,11 @@ git grep -n "systemImage: String," -- Sources/CoreDesign/Components/Sidebar/Side
 
 ⚠️ 第二条命中 **3 处**（`SidebarNavigationRow.init` / `SidebarUtilityRow.init` /
 `SidebarDocumentRow.init` 各一）—— 要的是**中间那个**，靠上一条命令定出的 struct 位置区分，
-或直接用 `git grep -n -A6 "public struct SidebarUtilityRow"`。**单独跑第二条不足以定位。**
+或先用第一条定出 `public struct SidebarUtilityRow` 的位置、再看**紧随其后的那个 `init`**。
+**单独跑第二条不足以定位。**
+
+⚠️ 上一版这里写的是 `git grep -n -A6 "public struct SidebarUtilityRow"` —— **`-A6` 够不到**
+（struct 声明与 `systemImage:` 之间隔着 DocC，实测差 2 行），而且那个 `6` **本身就是个会随
+DocC 编辑漂移的计数** ⇒ 正是本节记录的同一病型，在本节的**修法**里复发一次（PR #209 三审
+S-c 抓到）。⇒ **给定位命令时不要写窗口大小**，描述相对位置即可。
 
