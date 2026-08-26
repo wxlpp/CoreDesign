@@ -305,11 +305,21 @@ struct ToastPresentationRenderTests {
         // 一个被钉成固定宽度的 HUD 同样满足它。⇒ hugging 的**另一半定义是「随内容变」**，
         // 两半都断言才关得住。
         //
-        // ⚠️ **实测更正**：终审举的变异是「给 HUD 加 `.frame(width: 200)`」，实测它
-        // **产生不了固定宽度** —— HUD 下 `Spacer` 已被去掉，`.frame(width:)` 只给出宽度
-        // 提案，内容仍 hug、ink 照样随内容变（59 → 162）。真正能钉死宽度的是**组合**
-        // 变异「加回 `Spacer` + 定宽」，实测下本条判红（短 200 / 长 200）。
-        // ⇒ 论点成立、举的单一变异不成立；断言保留，因为它守的是真实的退化路径。
+        // ⚠️ **钉死宽度取决于 `.frame` 相对 glass 背景的层序**（实测，两个放置点都跑过）：
+        //   · `.frame(width:)` 在 **glass 之内**（`.padding()` 与 `ToastContainerDecoration`
+        //     之间）⇒ glass 的 `background` 填满那个 frame ⇒ **单一变异即钉死**，
+        //     ink 恒 200（短 200 / 长 200），本条判红 ✅
+        //   · `.frame(width:)` 在 **glass 之外** ⇒ glass 仍 hug 内容 ⇒ ink 随内容变
+        //     （59 → 162），本条绿。
+        //
+        // ⚠️ **本段上一版写错了两句，留作反例**（PR #210 复审 Important-2 抓到）：
+        //   ① 「`.frame(width:)` 只给出宽度提案」—— **错**，它无条件固定 frame 自身宽度，
+        //      hug 的只是其子视图；
+        //   ② 「真正能钉死宽度的是组合变异『加回 Spacer + 定宽』」—— **错**，glass 之内的
+        //      单一 frame 就够。
+        // 错因：**只试了一个放置点（glass 之外）就下了全称结论**。⚠️ 这是本 PR 里第二次
+        // 犯同型 —— 第一次是 ink 扫描的 alpha 阈值只试了 `> 30`，同样翻转了结论。
+        // ⇒ **改动位置有层序含义时（modifier 链），必须把两侧都试过再下判断。**
         let shortInk = self.overlayInk(.centeredHUD, message: "Hi")
         let longInk = self.overlayInk(.centeredHUD, message: "A considerably longer toast message")
         #expect(shortInk != nil && longInk != nil, "量测失败 —— 不得当作通过")

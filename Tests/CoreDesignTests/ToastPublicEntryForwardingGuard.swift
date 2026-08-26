@@ -28,29 +28,39 @@ import Testing
 /// 这与 spec §5.1 记的探针 3 是同一个阻碍，只是发生在公开入口那一层。
 @Suite("Toast 公开入口的参数转发")
 struct ToastPublicEntryForwardingGuard {
-    /// 收集 `func toastHost(...)` 体内对 `ToastHostModifier(...)` 的调用实参。
-    // ⚠️ `nonisolated`：本包 `.defaultIsolation(MainActor.self)`，而 `SyntaxVisitor` 的
-    // `init(viewMode:)` 与 `visit` 都是 nonisolated 的 —— 不标会报「actor isolation 与
-    // 被覆写声明不符」。写法照抄 `ComponentJudgeScanner` 里 `ComponentJudgeCollector` 的成法。
-    private nonisolated final class Collector: SyntaxVisitor {
-        var found: [(label: String, expr: String)] = []
-        var sawFunction = false
-        var signatureParams: [String] = []
+    /// 找到 `func toastHost(...)` 声明本身。
+    ///
+    /// ⚠️ **不用「全文件 walk + `sawFunction` 标志位」**（自查实测的漏洞）：标志位一旦置 true
+    /// 就不复位，文件内**后续任何** `ToastHostModifier(...)` 调用都会被当成 `toastHost` 体内的
+    /// —— 顺序反转即误判。改成先定位函数节点、再**只在它的 body 里**收集。
+    private nonisolated final class FunctionFinder: SyntaxVisitor {
+        var nodes: [FunctionDeclSyntax] = []
+        override func visit(_ n: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
+            if n.name.text == "toastHost" { self.nodes.append(n) }
+            return .skipChildren
+        }
+    }
 
-        override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
-            guard node.name.text == "toastHost" else { return .skipChildren }
-            self.sawFunction = true
-            self.signatureParams = node.signature.parameterClause.parameters.map {
-                ($0.firstName.text == "_" ? ($0.secondName?.text ?? "_") : $0.firstName.text)
+    /// 只在给定 body 内收集对 `ToastHostModifier(...)` 的调用实参，并记录同名局部绑定。
+    private nonisolated final class BodyCollector: SyntaxVisitor {
+        var forwarded: [String: String] = [:]
+        var localBindings: Set<String> = []
+
+        var callCount = 0
+
+        override func visit(_ n: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
+            guard n.calledExpression.trimmedDescription == "ToastHostModifier" else { return .visitChildren }
+            self.callCount += 1
+            for arg in n.arguments where self.forwarded[arg.label?.text ?? "_"] == nil {
+                self.forwarded[arg.label?.text ?? "_"] = arg.expression.trimmedDescription
             }
             return .visitChildren
         }
 
-        override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
-            guard self.sawFunction,
-                  node.calledExpression.trimmedDescription == "ToastHostModifier" else { return .visitChildren }
-            for arg in node.arguments {
-                self.found.append((arg.label?.text ?? "_", arg.expression.trimmedDescription))
+        /// ⚠️ 采局部 `let` / `var` 绑定名 —— 用于堵**同名遮蔽**（见守卫第 2 条）。
+        override func visit(_ n: PatternBindingSyntax) -> SyntaxVisitorContinueKind {
+            if let ident = n.pattern.as(IdentifierPatternSyntax.self) {
+                self.localBindings.insert(ident.identifier.text)
             }
             return .visitChildren
         }
@@ -64,16 +74,53 @@ struct ToastPublicEntryForwardingGuard {
         // ⚠️ 非空前置：路径写错 / 文件改名会让下面的断言在**空集合上恒真**。
         #expect(source.contains("func toastHost("), "没读到 Toast.swift 或它已不含 toastHost —— 本守卫会在空集上恒真，必须先红")
 
-        let collector = Collector(viewMode: .sourceAccurate)
-        collector.walk(SwiftParser.Parser.parse(source: source))
+        let finder = FunctionFinder(viewMode: .sourceAccurate)
+        finder.walk(SwiftParser.Parser.parse(source: source))
+        // ⚠️ **结构漂移必须判红、不能静默缩窄**（PR #210 复审 Important-1）：
+        // 本守卫自称「这条逃逸没有别的守卫抓得到」——唯一防线自己不能有静默失效模式。
+        // 加一个 `toastHost` 重载（convenience 重载、带 host 的预览版都很现实）时，
+        // 若只取第一个/最后一个，原函数的转发就**从此不再被校验且不红**。
+        #expect(finder.nodes.count == 1,
+                "Toast.swift 里有 \(finder.nodes.count) 个 `toastHost` 声明 —— 本守卫按「唯一公开入口」设计。新增重载时必须回来把它改成逐个校验，别让它静默只守其中一个")
+        guard let function = finder.nodes.first else {
+            Issue.record("没找到 func toastHost —— 它可能被改名了，本守卫需同步更新")
+            return
+        }
+        guard let body = function.body else {
+            Issue.record("toastHost 没有函数体 —— 实现结构变了")
+            return
+        }
 
-        #expect(collector.sawFunction, "没找到 func toastHost —— 它可能被改名了，本守卫需同步更新")
-        #expect(!collector.found.isEmpty, "toastHost 体内没有对 ToastHostModifier 的调用 —— 实现结构变了")
+        // ⚠️ 无标签参数（`_ foo:`）：签名侧取 `secondName`、实参侧记 `"_"` ⇒ 二者对不上
+        // 会**假阳性**（红得响、不是静默放过），届时按需扩本守卫（复审 Suggestion）。
+        // `toastHost` 目前两个参数都有外部标签，不触发。
+        let params = function.signature.parameterClause.parameters.map {
+            ($0.firstName.text == "_" ? ($0.secondName?.text ?? "_") : $0.firstName.text)
+        }
+        let collector = BodyCollector(viewMode: .sourceAccurate)
+        collector.walk(body)
 
-        let forwarded = Dictionary(collector.found.map { ($0.label, $0.expr) }, uniquingKeysWith: { a, _ in a })
-        for param in collector.signatureParams {
-            #expect(forwarded[param] == param,
-                    "toastHost 的参数 `\(param)` 没有逐名转发给 ToastHostModifier（实际传的是 `\(forwarded[param] ?? "缺失")`）—— 签名上有、函数体里丢掉或改写了它，而判据只读签名、渲染护栏又绕过了这一行，这条逃逸没有别的守卫抓得到")
+        #expect(!collector.forwarded.isEmpty, "toastHost 体内没有对 ToastHostModifier 的调用 —— 实现结构变了")
+        // ⚠️ 同理：体内若出现**第二个** `ToastHostModifier(...)`（if/else 分支、`#if os` ——
+        // `SyntaxVisitor` 对 inactive `#if` 区域照走），first-wins 去重会让写死的那个被
+        // 正确的那个掩掉。⇒ 调用数漂移也判红。
+        #expect(collector.callCount == 1,
+                "toastHost 体内有 \(collector.callCount) 处 `ToastHostModifier(...)` 调用 —— 本守卫的 first-wins 去重会掩掉其中一处。要分支就把本守卫改成逐调用校验")
+
+        // 第 1 条：每个参数逐名转发。
+        for param in params {
+            #expect(collector.forwarded[param] == param,
+                    "toastHost 的参数 `\(param)` 没有逐名转发给 ToastHostModifier（实际传的是 `\(collector.forwarded[param] ?? "缺失")`）—— 签名上有、函数体里丢掉或改写了它，而判据只读签名、渲染护栏又绕过了这一行，这条逃逸没有别的守卫抓得到")
+        }
+
+        // 第 2 条：⚠️ **堵同名遮蔽**（自查实测的漏洞）。
+        // 本守卫是**纯语法**的：它比的是标识符名字，不做语义分析。于是
+        // `let presentation = ToastPresentation.floatingCapsule` 在体内遮蔽参数后再
+        // `presentation: presentation` 转发，**照样判绿** —— 实测确认。
+        // ⇒ 直接禁掉「函数体内出现与参数同名的局部绑定」这种写法（它在这个只有一行转发的
+        // 函数里也毫无正当用途）。
+        for param in params where collector.localBindings.contains(param) {
+            Issue.record("toastHost 体内有与参数 `\(param)` **同名的局部绑定** —— 本守卫是纯语法比对、不做语义分析，同名遮蔽会让「逐名转发」这条断言判绿而实际转发的是局部变量。这个只有一行转发的函数里不需要同名局部变量；要改实现请改签名或改守卫，别靠遮蔽绕过")
         }
     }
 }

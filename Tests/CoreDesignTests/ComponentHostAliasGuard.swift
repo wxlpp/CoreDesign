@@ -10,10 +10,12 @@ import Testing
 /// ⚠️ 本仓有前车之鉴：`ComponentRegistryGuard.knownOffScannerComponents` 白名单当初
 /// **没有自洽断言**，是终审第 2 轮 M2 抓出来的。同一个坑不该踩第二次。
 ///
-/// **四条断言，缺第 4 条就是把万能钥匙**：前三条只核「表里写的东西存在」，
-/// 而「存在但无关」的名字能让它们全过 —— 第 4 条把「表里写了谁」与「那个谁真的接了
-/// 这个枚举」绑死。
-@Suite("别名表自洽：四条断言")
+/// **五条断言**（⚠️ 上一版写「四条」，加 ⑤ 后已失真 —— PR #210 复审 Suggestion）：
+/// - **缺第 ④ 条就是把万能钥匙**：前三条只核「表里写的东西存在」，而「存在但无关」的
+///   名字能让它们全过 —— 第 ④ 条把「表里写了谁」与「那个谁真的接了这个枚举」绑死。
+/// - **第 ⑤ 条补的是别名表打破的一条隐式约束**：原第三道门槛（宿主名 == 条目名）
+///   **结构上**排除了「两个条目共享一个枚举」，别名表把这个约束打破了。
+@Suite("别名表自洽：五条断言")
 struct ComponentHostAliasGuard {
     private func loadInputs() throws -> (entries: [ComponentRegistryGuard.Entry], scan: ComponentJudgeScanResult) {
         (try ComponentRegistryGuard.loadRegistry(), try ComponentJudgeSources.scan())
@@ -97,6 +99,11 @@ struct ComponentHostAliasGuard {
             guard let styleEnum = entry.styleEnum else { continue }
             claimedBy[styleEnum, default: []].append(entry.component)
         }
+        // ⚠️ **本条作用域是全 registry，比动机更宽**（复审 Suggestion）：将来若出现**合法**的
+        // 「多组件共享一个配置枚举」形态（本仓已有先例：多个按钮样式共享
+        // `ButtonRoleStyleRole`），本条会误红。届时**按共享形态另开通路**（例如给 registry
+        // 加一个显式的 `sharedStyleEnum` 标记），**别直接放宽本条** —— 放宽等于把别名表
+        // 打破的那条隐式约束彻底交出去。
         for (styleEnum, owners) in claimedBy.sorted(by: { $0.key < $1.key }) where owners.count > 1 {
             Issue.record("配置枚举 `\(styleEnum)` 被 \(owners.sorted()) 多个条目同时登记 —— 一个形态枚举只能属于一个组件；共享认领会让后来者靠别名表白蹭前者的接线")
         }
