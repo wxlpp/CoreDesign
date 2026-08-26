@@ -29,6 +29,39 @@ func makeTestEntry(
     )
 }
 
+// MARK: - 条目名 → 合法宿主标识的别名表（`#65`）
+
+/// 条目名**不等于任何单个类型名**时，列出该条目在源码里**唯一合法**的接线宿主标识。
+///
+/// ## 为什么需要它
+///
+/// D2 第三道门槛是 `hosts.contains(entry.component)`。而 `Toast` 这个条目名**不是类型名**
+/// —— 它是 `ToastHost` / `ToastItem` / `ToastDefaults` 三者的集合名（这也正是它已在
+/// `ComponentRegistryGuard.knownOffScannerComponents` 白名单里的原因）。
+/// ⇒ 无论枚举接在哪，第三道门槛对它**必然判红**。
+///
+/// ## ⚠️ 只放**唯一合法落点**，不放「所有相关类型」
+///
+/// `Toast` 只映射到 `toastHost`（那个 `extension View` modifier 方法），**不放**
+/// `ToastHost` / `ToastItem` / `ToastDefaults`。理由：`ToastHost` 由内部 modifier 的
+/// `@State` 持有、调用方够不着它的 `init`，往那儿加参数等于「声明了但用不上」——
+/// 恰恰是第二道门槛要挡的东西；而接 `ToastItem.init` 会让同一队列里混着不同形态，
+/// 且候选「居中 HUD」需要换挂载方式、逐条设置在架构上实现不了。
+/// ⇒ 把它们列进来，等于给自己刚论证要挡的接线口开绿灯，而「拿掉参数」那种变异
+/// **抓不到**这种「挪走」型退化。
+///
+/// 表的自洽性由 `ComponentHostAliasGuard` 的**四条**断言守（缺第 4 条就是把万能钥匙）。
+enum ComponentHostAliases {
+    static let table: [String: Set<String>] = [
+        "Toast": ["toastHost"],
+    ]
+
+    /// 该条目可接受的宿主标识集合：默认只有它自己（条目名 == 类型名），有别名时用别名。
+    static func acceptedHosts(for component: String) -> Set<String> {
+        self.table[component] ?? [component]
+    }
+}
+
 // MARK: - J-2：语义组件必须有样式扩展点
 
 struct J2Result: Sendable {
@@ -123,7 +156,12 @@ func judgeExtensionPoints(
                 )
             }
         } else if let styleEnum = entry.styleEnum {
-            // 形态 D2「配置枚举」。同样必须核源码，且**两道**：声明存在 + 真的接进公开 init。
+            // 形态 D2「配置枚举」。同样必须核源码，且**三道**：声明存在 + 真的接进公开入口
+            // + 宿主是本条目自己（或其别名）。
+            // ⚠️ 「公开入口」自 `#65` 起有**两条通路**：公开 `init` 的参数，以及公开
+            // `extension View` 上返回 `some View` 的 modifier 方法的参数。加第二条是因为
+            // 有些组件的唯一公开入口就是 modifier 方法（`Toast` 的 `View.toastHost(...)`），
+            // 它们的内部类型由 modifier 的 `@State` 持有、调用方够不着任何 `init`。
             //
             // ⚠️ 只核声明存在是不够的（PR #206 第 2 轮 review 抓到）：`styleEnumNames` 是
             // `Sources/CoreDesign` 下**任意**公开 enum 的名字集合，于是登记表填一个本仓
@@ -146,10 +184,13 @@ func judgeExtensionPoints(
                 result.missing.append(entry.component)
                 result.diagnostics.append(
                     "\(entry.component)：登记表 styleEnum=\(styleEnum) 的公开 enum 声明存在，"
-                    + "但它**没有出现在任何公开 `init` 的参数类型**里 —— 声明了没接线，调用方够不着，"
-                    + "不构成扩展点（采集口径：只认公开 init 参数，与 D1 外观槽同源）"
+                    + "但它**没有出现在任何公开入口的参数类型**里 —— 声明了没接线，调用方够不着，不构成扩展点。"
+                    + "（采集口径**两条通路**：公开 `init` 的参数；以及公开 `extension View` 上返回 "
+                    + "`some View` 的 modifier 方法的参数 —— 后者是 `#65` 为 `Toast` 这类"
+                    + "「唯一公开入口是 modifier 方法」的组件加的。⚠️ D1 外观槽**不适用**第二条通路，"
+                    + "它仍只认公开 `init` 的 @ViewBuilder 参数。）"
                 )
-            } else if !hosts.contains(entry.component) {
+            } else if hosts.isDisjoint(with: ComponentHostAliases.acceptedHosts(for: entry.component)) {
                 // ⚠️ **宿主必须是本条目自己**（PR #206 第 3 轮 review 抓到）：只判 `hosts` 非空的话，
                 // 「组件代码一行不写也判绿」并没关死，只是从「借一个本仓已有的枚举名」变成
                 // 「借**另一个组件**的形态枚举」。实测（当时）：把 `AvatarGroup` 的 styleEnum
@@ -158,8 +199,9 @@ func judgeExtensionPoints(
                 result.missing.append(entry.component)
                 result.diagnostics.append(
                     "\(entry.component)：登记表 styleEnum=\(styleEnum) 接线于 "
-                    + "\(hosts.sorted().joined(separator: ", "))，**不含本条目 \(entry.component)** —— "
-                    + "借了别的组件的枚举，本组件自己的公开 init 上没有这个扩展点"
+                    + "\(hosts.sorted().joined(separator: ", "))，**不含本条目可接受的宿主 "
+                    + "\(ComponentHostAliases.acceptedHosts(for: entry.component).sorted().joined(separator: ", "))** —— "
+                    + "借了别的组件的枚举，本组件自己的公开入口上没有这个扩展点"
                 )
             } else {
                 result.satisfied[entry.component] =

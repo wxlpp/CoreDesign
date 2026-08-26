@@ -673,7 +673,58 @@ private nonisolated final class ComponentJudgeCollector: SyntaxVisitor {
             generics: Self.stringProtocolGenericNames(node.genericParameterClause, node.genericWhereClause),
             isInitializer: false, at: node
         )
+        self.collectStyleEnumUsesFromViewModifier(node)
         return .skipChildren
+    }
+
+    /// 采形态 D2 的**第二条接线通路**：`public extension View` 上的 modifier 方法参数
+    /// （`wxlpp/oh-my-story#65`）。
+    ///
+    /// ## 为什么需要它
+    ///
+    /// D2 原本只认公开 `init` 的参数。但有些组件的**唯一公开入口就是一个 modifier 方法**
+    /// —— `Toast` 的 `View.toastHost(edge:presentation:)` 就是：它的 `ToastHost` 由内部
+    /// modifier 的 `@State` 持有，调用方**够不着任何 `init`**。往那种 `init` 上加参数等于
+    /// 「声明了但调用方用不上」，恰恰是 D2 第二道门槛要挡的东西。
+    ///
+    /// ## ⚠️ 三条收窄条件同时满足，缺一不可
+    ///
+    /// 1. 声明在 `extension View` 上（被扩展类型逐字为 `View`）；
+    /// 2. 方法 `isEffectivelyPublic`（沿用与 D1 / `init` 通路同一套可见性判据）；
+    /// 3. 返回类型是 `some View`。
+    ///
+    /// 不收窄的话，**任意公开方法的任意参数**都会变成「扩展点接线」，D2 第二道门槛会被
+    /// 稀释到没有意义。
+    ///
+    /// ## ⚠️ `hostType` 这里记的是**方法名**，不是类型名
+    ///
+    /// 对 modifier 型 API，调用方写的就是方法名（`.toastHost(...)`），方法名即其身份；
+    /// 而 `frames.last?.name` 在 `extension View` 里是 `"View"`，对判定毫无意义。
+    /// ⇒ `styleEnumHosts` 的值集合因此**混装类型名与方法名**。登记表侧靠
+    /// `componentHostAliases` 把条目名映射到合法宿主标识（见 `ComponentJudgeRules`）。
+    private func collectStyleEnumUsesFromViewModifier(_ node: FunctionDeclSyntax) {
+        // 条件 1：在 `extension View` 上。
+        guard let frame = self.frames.last, frame.isExtension, frame.name == "View" else { return }
+        // 条件 2：公开可见。
+        guard self.isEffectivelyPublic(node.modifiers) else { return }
+        // 条件 3：返回 `some View`。
+        guard let returnType = node.signature.returnClause?.type.trimmedDescription,
+              returnType == "some View" else { return }
+
+        let hostType = node.name.text
+        let line = node.startLocation(converter: self.converter).line
+        for parameter in node.signature.parameterClause.parameters {
+            let base = componentJudgeBaseTypeName(parameter.type.trimmedDescription)
+            guard !base.isEmpty else { continue }
+            let name = (parameter.firstName.text == "_"
+                ? parameter.secondName?.text : parameter.firstName.text) ?? parameter.firstName.text
+            self.styleEnumUses.append(
+                StyleEnumUse(
+                    enumName: base, hostType: hostType, paramName: name,
+                    file: self.fileName, line: line
+                )
+            )
+        }
     }
 
     /// 取出「被约束为 `StringProtocol` 的泛型形参名」集合。
