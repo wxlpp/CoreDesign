@@ -379,11 +379,19 @@ struct ToastHostModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content
-            .environment(\.toastHost, self.host)
-            .safeAreaInset(edge: self.edge, spacing: CoreSpacing.none) {
+        let base = content.environment(\.toastHost, self.host)
+        // ⚠️ **挂载方式本身就是形态差异之一**（`#65` 分支 1）：`.centeredHUD` 不贴边，
+        // 走 `.overlay(alignment: .center)`；另两个形态仍走 `safeAreaInset(edge:)`。
+        // `ViewModifier.body` 是 `@ViewBuilder`，if-else 直接可写、无类型擦除问题。
+        if self.presentation == .centeredHUD {
+            base.overlay(alignment: .center) {
                 ToastOverlay(host: self.host, edge: self.edge, presentation: self.presentation)
             }
+        } else {
+            base.safeAreaInset(edge: self.edge, spacing: CoreSpacing.none) {
+                ToastOverlay(host: self.host, edge: self.edge, presentation: self.presentation)
+            }
+        }
     }
 }
 
@@ -410,9 +418,17 @@ struct ToastOverlay: View {
                 )
                 .transition(self.transition)
                 .id(current.id)
-                .padding(.horizontal, CoreSpacing.lg)
-                .padding(self.edge == .top ? .top : .bottom, CoreSpacing.lg)
-                .frame(maxWidth: .infinity)
+                // ⚠️ 水平内边距：`.fullWidthBanner` 要**触边**（Snackbar 形态），去掉它。
+                .padding(.horizontal, self.horizontalPadding)
+                // ⚠️ 贴边侧内边距：`.centeredHUD` **必须移除**，否则居中的 HUD 会被单侧
+                // 16pt 推离中心 8pt、**且偏移方向随 `edge` 变** ⇒ 「`edge` 在该形态下不
+                // 生效」这句话在像素层面就是假的（由 `A10` 机器守）。
+                // `.fullWidthBanner` 一并移除 —— 它的具名来源 Android Snackbar 是贴边形态，
+                // 保留 16pt 会变成「浮动横幅」。
+                .padding(self.edge == .top ? .top : .bottom, self.edgePadding)
+                // ⚠️ `.centeredHUD` 收缩为 content-hugging：一个铺满全宽的「居中 HUD」
+                // 既不像 HUD、也让它与 banner 在宽度上无从区分（由 `A11` 机器守）。
+                .frame(maxWidth: self.presentation == .centeredHUD ? nil : .infinity)
             } else {
                 // 空队列 → 零尺寸占位，让 safeAreaInset 不抢占布局空间。
                 Color.clear.frame(height: 0)
@@ -422,8 +438,24 @@ struct ToastOverlay: View {
         .animation(.easeInOut(duration: ToastDefaults.dismissAnimationDuration), value: self.host.isDismissing)
     }
 
-    /// 入场 / 出场动画：从 edge 方向滑入 + 淡入。
+    /// 水平内边距：`.fullWidthBanner` 触边 ⇒ 0。
+    private var horizontalPadding: CGFloat {
+        self.presentation == .fullWidthBanner ? CoreSpacing.none : CoreSpacing.lg
+    }
+
+    /// 贴边侧内边距：只有 `.floatingCapsule`（真正的「悬浮」形态）保留。
+    private var edgePadding: CGFloat {
+        self.presentation == .floatingCapsule ? CoreSpacing.lg : CoreSpacing.none
+    }
+
+    /// 入场 / 出场动画。
+    ///
+    /// ⚠️ `.centeredHUD` 用**不依赖方向**的过渡（缩放 + 淡入淡出）—— 居中浮层没有
+    /// 「从哪边滑入」可言，用 `.move(edge:)` 会让 `edge` 从这条通路泄漏进该形态。
     private var transition: AnyTransition {
+        if self.presentation == .centeredHUD {
+            return .scale(scale: 0.92).combined(with: .opacity)
+        }
         let move: Edge = self.edge == .top ? .top : .bottom
         return .asymmetric(
             insertion: .move(edge: move).combined(with: .opacity),
@@ -445,6 +477,34 @@ struct ToastOverlay: View {
 ///
 /// dismiss 触发：自动 / 滑动手势（向 edge 方向，阈值 `ToastDefaults.swipeDismissThreshold`）/
 /// 点击。
+/// 按形态给 toast 套容器装饰。
+///
+/// ⚠️ **为什么是一个 `ViewModifier` + `switch`，而不是在调用点写三目**：
+/// `floatingGlass(in:)` 收 `some InsettableShape`，而 `AnyShape` 只 conform `Shape`、
+/// **不** conform `InsettableShape` ⇒ `Capsule` / `Rectangle` / `RoundedRectangle` 异型
+/// 三目**不编译**。别去造 `AnyInsettableShape`，用 `@ViewBuilder` 的 `switch` 分三条链。
+///
+/// ⚠️ `.fullWidthBanner` 的背景/描边**必须绘制到矩形边界** —— `A11` 的
+/// `banner.ink == 320` 就是靠它触边；换成不触边的画法会让该断言红（fail-safe 方向）。
+private struct ToastContainerDecoration: ViewModifier {
+    let presentation: ToastPresentation
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        switch self.presentation {
+        case .floatingCapsule:
+            content.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)
+        case .fullWidthBanner:
+            content.floatingGlass(in: Rectangle(), isInteractive: false)
+        case .centeredHUD:
+            content.floatingGlass(
+                in: RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous),
+                isInteractive: false
+            )
+        }
+    }
+}
+
 /// ⚠️ `internal` 而非 `private` 只为 `@testable`，不是公开表面（同 `ToastHostModifier`）。
 struct ToastView: View {
     let item: ToastItem
@@ -465,7 +525,13 @@ struct ToastView: View {
                 .foregroundStyle(Color.contentPrimary)
                 .multilineTextAlignment(.leading)
                 .lineLimit(1)
-            Spacer(minLength: CoreSpacing.none)
+            // ⚠️ **`.centeredHUD` 不放撑开的 `Spacer`**：content-hugging 需要**两处**同时
+            // 改 —— 去掉 `ToastOverlay` 的 `maxWidth: .infinity` **且**去掉这里的 `Spacer`。
+            // 只改前者的话，HUD 走 `.overlay` 时提案宽是容器宽，这个 `Spacer` 会把
+            // `HStack` 撑到 288 ⇒ `hud.ink == capsule.ink` ⇒ `A11` 第三条红。
+            if self.presentation != .centeredHUD {
+                Spacer(minLength: CoreSpacing.none)
+            }
         }
         .accessibilityElement(children: .combine)
         // toast 整体可点击 dismiss，应当对 VoiceOver 暴露为 button + hint，
@@ -473,17 +539,31 @@ struct ToastView: View {
         // onTapGesture 会触发 dismiss。
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(Text("Tap to dismiss", bundle: .module))
+        // ⚠️ 内容内边距**三形态共用、不条件化**（`65-spec` §3.4 完备性表定案）：三形态的
+        // 差异在**容器形状与挂载位置**，不在内容留白。
         .padding(CoreSpacing.md)
-        .floatingGlass(
-            in: Capsule(style: .continuous),
-            isInteractive: false
-        )
-        .offset(y: self.isDismissing ? self.dismissOffset : self.dragOffset)
+        .modifier(ToastContainerDecoration(presentation: self.presentation))
+        // ⚠️ `.centeredHUD` 退场**不做方向性位移**（缩放 + 淡出代之）。这条与
+        // `ToastOverlay` 的 `transition` 是**两条独立通路** —— 后者在 item 从队列移除时
+        // 触发，本条在 `isDismissing` 期间触发；只改一条会让 HUD 退场仍朝 `edge` 滑 60pt。
+        .offset(y: self.verticalOffset)
+        .scaleEffect(self.presentation == .centeredHUD && self.isDismissing ? 0.92 : 1)
         .opacity(self.isDismissing ? 0 : 1)
         .contentShape(Rectangle())
         .onTapGesture { self.onDismiss() }
-        .gesture(self.swipeGesture)
+        // ⚠️ `.centeredHUD` **只保留点击 dismiss** —— 居中浮层没有「往哪边滑」可言。
+        // 用 `GestureMask` 关掉比条件链干净。⚠️ 只关**手势层**：自动 dismiss 计时在
+        // `ToastHost.scheduleDismiss`，不受影响。
+        .gesture(self.swipeGesture, including: self.presentation == .centeredHUD ? .subviews : .all)
         .allowsHitTesting(!self.isDismissing)
+    }
+
+    /// 竖直偏移：`.centeredHUD` 退场不位移（见 `body` 里的说明）。
+    private var verticalOffset: CGFloat {
+        if self.presentation == .centeredHUD {
+            return self.isDismissing ? .zero : self.dragOffset
+        }
+        return self.isDismissing ? self.dismissOffset : self.dragOffset
     }
 
     // MARK: visuals
