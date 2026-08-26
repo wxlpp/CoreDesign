@@ -44,6 +44,35 @@ public nonisolated struct ToastItem: Identifiable, Sendable {
     }
 }
 
+// MARK: - ToastPresentation
+
+/// `Toast` 的**呈现形态**（公约 §2 形态 D2「配置枚举」，`wxlpp/oh-my-story#65`）。
+///
+/// ## 为什么是 D2 而不是 D1「外观槽」
+///
+/// 外观槽交出去的是「**画什么**」；而这三个候选换的是「**挂在哪、占多宽**」——
+/// `.centeredHUD` 甚至要把挂载方式从 `safeAreaInset` 换成 `.overlay`。槽表达不了这个。
+/// 且公约祖父条款规定 public 协议**发布后不可撤**，而枚举可以加 case 演进。
+///
+/// ## ⚠️ `edge` 与 `.centeredHUD` 的正交性代价
+///
+/// `.centeredHUD` 是居中浮层，`toastHost(edge:)` 的 `edge` 在该形态下**不生效**——
+/// 贴边侧内边距、方向性入/出场、朝 edge 滑出的 dismiss 位移、滑动手势方向，
+/// 四条都不适用。这是**有意的静默**：传了不生效不是错误、只是无效，因此**不加运行期
+/// 断言**；本文档即约定（与 `StepsPresentation` 对 `indicatorStyle` 的处置同源）。
+///
+/// `CaseIterable` 是给护栏用的：渲染护栏遍历 `allCases` 做尺寸/命中区断言
+/// ⇒ 将来新增第四个 case 会**自动**被现有护栏覆盖。
+public enum ToastPresentation: Sendable, Equatable, CaseIterable {
+    /// 现状形态：`safeAreaInset` 贴边 + `Capsule` 几何 + 水平内边距，读起来像系统反馈。
+    case floatingCapsule
+    /// 全宽横幅条（Android Snackbar / in-app banner）：贴边、横跨屏幕宽度、非胶囊。
+    case fullWidthBanner
+    /// 居中 HUD（经典 UIKit toast/HUD）：浮于屏幕中央而非贴边，宽度收缩为内容宽。
+    /// ⚠️ 本形态下 `edge` 不生效，见类型文档。
+    case centeredHUD
+}
+
 // MARK: - ToastDefaults
 
 /// Toast 行为的默认值常量集合。集中此处避免 magic numbers 散落。
@@ -308,10 +337,18 @@ public extension View {
     /// 这是 scene-scoped 架构的直接后果（见 `ToastHost` 的"架构"一节），
     /// singleton 全局覆盖不被采纳。
     ///
-    /// - Parameter edge: toast 显示位置，缺省 `.top`。
+    /// - Parameters:
+    ///   - edge: toast 显示位置，缺省 `.top`。
+    ///     ⚠️ **`presentation` 为 `.centeredHUD` 时本参数不生效**（居中浮层无「贴哪边」
+    ///     可言）。这是有意的静默，不加运行期断言——详见 `ToastPresentation`。
+    ///   - presentation: 呈现形态，缺省 `.floatingCapsule`（现状形态）
+    ///     ⇒ **现有调用方零影响**。
     /// - Returns: 已挂载 host 的视图。
-    func toastHost(edge: VerticalEdge = .top) -> some View {
-        self.modifier(ToastHostModifier(edge: edge))
+    func toastHost(
+        edge: VerticalEdge = .top,
+        presentation: ToastPresentation = .floatingCapsule
+    ) -> some View {
+        self.modifier(ToastHostModifier(edge: edge, presentation: presentation))
     }
 }
 
@@ -319,15 +356,33 @@ public extension View {
 
 /// 内部 modifier：持有 `ToastHost` 实例 + 注入 environment + 经 `safeAreaInset`
 /// 在 `edge` 方向渲染队列首条 toast。
-private struct ToastHostModifier: ViewModifier {
-    @State private var host = ToastHost()
+/// ⚠️ **`internal` 而非 `private` 只为 `@testable`，不是公开表面**（`#65`）：
+/// 三个形态的渲染差异必须有机器判据，而唯一的公开入口 `View.toastHost(...)` 内部
+/// 的 `@State` host 外部够不着（实测：`.environment(\.toastHost, myHost)` 注入的是
+/// **另一个实例**，`myHost.show(...)` 不会让它渲出任何东西）。
+struct ToastHostModifier: ViewModifier {
+    @State private var host: ToastHost
     let edge: VerticalEdge
+    let presentation: ToastPresentation
+
+    /// - Parameter host: ⚠️ **仅测试注入**。产线路径（`View.toastHost`）传 `nil`，
+    ///   由本 modifier 自己持有 scene-scoped 实例。
+    ///
+    ///   **为什么需要这个缝**：挂载方式（`safeAreaInset` vs `.overlay`）的分支只能落在
+    ///   本层——`ToastOverlay` 是**被挂载的内容**，「用哪个 modifier 挂它」的决定天然在
+    ///   它外面。若测试只能自己手写一层挂载，那么「把挂载方式改回去」这个变异就发生在
+    ///   测试**根本没走的**产线代码上、永远不会红（变异逃逸）。
+    init(host: ToastHost? = nil, edge: VerticalEdge, presentation: ToastPresentation) {
+        self._host = State(initialValue: host ?? ToastHost())
+        self.edge = edge
+        self.presentation = presentation
+    }
 
     func body(content: Content) -> some View {
         content
             .environment(\.toastHost, self.host)
             .safeAreaInset(edge: self.edge, spacing: CoreSpacing.none) {
-                ToastOverlay(host: self.host, edge: self.edge)
+                ToastOverlay(host: self.host, edge: self.edge, presentation: self.presentation)
             }
     }
 }
@@ -337,9 +392,11 @@ private struct ToastHostModifier: ViewModifier {
 /// 监听 `host.queue` 与 `host.isDismissing`，按状态机渲染当前显示项；空队列时
 /// 返回零尺寸 view，避免 `safeAreaInset` 永久抢占 16pt 内边距导致内容被挤压——
 /// 若无论队列是否为空都施加 `.padding(.top/.bottom, lg)`，会引发视觉回归。
-private struct ToastOverlay: View {
+/// ⚠️ `internal` 而非 `private` 只为 `@testable`，不是公开表面（同 `ToastHostModifier`）。
+struct ToastOverlay: View {
     @Bindable var host: ToastHost
     let edge: VerticalEdge
+    let presentation: ToastPresentation
 
     var body: some View {
         Group {
@@ -347,6 +404,7 @@ private struct ToastOverlay: View {
                 ToastView(
                     item: current,
                     edge: self.edge,
+                    presentation: self.presentation,
                     isDismissing: self.host.isDismissing,
                     onDismiss: { self.host.dismiss(current.id) }
                 )
@@ -387,9 +445,11 @@ private struct ToastOverlay: View {
 ///
 /// dismiss 触发：自动 / 滑动手势（向 edge 方向，阈值 `ToastDefaults.swipeDismissThreshold`）/
 /// 点击。
-private struct ToastView: View {
+/// ⚠️ `internal` 而非 `private` 只为 `@testable`，不是公开表面（同 `ToastHostModifier`）。
+struct ToastView: View {
     let item: ToastItem
     let edge: VerticalEdge
+    let presentation: ToastPresentation
     let isDismissing: Bool
     let onDismiss: () -> Void
 
