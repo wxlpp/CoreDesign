@@ -304,3 +304,89 @@ struct ComponentJudgeScannerTests {
         #expect(componentJudgeBaseTypeName("some View").isEmpty)
     }
 }
+
+// MARK: - D2 第二条接线通路：`extension View` 上的 modifier 方法（`#65`）
+
+/// 采集口径扩到 `extension View` 的 modifier 方法后，**三条收窄条件**各自的负测试。
+///
+/// ⚠️ 这些**不是**一次性变异，是**常驻守卫**（`65-plan` 评审 S-4 的建议）：一次性变异
+/// 只在跑的那一刻有效，而收窄条件一旦被后人放宽，D2 的第二道门槛会被稀释到没有意义
+/// —— 那时**任意公开方法的任意参数**都算「扩展点接线」。
+@Suite("D2 接线通路二：extension View modifier 的三条收窄条件")
+struct ViewModifierStyleEnumWiringTests {
+    private func hosts(_ source: String, of enumName: String) -> Set<String> {
+        scanComponentJudgeInputs(source: source).styleEnumHosts[enumName] ?? []
+    }
+
+    @Test("正例：public extension View 上返回 some View 的方法，参数被采进接线")
+    func positiveCase() {
+        let hosts = self.hosts(
+            """
+            public enum Demo: Sendable {}
+            public extension View {
+                func demoHost(mode: Demo = .init()) -> some View { self }
+            }
+            """,
+            of: "Demo"
+        )
+        // ⚠️ hostType 记的是**方法名**，不是 `View` —— 对 modifier 型 API，调用方写的就是方法名。
+        #expect(hosts.contains("demoHost"), "公开 extension View modifier 的参数没被采到：\(hosts)")
+    }
+
+    @Test("负例（收窄 3）：返回类型不是 some View ⇒ 不采")
+    func rejectsNonViewReturn() {
+        let hosts = self.hosts(
+            """
+            public enum Demo: Sendable {}
+            public extension View {
+                func demoCount(mode: Demo) -> Int { 0 }
+            }
+            """,
+            of: "Demo"
+        )
+        #expect(hosts.isEmpty, "返回 Int 的方法被当成了扩展点接线：\(hosts)")
+    }
+
+    @Test("负例（收窄 1）：不在 extension View 上 ⇒ 不采")
+    func rejectsNonViewExtension() {
+        let hosts = self.hosts(
+            """
+            public enum Demo: Sendable {}
+            public protocol Other {}
+            public extension Other {
+                func demoHost(mode: Demo) -> some View { EmptyView() }
+            }
+            """,
+            of: "Demo"
+        )
+        #expect(hosts.isEmpty, "非 View 扩展上的方法被采了：\(hosts)")
+    }
+
+    @Test("负例（收窄 2）：非公开方法 ⇒ 不采")
+    func rejectsNonPublicMethod() {
+        let hosts = self.hosts(
+            """
+            public enum Demo: Sendable {}
+            extension View {
+                func demoHost(mode: Demo) -> some View { self }
+            }
+            """,
+            of: "Demo"
+        )
+        #expect(hosts.isEmpty, "internal 方法被当成了扩展点接线（调用方够不着它）：\(hosts)")
+    }
+
+    @Test("既有 init 通路不受影响：宿主仍记类型名")
+    func initPathUnchanged() {
+        let hosts = self.hosts(
+            """
+            public enum Demo: Sendable {}
+            public struct Widget {
+                public init(mode: Demo) {}
+            }
+            """,
+            of: "Demo"
+        )
+        #expect(hosts == ["Widget"], "init 通路的宿主不该变（应为类型名）：\(hosts)")
+    }
+}
