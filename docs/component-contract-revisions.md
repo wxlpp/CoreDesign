@@ -1658,3 +1658,40 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   空格缩进 —— 后者会让守卫把标题读成代码块而判红）；`swift test` 419 tests / 62 suites 全绿；
   `54-invariants.py` 12 项全 PASS。
 
+
+### R-39｜J-2 判据 D2 臂的两处口径修补（**动判据本身，落点结论不变**）
+
+- **来源试点**：`wxlpp/oh-my-story#65`（CoreDesign 实现 `ToastPresentation`，形态 D2）。
+  `Toast` 是 J-2 红名单最后一条；落地时发现 D2 臂的**两道门槛对它都不成立**，且都是
+  硬事实、不是措辞问题。
+- **⚠️ 本条与 `R-38` 性质不同**：`R-38` 是「补强、不改结论」的**注记**；本条**修改了判据
+  实现**（epic 的核心产物）。但它改的是判据的**识别能力**，**落点结论无一改变** ——
+  全量 registry 的 J-2 前后对比实证：定义域 11 → 11、判绿 10 → 10、除 `Toast` 外
+  无条目结果变化（唯一差异是 `SpinningModifier` 的判绿**理由**多列一个宿主）。
+- **撞上公约哪一条**：第 2 节形态 D2「配置枚举」的**实现层判据**，非公约文本。
+  ⚠️ 已按去折行全文扫 + 通读形态 D 一节确认：**公约本体没有「接进公开 `init`」这类
+  措辞** ⇒ 公约文本**一字未改**，不加注记。（唯一命中的「只扫 public `init` 参数」属
+  **FR-4** 的口径，本 issue 没动 FR-4 ⇒ 该句仍为真。）
+- **改动前（逐字）**：`ComponentJudgeScanner` 只在 `visit(InitializerDeclSyntax)` 里采
+  D2 接线；`ComponentJudgeRules` 的 D2 第三道门槛是 `hosts.contains(entry.component)`。
+- **改动后（逐字）**：
+  ① 新增 `collectStyleEnumUsesFromViewModifier`，采 `public extension View` 上返回
+  `some View` 的方法参数（**三条收窄条件同时满足**），`hostType` 记**方法名**；
+  ② 新增 `ComponentHostAliases.table = ["Toast": ["toastHost"]]`，第三道门槛改为
+  `!hosts.isDisjoint(with: acceptedHosts(for:))`，条目名 == 类型名的条目行为不变；
+  ③ 新增 `ComponentHostAliasGuard`（**四条**自洽断言）与
+  `ViewModifierStyleEnumWiringTests`（三条收窄各一条**常驻负测试**）。
+- **实测依据**：`Toast` 的 `ToastHost` 由内部 `ToastHostModifier` 的 `@State` 持有，
+  调用方够不着任何 `init`（`.environment(\.toastHost, myHost)` 注入的是另一个实例，
+  实测 `queue=1` 而渲染尺寸不变）；且 `Toast` 不是任何类型的名字，它是三个类型的集合名
+  （这正是它早已在 `knownOffScannerComponents` 白名单里的原因）。
+- **连带**：`docs/contract-defects.md` 新开 `D-65-1`（五节：① 缺口一 ② 缺口二
+  ③ 放宽口径的风险与实证 ④ 渲染判据及其能力边界 ⑤ 落点）；公约 §2 与
+  `contract-defects.md` 共**三处**「J-2 红名单剩一条」的现状注记按只增不改成法追加
+  （`#65` 落地后红名单为**空集**）。
+- **落点**：`knownMissingExtensionPoints` 由 `["Toast"]` 变为**空集**，epic 的 J-2
+  扩展点缺口全部收口。⚠️ 那个 `withKnownIssue` 块按其自身设计的机器强制到期**已删除**。
+- **验证**：`swift test` 440 tests / 65 suites 全绿（known issues 3 → 2）；
+  `ComponentContractStructureGuard` 绿；`54-invariants.py` 12 项全 PASS；
+  A1/A2/A3/A4/A4b/A4c/A8 逐条变异自证；渲染护栏 7 枚变异（其中 2 枚第一轮逃逸，
+  已换成定义性判据后判红，详见 `D-65-1` ④）。

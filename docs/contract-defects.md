@@ -1213,6 +1213,8 @@ issue 的硬边界严格分开）。
 > 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
 > `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
 > 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态。
+> ⚠️ **再一次更新（`wxlpp/oh-my-story#65`）**：`Toast` 亦已补齐（形态 D2，`ToastPresentation`）
+> ⇒ **J-2 红名单现为空集**，epic 的扩展点缺口全部收口。详见 `D-65-1`。
 
 
 **台账**：`docs/component-contract-revisions.md` `R-33`。
@@ -1503,6 +1505,8 @@ task），且会阻断 #54。
 > 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
 > `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
 > 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态。
+> ⚠️ **再一次更新（`wxlpp/oh-my-story#65`）**：`Toast` 亦已补齐（形态 D2，`ToastPresentation`）
+> ⇒ **J-2 红名单现为空集**，epic 的扩展点缺口全部收口。详见 `D-65-1`。
 
 
 ### D-59-2：三分法未对公约自己的正典例（附录 A.4 `PinCode`）跑过补充规则 1
@@ -2125,3 +2129,103 @@ git grep -n "systemImage: String," -- Sources/CoreDesign/Components/Sidebar/Side
 DocC 编辑漂移的计数** ⇒ 正是本节记录的同一病型，在本节的**修法**里复发一次（PR #209 三审
 S-c 抓到）。⇒ **给定位命令时不要写窗口大小**，描述相对位置即可。
 
+
+---
+
+### D-65-1：J-2 判据 D2 臂的两处口径缺口（`Toast` 暴露，本 issue 内修补）
+
+**来源**：`wxlpp/oh-my-story#65`（CoreDesign 实现 `ToastPresentation`）。
+**性质**：**判据修补** —— 与 `D-64-1` 那种「补强、不改结论」不同，本条**动了判据本身**
+（epic 的核心产物）。落点结论无一改变，改的是判据的**识别能力**。
+
+#### ① 缺口一：D2 的采集口径只认公开 `init` 参数
+
+`ComponentJudgeScanner` 采 D2 接线时只在 `visit(InitializerDeclSyntax)` 里调用采集，
+`FunctionDeclSyntax` 那条 visit 不采。⇒ **`public extension View` 上的 modifier 方法参数
+完全不进 `styleEnumUses`**。
+
+⚠️ **这不是理论缺口**：有些组件的**唯一公开入口就是一个 modifier 方法**。`Toast` 即是——
+`ToastHost` 由内部 `ToastHostModifier` 的 `@State` 持有，调用方**够不着任何 `init`**；
+往 `ToastHost.init` 加参数等于「声明了但调用方用不上」，恰恰是 D2 第二道门槛要挡的东西。
+
+**修补**：新增第二条采集通路，**三条收窄条件同时满足**才采：
+声明在 `extension View` 上 / 方法 `isEffectivelyPublic` / 返回类型逐字 `some View`。
+
+⚠️ **为什么必须收窄**：不收窄的话**任意公开方法的任意参数**都成了「扩展点接线」，
+第二道门槛会被稀释到没有意义。三条收窄各有一条**常驻负测试**
+（`ViewModifierStyleEnumWiringTests`，非一次性变异 —— 一次性变异只在跑的那一刻有效，
+而收窄条件是会被后人放宽的）。
+
+⚠️ **`hostType` 在这条通路上记的是「方法名」而非类型名**（`frames.last?.name` 在
+`extension View` 里是 `"View"`，对判定毫无意义）。⇒ `styleEnumHosts` 的值集合**混装**
+类型名与方法名，这是有意的：对 modifier 型 API，调用方写的就是方法名。
+
+#### ② 缺口二：第三道门槛要求「宿主名 == 条目名」，而有的条目名不是类型名
+
+`hosts.contains(entry.component)`。`Toast` **不是任何类型的名字** —— 它是 `ToastHost` /
+`ToastItem` / `ToastDefaults` 三者的**集合名**（这也正是它早已在
+`ComponentRegistryGuard.knownOffScannerComponents` 白名单里的原因）。
+⇒ 无论枚举接在哪，第三道门槛对它**必然判红**。
+
+**修补**：引入 `ComponentHostAliases.table`，条目名 → 合法宿主标识集合。
+
+⚠️ **只放唯一合法落点**：`Toast` 只映射到 `toastHost`，**不放** `ToastHost` / `ToastItem` /
+`ToastDefaults`。放了等于给「把 `presentation` 从 `toastHost()` 挪到 `ToastHost.init`」
+这种退化实现开绿灯，而「拿掉参数」那种变异**抓不到**这种「挪走」型退化。
+（spec 评审抓到过一次：初版表里三个类型名全在，与同一份 spec 上一节的论证**直接矛盾**。）
+
+⚠️ **别名表本身有四条自洽守卫**（`ComponentHostAliasGuard`），**缺第 4 条就是把万能钥匙**：
+前三条只核「表里写的名字存在」，而一个**存在但无关**的名字能让它们全过；第 4 条把
+「表里写了谁」与「那个谁真的接了这个枚举」绑死。
+（前车之鉴：`knownOffScannerComponents` 白名单当初**没有自洽断言**，是终审第 2 轮 M2 抓的。）
+
+⚠️ 第 4 条对 `styleEnum == null` 取「**不适用、不判红**」，并打印**死条目诊断**。
+理由：条目落地过程中必然有「别名已写、registry 字段未写」的中间态。这**不构成后门** ——
+别名通路只活在 J-2 的 `else if let styleEnum = entry.styleEnum` 那条臂里，`null` 条目
+要么落「四字段皆空」的红、要么根本不进定义域 ⇒ 对判定零作用。
+
+#### ③ 放宽口径的风险与实证
+
+放宽判据口径的风险是「让**别的**条目意外判绿」。⇒ 本 issue 实跑了**全量 registry 的
+J-2 前后对比**（`ComponentExtensionPointGuard` 逐条打印判绿理由，改动前后各存一份）：
+
+| | 前 | 后 |
+|---|---|---|
+| 定义域 | 11 条 | 11 条 |
+| 判绿 | 10 条 | 10 条 |
+| 已知缺口 | `["Toast"]` | `["Toast"]`（此时尚未摘除） |
+| 唯一变化 | — | `SpinningModifier` 的**理由**多一个宿主：`接线于 SpinningModifier, spinning` |
+
+⇒ **除 `Toast` 外无条目判定结果变化**。`SpinningModifier` 那条正是预期形态：新采集只让
+`hosts` 多一个方法名，而 `hosts.contains("SpinningModifier")` 仍成立 ⇒ 判定不变。
+
+⚠️ **对比要看 diff 的输出内容，不能用退出码** —— rtk 代理下 `diff` 恒返回 0。
+
+#### ④ 三形态渲染差异的机器判据，及其**能力边界**
+
+`ToastPresentationRenderTests`（9 条断言，跨平台）以 `ImageRenderer` 为三个形态的
+渲染差异建了机器判据。**7 枚变异逐条自证**，其中**两枚第一轮逃逸**，值得记下来：
+
+| 逃逸的变异 | 为什么逃逸 | 修法 |
+|---|---|---|
+| banner 的容器从 `Rectangle()` 改回 `Capsule()` | 原断言是「两者位图不等」，而两者还差着水平 padding ⇒ 形状被换掉照样不等。断的是「有任何差异」，不是「形状不同」 | 换成**形状的定义性判据**：矩形无圆角 ⇒ 顶行与中行 ink 跨度**相等**（实测 banner 320/320、capsule 266/288）|
+| 给 `.centeredHUD` 加回撑满 | 原断言 `hud.ink < capsule.ink`。变异后 hud 撑满到 **288**、而 capsule 是 **290**（`strokeBorder` 的 hairline 越过 padding 边界）⇒ `288 < 290` **恰好还成立**，差 **2 个像素**溜过去 | 换成 **content-hugging 的定义本身**：hugging 的东西**不随容器宽变化**（实测 hud 在 320/500 容器下都是 59；capsule 290/470）|
+
+⚠️ **两次的修法都不是「加容差」，而是换成定义性判据。** 定义性判据不会因为差几个像素而失效。
+
+⚠️ **本 suite 守不住的那条，如实记下**：`ToastOverlay.transition`（形态间的入/出场差异）
+**没有机器判据** —— 把它改回方向性过渡，9 条断言**全绿**。原因是结构性的：`transition`
+只在 item 增删的**动画过程**中生效，而 `ImageRenderer` 拍的是静态帧。
+⇒ 该条属**人工抽查**项。同族限度：光栅渲染同样证不了 `allowsHitTesting` /
+`accessibilityHidden` / 手势是否真的被关掉。
+
+#### ⑤ 落点
+
+`Toast` 条目：`styleEnum: "ToastPresentation"` / `styleSlot: null`，
+`kind` / `decidedBy` / `needsExtensionPoint` **三字段一字未改**。
+`knownMissingExtensionPoints` 由 `["Toast"]` 变为**空集** ⇒ epic 的 J-2 缺口全部收口。
+
+⚠️ 空集使棘轮断言退化为「`missing` 必须为空」——**语义更强、不是更弱**。
+⚠️ 那个 `withKnownIssue` 块**已按其自身设计到期删除**：块内注释明写「补齐后本块无 issue
+记录 ⇒ Swift Testing 主动判红，届时删除本块」，而它确实红了、确实逼人回来删。
+这正是它优于「预置 expected 集合 + `#expect(==)`」之处（后者补齐后仍绿着，没人回头看）。

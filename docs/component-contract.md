@@ -318,6 +318,9 @@
 > > `60-form-decision.md` §5 判为「建议退回重判，不在本轮开扩展点」，**已不在 #60 范围内**，
 > > 承接 `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
 > 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态；
+> ⚠️ **再一次更新（`wxlpp/oh-my-story#65`）**：`Toast` 亦已以形态 D2 补齐
+> （`ToastPresentation`，接在 `View.toastHost(edge:presentation:)` 上），**J-2 红名单
+> 现为空集** —— epic 的扩展点缺口全部收口，详见 `D-65-1`；
 > > #60 已 closed。⇒ `step3` 条目数 **33 → 28**（移出的：`SidebarStatusFooter` /
 > `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）。
 > ⚠️ **重判后仍无一条被确认合格**——本段开头那句全称断言在新集合上**重新核过**，仍为真。
