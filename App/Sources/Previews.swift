@@ -124,6 +124,23 @@ import CoreDesign
         .toastHost(edge: .top)
 }
 
+// ⚠️ `#65` 形态 D2 的三种呈现各注册一条 —— **只往组件源文件加 `#Preview` 进不了快照
+// 流水线**，脚本默认模式只保留 `Previews.swift` 驱动的 `CoreDesignPreview_*`。
+#Preview("Toast · fullWidthBanner") {
+    ToastSnapshotHarness()
+        .toastHost(edge: .top, presentation: .fullWidthBanner)
+}
+
+#Preview("Toast · centeredHUD") {
+    ToastSnapshotHarness()
+        .toastHost(edge: .top, presentation: .centeredHUD)
+}
+
+#Preview("Toast · fullWidthBanner bottom") {
+    ToastSnapshotHarness()
+        .toastHost(edge: .bottom, presentation: .fullWidthBanner)
+}
+
 /// Toast snapshot demo：按钮点击触发 toast 显示，初始状态展示场景脚手架。
 private struct ToastSnapshotHarness: View {
     @Environment(\.toastHost) private var toast
