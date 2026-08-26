@@ -210,6 +210,46 @@ public extension SidebarNavigationRow where Leading == AnyView {
     }
 }
 
+// MARK: - SidebarUtilityRowPresentation
+
+/// `SidebarUtilityRow` 的**呈现形态**。
+///
+/// 判定依据：`docs/component-contract.md` §2 形态 **D2（配置枚举）**，兑现 `#59` 判定的
+/// `needsExtensionPoint: true`（登记表 `kind: semantic` / `decidedBy: step2`）。
+///
+/// ⚠️ **为什么是 D2 而不是 D1**（形态 D 内部无次序 —— 见公约「优先序：A > B > D > C」小节；本条是按公约
+/// 「**实现 issue 对每一条必须独立做一次设计判断，不得照单实现候选清单**」作出的选择，
+/// **不主张 D1 不成立**）：
+/// D1（给 `leading` 开 `@ViewBuilder` 槽）**做得到同样的覆盖**，但要么把本类型泛型化成
+/// `SidebarUtilityRow<Leading>`（现有 `type(of:) == SidebarUtilityRow.self` 断言即编译不过），
+/// 要么走 `AnyView` 擦除并付本仓对擦除设的成文门槛。D2 只加一个带默认值的参数，
+/// **类型名不变**；且开放槽会把一个封闭的候选空间（有字形 / 无字形）敞成任意视图。
+///
+/// ⚠️ **两个 case 各自独立成立为一种形态角色**，不是「一个布尔旋钮的两个投影」——
+/// 参照公约对 `CardKind` 的裁定：「**两 case 数本身不是判据**，『是否独立成立为角色』才是」
+/// （见公约「⚠️ 头号反例：把 Bool 换成两 case enum **不是**替代路径」一节）。`.textOnly` 有具名业界来源（Ant Design Menu 默认无 icon 项 /
+/// macOS Finder 下拉菜单项），由 `#59` 判为**槽**差异。
+// `CaseIterable` 是给护栏用的（PR #209 终审 S5）：`SidebarLeadingSlotRenderTests` 遍历
+// `allCases` 做尺寸/命中区断言 ⇒ **将来新增第三个 case 会自动被现有护栏覆盖**，
+// 不会因为测试里硬编码了两个 case 而漏测。
+public enum SidebarUtilityRowPresentation: Sendable, Equatable, CaseIterable {
+    /// 默认：leading 字形 + 标题（现状形态）。
+    case iconLeading
+    /// 纯文字行：**不渲染 leading 字形、也不占位**。
+    ///
+    /// ⚠️ `systemImage` 在本形态下**静默不生效**（传了不是错误、只是无效，与四条兄弟
+    /// 组件同一处置）。⚠️ 但与它们有一处实质差异：那几条的失效参数都有默认值、可以不传，
+    /// 而本类型的 `systemImage` **必填** ⇒ 每个 `.textOnly` 调用点被迫写一个永不渲染的
+    /// 死参数。约定统一写 `""`，便于将来批量识别。
+    ///
+    /// ⚠️ 候选 2「字形移到 trailing、文字左对齐起首」由 **本 case + 既有
+    /// `trailingSystemImage`** 承载（行尾那个字形走 `SidebarTextStyle.tertiary`，
+    /// 语义是装饰性尾图标 —— 这比「把主字形搬到行尾」更贴其具名来源
+    /// Fluent 2 trailing affordance / iOS 设置二级页面行首无图标）。
+    case textOnly
+}
+
+
 /// 次级工具行，可选尾部装饰。
 ///
 /// 单动作行：leading 图标 + 标题，尾部可挂一个装饰性的 `trailingSystemImage`
@@ -217,15 +257,23 @@ public extension SidebarNavigationRow where Leading == AnyView {
 ///
 /// 侧栏工具行 / SidebarUtilityRow：图标 + 标题 + 可选装饰性 trailing 图标，整行单一 action。
 public struct SidebarUtilityRow: View {
+    /// - Parameters:
+    ///   - systemImage: leading 字形。⚠️ `presentation == .textOnly` 时**静默不生效**
+    ///     （见 `SidebarUtilityRowPresentation.textOnly`；该形态下约定统一传 `""`）。
+    ///   - trailingSystemImage: 可选装饰性尾图标，默认 `nil`。⚠️ 与 `.textOnly` 组合即得
+    ///     公约候选 2「字形移到 trailing、文字左对齐起首」。
+    ///   - presentation: 呈现形态，默认 `.iconLeading`（现状形态）⇒ **现有调用方零影响**。
     public init(
         systemImage: String,
         title: String,
         trailingSystemImage: String? = nil,
+        presentation: SidebarUtilityRowPresentation = .iconLeading,
         action: @escaping () -> Void
     ) {
         self.systemImage = systemImage
         self.title = title
         self.trailingSystemImage = trailingSystemImage
+        self.presentation = presentation
         self.action = action
     }
 
@@ -236,8 +284,17 @@ public struct SidebarUtilityRow: View {
             isSelected: false,
             action: self.action
         ) {
-            Image(systemName: self.systemImage)
-                .coreFont(.body)
+            // ⚠️ **`.textOnly` 靠这里的条件分支实现，共用骨架 `SidebarRow` 一字不动。**
+            // `EmptyView` 在 `HStack` 里是**布局透明**的 —— 即使被骨架的
+            // `.foregroundStyle().frame(width: iconSize).accessibilityHidden(true)` 整条包住，
+            // 也既不占那格 20pt、也不吃那个 8pt 间距。实测：有字形 111.0 / `.textOnly` 83.0，
+            // 差值 28.0 == `iconSize(.large) + CoreSpacing.sm`，与「骨架真条件化」逐点相同。
+            // ⇒ 不必改被四条兄弟行共用的骨架，回归面为零。护栏见
+            // `SidebarLeadingSlotRenderTests`。
+            if self.presentation == .iconLeading {
+                Image(systemName: self.systemImage)
+                    .coreFont(.body)
+            }
         } trailing: {
             if let trailingSystemImage = self.trailingSystemImage {
                 Image(systemName: trailingSystemImage)
@@ -250,9 +307,13 @@ public struct SidebarUtilityRow: View {
         }
     }
 
-    private let systemImage: String
+    // ⚠️ 前三个存储属性是 `internal` 而非 `private`：`@testable import` 进不去 `private`，
+    // 而先例（`AvatarGroupTests` 的 `#expect(group.layout == .overlapped)`）断的正是存储层。
+    // 退一档到默认 internal 仍不出现在下游可见的公开 API 表面（与 `Steps.StepsProgress` 同源取舍）。
+    let systemImage: String
+    let trailingSystemImage: String?
+    let presentation: SidebarUtilityRowPresentation
     private let title: String
-    private let trailingSystemImage: String?
     private let action: () -> Void
 }
 

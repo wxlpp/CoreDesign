@@ -8,7 +8,7 @@
 |---|---|---|
 | `SidebarSection` | `(title:showsChevron:content:)` | 带标题的分组容器，header 含可选 disclosure chevron + 装饰性 overflow glyph |
 | `SidebarNavigationRow` | `(systemImage:title:isSelected:action:)` | 主导航行，`isSelected` 时带 floating-glass 选中态背景 |
-| `SidebarUtilityRow` | `(systemImage:title:trailingSystemImage:action:)` | 次级工具行，可选装饰性 trailing 图标；整行单一 `action` |
+| `SidebarUtilityRow` | `(systemImage:title:trailingSystemImage:presentation:action:)` | 次级工具行，可选装饰性 trailing 图标；整行单一 `action`。`presentation` 见下节 |
 | `SidebarDocumentRow` | `(systemImage:title:detail:action:)` | 文档行，尾部带 `detail`（计数 / 日期等） |
 | `SidebarTagRow` | `(title:action:)` | 标签行，`#` 前缀 + 标题 |
 | `SidebarStatusFooter` | `(title:detail:statusColor:)` | 非交互页脚，状态点 + 两行文案；`statusColor` 默认 `.statusSuccessForeground` |
@@ -59,6 +59,48 @@ VStack(alignment: .leading, spacing: CoreSpacing.md) {
 }
 .background(Color.surfaceSidebar)
 ```
+
+## `SidebarUtilityRowPresentation`（`#64`，公约 §2 形态 D2）
+
+| case | 说明 | 业界来源 |
+|---|---|---|
+| `.iconLeading` | 默认：leading 字形 + 标题（现状形态） | —— |
+| `.textOnly` | 纯文字行，**不渲染 leading 字形、也不占位** | Ant Design Menu 默认无 icon 项 / macOS Finder 下拉菜单项 |
+
+### 候选 2「字形移到行尾」= `.textOnly` + `trailingSystemImage`
+
+没有第三个 case —— 「字形移到 trailing、文字左对齐起首」由**两个既有参数的组合**承载：
+
+```swift
+SidebarUtilityRow(
+    systemImage: "",                        // ⚠️ .textOnly 下不渲染，见下方「死参数」
+    title: "Settings",
+    trailingSystemImage: "chevron.forward",
+    presentation: .textOnly
+) {}
+// ⇒ 文字左对齐起首 + 行尾字形
+```
+
+⚠️ 行尾那个字形走 `SidebarTextStyle.tertiary`，语义是**装饰性尾图标**而非主字形。这比「把
+主字形搬到行尾」**更贴**该候选的具名来源（Fluent 2 的 trailing affordance / iOS 设置二级
+页面行首无图标）—— 那两个来源本身就是「无 leading 图标 + 行尾一个装饰性指示」。
+
+⇒ 本组件**不会**在行尾渲染 `systemImage`；需要「主字形位移」语义的场景不在本设计覆盖范围。
+
+### ⚠️ 正交性代价：`.textOnly` 下的死参数
+
+| 参数 | `.iconLeading` | `.textOnly` |
+|---|---|---|
+| `systemImage`（**必填**） | ✅ 渲染在前 | ❌ **静默不生效**（存储层原样保留，切回不丢配置） |
+| `trailingSystemImage`（可选） | ✅ | ✅（候选 2 正是靠它 + `.textOnly`） |
+
+⚠️ 与 `Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier` 四条兄弟有一处**实质差异**：
+它们的失效参数都有默认值、调用方**可以不传**；而本组件的 `systemImage` **必填** ⇒ 每个
+`.textOnly` 调用点被迫写一个永不渲染的值。
+
+⇒ **约定统一写空串 `""`**。不规定的话各调用点会长出五花八门的死值，将来若要收回该参数
+**难以批量识别**。
+
 
 ## 视觉 Token
 
