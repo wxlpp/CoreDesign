@@ -221,6 +221,12 @@ struct ToastPresentationRenderTests {
         //     `顶行 == 中行` 照过；
         //   · capsule 侧同样区分不了 `Capsule` 与 `RoundedRectangle(large)`。
         // 够挡住已实测的那枚变异（`Rectangle` ↔ `Capsule`），但别把它读成「形状被逐一钉死」。
+        //
+        // ⚠️ **还有一条更隐蔽的**（Copilot CLI 复审提出，推理未跑）：在容器上叠一条**贴顶
+        // 通栏装饰**（`.overlay(alignment: .top) { Rectangle().frame(height: 2) }` ——
+        // 「顶部强调条」这类正当视觉需求）会让顶行 ink 跨度**恒等于满宽**，于是
+        // `bannerTop == bannerMid` 恒真、底层形状被换掉这件事在本条下彻底隐形。
+        // ⇒ 真加这类装饰时，本条要跟着改（改采样点或改判据），别让它静默退化。
         let bannerTop = self.rowInk(.fullWidthBanner, atFraction: 0.06)
         let bannerMid = self.rowInk(.fullWidthBanner, atFraction: 0.5)
         let capsuleTop = self.rowInk(.floatingCapsule, atFraction: 0.06)
@@ -327,6 +333,13 @@ struct ToastPresentationRenderTests {
                 ".centeredHUD 的 ink 不随内容长度变（短 \(shortInk ?? -1) / 长 \(longInk ?? -1)）—— 它被钉成了固定宽度，不是 content-hugging")
         #expect((longInk ?? Int.max) <= Int(Self.containerWidth),
                 ".centeredHUD 的长文本 ink \(longInk ?? -1) 超出容器宽 \(Int(Self.containerWidth)) —— hugging 不该突破容器")
+
+        // ⚠️ **本条的采样是离散的，如实写明**（Copilot CLI 复审提出，推理未跑）：只取
+        // 「`"Hi"` / 长句」× 「320 / 500 容器」四个点。一个**按内容长度分段的查表式实现**
+        // （`frame(width: message.count > 10 ? 200 : 60)`）能精确卡过全部四条断言 ——
+        // 它与容器宽无关（过 `hud320 == hud500`）、两档随长度阈值变（过 `short < long`）、
+        // 且 ≤ 320（过越界检查），但**根本不是 hugging**：中等长度或阈值边界附近的消息会
+        // 明显失真。⇒ 本条守的是「不定宽 + 大致随内容」，不是「逐点等于内容理想宽」。
         // ⚠️ 非退化前置：证明「换容器宽」在本平台确实能改变 ink，否则上一条可能恒真。
         #expect((capsule320 ?? 0) < (capsule500 ?? 0),
                 "capsule 的 ink 没随容器宽变 —— 换容器宽这个操作没生效，上一条的相等就没有意义了")
