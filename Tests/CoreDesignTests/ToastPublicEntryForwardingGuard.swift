@@ -132,15 +132,25 @@ struct ToastPublicEntryForwardingGuard {
     /// **不会有人自动提醒「记得再写一份 FooPublicEntryForwardingGuard」**。
     ///
     /// ⇒ 改成遍历别名表：**新增条目自动被覆盖**，缺失源码时判红而非静默跳过。
-    private func sourceFile(for component: String) -> URL? {
+    /// 按**函数声明**定位源文件，而不是按文件名。
+    ///
+    /// ⚠️ **不能用「文件名 == component 名」**（自查实测）：全 registry 46 条本仓条目里
+    /// **14 条不同名** —— `SidebarUtilityRow` / `SidebarNavigationRow` / `SidebarSection`
+    /// 等全在 `Sidebar.swift` 里，`SkeletonCircle` / `SkeletonLine` / `SkeletonRect` 在
+    /// `Skeleton.swift` 里。今天别名表只有 `Toast` 一条、恰好同名，但泛化的意义正是
+    /// **给未来的条目用** —— 靠一个七成成立的约定，第二条别名进来时就会静默失效。
+    /// ⇒ 直接扫全仓找 `func <modifierName>(` 的声明所在文件。
+    private func sourceFiles(declaring functionName: String) -> [URL] {
         let root = ComponentRegistryGuard.coreDesignSources
         guard let enumerator = FileManager.default.enumerator(
             at: root, includingPropertiesForKeys: nil
-        ) else { return nil }
+        ) else { return [] }
+        var hits: [URL] = []
         for case let url as URL in enumerator where url.pathExtension == "swift" {
-            if url.deletingPathExtension().lastPathComponent == component { return url }
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            if text.contains("func \(functionName)(") { hits.append(url) }
         }
-        return nil
+        return hits
     }
 
     @Test("承重：别名表里每个 modifier 入口都把签名参数**逐名转发**下去")
@@ -155,14 +165,19 @@ struct ToastPublicEntryForwardingGuard {
                 // 死条目由 `ComponentHostAliasGuard` 的棘轮管，这里跳过即可。
                 continue
             }
-            guard let url = self.sourceFile(for: component) else {
-                Issue.record("找不到 \(component).swift —— 无法核对 \(modifierNames.sorted()) 的函数体转发")
-                continue
-            }
-            let source = try String(contentsOf: url, encoding: .utf8)
             for modifierName in modifierNames.sorted() {
-                self.assertForwarding(source: source, function: modifierName,
-                                      component: component, styleEnum: styleEnum)
+                let files = self.sourceFiles(declaring: modifierName)
+                // ⚠️ **找不到时判红、不静默跳过** —— 别名表指向一个不存在的入口时，
+                // 「循环体没执行 ⇒ 全绿」是最坏的失效形态。
+                #expect(!files.isEmpty,
+                        "别名表 `\(component)` → `\(modifierName)`：全仓找不到 `func \(modifierName)(` 的声明 —— 入口不存在或已改名，本守卫无从核对函数体转发")
+                #expect(files.count <= 1,
+                        "`func \(modifierName)(` 在 \(files.count) 个文件里都有声明 \(files.map(\.lastPathComponent).sorted()) —— 本守卫按「唯一入口」设计，同名多处时必须回来改成逐处校验")
+                for url in files {
+                    guard let source = try? String(contentsOf: url, encoding: .utf8) else { continue }
+                    self.assertForwarding(source: source, function: modifierName,
+                                          component: component, styleEnum: styleEnum)
+                }
             }
         }
     }
