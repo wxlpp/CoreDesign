@@ -101,9 +101,12 @@ public nonisolated enum ToastDefaults {
 // MARK: - ToastHost
 
 /// Scene 级的浮层 toast 队列与调度器。
-/// 内部把每个 `ToastItem` 渲染为 `ToastView`，其容器在 `Capsule(style: .continuous)`
-/// 外壳上施加 `View.floatingGlass(in:isInteractive:)`——让 toast 读起来像**浮起的
-/// 系统反馈**，而不是内容自身的 chrome。公开 API（`show` / `dismiss`）与队列状态机保持不变。
+/// 内部把每个 `ToastItem` 渲染为 `ToastView`，其容器在一个 `InsettableShape` 外壳上施加
+/// `View.floatingGlass(in:isInteractive:)`——让 toast 读起来像**浮起的系统反馈**，
+/// 而不是内容自身的 chrome。公开 API（`show` / `dismiss`）与队列状态机保持不变。
+/// ⚠️ **外壳形状按 `ToastPresentation` 分三种**（`#65`）：`.floatingCapsule` 用
+/// `Capsule`、`.fullWidthBanner` 用 `Rectangle`、`.centeredHUD` 用 `RoundedRectangle`
+/// —— 见 `ToastContainerDecoration`。上一版这里写死 `Capsule` 是 T2 之前的状态。
 ///
 /// **材质层**: 浮层. **表面角色**: 浮层.
 ///
@@ -169,9 +172,10 @@ public nonisolated enum ToastDefaults {
 /// 主 actor；`@Observable` 自动生成的 keypath observation 同样运行在主 actor。
 /// 类型本身**不需要** `Sendable` 显式约束（`@MainActor` 已隐式提供线程安全）。
 ///
-/// 暗色模式行为：内部 `ToastView` 使用 `.floatingGlass(in: Capsule(style: .continuous),
-/// isInteractive: false)`（玻璃材质 + strokeBorder overlay 自动 light/dark 适配），
-/// floating 层不再叠加独立阴影。
+/// 暗色模式行为：内部 `ToastView` 使用 `.floatingGlass(in:isInteractive: false)`
+/// （玻璃材质 + strokeBorder overlay 自动 light/dark 适配），floating 层不再叠加独立阴影。
+/// ⚠️ 形状参数按 `ToastPresentation` 分三种，见 `ToastContainerDecoration`；
+/// **暗色适配对三形态一致**（走的是同一个 `floatingGlass`）。
 @MainActor
 @Observable
 public final class ToastHost {
@@ -479,14 +483,15 @@ struct ToastOverlay: View {
 /// 单条 toast 的渲染单元（internal）：icon + message + 容器装饰 + dismiss 触发。
 ///
 /// 视觉 token：
-/// - 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`
+/// - 容器（⚠️ 下述为 `.floatingCapsule` 时的形态；三形态各自的容器见 `ToastContainerDecoration`）：
+/// `.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`
 ///   浮动玻璃层，自带 strokeBorder overlay + 玻璃材质，pill 几何让 toast 读起来是系统反馈。
 /// - 字号：`.coreFont(.callout)`
 /// - icon / 前景色：按 `StatusLevel` 走 status color token
 /// - padding：`CoreSpacing.md` 内边距
 ///
 /// dismiss 触发：自动 / 滑动手势（向 edge 方向，阈值 `ToastDefaults.swipeDismissThreshold`）/
-/// 点击。
+/// 点击。⚠️ **`.centeredHUD` 下滑动手势关闭、只保留点击**（自动 dismiss 计时不受影响）。
 /// 按形态给 toast 套容器装饰。
 ///
 /// ⚠️ **为什么是一个 `ViewModifier` + `switch`，而不是在调用点写三目**：

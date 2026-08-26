@@ -894,6 +894,21 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 | 判据 | 落点 | 定义域 | 现状 |
 |---|---|---|---|
 | **J-2** 语义组件必须有样式扩展点 | `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift` 的 `ComponentExtensionPointGuard` | `kind == semantic && needsExtensionPoint && repo == coredesign`，实测 5 条 | 3 条满足；`Rating` / `Toast` 是**待补的扩展点**，以 `withKnownIssue` + 块外固定集合 canary 落账，补齐后判据主动判红逼人清理 |
+
+> ⚠️ **上面这行 J-2 的「现状」栏是当时的记录，不改写。现状（`wxlpp/oh-my-story#65`，
+> PR #210 终审 I-5）**：该栏三个断言**现已全假**，读者按它去找 `withKnownIssue` 块会扑空 ——
+>
+> · **`Rating`** 早已由 `#41` 裁决 4c 补齐（本条在 #65 之前就已过期，属存量）；
+> · **`Toast`** 由 `#65` 以形态 D2 补齐（`ToastPresentation`）；
+> · **那个 `withKnownIssue` 块已删除** —— 它按自身设计的机器强制到期兑现：块内注释明写
+>   「补齐后本块无 issue 记录 ⇒ Swift Testing 主动判红，届时删除本块」，`Toast` 一判绿
+>   它就红了、逼人回来删。
+>
+> ⇒ **J-2 现状：定义域 11 条、全部满足、`knownMissingExtensionPoints` 为空集**，
+> 落账方式是「主判据裸 `#expect(missing.isEmpty)` + 块外固定集合 canary」。
+> ⚠️ 将来若再出现已知缺口，**照原样重建 `withKnownIssue` 块（只包住主判据那一句）**，
+> 别改成宽松断言 —— `#39` Task 8 变异实测过：块里多包一句，新违规会被静默吞掉。
+> 详见 `docs/contract-defects.md` 的 `D-65-1`。
 | **J-3** 标注 `nativeProtocol` 的组件作用域内不得有自有样式协议 | `Tests/CoreDesignTests/NativeProtocolPurityGuard.swift` | `nativeProtocol != nil && repo == coredesign`，实测 **1** 条（`ProgressIndicator`） | 零违规。⚠️ 1 条输入的判据靠非空断言挡不住「探针退化成恒空」⇒ 另设**绿色正对照**（把探针反向施加到 `Banner` / `SegmentedControl`，必须命中）。判据**消费**该探针而不内联重写，正对照的红因此能推到判据的探测能力上（规则层 `j3JudgeConsumesTheProbe` 钉住这条结构约束） |
 | **FR-4** public init 的裸文本参数必须有分类条目 | `Tests/CoreDesignTests/ComponentTextParamGuard.swift` | 宿主可解析到 `repo == coredesign` 登记表条目的 public `init`，实测覆盖 29 条 | 4 条已知违规（三条 Sidebar row 的 `systemImage` + `SidebarUtilityRow.trailingSystemImage`）——与 `LabelIcon.systemName` 同类的 SF Symbol 标识符，但 `notes` 未点名 ⇒ 缺陷已报回 #38 |
 

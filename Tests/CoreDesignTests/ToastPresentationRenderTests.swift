@@ -28,6 +28,13 @@ import AppKit
 // 原因是结构性的：`transition` 只在 item 增删的**动画过程**中生效，而 `ImageRenderer`
 // 拍的是静态帧，动画根本不在它的射程内。
 // ⇒ 这条属 `65-spec` §7.2 的**人工抽查**项，别因为本 suite 全绿就以为它被守住了。
+//
+// ⚠️ **曾经守不住、现已补上的**（PR #210 终审 I-1，留作教训）：`View.toastHost(...)` 的
+// **转发行**一度是全测试体系唯一没覆盖的产线行 —— 9 条渲染断言全部经
+// `ToastHostModifier(host:...)` 直接构造进入，判据只读签名不看函数体，App 又不进 CI。
+// 「转发时把 `presentation` 写死」这枚变异**全绿逃逸**。现由 `A12` 经公开 API 堵住。
+// ⇒ **加注入缝时要顺带问「缝之上还剩哪一行没人走过」** —— 缝会把未覆盖边界**上移**，
+// 而不是消灭它。
 // （同族限度：光栅渲染同样证不了 `allowsHitTesting` / `accessibilityHidden` / 手势是否真的被关掉。）
 @MainActor
 struct ToastPresentationRenderTests {
@@ -71,10 +78,11 @@ struct ToastPresentationRenderTests {
     private func overlayInk(
         _ presentation: ToastPresentation,
         edge: VerticalEdge = .top,
-        containerWidth: CGFloat? = nil
+        containerWidth: CGFloat? = nil,
+        message: String = "Hi"
     ) -> Int? {
         let host = ToastHost()
-        host.show("Hi", level: .info)
+        host.show(message, level: .info)
         let view = ToastOverlay(host: host, edge: edge, presentation: presentation)
             .frame(width: containerWidth ?? Self.containerWidth)
         guard let cg = self.cgImage(view) else { return nil }
@@ -206,6 +214,13 @@ struct ToastPresentationRenderTests {
         //
         // ⇒ 本条用**形状的定义性判据**：矩形没有圆角 ⇒ 顶行与中行的 ink 跨度**相等**；
         // 胶囊 / 圆角矩形的顶行会被圆角切窄。实测 banner 320/320、capsule 266/288。
+        //
+        // ⚠️ **粒度边界，如实写明**（PR #210 终审 S-3）：采样行离顶约 3px，所以本条实际守的是
+        // 「**方顶 vs 圆顶**」，不是「登记的那三个具体形状」——
+        //   · banner 换成 `RoundedRectangle(cornerRadius: ≤3)`，圆角收窄发生在采样行**之上**，
+        //     `顶行 == 中行` 照过；
+        //   · capsule 侧同样区分不了 `Capsule` 与 `RoundedRectangle(large)`。
+        // 够挡住已实测的那枚变异（`Rectangle` ↔ `Capsule`），但别把它读成「形状被逐一钉死」。
         let bannerTop = self.rowInk(.fullWidthBanner, atFraction: 0.06)
         let bannerMid = self.rowInk(.fullWidthBanner, atFraction: 0.5)
         let capsuleTop = self.rowInk(.floatingCapsule, atFraction: 0.06)
@@ -285,6 +300,23 @@ struct ToastPresentationRenderTests {
         }
         #expect(hud320 == hud500,
                 ".centeredHUD 的 ink 随容器宽变了（\(hud320 ?? -1) → \(hud500 ?? -1)）—— 它在撑满，不是 content-hugging")
+
+        // ⚠️ **「不随容器宽变」只是 hugging 的必要条件，不是充分条件**（PR #210 终审 I-2）：
+        // 一个被钉成固定宽度的 HUD 同样满足它。⇒ hugging 的**另一半定义是「随内容变」**，
+        // 两半都断言才关得住。
+        //
+        // ⚠️ **实测更正**：终审举的变异是「给 HUD 加 `.frame(width: 200)`」，实测它
+        // **产生不了固定宽度** —— HUD 下 `Spacer` 已被去掉，`.frame(width:)` 只给出宽度
+        // 提案，内容仍 hug、ink 照样随内容变（59 → 162）。真正能钉死宽度的是**组合**
+        // 变异「加回 `Spacer` + 定宽」，实测下本条判红（短 200 / 长 200）。
+        // ⇒ 论点成立、举的单一变异不成立；断言保留，因为它守的是真实的退化路径。
+        let shortInk = self.overlayInk(.centeredHUD, message: "Hi")
+        let longInk = self.overlayInk(.centeredHUD, message: "A considerably longer toast message")
+        #expect(shortInk != nil && longInk != nil, "量测失败 —— 不得当作通过")
+        #expect((longInk ?? 0) > (shortInk ?? 0),
+                ".centeredHUD 的 ink 不随内容长度变（短 \(shortInk ?? -1) / 长 \(longInk ?? -1)）—— 它被钉成了固定宽度，不是 content-hugging")
+        #expect((longInk ?? Int.max) <= Int(Self.containerWidth),
+                ".centeredHUD 的长文本 ink \(longInk ?? -1) 超出容器宽 \(Int(Self.containerWidth)) —— hugging 不该突破容器")
         // ⚠️ 非退化前置：证明「换容器宽」在本平台确实能改变 ink，否则上一条可能恒真。
         #expect((capsule320 ?? 0) < (capsule500 ?? 0),
                 "capsule 的 ink 没随容器宽变 —— 换容器宽这个操作没生效，上一条的相等就没有意义了")

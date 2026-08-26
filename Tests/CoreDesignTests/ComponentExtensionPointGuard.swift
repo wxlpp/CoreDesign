@@ -47,6 +47,8 @@ struct ComponentExtensionPointGuard {
     /// `style.makeBody(configuration:)` 渲染），登记表 `customStyleProtocol` 同轮填上
     /// ⇒ 它现在走 `satisfied` 分支。集合从 `{Rating, Toast}` 收缩到 `{Toast}` 是**判据能
     /// 逐条跟踪修复进度**的证据，不是一次性全绿——`Toast` 刻意留在红名单里（41-spec 第一节）。
+    /// ⚠️ **上句是当时的记录。现状（`#65`）：`Toast` 已补齐，集合再收缩到空集** ——
+    /// 「逐条跟踪修复进度」这个论点由 `{Rating,Toast}` → `{Toast}` → `{}` 三段完整走完。
     /// ⚠️ **#59 增补（判定法修订的到期通路，不是「改守卫迁就」）**：#59 裁定
     /// `D-53-17`（(A) 不成立 ⇒ 重跑步骤 2）后，按修订后的判据重判 `53-stress.md`
     /// 全部 17 条，落「出口 1（语义组件、需要扩展点）」的条目按方案 C 如实改
@@ -146,7 +148,8 @@ struct ComponentExtensionPointGuard {
         for (component, reason) in result.satisfied.sorted(by: { $0.key < $1.key }) {
             print("J-2 ✓ \(component)：\(reason)")
         }
-        print("J-2 已知缺口 \(result.missing)（待补扩展点，移交后续任务）")
+        print("J-2 已知缺口 \(result.missing)"
+              + (result.missing.isEmpty ? "（**空集** —— 扩展点缺口已全部收口，`#65` 是最后一条）" : "（待补扩展点，须有承接 issue）"))
         print("⚠️ J-2 跳过 storyui \(result.skippedRepos["storyui"] ?? 0) 条：CI 只 checkout 本仓，跨仓核对移交 #43。")
     }
 

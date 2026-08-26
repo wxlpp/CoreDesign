@@ -60,6 +60,7 @@ struct ComponentHostAliasGuard {
     func valuesActuallyCarryTheRegisteredEnum() throws {
         let (entries, scan) = try self.loadInputs()
         let byName = Dictionary(uniqueKeysWithValues: entries.map { ($0.component, $0) })
+        var deadEntries: Set<String> = []
         for (key, values) in ComponentHostAliases.table {
             guard let entry = byName[key] else { continue }   // ① 已经守了存在性
             guard let styleEnum = entry.styleEnum else {
@@ -68,8 +69,9 @@ struct ComponentHostAliasGuard {
                 // 若此时判红，实现根本无法分步推进。而这**不构成后门** —— 别名通路只活在
                 // J-2 的 `else if let styleEnum = entry.styleEnum` 那条臂里，null 条目
                 // 要么落「四字段皆空」的红、要么根本不进定义域 ⇒ 对判定零作用。
-                // ⇒ 打一行诊断标记「死条目」，防止表里长期挂惰性键。
-                print("⚠️ 别名表死条目：`\(key)` 的 styleEnum 为 null，第 ④ 条对它暂不适用")
+                // ⇒ 记入**棘轮**（当前应为空集），防止表里长期挂惰性键。
+                // ⚠️ 上一版只 `print`（PR #210 终审 S-2）—— stdout 在 CI 里无人看。
+                deadEntries.insert(key)
                 continue
             }
             let hosts = scan.styleEnumHosts[styleEnum] ?? []
@@ -77,6 +79,26 @@ struct ComponentHostAliasGuard {
                 #expect(hosts.contains(value),
                         "别名表 `\(key)` → `\(value)`：该入口并没有携带本条目登记的 `\(styleEnum)` 参数（该枚举实际接线于 \(hosts.sorted())）—— 前三条只核『名字存在』，存在但无关的名字能让它们全过，本条专堵这个")
             }
+        }
+        #expect(deadEntries.isEmpty,
+                "别名表出现死条目 \(deadEntries.sorted())（registry 里 styleEnum 为 null）—— 第 ④ 条对它们不适用、它们对判定也零作用。要么补上 registry 字段，要么从表里删掉，别让惰性键长期挂着")
+    }
+
+    @Test("⑤ 每个 styleEnum 只能被一个条目认领（别名表打破了原来的隐式约束）")
+    func styleEnumsAreClaimedByExactlyOneEntry() throws {
+        // ⚠️ **本条是 PR #210 终审 S-1 补的**：原第三道门槛（宿主名 == 条目名）**结构上**
+        // 排除了「两个条目共享一个枚举」—— 一个枚举的 hosts 不可能同时等于两个条目名。
+        // 别名表把这个隐式约束打破了：未来某条**非类型名**的登记条目（过守卫 ③）把
+        // `styleEnum` 填成一个别人的枚举、别名映射到那个别人的入口，
+        // ①②④ 会**全部通过**，J-2 判绿，而它一行组件代码都没写。
+        let entries = try ComponentRegistryGuard.loadRegistry()
+        var claimedBy: [String: [String]] = [:]
+        for entry in entries {
+            guard let styleEnum = entry.styleEnum else { continue }
+            claimedBy[styleEnum, default: []].append(entry.component)
+        }
+        for (styleEnum, owners) in claimedBy.sorted(by: { $0.key < $1.key }) where owners.count > 1 {
+            Issue.record("配置枚举 `\(styleEnum)` 被 \(owners.sorted()) 多个条目同时登记 —— 一个形态枚举只能属于一个组件；共享认领会让后来者靠别名表白蹭前者的接线")
         }
     }
 }
