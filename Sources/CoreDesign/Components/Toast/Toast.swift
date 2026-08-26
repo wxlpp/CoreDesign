@@ -150,10 +150,18 @@ public nonisolated enum ToastDefaults {
 ///
 /// ## z-order 限制
 ///
-/// `safeAreaInset(edge:)` 仅在挂 `.toastHost(edge:)` 那层 view 树内可见；**不**
-/// 覆盖 sheet / `fullScreenCover` / 独立 window。每个 sheet root 需单独挂
-/// `.toastHost(...)` 才能让 sheet 内触发的 toast 显示。这是 scene-scoped 架构
-/// 的直接后果——singleton 全局覆盖**不被采纳**（见上方"架构"一节的取舍说明）。
+/// toast 只在挂 `.toastHost(...)` 那层 view 树内可见；**不**覆盖 sheet /
+/// `fullScreenCover` / 独立 window。每个 sheet root 需单独挂 `.toastHost(...)`
+/// 才能让 sheet 内触发的 toast 显示。这是 scene-scoped 架构的直接后果——
+/// singleton 全局覆盖**不被采纳**（见上方"架构"一节的取舍说明）。
+///
+/// ⚠️ **本限制对三个 `ToastPresentation` 一律成立**（`#65`）：`.floatingCapsule` /
+/// `.fullWidthBanner` 走 `safeAreaInset(edge:)`，`.centeredHUD` 走
+/// `.overlay(alignment: .center)` —— 两者**都是在挂 modifier 那层 view 树内绘制**，
+/// 而 sheet / `fullScreenCover` 是独立的 presentation layer。
+/// ⚠️ 本段上一版把原因写成「`safeAreaInset(edge:)` 仅在……」，那是把机制当成了根因；
+/// `.centeredHUD` 不走 `safeAreaInset`，但结论对它同样成立。根因是**在哪层 view 树
+/// 绘制**，不是用哪个 modifier 挂。
 ///
 /// Swift 6 strict concurrency：
 ///
@@ -331,11 +339,13 @@ public extension View {
     ///
     /// z-order 限制（**重要**）：
     ///
-    /// `safeAreaInset` 仅在**挂 modifier 那层 view 树**内可见；不会覆盖 sheet /
+    /// toast 只在**挂 modifier 那层 view 树**内可见；不会覆盖 sheet /
     /// `fullScreenCover` / 独立 window。需要在 sheet 内显示 toast 时，**在 sheet
     /// 的 root view 单独挂一份** `.toastHost(...)`，使用独立的 host 实例。
     /// 这是 scene-scoped 架构的直接后果（见 `ToastHost` 的"架构"一节），
     /// singleton 全局覆盖不被采纳。
+    /// ⚠️ **三个 `presentation` 一律如此** —— `.centeredHUD` 走 `.overlay` 而非
+    /// `safeAreaInset`，但两者都在挂 modifier 那层 view 树内绘制，限制相同。
     ///
     /// - Parameters:
     ///   - edge: toast 显示位置，缺省 `.top`。

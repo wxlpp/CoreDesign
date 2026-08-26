@@ -89,4 +89,8 @@ struct DetailView: View {
 - 容器形状：`.floatingCapsule` 用 `Capsule`、`.fullWidthBanner` 用 `Rectangle`、
   `.centeredHUD` 用 `RoundedRectangle(cornerRadius: CoreRadius.large)`；三者共用
   `CoreSpacing.md` 的内容内边距（内容留白不是三形态的差异所在）
-- z-order：通过 `safeAreaInset` 实现，不覆盖 sheet / fullScreenCover，每个 scene 需独立挂载 host
+- z-order：toast 只在**挂 `.toastHost(...)` 那层 view 树**内绘制，不覆盖 sheet /
+  fullScreenCover，每个 scene 需独立挂载 host。
+  ⚠️ **三个 presentation 一律如此** —— `.floatingCapsule` / `.fullWidthBanner` 走
+  `safeAreaInset`，`.centeredHUD` 走 `.overlay`，但根因是「在哪层 view 树绘制」、
+  不是用哪个 modifier 挂（上一版把原因写成「通过 `safeAreaInset` 实现」，对 HUD 不准确）。
