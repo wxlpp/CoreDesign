@@ -940,6 +940,8 @@
     "decidedBy": "step2",
     "nativeProtocol": null,
     "customStyleProtocol": null,
+    "styleSlot": null,
+    "styleEnum": "ToastPresentation",
     "needsExtensionPoint": true,
     "textParams": [
       {
@@ -947,6 +949,6 @@
         "category": "B"
       }
     ],
-    "notes": "终审 C1 补录——docs/README.md:78 索引但此前漏登记。判定法走查：弃用条款不适用（未标 @available(*, deprecated)）；祖父条款不适用（无已发布的 ToastStyle 协议）。步骤 1：Apple 无对应原生样式协议 ⇒ 无。步骤 2：能举出 ≥2 个业界真实存在、且结构本身不同（非皮肤变体）的替代形态——(a) 当前形态：边缘悬浮胶囊（capsule，safeAreaInset 锚定单侧边缘）；(b) 全宽横幅条（如 Android Snackbar / 部分 App 的 in-app banner，横跨屏幕宽度，不是胶囊）；(c) 居中 HUD（如经典 UIKit toast/HUD，浮于屏幕中央而非贴边）——三者的布局骨架（贴边胶囊 / 全宽条 / 居中浮层）本身不同，不是同一骨架换画法，举得出 ≥2 ⇒ 语义组件，需要扩展点。⚠️ 现状缺口：源码里尚无 ToastStyle 协议实现（customStyleProtocol 为 null）——判定法给出『应该有扩展点』的结论，扩展点尚未落地，**承接 `wxlpp/oh-my-story#65`**（原写作「留给后续任务补齐」——匿名指针，与 SidebarUtilityRow 那条同性质缺口一具名一匿名，正是承接指针回填要消灭的状态），不属于本任务判断错误。⚠️ 原句「与 Rating 的现状缺口同性质」**已过期**：Rating 的缺口由 #41 裁决 4c 补齐并已从 J-2 红名单摘除（见 ComponentExtensionPointGuard），本条与它现在不同性质 —— 本条仍是缺口，Rating 不是。textParams：ToastItem.message / ToastHost.show(_:level:duration:) 的 message 均为裸 String，是调用方传入的界面提示文案（非用户数据、非组件内置 chrome）⇒ B 类。⚠️ 扫描器盲区：ToastHost 是 public class（非 View/ViewModifier struct），ToastItem/ToastDefaults 是不含 View 一致性的 public struct/enum，PublicTypeCollector 结构上看不到三者中任何一个 ⇒ 本条目名 `Toast` 不会出现在扫描器的 `scanned` 集合里，已在 ComponentRegistryGuard.knownOffScannerComponents 加白名单豁免双向差集的幽灵检查，详见该守卫文件顶部注释。"
+    "notes": "终审 C1 补录——docs/README.md:78 索引但此前漏登记。判定法走查：弃用条款不适用（未标 @available(*, deprecated)）；祖父条款不适用（无已发布的 ToastStyle 协议）。步骤 1：Apple 无对应原生样式协议 ⇒ 无。步骤 2：能举出 ≥2 个业界真实存在、且结构本身不同（非皮肤变体）的替代形态——(a) 当前形态：边缘悬浮胶囊（capsule，safeAreaInset 锚定单侧边缘）；(b) 全宽横幅条（如 Android Snackbar / 部分 App 的 in-app banner，横跨屏幕宽度，不是胶囊）；(c) 居中 HUD（如经典 UIKit toast/HUD，浮于屏幕中央而非贴边）——三者的布局骨架（贴边胶囊 / 全宽条 / 居中浮层）本身不同，不是同一骨架换画法，举得出 ≥2 ⇒ 语义组件，需要扩展点。⚠️ 现状缺口：源码里尚无 ToastStyle 协议实现（customStyleProtocol 为 null）——判定法给出『应该有扩展点』的结论，扩展点尚未落地，**承接 `wxlpp/oh-my-story#65`**（原写作「留给后续任务补齐」——匿名指针，与 SidebarUtilityRow 那条同性质缺口一具名一匿名，正是承接指针回填要消灭的状态），不属于本任务判断错误。⚠️ 原句「与 Rating 的现状缺口同性质」**已过期**：Rating 的缺口由 #41 裁决 4c 补齐并已从 J-2 红名单摘除（见 ComponentExtensionPointGuard），本条与它现在不同性质 —— 本条仍是缺口，Rating 不是。textParams：ToastItem.message / ToastHost.show(_:level:duration:) 的 message 均为裸 String，是调用方传入的界面提示文案（非用户数据、非组件内置 chrome）⇒ B 类。⚠️ 扫描器盲区：ToastHost 是 public class（非 View/ViewModifier struct），ToastItem/ToastDefaults 是不含 View 一致性的 public struct/enum，PublicTypeCollector 结构上看不到三者中任何一个 ⇒ 本条目名 `Toast` 不会出现在扫描器的 `scanned` 集合里，已在 ComponentRegistryGuard.knownOffScannerComponents 加白名单豁免双向差集的幽灵检查，详见该守卫文件顶部注释。⚠️ 落地（`wxlpp/oh-my-story#65`）：以形态 D2 补齐，公开枚举 `ToastPresentation`（floatingCapsule / fullWidthBanner / centeredHUD）接在唯一公开入口 `View.toastHost(edge:presentation:)` 上，默认 `.floatingCapsule` ⇒ 现有调用方零影响。⚠️ 接在那个 modifier 方法而非任何 `init`，是因为 `ToastHost` 由内部 modifier 的 `@State` 持有、调用方够不着它的 `init`；这同时暴露了 J-2 判据 D2 臂的两处口径缺口（采集只认公开 `init` 参数、宿主名必须等于条目名），两处已在本 issue 内修补，详见 `D-65-1`。⚠️ 条目名 `Toast` 不是类型名，故在 `ComponentHostAliases` 里映射到 `toastHost`；该表由 `ComponentHostAliasGuard` 的四条断言守自洽。⚠️ 三形态的渲染差异有机器判据（`ToastPresentationRenderTests`，9 条断言 + 7 枚变异自证）；但入/出场过渡属动画、`ImageRenderer` 拍静态帧抓不到，那条仍是人工抽查项。"
   }
 ]

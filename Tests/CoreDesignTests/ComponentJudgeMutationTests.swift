@@ -47,7 +47,10 @@ struct ComponentJudgeMutationTests {
 
         #expect(copied.bareTextKeys == real.bareTextKeys, "副本与真实源码的裸文本参数集合不一致 —— 拷贝有问题")
         #expect(copied.styleProtocolNames == real.styleProtocolNames)
-        #expect(judgeExtensionPoints(entries: entries, scan: copied).missing == ["Toast"])
+        // ⚠️ 期望是**空集**：`Toast` 由 `wxlpp/oh-my-story#65` 以形态 D2 补齐后，
+        // J-2 的扩展点缺口全部收口。基线为空集使下面的变异断言**语义更强**——
+        // 变异引入的违规不再需要从「已有缺口」里择出来。
+        #expect(judgeExtensionPoints(entries: entries, scan: copied).missing.isEmpty)
         #expect(judgeNativeProtocolPurity(entries: entries, scan: copied).violations.isEmpty)
         #expect(Set(judgeTextParamCoverage(
             entries: entries, scan: copied, ownerAliases: ComponentTextParamGuard.ownerAliases
@@ -64,7 +67,7 @@ struct ComponentJudgeMutationTests {
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(root: root))
-        #expect(result.missing == ["Banner", "Toast"],
+        #expect(result.missing == ["Banner"],
                 "登记表说 Banner 的扩展点是 BannerStyle，源码里没有这个协议声明了 ⇒ 必须判红")
         #expect(result.diagnostics.contains { $0.contains("Banner：") && $0.contains("无该协议声明") })
     }
@@ -83,7 +86,7 @@ struct ComponentJudgeMutationTests {
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(root: root))
-        #expect(result.missing == ["Banner", "Toast"])
+        #expect(result.missing == ["Banner"])
         #expect(result.diagnostics.contains { $0.contains("Banner：") && $0.contains("无实现类型") },
                 "只查协议声明、不查实现的话，把两个 style 实现删光判据照绿 —— AC 原文是『定义 + 使用』")
     }

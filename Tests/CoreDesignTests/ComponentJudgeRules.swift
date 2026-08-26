@@ -156,7 +156,12 @@ func judgeExtensionPoints(
                 )
             }
         } else if let styleEnum = entry.styleEnum {
-            // 形态 D2「配置枚举」。同样必须核源码，且**两道**：声明存在 + 真的接进公开 init。
+            // 形态 D2「配置枚举」。同样必须核源码，且**三道**：声明存在 + 真的接进公开入口
+            // + 宿主是本条目自己（或其别名）。
+            // ⚠️ 「公开入口」自 `#65` 起有**两条通路**：公开 `init` 的参数，以及公开
+            // `extension View` 上返回 `some View` 的 modifier 方法的参数。加第二条是因为
+            // 有些组件的唯一公开入口就是 modifier 方法（`Toast` 的 `View.toastHost(...)`），
+            // 它们的内部类型由 modifier 的 `@State` 持有、调用方够不着任何 `init`。
             //
             // ⚠️ 只核声明存在是不够的（PR #206 第 2 轮 review 抓到）：`styleEnumNames` 是
             // `Sources/CoreDesign` 下**任意**公开 enum 的名字集合，于是登记表填一个本仓
@@ -179,8 +184,11 @@ func judgeExtensionPoints(
                 result.missing.append(entry.component)
                 result.diagnostics.append(
                     "\(entry.component)：登记表 styleEnum=\(styleEnum) 的公开 enum 声明存在，"
-                    + "但它**没有出现在任何公开 `init` 的参数类型**里 —— 声明了没接线，调用方够不着，"
-                    + "不构成扩展点（采集口径：只认公开 init 参数，与 D1 外观槽同源）"
+                    + "但它**没有出现在任何公开入口的参数类型**里 —— 声明了没接线，调用方够不着，不构成扩展点。"
+                    + "（采集口径**两条通路**：公开 `init` 的参数；以及公开 `extension View` 上返回 "
+                    + "`some View` 的 modifier 方法的参数 —— 后者是 `#65` 为 `Toast` 这类"
+                    + "「唯一公开入口是 modifier 方法」的组件加的。⚠️ D1 外观槽**不适用**第二条通路，"
+                    + "它仍只认公开 `init` 的 @ViewBuilder 参数。）"
                 )
             } else if hosts.isDisjoint(with: ComponentHostAliases.acceptedHosts(for: entry.component)) {
                 // ⚠️ **宿主必须是本条目自己**（PR #206 第 3 轮 review 抓到）：只判 `hosts` 非空的话，

@@ -55,7 +55,13 @@ struct ComponentExtensionPointGuard {
     /// 实现未跟上。按本集合下方注释的口径（「变小 ⇒ 已知缺口补上了，同步删除」），
     /// 该集合本就随判定结论增删 ⇒ 本轮增补。逐条取证见 oh-my-story
     /// `.claude/epics/component-contract/59-rejudge.md`。
-    static let knownMissingExtensionPoints: Set<String> = ["Toast"]
+    /// ⚠️ **空集**：J-2 的扩展点缺口已全部收口（`Toast` 由 `wxlpp/oh-my-story#65`
+    /// 以形态 D2 补齐，是最后一条）。
+    ///
+    /// ⚠️ 空集时下面的棘轮断言 `Set(result.missing) == knownMissingExtensionPoints`
+    /// 退化为「`missing` 必须为空」—— **语义更强、不是更弱**：此后任何新增的语义组件
+    /// 若没有扩展点，会直接判红，不再有「已知缺口」这个缓冲。
+    static let knownMissingExtensionPoints: Set<String> = []
 
     @Test("J-2：语义组件必须有样式扩展点（原生协议采纳 或 自有协议定义+使用）")
     func semanticComponentsHaveExtensionPoint() throws {
@@ -79,36 +85,26 @@ struct ComponentExtensionPointGuard {
         #expect(result.satisfied["RatingDisplay"]?.contains("RatingStyle") == true,
                 "customStyleProtocol 通路（#41 新增的第三例，与 Rating 复用同一个协议）未走通：\(result.satisfied["RatingDisplay"] ?? "(缺)")")
 
-        // ⚠️ **主判据 —— `withKnownIssue` 只包住这一句**（#39 Task 8 变异实测：块里多包
-        // 一句，新违规会被静默吞掉，只有块外的 canary 会红）。
-        // ⚠️ 这条豁免的**到期是机器强制的**：`Toast` 补上扩展点之后块内不再
-        // 记录 issue，Swift Testing 会主动判红，逼人回来删掉这段——这正是它优于
-        // 「预置一个 expected 集合然后 `#expect(==)`」的地方（后者绿着，没人会回头看）。
-        withKnownIssue(
-            """
-            J-2 已知缺口，剩 **1** 条：`Toast` 的样式扩展点尚未落地。\
-            ⚠️ `Toast` **不指向 #60** —— 它从来不在 #60 范围内，是 #59 之前就存在的既有缺口
-            ⇒ 承接 **wxlpp/oh-my-story#65**。\
-            ⚠️ `SidebarUtilityRow` 已由 **wxlpp/oh-my-story#64** 以公约 §2 形态 D2「配置枚举」
-            补齐（`SidebarUtilityRowPresentation`）并从本集合摘除 —— 它曾被 60-form-decision.md §5
-            判为「建议退回重判」，#64 的处置是**不重判、直接兑现既有判定**（实现扩展点是满足
-            `needsExtensionPoint: true` 的要求，不构成对该判定的挑战），详见 D-64-1。\
-            已摘除的：Steps / Timeline / AvatarGroup / SpinningModifier 由 wxlpp/oh-my-story#60 \
-            以公约 §2 形态 D2「配置枚举」补齐（CoreDesign PR #206，已合并）；\
-            Rating 由 #41 裁决 4c 补齐。\
-            补齐后本块无 issue 记录 ⇒ Swift Testing 主动判红，届时删除本块。
-            """
-        ) {
-            #expect(result.missing.isEmpty, "这些语义组件缺样式扩展点：\n\(result.diagnostics.joined(separator: "\n"))")
-        }
+        // ⚠️ **主判据。原本这里有一个 `withKnownIssue` 块包着它**（`Toast` 是最后一条
+        // 已知缺口）—— `wxlpp/oh-my-story#65` 以形态 D2 补齐后，块内不再记录 issue，
+        // Swift Testing 主动判红，**逼人回来删掉那段**。本次删除就是那条机制的兑现。
+        //
+        // ⇒ 这正是它优于「预置一个 expected 集合然后 `#expect(==)`」的地方：后者补齐后
+        // 仍然绿着，没人会回头看。⚠️ 将来若又出现已知缺口，**照原样重建 `withKnownIssue`
+        // 块（只包住下面这一句）**，别改成宽松断言 —— #39 Task 8 变异实测过：块里多包一句，
+        // 新违规会被静默吞掉，只有块外的 canary 会红。
+        #expect(result.missing.isEmpty, "这些语义组件缺样式扩展点：\n\(result.diagnostics.joined(separator: "\n"))")
 
         // ⚠️ **块外 canary：新违规不能被上面的 knownIssue 吞掉**。
         // 这条与上面那条不是重复——上面那条负责「已知缺口到期」，这条负责「集合不许变大」。
         #expect(Set(result.missing) == Self.knownMissingExtensionPoints,
                 """
                 J-2 违规集合变了：实际 \(result.missing.sorted())，已知 \(Self.knownMissingExtensionPoints.sorted())。\
-                变大 ⇒ 新增了缺扩展点的语义组件（上面的 withKnownIssue 会把它静默吞掉，靠本条抓）；\
-                变小 ⇒ 已知缺口补上了，同步删除 knownMissingExtensionPoints 与上面的 withKnownIssue 块
+                ⚠️ 已知集合现为**空集**（`#65` 收口了最后一条），故本条等价于「不许出现任何缺口」。\
+                红了意味着新增了缺扩展点的语义组件 ⇒ 要么补扩展点，要么在公约 §2 走一次判定\
+                （允许得出形态 C「承认差异存在、本轮不开扩展点」，须在 notes 写明理由）。\
+                ⚠️ **不要**为了让它变绿而把新条目塞回 knownMissingExtensionPoints —— 那个集合的\
+                存在意义是「有承接 issue 的已知缺口」，不是消音器
                 """)
 
         // ⚠️ **承重核对**：已知缺口条目必须仍是「semantic + 要扩展点 + 两个协议字段皆 null」。
