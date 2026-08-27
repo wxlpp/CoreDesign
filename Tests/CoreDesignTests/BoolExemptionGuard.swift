@@ -284,6 +284,16 @@ struct BoolExemptionGuard {
             //    ⚠️ 这条才是让「改标 style 实现」这类腐坏判红的东西。
             #expect(!scan.styleImpls.contains(root),
                     "「\(root)」被标为「非 View 的公开类型」，但扫描器把它采集为**样式实现** —— 它该标 .styleImplementation，分类错了")
+            // ⚠️ **已知盲区之二，留痕**（PR #211 终审 I-2）：`scan.styleImpls` 的口径是
+            // `PublicTypeCollector.styleProtocols` —— **只含 7 个 SwiftUI 原生协议**。
+            // `PlainBannerStyle` / `StarRatingStyle` 这类**自有** style 协议的实现
+            // **不进 `styleImpls`**。⇒ 两个分类的机器边界实际是「**原生**协议清单」，
+            // 而 `.styleImplementation` 的语义（AD-3）是「style 实现」**全集**：
+            //   · 自有 style 实现标 `.styleImplementation` ⇒ 正向条找不到它 ⇒ **假红**；
+            //   · 标 `.nonViewPublicType` ⇒ 排他条看不见它 ⇒ 四条**全过、假绿**。
+            // 当前六条宿主不触发（Solid/Light 走原生 `ButtonStyle`），属**潜伏**。
+            // ⚠️ 别以为下面这条排他钉死了整个「style 实现 vs 非 View 类型」边界。
+            //
             // ⚠️ **已知盲区，留痕**：正向条核的是 **root（容器）**存在，不是**叶子**。
             // `Foo.Bar` 这类点分宿主，只要 `Foo` 真实存在就过 —— 将来出现「容器真、
             // 叶子假」（如 `SegmentedControlStyleConfiguration.Nonexistent`）会**假绿**。

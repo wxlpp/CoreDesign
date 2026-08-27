@@ -949,7 +949,7 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 
 | # | 缺口 | 判据侧现状 | 靠什么补位 | 实现层 |
 |---|---|---|---|---|
-| **G-1** | J-2 的 `customStyleProtocol` 通路**只查符号存在性**，查不出「组件真的把定制权交出去了」 | 判绿条件是「协议已声明 + 至少一个类型采纳」（规则层 `Tests/CoreDesignTests/ComponentJudgeRules.swift`；消费该规则的 suite 是下方 J-2 行落点 `ComponentExtensionPointGuard.swift`，两者对应同一条判据的不同层次）。组件完全可以声明协议、登记表填上名字，而 `body` 里照旧硬渲染 ⇒ J-2 照绿 | **一条人来守的规矩 + spy 测试**：#41 的 `Rating` / `RatingDisplay` 用「`body` 真的经 `style.makeBody(configuration:)` 渲染」的测试补位，#43 同款。**靠人自觉，不是靠判据** | ✅ **已部分覆盖**（`wxlpp/oh-my-story#48`，`StyleConsumptionGuard`）。⚠️ 「需要语义判断」这个估计**实测不成立** —— 四个条目的消费形态统一（`self.style.makeBody(configuration:)`），**语法级判据**就能守。⚠️ **两条精度上限**：① 守的是「**调用了**」不是「结果真被渲染」（`_ = style.makeBody(...)` 仍判绿）；② receiver 已锚定为 `style`（不锚的话硬编码具体样式会绕开 environment 注入）。⇒ 故写「已部分覆盖」，**不是**「已覆盖」 |
+| **G-1** | J-2 的 `customStyleProtocol` 通路**只查符号存在性**，查不出「组件真的把定制权交出去了」 | 判绿条件是「协议已声明 + 至少一个类型采纳」（规则层 `Tests/CoreDesignTests/ComponentJudgeRules.swift`；消费该规则的 suite 是下方 J-2 行落点 `ComponentExtensionPointGuard.swift`，两者对应同一条判据的不同层次）。组件完全可以声明协议、登记表填上名字，而 `body` 里照旧硬渲染 ⇒ J-2 照绿 | **一条人来守的规矩 + spy 测试**：#41 的 `Rating` / `RatingDisplay` 用「`body` 真的经 `style.makeBody(configuration:)` 渲染」的测试补位，#43 同款。**靠人自觉，不是靠判据** | ✅ **已部分覆盖**（`wxlpp/oh-my-story#48`，`StyleConsumptionGuard`）。⚠️ 「需要语义判断」这个估计**实测不成立** —— 四个条目**都在 `body` 内调用** `style.makeBody(configuration:)`，**语法级判据**就能守。⚠️ 但统一的只是「**存在调用**」这一层 —— 写法有**三种**（单表达式 / 跨行 / 多语句 + `return`），判据须对三种都成立（spec 评审专门把「形态完全统一」定性为过强说法）。⚠️ **两条精度上限**：① 守的是「**调用了**」不是「结果真被渲染」（`_ = style.makeBody(...)` 仍判绿）；② receiver 已锚定为 `style`（不锚的话硬编码具体样式会绕开 environment 注入）。⇒ 故写「已部分覆盖」，**不是**「已覆盖」 |
 | **G-2** | `BoolExemptionGuard.ownersWithoutRegistryEntry` 台账**不随最后一个豁免键回收** | 三条宿主（`ButtonStyle` / `SolidButtonStyle` / `LightButtonStyle`）在 #41 删掉 `glass` 之后都已**没有任何活的豁免键**；`exemptionOwnersReconcileWithRegistry` 的循环按豁免键遍历 ⇒ 不再访问它们。但三者归类不同：`SolidButtonStyle` / `LightButtonStyle` 绑 `.styleImplementation`，它们绑定的正向核对（`scan.styleImpls.contains(owner)`）**零覆盖**，判据仍是绿的。`ButtonStyle` 绑的是 `.externalProtocolExtension`——该分类另有 `View` 的 11 个活豁免键撑着，正向核对**非零覆盖**，`ButtonStyle` 单独按下方裁断 (ii)② 的回收条件**今天已满足**，单独表态见下方裁断 | 无——保留的行不承重，靠人守；处置口径见下方**裁断** | ✅ **已覆盖**（`#48`）。三件事：① **全表 pass** —— 台账每条宿主的分类标注都被核，无论有没有活豁免键 ⇒「休眠」不再等于零覆盖（保留了原有的按键遍历，它另管「凭空宿主」判红）；② ⚠️ **`.nonViewPublicType` 此前只有两条负向断言**，把一个样式实现改标进来两条都过、**静默判绿**（实测）⇒ 已补**正向 + 排他**核对；③ **`ButtonStyle` 已回收**（依据是下方裁断 (ii)② 的条件已满足，非 #48 新裁）⇒ 台账现为 6 条 |
 | **G-3** | README 组件索引的对账是**单向**的，且不检查快照存在性 | `ComponentRegistryGuard.readmeIndexReconcilesWithRegistry` 只做 README → 登记表方向：索引**缺行不会红**；也不检查该行 `<img src="snapshots/...">` 指向的 PNG 是否真的存在 | 无——靠人补。#41 新增 `RatingDisplay` 时索引行与快照全靠人手补 | ✅ **已覆盖**（`#48`）。⚠️ **朴素的反向断言会误红 11/45** —— 那 11 条是结构性合法未索引（子行 / modifier），且解析器在首个括号处截断 ⇒ 一条都对不上。故落地为**聚合映射** `readmeRowCoverage`（README 行名 → 覆盖的条目集合 + 理由），**正向的 `resolveReadmeCandidate` 与反向断言共用同一份数据**（两张表必然漂移）。映射表带四条自洽守卫（key 真在 README / value 真是条目 / 覆盖集非空 / 理由过空话拦截）。快照断言**只做 README → PNG 单向**（反向会把正常的未索引快照判红）|
 | **G-4** | **A 类的类型要求有规定、无判据，且本仓参考实现自己不合规** | 公约要求「A 类必须用 `LocalizedStringResource`」，而 CoreDesign `Sources/` 下 `LocalizedStringResource` 命中 **0**（实测）；`StateLabel.swift` 的 `StateLabelStyle.Spec.defaultLabel`（A 类 chrome，值是 `"Active"`/`"Draft"` 等英文）是裸 `String`。⚠️ **A 类文案不经任何一路进入 FR-4 的机器视野**：源码侧 FR-4 只扫 public `init` 参数、A 类不是参数；登记表侧 `textParams[]` 收 public 参数、A 计数恒为 0 | 评审（无机器判据） | ⚠️ **本公约在此明写：A 类的类型要求当前无机器判据，靠评审**；并把 CoreDesign 侧 `StateLabel.defaultLabel` 登记为**已知例外**。StoryUI 的 `ChapterStatus.defaultLabel` 是整个 epic 中**唯一**遵守该条的地方——这个不对称必须记录，否则下一个人会以为 `String` 是既定惯例。`StateLabel` 的改造 ⇒ 移交 |
@@ -986,6 +986,14 @@ D-41-4 移交给 #44 的原话要求裁断两件事：**(i) 台账条目是否�
 > 不是 #48 新裁；#48 只是执行。回收前后跑全量测试确认无判据依赖它。
 > ⚠️ 上面那句「本任务不做 ⇒ 移交实现层」是 **#44 当时的记录，不改写** —— 本注记只标现状。
 
+> ⚠️ **上面 (i) 的核心前提已被 `wxlpp/oh-my-story#48` 推翻（原文不改写，本注记标现状）**：
+> (i) 论证「三条宿主行**今天已经零覆盖**……删与不删，覆盖率都是 0」「台账行今天的价值
+> 不是『喂给机器判据』」—— 这两句在 **#48 的全表 pass 落地后全部为假**：
+> `SolidButtonStyle` / `LightButtonStyle` 现在**每轮都被分类核对**。
+> ⇒ 保留它们的理由也随之变了：从「保留唯一样本」变成更直接的「**它们的分类今天仍然成立、
+> 没有回收依据**」。⚠️ 下面 (ii)③ 要求「必须写清**它当前不承重**」—— 该义务因前提消失
+> 而失效，`BoolExemptionGuard` 的注释已按新事实改写。详见 `D-48-1` ②。
+
 **(ii)「样本保留」的表达形式（三条，缺一不可）：**
 1. 台账条目旁必须注明 **`样本保留`** 字样，并写清它**保留的是哪一个分类值的样本**；
 2. 必须写清**回收的触发条件**——即「什么时候可以删掉它」：**仅当移除后该分类在台账中
@@ -1004,6 +1012,14 @@ D-41-4 移交给 #44 的原话要求裁断两件事：**(i) 台账条目是否�
 `SolidButtonStyle` 被改名/删除后台账行**静默变成假样本**这种腐坏；前者对台账每一行的
 分类标注都做一次正向核对，能抓住腐坏，是更简单也更完整的补法，评估后一并移交实现层，
 本任务不实现。
+
+> ✅ **该移交已由 `wxlpp/oh-my-story#48` 兑现（上句是当时的记录，不改写）**：
+> 全表分类核对已落地 —— 台账里每条宿主的分类标注都被核，无论它有没有活豁免键。
+> ⚠️ 并且实现时发现**只加全表遍历不够**：`.nonViewPublicType` 那一格此前只有**两条负向
+> 断言**（不在 `components`、不在 README），把一个**样式实现**改标进来两条都过、
+> **静默判绿**（实测）。⇒ 同批补了**正向 + 排他**核对，排他那条才是让腐坏判红的东西。
+> ⚠️ 上文「前者……能抓住腐坏」这个判断**方向正确但不完整** —— 全表遍历解决的是
+> 「休眠宿主不被访问」，解决不了「访问了也没东西可核」。详见 `D-48-1` ②。
 ⚠️ **「移交裁断权 ≠ 完成裁断」**——D-41-4 要的是裁断，本节给的就是裁断；移交出去的只有落地动作。
 
 ## 5. 环境值清单

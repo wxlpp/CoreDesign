@@ -283,15 +283,22 @@ struct ComponentRegistryGuard {
             // 该行背后的 style 实现必须全部还在源码里——删光 `Components/Style/` 就该红。
             return required.isSubset(of: styleImpls)
         }
+        // ⚠️ **`#48` G-3：coverage 表排在辅助名单**之前**，两个方向共用同一份数据。
+        //
+        // ⚠️ **排在哪里是有讲究的**（PR #211 终审 C-1 实测）：上一版把它放在**所有**旧表
+        // 之后，结果六个 key **无一能到达它** —— `Sidebar` / `spinning` 在
+        // `knownReadmeAuxiliaryNames` 就返回了、`Button` / `FloatButton` 在
+        // `knownExcludedReadmeRows` 返回、`SettingsRow` / `Skeleton` 在第一行
+        // `registered.contains` 返回。**那个分支是彻底的死代码**，而 DocC、公约 G-3 行、
+        // `D-48-1` 三处都声称「两个方向共用同一份数据」。
+        // ⇒ 「加上了 consult」不等于「共用」；不可达的 consult 等于没有。
+        if let coverage = Self.readmeRowCoverage[name] {
+            return coverage.entries.allSatisfy { registered.contains($0) }
+        }
         if Self.knownReadmeAuxiliaryNames.contains(name) { return true }
         if let alias = Self.knownReadmeAliases[name] { return registered.contains(alias) }
         if let prefix = Self.knownReadmeContainerPrefixes[name] {
             return registered.contains(where: { $0.hasPrefix(prefix) })
-        }
-        // ⚠️ **`#48` G-3：正向也查聚合映射** —— 两个方向共用同一份数据。
-        // 只让反向断言读它、正向原样保留的话，两张表会各自漂移，等于「新造一张表放旁边」。
-        if let coverage = Self.readmeRowCoverage[name] {
-            return coverage.entries.allSatisfy { registered.contains($0) }
         }
         return false
     }
@@ -621,11 +628,13 @@ struct ComponentRegistryGuard {
             covered.formUnion(names)
             // ⚠️ 聚合映射：一条行覆盖的全部条目（与正向共用同一份数据）。
             for name in names {
+                // ⚠️ **反向只认 `readmeRowCoverage` 一张表**（PR #211 终审 C-1）。
+                // 上一版还叠加了 `knownReadmeContainerPrefixes` 与 `knownReadmeAliases`
+                // ⇒ `Sidebar` 的覆盖事实同时活在 prefix 表与 coverage 表、
+                // `SpinningModifier` 同时活在 alias 表与 coverage 表，**两处无一致性绑定**
+                // ⇒ 新增 `SidebarFooRow`（有源码、无 README 行）会被 prefix 分支**静默覆盖**，
+                // coverage 表从此欠账而四条自洽守卫全绿。那正是「两张表各自漂移」。
                 if let coverage = Self.readmeRowCoverage[name] { covered.formUnion(coverage.entries) }
-                if let prefix = Self.knownReadmeContainerPrefixes[name] {
-                    covered.formUnion(targets.map(\.component).filter { $0.hasPrefix(prefix) })
-                }
-                if let alias = Self.knownReadmeAliases[name] { covered.insert(alias) }
             }
         }
 
@@ -655,14 +664,45 @@ struct ComponentRegistryGuard {
         #expect(refs.count > 20, "README 里只解析到 \(refs.count) 个快照引用 —— 解析器可能失效")
 
         let dir = Self.repoRoot.appendingPathComponent("docs/snapshots")
-        let missing = refs.filter {
-            !FileManager.default.fileExists(atPath: dir.appendingPathComponent($0).path)
-        }.sorted()
-        #expect(missing.isEmpty, "README 索引引用了不存在的快照：\(missing)")
+        // ⚠️ **比对精确文件名集合，不用 `fileExists`**（PR #211 终审 S-4）：macOS 默认的
+        // APFS 是**大小写不敏感**的 ⇒ README 把 `Button.png` 写成 `button.png` 时
+        // `fileExists` **返回 true**，本地与 CI 全绿，而 GitHub 网页端 404。
+        let actual = Set(
+            (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        )
+        #expect(actual.count > 20, "docs/snapshots 只枚举到 \(actual.count) 个文件 —— 疑似路径错，本断言会在空集上把所有引用判红")
+        let missing = refs.filter { !actual.contains($0) }.sorted()
+        #expect(missing.isEmpty, "README 索引引用了不存在的快照（**区分大小写**）：\(missing)")
 
         // ⚠️ **只做这一个方向**（README → PNG），**不做**「PNG 必须被 README 引用」：
         // `docs/snapshots/` 有 39 个 PNG 而索引 37 行，多出来的是**正常的未索引快照**，
         // 反向断言会把它们判红。这个方向选择是有意的，不是漏了。
+    }
+
+    @Test("覆盖事实的单一来源：prefix / alias 表能推出的覆盖，coverage 表必须已经包含")
+    func coverageTableIsTheSingleSourceOfTruth() throws {
+        // ⚠️ **本条守的是「两张表不许各自漂移」**（PR #211 终审 C-1）。
+        // `Sidebar` 的覆盖事实曾同时活在 `knownReadmeContainerPrefixes` 与
+        // `readmeRowCoverage`、`SpinningModifier` 同时活在 `knownReadmeAliases` 与
+        // coverage 表，**没有任何断言绑定两处** ⇒ 改一边不会红。
+        let entries = try Self.loadRegistry()
+        let targets = entries.filter { $0.repo == "coredesign" && $0.kind != "excluded" }.map(\.component)
+        #expect(!targets.isEmpty, "registry 解析为空 —— 本守卫会在空集上恒真")
+
+        for (rowName, prefix) in Self.knownReadmeContainerPrefixes {
+            let derived = Set(targets.filter { $0.hasPrefix(prefix) })
+            let declared = Self.readmeRowCoverage[rowName]?.entries ?? []
+            let missing = derived.subtracting(declared).sorted()
+            #expect(missing.isEmpty, """
+            `knownReadmeContainerPrefixes["\(rowName)"]` 能推出 \(missing) 被覆盖，            但 `readmeRowCoverage["\(rowName)"]` 里没有它们 —— 两张表已漂移。            覆盖事实必须以 coverage 表为准；prefix 表只是正向的 fallback。
+            """)
+        }
+        for (rowName, alias) in Self.knownReadmeAliases {
+            let declared = Self.readmeRowCoverage[rowName]?.entries ?? []
+            #expect(declared.contains(alias), """
+            `knownReadmeAliases["\(rowName)"] = "\(alias)"`，但             `readmeRowCoverage["\(rowName)"]` 里没有它 —— 两张表已漂移。
+            """)
+        }
     }
 
     @Test("`readmeRowCoverage` 自洽：key 真在 README、value 真是条目、理由不是空话")
