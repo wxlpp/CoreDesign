@@ -146,7 +146,15 @@ struct StyleConsumptionGuard {
             // 而下面那条的消息（「调用了 makeBody 但 receiver 是 []」）**本身是假的**，
             // 会误导排查方向。两种缺陷要各报各的。
             if !receivers.isEmpty {
-                let anchored = receivers.filter { $0.hasSuffix("style") || $0.hasSuffix("Style") }
+                // ⚠️ **身份核对，不是后缀匹配**（PR #211 本地 Copilot CLI 复审实测的 bypass）：
+                // 上一版写 `hasSuffix("style") || hasSuffix("Style")`，于是**任何**名字以
+                // style/Style 结尾的局部变量都能骗过它 ——
+                //     let hardcodedStyle = PlainBannerStyle()
+                //     return AnyView(hardcodedStyle.makeBody(...))
+                // 实测**判绿**。而「硬编码具体样式绕开 environment 注入」恰恰是本守卫
+                // DocC 里自己写明要防的那一件事。
+                // ⇒ 收紧为**恰好等于**环境注入的那个属性（四个目标组件的实际写法就是这两种）。
+                let anchored = receivers.filter { $0 == "self.style" || $0 == "style" }
                 #expect(!anchored.isEmpty,
                         "`\(entry.component)` 调用了 makeBody，但 receiver 是 \(receivers) —— 没有一个是 `style`。硬编码某个具体样式（如 `PlainBannerStyle().makeBody(...)`）会**绕开 environment 注入**，那正是 G-1 想守的反面")
             }

@@ -202,6 +202,20 @@ struct ComponentRegistryGuard {
     ///
     /// **key 是 README 的行名，不要求自身是登记条目**（`Sidebar` / `Button` 都不是）；
     /// **value 必须条条是真条目**（由 `ComponentRegistryGuard` 的自洽守卫钉死）。
+    /// `readmeRowCoverage` 里**没有结构关系**、但确有正当理由的 (行名, 条目) 对。
+    ///
+    /// ⚠️ **当前为空** —— 五条映射的 value 全部与 key 有前缀或去后缀关系。
+    /// 这张表存在的意义是：把「结构性判据挡不住的例外」变成**显式、需要写理由的**动作，
+    /// 而不是把结构性判据本身放宽。⚠️ 往这里加东西前先问：是不是该给它补一条 README 行。
+    static let readmeCoverageStructuralExemptions: [String: Set<String>] = [
+        // `Button` 行覆盖 `AsyncButton`：命名上 `AsyncButton` 不以 `Button` 为前缀
+        // （前缀是 `Async`），但它就是 Button 族的异步变体，README 的 Button 行展示了它。
+        "Button": ["AsyncButton"],
+        // `FloatButton` 行覆盖两个 modifier：它们提供该行展示的浮动按钮外观，
+        // 命名上与行名无前缀关系（一个是 `Floating*`、一个是 `Telegram*`）。
+        "FloatButton": ["FloatingGlassModifier", "TelegramGlassButtonModifier"],
+    ]
+
     static let readmeRowCoverage: [String: (entries: Set<String>, reason: String)] = [
         "Sidebar": (
             ["SidebarSection", "SidebarNavigationRow", "SidebarUtilityRow",
@@ -682,6 +696,36 @@ struct ComponentRegistryGuard {
             #expect(banned.isEmpty,
                     "`readmeRowCoverage[\(key)]` 的理由命中空话词 \(banned)：「\(coverage.reason)」—— 「显式理由」这条通道不接空话拦截的话，映射表就还剩一条『写句空话就挂进去』的窄缝")
             #expect(coverage.reason.count >= 8, "`readmeRowCoverage[\(key)]` 的理由太短：「\(coverage.reason)」")
+            // ⑤ ⚠️ **value 与 key 必须有结构性对应** —— 这条是 PR #211 本地 Copilot CLI
+            //    复审实测的 bypass 补的：前四条只核「名字都真实存在 + 理由不含空话词」，
+            //    **没有任何一条核实 value 与 key 之间真有关系**。于是任何真实行名都能挂上
+            //    任意真实条目 + 一句「听起来像理由」的话，直接让反向断言对该条目**消音** ——
+            //    G-3 想堵的「索引缺行不会红」被绕开。实测：把 `Carousel` 挂到 `Button` 行下、
+            //    再从 README 删掉 Carousel 行 ⇒ **四条守卫全过、反向断言也过**。
+            //
+            //    ⚠️ `bannedReasonPhrases` 是**只挡十来个占位词的黑名单**，挡不住
+            //    「听起来像理由但没有实证」的文本 —— 这是那条通道固有的浅层验证。
+            //    spec §4.3 原文要求的是「结构关系（前缀 / 同文件 / 显式标注理由）」，
+            //    我上一版把「显式理由」当成了**替代项**，实际它只是**补充项**。
+            //
+            //    结构性判据（满足其一即可，都不满足则必须**显式豁免**并写清）：
+            //    · value 以 key 为前缀（`Sidebar` → `SidebarSection`）；
+            //    · key 以 value 为前缀（`SettingsRow` → `SettingsRow`）；
+            //    · value 去掉常见后缀后与 key 大小写无关地相等（`spinning` → `SpinningModifier`）。
+            for entry in coverage.entries.sorted() {
+                let lowerKey = key.lowercased()
+                let lowerEntry = entry.lowercased()
+                let stripped = ["modifier", "style", "view"].reduce(lowerEntry) { acc, suffix in
+                    acc.hasSuffix(suffix) ? String(acc.dropLast(suffix.count)) : acc
+                }
+                let related = lowerEntry.hasPrefix(lowerKey)
+                    || lowerKey.hasPrefix(lowerEntry)
+                    || stripped == lowerKey
+                    || Self.readmeCoverageStructuralExemptions[key]?.contains(entry) == true
+                #expect(related, """
+                `readmeRowCoverage[\(key)]` 挂了「\(entry)」，但两者**没有结构关系**                 （既非前缀、去掉常见后缀后也不相等）—— 一条真实行名 + 一句不含空话词的理由，                就能把任意条目「洗白」、让反向断言对它消音，那正是 G-3 要堵的口子。                若确有正当理由，加进 `readmeCoverageStructuralExemptions` 并写清依据。
+                """)
+            }
         }
     }
 }

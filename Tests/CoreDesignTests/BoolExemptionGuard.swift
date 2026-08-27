@@ -703,13 +703,16 @@ struct BoolExemptionGuard {
                 unaccounted.append("\(key) → 宿主「\(owner)」")
                 continue
             }
-            // ⚠️ 分类必须**承重**：每一种都绑一条真实核对，不是认个名字就放行。
-            // ⚠️ **`#48` G-2**：核对逻辑提成 `assertOwnerClassification`，与下面的**全表 pass**
-            // 共用同一个 `switch` —— 两处各写一份必然漂移。
-            Self.assertOwnerClassification(
-                owner: owner, kind: kind, scan: scan,
-                declaredTypeNames: declaredTypeNames, readmeNames: readmeNames
-            )
+            // ⚠️ 分类核对**不在这里做** —— 统一交给下面的**全表 pass**（`#48` G-2）。
+            // 上一版在这里也调一次 `assertOwnerClassification`，于是有 11 个活豁免键的
+            // `View` 会被断言 **12 次**（11 次键遍历 + 1 次全表）。断言是纯函数、结果必然
+            // 一致，**不是正确性问题**，但失败时会打印 12 条重复 Issue —— 诊断噪音
+            // （PR #211 本地 Copilot CLI 复审第 3 条）。
+            //
+            // ⚠️ **本循环保留的职责是另一件事**：豁免键的宿主必须「已登记 ∨ 在台账」，
+            // 否则进 `unaccounted` 判红。那条**只有按豁免键遍历才做得到**，全表 pass
+            // 替代不了它。
+            _ = kind
         }
 
         // ⚠️ **`#48` G-2：全表 pass** —— 上面的循环按**豁免键**遍历，于是「休眠」宿主
