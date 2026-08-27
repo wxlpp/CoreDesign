@@ -119,13 +119,14 @@ struct BoolExemptionGuard {
 
     /// 一个豁免宿主为什么不可能有 `component-registry.json` 条目。
     enum OwnerExclusionKind: Sendable {
-        /// 扩展的是 SwiftUI / 外部协议，本仓根本没有该类型的声明（`View` / `ButtonStyle`）。
+        /// 扩展的是 SwiftUI / 外部协议，本仓根本没有该类型的声明（当前唯一实例：`View`）。
+        /// ⚠️ `ButtonStyle` 曾属本分类，已由 `#48` 按 `#44` SC-8 的裁断**回收**（见台账注释）。
         /// ⚠️ **Task 8 S-1**：这句「根本没有该类型的声明」由 `declaredTypeNames()` 核对，
         /// 而它**不采集 `typealias`**（`DeclaredTypeNameCollector` 只访问
         /// `struct`/`class`/`enum`/`protocol`/`actor`）——若本仓出现
         /// `typealias View = ...` 这类遮蔽声明，本条判据看不见，「根本没有」这句话
-        /// 会略宽于实际核对范围。当前 `grep -rn "typealias View\b\|typealias ButtonStyle\b"`
-        /// 零命中，不构成现存漏洞，留痕供未来审阅。
+        /// 会略宽于实际核对范围。当前 `grep -rn "typealias View\b"` 零命中，
+        /// 不构成现存漏洞，留痕供未来审阅。
         case externalProtocolExtension
         /// style **实现**——按公约 AD-3 不是登记表条目。
         case styleImplementation
@@ -138,7 +139,8 @@ struct BoolExemptionGuard {
     ///
     /// AC 原文要求「豁免清单里的每个参数名能在 component-registry.json 对应组件的记录里
     /// 找到出处」。实测把 34 条豁免的宿主逐个查过 45 条 coredesign 条目后，**7 个宿主
-    /// 根本不可能有条目**，且各有各的 AD 依据（任务书只点了 `BottomInputBar` 一例,
+    /// 根本不可能有条目**（⚠️ **`#48` 回收 `ButtonStyle` 后台账是 6 条** —— 「7」是当时
+    /// 的实测数，保留作历史记录；现值以 `ownersWithoutRegistryEntry` 本身为准），且各有各的 AD 依据（任务书只点了 `BottomInputBar` 一例,
     /// 实际范围宽得多——凡是自由函数与非组件 public 类型都落在外面）。
     ///
     /// ⇒ **收窄**：登记表交叉核对只适用于「宿主本来就该在登记表里」的那部分；
@@ -152,26 +154,25 @@ struct BoolExemptionGuard {
     /// 下面 `exemptionOwnersReconcileWithRegistry` 对三种分类各自绑定了一条真实核对。
     static let ownersWithoutRegistryEntry: [String: OwnerExclusionKind] = [
         "View": .externalProtocolExtension,
-        "ButtonStyle": .externalProtocolExtension,
         "SolidButtonStyle": .styleImplementation,
         "LightButtonStyle": .styleImplementation,
         "StepItem": .nonViewPublicType,
         "ButtonRoleStyleRole": .nonViewPublicType,
         "SegmentedControlStyleConfiguration.Segment": .nonViewPublicType,
-        // ⚠️ **#41 裁决 3 之后，三条宿主进入「休眠」态**：
-        // `ButtonStyle`（原挂 `ButtonStyle.solid#glass` / `ButtonStyle.light#glass`）、
-        // `SolidButtonStyle`、`LightButtonStyle` 现在都没有活的豁免键了 ⇒
-        // `exemptionOwnersReconcileWithRegistry` 的循环不会再访问它们。但三者归类不同，
-        // 不要一并说成都绑 `.styleImplementation`（曾在此处写错，#44 Task 9 评审 I-2
-        // 纠正）：`SolidButtonStyle` / `LightButtonStyle` 才绑 `.styleImplementation`，
-        // 它们绑定的正向核对（`scan.styleImpls.contains`）因此**零覆盖**——删掉这两行
-        // 会让 `.styleImplementation` 这个分类彻底失去样本，两害相权取保留 + 留痕。
-        // `ButtonStyle` 绑的是 `.externalProtocolExtension`，该分类由 `View` 撑着
-        // 11 个活豁免键、正向核对非零覆盖 ⇒ 不落在「保留唯一样本」的理由里。
-        // #44 SC-8 裁断（`docs/component-contract.md` G-2 的裁断）：`SolidButtonStyle`/
-        // `LightButtonStyle` 保留，`ButtonStyle` 按裁断 (ii)② 的回收条件今天已满足、
-        // 结论为可回收——本文件暂未删它是留给回收动作本身的移交，不是裁断未决。
-        // 这条不对称是 #41 的一条公约缺陷记录（见 docs/contract-defects.md）。
+        // ⚠️ **#41 裁决 3 之后，两条宿主处于「休眠」态**：`SolidButtonStyle` /
+        // `LightButtonStyle` 已没有活的豁免键 ⇒ 按豁免键遍历的那条通路不会访问它们。
+        // ⚠️ **但 `#48` G-2 加了「全表 pass」之后，休眠不再等于零覆盖** ——
+        // 台账里的每条宿主，无论有没有活豁免键，分类标注都会被核。
+        // 保留这两行的理由也因此从「保留唯一样本」变成更直接的一条：它们的分类
+        // （`.styleImplementation`）今天仍然成立，没有回收依据。
+        //
+        // ✅ **`ButtonStyle` 已回收**（`#48` 执行）：它原挂 `ButtonStyle.solid#glass` /
+        // `ButtonStyle.light#glass`，#41 删 `glass` 后无活豁免键；绑的是
+        // `.externalProtocolExtension`，而该分类由 `View` 撑着 11 个活豁免键、
+        // 正向核对非零覆盖 ⇒ 不落在「保留唯一样本」的理由里。
+        // 依据是 **`#44` SC-8 裁断 (ii)②「回收条件已满足」**（`docs/component-contract.md`
+        // 的 G-2 裁断），**不是 `#48` 新裁**；#48 只是执行那条早已成立的裁断。
+        // ⚠️ 回收前实跑过全量测试确认无判据依赖它。
     ]
 
     // MARK: - Important-2 (a)：`.externalProtocolExtension` 的正向核对
@@ -211,8 +212,8 @@ struct BoolExemptionGuard {
     /// `.externalProtocolExtension`，这里的 `declaredTypeNames.contains(owner)` 传入的
     /// 是完整点分字符串 `"Foo.Bar"`，而集合里只有叶子名 `"Bar"`，两者恒不相等
     /// ⇒ 该分类的正向核对会空转恒绿（假阴性）。当前 `ownersWithoutRegistryEntry` 里
-    /// 标 `.externalProtocolExtension` 的两个宿主（`View`/`ButtonStyle`）都是顶层单段名，
-    /// 不触发；留痕供未来审阅。
+    /// 标 `.externalProtocolExtension` 的宿主（`#48` 回收 `ButtonStyle` 后只剩 `View`）
+    /// 是顶层单段名，不触发；留痕供未来审阅。
     static func declaredTypeNames() throws -> Set<String> {
         if let cached = Self.cachedDeclaredTypeNames { return cached }
         guard FileManager.default.fileExists(atPath: Self.coreDesignSources.path) else {
