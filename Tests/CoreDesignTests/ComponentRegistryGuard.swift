@@ -177,6 +177,59 @@ struct ComponentRegistryGuard {
     /// 没有一条叫 `Sidebar`。
     static let knownReadmeContainerPrefixes: [String: String] = ["Sidebar": "Sidebar"]
 
+    // MARK: - README 行 → 登记条目的聚合映射（`#48` G-3）
+
+    /// 一条 README 索引行**覆盖**哪些登记条目。
+    ///
+    /// ## 为什么需要它
+    ///
+    /// `readmeIndexReconcilesWithRegistry` 此前只做 **README → 登记表**一个方向：
+    /// 索引**缺行不会红**。补反向断言时实测落差 **11/45 ≈ 24%** —— 但那 11 条**全部是
+    /// 结构性的合法未索引**（六条 `Sidebar*` 子行的父行在 README、`SettingsRowChevron`
+    /// 与 `AsyncButton` 同理、三条 `*Modifier` 根本不是组件行）。
+    ///
+    /// ⚠️ 而现有解析器 `candidateNames(fromReadmeCell:)` 在**首个括号处截断**、按 `/` 切分
+    /// ⇒ `Sidebar` 行只产出 `["Sidebar"]`、`spinning（…）` 行只产出**小写** `["spinning"]`，
+    /// 11 条**一条都对不上**。⇒ 不是「小白名单」量级，需要**聚合映射**。
+    ///
+    /// ## ⚠️ 两个方向共用这一份数据
+    ///
+    /// `resolveReadmeCandidate`（正向）与反向断言**都**从本表派生。上一版的容器前缀表
+    /// 只服务正向；若反向另起一张表，两个方向会各自漂移、将来只改一边 —— 那正是本表
+    /// 要防的（`#38`「白名单必须升级成映射」的教训）。
+    ///
+    /// ## key 与 value 的不对称
+    ///
+    /// **key 是 README 的行名，不要求自身是登记条目**（`Sidebar` / `Button` 都不是）；
+    /// **value 必须条条是真条目**（由 `ComponentRegistryGuard` 的自洽守卫钉死）。
+    static let readmeRowCoverage: [String: (entries: Set<String>, reason: String)] = [
+        "Sidebar": (
+            ["SidebarSection", "SidebarNavigationRow", "SidebarUtilityRow",
+             "SidebarDocumentRow", "SidebarTagRow", "SidebarStatusFooter"],
+            "Sidebar 行覆盖全部子行；子行不单列索引"
+        ),
+        "SettingsRow": (
+            ["SettingsRow", "SettingsRowChevron"],
+            "SettingsRow 行覆盖它的内部部件 SettingsRowChevron"
+        ),
+        "Button": (
+            ["AsyncButton"],
+            "Button 行覆盖 AsyncButton（同一按钮族的异步变体）"
+        ),
+        "spinning": (
+            ["SpinningModifier"],
+            "README 行名是 modifier 的调用名 spinning，与类型名 SpinningModifier 大小写/后缀均不同，必须显式映射"
+        ),
+        "Skeleton": (
+            ["SkeletonLine", "SkeletonRect", "SkeletonCircle"],
+            "三种骨架形状写在 Skeleton 行的括号里，而解析器在首个括号处截断、不递归解析括号内容"
+        ),
+        "FloatButton": (
+            ["FloatingGlassModifier", "TelegramGlassButtonModifier"],
+            "两个 modifier 服务于 FloatButton 行展示的浮动按钮外观，不单列索引"
+        ),
+    ]
+
     /// 从 README 组件索引表的第一列原始文本里提取候选名。
     ///
     /// ⚠️ **只解析括号前的主名 + 顶层 `/` 切分，不递归解析括号内容**：括号里可能是
@@ -220,6 +273,11 @@ struct ComponentRegistryGuard {
         if let alias = Self.knownReadmeAliases[name] { return registered.contains(alias) }
         if let prefix = Self.knownReadmeContainerPrefixes[name] {
             return registered.contains(where: { $0.hasPrefix(prefix) })
+        }
+        // ⚠️ **`#48` G-3：正向也查聚合映射** —— 两个方向共用同一份数据。
+        // 只让反向断言读它、正向原样保留的话，两张表会各自漂移，等于「新造一张表放旁边」。
+        if let coverage = Self.readmeRowCoverage[name] {
+            return coverage.entries.allSatisfy { registered.contains($0) }
         }
         return false
     }
@@ -525,6 +583,106 @@ struct ComponentRegistryGuard {
         let resurrectedExclusions = Self.knownExcludedReadmeRows.intersection(scanned)
         #expect(resurrectedExclusions.isEmpty,
                 "这些排除项在源码里被扫描器采集到了，需要重新裁决是否登记：\(resurrectedExclusions.sorted())")
+    }
+
+    // MARK: - `#48` G-3：反向对账 + 快照存在性 + 映射表自洽
+
+    @Test("反向：每个非 excluded 的 coredesign 条目都被 README 索引覆盖")
+    func registryEntriesAreCoveredByReadme() throws {
+        let entries = try Self.loadRegistry()
+        let targets = entries.filter { $0.repo == "coredesign" && $0.kind != "excluded" }
+        // ⚠️ 非空前置：registry 解析失效时下面会在空集上恒真。
+        #expect(targets.count > 30, "只读到 \(targets.count) 条非 excluded 的 coredesign 条目 —— 疑似解析失效")
+
+        let readmeText = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
+        )
+        let rows = Self.readmeIndexRows(readmeText)
+        #expect(rows.count > 20, "README 组件索引只解析到 \(rows.count) 行 —— 解析器可能失效")
+
+        // README 行自身产出的候选名。
+        var covered: Set<String> = []
+        for raw in rows {
+            let (names, _) = Self.candidateNames(fromReadmeCell: raw)
+            covered.formUnion(names)
+            // ⚠️ 聚合映射：一条行覆盖的全部条目（与正向共用同一份数据）。
+            for name in names {
+                if let coverage = Self.readmeRowCoverage[name] { covered.formUnion(coverage.entries) }
+                if let prefix = Self.knownReadmeContainerPrefixes[name] {
+                    covered.formUnion(targets.map(\.component).filter { $0.hasPrefix(prefix) })
+                }
+                if let alias = Self.knownReadmeAliases[name] { covered.insert(alias) }
+            }
+        }
+
+        let missing = targets.map(\.component).filter { !covered.contains($0) }.sorted()
+        #expect(missing.isEmpty, """
+        这些登记条目在 README 组件索引里**没有任何行覆盖**：\(missing)
+        —— 索引缺行此前不会红（G-3 的单向缺口）。要么给它补索引行，要么在
+        `readmeRowCoverage` 里挂到某条已有行下并写明理由。
+        """)
+    }
+
+    @Test("README 索引引用的快照 PNG 必须真的存在")
+    func readmeSnapshotsExist() throws {
+        let readmeText = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
+        )
+        // 抽 `<img src="snapshots/xxx.png">` 里的路径。
+        var refs: [String] = []
+        var rest = Substring(readmeText)
+        while let open = rest.range(of: "src=\"snapshots/") {
+            let after = rest[open.upperBound...]
+            guard let close = after.range(of: "\"") else { break }
+            refs.append(String(after[..<close.lowerBound]))
+            rest = after[close.upperBound...]
+        }
+        // ⚠️ 非空前置：解析失效会让「零引用 ⇒ 零缺失 ⇒ 绿」静默通过。
+        #expect(refs.count > 20, "README 里只解析到 \(refs.count) 个快照引用 —— 解析器可能失效")
+
+        let dir = Self.repoRoot.appendingPathComponent("docs/snapshots")
+        let missing = refs.filter {
+            !FileManager.default.fileExists(atPath: dir.appendingPathComponent($0).path)
+        }.sorted()
+        #expect(missing.isEmpty, "README 索引引用了不存在的快照：\(missing)")
+
+        // ⚠️ **只做这一个方向**（README → PNG），**不做**「PNG 必须被 README 引用」：
+        // `docs/snapshots/` 有 39 个 PNG 而索引 37 行，多出来的是**正常的未索引快照**，
+        // 反向断言会把它们判红。这个方向选择是有意的，不是漏了。
+    }
+
+    @Test("`readmeRowCoverage` 自洽：key 真在 README、value 真是条目、理由不是空话")
+    func readmeRowCoverageIsSelfConsistent() throws {
+        let entries = try Self.loadRegistry()
+        let known = Set(entries.map(\.component))
+        let readmeText = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
+        )
+        let rowNames = Set(Self.readmeIndexRows(readmeText).flatMap { Self.candidateNames(fromReadmeCell: $0).names })
+
+        // ⚠️ 非空前置：表空了下面全在空循环上恒真。
+        #expect(!Self.readmeRowCoverage.isEmpty, "readmeRowCoverage 为空 —— 本守卫会在空循环上恒真")
+        #expect(!rowNames.isEmpty, "README 行名解析为空 —— 第 ① 条会恒假、其余恒真")
+
+        for (key, coverage) in Self.readmeRowCoverage.sorted(by: { $0.key < $1.key }) {
+            // ① key 必须真的是 README 里的行名。⚠️ key **不要求**自身是登记条目
+            //    （`Sidebar` / `Button` 都不是），别把这两条混起来。
+            #expect(rowNames.contains(key),
+                    "`readmeRowCoverage` 的 key「\(key)」不是 README 组件索引里的行名 —— 悬空键")
+            // ② 每个 value 必须真的是登记条目。
+            for entry in coverage.entries.sorted() {
+                #expect(known.contains(entry),
+                        "`readmeRowCoverage[\(key)]` 里的「\(entry)」不是 component-registry.json 的条目 —— 挂了个不存在的名字")
+            }
+            // ③ 覆盖集合不能为空（空集合等于这条 key 什么都没干）。
+            #expect(!coverage.entries.isEmpty, "`readmeRowCoverage[\(key)]` 的覆盖集合为空 —— 删掉它")
+            // ④ 理由不能是空话。⚠️ 复用 `BoolExemptionGuard` 的词表，**不复制**（复制即漂移）。
+            let lowered = coverage.reason.lowercased()
+            let banned = BoolExemptionGuard.bannedReasonPhrases.filter { lowered.contains($0.lowercased()) }
+            #expect(banned.isEmpty,
+                    "`readmeRowCoverage[\(key)]` 的理由命中空话词 \(banned)：「\(coverage.reason)」—— 「显式理由」这条通道不接空话拦截的话，映射表就还剩一条『写句空话就挂进去』的窄缝")
+            #expect(coverage.reason.count >= 8, "`readmeRowCoverage[\(key)]` 的理由太短：「\(coverage.reason)」")
+        }
     }
 }
 
