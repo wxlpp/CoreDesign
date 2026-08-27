@@ -241,6 +241,55 @@ struct BoolExemptionGuard {
         return names
     }
 
+    /// 台账里一条宿主的**分类核对**。键遍历与全表 pass **共用本函数**（`#48` G-2）。
+    ///
+    /// ⚠️ 每种分类都必须绑**真实核对**，不是认个名字就放行。
+    static func assertOwnerClassification(
+        owner: String,
+        kind: OwnerExclusionKind,
+        scan: ComponentRegistryGuard.ScanResult,
+        declaredTypeNames: Set<String>,
+        readmeNames: Set<String>
+    ) {
+        switch kind {
+        case .externalProtocolExtension:
+            #expect(!scan.components.contains(owner) && !scan.styleImpls.contains(owner),
+                    "「\(owner)」被标为外部协议扩展，但本仓源码里就有这个类型 —— 分类过期，该重新裁决")
+            // ⚠️ Important-2 (a)：正向核对——上面两条只查「View/ViewModifier/style
+            // 协议的 public struct」这个窄桶，这里直接查本仓**全部**类型声明（含嵌套、
+            // 不限访问级别），真正对得起 `OwnerExclusionKind.externalProtocolExtension`
+            // 文档里「本仓根本没有该类型的声明」这句话。
+            #expect(!declaredTypeNames.contains(owner),
+                    "「\(owner)」被标为外部协议扩展（本仓没有同名类型声明），但本仓源码里确实声明了一个同名类型 —— 分类过期，该重新裁决")
+        case .styleImplementation:
+            #expect(scan.styleImpls.contains(owner),
+                    "「\(owner)」被标为 style 实现，但扫描器的 styleImpls 里没有它 —— 删光 Components/Button/styles/ 也会命中这条")
+        case .nonViewPublicType:
+            let root = owner.split(separator: ".").first.map(String.init) ?? owner
+            #expect(!scan.components.contains(root),
+                    "「\(root)」已被扫描器采集为组件类型 —— 它现在该进登记表了，从台账里移走")
+            // AD-2 终审 I4 的复合条件：「有 public 类型 **且被 README 组件索引收录**」⇒ 登记。
+            #expect(!readmeNames.contains(root),
+                    "「\(root)」已出现在 docs/README.md 的组件索引里 —— 按 AD-2 终审 I4 的复合条件它该登记，重新裁决")
+            // ⚠️ **`#48` G-2：这一格此前只有上面两条「负向」断言** —— 「不在组件集合」
+            // 「不在 README」。于是把一个 style 实现改标成本分类，两条都过 ⇒ **静默判绿**
+            // （spec §3.2b 实测：改标 `SolidButtonStyle` 后 7 tests 全绿）。
+            // 该文件原注释自己把这半边记作「残余等价性，未被机器判据钉死」。
+            //
+            // ⇒ **正向**：它得真的是一个本仓声明过的类型。
+            #expect(declaredTypeNames.contains(root),
+                    "「\(root)」被标为「非 View 的公开类型」，但本仓源码里根本没有这个类型的声明 —— 分类过期或名字写错了")
+            // ⇒ **排他**：它不能是样式实现（那该标 `.styleImplementation`）。
+            //    ⚠️ 这条才是让「改标 style 实现」这类腐坏判红的东西。
+            #expect(!scan.styleImpls.contains(root),
+                    "「\(root)」被标为「非 View 的公开类型」，但扫描器把它采集为**样式实现** —— 它该标 .styleImplementation，分类错了")
+            // ⚠️ **已知盲区，留痕**：正向条核的是 **root（容器）**存在，不是**叶子**。
+            // `Foo.Bar` 这类点分宿主，只要 `Foo` 真实存在就过 —— 将来出现「容器真、
+            // 叶子假」（如 `SegmentedControlStyleConfiguration.Nonexistent`）会**假绿**。
+            // 与本文件 Task 8 S-2 记的是同一族病，当前三条宿主不触发。
+        }
+    }
+
     /// 从豁免键 `Owner.decl#param` 里取回宿主名。
     /// `SegmentedControlStyleConfiguration.Segment.init#isSelected` ⇒
     /// `SegmentedControlStyleConfiguration.Segment`（去掉 `#` 之后的参数与最后一段 decl 名）。
@@ -634,6 +683,14 @@ struct BoolExemptionGuard {
 
         // Important-2 (a)：`.externalProtocolExtension` 的正向核对，见该常量声明处文档。
         let declaredTypeNames = try Self.declaredTypeNames()
+        // ⚠️ **`#48` G-2：`styleImpls` 的非空前置** —— 新增的排他条
+        // `!scan.styleImpls.contains(root)` 在该集合**为空时恒真放行（fail-open）**，
+        // 而此前的五条非空前置（registered / components / readmeRows / readmeNames /
+        // declaredTypeNames）**没有一条守它**。
+        // ⚠️ 别拿「`.styleImplementation` 的正向条会在空集上判红」当后备 —— 那要等
+        // 全表遍历落地**且**台账里仍有该分类的行才成立，是**条件性**后备，不是前置。
+        #expect(scan.styleImpls.count > 3,
+                "扫描器只采到 \(scan.styleImpls.count) 个样式实现 —— 疑似扫描失效；下面 .nonViewPublicType 的排他条会在空集上恒真放行")
         #expect(declaredTypeNames.count > 30,
                 "只扫到 \(declaredTypeNames.count) 个类型声明 —— 扫描器失效")
 
@@ -646,27 +703,26 @@ struct BoolExemptionGuard {
                 continue
             }
             // ⚠️ 分类必须**承重**：每一种都绑一条真实核对，不是认个名字就放行。
-            switch kind {
-            case .externalProtocolExtension:
-                #expect(!scan.components.contains(owner) && !scan.styleImpls.contains(owner),
-                        "「\(owner)」被标为外部协议扩展，但本仓源码里就有这个类型 —— 分类过期，该重新裁决")
-                // ⚠️ Important-2 (a)：正向核对——上面两条只查「View/ViewModifier/style
-                // 协议的 public struct」这个窄桶，这里直接查本仓**全部**类型声明（含嵌套、
-                // 不限访问级别），真正对得起 `OwnerExclusionKind.externalProtocolExtension`
-                // 文档里「本仓根本没有该类型的声明」这句话。
-                #expect(!declaredTypeNames.contains(owner),
-                        "「\(owner)」被标为外部协议扩展（本仓没有同名类型声明），但本仓源码里确实声明了一个同名类型 —— 分类过期，该重新裁决")
-            case .styleImplementation:
-                #expect(scan.styleImpls.contains(owner),
-                        "「\(owner)」被标为 style 实现，但扫描器的 styleImpls 里没有它 —— 删光 Components/Button/styles/ 也会命中这条")
-            case .nonViewPublicType:
-                let root = owner.split(separator: ".").first.map(String.init) ?? owner
-                #expect(!scan.components.contains(root),
-                        "「\(root)」已被扫描器采集为组件类型 —— 它现在该进登记表了，从台账里移走")
-                // AD-2 终审 I4 的复合条件：「有 public 类型 **且被 README 组件索引收录**」⇒ 登记。
-                #expect(!readmeNames.contains(root),
-                        "「\(root)」已出现在 docs/README.md 的组件索引里 —— 按 AD-2 终审 I4 的复合条件它该登记，重新裁决")
-            }
+            // ⚠️ **`#48` G-2**：核对逻辑提成 `assertOwnerClassification`，与下面的**全表 pass**
+            // 共用同一个 `switch` —— 两处各写一份必然漂移。
+            Self.assertOwnerClassification(
+                owner: owner, kind: kind, scan: scan,
+                declaredTypeNames: declaredTypeNames, readmeNames: readmeNames
+            )
+        }
+
+        // ⚠️ **`#48` G-2：全表 pass** —— 上面的循环按**豁免键**遍历，于是「休眠」宿主
+        // （台账里有、但已无任何活豁免键指向它）**根本不被访问** ⇒ 它们的分类标注
+        // **零覆盖**，腐了也没人知道。#41 删掉 `glass` 之后 `SolidButtonStyle` /
+        // `LightButtonStyle` 正是这个状态。
+        //
+        // ⚠️ **这是「新增」不是「替换」**：上面的键遍历还负责「豁免键的宿主必须
+        // 已登记 ∨ 在台账」（`unaccounted` 判红），换掉它会丢掉那条。
+        for (owner, kind) in Self.ownersWithoutRegistryEntry {
+            Self.assertOwnerClassification(
+                owner: owner, kind: kind, scan: scan,
+                declaredTypeNames: declaredTypeNames, readmeNames: readmeNames
+            )
         }
         let unaccountedMessage = """
         这些豁免的宿主既不在 component-registry.json 里，也不在 ownersWithoutRegistryEntry 台账里：
