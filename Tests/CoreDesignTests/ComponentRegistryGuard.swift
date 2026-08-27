@@ -177,6 +177,73 @@ struct ComponentRegistryGuard {
     /// 没有一条叫 `Sidebar`。
     static let knownReadmeContainerPrefixes: [String: String] = ["Sidebar": "Sidebar"]
 
+    // MARK: - README 行 → 登记条目的聚合映射（`#48` G-3）
+
+    /// 一条 README 索引行**覆盖**哪些登记条目。
+    ///
+    /// ## 为什么需要它
+    ///
+    /// `readmeIndexReconcilesWithRegistry` 此前只做 **README → 登记表**一个方向：
+    /// 索引**缺行不会红**。补反向断言时实测落差 **11/45 ≈ 24%** —— 但那 11 条**全部是
+    /// 结构性的合法未索引**（六条 `Sidebar*` 子行的父行在 README、`SettingsRowChevron`
+    /// 与 `AsyncButton` 同理、三条 `*Modifier` 根本不是组件行）。
+    ///
+    /// ⚠️ 而现有解析器 `candidateNames(fromReadmeCell:)` 在**首个括号处截断**、按 `/` 切分
+    /// ⇒ `Sidebar` 行只产出 `["Sidebar"]`、`spinning（…）` 行只产出**小写** `["spinning"]`，
+    /// 11 条**一条都对不上**。⇒ 不是「小白名单」量级，需要**聚合映射**。
+    ///
+    /// ## ⚠️ 两个方向共用这一份数据
+    ///
+    /// `resolveReadmeCandidate`（正向）与反向断言**都**从本表派生。上一版的容器前缀表
+    /// 只服务正向；若反向另起一张表，两个方向会各自漂移、将来只改一边 —— 那正是本表
+    /// 要防的（`#38`「白名单必须升级成映射」的教训）。
+    ///
+    /// ## key 与 value 的不对称
+    ///
+    /// **key 是 README 的行名，不要求自身是登记条目**（`Sidebar` / `Button` 都不是）；
+    /// **value 必须条条是真条目**（由 `ComponentRegistryGuard` 的自洽守卫钉死）。
+    /// `readmeRowCoverage` 里**没有结构关系**、但确有正当理由的 (行名, 条目) 对。
+    ///
+    /// ⚠️ **当前为空** —— 五条映射的 value 全部与 key 有前缀或去后缀关系。
+    /// 这张表存在的意义是：把「结构性判据挡不住的例外」变成**显式、需要写理由的**动作，
+    /// 而不是把结构性判据本身放宽。⚠️ 往这里加东西前先问：是不是该给它补一条 README 行。
+    static let readmeCoverageStructuralExemptions: [String: Set<String>] = [
+        // `Button` 行覆盖 `AsyncButton`：命名上 `AsyncButton` 不以 `Button` 为前缀
+        // （前缀是 `Async`），但它就是 Button 族的异步变体，README 的 Button 行展示了它。
+        "Button": ["AsyncButton"],
+        // `FloatButton` 行覆盖两个 modifier：它们提供该行展示的浮动按钮外观，
+        // 命名上与行名无前缀关系（一个是 `Floating*`、一个是 `Telegram*`）。
+        "FloatButton": ["FloatingGlassModifier", "TelegramGlassButtonModifier"],
+    ]
+
+    static let readmeRowCoverage: [String: (entries: Set<String>, reason: String)] = [
+        "Sidebar": (
+            ["SidebarSection", "SidebarNavigationRow", "SidebarUtilityRow",
+             "SidebarDocumentRow", "SidebarTagRow", "SidebarStatusFooter"],
+            "Sidebar 行覆盖全部子行；子行不单列索引"
+        ),
+        "SettingsRow": (
+            ["SettingsRow", "SettingsRowChevron"],
+            "SettingsRow 行覆盖它的内部部件 SettingsRowChevron"
+        ),
+        "Button": (
+            ["AsyncButton"],
+            "Button 行覆盖 AsyncButton（同一按钮族的异步变体）"
+        ),
+        "spinning": (
+            ["SpinningModifier"],
+            "README 行名是 modifier 的调用名 spinning，与类型名 SpinningModifier 大小写/后缀均不同，必须显式映射"
+        ),
+        "Skeleton": (
+            ["SkeletonLine", "SkeletonRect", "SkeletonCircle"],
+            "三种骨架形状写在 Skeleton 行的括号里，而解析器在首个括号处截断、不递归解析括号内容"
+        ),
+        "FloatButton": (
+            ["FloatingGlassModifier", "TelegramGlassButtonModifier"],
+            "两个 modifier 服务于 FloatButton 行展示的浮动按钮外观，不单列索引"
+        ),
+    ]
+
     /// 从 README 组件索引表的第一列原始文本里提取候选名。
     ///
     /// ⚠️ **只解析括号前的主名 + 顶层 `/` 切分，不递归解析括号内容**：括号里可能是
@@ -216,7 +283,41 @@ struct ComponentRegistryGuard {
             // 该行背后的 style 实现必须全部还在源码里——删光 `Components/Style/` 就该红。
             return required.isSubset(of: styleImpls)
         }
+        // ⚠️ **`#48` G-3：coverage 表排在辅助名单**之前**，两个方向共用同一份数据。
+        //
+        // ⚠️ **排在哪里是有讲究的**（PR #211 终审 C-1 实测）：上一版把它放在**所有**旧表
+        // 之后，结果六个 key **无一能到达它**。逐 key 归因（**对照四张表逐条核过**）：
+        //
+        //   | key | 旧版在哪条分支返回 |
+        //   |---|---|
+        //   | `SettingsRow` / `Skeleton` | ① `registered.contains` —— 它们**自身就是登记条目** |
+        //   | `Button` / `FloatButton`   | ③ `knownStyleAnnotationRows`（该表的 key 恰好就是这两个）|
+        //   | `spinning`                 | ⑥ `knownReadmeAliases`（`"spinning": "SpinningModifier"`）|
+        //   | `Sidebar`                  | ⑦ `knownReadmeContainerPrefixes`（`"Sidebar": "Sidebar"`）|
+        //
+        // **那个分支是彻底的死代码**，而 DocC、公约 G-3 行、`D-48-1` 三处都声称
+        // 「两个方向共用同一份数据」。
+        // ⇒ 「加上了 consult」不等于「共用」；不可达的 consult 等于没有。
+        //
+        // ⚠️ **上一版这段注释把四个 key 的归因写错了**（终审复审 I-A）：写成
+        // 「`Sidebar`/`spinning` 在 `knownReadmeAuxiliaryNames` 返回、`Button`/`FloatButton`
+        // 在 `knownExcludedReadmeRows` 返回」—— 而 `knownReadmeAuxiliaryNames` 只有
+        // `["RadioOption"]`、`knownExcludedReadmeRows` 只有 `["FlowLayout", "BottomInputBar"]`。
+        // 「死代码」这个**结论**不受影响，但 trace 写错会让下一个读者对两张表的内容得出
+        // **在 100 行内就能证伪**的错误认知 —— 而 C-1 之所以是 Critical，正是因为
+        // 「三处声称与代码不符」。同一把尺子也量这段注释。
+        // ⚠️ 错因：我用一个按**臆想的分支顺序**写的脚本去判，没有对照真实的表内容。
+        if let coverage = Self.readmeRowCoverage[name] {
+            return coverage.entries.allSatisfy { registered.contains($0) }
+        }
         if Self.knownReadmeAuxiliaryNames.contains(name) { return true }
+        // ⚠️ **下面两个分支在守卫绿态下不可达**（终审复审 S-A，如实记下）：
+        // `coverageTableIsTheSingleSourceOfTruth` 强制「alias / prefix 能推出的覆盖必须
+        // 已在 `readmeRowCoverage` 里」⇒ 守卫绿时 `spinning` / `Sidebar` 恒在上面的
+        // coverage 分支命中，这里到不了。
+        // ⇒ 保留它们是 **belt-and-suspenders**（守卫红时仍有 fallback），**不是**承重通路。
+        // ⚠️ 本轮 C-1 的教训正是「不可达的分支 + 活着的声称」—— 所以这里把「不可达」
+        // 写在明处，而不是让它继续看起来像在承重。
         if let alias = Self.knownReadmeAliases[name] { return registered.contains(alias) }
         if let prefix = Self.knownReadmeContainerPrefixes[name] {
             return registered.contains(where: { $0.hasPrefix(prefix) })
@@ -479,7 +580,7 @@ struct ComponentRegistryGuard {
         #expect(scanned.isDisjoint(with: Self.knownOffScannerComponents), "\(m2ExpiredMessage)")
     }
 
-    @Test("README 组件索引每个候选名都有归宿：登记表 / styleImpls（须真的扫到）/ 墓碑 / 排除 / 辅助类型 / 别名 / 容器前缀")
+    @Test("README 组件索引每个候选名都有归宿：登记表 / styleImpls（须真的扫到）/ 墓碑 / 排除 / **聚合映射** / 辅助类型 / 别名与容器前缀（守卫绿态下不可达）")
     func readmeIndexReconcilesWithRegistry() throws {
         let entries = try Self.loadRegistry()
         let registered = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
@@ -525,6 +626,169 @@ struct ComponentRegistryGuard {
         let resurrectedExclusions = Self.knownExcludedReadmeRows.intersection(scanned)
         #expect(resurrectedExclusions.isEmpty,
                 "这些排除项在源码里被扫描器采集到了，需要重新裁决是否登记：\(resurrectedExclusions.sorted())")
+    }
+
+    // MARK: - `#48` G-3：反向对账 + 快照存在性 + 映射表自洽
+
+    @Test("反向：每个非 excluded 的 coredesign 条目都被 README 索引覆盖")
+    func registryEntriesAreCoveredByReadme() throws {
+        let entries = try Self.loadRegistry()
+        let targets = entries.filter { $0.repo == "coredesign" && $0.kind != "excluded" }
+        // ⚠️ 非空前置：registry 解析失效时下面会在空集上恒真。
+        #expect(targets.count > 30, "只读到 \(targets.count) 条非 excluded 的 coredesign 条目 —— 疑似解析失效")
+
+        let readmeText = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
+        )
+        let rows = Self.readmeIndexRows(readmeText)
+        #expect(rows.count > 20, "README 组件索引只解析到 \(rows.count) 行 —— 解析器可能失效")
+
+        // README 行自身产出的候选名。
+        var covered: Set<String> = []
+        for raw in rows {
+            let (names, _) = Self.candidateNames(fromReadmeCell: raw)
+            covered.formUnion(names)
+            // ⚠️ 聚合映射：一条行覆盖的全部条目（与正向共用同一份数据）。
+            for name in names {
+                // ⚠️ **反向只认 `readmeRowCoverage` 一张表**（PR #211 终审 C-1）。
+                // 上一版还叠加了 `knownReadmeContainerPrefixes` 与 `knownReadmeAliases`
+                // ⇒ `Sidebar` 的覆盖事实同时活在 prefix 表与 coverage 表、
+                // `SpinningModifier` 同时活在 alias 表与 coverage 表，**两处无一致性绑定**
+                // ⇒ 新增 `SidebarFooRow`（有源码、无 README 行）会被 prefix 分支**静默覆盖**，
+                // coverage 表从此欠账而四条自洽守卫全绿。那正是「两张表各自漂移」。
+                if let coverage = Self.readmeRowCoverage[name] { covered.formUnion(coverage.entries) }
+            }
+        }
+
+        let missing = targets.map(\.component).filter { !covered.contains($0) }.sorted()
+        #expect(missing.isEmpty, """
+        这些登记条目在 README 组件索引里**没有任何行覆盖**：\(missing)
+        —— 索引缺行此前不会红（G-3 的单向缺口）。要么给它补索引行，要么在
+        `readmeRowCoverage` 里挂到某条已有行下并写明理由。
+        """)
+    }
+
+    @Test("README 索引引用的快照 PNG 必须真的存在")
+    func readmeSnapshotsExist() throws {
+        let readmeText = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
+        )
+        // 抽 `<img src="snapshots/xxx.png">` 里的路径。
+        var refs: [String] = []
+        var rest = Substring(readmeText)
+        while let open = rest.range(of: "src=\"snapshots/") {
+            let after = rest[open.upperBound...]
+            guard let close = after.range(of: "\"") else { break }
+            refs.append(String(after[..<close.lowerBound]))
+            rest = after[close.upperBound...]
+        }
+        // ⚠️ 非空前置：解析失效会让「零引用 ⇒ 零缺失 ⇒ 绿」静默通过。
+        #expect(refs.count > 20, "README 里只解析到 \(refs.count) 个快照引用 —— 解析器可能失效")
+
+        let dir = Self.repoRoot.appendingPathComponent("docs/snapshots")
+        // ⚠️ **比对精确文件名集合，不用 `fileExists`**（PR #211 终审 S-4）：macOS 默认的
+        // APFS 是**大小写不敏感**的 ⇒ README 把 `Button.png` 写成 `button.png` 时
+        // `fileExists` **返回 true**，本地与 CI 全绿，而 GitHub 网页端 404。
+        let actual = Set(
+            (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        )
+        #expect(actual.count > 20, "docs/snapshots 只枚举到 \(actual.count) 个文件 —— 疑似路径错，本断言会在空集上把所有引用判红")
+        let missing = refs.filter { !actual.contains($0) }.sorted()
+        #expect(missing.isEmpty, "README 索引引用了不存在的快照（**区分大小写**）：\(missing)")
+
+        // ⚠️ **只做这一个方向**（README → PNG），**不做**「PNG 必须被 README 引用」：
+        // `docs/snapshots/` 有 39 个 PNG 而索引 37 行，多出来的是**正常的未索引快照**，
+        // 反向断言会把它们判红。这个方向选择是有意的，不是漏了。
+    }
+
+    @Test("覆盖事实的单一来源：prefix / alias 表能推出的覆盖，coverage 表必须已经包含")
+    func coverageTableIsTheSingleSourceOfTruth() throws {
+        // ⚠️ **本条守的是「两张表不许各自漂移」**（PR #211 终审 C-1）。
+        // `Sidebar` 的覆盖事实曾同时活在 `knownReadmeContainerPrefixes` 与
+        // `readmeRowCoverage`、`SpinningModifier` 同时活在 `knownReadmeAliases` 与
+        // coverage 表，**没有任何断言绑定两处** ⇒ 改一边不会红。
+        let entries = try Self.loadRegistry()
+        let targets = entries.filter { $0.repo == "coredesign" && $0.kind != "excluded" }.map(\.component)
+        #expect(!targets.isEmpty, "registry 解析为空 —— 本守卫会在空集上恒真")
+
+        for (rowName, prefix) in Self.knownReadmeContainerPrefixes {
+            let derived = Set(targets.filter { $0.hasPrefix(prefix) })
+            let declared = Self.readmeRowCoverage[rowName]?.entries ?? []
+            let missing = derived.subtracting(declared).sorted()
+            #expect(missing.isEmpty, """
+            `knownReadmeContainerPrefixes["\(rowName)"]` 能推出 \(missing) 被覆盖，            但 `readmeRowCoverage["\(rowName)"]` 里没有它们 —— 两张表已漂移。            覆盖事实必须以 coverage 表为准；prefix 表只是正向的 fallback。
+            """)
+        }
+        for (rowName, alias) in Self.knownReadmeAliases {
+            let declared = Self.readmeRowCoverage[rowName]?.entries ?? []
+            #expect(declared.contains(alias), """
+            `knownReadmeAliases["\(rowName)"] = "\(alias)"`，但             `readmeRowCoverage["\(rowName)"]` 里没有它 —— 两张表已漂移。
+            """)
+        }
+    }
+
+    @Test("`readmeRowCoverage` 自洽：key 真在 README、value 真是条目、理由不是空话")
+    func readmeRowCoverageIsSelfConsistent() throws {
+        let entries = try Self.loadRegistry()
+        let known = Set(entries.map(\.component))
+        let readmeText = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
+        )
+        let rowNames = Set(Self.readmeIndexRows(readmeText).flatMap { Self.candidateNames(fromReadmeCell: $0).names })
+
+        // ⚠️ 非空前置：表空了下面全在空循环上恒真。
+        #expect(!Self.readmeRowCoverage.isEmpty, "readmeRowCoverage 为空 —— 本守卫会在空循环上恒真")
+        #expect(!rowNames.isEmpty, "README 行名解析为空 —— 第 ① 条会恒假、其余恒真")
+
+        for (key, coverage) in Self.readmeRowCoverage.sorted(by: { $0.key < $1.key }) {
+            // ① key 必须真的是 README 里的行名。⚠️ key **不要求**自身是登记条目
+            //    （`Sidebar` / `Button` 都不是），别把这两条混起来。
+            #expect(rowNames.contains(key),
+                    "`readmeRowCoverage` 的 key「\(key)」不是 README 组件索引里的行名 —— 悬空键")
+            // ② 每个 value 必须真的是登记条目。
+            for entry in coverage.entries.sorted() {
+                #expect(known.contains(entry),
+                        "`readmeRowCoverage[\(key)]` 里的「\(entry)」不是 component-registry.json 的条目 —— 挂了个不存在的名字")
+            }
+            // ③ 覆盖集合不能为空（空集合等于这条 key 什么都没干）。
+            #expect(!coverage.entries.isEmpty, "`readmeRowCoverage[\(key)]` 的覆盖集合为空 —— 删掉它")
+            // ④ 理由不能是空话。⚠️ 复用 `BoolExemptionGuard` 的词表，**不复制**（复制即漂移）。
+            let lowered = coverage.reason.lowercased()
+            let banned = BoolExemptionGuard.bannedReasonPhrases.filter { lowered.contains($0.lowercased()) }
+            #expect(banned.isEmpty,
+                    "`readmeRowCoverage[\(key)]` 的理由命中空话词 \(banned)：「\(coverage.reason)」—— 「显式理由」这条通道不接空话拦截的话，映射表就还剩一条『写句空话就挂进去』的窄缝")
+            #expect(coverage.reason.count >= 8, "`readmeRowCoverage[\(key)]` 的理由太短：「\(coverage.reason)」")
+            // ⑤ ⚠️ **value 与 key 必须有结构性对应** —— 这条是 PR #211 本地 Copilot CLI
+            //    复审实测的 bypass 补的：前四条只核「名字都真实存在 + 理由不含空话词」，
+            //    **没有任何一条核实 value 与 key 之间真有关系**。于是任何真实行名都能挂上
+            //    任意真实条目 + 一句「听起来像理由」的话，直接让反向断言对该条目**消音** ——
+            //    G-3 想堵的「索引缺行不会红」被绕开。实测：把 `Carousel` 挂到 `Button` 行下、
+            //    再从 README 删掉 Carousel 行 ⇒ **四条守卫全过、反向断言也过**。
+            //
+            //    ⚠️ `bannedReasonPhrases` 是**只挡十来个占位词的黑名单**，挡不住
+            //    「听起来像理由但没有实证」的文本 —— 这是那条通道固有的浅层验证。
+            //    spec §4.3 原文要求的是「结构关系（前缀 / 同文件 / 显式标注理由）」，
+            //    我上一版把「显式理由」当成了**替代项**，实际它只是**补充项**。
+            //
+            //    结构性判据（满足其一即可，都不满足则必须**显式豁免**并写清）：
+            //    · value 以 key 为前缀（`Sidebar` → `SidebarSection`）；
+            //    · key 以 value 为前缀（`SettingsRow` → `SettingsRow`）；
+            //    · value 去掉常见后缀后与 key 大小写无关地相等（`spinning` → `SpinningModifier`）。
+            for entry in coverage.entries.sorted() {
+                let lowerKey = key.lowercased()
+                let lowerEntry = entry.lowercased()
+                let stripped = ["modifier", "style", "view"].reduce(lowerEntry) { acc, suffix in
+                    acc.hasSuffix(suffix) ? String(acc.dropLast(suffix.count)) : acc
+                }
+                let related = lowerEntry.hasPrefix(lowerKey)
+                    || lowerKey.hasPrefix(lowerEntry)
+                    || stripped == lowerKey
+                    || Self.readmeCoverageStructuralExemptions[key]?.contains(entry) == true
+                #expect(related, """
+                `readmeRowCoverage[\(key)]` 挂了「\(entry)」，但两者**没有结构关系**                 （既非前缀、去掉常见后缀后也不相等）—— 一条真实行名 + 一句不含空话词的理由，                就能把任意条目「洗白」、让反向断言对它消音，那正是 G-3 要堵的口子。                若确有正当理由，加进 `readmeCoverageStructuralExemptions` 并写清依据。
+                """)
+            }
+        }
     }
 }
 
