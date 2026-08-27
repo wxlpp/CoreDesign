@@ -82,6 +82,21 @@ struct StyleConsumptionGuard {
             if node.name.text == self.targetType { self.typeDepth -= 1 }
         }
 
+        /// ⚠️ **`extension Foo { var body … }` 也要进** —— 只 visit `StructDecl` 会让把
+        /// `body` 写在 extension 里的组件**误红**（自查实测：把 `Banner.body` 挪进
+        /// `extension Banner` 后守卫报「没有任何调用」）。那是**完全合法**的 Swift 写法，
+        /// 本仓 `Rating.swift` 里就有 `extension` 承载成员。
+        /// ⇒ 这个方向是**假阳性**（红得响、不会放过真缺陷），但误红同样会让人不信任判据。
+        override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
+            guard node.extendedType.trimmedDescription == self.targetType else { return .skipChildren }
+            self.typeDepth += 1
+            return .visitChildren
+        }
+
+        override func visitPost(_ node: ExtensionDeclSyntax) {
+            if node.extendedType.trimmedDescription == self.targetType { self.typeDepth -= 1 }
+        }
+
         override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
             guard self.typeDepth > 0 else { return .visitChildren }
             guard let member = node.calledExpression.as(MemberAccessExprSyntax.self),
