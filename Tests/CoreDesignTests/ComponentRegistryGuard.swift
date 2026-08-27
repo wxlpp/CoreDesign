@@ -286,16 +286,38 @@ struct ComponentRegistryGuard {
         // ⚠️ **`#48` G-3：coverage 表排在辅助名单**之前**，两个方向共用同一份数据。
         //
         // ⚠️ **排在哪里是有讲究的**（PR #211 终审 C-1 实测）：上一版把它放在**所有**旧表
-        // 之后，结果六个 key **无一能到达它** —— `Sidebar` / `spinning` 在
-        // `knownReadmeAuxiliaryNames` 就返回了、`Button` / `FloatButton` 在
-        // `knownExcludedReadmeRows` 返回、`SettingsRow` / `Skeleton` 在第一行
-        // `registered.contains` 返回。**那个分支是彻底的死代码**，而 DocC、公约 G-3 行、
-        // `D-48-1` 三处都声称「两个方向共用同一份数据」。
+        // 之后，结果六个 key **无一能到达它**。逐 key 归因（**对照四张表逐条核过**）：
+        //
+        //   | key | 旧版在哪条分支返回 |
+        //   |---|---|
+        //   | `SettingsRow` / `Skeleton` | ① `registered.contains` —— 它们**自身就是登记条目** |
+        //   | `Button` / `FloatButton`   | ③ `knownStyleAnnotationRows`（该表的 key 恰好就是这两个）|
+        //   | `spinning`                 | ⑥ `knownReadmeAliases`（`"spinning": "SpinningModifier"`）|
+        //   | `Sidebar`                  | ⑦ `knownReadmeContainerPrefixes`（`"Sidebar": "Sidebar"`）|
+        //
+        // **那个分支是彻底的死代码**，而 DocC、公约 G-3 行、`D-48-1` 三处都声称
+        // 「两个方向共用同一份数据」。
         // ⇒ 「加上了 consult」不等于「共用」；不可达的 consult 等于没有。
+        //
+        // ⚠️ **上一版这段注释把四个 key 的归因写错了**（终审复审 I-A）：写成
+        // 「`Sidebar`/`spinning` 在 `knownReadmeAuxiliaryNames` 返回、`Button`/`FloatButton`
+        // 在 `knownExcludedReadmeRows` 返回」—— 而 `knownReadmeAuxiliaryNames` 只有
+        // `["RadioOption"]`、`knownExcludedReadmeRows` 只有 `["FlowLayout", "BottomInputBar"]`。
+        // 「死代码」这个**结论**不受影响，但 trace 写错会让下一个读者对两张表的内容得出
+        // **在 100 行内就能证伪**的错误认知 —— 而 C-1 之所以是 Critical，正是因为
+        // 「三处声称与代码不符」。同一把尺子也量这段注释。
+        // ⚠️ 错因：我用一个按**臆想的分支顺序**写的脚本去判，没有对照真实的表内容。
         if let coverage = Self.readmeRowCoverage[name] {
             return coverage.entries.allSatisfy { registered.contains($0) }
         }
         if Self.knownReadmeAuxiliaryNames.contains(name) { return true }
+        // ⚠️ **下面两个分支在守卫绿态下不可达**（终审复审 S-A，如实记下）：
+        // `coverageTableIsTheSingleSourceOfTruth` 强制「alias / prefix 能推出的覆盖必须
+        // 已在 `readmeRowCoverage` 里」⇒ 守卫绿时 `spinning` / `Sidebar` 恒在上面的
+        // coverage 分支命中，这里到不了。
+        // ⇒ 保留它们是 **belt-and-suspenders**（守卫红时仍有 fallback），**不是**承重通路。
+        // ⚠️ 本轮 C-1 的教训正是「不可达的分支 + 活着的声称」—— 所以这里把「不可达」
+        // 写在明处，而不是让它继续看起来像在承重。
         if let alias = Self.knownReadmeAliases[name] { return registered.contains(alias) }
         if let prefix = Self.knownReadmeContainerPrefixes[name] {
             return registered.contains(where: { $0.hasPrefix(prefix) })
@@ -558,7 +580,7 @@ struct ComponentRegistryGuard {
         #expect(scanned.isDisjoint(with: Self.knownOffScannerComponents), "\(m2ExpiredMessage)")
     }
 
-    @Test("README 组件索引每个候选名都有归宿：登记表 / styleImpls（须真的扫到）/ 墓碑 / 排除 / 辅助类型 / 别名 / 容器前缀")
+    @Test("README 组件索引每个候选名都有归宿：登记表 / styleImpls（须真的扫到）/ 墓碑 / 排除 / **聚合映射** / 辅助类型 / 别名与容器前缀（守卫绿态下不可达）")
     func readmeIndexReconcilesWithRegistry() throws {
         let entries = try Self.loadRegistry()
         let registered = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
