@@ -2319,7 +2319,8 @@ J-2 前后对比**（`ComponentExtensionPointGuard` 逐条打印判绿理由，�
 
 > ⚠️ **上面两条是当时的记录，只增不改。现状（`#48` PR ② 已合并 `d80d4de`）：**
 >
-> - **G-7 已覆盖**，公约 G- 表那行已改写。⚠️ **落点不是上面写的
+> - **G-7 已部分覆盖**（⚠️ 不是「已覆盖」—— `extension X: View` 等通道仍逐字复现原缺口，
+>   与 G-1 同款处置），公约 G- 表那行已改写。⚠️ **落点不是上面写的
 >   `App/Tests/GalleryIntegrityTests.swift`**，是 `oh-my-story` 的
 >   `Packages/StoryUI/Tests/StoryUITests/ComponentRosterSourceAnchorTests.swift`。
 > - ⚠️ **上面「缺口形态：roster 源自文档文件列表」也要更正**：那说的是 App 侧

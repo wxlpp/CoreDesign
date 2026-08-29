@@ -1713,7 +1713,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   （聚合映射）/ G-5 📝 正式不实现（**带再评估的触发条件**）/ G-7 🔀 承接
   `wxlpp/oh-my-story#48`（**不写「已覆盖」**）/ G-8 🔀 移出、承接 `wxlpp/oh-my-story#67`。
   > ⚠️ **上句是当时（PR ① 合并时）的记录，只增不改。现状**：`wxlpp/oh-my-story#48` 的
-  > PR ② 已合并（`d80d4de`），G-7 行**已改为 ✅ 已覆盖**，且落点一并更正为
+  > PR ② 已合并（`d80d4de`），G-7 行**已改为 ✅ 已部分覆盖**（⚠️ **不是「已覆盖」**，理由同 G-1），且落点一并更正为
   > `Packages/StoryUI/Tests/StoryUITests/ComponentRosterSourceAnchorTests.swift`
   > （原写的 `App/Tests/GalleryIntegrityTests.swift` 是 spec 阶段的判断，
   > 实做改了锚点 —— 理由见公约 G-7 行）。其余五行不变。
