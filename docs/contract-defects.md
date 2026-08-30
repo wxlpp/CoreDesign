@@ -2317,6 +2317,19 @@ J-2 前后对比**（`ComponentExtensionPointGuard` 逐条打印判绿理由，�
   （`roster.count == 27` 也挡不住）⇒ 补**源码**作第三个锚点。
 - **G-8** 移出，承接 **`wxlpp/oh-my-story#67`**（具名，不写「后续任务」）。
 
+> ⚠️ **上面两条是当时的记录，只增不改。现状（`#48` PR ② 已合并 `d80d4de`）：**
+>
+> - **G-7 已部分覆盖**（⚠️ 不是「已覆盖」—— `extension X: View` 等通道仍逐字复现原缺口，
+>   与 G-1 同款处置），公约 G- 表那行已改写。⚠️ **落点不是上面写的
+>   `App/Tests/GalleryIntegrityTests.swift`**，是 `oh-my-story` 的
+>   `Packages/StoryUI/Tests/StoryUITests/ComponentRosterSourceAnchorTests.swift`。
+> - ⚠️ **上面「缺口形态：roster 源自文档文件列表」也要更正**：那说的是 App 侧
+>   `GalleryIntegrityTests` 的 roster。实际锚点选的是 StoryUI 包里的
+>   `ComponentIndex.allSlugs`（**手写台账**），判据 1 把它与 `docs/components/*.md`
+>   **恰好相等**地钉住 —— 两边都是人维护的，所以「从未进过任一处」的新组件让两集合
+>   仍然相等、判据永绿。⇒ 补**源码**作第三个锚点，这一半不变。
+> - **G-8 的承接指针不变**（`wxlpp/oh-my-story#67`）。
+
 #### ⑥ 一条贯穿全程的教训：窄匹配
 
 本 issue **四次**栽在同一形态上：
