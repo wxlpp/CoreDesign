@@ -61,6 +61,26 @@ struct ReachableTypeRegistryGuard {
     /// （**判据落地当天就被现实削弱**）。**定阈值前必须对着真实数据跑一遍。**
     static let placeholderNotes: Set<String> = ["TODO", "todo", "-", "—", "待补", "?", "？", "N/A"]
 
+    /// `type` / `name` 的**白名单**：Swift 标识符，允许 `.` 分隔的嵌套路径
+    /// （现有 3 条嵌套名 `AgentTodoItem.Status` / `OutlineNodeState.Kind` / `StoryTypography.Size`）。
+    ///
+    /// ⚠️ **为什么是白名单而不是再加一批黑名单字符**（`#216` 终审第 3 轮 I-1）：
+    /// 上一版靠「拒绝首尾空白」挡绕过，但 `.whitespacesAndNewlines` 的域**只有空白** ——
+    /// **Unicode Cf 类（ZWNJ `U+200C` / ZWJ `U+200D` / BOM `U+FEFF`）三连绕过**：
+    /// `"ChapterCardState\u{200D}"` 既过得了空白检查，又与 `"ChapterCardState"` **算两个 key**
+    /// ⇒ J1 唯一性、J2 两表相交、J3 参数名唯一性**三条同时失明**
+    /// （⚠️ 且这次 J1 **不会**像空白场景那样替 J2 顶班判红 —— Cf 场景是**全绿**）。
+    ///
+    /// ⚠️ **这正是台账 N5/N6 段自己写下的那个问句没答完**：
+    /// 「**什么字符**会让它看起来合规而实际不是」—— 我只答了空白那一半。
+    /// 黑名单要穷举「所有看起来像空的字符」，白名单只需说清「什么是合法的」。**后者才收敛。**
+    /// ⚠️ 实测对现有 **20 条 type + 43 条 name 零首跑红**（定规则前对着真实数据跑过，同 J1 的 notes 那条教训）。
+    nonisolated static let identifierPattern = "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+
+    nonisolated static func isValidIdentifier(_ s: String) -> Bool {
+        s.range(of: Self.identifierPattern, options: .regularExpression) != nil
+    }
+
     // ⚠️ 下面三处 trim 用 `.whitespacesAndNewlines`，**不是 `.whitespaces`**（`#216` Copilot）：
     //    Swift 的 `.whitespaces` **不含换行** ⇒ notes 误写成 `"\n"` 或 `" \n"` 时，
     //    「非空」与「不在占位黑名单」两条**都会被绕过** —— 判据静默转绿。
@@ -80,6 +100,11 @@ struct ReachableTypeRegistryGuard {
         #expect(untrimmedTypes.isEmpty,
                 "type 带首尾空白：\(untrimmedTypes.map { "「\($0)」" }) —— 会绕过重复检测，且按原串 grep 找不到")
 
+        // ⚠️ **白名单才收敛**：空白检查只挡空白，Cf 类（ZWNJ/ZWJ/BOM）会三连绕过。见 `identifierPattern`。
+        let badTypes = entries.map(\.type).filter { !Self.isValidIdentifier($0) }
+        #expect(badTypes.isEmpty,
+                "type 不是合法标识符：\(badTypes.map { "「\($0)」(\($0.unicodeScalars.map { "U+\(String(format: "%04X", $0.value))" }.joined(separator: " ")))" })")
+
         let types = entries.map { $0.type.trimmingCharacters(in: .whitespacesAndNewlines) }
         let dupTypes = Dictionary(grouping: types, by: { $0 }).filter { $0.value.count > 1 }.keys.sorted()
         #expect(dupTypes.isEmpty, "type 重复登记：\(dupTypes) —— 读者不知该信哪一条")
@@ -95,6 +120,8 @@ struct ReachableTypeRegistryGuard {
                         "\(e.type).\(p.name) category=\(p.category) 不在允许域")
                 #expect(!p.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                         "\(e.type) 有参数的 name 为空 —— 空 name 在 PR-B 落地前四条判据全绿")
+                #expect(Self.isValidIdentifier(p.name),
+                        "\(e.type).\(p.name) 的 name 不是合法标识符：\(p.name.unicodeScalars.map { "U+\(String(format: "%04X", $0.value))" }.joined(separator: " "))")
                 #expect(!p.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                         "\(e.type).\(p.name) 的 notes 为空 —— 逐条证据是本表的存在理由")
                 #expect(!Self.placeholderNotes.contains(p.notes.trimmingCharacters(in: .whitespacesAndNewlines)),

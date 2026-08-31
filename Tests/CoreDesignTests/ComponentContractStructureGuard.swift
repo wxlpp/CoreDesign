@@ -153,6 +153,8 @@ struct ComponentContractStructureGuard {
     ///    失效方向是 loud（会红、不会假绿），可接受。今天全文唯一的 `\|` 不在表行内。
     /// 2. `middleValue` 在 **2 行块**上取排序后偏高者 ⇒ 异常行的**归因**可能指反
     ///    （红仍然是红，只是 message 指向的那一行可能是正常的那行）。
+    /// 3. **不识别 fenced code block**（`#216` 终审第 3 轮 S-2）⇒ 将来公约里贴一段
+    ///    含行首 `|` 的代码示例会**误红**。失效方向 loud、可接受；实测当前 fence 内管道行为零。
     @Test("公约的 markdown 表格没有被裸换行劈开的行")
     func contractTablesHaveNoSplitRows() throws {
         let text = try String(contentsOf: Self.contractURL, encoding: .utf8)
@@ -177,6 +179,12 @@ struct ComponentContractStructureGuard {
             offenders.append("表块起于 :\(block[0].line)，异常行 \(odd.joined(separator: "、"))")
         }
         for (idx, line) in lines.enumerated() {
+            // ⚠️ **先剥 ≤3 个前导空格再判**（`#216` 终审第 3 轮 S-1）：CommonMark 里前导 1–3 空格
+            //    **仍是合法表格**（≥4 才进代码块），而 `hasPrefix("|")` 对它们全不命中
+            //    ⇒ 整张缩进表**零个块** ⇒ 劈行、劈表头**全部静默绿**。
+            //    ⚠️ 同文件的 `contractHasAllRequiredSections` 为「行首 ≥4 空格」明写过不剪前导空白的裁决
+            //    —— 那边选的是**误红**方向；这里同样的排版事故会落成**假绿**方向，所以要剪。
+            let line = line.hasPrefix("    ") ? line : String(line.drop(while: { $0 == " " }))
             if line.hasPrefix("|") {
                 block.append((idx + 1, line.filter { $0 == "|" }.count))
             } else {
