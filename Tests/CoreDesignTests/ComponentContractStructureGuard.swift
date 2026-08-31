@@ -155,6 +155,10 @@ struct ComponentContractStructureGuard {
     ///    （红仍然是红，只是 message 指向的那一行可能是正常的那行）。
     /// 3. **不识别 fenced code block**（`#216` 终审第 3 轮 S-2）⇒ 将来公约里贴一段
     ///    含行首 `|` 的代码示例会**误红**。失效方向 loud、可接受；实测当前 fence 内管道行为零。
+    /// 4. **tab 缩进 / ≥4 空格缩进的整表**（`#216` 终审第 4 轮 S-2，实测仍静默绿）：
+    ///    CommonMark 下那种表**已整体降级为代码块** ⇒ 渲染层面是「整块显眼地烂」，
+    ///    不是「单行悄悄掉出表格」。⇒ 本判据不接，靠人眼兜底。
+    ///    ⚠️ 这与边界 1–3 空格是**两回事**：≤3 空格仍是合法表格、劈行会静默，所以那一侧必须剪。
     @Test("公约的 markdown 表格没有被裸换行劈开的行")
     func contractTablesHaveNoSplitRows() throws {
         let text = try String(contentsOf: Self.contractURL, encoding: .utf8)

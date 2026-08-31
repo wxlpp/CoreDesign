@@ -75,6 +75,12 @@ struct ReachableTypeRegistryGuard {
     /// 「**什么字符**会让它看起来合规而实际不是」—— 我只答了空白那一半。
     /// 黑名单要穷举「所有看起来像空的字符」，白名单只需说清「什么是合法的」。**后者才收敛。**
     /// ⚠️ 实测对现有 **20 条 type + 43 条 name 零首跑红**（定规则前对着真实数据跑过，同 J1 的 notes 那条教训）。
+    ///
+    /// ⚠️ **已知误红边界**（`#216` 终审第 4 轮 S-1）：`Optional<Foo>` / `[String]` / 非 ASCII 标识符
+    /// （如中文类型名）都会被本白名单**拒绝** —— 它们是合法的 Swift 写法。
+    /// 失效方向 **loud**（会红、失败信息逐字打码点），可接受；
+    /// **届时的动作是放宽 pattern 并在 `docs/component-contract-revisions.md` 记一条修订**，
+    /// 不是直接删断言。写在这里，免得第一个撞上的人以为撞的是 bug。
     nonisolated static let identifierPattern = "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)*$"
 
     nonisolated static func isValidIdentifier(_ s: String) -> Bool {
