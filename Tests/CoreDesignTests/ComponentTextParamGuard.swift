@@ -195,11 +195,34 @@ struct ComponentTextParamGuard {
 
         // ⚠️ **跨仓裁决 (a)：显式报告 + 棘轮**。
         #expect(result.skippedRepos == ["storyui": 25], "跨仓跳过计数变了：实际 \(result.skippedRepos)")
-        let storyuiTextParams = entries.filter { $0.repo == "storyui" }.flatMap(\.textParams).count
-        #expect(storyuiTextParams == 3,
+        // ⚠️ **从纯计数收紧为条目级集合相等**（`wxlpp/oh-my-story#67`，G-8）。
+        //
+        // 旧版是 `storyuiTextParams == 3`——它抓不到**改名 / 改 category / 换组件挂靠**
+        // 三类漂移（计数不变）。集合相等三类都抓。
+        //
+        // ⚠️ **但要写明它守的是哪一半**：本条**只核登记表内容、核不了源码**
+        //（`:239` 逐字「CI 只 checkout 本仓」——CoreDesign 的 CI 读不到 StoryUI 源码）。
+        // **源码侧的参数级判据在 `oh-my-story` 的 `TextParamGuard`**（深度 0 三桶差集 +
+        // registry 侧派生差集 + 深度 ≥1 的 canary）。
+        //
+        // ⚠️ **代价（跨仓协调棘轮）**：StoryUI 侧任何 `textParams` 变更从此**需要配套的
+        // CoreDesign commit** 来更新本常量。这是有意的——两边各自演化正是要防的事。
+        let storyuiTextParamEntries = Set(
+            entries.filter { $0.repo == "storyui" }
+                .flatMap { e in e.textParams.map { "\(e.component).\($0.name)=\($0.category)" } })
+        let expectedStoryuiTextParams: Set<String> = [
+            "DynamicForm.header=B", "DynamicForm.footer=B", "ChapterStatusBadge.label=B",
+            // ⚠️ `#67` 新登记：三条 `AttributedString`，承载**用户手稿正文** ⇒ 判 **C**。
+            //    CoreDesign 排除 `AttributedString` 的成文理由是「本仓零使用，先留痕」
+            //    （`ComponentJudgeScanner.swift:135-136`）——**那个理由在 StoryUI 被证伪**。
+            "ManuscriptEditor.text=C", "ManuscriptReader.text=C", "StoryTextView.initialText=C",
+        ]
+        #expect(storyuiTextParamEntries == expectedStoryuiTextParams,
                 """
-                StoryUI 侧 textParams 实测 3 条（DynamicForm.header/footer + ChapterStatusBadge.label），实际 \(storyuiTextParams)。\
-                CI 只 checkout 本仓，这 3 条**两个方向都无法核对**（既查不出漏登记，也查不出幽灵条目）—— 移交 #43
+                StoryUI 侧 textParams 条目集与期望不一致：
+                  登记表有、期望没有：\(storyuiTextParamEntries.subtracting(expectedStoryuiTextParams).sorted())
+                  期望有、登记表没有：\(expectedStoryuiTextParams.subtracting(storyuiTextParamEntries).sorted())
+                —— 本条只核**登记表内容**；源码侧判据在 oh-my-story 的 `TextParamGuard`（#67）。
                 """)
 
         // ⚠️ **covered 的完整记账（扫描键 → 登记条目），不写因果故事只打映射**。
@@ -236,7 +259,10 @@ struct ComponentTextParamGuard {
         print("FR-4 已知违规 \(result.violations)（回 #38 补 notes）")
         print("FR-4 notes 授权豁免 \(result.exemptedByRegistryNotes)；弃用豁免 \(result.exemptedByExcludedKind)")
         print("FR-4 定义域外 \(result.unmappedOwners)；func 侧留痕 \(result.functionSideBareText)")
-        print("⚠️ FR-4 跳过 storyui \(result.skippedRepos["storyui"] ?? 0) 条 / \(storyuiTextParams) 个 textParams：CI 只 checkout 本仓，移交 #43。")
+        // ⚠️ 旧文写「移交 #43」且说这 3 条「两个方向都无法核对」——**两处都已过期**：
+        //    条数是 6 不是 3；而源码侧的参数级判据已由 `wxlpp/oh-my-story#67` 落地
+        //    （`TextParamGuard`）。本仓仍核不了源码（CI 只 checkout 本仓），但**对面能核**。
+        print("FR-4 跳过 storyui \(result.skippedRepos["storyui"] ?? 0) 条 / \(storyuiTextParamEntries.count) 个 textParams：本仓只核登记表内容（CI 只 checkout 本仓）；源码侧判据见 oh-my-story 的 TextParamGuard（#67）。")
     }
 
     @Test("FR-4 附条：owner 翻译表每一条都必须真的被用到（不许有过期条目）")
