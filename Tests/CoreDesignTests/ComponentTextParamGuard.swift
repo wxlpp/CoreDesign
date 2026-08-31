@@ -92,11 +92,20 @@ struct ComponentTextParamGuard {
         return nil
     }
 
-    /// 剥掉 notes 里的**撤回句**再判 —— 台账是 add-only，改写一条结论要**逐字复述被推翻的旧话**
+    /// 剥掉 notes 里的**撤回句**再判 —— 台账是 add-only，改写一条结论要**复述被推翻的旧话**
+    /// （⚠️ 两种形态，终审 S-2：`上句原写「X」` = **逐字引原串**；`上句原判**X**` = **转述那条裁定**。
+    ///  本表两个标记都收，因为**两种都会把旧命题带回文本里**、都需要被剥。
+    ///  ⚠️ 别把下面例子里的 `该参数不进本表` 当逐字原文 —— 真正被撤回的原串是
+    ///  `不落入 textParams 的 A/B/C 三分法`，那句才是逐字的。）
     /// （「上句原判**该参数不进本表**，已由 #67 推翻」），而纯子串判据**分不清引述与断言**：
     /// 初版就把这三条留痕全判成了违规。
     ///
     /// 规则：按句号切分，**丢掉含撤回标记的整句**，只在剩下的话里找矛盾。
+    /// ⚠️ **已知盲区之二**（终审 I-2）：`ManuscriptReader` / `StoryTextView` 的「登记为 C」
+    /// **只出现在撤回句里** ⇒ 被剥掉 ⇒ 把它们的 `textParams` 改回 `[]`，本判据**静默**
+    /// （只有 `ManuscriptEditor` 会响，它的 notes 已改成直述）。那个方向由
+    /// `expectedStoryuiTextParams` 的集合相等接住，**不是无人守**，但要知道**不是这条守的**。
+    ///
     /// ⚠️ **已知盲区**：真正的假断言若与撤回标记**同处一句**则逃逸。接受它——
     /// 反方向（把留痕判成违规）会逼人删掉留痕，那是**用篡改记录换绿**，代价大得多。
     nonisolated static func strippingRetractions(_ notes: String) -> String {
@@ -129,14 +138,22 @@ struct ComponentTextParamGuard {
     ///
     /// `#67` 在改 registry 的过程中**连犯三条**「散文与数据矛盾」，两轮外部评审各抓一次。
     /// 上面那条判据是为它们写的，但**在提交态永远沉默**（真实数据自洽）⇒ 删掉措辞表也测不出。
-    /// 这里把三条事故的**逐字措辞**钉成 fixture：措辞表退化，本测试立刻红。
+    /// 这里把三条事故的**逐字措辞**钉成 fixture（⚠️ 逐字 = 从事故树 `git show` 出来的原串；
+    /// 终审 C-2 查出初版三条里**只有一条**真逐字：r1 把 `文本以` 写成了 `text 以`（那是**另一棵树**
+    /// 的开头，尾巴又是第一棵的）、r2b 漏掉中段括号 —— 回放 fixture 的全部权威就在**逐字**，
+    /// 拼接出来的串会造出新的假绿通道）。
+    ///
+    /// ⚠️ **别写成「措辞表退化，本测试立刻红」** —— 那是个假的全称（终审 I-1）：
+    /// 上面三条只钉住 `absenceClaims` / `presenceClaims` 里的**三条**串，
+    /// 其余四条（`不进本表` / `没有 textParams 条目` / `无 textParams 条目` / `登记为 B`）
+    /// **逐条删掉都全绿**。⇒ 下面 `tableStringsAreEachPinned` 把七条**逐条**钉住。
     ///
     /// 逐字出处：`422055b`（第 1 轮）与 `e9f42ee`（第 2 轮）的 `docs/component-registry.json`。
     @Test("散文 ⟂ 数据判据必须抓得住 #67 真实发生过的三条矛盾")
     func proseDataJudgeCatchesRealIncidents() {
         // 第 1 轮（`422055b`）：登记了 C 类条目，notes 仍说「不落入三分法」。
         #expect(Self.contradiction(
-            notes: "text 以 AttributedString 承载，不落入 textParams 的 A/B/C 三分法（该判据面向 String/LocalizedStringKey/Resource 类型的展示文案参数）。",
+            notes: "文本以 AttributedString 承载，不落入 textParams 的 A/B/C 三分法（该判据面向 String/LocalizedStringKey/Resource 类型的展示文案参数）。",
             hasParams: true) != nil, "第 1 轮事故（ManuscriptReader / StoryTextView 形态）逃逸")
 
         // 第 2 轮（`e9f42ee`）之一：改错了组件 —— 空 textParams 却被安上「登记为 C」。
@@ -146,13 +163,53 @@ struct ComponentTextParamGuard {
 
         // 第 2 轮之二：真正的目标一字未动 —— 登记了条目，notes 仍以缺席措辞开头。
         #expect(Self.contradiction(
-            notes: "理由同 ManuscriptReader：步骤 1 无，步骤 3 视觉即含义。无裸 String 展示参数。",
+            notes: "理由同 ManuscriptReader：步骤 1 无，步骤 3 视觉即含义（外观完全由 typography/theme 值参数化，组件自身无独立可换皮表面）。无裸 String 展示参数。",
             hasParams: true) != nil, "第 2 轮事故（ManuscriptEditor 形态）逃逸")
 
         // ⚠️ **反向**：撤回句里复述旧话**不得**判红，否则会逼人删掉 add-only 留痕换绿。
         #expect(Self.contradiction(
             notes: "text 以 AttributedString 承载。⚠️ 上句原判**该参数不进本表**，已由 #67 推翻。",
             hasParams: true) == nil, "撤回留痕被误判为活体断言")
+    }
+
+    /// ⚠️ **措辞表的每一条都要被独立钉住**（终审 I-1）：整表清空（变异 A6g）会红，
+    /// 但**逐条删除**在提交态是**静默**的 —— 而逐条退化才是现实中的回归形态。
+    ///
+    /// ⚠️ **初版这条测试是同义反复**：写的是 `for claim in Self.absenceClaims { … }` ——
+    /// **遍历表本身**，删掉一条它就不被遍历，三条变异实测**全绿**。
+    /// 「每一条表项都能被这张表认出来」是恒真命题，**它一个字都没守住**。
+    /// ⇒ 改成对一份**独立写死**的期望表做**集合相等**（同 `expectedStoryuiTextParams` 的成法）：
+    /// 增删任一条都红，逼人当场想清楚「这条措辞是不是真的不要了」。
+    ///
+    /// ⚠️ `retractionMarkers` 同理：活体条目每条都带**两个**标记（原判 + 推翻 / 上句原写 + 推翻），
+    /// 删任一条都不红；`已作废` 更是**零活体、零 fixture 使用**。
+    @Test("措辞表与撤回标记表不得静默增删")
+    func claimTablesMatchPinnedSets() {
+        let pinnedAbsence: Set<String> = [
+            "不落入 textParams", "不进本表", "没有 textParams 条目", "无 textParams 条目",
+            "无裸 String 展示参数",
+        ]
+        let pinnedPresence: Set<String> = ["登记为 C", "登记为 B"]
+        let pinnedMarkers: Set<String> = ["原判", "上句原写", "推翻", "已作废"]
+
+        #expect(Set(Self.absenceClaims) == pinnedAbsence,
+                "absenceClaims 变了：多出 \(Set(Self.absenceClaims).subtracting(pinnedAbsence).sorted())、少了 \(pinnedAbsence.subtracting(Set(Self.absenceClaims)).sorted())")
+        #expect(Set(Self.presenceClaims) == pinnedPresence,
+                "presenceClaims 变了：多出 \(Set(Self.presenceClaims).subtracting(pinnedPresence).sorted())、少了 \(pinnedPresence.subtracting(Set(Self.presenceClaims)).sorted())")
+        #expect(Set(Self.retractionMarkers) == pinnedMarkers,
+                "retractionMarkers 变了：多出 \(Set(Self.retractionMarkers).subtracting(pinnedMarkers).sorted())、少了 \(pinnedMarkers.subtracting(Set(Self.retractionMarkers)).sorted())")
+
+        // ⚠️ **光钉字符串还不够** —— 还要钉住「每条措辞真的能触发判定」，
+        //    否则改了 `contradiction` 的比对方式（比如改成整句相等）表还在、判定已废。
+        for claim in pinnedAbsence {
+            #expect(Self.contradiction(notes: "占位。\(claim)。", hasParams: true) != nil, "缺席措辞「\(claim)」触发不了判定")
+        }
+        for claim in pinnedPresence {
+            #expect(Self.contradiction(notes: "占位。\(claim)。", hasParams: false) != nil, "在场措辞「\(claim)」触发不了判定")
+        }
+        for marker in pinnedMarkers {
+            #expect(Self.contradiction(notes: "正文。上一版\(marker)：不进本表。", hasParams: true) == nil, "撤回标记「\(marker)」失效，留痕会被误判为活体断言")
+        }
     }
 
     @Test("FR-4：public init 的裸文本参数必须在登记表 textParams 里有分类条目")
@@ -325,6 +382,9 @@ struct ComponentTextParamGuard {
         //  它只核**有无**，核不了 category 是否说对。
         // ⚠️ **把「两两无子串包含」从纪律变成断言**（终审 C-1）：这是本判据**唯一有过实际
         //  误报记录**的失效方向（初版「无 textParams」被「不**等于**无 textParams」含作子串）。
+        //  ⚠️ **口径要说准**（终审 S-3）：本断言测的是 **claim ⊂ claim**，而那次事故是
+        //  **claim ⊂ notes 散文**。它之所以能挡住那次回归，是因为把「无 textParams」加回表里
+        //  会与既有的「无 textParams 条目」相撞（变异 A6f 实测红）—— **间接命中，不是直接测**。
         //  写成注释靠人记会失效，写成断言不会。
         let allClaims = Self.absenceClaims + Self.presenceClaims
         let overlaps = allClaims.flatMap { x in allClaims.filter { $0 != x && $0.contains(x) }.map { (x, $0) } }
