@@ -70,7 +70,17 @@ struct ReachableTypeRegistryGuard {
         let entries = try Self.load()
         try #require(!entries.isEmpty, "可达类型登记表读到 0 条 —— 加载失效，后面全是空集上的恒真")
 
-        let types = entries.map(\.type)
+        // ⚠️ **先拒绝首尾空白，再用规范化值去重**（`#216` Copilot 第 2 轮，两条 suppressed）：
+        //    只查 `isEmpty` + 拿**原串**去重时，`"ChapterCardState "` 既过得了非空、
+        //    又跟 `"ChapterCardState"` **算成两个不同的 key** ⇒ **重复检测被绕过**。
+        //    ⚠️ 这里**拒绝**而不是**静默规范化** —— 登记表 key 上的首尾空白本身就是缺陷，
+        //    规范化会把它藏起来（下次有人按原串查就找不到）。与 `notes` 那条换行假绿同族。
+        let untrimmedTypes = entries.map(\.type)
+            .filter { $0 != $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        #expect(untrimmedTypes.isEmpty,
+                "type 带首尾空白：\(untrimmedTypes.map { "「\($0)」" }) —— 会绕过重复检测，且按原串 grep 找不到")
+
+        let types = entries.map { $0.type.trimmingCharacters(in: .whitespacesAndNewlines) }
         let dupTypes = Dictionary(grouping: types, by: { $0 }).filter { $0.value.count > 1 }.keys.sorted()
         #expect(dupTypes.isEmpty, "type 重复登记：\(dupTypes) —— 读者不知该信哪一条")
 
@@ -113,7 +123,13 @@ struct ReachableTypeRegistryGuard {
         try #require(!entries.isEmpty, "可达类型登记表读到 0 条 —— 加载失效")
 
         for e in entries {
-            let names = e.textParams.map(\.name)
+            // ⚠️ 同上：`"title"` 与 `"title "` 会被当成两个 ⇒ 重复检测绕过。
+            let untrimmed = e.textParams.map(\.name)
+                .filter { $0 != $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            #expect(untrimmed.isEmpty,
+                    "\(e.type) 有参数名带首尾空白：\(untrimmed.map { "「\($0)」" }) —— 会绕过重复检测")
+
+            let names = e.textParams.map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
             let dup = Dictionary(grouping: names, by: { $0 }).filter { $0.value.count > 1 }.keys.sorted()
             #expect(dup.isEmpty, "\(e.type) 内参数名重复：\(dup)")
         }
