@@ -1,0 +1,337 @@
+[
+  {
+    "type": "AgentMessage",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "agentID",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      },
+      {
+        "name": "id",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      }
+    ]
+  },
+  {
+    "type": "AgentTodoItem",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "activeForm",
+        "category": "C",
+        "notes": "agent 产生的进行态描述"
+      },
+      {
+        "name": "content",
+        "category": "C",
+        "notes": "agent 产生的 todo 内容"
+      },
+      {
+        "name": "id",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      }
+    ]
+  },
+  {
+    "type": "AgentTodoItem.Status",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "rawValue",
+        "category": "C",
+        "notes": "符号名（enum rawValue），非文案，无编译期本地化键，点名收编"
+      }
+    ]
+  },
+  {
+    "type": "ApprovalRequestState",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "agentID",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      },
+      {
+        "name": "callID",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      },
+      {
+        "name": "prompt",
+        "category": "C",
+        "notes": "agent 产生的审批提示"
+      },
+      {
+        "name": "toolID",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      }
+    ]
+  },
+  {
+    "type": "ChapterCardState",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "id",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      },
+      {
+        "name": "summary",
+        "category": "C",
+        "notes": "用户手稿内容"
+      },
+      {
+        "name": "title",
+        "category": "C",
+        "notes": "用户章节标题"
+      }
+    ]
+  },
+  {
+    "type": "ChapterStatus",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "rawValue",
+        "category": "C",
+        "notes": "符号名（enum rawValue），非文案，无编译期本地化键，点名收编"
+      }
+    ]
+  },
+  {
+    "type": "CodexContextPickerState",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "selectedIDs",
+        "category": "C",
+        "notes": "标识符集合，非文案，不迁移"
+      }
+    ]
+  },
+  {
+    "type": "CodexEntry",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "id",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      },
+      {
+        "name": "subtitle",
+        "category": "C",
+        "notes": "用户设定条目副标题"
+      },
+      {
+        "name": "tags",
+        "category": "C",
+        "notes": "用户设定标签"
+      },
+      {
+        "name": "title",
+        "category": "C",
+        "notes": "用户设定条目名"
+      },
+      {
+        "name": "typeID",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      }
+    ]
+  },
+  {
+    "type": "CodexEntryDraft",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "subtitle",
+        "category": "C",
+        "notes": "用户设定条目副标题（草稿）"
+      },
+      {
+        "name": "tags",
+        "category": "C",
+        "notes": "用户设定标签（草稿）"
+      },
+      {
+        "name": "title",
+        "category": "C",
+        "notes": "用户设定条目名（草稿）"
+      }
+    ]
+  },
+  {
+    "type": "CodexEntryListState",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "selectedTypeID",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      }
+    ]
+  },
+  {
+    "type": "CodexEntryType",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "icon",
+        "category": "C",
+        "notes": "SF Symbol 标识符，非文案，无编译期本地化键，点名收编（同 CoreDesign 的 systemImage 先例）"
+      },
+      {
+        "name": "id",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      },
+      {
+        "name": "name",
+        "category": "C",
+        "notes": "Codex 类型名——`CodexEntry.swift:11-12` 逐字：内置模板与用户自定义模板**是同一个类型、没有『内置』分支** ⇒ 同一参数也承载用户自定义类型名 ⇒ 迁 LSK 会对用户模板撒类型谎"
+      }
+    ]
+  },
+  {
+    "type": "DelegationEntryState",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "childAgentID",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      },
+      {
+        "name": "parentAgentID",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      },
+      {
+        "name": "task",
+        "category": "C",
+        "notes": "agent 产生的委派任务描述"
+      },
+      {
+        "name": "workerID",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      }
+    ]
+  },
+  {
+    "type": "FieldDef",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "key",
+        "category": "C",
+        "notes": "字段键，标识符，非文案，不迁移"
+      },
+      {
+        "name": "label",
+        "category": "C",
+        "notes": "表单字段标签——同上，Codex 模板可由用户自定义 ⇒ 该参数实际会承载用户内容"
+      }
+    ]
+  },
+  {
+    "type": "OutlineNodeState",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "id",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      },
+      {
+        "name": "title",
+        "category": "C",
+        "notes": "用户大纲节点标题"
+      }
+    ]
+  },
+  {
+    "type": "OutlineNodeState.Kind",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "rawValue",
+        "category": "C",
+        "notes": "符号名（enum rawValue），非文案，无编译期本地化键，点名收编"
+      }
+    ]
+  },
+  {
+    "type": "RunMetricsBarState",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "sessionAgentID",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      }
+    ]
+  },
+  {
+    "type": "StoryReadingTheme",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "id",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      }
+    ]
+  },
+  {
+    "type": "StoryTypography.Size",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "rawValue",
+        "category": "C",
+        "notes": "符号名（enum rawValue），非文案，无编译期本地化键，点名收编"
+      }
+    ]
+  },
+  {
+    "type": "SuggestionStreamState",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "text",
+        "category": "C",
+        "notes": "AI 建议正文"
+      }
+    ]
+  },
+  {
+    "type": "ToolCallRowState",
+    "repo": "storyui",
+    "textParams": [
+      {
+        "name": "argumentsJSON",
+        "category": "C",
+        "notes": "工具入参 JSON 载荷，运行期数据，非文案"
+      },
+      {
+        "name": "id",
+        "category": "C",
+        "notes": "标识符，非文案，不迁移"
+      },
+      {
+        "name": "toolName",
+        "category": "C",
+        "notes": "工具名标识符。⚠️ 判 C 不变（运行期来源），但**它是展示面的一部分** —— `OneLineToolRow` 用 `accessibilityLabel(\"\\(state.toolName)，…\")` 播报（终审 S4：上一版 note 写「非展示文案」被这处用法证伪）"
+      }
+    ]
+  }
+]
