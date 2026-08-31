@@ -79,7 +79,9 @@ struct ComponentTextParamGuard {
     ///
     /// ⚠️ **抽成纯函数是为了让 fixture 能进 CI** —— 见 `proseDataJudgeCatchesRealIncidents`：
     /// 判据在**提交态的真实条目上活体命中 0**（数据是自洽的，判据自然沉默），
-    /// 于是「把措辞表整个删掉」在提交态**测不出来**（变异 A6g 实测全绿）。
+    /// 于是「把措辞表整个删掉」在**本判据刚落地时**测不出来（变异 A6g 当时实测全绿）。
+    /// ⚠️ **那是过去式** —— 现已由下面的 `proseDataJudgeCatchesRealIncidents` 与
+    /// `claimTablesMatchPinnedSets` 接住，同一变异现在判红。
     /// 这与 `wxlpp/oh-my-story#74` 是同一种「机器在提交态零覆盖」。⇒ 用 fixture 钉住。
     nonisolated static func contradiction(notes: String, hasParams: Bool) -> String? {
         let live = strippingRetractions(notes)
@@ -124,8 +126,11 @@ struct ComponentTextParamGuard {
     /// 加判据前先跑 `absenceClaims` 两两互查与 `presenceClaims` 交叉互查。
     nonisolated static let absenceClaims = [
         "不落入 textParams", "不进本表", "没有 textParams 条目", "无 textParams 条目",
-        // ⚠️ **补于终审 C-1**：这一句才是本 PR 真实事故的措辞（`ManuscriptEditor` 用它开头、
-        //    靠下一句转折兜住）。初版表里**没有它** ⇒ 判据在自己写来防的那棵事故树上是绿的。
+        // ⚠️ **补于终审 C-1**：这一句才是本 PR 真实事故的措辞（`ManuscriptEditor` 的 notes
+        //    **以它收尾、后面什么都没有**）
+        //    ⚠️ 初版这里写「用它开头、靠下一句转折兜住」—— 那是 **`SuggestionStream`** 的形态
+        //    （「…无裸 String 展示参数。⚠️ 但**不等于无 textParams**：…」）。**把两个组件搞混了**，
+        //    而这正是本 PR 第 1 条事故（改 notes 改到别的组件上）本身。。初版表里**没有它** ⇒ 判据在自己写来防的那棵事故树上是绿的。
         "无裸 String 展示参数",
     ]
 
@@ -146,7 +151,7 @@ struct ComponentTextParamGuard {
     /// ⚠️ **别写成「措辞表退化，本测试立刻红」** —— 那是个假的全称（终审 I-1）：
     /// 上面三条只钉住 `absenceClaims` / `presenceClaims` 里的**三条**串，
     /// 其余四条（`不进本表` / `没有 textParams 条目` / `无 textParams 条目` / `登记为 B`）
-    /// **逐条删掉都全绿**。⇒ 下面 `tableStringsAreEachPinned` 把七条**逐条**钉住。
+    /// **逐条删掉都全绿**（⚠️ **那是本测试落地前的实测**；现在逐条删都判红）。⇒ 下面 `claimTablesMatchPinnedSets` 把它们**逐条**钉住。
     ///
     /// 逐字出处：`422055b`（第 1 轮）与 `e9f42ee`（第 2 轮）的 `docs/component-registry.json`。
     @Test("散文 ⟂ 数据判据必须抓得住 #67 真实发生过的三条矛盾")
@@ -181,8 +186,10 @@ struct ComponentTextParamGuard {
     /// ⇒ 改成对一份**独立写死**的期望表做**集合相等**（同 `expectedStoryuiTextParams` 的成法）：
     /// 增删任一条都红，逼人当场想清楚「这条措辞是不是真的不要了」。
     ///
-    /// ⚠️ `retractionMarkers` 同理：活体条目每条都带**两个**标记（原判 + 推翻 / 上句原写 + 推翻），
-    /// 删任一条都不红；`已作废` 更是**零活体、零 fixture 使用**。
+    /// ⚠️ `retractionMarkers` 同理，但**别写成「活体条目每条都带两个标记」** —— 那是假全称
+    /// （第 5 轮终审 S3：71 条里 `ListRow` / `Tag` / `Timeline` 等**各只带一个**）。
+    /// 准确说法：**真正依赖剥离的那三条**（`ManuscriptReader` / `StoryTextView` / `ManuscriptEditor`）
+    /// 各带两个标记 ⇒ 删任一条标记，**0 条判红**；`已作废` 当时更是零活体、零 fixture 使用。
     @Test("措辞表与撤回标记表不得静默增删")
     func claimTablesMatchPinnedSets() {
         let pinnedAbsence: Set<String> = [
@@ -200,12 +207,16 @@ struct ComponentTextParamGuard {
                 "retractionMarkers 变了：多出 \(Set(Self.retractionMarkers).subtracting(pinnedMarkers).sorted())、少了 \(pinnedMarkers.subtracting(Set(Self.retractionMarkers)).sorted())")
 
         // ⚠️ **光钉字符串还不够** —— 还要钉住「每条措辞真的能触发判定」，
-        //    否则改了 `contradiction` 的比对方式（比如改成整句相等）表还在、判定已废。
+        //    否则表还在、`contradiction` 的比对方式已废。
+        // ⚠️ **措辞必须嵌在句子中段**（第 5 轮终审 I1）：初版写的是 `"占位。\(claim)。"`，
+        //    **把措辞摆成了一整句** —— 于是「把 `contains` 换成整句相等」这个变异照样命中，
+        //    本循环**全绿**（实测挡住它的是 `proseDataJudgeCatchesRealIncidents`，不是这里）。
+        //    而真实 notes 里措辞一律**嵌在长句中段**。⇒ fixture 要长得像真的。
         for claim in pinnedAbsence {
-            #expect(Self.contradiction(notes: "占位。\(claim)。", hasParams: true) != nil, "缺席措辞「\(claim)」触发不了判定")
+            #expect(Self.contradiction(notes: "占位。前段文字\(claim)后段文字。", hasParams: true) != nil, "缺席措辞「\(claim)」触发不了判定")
         }
         for claim in pinnedPresence {
-            #expect(Self.contradiction(notes: "占位。\(claim)。", hasParams: false) != nil, "在场措辞「\(claim)」触发不了判定")
+            #expect(Self.contradiction(notes: "占位。前段文字\(claim)后段文字。", hasParams: false) != nil, "在场措辞「\(claim)」触发不了判定")
         }
         for marker in pinnedMarkers {
             #expect(Self.contradiction(notes: "正文。上一版\(marker)：不进本表。", hasParams: true) == nil, "撤回标记「\(marker)」失效，留痕会被误判为活体断言")
@@ -377,7 +388,16 @@ struct ComponentTextParamGuard {
         //  （「无裸 String 展示参数」/「…登记为 C（…）」）**都不在措辞表里**；
         //  且 `absenceClaims` 在当时的 71 条条目上**活体命中 0**，整表清空照样全绿。
         //  终审 C-1 用一条命令证的：`git checkout e9f42ee -- docs/component-registry.json && swift test`。
-        //  ⇒ 措辞表已补真实事故的两种说法；A6d/A6e 两条**回放式**变异证明两棵事故树现在都判红。
+        //  ⇒ 措辞表已补真实事故的两种说法。
+        //  ⚠️ **变异编号在仓内无定义，此处写明内容**（第 5 轮终审 S4 —— 编号只在 commit
+        //  正文里出现过，读者 grep 不到，等于没留）：
+        //    · **A6d** = `git show e9f42ee:docs/component-registry.json > 该文件` 后跑本套（第 2 轮事故树回放）
+        //    · **A6e** = 同上，换 `422055b`（第 1 轮事故树回放）
+        //    · **A6f** = 往 `presenceClaims` 塞一条含既有项作子串的措辞（如 `本条目登记为 C 类`）
+        //    · **A6g** = 把 `absenceClaims` 整表清空
+        //    · **A6i** = 从任一表里删掉**一条**（`不进本表` / `登记为 B` / `已作废`）
+        //    · **A6j** = 把 `contradiction` 的 `live.contains(claim)` 换成**按句切分后整句相等**
+        //  六条现在**逐条判红**；A6g 在 fixture 落地前、A6i 在期望表落地前、A6j 在措辞嵌入句中前，**都是绿的**。
         //  ⚠️ **它守不住的**：措辞是**枚举**的，同义换词照样逃（同 `#48` G-7 的名单式判据）；
         //  它只核**有无**，核不了 category 是否说对。
         // ⚠️ **把「两两无子串包含」从纪律变成断言**（终审 C-1）：这是本判据**唯一有过实际
