@@ -653,7 +653,7 @@
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [{"name": "text", "category": "C"}],
-    "notes": "只读正文阅读面，与 ManuscriptEditor 共用同一个 StoryTextView（TextKit 2）底座，仅 isEditable 不同。步骤 1 无（UIViewRepresentable 场景没有可用的 SwiftUI 原生样式协议）。步骤 2/3：外观完全由调用方传入的 typography/theme 值类型决定（已是恰当参数化，非 Bool hack），组件本身不拥有独立于这两个入参之外的可换皮视觉表面 ⇒ 视觉即含义，步骤 3 规定性。文本以 AttributedString 承载，不落入 textParams 的 A/B/C 三分法（该判据面向 String/LocalizedStringKey/Resource 类型的展示文案参数）。"
+    "notes": "只读正文阅读面，与 ManuscriptEditor 共用同一个 StoryTextView（TextKit 2）底座，仅 isEditable 不同。步骤 1 无（UIViewRepresentable 场景没有可用的 SwiftUI 原生样式协议）。步骤 2/3：外观完全由调用方传入的 typography/theme 值类型决定（已是恰当参数化，非 Bool hack），组件本身不拥有独立于这两个入参之外的可换皮视觉表面 ⇒ 视觉即含义，步骤 3 规定性。text 以 AttributedString 承载。⚠️ 上句原写「不落入 textParams 的 A/B/C 三分法（该判据面向 String/LocalizedStringKey/Resource 类型）」，已由 #67 推翻并改写：公约 §4 的 C 行类型列已纳入 AttributedString，本参数登记为 C（用户手稿正文，运行期动态、无编译期本地化键）。"
   },
   {
     "component": "SuggestionStream",
@@ -664,7 +664,7 @@
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "AI 流式建议卡：Markdown 正文 + 固定四态动作按钮。步骤 1 无。步骤 2/3：结构（正文块 + 光标 + 失败文案 + 动作区）与流式生成场景强绑定，换一种呈现即是换一个不同语义的组件 ⇒ 视觉即含义，步骤 3 规定性。展示文本全部来自 SuggestionStreamState（内嵌数据结构字段），组件自身 init 无裸 String 展示参数。"
+    "notes": "AI 流式建议卡：Markdown 正文 + 固定四态动作按钮。步骤 1 无。步骤 2/3：结构（正文块 + 光标 + 失败文案 + 动作区）与流式生成场景强绑定，换一种呈现即是换一个不同语义的组件 ⇒ 视觉即含义，步骤 3 规定性。展示文本全部来自 SuggestionStreamState（内嵌数据结构字段），组件自身 init 无裸 String 展示参数。⚠️ 但**不等于无 textParams**：text 是 AttributedString，由 #67 起按公约 §4 的 C 行登记为 C（用户手稿正文）。"
   },
   {
     "component": "WritingStatusBar",
@@ -697,7 +697,7 @@
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [{"name": "initialText", "category": "C"}],
-    "notes": "正文的 TextKit 2 UIViewRepresentable 底座，ManuscriptReader / ManuscriptEditor 共用。步骤 1 无（UIViewRepresentable 没有 SwiftUI 原生样式协议可套）。步骤 2/3：这是渲染引擎本身，『长相』就是 TextKit 排版结果，不存在独立于排版实现之外的可换皮视觉 ⇒ 步骤 3 规定性。initialText 为 AttributedString，不落入 textParams 三分法。"
+    "notes": "正文的 TextKit 2 UIViewRepresentable 底座，ManuscriptReader / ManuscriptEditor 共用。步骤 1 无（UIViewRepresentable 没有 SwiftUI 原生样式协议可套）。步骤 2/3：这是渲染引擎本身，『长相』就是 TextKit 排版结果，不存在独立于排版实现之外的可换皮视觉 ⇒ 步骤 3 规定性。initialText 为 AttributedString。⚠️ 上句原写「不落入 textParams 三分法」，已由 #67 推翻并改写：公约 §4 的 C 行类型列已纳入 AttributedString，本参数登记为 C（用户手稿正文）。"
   },
   {
     "component": "ManuscriptEditor",

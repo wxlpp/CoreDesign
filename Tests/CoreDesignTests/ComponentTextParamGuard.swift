@@ -201,15 +201,17 @@ struct ComponentTextParamGuard {
         // 三类漂移（计数不变）。集合相等三类都抓。
         //
         // ⚠️ **但要写明它守的是哪一半**：本条**只核登记表内容、核不了源码**
-        //（`:239` 逐字「CI 只 checkout 本仓」——CoreDesign 的 CI 读不到 StoryUI 源码）。
+        //（依据见本文件末尾 FR-4 那条 print 的逐字「CI 只 checkout 本仓」——CoreDesign 的
+        //  CI 读不到 StoryUI 源码。⚠️ **此处不写行号**：本 PR 自己在上方插入 23 行，就把
+        //  原来写的 `:239` 顶成了别的语句 —— 自引用行号会被引用它的那次编辑弄失效。）
         // **源码侧的参数级判据在 `oh-my-story` 的 `TextParamGuard`**（深度 0 三桶差集 +
         // registry 侧派生差集 + 深度 ≥1 的 canary）。
         //
         // ⚠️ **代价（跨仓协调棘轮）**：StoryUI 侧任何 `textParams` 变更从此**需要配套的
         // CoreDesign commit** 来更新本常量。这是有意的——两边各自演化正是要防的事。
-        let storyuiTextParamEntries = Set(
-            entries.filter { $0.repo == "storyui" }
-                .flatMap { e in e.textParams.map { "\(e.component).\($0.name)=\($0.category)" } })
+        let storyuiTextParamFlat = entries.filter { $0.repo == "storyui" }
+            .flatMap { e in e.textParams.map { "\(e.component).\($0.name)=\($0.category)" } }
+        let storyuiTextParamEntries = Set(storyuiTextParamFlat)
         let expectedStoryuiTextParams: Set<String> = [
             "DynamicForm.header=B", "DynamicForm.footer=B", "ChapterStatusBadge.label=B",
             // ⚠️ `#67` 新登记：三条 `AttributedString`，承载**用户手稿正文** ⇒ 判 **C**。
@@ -217,6 +219,16 @@ struct ComponentTextParamGuard {
             //    （`ComponentJudgeScanner.swift:135-136`）——**那个理由在 StoryUI 被证伪**。
             "ManuscriptEditor.text=C", "ManuscriptReader.text=C", "StoryTextView.initialText=C",
         ]
+        // ⚠️ **`Set` 相等把「重复登记」静默折叠掉了 —— 这是相对旧判据的一处净退化**：
+        //  旧的 `count == 3` 抓得住同一条 textParam 被写两遍（7 ≠ 6 ⇒ 红），
+        //  换成集合后重复项被折叠 ⇒ 全绿。核过 `ComponentRegistryGuard`：它对 textParams
+        //  **只验 category 允许域、无唯一性断言** ⇒ 无人顶位。故这里显式补一条。
+        #expect(storyuiTextParamFlat.count == storyuiTextParamEntries.count,
+                """
+                storyui 的 textParams 有重复登记：展开 \(storyuiTextParamFlat.count) 条、去重后 \(storyuiTextParamEntries.count) 条。
+                重复项：\(Dictionary(grouping: storyuiTextParamFlat, by: { $0 }).filter { $0.value.count > 1 }.keys.sorted())
+                """)
+
         #expect(storyuiTextParamEntries == expectedStoryuiTextParams,
                 """
                 StoryUI 侧 textParams 条目集与期望不一致：
