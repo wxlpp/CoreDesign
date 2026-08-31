@@ -147,6 +147,12 @@ struct ComponentContractStructureGuard {
     /// 可预期的人类反应就是为求绿扩集合或麻木改数字。
     /// ⇒ 改为**在同一个 PR 里直接把那处修好**（`Tag(removable:)` 走查表里步骤 2 那格
     /// 被裸换行劈成 7 行，已合并回单元格），已知集整体消失。
+    ///
+    /// ⚠️ **两处已知边界**（`#216` 终审 S-1 / S-2）：
+    /// 1. 管道符是**裸字符计数** ⇒ 单元格里出现内联代码里的 `|` 或转义 `\|` 会**误红**。
+    ///    失效方向是 loud（会红、不会假绿），可接受。今天全文唯一的 `\|` 不在表行内。
+    /// 2. `middleValue` 在 **2 行块**上取排序后偏高者 ⇒ 异常行的**归因**可能指反
+    ///    （红仍然是红，只是 message 指向的那一行可能是正常的那行）。
     @Test("公约的 markdown 表格没有被裸换行劈开的行")
     func contractTablesHaveNoSplitRows() throws {
         let text = try String(contentsOf: Self.contractURL, encoding: .utf8)
@@ -156,7 +162,14 @@ struct ComponentContractStructureGuard {
         var block: [(line: Int, pipes: Int)] = []
         func flush() {
             defer { block = [] }
-            guard block.count >= 2 else { return }
+            // ⚠️ **1 行的管道块也算违规**（`#216` 终审 I-1，我复现过）：
+            //    初版写 `guard block.count >= 2`，于是**劈表头**时首行碎片独占一个 1 行块被跳过、
+            //    续行不以 `|` 开头直接 flush ⇒ **判据保持绿**，而表头已掉出表格、整张表渲染降级。
+            //    实测全文**没有任何合法的单行管道块** ⇒ 直接把它列为 offender，不留盲区。
+            if block.count == 1 {
+                offenders.append("表块只有 1 行（:\(block[0].line)）—— 多半是表头被劈开，或表格只剩一行")
+                return
+            }
             let counts = Set(block.map(\.pipes))
             guard counts.count > 1 else { return }
             let majority = block.map(\.pipes).sorted().middleValue
