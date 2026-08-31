@@ -805,7 +805,69 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 |---|---|---|
 | **A. 组件自带 chrome** | 文案**写在组件源码里**，调用方看不见也改不了 | `LocalizedStringResource` |
 | **B. 调用方传入的可本地化文案** | 调用方传，但内容是**界面文案**（标题、说明、占位符） | **新增用 `LocalizedStringKey`；存量迁移见下** |
-| **C. 用户数据** | 调用方传，内容是**用户自己产生的**（设定名、章节标题） | `String`，**不得改** |
+| **C. 运行期动态内容** | 调用方传，内容由**用户、agent / 工具**等**运行期来源**产生，**不存在编译期本地化键** | `String` / `AttributedString`，**不得改** |
+
+⚠️ **C 的判别特征与类型列在 `wxlpp/oh-my-story#67` 被定义性扩写，逐条记因**
+（第一版是「内容是**用户自己产生的**」+ 类型列 `String`）：
+
+1. **纳入 agent / 工具产出**。StoryUI 的 `SuggestionStreamState.text`（AI 建议）·
+   `ApprovalRequestState.prompt` · `DelegationEntryState.task` · `AgentTodoItem.content`
+   是 **agent 产生**的 —— 调用方传 ✓，但**既不是「用户自己产生」也不是可本地化界面文案**
+   ⇒ **三分法原文给不出答案**。照 `#43-1` 的成法做**解释性裁定**填空白。
+   ⚠️ 来源枚举用**开放式**措辞（「等运行期来源」），免得下一个来源（服务端 / remote config）
+   又要开一轮裁定。
+2. **类型列纳入 `AttributedString`**，与 `String` **同级、逐参数按内容判 A/B/C**。
+   ⚠️ CoreDesign 排除它的成文理由是「把它并入 `.bareText` 是新裁决……**本仓零使用**，先留痕」
+   （`ComponentJudgeScanner.swift:135-136`）——**那个理由在 StoryUI 被证伪**：
+   `ManuscriptEditor.text` / `ManuscriptReader.text` / `StoryTextView.initialText`
+   三个**登记组件的直接 public init** 就用它。
+   ⚠️ **别再用「`AttributedString` 不可能承载编译期本地化键」当理由** ——
+   `AttributedString(localized: "key")` **实测编译通过**（iOS 15+，走 `String.LocalizationValue`），
+   与 `String(localized:)` **完全对称**。那条理由曾写进 `#67` 的 spec，**又被实测证伪**。
+   ⚠️ **`AttributedString` 判 A / B 的处置列仍是空白**：A / B 行的类型列是 LSR / LSK，
+   对富文本参数无直接对应形态（LSK 只覆盖 **markdown 子集**，装不下任意 `AttributedString` run）。
+   本仓与 StoryUI **零命中** ⇒ **不预裁**，第一例出现时再裁。
+3. **点名收编：编译期符号名**（SF Symbol 的 `icon` / enum 的 `rawValue` 等）
+   按 **C 的处置桶**办（`String`、不得改、不迁移，`notes` 写「符号名，非文案，无编译期本地化键」）。
+   ⚠️ **凭的是「非文案 ∧ 不存在编译期本地化键」，不是「运行期动态」** —— 后者对它们**是假的**。
+   ⚠️ 这是「判别特征 + 显式收编清单」的正常形态：收编**不宣称**成员满足特征、
+   两条准入路径的**处置完全同一**、附则有逐条 `notes` 作**实例级**证据。
+4. ⚠️ **为什么不开第四类**：D 的类型列与处置都会与 C **完全同构**，是**没有操作差异的区分**；
+   来源如需区分走 `notes`。
+
+⚠️ **一条一般判准**（`#67`，`#43-1` 式解释性裁定的一般形）：
+> **参数按它在「受支持的调用形态下**实际会承载**」的最动态内容判。**
+> **证据要求不对称**：**上调动态度（判 C）需要源码或成文证据**；
+> **无上调证据 ⇒ 按表面角色判 A / B**，并留可被反例复判的口子。
+> ⚠️ **不是**「按其**可承载**的最动态内容判」—— 后者按字面会**消灭整个 B 类**
+> （任何 `String` 参数类型上都「可承载」动态内容）。
+>
+> **实例**：StoryUI 的 `FieldDef.label` / `CodexEntryType.name` **曾判 B、改判 C** ——
+> 依据是 `CodexEntry.swift:11-12` 逐字 `内置模板与用户自定义模板是同一个类型，没有「内置」分支`（⚠️ 内层用「」，与源码一致 —— 初稿改写成『』，`grep` 就取不回来了，与本行承诺的「可 grep 恢复」直接冲突）
+> ⇒ 同一参数也承载用户自定义内容 ⇒ 迁 `LocalizedStringKey` 会**对用户模板撒类型谎**。
+> ⚠️ **这笔裁定有代价，一并上账**：`CodexTemplateLibrary.swift` 里**内置**模板的
+> `name` / `label` 是**包源码写死的中文文案**（实测 `name: "人物"` / `label: "定位"` / `label: "性情"`…；⚠️ **口径要写明**：该文件含中文的字符串字面量 **156 个**、去重 **129**、分布在 **130 行** —— 初稿写「130 处中文字面量」是拿**行数**冒充**个数**，字面读法下为假）。判 C（不得改、不迁移）
+> ⇒ 这批**源码自有文案**从此**只能走数据层本地化**，永久落在编译期本地化之外。
+> ⚠️ **为什么不按 `#43-1`（B 类参数的缺省兜底按 A 类处置）拆两半**：`#43-1` 的前提是
+> **存在一个由组件源码提供的、可独立标注的缺省实体** —— 它的正典例
+> `ChapterStatus.defaultLabel` 是 `ChapterStatusBadge.swift` 里 **`nonisolated extension ChapterStatus`
+> 的一个 internal 计算属性**（⚠️ **不是 `ChapterStatusBadge` 这个 struct 的成员** —— 那是同文件
+> 另一个 `public struct`；初稿写成「`ChapterStatusBadge` 里」会把读者引向「同一类型里的两个声明」），
+> 与 `ChapterStatusBadge` 的 `public init(_:label:)` 的 `label` 参数是**两个不同的声明**，因而能被分别标注。
+> ⚠️ **别把「类型不同」当成前提**：`defaultLabel` 现在确实是 `LocalizedStringResource`
+> 而参数是 `String?`（逐字：`var defaultLabel: LocalizedStringResource` / `label: String? = nil`），
+> 但那是 `#43-1` 条款三**裁决的结果**（「依二提供的默认值**必须**走
+> `LocalizedStringResource`」），**不是**它成立的理由 —— 拿结果当前提会把因果读反。
+> ⚠️ 本条初稿写「缺省值与调用方传值在**类型上可分**」，二稿改成「与参数**同为 `String`**」——
+> **两稿都是假的**：前者把结果当前提，后者的类型断言与源码不符（`:89` 是 LSR，`:117` 是 `String?`）。
+> 留在这里，因为一条**定义性**条款的前提被连错两次，本身就是下一个人该看到的东西。
+> 而这里**同一个存储属性**
+> 既装内置文案又装用户自定义内容（`CodexEntry.swift:11-12` 逐字：`内置模板与用户自定义模板是同一个类型，没有「内置」分支`），
+> 拆不出可独立标注的那一半 ⇒ 只能整体从严。**若将来内置/自定义分成两个类型，本条应重判。**
+> ⚠️ **「可独立标注」是从条款三反推出来的必要条件，不是 `#43-1` 原文的字面前提** ——
+> 原文的字面前提是「调用方可传参覆盖 + 缺省时由组件源码提供 + 文案本身写在组件源码里」。
+> 这层区别要紧：按**字面**前提，`CodexTemplateLibrary` 的内置模板文案**是满足的**
+> （写在包源码里、调用方可传自定义模板覆盖），把它排除在外靠的正是这条**插值**出来的前提。
 
 ⚠️ **B 类参数的缺省兜底按 A 类处置**（#43 撞上，缺陷 #43-1）：调用方可传参覆盖、但**缺省时
 由组件源码提供**的兜底文案（如 StoryUI `ChapterStatus.defaultLabel`），**文案本身写在组件
@@ -910,7 +972,7 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 > 别改成宽松断言 —— `#39` Task 8 变异实测过：块里多包一句，新违规会被静默吞掉。
 > 详见 `docs/contract-defects.md` 的 `D-65-1`。
 | **J-3** 标注 `nativeProtocol` 的组件作用域内不得有自有样式协议 | `Tests/CoreDesignTests/NativeProtocolPurityGuard.swift` | `nativeProtocol != nil && repo == coredesign`，实测 **1** 条（`ProgressIndicator`） | 零违规。⚠️ 1 条输入的判据靠非空断言挡不住「探针退化成恒空」⇒ 另设**绿色正对照**（把探针反向施加到 `Banner` / `SegmentedControl`，必须命中）。判据**消费**该探针而不内联重写，正对照的红因此能推到判据的探测能力上（规则层 `j3JudgeConsumesTheProbe` 钉住这条结构约束） |
-| **FR-4** public init 的裸文本参数必须有分类条目 | `Tests/CoreDesignTests/ComponentTextParamGuard.swift` | 宿主可解析到 `repo == coredesign` 登记表条目的 public `init`，实测覆盖 29 条 | 4 条已知违规（三条 Sidebar row 的 `systemImage` + `SidebarUtilityRow.trailingSystemImage`）——与 `LabelIcon.systemName` 同类的 SF Symbol 标识符，但 `notes` 未点名 ⇒ 缺陷已报回 #38 |
+| **FR-4** public init 的裸文本参数必须有分类条目 | `Tests/CoreDesignTests/ComponentTextParamGuard.swift`；⚠️ **StoryUI 侧另有实现**：`oh-my-story` 的 `TextParamGuard` / `TextParamScan`（`#67`） | 宿主可解析到 `repo == coredesign` 登记表条目的 public `init`，实测覆盖 29 条。⚠️ **StoryUI 侧的定义域是「结构可达性传递闭包」，不是本行的字面定义域**（`#67` 的定义性扩展）：种子 = 25 个 `repo == "storyui"` 登记组件，沿 public init 参数类型走、剥壳后**跟进本包声明的类型**，到不动点。**理由**：StoryUI 的组件 init 形如 `ChapterCard.init(state: ChapterCardState)`，字面定义域**结构性地漏掉它几乎全部的文案面**。⚠️ **不是按名字后缀（`*State`）画线** —— 那违反本公约 J-3 的「识别是**结构性的**，不是名字匹配」，且 `CodexCard.init(state: CodexEntryState)` 而 `CodexEntryState.init(entry:type:)` **零文本参数** ⇒ 名字后缀口径对**整个 Codex 家族覆盖为 0**。⚠️ 本仓（CoreDesign）侧**未改**定义域 | 4 条已知违规（三条 Sidebar row 的 `systemImage` + `SidebarUtilityRow.trailingSystemImage`）——与 `LabelIcon.systemName` 同类的 SF Symbol 标识符，但 `notes` 未点名 ⇒ 缺陷已报回 #38 |
 
 **自有样式协议的识别是结构性的，不是名字匹配**：信号为「`protocol` 成员里有
 `func makeBody(configuration:)` requirement」（Apple `ButtonStyle` / `ToggleStyle` 的形状）。
@@ -953,10 +1015,10 @@ StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 | **G-2** | `BoolExemptionGuard.ownersWithoutRegistryEntry` 台账**不随最后一个豁免键回收** | 三条宿主（`ButtonStyle` / `SolidButtonStyle` / `LightButtonStyle`）在 #41 删掉 `glass` 之后都已**没有任何活的豁免键**；`exemptionOwnersReconcileWithRegistry` 的循环按豁免键遍历 ⇒ 不再访问它们。但三者归类不同：`SolidButtonStyle` / `LightButtonStyle` 绑 `.styleImplementation`，它们绑定的正向核对（`scan.styleImpls.contains(owner)`）**零覆盖**，判据仍是绿的。`ButtonStyle` 绑的是 `.externalProtocolExtension`——该分类另有 `View` 的 11 个活豁免键撑着，正向核对**非零覆盖**，`ButtonStyle` 单独按下方裁断 (ii)② 的回收条件**今天已满足**，单独表态见下方裁断 | 无——保留的行不承重，靠人守；处置口径见下方**裁断** | ✅ **已覆盖**（`#48`）。三件事：① **全表 pass** —— 台账每条宿主的分类标注都被核，无论有没有活豁免键 ⇒「休眠」不再等于零覆盖（保留了原有的按键遍历，它另管「凭空宿主」判红）；② ⚠️ **`.nonViewPublicType` 此前只有两条负向断言**，把一个样式实现改标进来两条都过、**静默判绿**（实测）⇒ 已补**正向 + 排他**核对；③ **`ButtonStyle` 已回收**（依据是下方裁断 (ii)② 的条件已满足，非 #48 新裁）⇒ 台账现为 6 条 |
 | **G-3** | README 组件索引的对账是**单向**的，且不检查快照存在性 | `ComponentRegistryGuard.readmeIndexReconcilesWithRegistry` 只做 README → 登记表方向：索引**缺行不会红**；也不检查该行 `<img src="snapshots/...">` 指向的 PNG 是否真的存在 | 无——靠人补。#41 新增 `RatingDisplay` 时索引行与快照全靠人手补 | ✅ **已覆盖**（`#48`）。⚠️ **朴素的反向断言会误红 11/45** —— 那 11 条是结构性合法未索引（子行 / modifier），且解析器在首个括号处截断 ⇒ 一条都对不上。故落地为**聚合映射** `readmeRowCoverage`（README 行名 → 覆盖的条目集合 + 理由），**正向的 `resolveReadmeCandidate` 与反向断言共用同一份数据**（两张表必然漂移）。映射表带四条自洽守卫（key 真在 README / value 真是条目 / 覆盖集非空 / 理由过空话拦截）。快照断言**只做 README → PNG 单向**（反向会把正常的未索引快照判红）|
 | **G-4** | **A 类的类型要求有规定、无判据，且本仓参考实现自己不合规** | 公约要求「A 类必须用 `LocalizedStringResource`」，而 CoreDesign `Sources/` 下 `LocalizedStringResource` 命中 **0**（实测）；`StateLabel.swift` 的 `StateLabelStyle.Spec.defaultLabel`（A 类 chrome，值是 `"Active"`/`"Draft"` 等英文）是裸 `String`。⚠️ **A 类文案不经任何一路进入 FR-4 的机器视野**：源码侧 FR-4 只扫 public `init` 参数、A 类不是参数；登记表侧 `textParams[]` 收 public 参数、A 计数恒为 0 | 评审（无机器判据） | ⚠️ **本公约在此明写：A 类的类型要求当前无机器判据，靠评审**；并把 CoreDesign 侧 `StateLabel.defaultLabel` 登记为**已知例外**。StoryUI 的 `ChapterStatus.defaultLabel` 是整个 epic 中**唯一**遵守该条的地方——这个不对称必须记录，否则下一个人会以为 `String` 是既定惯例。`StateLabel` 的改造 ⇒ 移交 |
-| **G-5** | 跨仓登记表守卫的 `derivedDataCandidates()` 有**陈旧命中**风险（失效方向**静默**） | StoryUI 侧 `CrossRepoRegistryGuard` 做 8 级有界上溯、`allEntries()` first-hit-wins。若 `.build/checkouts` 缺席而上层恰有一份陈旧的 `SourcePackages/checkouts/CoreDesign`，守卫会**静默读到旧版登记表**——判据照常绿，但对的是过期事实 | 概率极低（需同时满足两个条件），按 #43 终审裁定**留痕而非加固** | 📝 **正式不实现**（`#48` 的裁断）：按 **#43 终审**「留痕而非加固」—— 触发需**同时**满足两个条件（`.build/checkouts` 缺席 **且** 上层恰有一份陈旧的 `SourcePackages/checkouts/CoreDesign`）。⚠️ **再评估的触发条件写死在此**：`wxlpp/oh-my-story#67`（G-8 的跨仓参数级扫描）落地后，若它让本风险面**实质变大**，须重新评估本裁定，**不得沿用**。若要收紧，落点仍是在 `allEntries()` 里核对「该 checkout 的 git 版本 ≟ `Package.resolved` 的 pin」|
+| **G-5** | 跨仓登记表守卫的 `derivedDataCandidates()` 有**陈旧命中**风险（失效方向**静默**） | StoryUI 侧 `CrossRepoRegistryGuard` 做 8 级有界上溯、`allEntries()` first-hit-wins。若 `.build/checkouts` 缺席而上层恰有一份陈旧的 `SourcePackages/checkouts/CoreDesign`，守卫会**静默读到旧版登记表**——判据照常绿，但对的是过期事实 | 概率极低（需同时满足两个条件），按 #43 终审裁定**留痕而非加固** | 📝 **正式不实现**（`#48` 的裁断）：按 **#43 终审**「留痕而非加固」—— 触发需**同时**满足两个条件（`.build/checkouts` 缺席 **且** 上层恰有一份陈旧的 `SourcePackages/checkouts/CoreDesign`）。⚠️ **再评估的触发条件写死在此**：`wxlpp/oh-my-story#67`（G-8 的跨仓参数级扫描）落地后，若它让本风险面**实质变大**，须重新评估本裁定，**不得沿用**。若要收紧，落点仍是在 `allEntries()` 里核对「该 checkout 的 git 版本 ≟ `Package.resolved` 的 pin」。⚠️ **`wxlpp/oh-my-story#67` 触发了本行写死的再评估条件，结论：仍沿用「留痕而非加固」**，依据须写成**两轴**（不能只留「净缩小」这个未加度量的单句）：**轴一 消费者数 1 → 2**（同一份陈旧副本能骗的读者**变多**）；**轴二 可静默的形态集变小**（`#67` 的 registry 侧参数级双向差集把**幽灵方向**从「无人守」补成 fail-loud，且它连 `category` 一起比 ⇒ 残余静默只剩「深度 0 完全等价的陈旧副本」这一无害形态。⚠️ **「完全等价」只对当前两个消费者实际读取的字段成立** —— 组件名集 + 深度 0 的 textParams 名与 category；陈旧副本在 `kind` / `decidedBy` / `notes` 维度的漂移**对两个消费者依旧静默**。这与 `#67` 前无变化、无受害判据 ⇒「无害」的结论可守，但别把它读成「逐字节等价」）。⚠️ **静默面本身依然存在且被重新接受** —— `CrossRepoRegistryGuard.swift:98-105` 的「已知盲区（终审 I-1 / T-2，静默方向）」注释块逐字写着「这是本守卫三处盲区里**唯一失效方向是「静默」的**」；概率极低（需同时满足两个条件）|
 | **G-6** | StoryUI 侧 `CrossRepoRegistryGuard` 的 View 扫描：同一扫描器的两处口径边缘（失效方向 **fail-loud**） | (i) `visit(_:StructDeclSyntax)` 只看结构体自身修饰符 ⇒ 嵌在非 public 容器内、有效访问级实为 internal 的 `public struct` 仍被计入；(ii) `*Demo` 排除后返回 `.visitChildren` ⇒ Demo 内嵌的 public View 也会被采集 | 今日**零命中**（扫描命中集与登记表条目逐名闭合可证），且失效方向是多扫 ⇒ `missing` ⇒ 红 | 留痕即可 |
 | **G-7** | `ComponentIndexGuardTests` 的 27-slug roster 是**手工清单**，有方向性盲区 | 新 View 从未进 roster 时，文档索引与 roster **一起**漏掉它、两集合仍相等、判据永绿 | 无 | ✅ **已部分覆盖**（`wxlpp/oh-my-story#48` PR ②，已合并 `d80d4de`）。⚠️ **射程：9 种宿主协议的直接继承子句 conformance** —— 含 composition（`: View & Sendable`）、attributed（`: @MainActor View`，SE-0470 isolated conformance）与模块限定（`: SwiftUI.View`）三种拼法，**均在继承子句内**，PR ② 末轮已闭合；边界见本格末。⚠️ **不写「已覆盖」** —— 与 G-1 同构：守卫存在，但本行「影响」栏描述的失效形态仍有登记在案的逃逸通道，其中 `public struct NewCard {}` + `extension NewCard: View { … }` 是**完全地道的 Swift 写法**，这样写的新组件**逐字复现**本行影响栏的原话（从未进 roster ⇒ 两集合仍相等 ⇒ 判据永绿），而主判据与绊线**都不响**。本节节头自述「读到它就该知道判据绿了不代表这一条被查过」—— 对 extension-conformance 组件，判据绿 ≠ 被查过。⚠️ **落点不是原先写的 `App/Tests/GalleryIntegrityTests.swift`**，是 `oh-my-story` 的 `Packages/StoryUI/Tests/StoryUITests/ComponentRosterSourceAnchorTests.swift` —— 这是**锚点选择**不是文件搬家：App 那条的 roster 来自**扫 `docs/components/*.md` 的文件列表**，锚它上面等于断言「文档文件在不在」；`ComponentIndex.allSlugs` 是手写台账，判据 1 已把它与文档**恰好相等**地钉住 ⇒ 锚台账上，新组件必须**同时**进台账与文档才变绿。且新守卫住在 SwiftPM 包里，`swift test` 就能跑。**四条断言**：源码里每个公开组件都在 roster 或豁免表（**并直接 `fileExists` 钉 `docs/components/<slug>.md`** ⇒ 不依赖判据 1）/ 扫描器看得见 `#if` 块里的 Representable / 豁免表自洽（key 真实存在 · 理由带文档引文锚 · 豁免 ∩ roster = ∅）/ slug 转换的**逐对往返 + 单射 + override 悬空 key**（`wxlpp/oh-my-story#69` 已落，合并 `761bb33`）—— （⚠️ 旧的 `matched.count >= 20` 降为**非退化前置**；**往返那条**守的是「误映射到**另一个现存 slug**」：那种改法下 `missing` / `docless` / 计数**一条都不收**（全套件绿），只有独立逆函数的往返断言能抓到）—— 外加一条绊线：没有 protocol / typealias 把宿主协议洗白。变异自证全部判红：`#48` PR ② **22 条** + `#69` **15 条**。⚠️ **分开归因** —— 上面「四条断言」的第四槽已被 `#69` 换过；22 条打的是**换之前**那版（其第四槽是 `matched.count >= 20`），**其中没有任何一条打的是那条计数断言本身**；15 条打的是换之后的往返 / 单射 / override 与三段式。 ⚠️ **口径是 9 种宿主协议**（`View` / `UIViewRepresentable` / `UIViewControllerRepresentable` / `Shape` / `InsettableShape` / `RoundedRectangularShape` / `DynamicViewContent` / `ShapeView` / `_AnimatableView`），由 **iPhoneOS26.4 SDK swiftinterface 求 refine `View` 的传递闭包**实测得到，审计由**三段式判据**机器守护（落盘审计快照 + `hosts` 比对 + SDK build 变动或 CI 强制时条件性全量重算），见 `wxlpp/oh-my-story#69`（合并 `761bb33`）。⚠️ 仍**不是**每次都重算：SDK build 与钉子相同且未置强制开关时走快路径（**~0.02s**）；**CI 上无条件走全量**（**~12–13s**）。⚠️ **耗时的样本与出处以 `oh-my-story` 的 `ComponentRosterSourceAnchorTests.hosts` 注释为准（单一权威源），本行不复述** —— 这两个数在收口过程中被历轮评审反复推翻（「~12.5s」→「七次」→「六次」→「三有三无留痕」→判准与样本表自相矛盾，**每版都撑不住**；⚠️ **此处不写序数** —— 本行正是因为数错次数被打回的），逐字镜像到两个仓正是「两处各自演化」的做法（复审 I-3）。前三版靠「凭想」枚举，**连续三轮各漏一批**。⚠️ **`#48` 收口时这里原本写的是**（逐字保留）：「⚠️ 落盘的只是做法描述加一行 `xcrun --show-sdk-path`，**照着跑不出来**（复审 Suggestion 2）；把可复跑的提取管线补全 ⇒ 承接 **`wxlpp/oh-my-story#69`**（具名，不写「后续任务」）。」**该 issue 的实现已全部合并**（`wxlpp/oh-my-story` 的 `761bb33`）；**本条改写即其收尾回写** ⇒ 现状见上，前向指针到此为止。⚠️ **本行不断言 ticket 状态** —— 实测 PR #70 的 `closingIssuesReferences` 为 **0**（没有任何 PR/commit 携带指向 `#69` 的 closing keyword），关闭它是一次**独立操作**；把 ticket 状态写进文档就是一条待证伪的将来时。issue 的生死交给 GitHub 自己陈述。⚠️ 上一版这里写「取决于一次**跨仓**手动操作（closing keyword 不跨仓自动生效）」—— **两处都错**：`#69` 与实现 PR #70 **在同一个仓**，而 closing keyword 的跨仓语义我根本没核就写了（终审 Critical）。⚠️ **仍未守住、只是登记了的**：`*Demo` 后缀通配排除、`extension X: View` 形式的 conformance、AppKit 形态、`protocol P where Self: View`、加第二个 source target 时的 `package` 访问级；以及 **`hosts` 是枚举的** —— 上游 SDK 升级或第三方库带来新 View refinement 时**两头都不响** |
-| **G-8** | FR-4 的 StoryUI 侧 `storyuiTextParams == 3` 只做「计数 + 条目名」核对，**无参数级源码扫描** | 工作量取舍，**非能力边界**——测试 target 已依赖 swift-syntax，基建现成；参数级扫描是独立一块工程 | 无 | 🔀 **移出 `#48`，承接 `wxlpp/oh-my-story#67`**。理由：另五条都是「在既有判据上补一条断言」的量级，而 G-8 要在 oh-my-story 侧建**一整套参数级扫描器**再与跨仓计数核对接线，工作量可能超过其余五条之和（`#48` 拒绝并进 `#45` 用的是同一把尺子） |
+| **G-8** | FR-4 的 StoryUI 侧 `storyuiTextParams == 3` 只做「计数 + 条目名」核对，**无参数级源码扫描** | 工作量取舍，**非能力边界**——测试 target 已依赖 swift-syntax，基建现成；参数级扫描是独立一块工程 | 无 | ✅ **已部分覆盖**（`wxlpp/oh-my-story#67`，已合并 `7eade05`）。⚠️ **「已覆盖」不等于「CI 在守」**：`oh-my-story` 是**私有仓**，其 CI **最后一次成功是 2026-08-11**；承载本条全部实现的 `7eade05`，三个 job 都在 **runner 分配层**失败（`runner_name` 为空、**0 个 step**、3 秒结束）⇒ **本条的四条判据自落地起从未在任何 CI 上执行过**，证据只有作者机器上的 `swift test`。疑似私有仓 macOS 分钟数耗尽，另开跟进。**读到「✅」的人请连这句一起读。**落点是 `oh-my-story` 的 `Packages/StoryUI/Tests/StoryUITests/TextParamGuard.swift` + `TextParamScan.swift`。⚠️ **扫描必须在对面仓**：本仓 CI **只 checkout 本仓**（`ComponentTextParamGuard` 的 **FR-4 主测试结尾**那条 print 逐字，⚠️ **不写行号** —— 该文件的自引用行号会被引用它的那次编辑自己顶失效，本 PR 已现场犯过一次），读不到 StoryUI 源码。⚠️ **原判「工作量可能超过其余五条之和」被实测推翻，且方向相反**：按 FR-4 字面定义域（登记组件的 public init）做出来的扫描器**落地当天就是绿的** —— 域内 3 条裸文本，**恰好就是已登记的那 3 条**。真问题是**结构性的**：StoryUI 的组件 init 形如 `ChapterCard.init(state: ChapterCardState)`，文案在 `ChapterCardState.init(id:title:summary:…)` 里 ⇒ **定义域按字面套过来会结构性地漏掉它几乎全部的文案面**。⇒ 定义域改用**结构可达性传递闭包**（见 FR-4 行）。**四条判据**：深度 0 源码侧三桶差集 / 深度 0 registry 侧（**派生** pin 盲区，兼作抬版 canary）/ 深度 ≥1 的 canary（条数以 story 侧 `knownDeeperParams` 常量为准 —— ⚠️ **此处不写字面数**：该集合按其自己的 message 会随新增文本参数增长，写死就是一条会跨仓静默漂移的数，本行与 G-7 刚以同一理由删过别的数字） / `#44` 移交指针自检。变异自证的**权威台账是 story 侧 squash commit `7eade05` 的正文**（静止树全套重跑的那张表）—— ⚠️ **此处不写条数**：隔壁 **G-7 行**逐字写着「此处不写序数 —— 本行正是因为数错次数被打回的」，而我起草本行时写的「12 条」在对面台账里**找不到任何一处这么数过**（重跑表 10 条 + 两条单独跑红 + 两条不变性探针，怎么拼都不是一个有出处的数）。 ⚠️ **不写「已覆盖」** —— 深度 ≥1 那批（story 侧 `knownDeeperParams`）是**停车 + 报警**（`textParams` 挂在**组件条目**上，而 `ChapterCardState` / `AgentTodoItem` / `CodexEntry` 不是登记表条目 ⇒ **无登记落点**），承接 `wxlpp/oh-my-story#72`。⚠️ **本行及 G-5 / §4 引对面仓的行号（`TextParamScan.swift:127`、`CodexEntry.swift:11-12`、`CrossRepoRegistryGuard.swift:98-105`）一律「以逐字引文为准、行号仅供当日定位」** —— 与 `#75` 那条方向相反、失效形态对称：击穿它们的编辑在**对面仓**，本仓测试全绿、零信号；好在都带了逐字引文，可 grep 恢复。 ⚠️ **仍未守住、只是登记了的（显式编号，⚠️ 别在别处复述成一个概数 —— 本 PR 初版描述写「五类」时它是 **4** 项，终审 S-D 后补了一项、现在是 **5** 项。⚠️ 这两次一增一减恰好说明**为什么要编号而不写概数**：数会变，编号跟着列表自己走）**：**①** 那批深度 ≥1 参数（story 侧 `knownDeeperParams`）的 **category 全体无判据覆盖**（canary 只比名字集合，要等 `#72` 的 schema）· **②** 元组 / typealias（活体 `OutlineNodeState.ID`）/ 枚举关联值 / `Dictionary` 的 key / **函数类型参数的载荷**（`TextParamScan.swift` 逐字「函数类型参数不展开」，且 `InlineActionMenu.Action.Kind.rawValue` 的唯一入口就是它）—— 五类**逃逸**（扫不到）。⚠️ **此处不是闭合枚举**：扫不到的通道以 story 侧 `TextParamScan` 的注释与 `#67` spec §12 的「出闭包文本通道」清单为准（该清单自述「已知已核，不是穷尽」）· **③** carrying 通道。⚠️ **这条指的是「方向 / category 没判据」，不是「扫不到」** —— `TextParamScan.swift:127` 逐字把 `Binding` 与 `Optional`/`Array`/`Set` 并列剥壳，`Binding<String>` **是被纳入扫描的**；缺的是「双向绑定 / 回调回传的文本该判什么类」这条裁决 · **④** coredesign 侧的 `textParams` **同样无唯一性断言**（`ComponentRegistryGuard` 只验 category 允许域）—— `#67` 只给 storyui 侧补了，本仓侧留痕未补 · **⑤** ⚠️ **点路径解析与多段 extension 的机器在提交态零覆盖**（手工变异不进 CI、不防回退）⇒ 承接 `wxlpp/oh-my-story#74`。⚠️ **本文件自己也有一处表格行被裸换行劈开**（`:1175`，`main` 上就已存在），且**无判据守**（`ComponentContractStructureGuard` 只锚节 / 小节标题，不看表结构）⇒ `wxlpp/CoreDesign#215`。⚠️ 另有一处**跨仓分叉、无判据**：`oh-my-story` 的 `.claude/prds/component-contract.md` 仍写着旧的 C 行（`**C. 用户数据**` / `用户自己输入的领域内容…`），与本轮改写后的 C 行**不一致**。PRD 是**时点记录**（add-only，不回改），此处只留指针 —— 但若有人把 PRD 当权威读，会读到被推翻的定义。 |
 
 #### G-2 的裁断（#44 本次成文，D-41-4 原文要求的正是「裁断」而不只是留痕）
 
