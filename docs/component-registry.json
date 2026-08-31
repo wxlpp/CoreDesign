@@ -723,7 +723,7 @@
         "category": "C"
       }
     ],
-    "notes": "可编辑正文面，与 ManuscriptReader 同一 StoryTextView 底座（isEditable = true）。理由同 ManuscriptReader：步骤 1 无，步骤 3 视觉即含义（外观完全由 typography/theme 值参数化，组件自身无独立可换皮表面）。无裸 String 展示参数（`text` 是 AttributedString，不是 String）。⚠️ 但**本条目已登记为 C 类**：`text` 由 #67 起按公约 §4 的 C 行登记（用户手稿正文）。"
+    "notes": "可编辑正文面，与 ManuscriptReader 同一 StoryTextView 底座（isEditable = true）。理由同 ManuscriptReader：步骤 1 无，步骤 3 视觉即含义（外观完全由 typography/theme 值参数化，组件自身无独立可换皮表面）。`text` 由 #67 起按公约 §4 的 C 行登记为 C（用户手稿正文）；它是 AttributedString 而非 String。⚠️ 上句原写「无裸 String 展示参数」开头、靠转折兜住，已由 #67 终审 C-1 推翻：那句字面为真却会被读成「无 textParams」，且新判据已把它列为缺席措辞。"
   },
   {
     "component": "ContextPicker",
