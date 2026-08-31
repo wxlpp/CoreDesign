@@ -21,10 +21,13 @@ import Testing
 /// 会**静默漏掉它**。⇒ 这一面的**机器触发点是 `allEntriesAreCategoryC` 判红**（见该判据）。
 ///
 /// ⚠️ **本表没有 `reachableFrom` 字段**（`#72` plan 裁决 A）。spec 前三稿设计过它
-/// （可达到该类型的登记组件），但守住它要么逐种子跑 25 次扫描（一次 ≈ 2s ⇒ ≈ 50s），
-/// 要么改 `wxlpp/oh-my-story#74` 点名「提交态零覆盖」的那台机器。而它是**纯信息性**的：
-/// 没有任何判据需要它，「哪些组件可达该类型」本就是扫描器按需算得出的。
-/// ⇒ **不登记不能守的东西**，比「登记了再补一条守不动的判据」便宜。
+/// （可达到该类型的登记组件），推翻它的**主要理由不是成本，是数据性质**：
+/// 「哪些组件可达该类型」是**扫描器按需可重算的派生数据**，登记进去只会漂移
+/// （重构换了持有者 ⇒ 字段成假话，而「指针不悬空」的判据照样绿）；
+/// 而 `notes` 是**不可重算的人判证据**，所以留。
+/// **次要理由**才是成本：守住它要么逐种子跑 25 次扫描（一次 ≈ 2s ⇒ ≈ 50s），
+/// 要么改 `wxlpp/oh-my-story#74` 点名「提交态零覆盖」的那台机器。
+/// ⇒ **派生数据不登记**；「守不住」是佐证，不是理由本身。
 /// 组件删除导致孤儿条目的方向由 story 侧 J5 的 `onlyInRegistry` 接住。
 @Suite("#72 G-8 续 —— 可达类型登记表")
 struct ReachableTypeRegistryGuard {
@@ -76,6 +79,8 @@ struct ReachableTypeRegistryGuard {
             for p in e.textParams {
                 #expect(ComponentRegistryGuard.validCategories.contains(p.category),
                         "\(e.type).\(p.name) category=\(p.category) 不在允许域")
+                #expect(!p.name.trimmingCharacters(in: .whitespaces).isEmpty,
+                        "\(e.type) 有参数的 name 为空 —— 空 name 在 PR-B 落地前四条判据全绿")
                 #expect(!p.notes.trimmingCharacters(in: .whitespaces).isEmpty,
                         "\(e.type).\(p.name) 的 notes 为空 —— 逐条证据是本表的存在理由")
                 #expect(!Self.placeholderNotes.contains(p.notes.trimmingCharacters(in: .whitespaces)),
@@ -112,15 +117,32 @@ struct ReachableTypeRegistryGuard {
 
     /// ⚠️ **定义域是「全部条目」，不是「深度 ≥ 1 的条目」**（`#72` spec 评审 I1）：
     /// 后者会诱导实现者拿扫描器算深度再过滤 —— **扫描器坏掉时过滤集为空、全称量词恒真**。
-    /// J2 已保证本表与组件表不相交 ⇒ 全部条目**天然**深度 ≥ 1，直接对全集断言。
+    /// ⚠️ **别写「J2 保证了全部条目天然深度 ≥ 1」**（`#216` 终审 I-2）：J2 只排除了
+    /// **深度 0 的组件条目**，**不保证可达** —— 往本文件编造一条不可达的幽灵类型
+    /// （配一条 C + 像样的 notes），J1/J2/J3/J8 **四条全绿**。
+    /// **可达性由 story 侧的双向差集（`onlyInRegistry` 方向）承接，而它要到 PR-B 才存在**
+    /// ⇒ PR-A → tag → PR-B 之间有一个窗口期无人守。
+    /// 对 J8 本身无实害（在超集上做全称断言是保守方向），但那句话是**写在三处的假全称**。
     ///
     /// ⚠️ **它守的是哪一半**：挡「悄悄改成非 C」，**挡不了「非 C 被误登记成 C」**（A 同样挡不了）。
+    ///
+    /// ⚠️ **而激励梯度指向它守不住的那一半**（`#216` 终审 I-3）：真出现深度 ≥1 的 B 类参数时，
+    /// 诚实写 B ⇒ 本判据红 + 下面 message 要求做三件重活；谎报写 C ⇒ **四条判据全绿、机器不可见**。
+    /// **本判据抬高了诚实路径的成本。** 唯一的对冲在 J1：`notes` 必须非空非占位
+    /// ⇒ 谎报 C 必须**编造一条 C 的证据**，那是**人审可核**的。
+    /// ⇒ **误登记成 C 的唯一防线是 notes 证据 + 人审**，不是机器。别指望本判据。
     /// 这不是「category 被独立校验」——扫描器只产出**参数名**，category 是人判的、源码里不存在
     /// ⇒ 拿 registry 去比 registry 就是**同源恒真**。本判据是把**取值域**钉死。
     @Test("J8：全部条目的 category 都是 C（并集规则的机器触发点）")
     func allEntriesAreCategoryC() throws {
         let entries = try Self.load()
-        try #require(!entries.isEmpty, "可达类型登记表读到 0 条 —— 空集上全称量词恒真")
+        // ⚠️ **非退化前置要到「参数」级，不能只到「条目」级**（`#216` 终审 Suggestion）：
+        //    条目非空但每条 `textParams` 都是 `[]` 时，下面的全称断言仍是**空集上恒真**，
+        //    只能靠 J1 的 `!textParams.isEmpty` 顶班 —— 与 spec 自己禁止的「靠别的判据兜空集」
+        //    是同一形态、小一号。⇒ 直接对拍平后的参数总数 require。
+        let allParams = entries.flatMap(\.textParams)
+        try #require(!allParams.isEmpty,
+                     "可达类型登记表拍平后 0 个参数（条目 \(entries.count) 条）—— 空集上全称量词恒真")
 
         let nonC = entries.flatMap { e in
             e.textParams.filter { $0.category != "C" }.map { "\(e.type).\($0.name)=\($0.category)" }
