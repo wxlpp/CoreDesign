@@ -75,6 +75,32 @@ struct ComponentTextParamGuard {
         "View.bottomInputBar#placeholder",
     ]
 
+    /// notes 里「本条目**没有** textParams」这一意思的措辞枚举。
+    /// ⚠️ 枚举而非语义识别 —— 同义换词会逃，这是已知边界，不是没想到。
+    /// 剥掉 notes 里的**撤回句**再判 —— 台账是 add-only，改写一条结论要**逐字复述被推翻的旧话**
+    /// （「上句原判**该参数不进本表**，已由 #67 推翻」），而纯子串判据**分不清引述与断言**：
+    /// 初版就把这三条留痕全判成了违规。
+    ///
+    /// 规则：按句号切分，**丢掉含撤回标记的整句**，只在剩下的话里找矛盾。
+    /// ⚠️ **已知盲区**：真正的假断言若与撤回标记**同处一句**则逃逸。接受它——
+    /// 反方向（把留痕判成违规）会逼人删掉留痕，那是**用篡改记录换绿**，代价大得多。
+    nonisolated static func strippingRetractions(_ notes: String) -> String {
+        notes.split(separator: "。").filter { sentence in
+            !retractionMarkers.contains { sentence.contains($0) }
+        }.joined(separator: "。")
+    }
+
+    /// 撤回句的标记词。
+    nonisolated static let retractionMarkers = ["原判", "上句原写", "推翻", "已作废"]
+    ///
+    /// ⚠️ **措辞之间不得有子串包含关系** —— 初版把「无 textParams」放进本表，而
+    /// 「不**等于**无 textParams」（一句**肯定**有条目的话）含它作子串 ⇒ 判据当场自造一条误报。
+    /// 加判据前先跑 `absenceClaims` 两两互查与 `presenceClaims` 交叉互查。
+    static let absenceClaims = ["不落入 textParams", "不进本表", "没有 textParams 条目"]
+
+    /// notes 里「本条目**登记了** textParams」这一意思的措辞枚举。
+    static let presenceClaims = ["已登记为 C 类", "已登记为 B 类", "本条目已登记"]
+
     @Test("FR-4：public init 的裸文本参数必须在登记表 textParams 里有分类条目")
     func publicInitTextParamsAreClassified() throws {
         let entries = try ComponentRegistryGuard.loadRegistry()
@@ -223,6 +249,25 @@ struct ComponentTextParamGuard {
         //  旧的 `count == 3` 抓得住同一条 textParam 被写两遍（7 ≠ 6 ⇒ 红），
         //  换成集合后重复项被折叠 ⇒ 全绿。核过 `ComponentRegistryGuard`：它对 textParams
         //  **只验 category 允许域、无唯一性断言** ⇒ 无人顶位。故这里显式补一条。
+        // ⚠️ **notes 的散文不得与 textParams 数据自相矛盾**（`#67` 第 1/2 轮评审各抓一次，
+        //  合计**三条**活体假断言，两轮 superpowers 终审全漏、都是 Copilot 抓的）：
+        //  改了 `textParams` 数组，而**近旁描述它的那句散文**没跟着改 ⇒ 数据说有、散文说无。
+        //  ⚠️ 第 2 轮那次更糟：我按字符串替换去改 `ManuscriptEditor`，而
+        //  「无裸 String 展示参数。」在本表里**有三处**（`SuggestionStream` / `ManuscriptEditor`
+        //  / `StoryScaffold`），替换命中的是**第一处** ⇒ 改错了条目，还在 PR 里回帖说改好了。
+        //  ⇒ 这条判据把「散文 ⟂ 数据」这一面机械化。
+        //  ⚠️ **它守不住的**：措辞是**枚举**的，同义换词照样逃（同 `#48` G-7 的名单式判据）；
+        //  它只核**有无**，核不了 category 是否说对。
+        for e in entries {
+            let live = Self.strippingRetractions(e.notes)
+            let claimsAbsent = Self.absenceClaims.first { live.contains($0) }
+            #expect(!(!e.textParams.isEmpty && claimsAbsent != nil),
+                    "\(e.component) 登记了 \(e.textParams.count) 条 textParams，notes 却写着「\(claimsAbsent ?? "")」——散文与数据自相矛盾")
+            let claimsPresent = Self.presenceClaims.first { live.contains($0) }
+            #expect(!(e.textParams.isEmpty && claimsPresent != nil),
+                    "\(e.component) 的 textParams 是空的，notes 却写着「\(claimsPresent ?? "")」——散文与数据自相矛盾")
+        }
+
         #expect(storyuiTextParamFlat.count == storyuiTextParamEntries.count,
                 """
                 storyui 的 textParams 有重复登记：展开 \(storyuiTextParamFlat.count) 条、去重后 \(storyuiTextParamEntries.count) 条。
