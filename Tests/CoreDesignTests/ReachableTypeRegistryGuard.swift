@@ -61,6 +61,10 @@ struct ReachableTypeRegistryGuard {
     /// （**判据落地当天就被现实削弱**）。**定阈值前必须对着真实数据跑一遍。**
     static let placeholderNotes: Set<String> = ["TODO", "todo", "-", "—", "待补", "?", "？", "N/A"]
 
+    // ⚠️ 下面三处 trim 用 `.whitespacesAndNewlines`，**不是 `.whitespaces`**（`#216` Copilot）：
+    //    Swift 的 `.whitespaces` **不含换行** ⇒ notes 误写成 `"\n"` 或 `" \n"` 时，
+    //    「非空」与「不在占位黑名单」两条**都会被绕过** —— 判据静默转绿。
+
     @Test("J1：schema 合法 —— type 唯一、repo 与 category 在允许域、notes 非占位")
     func schemaIsWellFormed() throws {
         let entries = try Self.load()
@@ -79,11 +83,11 @@ struct ReachableTypeRegistryGuard {
             for p in e.textParams {
                 #expect(ComponentRegistryGuard.validCategories.contains(p.category),
                         "\(e.type).\(p.name) category=\(p.category) 不在允许域")
-                #expect(!p.name.trimmingCharacters(in: .whitespaces).isEmpty,
+                #expect(!p.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                         "\(e.type) 有参数的 name 为空 —— 空 name 在 PR-B 落地前四条判据全绿")
-                #expect(!p.notes.trimmingCharacters(in: .whitespaces).isEmpty,
+                #expect(!p.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                         "\(e.type).\(p.name) 的 notes 为空 —— 逐条证据是本表的存在理由")
-                #expect(!Self.placeholderNotes.contains(p.notes.trimmingCharacters(in: .whitespaces)),
+                #expect(!Self.placeholderNotes.contains(p.notes.trimmingCharacters(in: .whitespacesAndNewlines)),
                         "\(e.type).\(p.name) 的 notes 是占位符「\(p.notes)」")
             }
         }
