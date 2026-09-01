@@ -131,6 +131,82 @@ struct ComponentContractStructureGuard {
         }
     }
 
+    /// 每个 markdown 表块内的管道符数必须一致 —— 即**没有表格行被裸换行劈开**。
+    ///
+    /// ⚠️ **这条是 `wxlpp/CoreDesign#215` 的落地**，起因是同一个错在本 epic 里犯了**三次**：
+    /// `#214` 两次（插入带换行把 G-8 行劈成两行；后一次在 G-5 格里塞 markdown 表），
+    /// `#72` 一次（G-5 格留行尾破折号 + G-8 格塞段落）。
+    /// **三次都靠人工核「G- 表 8 行各 6 管道符」才发现 —— 而那个核对只覆盖 G- 表。**
+    ///
+    /// 失效形态：被劈开的行在渲染器里**掉出表格**成为普通段落，
+    /// 而**测试全绿、grep 也命中**（内容还在，只是不在表里了）。
+    ///
+    /// ⚠️ **不设已知违规集，断言零违规**（`#216` 终审 I-1）：初版把 `main` 上已存在的那处
+    /// 钉成 `Set<Int> = [1172]` —— **锚行号在这份高频编辑的文档上必然高频误红**
+    /// （任何一次在它之前净增行都会报「新出现 [1173] + 已修好 [1172]」双红），
+    /// 可预期的人类反应就是为求绿扩集合或麻木改数字。
+    /// ⇒ 改为**在同一个 PR 里直接把那处修好**（`Tag(removable:)` 走查表里步骤 2 那格
+    /// 被裸换行劈成 7 行，已合并回单元格），已知集整体消失。
+    ///
+    /// ⚠️ **两处已知边界**（`#216` 终审 S-1 / S-2）：
+    /// 1. 管道符是**裸字符计数** ⇒ 单元格里出现内联代码里的 `|` 或转义 `\|` 会**误红**。
+    ///    失效方向是 loud（会红、不会假绿），可接受。今天全文唯一的 `\|` 不在表行内。
+    /// 2. `middleValue` 在 **2 行块**上取排序后偏高者 ⇒ 异常行的**归因**可能指反
+    ///    （红仍然是红，只是 message 指向的那一行可能是正常的那行）。
+    /// 3. **不识别 fenced code block**（`#216` 终审第 3 轮 S-2）⇒ 将来公约里贴一段
+    ///    含行首 `|` 的代码示例会**误红**。失效方向 loud、可接受；实测当前 fence 内管道行为零。
+    /// 4. **tab 缩进 / ≥4 空格缩进的整表**（`#216` 终审第 4 轮 S-2，实测仍静默绿）：
+    ///    CommonMark 下那种表**已整体降级为代码块** ⇒ 渲染层面是「整块显眼地烂」，
+    ///    不是「单行悄悄掉出表格」。⇒ 本判据不接，靠人眼兜底。
+    ///    ⚠️ 这与边界 1–3 空格是**两回事**：≤3 空格仍是合法表格、劈行会静默，所以那一侧必须剪。
+    @Test("公约的 markdown 表格没有被裸换行劈开的行")
+    func contractTablesHaveNoSplitRows() throws {
+        let text = try String(contentsOf: Self.contractURL, encoding: .utf8)
+        let lines = text.components(separatedBy: "\n")
+
+        var offenders: [String] = []
+        var block: [(line: Int, pipes: Int)] = []
+        func flush() {
+            defer { block = [] }
+            // ⚠️ **1 行的管道块也算违规**（`#216` 终审 I-1，我复现过）：
+            //    初版写 `guard block.count >= 2`，于是**劈表头**时首行碎片独占一个 1 行块被跳过、
+            //    续行不以 `|` 开头直接 flush ⇒ **判据保持绿**，而表头已掉出表格、整张表渲染降级。
+            //    实测全文**没有任何合法的单行管道块** ⇒ 直接把它列为 offender，不留盲区。
+            if block.count == 1 {
+                offenders.append("表块只有 1 行（:\(block[0].line)）—— 多半是表头被劈开，或表格只剩一行")
+                return
+            }
+            let counts = Set(block.map(\.pipes))
+            guard counts.count > 1 else { return }
+            let majority = block.map(\.pipes).sorted().middleValue
+            let odd = block.filter { $0.pipes != majority }.map { ":\($0.line)(\($0.pipes) 个管道符)" }
+            offenders.append("表块起于 :\(block[0].line)，异常行 \(odd.joined(separator: "、"))")
+        }
+        for (idx, line) in lines.enumerated() {
+            // ⚠️ **先剥 ≤3 个前导空格再判**（`#216` 终审第 3 轮 S-1）：CommonMark 里前导 1–3 空格
+            //    **仍是合法表格**（≥4 才进代码块），而 `hasPrefix("|")` 对它们全不命中
+            //    ⇒ 整张缩进表**零个块** ⇒ 劈行、劈表头**全部静默绿**。
+            //    ⚠️ 同文件的 `contractHasAllRequiredSections` 为「行首 ≥4 空格」明写过不剪前导空白的裁决
+            //    —— 那边选的是**误红**方向；这里同样的排版事故会落成**假绿**方向，所以要剪。
+            let line = line.hasPrefix("    ") ? line : String(line.drop(while: { $0 == " " }))
+            if line.hasPrefix("|") {
+                block.append((idx + 1, line.filter { $0 == "|" }.count))
+            } else {
+                flush()
+            }
+        }
+        flush()
+
+        #expect(offenders.isEmpty, """
+        公约里有表格行被裸换行劈开：
+        \(offenders.joined(separator: "\n"))
+
+        ⚠️ 被劈开的行在渲染器里**掉出表格**变成普通段落，而**测试全绿、grep 也命中** ——
+        只有本判据看得见。⇒ 把续行折回同一个单元格（表格单元格内不能有裸换行），
+        或把那段内容移到表格外面。
+        """)
+    }
+
     @Test("公约文本提及守卫允许域里的每一个取值（终审 I1(b)：给通则装上牙）")
     func contractMentionsEveryGuardAllowedValue() throws {
         let text = try String(contentsOf: Self.contractURL, encoding: .utf8)
@@ -160,4 +236,10 @@ struct ComponentContractStructureGuard {
             #expect(isMentioned(value), "公约文本里找不到 textParams category 取值 `\(value)`——validCategories 与公约脱节")
         }
     }
+}
+
+
+private extension Array where Element == Int {
+    /// 已排序数组的中位元素 —— 用来判「表块里哪个管道符数是正常的」。
+    var middleValue: Int { self[self.count / 2] }
 }
