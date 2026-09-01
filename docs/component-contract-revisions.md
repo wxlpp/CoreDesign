@@ -2058,7 +2058,7 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
 初版写「G-5 那次能用预先记账，是**因为那句话有 story 侧的 loader 会来兑现**」——
 ⚠️ **那个区分站不住**（`#218` 终审 I-1，我实测复核）：G-5 那个 loader **由同一个未合并的 PR-B 引入**，
 「兑现」同样只是「`wxlpp/oh-my-story#76` 合并」这个**人为事件、没有任何机器**；
-而且 **截至写下本条时它仍未兑现**（`git grep reachable-type-registry origin/main` 零命中）。
+而且 **截至写下本条时它仍未兑现**（在 story 仓的 `main` 上 `git grep reachable-type-registry` 零命中 —— ⚠️ **命令里不写 `origin/main`**：那依赖本地恰好有个叫 `origin` 的 remote，换个 remote 名或只有本地分支就跑不通）。
 拿「谁来兑现」这三问去问 G-5，它**同样答不上来**。
 
 **真正成立的区分是失效方向**：
