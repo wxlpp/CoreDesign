@@ -156,7 +156,7 @@ runtime 已就位（iOS 26.4 + `iPhone 17 Pro`）。出图走 `KEEP_LIBRARY_SNAP
    ⚠️ **逃生条款**：若 001 在模拟器实测到的 fill α 值与 PRD 推演表不符，按 NFR-2 **重新推演 distinct 数并回改 PRD / US-2 / PRD Success#3 / 本条**——**不得反过来削弱断言去迁就已写好的数字**。本条与它们同在回改名单上。
 3. `diff CLAUDE.md AGENTS.md` 实质分歧 **1 → 0**，有守卫锁住。
 4. 非 `#if DEBUG` 路径未走 `bundle: .module` 的 a11y 字面量（**含插值内层**）**4 → 0**，有守卫锁住。
-5. `docs/snapshots/` 新增**恰好一对** BottomInputBar 快照，porcelain 无其他条目。
+5. `docs/snapshots/` 的 BottomInputBar 快照**恰好一对**由占位图更新为可交互 demo（porcelain 显示 `M`，非 `A`——该对本就存在），无其他条目。
 6. `swift test` 全绿 + `xcodebuild` iOS 腿全绿；测试数不低于**开工时实测记录的基线**（不引用任何历史数字）。
 7. 三个新守卫各附变异自证失败输出；`SurfaceKind` 的靶点是 `surfaceOverlay`，a11y 的靶点在插值内层。
 8. 关闭说明逐子项独立结论，作废项写明来源。
