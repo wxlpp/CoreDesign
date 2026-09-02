@@ -220,17 +220,23 @@ private struct SearchFieldPreview: View {
 ///
 /// ⚠️ **#221 之前这里是一句占位文本**（「通过 `.bottomInputBar` modifier 使用，
 /// 非独立 View」），使 BottomInputBar 成为本库**唯一在 demo 里看不到的组件**。
-/// 提为 public 后可直接构造，于是给它一个真能敲字、能提交、能看见 suggestions
-/// 显隐的宿主。
+///
+/// ⚠️ **演示走 modifier 而不是直接构造 struct**——这是有意的，理由是
+/// **suggestions 只存在于 modifier 面**：`BottomInputBarModifier` 才渲染
+/// `BottomInputBarSuggestionsView`，`BottomInputBar.body` 只有 `mainRow`。
+/// 直接构造 struct 时 `isShowingSuggestions` 只影响魔杖按钮的 a11y traits，
+/// **视觉上不会有任何建议条出现或消失**。任务书要求 demo「非空 suggestions +
+/// 能看到显隐」，只有 modifier 面兑现得了。
 struct BottomInputBarPreview: View {
-    @State private var isShowingSuggestions = true
     @State private var submitted: [String] = []
     @State private var isRunning = false
+
+    private static let suggestions = ["续写下一段", "换个风格", "润色文字", "生成对话"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.sm) {
             if self.submitted.isEmpty {
-                Text("在下方输入并提交，已提交的内容会列在这里。")
+                Text("点输入框左侧的魔杖按钮可展开 / 收起建议条；输入并提交后内容会列在这里。")
                     .font(CoreTypography.Token.footnote.font)
                     .foregroundStyle(Color.contentMuted)
             } else {
@@ -241,21 +247,22 @@ struct BottomInputBarPreview: View {
 
             Toggle("模拟运行中（发送按钮变停止）", isOn: self.$isRunning)
                 .font(CoreTypography.Token.footnote.font)
-            Toggle("显示建议条", isOn: self.$isShowingSuggestions)
-                .font(CoreTypography.Token.footnote.font)
 
-            BottomInputBar(
-                isShowingSuggestions: self.$isShowingSuggestions,
-                placeholder: "说点什么",
-                isRunning: self.isRunning,
-                onStop: { self.isRunning = false },
-                onSubmit: { text in
-                    guard text.isEmpty == false else { return }
-                    self.submitted.append(text)
-                }
-            )
+            Spacer(minLength: CoreSpacing.xl)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
+        .bottomInputBar(
+            suggestions: Self.suggestions,
+            placeholder: "说点什么",
+            autoShowSuggestions: true,
+            isRunning: self.isRunning,
+            onStop: { self.isRunning = false },
+            onSubmit: { text in
+                guard text.isEmpty == false else { return }
+                self.submitted.append(text)
+            }
+        )
     }
 }
 

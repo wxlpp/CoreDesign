@@ -7,6 +7,22 @@
 
 import SwiftUI
 
+// MARK: - BottomInputBar Defaults
+
+/// 组件源码提供的兜底文案。
+///
+/// ⚠️ **按 `#43-1` 处置**：`placeholder` 判 **B 类**（`#67`：无上调动态度的证据 ⇒
+/// 按表面角色判），而 B 类参数「调用方可传参覆盖、但缺省时由组件源码提供」的兜底
+/// **按 A 类处置**——文案写在组件源码里、调用方读不到也改不了这份默认值本身，
+/// 故必须可本地化，不能是裸字面量。
+public enum BottomInputBarDefaults {
+    /// 输入框占位文字的兜底。
+    ///
+    /// 必须是 `public`：它出现在 `BottomInputBar.init` 与 `View.bottomInputBar` 的
+    /// **默认参数值**里，internal 类型无法被 public 默认参数引用。
+    public static var placeholder: String { String(localized: "iMessage", bundle: .module) }
+}
+
 // MARK: - BottomInputBar
 
 /// 浮层输入条。
@@ -49,7 +65,7 @@ public struct BottomInputBar: View {
     ///   - onSubmit: 提交回调，参数为当前文本。
     public init(
         isShowingSuggestions: Binding<Bool>,
-        placeholder: String = "iMessage",
+        placeholder: String = BottomInputBarDefaults.placeholder,
         wandEnabled: Bool = true,
         sendEnabled: Bool = true,
         showMenuButton: Bool = true,
@@ -488,7 +504,7 @@ struct BottomInputBarModifier: ViewModifier {
 public extension View {
     func bottomInputBar(
         suggestions: [String],
-        placeholder: String = "iMessage",
+        placeholder: String = BottomInputBarDefaults.placeholder,
         autoShowSuggestions: Bool = false,
         wandEnabled: Bool = true,
         sendEnabled: Bool = true,

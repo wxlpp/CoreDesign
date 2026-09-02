@@ -1,7 +1,7 @@
 ---
 issue: 221
 started: 2026-09-03
-completion: 95%
+completion: 100%
 ---
 
 # Issue #221 进度
@@ -30,22 +30,47 @@ public 类型表面」。
 - 弃用条款 / 祖父条款：均不适用
 - **步骤 1**：无。`TextFieldStyle` 覆盖不了「浮层容器 + 多个行内按钮 + suggestions
   列表 + 运行态切换」这套复合行为——属任务书点名的 `SearchField` 一类 wrapper 陷阱
-- **步骤 2**（槽/排布/装饰三分法）：
-  - (a) 当前形态：浮起胶囊，按钮与输入框并排同一行
-  - (b) 全宽贴底工具栏 → 与 (a) 差在**背景/外壳画法**，属补充规则 1 的**纯装饰层**
-    ⇒ **不计入 ≥2**
-  - (c) 双层形态（输入框一行、按钮另起一行，Telegram 附件面板展开态）→ 子视图空间
-    关系改变 ⇒ **排布，计入**
-  - 合计只举得出 **1** 个骨架差异，且 (c) 是否算「同含义替代」两可 ⇒ **举得犹豫**
-    ⇒ 落**步骤 4 / tiebreaker**，规定性组件不给扩展点
+- **步骤 2**（⚠️ **初版未过停止规则，已重做**）：初版只枚举 2 个候选、其中一个无具名
+  来源，也没写穷尽声明——按公约「停止规则是走任一出口的前置」，当时**连 tiebreaker
+  这个出口都还不能走**。重做后枚举 **4 个具名候选** + 查过的名单：
+  - (a) 当前形态：浮起胶囊，按钮与输入框并排（Telegram iOS AI 输入条、Apple Messages iOS 26）
+  - (b) 全宽贴底工具栏（Slack iOS、Ant Design Mobile）——⚠️ **改判为「排布」而非「装饰」**：
+    初判只引了补充规则 1（背景/描边/阴影属纯装饰层），漏了**补充规则 3**「组件与周围内容
+    的空间关系改变也算排布」，而「浮起（四周有边距）↔ 贴边全宽（零间距）」正是这种改变
+    ⇒ **计入**
+  - (c) 双层形态（Telegram 附件面板展开态、Discord 移动端）⇒ 排布，计入
+  - (d) 内联展开式（Notion AI 行内输入）⇒ 排布，计入
+  - 查过：Apple HIG / Material 3 / Fluent / Ant Design Mobile + Telegram/Slack/Discord/Notion
+  - ⇒ 举得出 ≥2 个骨架差异，但按**候选形态的作用域条款**，(b)(c)(d) 改的都是「输入条与
+    页面的锚定关系」或「输入与动作的分层」，属**宿主布局决策**而非组件内部可换皮的表面
+    ——换任一形态都要换掉组件本身而非换一个 style ⇒ 落作用域排除项、**举证归零**
+    ⇒ **步骤 4 / tiebreaker**
 - 落点与同族 `SearchField` / `TagInput` 一致（三者都是包 TextField 的 wrapper）
 
-### `placeholder` 分类：C 类
+### `placeholder` 分类：**B 类**（初版判 C，被评审证伪后改判）
 
-裸 `String`、**无 `LocalizedStringKey` / `StringProtocol` 孪生重载** ⇒ 不满足 B 类
-类型判据。缺省值 `"iMessage"` 虽写在源码里，但 #43-1「B 类兜底按 A 类处置」只裁
-**B 类参数**；公约同处明写「本仓另有形态相同但登记为 C 类的兜底」——`SearchField` /
-`TagInput` 的 placeholder 正是该形态 ⇒ 判 **C 类**。
+⚠️ **初版的两条依据都站不住，这里如实记录**：
+
+1. 我写「无 LSK/StringProtocol 孪生重载 ⇒ 不满足 B 类类型判据」——**错用条款**。
+   「无孪生重载」是 `by-type` 小节区分「LSK/LSR 类型参数落 by-type 还是留 B」的筛子，
+   **不是裸 String 参数的 B 类资格判据**。
+2. 我引「本仓另有形态相同但登记为 C 类的兜底（SearchField / TagInput）」作先例——
+   **选择性引用**。公约紧接的下一句就是「它们的分类要不要一并改……**已记为缺陷
+   D-44-4**」。我引了前半句、略掉了缺陷标记，拿一个自身待复判的先例当既定依据。
+
+**改判依据 `#67`**：「上调动态度（判 C）**需要源码或成文证据**；无上调证据 ⇒ 按
+表面角色判 A / B」。实测 BottomInputBar 的 placeholder **没有任何此类证据**——doc
+只写「输入框占位文字」，无 SearchField/TagInput 那种「运行期任意占位文案、调用方
+可能传入分类名等动态字符串」的记载；缺省 `"iMessage"` 是纯 chrome ⇒ 判 **B**。
+
+**连带的 `#43-1` 处置**：B 类参数的缺省兜底按 A 类处置 ⇒ `"iMessage"` 已改为经
+`BottomInputBarDefaults.placeholder`（`String(localized:bundle:.module)`）取值并
+注册进 catalog，不再是裸字面量。该 enum 必须 `public`——internal 类型无法被
+public 默认参数引用（实测编译错误）。
+
+⚠️ **由此产生的不一致已显式记录进登记表 notes**：BottomInputBar 判 B，而形态相同的
+SearchField / TagInput 仍是 C。这是 **D-44-4 的直接后果**，三者应一并复判，
+归属不变（D-44-4 / `oh-my-story#55`）。本条目取 #67 的字面结论，不预判那两条的走向。
 
 ⚠️ **注意两个参数面不要混**：本次分类的是 **struct init 侧**
 `BottomInputBar.init#placeholder`；**modifier 侧** `View.bottomInputBar#placeholder`
@@ -72,10 +97,30 @@ modifier 侧同名条目是**同一批 Bool 的两个入口**，治理动作应�
 
 ## 4 · demo 接通
 
-`ComponentData.swift` 与 `Previews.swift` 的占位文本改为同一个可交互宿主
-`BottomInputBarPreview`：可敲字、可提交（提交内容列在上方）、可切「模拟运行中」
-看发送按钮变停止、可切建议条显隐。两处共用同一宿主——否则 demo 里看到的与快照
-流水线出的图会是两个东西。
+⚠️ **初版走的是直接构造 struct，被评审判为未兑现 DoD**：任务书要求「非空 suggestions +
+能看到显隐」，而 **suggestions 只存在于 modifier 面**——`BottomInputBarModifier` 才渲染
+`BottomInputBarSuggestionsView`，`BottomInputBar.body` 只有 `mainRow`。直接构造时
+`isShowingSuggestions` 只影响魔杖按钮的 a11y traits，**视觉上不会有任何建议条出现或消失**。
+我在 progress 里写的「可切建议条显隐」是**假陈述**。
+
+已改为走 `.bottomInputBar(suggestions:...)` modifier：4 条真实建议、`autoShowSuggestions`
+开启、点魔杖按钮可展开/收起、可敲字提交（内容列在上方）、可切「模拟运行中」看发送变停止。
+`ComponentData.swift` 与 `Previews.swift` 共用同一宿主——否则 demo 里看到的与快照流水线
+出的图会是两个东西。
+
+## 5 · 评审 checkpoint 的处置（BLOCK → 已修）
+
+| 项 | 处置 |
+|---|---|
+| **C-1** demo 未兑现 suggestions | 改走 modifier 面（见上）；init doc 的误导措辞同步改写 |
+| **C-2** placeholder 判 C 的两条依据都站不住 | 改判 B + 按 #43-1 处置兜底（见上） |
+| **I-1** 走查未过停止规则、(b) 漏对质补充规则 3 | 重做走查：4 个具名候选 + 查过的名单；(b) 改判排布 |
+| **I-2** 7 处现在时失真陈述 | 逐处改为过去时 + 现状（评审列了 5 处，我又找到 2 处历史叙述） |
+
+⚠️ **I-2 是「重写后留下旧引用」的又一次**：我提 public 后**没有 grep 被否定命题的
+关键词**，于是 `ComponentRegistryGuard` / `BoolParameterScanner` 里 7 处仍以现在时
+断言「BottomInputBar 没有 public 修饰符 / 走排除而非登记」。讽刺的是其中一处
+（`:311`）本身就在教育「trace 写错会让下一个读者在 100 行内证伪」。
 
 ## 验证
 
@@ -87,5 +132,4 @@ modifier 侧同名条目是**同一批 Bool 的两个入口**，治理动作应�
 
 ## 待完成
 
-- [ ] 通知 `oh-my-story#50`（跨仓移交对象，**只通知不代改**）
-- [ ] `docs/components/bottom-input-bar.md` 更新
+- [ ] 通知 `oh-my-story#50`（跨仓移交对象，**只通知不代改**）——留到 #226 收尾统一做

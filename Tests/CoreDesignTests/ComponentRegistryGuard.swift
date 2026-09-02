@@ -43,8 +43,10 @@ func compareRegistryToScan(scanned: Set<String>, registered: Set<String>) -> (mi
 //   - **2 行漏网**：`BottomInputBar`（`:23`）与 `Toast`（`:78`）——README 已索引、未弃用、
 //     有真实 public API 表面，但完整性判据结构上抓不到（见下方 `PublicTypeCollector`
 //     的「第四个盲区」文档）。已在终审 C1 处置：`Toast` 补登记表 + 加入
-//     `knownOffScannerComponents` 白名单；`BottomInputBar` 定性为排除，写死进
+//     `knownOffScannerComponents` 白名单；`BottomInputBar` **当时**定性为排除，写死进
 //     `docs/component-contract.md` AD-2 与 oh-my-story 的 `38-plan.md` 排除清单。
+//     ⚠️ **`BottomInputBar` 那一半已被 #221 取代**：它提为 public 后按判定法正常登记，
+//     不再是排除项。本段保留为 C1 当时的处置记录。
 // ⇒ 处置后：37 = 37 有归宿，0 漏网。
 //
 // ⚠️ **终审第 2 轮 I1：上面这段「37 = 37」已机器化，不再只是注释**——见
@@ -117,10 +119,10 @@ struct ComponentRegistryGuard {
     ///
     /// ⚠️ **这张表本身是负债，不是解法**：条目数增长就是「盲区扩大」的信号——新条目
     /// 落进来时，先问「能不能扩展扫描器结构性识别它」，答不出来才加白名单占位。
-    /// 现状只有 `Toast` 一条；`BottomInputBar` 同样没有 public 表面类型（详见
-    /// `docs/component-contract.md` AD-2 裁决），但走的是**排除**而非登记，因此不
-    /// 出现在这里——排除的条目本来就不该在 `component-registry.json` 里有条目，
-    /// 无需白名单豁免。
+    /// 现状只有 `Toast` 一条。
+    /// ⚠️ **`BottomInputBar` 曾是这段说明里的第二个例子**（当时它「同样没有 public
+    /// 表面类型、走排除而非登记」）——#221 把它提为 public 后，扫描器**能采到它**，
+    /// 它已按判定法正常登记，既不在本白名单也不在排除集合里。此处保留为成因记录。
     static let knownOffScannerComponents: Set<String> = ["Toast"]
 
     // MARK: - README 索引 ↔ 登记表对账（终审第 2 轮 I1）
@@ -129,9 +131,8 @@ struct ComponentRegistryGuard {
     /// （若出现，说明组件「复活」了，需要回填登记表并把名字从这张表移走）。
     static let knownReadmeTombstones: Set<String> = ["Typography", "EmptyState"]
 
-    /// 显式排除：裁决明确「不登记」的 README 行名。`FlowLayout` 是裁决 D1（Layout 不是
-    /// 组件）；`BottomInputBar` 是裁决 AD-2（没有可被判定法审查的 public 类型，详见
-    /// `docs/component-contract.md` AD-2）。同样反向不得出现在 `scanned` 里——出现即说明
+    /// 显式排除：裁决明确「不登记」的 README 行名。现存唯一一条是 `FlowLayout`
+    /// （裁决 D1：Layout 不是组件）。同样反向不得出现在 `scanned` 里——出现即说明
     /// 源码形态变了，排除裁决需要重新核对。
     /// ⚠️ **`BottomInputBar` 已于 #221 移出本集合**：它此前在这里，依据是终审 C1
     /// 「struct 无 public 修饰符 ⇒ 没有可被 `PublicTypeCollector` 采集的 public 类型
@@ -308,7 +309,8 @@ struct ComponentRegistryGuard {
         // ⚠️ **上一版这段注释把四个 key 的归因写错了**（终审复审 I-A）：写成
         // 「`Sidebar`/`spinning` 在 `knownReadmeAuxiliaryNames` 返回、`Button`/`FloatButton`
         // 在 `knownExcludedReadmeRows` 返回」—— 而 `knownReadmeAuxiliaryNames` 只有
-        // `["RadioOption"]`、`knownExcludedReadmeRows` 只有 `["FlowLayout", "BottomInputBar"]`。
+        // `["RadioOption"]`、`knownExcludedReadmeRows` 只有 `["FlowLayout"]`
+        // （#221 前还含 `BottomInputBar`）。
         // 「死代码」这个**结论**不受影响，但 trace 写错会让下一个读者对两张表的内容得出
         // **在 100 行内就能证伪**的错误认知 —— 而 C-1 之所以是 Critical，正是因为
         // 「三处声称与代码不符」。同一把尺子也量这段注释。
@@ -820,10 +822,11 @@ struct ComponentRegistryGuard {
 ///   没有一个是 `public struct: View`——本类**完全看不到它们**，`registryCoversCoreDesignTypes`
 ///   此前的双向差集因此永远不会因为 `Toast` 缺条目而变红（零命中 ⇒ 零缺失 ⇒ 假绿，
 ///   与本类其余盲区同一种病：看不见不等于没有）。
-/// - `BottomInputBar`：`struct BottomInputBar: View` **没有 `public` 修饰符**（只有
-///   `public extension View { func bottomInputBar(...) }` 这一层暴露），本类的
+/// - ⚠️ **`BottomInputBar` 曾是本盲区的第二个实例，#221 已使其出盲区**：当时
+///   `struct BottomInputBar: View` 没有 `public` 修饰符，本类的
 ///   `visit(_:StructDeclSyntax)` 一开始就 `guard node.modifiers.contains("public")`，
-///   同样整体不可见。
+///   于是整体不可见。#221 把它提为 public 后**扫描器能采到它**，它已按判定法登记。
+///   盲区**机制本身不变**（非 public 类型仍整体不可见），只是少了一个实例。
 ///
 /// **现状如何处置**：`Toast` 已人工登记进 `component-registry.json`（终审 C1），并把
 /// 条目名加进 `ComponentRegistryGuard.knownOffScannerComponents` 白名单，豁免
@@ -831,7 +834,9 @@ struct ComponentRegistryGuard {
 /// 会被永久判「幽灵」）。`BottomInputBar` 走另一条路——公约 AD-2 明确排除「连 public
 /// 类型都没有的 modifier 写法」，因此**不登记**，改为在 `docs/component-contract.md`
 /// AD-2 与 `oh-my-story` 的 `38-plan.md` 排除清单里点名写死，并把它的 6 个 Bool 参数
-/// 移交 `39.md` 给 J-1/FR-4 执行者。⚠️ 本注释与上面白名单注释一样是**留痕**，不是
+/// 移交 `39.md` 给 J-1/FR-4 执行者。⚠️ **这段处置已被 #221 取代**：它提为 public 后
+/// 走的是正常登记，不再需要排除条款；其 Bool 参数在 struct 与 modifier 两面各自
+/// 登记豁免（见 `docs/bool-exemptions.json`）。⚠️ 本注释与上面白名单注释一样是**留痕**，不是
 /// **结构修复**——修复需要让 `PublicTypeCollector` 同时认出「public 但非 View/
 /// ViewModifier 的类型」，成本明显更高（要重新定义『组件』在语法树上的判据，而不是
 /// 加一个 conformance 名字），本次终审判断为超出 C1 的最小必要修复范围，留给后续任务。
