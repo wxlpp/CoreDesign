@@ -1,7 +1,7 @@
 ---
 name: shipswift-harvest
 description: 从 ShipSwift(MIT) 收割 CoreDesign 真空缺的表达性视觉层——36 个纯 SwiftUI 动效 API、28 个 Metal shader、4 个 Swift Charts 画不出来的图表——落成三个新 target，并在 structure 阶段拆为「非 Metal」与「Metal」两个独立 epic
-status: backlog
+status: active
 created: 2026-09-02T22:50:16Z
 ---
 
