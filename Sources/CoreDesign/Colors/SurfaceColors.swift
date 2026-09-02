@@ -18,12 +18,19 @@ import SwiftUI
 // `surfaceInteractive` 别名服务的 `SearchField` / `SegmentedControl` /
 // `LightButtonStyle` / `CircularGlassButtonStyle`）精确对应。
 //
-// `surfaceSidebar` 走 `surfaceCanvasSubtle`（而非字面对齐 `surfaceGrouped`）：
-// 侧栏在实际消费点（`Sidebar`、`App` 宿主的分栏布局）里需要与主画布区隔开的
-// "次级面板"观感——macOS 降级后 `surfaceGrouped`/`surfaceCanvas` 落
-// `windowBackgroundColor`（画布本体），`surfaceCanvasSubtle` 落
-// `controlBackgroundColor`（可辨识的次级背景），后者更符合"侧栏应与画布区隔"
-// 的实际使用场景。
+// `surfaceSidebar` 走 `surfaceElevated`（= `tertiarySystemGroupedBackground`，Issue #220
+// 起；此前走 `surfaceCanvasSubtle`）：侧栏容器需要与主画布**和**内容表面都区隔开。
+//
+// ⚠️ **实际消费点只有 App 预览宿主的分栏布局三处**（`ContentView.swift` /
+// `Previews.swift` / `ComponentData.swift` 各一处 `Color.surfaceSidebar`）。
+// 库内 `Sidebar` 组件**不消费本 token**、也不调 `.surface(.sidebar)`——旧注释
+// 把它列为消费点是失真，#220 更正。iOS 深色下三档因此各得一色
+// （画布 `#000000` / 内容 `#1C1C1E` / 侧栏 `#2C2C2E`）；iOS 浅色与 macOS 下受系统色族
+// 取值数限制会与其中一档同值，属物理下限，见该 token 的 doc comment。
+//
+// `surfacePanel` / `surfaceOverlay` 走**填充族**（`quaternaryFill` / `secondaryFill`）
+// 而非背景族：它们服务的 `.panel` / `.overlay` / `.floating` 都是**叠在别人之上**的表面，
+// 按 #122 裁决应取半透明填充色。详见各自 doc comment 与 `Badge.swift` 的完整论证。
 public extension Color {
     static var surfaceBase: Color {
         .systemBackground
@@ -57,8 +64,17 @@ public extension Color {
         .surfaceCanvasInset
     }
 
+    /// 浮层表面背景（服务 `.surface(.floating)`：toast、浮动工具栏、底部栏）。
+    ///
+    /// **走填充族而非背景族**（Issue #220，同 `surfacePanel` 的理由）。取 `secondaryFill`
+    /// 而非更淡的档位，依据有二：① z 序最高的浮件需要最强的存在感；
+    /// ② `Badge.swift` 已实测 `secondaryFill`（浅色 α=0.161 / 深色 α=0.322）在
+    /// `surfaceBase` / `surfaceCanvas` / `surfaceRaised` 三种父容器、两种外观下
+    /// **均逐位不同**（#122 于 `Badge.swift` 实测；观感是否分得开归 Issue #225）。
+    ///
+    /// - Warning: 本档**半透明**，注意事项同 `surfacePanel`。
     static var surfaceOverlay: Color {
-        .surfacePanel
+        .secondaryFill
     }
 
     // MARK: - Semantic surface variants / 语义表面变体
@@ -82,21 +98,37 @@ public extension Color {
         .tertiaryFill
     }
 
-    /// 卡片群之上的面板容器；接近现有 `surfaceGroupedRaised`，与其别名目标
-    /// `surfaceCanvasSubtle` 同值。
+    /// 面板 / 覆盖层容器背景（服务 `.surface(.panel)` 与 `.surface(.overlay)`）。
     ///
-    /// - Note: Issue #140 后，`.surface(.panel)` 的背景与 `.surface(.card)` 同值
-    ///   （二者均解析到 `secondarySystemGroupedBackground`），层级差异改由**边框**
-    ///   表达（panel 用 `borderDefault`、card 用 `borderMuted`），不再靠背景色区分。
-    ///   9 个 `SurfaceKind` 收敛为 3 个 distinct 背景的完整数据与缓议见 issue #140。
+    /// **走填充族而非背景族**（Issue #220）：菜单、popover、面板是**叠在别的内容之上**的
+    /// 大区域容器，按 #122 的裁决（`Badge.swift` 有完整论证）——叠加层该用 `FillColors`
+    /// （半透明、专为叠加设计），充当底层的才用 `SurfaceColors`。取 `quaternaryFill`
+    /// （HIG 语义「大区域复杂内容」），是四档填充里最克制的一档。
+    ///
+    /// - Note: `.panel` 与 `.overlay` 走**同一个** token（见 `SurfaceModifier.swift` 的
+    ///   switch），且 border 与 cornerRadius 也完全相同——二者今天就是全等的两个 case，
+    ///   `.panel` 的 doc comment 本就写着「兼容别名」。该恒等是**结构性**的
+    ///   （同一 token、同一 switch 分支形态），**没有测试守卫**：switch 在
+    ///   `private extension`、`@testable` 够不到，token 层只能写出恒真断言。
+    ///   kind→token 映射归视觉复核（Issue #225）覆盖。
+    /// - Warning: 本档**半透明**，其下内容会透出。需要不透明浮层请用 `floatingGlass`
+    ///   或 `.surface(.content)`；也**不宜再叠 `.coreShadow(_:)`**——阴影会从半透明
+    ///   背景透上来把表面压脏。
     static var surfacePanel: Color {
-        .surfaceCanvasSubtle
+        .quaternaryFill
     }
 
-    /// 侧栏 / 导航容器背景。走 `surfaceCanvasSubtle`（而非 `surfaceGrouped`），
-    /// 因为它在 macOS 降级后能与画布本体形成可辨识的次级背景层级——见文件顶部说明。
+    /// 侧栏 / 导航容器背景。走 `surfaceElevated`（= `tertiarySystemGroupedBackground`），
+    /// 使它在 **iOS 深色**下与画布（`#000000`）、内容表面（`#1C1C1E`）三档分开
+    /// （侧栏得 `#2C2C2E`）。
+    ///
+    /// - Note: **iOS 浅色下与 `surfaceCanvas` 同值**（一级与三级 grouped 背景在浅色
+    ///   下同为 `#F2F2F7`）；**macOS 下与 `surfaceCard` 同值**（AppKit 无 grouped
+    ///   三级族，二/三级双双落 `controlBackgroundColor`）。两处均为系统色族的物理
+    ///   下限、非本库缺陷，已分别在 `SurfaceContrastTests` 与
+    ///   `SystemBackgroundColorsMacOSTests` 钉成显式相等断言。
     static var surfaceSidebar: Color {
-        .surfaceCanvasSubtle
+        .surfaceElevated
     }
 
     /// 卡片容器背景。Phase 1 曾让卡片刻意贴近画布、只靠边框拉开层级

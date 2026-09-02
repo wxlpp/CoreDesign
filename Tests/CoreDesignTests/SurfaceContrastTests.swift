@@ -20,10 +20,18 @@ import Testing
 // 不是「肉眼可辨」。Badge 那个 bug 正是逐位相同（双方都是 `#FFFFFF`），所以这个判据
 // 对该类回归是足够的；但它抓不到「差一点点、肉眼仍不可辨」的情形。
 //
-// 之所以不上感知色差阈值：那需要选一个色彩空间感知均匀的度量（裸 sRGB 通道差不是），
-// 并且**当前代码库里没有任何近似撞色的真实案例可用来标定阈值**——现有 token 两两之间
-// 都差着几十个色阶。在没有具体驱动案例的情况下引入阈值，只会带来误报风险而无实际收益。
-// 若将来真出现近似撞色，再按那个案例标定。
+// 之所以不上感知色差阈值：那需要选一个色彩空间感知均匀的度量（裸 sRGB 通道差不是）。
+//
+// ⚠️ **Issue #220 推翻了这段原本的理由**。此前这里写的是：库内不存在可用来标定阈值的
+// 相近色案例，现有 token 两两之间都差着几十个色阶。#220 把
+// `.floating` / `.overlay` / `.panel` 改指填充族后，**三档填充的 RGB 几乎相同、
+// 只靠 α 区分**（实测 tertiaryFill 浅 `#7676801F` / 深 `#7676803D`），这就是**首批
+// alpha-only 的近撞案例**——它们在本 suite 的逐位判据下会**平凡通过**，而肉眼是否
+// 分得开，本 suite 答不了。
+//
+// 现在不上阈值的理由变成：观感判断已有专门归口——**视觉复核（Issue #225）的截图评审**，
+// 那里才回答"浮起来了没有"。本 suite 的担保范围**仅止于逐位不同**，请勿据它下
+// 「可辨」结论。
 
 #if os(iOS)
 @Suite("叠加元素与父背景不同色")
@@ -130,5 +138,117 @@ struct SurfaceContrastTests {
             }
         }
     }
+
+    // MARK: - SurfaceKind 取值分化（Issue #220）
+
+    /// `SurfaceKind` 各档位背后的 token。**守卫打在 token 层**——
+    /// `SurfaceKind.background` 的 switch 在 `private extension`（`SurfaceModifier.swift`），
+    /// `@testable` 也够不到，故本组断言**不护 kind→token 映射**，只护 token 别名指向。
+    /// 映射本身由视觉复核（#225）覆盖。
+    private static let kindTokens: [(kind: String, token: Color)] = [
+        ("canvas", .surfaceCanvas),
+        ("content/card/grouped", .surfaceCard),
+        ("canvasSubtle", .surfaceCanvasSubtle),
+        ("sidebar", .surfaceSidebar),
+        ("control", .surfaceInteractive),
+        ("floating", .surfaceOverlay),
+        ("overlay/panel", .surfacePanel),
+    ]
+
+    @Test("iOS 深色：SurfaceKind 的 token 解析出 6 个 distinct 值")
+    func surfaceKindTokensAreSixDistinctInDark() {
+        let e = Self.env(.dark)
+        let resolved = Set(Self.kindTokens.map { $0.token.resolve(in: e) })
+        let detail = Self.kindTokens.map { "\($0.kind)=\($0.token.resolve(in: e))" }.joined(separator: " / ")
+        #expect(
+            resolved.count == 6,
+            "iOS 深色 distinct 应为 6，实际 \(resolved.count)：\(detail)"
+        )
+    }
+
+    @Test("iOS 浅色：SurfaceKind 的 token 解析出 5 个 distinct 值（canvas 与 sidebar 同值）")
+    func surfaceKindTokensAreFiveDistinctInLight() {
+        let e = Self.env(.light)
+        let resolved = Set(Self.kindTokens.map { $0.token.resolve(in: e) })
+        let detail = Self.kindTokens.map { "\($0.kind)=\($0.token.resolve(in: e))" }.joined(separator: " / ")
+        #expect(
+            resolved.count == 5,
+            "iOS 浅色 distinct 应为 5，实际 \(resolved.count)：\(detail)"
+        )
+    }
+
+    @Test("已知相等项钉死：content 族恒等、浅色 canvas 与 sidebar 同值")
+    func knownEqualitiesArePinned() {
+        // 这些不是缺陷，是有意的设计——钉成显式断言，避免将来被「顺手改掉」而无人察觉，
+        // 也避免有人误读 distinct 数为「每个 kind 各有一色」。
+        for scheme in [ColorScheme.light, .dark] {
+            let e = Self.env(scheme)
+            #expect(
+                Color.surfaceCard.resolve(in: e) == Color.surfaceCanvasSubtle.resolve(in: e),
+                "\(scheme)：content/card/grouped 与 canvasSubtle 应同值（文档化别名族）"
+            )
+        }
+        // ⚠️ **`.overlay` 与 `.panel` 的恒等本组守卫护不了，这里刻意不写断言。**
+        // 二者走同一个 token（`SurfaceModifier.swift` 的 switch），border 与
+        // cornerRadius 也完全相同——恒等是**结构性**的，不是取值巧合。
+        // 而 switch 在 `private extension`、`@testable` 够不到，token 层能写出的
+        // 只有 `surfacePanel == surfacePanel` 这种**恒真断言**：它永不失败，
+        // 写了等于把「结构上无需守」包装成「已有断言守着」。
+        // kind→token 映射的正确性归视觉复核（Issue #225）。
+        // 浅色下 systemGroupedBackground 与 tertiarySystemGroupedBackground 同为 #F2F2F7。
+        let light = Self.env(.light)
+        #expect(
+            Color.surfaceCanvas.resolve(in: light) == Color.surfaceSidebar.resolve(in: light),
+            "浅色：canvas 与 sidebar 应同值——这是 iOS 浅色背景族的物理下限，不是缺陷"
+        )
+        // 深色下三者必须分开。
+        let dark = Self.env(.dark)
+        #expect(
+            Color.surfaceCanvas.resolve(in: dark) != Color.surfaceSidebar.resolve(in: dark),
+            "深色：canvas 与 sidebar 应可分"
+        )
+        #expect(
+            Color.surfaceCard.resolve(in: dark) != Color.surfaceSidebar.resolve(in: dark),
+            "深色：content 与 sidebar 应可分"
+        )
+    }
+
+    @Test("三个叠加档位（control / floating / overlay+panel）走填充族且两两不同")
+    func overlayKindsUseDistinctFills() {
+        for scheme in [ColorScheme.light, .dark] {
+            let e = Self.env(scheme)
+            let control = Color.surfaceInteractive.resolve(in: e)
+            let floating = Color.surfaceOverlay.resolve(in: e)
+            let panel = Color.surfacePanel.resolve(in: e)
+            for (name, v) in [("control", control), ("floating", floating), ("overlay/panel", panel)] {
+                #expect(v.opacity < 1.0, "\(scheme)：\(name) 不再半透明——叠加档位应走 FillColors")
+            }
+
+            // α 的**实测值**（iPhone 17 Pro / iOS 26.4 模拟器，Issue #220 实测钉死；
+            // 不是从文档抄来的预期值）：
+            //   secondaryFill (floating)      浅 #78788029 α≈0.161 / 深 #78788052 α≈0.322
+            //   tertiaryFill  (control)       浅 #7676801F α≈0.122 / 深 #7676803D α≈0.239
+            //   quaternaryFill(overlay/panel) 浅 #74748014 α≈0.078 / 深 #7676802E α≈0.180
+            //
+            // 三档的 RGB 几乎相同（#787880 / #767680 / #747480），**区分几乎全靠 α**。
+            // 这正是本 suite 逐位判据的软肋：下面的 != 断言会平凡通过，但"叠上去看不看得出
+            // 层级"本 suite 答不了——那由视觉复核（Issue #225）回答。
+            //
+            // 断言 α 的**序**而非具体值：序才是设计意图（z 序越高、存在感越强），
+            // 具体值随系统版本可动。
+            #expect(
+                floating.opacity > control.opacity,
+                "\(scheme)：floating(secondaryFill) 的 α 应高于 control(tertiaryFill)——z 序最高的浮件需要最强存在感"
+            )
+            #expect(
+                control.opacity > panel.opacity,
+                "\(scheme)：control(tertiaryFill) 的 α 应高于 overlay/panel(quaternaryFill)"
+            )
+            #expect(control != floating, "\(scheme)：control 与 floating 同值")
+            #expect(control != panel, "\(scheme)：control 与 overlay/panel 同值")
+            #expect(floating != panel, "\(scheme)：floating 与 overlay/panel 同值")
+        }
+    }
 }
 #endif
+
