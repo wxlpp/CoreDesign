@@ -221,6 +221,52 @@ struct AccessibilityStringLiteralGuard {
         )
     }
 
+    @Test("每条豁免都必须对应一处真实命中——不许有死豁免")
+    func exemptionsAreNotDead() throws {
+        // ⚠️ **本条来自本地 Copilot CLI 评审**。#222 初版登记 `TagInput.swift:105`
+        // 作「锚定首例」，而那一行是 `.accessibilityLabel(Text(self.placeholder))`
+        // ——**不含任何字符串字面量**，守卫本就不会标记它。于是那条豁免：
+        //
+        //   1. 当前**什么都没守住**（登记了一个空靶）；
+        //   2. 更糟：若将来有人把该行改成裸字面量（`Text("Add tag")` 这个键历史上
+        //      真实存在过），豁免会**继续生效、静默放行**这个真实回归。
+        //
+        // 这正是 #222 自己反复强调要防的「登记了 ≠ 守住了」——我给它配的锚定首例
+        // 本身就是这个病。故加本条自检：**把豁免摘掉后必须真的判红**，否则它是死的。
+        let root = Self.repoRoot()
+        let sources = root.appendingPathComponent("Sources/CoreDesign")
+        let exempt = try Self.exemptedSites()
+
+        var deadSites: [String] = []
+        for site in exempt {
+            let parts = site.split(separator: ":")
+            guard parts.count == 2, let lineNo = Int(parts[1]) else {
+                deadSites.append("\(site)（格式非法，应为「相对路径:行号」）"); continue
+            }
+            let url = root.appendingPathComponent(String(parts[0]))
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+                deadSites.append("\(site)（文件不存在）"); continue
+            }
+            // 无视豁免地扫一遍：该站点必须**确实**产出字面量，否则这条豁免是空靶。
+            let hit = Self.accessibilityCallSpans(in: text).contains { span in
+                span.line == lineNo
+                    && !span.body.contains("bundle: .module")
+                    && !Self.stringLiterals(in: span.body).isEmpty
+            }
+            if !hit { deadSites.append(site) }
+        }
+
+        #expect(
+            deadSites.isEmpty,
+            """
+            以下豁免条目**不对应任何真实违规**（死豁免）：
+            \(deadSites.joined(separator: "\n"))
+            死豁免有两重害处：现在什么都没守住；将来该行真的回归成裸字面量时会被静默放行。
+            处置：删掉该条；确有需要豁免时，等它真的被守卫标记出来再登记。
+            """
+        )
+    }
+
     @Test("扫描器能看见跨行调用——评审实测的失明形态")
     func scannerSeesCrossLineCalls() {
         // ⚠️ 首版按物理行扫描，下列形态**全部漏报**（评审实测）。逐个钉死。
