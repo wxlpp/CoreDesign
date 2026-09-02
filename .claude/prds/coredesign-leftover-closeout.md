@@ -249,7 +249,13 @@ $ sed -n '64p;67p' Sources/CoreDesign/Modifier/SurfaceModifier.swift
 | **iOS 浅色** | **5** | `#F2F2F7`{canvas,**sidebar**} / `#FFFFFF`{content,card,grouped,canvasSubtle} / 三个 fill 各一组 |
 | **macOS** | **5** | windowBg{canvas} / controlBg{content,card,grouped,canvasSubtle,**sidebar**} / 三个 NSColor fill 各一组 |
 
-改后从 **3 个 distinct 背景**（当前）提升到 **iOS 深色 6 / iOS 浅色 5 / macOS 5**。
+改后从 **3 个 distinct 背景**（当前）提升到 **iOS 深色 6 / iOS 浅色 4 / macOS 5**。
+
+> ⚠️ **iOS 浅色由 5 改为 4**（#225 视觉终审后回改，走的正是 FR-2 的逃生条款）：
+> `.floating` 因浅色语义反向改按外观分道、浅色取 `systemBackground`（`#FFFFFF`），
+> 而浅色 `.content` 已是纯白 ⇒ 二者**必然同值**。这是系统色族的**结构性上限**
+> （不存在比纯白更亮的不透明色；iOS 浅色靠阴影表达抬起，而本 kind 只给一个 `Color`），
+> 不是取值没调好。已钉成显式相等断言。
 
 不删任何 case，不改任何 case 的 `border` / `cornerRadius`，不改 `surfaceCanvas` / `surfaceCard` / `surfaceRaised` / `surfaceCanvasSubtle` / `surfaceInteractive` / `surfaceCanvasInset`。
 
@@ -454,7 +460,7 @@ FR-1 是同名换值（记入 `BREAKING-CHANGES` 的视觉变更条目，非源�
 
 1. `gh issue list --state open` 在 CoreDesign 上返回 **0 个** issue（当前 3 个）。
 2. `SurfaceColors.swift` 中不再有指向已 closed issue 的待办式注释（以 grep 输出为证）。
-3. `SurfaceKind` 的 distinct 解析值数从当前的 **3** 提升到 **iOS 深色 6 / iOS 浅色 5 / macOS 5**（数字出自 FR-1 推演表）；全部已知相等项（含 `{.overlay,.panel}` 恒等）各有显式相等断言钉住。iOS 两组断言在 **iOS Simulator** 上按 `Color.Resolved` 执行；**macOS 组走 `swift test` 且断言在 token 身份层**（Resolved 层在无 WindowServer 会话下不可用，见 US-2 边界注第 2 条）。变异自证记录已附（靶点为 `surfaceOverlay`）。**本条不主张任何观感结论**——「可辨」由 Success #9 承担。
+3. `SurfaceKind` 的 distinct 解析值数从当前的 **3** 提升到 **iOS 深色 6 / iOS 浅色 4 / macOS 5**（浅色由推演表的 5 经 #225 视觉终审回改为 4，见 FR-1 的结构性上限说明——这正是 FR-2 逃生条款要求的「重推数字而非削弱断言」）；全部已知相等项（含 `{.overlay,.panel}` 恒等）各有显式相等断言钉住。iOS 两组断言在 **iOS Simulator** 上按 `Color.Resolved` 执行；**macOS 组走 `swift test` 且断言在 token 身份层**（Resolved 层在无 WindowServer 会话下不可用，见 US-2 边界注第 2 条）。变异自证记录已附（靶点为 `surfaceOverlay`）。**本条不主张任何观感结论**——「可辨」由 Success #9 承担。
 4. `diff CLAUDE.md AGENTS.md` 的实质分歧数从 **1** 降到 **0**，由自动守卫锁住。
 5. 非 `#if DEBUG` 路径下未走 `bundle: .module` 的 a11y 字面量（**含插值内层**）从 **4** 降到 **0**，由自动守卫锁住。
 6. `docs/snapshots/` 的 BottomInputBar 快照**恰好一对**（`.png` + 同名 `.json`）由占位图更新为可交互 demo，且 `git status --porcelain docs/snapshots` 不含其他条目。
