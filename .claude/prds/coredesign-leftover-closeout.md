@@ -1,7 +1,7 @@
 ---
 name: coredesign-leftover-closeout
 description: 清算 CoreDesign 三个 open 遗留 issue（#115 / #136 / #139），把仍成立的项修掉、已作废的项如实注销、悬空的 epic 指针关闭
-status: backlog
+status: completed
 created: 2026-09-02T13:19:16Z
 ---
 
