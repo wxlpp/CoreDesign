@@ -47,7 +47,9 @@ resource 体积预算（NFR-2）；③ 独立的许可核验闸（C-6）与整�
   + **D-1 Metal spike** + **C-6 许可核验**。
 - **Epic A「效果与图表」** = 36 个 SwiftUI 动效 + 4 个图表。依赖 A0。
 - **Epic B「Metal」** = `CoreDesignShaders` target + 28 个 shader。
-  **前置 = A0 的 D-1 ∧ C-6 双双通过**；任一不过，Epic B 整体不启动，A0 / A 不受影响。
+  **启动条件 = A0 的 D-1 ∧ C-6 双双通过**（任一不过，Epic B 整体不启动，A0 / A 不受影响）；
+  ⚠️ **前置 = A0-2 ~ A0-6 全部完成**——两闸只是**启动条件**，B-1 另有对 target 骨架、
+  守卫根、probe 的隐式依赖，详见 Epic 分解草案。
 
 ⚠️ **两闸放 A0 而不放 A 或 B**（第 2 轮评审 I-5）：闸挂在 Epic B 内的话，"B 未启动"就
 没有操作定义（闸本身是 B 的第一个 task，B 不启动闸也不会跑）；挂在 Epic A 内则让
@@ -58,9 +60,9 @@ A 的完成度取决于一件与它无关的事。⇒ 两闸都是 A0 的交付�
 `product:` 条目、probe 的 nonisolated 调用点、README 索引小节全是空壳。
 
 ⚠️ **不拆成多个 PRD 的理由**：三 target 拓扑、守卫方案、AD-4 是三个 epic **共享的地基
-决策**，拆 PRD 会导致它们要么重复写、要么跨 PRD 引用。A0 的抽出同时解决了第 2 轮评审
-指出的密度问题——原 Epic A 的 10 个 task 里有 4 个是地基，抽走后各 epic 都落回本仓
-历史的 5–13 task 区间。
+决策**，拆 PRD 会导致它们要么重复写、要么跨 PRD 引用。A0 的抽出同时缓解了第 2 轮评审
+指出的密度问题——原 Epic A 的 10 个 task 里有 4 个是地基。抽走后 **A0（6）与 A（7）落回
+本仓历史的 5–13 task 区间；B 目前 4 个，按 B-2 / B-3 标注的分组拆开后才进入**。
 
 ### 本 PRD 的核心判断
 
@@ -197,7 +199,8 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
     ① 提交 **3 份** metallib（`iphoneos` / `iphonesimulator` / `macosx`）；
     ② `.copy(...)` 进 bundle，运行时按 `#if targetEnvironment(simulator)` / `os(macOS)` 选文件；
     ③ `.metal` 源必须从 target sources 里 **`exclude:`**，否则 swiftbuild / xcodebuild 会
-    再编一份与 `.copy` 的产物冲突；
+    再编一份同名 `default.metallib`——与 `.copy` 的那份**冗余**（不是冲突，见下方④），
+    但运行时加载哪一份不确定；
     ④ 配 `scripts/build-metallib.sh` + 一条校验 metallib 与 `.metal` 源同步的守卫
     （否则改了 shader 忘了重编 = 静默用旧效果）。
     ⚠️ **同步守卫不得用"重编再比对二进制"**——metallib 产物跨 Xcode 版本不保证逐字节稳定。
@@ -366,7 +369,7 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
 | # | 指标 | 判据 |
 |---|---|---|
 | SC-1 | Epic A 落地量 | 40 个 API 单位（36 动效 + 4 图表）中 ≥ 37 项"可用" |
-| SC-2 | Epic B 落地量 | ① `docs/shader-provenance.md` 覆盖全部 28 个 shader，无空裁定；② 裁定为可落地者 **100%** "可用"；③ 可落地数 **≥ N**（N 按 C-6 的经济性方法由 D-1 结论反推，不取 7——取 7 是同义反复）。⚠️ 三条 AND——初版只写②，核验通过 0 个时会自动满足，是空真判据 |
+| SC-2 | Epic B 落地量 | ① `docs/shader-provenance.md` 覆盖全部 28 个 shader，无空裁定；② 裁定为可落地者 **100%** "可用"；③ 可落地数 **≥ N_B**（按 C-6 的经济性方法由 D-1 结论反推，不取 7——取 7 是同义反复）。⚠️ 三条 AND——初版只写②，核验通过 0 个时会自动满足，是空真判据 |
 | SC-3 | CI 全绿 | 四条腿全绿，且 NFR-6 的 scheme 改动经实测确认新测试真的在跑 |
 | SC-4 | 核心库零回归 | `CoreDesign` 公开 API 表面 diff 为空；`swift build --target CoreDesign` 独立绿 |
 | SC-5 | 颜色纪律 | `EffectsColorLiteralGuard` 零违规 |
@@ -469,7 +472,7 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
        它们，**新建扩展成员扫描器的成本必须计入 AD-4-a**，不得隐含。
      - ⚠️ **同时钉死 11 个 `layerEffect` 的公开形态**：本 PRD 其余段落有两处口径不一
        （US-3 说它们是"View 扩展 modifier"，成本重估段又把 28 个 shader 全算作 public View
-       struct）。两句只能对一句，且它直接决定裁决判据里的 N。**本 PRD 定为：11 个
+       struct）。两句只能对一句，且它直接决定 AD-4 裁决判据里的类型数 **P**（⚠️ 与 C-6 的 shader 下限 `N_B` 是两个不相干的量，勿混）。**本 PRD 定为：11 个
        `layerEffect` 落成 `public struct … : ViewModifier` + `public extension View` 便利方法**
        ⇒ 计入射程，28 个 shader 全部是 public 类型，N 口径统一。
   **成本量级**：轻公约本体预计 150–250 行（对照公约本体 1410 行），加两条守卫与一条
@@ -480,13 +483,13 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
   **AD-4-b（fallback）**：按 AD-2 原样执行，public `View` 类型批量以步骤 3 登记
   prescriptive，扫描根改为多 target。
 
-  **裁决判据（什么条件下选 a）**：轻公约本体 + 三条守卫的固定成本 **<** N 个 public
+  **裁决判据（什么条件下选 a）**：轻公约本体 + 三条守卫的固定成本 **<** **P** 个 public
   类型走完整判定法（含步骤 2 的"≥3 具名业界候选或穷尽四家基线"举证义务）+ 逐条 notes。
   ⚠️ **两侧的估法不对称，不能都用"抽 2 个样本"**（第 3 轮评审 S-5）：
   - **a 侧成本以固定项为主**（公约本体 + 三条守卫），抽样估不出 ⇒ 按**既有守卫的体量类比**
     （如 `AccessibilityStringLiteralGuard` 16KB / `BoolParameterScanner` 68KB）。
   - **b 侧成本是逐条 × N** ⇒ **实做 2 个样本外推**。
-  - ⚠️ **N 只算 `CoreDesignEffects` + `CoreDesignShaders`**——Charts 已推荐走 b，
+  - ⚠️ **P 只算 `CoreDesignEffects` + `CoreDesignShaders`**——Charts 已推荐走 b，
     它不该出现在"a vs b"的比较里。
   ⚠️ **诚实的成本重估**：`Transition` 静态成员不是 `View`/`ViewModifier`，扫描器结构上
   看不见；按 `SurfaceModifier` 写法（internal struct + `public extension View`）的 modifier
@@ -515,13 +518,13 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
   ② 新 `.metal` 文件头注明参考实现 URL + 其许可；③ 评审**对照参考实现**核，不对照 ShipSwift。
 
   ⚠️ **闸的"通过"定义**：裁定表覆盖全部 28 个 shader（无空行）**且**裁定为可落地
-  （前两类）的数量 **≥ N**。
-  ⚠️ **N 不得直接取 7**（第 3 轮评审 S-3）：7 恰好等于已知 MIT 来源的那 7 个，
+  （前两类）的数量 **≥ N_B**。
+  ⚠️ **N_B 不得直接取 7**（第 3 轮评审 S-3）：7 恰好等于已知 MIT 来源的那 7 个，
   取 7 等于"表填满即通过"，是同义反复。**N 由 D-1 结论产出后按经济性反推**：
   Epic B 的固定基建成本（切构建系统 / 3 份 metallib + 同步守卫 / 新 target + product /
   CI 改动 / probe / 画廊 / 文档）≈ B-1 + B-4 两个 task；除以每 shader 的边际成本，
-  得到"值得为几个 shader 付这笔固定成本"的下限。**AD-4 / D-1 未出结论前 N 留空，
-  但 N 的推导方法在此钉死，不接受拍脑袋。**
+  得到"值得为几个 shader 付这笔固定成本"的下限。**AD-4 / D-1 未出结论前 N_B 留空，
+  但 N_B 的推导方法在此钉死，不接受拍脑袋。**
   ⚠️ **已知 MIT 那 7 个的传递来源也要核**（S-3）：ShaderKit 自身的 shader 是否移植自
   Shadertoy，上游 ACK 没说。FR-18「追到原始作者」**显式覆盖这 7 个**，不得当作预先通过。
 
@@ -556,8 +559,12 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
 - **D-1（前置闸）Metal 打包 spike**。范围见 C-1 + C-2 + FR-2，必须回答**六问**：
   ① 构建系统选型（α/β，按 FR-2 判据）；② CI 改法；③ metallib 定位；
   ④ 多色参数化（一个 `colorEffect`）；⑤ layer 输入（一个 `layerEffect`，且应取
-  FR-4 点名的 7 个"颜色写死"件之一，难度最高）；
+  **C-2** 点名的 7 个"颜色写死"件之一，难度最高。⚠️ 初版这里误引 FR-4——FR-4 是命名规则）；
   ⑥ **分平台 metallib**：3 份产物的生成、选择与体积实测。
+  ⚠️ **③ 的一个子项（第 4 轮评审 S-f）**：β 下"把 shader 加载测试拉回 SwiftPM 腿"隐含
+  **macOS CI runner 有可用 Metal device**。该测试必须 **fail-closed**——缺 device 即判红，
+  **不得** `guard let device else { return }` 静默跳过（那是本仓反复堵的假绿病型）。
+  ⚠️ 另注意措辞：加载发生在 `swift test`，`swift build` 只负责把 metallib 拷进 bundle。
   **失败则 Epic B 整体不启动。**
 - **D-2** `CoreDesign` 的语义色 token 与 `Core*` 度量常量。
 - **D-3 既有守卫基建**：`BoolParameterScanner`(68KB) / `ComponentTextParamGuard`(40KB) /
@@ -605,7 +612,15 @@ A0-4  downstream-probe 扩展 nonisolated 调用点（FR-3）
 A0-5  D-1 Metal 打包 spike（六问，见 D-1）                    ← Epic B 前置闸①
 A0-6  C-6 逐 shader 许可裁定表 docs/shader-provenance.md      ← Epic B 前置闸②
 ```
-A0-5 / A0-6 可与 A0-1~A0-4 并行（它们不依赖 target 骨架）。
+A0-5 / A0-6 的**填表/实验部分**可与 A0-1~A0-4 并行（不依赖 target 骨架）；但
+⚠️ **A0-6 的闸判定（≥ N_B）依赖 A0-1（AD-4 定每 shader 边际成本口径）与 A0-5（D-1 定固定
+成本）的结论**（第 4 轮评审 S-g）⇒ 表可并行填，**判定必须等这两个**。
+
+⚠️ **A0-3 的守卫清单须随 AD-4 结论增补**（第 4 轮评审 S-e）：若 AD-4 对 Effects / Shaders
+选 a（轻公约），AD-4-a #4 要求的**差集守卫**（或其替代方案"锚 `docs/components/<slug>.md`"）
+在上面的草案里**没有落点**——A0-3 只列了两条新守卫，B-4 的"effects-registry 登记补齐"是
+**填表不是建守卫**。⇒ ccpm 分解时必须显式给它一个 task（挂 A0-3 或 A-7），否则 Epic A
+的成本少算一条守卫。
 
 **Epic A「效果与图表」**（40 个 API 单位 = 36 动效 + 4 图表）。依赖 A0-1~A0-4。
 
@@ -717,3 +732,21 @@ A-1（8 个）、A-2（16 种）、B-2（17 个）、B-3（11 个）在 ccpm 分
 | S-6（"三个 epic 均在 5–13 区间"对 B 为假） | **接受**，改为「A0=6、A=7 已在区间；B 按分组拆后进入」 |
 | S-7（effects-registry 是第三份枚举） | **接受为 AD-4 的输入**（不代 AD-4 拍板）：在 AD-4-a 骨架里并列"独立 JSON"与"锚 `docs/components/<slug>.md` 文件"两个方案，要求 AD-4 选一个并写明理由 |
 | Preference（`.skeletonShimmer()` 不在 `Modifier/` 目录） | **接受**，事实修正 |
+
+## 评审响应台账（第 4 轮 · 确认性复核）
+
+第 4 轮结论 **PASS**（无阻断项、无 Important 项）。7 条 Suggestion 均为措辞 / 交叉引用 /
+分解归属问题，不改变成本模型或验证路径；因其中两条是**过期交叉引用**（留着会误导 ccpm
+分解），全部一并处置。
+
+| 评审项 | 处置 |
+|---|---|
+| S-a（两个不同的量都叫 N） | **接受**。C-6 / SC-2 的 shader 下限改称 **`N_B`**；AD-4 成本比较里的 public 类型数改称 **`P`**，并在两处互相点名"勿混" |
+| S-b（Executive Summary 两处未随第 3 轮联动） | **接受**。B 的"前置"与"启动条件"分开写；"各 epic 都落回 5–13 区间"改为"A0/A 已在区间，B 拆后进入" |
+| S-c（FR-2 ③ 仍写"冲突"，与新增的 ④"是冗余不是冲突"打架） | **接受**，③ 同步改为"冗余"，并保留"运行时加载哪一份不确定"这个 `exclude:` 的真实理由 |
+| S-d（D-1 ⑤ 误引 FR-4，7 个件点名在 C-2） | **接受**，改引 C-2 |
+| S-e（差集守卫无任务归属） | **接受**。在 Epic 分解草案里显式标注：若 AD-4 选 a，差集守卫（或其"锚文档文件"替代方案）必须在 A0-3 或 A-7 有一个 task，否则 Epic A 少算一条守卫 |
+| S-f（"拉回 SwiftPM 腿"隐含 macOS runner 有 Metal device） | **接受**。写进 D-1 第③问的子项：加载测试必须 **fail-closed**，缺 device 即判红，不得 `guard let device else { return }` 静默跳过；并纠正措辞——加载发生在 `swift test`，`swift build` 只负责拷贝 |
+| S-g（A0-6 判定时序） | **接受**。表可并行填，闸判定须等 A0-1 与 A0-5 结论 |
+
+⇒ **PRD 收敛，可进 ccpm Epic 分解（structure 阶段）。**
