@@ -2,7 +2,7 @@
 name: shipswift-shaders
 status: backlog
 created: 2026-09-02T23:42:57Z
-updated: 2026-09-02T23:42:57Z
+updated: 2026-09-03T00:05:00Z
 progress: 0%
 prd: .claude/prds/shipswift-harvest.md
 github: (will be set on sync)
@@ -13,6 +13,12 @@ github: (will be set on sync)
 > `shipswift-harvest` PRD 拆出的**第 3 个** epic（共 3 个）。
 > ⚠️ **本 epic 是有条件的**——见下方《启动条件》。在两闸出结论前**不得 decompose、
 > 不得 sync 到 GitHub**：它的 task 数量与内容都由闸的结论决定，提前分解就是编造。
+> **⚠️ 但"不分解"不等于"草案可以不自洽"**——本 epic 的 SC 与依赖图与闸的结论无关，
+> 第 1 轮 structure 评审在这两处判了 BLOCK，本版已修。
+>
+> **decompose 的触发条件**：A0-5 ∧ A0-6 两个 issue 都关闭，且 A0-6 的关闭评论已记录
+> `N_B` 与可落地 shader 名单。**届时必须重核**：B-1 按 α/β 结论重写；B-2 / B-3 按
+> provenance 裁定表重列成员（可落地的才留）；B-2 / B-3 按 D-1 的复杂度分级拆成多个 task。
 
 ## Overview
 
@@ -128,6 +134,12 @@ shader 的常见出处 Shadertoy **默认许可是 CC BY-NC-SA**（非商用 + �
 ⚠️ **那 7 个已知件的传递来源同样要核**——ShaderKit 自身的 shader 是否又移植自 Shadertoy，
 上游没说，**不得当作预先通过**。
 
+### AD-H Bool 纪律同样适用（Copilot 🟡3，初版完全没提）
+
+28 个 wrapper 大概率带 `isAnimating` / `autoStart` 一类参数，全部撞 J-1。
+⚠️ **本 epic 的 Bool 豁免预算是 ≤ 1 条**（PRD 的全局 ≤3 分配为 Effects 2 / Shaders 1）。
+即便最终多数走豁免，也必须显式过一遍并入账，否则棘轮基线会在本 epic 收尾时悄悄超标。
+
 ## Task Breakdown Preview
 
 ⚠️ **以下是草案，实际 task 由两闸结论决定后才 decompose。**
@@ -141,8 +153,12 @@ B-1  CoreDesignShaders target + product + FR-2 选定路径落地
      + CLAUDE.md / AGENTS.md 同步（否则 AgentGuideSyncGuard 判红）
 B-2  17 个 colorEffect 背景（按 D-1 的复杂度分级分批：纯噪声 / 多 pass / 需 SDF）
 B-3  11 个 layerEffect 内容层效果（含 7 个"颜色写死"件的参数化改造，AD-F）
-B-4  ACKNOWLEDGEMENTS.md 署名（含 7 个已知件的传递来源核验）+ 文档 + 预览宿主
-     + 快照排除 + effects-registry.json / reachable-type 登记补齐
+B-4  收尾：
+     · ACKNOWLEDGEMENTS.md **追加**逐 shader 条目（文件由 A-7 新建）
+     · docs/components/*.md + docs/README.md 索引（落点按 A0-1 裁决）
+     · 预览宿主（⚠️ ComponentData.swift 须在 A-7 定义的串行窗口之外写）+ 快照排除
+     · effects-registry.json / reachable-type-registry.json 登记补齐
+     · 复用 A-7 的性能基准脚本跑 17 个 colorEffect
 ```
 
 ⚠️ **4 个 task 低于本仓历史区间（5–13）**——B-2（17 个）与 B-3（11 个）注定要按上面
@@ -150,13 +166,27 @@ B-4  ACKNOWLEDGEMENTS.md 署名（含 7 个已知件的传递来源核验）+ �
 
 ## Dependencies
 
-- `shipswift-foundation` A0-2 ~ A0-6（前置）；A0-5 ∧ A0-6（启动条件）
+### `shipswift-foundation`
+- **前置 = A0-2 ~ A0-6 全部完成**；**启动条件 = A0-5 ∧ A0-6 双双通过**（两者不同）
+
+### `shipswift-effects`（⚠️ 初版漏了这一整块，第 1 轮 structure 评审 C-3）
+- **A-3** —— NFR-7 的可注入 `EnvironmentValues`（`isLowPowerModeEnabled` / `scenePhase`）
+  落在 `CoreDesignEffects`，本 epic 的 17 个 `colorEffect` **import 复用它，不另造一套**
+  （这正是 FR-1 允许 `CoreDesignShaders` → `CoreDesignEffects` 单向依赖的用途）。
+  ⇒ **B-2 依赖 A-3**。
+- **A-7** —— ① `App/Sources/ComponentData.swift` 是**跨 epic 的并行冲突面**，其串行写入
+  窗口由 A-7 定义，B-4 必须在该窗口之外写；② **NFR-1 的性能基准脚本**由 A-7 建，
+  B-4 **复用同一脚本**，不重造；③ `ACKNOWLEDGEMENTS.md` 由 A-7 **新建**，B-4 只**追加**
+  逐 shader 条目。
+
+### 外部
 - ShipSwift 快照 + **其上游**（ShaderKit / Inferno / Shadertoy 各作者）—— AD-G 的核验对象
 - 三种构建系统对 `.metal` 的差异行为 —— D-1 的验证对象
 
 ## Success Criteria (Technical)
 
 - [ ] `docs/shader-provenance.md` 覆盖全部 28 个 shader，无空裁定
+      （⚠️ 该表**由 A0-6 产出**；本条是**启动前核验**，不是重复交付——评审 Suggestion）
 - [ ] 裁定为可落地者 **100%** "可用"（四条 AND：编译 / 过守卫 / 有 Preview 且进画廊 / 有文档）
 - [ ] 可落地数 **≥ `N_B`**（按 C-6 的经济性方法由 D-1 结论反推，**不取 7**——7 恰好等于
       已知 MIT 来源数，取它是同义反复）
@@ -166,6 +196,20 @@ B-4  ACKNOWLEDGEMENTS.md 署名（含 7 个已知件的传递来源核验）+ �
 - [ ] Reduce Motion 下 `colorEffect` 冻结在某一帧；`layerEffect` 冻结时间输入但保留
       手势/倾斜的空间输入（放大镜跟手是交互不是动效）
 - [ ] Reduce Transparency 下 Glass / GlassOrb / ChromaticGlass 降级为不透明形态
+- [ ] **NFR-7 后台 / 低电量**（评审 C-3，初版遗漏）：17 个 `colorEffect` 的后台与低电量
+      行为经**注入伪值测试**可证（复用 A-3 落在 `CoreDesignEffects` 的可注入 environment 键）
+- [ ] **NFR-1 性能基准闸**：17 个 `colorEffect` 各过 A-7 建的基准脚本，**脚本断言而非人工抽测**
+- [ ] **Bool 豁免基线净增 ≤ 1 条**（AD-H），有书面理由，按棘轮脚本流程抬基线
+- [ ] **`docs/README.md` 索引**已挂（落点按 A0-1 的 AD-4 裁决），
+      `readmeIndexReconcilesWithRegistry` 绿
+- [ ] **`docs/reachable-type-registry.json`** 已登记本 epic 新增的可达类型
+- [ ] **probe 补 `CoreDesignShaders` 全部公开值类型的 nonisolated 调用点**
+      （A0-4 只做接线，实质在此）
+- [ ] **`GlassOrb` 的触控目标测试**在 `CoreDesignShadersTests` 内同形态实现
+      （⚠️ **不得**加进 `TouchTargetTests`——会判红 NFR-5②）
+- [ ] **NFR-5② 沿用**：`swift package describe … CoreDesignTests … target_dependencies`
+      仍恰为 `["CoreDesign"]`
+- [ ] **FR-13 分工**：shader 装饰层 100% `accessibilityHidden(true)`
 - [ ] CI 四条腿全绿
 
 ## Estimated Effort
