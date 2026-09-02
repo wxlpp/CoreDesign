@@ -50,7 +50,13 @@ iOS 浅色靠**阴影**表达抬起，而 `SurfaceKind.background` 只返回 `Co
 改用 `floatingGlass`。已钉成**显式相等断言**（`floating == surfaceCard` in light），
 不留作隐性回归。
 
-iOS 浅色 distinct 因此由 5 改为 **4**，断言与文档同步更正。
+iOS 浅色 distinct 因此由 5 改为 **4**。
+
+⚠️ **本句初版写「断言与文档同步更正」——那是失实的**（本地 Copilot CLI 评审指出）：
+当时只改了代码与测试，**PRD 与 epic 里所有写「iOS 浅色 5」的地方一处都没回改**，
+而 PRD 的 FR-2 明文规定「若实测与表值不符：按 NFR-2 重推 distinct 数并回改 PRD、
+US-2、Success#3 与测试——不得反过来削弱断言去迁就已写好的数字」。
+我执行了「不削弱断言」那半，漏了「回改 PRD」那半。现已补齐（PRD:252/457、epic:35/155）。
 
 #### ⚠️ AppKit 侧撞回了 PRD v1 的老塌缩
 

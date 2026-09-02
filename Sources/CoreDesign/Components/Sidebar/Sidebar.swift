@@ -483,6 +483,30 @@ public extension View {
     /// 自定义行复用它即可与内置选中样式保持一致。
     ///
     /// 侧栏选中态背景 modifier / sidebarSelectedBackground：floating-glass + 选中描边 + 阴影。
+    ///
+    /// ## ⚠️ 这是刻意的风格决策，不是疏漏（Issue #136 / #226 定案）
+    ///
+    /// **本库的侧栏选中态刻意不追随 iOS / macOS 原生形态。** 原生是**着色填充、
+    /// 无独立轮廓**（Files / Reminders / Mail 的侧栏都是这样）；本库用的是
+    /// **浮层玻璃 + 全周选中色描边 + 阴影**。
+    ///
+    /// 这个差异被独立提出过**两次**，两次的措辞高度一致，故记录在此以免第三次：
+    ///
+    /// 1. **Issue #136**（`coredesign-native-foundation` 的视觉终审 #125）：
+    ///    「视觉上是一圈蓝色轮廓环绕整个 pill，读起来更像**聚焦的输入框**而非
+    ///    侧栏选中态」，建议对照 Files / Reminders / Mail 重新审视。
+    /// 2. **Issue #225 的视觉终审**（`ios-visual-reviewer`，2026-09）：
+    ///    「选中态 Home 用白卡 + 2pt 蓝描边，**读作键盘 focus ring 而非选中态**
+    ///    （iOS 惯例是 tinted fill）」。
+    ///
+    /// **#226 的裁决：保持现状，不改行为。** 理由是本库的侧栏走的是浮层玻璃语言
+    /// （与 `floatingGlass` / `BottomInputBar` 一脉），选中态用同族材质是内部一致的；
+    /// 换成原生着色填充会让侧栏与库内其余浮层形态割裂。
+    ///
+    /// ⚠️ **但这条裁决的成本要如实记账**：两个独立评审都把它读成了「聚焦/focus ring」，
+    /// 说明它与用户既有的平台直觉是冲突的——**这不是「他们看错了」，是本库选了一条
+    /// 需要用户重新学习的表达**。若将来有第三次同类反馈，或本库整体向原生形态收敛，
+    /// 应当重议而不是再次援引本条。对照参考仍是 Files / Reminders / Mail。
     func sidebarSelectedBackground(_ isSelected: Bool) -> some View {
         self.modifier(SidebarSelectedBackgroundModifier(isSelected: isSelected))
     }

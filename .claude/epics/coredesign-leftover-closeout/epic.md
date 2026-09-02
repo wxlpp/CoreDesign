@@ -32,7 +32,7 @@ PRD 已完成实测对账：8 个子项里 **3 项已被 #117 / #118 作废**、
 | `surfaceOverlay` | `.secondaryFill` | `.floating` |
 | `surfacePanel` | `.quaternaryFill` | `.overlay` / `.panel` |
 
-**distinct 数：iOS 深色 6 / iOS 浅色 5 / macOS 5**——这三个数**必须、且只能**出自 PRD FR-1 的推演表。v1 写「6」、v2 写「7」，两次都是在散文里推理丢了跳（v1 丢了背景族取值上限，v2 丢了 `.overlay`/`.panel` 共享 token）。**任何新数字都要先把 `kind → token → 终值` 全表跑出来。**
+**distinct 数：iOS 深色 6 / iOS 浅色 4 / macOS 5**（浅色经 #225 视觉终审由 5 回改为 4）——这三个数**必须、且只能**出自 PRD FR-1 的推演表。v1 写「6」、v2 写「7」，两次都是在散文里推理丢了跳（v1 丢了背景族取值上限，v2 丢了 `.overlay`/`.panel` 共享 token）。**任何新数字都要先把 `kind → token → 终值` 全表跑出来。**
 
 ### ADR-2 · 断言分三层，各有各的执行载体，不得混用
 
@@ -152,7 +152,7 @@ runtime 已就位（iOS 26.4 + `iPhone 17 Pro`）。出图走 `KEEP_LIBRARY_SNAP
 ## Success Criteria (Technical)
 
 1. `gh issue list --state open` → **0**（当前 3）。
-2. `SurfaceKind` distinct 从 **3** → **iOS 深色 6 / iOS 浅色 5 / macOS 5**，全部已知相等项各有显式断言；iOS 组走 `xcodebuild` Simulator、macOS 组走 `swift test` 的 **token 层**。
+2. `SurfaceKind` distinct 从 **3** → **iOS 深色 6 / iOS 浅色 4 / macOS 5**，全部已知相等项各有显式断言；iOS 组走 `xcodebuild` Simulator、macOS 组走 `swift test` 的 **token 层**。
    ⚠️ **逃生条款**：若 001 在模拟器实测到的 fill α 值与 PRD 推演表不符，按 NFR-2 **重新推演 distinct 数并回改 PRD / US-2 / PRD Success#3 / 本条**——**不得反过来削弱断言去迁就已写好的数字**。本条与它们同在回改名单上。
 3. `diff CLAUDE.md AGENTS.md` 实质分歧 **1 → 0**，有守卫锁住。
 4. 非 `#if DEBUG` 路径未走 `bundle: .module` 的 a11y 字面量（**含插值内层**）**4 → 0**，有守卫锁住。

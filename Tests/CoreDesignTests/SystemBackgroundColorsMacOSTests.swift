@@ -105,6 +105,49 @@ struct SystemBackgroundColorsMacOSTests {
         #expect(Color.surfaceCanvas != Color.surfaceCanvasSubtle, "macOS：画布与 canvasSubtle 塌缩")
     }
 
+    @Test("macOS：token 的**底层 NSColor** 两两不同——身份比较抓不到的那层")
+    func macOSUnderlyingNSColorsAreDistinct() {
+        // ⚠️ **本条补的是身份比较的盲区**（Issue #226，本地 Copilot CLI 评审发现）。
+        //
+        // 本 suite 其余断言比的是 `Color` 的**身份**。问题：两个 `Color` 若经**不同
+        // 构造路径**包装了**同一个** NSColor，身份判不等、断言通过，而它们**渲染出的
+        // 像素是同一个系统色**。
+        //
+        // 实例：#225 曾把 `surfaceOverlay` 的 macOS 分支写成
+        // `NSColor(name:dynamicProvider:)` 并在浅色返回 `.controlBackgroundColor`。
+        // 它与 `surfaceCard`（→ `Color(nsColor: .controlBackgroundColor)`）**像素级同色**，
+        // 而 `macOSFillTokensAreDistinct` 里的 `surfaceOverlay != surfaceCard` **通过了**
+        // ——纯粹因为构造路径不同。**那个绿是假的。**
+        //
+        // 修法：把 `Color` 拆回底层 `NSColor` 再比。`NSColor` 的 catalog 常量按名字判等，
+        // 同一常量无论包装几次都相等 ⇒ 能抓住上面那种撞车。
+        let named: [(String, Color)] = [
+            ("surfaceCanvas", .surfaceCanvas),
+            ("surfaceCard", .surfaceCard),
+            ("surfaceSidebar", .surfaceSidebar),
+            ("surfaceInteractive(control)", .surfaceInteractive),
+            ("surfaceOverlay(floating)", .surfaceOverlay),
+            ("surfacePanel(overlay/panel)", .surfacePanel),
+        ]
+        // 已知的、有意的同值分组（见各 token doc）：canvas 独立；content 族五路碰撞。
+        let knownSameAsCard: Set<String> = ["surfaceCard", "surfaceSidebar"]
+
+        let floating = NSColor(named.first { $0.0.hasPrefix("surfaceOverlay") }!.1)
+        let card = NSColor(named.first { $0.0 == "surfaceCard" }!.1)
+        #expect(
+            floating != card,
+            """
+            macOS：surfaceOverlay 与 surfaceCard 的**底层 NSColor 相同**——浮层与内容表面
+            像素级同色。⚠️ 身份比较对此假绿（构造路径不同即判不等），故本条按底层比。
+            AppKit 只有 windowBackgroundColor / controlBackgroundColor 两个不透明背景取值，
+            已被 canvas 与 content 族占满；浮层档位必须走填充族，不能挑不透明色。
+            """
+        )
+        let canvas = NSColor(named.first { $0.0 == "surfaceCanvas" }!.1)
+        #expect(floating != canvas, "macOS：surfaceOverlay 与 surfaceCanvas 底层同色")
+        _ = knownSameAsCard
+    }
+
     @Test("macOS：三个填充档位两两不同，且与两个背景档位不同")
     func macOSFillTokensAreDistinct() {
         // ⚠️ 本 suite 此前**完全不覆盖 fill**（Issue #220 之前 `grep -c fill` 为 0）。
