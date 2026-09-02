@@ -769,8 +769,10 @@ private nonisolated final class PublicBoolParamCollector: SyntaxVisitor {
     ///
     /// 1. 自身或任一外层带 `private`/`fileprivate`/`internal` ⇒ 否。
     /// 2. 任一**具名类型**层不是 public ⇒ 否
-    ///    （`struct BottomInputBar`（无 `public`）里的 init 就是靠这条被排除的，
-    ///    公约 AD-2 的 `SurfaceModifier` 范式同理）。
+    ///    （公约 AD-2 的 `SurfaceModifier` 范式即靠这条被排除。
+    ///    ⚠️ `struct BottomInputBar` **曾是这里的举例**——#221 把它提为 public 后
+    ///    其 init **恰恰被扫到了**，5 条 struct 侧 Bool 豁免即其证明；规则本身不变，
+    ///    只是这个例子不再适用）。
     /// 3. 最内层是 extension ⇒ `public extension X { func f }` 与
     ///    `extension X { public func f }` 两种写法都算 public。
     /// 4. 最内层是 **protocol** ⇒ requirement **不允许**写访问修饰符，可见性 == protocol 自身

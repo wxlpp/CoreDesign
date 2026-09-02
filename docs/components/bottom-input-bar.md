@@ -1,5 +1,18 @@
 # BottomInputBar
 
+> ⚠️ **Issue #221 起 `BottomInputBar` 是 `public` 类型。**
+>
+> 此前它是 internal，唯一的 public 表面是 `View.bottomInputBar(...)` modifier，
+> `docs/component-contract.md` 的终审 C1 裁决据此把它**排除出组件登记表**。
+> #221 走了该裁决自己给出的第二条出路（给它一个可登记的 public 类型表面），
+> 它现已按判定法登记为 `prescriptive` / `tiebreaker`（走查过程见
+> `docs/component-registry.json` 该条目 notes）。
+>
+> **推荐用法仍是 modifier** —— 它额外接管 suggestions 列表与显隐动画。
+> 直接构造 `BottomInputBar` 适用于调用方要自己持有 `isShowingSuggestions` 的场景，
+> demo app 的「BottomInputBar」条目就是这种用法的可交互示例。
+
+
 底部输入栏 Modifier / Bottom input bar modifier.
 
 ## API

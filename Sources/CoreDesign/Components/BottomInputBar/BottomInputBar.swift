@@ -7,6 +7,22 @@
 
 import SwiftUI
 
+// MARK: - BottomInputBar Defaults
+
+/// 组件源码提供的兜底文案。
+///
+/// ⚠️ **按 `#43-1` 处置**：`placeholder` 判 **B 类**（`#67`：无上调动态度的证据 ⇒
+/// 按表面角色判），而 B 类参数「调用方可传参覆盖、但缺省时由组件源码提供」的兜底
+/// **按 A 类处置**——文案写在组件源码里、调用方读不到也改不了这份默认值本身，
+/// 故必须可本地化，不能是裸字面量。
+public enum BottomInputBarDefaults {
+    /// 输入框占位文字的兜底。
+    ///
+    /// 必须是 `public`：它出现在 `BottomInputBar.init` 与 `View.bottomInputBar` 的
+    /// **默认参数值**里，internal 类型无法被 public 默认参数引用。
+    public static var placeholder: String { String(localized: "iMessage", bundle: .module) }
+}
+
 // MARK: - BottomInputBar
 
 /// 浮层输入条。
@@ -16,10 +32,40 @@ import SwiftUI
 /// overlay）。**输入体验优先于观感**——玻璃是 chrome，不是卖点。
 ///
 /// **材质层**: 浮层. **表面角色**: 浮层.
-struct BottomInputBar: View {
-    init(
+///
+/// ## 为什么它是 public（Issue #221）
+///
+/// 本类型此前是 internal，唯一的 public 表面是 `View.bottomInputBar(...)` modifier。
+/// `docs/component-contract.md` 的终审 C1 裁决据此把它**排除出组件登记表**
+/// （「没有可被 `PublicTypeCollector` 采集、可被判定法审查的 public 类型」），
+/// 并给出两条出路：删掉这个组件，或**给它一个可登记的 public 类型表面**。
+/// #221 走第二条——它同时解掉了另一个后果：本库唯一在 demo 里看不到的组件。
+///
+/// - Note: modifier `View.bottomInputBar(...)` 仍是推荐用法（它额外管理
+///   suggestions 的显隐状态）；直接构造本类型适用于需要自行掌控
+///   `isShowingSuggestions` 的场景。
+public struct BottomInputBar: View {
+    /// 直接构造浮层输入条。
+    ///
+    /// 多数场景应改用 `View.bottomInputBar(...)` modifier——它额外接管
+    /// suggestions 列表与显隐动画。本 init 适用于调用方要自己持有
+    /// `isShowingSuggestions` 的场景。
+    ///
+    /// - Parameters:
+    ///   - isShowingSuggestions: 建议条显隐的双向绑定，由调用方持有。
+    ///   - placeholder: 输入框占位文字。
+    ///   - wandEnabled: 是否显示魔杖按钮。
+    ///   - sendEnabled: 发送动作是否可用（不禁用整条输入栏）。
+    ///   - showMenuButton: 是否显示左侧菜单按钮。
+    ///   - isRunning: 宿主任务是否在运行；为 `true` 时发送按钮变为停止按钮。
+    ///   - autoFocus: 出现时是否自动聚焦输入框。
+    ///   - externalFocus: 外层持有的 `@FocusState` 绑定，用于驱动 / 观测焦点。
+    ///   - onActivate: 输入框获得焦点时的回调。
+    ///   - onStop: `isRunning` 为 `true` 时点击停止按钮的回调。
+    ///   - onSubmit: 提交回调，参数为当前文本。
+    public init(
         isShowingSuggestions: Binding<Bool>,
-        placeholder: String = "iMessage",
+        placeholder: String = BottomInputBarDefaults.placeholder,
         wandEnabled: Bool = true,
         sendEnabled: Bool = true,
         showMenuButton: Bool = true,
@@ -65,7 +111,7 @@ struct BottomInputBar: View {
     let onSubmit: (String) -> Void
     let onStop: (() -> Void)?
 
-    var body: some View {
+    public var body: some View {
         self.mainRow
             .padding(.horizontal, CoreSpacing.md)
             .padding(.vertical, CoreSpacing.sm)
@@ -458,7 +504,7 @@ struct BottomInputBarModifier: ViewModifier {
 public extension View {
     func bottomInputBar(
         suggestions: [String],
-        placeholder: String = "iMessage",
+        placeholder: String = BottomInputBarDefaults.placeholder,
         autoShowSuggestions: Bool = false,
         wandEnabled: Bool = true,
         sendEnabled: Bool = true,

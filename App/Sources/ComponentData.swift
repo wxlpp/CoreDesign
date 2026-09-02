@@ -216,12 +216,53 @@ private struct SearchFieldPreview: View {
     var body: some View { SearchField(text: self.$text) }
 }
 
-private struct BottomInputBarPreview: View {
+/// BottomInputBar 的可交互演示宿主。
+///
+/// ⚠️ **#221 之前这里是一句占位文本**（「通过 `.bottomInputBar` modifier 使用，
+/// 非独立 View」），使 BottomInputBar 成为本库**唯一在 demo 里看不到的组件**。
+///
+/// ⚠️ **演示走 modifier 而不是直接构造 struct**——这是有意的，理由是
+/// **suggestions 只存在于 modifier 面**：`BottomInputBarModifier` 才渲染
+/// `BottomInputBarSuggestionsView`，`BottomInputBar.body` 只有 `mainRow`。
+/// 直接构造 struct 时 `isShowingSuggestions` 只影响魔杖按钮的 a11y traits，
+/// **视觉上不会有任何建议条出现或消失**。任务书要求 demo「非空 suggestions +
+/// 能看到显隐」，只有 modifier 面兑现得了。
+struct BottomInputBarPreview: View {
+    @State private var submitted: [String] = []
+    @State private var isRunning = false
+
+    private static let suggestions = ["续写下一段", "换个风格", "润色文字", "生成对话"]
+
     var body: some View {
-        Text("BottomInputBar 通过 `.bottomInputBar` modifier 使用，非独立 View。")
-            .font(CoreTypography.Token.footnote.font)
-            .foregroundStyle(Color.contentMuted)
-            .padding()
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            if self.submitted.isEmpty {
+                Text("点输入框左侧的魔杖按钮可展开 / 收起建议条；输入并提交后内容会列在这里。")
+                    .font(CoreTypography.Token.footnote.font)
+                    .foregroundStyle(Color.contentMuted)
+            } else {
+                ForEach(Array(self.submitted.enumerated()), id: \.offset) { _, line in
+                    Text(line).font(CoreTypography.Token.footnote.font)
+                }
+            }
+
+            Toggle("模拟运行中（发送按钮变停止）", isOn: self.$isRunning)
+                .font(CoreTypography.Token.footnote.font)
+
+            Spacer(minLength: CoreSpacing.xl)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding()
+        .bottomInputBar(
+            suggestions: Self.suggestions,
+            placeholder: "说点什么",
+            autoShowSuggestions: true,
+            isRunning: self.isRunning,
+            onStop: { self.isRunning = false },
+            onSubmit: { text in
+                guard text.isEmpty == false else { return }
+                self.submitted.append(text)
+            }
+        )
     }
 }
 

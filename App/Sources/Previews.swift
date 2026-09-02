@@ -163,10 +163,9 @@ private struct ToastSnapshotHarness: View {
 }
 
 #Preview("BottomInputBar") {
-    Text("BottomInputBar 通过 `.bottomInputBar` modifier 使用，非独立 View。")
-        .font(CoreTypography.Token.footnote.font)
-        .foregroundStyle(Color.contentMuted)
-        .padding()
+    // 与 ComponentData 的条目共用同一个宿主——两处必须一致，否则 demo 里看到的
+    // 与快照流水线出的图会是两个东西。
+    BottomInputBarPreview()
 }
 
 // MARK: - Three-in-one components
