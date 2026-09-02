@@ -30,9 +30,19 @@ struct SegmentedControlTests {
         #expect(type(of: control) == SegmentedControl<String>.self)
     }
 
+    // MARK: - style 四件套（Issue #224）
+    //
+    // 本组测试此前只有一个 `plainStyleOptsOutOfGlass`，函数体末尾是 `_ = styled`
+    // ——**纯编译检查、无任何运行时断言**，却顶着一个承诺行为（"opts out of glass"）
+    // 的名字。#224 拆成两个各自诚实的测试。
+
     @MainActor
-    @Test("plain style opts out of glass via the style modifier")
-    func plainStyleOptsOutOfGlass() {
+    @Test("style modifier 接得通——纯编译检查，不验证外观")
+    func plainStyleModifierCompiles() {
+        // ⚠️ **本测试只能做到这一步**：`.segmentedControlStyle(_:)` 返回 `some View`，
+        // 四件套接通即编译通过。它**不验证** plain 是否真的没有玻璃——那个命题由下面
+        // 的 `plainStyleTakesDifferentRenderPathThanGlass` 承担（且仅限 iOS）。
+        // 名字如实反映能力边界，不再用 "opts out of glass" 这种承诺行为的措辞。
         let selection = Binding.constant("One")
         let styled = SegmentedControl(
             items: ["One", "Two"],
@@ -40,9 +50,48 @@ struct SegmentedControlTests {
             title: { $0 }
         )
         .segmentedControlStyle(PlainSegmentedControlStyle())
-        // 四件套接通即编译通过（modifier 返回 `some View`，不再是 SegmentedControl<Item>）。
         _ = styled
     }
+
+    #if os(iOS)
+    @MainActor
+    @Test("iOS：plain 与 glass 走不同的渲染路径（body 类型不同）")
+    func plainStyleTakesDifferentRenderPathThanGlass() {
+        // iOS 上 `GlassSegmentedControlStyle` 走 `NativeGlassSegmentedControl`
+        // （UIKit `UISegmentedControl` 桥接），`PlainSegmentedControlStyle` 走
+        // SwiftUI 回退路径——**两者 body 类型不同**，这是"plain 退出玻璃路径"
+        // 在类型层面可观测的证据。
+        //
+        // ⚠️ 能做到的边界：`SwiftUISegmentedControl` 与
+        // `SegmentedControlBackgroundModifier` 都是 `private`，`@testable` 也够不到，
+        // 因此**无法直接断言 `glass == false`**。macOS 上两个 style 都回落到
+        // `SwiftUISegmentedControl`（仅 `glass` 私有属性不同）、类型相同，故本测试
+        // 限定 iOS。玻璃材质本身是否渲染出来，只有截图能回答（Issue #225）。
+        let config = SegmentedControlStyleConfiguration(
+            segments: [
+                .init(index: 0, title: "A", isSelected: true),
+                .init(index: 1, title: "B", isSelected: false),
+            ],
+            select: { _ in }
+        )
+        let glassBody = GlassSegmentedControlStyle().makeBody(configuration: config)
+        let plainBody = PlainSegmentedControlStyle().makeBody(configuration: config)
+        // ⚠️ **不能只断言 `type(of:) !=`**：那对**任何**结构差异都真——把 plain 改成
+        // 「也走 NativeGlassSegmentedControl，只是外包一层 .padding」，类型仍不同、
+        // 断言照样绿，而命题（plain 不走玻璃路径）已经假了。
+        // 把命题真正钉在类型上：glass 的 body 必须含 UIKit 桥接类型，plain 必须不含。
+        let glassType = String(describing: type(of: glassBody))
+        let plainType = String(describing: type(of: plainBody))
+        #expect(
+            glassType.contains("NativeGlassSegmentedControl"),
+            "glass style 的 body 不含 UIKit 桥接类型——渲染路径变了：\(glassType)"
+        )
+        #expect(
+            !plainType.contains("NativeGlassSegmentedControl"),
+            "plain style 的 body 含 UIKit 桥接类型——它没有退出玻璃路径：\(plainType)"
+        )
+    }
+    #endif
 
     @MainActor
     @Test("both built-in styles produce a body from a configuration")
