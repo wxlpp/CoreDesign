@@ -25,6 +25,17 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
     /// 交互控件表面：按钮、输入框、分段控件。
     case control
     /// 浮于内容之上的表面：toast、浮动工具栏、底部栏。
+    ///
+    /// ⚠️ **浅色下叠在白色表面（`.content` / `.card` / `.grouped`）之上时，本档
+    /// 无法只靠底色浮起来**——浅色的 `.content` 已是纯白，**不存在比它更亮的
+    /// 不透明色**；iOS 浅色靠**阴影**表达抬起，而本 kind 只提供一个背景色。
+    ///
+    /// ⇒ 那种场景**必须**二选一：追加 `.coreShadow(_:)`，或改用 `floatingGlass`
+    /// （材质浮层，本库既有的正确观感参照）。叠在 `.canvas` 上则不需要——
+    /// 白卡浮于灰画布本身就是 iOS 的系统惯例。
+    ///
+    /// 深色下本档走半透明填充、靠叠加提亮表达抬起，两种底色上都成立。
+    /// 取值与实测详见 `Color.surfaceOverlay` 的文档（Issue #225）。
     case floating
     /// 覆盖层表面，如菜单与 popover。
     case overlay
@@ -166,6 +177,11 @@ public extension View {
     /// 迁移：`.surface(.content, bordered: false)` → `.surface(.grouped)`；
     /// `.surface(kind, bordered: true)` → `.surface(kind)`。
     ///
+    /// ⚠️ **`.floating` 在浅色 + 白底上的已知限制**：浅色下 `.content` 已是纯白，
+    /// 不存在更亮的不透明色，故 `.surface(.floating)` 叠在白色表面上**只靠底色
+    /// 浮不起来**（叠在 `.canvas` 灰画布上则成立）。那种场景须追加
+    /// `.coreShadow(_:)` 或改用 `floatingGlass`。详见 `SurfaceKind.floating`。
+    ///
     /// - Parameter kind: 容器语义类别 / Container semantic kind.
     /// - Returns: 已应用 surface 装饰的视图 / The view with surface decoration applied.
     func surface(_ kind: SurfaceKind) -> some View {
@@ -216,6 +232,64 @@ private struct SurfacePreviewGallery: View {
                 }
             }
             .padding(20)
+        }
+        .background(Color.surfaceCanvas)
+    }
+}
+
+// MARK: - 半透明档位的合成对照（Issue #225）
+
+/// 把三个**半透明**档位分别叠在两种底层档位之上，并排对照。
+///
+/// ⚠️ **为什么必须新增这个预览**：`SurfacePreviewGallery` 只把每档平铺在**单一**
+/// `surfaceCanvas` 底上，产不出「`.floating` 叠 `.content`」这类合成图。
+/// 而 #220 把 `.floating` / `.overlay` / `.panel` 改指填充族后，三档的 RGB 几乎相同
+/// （`#787880` / `#767680` / `#747480`）、**区分几乎全靠 α**——
+/// `SurfaceContrastTests` 的逐位判据对它们会**平凡通过**，
+/// 「叠上去到底浮没浮起来」只有这张图能回答。
+#Preview("Surface 合成对照 — Light") {
+    SurfaceCompositePreview().preferredColorScheme(.light)
+}
+
+#Preview("Surface 合成对照 — Dark") {
+    SurfaceCompositePreview().preferredColorScheme(.dark)
+}
+
+private struct SurfaceCompositePreview: View {
+    private let overlayKinds: [(String, SurfaceKind)] = [
+        ("floating", .floating),
+        ("overlay", .overlay),
+        ("panel", .panel),
+    ]
+    private let baseKinds: [(String, SurfaceKind)] = [
+        ("canvas", .canvas),
+        ("content", .content),
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+                ForEach(self.baseKinds, id: \.0) { baseName, baseKind in
+                    VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                        Text("底层 = .\(baseName)")
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+
+                        VStack(spacing: CoreSpacing.md) {
+                            ForEach(self.overlayKinds, id: \.0) { name, kind in
+                                Text(".\(name) 叠在 .\(baseName) 上")
+                                    .font(.footnote)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(CoreSpacing.md)
+                                    .surface(kind)
+                            }
+                        }
+                        .padding(CoreSpacing.md)
+                        .surface(baseKind)
+                    }
+                }
+            }
+            .padding(CoreSpacing.lg)
         }
         .background(Color.surfaceCanvas)
     }

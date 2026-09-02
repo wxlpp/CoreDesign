@@ -1,15 +1,19 @@
 /* Component internal UI strings (source language = en). */
+"%@ complete" = "%@ complete";
 "%@ of %@" = "%@ of %@";
+"Clear %@" = "Clear %@";
 "Alert" = "Alert";
 "Collapsed" = "Collapsed";
 "Error" = "Error";
 "Expanded" = "Expanded";
 "Info" = "Info";
+"iMessage" = "iMessage";
 "Loading" = "Loading";
 "Menu" = "Menu";
 "Progress" = "Progress";
 "Rating" = "Rating";
 "Remove tag" = "Remove tag";
+"Search" = "Search";
 "Send" = "Send";
 "Stop" = "Stop";
 "Success" = "Success";
@@ -18,3 +22,4 @@
 "Untitled" = "Untitled";
 "Verification code" = "Verification code";
 "Warning" = "Warning";
+"search" = "search";

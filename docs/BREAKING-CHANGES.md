@@ -10,6 +10,47 @@
 > `v0.8.0`（2026-08-16，`component-contract` epic：把 5 组压扁成 Bool 的 API 还原成语义类型——**含破坏性变更**）。
 > 本文件早期版本曾写「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
 
+## 未发布（`coredesign-leftover-closeout` epic，Issue #220）
+
+**对下游编译零感知，仅改观感。** 不删除、不重命名任何公开符号；三处「同名换值」。
+
+### 同名换值
+
+#### `Color.surfacePanel` / `Color.surfaceOverlay` / `Color.surfaceSidebar`（Issue #220）
+
+| token | 旧实现 | 新实现 | 服务的 `SurfaceKind` |
+|---|---|---|---|
+| `surfaceSidebar` | 别名 `surfaceCanvasSubtle`（= `secondarySystemGroupedBackground`） | 别名 `surfaceElevated`（= `tertiarySystemGroupedBackground`） | `.sidebar` |
+| `surfaceOverlay` | 别名 `surfacePanel`（→ 背景族） | 别名 `secondaryFill`（**填充族，半透明**） | `.floating` |
+| `surfacePanel` | 别名 `surfaceCanvasSubtle`（背景族） | 别名 `quaternaryFill`（**填充族，半透明**） | `.overlay` / `.panel` |
+
+**影响**：
+
+- **对下游编译零感知**——符号名、类型签名均未变，`scripts/downstream-probe` 探测不到。
+- **视觉上**：`.surface(.floating)` / `.surface(.overlay)` / `.surface(.panel)` 的背景由**不透明**变为**半透明填充**，其下内容会透出；`.surface(.sidebar)` 换一档背景色。若下游直接调用了这三个 case、或直接引用 `Color.surfacePanel` / `surfaceOverlay` / `surfaceSidebar`，观感会随之改变。
+  - ⚠️ 半透明档位**不宜再叠 `.coreShadow(_:)`**——阴影会从半透明背景透上来把表面压脏。需要不透明浮层请用 `floatingGlass` 或 `.surface(.content)`。
+- **落地时库内的生产消费点**：`.floating` / `.overlay` / `.panel` / `.sidebar` 四个 case 在**产品代码路径上的 `.surface()` 调用点为零**（唯一消费者是 `SurfaceModifier.swift` 的 `SurfacePreviewGallery` 这个库内 `#Preview`）。真实观感改动落在 App 预览宿主的 6 处直接 token 消费点（`ComponentDetail.swift` 三处 `surfacePanel`、`ContentView.swift` / `Previews.swift` / `ComponentData.swift` 各一处 `surfaceSidebar`）。
+
+**动机**：`SurfaceKind` 声称提供多档「表面角色」，但改动前 **10 个 case 只解析到 3 个 distinct 背景**（iOS 浅色与深色实测均为 3）——8 个 case 共用 `secondarySystemGroupedBackground`。修法承 #122 对 Badge 同型缺陷的裁决：**叠在别人之上的表面用 `FillColors`（半透明），充当底层的才用 `SurfaceColors`**；单纯改背景族的取值凑不出更多档位，因为 iOS 背景族在单一外观下只有 2（浅色）/ 3（深色）个取值。
+
+**三档填充的 α 实测值**（iPhone 17 Pro / iOS 26.4 模拟器，Issue #220 实测钉死）：
+
+| 填充档 | 服务的 kind | 浅色 | α | 深色 | α |
+|---|---|---|---|---|---|
+| `secondaryFill` | `.floating` | `#78788029` | 0.161 | `#78788052` | 0.322 |
+| `tertiaryFill` | `.control` | `#7676801F` | 0.122 | `#7676803D` | 0.239 |
+| `quaternaryFill` | `.overlay` / `.panel` | `#74748014` | 0.078 | `#7676802E` | 0.180 |
+
+三档 RGB 几乎相同（`#787880` / `#767680` / `#747480`），**区分几乎全靠 α**。
+
+改后 distinct 数（**必带平台与外观限定**）：**iOS 深色 6 / iOS 浅色 5 / macOS 5**。
+
+> ⚠️ **三个数字不同量纲**：iOS 两个是 `Color.Resolved` **逐位**实测（模拟器上取值）；
+> macOS 那个是 **token 身份层**——AppKit 无 WindowServer 会话时颜色会塌成同一
+> fallback RGBA，故 macOS 侧刻意不解析、只比 `Color` 承载的 `NSColor` 是否同一常量。已知的相等项均为系统色族的物理下限，已钉成显式断言：iOS 浅色 `.canvas == .sidebar`；macOS 下 `.content` / `.card` / `.grouped` / `.canvasSubtle` / `.sidebar` 五路同落 `controlBackgroundColor`；全平台 `.overlay == .panel`（二者走同一 token，border 与 radius 也相同）。
+
+> **本条只担保「解析值不同」，不担保「肉眼可辨」**。三档填充的 RGB 几乎相同、只靠 α 区分，逐位判据会平凡通过；观感结论由视觉复核（Issue #225）给出。
+
 ## `0.8.0`（`component-contract` epic 试点改造，2026-08-16）
 
 **含破坏性变更** —— 删除 **9 条 public 声明**（归为 5 组），另有 1 处「加枚举 case 但可能打断下游构建」。

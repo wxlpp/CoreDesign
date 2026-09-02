@@ -111,3 +111,22 @@ SidebarUtilityRow(
 - 圆角：`CoreRadius.mediumPlus`（选中态背景 / contentShape）
 - 选中态：`floatingGlass(isInteractive: true)` + `Color.borderSelected` 描边（`CoreBorderWidth.thin`）+ `coreShadow(.medium)`
 - status footer 圆点：边长 `CoreSpacing.sm`，默认色 `Color.statusSuccessForeground`
+
+## 选中态：刻意不追随原生（#136 / #226 定案）
+
+**本库的侧栏选中态是「浮层玻璃 + 全周选中色描边 + 阴影」，而 iOS / macOS 原生是
+「着色填充、无独立轮廓」**（Files / Reminders / Mail）。这是风格决策，不是疏漏。
+
+该差异被独立提出过**两次**，措辞高度一致：
+
+| 来源 | 原话 |
+|---|---|
+| **#136**（Phase 1 视觉终审 #125） | 「一圈蓝色轮廓环绕整个 pill，读起来更像**聚焦的输入框**而非侧栏选中态」 |
+| **#225 视觉终审**（`ios-visual-reviewer`，2026-09） | 「白卡 + 2pt 蓝描边，**读作键盘 focus ring 而非选中态**（iOS 惯例是 tinted fill）」 |
+
+**#226 裁决：保持现状。** 本库侧栏走浮层玻璃语言（与 `floatingGlass` / `BottomInputBar`
+一脉），选中态用同族材质内部一致；换原生着色填充会让侧栏与库内其余浮层形态割裂。
+
+⚠️ **成本如实记账**：两个独立评审都读成「聚焦 / focus ring」，说明它与用户既有的平台
+直觉冲突——**不是「他们看错了」，而是本库选了一条需要用户重新学习的表达**。若出现第三次
+同类反馈、或本库整体向原生收敛，应当**重议**而不是再次援引本条。

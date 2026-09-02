@@ -1,0 +1,5 @@
+{
+  "_comment": "a11y 字面量守卫（AccessibilityStringLiteralGuard）的豁免台账。格式参照 docs/bool-exemptions.json，但刻意落在独立文件——bool-exemptions.json 由 issue #221 同期改动，写进去会造成不必要的冲突。location 精确到「文件:行号」而非整文件——整文件豁免会让该文件将来新增的任何裸 a11y 字面量不可见。",
+  "_emptyReason": "⚠️ 当前**没有**豁免条目，这是有意的。#222 初版曾登记 `TagInput.swift:105` 作「锚定首例」，但本地 Copilot CLI 评审指出那是一条**死豁免**：该行是 `.accessibilityLabel(Text(self.placeholder))`，**不含任何字符串字面量**，守卫本就提不出东西、从不会标记它——登记了一个空靶。更糟的是它有遮蔽风险：若将来有人把该行改成裸字面量（如 `Text(\"Add tag\")`，而该键历史上真实存在过），这条豁免会**继续生效并静默放行**这个真实回归。这正是 #222 自己反复强调要防的「登记了 ≠ 守住了」。已移除，并新增 exemptionsAreNotDead 自检：每条豁免必须对应至少一处真实命中，否则判红。真正需要豁免时再按格式加。",
+  "exemptions": []
+}

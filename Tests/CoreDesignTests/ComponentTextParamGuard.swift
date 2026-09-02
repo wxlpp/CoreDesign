@@ -238,8 +238,8 @@ struct ComponentTextParamGuard {
                 "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效，这不是『零违规』")
         #expect(scan.localizedTextKeys.count > 5,
                 "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")
-        #expect(registryTextParams == 30,
-                "CoreDesign 侧 textParams 实测 30 条，实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
+        #expect(registryTextParams == 31,
+                "CoreDesign 侧 textParams 实测 31 条（#221 新增 BottomInputBar.placeholder，由 30 变为 31），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
         // ⚠️ 覆盖数 29 与登记表 30 条**不相等是预期的**，两者的计数单位不同：
         // 前者数的是**扫描键**（`Owner.init#param`），后者数的是**登记表条目**。
         // ⚠️ **29 的完整记账（Task 10 实测，非推演）**：
@@ -257,8 +257,8 @@ struct ComponentTextParamGuard {
         //   (b) plan 评审推的「必须还存在**至少两处**双命中」也偏了一位：28 条产键条目
         //       只需 **1 条**双命中即可从 28 到 29。
         //   ⇒ 数字对不等于理由对；理由由下方的映射打印定案，不由推演定案。
-        #expect(result.covered.count == 29,
-                "覆盖数实测 29，实际 \(result.covered.count)：\(result.covered.keys.sorted())")
+        #expect(result.covered.count == 30,
+                "覆盖数实测 30（#221 新增 BottomInputBar.init#placeholder，由 29 变为 30），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
         // 数量级吻合（AC 原文）：覆盖数与登记条数同一量级（相差不超过登记条数的一半）。
         #expect(abs(result.covered.count - registryTextParams) * 2 <= registryTextParams,
                 "扫到的覆盖数 \(result.covered.count) 与登记表 \(registryTextParams) 条不在同一量级 —— 两侧口径可能已经脱节")
@@ -334,9 +334,10 @@ struct ComponentTextParamGuard {
                 LSK/LSR 由类型判定的键实测 11 条，实际 \(result.localizedByType.count)：\(result.localizedByType)。\
                 变化意味着有参数在 LSK/LSR 与裸串之间换了类型 —— 要人过目，不能静默
                 """)
-        #expect(result.carrying.count == 8,
+        #expect(result.carrying.count == 9,
                 """
-                text-carrying 键实测 8 条，实际 \(result.carrying.count)：\(result.carrying)。\
+                text-carrying 键实测 9 条（#221 把 BottomInputBar 提为 public，其 init 的 \
+                Binding/回调参数进入本桶，由 8 变为 9），实际 \(result.carrying.count)：\(result.carrying)。\
                 本桶（Binding<String> / 回调等）不进主判据，但它是**文案经此进入组件**的通道，\
                 静默增长等于 FR-4 的定义域在无人过目的情况下缩小
                 """)

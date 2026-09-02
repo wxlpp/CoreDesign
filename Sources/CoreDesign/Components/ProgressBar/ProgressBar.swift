@@ -62,7 +62,29 @@ public struct ProgressBar: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(self.label.map(Text.init(verbatim:)) ?? Text("Progress", bundle: .module))
-        .accessibilityValue("\(Int(self.value * 100))% complete")
+        // 百分比整体作为一个 `%@` 参数传入（键为 `"%@ complete"`），
+        // **刻意不写 `"%lld%% complete"`**：那需要在 `.strings` 里转义百分号，
+        // 而转义写错的失败形态是渲染出字面量 `%%`、肉眼不易察觉。
+        // 把 `%` 留在 Swift 侧拼接，格式串里就不出现需转义的字符。
+        .accessibilityValue(Self.percentValue(self.value))
+    }
+
+    /// 进度的可访问值。百分号在 Swift 侧拼进参数，格式串只剩 `"%@ complete"`。
+    ///
+    /// ⚠️ **未认领的 l10n 代价（Issue #222 评审 I-6）**：本写法把**百分号相对数字的
+    /// 位置写死在 Swift 侧**。土耳其语写 `%50`、法语写 `50 %`（数字与 % 之间有空格），
+    /// `"%lld%% complete"` 方案里译者能经格式串控制这一层，本写法不能。
+    ///
+    /// 之所以仍取本写法：转义方案的失败形态是**渲染出字面量 `%%`**——肉眼不易察觉、
+    /// 编译不红、测试不红。两害相权取「百分号位置不可译」而非「可能静默渲染出 %%」。
+    ///
+    /// **正解是走 locale 感知的百分比格式**（`value.formatted(.percent)` 一族），
+    /// 由它同时管住数值格式与百分号位置。未在本轮做：那会改变可访问值的既有文案形态
+    /// （`.percent` 会带 locale 的分组符与小数策略），属独立的行为变更，
+    /// 归属：随 a11y 文案的下一轮统一改造。
+    static func percentValue(_ value: Double) -> String {
+        let pct = "\(Int(value * 100))%"
+        return String(localized: "\(pct) complete", bundle: .module)
     }
 }
 
