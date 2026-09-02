@@ -6,7 +6,15 @@ completion: 100%
 
 # Issue #224 进度
 
-两处都走了 **Option A（真运行时断言）**，未使用「如实改名降级」的 Option B。
+⚠️ **本节初版写「两处都走了 Option A、未使用 Option B」——对 SegmentedControl 那半是
+失实的定性**（评审 I-7 指出，核实成立）：
+
+| 处 | 实际路线 |
+|---|---|
+| `StateLabel` | **Option A**——真运行时断言，直接比对 label payload |
+| `SegmentedControl` | **Option B + 一条新增的弱命题断言**。原 `plainStyleOptsOutOfGlass` 被**如实改名**为 `plainStyleModifierCompiles` 并注明能力边界，这正是任务书定义的 Option B 路线 |
+
+产物本身没问题（测试名诚实、能力边界写在注释里），**失实的是我对它的定性**。已更正。
 
 ## 1 · `StateLabel` label payload
 
@@ -32,9 +40,13 @@ storage 不同（`.verbatim` vs 本地化键），`==` 为 false。
 却顶着一个承诺行为的名字。拆成两条各自诚实的：
 
 - **`plainStyleModifierCompiles`**：如实改名 + 注明「只能做到这一步、不验证外观」。
-- **`plainStyleTakesDifferentRenderPathThanGlass`**（**iOS-only**）：断言两个 style 的
-  body 类型不同——iOS 上 Glass 走 `NativeGlassSegmentedControl`（UIKit 桥接）、
-  Plain 走 SwiftUI 回退，**类型层面可观测**。
+- **`plainStyleTakesDifferentRenderPathThanGlass`**（**iOS-only**）：iOS 上 Glass 走
+  `NativeGlassSegmentedControl`（UIKit 桥接）、Plain 走 SwiftUI 回退。
+
+  ⚠️ **初版只断言 `type(of:) !=`，被评审指为超卖**：那对**任何**结构差异都真——
+  把 plain 改成「也走 `NativeGlassSegmentedControl`，只是外包一层 `.padding`」，
+  类型仍不同、断言照样绿，而命题已经假了。已加强为：glass 的 body 类型**必须含**
+  `NativeGlassSegmentedControl`、plain **必须不含**，把命题真正钉在类型上。
 
 ### 能力边界（已写进测试注释）
 

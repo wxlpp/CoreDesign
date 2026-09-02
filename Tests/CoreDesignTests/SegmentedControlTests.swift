@@ -76,9 +76,19 @@ struct SegmentedControlTests {
         )
         let glassBody = GlassSegmentedControlStyle().makeBody(configuration: config)
         let plainBody = PlainSegmentedControlStyle().makeBody(configuration: config)
+        // ⚠️ **不能只断言 `type(of:) !=`**：那对**任何**结构差异都真——把 plain 改成
+        // 「也走 NativeGlassSegmentedControl，只是外包一层 .padding」，类型仍不同、
+        // 断言照样绿，而命题（plain 不走玻璃路径）已经假了。
+        // 把命题真正钉在类型上：glass 的 body 必须含 UIKit 桥接类型，plain 必须不含。
+        let glassType = String(describing: type(of: glassBody))
+        let plainType = String(describing: type(of: plainBody))
         #expect(
-            type(of: glassBody) != type(of: plainBody),
-            "iOS 上两个 style 产出了同一 body 类型——plain 没有走独立的渲染路径"
+            glassType.contains("NativeGlassSegmentedControl"),
+            "glass style 的 body 不含 UIKit 桥接类型——渲染路径变了：\(glassType)"
+        )
+        #expect(
+            !plainType.contains("NativeGlassSegmentedControl"),
+            "plain style 的 body 含 UIKit 桥接类型——它没有退出玻璃路径：\(plainType)"
         )
     }
     #endif
