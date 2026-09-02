@@ -1,0 +1,12 @@
+{
+  "_comment": "a11y 字面量守卫（AccessibilityStringLiteralGuard）的豁免台账。格式参照 docs/bool-exemptions.json，但刻意落在独立文件——bool-exemptions.json 由 issue #221 同期改动，写进去会造成不必要的冲突。",
+  "exemptions": [
+    {
+      "location": "Sources/CoreDesign/Components/TagInput/TagInput.swift",
+      "symbol": "TagInput.body",
+      "reason": "`.accessibilityLabel(Text(self.placeholder))` 的入参是**调用方传入值**，库不该翻译它——与 SearchField 对 placeholder 的处理同规则。本条是豁免机制的锚定首例：豁免的正当理由只有『该串不由本库产生』，不含『暂时没空 catalog 化』。",
+      "decidedBy": "wxlpp",
+      "decidedOn": "2026-09-03"
+    }
+  ]
+}

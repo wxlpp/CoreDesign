@@ -62,7 +62,17 @@ public struct ProgressBar: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(self.label.map(Text.init(verbatim:)) ?? Text("Progress", bundle: .module))
-        .accessibilityValue("\(Int(self.value * 100))% complete")
+        // 百分比整体作为一个 `%@` 参数传入（键为 `"%@ complete"`），
+        // **刻意不写 `"%lld%% complete"`**：那需要在 `.strings` 里转义百分号，
+        // 而转义写错的失败形态是渲染出字面量 `%%`、肉眼不易察觉。
+        // 把 `%` 留在 Swift 侧拼接，格式串里就不出现需转义的字符。
+        .accessibilityValue(Self.percentValue(self.value))
+    }
+
+    /// 进度的可访问值。百分号在 Swift 侧拼进参数，格式串只剩 `"%@ complete"`。
+    static func percentValue(_ value: Double) -> String {
+        let pct = "\(Int(value * 100))%"
+        return String(localized: "\(pct) complete", bundle: .module)
     }
 }
 

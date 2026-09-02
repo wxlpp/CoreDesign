@@ -38,3 +38,24 @@ struct ProgressBarTests {
         #expect(ProgressBar(value: -.infinity).value == 0)
     }
 }
+
+// MARK: - a11y 值的本地化（Issue #222）
+
+@Suite("ProgressBar a11y 本地化")
+struct ProgressBarL10nTests {
+    @Test("百分比值走 catalog，且渲染结果不含字面量 %%")
+    func percentValueGoesThroughCatalog() {
+        let v = ProgressBar.percentValue(0.5)
+        #expect(v == "50% complete", "取到的不是 catalog 值：\(v)")
+        // ⚠️ 百分号转义写错的典型失败形态是渲染出字面量 `%%`——那不会让编译红、
+        // 也不会让上面那条断言以外的任何东西红。显式钉住。
+        #expect(!v.contains("%%"), "渲染结果含字面量 %%：\(v)")
+        #expect(v.contains("%"), "百分号丢失：\(v)")
+    }
+
+    @Test("边界值：0% 与 100%")
+    func percentValueBoundaries() {
+        #expect(ProgressBar.percentValue(0) == "0% complete")
+        #expect(ProgressBar.percentValue(1) == "100% complete")
+    }
+}
