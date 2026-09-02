@@ -1,7 +1,4 @@
 import SwiftUI
-#if canImport(AppKit) && !canImport(UIKit)
-import AppKit
-#endif
 
 // MARK: - Surface Colors / 表面颜色
 //
@@ -91,10 +88,11 @@ public extension Color {
     ///
     /// ## 分道取值
     ///
-    /// | 外观 | 取值 | 为什么读作浮起 |
+    /// | 平台 / 外观 | 取值 | 为什么 |
     /// |---|---|---|
-    /// | 浅色 | `systemBackground`（`#FFFFFF`，浅色可用的**最亮值**） | 浅色下「更亮的不透明面」= 抬起 |
-    /// | 深色 | `secondaryFill`（半透明填充） | 深色下「叠加提亮」= 抬起 |
+    /// | **iOS** 浅色 | `systemBackground`（`#FFFFFF`，浅色可用的**最亮值**） | 「更亮的不透明面」= 抬起 |
+    /// | **iOS** 深色 | `secondaryFill`（半透明填充） | 「叠加提亮」= 抬起 |
+    /// | **macOS** 两种外观 | `secondaryFill` | AppKit 只有两个不透明背景取值、已被 `.canvas` 与 `.content` 族占满，浮层没有第三个位置可站；填充族与二者都不撞车。详见下方 `#else` 分支 |
     ///
     /// 两侧都往**变亮**的方向走，方向一致——这才是「浮起」在两种外观下的共同表达。
     /// UIKit 自己的 elevated 背景（`systemBackground` 在深色下随层级提亮）就是
@@ -131,16 +129,34 @@ public extension Color {
                     : UIColor.systemBackground
             })
         #else
-            // ⚠️ **AppKit 侧也要真分道**。初版这里取不透明的 `surfaceBase`，实测
-            // 撞车：macOS 上 `systemBackground` 与 `systemGroupedBackground` 双双
-            // 降级到 `windowBackgroundColor` ⇒ `.floating` 与 `.canvas` 同值——
+            // ## ⚠️ macOS **不分道**，两种外观都走填充族——这里连栽两次，都记下来
+            //
+            // **第一次**：取不透明的 `surfaceBase`。实测撞车——macOS 上
+            // `systemBackground` 与 `systemGroupedBackground` 双双降级到
+            // `windowBackgroundColor` ⇒ `.floating` 与 `.canvas` 同值，
             // 正是 PRD v1 那个「`.floating == .canvas` on macOS」塌缩被重新引入。
             //
-            // AppKit 有等价入口 `NSColor(name:dynamicProvider:)`，据此做同样的分道。
-            Color(nsColor: NSColor(name: "surfaceOverlay") { appearance in
-                let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-                return isDark ? .secondarySystemFill : .controlBackgroundColor
-            })
+            // **第二次**：改用 `NSColor(name:dynamicProvider:)` 做分道、浅色取
+            // `controlBackgroundColor`。**撞车没解除，只是换了个更隐蔽的对象**——
+            // `secondarySystemGroupedBackground`（→ `surfaceCard` / `surfaceCanvasSubtle`）
+            // 与 `tertiarySystemGroupedBackground`（→ `surfaceSidebar`）在 macOS 上
+            // **也都返回 `controlBackgroundColor`**（见 `SystemBackgroundColors.swift`）。
+            // 于是 macOS 浅色下 `.floating` 与 `.card`/`.canvasSubtle`/`.sidebar`
+            // **像素级同色**。
+            //
+            // ⚠️ **而 `SystemBackgroundColorsMacOSTests` 对此假绿**：它按 `Color` 的
+            // **身份**比较，`Color(nsColor: NSColor(name:dynamicProvider:))` 与
+            // `Color(nsColor: .controlBackgroundColor)` 构造路径不同 ⇒ 判不等 ⇒ 断言通过，
+            // 而两者**渲染出的像素是同一个系统色**。身份不等 ≠ 颜色不同。
+            //
+            // **结论：AppKit 的不透明背景族只有两个真实取值**（`windowBackgroundColor` /
+            // `controlBackgroundColor`），**它们已被 `.canvas` 与 `.content` 族占满**
+            // ——浮层档位在 macOS 上**没有第三个不透明位置可站**。
+            //
+            // ⇒ macOS 两种外观都保留 `secondaryFill`：半透明，与两个背景取值都不同，
+            // 不撞车。#225 那条「浅色 fill 读作凹陷」的批评来自 **iOS 视觉语言**的实测，
+            // macOS 侧**未经视觉验证**，不据此推断（归属见 issue 里的 AppKit 视觉覆盖项）。
+            .secondaryFill
         #endif
     }
 

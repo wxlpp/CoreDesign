@@ -166,8 +166,8 @@ struct SurfaceContrastTests {
         )
     }
 
-    @Test("iOS 浅色：SurfaceKind 的 token 解析出 5 个 distinct 值（canvas 与 sidebar 同值）")
-    func surfaceKindTokensAreFiveDistinctInLight() {
+    @Test("iOS 浅色：SurfaceKind 的 token 解析出 4 个 distinct 值（canvas==sidebar，floating==content）")
+    func surfaceKindTokensAreFourDistinctInLight() {
         let e = Self.env(.light)
         let resolved = Set(Self.kindTokens.map { $0.token.resolve(in: e) })
         let detail = Self.kindTokens.map { "\($0.kind)=\($0.token.resolve(in: e))" }.joined(separator: " / ")
