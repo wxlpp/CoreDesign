@@ -216,12 +216,46 @@ private struct SearchFieldPreview: View {
     var body: some View { SearchField(text: self.$text) }
 }
 
-private struct BottomInputBarPreview: View {
+/// BottomInputBar 的可交互演示宿主。
+///
+/// ⚠️ **#221 之前这里是一句占位文本**（「通过 `.bottomInputBar` modifier 使用，
+/// 非独立 View」），使 BottomInputBar 成为本库**唯一在 demo 里看不到的组件**。
+/// 提为 public 后可直接构造，于是给它一个真能敲字、能提交、能看见 suggestions
+/// 显隐的宿主。
+struct BottomInputBarPreview: View {
+    @State private var isShowingSuggestions = true
+    @State private var submitted: [String] = []
+    @State private var isRunning = false
+
     var body: some View {
-        Text("BottomInputBar 通过 `.bottomInputBar` modifier 使用，非独立 View。")
-            .font(CoreTypography.Token.footnote.font)
-            .foregroundStyle(Color.contentMuted)
-            .padding()
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            if self.submitted.isEmpty {
+                Text("在下方输入并提交，已提交的内容会列在这里。")
+                    .font(CoreTypography.Token.footnote.font)
+                    .foregroundStyle(Color.contentMuted)
+            } else {
+                ForEach(Array(self.submitted.enumerated()), id: \.offset) { _, line in
+                    Text(line).font(CoreTypography.Token.footnote.font)
+                }
+            }
+
+            Toggle("模拟运行中（发送按钮变停止）", isOn: self.$isRunning)
+                .font(CoreTypography.Token.footnote.font)
+            Toggle("显示建议条", isOn: self.$isShowingSuggestions)
+                .font(CoreTypography.Token.footnote.font)
+
+            BottomInputBar(
+                isShowingSuggestions: self.$isShowingSuggestions,
+                placeholder: "说点什么",
+                isRunning: self.isRunning,
+                onStop: { self.isRunning = false },
+                onSubmit: { text in
+                    guard text.isEmpty == false else { return }
+                    self.submitted.append(text)
+                }
+            )
+        }
+        .padding()
     }
 }
 

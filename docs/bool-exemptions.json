@@ -25,7 +25,7 @@
   },
   {
     "parameter": "View.bottomInputBar#autoShowSuggestions",
-    "reason": "控制建议条是否在出现时自动展开。BottomInputBar 按公约 AD-2 排除出登记表（struct 无 public 修饰符），因此没有登记表分类上下文可交叉核对，按裸判据处理。删除不成立：两种行为都有真实调用方。整个 bottomInputBar 的七个 Bool 应合并成一个配置值类型，改造归属：epic component-contract 收尾时另开任务。",
+    "reason": "控制建议条是否在出现时自动展开。⚠️ **本条 reason 原写「BottomInputBar 按公约 AD-2 排除出登记表（struct 无 public 修饰符），因此没有登记表分类上下文可交叉核对，按裸判据处理」——该前提已被 #221 推翻**：`struct BottomInputBar` 已提为 public、并按判定法登记为 prescriptive/tiebreaker（见 docs/component-registry.json）。现在**有**登记表上下文可交叉核对。删除仍不成立：两种行为都有真实调用方。整个 bottomInputBar 的七个 Bool 应合并成一个配置值类型，改造归属：epic component-contract 收尾时另开任务。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-08-13"
   },
@@ -160,5 +160,35 @@
     "reason": "公约第 3 节例外条款**逐字点名**的样本：描述这个 segment 现在是不是选中态，供 style 实现者画出选中/未选中的外观差异。第 2 节要求的形态 A/B 结构性地必然产生这类 Bool。四条替代路径对它全部无意义，终局条款 (b) 的删除路径已被公约显式否决。永久豁免，不归 #41。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-08-13"
+  },
+  {
+    "parameter": "BottomInputBar.init#wandEnabled",
+    "reason": "是否显示魔杖按钮。⚠️ **这是 struct 侧的第二张 public 参数面**——modifier 侧同名参数 `View.bottomInputBar#wandEnabled` 另有条目，#221 把 `struct BottomInputBar` 提为 public 后二者同时暴露，两条都要在册（守卫按 `Owner.init#param` 计键，不做去重）。删除不成立的理由与 modifier 侧同：按钮的有无是调用方的真实分歧，删掉就是单方面砍掉一种形态。正确形态是 3.2 子视图槽或并进配置值类型，改造归属：epic component-contract 收尾时另开任务。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-09-03"
+  },
+  {
+    "parameter": "BottomInputBar.init#sendEnabled",
+    "reason": "发送按钮是否可用。struct 侧的第二张 public 参数面（说明同 wandEnabled 条）。与 @Environment(\\.isEnabled) 语义重叠（公约 3.4），但输入栏整体不该被 disable、只有发送这一个动作要禁，直接删掉改用 .disabled(true) 会连带整条输入栏的禁用外观。删除不成立。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-09-03"
+  },
+  {
+    "parameter": "BottomInputBar.init#showMenuButton",
+    "reason": "是否显示左侧菜单按钮。struct 侧的第二张 public 参数面（说明同 wandEnabled 条）。与 wandEnabled 同型：删除即单方面砍掉一种真实使用形态。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-09-03"
+  },
+  {
+    "parameter": "BottomInputBar.init#isRunning",
+    "reason": "描述宿主任务当前是否在运行，输入栏据此把发送按钮换成停止按钮。struct 侧的第二张 public 参数面（说明同 wandEnabled 条）。这是**状态描述**而非配置开关，属公约第 3 节例外条款（对标 ButtonStyleConfiguration.isPressed）——删除不成立，输入栏不知道运行态就画不出正确按钮。正确形态是收成三态运行状态枚举（idle/running/stopping）。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-09-03"
+  },
+  {
+    "parameter": "BottomInputBar.init#autoFocus",
+    "reason": "出现时是否自动聚焦输入框。struct 侧的第二张 public 参数面（说明同 wandEnabled 条）。删除不成立：自动聚焦与否是调用场景的真实分歧（弹出式输入要、常驻输入栏不要）。正确形态是走 3.4 环境值或与 externalFocus 合并成焦点策略类型。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-09-03"
   }
 ]

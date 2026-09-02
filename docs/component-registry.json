@@ -1,57 +1,25 @@
 [
   {
-    "component": "ProgressIndicator",
-    "repo": "coredesign",
-    "kind": "semantic",
-    "decidedBy": "step1",
-    "nativeProtocol": "ProgressViewStyle",
-    "customStyleProtocol": null,
-    "needsExtensionPoint": true,
-    "textParams": [
-      {
-        "name": "text",
-        "category": "B"
-      }
-    ],
-    "notes": "步骤 1 答「有」：ProgressIndicator.swift:53-78 的 body 全部内容是外观——ProgressView + 下方文案 + accent tint + controlSize，零 @State / 零 Task，可改写为『ProgressView(label 承载文案) + 自定义 ProgressViewStyle』且不丢功能。ProgressViewStyle 有公开的 makeBody 定制点（第三方能实现），本仓 Style/CoreProgressViewStyle.swift:37 的 makeBody 就是可实现性证明。⇒ 语义组件，必须实现原生协议。 ⚠️ textParams：公约第 4 节点名 ProgressIndicator(text:) 属 B 类（调用方传入的可本地化文案），此前误填空数组——没有任何机器判据能拦这条。"
-  },
-  {
-    "component": "SegmentedControl",
-    "repo": "coredesign",
-    "kind": "semantic",
-    "decidedBy": "precedent",
-    "nativeProtocol": null,
-    "customStyleProtocol": "SegmentedControlStyle",
-    "needsExtensionPoint": true,
-    "textParams": [
-      {
-        "name": "title",
-        "category": "B"
-      }
-    ],
-    "notes": "祖父条款：已发布公开样式协议，不走判定法——删它是破坏性变更，判定法推翻不了既成事实。 textParams：title 由 `(Item) -> String` 闭包解出的分段标签文本，形态与 UnderlinedTabBar 的 `title` 闭包完全相同（App 固定定义的分类导航标签，非用户自由输入）⇒ 对齐 UnderlinedTabBar 判 B 类（终审 I3）。`SegmentedControlStyleConfiguration.Segment.title` 是同一份文本经组件内部转交给 style 实现者的镜像字段（类比 ButtonStyleConfiguration 上下文透传），不是调用方另一处可独立填写的文案入口，不重复计入 textParams。"
-  },
-  {
-    "component": "ProgressBar",
-    "repo": "coredesign",
-    "kind": "excluded",
-    "decidedBy": "exclusion",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "弃用条款：@available(*, deprecated)，改用 ProgressView + .core 样式。不分类。"
-  },
-  {
-    "component": "PinCode",
-    "repo": "coredesign",
+    "component": "AgentMessageList",
+    "repo": "storyui",
     "kind": "prescriptive",
-    "decidedBy": "tiebreaker",
+    "decidedBy": "step3",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "公约附录 A.4 的样本：候选形态（分格框/锁屏圆点/逐位下划线）共享「每位一格」骨架，属皮肤变体，举得犹豫 ⇒ 落 tiebreaker。"
+    "notes": "agent 过程消息流，五类角色（user/assistant/thought/system/error）各自固定渲染形态。步骤 1 无。步骤 2/3：文档反复强调『三种“文本流”必须分开渲染』『reasoning 与 thought 长得不一样』——五类形态互不相同是正确性约束（避免用户混淆消息语义），不是风格自由度 ⇒ 步骤 3 规定性，不给扩展点。展示文本来自 AgentMessage/AgentMessageRole 关联值，组件 init 本身无裸 String 参数。"
+  },
+  {
+    "component": "ApprovalRequestCard",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "待审批工具调用卡片组，三档形态（空/排队/列表）。步骤 1 无。步骤 2/3：三档形态与审批工作流的实际状态一一对应（AC 要求可区分取消与拒绝），不是外观自由度 ⇒ 步骤 3 规定性。展示文本（prompt/agentID/toolID）来自 ApprovalRequestState 数据字段，组件 init 本身无裸 String 参数。"
   },
   {
     "component": "AsyncButton",
@@ -126,6 +94,22 @@
     "notes": "祖父条款：BannerStyle 已发布公开协议（CLAUDE.md『组件 style 协议』一节记录的既有形态，PlainBannerStyle / BorderedBannerStyle 两个内置实现），不走判定法。label 是 @ViewBuilder 泛型槽位，无固定 String 便利 init，无 textParams 可记。"
   },
   {
+    "component": "BottomInputBar",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "tiebreaker",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      {
+        "name": "placeholder",
+        "category": "C"
+      }
+    ],
+    "notes": "⚠️ #221 补录——此前按终审 C1 裁决**排除**出登记表，理由是「struct 无 public 修饰符、没有可被 PublicTypeCollector 采集的 public 类型」。C1 给出两条出路（删组件 / 给它一个可登记的 public 类型表面），#221 走第二条：`struct BottomInputBar` 提为 public ⇒ 排除前提消失，按判定法正常登记。判定法走查：弃用条款不适用（未标 deprecated）；祖父条款不适用（无已发布的 BottomInputBarStyle 协议）。步骤 1：Apple 无对应原生样式协议——TextFieldStyle 覆盖不了「浮层容器 + 多个行内按钮（菜单/魔杖/发送-停止/随机）+ suggestions 列表 + 运行态切换」这套复合行为，属任务书点名的 SearchField 一类 wrapper 陷阱，不因套壳就当 step1 ⇒ 无。步骤 2：按槽/排布/装饰三分法走查候选——(a) 当前形态：浮起胶囊，按钮与输入框并排同一行；(b) 全宽贴底工具栏：与 (a) 的差异是**背景/外壳画法**（浮起↔贴底、胶囊↔全宽），背景/描边/阴影按补充规则 1 属**纯装饰层**、不承载状态或内容语义 ⇒ **装饰，不计入 ≥2**；(c) 双层形态：输入框一行、按钮另起一行（Telegram 附件面板展开态）——子视图空间关系改变 ⇒ **排布，计入**。合计只举得出 **1** 个骨架差异，且 (c) 是否算「同含义的替代形态」本身两可 ⇒ **举得犹豫**，按三个出口的第三条视为答不上来，落**步骤 4 / tiebreaker**，规定性组件不给扩展点。落点与同族的 SearchField / TagInput 一致（三者都是包 TextField 的 wrapper）。textParams：placeholder 是裸 String、**无 LocalizedStringKey / StringProtocol 孪生重载** ⇒ 不满足 B 类的类型判据；缺省值 \"iMessage\" 虽写在源码里，但 #43-1「B 类兜底按 A 类处置」只裁 B 类参数，本参数不是 B 类，公约同处明写「本仓另有形态相同但登记为 C 类的兜底」——SearchField / TagInput 的 placeholder 正是该形态 ⇒ 判 **C 类**，与二者同款处理。⚠️ 本条目同时闭合了 C1 记录的缺口「View.bottomInputBar#placeholder 至今没有任何机器判据给它分类」——**注意二者是不同的参数面**：modifier 侧 `View.bottomInputBar#placeholder` 仍在 ComponentTextParamGuard.knownFunctionSideBareText 的 func 侧留痕桶里（AC 只点名 init），本条目分类的是**新增的 struct init 侧** `BottomInputBar.init#placeholder`。"
+  },
+  {
     "component": "Card",
     "repo": "coredesign",
     "kind": "prescriptive",
@@ -148,6 +132,33 @@
     "notes": "步骤 1 无（无 CarouselStyle；显式排除 TabView(.page) 见文件头注释 NFR-2）。步骤 2：候选分页指示器（点状现状 / 数字『3/5』/ 箭头翻页）共享『横向分页容器 + 位置指示』骨架，仅指示器画法不同——按公约皮肤变体条款，这些候选不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4 tiebreaker，默认规定性组件、不给扩展点。佐证（与默认结论方向一致，不是另立的决定性理由）：分页交互（滑动手势/自动轮播/reduce-motion 响应）与视觉本身绑定紧密。"
   },
   {
+    "component": "ChapterCard",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "章节卡片：标题/摘要/字数/状态四项，文档自述『建在 CoreDesign Card 上，本件一处都不重造』。步骤 1 无。步骤 2/3：四项固定槽位是这张卡的完整定义，进度条固定走 `ProgressView(.core)`（ProgressBar 已弃用不用）⇒ 步骤 3 规定性，不给扩展点。展示文本来自 ChapterCardState 数据字段（title/summary），组件 init 本身无裸 String 参数（仅 state + onSelect 闭包）。"
+  },
+  {
+    "component": "ChapterStatusBadge",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      {
+        "name": "label",
+        "category": "B"
+      }
+    ],
+    "notes": "章节三态徽章，文档自述『建在 CoreDesign StateLabel 上，胶囊/图标/配色/对比度全部来自上游，本件一处都不重造』。步骤 1 无（StateLabel 本身已是 prescriptive，无原生协议）。步骤 2/3：三态到色相（黄/紫/红）的映射是刻意的无障碍设计（避免与 StateLabelStyle 的 attention 黄冲突），换色即破坏可区分性 ⇒ 步骤 3 规定性，不给扩展点。textParams：label 是 App 层本地化出口（覆盖内置中文 defaultLabel），界面文案 ⇒ B 类。⚠️ 相关但不同的观察：defaultLabel（内置中文『草稿/完成/待修』）是 43.md 已经点名的『组件持有默认文案』——对 #6『App 层持有用户文案』立场的有意偏离，非本条 textParams 覆盖范围（defaultLabel 不是 public init 参数，是内部枚举 extension 计算属性），留给 #43 的 spec 逐一回答。"
+  },
+  {
     "component": "ChevronRightIcon",
     "repo": "coredesign",
     "kind": "prescriptive",
@@ -159,6 +170,61 @@
     "notes": "纯装饰图标，固定渲染系统 chevron.forward（LTR/RTL 自动镜像），语义固定为『进入下一级』——长相即含义 ⇒ 步骤 3 规定性，不给扩展点。无 public 文本参数。 ⚠️ #53 段 2 源码级压测改判（step3 → tiebreaker；kind 与 needsExtensionPoint 不变）。诚实枚举举得出 3 个业界真实候选：右向实心三角（SF Symbols arrowtriangle.forward.fill、macOS NSOutlineView）、右箭头（Material Symbols arrow_forward_ios、Google 设置页）、「>」字符（早期 Web 面包屑）。作用域条款三条件对三者均在条件 ③ 落空（登记表内无组件承担这些字形），未走通；三者共享「单一字形占 trailing 一格、指向阅读方向下一级」这一同一骨架，差异只是字形画法 ⇒ 按皮肤变体条款不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4（与 Tag 的路径同型）。补充渲染事实：Form.swift:87-98 的 body 只有 Image(systemName: \"chevron.forward\") 与 accessibilityHidden(true) 两句，字号与配色全部继承父容器（doc :84-86），除字形外没有一个像素由本组件决定；doc :85-86 自留了「未来可加默认参数走 CoreControlMetrics.iconSize(for:)」的扩展口。取证见 53-stress.md 第 2 节。 ⚠️ #59 按修订后判据重判（依据：公约步骤 2 的枚举停止规则与「来源义务两侧一致」+ 皮肤变体条款的槽/排布/装饰三分法）：三个候选逐条按三分法重判——右向实心三角（SF Symbols arrowtriangle.forward.fill / macOS NSOutlineView）、右箭头字形（Material Symbols arrow_forward_ios / Gmail 与 Google 设置页）、「>」半角字符（本轮把 #53 的泛称来源「早期 Web 面包屑」替换为具名来源：Bootstrap 5.3 breadcrumb 官方文档「Dividers」示例 --bs-breadcrumb-divider: '>' 与 Sass 的 $breadcrumb-divider: quote(\">\")）——三者均判**装饰**，走的是「同一槽内的画法变化」支而非「纯装饰层」支：三种字形占据同一个 trailing 方向指示槽，槽数、轴向、与行内容的空间关系均不变，承载「可进入下一级」语义的是该槽本身而非字形画法（Form.swift:84-86 自陈字号与配色一概继承父容器，body 只有 Image 与 accessibilityHidden 两句）。作用域三条件对三者均无承担者，不得援引 SettingsRowChevron（它承担的是同一个 chevron.forward 形态，非被排除候选，条件 ③ 不成立）⇒ 非皮肤且未被排除的候选数 = 0 < 2 ⇒ 举得犹豫 ⇒ 步骤 2 出口 3 直接落步骤 4；(A) 成立（既非「没写候选」也非「其实举得出 ≥2」），但未到达步骤 3，(B) 不构成本条落点理由 ⇒ decidedBy: tiebreaker、kind: prescriptive、needsExtensionPoint: false，与 #53 落点一致。取证见 oh-my-story `.claude/epics/component-contract/59-rejudge.md` 第 2 节。"
   },
   {
+    "component": "CodexCard",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "设定条目卡：建在 CoreDesign Card 上，卡面字段完全由 FieldDef.onCard 驱动。步骤 1 无。步骤 2/3：泛化条目卡是一套领域渲染规则（CodexCardRules），不是外观选择——换视觉即换掉『卡片回答“这是什么”』这条定义 ⇒ 步骤 3 规定性。无裸 String init 参数（仅 state + onTap 闭包）。"
+  },
+  {
+    "component": "CodexEntryDetail",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "tiebreaker",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "设定条目详情：Card 头部 + DynamicFormSummary 只读渲染。步骤 1 无。步骤 2/3：文档自述『薄封装，不重新实现只读渲染』，与 CodexCard『未填字段是否显示』的取舍相反是领域决策，不是可换皮的样式轴 ⇒ 步骤 3 规定性。无裸 String init 参数（仅 state）。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 自陈「薄封装，不重新实现只读渲染」，字段渲染整段委托给具名兄弟组件 DynamicFormSummary，这是源码可核验的架构事实（组件自认不重新实现渲染，只做 Card 头部包装与标签行）；次要理由「与 CodexCard 的留白策略相反」同样显式引用具名兄弟组件；该委托关系不因 DynamicFormSummary 本轮（见本文件 `### 9.`）已压测判定为 step2/semantic/needsExtensionPoint:true 而改变方向——按 D-41-3（否决理由不可继承）剥离的是「借兄弟裁定结论说话」这类关系性理由，不影响「委托关系本身是架构事实」这一支撑，本组件的可换皮空间仍旧完全在兄弟组件一侧 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
+  },
+  {
+    "component": "CodexEntryForm",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "tiebreaker",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "设定条目编辑表单：四个固定位 + 模板字段（后者薄封装转发给 DynamicForm）。步骤 1 无。步骤 2/3：文档自述『薄封装，不重新实现动态表单』，控件与视觉完全来自 DynamicForm/InsetGroupedSection/SettingsRow/TagInput，本组件不持有独立样式表面 ⇒ 步骤 3 规定性。无裸 String init 参数（type/draft/闭包）。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 自陈「薄封装，不重新实现动态表单」「本组件不持有独立样式表面」，控件与视觉逐一列举来自四个具名兄弟组件（DynamicForm/InsetGroupedSection/SettingsRow/TagInput），同为源码可核验的架构事实；四个去处均已在登记表内，调用方想要不同长相应改用对应兄弟组件本身，类比 #53 Card 直接改判先例 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
+  },
+  {
+    "component": "CodexEntryList",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "设定条目列表：按类型分组 + 筛选。步骤 1 无。步骤 2/3：筛选条显式记录『不用 SegmentedControl』（类型数不定、AX5 下等宽分段会挤没文字）与『不用横向 ScrollView』（ImageRenderer 下不渲）两条被否决的候选——这些是功能性淘汰而非风格偏好，当前 FlowLayout chip 形态是唯一满足约束的解 ⇒ 步骤 3 规定性，不给扩展点。无裸 String init 参数（仅 state + 闭包）。"
+  },
+  {
+    "component": "ContextPicker",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "tiebreaker",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "多选设定条目选择器，供上层拼进 prompt。步骤 1 无。步骤 2/3：视觉完全委派给内部复用的 InsetGroupedSection + SettingsRow（`.core` 系统样式已由 CoreDesign 层处理），ContextPicker 自身不引入独立视觉身份，是纯领域组合层 ⇒ 步骤 3 规定性。展示文本（CodexText.* 与 state.states 里的条目标题/副标题）均来自内嵌数据/常量，组件 init 本身无裸 String 参数。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 自陈「自身不引入独立视觉身份，是纯领域组合层」，视觉全权委派给登记表内已命名的 InsetGroupedSection 与 SettingsRow 两个兄弟组件，此为源码可核验的架构事实而非推测；调用方想要不同长相的正确路径是改用这两个兄弟组件本身，类比 #53 Card 直接改判先例 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
+  },
+  {
     "component": "DangerIcon",
     "repo": "coredesign",
     "kind": "prescriptive",
@@ -168,6 +234,17 @@
     "needsExtensionPoint": false,
     "textParams": [],
     "notes": "纯装饰指示符，固定渲染 exclamationmark.circle.fill + 固定 statusDangerForeground 色——长相即含义 ⇒ 步骤 3 规定性，不给扩展点。accessibilityLabel『Alert』是内建 chrome（A 类），非公开参数，无 textParams 可记。 ⚠️ #53 段 2 源码级压测改判（step3 → tiebreaker；kind 与 needsExtensionPoint 不变）。诚实枚举举得出 3 个候选：三角形感叹号（SF Symbols 与 exclamationmark.circle.fill 并列提供 exclamationmark.triangle.fill；Xcode issue navigator、Material Symbols warning）、八边形/停止牌（SF Symbols exclamationmark.octagon.fill、Material dangerous）、纯色圆点（GitHub / Slack 告警红点）。作用域条款三条件对三者均在条件 ③ 落空（登记表内无状态字形/状态点组件），未走通；前两者与现状共享「实心几何外框 + 内嵌感叹号 + 语义危险色」同一骨架 ⇒ 皮肤变体、不计入 ≥2，非皮肤候选只剩 1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。另记：拟过的机制句「换成三角形就读成 warning」被本组件源码自陈证伪——Form.swift:115-117 写明 danger（红）与 warning（橙）在本库靠颜色而非外框区分，外框差异不承载该分野。取证见 53-stress.md 第 3 节。 ⚠️ #53 PR 层降级评审标注（D-53-18，不改本条落点）：本条的非皮肤候选恰为 1 个 —— 再举出一个非皮肤候选就会翻进 D-53-17 的成因②（应移交而非落地），而公约对「枚举到什么程度算完毕」无停止规则 ⇒ 本条落点依赖一个自由裁量的计数、不可复现。待 #54 裁定枚举停止规则后复核。 ⚠️ #59 按修订后判据重判（依据：公约步骤 2 的枚举停止规则 + 皮肤变体条款的槽/排布/装饰三分法及补充规则 1、2）：候选 1 三角形外框感叹号（SF Symbols exclamationmark.triangle.fill / Material Symbols warning / Xcode issue navigator）与候选 2 八边形外框感叹号（SF Symbols exclamationmark.octagon.fill / Material Symbols dangerous）均判**装饰**——走「同一槽内的画法变化」支，两层结构（实心几何外框 + 内嵌感叹号）与槽的相对位置不变；「外框不承载语义」的依据是可核验渲染事实而非自陈：本组件锁定的渲染事实只有 foregroundStyle(Color.statusDangerForeground)（Form.swift:114），而 :115-117 注释把两个状态语义写成「warning(橙) 与 danger(红)」，区分属性是颜色、不是外框形状。候选 3 纯色圆点（GitHub 告警红点 / Slack 未读红点）判**槽**——它删掉「内嵌感叹号」这一承载内容的子视图位置，两层塌成一层，属补充规则 2 的槽差异。作用域三条件：前两条无承担者；候选 3 对 SidebarStatusFooter 在条件 ③ 落空（其状态圆点是该组件私有渲染，登记表内无独立的状态点组件）⇒ 三条均不排除 ⇒ 非皮肤且未被排除的候选数 = 1 < 2 ⇒ 举得犹豫 ⇒ 出口 3 落步骤 4；(A) 成立（成因①②均不成立），未到达步骤 3 ⇒ decidedBy: tiebreaker、kind: prescriptive、needsExtensionPoint: false，与 #53 落点一致。⚠️ 本条 notes 里 #53 PR 层降级评审标注的疑虑（「落点依赖自由裁量的计数、不可复现，待裁定枚举停止规则后复核」）由本轮消解：新停止规则下 3 个具名候选、来源无泛称、非皮肤计数 = 1。取证见 oh-my-story `.claude/epics/component-contract/59-rejudge.md` 第 3 节。"
+  },
+  {
+    "component": "DelegationTimeline",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "委派列表（平坦，非树）。步骤 1 无。步骤 2/3：『平坦，不是树』是文档记录的领域事实（嵌套委派技术上不可能收到孙 worker 的 spawn 事件），不是外观选择；四态终局（running/settled/failed/interrupted）要求视觉互不相同（安全约束，非风格自由）⇒ 步骤 3 规定性。展示文本来自 DelegationEntryState 数据字段，组件 init 本身无裸 String 参数。"
   },
   {
     "component": "Descriptions",
@@ -186,6 +263,37 @@
     "notes": "步骤 1 无。文档自述『换皮不重造』——分组卡片/分隔线视觉全部继承 InsetGroupedSection，值槽位样式全部继承已实现的 CoreLabeledContentStyle（`.core`），Descriptions 自身只负责 1/2 列切分与分隔线密度，两者均已是恰当的 enum 配置（非 Bool hack），无独立视觉身份需要扩展点 ⇒ 步骤 3 规定性。textParams：header 类型为 `LocalizedStringKey?`，无 StringProtocol 孪生重载（单一、已是正确类型），由类型直接判定 ⇒ by-type。 ⚠️ #53 段 2 源码级压测改判（step3 → tiebreaker；kind 与 needsExtensionPoint 不变）。公开 API 反证：本条落款「无独立视觉身份需要扩展点」，而 Descriptions.swift:112-122 的公开 init 已带两条外观轴——DescriptionsColumns（.one/.two，:11-16）与 DescriptionsDividerDensity（.none/.row，:21-26），共 4 种公开可选长相；body（:128-139）把全部 chrome 委托给 InsetGroupedSection 与 .core LabeledContentStyle，本组件自己只画内边距（:191-193）。诚实枚举举得出 3 个候选：带边框的键值表格（Ant Design Descriptions 的 bordered prop 把两种长相作为同一组件发布）、label 在值上方的纵向布局（Ant Design layout=\"vertical\"、HTML dl）、无卡片纯文本键值段（Semi Design plain）。作用域条款三条件对 InsetGroupedSection 在条件 ③ 落空（它承担的恰是无边框圆角卡片本身），未走通；第一、三个候选共享「每行 label+value」骨架属皮肤变体，非皮肤候选只剩 1 个 < 2 ⇒ 举得犹豫。且实质问句答「是」——换成带边框表格或纵向布局，它仍是一张键值描述列表 ⇒ 两条路径同向落步骤 4。取证见 53-stress.md 第 4 节。 ⚠️ #53 PR 层降级评审标注（D-53-18，不改本条落点）：本条的非皮肤候选恰为 1 个 —— 再举出一个非皮肤候选就会翻进 D-53-17 的成因②（应移交而非落地），而公约对「枚举到什么程度算完毕」无停止规则 ⇒ 本条落点依赖一个自由裁量的计数、不可复现。待 #54 裁定枚举停止规则后复核。 ⚠️ #59 按修订后判据重判（依据：公约步骤 2 的枚举停止规则 + 皮肤变体条款的槽/排布/装饰三分法及补充规则 1、3）：候选 1 带边框的键值表格（Ant Design Descriptions 的 bordered prop）判**装饰**——边框属补充规则 1 逐字列举的描边/分隔线，header/label/value 三个槽与「同行左右分居、行间纵向线性」的排布逐一不变，去掉边框后每个 label 仍指向其右侧 value；候选 2 label 置于 value 上方的纵向布局（Ant Design layout=\"vertical\" / HTML dl 的 dt-dd）判**排布**——换轴，label 与 value 的空间关系由同行左右分居改为上下两行；候选 3 无卡片的纯文本键值段（Semi Design Descriptions 的 plain 风格）判**装饰**——卡片外壳由 InsetGroupedSection 提供，是背景 + 描边 + 内边距，已考虑补充规则 3 并判不适用（plain 与卡片版足迹量级相同，都是与父容器同宽的整块，只改内边距取值），分组归属仍由 header 与相邻性承担。作用域三条件对 InsetGroupedSection 在条件 ③ 两次落空（它承担的恰是无边框圆角卡片本身，既不承担带边框表格、也不承担无卡片纯文本段）⇒ 三条均不排除 ⇒ 非皮肤且未被排除的候选数 = 1 < 2 ⇒ 举得犹豫 ⇒ 出口 3 落步骤 4；(A) 成立（成因①②均不成立），未到达步骤 3 ⇒ decidedBy: tiebreaker、kind: prescriptive、needsExtensionPoint: false，与 #53 落点一致。⚠️ 本条 notes 里 #53 PR 层降级评审标注的「计数不可复现、待裁定枚举停止规则后复核」由本轮消解。取证见 oh-my-story `.claude/epics/component-contract/59-rejudge.md` 第 4 节。"
   },
   {
+    "component": "DynamicForm",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      {
+        "name": "header",
+        "category": "B"
+      },
+      {
+        "name": "footer",
+        "category": "B"
+      }
+    ],
+    "notes": "按 [FieldDef] 动态出 UI 的通用表单子系统，AC 明文『控件全部复用 CoreDesign，不新造』（InsetGroupedSection/SettingsRow/TagInput/RadioGroup/Avatar）。步骤 1 无。步骤 2/3：本组件不持有独立于所复用控件之外的视觉身份 ⇒ 步骤 3 规定性。textParams：header/footer 是调用方为这张表单起的分组标题/说明（如演示里的『工单』），界面标签而非用户数据，与 InsetGroupedSection 的 header/footer 同一性质 ⇒ B 类（现状裸 String，非本任务的迁移范围）。"
+  },
+  {
+    "component": "DynamicFormSummary",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "同一份 [FieldDef] 的只读渲染，建在 CoreDesign Descriptions 之上（AC 明写复用）。步骤 1 无。步骤 2/3：六种 FieldKind 到展示形态（纯文本/数值/单选/标签 chip/实体引用行）的映射是领域规则，不是外观选择；Descriptions 本身已是 prescriptive（见 coredesign 条目），本组件不叠加独立视觉 ⇒ 步骤 3 规定性。fieldDefs/values 为结构化数据，无裸 String init 参数。"
+  },
+  {
     "component": "FloatingGlassModifier",
     "repo": "coredesign",
     "kind": "prescriptive",
@@ -195,6 +303,17 @@
     "needsExtensionPoint": false,
     "textParams": [],
     "notes": "AD-2 裁决纳入登记的公开 ViewModifier（非 View，但按公约同样适用判定法）。步骤 1 无（本身不是『系统控件的样式』，是独立的玻璃背景+描边处理）。步骤 2/3：这个 modifier 存在的唯一理由就是产出『浮层玻璃』这个特定视觉——换一种外观处理调用方应直接改用别的 modifier（如 `.surface`），而不是期待 FloatingGlassModifier 换皮 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。isInteractive 是行为态 Bool（是否可交互，非配置开关），豁免于第 3 节。 ⚠️ #53 段 2 源码级压测改判（step3 → tiebreaker；kind 与 needsExtensionPoint 不变）。公开 API 反证：轮廓形状是调用方经泛型参数任意指定的——FloatingGlassModifier.swift:10-17 的 shape: S 为公开存储属性，View.floatingGlass(in:isInteractive:)（:38-45）的 Capsule 只是默认值，仓内实际调用点传过 CoreShape.rounded(CoreRadius.large)（:55）与 Sidebar.swift:404-406 的 rounded(CoreRadius.medium)。诚实枚举举得出 3 个候选：不透明面 + 投影 elevation（Material Design 3、Android FAB/bottom sheet）、半透明模糊/振动材质（iOS 7–17 UIBlurEffect、macOS NSVisualEffectView）、纯描边无填充浮层（Ant Design / Bootstrap popover）。作用域条款三条件对 Card（自述是 .surface(.content) 的具名薄封装，承担内容表面而非浮层）在条件 ③ 落空，未走通；三者与现状共享「调用方给定 shape 作轮廓 + 一层背景处理 + 一条边缘描边」同一骨架（源码即 :22-34 的 background + overlay 两句）⇒ 皮肤变体、不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4。取证见 53-stress.md 第 5 节。 ⚠️ #59 按修订后判据重判（依据：公约步骤 2 的枚举停止规则 + 皮肤变体条款的槽/排布/装饰三分法及补充规则 1、3）：三个候选——不透明面 + 投影 elevation（Material Design 3、Android FAB/bottom sheet）、半透明模糊/振动材质（iOS 7–17 UIBlurEffect、macOS NSVisualEffectView）、纯描边无填充浮层（Ant Design / Bootstrap popover）——逐条判**装饰**：本 modifier 的视觉结构是「调用方给定 shape 轮廓 + 一层背景处理 + 一条边缘描边」三层（源码 :22-34 的 background 与 overlay(strokeBorder) 两句），三个候选只换中间那层的画法，背景/描边/阴影均是补充规则 1 逐字列举的纯装饰层；不承载内容语义的依据是本 modifier 不含任何内容槽——内容由被修饰视图提供，轮廓由调用方经泛型参数 shape: S 指定（Capsule 只是 floatingGlass(in:isInteractive:) 的默认值，仓内实际传过 CoreShape.rounded(CoreRadius.large) 与 Sidebar.swift:404-406 的 rounded(CoreRadius.medium)）。已按补充规则 3 核过「不因为遮罩是材质/半透明就归装饰」并判不适用：四种画法都落在同一个调用方给定的 shape 内，足迹量级不变。作用域三条件对 Card 在条件 ③ 落空（它承担内容表面而非浮层），另两条无承担者 ⇒ 非皮肤且未被排除的候选数 = 0 < 2 ⇒ 举得犹豫 ⇒ 出口 3 落步骤 4；(A) 成立（成因①②均不成立），未到达步骤 3 ⇒ decidedBy: tiebreaker、kind: prescriptive、needsExtensionPoint: false，与 #53 落点一致。取证见 oh-my-story `.claude/epics/component-contract/59-rejudge.md` 第 5 节。"
+  },
+  {
+    "component": "FocusModeContainer",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "专注模式容器：紧凑宽度下隐藏状态栏/工具栏，仅留退出按钮。步骤 1 无。步骤 2/3：这是一个行为容器（分工归属见 spec §4.1），不是外观容器——『隐藏 chrome + 退出入口』本身就是它存在的唯一理由，没有『换一种长相但功能不变』的空间 ⇒ 步骤 3 规定性。exitButtonAccessibilityLabel 是固定 a11y chrome（内部静态函数，非公开参数），不进 textParams。"
   },
   {
     "component": "InsetGroupedSection",
@@ -239,6 +358,87 @@
     "notes": "步骤 1 无。步骤 2/3：三槽位薄结构布局（leading/label/trailing），默认贴画布无卡片化；『想要 iOS 设置页观感』文档明确指向换用兄弟组件 SettingsRow + InsetGroupedSection，而非本组件换皮 ⇒ 视觉/角色定位即含义，步骤 3 规定性，不给扩展点。三个槽位均为 @ViewBuilder，无固定 String 便利 init，无 textParams。 ⚠️ #44 检验：不过 ⇒ 改判（step3 → tiebreaker）。走公约「事后补写的效力边界」条款规定的修订回路，留痕见 docs/component-contract-revisions.md 的 R-3。理由：公约新增的「候选形态的作用域」条款明令『本条只排除候选、不决定落点，不得用本条直接推出 step3』，而本条目原判 step3 的理由整句依赖兄弟组件惯例；抽掉惯例后拆不出独立的「换了长相就不是这东西」的理由——公约第 1 节步骤 2 的原话是『「只有一种合理长相」这个措辞本身不构成理由』，必须额外说清。 ⇒ 落点回到步骤 4 tiebreaker；kind 与 needsExtensionPoint 不变。本轮六条改判之一，见 R-3 逐条结论表。 本条专属说明（I-2）：首句「三槽位薄结构布局，默认贴画布无卡片化」本身并非关系性材料——它没有援引任何兄弟组件，只是摆出组件自身特征；但「三槽位」是几乎所有列表行共享的通用骨架，不具排他性，「无卡片化」是消极/否定式描述（靠「非卡片化」定义自身），两者都不构成积极的定义性理由，不足以单独撑起 step3——真正让原判决定性的是紧随其后指向兄弟组件的对照句，样板句在这个意义上准确。"
   },
   {
+    "component": "ManuscriptEditor",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      {
+        "name": "text",
+        "category": "C"
+      }
+    ],
+    "notes": "可编辑正文面，与 ManuscriptReader 同一 StoryTextView 底座（isEditable = true）。理由同 ManuscriptReader：步骤 1 无，步骤 3 视觉即含义（外观完全由 typography/theme 值参数化，组件自身无独立可换皮表面）。`text` 由 #67 起按公约 §4 的 C 行登记为 C（用户手稿正文）；它是 AttributedString 而非 String。⚠️ 上句原写「无裸 String 展示参数」开头、靠转折兜住，已由 #67 终审 C-1 推翻：那句字面为真却会被读成「无 textParams」，且新判据已把它列为缺席措辞。"
+  },
+  {
+    "component": "ManuscriptReader",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      {
+        "name": "text",
+        "category": "C"
+      }
+    ],
+    "notes": "只读正文阅读面，与 ManuscriptEditor 共用同一个 StoryTextView（TextKit 2）底座，仅 isEditable 不同。步骤 1 无（UIViewRepresentable 场景没有可用的 SwiftUI 原生样式协议）。步骤 2/3：外观完全由调用方传入的 typography/theme 值类型决定（已是恰当参数化，非 Bool hack），组件本身不拥有独立于这两个入参之外的可换皮视觉表面 ⇒ 视觉即含义，步骤 3 规定性。text 以 AttributedString 承载。⚠️ 上句原判**该参数不进本表**（当时的理由：判据只面向 String/LocalizedStringKey/Resource 类型），已由 #67 推翻：公约 §4 的 C 行类型列已纳入 AttributedString，本参数登记为 C（用户手稿正文，运行期动态、无编译期本地化键）。"
+  },
+  {
+    "component": "OutlineTree",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "卷—章—节三层大纲树：展开/折叠、选中、拖拽重排。步骤 1 无——文档明确记录『没有用 DisclosureGroup + .core style』是刻意的不复用（展开与选中需要两个独立命中区，CoreDisclosureGroupStyle 把整行包成一个 Button 做不到）。步骤 2：候选形态（缩进列表现状 / 思维导图 / 看板）结构上是完全不同的交互模型（拖拽手势、选中语义均不同），不是同一组件的换皮，比照公约 §3.4 Slider/Gauge『行为重叠但视觉诉求不同应拆成不同组件』的推理，这里换个视觉即是换个组件 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。展示文本来自 OutlineNodeState.title 等数据字段，组件自身无裸 String init 参数。"
+  },
+  {
+    "component": "PinCode",
+    "repo": "coredesign",
+    "kind": "prescriptive",
+    "decidedBy": "tiebreaker",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "公约附录 A.4 的样本：候选形态（分格框/锁屏圆点/逐位下划线）共享「每位一格」骨架，属皮肤变体，举得犹豫 ⇒ 落 tiebreaker。"
+  },
+  {
+    "component": "ProgressBar",
+    "repo": "coredesign",
+    "kind": "excluded",
+    "decidedBy": "exclusion",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "弃用条款：@available(*, deprecated)，改用 ProgressView + .core 样式。不分类。"
+  },
+  {
+    "component": "ProgressIndicator",
+    "repo": "coredesign",
+    "kind": "semantic",
+    "decidedBy": "step1",
+    "nativeProtocol": "ProgressViewStyle",
+    "customStyleProtocol": null,
+    "needsExtensionPoint": true,
+    "textParams": [
+      {
+        "name": "text",
+        "category": "B"
+      }
+    ],
+    "notes": "步骤 1 答「有」：ProgressIndicator.swift:53-78 的 body 全部内容是外观——ProgressView + 下方文案 + accent tint + controlSize，零 @State / 零 Task，可改写为『ProgressView(label 承载文案) + 自定义 ProgressViewStyle』且不丢功能。ProgressViewStyle 有公开的 makeBody 定制点（第三方能实现），本仓 Style/CoreProgressViewStyle.swift:37 的 makeBody 就是可实现性证明。⇒ 语义组件，必须实现原生协议。 ⚠️ textParams：公约第 4 节点名 ProgressIndicator(text:) 属 B 类（调用方传入的可本地化文案），此前误填空数组——没有任何机器判据能拦这条。"
+  },
+  {
     "component": "RadioGroup",
     "repo": "coredesign",
     "kind": "prescriptive",
@@ -275,6 +475,17 @@
     "needsExtensionPoint": true,
     "textParams": [],
     "notes": "#41 裁决 4b 新增（Rating 的只读展示态拆出的 indicator）。⚠️ 判定法真走了一遍，结论与 Rating 相同但理由不同，不是照抄：弃用条款与祖父条款均不适用。步骤 1：最近的原生候选仍是 ProgressViewStyle（写法 ProgressView(value:total:) + 自定义 style），但 Rating 那条否决理由（改写会丢手势取整与 accessibility adjust action）在 indicator 身上不成立——它本来就没有手势与 adjust action，必须重新论证。重新论证：ProgressViewStyle.Configuration 只给到 fractionCompleted，而 value/count 这个比值丢掉了 count 本身（3.5/5 与 7/10 的 fractionCompleted 都是 0.7，样式实现无法区分该画 5 档还是 10 档），离散档位数是评分展示的语义核心（『4 星』与『4/10』不是同一个信息）⇒ 改写丢功能 ⇒ 按步骤 1 的操作化判据视为无，进步骤 2。步骤 2『会』：(a) 星形序列（当前）/ (b) 数字条（IMDb 式连续条形，骨架是一条连续条而非离散图形序列）/ (c) 表情（NPS 式单一图形，不是序列）/ (d) 纯数字文本『4.5 / 5』（完全没有图形骨架）——四者布局骨架本身不同，不是同一骨架换画法。⚠️ (d) 是 indicator 特有的形态，control 侧不成立（纯文本无从拖拽）：这正是『结论未必与 Rating 相同』兑现的地方，它比 Rating 多一个合法候选，更加站得住步骤 2 ⇒ 语义组件，需要扩展点。扩展点复用同一个 RatingStyle（不新造第二个协议——否则 J-2 会多出一条红，且评分的外观语汇本就只有一套）。textParams 为空：public init 只有 value: Double 与 count: Int，无文本入口。⚠️ 兄弟组件惯例的边界：Rating / RatingDisplay 是一对具名兄弟组件，但拆的是 control vs indicator 的交互语义（Apple 自己就是这么分的：Slider vs ProgressView、Toggle vs 只读标签），不是外观变体——证据是两者共用同一个 RatingStyle，外观候选并没有被兄弟组件消化掉。这与任务书点名的『未成文第四出口』不是同一回事，记录在此供 #44 SC-8 裁断该出口时引用。"
+  },
+  {
+    "component": "RunMetricsBar",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "运行指标条：token 用量 + 会话轮次，两组分隔展示。步骤 1 无。步骤 2/3：spec §3.1 明确要求 token 与轮次『不是一组数字』必须视觉分组——这是防止用户误算平均值的正确性约束，不是外观选择 ⇒ 步骤 3 规定性。展示文本来自 RunMetricsBarState 数据字段与固定分组标题（『token（含委派子树）』/『本会话』，内部常量非公开参数），组件 init 本身无裸 String 参数。"
   },
   {
     "component": "SearchField",
@@ -323,6 +534,22 @@
       }
     ],
     "notes": "步骤 1 无。文档自述『只负责文本样式，不带分组外边距』，大写 + footnote 灰是固定的 iOS 分组标题惯例 ⇒ 步骤 3 规定性，不给扩展点。⚠️ textParams：公约第 4 节**明确点名** SectionHeader 属 B 类（调用方传入的可本地化文案）——title 为 LocalizedStringKey + StringProtocol 双重载，B 类。 ⚠️ #53 段 2 源码级压测改判（step3 → tiebreaker；kind 与 needsExtensionPoint 不变）。源码自带反证：SectionHeader.swift:15-17 的 doc comment 原文记着「刻意用 .insetGrouped 惯例（大写）而非 .sidebar 风格（非大写）——Phase 1 视觉终审发现 demo 误用 .sidebar list style 导致 header 非大写」⇒ 同一分组标题在同一套系统框架下确有非大写的在产渲染，是本仓自己记录的事实。诚实枚举举得出 3 个候选：title-case 非大写的 sidebar 风格标题、较大字号加粗的 Material subheader、带 trailing 动作或计数的分组标题行。作用域条款三条件：第三个候选对 SidebarSection（其头部确有 trailing 字形，Sidebar.swift:62-67）三条件满足 ⇒ 被正当排除；其余两个未走通（条件 ③ 无承担者）。排除后剩余候选与现状共享「一行文本置于分组之上」唯一骨架、差别全在字号字重大小写与色 ⇒ 皮肤变体、不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4。佐证（同向、非承重）：把大写与 footnote 灰同时换成 body 黑的常规大小写，这一行就从「分组标题」读成「该组的第一条内容」——Y 落在 :43-44 两个渲染事实上、不引兄弟组件名。取证见 53-stress.md 第 8 节。 ⚠️ #59 按修订后判据重判（依据：公约步骤 2 的枚举停止规则 + 皮肤变体条款的槽/排布/装饰三分法及补充规则 1 + 候选形态作用域三条件）：候选 1 title-case 非大写的 sidebar 风格标题（SwiftUI .sidebar list style 的系统渲染 / macOS Finder 边栏）与候选 2 较大字号加粗的分组小标题（Material list subheader / iOS .plain 列表 title-case header）判**装饰**——同一文本槽内的排版画法变化，槽数与「一行文本置于分组之上」的空间关系不变；「大小写不承载内容语义」的依据是本仓实测记录 SectionHeader.swift:15-17（Phase 1 视觉终审发现 demo 误用 .sidebar list style 导致 header 非大写，非大写时仍读作分组标题），不是自陈。候选 3 带 trailing 动作或计数的分组标题行（Slack 频道分组头 / Notion 数据库分组头）判**槽**——在标题文本槽之外新增一个承载动作或数量的 trailing 槽，公约三分法末尾逐字点名「SectionHeader（trailing 动作/计数槽）走槽」。⚠️ 作用域三条件复核**修正了 #53 的一处排除**：#53 以「SidebarSection 头部确有 trailing 字形（Sidebar.swift:62-67）」把候选 3 排除，本轮实读该字形是 Image(systemName: \"ellipsis\")，紧邻注释 :65-67 明写「装饰性占位符，当前无 action；对 VoiceOver 隐藏」——它既不承载动作也不承载计数，SidebarSection 并不真实承担「带 trailing 动作/计数槽的分组标题行」这一候选形态，按条件 ③ 的反例警告（点名一个真实存在但与该候选无关的组件不算数）⇒ ③ 不成立、候选 3 **不排除**（候选 1 仍被 SidebarSection 正当排除，它本就判装饰，不影响计数）⇒ 非皮肤且未被排除的候选数由 #53 的 0 变为 **1**，仍 < 2 ⇒ 举得犹豫 ⇒ 出口 3 落步骤 4；(A) 成立（成因①②均不成立），未到达步骤 3 ⇒ decidedBy: tiebreaker、kind: prescriptive、needsExtensionPoint: false，落点与 #53 一致但**作用域结论已修正**。取证见 oh-my-story `.claude/epics/component-contract/59-rejudge.md` 第 8 节。"
+  },
+  {
+    "component": "SegmentedControl",
+    "repo": "coredesign",
+    "kind": "semantic",
+    "decidedBy": "precedent",
+    "nativeProtocol": null,
+    "customStyleProtocol": "SegmentedControlStyle",
+    "needsExtensionPoint": true,
+    "textParams": [
+      {
+        "name": "title",
+        "category": "B"
+      }
+    ],
+    "notes": "祖父条款：已发布公开样式协议，不走判定法——删它是破坏性变更，判定法推翻不了既成事实。 textParams：title 由 `(Item) -> String` 闭包解出的分段标签文本，形态与 UnderlinedTabBar 的 `title` 闭包完全相同（App 固定定义的分类导航标签，非用户自由输入）⇒ 对齐 UnderlinedTabBar 判 B 类（终审 I3）。`SegmentedControlStyleConfiguration.Segment.title` 是同一份文本经组件内部转交给 style 实现者的镜像字段（类比 ButtonStyleConfiguration 上下文透传），不是调用方另一处可独立填写的文案入口，不重复计入 textParams。"
   },
   {
     "component": "Separator",
@@ -573,6 +800,55 @@
     "notes": "步骤 1 无。指示器已有恰当 enum 配置（StepsIndicatorStyle：dot/numbered），非 Bool hack；候选『进度条式向导』结构上是完全不同的组件（本仓已有独立注册的 ProgressBar/ProgressIndicator），不是 Steps 换皮 ⇒ 视觉即含义，步骤 3 规定性。textParams：StepItem.title / description 是调用方定义的固定流程步骤名（如『Cart』『Shipping』），界面标签而非用户数据 ⇒ B 类。 ⚠️ #59 按修订后判据重判（依据：公约步骤 2 的枚举停止规则与来源义务 + 皮肤变体条款的槽/排布/装饰三分法及补充规则 2 + 步骤 3 门槛「(A) 不成立 ⇒ 重跑步骤 2」三条修订）：候选 1 分段式进度条向导（Ant Design Steps 的 percent 形态 / Google 表单底部按页分段的进度条，本轮已去掉 #53 的泛称「结账与 onboarding 流程常见的分段条」）判**槽**——补充规则 2 逐字点名的正典例「离散节点 + 连线 → 连续分段条：N 个步骤位置塌成一条连续条」；现状横向 body 每一步是一个等宽列、指示器居中于标题正上方、连线画在指示器 background 上（Steps.swift 的 horizontalBody），候选把 N 个指示器槽塌成 1 条连续条 ⇒ 槽的计数变化，且不能拿公开的 indicatorStyle（.dot 12pt / .numbered 28pt，:156-157）类比成换画法——那两个取值换的是同一个指示器槽内的绘制、槽数不变。候选 2 面包屑或导航式步骤条（Ant Design Steps type=\"navigation\" / Shopify Polaris 结账步骤导航）判**排布**——去掉公共轴线与连线，每一步成为彼此直接拼接的可点击块。候选 3 纯文本「第 2 步，共 4 步」（Typeform 的「1 of 5」进度文案，本轮已去掉泛称「iOS 表单向导」）判**槽**——N 个指示器槽与标题槽连同连线塌成一个文本槽。作用域三条件对 ProgressBar（条目全文为弃用条款「不分类」，且是无步骤标签的纯进度条）与 ProgressIndicator（居中转圈指示器 + 文案）在条件 ③ 落空（53-survey.md 条目 23 指出的「第三条件证据链不完整」本轮再核，结论同向：补不上则候选不被排除），候选 2、3 无承担者（UnderlinedTabBar 是同级标签页切换、SegmentedControl 是互斥选择控件、StateLabel 是六固定 case 状态 pill，按条件 ③ 的反例警告点名它们不算数）⇒ 非皮肤且未被排除的候选数 = 3 ≥ 2 ⇒ (A) 不成立、成因②（原答案举出过 1 个候选却把它整个判给兄弟组件，而那两个兄弟在条件 ③ 都不成立）⇒ 重跑步骤 2 一次 ⇒ 落**出口 1**：语义组件、需要扩展点 ⇒ decidedBy: step2、kind: semantic、needsExtensionPoint: true；未到达步骤 3，(B) 门槛不适用（备查：#53 判本条 notes 现有理由整句依赖点名 ProgressBar / ProgressIndicator ⇒ 关系性，不承重）。⚠️ 本条是 #53 的 5 条成因② 移交样本之一，其资格是旧判据下算出的，本轮从候选枚举重走后仍是成因②。扩展点**已实现**（CoreDesign PR #206，已合并）—— 原记「扩展点待实现，见 wxlpp/oh-my-story#60」，该 issue 已 closed，留着会把已完成的呈现为待办。取证见 oh-my-story `.claude/epics/component-contract/59-rejudge.md` 第 15 节。 ⚠️ #60 形态落地（公约 §2 形态 D2）：新增 `StepsPresentation`（`.steps` 默认 / `.segmentedBar` / `.navigation` / `.text`）承载三个候选形态，与既有 `StepsIndicatorStyle` **正交**。⚠️ **不扩 `StepsIndicatorStyle`** —— 其语义是「离散指示器长什么样」（消费者 `indicatorDiameter` 的注释逐字为「横向连线的中央空档宽度取此值」，预设了「每步一个指示器 + 连线」的骨架），而三个新形态里 `.segmentedBar`无离散指示器、`.navigation` 去连线、`.text` 连 items 循环都不适用 ⇒ 改的不是指示器样式而是整个 body 结构，塞进去会污染既有语义（#60 形态选择自查推翻了初稿的「扩现有枚举」判断，见 `oh-my-story` 的 `.claude/epics/component-contract/60-form-decision.md`）。 ⚠️ **正交性代价**：`indicatorStyle` 只在 `.steps` 下生效、`axis` 只对 `.steps` 与 `.navigation` 有意义，其余组合**静默不生效**（存储层仍原样保留，切回时不丢配置）。"
   },
   {
+    "component": "StoryScaffold",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "大纲/正文/AI 面板三栏自适应布局骨架。步骤 1 无（结构性布局引擎，非样式扩展场景）。步骤 2/3：spec §5.2 明确记录『二栏 + inspector，不是三栏 NSV』是基于 `NavigationSplitViewVisibility` 实测局限（三栏 NSV 无法只留 content 列）做出的技术裁决，不是外观偏好——换一种布局形状需要换一套完全不同的状态管理与几何验证，不是同组件换皮 ⇒ 步骤 3 规定性，不给扩展点。无裸 String 展示参数（三个内容槽均为 @ViewBuilder）。"
+  },
+  {
+    "component": "StoryTextView",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [
+      {
+        "name": "initialText",
+        "category": "C"
+      }
+    ],
+    "notes": "正文的 TextKit 2 UIViewRepresentable 底座，ManuscriptReader / ManuscriptEditor 共用。步骤 1 无（UIViewRepresentable 没有 SwiftUI 原生样式协议可套）。步骤 2/3：这是渲染引擎本身，『长相』就是 TextKit 排版结果，不存在独立于排版实现之外的可换皮视觉 ⇒ 步骤 3 规定性。initialText 为 AttributedString。⚠️ 上句原判**该参数不进本表**，已由 #67 推翻：公约 §4 的 C 行类型列已纳入 AttributedString，本参数登记为 C（用户手稿正文）。"
+  },
+  {
+    "component": "StreamingIndicator",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "tiebreaker",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "流式状态指示器，六态（waiting/streaming/completed/stoppedByCondition/interrupted/failed）。步骤 1 无。步骤 2：候选形态（图标胶囊现状 / 纯色圆点 / 顶部进度条）共享『紧凑状态徽标』骨架，属皮肤变体——按公约皮肤变体条款（即使能额外说清『长相即含义』的理由，皮肤变体候选也不改套步骤 3，仍落步骤 4），这些候选不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4 tiebreaker，默认规定性组件、不给扩展点。佐证（与默认结论方向一致，不是另立的决定性理由）：本组件的核心约束是『.completed 与 .stoppedByCondition 必须长得不一样』——这是安全性要求（防止把未完成误读为完成），扩展点会削弱这条约束的可控性。展示文本（title/detail）为组件内部纯函数产出，非公开参数。"
+  },
+  {
+    "component": "SuggestionStream",
+    "repo": "storyui",
+    "kind": "prescriptive",
+    "decidedBy": "step3",
+    "nativeProtocol": null,
+    "customStyleProtocol": null,
+    "needsExtensionPoint": false,
+    "textParams": [],
+    "notes": "AI 流式建议卡：Markdown 正文 + 固定四态动作按钮。步骤 1 无。步骤 2/3：结构（正文块 + 光标 + 失败文案 + 动作区）与流式生成场景强绑定，换一种呈现即是换一个不同语义的组件 ⇒ 视觉即含义，步骤 3 规定性。展示文本全部来自 SuggestionStreamState（内嵌数据结构字段），组件自身 init 无裸 String 展示参数。"
+  },
+  {
     "component": "Tag",
     "repo": "coredesign",
     "kind": "prescriptive",
@@ -629,242 +905,22 @@
     "notes": "纵向时间线布局容器（节点+连线+内容），节点色复用 StatusLevel、连线宽度已在文件内注明为『有意偏离』的取值层决策 ⇒ 长相即含义，步骤 3 规定性，不给扩展点。TimelineItem.content/node 均为 @ViewBuilder，无固定 String 文本参数。 ⚠️ #59 按修订后判据重判（依据：公约步骤 2 的枚举停止规则与来源义务 + 皮肤变体条款的槽/排布/装饰三分法及补充规则 1 + 步骤 3 门槛「(A) 不成立 ⇒ 重跑步骤 2」三条修订）：候选 1 左右交替式时间线（Ant Design Timeline 的 mode=\"alternate\" 与 left/right 并列发布）与候选 2 横向时间线（本轮把 #53 的泛称「产品路线图与 Gantt 式横向时间轴」及未锚定形态的「Semi/Element 系组件库」替换为具名来源：PowerPoint SmartArt 的 Basic Timeline、Final Cut Pro 的横向事件时间线）判**排布**——公约三分法末尾逐字点名「Timeline 的『左右交替』与『横向』走排布，旧口径下即判非皮肤，新口径同向」；结构事实是现状「左侧固定 24pt 节点列 + 右侧内容」（Timeline.swift:151 的 nodeColumnWidth）被换轴或分居两侧。候选 3 无连线的按日期分组列表（Apple 邮件与信息的日期分组 / GitHub 活动流）判**槽**——删掉节点列这一承载状态语义的子视图位置：默认节点是 Circle().fill(Timeline.nodeColor(for: status))，节点色按 StatusLevel 取 StatusColors 的 emphasis 档，颜色即状态，与补充规则 1 的反例 SidebarStatusFooter 状态圆点同型 ⇒ 节点是槽而非纯装饰层。作用域三条件：候选 2 对 Steps 在条件 ③ 落空（其 axis: .horizontal 承担的是「第几步/共几步」的离散步骤流程，notes 自述 StepItem.title/description 是固定流程步骤名，不承担时间事件流；内容模型也不同），候选 1、3 无承担者（ListRow 与 InsetGroupedSection 是通用行与分组容器，按条件 ③ 的反例警告点名它们不算数）⇒ 非皮肤且未被排除的候选数 = 3 ≥ 2 ⇒ (A) 不成立、成因②（本条 notes 从未枚举候选，且诚实枚举其实举得出 ≥2）⇒ 重跑步骤 2 一次 ⇒ 落**出口 1**：语义组件、需要扩展点 ⇒ decidedBy: step2、kind: semantic、needsExtensionPoint: true；未到达步骤 3，(B) 门槛不适用（备查：#53 判本条无合格 (B) 句——节点长相由公开 node: 槽决定 :61、:221-231，连线宽度是取值层决策，不承重）。⚠️ 本条是 #53 的 5 条成因② 移交样本之一，其资格是旧判据下算出的，本轮从候选枚举重走后仍是成因②，且判据最硬：候选 1、2 的排布归类正是公约逐字点名「不推翻」的既有判定。扩展点**已实现**（CoreDesign PR #206，已合并）—— 原记「扩展点待实现，见 wxlpp/oh-my-story#60」，该 issue 已 closed，留着会把已完成的呈现为待办。取证见 oh-my-story `.claude/epics/component-contract/59-rejudge.md` 第 17 节。 ⚠️ #60 形态落地（公约 §2 形态 D2）：新增 `TimelineLayout`（`.vertical` 默认 / `.alternate` / `.horizontal` / `.grouped`）承载三个候选形态。⚠️ **为什么不是 D1**：`TimelineItem.node:` 确是真外观槽（有默认画法、替换的是组件视觉主张），但它管的是**单个节点的画法**，而三个候选是**容器级排布**（左右交替 / 换轴 / 删掉整个节点列）—— 槽够不着容器 ⇒ D1 不完整成立。⚠️ **正交性代价**：`.grouped` 下不渲染节点列 ⇒ `node:` 槽静默不生效（存储层原样保留，切回其余布局时不丢配置），与 `Steps` 同一处置。 ⚠️ `.horizontal` 本轮**不画节点间连线** —— 竖向连线的实现依赖「节点在上、内容在下」的纵向几何，换轴后 padding 计算不成立；横向连线属独立形态，**尚无承接 issue**（原写作「#60 承接」，但 #60 就是落地本条的那个 issue，合并即悬空 —— PR #206 第 2 轮 review 抓到）。⚠️ 这条是**有意不开** issue 的：横向连线是一个尚无需求驱动的增强，不是缺口；要做时再开，别把它读成待办。"
   },
   {
-    "component": "UnderlinedTabBar",
+    "component": "Toast",
     "repo": "coredesign",
-    "kind": "prescriptive",
-    "decidedBy": "tiebreaker",
+    "kind": "semantic",
+    "decidedBy": "step2",
     "nativeProtocol": null,
     "customStyleProtocol": null,
-    "needsExtensionPoint": false,
+    "styleSlot": null,
+    "styleEnum": "ToastPresentation",
+    "needsExtensionPoint": true,
     "textParams": [
       {
-        "name": "title",
+        "name": "message",
         "category": "B"
       }
     ],
-    "notes": "步骤 1 无。步骤 2/3：下划线指示器是与本仓已独立注册的兄弟组件 SegmentedControl（pill 指示）划清场景边界的定义性视觉（文档：『UnderlinedTabBar 面向可滚动场景，SegmentedControl 面向 ≤5 项紧凑场景』）——想要 pill 观感应换用 SegmentedControl，不是给本组件换皮 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。textParams：title 由 `(Item) -> String` 闭包解出的 tab 标签文本，是 App 固定定义的分类导航标签（非用户自由输入）⇒ B 类。 ⚠️ #44 检验：过（补痕，落点与 decidedBy 不变）。按公约「候选形态的作用域」条款把上文的两件事拆开表述——(1) 作用域排除：pill 指示候选由兄弟组件 SegmentedControl 承担，三条件逐条：① SegmentedControl 在 component-registry.json 内；② 上文已写明组件名；③ pill 指示确是它真实承担的形态 ⇒ 该候选不计入本组件候选，步骤 2 举不出。(2) 独立理由（不引用任何兄弟组件）：下划线指示器的宽度由当前标签的文本宽度决定、随标签横向滚动而移动，因此可承载任意多个不定宽标签；这条「指示器贴着内容走」的画法本身就是「可滚动多标签导航」这个含义的载体——换成定宽指示器就必须先把标签数压到可一屏排下，它表达的就不再是同一件事 ⇒ 换了长相就不是这东西。上文引的文档原话（面向可滚动场景 vs ≤5 项紧凑场景）原样保留，未被替换。 ⚠️ #44 检验（评审 C-2 复核，反事实必要性压测）：初判「过」所拆出的独立理由（『换成定宽指示器就必须先把标签数压到可一屏排下』）是稻草人反事实——下划线指示器本身就是 `Capsule()`，装在每个 tab 项的 VStack 内并加 `.frame(maxWidth: .infinity)`（宽度随所在 tab 的自然宽度、即标签文本宽度伸缩），整体又包在横向 `ScrollView` 里；把下划线换成「包住文本的胶囊（Capsule）」放回同一个横向可滚动容器，指示器随标签宽度伸缩、随标签横向滚动、标记选中态、走强调色这些性质**全部保留**，含义没有变 ⇒ 反事实没有证明「换了长相就不是这东西」——「定宽」这个反事实条件本身不成立，被测的候选从未真正失去任何列举出的性质。重新压测（不引用任何兄弟组件名）：找不到一种把下划线换成其他形状会导致含义丢失的构造——形状本身（一条线 vs 一个胶囊）只是「随内容宽度伸缩的选中标记」这同一个骨架的画法差异，不构成独立的定义性视觉 ⇒ 通不过公约第 1 节步骤 2「必须额外说清」的检验 ⇒ 改判（step3 → tiebreaker）。走公约「事后补写的效力边界」条款规定的修订回路，留痕见 docs/component-contract-revisions.md 的 R-3。⇒ 落点回到步骤 4 tiebreaker；kind 与 needsExtensionPoint 不变。本轮六条改判之一，见 R-3 逐条结论表。"
-  },
-  {
-    "component": "ManuscriptReader",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [
-      {
-        "name": "text",
-        "category": "C"
-      }
-    ],
-    "notes": "只读正文阅读面，与 ManuscriptEditor 共用同一个 StoryTextView（TextKit 2）底座，仅 isEditable 不同。步骤 1 无（UIViewRepresentable 场景没有可用的 SwiftUI 原生样式协议）。步骤 2/3：外观完全由调用方传入的 typography/theme 值类型决定（已是恰当参数化，非 Bool hack），组件本身不拥有独立于这两个入参之外的可换皮视觉表面 ⇒ 视觉即含义，步骤 3 规定性。text 以 AttributedString 承载。⚠️ 上句原判**该参数不进本表**（当时的理由：判据只面向 String/LocalizedStringKey/Resource 类型），已由 #67 推翻：公约 §4 的 C 行类型列已纳入 AttributedString，本参数登记为 C（用户手稿正文，运行期动态、无编译期本地化键）。"
-  },
-  {
-    "component": "SuggestionStream",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "AI 流式建议卡：Markdown 正文 + 固定四态动作按钮。步骤 1 无。步骤 2/3：结构（正文块 + 光标 + 失败文案 + 动作区）与流式生成场景强绑定，换一种呈现即是换一个不同语义的组件 ⇒ 视觉即含义，步骤 3 规定性。展示文本全部来自 SuggestionStreamState（内嵌数据结构字段），组件自身 init 无裸 String 展示参数。"
-  },
-  {
-    "component": "WritingStatusBar",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "写作状态栏：字数 / 目标进度（ProgressView(.core)）/ 保存三态。步骤 1 无（组件本身是复合视图，非单一系统控件的样式扩展）。步骤 2/3：字数文案 + 进度条 + 保存态是这块状态栏的全部定义，换一种呈现无实际意义 ⇒ 步骤 3 规定性。展示文本由 WritingStatusBarState 派生（wordCountText/saveText 均为 internal 纯函数），组件 init 本身无裸 String 参数。"
-  },
-  {
-    "component": "FocusModeContainer",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "专注模式容器：紧凑宽度下隐藏状态栏/工具栏，仅留退出按钮。步骤 1 无。步骤 2/3：这是一个行为容器（分工归属见 spec §4.1），不是外观容器——『隐藏 chrome + 退出入口』本身就是它存在的唯一理由，没有『换一种长相但功能不变』的空间 ⇒ 步骤 3 规定性。exitButtonAccessibilityLabel 是固定 a11y chrome（内部静态函数，非公开参数），不进 textParams。"
-  },
-  {
-    "component": "StoryTextView",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [
-      {
-        "name": "initialText",
-        "category": "C"
-      }
-    ],
-    "notes": "正文的 TextKit 2 UIViewRepresentable 底座，ManuscriptReader / ManuscriptEditor 共用。步骤 1 无（UIViewRepresentable 没有 SwiftUI 原生样式协议可套）。步骤 2/3：这是渲染引擎本身，『长相』就是 TextKit 排版结果，不存在独立于排版实现之外的可换皮视觉 ⇒ 步骤 3 规定性。initialText 为 AttributedString。⚠️ 上句原判**该参数不进本表**，已由 #67 推翻：公约 §4 的 C 行类型列已纳入 AttributedString，本参数登记为 C（用户手稿正文）。"
-  },
-  {
-    "component": "ManuscriptEditor",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [
-      {
-        "name": "text",
-        "category": "C"
-      }
-    ],
-    "notes": "可编辑正文面，与 ManuscriptReader 同一 StoryTextView 底座（isEditable = true）。理由同 ManuscriptReader：步骤 1 无，步骤 3 视觉即含义（外观完全由 typography/theme 值参数化，组件自身无独立可换皮表面）。`text` 由 #67 起按公约 §4 的 C 行登记为 C（用户手稿正文）；它是 AttributedString 而非 String。⚠️ 上句原写「无裸 String 展示参数」开头、靠转折兜住，已由 #67 终审 C-1 推翻：那句字面为真却会被读成「无 textParams」，且新判据已把它列为缺席措辞。"
-  },
-  {
-    "component": "ContextPicker",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "tiebreaker",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "多选设定条目选择器，供上层拼进 prompt。步骤 1 无。步骤 2/3：视觉完全委派给内部复用的 InsetGroupedSection + SettingsRow（`.core` 系统样式已由 CoreDesign 层处理），ContextPicker 自身不引入独立视觉身份，是纯领域组合层 ⇒ 步骤 3 规定性。展示文本（CodexText.* 与 state.states 里的条目标题/副标题）均来自内嵌数据/常量，组件 init 本身无裸 String 参数。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 自陈「自身不引入独立视觉身份，是纯领域组合层」，视觉全权委派给登记表内已命名的 InsetGroupedSection 与 SettingsRow 两个兄弟组件，此为源码可核验的架构事实而非推测；调用方想要不同长相的正确路径是改用这两个兄弟组件本身，类比 #53 Card 直接改判先例 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
-  },
-  {
-    "component": "CodexEntryForm",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "tiebreaker",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "设定条目编辑表单：四个固定位 + 模板字段（后者薄封装转发给 DynamicForm）。步骤 1 无。步骤 2/3：文档自述『薄封装，不重新实现动态表单』，控件与视觉完全来自 DynamicForm/InsetGroupedSection/SettingsRow/TagInput，本组件不持有独立样式表面 ⇒ 步骤 3 规定性。无裸 String init 参数（type/draft/闭包）。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 自陈「薄封装，不重新实现动态表单」「本组件不持有独立样式表面」，控件与视觉逐一列举来自四个具名兄弟组件（DynamicForm/InsetGroupedSection/SettingsRow/TagInput），同为源码可核验的架构事实；四个去处均已在登记表内，调用方想要不同长相应改用对应兄弟组件本身，类比 #53 Card 直接改判先例 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
-  },
-  {
-    "component": "CodexEntryDetail",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "tiebreaker",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "设定条目详情：Card 头部 + DynamicFormSummary 只读渲染。步骤 1 无。步骤 2/3：文档自述『薄封装，不重新实现只读渲染』，与 CodexCard『未填字段是否显示』的取舍相反是领域决策，不是可换皮的样式轴 ⇒ 步骤 3 规定性。无裸 String init 参数（仅 state）。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 自陈「薄封装，不重新实现只读渲染」，字段渲染整段委托给具名兄弟组件 DynamicFormSummary，这是源码可核验的架构事实（组件自认不重新实现渲染，只做 Card 头部包装与标签行）；次要理由「与 CodexCard 的留白策略相反」同样显式引用具名兄弟组件；该委托关系不因 DynamicFormSummary 本轮（见本文件 `### 9.`）已压测判定为 step2/semantic/needsExtensionPoint:true 而改变方向——按 D-41-3（否决理由不可继承）剥离的是「借兄弟裁定结论说话」这类关系性理由，不影响「委托关系本身是架构事实」这一支撑，本组件的可换皮空间仍旧完全在兄弟组件一侧 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
-  },
-  {
-    "component": "CodexCard",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "设定条目卡：建在 CoreDesign Card 上，卡面字段完全由 FieldDef.onCard 驱动。步骤 1 无。步骤 2/3：泛化条目卡是一套领域渲染规则（CodexCardRules），不是外观选择——换视觉即换掉『卡片回答“这是什么”』这条定义 ⇒ 步骤 3 规定性。无裸 String init 参数（仅 state + onTap 闭包）。"
-  },
-  {
-    "component": "CodexEntryList",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "设定条目列表：按类型分组 + 筛选。步骤 1 无。步骤 2/3：筛选条显式记录『不用 SegmentedControl』（类型数不定、AX5 下等宽分段会挤没文字）与『不用横向 ScrollView』（ImageRenderer 下不渲）两条被否决的候选——这些是功能性淘汰而非风格偏好，当前 FlowLayout chip 形态是唯一满足约束的解 ⇒ 步骤 3 规定性，不给扩展点。无裸 String init 参数（仅 state + 闭包）。"
-  },
-  {
-    "component": "DynamicFormSummary",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "同一份 [FieldDef] 的只读渲染，建在 CoreDesign Descriptions 之上（AC 明写复用）。步骤 1 无。步骤 2/3：六种 FieldKind 到展示形态（纯文本/数值/单选/标签 chip/实体引用行）的映射是领域规则，不是外观选择；Descriptions 本身已是 prescriptive（见 coredesign 条目），本组件不叠加独立视觉 ⇒ 步骤 3 规定性。fieldDefs/values 为结构化数据，无裸 String init 参数。"
-  },
-  {
-    "component": "DynamicForm",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [
-      {
-        "name": "header",
-        "category": "B"
-      },
-      {
-        "name": "footer",
-        "category": "B"
-      }
-    ],
-    "notes": "按 [FieldDef] 动态出 UI 的通用表单子系统，AC 明文『控件全部复用 CoreDesign，不新造』（InsetGroupedSection/SettingsRow/TagInput/RadioGroup/Avatar）。步骤 1 无。步骤 2/3：本组件不持有独立于所复用控件之外的视觉身份 ⇒ 步骤 3 规定性。textParams：header/footer 是调用方为这张表单起的分组标题/说明（如演示里的『工单』），界面标签而非用户数据，与 InsetGroupedSection 的 header/footer 同一性质 ⇒ B 类（现状裸 String，非本任务的迁移范围）。"
-  },
-  {
-    "component": "ApprovalRequestCard",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "待审批工具调用卡片组，三档形态（空/排队/列表）。步骤 1 无。步骤 2/3：三档形态与审批工作流的实际状态一一对应（AC 要求可区分取消与拒绝），不是外观自由度 ⇒ 步骤 3 规定性。展示文本（prompt/agentID/toolID）来自 ApprovalRequestState 数据字段，组件 init 本身无裸 String 参数。"
-  },
-  {
-    "component": "OutlineTree",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "卷—章—节三层大纲树：展开/折叠、选中、拖拽重排。步骤 1 无——文档明确记录『没有用 DisclosureGroup + .core style』是刻意的不复用（展开与选中需要两个独立命中区，CoreDisclosureGroupStyle 把整行包成一个 Button 做不到）。步骤 2：候选形态（缩进列表现状 / 思维导图 / 看板）结构上是完全不同的交互模型（拖拽手势、选中语义均不同），不是同一组件的换皮，比照公约 §3.4 Slider/Gauge『行为重叠但视觉诉求不同应拆成不同组件』的推理，这里换个视觉即是换个组件 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。展示文本来自 OutlineNodeState.title 等数据字段，组件自身无裸 String init 参数。"
-  },
-  {
-    "component": "DelegationTimeline",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "委派列表（平坦，非树）。步骤 1 无。步骤 2/3：『平坦，不是树』是文档记录的领域事实（嵌套委派技术上不可能收到孙 worker 的 spawn 事件），不是外观选择；四态终局（running/settled/failed/interrupted）要求视觉互不相同（安全约束，非风格自由）⇒ 步骤 3 规定性。展示文本来自 DelegationEntryState 数据字段，组件 init 本身无裸 String 参数。"
-  },
-  {
-    "component": "StoryScaffold",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "大纲/正文/AI 面板三栏自适应布局骨架。步骤 1 无（结构性布局引擎，非样式扩展场景）。步骤 2/3：spec §5.2 明确记录『二栏 + inspector，不是三栏 NSV』是基于 `NavigationSplitViewVisibility` 实测局限（三栏 NSV 无法只留 content 列）做出的技术裁决，不是外观偏好——换一种布局形状需要换一套完全不同的状态管理与几何验证，不是同组件换皮 ⇒ 步骤 3 规定性，不给扩展点。无裸 String 展示参数（三个内容槽均为 @ViewBuilder）。"
-  },
-  {
-    "component": "AgentMessageList",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "agent 过程消息流，五类角色（user/assistant/thought/system/error）各自固定渲染形态。步骤 1 无。步骤 2/3：文档反复强调『三种“文本流”必须分开渲染』『reasoning 与 thought 长得不一样』——五类形态互不相同是正确性约束（避免用户混淆消息语义），不是风格自由度 ⇒ 步骤 3 规定性，不给扩展点。展示文本来自 AgentMessage/AgentMessageRole 关联值，组件 init 本身无裸 String 参数。"
+    "notes": "终审 C1 补录——docs/README.md:78 索引但此前漏登记。判定法走查：弃用条款不适用（未标 @available(*, deprecated)）；祖父条款不适用（无已发布的 ToastStyle 协议）。步骤 1：Apple 无对应原生样式协议 ⇒ 无。步骤 2：能举出 ≥2 个业界真实存在、且结构本身不同（非皮肤变体）的替代形态——(a) 当前形态：边缘悬浮胶囊（capsule，safeAreaInset 锚定单侧边缘）；(b) 全宽横幅条（如 Android Snackbar / 部分 App 的 in-app banner，横跨屏幕宽度，不是胶囊）；(c) 居中 HUD（如经典 UIKit toast/HUD，浮于屏幕中央而非贴边）——三者的布局骨架（贴边胶囊 / 全宽条 / 居中浮层）本身不同，不是同一骨架换画法，举得出 ≥2 ⇒ 语义组件，需要扩展点。⚠️ 现状缺口：源码里尚无 ToastStyle 协议实现（customStyleProtocol 为 null）——判定法给出『应该有扩展点』的结论，扩展点尚未落地，**承接 `wxlpp/oh-my-story#65`**（原写作「留给后续任务补齐」——匿名指针，与 SidebarUtilityRow 那条同性质缺口一具名一匿名，正是承接指针回填要消灭的状态），不属于本任务判断错误。⚠️ 原句「与 Rating 的现状缺口同性质」**已过期**：Rating 的缺口由 #41 裁决 4c 补齐并已从 J-2 红名单摘除（见 ComponentExtensionPointGuard），本条与它现在不同性质 —— 本条仍是缺口，Rating 不是。textParams：ToastItem.message / ToastHost.show(_:level:duration:) 的 message 均为裸 String，是调用方传入的界面提示文案（非用户数据、非组件内置 chrome）⇒ B 类。⚠️ 扫描器盲区：ToastHost 是 public class（非 View/ViewModifier struct），ToastItem/ToastDefaults 是不含 View 一致性的 public struct/enum，PublicTypeCollector 结构上看不到三者中任何一个 ⇒ 本条目名 `Toast` 不会出现在扫描器的 `scanned` 集合里，已在 ComponentRegistryGuard.knownOffScannerComponents 加白名单豁免双向差集的幽灵检查，详见该守卫文件顶部注释。⚠️ 落地（`wxlpp/oh-my-story#65`）：以形态 D2 补齐，公开枚举 `ToastPresentation`（floatingCapsule / fullWidthBanner / centeredHUD）接在唯一公开入口 `View.toastHost(edge:presentation:)` 上，默认 `.floatingCapsule` ⇒ 现有调用方零影响。⚠️ 接在那个 modifier 方法而非任何 `init`，是因为 `ToastHost` 由内部 modifier 的 `@State` 持有、调用方够不着它的 `init`；这同时暴露了 J-2 判据 D2 臂的两处口径缺口（采集只认公开 `init` 参数、宿主名必须等于条目名），两处已在本 issue 内修补，详见 `D-65-1`。⚠️ 条目名 `Toast` 不是类型名，故在 `ComponentHostAliases` 里映射到 `toastHost`；该表由 `ComponentHostAliasGuard` 的四条断言守自洽。⚠️ 三形态的渲染差异有机器判据（`ToastPresentationRenderTests`，9 条断言 + 7 枚变异自证）；但入/出场过渡属动画、`ImageRenderer` 拍静态帧抓不到，那条仍是人工抽查项。"
   },
   {
     "component": "TodoBoard",
@@ -876,28 +932,6 @@
     "needsExtensionPoint": false,
     "textParams": [],
     "notes": "父 session 任务清单看板（三态：pending/inProgress/completed）。步骤 1 无。步骤 2/3：三态图标+着色映射固定，是状态语义的直接表达，非风格选择 ⇒ 步骤 3 规定性。展示文本来自 AgentTodoItem.displayText（数据字段），组件 init 本身无裸 String 参数。"
-  },
-  {
-    "component": "RunMetricsBar",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "step3",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "运行指标条：token 用量 + 会话轮次，两组分隔展示。步骤 1 无。步骤 2/3：spec §3.1 明确要求 token 与轮次『不是一组数字』必须视觉分组——这是防止用户误算平均值的正确性约束，不是外观选择 ⇒ 步骤 3 规定性。展示文本来自 RunMetricsBarState 数据字段与固定分组标题（『token（含委派子树）』/『本会话』，内部常量非公开参数），组件 init 本身无裸 String 参数。"
-  },
-  {
-    "component": "StreamingIndicator",
-    "repo": "storyui",
-    "kind": "prescriptive",
-    "decidedBy": "tiebreaker",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "needsExtensionPoint": false,
-    "textParams": [],
-    "notes": "流式状态指示器，六态（waiting/streaming/completed/stoppedByCondition/interrupted/failed）。步骤 1 无。步骤 2：候选形态（图标胶囊现状 / 纯色圆点 / 顶部进度条）共享『紧凑状态徽标』骨架，属皮肤变体——按公约皮肤变体条款（即使能额外说清『长相即含义』的理由，皮肤变体候选也不改套步骤 3，仍落步骤 4），这些候选不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4 tiebreaker，默认规定性组件、不给扩展点。佐证（与默认结论方向一致，不是另立的决定性理由）：本组件的核心约束是『.completed 与 .stoppedByCondition 必须长得不一样』——这是安全性要求（防止把未完成误读为完成），扩展点会削弱这条约束的可控性。展示文本（title/detail）为组件内部纯函数产出，非公开参数。"
   },
   {
     "component": "ToolCallRow",
@@ -922,23 +956,23 @@
     "notes": "`.streaming` / `.custom` 未被接管时的兜底可见提示。步骤 1 无。步骤 2/3：文档明确『刻意渲成可见的交接提示而不是空视图』——存在的唯一理由就是这个可见性本身，换外观等于取消它的作用 ⇒ 步骤 3 规定性，不给扩展点。text 是根据 render 关联值拼接的内部计算属性，非公开参数。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 给出的反事实句「换外观等于取消它的作用」实为偷换概念——把「改变外观」等同于「变不可见」，两件不同的事；只要仍然可见，交接提示完全存在多种不同的视觉样式选择（替换图标、改用不同文案措辞、改用不同的容器 chrome），普通设计常识即可看出这一结论不成立，无需读源码验证即可判定实质也不满足 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
   },
   {
-    "component": "ChapterStatusBadge",
-    "repo": "storyui",
+    "component": "UnderlinedTabBar",
+    "repo": "coredesign",
     "kind": "prescriptive",
-    "decidedBy": "step3",
+    "decidedBy": "tiebreaker",
     "nativeProtocol": null,
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [
       {
-        "name": "label",
+        "name": "title",
         "category": "B"
       }
     ],
-    "notes": "章节三态徽章，文档自述『建在 CoreDesign StateLabel 上，胶囊/图标/配色/对比度全部来自上游，本件一处都不重造』。步骤 1 无（StateLabel 本身已是 prescriptive，无原生协议）。步骤 2/3：三态到色相（黄/紫/红）的映射是刻意的无障碍设计（避免与 StateLabelStyle 的 attention 黄冲突），换色即破坏可区分性 ⇒ 步骤 3 规定性，不给扩展点。textParams：label 是 App 层本地化出口（覆盖内置中文 defaultLabel），界面文案 ⇒ B 类。⚠️ 相关但不同的观察：defaultLabel（内置中文『草稿/完成/待修』）是 43.md 已经点名的『组件持有默认文案』——对 #6『App 层持有用户文案』立场的有意偏离，非本条 textParams 覆盖范围（defaultLabel 不是 public init 参数，是内部枚举 extension 计算属性），留给 #43 的 spec 逐一回答。"
+    "notes": "步骤 1 无。步骤 2/3：下划线指示器是与本仓已独立注册的兄弟组件 SegmentedControl（pill 指示）划清场景边界的定义性视觉（文档：『UnderlinedTabBar 面向可滚动场景，SegmentedControl 面向 ≤5 项紧凑场景』）——想要 pill 观感应换用 SegmentedControl，不是给本组件换皮 ⇒ 视觉即含义，步骤 3 规定性，不给扩展点。textParams：title 由 `(Item) -> String` 闭包解出的 tab 标签文本，是 App 固定定义的分类导航标签（非用户自由输入）⇒ B 类。 ⚠️ #44 检验：过（补痕，落点与 decidedBy 不变）。按公约「候选形态的作用域」条款把上文的两件事拆开表述——(1) 作用域排除：pill 指示候选由兄弟组件 SegmentedControl 承担，三条件逐条：① SegmentedControl 在 component-registry.json 内；② 上文已写明组件名；③ pill 指示确是它真实承担的形态 ⇒ 该候选不计入本组件候选，步骤 2 举不出。(2) 独立理由（不引用任何兄弟组件）：下划线指示器的宽度由当前标签的文本宽度决定、随标签横向滚动而移动，因此可承载任意多个不定宽标签；这条「指示器贴着内容走」的画法本身就是「可滚动多标签导航」这个含义的载体——换成定宽指示器就必须先把标签数压到可一屏排下，它表达的就不再是同一件事 ⇒ 换了长相就不是这东西。上文引的文档原话（面向可滚动场景 vs ≤5 项紧凑场景）原样保留，未被替换。 ⚠️ #44 检验（评审 C-2 复核，反事实必要性压测）：初判「过」所拆出的独立理由（『换成定宽指示器就必须先把标签数压到可一屏排下』）是稻草人反事实——下划线指示器本身就是 `Capsule()`，装在每个 tab 项的 VStack 内并加 `.frame(maxWidth: .infinity)`（宽度随所在 tab 的自然宽度、即标签文本宽度伸缩），整体又包在横向 `ScrollView` 里；把下划线换成「包住文本的胶囊（Capsule）」放回同一个横向可滚动容器，指示器随标签宽度伸缩、随标签横向滚动、标记选中态、走强调色这些性质**全部保留**，含义没有变 ⇒ 反事实没有证明「换了长相就不是这东西」——「定宽」这个反事实条件本身不成立，被测的候选从未真正失去任何列举出的性质。重新压测（不引用任何兄弟组件名）：找不到一种把下划线换成其他形状会导致含义丢失的构造——形状本身（一条线 vs 一个胶囊）只是「随内容宽度伸缩的选中标记」这同一个骨架的画法差异，不构成独立的定义性视觉 ⇒ 通不过公约第 1 节步骤 2「必须额外说清」的检验 ⇒ 改判（step3 → tiebreaker）。走公约「事后补写的效力边界」条款规定的修订回路，留痕见 docs/component-contract-revisions.md 的 R-3。⇒ 落点回到步骤 4 tiebreaker；kind 与 needsExtensionPoint 不变。本轮六条改判之一，见 R-3 逐条结论表。"
   },
   {
-    "component": "ChapterCard",
+    "component": "WritingStatusBar",
     "repo": "storyui",
     "kind": "prescriptive",
     "decidedBy": "step3",
@@ -946,24 +980,6 @@
     "customStyleProtocol": null,
     "needsExtensionPoint": false,
     "textParams": [],
-    "notes": "章节卡片：标题/摘要/字数/状态四项，文档自述『建在 CoreDesign Card 上，本件一处都不重造』。步骤 1 无。步骤 2/3：四项固定槽位是这张卡的完整定义，进度条固定走 `ProgressView(.core)`（ProgressBar 已弃用不用）⇒ 步骤 3 规定性，不给扩展点。展示文本来自 ChapterCardState 数据字段（title/summary），组件 init 本身无裸 String 参数（仅 state + onSelect 闭包）。"
-  },
-  {
-    "component": "Toast",
-    "repo": "coredesign",
-    "kind": "semantic",
-    "decidedBy": "step2",
-    "nativeProtocol": null,
-    "customStyleProtocol": null,
-    "styleSlot": null,
-    "styleEnum": "ToastPresentation",
-    "needsExtensionPoint": true,
-    "textParams": [
-      {
-        "name": "message",
-        "category": "B"
-      }
-    ],
-    "notes": "终审 C1 补录——docs/README.md:78 索引但此前漏登记。判定法走查：弃用条款不适用（未标 @available(*, deprecated)）；祖父条款不适用（无已发布的 ToastStyle 协议）。步骤 1：Apple 无对应原生样式协议 ⇒ 无。步骤 2：能举出 ≥2 个业界真实存在、且结构本身不同（非皮肤变体）的替代形态——(a) 当前形态：边缘悬浮胶囊（capsule，safeAreaInset 锚定单侧边缘）；(b) 全宽横幅条（如 Android Snackbar / 部分 App 的 in-app banner，横跨屏幕宽度，不是胶囊）；(c) 居中 HUD（如经典 UIKit toast/HUD，浮于屏幕中央而非贴边）——三者的布局骨架（贴边胶囊 / 全宽条 / 居中浮层）本身不同，不是同一骨架换画法，举得出 ≥2 ⇒ 语义组件，需要扩展点。⚠️ 现状缺口：源码里尚无 ToastStyle 协议实现（customStyleProtocol 为 null）——判定法给出『应该有扩展点』的结论，扩展点尚未落地，**承接 `wxlpp/oh-my-story#65`**（原写作「留给后续任务补齐」——匿名指针，与 SidebarUtilityRow 那条同性质缺口一具名一匿名，正是承接指针回填要消灭的状态），不属于本任务判断错误。⚠️ 原句「与 Rating 的现状缺口同性质」**已过期**：Rating 的缺口由 #41 裁决 4c 补齐并已从 J-2 红名单摘除（见 ComponentExtensionPointGuard），本条与它现在不同性质 —— 本条仍是缺口，Rating 不是。textParams：ToastItem.message / ToastHost.show(_:level:duration:) 的 message 均为裸 String，是调用方传入的界面提示文案（非用户数据、非组件内置 chrome）⇒ B 类。⚠️ 扫描器盲区：ToastHost 是 public class（非 View/ViewModifier struct），ToastItem/ToastDefaults 是不含 View 一致性的 public struct/enum，PublicTypeCollector 结构上看不到三者中任何一个 ⇒ 本条目名 `Toast` 不会出现在扫描器的 `scanned` 集合里，已在 ComponentRegistryGuard.knownOffScannerComponents 加白名单豁免双向差集的幽灵检查，详见该守卫文件顶部注释。⚠️ 落地（`wxlpp/oh-my-story#65`）：以形态 D2 补齐，公开枚举 `ToastPresentation`（floatingCapsule / fullWidthBanner / centeredHUD）接在唯一公开入口 `View.toastHost(edge:presentation:)` 上，默认 `.floatingCapsule` ⇒ 现有调用方零影响。⚠️ 接在那个 modifier 方法而非任何 `init`，是因为 `ToastHost` 由内部 modifier 的 `@State` 持有、调用方够不着它的 `init`；这同时暴露了 J-2 判据 D2 臂的两处口径缺口（采集只认公开 `init` 参数、宿主名必须等于条目名），两处已在本 issue 内修补，详见 `D-65-1`。⚠️ 条目名 `Toast` 不是类型名，故在 `ComponentHostAliases` 里映射到 `toastHost`；该表由 `ComponentHostAliasGuard` 的四条断言守自洽。⚠️ 三形态的渲染差异有机器判据（`ToastPresentationRenderTests`，9 条断言 + 7 枚变异自证）；但入/出场过渡属动画、`ImageRenderer` 拍静态帧抓不到，那条仍是人工抽查项。"
+    "notes": "写作状态栏：字数 / 目标进度（ProgressView(.core)）/ 保存三态。步骤 1 无（组件本身是复合视图，非单一系统控件的样式扩展）。步骤 2/3：字数文案 + 进度条 + 保存态是这块状态栏的全部定义，换一种呈现无实际意义 ⇒ 步骤 3 规定性。展示文本由 WritingStatusBarState 派生（wordCountText/saveText 均为 internal 纯函数），组件 init 本身无裸 String 参数。"
   }
 ]

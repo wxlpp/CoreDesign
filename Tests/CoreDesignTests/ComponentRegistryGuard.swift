@@ -133,7 +133,13 @@ struct ComponentRegistryGuard {
     /// 组件）；`BottomInputBar` 是裁决 AD-2（没有可被判定法审查的 public 类型，详见
     /// `docs/component-contract.md` AD-2）。同样反向不得出现在 `scanned` 里——出现即说明
     /// 源码形态变了，排除裁决需要重新核对。
-    static let knownExcludedReadmeRows: Set<String> = ["FlowLayout", "BottomInputBar"]
+    /// ⚠️ **`BottomInputBar` 已于 #221 移出本集合**：它此前在这里，依据是终审 C1
+    /// 「struct 无 public 修饰符 ⇒ 没有可被 `PublicTypeCollector` 采集的 public 类型
+    /// ⇒ 排除」。#221 走了 C1 自己给的第二条出路（给它一个可登记的 public 类型表面），
+    /// 排除的**前提已经消失**，故按判定法正常登记、从排除集合移除。
+    /// 保留这段说明是因为：`resurrectedExclusions` 判据的存在意义正是逼人**重新裁决**
+    /// 而不是顺手把名字删掉——裁决过程写在 `component-registry.json` 的 notes 里。
+    static let knownExcludedReadmeRows: Set<String> = ["FlowLayout"]
 
     /// AD-3 裁决覆盖的「style 实现，不是登记表条目」行：这些 README 主名本身不是
     /// public View/ViewModifier 类型（`Button`/`FloatButton` 是套了自定义 `ButtonStyle`
@@ -439,8 +445,8 @@ struct ComponentRegistryGuard {
         // 的机器判据。数字是本次终审实测值（45 + 25 = 70，含终审 C1 新增的 `Toast`
         // 条目——补录前是 44 + 25 = 69），#43 落地后若改用源码比对判据，可以放宽/
         // 移除本断言。
-        #expect(entries.filter { $0.repo == "coredesign" }.count == 46,
-                "CoreDesign 侧条目数不是 46（#41 裁决 4b 新增 RatingDisplay 后由 45 变为 46）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        #expect(entries.filter { $0.repo == "coredesign" }.count == 47,
+                "CoreDesign 侧条目数不是 47（#221 把 BottomInputBar 提为 public 并按判定法补录后由 46 变为 47）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 

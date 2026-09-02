@@ -1275,19 +1275,33 @@ public 的 `ViewModifier` 类型**照常登记进 `component-registry.json`，�
 对象」。Task 2 填表遇到 `SpinningModifier` 等三个公开 `ViewModifier` 时，按此裁决
 正常走判定法，不必现场发明。
 
-⚠️ **终审 C1 实测命中第二例，点名写死**：`BottomInputBar`（`docs/README.md:23` 索引）
-与 `SurfaceModifier` 是**同一种写法**——`struct BottomInputBar: View` 没有 `public`
-修饰符，唯一暴露的 public 表面是 `public extension View { func bottomInputBar(...) }`
-（`BottomInputBar.swift:19` / `:458`）。它没有可被 `PublicTypeCollector` 采集、可被
-判定法审查的 public 类型 ⇒ 按本裁决**排除**出登记表，不因为「README 索引过」或
-「参数很多」就破例登记。它的 6 个 public Bool 与 `placeholder: String` 参数仍是真实的
+⚠️ **终审 C1 实测命中第二例——⚠️ 该例已于 #221 走出，本段保留为成因记录**：
+`BottomInputBar`（`docs/README.md:23` 索引）**曾**与 `SurfaceModifier` 是同一种写法
+——`struct BottomInputBar: View` 没有 `public` 修饰符，唯一暴露的 public 表面是
+`public extension View { func bottomInputBar(...) }`。它当时没有可被
+`PublicTypeCollector` 采集、可被判定法审查的 public 类型 ⇒ 按本裁决**排除**出登记表，
+不因为「README 索引过」或「参数很多」就破例登记。
+
+**#221 走了本裁决自己给出的第二条出路**（见本段末「两条出路」）：把
+`struct BottomInputBar` 提为 `public`。排除的**前提由此消失**，它已按判定法正常走查
+并登记（`prescriptive` / `tiebreaker` / `needsExtensionPoint: false`，走查过程见
+`docs/component-registry.json` 该条目的 notes），同时从
+`ComponentRegistryGuard.knownExcludedReadmeRows` 移除。
+
+⚠️ **本裁决的规则本身不变**：「没有 public 类型 ⇒ 排除」仍然成立，`SurfaceModifier`
+仍是它的活例。变的只是 `BottomInputBar` 不再满足该前提。它的 6 个 public Bool 与 `placeholder: String` 参数仍是真实的
 public API 面，需要治理——6 个 Bool 已由 `39.md` 的 J-1 覆盖（走 `docs/bool-exemptions.json`
 台账，不经登记表）。⚠️ **`placeholder: String` 这一侧的旧句「已移交 39.md（J-1/FR-4）」
 与落地结果不符，本次改正**：#39 只做了 J-1；#40 的 FR-4 判据以**登记表条目**为定义域，
 而 `BottomInputBar` 按本裁决**不登记** ⇒ 它的 `placeholder` 落在 FR-4 的**定义域之外**
 （`ComponentTextParamGuard.knownFunctionSideBareText`，有固定集合断言盯着，不是静默略过）。
-真正的处置 #41/#42 **均未做**：`BottomInputBar` 仍在，`View.bottomInputBar#placeholder`
-至今没有任何机器判据给它分类 ⇒ 见 `oh-my-story` 仓
+⚠️ **本段的「至今没有任何机器判据给它分类」已于 #221 部分闭合**：`BottomInputBar`
+提为 public 后按判定法登记，其 **struct init 侧**的 `BottomInputBar.init#placeholder`
+已获分类（**C 类**，与同族 `SearchField` / `TagInput` 的 placeholder 同款处理）。
+⚠️ **modifier 侧的 `View.bottomInputBar#placeholder` 仍在 func 侧留痕桶**
+（`ComponentTextParamGuard.knownFunctionSideBareText`）——FR-4 的 AC 只点名 `init`，
+func 侧本就不在主判据定义域内。二者是**不同的参数面**，不要混为一谈。
+原文如下（保留为成因记录）：真正的处置 #41/#42 均未做 ⇒ 见 `oh-my-story` 仓 ⇒ 见 `oh-my-story` 仓
 `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」（该文件随 #44 收口 PR 落地；已开 issue `#50` 承接）。
 两条出路仍是：删掉这个组件，或给它一个可登记的 public 类型表面。
 
