@@ -110,7 +110,14 @@ public struct TelegramGlassButtonModifier<S: InsettableShape>: ViewModifier {
                 pressFeedback: true
             ))
     }
-    .foregroundStyle(.white)
+    // ⚠️ **前景与底色必须成对改（Issue #225 视觉终审）**：此前是
+    // `.foregroundStyle(.white)` + `.background(Color.surfaceCanvas)`——白字叠在
+    // 近白玻璃胶囊上、底又是浅色画布，实测文字行最深像素 (253,253,254)、
+    // 对比度约 **1.0:1**，"Capsule · default border" 与 "+" 都要眯眼才知道存在。
+    // 这类玻璃按钮的真实语境是**深色底**（Telegram 的分层按钮叠在图片/深色面上），
+    // 预览用浅色画布本就不对路。改为深色底 + 自适应前景。
+    .foregroundStyle(Color.contentPrimary)
     .padding(CoreSpacing.xxxl)
     .background(Color.surfaceCanvas)
+    .preferredColorScheme(.dark)
 }
