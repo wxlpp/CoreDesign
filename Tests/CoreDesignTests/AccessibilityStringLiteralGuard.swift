@@ -234,7 +234,6 @@ struct AccessibilityStringLiteralGuard {
         // 这正是 #222 自己反复强调要防的「登记了 ≠ 守住了」——我给它配的锚定首例
         // 本身就是这个病。故加本条自检：**把豁免摘掉后必须真的判红**，否则它是死的。
         let root = Self.repoRoot()
-        let sources = root.appendingPathComponent("Sources/CoreDesign")
         let exempt = try Self.exemptedSites()
 
         var deadSites: [String] = []
