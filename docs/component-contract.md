@@ -1301,7 +1301,7 @@ public API 面，需要治理——6 个 Bool 已由 `39.md` 的 J-1 覆盖（�
 ⚠️ **modifier 侧的 `View.bottomInputBar#placeholder` 仍在 func 侧留痕桶**
 （`ComponentTextParamGuard.knownFunctionSideBareText`）——FR-4 的 AC 只点名 `init`，
 func 侧本就不在主判据定义域内。二者是**不同的参数面**，不要混为一谈。
-原文如下（保留为成因记录）：真正的处置 #41/#42 均未做 ⇒ 见 `oh-my-story` 仓 ⇒ 见 `oh-my-story` 仓
+原文如下（保留为成因记录）：真正的处置 #41/#42 均未做 ⇒ 见 `oh-my-story` 仓
 `.claude/epics/component-contract/close-out.md` 的「## 四、移交清单」（该文件随 #44 收口 PR 落地；已开 issue `#50` 承接）。
 两条出路仍是：删掉这个组件，或给它一个可登记的 public 类型表面。
 
