@@ -91,7 +91,11 @@ public struct SearchField: View {
                     .textFieldStyle(.plain)
                     .coreFont(CoreControlMetrics.fontToken(for: .regular))
                     .foregroundStyle(Color.contentPrimary)
-                    .accessibilityLabel(self.placeholder.isEmpty ? "Search" : self.placeholder)
+                    // 只本地化 **fallback 分支**：`placeholder` 是调用方传入值，
+                    // 库不该翻译它。
+                    .accessibilityLabel(self.placeholder.isEmpty
+                        ? String(localized: "Search", bundle: .module)
+                        : self.placeholder)
                     .focused(self.$isFocused)
                     .simultaneousGesture(TapGesture().onEnded { self.isFocused = true })
                     .onSubmit {
@@ -113,7 +117,10 @@ public struct SearchField: View {
                 .buttonStyle(.plain)
                 .contentShape(Rectangle())
                 .padding(.horizontal, CoreSpacing.xs)
-                .accessibilityLabel(Text("Clear \(self.placeholder.isEmpty ? "search" : self.placeholder)"))
+                // ⚠️ 这里有**两个**字面量：外层 "Clear %@" 与**插值内层**的
+                // "search" fallback。按行扫描的守卫看不见内层那个——它是本组
+                // 最容易漏的形态，故变异自证的靶点就打在它上面。
+                .accessibilityLabel(Text(Self.clearLabel(for: self.placeholder)))
             }
         }
         .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: .regular))
@@ -138,6 +145,15 @@ public struct SearchField: View {
     private let onSubmit: ((String) -> Void)?
 
     @FocusState private var isFocused: Bool
+
+    /// 清除按钮的可访问名。外层走位置键 `"Clear %@"`；`placeholder` 为空时
+    /// 内层回落到本地化的 `"search"`（**不是**硬编码英文）。
+    static func clearLabel(for placeholder: String) -> String {
+        let target = placeholder.isEmpty
+            ? String(localized: "search", bundle: .module)
+            : placeholder
+        return String(localized: "Clear \(target)", bundle: .module)
+    }
 }
 
 // MARK: - Preview
