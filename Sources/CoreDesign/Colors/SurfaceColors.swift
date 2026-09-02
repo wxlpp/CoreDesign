@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(AppKit) && !canImport(UIKit)
+import AppKit
+#endif
 
 // MARK: - Surface Colors / 表面颜色
 //
@@ -66,15 +69,79 @@ public extension Color {
 
     /// 浮层表面背景（服务 `.surface(.floating)`：toast、浮动工具栏、底部栏）。
     ///
-    /// **走填充族而非背景族**（Issue #220，同 `surfacePanel` 的理由）。取 `secondaryFill`
-    /// 而非更淡的档位，依据有二：① z 序最高的浮件需要最强的存在感；
-    /// ② `Badge.swift` 已实测 `secondaryFill`（浅色 α=0.161 / 深色 α=0.322）在
-    /// `surfaceBase` / `surfaceCanvas` / `surfaceRaised` 三种父容器、两种外观下
-    /// **均逐位不同**（#122 于 `Badge.swift` 实测；观感是否分得开归 Issue #225）。
+    /// ## ⚠️ 按外观分道——本仓第一个动态 token，理由必须写清楚
     ///
-    /// - Warning: 本档**半透明**，注意事项同 `surfacePanel`。
+    /// **Issue #220 曾让本 token 两种外观都走 `secondaryFill`（填充族），
+    /// 被 #225 视觉终审逐像素证伪**：
+    ///
+    /// - **深色**下填充叠加使表面**变亮** → 读作「浮起」，语义成立。
+    /// - **浅色**下填充叠加使表面**变暗**（实测底 `#F2F2F7` → 卡 `#DEDEE4`，
+    ///   Δ≈20 灰阶；叠在 `#FFFFFF` 上 → `#E9E9E9`，Δ≈22），且无阴影、无模糊、
+    ///   仅 hairline 描边 —— 这在 iOS 浅色语言里正是**搜索框 / 输入井的凹陷配方**。
+    ///
+    /// **代码自证（这条比观感直觉更硬）**：本文件下方 `surfaceCanvasInset` 把
+    /// 同族的 `tertiaryFill` 定义为「**凹陷 well** / 输入框内底色」——
+    /// **fill 族在本库自己的词汇里就是「凹」的视觉语言**。`.floating` 取
+    /// `secondaryFill` 只是同族更浓一档，凹得更狠。语义（浮在内容之上）与观感
+    /// （陷进去）方向相反。
+    ///
+    /// ⚠️ `SurfaceContrastTests` 的逐位判据对此**结构性失明**：三档 α 不同即算
+    /// distinct，全绿。它只担保「解析值不同」，答不了「浮没浮起来」——
+    /// 那个问题只有 #225 的截图能回答，而它的答案是「浅色下没有」。
+    ///
+    /// ## 分道取值
+    ///
+    /// | 外观 | 取值 | 为什么读作浮起 |
+    /// |---|---|---|
+    /// | 浅色 | `systemBackground`（`#FFFFFF`，浅色可用的**最亮值**） | 浅色下「更亮的不透明面」= 抬起 |
+    /// | 深色 | `secondaryFill`（半透明填充） | 深色下「叠加提亮」= 抬起 |
+    ///
+    /// 两侧都往**变亮**的方向走，方向一致——这才是「浮起」在两种外观下的共同表达。
+    /// UIKit 自己的 elevated 背景（`systemBackground` 在深色下随层级提亮）就是
+    /// 按外观分道的先例，本条不是发明新概念。
+    ///
+    /// ## ⚠️ 浅色下的结构性天花板（实测发现，必须如实记录）
+    ///
+    /// 初版分道曾取 `secondarySystemBackground`，**实测它在浅色下就是 `#F2F2F7`、
+    /// 与 `surfaceCanvas` 同值**，根本不是「更亮」。改取 `systemBackground`
+    /// （`#FFFFFF`）后：
+    ///
+    /// - 叠在 `.canvas`（`#F2F2F7`）上 → 更亮，**读作抬起** ✅
+    /// - 叠在 `.content`（`#FFFFFF`）上 → **同值，颜色上完全不可辨** ⚠️
+    ///
+    /// **这不是调参没调好，是结构性上限**：浅色下 `.content` 已经是纯白，
+    /// **不存在比它更亮的不透明色**。iOS 在浅色下表达抬起靠的是**阴影**，
+    /// 而 `SurfaceKind.background` 只返回一个 `Color`、结构上表达不了阴影
+    /// （`SurfaceModifier` 明确把 shadow 留给调用方追加）。
+    ///
+    /// ⇒ **`.floating` 叠在浅色 `.content` 之上时，必须由调用方补
+    /// `.coreShadow(_:)` 或改用 `floatingGlass`**；只靠 `.surface(.floating)`
+    /// 的底色是浮不起来的。这条限制已钉进 `SurfaceContrastTests` 的相等断言。
+    ///
+    /// - Note: 不改 `SurfaceModifier` 的 switch、不改任何公开 API 签名 ——
+    ///   分道完全封装在本 token 内部。
+    /// - Warning: 深色分支**半透明**，其下内容会透出；也**不宜再叠
+    ///   `.coreShadow(_:)`**（阴影会从半透明背景透上来把表面压脏）。
+    ///   需要材质浮层请用 `floatingGlass`。
     static var surfaceOverlay: Color {
-        .secondaryFill
+        #if canImport(UIKit)
+            Color(uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark
+                    ? UIColor.secondarySystemFill
+                    : UIColor.systemBackground
+            })
+        #else
+            // ⚠️ **AppKit 侧也要真分道**。初版这里取不透明的 `surfaceBase`，实测
+            // 撞车：macOS 上 `systemBackground` 与 `systemGroupedBackground` 双双
+            // 降级到 `windowBackgroundColor` ⇒ `.floating` 与 `.canvas` 同值——
+            // 正是 PRD v1 那个「`.floating == .canvas` on macOS」塌缩被重新引入。
+            //
+            // AppKit 有等价入口 `NSColor(name:dynamicProvider:)`，据此做同样的分道。
+            Color(nsColor: NSColor(name: "surfaceOverlay") { appearance in
+                let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                return isDark ? .secondarySystemFill : .controlBackgroundColor
+            })
+        #endif
     }
 
     // MARK: - Semantic surface variants / 语义表面变体

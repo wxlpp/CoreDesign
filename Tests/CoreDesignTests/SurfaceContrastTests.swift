@@ -171,9 +171,13 @@ struct SurfaceContrastTests {
         let e = Self.env(.light)
         let resolved = Set(Self.kindTokens.map { $0.token.resolve(in: e) })
         let detail = Self.kindTokens.map { "\($0.kind)=\($0.token.resolve(in: e))" }.joined(separator: " / ")
+        // ⚠️ **浅色 4 而非 5，这是结构性上限、不是回归**（Issue #225 视觉终审后改）：
+        // `.floating` 按外观分道后浅色取 `systemBackground`（`#FFFFFF`）——浅色下
+        // **不存在比 `.content`（已是纯白）更亮的不透明色**，故二者必然同值。
+        // iOS 浅色靠**阴影**表达抬起，而 `SurfaceKind` 只返回 Color、表达不了阴影。
         #expect(
-            resolved.count == 5,
-            "iOS 浅色 distinct 应为 5，实际 \(resolved.count)：\(detail)"
+            resolved.count == 4,
+            "iOS 浅色 distinct 应为 4，实际 \(resolved.count)：\(detail)"
         )
     }
 
@@ -220,8 +224,16 @@ struct SurfaceContrastTests {
             let control = Color.surfaceInteractive.resolve(in: e)
             let floating = Color.surfaceOverlay.resolve(in: e)
             let panel = Color.surfacePanel.resolve(in: e)
-            for (name, v) in [("control", control), ("floating", floating), ("overlay/panel", panel)] {
+            // ⚠️ **`.floating` 按外观分道**（#225）：浅色是**不透明**的抬起色、
+            // 深色才是半透明填充。故半透明断言只对 control 与 overlay/panel 恒成立，
+            // floating 只在深色下成立。
+            for (name, v) in [("control", control), ("overlay/panel", panel)] {
                 #expect(v.opacity < 1.0, "\(scheme)：\(name) 不再半透明——叠加档位应走 FillColors")
+            }
+            if scheme == .dark {
+                #expect(floating.opacity < 1.0, "深色：floating 应走半透明填充")
+            } else {
+                #expect(floating.opacity == 1.0, "浅色：floating 应走不透明抬起色（分道的浅色分支）")
             }
 
             // α 的**实测值**（iPhone 17 Pro / iOS 26.4 模拟器，Issue #220 实测钉死；
@@ -236,17 +248,30 @@ struct SurfaceContrastTests {
             //
             // 断言 α 的**序**而非具体值：序才是设计意图（z 序越高、存在感越强），
             // 具体值随系统版本可动。
-            #expect(
-                floating.opacity > control.opacity,
-                "\(scheme)：floating(secondaryFill) 的 α 应高于 control(tertiaryFill)——z 序最高的浮件需要最强存在感"
-            )
+            // α 序只在**同为填充族**时有意义；floating 浅色已不是填充族，故只比
+            // control 与 overlay/panel，并在深色下额外比 floating。
             #expect(
                 control.opacity > panel.opacity,
                 "\(scheme)：control(tertiaryFill) 的 α 应高于 overlay/panel(quaternaryFill)"
             )
+            if scheme == .dark {
+                #expect(
+                    floating.opacity > control.opacity,
+                    "深色：floating(secondaryFill) 的 α 应高于 control(tertiaryFill)——z 序最高的浮件需要最强存在感"
+                )
+            }
             #expect(control != floating, "\(scheme)：control 与 floating 同值")
             #expect(control != panel, "\(scheme)：control 与 overlay/panel 同值")
             #expect(floating != panel, "\(scheme)：floating 与 overlay/panel 同值")
+            // ⚠️ 钉死浅色下的结构性同值：`.floating` 与 `.content` 在浅色下**必然同值**
+            // （纯白是天花板）。钉成显式断言而非留作隐性回归——它同时是一条文档：
+            // 浅色下 `.floating` 叠在 `.content` 上必须补阴影或改用 floatingGlass。
+            if scheme == .light {
+                #expect(
+                    floating == Color.surfaceCard.resolve(in: e),
+                    "浅色：floating 应与 content 同为纯白（结构性上限；若不再同值说明取值变了，须重审语义）"
+                )
+            }
         }
     }
 }

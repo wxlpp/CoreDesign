@@ -457,7 +457,8 @@ FR-1 是同名换值（记入 `BREAKING-CHANGES` 的视觉变更条目，非源�
 3. `SurfaceKind` 的 distinct 解析值数从当前的 **3** 提升到 **iOS 深色 6 / iOS 浅色 5 / macOS 5**（数字出自 FR-1 推演表）；全部已知相等项（含 `{.overlay,.panel}` 恒等）各有显式相等断言钉住。iOS 两组断言在 **iOS Simulator** 上按 `Color.Resolved` 执行；**macOS 组走 `swift test` 且断言在 token 身份层**（Resolved 层在无 WindowServer 会话下不可用，见 US-2 边界注第 2 条）。变异自证记录已附（靶点为 `surfaceOverlay`）。**本条不主张任何观感结论**——「可辨」由 Success #9 承担。
 4. `diff CLAUDE.md AGENTS.md` 的实质分歧数从 **1** 降到 **0**，由自动守卫锁住。
 5. 非 `#if DEBUG` 路径下未走 `bundle: .module` 的 a11y 字面量（**含插值内层**）从 **4** 降到 **0**，由自动守卫锁住。
-6. `docs/snapshots/` 新增**恰好一对** BottomInputBar 快照（`.png` + 同名 `.json`），且 `git status --porcelain docs/snapshots` 不含其他条目。
+6. `docs/snapshots/` 的 BottomInputBar 快照**恰好一对**（`.png` + 同名 `.json`）由占位图更新为可交互 demo，且 `git status --porcelain docs/snapshots` 不含其他条目。
+   > ⚠️ **是「改动」不是「新增」**：该对文件本就存在（旧内容是占位文本那张）。初稿写「新增」，实测 porcelain 显示为 `M` 而非 `A`，已更正。
 7. `swift test` 全绿 + `xcodebuild test` 的 iOS 腿全绿，测试数不低于改动前基线（基线在开工时实测记录，不引用任何历史数字）。
 8. 三个 issue 的关闭说明中，每个子项各有独立结论；作废项均写明作废来源（#117 / #118）。
 9. FR-9 的视觉评审对「半透明档位是否真的浮起来」给出明确结论（含浅色合成对照）；若某项无法用现有手段证实（如 `SegmentedControl` thumb 动画），**如实记为「无法证实」而非「已复核」**。
