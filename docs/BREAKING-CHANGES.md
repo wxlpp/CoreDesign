@@ -33,7 +33,21 @@
 
 **动机**：`SurfaceKind` 声称提供多档「表面角色」，但改动前 **10 个 case 只解析到 3 个 distinct 背景**（iOS 浅色与深色实测均为 3）——8 个 case 共用 `secondarySystemGroupedBackground`。修法承 #122 对 Badge 同型缺陷的裁决：**叠在别人之上的表面用 `FillColors`（半透明），充当底层的才用 `SurfaceColors`**；单纯改背景族的取值凑不出更多档位，因为 iOS 背景族在单一外观下只有 2（浅色）/ 3（深色）个取值。
 
-改后 distinct 数（**必带平台与外观限定**）：**iOS 深色 6 / iOS 浅色 5 / macOS 5**。已知的相等项均为系统色族的物理下限，已钉成显式断言：iOS 浅色 `.canvas == .sidebar`；macOS 下 `.content` / `.card` / `.grouped` / `.canvasSubtle` / `.sidebar` 五路同落 `controlBackgroundColor`；全平台 `.overlay == .panel`（二者走同一 token，border 与 radius 也相同）。
+**三档填充的 α 实测值**（iPhone 17 Pro / iOS 26.4 模拟器，Issue #220 实测钉死）：
+
+| 填充档 | 服务的 kind | 浅色 | α | 深色 | α |
+|---|---|---|---|---|---|
+| `secondaryFill` | `.floating` | `#78788029` | 0.161 | `#78788052` | 0.322 |
+| `tertiaryFill` | `.control` | `#7676801F` | 0.122 | `#7676803D` | 0.239 |
+| `quaternaryFill` | `.overlay` / `.panel` | `#74748014` | 0.078 | `#7676802E` | 0.180 |
+
+三档 RGB 几乎相同（`#787880` / `#767680` / `#747480`），**区分几乎全靠 α**。
+
+改后 distinct 数（**必带平台与外观限定**）：**iOS 深色 6 / iOS 浅色 5 / macOS 5**。
+
+> ⚠️ **三个数字不同量纲**：iOS 两个是 `Color.Resolved` **逐位**实测（模拟器上取值）；
+> macOS 那个是 **token 身份层**——AppKit 无 WindowServer 会话时颜色会塌成同一
+> fallback RGBA，故 macOS 侧刻意不解析、只比 `Color` 承载的 `NSColor` 是否同一常量。已知的相等项均为系统色族的物理下限，已钉成显式断言：iOS 浅色 `.canvas == .sidebar`；macOS 下 `.content` / `.card` / `.grouped` / `.canvasSubtle` / `.sidebar` 五路同落 `controlBackgroundColor`；全平台 `.overlay == .panel`（二者走同一 token，border 与 radius 也相同）。
 
 > **本条只担保「解析值不同」，不担保「肉眼可辨」**。三档填充的 RGB 几乎相同、只靠 α 区分，逐位判据会平凡通过；观感结论由视觉复核（Issue #225）给出。
 

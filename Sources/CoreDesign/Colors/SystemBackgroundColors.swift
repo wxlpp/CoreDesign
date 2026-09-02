@@ -82,9 +82,10 @@ public extension Color {
     /// grouped 背景概念可用，不强行找一个不精确的近似值。
     ///
     /// - Note: **Issue #220 起本档有了真实消费者**：`surfaceElevated` 成为
-    ///   `surfaceSidebar` 的别名目标，经 `.surface(.sidebar)` 公开通路与 App 宿主的
-    ///   三处 `Color.surfaceSidebar` 到达界面。（此前 `surfaceGroupedElevated` /
-    ///   `surfaceElevated` 确为零引用，那是上述取舍当初成立的前提。）
+    ///   `surfaceSidebar` 的别名目标。实际到达界面的路径是 **App 预览宿主的三处
+    ///   `Color.surfaceSidebar`**；`.surface(.sidebar)` 这条公开通路目前**产品调用点
+    ///   为零**（库内无组件消费）。（此前 `surfaceGroupedElevated` / `surfaceElevated`
+    ///   确为零引用，那是上述取舍当初成立的前提。）
     ///   后果：**macOS 下侧栏与内容表面同色**——已在
     ///   `SystemBackgroundColorsMacOSTests` 钉成显式相等断言，非静默塌缩。
     static var tertiarySystemGroupedBackground: Color {

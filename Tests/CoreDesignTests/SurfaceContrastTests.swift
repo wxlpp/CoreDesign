@@ -177,7 +177,7 @@ struct SurfaceContrastTests {
         )
     }
 
-    @Test("已知相等项钉死：content 族恒等、overlay 与 panel 恒等、浅色 canvas 与 sidebar 同值")
+    @Test("已知相等项钉死：content 族恒等、浅色 canvas 与 sidebar 同值")
     func knownEqualitiesArePinned() {
         // 这些不是缺陷，是有意的设计——钉成显式断言，避免将来被「顺手改掉」而无人察觉，
         // 也避免有人误读 distinct 数为「每个 kind 各有一色」。
@@ -188,13 +188,13 @@ struct SurfaceContrastTests {
                 "\(scheme)：content/card/grouped 与 canvasSubtle 应同值（文档化别名族）"
             )
         }
-        // `.overlay` 与 `.panel` 走同一个 token（`SurfaceModifier.swift` 的 switch），
-        // border 与 cornerRadius 也完全相同——它们今天就是全等的两个 case。
-        // 这里只能断言 token 自身恒等（同一个 static var），故断言其解析值相等即可。
-        for scheme in [ColorScheme.light, .dark] {
-            let e = Self.env(scheme)
-            #expect(Color.surfacePanel.resolve(in: e) == Color.surfacePanel.resolve(in: e))
-        }
+        // ⚠️ **`.overlay` 与 `.panel` 的恒等本组守卫护不了，这里刻意不写断言。**
+        // 二者走同一个 token（`SurfaceModifier.swift` 的 switch），border 与
+        // cornerRadius 也完全相同——恒等是**结构性**的，不是取值巧合。
+        // 而 switch 在 `private extension`、`@testable` 够不到，token 层能写出的
+        // 只有 `surfacePanel == surfacePanel` 这种**恒真断言**：它永不失败，
+        // 写了等于把「结构上无需守」包装成「已有断言守着」。
+        // kind→token 映射的正确性归视觉复核（Issue #225）。
         // 浅色下 systemGroupedBackground 与 tertiarySystemGroupedBackground 同为 #F2F2F7。
         let light = Self.env(.light)
         #expect(

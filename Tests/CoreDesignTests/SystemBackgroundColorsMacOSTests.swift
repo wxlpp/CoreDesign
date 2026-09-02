@@ -100,6 +100,9 @@ struct SystemBackgroundColorsMacOSTests {
     func macOSCanvasStandsApart() {
         #expect(Color.surfaceCanvas != Color.surfaceCard, "macOS：画布与内容表面塌缩")
         #expect(Color.surfaceCanvas != Color.surfaceSidebar, "macOS：画布与侧栏塌缩")
+        // 直接断言 canvasSubtle，不依赖「五路同值 + canvas≠card」的传递闭合——
+        // 传递推理要求两个测试同时在场，其中一个被删/被跳过时这条覆盖会静默消失。
+        #expect(Color.surfaceCanvas != Color.surfaceCanvasSubtle, "macOS：画布与 canvasSubtle 塌缩")
     }
 
     @Test("macOS：三个填充档位两两不同，且与两个背景档位不同")
