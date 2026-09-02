@@ -77,8 +77,9 @@ CoreDesign `0.4.0` 已覆盖 47 条本仓登记组件，视觉地基在 `0.3.0` 
 Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设计系统。** 但它有一整块
 系统性空白：**表达性视觉层**。
 
-- **微交互为零**。`Modifier/` 下 9 个 modifier 中唯一的动效是 `Skeleton.swift:236-255`
-  的 `.skeletonShimmer()`（`TimelineView` 扫光）——且它只服务骨架屏。
+- **微交互为零**。`Modifier/` 下 9 个 modifier **无一是动效**；全库唯一的动效是
+  `Components/Skeleton/Skeleton.swift:236` 起的 `.skeletonShimmer()`（`TimelineView` 扫光）
+  ——且它只服务骨架屏。⚠️ 该 modifier 不在 `Modifier/` 目录下，初版把它写成"`Modifier/` 下的"是错的。
   ⚠️ `SpinningModifier` **不是**动效，它是「material 遮罩 + 居中 `ProgressIndicator`」的
   加载遮罩（登记表 notes 原文）。`PinCode` 输错、`Form` 校验失败、`AsyncButton` 成功，
   全部没有动效反馈可用。
@@ -135,10 +136,20 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
 - [ ] 17 个 `colorEffect` 可作为任意视图的 `.background { }`
 - [ ] 11 个 `layerEffect` 以 `View` 扩展 modifier 形式作用于内容（形态与 `.background` 不同，
       文档需明写这个分野）
-- [ ] **颜色 100% 由调用方传入**，无 shader 自带品牌色板（`EffectsColorLiteralGuard` 可查）
+- [ ] **颜色 100% 由调用方传入**，无 shader 自带品牌色板。⚠️ **分两层，只有一层有机器判据**：
+      **Swift wrapper 层**由 `EffectsColorLiteralGuard` 机器判；**`.metal` 侧**该守卫看不见
+      （它是 SwiftSyntax 扫描，读不了 MSL；且 `SWPlasma.metal` 的 17 处 `float3(`/`half3(`
+      里颜色与数学常量正则区分不了）⇒ `.metal` 侧的调色板参数化**由 C-2 spike 样本 + 评审
+      覆盖，登记为已知无机器判据**（与公约 G-4 对 A 类文案的写法同构）
 - [ ] 在 iOS 真机与 iOS Simulator 两端都渲染
-- [ ] metallib 加载在 **`--build-system swiftbuild` 与 `xcodebuild` 两条路径**下均可证
-      （⚠️ 原生 `swift build` 不编译 `.metal`，见 C-1）
+- [ ] **metallib 加载的验证路径按 FR-2 选定的路径分别定义**（⚠️ 两者不同，写反等于验了
+      一条无人消费的路径）：
+      - **路径 α**：`--build-system swiftbuild` + `xcodebuild` 两条下均可证。
+      - **路径 β（默认走向）**：**原生 `swift build`（macOS，加载 `macosx` 份）**
+        + `xcodebuild` iOS Simulator（`iphonesimulator` 份）+ 真机手动（`iphoneos` 份）。
+        ⚠️ β 下 metallib 是 `.copy` 的二进制资源，**原生构建会照常把它拷进 bundle**
+        ——原生 `swift build` 恰恰是 CI SwiftPM 腿 / `downstream-probe` / 下游 StoryUI CI
+        用的那条路径，**必须验它**；而 `swiftbuild` 在 β 下无人使用，验它没有意义。
 
 ### US-4：原生画不出来的图表
 
@@ -189,6 +200,20 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
     再编一份与 `.copy` 的产物冲突；
     ④ 配 `scripts/build-metallib.sh` + 一条校验 metallib 与 `.metal` 源同步的守卫
     （否则改了 shader 忘了重编 = 静默用旧效果）。
+    ⚠️ **同步守卫不得用"重编再比对二进制"**——metallib 产物跨 Xcode 版本不保证逐字节稳定。
+    改为：脚本落一份 `metallib.manifest.json`（每个 `.metal` 的 sha256 + 工具链版本），
+    守卫比对 manifest 与源文件哈希。
+  - **β 的四个可预见失败模式（须在 D-1 一并回答）**：
+    ① **工具链耦合**——脚本须钉 `-std=` 与 `-mios-version-min=26.0`，否则新 Xcode 编的
+    metallib 在旧运行时上加载失败 = 静默无渲染；
+    ② **Mac Catalyst 漏选**——`#if os(macOS)` 在 Catalyst 下为假、又非 simulator ⇒ 会选到
+    `iphoneos` 份。package 未声明 Catalyst ⇒ **NFR-3 须明写"不支持 Mac Catalyst"**，
+    或加 `targetEnvironment(macCatalyst)` 分支；
+    ③ **仓库体积增长**——每次改 shader 最多提交 6MB 二进制，须在 NFR-2 给历史增长预算
+    或考虑 Git LFS；
+    ④ **构建产物冗余**（非冲突）——xcodebuild 会另编一份也叫 `default.metallib` 的产物；
+    与 `.copy` 的文件名相同、路径不同，是**冗余**不是冲突，但 `exclude:` 仍然必要，
+    否则运行时加载哪一份不确定。
   - **一律不得**沿用上游写法 `ShaderLibrary.swSwirl(...)`（查 main bundle，在库里必然失败）。
 - **FR-3** `scripts/downstream-probe` 同步扩展。⚠️ **不是**加几行 import 就够：该 probe
   自陈存在理由是「从 **nonisolated 上下文**使用 CoreDesign 的公开值类型……本 probe 是
@@ -218,7 +243,12 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
 
 ### FR-9 ~ FR-10：守卫
 
-- **FR-9** 新增两条守卫（均 SwiftSyntax 扫描，与 `BoolParameterScanner` / `AccessibilityStringLiteralGuard` 同形态，射程仅三个新 target）：
+- **FR-9** 新增两条守卫（均 SwiftSyntax 扫描，与 `BoolParameterScanner` /
+  `AccessibilityStringLiteralGuard` 同形态）。
+  ⚠️ **射程随 target 存在性递增，且必须 fail-closed**（第 3 轮评审 IM-2）：`Sources/CoreDesignShaders/`
+  要到 Epic B 的 B-1 才出现，而 A0-3 就要落这两条守卫。守卫对**不存在的根静默跳过**正是
+  本仓反复堵的「文件读不到 ⇒ 绿」病型。⇒ **根列表只含当下已存在的 target，且每个根须
+  断言目录存在**；B-1 的任务清单显式包含"把 Shaders 根加进四条守卫"。
   - `EffectsColorLiteralGuard` —— 落地 FR-8（禁色相字面量）。
   - `ChromeTextLiteralGuard` —— 落地 FR-7 的 **A 类** chrome 文案（`Text("…")` 裸字面量）。
     ⚠️ 这是本仓**新开的守卫面**：公约 G-4 明载 A 类今天无机器判据、靠评审。本 PRD 只为
@@ -260,6 +290,9 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
   完整转载这些原始许可，并区分"参考算法思路"与"较大段落移植"两档。
   该文件与 C-6 的 `docs/shader-provenance.md` 分工：provenance 表是**裁定过程**，
   ACKNOWLEDGEMENTS 是**对外的许可声明**，前者的"可落地"行必须在后者有对应条目。
+  ⚠️ **「追到原始作者」显式覆盖上游已标注的那 7 个**（第 3 轮评审 S-3）：ShaderKit 自身的
+  shader 是否又移植自 Shadertoy，上游 ACK 没说 ⇒ **不得把这 7 个当作预先通过**，
+  它们同样要走 C-6 的裁定表。
 - **FR-19（新增）** **退化输入契约**。四个图表对以下输入必须有定义好的行为
   （渲染空态 / 忽略该数据点 / 而非 crash 或 NaN），且每条有测试：
   - 空数组；单点数据
@@ -286,13 +319,18 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
   `DotSphere` / `CharSphere`（`import UIKit`）、`FullScreenButton`（依赖
   `navigationTransition(.zoom)`，iOS-only）。处理方式二选一：重写为跨平台 SwiftUI，
   或 `#if canImport(UIKit)` 隔离并在文档标注平台限制。**不得降低 package 的 macOS 支持。**
+  ⚠️ **明写不支持 Mac Catalyst**（第 3 轮评审 S-2②）：package 本就未声明 Catalyst，而
+  FR-2 路径 β 的平台选择逻辑在 Catalyst 下会误选 `iphoneos` 那份 metallib
+  （`#if os(macOS)` 为假、又非 simulator）。若将来要支持，须补 `targetEnvironment(macCatalyst)` 分支。
 - **NFR-4（并发）** 全部过 Swift 6 严格并发 + `.defaultIsolation(MainActor.self)`，
   零 `@unchecked Sendable` 逃逸。由 FR-3 的 probe 扩展验证。
 - **NFR-5（隔离性）** ⚠️ **改写**：初版写的"任一新 target 编译失败不得阻断 CoreDesign 的
   构建与测试"**在本仓 CI 形态下不可能成立**——CI SwiftPM 腿跑的是不带 `--target` 的
   `swift build` / `swift test`，SwiftPM 在包根构建全部 target。改为可达成形态，**两条**：
   ① **`swift build --target CoreDesign` 独立可绿**；
-  ② **`CoreDesignTests` 的依赖图不含任何新 target**（`swift package describe` 可证）。
+  ② **`CoreDesignTests` 的依赖图不含任何新 target**。**判据命令写死**（S-1）：
+  `swift package describe --type json | jq '.targets[] | select(.name=="CoreDesignTests") | .target_dependencies'`
+  必须恰为 `["CoreDesign"]`（今日实测值即此）。
   ⚠️ 初版这里写的 `swift test --filter CoreDesignTests` **实测不成立**——`--filter` 只在
   运行期筛选，SwiftPM 仍把整包所有 target 编进同一个 `PackageTests.xctest`；坏掉的新
   target 会在 `Compiling` 阶段直接让 `swift test --filter` 失败。⇒ 隔离性只能靠
@@ -328,7 +366,7 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
 | # | 指标 | 判据 |
 |---|---|---|
 | SC-1 | Epic A 落地量 | 40 个 API 单位（36 动效 + 4 图表）中 ≥ 37 项"可用" |
-| SC-2 | Epic B 落地量 | ① `docs/shader-provenance.md` 覆盖全部 28 个 shader，无空裁定；② 裁定为可落地者 **100%** "可用"；③ 可落地数 **≥ 7**（低于此闸判不过，Epic B 不启动）。⚠️ 三条 AND——初版只写②，核验通过 0 个时会自动满足，是空真判据 |
+| SC-2 | Epic B 落地量 | ① `docs/shader-provenance.md` 覆盖全部 28 个 shader，无空裁定；② 裁定为可落地者 **100%** "可用"；③ 可落地数 **≥ N**（N 按 C-6 的经济性方法由 D-1 结论反推，不取 7——取 7 是同义反复）。⚠️ 三条 AND——初版只写②，核验通过 0 个时会自动满足，是空真判据 |
 | SC-3 | CI 全绿 | 四条腿全绿，且 NFR-6 的 scheme 改动经实测确认新测试真的在跑 |
 | SC-4 | 核心库零回归 | `CoreDesign` 公开 API 表面 diff 为空；`swift build --target CoreDesign` 独立绿 |
 | SC-5 | 颜色纪律 | `EffectsColorLiteralGuard` 零违规 |
@@ -354,7 +392,9 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
   ⇒ **连带后果，PRD 必须覆盖**：
   1. `downstream-probe` 是 build-only 且走原生构建系统，**它永远看不到 metallib 有没有**
      ——不能用它验证 US-3 的 metallib 加载。
-  2. macOS 上的 `swift test` 无法执行任何 shader 查找 ⇒ shader 相关测试只在 iOS 腿作数。
+  2. **α 下**：macOS 上的 `swift test` 无法执行任何 shader 查找 ⇒ shader 相关测试只在
+     iOS 腿作数。⚠️ **β 下此限制解除**——macOS `swift test` 能加载 `macosx` 那份 metallib，
+     这反而把 shader 加载测试**拉回了 SwiftPM 腿**，是 β 相对 α 的又一项优势。
   3. **D-1 spike 必须先回答"用哪个构建系统"**，并给出 CI 改法（切
      `--build-system swiftbuild`？双系统都跑？还是走 FR-2 路径 β 的预编译 metallib？）。
 - **C-2 D-1 spike 的范围必须覆盖参数化，不只是打包。** FR-8 要求每个 shader 的颜色从
@@ -411,8 +451,27 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
   2. **不继承**判定法（步骤 1–4）与扩展点判据（J-2）——理由须逐 target 写明；
   3. **新增**两条本 PRD 已定义的守卫：`EffectsColorLiteralGuard`、`ChromeTextLiteralGuard`；
   4. **登记形态**：不进 `component-registry.json`，改为一份独立的
-     `docs/effects-registry.json`（字段仅 `name` / `target` / `kind: colorEffect|layerEffect|modifier|transition|view` / `platform` / `provenance`），配一条与源码双向差集的守卫
-     ——**作用域钉死后必须补守卫，否则就是无守卫空白地带**，与 US-5 意图矛盾。
+     `docs/effects-registry.json`（字段仅 `name` / `target` /
+     `kind: colorEffect|layerEffect|modifier|transition|view` / `platform` / `provenance`），
+     配一条与源码双向差集的守卫——**作用域钉死后必须补守卫，否则就是无守卫空白地带**。
+     ⚠️ **替代方案（AD-4 须一并权衡，第 3 轮评审 S-7）**：`docs/effects-registry.json`
+     会是本仓**第三份枚举**（另两份是 `docs/components/*.md` 与 `App/Sources/ComponentData.swift`
+     画廊），多一张会漂移的表。可考虑**不另立 JSON**，守卫直接断言「新 target 的每个
+     public 类型 ⇔ 存在 `docs/components/<slug>.md`」（StoryUI `ComponentRosterSourceAnchorTests`
+     的形态，公约 G-7 已描述该形态与其盲区）。AD-4 应在"独立 JSON"与"锚文档文件"
+     两者间明确选一个并写明理由。
+     ⚠️ **差集守卫的射程必须写明，否则成本只是搬了个家**（第 3 轮评审 IM-1）：
+     - **射程 = public `View` / `ViewModifier` 类型**（既有 `PublicTypeCollector` 同形态，
+       FR-9「与既有守卫同形态」的前提对它成立）。
+     - **`transition` / `modifier` 两类不在射程内**——扫 `extension Transition { static var … }`
+       与 `public extension View { func … }` 需要一个**本仓不存在的扫描器形态**。这两类在
+       registry 里**手工维护**，并按公约 G-x 的写法在盲区台账留痕。⚠️ 若 AD-4 决定要机器守
+       它们，**新建扩展成员扫描器的成本必须计入 AD-4-a**，不得隐含。
+     - ⚠️ **同时钉死 11 个 `layerEffect` 的公开形态**：本 PRD 其余段落有两处口径不一
+       （US-3 说它们是"View 扩展 modifier"，成本重估段又把 28 个 shader 全算作 public View
+       struct）。两句只能对一句，且它直接决定裁决判据里的 N。**本 PRD 定为：11 个
+       `layerEffect` 落成 `public struct … : ViewModifier` + `public extension View` 便利方法**
+       ⇒ 计入射程，28 个 shader 全部是 public 类型，N 口径统一。
   **成本量级**：轻公约本体预计 150–250 行（对照公约本体 1410 行），加两条守卫与一条
   差集守卫。⚠️ **本仓从无"另立一份公约"的先例**，且公约本体受
   `ComponentContractStructureGuard` 等机器守护——**可行但绝不轻**，这是 AD-4 要权衡的
@@ -421,10 +480,14 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
   **AD-4-b（fallback）**：按 AD-2 原样执行，public `View` 类型批量以步骤 3 登记
   prescriptive，扫描根改为多 target。
 
-  **裁决判据（什么条件下选 a）**：轻公约本体 + 三条守卫的落地成本 **<** 约 40 个 public
-  View struct 走完整判定法（含步骤 2 的"≥3 具名业界候选或穷尽四家基线"举证义务）
-  + 逐条 notes 的成本。⚠️ 该比较须在 AD-4 issue 里**各给一个抽样估算**（各取 2 个样本
-  实做），不接受凭感觉。
+  **裁决判据（什么条件下选 a）**：轻公约本体 + 三条守卫的固定成本 **<** N 个 public
+  类型走完整判定法（含步骤 2 的"≥3 具名业界候选或穷尽四家基线"举证义务）+ 逐条 notes。
+  ⚠️ **两侧的估法不对称，不能都用"抽 2 个样本"**（第 3 轮评审 S-5）：
+  - **a 侧成本以固定项为主**（公约本体 + 三条守卫），抽样估不出 ⇒ 按**既有守卫的体量类比**
+    （如 `AccessibilityStringLiteralGuard` 16KB / `BoolParameterScanner` 68KB）。
+  - **b 侧成本是逐条 × N** ⇒ **实做 2 个样本外推**。
+  - ⚠️ **N 只算 `CoreDesignEffects` + `CoreDesignShaders`**——Charts 已推荐走 b，
+    它不该出现在"a vs b"的比较里。
   ⚠️ **诚实的成本重估**：`Transition` 静态成员不是 `View`/`ViewModifier`，扫描器结构上
   看不见；按 `SurfaceModifier` 写法（internal struct + `public extension View`）的 modifier
   按 AD-2 明文排除登记。⇒ 真正会撞登记表的只有 **public View struct**：28 个 shader 视图、
@@ -445,10 +508,22 @@ Apple HIG。**这是一个刻意克制的、以"系统原生观感"为纲的设�
     重写，不看 ShipSwift 的 `.metal`**。⚠️ 这与 Executive Summary「重新实现（不是拷贝
     文件）」是同一件事，本条**明确给它一个出口**——初版 C-6 的措辞把这条路堵死了；
   - **`不落地`** ⇒ 追不到兼容许可、也不属于可 clean-room 的公开算法。
+  ⚠️ **clean-room 条款必须写成可核的产物条款，不能写成"不看 ShipSwift 的 `.metal`"**
+  （第 3 轮评审 S-4）：后者既不可执行（本 PRD 的调研本身已 grep 过全部 34 个 `.metal`），
+  法律风险也不在读 ShipSwift（它是 MIT），而在 ShipSwift 的文件若本身是 CC BY-NC-SA 衍生。
+  ⇒ 可核的三条：① provenance 表的 `证据链接` **必须指向参考实现**，不得指向 ShipSwift；
+  ② 新 `.metal` 文件头注明参考实现 URL + 其许可；③ 评审**对照参考实现**核，不对照 ShipSwift。
+
   ⚠️ **闸的"通过"定义**：裁定表覆盖全部 28 个 shader（无空行）**且**裁定为可落地
-  （前两类）的数量 **≥ 7**（即至少覆盖已知 MIT 来源的那 7 个）。低于该下限，
-  Epic B 的固定基建成本（切构建系统、3 份 metallib、新 target、CI 改动）不值得
-  ⇒ **闸判不过，Epic B 不启动。**
+  （前两类）的数量 **≥ N**。
+  ⚠️ **N 不得直接取 7**（第 3 轮评审 S-3）：7 恰好等于已知 MIT 来源的那 7 个，
+  取 7 等于"表填满即通过"，是同义反复。**N 由 D-1 结论产出后按经济性反推**：
+  Epic B 的固定基建成本（切构建系统 / 3 份 metallib + 同步守卫 / 新 target + product /
+  CI 改动 / probe / 画廊 / 文档）≈ B-1 + B-4 两个 task；除以每 shader 的边际成本，
+  得到"值得为几个 shader 付这笔固定成本"的下限。**AD-4 / D-1 未出结论前 N 留空，
+  但 N 的推导方法在此钉死，不接受拍脑袋。**
+  ⚠️ **已知 MIT 那 7 个的传递来源也要核**（S-3）：ShaderKit 自身的 shader 是否移植自
+  Shadertoy，上游 ACK 没说。FR-18「追到原始作者」**显式覆盖这 7 个**，不得当作预先通过。
 
 ### 假设
 
@@ -546,18 +621,33 @@ A-7  预览宿主 + 快照排除策略 + 文档 + 署名收尾（ComponentData.s
 A-1~A-6 之间无依赖，可并发；A-7 依赖全部，且对 `App/Sources/ComponentData.swift` 的写入
 必须串行化（见 D-5）。
 
-**Epic B「Metal」**（28 个 shader）。**前置 = A0-5 ∧ A0-6 双双通过。**
+**Epic B「Metal」**（28 个 shader）。
+⚠️ **前置 = A0-2 ~ A0-6 全部完成**（第 3 轮评审 IM-3）——初版只写 A0-5 ∧ A0-6 两闸，
+漏了 B-1 对 A0-2（scheme 已切、FR-1 允许 Shaders 依赖 Effects）、A0-3（守卫根）、
+A0-4（probe）的**隐式依赖**。两闸判过只是**启动条件**，不是全部前置。
 
 ```
-B-1  CoreDesignShaders target + product + FR-2 选定路径落地（β 下含 3 份 metallib 与同步守卫）
+B-1  CoreDesignShaders target + product + FR-2 选定路径落地（β 下含 3 份 metallib、
+     metallib.manifest.json 与同步守卫）
+     + 把 Shaders 根加进四条守卫（承接 A0-3 的 fail-closed 根列表，见 FR-9）
+     + App/project.yml 补 product: CoreDesignShaders
+     + probe 补 CoreDesignShaders 的 nonisolated 调用点（FR-3）
+     + CLAUDE.md / AGENTS.md 同步（否则 AgentGuideSyncGuard 判红，见连带清单 #1）
 B-2  17 个 colorEffect 背景（按 D-1 的复杂度分级分批：纯噪声 / 多 pass / 需 SDF）
-B-3  11 个 layerEffect 内容层效果（含 FR-4 点名的 7 个"颜色写死"件的参数化改造）
-B-4  署名（ACKNOWLEDGEMENTS.md）+ 文档 + 预览宿主 + 快照排除
+B-3  11 个 layerEffect 内容层效果（含 C-2 点名的 7 个"颜色写死"件的参数化改造）
+B-4  ACKNOWLEDGEMENTS.md 署名（含 7 个已知件的传递来源核验）+ 文档 + 预览宿主
+     + 快照排除 + effects-registry.json / reachable-type 登记补齐（连带清单 #9）
 ```
 
-⚠️ **密度校正**：本仓历史 epic 为 5–13 task、约 1 交付物/task。抽出 A0 后三个 epic 均落回
-该区间。A-1（8 个）、A-2（16 种）、B-2（17 个）、B-3（11 个）在 ccpm 分解阶段仍须按上面
-标注的分组再拆成多个 task。
+⚠️ **登记表侧改动的归属**（IM-3）：若 AD-4 裁定 `CoreDesignCharts` 走 b，则
+`ComponentRegistryGuard` 扫描根多 target 化 + 4 条登记 + `:449` 的 `47` 改 `51`
++ `readmeIndexReconcilesWithRegistry` 联动，**归 A-6**（与四个图表同一个 task），
+不留在 A0-3——A0-3 只做 Bool / a11y / 两条新守卫。
+
+⚠️ **密度校正**：本仓历史 epic 实测 5 / 6 / 7 / 7 / 9 / 10 / 11 / 13 个 task。
+**A0（6 个）与 A（7 个）已在区间内；B 目前只有 4 个，按 B-2 / B-3 标注的分组拆开后
+才进入区间**——初版写"三个 epic 均落回该区间"对 B 为假（第 3 轮评审 S-6）。
+A-1（8 个）、A-2（16 种）、B-2（17 个）、B-3（11 个）在 ccpm 分解阶段均须再拆。
 
 ---
 
@@ -607,3 +697,23 @@ B-4  署名（ACKNOWLEDGEMENTS.md）+ 文档 + 预览宿主 + 快照排除
 | I-10（α/β 无裁决判据） | **接受**。FR-2 写死判据，并指出 α 的前提今天已知为假（`downstream-probe` 与下游 StoryUI CI 都是原生 `swift build`），α 的失败形态是运行时静默无渲染 ⇒ **β 为默认走向** |
 | Sug（FR-20 抛断言 / NFR-7 "或文档" / Reduce Transparency 归属 / G-7 引用不准 / project.yml:34 / 本仓无 ACKNOWLEDGEMENTS / FR-19 实为 ≥15 条） | **全部接受**，逐处改正。G-7 那条我复核后确认引用确实不准，已改为直接引 `ComponentRegistryGuard.swift:366` |
 | Preference（Transition 计数措辞） | **接受**（这是清晰性修正而非风格偏好） |
+
+## 评审响应台账（第 3 轮）
+
+第 3 轮结论 REVISE，其中**必须修仅 1 条**，其余为 structure 阶段处置建议。全部已在本轮处置。
+
+| 评审项 | 处置 |
+|---|---|
+| **C-1（必须修）β 下验证路径写错** | **接受**。这是把 β 定为默认走向后没有回头改 AC 的漏网之鱼：β 下 metallib 是 `.copy` 二进制，**原生 `swift build` 会照常拷进 bundle**，要验的恰是 CI SwiftPM 腿 / probe / 下游 StoryUI CI 用的那条原生路径；`swiftbuild` 在 β 下无人使用。US-3 AC 改为按 α/β 分别定义验证路径；C-1 连带后果②补「β 下此限制解除，shader 加载测试可拉回 SwiftPM 腿」 |
+| IM-1（差集守卫射程 + layerEffect 公开形态自相矛盾） | **接受**。射程钉为 public `View`/`ViewModifier`；`transition`/`modifier` 两类改手工维护 + 盲区台账留痕，若要机器守则成本计入 AD-4-a。同时钉死 11 个 `layerEffect` 落成 `public struct: ViewModifier` + `public extension View` 便利方法，统一 N 的口径 |
+| IM-2（守卫根 fail-open 风险） | **接受**。FR-9 加：根列表只含当下已存在的 target 且每根断言目录存在；Shaders 根由 B-1 显式加入 |
+| IM-3（Epic B 前置与任务空档） | **接受**。B 前置由「A0-5∧A0-6」改为「A0-2~A0-6 全部完成」（两闸只是启动条件不是全部前置）；B-1/B-4 补齐 probe / project.yml / CLAUDE.md·AGENTS.md 同步 / reachable-type / effects-registry；登记表侧改动明确归 A-6 |
+| IM-4（颜色守卫对 `.metal` 过度承诺） | **接受**。US-3 AC 拆两层：Swift wrapper 层机器判，`.metal` 侧登记为已知无机器判据（与 G-4 对 A 类文案的写法同构） |
+| S-1（NFR-5 判据命令） | **接受**，写死 `swift package describe --type json \| jq …` 且给出今日实测值 |
+| S-2（β 四个失败模式 + "冲突"措辞不准） | **接受**。同步守卫改 sha256 manifest（metallib 跨 Xcode 版本非逐字节稳定）；补工具链钉版本、Mac Catalyst 误选、仓库体积三项；"冲突"改"冗余" |
+| S-3（≥7 是同义反复 + 7 个的传递来源未核） | **接受**。下限改为 N，推导方法（固定基建成本 ÷ 每 shader 边际成本）钉死、值待 D-1 结论；FR-18 显式覆盖那 7 个的传递来源 |
+| S-4（clean-room 条款不可执行） | **接受**，且评审说得对：本 PRD 的调研本身就 grep 过全部 34 个 `.metal`，"不看"这条我自己已经违反了。改为可核的产物条款（证据链接指向参考实现 / `.metal` 头注明来源 / 评审对照参考实现） |
+| S-5（AD-4 判据两侧估法不对称） | **接受**。a 侧按既有守卫体量类比估固定成本，b 侧 2 样本外推，且 N 只算 Effects+Shaders |
+| S-6（"三个 epic 均在 5–13 区间"对 B 为假） | **接受**，改为「A0=6、A=7 已在区间；B 按分组拆后进入」 |
+| S-7（effects-registry 是第三份枚举） | **接受为 AD-4 的输入**（不代 AD-4 拍板）：在 AD-4-a 骨架里并列"独立 JSON"与"锚 `docs/components/<slug>.md` 文件"两个方案，要求 AD-4 选一个并写明理由 |
+| Preference（`.skeletonShimmer()` 不在 `Modifier/` 目录） | **接受**，事实修正 |
