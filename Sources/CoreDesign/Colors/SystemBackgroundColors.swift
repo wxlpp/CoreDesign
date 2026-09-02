@@ -78,10 +78,15 @@ public extension Color {
     ///
     /// 使用此颜色用于分组内容，包括表格视图和基于盘子的设计。
     ///
-    /// macOS 分支保持 `.controlBackgroundColor`（与上面二级同值）——AC 只要求
-    /// canvas/raised 两档在 macOS 上可辨，这一档目前在 `SurfaceColors` 内无实际
-    /// 生产消费点（`surfaceGroupedElevated` / `surfaceElevated` 未被任何组件引用），
-    /// AppKit 也没有第三档背景概念可用，故不强行找一个不精确的近似值。
+    /// macOS 分支保持 `.controlBackgroundColor`（与上面二级同值）——AppKit 没有第三档
+    /// grouped 背景概念可用，不强行找一个不精确的近似值。
+    ///
+    /// - Note: **Issue #220 起本档有了真实消费者**：`surfaceElevated` 成为
+    ///   `surfaceSidebar` 的别名目标，经 `.surface(.sidebar)` 公开通路与 App 宿主的
+    ///   三处 `Color.surfaceSidebar` 到达界面。（此前 `surfaceGroupedElevated` /
+    ///   `surfaceElevated` 确为零引用，那是上述取舍当初成立的前提。）
+    ///   后果：**macOS 下侧栏与内容表面同色**——已在
+    ///   `SystemBackgroundColorsMacOSTests` 钉成显式相等断言，非静默塌缩。
     static var tertiarySystemGroupedBackground: Color {
         #if canImport(UIKit)
             Color(uiColor: .tertiarySystemGroupedBackground)
