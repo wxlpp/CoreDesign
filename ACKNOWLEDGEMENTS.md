@@ -1,0 +1,105 @@
+# Acknowledgements
+
+CoreDesign 的部分实现衍生自第三方开源项目。按各自许可的要求，原始版权与许可声明
+转载于下。
+
+> **本文件与 [`docs/shader-provenance.md`](docs/shader-provenance.md) 的分工**：
+> provenance 表是**裁定过程**（每个 shader 追到哪、许可是什么、判可不可落地）；
+> 本文件是**对外的许可声明**。前者判为可落地的行，**在其真正落地时**必须在本文件
+> 有对应条目。
+>
+> ⚠️ **本文件目前只有骨架**（#249 建）。**逐组件 / 逐 shader 的条目由各自落地的 task
+> 追加**——闸②虽已通过，仍不得署名尚未落地的东西。
+
+## 归属分档
+
+每个条目须标明属于哪一档，两者的义务不同：
+
+| 档 | 含义 | 义务 |
+|---|---|---|
+| **较大段落移植** | 直接采用了上游的实现（即便重命名、重排、改了参数表） | 转载完整原始许可 + 指明原作者与原始 URL |
+| **参考算法思路** | 对照上游或公开文献**重写**，未复制其代码 | 指明参考实现与其许可，说明是重写 |
+
+---
+
+## ShipSwift
+
+CoreDesign 的表达性视觉层（`CoreDesignEffects` / `CoreDesignShaders`）与图表层
+（`CoreDesignCharts`）的**点子与算法**来自
+[ShipSwift](https://github.com/signerlabs/ShipSwift)（SignerLabs）。
+
+⚠️ **归档说明**：CoreDesign 的实现是**按自身 API 公约与色彩地基重写的**，不是拷贝——
+上游源码全部 `internal`、硬编码色、零 accessibility、零 `controlSize` / Dynamic Type
+适配、零测试。逐组件属于哪一档见其 `docs/components/*.md`。
+
+```
+MIT License
+
+Copyright (c) 2026 SignerLabs
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
+## Inferno — Warping Loupe（待 `GlassOrb` 落地时启用）
+
+> ⚠️ 占位。`CoreDesignShaders` 的 `GlassOrb` 落地时（`shipswift-shaders` B-3）填入，
+> 并转载 Inferno 的完整 MIT 正文。
+
+裁定依据（`docs/shader-provenance.md` 第 1 行）：**已追到兼容许可，链条闭合**。
+Inferno 的 LICENSE 附有逐 shader 移植来源清单（仅 Crosswarp / Radial / Swirl / Wind /
+Genie 五项，均来自 gl-transitions），**"Warping Loupe" 不在其中** ⇒ 系 Inferno 原创，
+由其 MIT 覆盖。
+
+- 上游：[Inferno](https://github.com/twostraws/Inferno) by Paul Hudson — MIT
+- 档位：**较大段落移植**（折射数学保留自原实现）
+
+---
+
+## Star Nest（待 `StarNest` 落地时启用）
+
+> ⚠️ 占位。落地时（`shipswift-shaders` B-2）填入并转载 MIT 正文。
+
+- 上游：["Star Nest" by Pablo Roman Andrioli（Kali）](https://www.shadertoy.com/view/XlfGRj) — 作者在源码头声明 MIT
+- 档位：**较大段落移植**（分形"magic formula"与体积步进保留自原实现）
+- ⚠️ **落地前须人工目视确认**该 Shadertoy 页面源码头的 MIT 声明——自动抓取返回 403，
+  现有证据是多个独立第三方移植的一致记录，非一手。
+
+---
+
+## 噪声参考实现（待相应 shader 落地时启用）
+
+> ⚠️ 占位。`SimplexNoise` / `FractalClouds` / `InkSmoke` / `SmokeRing` / `NeuroNoise` /
+> `GrainGradient` / `Water` 落地时填入。
+
+这些 shader 走 **clean-room 重写**——对照下列许可兼容的参考实现重写，**不复制其代码**：
+
+- [ashima/webgl-noise](https://github.com/ashima/webgl-noise) — MIT
+- [stegu/webgl-noise](https://github.com/stegu/webgl-noise) — MIT
+- [hughsk/glsl-noise](https://github.com/hughsk/glsl-noise) — MIT
+
+- 档位：**参考算法思路**
+
+---
+
+## 图片与其他资源
+
+> ⚠️ 占位。CoreDesign 目前未引入第三方图片资源。若将来引入，须在此逐条声明——
+> 特别注意 CC BY-SA 类资源带传染性条款，与本库的 MIT 分发不兼容。
