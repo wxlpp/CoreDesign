@@ -272,7 +272,7 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
 | **Copilot C-2（AD-4 裁决判据自举成环）** | **接受**，本轮最有价值的一条。b 侧要"实做 2 样本"，而能产样本的 Effects 又依赖 AD-4 完成。新增 AD-C：2 个样本作为 A0-1 内部子步骤，**仓外/临时分支做、产物不进主线** ⇒ A0-1 自足，环打破 |
 | **superpowers C-2 / Copilot C-1（NFR-1 性能回归闸是孤儿）** | **接受**。三份 epic grep「性能/掉帧/frame-time」零命中属实。基准脚本归 `shipswift-effects` A-7（一次性基建），Effects / Shaders 的 SC 各加对应项 |
 | **superpowers C-3（shaders 漏了对 effects 的真实依赖）** | **接受**。NFR-7 的可注入 environment 键落 `CoreDesignEffects`（正是 FR-1 允许 Shaders→Effects 单向依赖的用途），B-2 依赖 A-3；`ComponentData.swift` 的跨 epic 串行窗口依赖 A-7。已写进 shaders 的 Dependencies |
-| I-1（A0-4 在 foundation 阶段是空的） | **接受**。新增 AD-F：A0-4 只做接线 + 结构，实质 nonisolated 调用点归 A-7 与 B-1，两处 SC 都加 |
+| I-1（A0-4 在 foundation 阶段是空的） | **接受**。新增 AD-F：A0-4 只做接线 + 结构，实质调用点归 A-7 与 B-1，两处 SC 都加（⚠️ **Shaders 侧后于 #260 改为 B-4**——B-1 那时只有 target 骨架、无 shader 类型可调；正文 AD-F 已更新，本行为历史记录） |
 | I-2（A0-2 依赖描述自相矛盾） | **接受**。删掉"A0-1 阻塞 A0-2 的一部分"——A0-2 的三项内容确实无一取决于 AD-4 |
 | I-3（A0-5 验收窄于下游期待） | **接受**。A0-5 的 SC 补三项：四个失败模式、fail-closed + macOS runner 有无 Metal device、B-1+B-4 固定成本估算 |
 | I-4（TouchTarget 处置撞 NFR-5②） | **接受**，且评审说得对：往 `TouchTargetTests` 加 `BeforeAfterSlider` 会让 `CoreDesignTests` 依赖新 target，把 A0-2 那条 `jq` 判据判红。改为两件交互件在**各自独立测试 target** 里同形态实现 |
