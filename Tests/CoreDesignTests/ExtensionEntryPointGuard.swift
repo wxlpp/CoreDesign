@@ -55,6 +55,51 @@ struct ExtensionEntryPointGuard {
 
     // MARK: - schema
 
+    /// 一条 `entryPoints` 条目的全部字段判据，**抽成纯函数**：返回它违反的每一条。
+    ///
+    /// ⚠️ **抽出来是因为原地写在循环里的版本今天结构性恒绿**（PR #265 终审 S-1）：
+    /// `entryPoints` 现在是 `[]`（新 target 还没有任何入口点），于是那个 `for` 循环
+    /// **一次都不执行**、六条 `#expect` 从未被求值——「守卫」与「空循环」不可分辨。
+    /// 这正是本 task 要防的「0 输入恒绿」，只是下沉了一层。
+    /// ⇒ 判据搬进纯函数，由 `schemaValidatorActuallyFires` 用合成条目逐条打红。
+    static func schemaProblems(of entry: ComponentRegistryGuard.EntryPoint, seen: inout Set<String>) -> [String] {
+        let key = Self.key(of: entry)
+        var problems: [String] = []
+        if !seen.insert(key).inserted {
+            problems.append("入口点「\(key)」重复登记 —— 双向差集看 Set，重名会被静默吞掉")
+        }
+        if !GuardScanRoots.targetNames.contains(entry.target) {
+            problems.append("入口点「\(key)」的 target「\(entry.target)」不在 `GuardScanRoots.targetNames` 里")
+        }
+        if !PublicTypeCollector.entryPointHostTypes.contains(entry.host) {
+            problems.append("""
+            入口点「\(key)」的 host「\(entry.host)」不在扫描器认得的被扩展类型清单里
+            （\(PublicTypeCollector.entryPointHostTypes.sorted())）
+            —— 登记了一个扫描器永远采不到的 host，这条登记从落地那天起就是幽灵。
+            """)
+        }
+        if entry.member.trimmingCharacters(in: .whitespaces).isEmpty {
+            problems.append("入口点「\(key)」的 member 为空")
+        }
+        if entry.notes.count < 10 {
+            problems.append("入口点「\(key)」的 notes 只有 \(entry.notes.count) 字符，像占位")
+        }
+        for banned in BoolExemptionGuard.bannedReasonPhrases where entry.notes.contains(banned) {
+            problems.append("入口点「\(key)」的 notes 含空话占位词「\(banned)」")
+        }
+        // ⚠️ 主 target 的入口点**今天不登记**（射程只有新 target），登记了就说明
+        // 有人把射程悄悄扩了一半——一半会被下面的双向差集判成幽灵条目。
+        if entry.target == GuardScanRoots.primaryTargetName {
+            problems.append("""
+            入口点「\(key)」登记在主 target 上，而本守卫的射程只有新 target
+            —— 它会被下面的双向差集判成幽灵条目。若确要把 CoreDesign 的 40+ 个
+            `public extension View` 方法纳入登记，那是一次独立的裁决与批量改动，
+            不是往这个数组里塞一条。
+            """)
+        }
+        return problems
+    }
+
     @Test("`entryPoints` 数组存在、可解析，且每条字段合法")
     func entryPointSchemaIsValid() throws {
         // ⚠️ **fail-closed**：`RegistryFile.entryPoints` 是非可选字段——文件里没有这个键
@@ -64,33 +109,48 @@ struct ExtensionEntryPointGuard {
         #expect(try ComponentRegistryGuard.loadRegistry().count > 30,
                 "登记表的 components 数组读不到 —— 顶层结构可能又被改了")
 
-        let knownTargets = Set(GuardScanRoots.targetNames)
         var seen: Set<String> = []
         for entry in entryPoints {
-            let key = Self.key(of: entry)
-            #expect(seen.insert(key).inserted, "入口点「\(key)」重复登记 —— 双向差集看 Set，重名会被静默吞掉")
-            #expect(knownTargets.contains(entry.target),
-                    "入口点「\(key)」的 target「\(entry.target)」不在 `GuardScanRoots.targetNames` 里")
-            #expect(PublicTypeCollector.entryPointHostTypes.contains(entry.host), """
-            入口点「\(key)」的 host「\(entry.host)」不在扫描器认得的被扩展类型清单里
-            （\(PublicTypeCollector.entryPointHostTypes.sorted())）
-            —— 登记了一个扫描器永远采不到的 host，这条登记从落地那天起就是幽灵。
-            """)
-            #expect(!entry.member.trimmingCharacters(in: .whitespaces).isEmpty,
-                    "入口点「\(key)」的 member 为空")
-            #expect(entry.notes.count >= 10, "入口点「\(key)」的 notes 只有 \(entry.notes.count) 字符，像占位")
-            for banned in BoolExemptionGuard.bannedReasonPhrases where entry.notes.contains(banned) {
-                Issue.record("入口点「\(key)」的 notes 含空话占位词「\(banned)」")
-            }
-            // ⚠️ 主 target 的入口点**今天不登记**（射程只有新 target），登记了就说明
-            // 有人把射程悄悄扩了一半——一半会被下面的双向差集判成幽灵条目。
-            #expect(entry.target != GuardScanRoots.primaryTargetName, """
-            入口点「\(key)」登记在主 target 上，而本守卫的射程只有新 target
-            —— 它会被下面的双向差集判成幽灵条目。若确要把 CoreDesign 的 40+ 个
-            `public extension View` 方法纳入登记，那是一次独立的裁决与批量改动，
-            不是往这个数组里塞一条。
-            """)
+            for problem in Self.schemaProblems(of: entry, seen: &seen) { Issue.record("\(problem)") }
         }
+    }
+
+    @Test("schema 判据真的会开火：合成条目逐条变红自证（终审 S-1）")
+    func schemaValidatorActuallyFires() {
+        func problems(_ entry: ComponentRegistryGuard.EntryPoint) -> [String] {
+            var seen: Set<String> = []
+            return Self.schemaProblems(of: entry, seen: &seen)
+        }
+        let good = ComponentRegistryGuard.EntryPoint(
+            target: "CoreDesignEffects", host: "View", member: "confetti",
+            notes: "这是一条长度足够、说明了用途的登记理由。"
+        )
+        #expect(problems(good).isEmpty, "合法条目被误判：\(problems(good))")
+
+        // ① host 不在扫描器认得的清单里 ⇒ 幽灵登记。
+        #expect(!problems(.init(target: "CoreDesignEffects", host: "NotAHost", member: "confetti",
+                                notes: good.notes)).isEmpty, "非法 host 不会红")
+        // ② target 不存在。
+        #expect(!problems(.init(target: "CoreDesignShaders", host: "View", member: "confetti",
+                                notes: good.notes)).isEmpty, "不存在的 target 不会红")
+        // ③ 主 target（射程之外）。
+        #expect(!problems(.init(target: "CoreDesign", host: "View", member: "bordered",
+                                notes: good.notes)).isEmpty, "登记在主 target 上不会红")
+        // ④ member 为空。
+        #expect(!problems(.init(target: "CoreDesignEffects", host: "View", member: "  ",
+                                notes: good.notes)).isEmpty, "空 member 不会红")
+        // ⑤ notes 像占位。
+        #expect(!problems(.init(target: "CoreDesignEffects", host: "View", member: "confetti",
+                                notes: "TODO")).isEmpty, "过短 notes 不会红")
+        // ⑥ notes 含空话占位词。
+        let banned = BoolExemptionGuard.bannedReasonPhrases.first ?? "TODO"
+        #expect(!problems(.init(target: "CoreDesignEffects", host: "View", member: "confetti",
+                                notes: "这条理由\(banned)，凑够十个字符以上。")).isEmpty,
+                "空话占位词「\(banned)」不会红")
+        // ⑦ 重复登记（`seen` 是承重的，两次调用共用同一个 `seen`）。
+        var seen: Set<String> = []
+        #expect(Self.schemaProblems(of: good, seen: &seen).isEmpty)
+        #expect(!Self.schemaProblems(of: good, seen: &seen).isEmpty, "重复登记不会红")
     }
 
     // MARK: - 双向差集
@@ -174,6 +234,14 @@ struct ExtensionEntryPointGuard {
         }
         """) == ["Transition.wipe"])
 
+        // ④b `open` 成员同样是入口点（Copilot A-2：只认 `public` 会让 `open` 绕过登记）。
+        #expect(entryPoints("""
+        import SwiftUI
+        extension View {
+            open func openModifier() -> some View { self }
+        }
+        """) == ["View.openModifier"])
+
         // ⑤ 反向：非 public 成员与无关 host 不算入口点。
         #expect(entryPoints("""
         import SwiftUI
@@ -197,9 +265,10 @@ struct ExtensionEntryPointGuard {
     func scannerFiresOnRealSource() throws {
         // ⚠️ 与另外两条新守卫同款。`CoreDesign` **不在射程内**（见文件头），
         // 这里只把它当靶场：它有 15 个 `extension View` 块、40+ 个公开 modifier 方法。
-        let scan = try ComponentRegistryGuard.scanTypes(
-            root: GuardScanRoots.sourcesURL(of: GuardScanRoots.primaryTargetName)
-        )
+        // ⚠️ **必须走 `coreDesignScan()`，不能直接调 `scanTypes(root:)`**
+        // （PR #265 终审 S-3）：`ComponentRegistryGuard.coreDesignScan()` 的文档逐字写着
+        // 「三条判据统一走这个入口」，绕过它既丢缓存、也绕过「空结果不入缓存」那条纪律。
+        let scan = try ComponentRegistryGuard.coreDesignScan()
         #expect(scan.entryPoints.count > 10, """
         扩展成员扫描器在 Sources/CoreDesign 上只采到 \(scan.entryPoints.count) 个入口点 —— 疑似失效。
         本条**不是**要求主 target 登记它们，而是「新 target 的零入口点来自真的没有、

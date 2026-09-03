@@ -947,7 +947,7 @@ nonisolated final class PublicTypeCollector: SyntaxVisitor {
         let host = node.extendedType.trimmedDescription
             .split(separator: ".").last.map(String.init) ?? ""
         guard Self.entryPointHostTypes.contains(host) else { return .visitChildren }
-        let extensionIsPublic = node.modifiers.contains(where: { $0.name.text == "public" })
+        let extensionIsPublic = node.modifiers.contains(where: { $0.name.text == "public" || $0.name.text == "open" })
 
         for member in node.memberBlock.members {
             let decl = member.decl
@@ -969,6 +969,11 @@ nonisolated final class PublicTypeCollector: SyntaxVisitor {
 
     /// extension 成员的有效可见性：extension 自带 `public` ⇒ 成员默认 public；
     /// 成员显式写了 `private` / `fileprivate` / `internal` ⇒ 以成员为准。
+    ///
+    /// ⚠️ **`open` 与 `public` 同等对待**（PR #265 Copilot A-2）：`open` 比 `public`
+    /// **更**开放（下游还能覆写），只认 `public` 会让 `open` 成为一条绕过登记表覆盖
+    /// 守卫的入口点通道。`open` 只在 class 语境下合法，本仓今天一个都没有——
+    /// 这条是把口子在出现之前就堵上，成本是一个字符串。
     private static func isEffectivelyPublic(
         _ modifiers: DeclModifierListSyntax, extensionIsPublic: Bool
     ) -> Bool {
@@ -976,7 +981,7 @@ nonisolated final class PublicTypeCollector: SyntaxVisitor {
         if names.contains("private") || names.contains("fileprivate") || names.contains("internal") {
             return false
         }
-        return names.contains("public") || extensionIsPublic
+        return names.contains("public") || names.contains("open") || extensionIsPublic
     }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {

@@ -371,6 +371,23 @@ struct BoolExemptionGuard {
     /// 清单里就不增加清单条目数，`sourceSites` 之前未被断言、`hits.count` 可以漂移
     /// 而这里的 git log 看不出来——已在 `baselineRatchetHoldsExactly` 补严格等式堵上）。
     struct Baseline: Codable {
+        /// ⚠️⚠️ **自 `#246` 起，`maxEntries` / `sourceSites` 的计数定义域是「全包」，
+        /// 不再是「CoreDesign」**（PR #265 终审 I-5）：`boolScan()` 的扫描根已从单根
+        /// `Sources/CoreDesign` 改成 `GuardScanRoots.allRoots`（`CoreDesign` +
+        /// `CoreDesignEffects` + `CoreDesignCharts`），而这两个数字仍与合并后的结果比
+        /// ⇒ **Effects / Charts 里新增一个 public `Bool` 会把 `sourceSites` 顶到 36 ≠ 35，
+        /// 判红**。这是**收紧**不是放宽（FR-10 只要求「既有 CoreDesign 判据字面不变」，
+        /// 32 / 35 两个数字一个字没动）。
+        ///
+        /// ⚠️ **但下面 `rationale` 里的文字仍整段用 CoreDesign 的口径说话**
+        /// （`BottomInputBar` 的 27 → 32 / 30 → 35），`docs/bool-exemptions-baseline.json`
+        /// 里的那份同样如此——**那是历史记录，不是定义域说明**。Epic A 第一个带
+        /// public `Bool` 的动效 / 图表组件会撞上这两个数字，届时：
+        /// · 它的豁免键**必须带 `<Target>/` 前缀**（`GuardScanRoots.qualifiedKey(target:base:)`；
+        ///   裸形只属于主 target，由 `exemptionKeysAreCanonicallyQualified` 钉死）；
+        /// · 抬高 `maxEntries` / `sourceSites` 时，`rationale` 里**必须写明这次抬高来自哪个
+        ///   target**——否则 `scripts/bool-exemptions-ratchet.sh` 的跨历史闸只看得到数字变大，
+        ///   会把一次 Effects 的新增读成 CoreDesign 的回归。
         let maxEntries: Int?
         let raisedBy: String?
         let raisedOn: String?
@@ -537,30 +554,61 @@ struct BoolExemptionGuard {
 
     // MARK: - `#246`：台账键的 target 前缀
 
-    @Test("台账键的 target 前缀合法且唯一形态：裸形只属于主 target，带前缀者必须指向已存在的 target")
-    func exemptionKeysAreCanonicallyQualified() throws {
-        let entries = try Self.loadExemptions()
-        #expect(!entries.isEmpty, "豁免清单为空 —— 本判据会在空循环上恒真")
-
-        let knownTargets = Set(GuardScanRoots.targetNames)
-        for entry in entries {
-            guard let parameter = entry.parameter else { continue }
-            guard parameter.contains("/") else { continue }   // 裸形 = 主 target，合法
-            let target = GuardScanRoots.target(ofKey: parameter)
-            // ① 前缀必须指向一个**当下真的存在**的 target。
-            #expect(knownTargets.contains(target), """
+    /// 一个台账键的前缀判据，**抽成纯函数**：返回它违反的每一条（合法则空）。
+    ///
+    /// ⚠️ **抽出来是因为原地写在循环里的版本今天结构性恒绿**（PR #265 终审 S-1）：
+    /// 循环体第二行 `guard parameter.contains("/") else { continue }` 对**现存 32 个键
+    /// 全部成立**（它们都是裸形），于是下面两条 `#expect` 从来没有被求值过——
+    /// 「守卫」与「空循环」不可分辨。这正是本 task 要防的「0 输入恒绿」，只是下沉了一层。
+    /// ⇒ 判据搬进纯函数，由 `qualificationValidatorActuallyFires` 用合成键逐条打红。
+    static func qualificationProblems(ofKey parameter: String) -> [String] {
+        guard parameter.contains("/") else { return [] }   // 裸形 = 主 target，合法
+        let target = GuardScanRoots.target(ofKey: parameter)
+        var problems: [String] = []
+        // ① 前缀必须指向一个**当下真的存在**的 target。
+        if !GuardScanRoots.targetNames.contains(target) {
+            problems.append("""
             豁免键「\(parameter)」的 target 前缀「\(target)」不在 `GuardScanRoots.targetNames` 里
             —— 要么 target 名写错了，要么它还没落地。挂在不存在的 target 上的豁免永远匹配不到
             任何命中，只会以「过期条目」的面目红掉，诊断绕远路。
             """)
-            // ② 主 target 的**唯一**合法拼法是裸形。允许两种拼法 = 同一条豁免有两个键，
-            //    差集会把其中一种当成过期条目，而另一种静默生效。
-            #expect(target != GuardScanRoots.primaryTargetName, """
+        }
+        // ② 主 target 的**唯一**合法拼法是裸形。允许两种拼法 = 同一条豁免有两个键，
+        //    差集会把其中一种当成过期条目，而另一种静默生效。
+        if target == GuardScanRoots.primaryTargetName {
+            problems.append("""
             豁免键「\(parameter)」给主 target 写了显式前缀 —— 主 target 的规范形态是**裸形**
             `Owner.decl#param`（见 `GuardScanRoots.qualifiedKey(target:base:)` 的文档）。
             同一条豁免存在两种拼法时，扫描器只产出其中一种，另一种恒为过期条目。
             """)
         }
+        return problems
+    }
+
+    @Test("台账键的 target 前缀合法且唯一形态：裸形只属于主 target，带前缀者必须指向已存在的 target")
+    func exemptionKeysAreCanonicallyQualified() throws {
+        let entries = try Self.loadExemptions()
+        #expect(!entries.isEmpty, "豁免清单为空 —— 本判据会在空循环上恒真")
+
+        for entry in entries {
+            guard let parameter = entry.parameter else { continue }
+            for problem in Self.qualificationProblems(ofKey: parameter) { Issue.record("\(problem)") }
+        }
+    }
+
+    @Test("前缀判据真的会开火：合成键逐条变红自证（终审 S-1）")
+    func qualificationValidatorActuallyFires() {
+        // ① 主 target 写了显式前缀 —— 同一条豁免有两个键。
+        #expect(!Self.qualificationProblems(ofKey: "CoreDesign/Foo.init#flag").isEmpty,
+                "主 target 的显式前缀不会红 —— 上面那条判据在现存 32 个裸形键上从不执行")
+        // ② 前缀指向一个不存在的 target。
+        #expect(!Self.qualificationProblems(ofKey: "CoreDesignShaders/Foo.init#flag").isEmpty,
+                "不存在的 target 前缀不会红")
+        // ③ 反向：合法形态不误报。
+        #expect(Self.qualificationProblems(ofKey: "CoreDesignEffects/Foo.init#flag").isEmpty,
+                "合法的新 target 前缀被误报")
+        #expect(Self.qualificationProblems(ofKey: "Badge.init#outlined").isEmpty,
+                "主 target 的裸形键被误报")
     }
 
     // MARK: - Task 4 的判据：双向精确匹配
