@@ -156,7 +156,6 @@ struct ShaderEntryPointGuard {
     @Test("手工清单与 .metal 里的 [[stitchable]] 入口互为子集")
     func listMatchesSource() throws {
         let declared = try Self.declaredEntryPoints()
-        // ⚠️ **非空断言**：正则失配时两个集合都空，双向差集恒等 ⇒ 假绿。
         let listed = Set(ShaderLibraryLoadTests.entryPoints)
         // ⚠️ **非空断言**：正则失配时两个集合都空，双向差集恒等 ⇒ 假绿。
         // ⚠️ 阈值取 `listed.count` 而非魔数 7（终审 S）——将来**合法地**删掉一个
