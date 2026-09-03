@@ -107,8 +107,42 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// ——**这是有意选择"不误导"而不是"更好看"**，不是性能所迫。
     public static var recommendedEdgeLimit: Int { 600 }
 
+    /// ⚠️⚠️ **去重必须在截断之前**（第 6 轮终审 C-3，**同一 bug 类的第五个轴**）。
+    ///
+    /// 上一版只 `prefix`、**不去重** ⇒ 三种输入都会让渲染与 descriptor 分叉：
+    /// · 30 条完全相同的 `a→b` ⇒ 屏幕**1 条线**（30 段重合）、descriptor 报 **30**，
+    ///   `peak` 把 y 轴量程也抬到 30；
+    /// · `a→b` + `b→a` ⇒ 屏幕 1 条、报 2（渲染是**无向**线段）；
+    /// · 601 条**同一条边** ⇒ `edgesTruncated == true` ⇒ 力导向被关、横幅说
+    ///   「Showing the first 600 connections」——而**唯一边只有 1 条，什么都没丢**
+    ///   （与第 4 轮 I-1 修掉的「重复节点触发假截断」一模一样，只是没修到边上）。
+    ///
+    /// ⚠️ 代码里本有两处证据说明这条路该被想到：`effectiveNodes` 的注释写着
+    /// 「顺序与 `RingChart.effectiveValues` 对齐：**先去重、后截断**」——
+    /// `effectiveEdges` 是**唯一**跳过去重的截断路径；而 `pairwiseWorkIsBounded`
+    /// 的注释明写「`[Edge]` **允许平行边**」——团队为性能预算专门推理过平行边，
+    /// **却没把结论传导到度数与去重**。
+    ///
+    /// ⚠️ **无向归一化**：渲染画的是无向线段 ⇒ `a→b` 与 `b→a` 视为同一条。
+    /// **自环计 2**（`degree[from] += 1; degree[to] += 1` 落在同一 id 上）是**有意的**
+    /// ——它在图论里就是度数 2；但它**画不出来**（零长度 stroke），
+    /// 这条渲染/播报差异如实记在这里。
     private var effectiveEdges: [Edge] {
-        Array(self.edges.prefix(Self.recommendedEdgeLimit))
+        var seen = Set<UndirectedKey>()
+        return Array(self.edges
+            .filter { seen.insert(UndirectedKey($0)).inserted }
+            .prefix(Self.recommendedEdgeLimit))
+    }
+
+    /// 无序对键——`a→b` 与 `b→a` 归一化成同一个。
+    private struct UndirectedKey: Hashable {
+        let lo: Node.ID
+        let hi: Node.ID
+        init(_ e: Edge) {
+            // `Node.ID: Hashable` 不保证 `Comparable` ⇒ 用 hashValue 定序（同进程内稳定）。
+            if e.from.hashValue <= e.to.hashValue { (self.lo, self.hi) = (e.from, e.to) }
+            else { (self.lo, self.hi) = (e.to, e.from) }
+        }
     }
 
     /// 超限时截断。⚠️ 截断而不是拒绝——半张图仍有信息量，crash 没有。
@@ -139,8 +173,11 @@ public struct NetworkGraph<Node: GraphNode>: View {
 
     /// ⚠️ 分维度是因为文案要分支：只截边时说「Showing the first N nodes」是错的
     /// （20 个节点一个没少，真正被丢的是第 601 条起的边）。
+    /// ⚠️ 比**去重后**的数量（第 6 轮终审 C-3）：601 条同一条边不该触发截断。
     private var edgesTruncated: Bool {
-        self.edges.count > Self.recommendedEdgeLimit
+        var seen = Set<UndirectedKey>()
+        return self.edges.filter { seen.insert(UndirectedKey($0)).inserted }.count
+            > Self.recommendedEdgeLimit
     }
 
     /// 布局缓存的失效键。

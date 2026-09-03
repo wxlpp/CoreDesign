@@ -586,6 +586,52 @@ struct LocalizationPathTests {
 
 // ⚠️ 这三条各自钉住一个「同一 bug 类在另一个兄弟组件上原样留着」的实例。
 
+/// ⚠️⚠️ **正向断言：度数必须真的被算出来。**
+///
+/// 第 6 轮终审 C-2：`graphDegreeSkipsDroppedNodes`（断言全 0）与
+/// `graphDegreeUsesTruncatedEdges`（断言 `total <= 上界`）**两条都是单向的**
+/// ⇒ 变异「把整段度数计算删掉」→ **54 条测试全绿**。
+/// 即：第 4 轮 C-2 与第 5 轮 I-2 修的那个量，全套测试里**没有一条正向断言**。
+@Suite("NetworkGraph 度数（正向）")
+struct GraphDegreeTests {
+
+    @Test("度数确实被算出来，且是无向计数")
+    func degreeIsComputed() {
+        let nodes = ["n0", "n1", "n2"].map { Node(id: $0, label: "L") }
+        let d = NetworkGraph(nodes: nodes,
+                             edges: [GraphEdge(from: "n0", to: "n1"),
+                                     GraphEdge(from: "n0", to: "n2")]).makeChartDescriptor()
+        let ys = d.series.first?.dataPoints.compactMap {
+            Double(String(describing: $0.yValue).filter { "0123456789.".contains($0) })
+        } ?? []
+        #expect(ys == [2, 1, 1], "度数算错或根本没算：\(ys)")
+    }
+
+    /// ⚠️ 第 6 轮终审 C-3：重复 / 反向边此前会让 descriptor 报 N 条而屏幕只画 1 条。
+    @Test("重复边与反向边只计一次")
+    func duplicateAndReverseEdgesCountOnce() {
+        let nodes = ["a", "b"].map { Node(id: $0, label: "L") }
+        let many = Array(repeating: GraphEdge(from: "a", to: "b"), count: 30)
+            + [GraphEdge(from: "b", to: "a")]
+        let d = NetworkGraph(nodes: nodes, edges: many).makeChartDescriptor()
+        let ys = d.series.first?.dataPoints.compactMap {
+            Double(String(describing: $0.yValue).filter { "0123456789.".contains($0) })
+        } ?? []
+        #expect(ys == [1, 1], "31 条重合边被算成了 \(ys)——屏幕上只画得出 1 条")
+    }
+
+    /// ⚠️ 601 条同一条边不该触发截断（与第 4 轮 I-1 的「重复节点假截断」同形）。
+    @Test("重复边不触发假截断")
+    func duplicateEdgesDoNotFakeTruncation() {
+        let nodes = ["a", "b"].map { Node(id: $0, label: "L") }
+        let many = Array(repeating: GraphEdge(from: "a", to: "b"),
+                         count: NetworkGraph<Node>.recommendedEdgeLimit + 1)
+        let g = NetworkGraph(nodes: nodes, edges: many)
+        #expect(g.layoutKey(for: .init(width: 300, height: 300)).iterations > 0,
+                "唯一边只有 1 条，却被判为超限、力导向被关掉")
+    }
+}
+
 @Suite("截断在三个组件间一致（渲染 == descriptor）")
 struct TruncationConsistencyTests {
 
@@ -630,6 +676,7 @@ struct TruncationConsistencyTests {
             Double(String(describing: $0.yValue).filter { "0123456789.".contains($0) })
         } ?? []
         // 所有边都指向被丢弃的节点 ⇒ 可见节点的度数应全为 0。
+        #expect(ys.count == limit, "数据点数不是截断后的节点数")
         #expect(ys.allSatisfy { $0 == 0 },
                 "被丢弃节点的度数被算进了可见节点：\(ys.filter { $0 != 0 }.prefix(5))")
     }
@@ -735,12 +782,23 @@ struct TruncationConsistencyTests {
     }
 
     /// ⚠️ 第 3 轮终审 I-5：边数此前完全无上限，而弹簧回路是 O(E·iter)。
-    @Test("边数超限也触发降级")
+    /// ⚠️ **本测试上一版用 20 个节点造 700 条边，而它们无向去重后远不足 600**
+    /// ——第 6 轮加了去重之后它**不再触发降级，这是正确的**（前提本就建立在
+    /// 未去重的计数上）。⇒ 改用**真正互异**的边：20 个节点最多只有
+    /// `20×19/2 = 190` 条无向边，够不到 600 ⇒ 必须放大节点数。
+    @Test("边数超限也触发降级（用真正互异的边）")
     func edgeLimitTriggersDegradation() {
-        let nodes = (0..<20).map { Node(id: "n\($0)", label: "L") }
-        let many = (0..<(NetworkGraph<Node>.recommendedEdgeLimit + 100))
-            .map { GraphEdge(from: "n\($0 % 20)", to: "n\(($0 * 7) % 20)") }
-        let g = NetworkGraph(nodes: nodes, edges: many)
+        let n = 40   // 40×39/2 = 780 > 600
+        let nodes = (0..<n).map { Node(id: "n\($0)", label: "L") }
+        var edges: [GraphEdge<String>] = []
+        outer: for i in 0..<n {
+            for j in (i + 1)..<n {
+                edges.append(GraphEdge(from: "n\(i)", to: "n\(j)"))
+                if edges.count > NetworkGraph<Node>.recommendedEdgeLimit { break outer }
+            }
+        }
+        #expect(edges.count == NetworkGraph<Node>.recommendedEdgeLimit + 1)
+        let g = NetworkGraph(nodes: nodes, edges: edges)
         #expect(g.layoutKey(for: .init(width: 300, height: 300)).iterations == 0)
     }
 }

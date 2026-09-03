@@ -55,13 +55,24 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     // 是 `weeks(ofEffective:)` 里每天 3 次 `Calendar` 运算的 `O(maximumDays)` 循环
     // ——**它是封顶的**，与上一版说的「随输入 N 增长、不封顶」正好相反。
     //
-    // ⇒ **真实量级：单次 body 求值 18–30 ms（含 `effectiveDays` 的两次全表 `startOfDay`
-    //   扫描），在主线程上是 1–2 帧。** 与当初把 `NetworkGraph` 挪出主线程的量级同阶。
-    // ⚠️ **缓存与否本轮不做**，但这个数字必须是**当前代码的**——
-    //   上一版留了一个已不描述代码的数字，而下一个人会据它决策。
-    //   这是同一病型的第三次（第 2 轮 C-2、第 4 轮 I-6）。
-    // ⇒ 8 ms 不值得为它引入 `@State` + 失效键的复杂度；**但这个数字必须在这里**，
-    // 否则下一个人只能在「重算」与「缓存」之间凭感觉选。
+    // ⚠️⚠️ **上一版又把结论说反了**（第 6 轮终审 C-1，评审 best-of-8 实测）：
+    //
+    //   | 输入 N | effectiveDays（sort + 2N 次 startOfDay） | weeks（恒 1830） | 合计 |
+    //   | 1830   | 10.1 ms | 12.3 ms | 22.5 ms |
+    //   | 3653   | **20.2 ms** | 12.4 ms | 32.4 ms |
+    //   | 20000  | **274.5 ms** | 12.3 ms | 287.5 ms |
+    //
+    // ⇒ **封顶的只有 `weeks` 一项**（O(maximumDays)，12–38 ms——**随日期年代波动**：
+    //   2001–2006 区间 38.5 ms、2011 年后 12.4 ms，应为 ICU 的 2007 年 DST 规则切换）；
+    //   而 `effectiveDays` 的 **2N 次 `startOfDay`** 严格线性于**输入 N**（≈6 µs/条）
+    //   ⇒ **总成本不封顶**。**上一版被我推翻的那句「随输入 N 增长」才是对的。**
+    //   `sorted` 可忽略（0.05 ms @1830），与上一版说的 0.03 ms 同阶。
+    //
+    // ⇒ **N ≥ 3653 起主项转为 `effectiveDays`。** 本轮仍不做缓存，但理由改挂在
+    //   **前提**上：典型用法 N ≤ maximumDays（一年 365、五年 1830），此时约 22 ms。
+    //   **若调用方喂 10 年以上，这个前提就不成立。**
+    // ⚠️ 这是同一病型的**第四次**（第 2 轮 C-2 假表、第 4 轮 I-6 过期数字、
+    //   第 5 轮 I-3 说反）——而这段注释的存在理由就是"下一个人会据它决策"。
     private var grid: some View {
         // ⚠️⚠️ **上一轮的 C-1 只修了一半**（第 4 轮终审 C-3）：descriptor 与 `weeks`
         // 都改走了 `effectiveDays`，**只有决定每个格子颜色的 `buckets` 留在原地**
@@ -115,6 +126,15 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     /// 「`NetworkGraph` 在同一件事上是对的，两个兄弟组件走反了」——**那句话少数了
     /// 一个兄弟**。四个图表里有三个会截断，我只核对了两个。
     /// 后果一致：10 年数据时屏幕画 1830 天、**VoiceOver 播报 3653 个点**。
+    /// 跟随注入日历的日期标签。⚠️ 见 `makeChartDescriptor` 里的说明。
+    static func label(for date: Date, calendar: Calendar) -> String {
+        var style = Date.FormatStyle(date: .abbreviated, time: .omitted)
+        style.calendar = calendar
+        style.timeZone = calendar.timeZone
+        if let locale = calendar.locale { style.locale = locale }
+        return date.formatted(style)
+    }
+
     static func effectiveDays(_ days: [Day], calendar: Calendar) -> [Day] {
         let sorted = days.sorted { $0.date < $1.date }
         guard let last = sorted.last else { return [] }
@@ -225,7 +245,10 @@ extension ActivityHeatmap: AXChartDescriptorRepresentable {
     public func makeChartDescriptor() -> AXChartDescriptor {
         // `count` 是 `Int`，天然有限；这里仍走 `safeRange` 是为了与另外三个图表同形。
         // ⚠️ 与渲染同源（第 3 轮终审 C-1）。
-        let shown = Self.renderInputs(self.days, calendar: self.calendar).shown
+        // ⚠️ 只取 `shown`，**不走 `renderInputs`**（第 6 轮终审 I-B）：后者会连带算
+        // `buckets` 与 `weeks`，而 descriptor 一个都不用 ⇒ VoiceOver 拉一次描述符
+        // 的成本从 ~10 ms 变成 ~22 ms，白烧的正是上面注释里最担心的那个 Calendar 循环。
+        let shown = Self.effectiveDays(self.days, calendar: self.calendar)
         let peak = Double(shown.map(\.count).max() ?? 1)
         // ⚠️⚠️ **不要写成 `"\(Int($0))"`**——`Accessibility` 框架在构造描述符时会拿
         // **非有限的探针值**调用这个闭包，`Int(非有限)` 直接 trap。
@@ -238,13 +261,19 @@ extension ActivityHeatmap: AXChartDescriptorRepresentable {
         ) { $0.formatted(.number.precision(.fractionLength(0))) }
         let dates = AXCategoricalDataAxisDescriptor(
             title: chartAXString("Date"),
-            categoryOrder: shown.map { $0.date.formatted(date: .abbreviated, time: .omitted) }
+            // ⚠️⚠️ **日期标签必须跟随注入的 `calendar`**（第 6 轮终审 I-A）：
+            // 上一版用裸 `.formatted(date:time:)` ⇒ 取**设备**时区与 locale。
+            // 实测注入 `Pacific/Kiritimati` 时：格子画在 12/31、**VoiceOver 念 1/1**。
+            // 这与 `init` 文档自陈的「显式接受而不是取 `.current`——一周从周日还是
+            // 周一开始**是 locale 决定的**」直接冲突：行位置跟随注入日历、标签却没有。
+            // ⇒ 同一 bug 类的**标签轴**（前五个轴都在集合成员上）。
+            categoryOrder: shown.map { Self.label(for: $0.date, calendar: self.calendar) }
         )
         let series = AXDataSeriesDescriptor(
             name: "", isContinuous: false,
             dataPoints: shown.map {
                 AXDataPoint(
-                    x: $0.date.formatted(date: .abbreviated, time: .omitted),
+                    x: Self.label(for: $0.date, calendar: self.calendar),
                     y: Double($0.count)
                 )
             }
