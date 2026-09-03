@@ -22,21 +22,60 @@ import Testing
 // ⚠️ 但主 target 仍被当**靶场**用（`detectorFiresOnRealSource`）：新 target 今天命中必然
 // 为 0，「零违规」与「探测器坏了」在这种输入上不可分辨。
 //
-// ## 已知的两个口子（写在明处，不是漏了）
+// ## 覆盖面：不只 `Text` / `Label`
+//
+// `246.md:28-29` 的 AC 字面只写 `Text("…") / Label("…"`，但本守卫的失败信息是通用口吻
+// （「下游 App 换语言时这些字会突然说英文」），而 Epic A 真正要落的 `BeforeAfterSlider` /
+// `GlassOrb` 与图表图例现实中就会用 `Button` / `Section` / `Toggle`
+// ⇒ 只认两个构造器时它会**报零并被采信**（PR #265 终审 I-3）。⇒ 覆盖两类：
+//
+// · **构造器**（`textConstructors`）：裸引用 `Text(…)`、**限定形态** `SwiftUI.Label(…)`
+//   （仓内 `Tag.swift:219` 的预览已在用）、**initializer 形态** `Text.init(…)`；
+// · **modifier**（`textModifiers`）：`.navigationTitle("…")` 这类
+//   `MemberAccessExprSyntax` callee——首版要求 callee 必须是裸 `DeclReferenceExprSyntax`，
+//   把上面**三种**形态一起结构性排除了（Copilot A-1 + 终审 I-3）。
+//
+// ## 已知的四个口子（写在明处，不是漏了）
 //
 // 1. **`Text(verbatim:)` 不判违规**——它是「这串东西不是给人读的自然语言」的显式声明
 //    （数字、用户数据、符号）。它可 grep、可评审，比逼人把 verbatim 改写成别的形状好。
-//    本守卫**清点**它并打印，让滥用看得见。
+//    本守卫**清点**它并打印，让滥用看得见（`Text.init(verbatim:)` 同样清点）。
 // 2. **`#Preview` 整体跳过**——预览是视觉冒烟入口、不是产品路径（与 a11y 守卫跳过
 //    `#if DEBUG` 同一条裁断）。
+// 3. **`.accessibilityLabel` / `.accessibilityValue` / `.accessibilityHint` 不在
+//    `textModifiers` 里，这是分工不是漏**：它们由 `AccessibilityStringLiteralGuard`
+//    以 `GuardScanRoots.allRoots`（含主 target）守着，还带一份逐站点的
+//    `docs/a11y-exemptions.json`。在这里重复一遍只会让同一处违规被报两次。
+// 4. **本守卫暂无例外台账**——本仓其余守卫（`bool-exemptions.json` /
+//    `a11y-exemptions.json` / `knownMissingExtensionPoints`）都有带署名理由的逐站点
+//    逃生门，本条与 `EffectsColorLiteralGuard` 都还没有。⚠️ **出现第一个正当例外时，
+//    应新增台账（形态照 `a11y-exemptions.json`：`location` + `symbol` + 署名 `reason`），
+//    不得放宽判据、更不得删掉本守卫**——「用削弱判据来消化一个正当例外」正是 G-7
+//    记在案的失效形态。follow-up 见 `246.md` 的《后续》。
 @Suite("新 target 禁 chrome 文案裸字面量")
 struct ChromeTextLiteralGuard {
 
     /// 承载 chrome 文案的构造器。第一个**无标签**实参是字面量即违规。
     ///
-    /// ⚠️ `Label` 只看第一个实参：`Label("Retry", systemImage: "arrow")` 里
-    /// `systemImage:` 的值是 SF Symbol 名，不是给人读的文案，翻译它是错的。
-    nonisolated static let textConstructors: Set<String> = ["Text", "Label"]
+    /// ⚠️ 只看第一个实参：`Label("Retry", systemImage: "arrow")` 里 `systemImage:` 的值
+    /// 是 SF Symbol 名、`Toggle("…", isOn: $x)` 里 `isOn:` 是绑定——都不是给人读的文案。
+    /// 「第一个**无标签**实参」这条规则对下面九个构造器一致成立，所以泛化是安全的。
+    ///
+    /// ⚠️ **`Text` / `Label` 之外的七个是 PR #265 终审 I-3 补的**：Epic A 的
+    /// `BeforeAfterSlider` / `GlassOrb` 与图表图例现实中就会用 `Button` / `Section` /
+    /// `Toggle`，只认两个构造器时本守卫会报零并被采信。
+    nonisolated static let textConstructors: Set<String> = [
+        "Text", "Label", "Button", "Toggle", "Section",
+        "TextField", "SecureField", "Stepper", "Picker",
+    ]
+
+    /// 承载 chrome 文案的 **modifier**（callee 是 `MemberAccessExprSyntax`）。
+    ///
+    /// ⚠️ **a11y 三件套有意不在这里**（见文件头口子 3）：它们归
+    /// `AccessibilityStringLiteralGuard`，那条守卫的射程更宽（含主 target）且带台账。
+    nonisolated static let textModifiers: Set<String> = [
+        "navigationTitle", "navigationSubtitle", "alert", "confirmationDialog", "help",
+    ]
 
     nonisolated struct Violation: Hashable, Sendable {
         let file: String
@@ -112,7 +151,9 @@ struct ChromeTextLiteralGuard {
         处置（按优先级）：
         1. 把文案**交给调用方**（做成 init 参数，那样它落 B 类、由登记表的 textParams 管）；
         2. 确实该由库提供时，走 `String(localized:bundle:)` 指向**该 target 自己的**
-           String Catalog（`Package.swift` 的 `resources:` + `Sources/<target>/Resources/`；
+           String Catalog——`Package.swift` 的 `resources:` **与**
+           `Sources/<target>/Resources/` 目录**必须同轮一起加**
+           （`GuardScanRootsGuard.moduleBundleOwnership` 钉住这条一致性；
            ⚠️ 新 target 今天**没有**资源包，写 `bundle: .module` 编译不过）；
         3. 那串东西根本不是自然语言（数字 / 符号 / 用户数据）时用 `Text(verbatim:)`，
            它会被清点并打印出来。
@@ -141,6 +182,43 @@ struct ChromeTextLiteralGuard {
                 "Something went wrong"
             )
             """, "Something went wrong"),
+            // ⚠️ 以下是 PR #265 双评审补的形态（Copilot A-1 / 终审 I-3）。
+            ("限定形态 `SwiftUI.Label(\"…\", systemImage:)`（仓内 `Tag.swift:219` 在用）", """
+            import SwiftUI
+            let l = SwiftUI.Label("verified", systemImage: "checkmark.seal.fill")
+            """, "verified"),
+            ("initializer 形态 `Text.init(\"…\")`", """
+            import SwiftUI
+            let t = Text.init("Loading")
+            """, "Loading"),
+            ("`Button(\"…\") { }`", """
+            import SwiftUI
+            let b = Button("Retry") { }
+            """, "Retry"),
+            ("`Toggle(\"…\", isOn:)`", """
+            import SwiftUI
+            let t = Toggle("Reduce Motion", isOn: $flag)
+            """, "Reduce Motion"),
+            ("`Section(\"…\")`", """
+            import SwiftUI
+            let s = Section("Legend") { EmptyView() }
+            """, "Legend"),
+            ("`TextField(\"…\", text:)`", """
+            import SwiftUI
+            let f = TextField("Search", text: $q)
+            """, "Search"),
+            ("`Stepper(\"…\", value:)`", """
+            import SwiftUI
+            let s = Stepper("Speed", value: $v)
+            """, "Speed"),
+            ("`.navigationTitle(\"…\")`（modifier 形态）", """
+            import SwiftUI
+            let v = EmptyView().navigationTitle("Settings")
+            """, "Settings"),
+            ("`.alert(\"…\", isPresented:)`", """
+            import SwiftUI
+            let v = EmptyView().alert("Something failed", isPresented: $shown) { }
+            """, "Something failed"),
         ]
         for c in cases {
             let hits = Self.scan(source: c.source).violations
@@ -172,6 +250,14 @@ struct ChromeTextLiteralGuard {
             // Text("in a comment")
             let s = "Label(\\"in a string\\")"
             """),
+            ("非文案 modifier 的字面量实参（不在 `textModifiers` 里）", """
+            import SwiftUI
+            let v = EmptyView().accessibilityIdentifier("legend-row")
+            """),
+            ("`Picker` 的标签式写法（首个实参有标签）", """
+            import SwiftUI
+            let p = Picker(selection: $mode, label: label) { EmptyView() }
+            """),
         ]
         for c in clean {
             let hits = Self.scan(source: c.source).violations
@@ -181,6 +267,14 @@ struct ChromeTextLiteralGuard {
         // 口子 1 真的被清点了（不判违规 ≠ 看不见）。
         #expect(Self.scan(source: #"let t = Text(verbatim: "42")"#).verbatimSites.count == 1,
                 "`Text(verbatim:)` 没有被清点 —— 那个口子就真成了盲区")
+        // ⚠️ initializer 形态同样要记账（Copilot A-1：首版连 verbatim 站点都绕过）。
+        #expect(Self.scan(source: #"let t = Text.init(verbatim: "42")"#).verbatimSites.count == 1,
+                "`Text.init(verbatim:)` 没有被清点 —— 记账通道被 initializer 形态绕过")
+
+        // ⚠️ 口子 3 的落点：a11y 三件套**有意**不在本守卫里（归 `AccessibilityStringLiteralGuard`）。
+        #expect(Self.scan(source: #"let v = EmptyView().accessibilityHint("Opens settings")"#)
+                .violations.isEmpty,
+                "a11y modifier 被本守卫重复报了一遍 —— 同一处违规会被两条守卫各报一次")
     }
 
     @Test("探测器在真实源码上非真空：拿主 target 当靶场必须打出命中")
@@ -219,9 +313,33 @@ private nonisolated final class ChromeTextCollector: SyntaxVisitor {
         node.macroName.text == "Preview" ? .skipChildren : .visitChildren
     }
 
+    /// 从 callee 取「这是不是一个承载 chrome 文案的调用」，取不到返回 `nil`。
+    ///
+    /// ⚠️ **首版只认裸 `DeclReferenceExprSyntax`**，于是三种形态被**结构性排除**
+    /// （Copilot A-1 + 终审 I-3）：限定形态 `SwiftUI.Label(…)`（仓内 `Tag.swift:219`
+    /// 的预览已在用）、initializer 形态 `Text.init(verbatim:)`（连 verbatim 记账都绕过）、
+    /// 以及 `.navigationTitle("…")` 这类 modifier。
+    private static func chromeCallName(of callee: ExprSyntax) -> String? {
+        // ① 裸引用：`Text(…)` / `Button(…)`。
+        if let ref = callee.as(DeclReferenceExprSyntax.self) {
+            return ChromeTextLiteralGuard.textConstructors.contains(ref.baseName.text)
+                ? ref.baseName.text : nil
+        }
+        guard let member = callee.as(MemberAccessExprSyntax.self) else { return nil }
+        // ② modifier：`.navigationTitle("Settings")`。base 是任意 View 表达式，不看它。
+        let memberName = member.declName.baseName.text
+        if ChromeTextLiteralGuard.textModifiers.contains(memberName) { return memberName }
+        // ③ 限定 / initializer 形态：`SwiftUI.Label(…)` / `Text.init(…)` / `SwiftUI.Text.init(…)`。
+        var segments = callee.trimmedDescription
+            .split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+        if segments.last == "init" { segments.removeLast() }
+        guard let last = segments.last,
+              ChromeTextLiteralGuard.textConstructors.contains(last) else { return nil }
+        return last
+    }
+
     override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
-        guard let callee = node.calledExpression.as(DeclReferenceExprSyntax.self),
-              ChromeTextLiteralGuard.textConstructors.contains(callee.baseName.text),
+        guard Self.chromeCallName(of: node.calledExpression) != nil,
               let first = node.arguments.first
         else { return .visitChildren }
 

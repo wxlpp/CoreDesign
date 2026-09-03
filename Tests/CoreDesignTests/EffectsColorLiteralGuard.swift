@@ -27,14 +27,25 @@ import Testing
 // 逐字符 grep 会把注释与字符串里的 `.white` 一起抓进来（主 target 的 120 处命中里
 // 就有一大半在文档注释里）。这里走 SwiftSyntax：
 // · **隐式成员访问** `.cyan` / `.white.opacity(0.2)`（`.white` 自身是一个成员访问）；
-// · **显式限定** `Color.cyan` / `UIColor.systemPink` 里的色相名；
+// · **显式限定** `Color.cyan` / `UIColor.red` / `SwiftUI.Color.white` 里的色相名；
 // · **数值构造** `Color(red:green:blue:)` / `Color(white:)` / `Color(hue:…)` /
-//   `UIColor(red:…)` / `NSColor(…)`。
+//   `UIColor(red:…)` / `NSColor(…)`，**含 `.init` 形态**
+//   `Color.init(red:…)` / `SwiftUI.Color.init(white:)` / `let c: Color = .init(red:…)`；
+// · **`#colorLiteral(red:green:blue:alpha:)`** —— Xcode 取色器自动插入的那一种。
 //
-// ⚠️ **`#Preview` 整体跳过**：预览是视觉冒烟入口、不是产品路径（与 a11y 守卫跳过
-// `#if DEBUG` 同一条裁断）。这是一个**已知的口子**：把违规写进 `#Preview` 里它看不见。
-// 之所以接受：预览块不进消费者的二进制，而禁止预览里用 `.red` 会把「拿原色标出布局边界」
-// 这种正当用法也一起禁掉。
+// ## 三个**已知的口子**（写在明处，不是漏了）
+//
+// 1. **`#Preview` 整体跳过**：预览是视觉冒烟入口、不是产品路径（与 a11y 守卫跳过
+//    `#if DEBUG` 同一条裁断）。把违规写进 `#Preview` 里它看不见。之所以接受：
+//    预览块不进消费者的二进制，而禁止预览里用 `.red` 会把「拿原色标出布局边界」
+//    这种正当用法也一起禁掉。
+// 2. **`system*` 族有意不算色相**（PR #265 终审 I-1 的裁定，见 `hueNames` 的文档）。
+// 3. **本守卫暂无例外台账**——本仓其余守卫（`bool-exemptions.json` /
+//    `a11y-exemptions.json` / `knownMissingExtensionPoints`）都有带署名理由的逐站点
+//    逃生门，本条与 `ChromeTextLiteralGuard` 都还没有。⚠️ **出现第一个正当例外时，
+//    应新增台账（形态照 `bool-exemptions.json`：键 + 署名 reason + 双向差集），
+//    不得放宽判据、更不得删掉本守卫**——「用削弱判据来消化一个正当例外」正是 G-7
+//    记在案的失效形态。follow-up 见 `246.md` 的《后续》。
 @Suite("新 target 禁色相字面量")
 struct EffectsColorLiteralGuard {
 
@@ -42,6 +53,15 @@ struct EffectsColorLiteralGuard {
     ///
     /// ⚠️ **`.clear` 不在表里**：它不是色相，是「不画」。
     /// ⚠️ **`.primary` / `.secondary` / `.accentColor` 也不在表里**：它们本身就是语义色。
+    /// ⚠️ **`system*` 族（`UIColor.systemPink` / `NSColor.systemRed` / `Color(.systemBlue)`）
+    /// 同样不在表里，这是一条裁定而不是遗漏**（PR #265 终审 I-1）：
+    /// 本守卫要防的失效形态是「**写死的颜色在暗色模式 / 高对比度下不会跟着变**」，
+    /// 而 `system*` 是 Apple 的 **dynamic color**——它按外观模式与对比度设置自动取值，
+    /// 恰恰**具备**本守卫要保护的那个性质，与 `.primary` / `.secondary` 同类。
+    /// 且 `CLAUDE.md`《分层色彩系统》把系统语义色列为第 3 层 token 的**推荐来源**
+    /// （`0.3.0` 换地基的方向本身），禁掉它会与仓库自己的地基方向相反。
+    /// ⚠️ **代价照录**：`systemPink` 毕竟仍是「粉」，拿它当装饰色堆在新 target 里
+    /// 本守卫看不见——这是上面口子 2 的确切含义，不是「它一定没问题」。
     nonisolated static let hueNames: Set<String> = [
         "black", "blue", "brown", "cyan", "gray", "green", "indigo", "mint",
         "orange", "pink", "purple", "red", "teal", "white", "yellow",
@@ -144,6 +164,27 @@ struct EffectsColorLiteralGuard {
             import UIKit
             let c = UIColor(hue: 0.5, saturation: 1, brightness: 1, alpha: 1)
             """),
+            // ⚠️ 以下四条是 PR #265 双评审补的**绕过形态**（Copilot A-3 / 终审 I-2、S-2）。
+            ("`.init` 形态 `Color.init(red:green:blue:)`", """
+            import SwiftUI
+            let c = Color.init(red: 1, green: 0, blue: 0)
+            """),
+            ("限定 `.init` 形态 `SwiftUI.Color.init(white:)`", """
+            import SwiftUI
+            let c = SwiftUI.Color.init(white: 0.5)
+            """),
+            ("隐式成员 `.init` 形态 `let c: Color = .init(red:…)`", """
+            import SwiftUI
+            let c: Color = .init(red: 1, green: 0, blue: 0)
+            """),
+            ("`#colorLiteral(…)`（Xcode 取色器插入的形态）", """
+            import SwiftUI
+            let c = Color(#colorLiteral(red: 1, green: 0, blue: 0, alpha: 1))
+            """),
+            ("限定色相 `SwiftUI.Color.white`", """
+            import SwiftUI
+            let c = SwiftUI.Color.white
+            """),
         ]
         for c in cases {
             #expect(!Self.scan(source: c.source).isEmpty, "\(c.name)：探测器漏报 —— 上面那条「零违规」毫无意义")
@@ -162,6 +203,22 @@ struct EffectsColorLiteralGuard {
             ("`#Preview` 里的原色（有意跳过，见文件头）", """
             import SwiftUI
             #Preview { Color.red }
+            """),
+            // ⚠️ **裁定的落点**（终审 I-1）：`system*` 是 dynamic color、按外观自动取值，
+            // 与 `.primary` / `.secondary` 同类，**有意不算色相**。这两条钉住裁定，
+            // 免得后人把它当漏报「顺手补上」而与文件头的口子 2 打架。
+            ("`system*` 是语义色，不是色相（裁定，见 `hueNames` 文档）", """
+            import UIKit
+            let a = UIColor.systemPink
+            let b = NSColor.systemRed
+            """),
+            ("`Color(.systemBlue)` 是系统色桥接惯用法", """
+            import SwiftUI
+            let c = Color(.systemBlue)
+            """),
+            ("非颜色类型的 `.init` 数值构造", """
+            struct Pixel { init(red: Int) {} }
+            let p = Pixel.init(red: 1)
             """),
         ]
         for c in clean {
@@ -209,8 +266,20 @@ private nonisolated final class ColorLiteralCollector: SyntaxVisitor {
     override func visit(_ node: MacroExpansionDeclSyntax) -> SyntaxVisitorContinueKind {
         node.macroName.text == "Preview" ? .skipChildren : .visitChildren
     }
+
+    /// ⚠️ **`#colorLiteral(red:green:blue:alpha:)` 必须在这里拦**（PR #265 终审 I-2）：
+    /// 它解析成 `MacroExpansionExprSyntax`，子节点是一串**裸浮点字面量**的
+    /// `LabeledExprListSyntax`——既没有 member access、也没有 function call，
+    /// 下面两个 override 一个都碰不到它。而它正是 **Xcode 取色器自动插入的形态**，
+    /// 是硬编码颜色最可能的入口：首版对非 `Preview` 宏一律 `.visitChildren`，
+    /// 于是这条路径整个逃逸，且没有登记在「已知口子」里。
     override func visit(_ node: MacroExpansionExprSyntax) -> SyntaxVisitorContinueKind {
-        node.macroName.text == "Preview" ? .skipChildren : .visitChildren
+        if node.macroName.text == "Preview" { return .skipChildren }
+        if node.macroName.text == "colorLiteral" {
+            self.record(node, snippet: node.trimmedDescription)
+            return .skipChildren
+        }
+        return .visitChildren
     }
 
     override func visit(_ node: MemberAccessExprSyntax) -> SyntaxVisitorContinueKind {
@@ -226,10 +295,23 @@ private nonisolated final class ColorLiteralCollector: SyntaxVisitor {
         return .visitChildren
     }
 
+    /// ⚠️ **`.init` 形态必须单独剥一层**（PR #265 Copilot A-3 / 终审 S-2）：
+    /// 首版取点号链的**最后一段**判宿主类型，于是 `Color.init(red:green:blue:)` /
+    /// `SwiftUI.Color.init(white:)` / `let c: Color = .init(red:…)` 的最后一段都是
+    /// `"init"`、不在 `colorTypeNames` 里 ⇒ 「禁数值色字面量」有一条一行就能写出来的绕过。
     override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
-        let callee = node.calledExpression.trimmedDescription.split(separator: ".").map(String.init)
-        guard let typeName = callee.last,
-              EffectsColorLiteralGuard.colorTypeNames.contains(typeName) else { return .visitChildren }
+        // ⚠️ `omittingEmptySubsequences: false`：隐式成员 `.init(red:…)` 的 callee 文本是
+        // `.init`，丢掉空段后只剩 `["init"]`，与 `Foo.init` 不可分辨。
+        var callee = node.calledExpression.trimmedDescription
+            .split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+        let isInitForm = callee.last == "init"
+        if isInitForm { callee.removeLast() }
+        let host = callee.last ?? ""
+        // 隐式成员 `.init(red:…)` 的宿主类型来自上下文标注（`let c: Color = …`），
+        // 语法树里没有 ⇒ 放行给下面的**数值标签**判据裁。标签集合是 `red`/`white`/`hue`，
+        // 误报面接近零，而漏掉它等于留一条一行绕过。
+        guard EffectsColorLiteralGuard.colorTypeNames.contains(host) || (isInitForm && host.isEmpty)
+        else { return .visitChildren }
         let labels = node.arguments.compactMap { $0.label?.text }
         guard labels.contains(where: { EffectsColorLiteralGuard.numericColorLabels.contains($0) })
         else { return .visitChildren }
