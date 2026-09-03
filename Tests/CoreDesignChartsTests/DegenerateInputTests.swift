@@ -63,10 +63,16 @@ struct PerChartDegenerateTests {
             .series.first?.dataPoints.count == 1)
     }
 
+    /// ⚠️ 第 5 轮 Copilot：上一版这两行是**纯冒烟调用、零断言**——用例名说「走空态」
+    /// 却没有任何可观测结果被检查，把整段 descriptor 删掉它照样绿。
+    /// 与第 3 轮修 `radar()` 那两条、以及此前修掉的 `#expect(Bool(true))` 同一形态。
+    /// ⇒ 与同 suite 的 `radar()` 对齐：钉住 descriptor 的数据点数与输入一致。
     @Test("RingChart：空数组走空态、描述符不崩")
     func ring() {
-        _ = RingChart([Point](), goal: 100).makeChartDescriptor()
-        _ = RingChart(points([1]), goal: 100).makeChartDescriptor()
+        #expect(RingChart([Point](), goal: 100).makeChartDescriptor()
+            .series.first?.dataPoints.isEmpty == true)
+        #expect(RingChart(points([1]), goal: 100).makeChartDescriptor()
+            .series.first?.dataPoints.count == 1)
     }
 
     @Test("ActivityHeatmap：空数组 → 零列（不是崩，也不是一列空格）")
@@ -480,8 +486,12 @@ struct AccessibilityDescriptorTests {
     func ringAxisReadsPercent() throws {
         let goal = 500.0
         let d = RingChart(points([420]), goal: goal).makeChartDescriptor()
-        let describe = try #require(d.yAxis as? AXNumericDataAxisDescriptor)
-            .valueDescriptionProvider
+        // ⚠️ `AXChartDescriptor.yAxis` 的静态类型已经是 `AXNumericDataAxisDescriptor?`，
+        // 上一版那句 `as? AXNumericDataAxisDescriptor` 是恒成功的空转型
+        // （`conditional downcast … does nothing` 警告，因 `swift build` 不编译 `Tests/`
+        // 而躲过了 `-warnings-as-errors`）。去掉转型后 `#require` 仍是**同一道判据**：
+        // 拿不到非 nil 的数值轴就判红，下面三条读数断言的语义一字未动。
+        let describe = try #require(d.yAxis).valueDescriptionProvider
         #expect(describe(goal) == (1.0).formatted(.percent))
         #expect(describe(goal / 2) == (0.5).formatted(.percent))
         #expect(describe(0) == (0.0).formatted(.percent))
@@ -990,6 +1000,94 @@ struct TruncationPathTests {
             }
         }
         return edges
+    }
+}
+
+// MARK: - 边的口径：只算两端都可见的边（PR #263 Copilot 第 5 轮）
+
+/// ⚠️⚠️ **同一 bug 类的第五个轴**：`GraphEdge` 的契约写明「指向不存在节点的边会被
+/// **静默忽略**」（`ChartSupport.swift`），渲染那侧也确实
+/// `guard let a = layout[edge.from], let b = layout[edge.to] else { continue }`
+/// ——但 `effectiveEdges` / `edgesTruncated` 此前按**全量** `self.edges` 去重计数。
+/// ⇒ 调用方传一批指向缺失（或已被节点上限截断掉的）节点的边时：
+/// · `edgesTruncated == true` ⇒ 力导向被整个关掉、降级成静态环形；
+/// · 界面弹出「Showing the first N connections」横幅；
+/// 而屏幕上**一条边都没少**——什么都没被截断。
+///
+/// ⚠️ 第 5 轮 I-2 已经按可见节点修过**度数统计**（`graphDegreeSkipsDroppedNodes`），
+/// 但 `effectiveEdges` / `edgesTruncated` 两条路径没跟上 ⇒ 三处口径不一致。
+/// 本组把三处钉到同一口径上。
+@Suite("边只算两端都可见的（渲染 / 截断 / 度数同口径）")
+struct VisibleEdgeScopeTests {
+
+    private static let size = CGSize(width: 300, height: 300)
+
+    /// 大量**互异**的边全部指向不存在的节点 ⇒ 一条都画不出来 ⇒ 不得触发截断。
+    @Test("指向缺失节点的边不触发假截断")
+    func edgesToMissingNodesDoNotFakeTruncation() {
+        let nodes = ["a", "b"].map { Node(id: $0, label: "L") }
+        let real = GraphEdge(from: "a", to: "b")
+        let ghosts = (0..<(NetworkGraph<Node>.recommendedEdgeLimit + 50)).map {
+            GraphEdge(from: "ghost\($0)", to: "ghost\($0 + 1)")
+        }
+        let key = NetworkGraph(nodes: nodes, edges: [real] + ghosts).layoutKey(for: Self.size)
+        #expect(key.iterations > 0,
+                "可见边只有 1 条，却被判为超限、力导向被关掉（横幅还会说截断了连接）")
+        #expect(key.edges == [real], "缺失节点的边进了 effectiveEdges：\(key.edges.count) 条")
+    }
+
+    /// 边指向**被节点上限截断掉**的尾部节点 —— 同样画不出来，同样不该占边额度。
+    /// （与 `graphDegreeSkipsDroppedNodes` 是同一个输入形态，只是断言在边这一侧。）
+    @Test("指向被截断节点的边不占边额度")
+    func edgesToTruncatedNodesDoNotConsumeEdgeBudget() {
+        let limit = NetworkGraph<Node>.recommendedNodeLimit
+        let nodes = (0..<(limit + 50)).map { Node(id: "n\($0)", label: "L") }
+        let tailEdges = (0..<(NetworkGraph<Node>.recommendedEdgeLimit + 50)).map {
+            GraphEdge(from: "n\(limit + ($0 % 50))", to: "n\($0 % limit)")
+        }
+        let key = NetworkGraph(nodes: nodes, edges: tailEdges).layoutKey(for: Self.size)
+        #expect(key.edges.isEmpty,
+                "两端不全可见的边进了 effectiveEdges：\(key.edges.count) 条")
+    }
+
+    /// **不变量**：`key.edges` 的每一端都必须在 `key.ids` 里
+    /// —— 这正是渲染 `Path` 那道 `guard let` 的判据，两侧从此同口径。
+    @Test("effectiveEdges 的两端恒在 effectiveNodes 内")
+    func everyEffectiveEdgeHasVisibleEndpoints() {
+        let limit = NetworkGraph<Node>.recommendedNodeLimit
+        let nodes = (0..<(limit + 30)).map { Node(id: "n\($0)", label: "L") }
+        // 一半合法、一半指向被截断的尾部或根本不存在的 id，交错喂进去。
+        let mixed = (0..<800).map { i -> GraphEdge<String> in
+            switch i % 3 {
+            case 0: GraphEdge(from: "n\(i % limit)", to: "n\((i * 7) % limit)")
+            case 1: GraphEdge(from: "n\(limit + (i % 30))", to: "n0")
+            default: GraphEdge(from: "ghost\(i)", to: "n1")
+            }
+        }
+        let key = NetworkGraph(nodes: nodes, edges: mixed).layoutKey(for: Self.size)
+        let visible = Set(key.ids)
+        #expect(!key.edges.isEmpty, "输入里有合法边，结果却是空的")
+        #expect(key.edges.allSatisfy { visible.contains($0.from) && visible.contains($0.to) },
+                "有边的端点不在 effectiveNodes 内 —— 渲染画不出来，却占了额度")
+    }
+
+    /// 只截边、不截节点时横幅要报**可见**边数 ⇒ 计数与 `key.edges` 同源。
+    @Test("真的边超限仍然截断（本轮口径统一没有把上限关掉）")
+    func genuineEdgeOverflowStillTruncates() {
+        let limit = NetworkGraph<Node>.recommendedEdgeLimit
+        var edges: [GraphEdge<String>] = []
+        outer: for i in 0..<40 {
+            for j in (i + 1)..<40 {
+                edges.append(GraphEdge(from: "n\(i)", to: "n\(j)"))
+                if edges.count == limit + 1 { break outer }
+            }
+        }
+        // 再掺 200 条指向缺失节点的边：它们既不该增加也不该减少截断判定。
+        let ghosts = (0..<200).map { GraphEdge(from: "ghost\($0)", to: "n0") }
+        let nodes = (0..<40).map { Node(id: "n\($0)", label: "L") }
+        let key = NetworkGraph(nodes: nodes, edges: edges + ghosts).layoutKey(for: Self.size)
+        #expect(key.iterations == 0, "601 条真实可见边没有触发降级")
+        #expect(key.edges.count == limit)
     }
 }
 
