@@ -48,13 +48,55 @@ CheckoutSummary()
 
 | 键 | 类型 | 默认 | 行为 |
 |---|---|---|---|
-| `\.effectsScenePhase` | `ScenePhase?` | `nil` ⇒ 读系统 `\.scenePhase` | `.inactive` / `.background` ⇒ 彩纸层**不绘制** |
+| `\.effectsScenePhase` | `ScenePhase?` | `nil` ⇒ 读系统 `\.scenePhase` | `.inactive` / `.background` ⇒ 彩纸层**不绘制**（含 Reduce Motion 路径，见下） |
 | `\.effectsPowerMode` | `EffectsPowerMode?` | `nil` ⇒ 读 `ProcessInfo.isLowPowerModeEnabled` | `.lowPower` ⇒ 降到 15 fps、彩纸数减半 |
 
+⚠️ **注入的默认值是 `nil`（＝"没有人注入"），不是 `.standard`**：`nil` 时才会去读
+`ProcessInfo`；注入 `.standard` 的语义是宿主明确说"按常规供电渲染"，不该被系统读数覆盖。
+
+### 宿主主动注入的完整配方
+
+⚠️ **别照抄 `ContentView().environment(\.effectsPowerMode, .lowPower)`**——那是**永久锁定
+低电量**，不是"跟随系统"。这个键存在的第二个理由（第一个是可测）是让宿主拿回**响应性**：
+`EnvironmentValues` 的默认值只在被读取时求值一次，不会因为
+`NSProcessInfoPowerStateDidChange` 而让视图失效。要"用户中途打开低电量模式就立刻降级"，
+宿主得自己订阅那条通知：
+
 ```swift
-// 宿主自己订阅 NSProcessInfoPowerStateDidChange 后可主动注入：
-ContentView().environment(\.effectsPowerMode, .lowPower)
+import CoreDesignEffects
+import SwiftUI
+
+struct RootView: View {
+    @State private var powerMode: EffectsPowerMode = .current
+
+    var body: some View {
+        ContentView()
+            .environment(\.effectsPowerMode, self.powerMode)
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: .NSProcessInfoPowerStateDidChange
+                )
+            ) { _ in
+                self.powerMode = .current
+            }
+    }
+}
 ```
+
+⚠️ 初值取 `EffectsPowerMode.current`（＝当次启动时读一遍 `ProcessInfo`），
+之后每收到一次通知重读一次。不订阅通知就别注入这个键——留 `nil` 走默认路径反而更对。
+
+⚠️ 已知不对称（本 PR 登记，未处置）：`usesGlow` 是在 `TimelineView` 闭包内**每帧**重解析的，
+所以即便不注入这个键它也会跟着系统变；而 `minimumInterval`（帧率）与彩纸数由外层求一次，
+不注入就不会中途改变。详见 `ProcessingSweepBody` 的类型文档。
+
+⚠️ **两道闸的顺序是承重的：能耗闸在 Reduce Motion 闸之前**。也就是说
+「后台 / 非活跃 ⇒ 一个像素都不画」对**开启了「减弱动态效果」的用户同样成立**——
+静态庆祝层在这种状态下同样整层不建（PR #269 第 1 轮修的正是这条：此前顺序反了，
+RM 开启时两个能耗键对 Confetti 完全无效）。裁决抽在
+`EffectsEnergyState.presentation(reduceMotion:)` 一个纯函数里，
+与三个"处理中"效果**共用同一份**，判据是
+`EffectsEnergyStateTests.energyGateOutranksReduceMotion`。
 
 ⚠️ **状态机挂在能耗闸之外**：进后台只是不画，`burst` 的计时照走——否则回到前台会
 重放一次已经结束的庆祝。
@@ -65,10 +107,12 @@ ContentView().environment(\.effectsPowerMode, .lowPower)
 burst 起始时刻存在 `@State var burstStart: Date?` 里，`ConfettiBurst.duration`（2 s）之后
 被清成 `nil`，**整个 `TimelineView` 分支随之从视图树里消失**——不是"建了但 `paused: true`"。
 
-⚠️ 已知覆盖限度：`ImageRenderer` 拍的是静态帧、`.task` 在单测里不跑，
-"两秒后那个节点真的消失了"**没有**端到端的机器判据。机器守住的是三段结构
-（全文件只有一处 `TimelineView(`、它只在 `burstStart` 非空时被构造、状态机等的是
-`ConfettiBurst.duration` 且随后清空）加上"没有 burst 时与裸视图逐字节相同"的渲染判据。
+⚠️ 已知覆盖限度：`ImageRenderer` 拍的是静态帧，"两秒后那个节点真的消失了"**没有**
+端到端的机器判据（`.task` 在 macOS 的 `ImageRenderer` 下不跑；iOS Simulator 下会被调度，
+但落点不确定，拿它当判据只会得到一条随机判红的测试）。机器守住的是三段结构
+（全文件只有一处 `TimelineView(`、它只在 `burstStart` 非空且两道闸裁出 `.animated` 时
+被构造、状态机等的是 `ConfettiBurst.duration` 且随后清空），加上两条渲染判据：
+"没有 burst 时与裸视图逐字节相同"，以及"burst 早已结束的那一帧与空基线逐字节相同"。
 
 ## a11y 分工（FR-13）
 
