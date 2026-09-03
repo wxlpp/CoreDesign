@@ -120,7 +120,7 @@ target**，没有任何公开值类型可调用（评审 I-1）。
 | `AccessibilityStringLiteralGuard` | `:189` 同上；按 target 分辨各自的 `.module` |
 | `EffectsColorLiteralGuard`（新建） | 禁色相字面量；射程仅新 target；**带触发红的 fixture** |
 | `ChromeTextLiteralGuard`（新建） | 扫 `Text("…")` / `Label("…"` 裸字面量（公约 A 类）；射程仅新 target，**不回溯 CoreDesign**；**带 fixture** |
-| **差集守卫**（**条件项**，评审 C-1） | ⚠️ **若 AD-4 对 Effects/Shaders 选 a，本 task 必须交付它**——形态按 AD-4 所选（独立 `docs/effects-registry.json` 双向差集 **或** 锚 `docs/components/<slug>.md`）；射程 = public `View`/`ViewModifier`；`transition`/`modifier` 手工维护并在盲区台账留痕。不交付它 ⇒ Effects 的登记面就是 PRD 说的"无守卫空白地带"，且 Epic 成本少算一条 |
+| **差集守卫**（**条件项**，评审 C-1） | ⚠️ **若 AD-4 对 Effects/Shaders 选 a，本 task 必须交付它**——形态按 AD-4 所选（独立 `docs/effects-registry.json` 双向差集 **或** 锚 `docs/components/<slug>.md`）；射程 = public `View`/`ViewModifier`；`transition`/`modifier` 走**扩展成员扫描器**、登记进同一份 `effects-registry.json` 的 `entryPoints` 数组（⚠️ **AD-4 已裁：形态取 JSON 双向差集，且否决"手工维护 + 盲区台账"**，随 #244 回改）。不交付它 ⇒ Effects 的登记面就是 PRD 说的"无守卫空白地带"，且 Epic 成本少算一条 |
 | `NFR-4` grep 断言 | 零 `@unchecked Sendable`。⚠️ **根列表与上面四条守卫同源，只含已存在的 target**（第 2 轮评审 I-1）——初版写"三个新 target"，但 A0-3 落地时只存在两个；对不存在的 `Sources/CoreDesignShaders/` 做 grep 无命中即绿，正是 AD-E 自己反对的 fail-open |
 
 ⚠️ `ComponentTextParamGuard` **只能守 B 类**，且定义域是登记表条目。它**守不到** FR-7 的
