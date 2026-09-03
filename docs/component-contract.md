@@ -1277,8 +1277,9 @@ J-1 主判据 `BoolExemptionGuard.j1NoUnexemptedBoolParameters` 用 Swift Testin
 轻公约与选 a 的全部产物撤回；该裁决的《第 6 版》段落更把本横幅逐字点名为
 「三处反向指令仍活在树上」之一）。⇒ **`CoreDesignEffects` / `CoreDesignShaders` 的
 public 类型与 `CoreDesignCharts` 一样，照常进 `component-registry.json`。**
-⚠️ 这不是文字洁癖：`#246` 交付的 `ExtensionEntryPointGuard.swift:87` **硬断言**
-入口点条目 `target != "CoreDesign"`（即新 target 的公开入口点**必须**登记进这份文件），
+⚠️ 这不是文字洁癖：`#246` 交付的 `ExtensionEntryPointGuard` 在 `schemaProblems(for:)`
+里**硬断言**入口点条目的 `target != GuardScanRoots.primaryTargetName`
+（即新 target 的公开入口点**必须**登记进这份文件），
 与上面那段「Effects 不进」**直接冲突**——公约说「不进」，守卫要求「必须进」。
 
 ⇒ **裁决**：登记单位是「有 public 类型的 API 表面」，不是「是不是 `ViewModifier`」。
