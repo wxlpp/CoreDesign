@@ -90,12 +90,6 @@ import Testing
 //    ⇒ `#255` 落件时**极可能**第一个撞上，届时请按上面那条走台账，**不要**把
 //    `Link` / `Section` 从 `textConstructors` 里删掉当 bug 修——删掉会把
 //    `SwiftUI.Link("Open docs", destination:)` 这类真违规一起放掉。
-// 9. **`isProse` 只要求「含至少一个字母」**（PR #265 第 4 轮终审 S-2）：于是标识符形态的
-//    字面量会被判成文案，实测 `ContentUnavailableView("no-results-id", systemImage: "x")`
-//    命中。这是 `isProse` 既有的启发式性质（它的文档已写明这是一条**收窄**），
-//    但口子 5 新补的 6 个构造器把它的暴露面放大了——`ContentUnavailableView` /
-//    `Link` / `NavigationLink` 的第一个无标签实参在现实代码里常是 id / route 而非文案。
-//    ⇒ 处置同上：走台账，不要把 `isProse` 收得更窄（收窄会把真文案一起放掉）。
 // 7. **`typealias` 可以绕过**（PR #265 第 3 轮终审 S-c）：本守卫按**文本**判构造器名，
 //    `typealias T = Text; T("Loading")` 因此看不见（与 `EffectsColorLiteralGuard` 的口子 5
 //    同源——纯语法、逐文件的扫描器解不了 alias）。没人会为了绕守卫这么写，登记在此
@@ -121,6 +115,12 @@ import Testing
 //    镜像的 `guard let t: Text = .init("Loading")` 漏报）。
 //    三条的**双向**实证在 `contextualTypeRespectsAssignmentsDefaultsAndBindings`。
 //    本条列举的「给不出」现在**确实**只剩数组 / 字典元素、函数实参、stored property、闭包返回值。
+// 9. **`isProse` 只要求「含至少一个字母」**（PR #265 第 4 轮终审 S-2）：于是标识符形态的
+//    字面量会被判成文案，实测 `ContentUnavailableView("no-results-id", systemImage: "x")`
+//    命中。这是 `isProse` 既有的启发式性质（它的文档已写明这是一条**收窄**），
+//    但口子 5 新补的 6 个构造器把它的暴露面放大了——`ContentUnavailableView` /
+//    `Link` / `NavigationLink` 的第一个无标签实参在现实代码里常是 id / route 而非文案。
+//    ⇒ 处置同上：走台账，不要把 `isProse` 收得更窄（收窄会把真文案一起放掉）。
 @Suite("新 target 禁 chrome 文案裸字面量")
 struct ChromeTextLiteralGuard {
 
