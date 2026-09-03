@@ -137,6 +137,31 @@ public nonisolated enum EffectsPowerMode: Sendable, Equatable, CaseIterable {
 /// （`EffectsEnergyState.resolve` ← `EffectsPowerMode.lifted(from:)` ← `\.lowPowerModeOverride`）。
 /// `particleScale` / `usesGlow` 这类只有动效层认得的旋钮**没有下沉**——这正是
 /// 出路 1 里「Effects 侧再包一层策略」那句话的落点。
+///
+/// ### ⚠️ 未了结的残余：**通用策略表未下沉**（#252 PR #269 第 2 轮终审 I-B，本轮只登记）
+///
+/// 上面「当初记下的冲突」那段自己把本枚举分成两半：
+/// · **通用**（`drawsAnything` / `minimumInterval`）——任何常驻渲染件都要；
+/// · **effects 专用**（`particleScale` / `usesGlow`）。
+///
+/// 本轮下沉的只是**原始信号**（两个 `EnvironmentValues` 键），**被自己标为「通用」的
+/// 那半张策略表仍然留在本 target**。⇒ `shipswift-shaders` 的 B-2 只有两条路：
+/// 1. `import CoreDesignEffects` 去用 `EffectsRenderPolicy` ——**那会推翻下沉的立论**
+///    （只想要 shader 的消费者又被链上整个 Effects product）；
+/// 2. 从两个键**自行派生**一份自己的策略——即「同一条映射两处各写一遍」，
+///    正是本仓反复在堵的漂移形态。
+///
+/// **现状按 2 记账**：`scripts/downstream-probe` 那三个 `nonisolated` 引用只守
+/// 「`EffectsEnergyState` 的 `nonisolated` 契约」，**不代表 B-2 会消费这三个类型**
+/// （probe 的注释已按同一事实改写，两处不再打架）。
+///
+/// ⇒ **B-2 落件时必须就这半张表再裁决一次**：要么把 `drawsAnything` /
+/// `minimumInterval` 也下沉到 `CoreDesign`（连带本枚举拆成两层），要么显式接受
+/// 「两处各派生一遍」并为它立一条一致性判据。**本轮不解决，只留痕。**
+///
+/// ⚠️ 顺带登记：这三个类型全 `public`，而模块外唯一消费者是 probe 自己。
+/// 若上面选了"不下沉、也不让 B-2 消费"，它们（至少 `resolve`）可以降 internal、
+/// 少一份永久 API 承诺——同样是 B-2 落件时的裁决项，本轮不改。
 public nonisolated enum EffectsRenderPolicy: Sendable, Equatable, CaseIterable {
 
     /// 满帧、带光晕。

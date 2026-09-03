@@ -34,10 +34,30 @@ nonisolated func readEffectsModuleName() -> String {
 // MARK: - NFR-7 的能耗值类型（Issue #252）
 //
 // ⚠️ 这三个类型走**本文件**而不是 `PublicVisibility.swift`，按文件头的分流表：
-// 它们是**值类型 / 配置类型**——`shipswift-shaders` 的 17 个 `colorEffect` 会在
-// 渲染参数准备阶段用它们，而那段代码不一定跑在 `MainActor` 上。
+// 它们是**值类型 / 配置类型**，`nonisolated` 是它们的承重契约。
 // 若哪天有人把 `EffectsEnergyState` 上的 `nonisolated` 拿掉，本函数当场编译红
 // （`main actor-isolated ... can not be referenced from a nonisolated context`）。
+//
+// ⚠️⚠️ **这里曾写着「`shipswift-shaders` 的 17 个 `colorEffect` 会在渲染参数准备阶段
+// 用它们」——那句话与两个能耗键下沉的立论直接打架，已按事实改写**
+// （#252 PR #269 第 2 轮终审 I-B）。
+//
+// 下沉（`\.lowPowerModeOverride` / `\.scenePhaseOverride` 搬进 `CoreDesign`）的**全部理由**
+// 是「键留在 Effects 会逼只想要 shader 的消费者链上整个 Effects product」。而这三个类型
+// **仍然住在 `CoreDesignEffects`**：B-2 若真去消费它们，就得 `import CoreDesignEffects`，
+// 那条依赖一条都没省下——两句不能同时为真。
+//
+// ⇒ **事实是**：B-2 只消费 `CoreDesign` 的那两个键（`Bool?` / `ScenePhase?`），
+// **自行派生**自己那套渲染参数；`EffectsEnergyState` / `EffectsRenderPolicy` /
+// `EffectsPowerMode` 是**动效层的**语义面，本 probe 是它们在模块外的**唯一**消费者
+// （守的是 `nonisolated` 这条契约，不是"下游真的会这样用"的示范）。
+//
+// ⚠️ **未了结的残余**（已同步登记在 `EffectsRenderPolicy` 的裁决记录里）：
+// `EffectsRenderPolicy` 自己把策略分成「通用」（`drawsAnything` / `minimumInterval`
+// ——任何常驻渲染件都要）与「effects 专用」（`particleScale` / `usesGlow`），
+// 而本轮只下沉了**原始信号**，被标为「通用」的那半张策略表仍在 Effects。
+// ⇒ B-2 要么重新派生一遍（本仓反复在堵的"两处各写一遍必然漂移"），
+// 要么就这半张表再裁决一次。**本轮不解决跨 epic 归属，只如实留痕。**
 
 nonisolated func resolveEffectsRenderPolicy() -> EffectsRenderPolicy {
     EffectsEnergyState.resolve(
