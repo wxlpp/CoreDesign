@@ -58,8 +58,13 @@ public struct Plasma: View {
         let ramp = ShaderRamp(tint: self.tint, reduceTransparency: self.reduceTransparency)
         let field = self.density.field
 
-        ProceduralBackground(base: ramp.low, motion: self.motion) { size, t in
-            ShaderLibrary.bundle(.module).coreDesignPlasma(
+        // ⚠️ `ShaderLibrary.bundle(.module)` 在这里（`body`，MainActor 上下文）先取成值，
+        // 不在下面的闭包里取——那个闭包是 `@Sendable` 的，`Bundle.module` 是 MainActor
+        // 隔离的（#261 终审 I-1）。
+        let library = ShaderLibrary.bundle(.module)
+
+        return ProceduralBackground(base: ramp.low, motion: self.motion) { size, t in
+            library.coreDesignPlasma(
                 .float2(size),
                 .float(t),
                 .float(field.frequency),

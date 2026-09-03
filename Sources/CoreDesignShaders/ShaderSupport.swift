@@ -45,7 +45,25 @@ struct ProceduralBackground: View {
     let motion: ShaderMotion
 
     /// 由各 shader 提供：`(布局尺寸, 归一化时间) -> Shader`。
-    let makeShader: @MainActor (CGSize, Float) -> Shader
+    ///
+    /// ⚠️ **必须是 `@Sendable` 而非 `@MainActor`**（#261 终审 I-1）：`visualEffect` 的
+    /// 闭包本身是 `@Sendable`（nonisolated），从里面调 `@MainActor` 闭包会报
+    /// `main actor-isolated ... can not be referenced from a Sendable closure`。
+    /// ⇒ 调用方须在 `body`（MainActor 上下文）里把要捕获的东西**先取成值**，
+    /// 再让这个闭包只做纯计算。
+    let makeShader: @Sendable (CGSize, Float) -> Shader
+
+    init(
+        base: Color,
+        motion: ShaderMotion,
+        originOverride: Date? = nil,
+        makeShader: @escaping @Sendable (CGSize, Float) -> Shader
+    ) {
+        self.base = base
+        self.motion = motion
+        self.originOverride = originOverride
+        self.makeShader = makeShader
+    }
 
     /// 动画时间的原点。
     ///
@@ -57,6 +75,11 @@ struct ProceduralBackground: View {
     /// **表现是「画面纯色 / 完全不动」，而编译、metallib 加载、参数签名全部正常**
     /// —— 一个只在真渲染时才暴露的失败面（`Plasma` 落地时实测踩到）。
     @State private var origin = Date()
+
+    /// ⚠️ **仅供测试注入**：把时间原点推到过去，等价于"已经播放了 N 秒"。
+    /// 没有它就无法断言「shader 真的吃了 `time`」——渲染证明只比较单帧时，
+    /// 一个完全忽略 `time` 的 shader 照样通过（#261 终审 I-3）。
+    var originOverride: Date?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -77,7 +100,7 @@ struct ProceduralBackground: View {
     /// 而不是停止渲染或换成静态图。
     private func elapsed(at date: Date) -> Float {
         guard !self.reduceMotion, self.motion != .still else { return 0 }
-        return Float(date.timeIntervalSince(self.origin) * self.motion.speed)
+        return Float(date.timeIntervalSince(self.originOverride ?? self.origin) * self.motion.speed)
     }
 }
 

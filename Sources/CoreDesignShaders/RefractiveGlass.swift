@@ -22,20 +22,34 @@ struct RefractiveGlassModifier: ViewModifier {
     let strength: RefractiveGlassStrength
     let rim: Color
 
+    /// ⚠️ 用 `layerEffect` 自带的 `isEnabled` 关效果，**不要用 `if` 分支**
+    /// （#261 终审 I-4）：`ViewModifier.body` 里的 `if` 同样产出 `_ConditionalContent`，
+    /// 翻转时 View 身份照样切换——与写在 View body 里没有区别。`isEnabled` 正是为此存在。
+    let isEnabled: Bool
+
     func body(content: Content) -> some View {
-        content.visualEffect { view, proxy in
+        // ⚠️ 闭包是 `@Sendable`：把要捕获的值先在这里取出，不在闭包里读 MainActor 隔离的东西。
+        let library = ShaderLibrary.bundle(.module)
+        let corner = Float(self.corner)
+        let refraction = self.strength.refraction
+        let dispersion = self.strength.dispersion
+        let rim = self.rim
+        let enabled = self.isEnabled
+        let maxOffset = CGFloat(refraction) * 2
+
+        return content.visualEffect { view, proxy in
             view.layerEffect(
-                ShaderLibrary.bundle(.module).coreDesignRefractiveGlass(
+                library.coreDesignRefractiveGlass(
                     .float2(proxy.size),
-                    .float(self.corner),
-                    .float(self.strength.refraction),
-                    .float(self.strength.dispersion),
-                    .color(self.rim)
+                    .float(corner),
+                    .float(refraction),
+                    .float(dispersion),
+                    .color(rim)
                 ),
-                maxSampleOffset: CGSize(
-                    width: CGFloat(self.strength.refraction) * 2,
-                    height: CGFloat(self.strength.refraction) * 2
-                )
+                // 最大位移 = refraction × (1 + dispersion)；`pronounced` 档为 26 × 1.45 ≈ 38。
+                // 给小了的表现是边缘一圈采到 layer 外 ⇒ 玻璃边缘出现暗环 / 透明环。
+                maxSampleOffset: CGSize(width: maxOffset, height: maxOffset),
+                isEnabled: enabled
             )
         }
     }
@@ -47,7 +61,7 @@ struct RefractiveGlassModifier: ViewModifier {
 public enum RefractiveGlassStrength: Sendable, CaseIterable {
     case subtle, regular, pronounced
 
-    var refraction: Float {
+    nonisolated var refraction: Float {
         switch self {
         case .subtle: 6
         case .regular: 14
@@ -56,7 +70,7 @@ public enum RefractiveGlassStrength: Sendable, CaseIterable {
     }
 
     /// 色散（三通道分离）。⚠️ `subtle` 档为 0——弱折射配色散会显脏。
-    var dispersion: Float {
+    nonisolated var dispersion: Float {
         switch self {
         case .subtle: 0
         case .regular: 0.25
@@ -85,13 +99,18 @@ public extension View {
     ///   - strength: 折射强度档位。
     ///   - rim: 边缘高光色。默认由 `Color.accent` 推导；传 `.clear` 关掉高光。
     ///     ⚠️ 不能走 `.tint` 通路的理由见 `Plasma.init`。
+    ///   - isEnabled: 关掉效果时**保持 View 身份不变**（走 `layerEffect` 的 `isEnabled`，
+    ///     不是 `if` 分支）。
     func refractiveGlass(
         corner: CGFloat = CoreRadius.medium,
         strength: RefractiveGlassStrength = .regular,
-        rim: Color = .accent.opacity(0.55)
+        rim: Color = .accent.opacity(0.55),
+        isEnabled: Bool = true
     ) -> some View {
         self.modifier(
-            RefractiveGlassModifier(corner: corner, strength: strength, rim: rim)
+            RefractiveGlassModifier(
+                corner: corner, strength: strength, rim: rim, isEnabled: isEnabled
+            )
         )
     }
 }

@@ -48,8 +48,13 @@ public struct DotGrid: View {
         let metrics = self.spacing.metrics
         let pulse: Float = self.motion == .still ? 0 : 1
 
-        ProceduralBackground(base: ramp.low, motion: self.motion) { size, t in
-            ShaderLibrary.bundle(.module).coreDesignDotGrid(
+        // ⚠️ `ShaderLibrary.bundle(.module)` 在这里（`body`，MainActor 上下文）先取成值，
+        // 不在下面的闭包里取——那个闭包是 `@Sendable` 的，`Bundle.module` 是 MainActor
+        // 隔离的（#261 终审 I-1）。
+        let library = ShaderLibrary.bundle(.module)
+
+        return ProceduralBackground(base: ramp.low, motion: self.motion) { size, t in
+            library.coreDesignDotGrid(
                 .float2(size), .float(t),
                 .float(metrics.spacing), .float(metrics.radius), .float(pulse),
                 .color(ramp.low), .color(ramp.mid)

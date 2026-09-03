@@ -56,31 +56,16 @@ public struct GlassSymbol: View {
             )
             // ⚠️ Reduce Transparency 下关掉折射：折射本质上是"透过看"，
             // 对该偏好的用户应退回实心符号（FR-12）。
-            .modifier(
-                ConditionalRefraction(
-                    enabled: !self.reduceTransparency,
-                    strength: self.strength,
-                    rim: ramp.high.opacity(0.55)
-                )
+            // ⚠️ 走 `isEnabled` 而**不是 `if` 分支**——后者会切换 View 身份
+            // （#261 终审 I-4：包在 `ViewModifier` 里同样是 `_ConditionalContent`，没有区别）。
+            .refractiveGlass(
+                corner: CoreRadius.large,
+                strength: self.strength,
+                rim: ramp.high.opacity(0.55),
+                isEnabled: !self.reduceTransparency
             )
             // 符号本身承载语义时由调用方给 label；本类型默认当装饰处理（FR-13）。
             .accessibilityHidden(true)
-    }
-}
-
-/// ⚠️ 单独抽出来是因为 `if` 分支会让两条路径产生不同的 View 身份，
-/// 触发不必要的重建；`ViewModifier` 里分支则保持身份稳定。
-private struct ConditionalRefraction: ViewModifier {
-    let enabled: Bool
-    let strength: RefractiveGlassStrength
-    let rim: Color
-
-    func body(content: Content) -> some View {
-        if self.enabled {
-            content.refractiveGlass(corner: CoreRadius.large, strength: self.strength, rim: self.rim)
-        } else {
-            content
-        }
     }
 }
 
