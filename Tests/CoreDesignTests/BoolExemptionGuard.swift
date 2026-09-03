@@ -386,8 +386,20 @@ struct BoolExemptionGuard {
         /// · 它的豁免键**必须带 `<Target>/` 前缀**（`GuardScanRoots.qualifiedKey(target:base:)`；
         ///   裸形只属于主 target，由 `exemptionKeysAreCanonicallyQualified` 钉死）；
         /// · 抬高 `maxEntries` / `sourceSites` 时，`rationale` 里**必须写明这次抬高来自哪个
-        ///   target**——否则 `scripts/bool-exemptions-ratchet.sh` 的跨历史闸只看得到数字变大，
-        ///   会把一次 Effects 的新增读成 CoreDesign 的回归。
+        ///   target**——这条由**树内**的 `rationaleTargetProblems(_:)` 强制，
+        ///   而**不是**由 `scripts/bool-exemptions-ratchet.sh` 强制。
+        ///   ⚠️⚠️ **本条此前描述了那个脚本并不具备的能力**（PR #265 第 3 轮终审 S-e）：
+        ///   原文写「否则跨历史闸会把一次 Effects 的新增读成 CoreDesign 的回归」，
+        ///   读起来像是脚本会判红或会误归属。实读 `scripts/bool-exemptions-ratchet.sh`
+        ///   （`CUR_WHY` / `BASE_WHY` 的比较，到脚本末尾那几行 `echo` + `exit 0`）：
+        ///   抬高时它**只**要求 `rationale` 与 base 逐字不同，随后打印一段 `⚠️⚠️` warning
+        ///   并 **`exit 0`**——既不读 target、也不读 `sourceSites`、更不会判红。
+        ///   ⇒ 真实行为**比原文预测的更糟**：它带 warning 静默放过。
+        ///   ⇒ 这条「必须」因此不能只靠约定——本文件自己的论点就是「只靠约定的 ratchet
+        ///   必然漂」（见下方 `sourceSites` 文档的残余 2）。装牙的形态是两条**树内**判据：
+        ///   `rationaleTargetProblems(_:)`（rationale 必须点名至少一个 target）与
+        ///   `perTargetProblems(perTarget:exemptionKeys:hits:)`（逐 target 计数，
+        ///   让定义域扩张对机器可见）。
         let maxEntries: Int?
         let raisedBy: String?
         let raisedOn: String?
@@ -418,6 +430,98 @@ struct BoolExemptionGuard {
         ///    清单不变 ⇒ 全绿。要真正关死需要钉**键 → 位置数的多重集**，不是总数；
         ///    移交 #41/#43。
         let sourceSites: Int?
+
+        /// **逐 target 分账**（PR #265 第 3 轮终审 S-e）。
+        ///
+        /// ⚠️ **它堵的是「跨 target 对冲」**：`maxEntries` / `sourceSites` 自 `#246` 起是
+        /// 全包合计，于是**删掉一个 CoreDesign 的 Bool + 新增一个 Effects 的 Bool**
+        /// 会让两个总数都不变 ⇒ 全绿，而定义域实际上已经从主 target 漂到了新 target。
+        /// 逐 target 的严格等式让这次移动必须改 JSON、因此必须出现在 diff 里。
+        /// （`sourceSites` 文档里记的**另一条**对冲——同一 target 内删一处碰撞位、
+        /// 加一处碰撞位——仍未关死：要关死需要钉「键 → 位置数」的多重集，移交 #41/#43。）
+        ///
+        /// ⚠️ **键集合必须与 `GuardScanRoots.targetNames` 逐字吻合**，含计数为 0 的 target
+        /// ——漏一个 target 就等于给它留了一个不受棘轮约束的额度（那正是 `<=` 版本判据的
+        /// 老漏洞）。新增 target 时这里必须同轮加一条 `{"exemptions": 0, "sourceSites": 0}`。
+        let perTarget: [String: TargetCounts]?
+
+        /// 一个 target 的两个计数。`exemptions` 对 `docs/bool-exemptions.json` 里前缀属于该
+        /// target 的条目数，`sourceSites` 对扫描命中里落在该 target 的源码位置数。
+        struct TargetCounts: Codable, Hashable, Sendable {
+            let exemptions: Int
+            let sourceSites: Int
+        }
+    }
+
+    // MARK: - 棘轮判据的纯函数（终审 S-e：装牙 + 可合成证伪）
+
+    /// `rationale` 必须**点名至少一个 target**，否则返回一条问题。
+    ///
+    /// ⚠️ **这是 `Baseline` 文档里那条「必须写明来自哪个 target」的牙**：
+    /// `scripts/bool-exemptions-ratchet.sh` 只比较 rationale 是否逐字变了、然后 warning + `exit 0`，
+    /// 它读不出「这次抬高属于哪个 target」。定义域自 `#246` 起是全包 ⇒ 一条不点名 target 的
+    /// rationale 会让读者默认按 CoreDesign 的老口径理解，而实际可能来自 Effects / Charts。
+    static func rationaleTargetProblems(_ rationale: String?) -> [String] {
+        guard let rationale, !rationale.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return ["棘轮基线缺 rationale —— 无从判断这次抬高属于哪个 target"]
+        }
+        guard GuardScanRoots.targetNames.contains(where: { rationale.contains($0) }) else {
+            return ["""
+            棘轮基线的 rationale 没有点名任何 target（\(GuardScanRoots.targetNames)）。
+            `maxEntries` / `sourceSites` 自 `#246` 起是**全包**计数，一次抬高可能来自任一 target；
+            rationale 不点名，读者只能按主 target 的老口径理解，而
+            `scripts/bool-exemptions-ratchet.sh` 对此完全看不见（它只比较 rationale 是否逐字变了，
+            随后 warning + exit 0）。⇒ 请在 rationale 里写明这次变化落在哪个 target 上。
+            """]
+        }
+        return []
+    }
+
+    /// 逐 target 计数的严格等式。返回它违反的每一条。
+    static func perTargetProblems(
+        perTarget: [String: Baseline.TargetCounts]?,
+        exemptionKeys: [String],
+        hits: [BoolParamHit]
+    ) -> [String] {
+        guard let perTarget else {
+            return ["棘轮基线缺 perTarget 字段 —— 跨 target 对冲（删一个 CoreDesign 的、加一个 Effects 的）对棘轮不可见"]
+        }
+        var problems: [String] = []
+        let declared = Set(perTarget.keys)
+        let expected = Set(GuardScanRoots.targetNames)
+        if declared != expected {
+            problems.append("""
+            棘轮基线 perTarget 的键集合 \(declared.sorted()) 与 `GuardScanRoots.targetNames`
+            \(expected.sorted()) 不吻合 —— 少一个 target 等于给它留一个不受棘轮约束的额度。
+            """)
+        }
+        var actualExemptions: [String: Int] = [:]
+        for key in exemptionKeys {
+            actualExemptions[GuardScanRoots.target(ofKey: key), default: 0] += 1
+        }
+        var actualSites: [String: Int] = [:]
+        for hit in hits { actualSites[hit.target, default: 0] += 1 }
+
+        for target in GuardScanRoots.targetNames {
+            let counts = perTarget[target] ?? .init(exemptions: 0, sourceSites: 0)
+            let exemptions = actualExemptions[target] ?? 0
+            let sites = actualSites[target] ?? 0
+            if counts.exemptions != exemptions {
+                problems.append("""
+                逐 target 棘轮：\(target) 的豁免条目数 \(exemptions) ≠ 基线 \(counts.exemptions)。
+                总数 `maxEntries` 不变**不代表**没变化——删一个 CoreDesign 的、加一个 Effects 的，
+                总数纹丝不动而定义域已经漂了。请同轮更新 docs/bool-exemptions-baseline.json 的
+                perTarget（连同 raisedBy / raisedOn / rationale，rationale 必须点名 target）。
+                """)
+            }
+            if counts.sourceSites != sites {
+                problems.append("""
+                逐 target 棘轮：\(target) 的源码位置数 \(sites) ≠ 基线 \(counts.sourceSites)。
+                同上——`sourceSites` 的全包合计挡不住跨 target 的一加一减。
+                """)
+            }
+        }
+        return problems
     }
 
     static func loadBaseline() throws -> Baseline {
@@ -744,6 +848,66 @@ struct BoolExemptionGuard {
         （多处源码位置共用同一个豁免键），并**同轮**更新 docs/bool-exemptions-baseline.json 的
         sourceSites（连同 raisedBy / raisedOn / rationale，与 maxEntries 走同一套破例流程）。
         """)
+
+        // ⚠️ **终审 S-e 补的两颗牙**：`Baseline` 文档里那条「抬高时 rationale 必须写明来自
+        // 哪个 target」此前**只是约定**——`scripts/bool-exemptions-ratchet.sh` 对它一无所知
+        // （抬高时只比较 rationale 是否逐字变了，然后 warning + `exit 0`）。
+        for problem in Self.rationaleTargetProblems(baseline.rationale) { Issue.record("\(problem)") }
+        for problem in Self.perTargetProblems(
+            perTarget: baseline.perTarget,
+            exemptionKeys: try Self.loadExemptions().compactMap(\.parameter),
+            hits: scan.hits
+        ) { Issue.record("\(problem)") }
+    }
+
+    @Test("棘轮的两颗新牙真的会开火：合成基线逐条变红自证（终审 S-e）")
+    func ratchetTeethActuallyFire() {
+        // ① rationale 不点名任何 target ⇒ 红。这正是终审要求实证的那个输入：
+        //    「抬高了基线，但 rationale 里一个 target 名都没有」。
+        #expect(!Self.rationaleTargetProblems("""
+        这条理由写得又长又像模像样，凑够了四十个字符以上，也换了措辞因此过得了
+        scripts/bool-exemptions-ratchet.sh 的逐字比较，但它一个 target 名都没写。
+        """).isEmpty, "不点名 target 的 rationale 不会红 —— 那条「必须」就仍然只是约定")
+        // 反向：点名了就该干净。
+        #expect(Self.rationaleTargetProblems(
+            "本次抬高来自 CoreDesignEffects 的第一个动效组件，理由写足四十字符以上。"
+        ).isEmpty)
+        #expect(!Self.rationaleTargetProblems(nil).isEmpty, "缺 rationale 不会红")
+
+        // ② 逐 target 计数：**跨 target 对冲**（删一个 CoreDesign 的 + 加一个 Effects 的）
+        //    在合计上纹丝不动，这里必须红。
+        func hit(_ target: String, _ owner: String) -> BoolParamHit {
+            BoolParamHit(owner: owner, decl: "init", parameter: "flag",
+                         file: "X.swift", line: 1, target: target)
+        }
+        let baseline: [String: Baseline.TargetCounts] = [
+            "CoreDesign": .init(exemptions: 2, sourceSites: 2),
+            "CoreDesignEffects": .init(exemptions: 0, sourceSites: 0),
+            "CoreDesignCharts": .init(exemptions: 0, sourceSites: 0),
+        ]
+        // 合计不变（2 条豁免 / 2 处位置），但一条从主 target 挪到了 Effects。
+        let hedged = Self.perTargetProblems(
+            perTarget: baseline,
+            exemptionKeys: ["A.init#flag", "CoreDesignEffects/B.init#flag"],
+            hits: [hit("CoreDesign", "A"), hit("CoreDesignEffects", "B")]
+        )
+        #expect(!hedged.isEmpty, """
+        跨 target 对冲不会红 —— 删一个 CoreDesign 的 Bool、加一个 Effects 的，
+        `maxEntries` / `sourceSites` 两个合计都不变，定义域却已经漂了。
+        """)
+        // 反向：对得上就该干净。
+        #expect(Self.perTargetProblems(
+            perTarget: baseline,
+            exemptionKeys: ["A.init#flag", "C.init#flag"],
+            hits: [hit("CoreDesign", "A"), hit("CoreDesign", "C")]
+        ).isEmpty)
+        // ③ 缺字段 / 键集合缺 target ⇒ 红（fail-closed，不退化成「零差异 ⇒ 绿」）。
+        #expect(!Self.perTargetProblems(perTarget: nil, exemptionKeys: [], hits: []).isEmpty,
+                "缺 perTarget 字段不会红 —— 跨 target 对冲会重新变成盲区")
+        #expect(!Self.perTargetProblems(
+            perTarget: ["CoreDesign": .init(exemptions: 0, sourceSites: 0)],
+            exemptionKeys: [], hits: []
+        ).isEmpty, "perTarget 少列一个 target 不会红 —— 那个 target 就有了免审额度")
     }
 
     @Test("豁免宿主要么在登记表里，要么在 AD 台账里且该分类真的成立")

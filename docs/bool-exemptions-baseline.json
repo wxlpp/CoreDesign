@@ -1,7 +1,21 @@
 {
   "maxEntries": 32,
   "sourceSites": 35,
+  "perTarget": {
+    "CoreDesign": {
+      "exemptions": 32,
+      "sourceSites": 35
+    },
+    "CoreDesignEffects": {
+      "exemptions": 0,
+      "sourceSites": 0
+    },
+    "CoreDesignCharts": {
+      "exemptions": 0,
+      "sourceSites": 0
+    }
+  },
   "raisedBy": "wxlpp",
   "raisedOn": "2026-09-03",
-  "rationale": "#221 把 `struct BottomInputBar` 提为 public（走终审 C1 裁决自己给出的第二条出路：给它一个可登记的 public 类型表面），随之出现**第二张 public 参数面**——此前只有 modifier 侧 `View.bottomInputBar#*`，现在 struct 侧 `BottomInputBar.init#*` 同样暴露。守卫按 `Owner.init#param` 计键、不做跨面去重，故 5 个 Bool（wandEnabled / sendEnabled / showMenuButton / isRunning / autoFocus）各需一条 struct 侧条目：27 → 32，源码位置 30 → 35。⚠️ **这是棘轮上调，不是下调**——本仓惯例是每轮把它压小（34→27），本次因扩大公开面而抬高 5 条，必须写明代价：这 5 条与 modifier 侧的同名条目是**同一批 Bool 的两个入口**，治理动作应当一次覆盖两面。整个 bottomInputBar 的七个 Bool 合并成配置值类型这件事仍未做，归属不变（epic component-contract 收尾时另开任务），本次只是让它在两个入口上都登记在册、不静默逃逸。⚠️ 另需注意：`View.bottomInputBar#autoShowSuggestions` 条目的 reason 此前以「struct 无 public 修饰符、排除出登记表」为前提，该前提已被本轮推翻，条目文本同轮更正。sourceSites 的跨历史闸仍未实现（scripts/bool-exemptions-ratchet.sh 只读 maxEntries），移交 #43 的状态不变。"
+  "rationale": "#221 把 `struct BottomInputBar` 提为 public（走终审 C1 裁决自己给出的第二条出路：给它一个可登记的 public 类型表面），随之出现**第二张 public 参数面**——此前只有 modifier 侧 `View.bottomInputBar#*`，现在 struct 侧 `BottomInputBar.init#*` 同样暴露。守卫按 `Owner.init#param` 计键、不做跨面去重，故 5 个 Bool（wandEnabled / sendEnabled / showMenuButton / isRunning / autoFocus）各需一条 struct 侧条目：27 → 32，源码位置 30 → 35。⚠️ **这是棘轮上调，不是下调**——本仓惯例是每轮把它压小（34→27），本次因扩大公开面而抬高 5 条，必须写明代价：这 5 条与 modifier 侧的同名条目是**同一批 Bool 的两个入口**，治理动作应当一次覆盖两面。整个 bottomInputBar 的七个 Bool 合并成配置值类型这件事仍未做，归属不变（epic component-contract 收尾时另开任务），本次只是让它在两个入口上都登记在册、不静默逃逸。⚠️ 另需注意：`View.bottomInputBar#autoShowSuggestions` 条目的 reason 此前以「struct 无 public 修饰符、排除出登记表」为前提，该前提已被本轮推翻，条目文本同轮更正。sourceSites 的跨历史闸仍未实现（scripts/bool-exemptions-ratchet.sh 只读 maxEntries），移交 #43 的状态不变。⚠️ **定义域（#246 / PR #265 第 3 轮终审 S-e 补记）**：`maxEntries` / `sourceSites` 自 `#246` 多根化起是 **CoreDesign + CoreDesignEffects + CoreDesignCharts 三个 target 的合计**，上面那段叙述里的 27→32 / 30→35 全部发生在 **CoreDesign** 上，两个新 target 当前各为 0。逐 target 分账见新增的 `perTarget` 字段——它让「删一个 CoreDesign 的 Bool、加一个 CoreDesignEffects 的」这种合计不变的跨 target 对冲对棘轮可见；`BoolExemptionGuard.rationaleTargetProblems(_:)` 同时强制本 rationale 必须点名 target，因为 `scripts/bool-exemptions-ratchet.sh` 在抬高时只比较 rationale 是否逐字变了、随后 warning + exit 0，读不出这次变化属于哪个 target。"
 }
