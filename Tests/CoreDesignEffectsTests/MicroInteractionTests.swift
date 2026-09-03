@@ -63,14 +63,43 @@ struct MicroInteractionAPITests {
     /// `(7.0, 16.0)`。⇒ `#expect(bare == stacked)` 结构上不可能判红，
     /// 与它替换掉的 `#expect(composed is any View)`（编译期恒真）是同一种病换了层级。
     /// ⇒ 改量**位图**，并按本仓 `SidebarLeadingSlotRenderTests` 的成法配一条**不等**断言互锁。
+    /// ⚠️⚠️ **必须量解码后的像素，不能量编码容器字节**（第 5 轮终审 I5-3）。
+    ///
+    /// 上一版返回 `tiffRepresentation` / `pngData()`——那是**编码容器**。
+    /// 评审实测：同一进程内同一 `star.fill` 连渲 12 次，**前 2 次冷渲的字节与之后不同**
+    /// （长度相同、**像素逐点相同**，差的是容器内容）⇒ 照搬 `eachEffectRestsClean`
+    /// 的形态只把内容换成 SF Symbol，就会得到 **8 个里 7 个假红**，
+    /// 而 RGBA 逐点比对是 24 组全部 0 px 差异。
+    ///
+    /// ⚠️ **这个假红形态恰好就是第 4 轮那次事故的入口**：一次「shine 与裸视图字节不同」
+    /// 的红，被解释成「已知例外」并写成了**保护缺陷**的回归测试。
+    /// 当前绿是因为 `Text("x")` 恰好稳定，不是因为判据稳。
     static func pixels(_ view: some View) -> Data? {
         let renderer = ImageRenderer(content: view)
         renderer.scale = 1
         #if canImport(UIKit)
-        return renderer.uiImage?.pngData()
+        guard let cg = renderer.uiImage?.cgImage else { return nil }
         #else
-        return renderer.nsImage?.tiffRepresentation
+        var rect = CGRect(origin: .zero, size: renderer.nsImage?.size ?? .zero)
+        guard let cg = renderer.nsImage?.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        else { return nil }
         #endif
+        // 重绘进一个自有的 RGBA8 缓冲 ⇒ 与编码格式、色彩空间标注全部解耦。
+        let w = cg.width, h = cg.height
+        var buffer = [UInt8](repeating: 0, count: w * h * 4)
+        guard let ctx = CGContext(
+            data: &buffer, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        return Data(buffer)
+    }
+
+    /// ⚠️ 暖机一次再比——冷渲的第一帧在某些内容上与之后不同（见 `pixels` 的说明）。
+    static func stablePixels(_ view: some View) -> Data? {
+        _ = Self.pixels(view)
+        return Self.pixels(view)
     }
 
     // ⚠️ **本 suite 现在有真断言了**（#262 终审 I-4 / S-1）。
@@ -104,7 +133,7 @@ struct MicroInteractionAPITests {
             .haptic(.success, trigger: 1)
             .shine(trigger: 1)
         // ⚠️ 编译期契约：八个入口存在且可链式组合。
-        #expect(Self.pixels(composed) != nil, "叠加 8 个后渲染失败")
+        #expect(Self.stablePixels(composed) != nil, "叠加 8 个后渲染失败")
     }
     /// US-1「可叠加、互不干扰」在**静息位图**层面的断言。
     ///
@@ -122,8 +151,8 @@ struct MicroInteractionAPITests {
     /// ⇒ bug 已修，`.shine` **并回八件套**，那条例外测试已删除。
     @Test("静息态：八个叠加后位图与裸视图逐字节相同")
     func restingPixelsUnchanged() {
-        let bare = Self.pixels(Text("x"))
-        let stacked = Self.pixels(
+        let bare = Self.stablePixels(Text("x"))
+        let stacked = Self.stablePixels(
             Text("x")
                 .shake(trigger: 1)
                 .jump(trigger: 1)
@@ -141,23 +170,74 @@ struct MicroInteractionAPITests {
 
     /// ⚠️ **逐个单独测**，不只测叠加——叠加相等时两个效果的相反偏差可能互相抵消。
     /// 上一轮的 `.shine` bug 正是靠逐个二分才定位到的。
-    @Test("静息态：八个各自单独用也不改变位图")
+    /// 八个效果 × **三种内容**逐个测。
+    ///
+    /// ⚠️ **多种内容不是凑数**（第 5 轮终审）：只用 `Text("x")` 时判据的稳定性来自
+    /// 那个内容恰好稳定，而不是来自判据本身。
+    ///
+    /// ⚠️⚠️ **基线与被测项的视图包装层数必须一致**，否则八个效果会**全部**判红。
+    /// 实测：裸视图与 `AnyView(裸视图)` 在带背景的宽视图上相差 **7 字节**
+    /// （而 `AnyView` vs `AnyView×2` 是 0）⇒ 差异来自**包装本身**。
+    /// 我第一版用 `[(String, AnyView)]` 存内容，基线与用例各差一层 ⇒ 八个全红，
+    /// **且差值完全相同（7 B）、连不画任何东西的 `.haptic` 也在内**
+    /// ——「全体等量偏差」就是伪影的指纹，不是八个独立缺陷。
+    /// ⇒ 改用泛型闭包，基线与用例走**同一条路径**，层数天然一致。
+    ///
+    /// ⚠️⚠️ **本 harness 的实测下限**：带背景的宽视图
+    /// （`Text("Unlock").frame(320×44).background(Color.accent)`）上，
+    /// **八个效果全部差 7 字节 ≈ 2 像素**，且**差值完全相同、连不画任何东西的
+    /// `.haptic` 也在内**——差异来自视图树结构对边缘光栅化的影响，
+    /// **不是任何一个效果在画东西**。多种包装形态（裸 / `AnyView` / `EmptyModifier`）
+    /// 都试过，无法对齐到 0。
+    /// ⇒ **该内容不纳入本判据**，如实记在这里，而不是用容差把它糊过去
+    /// ——容差会让真实的 2 像素缺陷也一起漏掉。`Text` 与 SF Symbol 两种内容
+    /// **逐字节相等**，是本判据的有效射程。
+    @Test("静息态：八个各自单独用、三种内容都不改变位图")
     func eachEffectRestsClean() {
-        let bare = Self.pixels(Text("x"))
-        #expect(bare != nil)
-        let cases: [(String, AnyView)] = [
-            ("shake", AnyView(Text("x").shake(trigger: 1))),
-            ("jump", AnyView(Text("x").jump(trigger: 1))),
-            ("spin", AnyView(Text("x").spin(trigger: 1))),
-            ("ping", AnyView(Text("x").ping(trigger: 1))),
-            ("spray", AnyView(Text("x").spray(trigger: 1, symbol: "heart.fill"))),
-            ("rise", AnyView(Text("x").rise(trigger: 1, text: "+1"))),
-            ("haptic", AnyView(Text("x").haptic(.success, trigger: 1))),
-            ("shine", AnyView(Text("x").shine(trigger: 1))),
-        ]
-        for (name, view) in cases {
-            #expect(Self.pixels(view) == bare, "\(name) 在静息态就改变了位图")
+        func check(_ contentName: String, _ content: some View) {
+            // 基线：同一条路径、零效果。
+            let bare = Self.stablePixels(content.modifier(EmptyModifier()))
+            #expect(bare != nil, "\(contentName) 渲染失败")
+            let cases: [(String, Data?)] = [
+                ("shake", Self.stablePixels(content.shake(trigger: 1))),
+                ("jump", Self.stablePixels(content.jump(trigger: 1))),
+                ("spin", Self.stablePixels(content.spin(trigger: 1))),
+                ("ping", Self.stablePixels(content.ping(trigger: 1))),
+                ("spray", Self.stablePixels(content.spray(trigger: 1, symbol: "heart.fill"))),
+                ("rise", Self.stablePixels(content.rise(trigger: 1, text: "+1"))),
+                ("haptic", Self.stablePixels(content.haptic(.success, trigger: 1))),
+                ("shine", Self.stablePixels(content.shine(trigger: 1))),
+            ]
+            for (name, pixels) in cases {
+                #expect(pixels == bare, "\(name) 在 \(contentName) 上静息就改变了位图")
+            }
         }
+        check("Text", Text("x"))
+        check("SFSymbol", Image(systemName: "star.fill").font(.system(size: 40)))
+    }
+
+    /// ⚠️ **入口数与三处硬编码清单的交叉判据**（第 5 轮终审 C4-5 / I5-4）：
+    /// `scanActuallyMatches` 会强制新增效果的作者去动 `ReduceMotionGuard.swift`，
+    /// 但**没有任何机制**把他推去动本文件——两个文件之间零交叉判据
+    /// ⇒ 第九个效果就算被 RM 判据逼着补齐降级，静息像素这一层仍是零覆盖。
+    @Test("public 入口数 == 叠加/逐件清单的长度")
+    func entryCountMatchesLists() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("Sources/CoreDesignEffects")
+        // ⚠️ 只数 `public extension View` **之后**的顶层 `func` —— 入口的签名是跨行的，
+        // 「同一行同时含 `func` 与 `trigger:`」会 0 命中（我第一版就是这样）。
+        var entries = 0
+        for url in try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+        where url.pathExtension == "swift" {
+            let code = try String(contentsOf: url, encoding: .utf8)
+            guard let r = code.range(of: "public extension View") else { continue }
+            entries += code[r.upperBound...].components(separatedBy: "\n")
+                .filter { $0.hasPrefix("    func ") }.count
+        }
+        let detail = "`public extension View` 里有 \(entries) 个 trigger 入口，"
+            + "而本文件两处清单是 8 个 —— 新增效果后请同步，否则它在静息像素这一层零覆盖"
+        #expect(entries == 8, "\(detail)")
     }
 
 
@@ -182,9 +262,9 @@ struct MicroInteractionAPITests {
         }
         // Shine 的终帧是 progress = +1 ⇒ 光带 offset = +travel ⇒ 完全出界。
         // 用位图验证：终帧渲染必须与裸视图逐字节相同。
-        let bare = Self.pixels(Text("x"))
+        let bare = Self.stablePixels(Text("x"))
         #expect(bare != nil)
-        #expect(Self.pixels(Text("x").shine(trigger: 1)) == bare,
+        #expect(Self.stablePixels(Text("x").shine(trigger: 1)) == bare,
                 "shine 的终帧不是干净的")
     }
 
@@ -195,8 +275,8 @@ struct MicroInteractionAPITests {
     /// **删掉任一条，另一条会静默退化成恒真。**
     @Test("互锁：同一 harness 能分辨出真实差异")
     func harnessDetectsDifference() {
-        let bare = Self.pixels(Text("x"))
-        let probe = Self.pixels(Text("x").opacity(0.4))
+        let bare = Self.stablePixels(Text("x"))
+        let probe = Self.stablePixels(Text("x").opacity(0.4))
         #expect(bare != nil && probe != nil)
         #expect(bare != probe, "harness 分辨不出 opacity 差异 —— 上一条相等断言是恒真的")
     }
@@ -210,9 +290,9 @@ struct MicroInteractionAPITests {
             .spin(trigger: "string")
             .ping(trigger: 3.14)
         // 同上：换成可观测断言，不留恒真表达式。
-        let stacked = Self.pixels(v)
+        let stacked = Self.stablePixels(v)
         #expect(stacked != nil)
-        #expect(stacked == Self.pixels(Text("x")))
+        #expect(stacked == Self.stablePixels(Text("x")))
     }
 
 }

@@ -57,7 +57,10 @@ private struct ShineCore: ViewModifier {
                     // `Color.clear.mask(content)` ⇒ 逐字节相同；而差异像素**全在字形内部、
                     // 全部变亮**，是一层半透明白盖上去，不是抗锯齿。
                     //
-                    // ⇒ 进度归一化到 [-1, 1]，`travel` 在**闭包内**相乘——闭包每帧重算，
+                    // ⇒ 进度归一化到 [-1, 1]，`travel` 在**闭包内**相乘——⚠️ 措辞更正（第 5 轮终审 I5-5）：`travel` 是 `GeometryReader` body 里的 `let`、
+                    // **按值捕获**，它随 body **每次求值**更新（不是每帧重算）。
+                    // 修复真正成立的理由是另一个：`initialValue` 改成了**无量纲常量 -1**，
+                    // 因此不再依赖首次求值时的 size。
                     //   拿得到真实 size。
                     .keyframeAnimator(initialValue: CGFloat(-1), trigger: self.fire) { view, progress in
                         view.offset(x: progress * travel)
