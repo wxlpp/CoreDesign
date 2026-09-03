@@ -68,9 +68,9 @@ SOFTWARE.
 > 并转载 Inferno 的完整 MIT 正文。
 
 裁定依据（`docs/shader-provenance.md` 第 1 行）：**已追到兼容许可，链条闭合**。
-Inferno 的 LICENSE 附有逐 shader 移植来源清单（仅 Crosswarp / Radial / Swirl / Wind /
-Genie 五项，均来自 gl-transitions），**"Warping Loupe" 不在其中** ⇒ 系 Inferno 原创，
-由其 MIT 覆盖。
+Inferno 的 LICENSE 附逐 shader 移植来源清单（**6 组**：Circle/Circle Wave/Diamond/
+Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie），
+**"Warping Loupe" 不在其中** ⇒ **推论**为 Inferno 原创，由其 MIT 覆盖。
 
 - 上游：[Inferno](https://github.com/twostraws/Inferno) by Paul Hudson — MIT
 - 预期档位：**较大段落移植**（折射数学预计保留自原实现）⚠️ 代码尚未落地，**档位待落地时定案**
@@ -108,16 +108,21 @@ Genie 五项，均来自 gl-transitions），**"Warping Loupe" 不在其中** �
 
 ## 噪声参考实现（待相应 shader 落地时启用）
 
-> ⚠️ 占位。`SimplexNoise` / `FractalClouds` / `InkSmoke` / `SmokeRing` / `NeuroNoise` /
-> `GrainGradient` / `Water` 落地时填入。
+> ⚠️ 占位。**仅 `FractalClouds` / `InkSmoke` 两个**落地时填入。
+>
+> ⚠️ **第 1 版这里还列了 `SimplexNoise` / `SmokeRing` / `NeuroNoise` / `Water` /
+> `GrainGradient`——它们已改判**：前四个追到 `paper-design/shaders`（Apache-2.0，见上一节），
+> `GrainGradient` 匹配存疑判 `待追溯`。**它们不走 clean-room，走带署名的移植。**
 
-这些 shader 走 **clean-room 重写**——对照下列许可兼容的参考实现重写，**不复制其代码**：
+这两个 shader 走 **clean-room 重写**——对照下列许可兼容的参考实现重写，**不复制其代码**：
 
 - [ashima/webgl-noise](https://github.com/ashima/webgl-noise) — MIT
 - [stegu/webgl-noise](https://github.com/stegu/webgl-noise) — MIT
 - [hughsk/glsl-noise](https://github.com/hughsk/glsl-noise) — MIT
 
 - 档位：**参考算法思路**
+- ⚠️ 噪声原语只覆盖 FBM 的底座；**domain-warp 与调色的组合仍须先按 provenance 表
+  《方法论教训》追一轮**，不得直接认定为原创。
 
 ---
 
