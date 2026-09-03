@@ -32,6 +32,8 @@ struct MicroInteractionReduceMotionGuard {
     static let motionCalls = [
         "offset(", "rotationEffect(", "scaleEffect(", "rotation3DEffect(",
         "symbolEffect(", "position(", "transformEffect(", "matchedGeometryEffect(",
+        // 第 5 轮终审 I5-1 补：这四个是"关键字看不见的运动"的入口。
+        "Canvas(", "TimelineView(", "visualEffect(", "projectionEffect(",
     ]
 
     /// 走**降级形态 2**（保留淡入淡出 + 静止位移，不叠脉冲）的文件。
@@ -51,6 +53,22 @@ struct MicroInteractionReduceMotionGuard {
     /// 任何人在文件任意位置写下一句 `guard !isReduced`（哪怕只包住一个局部函数），
     /// 整个文件的**每一处**运动调用就全部被豁免。评审实测过这枚变异：绿。
     static let approvedEarlyExit: Set<String> = ["Ping.swift", "Spray.swift", "Shine.swift"]
+
+    /// **确认不含运动**的文件。
+    ///
+    /// ⚠️⚠️ **分类必须 fail-closed**（第 5 轮终审 I5-1，评审有变异实证）：
+    /// 上一版靠 8 个关键字**命中才算运动文件**，而 `Canvas` / `TimelineView` 里的
+    /// 运动一个都不命中 ⇒ 用它们实现的效果**根本不进运动文件集合** ⇒ 三条 RM 判据
+    /// 全部跳过它。评审建了一个 `TimelineView(.animation)` + `Canvas` 的摆动效果、
+    /// **完全不读 `accessibilityReduceMotion`**：只有文件计数判红，改一个整数就全绿。
+    /// ⚠️ 这不是假想——`250.md` 自己写着上游用 `KeyframeAnimator` / `PhaseAnimator` /
+    /// `sensoryFeedback` / **`Canvas`**，而 #251–#255 还有 5 个效果 issue 排在这道护栏后面。
+    /// ⇒ 反过来：**每个文件要么进运动集合、要么进本名单**，两者双向差集。
+    static let approvedNoMotion: Set<String> = [
+        "CoreDesignEffects.swift",      // 模块标识
+        "MicroInteractionSupport.swift", // 档位枚举 + TriggerRelay + 降级基线
+        "Haptic.swift",                  // 只有 sensoryFeedback，无视觉运动
+    ]
 
     static var sourceRoot: URL {
         URL(fileURLWithPath: #filePath)
@@ -147,8 +165,29 @@ struct MicroInteractionReduceMotionGuard {
                 // 而窗口会被**紧邻的另一个已门控调用**骗过——第 1 轮的 Jump 正是
                 // `.scaleEffect(未门控)` 紧接着 `.offset(y: isReduced ? …)`，
                 // 6 行窗口把后者的门控算给了前者 ⇒ 放行。实测过这两种失败。
-                if !args.contains("isReduced") && !args.contains("reduceMotion") {
-                    offenders.append("\(url.lastPathComponent):\(line) \(call)…")
+                guard args.contains("isReduced") || args.contains("reduceMotion") else {
+                    offenders.append("\(url.lastPathComponent):\(line) \(call)… [无门控]")
+                    continue
+                }
+                // ⚠️⚠️ **还要看极性**（第 5 轮终审 I5-2，评审有变异实证）：
+                // 上一版只查「关键字在场」⇒ 把 `isReduced ? phase.offsetY * d : 0`
+                //（**只有 Reduce Motion 开启时才有位移**，FR-11 的字面反面）判绿。
+                // ⇒ 三元的**真分支**必须是恒等字面量。
+                if let q = args.firstIndex(of: "?"), let c = args[q...].firstIndex(of: ":") {
+                    let trueBranch = args[args.index(after: q)..<c]
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    // ⚠️ 判据是「**不引用动画状态**」而不是「必须是恒等字面量」——
+                    // 后者会把**形态 2** 的静止位移误判（`Rise` 的
+                    // `isReduced ? -reach * 0.5 : state.lift`，真分支有意是常量位移
+                    // 而非 0）。实测过一次误红才定下这个写法。
+                    // 本判据同时覆盖三种情况：恒等值 ✓、静止位移 ✓、
+                    // 「门控成了另一个动画值」✗（第 5 轮终审 I5-2 与 S-1 的盲区一并堵上）。
+                    let animationRefs = ["state.", "phase.", "progress", "turns"]
+                    if let bad = animationRefs.first(where: { trueBranch.contains($0) }) {
+                        offenders.append("\(url.lastPathComponent):\(line) \(call)… "
+                                         + "[Reduce Motion 分支引用了动画状态 `\(bad)`："
+                                         + "`\(trueBranch)` —— 极性反了或门控成了另一个动画值]")
+                    }
                 }
             }
         }
@@ -265,12 +304,18 @@ struct MicroInteractionReduceMotionGuard {
     ///
     /// ⚠️ 阈值取**实际数**而非下界（第 3 轮终审 I-5）：`>= 9` 在文件从 10 个变成 9 个
     /// （被挪进子目录）时仍然通过，留了一格逃逸位。
-    @Test("扫描确实覆盖到预期数量的文件（不是零命中的假绿）")
-    func scanActuallyMatches() throws {
-        let files = try Self.swiftFiles()
-        #expect(files.count == 10, "扫到 \(files.count) 个文件（预期 10）—— 增删文件时请同步本断言")
-        let motion = try Self.motionFiles()
-        #expect(motion.count == 7,
-                "判定为含运动的文件有 \(motion.count) 个（预期 7：Shake/Jump/Spin/Ping/Spray/Rise/Shine）")
+    /// ⚠️ **fail-closed 分类**：每个文件要么被判为含运动、要么在 `approvedNoMotion` 里。
+    /// 新增一个用 `Canvas` 画运动、又不在名单里的文件 ⇒ **判红**，而不是静默跳过。
+    @Test("每个源文件都必须被分类（含运动 / 确认无运动），不留第三种")
+    func everyFileIsClassified() throws {
+        let all = Set(try Self.swiftFiles().map(\.lastPathComponent))
+        let motion = Set(try Self.motionFiles().map(\.0.lastPathComponent))
+        let unclassified = all.subtracting(motion).subtracting(Self.approvedNoMotion)
+        #expect(unclassified.isEmpty,
+                "这些文件既没被判为含运动、也不在 approvedNoMotion 名单里：\(unclassified.sorted())")
+        let stale = Self.approvedNoMotion.subtracting(all)
+        #expect(stale.isEmpty, "approvedNoMotion 里有已不存在的文件：\(stale.sorted())")
+        let contradiction = Self.approvedNoMotion.intersection(motion)
+        #expect(contradiction.isEmpty, "这些文件在无运动名单里，却被判为含运动：\(contradiction.sorted())")
     }
 }

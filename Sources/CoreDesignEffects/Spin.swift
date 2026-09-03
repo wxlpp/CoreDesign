@@ -24,10 +24,22 @@ private struct SpinCore: ViewModifier {
 
         return content
             .keyframeAnimator(initialValue: 0.0, trigger: self.fire) { view, turns in
-                view.rotationEffect(.degrees(isReduced ? 0 : turns))
+                // ⚠️⚠️ **取模不是多余的**（第 5 轮终审 C5-1，实测）：
+                // `keyframeAnimator` 动画结束后**停在最后一个 keyframe 值，不回
+                // `initialValue`**（评审用活体 `NSHostingView` 探针证明），
+                // 而 `rotationEffect(.degrees(360))` **不是恒等变换**——
+                // 实测 `Text("x")` 上残留 33/112 px 差异、maxΔ 24/255，
+                // `Text("Refresh")` 上 35 px ⇒ 任何 `Text(...).spin()` 在**第一次转完
+                // 之后**字形边缘永久带上约 9% 的重采样软化，直到视图销毁重建。
+                // 360° ≡ 0° 视觉无跳变，取模后终态是 `rotationEffect(0)`（实测恒等）。
+                //
+                // ⚠️ 这个残留是**第 3 轮的处置引入的**：当时删掉"归零帧"的理由是
+                // 「每次 trigger 变化都从 `initialValue` 重新开始」——那句是真的，
+                // 但**不蕴含「本次结束后回到 `initialValue`」**。前提是半真的。
+                view.rotationEffect(.degrees(
+                    (isReduced ? 0 : turns).truncatingRemainder(dividingBy: 360)
+                ))
             } keyframes: { _ in
-                // ⚠️ 不需要"归零帧"：`keyframeAnimator` 每次 trigger 变化都从
-                // `initialValue` 重新开始（#262 终审 Suggestion 指出初版那帧建立在错误前提上）。
                 KeyframeTrack {
                     CubicKeyframe(360 * direction.sign, duration: 0.55)
                 }

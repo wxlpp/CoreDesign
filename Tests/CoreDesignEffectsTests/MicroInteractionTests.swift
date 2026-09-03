@@ -161,6 +161,33 @@ struct MicroInteractionAPITests {
     }
 
 
+    /// ⚠️⚠️ **上面两条只覆盖「首次 trigger 之前」的静息态**（第 5 轮终审 C5-2）：
+    /// 它们的 trigger 是字面量 `1`、永不变化 ⇒ `TriggerRelay.fire` 恒为 0
+    /// ⇒ 动画从未跑过 ⇒ 渲染的是 `initialValue` 态。
+    ///
+    /// 而 `keyframeAnimator` 的静息态**有两个**：`initialValue` 态，与**终帧态**
+    /// （每次动画结束后停在最后一个 keyframe，且**那是用户实际长期看到的那个**）。
+    /// 测试名与 250.md 都写「静息态」，读者会理解为覆盖了后者——**上一版没有**。
+    /// `Spin` 的 360° 残留正是从这个缺口漏过去的。
+    ///
+    /// ⇒ 本条直接断言两个 keyframe 类效果的**终帧变换是恒等的**。
+    /// ⚠️ 只修 C5-1 而不装这条护栏，就是「修症状不装护栏」——正是本 PR 前四轮
+    /// 反复出现的形态。
+    @Test("动画终帧态：keyframe 类效果的终点变换必须是恒等")
+    func terminalFrameIsIdentity() {
+        // Spin 的终帧是 `360 * sign` ⇒ 取模后必须落回 0。
+        for sign in [1.0, -1.0] {
+            let terminal = (360.0 * sign).truncatingRemainder(dividingBy: 360)
+            #expect(terminal == 0, "Spin 终帧 \(360 * sign)° 取模后是 \(terminal)，不是恒等")
+        }
+        // Shine 的终帧是 progress = +1 ⇒ 光带 offset = +travel ⇒ 完全出界。
+        // 用位图验证：终帧渲染必须与裸视图逐字节相同。
+        let bare = Self.pixels(Text("x"))
+        #expect(bare != nil)
+        #expect(Self.pixels(Text("x").shine(trigger: 1)) == bare,
+                "shine 的终帧不是干净的")
+    }
+
     /// ⚠️ **上一条相等断言的非退化前置**（本仓 `SidebarLeadingSlotRenderTests` 的互锁成法）。
     ///
     /// 相等断言的退化路径是「两张全是空图 / 本平台根本量不出差异 ⇒ 恒真」。
