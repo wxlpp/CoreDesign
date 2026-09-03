@@ -55,10 +55,18 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 **不并进 `CoreDesignTests`**——并进去需要 `@testable import`，会让 `CoreDesignTests` 的
 依赖图包含新 target，破坏上面那条隔离判据。
 
-⚠️ **四条源码守卫当前只扫 `Sources/CoreDesign`**（`ComponentRegistryGuard.swift:366`、
-`BoolExemptionGuard.swift:43`、`AccessibilityStringLiteralGuard.swift:189` 等的扫描根都是
-硬编码的）——**新 target 目前不受 Bool 纪律 / a11y 字面量 / 登记表守卫覆盖**，
-多根化归 `#246`。在那之前不要假设新 target 已被这些守卫守着。
+⚠️ **源码守卫的扫描根有三份，不要混为一谈**（`#246` 落地后）：
+
+| 根列表 | 谁在用 | 覆盖 |
+|---|---|---|
+| `GuardScanRoots.allRoots`（`Tests/CoreDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep | 三个 target 全覆盖 |
+| `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 CoreDesign 现状 |
+| `ComponentRegistryGuard.coreDesignSources`（`:366`，仍是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | 仍只有 `Sources/CoreDesign` —— 扩它会顶动 `ComponentExtensionPointGuard` 的 `inspected.count == 11` 等一串断言（AD-4《下游连锁一》），归 Charts 落件时（`#255`）处置 |
+
+⚠️ 新增 library target 时**必须**把它加进 `GuardScanRoots.targetNames`——该表与
+`Package.swift` 声明的 library target 做双向差集，忘了扩根会当场判红（这是刻意的
+fail-closed：对一个不在列表里的 target，全部 grep 判据都无命中即绿）。
+⚠️ 台账键对新 target 带 `<Target>/` 前缀，主 target 保持裸形（`Owner.decl#param`）。
 
 ### 按钮样式模式
 
