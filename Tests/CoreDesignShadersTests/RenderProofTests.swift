@@ -111,7 +111,67 @@ struct RenderProofTests {
         )
     }
 
+    /// ⚠️⚠️ **rim 那一行改过三次，前两次都错，而它一直是零回归覆盖**
+    ///（第 4 轮终审 I-2）。`glassRefracts` 用的是**不透明** `LinearGradient`
+    /// ⇒ 第 2 版「`sample.a == 0` 时 rim 整条消失」在那里**不可能暴露**；
+    /// 且 `render(_:)` 只取 RGB 三个字节、**从不采样 alpha** ⇒ 第 1 版的
+    /// 「边缘 25% 透明环」对它也天然不可见。三个版本它都放行。
+    ///
+    /// ⇒ 本条以**透明内容**为被折射层，并**采样 alpha**：圆角边界一圈必须出现
+    ///   `alpha > 0` 的 rim 像素。
+    @Test("rim 高光在透明内容上仍然显影（前两版都会在这条上判红）")
+    func rimShowsOnTransparentContent() throws {
+        // SF Symbol 四周 alpha = 0，正是第 2 版失效的那类内容。
+        let content = Image(systemName: "bolt.fill")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 64, height: 64)
+
+        // ⚠️⚠️ **对照必须隔离 rim**：拿「加不加 glass」比是**错的**——折射本身会把
+        // 不透明像素位移进原本透明的区域，不透明像素数从 209 涨到 740（实测），
+        // 这个变化**完全淹没** rim 的贡献。我的第一版断言正是这么写的，
+        // 而它对第 2 版的 rim bug **判绿**（变异实测），检出力为零。
+        // ⇒ 正确对照：**同样的折射、只有 rim 不同**（`.clear` vs 有色）。
+        let noRim = try Self.renderAlpha(
+            content.refractiveGlass(corner: 12, strength: .pronounced, rim: .clear)
+        )
+        let withRim = try Self.renderAlpha(
+            content.refractiveGlass(corner: 12, strength: .pronounced, rim: .accent)
+        )
+        #expect(noRim.count == withRim.count)
+
+        // 第 2 版 `mix(sample, half4(rim.rgb, sample.a), k)` 保住了 `sample.a`
+        // ⇒ 透明处 alpha 恒为 0 ⇒ 两者的 alpha 分布**完全相同** ⇒ 本条判红。
+        // 第 3 版的预乘 source-over 会在边界一圈抬高 alpha ⇒ 两者不同。
+        let opaqueWithout = noRim.filter { $0 > 8 }.count
+        let opaqueWith = withRim.filter { $0 > 8 }.count
+        #expect(opaqueWith > opaqueWithout,
+                "rim 在透明内容上没有抬高任何 alpha（\(opaqueWithout) → \(opaqueWith)）—— 这正是第 2 版的失效形态")
+    }
+
     // MARK: - Helpers
+
+    /// 只取 alpha 通道的全图网格扫描。⚠️ 与 `render(_:)` 分开是有意的：
+    /// 后者取 RGB，对「alpha 被改坏」这一类缺陷天然不可见。
+    private static func renderAlpha(_ view: some View) throws -> [UInt8] {
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 1
+        let image = try #require(renderer.uiImage, "ImageRenderer 未产出图像")
+        guard let cg = image.cgImage,
+              let data = cg.dataProvider?.data,
+              let ptr = CFDataGetBytePtr(data) else {
+            throw RenderProbeError.noPixelData
+        }
+        let bytesPerRow = cg.bytesPerRow
+        let bytesPerPixel = cg.bitsPerPixel / 8
+        var out: [UInt8] = []
+        for y in stride(from: 0, to: cg.height, by: 2) {
+            for x in stride(from: 0, to: cg.width, by: 2) {
+                out.append(ptr[y * bytesPerRow + x * bytesPerPixel + 3])
+            }
+        }
+        return out
+    }
 
     /// ⚠️ **全图网格扫描，不是几个固定采样点**：初版用 6 个固定点，`Starfield` 判红
     /// ——而那不是 shader 的问题，是**星星按设计就稀疏**（只有一部分格子有星），

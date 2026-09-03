@@ -49,7 +49,7 @@ namespace cd {
 // ⇒ **本版不再声称原创，改为正向署名**。这两项都是**公开发表的算法与常数**
 //（Wang 的页面无许可声明；Teschner 是论文里的数字），法律风险低于 Shadertoy 的
 // CC BY-NC-SA——但**低风险 ≠ 已裁定**，本仓的门是正向裁定，故逐项写明出处。
-// 逐项条目须随 `docs/shader-provenance.md`（task #249）落地，见本文件末尾的合入前置。
+// 逐项条目须随 `docs/shader-provenance.md`（task #249）落地，见 **PR 描述顶部**的合入前置（⚠️ 上一版写「本文件末尾」，而文件末尾是函数右花括号，没有那个小节）。
 
 /// 32-bit 整数雪崩混合。
 ///
@@ -118,6 +118,16 @@ inline float valueNoise(float2 p) {
 }
 
 /// FBM：频率翻倍、幅度减半，归一化到 [0, 1]。
+///
+/// ⚠️ **出处（第 3 轮终审 I-1；⚠️ 第 4 轮终审 C-1 发现上一轮"已处置"实际没落地——
+/// 我的替换锚点没匹配，而 commit message 却写了已加，本次补上并核对过 diff）**：
+/// `amplitude = 0.5` / `sum += noise(p) * amplitude` / `p *= 2.0` / `amplitude *= 0.5`
+/// 这个循环体与 **The Book of Shaders 第 13 章**及 **iq 的 fBm 文章**逐行同构，
+/// 唯一差异是末尾除 `total` 归一化。
+/// gain 0.5 / lacunarity 2.0 是 fBm 的**定义**，但这段**代码形态**是被转抄最广的
+/// 公开片段之一 ⇒ 与 `wangHash` / `roundedBoxSDF` 同一标准署名，不留白。
+/// ⚠️ 本文件里其余原语都交代了出处，唯独 fbm 曾一个字没有——而三个 shader 的
+/// 自述第一句都是「FBM + 域扭曲」。
 inline float fbm(float2 p, int octaves) {
     float sum = 0.0;
     float amplitude = 0.5;
@@ -148,7 +158,16 @@ inline float edgeWidth(float x) {
 
 // MARK: - Plasma
 
-/// 四相正弦叠加。经典配方：两个轴向波 + 一个对角波 + 一个径向波。
+/// 四相正弦叠加。
+///
+/// ⚠️ **出处（第 4 轮终审 C-1）**：`sin(x)` / `sin(y)` / `sin((x+y)/2)` / `sin(dist)`
+/// 四项与 **Lode Vandevenne《Lode's Computer Graphics Tutorial — Plasma》**里被无数
+/// demoscene / Shadertoy 版本转抄的公式
+/// `sin(dist(x,y,cx,cy)/8) + sin(x/16) + sin(y/8) + sin((x+y)/16)` **逐项对应**，
+/// 差别只是把除数参数化成 `frequency`、每项加了不同时间相位。
+/// ⚠️ 上一版这里写「**经典配方**」——那是**没有出处的肯定式借用声明**，正是 #249
+/// 裁定要求转成正向判决的那一类。而 Vandevenne 当时只写进了 `Plasma.swift`，
+/// **函数体所在的文件仍是无出处的**，与本文件确立的「函数体才是受保护的表达」相悖。
 [[stitchable]] half4 coreDesignPlasma(float2 position, half4 currentColor,
                                       float2 size, float time,
                                       float frequency, float octaves,
@@ -183,7 +202,7 @@ inline float edgeWidth(float x) {
     float2 local = fract(uv * grid) - 0.5;
 
     float2 jitter = cd::hash22(cell) - 0.5;
-    float brightness = cd::hash21(cell + 7.13);
+    float brightness = cd::hash21(cell + 7.0);
 
     // 只有一部分格子有星：亮度低于门限的直接熄灭，避免规则网格感。
     float alive = step(0.55, brightness);
@@ -267,7 +286,7 @@ inline float edgeWidth(float x) {
     // 换成标量。
     // ⇒ 初版注释「偏移常量本仓自定，不沿用 iq 那组」**说的是实话，但不构成独立**
     //   ——本文件上面已写死「改常量不构成独立」。本版不再声称原创。
-    // ⚠️ 同一问题的弱化版在 `coreDesignFractalClouds`（单级 warp，指纹较弱）。
+    // ⚠️ 同一问题的弱化版在 `coreDesignFractalClouds` 与 `coreDesignLiquidChrome`（均单级 warp，指纹较弱）。
     float2 q = float2(cd::fbm(p, int(octaves)), cd::fbm(p + 2.73, int(octaves)));
     float2 r = float2(cd::fbm(p + wisp * q + 4.19, int(octaves)),
                       cd::fbm(p + wisp * q + 7.61, int(octaves)));
@@ -347,7 +366,13 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
     float2 dir = normalize(centred + 1e-5);
     float2 bend = dir * edgeness * edgeness * refraction;
 
-    // ⚠️⚠️ **`layer.sample` 返回的是预乘 alpha 值**（`[R*A, G*A, B*A, A]`）——
+    // ⚠️⚠️ **两个输入都是预乘 alpha**，下面两段的正确性全挂在这一条上：
+    // · `layer.sample` —— `SwiftUI_Metal.h` 的 `Layer::sample` 文档逐字写明；
+    // · **`rim`（来自 `.color(...)`）** —— `SwiftUICore.swiftdoc` 里
+    //   `Shader.Argument.color(_:)` 逐字写明「converts to a `half4` value,
+    //   **as a premultiplied color in the target color space**」。
+    //   ⚠️ 这一半上一版没写，而 `rim * rimBand` 的合法性完全挂在它上面。
+    // ⚠️ **`layer.sample` 返回的是预乘 alpha 值**（`[R*A, G*A, B*A, A]`）——
     // 依据是 SwiftUI 自己的 `SwiftUI_Metal.h` 里 `Layer::sample` 的文档注释。
     // 下面两段的正确性全都挂在这一条上，改动前务必先读它。
     half4 sample = layer.sample(position - bend);

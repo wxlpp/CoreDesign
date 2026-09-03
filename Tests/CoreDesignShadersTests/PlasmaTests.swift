@@ -14,11 +14,21 @@ import Testing
 // ⚠️ **不要**为了让原生腿变绿而加 `.enabled(if:)`——那会把"metallib 没编出来"变成
 // 静默跳过，正是本仓反复堵的假绿病型（对照 #258 发现的 `ColorAssetGuardTests`
 // 在 swiftbuild 下静默失守）。
-// ⚠️⚠️ **`--filter` 在 `--build-system swiftbuild` 下恒返回 0 tests**（本轮实测）。
-// 即 `swift test --build-system swiftbuild --filter CoreDesignShadersTests` 打印
-// 「Test run with 0 tests ... passed」——**看起来是绿的，其实一条都没跑**。
-// ⇒ 验证 swiftbuild 腿必须**跑全量**（`swift test --build-system swiftbuild`），
-// 不要带 `--filter`。本 PR 上一版的「swiftbuild 腿 16/6 全绿」就是这么来的。
+// ⚠️⚠️ **看 swiftbuild 腿的输出时不要只看最后一行**（第 4 轮终审 C-2 更正）。
+//
+// 包里有 4 个 test bundle，`swift test --build-system swiftbuild --filter
+// CoreDesignShadersTests` 会打印**四行** "Test run with …"：本 bundle 的
+// 「18 tests in 7 suites」，另外三个各一行「0 tests … passed」。
+// 用 `tail` 取最后一行恰好取到那个 0 ⇒ 会误判成「一条都没跑」。
+//
+// ⚠️ 上一版据此在这里写下「`--filter` 在 swiftbuild 下恒返回 0 tests，
+// 验证必须跑全量」——**那是错的，而且危险**：`ci.yml` 的 swiftbuild 步骤正是带
+// `--filter` 的，删掉它会变成整腿 swiftbuild，而 `ci.yml` 与 `AGENTS.md` 明令禁止
+//（会让 `ColorAssetGuardTests` 静默跳过，#258 踩过的坑）。
+//
+// ⚠️ 第 3 轮 I-4 的**另一半仍然成立**：`RenderProofTests` 整个文件包在
+// `#if os(iOS)` 里 ⇒ macOS 腿的 18 条里**一条渲染证明都没有**，
+// rim / 折射的机器守卫只在 iOS Simulator 腿上跑。
 @Suite("CoreDesignShaders metallib 加载 —— fail-closed")
 struct ShaderLibraryLoadTests {
 
