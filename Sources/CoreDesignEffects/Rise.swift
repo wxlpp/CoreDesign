@@ -7,8 +7,9 @@ import CoreDesign
 import SwiftUI
 
 /// 从视图上方浮起并淡出的一小段文字（"+1" 那种）。
-private struct RiseModifier<T: Equatable & Sendable>: ViewModifier {
-    let trigger: T
+/// ⚠️ **非泛型**——理由见 `TriggerRelay`。
+private struct RiseCore: ViewModifier {
+    let fire: Int
     let text: LocalizedStringKey
     let strength: MicroInteractionStrength
     let textColor: Color
@@ -26,7 +27,7 @@ private struct RiseModifier<T: Equatable & Sendable>: ViewModifier {
                 Text(text)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(color)
-                    .keyframeAnimator(initialValue: RiseState(), trigger: self.trigger) { view, state in
+                    .keyframeAnimator(initialValue: RiseState(), trigger: self.fire) { view, state in
                         view
                             .offset(y: isReduced ? -reach * 0.5 : state.lift)
                             .opacity(state.opacity)
@@ -42,9 +43,12 @@ private struct RiseModifier<T: Equatable & Sendable>: ViewModifier {
                         }
                     }
                     .allowsHitTesting(false)
-                    // ⚠️ **不** `accessibilityHidden`——与其它微交互不同，本效果**承载内容**
-                    // （"+1" 是信息，不是装饰）。它对 VoiceOver 可读，但调用方仍应把权威数值
-                    // 放在被修饰的视图上（FR-13 的分工）。
+                    // ⚠️ **按装饰层处理**（#262 终审 I4）：初版留它对 VoiceOver 可读，
+                    // 理由是"+1 是内容"——但同一段注释又说"权威数值应放在被修饰的视图上"，
+                    // 那这段文字对 VO 就是**冗余**，且 overlay 常驻视图树（首尾 opacity 0），
+                    // 会在 VO 滑动顺序里留下一个幽灵元素。
+                    // ⇒ 与 `.shake` / `.jump` 对齐：隐藏，**通告由调用方负责**（FR-13）。
+                    .accessibilityHidden(true)
             }
     }
 
@@ -60,14 +64,19 @@ public extension View {
     ///
     /// - Parameter text: 浮起的文字。⚠️ 类型是 `LocalizedStringKey` 而非 `String`
     ///   ——它是**组件自带的 UI 文案**（公约 A 类），必须可本地化（FR-7）。
+    ///
+    /// ⚠️ `LocalizedStringKey` 在本模块内解析走 **`Bundle.main`**——App 调用方没问题，
+    /// 但来自另一个 package 的调用方，其本地化不会生效。
     func rise(
-        trigger: some Equatable & Sendable,
+        trigger: some Equatable,
         text: LocalizedStringKey,
         strength: MicroInteractionStrength = .regular,
         color: Color = .accent
     ) -> some View {
         self.modifier(
-            RiseModifier(trigger: trigger, text: text, strength: strength, textColor: color)
+            TriggerRelay(trigger: trigger) {
+                RiseCore(fire: $0, text: text, strength: strength, textColor: color)
+            }
         )
     }
 }

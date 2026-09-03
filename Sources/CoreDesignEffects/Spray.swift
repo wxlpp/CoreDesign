@@ -7,8 +7,9 @@ import CoreDesign
 import SwiftUI
 
 /// 向上喷出一束 SF Symbol 粒子。典型用途：点赞、收藏、庆祝。
-private struct SprayModifier<T: Equatable & Sendable>: ViewModifier {
-    let trigger: T
+/// ⚠️ **非泛型**——理由见 `TriggerRelay`。
+private struct SprayCore: ViewModifier {
+    let fire: Int
     let symbol: String
     let strength: MicroInteractionStrength
     let palette: [Color]
@@ -22,7 +23,14 @@ private struct SprayModifier<T: Equatable & Sendable>: ViewModifier {
         let symbol = self.symbol
         let palette = self.palette.isEmpty ? [Color.accent] : self.palette
 
-        return content
+        // ⚠️ **Reduce Motion 下整层不渲染，降级为脉冲**（#262 终审 C2）。
+        // 初版只把位移归零——结果 12–22 个粒子**全堆在内容中心**并继续缩放淡出，
+        // 一坨符号盖住内容，**比原动效更糟**。缩放同样属于 FR-11 的"缩放"。
+        guard !isReduced else {
+            return AnyView(content.reduceMotionFallback(active: true, trigger: self.fire))
+        }
+
+        return AnyView(content
             .overlay {
                 // ⚠️ 粒子是**纯装饰**（FR-13）；"点赞成功"这个语义由调用方通告。
                 ZStack {
@@ -34,16 +42,16 @@ private struct SprayModifier<T: Equatable & Sendable>: ViewModifier {
                         let spread = 0.55 + (Double((index * 37) % 100) / 100.0) * 0.45
 
                         Image(systemName: symbol)
-                            .font(.system(size: 11))
+                            .font(.system(size: CoreControlMetrics.iconSize(for: .mini)))
                             .foregroundStyle(palette[index % palette.count])
                             .keyframeAnimator(
                                 initialValue: ParticleState(),
-                                trigger: self.trigger
+                                trigger: self.fire
                             ) { view, state in
                                 view
                                     .offset(
-                                        x: isReduced ? 0 : cos(angle * .pi / 180) * reach * spread * state.travel,
-                                        y: isReduced ? 0 : sin(angle * .pi / 180) * reach * spread * state.travel
+                                        x: cos(angle * .pi / 180) * reach * spread * state.travel,
+                                        y: sin(angle * .pi / 180) * reach * spread * state.travel
                                     )
                                     .scaleEffect(state.scale)
                                     .opacity(state.opacity)
@@ -64,7 +72,7 @@ private struct SprayModifier<T: Equatable & Sendable>: ViewModifier {
                 }
                 .accessibilityHidden(true)
                 .allowsHitTesting(false)
-            }
+            })
     }
 
     private struct ParticleState {
@@ -87,13 +95,15 @@ public extension View {
     ///   ⚠️ 不给彩虹默认色板：那是品牌决定，不是设计系统该替调用方做的
     ///   （FR-8：颜色只能来自调用方参数 / `.tint` / 语义 token）。
     func spray(
-        trigger: some Equatable & Sendable,
+        trigger: some Equatable,
         symbol: String,
         strength: MicroInteractionStrength = .regular,
         palette: [Color] = [.accent]
     ) -> some View {
         self.modifier(
-            SprayModifier(trigger: trigger, symbol: symbol, strength: strength, palette: palette)
+            TriggerRelay(trigger: trigger) {
+                SprayCore(fire: $0, symbol: symbol, strength: strength, palette: palette)
+            }
         )
     }
 }

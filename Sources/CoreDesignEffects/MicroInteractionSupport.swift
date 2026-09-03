@@ -45,7 +45,42 @@ public enum MicroInteractionStrength: Sendable, CaseIterable {
     }
 }
 
-// MARK: - ⚠️ 写微交互前必读：两个隔离约束
+// MARK: - TriggerRelay
+
+/// 把**泛型的 trigger** 转成一个非泛型的自增计数，供内层动画 modifier 使用。
+///
+/// ⚠️ **这是为了让公开签名保持 `some Equatable`（与 SwiftUI 自己的
+/// `keyframeAnimator(trigger:)` 一致），而不必要求调用方的 trigger 是 `Sendable`。**
+///
+/// 初版直接把泛型 `T` 传进动画 modifier，于是 `keyframeAnimator` 的
+/// `PlaceholderContentView<XModifier<T>>` 依赖 `T`，报
+/// `capture of non-Sendable type 'T.Type' in an isolated closure`（10 条）。
+/// 当时的处置是给 `T` 加 `Sendable` 约束——**那个处置是错的**：
+///
+/// ⚠️ **「下游 App 通常不设 `defaultIsolation`」这个前提不成立** ——
+/// Xcode 26 新建工程模板默认 `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`，
+/// 而本库面向 iOS 26+。新项目里任何 `enum Step: Equatable` 当 trigger 都会撞上
+/// `main actor-isolated conformance ... cannot satisfy ... 'Sendable'`。
+/// 这不是"本包测试 target 的私事"。
+///
+/// ⇒ 改为**泛型只停在本类型**：外层拿 trigger 记计数，内层动画 modifier 非泛型
+/// （只吃 `Int`），警告消失、公开签名不必加 `Sendable`。
+/// 代价是每个效果多一个 `@State` + 一次 `onChange`。
+struct TriggerRelay<T: Equatable, Core: ViewModifier>: ViewModifier {
+    let trigger: T
+    let makeCore: (Int) -> Core
+
+    @State private var fire = 0
+
+    func body(content: Content) -> some View {
+        content
+            .modifier(self.makeCore(self.fire))
+            // ⚠️ `&+=` 而非 `+=`：长会话里理论上会溢出，溢出崩比动画少放一次糟得多。
+            .onChange(of: self.trigger) { self.fire &+= 1 }
+    }
+}
+
+// MARK: - ⚠️ 写微交互前必读：隔离约束
 
 // 1. **`keyframeAnimator` / `phaseAnimator` 的 body 闭包是 `@Sendable`（nonisolated）**。
 //    本包开了 `.defaultIsolation(MainActor.self)`，所以在闭包里读 `@Environment` 属性
@@ -53,20 +88,11 @@ public enum MicroInteractionStrength: Sendable, CaseIterable {
 //    `main actor-isolated property ... can not be referenced from a Sendable closure`。
 //    ⇒ **在 `body` 里先取成局部 `let`，再捕获进闭包。**
 //
-// 2. **泛型 trigger 约束成 `Equatable & Sendable`**（比 SwiftUI 自己的
-//    `keyframeAnimator(trigger: some Equatable)` 严一档）。不加会报
-//    `capture of non-Sendable type 'T.Type' in an isolated closure`——实测**多 10 条警告**，
-//    而本仓基线是 0 条。
-//
-//    ⚠️ **代价与它的实际射程**：在**同样设了 `defaultIsolation(MainActor)` 的模块**里，
-//    嵌套声明的 `enum Foo: Equatable` 会得到 MainActor 隔离的 conformance，
-//    满足不了 `Sendable`，报
-//    `main actor-isolated conformance of 'Foo' to 'Equatable' cannot satisfy
-//    conformance requirement for a 'Sendable' type parameter`。
-//    ⚠️ **解法是标 `nonisolated`；只提到文件作用域不够**——`defaultIsolation` 作用于
-//    **整个 target**，文件作用域的枚举照样拿到隔离的 conformance（实测）。
-//    ⚠️ **但下游 App 通常不设 `defaultIsolation`**，那里的嵌套枚举天然满足 `Sendable`
-//    ⇒ 这道摩擦主要落在本包自己的测试 target 上，不是调用方的日常路径。
+// 2. **泛型只停在 `TriggerRelay`，动画 modifier 一律非泛型（只吃 `Int`）**。
+//    直接把泛型 `T` 传进动画 modifier 会报
+//    `capture of non-Sendable type 'T.Type' in an isolated closure`（实测 10 条），
+//    触发点是 `keyframeAnimator` 的 `PlaceholderContentView<XModifier<T>>` 依赖 `T`
+//    ——**与 trigger 本身是不是 Sendable 无关**。见 `TriggerRelay` 的文档。
 //
 // ⚠️ 这两条与 `CoreDesignShaders` 踩到的是同一类问题（`Bundle.module` 也是 MainActor
 // 隔离的）——本包的 `defaultIsolation` 让"闭包里随手读 self"变成一个反复出现的坑。
@@ -82,7 +108,7 @@ extension View {
     ///
     /// ⚠️ 本仓的降级基线由此统一。各效果**不要**各自实现降级路径——那样必然漂移。
     @ViewBuilder
-    func reduceMotionFallback(active: Bool, trigger: some Equatable & Sendable) -> some View {
+    func reduceMotionFallback(active: Bool, trigger: Int) -> some View {
         if active {
             self.modifier(OpacityPulse(trigger: trigger))
         } else {
@@ -92,8 +118,9 @@ extension View {
 }
 
 /// Reduce Motion 下的统一降级形态：一次快速的透明度脉冲。
-private struct OpacityPulse<T: Equatable & Sendable>: ViewModifier {
-    let trigger: T
+private struct OpacityPulse: ViewModifier {
+    /// ⚠️ 只吃 `Int`（`TriggerRelay` 的计数）——泛型只停在 `TriggerRelay`。
+    let trigger: Int
 
     func body(content: Content) -> some View {
         content.phaseAnimator([1.0, 0.45, 1.0], trigger: self.trigger) { view, opacity in

@@ -11,8 +11,9 @@ import SwiftUI
 /// ⚠️ 与 `CoreDesign` 的 `.skeletonShimmer()` 不是一回事：那个是骨架屏的**持续**扫光
 /// （`TimelineView` 驱动、表示"加载中"），本效果是 `trigger` 驱动的**一次性**高光
 /// （表示"这件事刚发生"）。
-private struct ShineModifier<T: Equatable & Sendable>: ViewModifier {
-    let trigger: T
+/// ⚠️ **非泛型**——理由见 `TriggerRelay`。
+private struct ShineCore: ViewModifier {
+    let fire: Int
     let highlight: Color
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -21,7 +22,14 @@ private struct ShineModifier<T: Equatable & Sendable>: ViewModifier {
         let isReduced = self.reduceMotion
         let highlight = self.highlight
 
-        return content
+        // ⚠️ **Reduce Motion 下不画光带，降级为脉冲**（#262 终审 I1）。
+        // 初版把光带停在出界位置 ⇒ RM 下**零反馈**，与本模块"降级不是什么都不做"的
+        // 原则自相矛盾。
+        guard !isReduced else {
+            return AnyView(content.reduceMotionFallback(active: true, trigger: self.fire))
+        }
+
+        return AnyView(content
             .overlay {
                 GeometryReader { proxy in
                     let travel = proxy.size.width + proxy.size.height
@@ -31,10 +39,10 @@ private struct ShineModifier<T: Equatable & Sendable>: ViewModifier {
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
-                    .frame(width: travel * 0.35)
+                    .frame(width: travel * 0.35, height: travel)
                     .rotationEffect(.degrees(28))
-                    .keyframeAnimator(initialValue: -travel, trigger: self.trigger) { view, x in
-                        view.offset(x: isReduced ? travel : x)
+                    .keyframeAnimator(initialValue: -travel, trigger: self.fire) { view, x in
+                        view.offset(x: x)
                     } keyframes: { _ in
                         KeyframeTrack {
                             LinearKeyframe(-travel, duration: 0.05)
@@ -49,7 +57,7 @@ private struct ShineModifier<T: Equatable & Sendable>: ViewModifier {
                 .mask(content)
                 .accessibilityHidden(true)   // 纯装饰（FR-13）
                 .allowsHitTesting(false)
-            }
+            })
     }
 }
 
@@ -60,10 +68,12 @@ public extension View {
     /// - Parameter highlight: 高光色。默认 `Color.contentPrimary` 的低透明度
     ///   ——⚠️ 不写死白色：深浅外观下"更亮"的方向相反，语义 token 会自动适配。
     func shine(
-        trigger: some Equatable & Sendable,
+        trigger: some Equatable,
         highlight: Color = .contentPrimary.opacity(0.35)
     ) -> some View {
-        self.modifier(ShineModifier(trigger: trigger, highlight: highlight))
+        self.modifier(
+            TriggerRelay(trigger: trigger) { ShineCore(fire: $0, highlight: highlight) }
+        )
     }
 }
 

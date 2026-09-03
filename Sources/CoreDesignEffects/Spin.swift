@@ -10,8 +10,9 @@ import SwiftUI
 ///
 /// ⚠️ 与 `CoreDesign` 的 `SpinningModifier` 不是一回事：那个是**持续**的加载遮罩
 /// （material + 居中 `ProgressIndicator`），本效果是 `trigger` 驱动的**一次性**旋转。
-private struct SpinModifier<T: Equatable & Sendable>: ViewModifier {
-    let trigger: T
+/// ⚠️ **非泛型**——理由见 `TriggerRelay`。
+private struct SpinCore: ViewModifier {
+    let fire: Int
     let clockwise: SpinDirection
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -22,16 +23,16 @@ private struct SpinModifier<T: Equatable & Sendable>: ViewModifier {
         let direction = self.clockwise
 
         return content
-            .keyframeAnimator(initialValue: 0.0, trigger: self.trigger) { view, turns in
+            .keyframeAnimator(initialValue: 0.0, trigger: self.fire) { view, turns in
                 view.rotationEffect(.degrees(isReduced ? 0 : turns))
             } keyframes: { _ in
+                // ⚠️ 不需要"归零帧"：`keyframeAnimator` 每次 trigger 变化都从
+                // `initialValue` 重新开始（#262 终审 Suggestion 指出初版那帧建立在错误前提上）。
                 KeyframeTrack {
-                    // 单个 cubic 关键帧 + 缓入缓出：起步与收尾都不突兀。
                     CubicKeyframe(360 * direction.sign, duration: 0.55)
-                    CubicKeyframe(0, duration: 0)   // 归零，供下次触发
                 }
             }
-            .reduceMotionFallback(active: isReduced, trigger: self.trigger)
+            .reduceMotionFallback(active: isReduced, trigger: self.fire)
     }
 }
 
@@ -47,10 +48,12 @@ public extension View {
 
     /// `trigger` 变化时旋转一整圈。
     func spin(
-        trigger: some Equatable & Sendable,
+        trigger: some Equatable,
         direction: SpinDirection = .clockwise
     ) -> some View {
-        self.modifier(SpinModifier(trigger: trigger, clockwise: direction))
+        self.modifier(
+            TriggerRelay(trigger: trigger) { SpinCore(fire: $0, clockwise: direction) }
+        )
     }
 }
 

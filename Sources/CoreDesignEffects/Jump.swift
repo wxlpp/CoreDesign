@@ -7,8 +7,9 @@ import CoreDesign
 import SwiftUI
 
 /// 下蹲 → 起跳 → 落地，带挤压拉伸。典型用途：成功、点赞、达成。
-private struct JumpModifier<T: Equatable & Sendable>: ViewModifier {
-    let trigger: T
+/// ⚠️ **非泛型**——理由见 `TriggerRelay`。
+private struct JumpCore: ViewModifier {
+    let fire: Int
     let strength: MicroInteractionStrength
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -45,13 +46,16 @@ private struct JumpModifier<T: Equatable & Sendable>: ViewModifier {
         let strength = self.strength
 
         return content
-            .phaseAnimator(Phase.allCases, trigger: self.trigger) { view, phase in
+            .phaseAnimator(Phase.allCases, trigger: self.fire) { view, phase in
                 let d = strength.displacement
                 let k = strength.scaleDelta
+                // ⚠️ **缩放也必须被 Reduce Motion 门控**（#262 终审 C1）：FR-11 逐字写的是
+                // 「含位移 / 旋转 / **缩放**的效果」——初版只门控了 `offset`，结果 RM 下
+                // 用户同时收到"压扁-拉长-再压扁"的形变**和**降级用的透明度脉冲。
                 view
                     .scaleEffect(
-                        x: 1 + phase.squash.x * k,
-                        y: 1 + phase.squash.y * k,
+                        x: isReduced ? 1 : 1 + phase.squash.x * k,
+                        y: isReduced ? 1 : 1 + phase.squash.y * k,
                         anchor: .bottom
                     )
                     .offset(y: isReduced ? 0 : phase.offsetY * d)
@@ -62,7 +66,7 @@ private struct JumpModifier<T: Equatable & Sendable>: ViewModifier {
                 default: .easeInOut(duration: 0.12)
                 }
             }
-            .reduceMotionFallback(active: isReduced, trigger: self.trigger)
+            .reduceMotionFallback(active: isReduced, trigger: self.fire)
     }
 }
 
@@ -72,10 +76,12 @@ public extension View {
     ///
     /// ⚠️ 承载状态语义时（如"已完成"）**a11y 通告由调用方负责**（FR-13）。
     func jump(
-        trigger: some Equatable & Sendable,
+        trigger: some Equatable,
         strength: MicroInteractionStrength = .regular
     ) -> some View {
-        self.modifier(JumpModifier(trigger: trigger, strength: strength))
+        self.modifier(
+            TriggerRelay(trigger: trigger) { JumpCore(fire: $0, strength: strength) }
+        )
     }
 }
 

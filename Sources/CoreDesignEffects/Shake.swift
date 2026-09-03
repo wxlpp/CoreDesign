@@ -7,8 +7,9 @@ import CoreDesign
 import SwiftUI
 
 /// 水平抖动，振幅逐次衰减。典型用途：输入校验失败。
-private struct ShakeModifier<T: Equatable & Sendable>: ViewModifier {
-    let trigger: T
+/// ⚠️ **非泛型**——泛型只停在 `TriggerRelay`，理由见其文档。
+private struct ShakeCore: ViewModifier {
+    let fire: Int
     let strength: MicroInteractionStrength
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -21,7 +22,7 @@ private struct ShakeModifier<T: Equatable & Sendable>: ViewModifier {
         return content
             .keyframeAnimator(
                 initialValue: CGFloat.zero,
-                trigger: self.trigger
+                trigger: self.fire
             ) { view, offset in
                 view.offset(x: isReduced ? 0 : offset)
             } keyframes: { _ in
@@ -35,7 +36,7 @@ private struct ShakeModifier<T: Equatable & Sendable>: ViewModifier {
                     CubicKeyframe(0, duration: 0.06)
                 }
             }
-            .reduceMotionFallback(active: isReduced, trigger: self.trigger)
+            .reduceMotionFallback(active: isReduced, trigger: self.fire)
     }
 }
 
@@ -56,10 +57,12 @@ public extension View {
     /// ⚠️ Reduce Motion 开启时降级为一次透明度脉冲——**不是什么都不做**，
     /// 否则该偏好的用户收不到"失败了"这个反馈。
     func shake(
-        trigger: some Equatable & Sendable,
+        trigger: some Equatable,
         strength: MicroInteractionStrength = .regular
     ) -> some View {
-        self.modifier(ShakeModifier(trigger: trigger, strength: strength))
+        self.modifier(
+            TriggerRelay(trigger: trigger) { ShakeCore(fire: $0, strength: strength) }
+        )
     }
 }
 

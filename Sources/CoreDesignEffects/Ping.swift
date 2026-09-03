@@ -7,8 +7,9 @@ import CoreDesign
 import SwiftUI
 
 /// 从视图背后扩散的同心圆环。典型用途：新消息、实时状态、位置定位。
-private struct PingModifier<T: Equatable & Sendable>: ViewModifier {
-    let trigger: T
+/// ⚠️ **非泛型**——理由见 `TriggerRelay`。
+private struct PingCore: ViewModifier {
+    let fire: Int
     let strength: MicroInteractionStrength
     let ringColor: Color
 
@@ -28,7 +29,7 @@ private struct PingModifier<T: Equatable & Sendable>: ViewModifier {
                             .strokeBorder(color, lineWidth: CoreBorderWidth.thin)
                             .keyframeAnimator(
                                 initialValue: RingState(),
-                                trigger: self.trigger
+                                trigger: self.fire
                             ) { view, state in
                                 view
                                     .scaleEffect(isReduced ? 1 : state.scale)
@@ -68,11 +69,15 @@ public extension View {
     ///   ⚠️ 与 shader 不同，这里**可以**走 `.tint`（`strokeBorder(.tint)`）——
     ///   但那样调用方就无法单独调环色而不影响内容色，故仍取参数、默认语义 token。
     func ping(
-        trigger: some Equatable & Sendable,
+        trigger: some Equatable,
         strength: MicroInteractionStrength = .regular,
         color: Color = .accent
     ) -> some View {
-        self.modifier(PingModifier(trigger: trigger, strength: strength, ringColor: color))
+        self.modifier(
+            TriggerRelay(trigger: trigger) {
+                PingCore(fire: $0, strength: strength, ringColor: color)
+            }
+        )
     }
 }
 

@@ -38,9 +38,19 @@ struct MicroInteractionStrengthTests {
 @MainActor
 struct MicroInteractionAPITests {
 
-    // ⚠️ 这些不是"能编译就行"的凑数测试——它们钉住的是**会静默漂移的契约**：
-    // 八个入口的存在性、参数默认值、以及 trigger 的类型约束。
-    // 少一个入口、或某个默认值被改掉，调用方不会有编译错误，只会行为变了。
+    // ⚠️ **诚实标注：本 suite 是「编译契约」级，不是行为验证**（#262 终审 I2）。
+    // 它钉住的是「八个入口存在、可链式组合、trigger 接受任意 `Equatable`」——
+    // 这些**在编译期**成立即通过，`#expect(v is any View)` 那句本身是恒真的。
+    //
+    // ⚠️ **抓不到**：叠加时的实际视觉行为、Reduce Motion 下的降级效果、参数默认值。
+    // 那些在 macOS 单测里**不可观测**（需要真实渲染与环境注入）⇒ 靠 `#Preview` 人工验证。
+    // 250.md 里「叠加互不干扰……有测试」「Reduce Motion……测试可证」两项
+    // **本 PR 未真正满足**，已在 task 文件标注，不打勾。
+    //
+    // ⚠️ **Bool 纪律（J-1）不在本 suite 覆盖范围内**——真正的守卫是
+    // `BoolExemptionGuard`，它要等 #246 扩到本 target 才生效。初版曾有一条
+    // `#expect(Bool(true))` 的 `noBoolParameters`，会以"J-1 已覆盖"的名义出现在
+    // 测试报告里，已删除。
 
     @Test("八个入口全部存在且可链式组合")
     func allEntryPointsCompose() {
@@ -67,12 +77,4 @@ struct MicroInteractionAPITests {
         #expect(v is any View)
     }
 
-    @Test("零 Bool 参数 —— J-1 纪律")
-    func noBoolParameters() {
-        // ⚠️ 这条靠的是**签名本身**：若有人给某个入口加了 `Bool` 参数，
-        // 下面这些不带该参数的调用仍然编译（有默认值时），所以本测试**抓不到**新增的
-        // Bool 参数——真正的守卫是 `BoolExemptionGuard`（#246 扩到本 target 后生效）。
-        // 这里只留一条断言 + 这段说明，避免后人以为 Bool 纪律已被测试覆盖。
-        #expect(Bool(true))
-    }
 }
