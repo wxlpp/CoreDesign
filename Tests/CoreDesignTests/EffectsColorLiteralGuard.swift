@@ -46,6 +46,22 @@ import Testing
 //    应新增台账（形态照 `bool-exemptions.json`：键 + 署名 reason + 双向差集），
 //    不得放宽判据、更不得删掉本守卫**——「用削弱判据来消化一个正当例外」正是 G-7
 //    记在案的失效形态。follow-up 见 `246.md` 的《后续》。
+// 4. **隐式 `.init(…)` 只在「上下文类型写得出来」时才判**（PR #265 第 3 轮终审 F-2）：
+//    `ImplicitMemberContext.contextualTypeName(of:)` 只认**语法上真的写下了类型**的三处
+//    ——`let c: Color = .init(red:…)` 的类型标注、`.init(red:…) as Color` 的 `as` 断言、
+//    `func c() -> Color { .init(red:…) }` 的返回类型（含计算属性）。类型只存在于**推断**里
+//    的位置（数组字面量元素、函数实参、`self.x = .init(red:…)` 里 stored property 的类型、
+//    闭包返回值）看不见 ⇒ 放行。**这是拿一条漏报换掉一条误报**：首版对**任何**宿主为空的
+//    `.init` + `red`/`white`/`hue` 标签一律判红，实测把 `let p: Pixel = .init(red: 1)` /
+//    `let x: Insets = .init(white: 3)` 都报成了违规——而 `hue` 在 `numericColorLabels` 里、
+//    `CoreDesignEffects` 恰恰是会出现 `let hsb: HSBComponents = .init(hue:saturation:brightness:)`
+//    的地方。在例外台账（口子 3）落地之前，第一个误报的唯一便宜出路就是**削弱
+//    `numericColorLabels`**，那正是本文件自己禁止的 G-7 形态 ⇒ 宁可留这条**可枚举的**漏报。
+// 5. **`typealias` 可以绕过**（PR #265 第 3 轮终审 S-c）：本守卫按**文本宿主名**判宿主
+//    （`colorTypeNames` / `colorAnnotationNames`），`typealias C = Color; let x = C.red` 因此
+//    看不见——纯语法、逐文件的扫描器解不了 alias（要解就得两遍扫描建跨文件映射，与
+//    `BoolScanResult.publicBoolTypeAliases` 的裁断同源）。**没人会为了绕守卫这么写**，
+//    但上面那句「已知口子写在明处」要求它被登记，而不是留在读者的想象里。
 @Suite("新 target 禁色相字面量")
 struct EffectsColorLiteralGuard {
 
@@ -62,13 +78,33 @@ struct EffectsColorLiteralGuard {
     /// （`0.3.0` 换地基的方向本身），禁掉它会与仓库自己的地基方向相反。
     /// ⚠️ **代价照录**：`systemPink` 毕竟仍是「粉」，拿它当装饰色堆在新 target 里
     /// 本守卫看不见——这是上面口子 2 的确切含义，不是「它一定没问题」。
+    ///
+    /// ⚠️ **`magenta` / `darkGray` / `lightGray` 是 UIKit / AppKit 独有的三个，SwiftUI
+    /// `Color` 上没有对应物**（PR #265 第 3 轮终审 F-4）：本表原按 SwiftUI 的 15 个色相列，
+    /// 而 `colorTypeNames` 有意含 `UIColor` / `NSColor` / `CGColor` ⇒ `UIColor.magenta`
+    /// （「写死、不随外观变化」的典型）此前被放行。
+    /// **它们确实非 dynamic，已实测**（macOS 26 / AppKit）：三者的 `NSColor.type` 都是
+    /// `.componentBased`，在 `.aqua` 与 `.darkAqua` 两种 appearance 下 sRGB 取值**逐位相同**
+    /// （magenta 恒为 1 0 1、darkGray 恒为 0.333、lightGray 恒为 0.667），与已在表内的
+    /// `.red` 同类；作为对照，`systemRed` / `systemPink` / `labelColor` 的 `type` 是
+    /// `.catalog` 且两种 appearance 下取值**不同**——这正是口子 2 里 `system*` 被豁免所依据的
+    /// 那条性质，两处裁定用的是同一把尺子。
     nonisolated static let hueNames: Set<String> = [
-        "black", "blue", "brown", "cyan", "gray", "green", "indigo", "mint",
-        "orange", "pink", "purple", "red", "teal", "white", "yellow",
+        "black", "blue", "brown", "cyan", "darkGray", "gray", "green", "indigo",
+        "lightGray", "magenta", "mint", "orange", "pink", "purple", "red", "teal",
+        "white", "yellow",
     ]
 
     /// 允许作为色相名前缀的限定符（`Color.cyan` 合法地被抓，`rgba.red` 不被抓）。
     nonisolated static let colorTypeNames: Set<String> = ["Color", "UIColor", "NSColor", "CGColor", "SwiftUI"]
+
+    /// 隐式成员 `.init(…)` 形态可接受的**上下文类型名**。
+    ///
+    /// ⚠️ **不是 `colorTypeNames`**：那里的 `SwiftUI` 是**模块名**（用于 `SwiftUI.Color.white`
+    /// 这种限定前缀），拿它当类型标注判会把 `let x: SwiftUI.Anything = .init(red:)` 一起收进来。
+    /// 类型标注侧只认真正的颜色**类型**——`SwiftUI.Color` 经
+    /// `ImplicitMemberContext.leafTypeName(_:)` 剥成 `"Color"` 后照样命中。
+    nonisolated static let colorAnnotationNames: Set<String> = ["Color", "UIColor", "NSColor", "CGColor"]
 
     /// 数值构造的实参标签——命中其一即判「用数字调色」。
     nonisolated static let numericColorLabels: Set<String> = ["red", "white", "hue"]
@@ -185,6 +221,31 @@ struct EffectsColorLiteralGuard {
             import SwiftUI
             let c = SwiftUI.Color.white
             """),
+            // ⚠️ 以下是 PR #265 第 3 轮终审补的形态（F-2 / F-4）。
+            ("UIKit 专有非 dynamic 色相 `UIColor.magenta`（F-4）", """
+            import UIKit
+            let c = UIColor.magenta
+            """),
+            ("AppKit 专有非 dynamic 色相 `NSColor.darkGray`（F-4）", """
+            import AppKit
+            let c = NSColor.darkGray
+            """),
+            ("UIKit 专有非 dynamic 色相 `UIColor.lightGray`（F-4）", """
+            import UIKit
+            let c = UIColor.lightGray
+            """),
+            ("`as` 断言给出的上下文类型 `.init(red:…) as Color`（F-2 收紧后仍要红）", """
+            import SwiftUI
+            let c = .init(red: 1, green: 0, blue: 0) as Color
+            """),
+            ("返回类型给出的上下文类型 `func … -> Color { .init(red:…) }`（F-2 收紧后仍要红）", """
+            import SwiftUI
+            func makeTint() -> Color { .init(red: 1, green: 0, blue: 0) }
+            """),
+            ("计算属性的类型标注 `var c: Color { .init(white:) }`（F-2 收紧后仍要红）", """
+            import SwiftUI
+            var scrim: Color { .init(white: 0.5) }
+            """),
         ]
         for c in cases {
             #expect(!Self.scan(source: c.source).isEmpty, "\(c.name)：探测器漏报 —— 上面那条「零违规」毫无意义")
@@ -216,9 +277,37 @@ struct EffectsColorLiteralGuard {
             import SwiftUI
             let c = Color(.systemBlue)
             """),
-            ("非颜色类型的 `.init` 数值构造", """
+            ("非颜色类型的 `.init` 数值构造（**显式**宿主，走 `host == \"Pixel\"` 的提前返回）", """
             struct Pixel { init(red: Int) {} }
             let p = Pixel.init(red: 1)
+            """),
+            // ⚠️⚠️ **下面两条才是真正钉住 F-2 的**（PR #265 第 3 轮终审）：上一条用的是
+            // **显式**形态 `Pixel.init(red: 1)`，它走 `host == "Pixel"` 的提前返回分支，
+            // 对「宿主为空的隐式 `.init`」这条风险路径**零覆盖**，读起来却像已经覆盖了。
+            // 这两条走的正是那条路径——收紧前实测双双误报。
+            ("非颜色类型的**隐式** `.init(red:)`（F-2 风险路径）", """
+            struct Pixel { init(red: Int) {} }
+            let p: Pixel = .init(red: 1)
+            """),
+            ("非颜色类型的**隐式** `.init(white:)`（F-2 风险路径）", """
+            struct Insets { init(white: Int) {} }
+            let x: Insets = .init(white: 3)
+            """),
+            ("`hue:` 标签的非颜色类型（`CoreDesignEffects` 现实会出现的形态）", """
+            struct HSBComponents { init(hue: Double, saturation: Double, brightness: Double) {} }
+            let hsb: HSBComponents = .init(hue: 0.5, saturation: 1, brightness: 1)
+            """),
+            // ⚠️ **以下两条钉的是「已知口子」，不是「本该干净」**（文件头口子 4 / 5）：
+            // 它们**目前放行**，把这件事写成断言，后人若收紧了判据会在这里当场看见，
+            // 必须同轮改口子清单——而不是让口子悄悄消失或悄悄变宽。
+            ("口子 4：上下文类型只存在于推断里（数组元素位置）⇒ 放行", """
+            import SwiftUI
+            let palette: [Color] = [.init(red: 1, green: 0, blue: 0)]
+            """),
+            ("口子 5：`typealias` 改名后按文本判宿主看不见 ⇒ 放行", """
+            import SwiftUI
+            typealias C = Color
+            let c = C.red
             """),
         ]
         for c in clean {
@@ -307,10 +396,18 @@ private nonisolated final class ColorLiteralCollector: SyntaxVisitor {
         let isInitForm = callee.last == "init"
         if isInitForm { callee.removeLast() }
         let host = callee.last ?? ""
-        // 隐式成员 `.init(red:…)` 的宿主类型来自上下文标注（`let c: Color = …`），
-        // 语法树里没有 ⇒ 放行给下面的**数值标签**判据裁。标签集合是 `red`/`white`/`hue`，
-        // 误报面接近零，而漏掉它等于留一条一行绕过。
-        guard EffectsColorLiteralGuard.colorTypeNames.contains(host) || (isInitForm && host.isEmpty)
+        // ⚠️ **隐式成员 `.init(red:…)` 必须真的问一次上下文类型**（PR #265 第 3 轮终审 F-2）：
+        // 首版在 `isInitForm && host.isEmpty` 上**无条件**接受、只靠下面的数值标签判据兜，
+        // 并论证「误报面接近零」——实测为假：`let p: Pixel = .init(red: 1)` 与
+        // `let x: Insets = .init(white: 3)` 都被判红，而 `hue` 也在 `numericColorLabels` 里
+        // ⇒ `let hsb: HSBComponents = .init(hue:saturation:brightness:)` 同样中招。
+        // 在例外台账落地之前，第一个误报的唯一便宜出路就是削弱 `numericColorLabels`，
+        // 那正是本文件禁止的 G-7 形态 ⇒ 这里改成**要求上下文写出了颜色类型**才收。
+        // 代价（一条可枚举的漏报）记在文件头口子 4。
+        let isColorAnnotatedInit = isInitForm && host.isEmpty
+            && ImplicitMemberContext.contextualTypeName(of: node)
+                .map(EffectsColorLiteralGuard.colorAnnotationNames.contains) == true
+        guard EffectsColorLiteralGuard.colorTypeNames.contains(host) || isColorAnnotatedInit
         else { return .visitChildren }
         let labels = node.arguments.compactMap { $0.label?.text }
         guard labels.contains(where: { EffectsColorLiteralGuard.numericColorLabels.contains($0) })
@@ -327,5 +424,65 @@ private nonisolated final class ColorLiteralCollector: SyntaxVisitor {
         self.violations.append(
             .init(file: self.fileName, line: line, snippet: String(oneLine.prefix(120)))
         )
+    }
+}
+
+// MARK: - 隐式成员表达式的上下文类型 / Contextual type of an implicit member expression
+
+/// `.init(…)` / `.foo(…)` 这类**隐式成员**表达式的宿主类型在语法树里不存在——它由类型检查
+/// 从上下文推断。本工具只回答语法能回答的那一半：**源码里真的写下了类型**的三处。
+///
+/// ⚠️ **两条守卫共用它**（`EffectsColorLiteralGuard` 的 `.init(red:…)` 与
+/// `ChromeTextLiteralGuard` 的 `let t: Text = .init("…")`）：#265 第 3 轮终审 S-b 指出
+/// 两者对同一种形态的处理**不对称且无任何记录**，共用一份实现是那条不对称的结构性解法。
+///
+/// ⚠️ **它给不出的**（两条守卫的已知口子里各自登记）：数组 / 字典字面量的元素、
+/// 函数实参位置、`self.stored = .init(…)` 里 stored property 的类型、闭包返回值
+/// ——这些位置的类型只存在于推断里，语法树上没有可读的锚点。
+nonisolated enum ImplicitMemberContext {
+
+    /// 从 `node` 往上找最近的**显式类型**，找不到返回 `nil`。
+    static func contextualTypeName(of node: some SyntaxProtocol) -> String? {
+        var current = Syntax(node)
+        while let parent = current.parent {
+            // ⚠️ 闭包边界处**停**：闭包的返回类型多数写不出来，继续往上会把外层
+            // `let v: Color = ...` 的标注错安到闭包体里的表达式上（误报方向）。
+            if parent.is(ClosureExprSyntax.self) { return nil }
+            if let binding = parent.as(PatternBindingSyntax.self) {
+                // `let c: Color = .init(…)` 与 `var c: Color { .init(…) }` 走同一条。
+                return binding.typeAnnotation.flatMap { Self.leafTypeName($0.type) }
+            }
+            if let asExpr = parent.as(AsExprSyntax.self) { return Self.leafTypeName(asExpr.type) }
+            // ⚠️ **`as` 在未折叠的语法树里不是 `AsExprSyntax`**：SwiftParser 产出的是
+            // `SequenceExprSyntax`，`x as T` 落成 `[表达式, UnresolvedAsExprSyntax, TypeExprSyntax]`
+            // 三个平铺元素（折叠成 `AsExprSyntax` 是类型检查阶段的事，本仓的守卫只解析不检查）。
+            // 只认 `AsExprSyntax` 会让 `.init(red:…) as Color` 整条形态漏掉。
+            if let sequence = parent.as(SequenceExprSyntax.self) {
+                let elements = Array(sequence.elements)
+                for (index, element) in elements.enumerated()
+                where element.is(UnresolvedAsExprSyntax.self) {
+                    guard index + 1 < elements.count,
+                          let typeExpr = elements[index + 1].as(TypeExprSyntax.self) else { continue }
+                    return Self.leafTypeName(typeExpr.type)
+                }
+                return nil
+            }
+            if let fn = parent.as(FunctionDeclSyntax.self) {
+                return fn.signature.returnClause.map { Self.leafTypeName($0.type) } ?? nil
+            }
+            current = parent
+        }
+        return nil
+    }
+
+    /// `Color` / `SwiftUI.Color` / `Color?` / `Color!` ⇒ `"Color"`。
+    static func leafTypeName(_ type: TypeSyntax) -> String? {
+        if let optional = type.as(OptionalTypeSyntax.self) { return Self.leafTypeName(optional.wrappedType) }
+        if let forced = type.as(ImplicitlyUnwrappedOptionalTypeSyntax.self) {
+            return Self.leafTypeName(forced.wrappedType)
+        }
+        if let member = type.as(MemberTypeSyntax.self) { return member.name.text }
+        if let identifier = type.as(IdentifierTypeSyntax.self) { return identifier.name.text }
+        return nil
     }
 }
