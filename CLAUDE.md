@@ -35,7 +35,7 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 新增组件时优先使用第 3、4 层名称。如果缺少需要的语义 token，应在对应文件中补充新名称，而不是把第 1 层色相硬编码进组件。
 
-### 多 target 结构（`0.5.0` 起）
+### 多 target 结构
 
 本包不再是单 target。`Package.swift` 现有三个 library product：
 
@@ -52,6 +52,11 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 ⚠️ **新 target 各有独立的 test target**（`CoreDesignEffectsTests` / `CoreDesignChartsTests`），
 **不并进 `CoreDesignTests`**——并进去需要 `@testable import`，会让 `CoreDesignTests` 的
 依赖图包含新 target，破坏上面那条隔离判据。
+
+⚠️ **四条源码守卫当前只扫 `Sources/CoreDesign`**（`ComponentRegistryGuard.swift:366`、
+`BoolExemptionGuard.swift:43`、`AccessibilityStringLiteralGuard.swift:189` 等的扫描根都是
+硬编码的）——**新 target 目前不受 Bool 纪律 / a11y 字面量 / 登记表守卫覆盖**，
+多根化归 `#246`。在那之前不要假设新 target 已被这些守卫守着。
 
 ### 按钮样式模式
 
@@ -97,7 +102,8 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 - **`swift build` 不编译 `Tests/`**，`swift test` 才编译并跑测试；但 `Tests/` 下 `#if
   os(iOS)` 的 suite（如 `DynamicTypeLayoutTests`）在 macOS 上是**空 suite**——`swift
   test` 通过在这类 suite 上是假绿，必须看 CI 的 **xcodebuild iOS Simulator 腿**（或本地跑
-  `xcodebuild test -scheme CoreDesign -destination 'platform=iOS Simulator,...'`）才作数。
+  `xcodebuild test -scheme CoreDesign-Package -destination 'platform=iOS Simulator,...'`）才作数。
+  ⚠️ scheme 必须是 `CoreDesign-Package`——理由见下方《多 target 结构》。
 - **`App/`（预览宿主）不受 `swift build` / `swift test` 覆盖，CI 也不构建它**——它是独立的
   `xcodegen` 生成的 `.xcodeproj`，只能用 `scripts/run-preview.sh` 或直接
   `xcodebuild -project App/CoreDesignPreview.xcodeproj` 手动验证。删除或改名公开符号后

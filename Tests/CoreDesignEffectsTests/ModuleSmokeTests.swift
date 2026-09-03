@@ -1,6 +1,9 @@
 import Testing
 
-@testable import CoreDesignEffects
+// ⚠️ 用普通 `import` 而非 `@testable`：本测试只访问 public 成员，
+// 普通 import 更贴近「从**外部视角**证明 target 被编进测试」的意图，
+// 也不引入 `-enable-testing` 依赖。
+import CoreDesignEffects
 
 // Smoke 测试 —— 存在的唯一理由是**证明这个 test target 真的在跑**。
 //

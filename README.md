@@ -23,6 +23,16 @@ Button("Press Me") {}
     .buttonStyle(.solidButton(role: .primary))
 ```
 
+本包提供三个 library product，按需选取：
+
+| product | 内容 | 状态 |
+|---|---|---|
+| `CoreDesign` | 组件、四层色彩、token、modifier | 主体 |
+| `CoreDesignEffects` | 表达性视觉层（微交互 / 转场 / 动效） | **骨架**，组件由 `#242` 落地 |
+| `CoreDesignCharts` | Swift Charts 原生画不出来的四类图表 | **骨架**，组件由 `#242` 落地 |
+
+后两个依赖 `CoreDesign`；`CoreDesign` 不反向依赖它们，只 `import CoreDesign` 不会把它们拖进来。
+
 ## Development
 
 ```bash
