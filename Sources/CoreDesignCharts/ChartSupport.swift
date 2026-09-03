@@ -129,9 +129,20 @@ enum ChartDegeneracy: Equatable {
 
 // MARK: - 本地化
 
-// ⚠️ **本 target 必须有 `resources:` 才拿得到 `Bundle.module`**（评审 C-5）。
-// 初版没声明资源 ⇒ `Text(LocalizedStringKey)` 只能落到 `Bundle.main`（宿主 App）
-// ⇒ 本包**永远无法为自己的 chrome 文案提供翻译**。而初版还把中文字面量当默认值，
+// ⚠️ **本 target 必须自带 `Resources/en.lproj/Localizable.strings` 才拿得到译文**（评审 C-5）。
+// 初版**连资源目录都没有** ⇒ `Text(LocalizedStringKey)` 只能落到 `Bundle.main`（宿主 App）
+// ⇒ 本包**永远无法为自己的 chrome 文案提供翻译**。
+//
+// ⚠️ **别把这条写成「没有 `Package.swift` 里的 `resources:` 就没有 `Bundle.module`」**
+// ——那句话实测为假（PR #263 Copilot 第 2 轮）。本包设了 `defaultLocalization: "en"`，
+// SwiftPM 会**自动**把 `*.lproj` 当本地化资源收进去：把 `CoreDesignCharts` 那行
+// `resources: [.process("Resources")]` 删掉、用干净的 scratch path 重新 `swift build`，
+// 照样生成 `CoreDesign_CoreDesignCharts.bundle`（内含 `en.lproj/Localizable.strings`）。
+// 该行是**显式声明**（将来放非 `.lproj` 资源时不必再想一次），不是必需品——
+// 完整理由与同一份实测记在 `Package.swift` 的 `CoreDesignCharts` target 上。
+// 真正不可省的是**资源文件本身**与下面 `.chart(_:)` / `chartAXString(_:)` 的 `bundle:` 实参。
+//
+// 而初版还把中文字面量当默认值，
 // 与全库 `defaultLocalization: "en"`、`en.lproj` 为源语言的事实相反——
 // `grep -rnE "(LocalizedStringKey|LocalizedStringResource) *= *\"" Sources/CoreDesign`
 // 在既有组件上**零命中**，即本仓没有一个组件这么写过。

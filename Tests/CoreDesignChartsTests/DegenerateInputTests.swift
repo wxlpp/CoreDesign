@@ -586,15 +586,25 @@ struct LocalizationPathTests {
     /// 是因为 Foundation **回退到 key 再套格式参数** ⇒ 翻译者拿不到条目、
     /// 所有非英文 locale 静默显示英文。这正是本 target 为之加了哨兵的那个静默失败面,
     /// 而哨兵只覆盖了 `"No data"` / `"Connections"` / `"Node"`。
-    /// ⇒ 判据：查表结果**必须与 key 本身不同**（带格式参数的 key 展开后天然不同，
-    /// 故改用「是否含未展开的 `%lld`」判定）。
-    @Test("两条超限横幅都在表里（不是回退到 key）")
+    /// ⚠️ **判据是「哨兵 `value:`」，不是「结果 != key」**（PR #263 Copilot 第 2 轮：
+    /// 上一版注释描述的判据与下面的断言对不上）。这里**不能**照 `__localization_probe__`
+    /// 那条的形态写，两条备选判据在这两个 key 上都是错的：
+    /// · 「结果 != key」——源语言就是英文，`"Showing the first %lld nodes"` 的**译文与
+    ///   key 逐字节相同**（见 `en.lproj/Localizable.strings`）⇒ 条目**正确存在**时这条
+    ///   判据也判红；而哨兵那条之所以能这么写，是因为它的译文被**有意**写成了别的字符串。
+    /// · 「含未展开的 `%lld`」——`localizedString(forKey:value:table:)` 只查表、**不做
+    ///   任何格式展开**，正确的译文本来就带 `%lld` ⇒ 同样把正确条目判红。
+    /// ⇒ 用 `value:` 哨兵：查表 miss 时 Foundation 返回的是 `value` 而不是 key，
+    /// 这是本例中唯一能区分「命中」与「回退」的信号。
+    /// 附带钉住占位符**必须保留**——译文丢了 `%lld`，横幅上的数字就没了。
+    @Test("两条超限横幅都在表里（哨兵 value 判定命中），且译文保留 %lld 占位符")
     func truncationBannersAreRegistered() {
         for key in ["Showing the first %lld nodes", "Showing the first %lld connections"] {
             let resolved = Bundle.module.localizedString(
                 forKey: key, value: "@@MISS@@", table: nil
             )
             #expect(resolved != "@@MISS@@", "`\(key)` 不在 Localizable.strings 里")
+            #expect(resolved.contains("%lld"), "`\(key)` 的译文丢了 %lld —— 数字显示不出来")
         }
     }
 }
@@ -818,5 +828,67 @@ struct TruncationConsistencyTests {
         #expect(edges.count == NetworkGraph<Node>.recommendedEdgeLimit + 1)
         let g = NetworkGraph(nodes: nodes, edges: edges)
         #expect(g.layoutKey(for: .init(width: 300, height: 300)).iterations == 0)
+    }
+}
+
+// MARK: - 无向边归一化（PR #263 Copilot 第 2 轮）
+
+/// `hashValue` **恒定**的 ID —— 任意两个不相等的值都必然 hash 碰撞。
+///
+/// ⚠️ 只能这么造：`String` 的哈希每进程随机播种，想在测试里凑出一对
+/// hashValue 相同的字符串不现实（64 bit 生日碰撞）。而 `Hashable` 本就
+/// **不保证** hashValue 唯一 —— 这个类型是合法的 `Hashable` 实现，
+/// 只是把「碰撞」这件正常事放大到必然发生。
+private nonisolated struct CollidingID: Hashable, Sendable {
+    let raw: String
+    func hash(into hasher: inout Hasher) { hasher.combine(0) }
+}
+
+private nonisolated struct CollidingNode: GraphNode {
+    let id: CollidingID
+    let label: String
+}
+
+/// ⚠️⚠️ **上一版 `UndirectedKey` 用 `hashValue` 给端点定序**，而 `Hashable`
+/// 不保证 hashValue 唯一 ⇒ 碰撞时 `from.hashValue <= to.hashValue` 两个方向
+/// **都成立** ⇒ `a→b` 归一成 `(a, b)`、`b→a` 归一成 `(b, a)`，同一条无向边
+/// 得到两个键 ⇒ 去重失效，度数与截断判定跟着错。
+@Suite("无向边归一化对 hashValue 碰撞免疫")
+struct UndirectedKeyCollisionTests {
+
+    /// 前提：这两个 ID 确实"不相等但同哈希"，否则下面两条测的是空气。
+    @Test("前提成立：hashValue 相同但不相等")
+    func premiseHolds() {
+        let a = CollidingID(raw: "a")
+        let b = CollidingID(raw: "b")
+        #expect(a != b)
+        #expect(a.hashValue == b.hashValue)
+    }
+
+    @Test("hashValue 碰撞时 a→b 与 b→a 仍算同一条边（度数）")
+    func reverseEdgeDedupesUnderHashCollision() {
+        let a = CollidingID(raw: "a")
+        let b = CollidingID(raw: "b")
+        let nodes = [CollidingNode(id: a, label: "A"), CollidingNode(id: b, label: "B")]
+        let d = NetworkGraph(nodes: nodes,
+                             edges: [GraphEdge(from: a, to: b),
+                                     GraphEdge(from: b, to: a)]).makeChartDescriptor()
+        let ys = d.series.first?.dataPoints.compactMap {
+            Double(String(describing: $0.yValue).filter { "0123456789.".contains($0) })
+        } ?? []
+        #expect(ys == [1, 1], "反向边在哈希碰撞下没被去重，度数成了 \(ys)——屏幕上只画得出 1 条")
+    }
+
+    /// 直接钉住去重本身（度数那条会被 descriptor 的其它过滤掩盖）。
+    @Test("hashValue 碰撞时 effectiveEdges 只留一条")
+    func effectiveEdgesDedupesUnderHashCollision() {
+        let a = CollidingID(raw: "a")
+        let b = CollidingID(raw: "b")
+        let nodes = [CollidingNode(id: a, label: "A"), CollidingNode(id: b, label: "B")]
+        let g = NetworkGraph(nodes: nodes,
+                            edges: [GraphEdge(from: a, to: b),
+                                    GraphEdge(from: b, to: a)])
+        #expect(g.layoutKey(for: .init(width: 300, height: 300)).edges.count == 1,
+                "a→b 与 b→a 在哈希碰撞下被当成了两条边")
     }
 }

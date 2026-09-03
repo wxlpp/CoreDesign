@@ -137,13 +137,39 @@ public struct NetworkGraph<Node: GraphNode>: View {
     }
 
     /// 无序对键——`a→b` 与 `b→a` 归一化成同一个。
+    ///
+    /// ⚠️⚠️ **不得用 `hashValue` 给端点定序**（PR #263 Copilot 第 2 轮）。上一版写的是
+    /// `if e.from.hashValue <= e.to.hashValue { (lo, hi) = (from, to) } else { (to, from) }`
+    /// ——而 `Hashable` **不保证 hashValue 唯一**。两个不相等但 hashValue 相同的 ID 上
+    /// `<=` 在**两个方向都成立** ⇒ `a→b` 归一成 `(a, b)`、`b→a` 归一成 `(b, a)`，
+    /// **同一条无向边拿到两个不同的键** ⇒ 去重失效 ⇒ 度数翻倍（descriptor 报 2、
+    /// 屏幕只画 1 条）、`edgesTruncated` 提前触发。这不是理论：
+    /// `UndirectedKeyCollisionTests` 用一个 `hash(into:)` 恒定的 ID 复现，修复前判红
+    /// （度数 `[2, 2]`、`effectiveEdges` 留 2 条）。
+    /// ⚠️ 也没有「改用排序」这条退路——`Node.ID` 只要求 `Hashable`，**不要求 `Comparable`**。
+    ///
+    /// ⇒ 改为**顺序无关的相等性 + 交换律哈希**：端点原样存，`==` 同时认两种配对，
+    /// `hash(into:)` 用 `&+`（可交换）组合两个端点的哈希 ⇒ 满足「相等 ⇒ 哈希相等」这条
+    /// `Hashable` 契约。**哈希碰撞本身无害**：`Set` 落到同一桶后由 `==` 裁定，
+    /// 正确性不再依赖哈希唯一——这正是上一版反过来的地方。
+    ///
+    /// ⚠️ **为什么不是评审建议的 `Set<Node.ID>`**：语义上等价（自环 `a→a` 退化成单元素
+    /// 集合，与本类型 `a == b` 的表现一致，且自环仍按既定约定计度数 2），但它给
+    /// **每一条输入边**都堆分配一个 `Set`，而这条路径在 `effectiveEdges` 与
+    /// `edgesTruncated` 上各遍历一遍全量边。两种写法都不影响确定性——去重保留的是
+    /// `filter` 的**数组顺序**，与哈希顺序无关，布局仍可复现。
     private struct UndirectedKey: Hashable {
-        let lo: Node.ID
-        let hi: Node.ID
+        private let a: Node.ID
+        private let b: Node.ID
         init(_ e: Edge) {
-            // `Node.ID: Hashable` 不保证 `Comparable` ⇒ 用 hashValue 定序（同进程内稳定）。
-            if e.from.hashValue <= e.to.hashValue { (self.lo, self.hi) = (e.from, e.to) }
-            else { (self.lo, self.hi) = (e.to, e.from) }
+            self.a = e.from
+            self.b = e.to
+        }
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            (lhs.a == rhs.a && lhs.b == rhs.b) || (lhs.a == rhs.b && lhs.b == rhs.a)
+        }
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(self.a.hashValue &+ self.b.hashValue)
         }
     }
 
