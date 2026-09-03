@@ -1417,445 +1417,109 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
 
 ---
 
-#### AD-4 裁决：三个新 target（`CoreDesignEffects` / `CoreDesignCharts` / `CoreDesignShaders`）的登记表作用域
+#### AD-4 裁决：三个新 target 的登记表作用域 —— **裁定：AD-2 原样适用**
 
-**这一段回答的问题**：`shipswift-*` 三个 epic 引入的新 target，其 public 类型归哪套公约管。
+⚠️⚠️ **本裁决经六轮终审后，其规范内容收敛为「AD-2 原样适用」。**
+第 1–5 版曾裁「Effects / Shaders 走轻公约（a）」，理由是成本模型；
+该模型经四次修正后**在实测单价下六格里五格 b 胜**，第 5 版据此把默认值翻成 b。
+⇒ **Charts = b + Effects/Shaders = b = 三个 target 全走 b = AD-2 逐字原样。**
 
-⚠️ **为什么必须显式裁决，不能默认**：`shipswift-harvest` PRD 初版把「新 target 不进
-`docs/component-registry.json`」当作**假设**写下，被评审证伪——上面 **AD-2** 逐字裁定
-「登记单位是**有 public 类型的 API 表面**，不是『是不是 `ViewModifier`』」，且**通篇未按
-target 划作用域**。守卫今天扫不到新 target（`ComponentRegistryGuard.swift:366` 把扫描根
-硬编码为 `Sources/CoreDesign`）**只是实现层盲区，不是公约层许可**。
+**因此本段不再产出新的作用域规则**，只留下四件在这个过程中被算清、且**与路线无关**
+的下游事实。**成本模型、轻公约、复判闸、拍板一（登记形态）全部撤回**
+——它们的结论已归零，留在公约里只制造误读面。
 
-##### 裁决：按 target 分别定，**不一刀切**
+##### 为什么裁「AD-2 原样适用」而不是「什么都不裁」
 
-| target | 归属 | 理由 |
-|---|---|---|
-| **`CoreDesignCharts`** | **b：照常进 `component-registry.json`，判定法全套适用** | 4 个图表是**有形态选择的常规组件**——「同一份数据换一种图形表达」正是步骤 2 问的那个问题，对它们真有内容（雷达图 ↔ 平行坐标图 ↔ 分组条形图 是三个真实业界形态，不是同一骨架换画法）。 |
-| **`CoreDesignEffects`** | ⚠️ **暂定 b**（**不是已裁定**） | 成本模型**已知不足以定案**（四条缺口），而 b 是**可逆的那一侧**——见下。 |
-| **`CoreDesignShaders`** | ⚠️ **暂定 b**（同上） | 同上。⚠️ 定性上仍有一条支持 a 的理由：`.metal` 侧在所有 SwiftSyntax 守卫射程之外（**AD-F**）⇒ 走 b 只买到半套；但它不足以单独撑起裁决。 |
+问题本身是真的：`ComponentRegistryGuard.swift:366` 把扫描根硬编码为
+`Sources/CoreDesign`，而 AD-2 **通篇未按 target 划作用域** ⇒ 实现层盲区会被读成
+公约层许可（G-7 早已把「新增第二个源 target」记为逃生门）。
+⇒ **本裁决的产出是把「AD-2 适用于全部三个 target」这句话写下来**，
+以及下面四件下游连锁。**这不是零产出，但它也不是当初以为的那个产出。**
 
-⚠️⚠️ **`Charts = b` 与 `Effects/Shaders = a` 的证据地位不同，必须分开读**：
-- **Charts 那一半现在就裁，且不依赖成本模型**——理由是定性的（判定法步骤 2 对图表真有内容），
-  且下游连锁（J-2、47→51、`inspected.count` 11→15、`ComponentTextParamGuard` 五个数）
-  已全部算清并回写 `255.md`。
-- **Effects / Shaders 那一半只是暂定**。本裁决自陈「成本是唯一决定性论据」，
-  而第 4 轮终审查出该模型有**四条独立缺口，任意两条叠加即翻到 b**（见下）。
-  一份自称唯一论据的裁决，其唯一论据不能停在这个状态。
+##### 撤回记录：五版各错在哪（照录，不删）
 
-⚠️ **三 target 一刀切是被否决的方案**。把 4 个图表和 `.shake(trigger:)` 划进同一套轻公约，
-恰是在**判定法最有内容的地方**绕开它。
+《事后补写的效力边界》要求错误留痕。五版的失败是**同一个形状**：
+**我先有了倾向（走 a），然后为它找论据；每次论据被证伪，就换一个论据继续撑同一结论。**
 
-##### 两侧成本：差量口径 + 盈亏平衡（本裁决的**唯一**决定性论据）
+1. **第 1 版「公开协议外溢」** —— 建立在三处事实错误上：`SpinningModifier` 实为
+   `semantic/step2/true` 而非 tiebreaker；引的公约小节**不存在**；
+   那句话的真实出处目的**相反**。且 `needsExtensionPoint: true` **≠** 必须发 public 协议
+   （本仓 #59 翻出的 5 条全部由 #60/#64/#65 以配置枚举兑现，一个协议都没发）。
+2. **第 2 版成本比较** —— 两侧单位不同（Swift 字节 vs 中文字符）、
+   56 KB 不是差量（其中 46 KB 两条路线共有）。
+3. **第 3 版敏感性表** —— 五个取值**全部 ≥ 均值**，能翻转结论的下侧一格没探。
+4. **第 4 版** —— 参照物 `ReachableTypeRegistryGuard` **实测零个 `subtracting`**，
+   而同一份文档 154 行后就写着这句话；拍板四被误判为共有成本。
+5. **第 5 版复判闸** —— 公式量纲错（件数 − 字符数）⇒ 阈值 −58 ⇒ **恒假、永不触发**；
+   且闸门自身成本一进模型，最后一格 a 也翻。
 
-⚠️ **第 1 版的「公开协议外溢」论据已撤回**（见下方《撤回记录》）。
-⚠️ **第 2 版的成本比较也不合格**（单位不统一、56 KB 不是差量）。
-⚠️ **第 3 版的输入数据仍有三处错**（第 3 轮终审 C4/C5/I2），本版逐条改正——
-**并且改完之后，结论比前几版声称的弱得多。**
+⚠️ **第 6 版（本版）撤回结论本身**：翻成 b 之后规范内容归零，而三处反向指令
+（AD-2 横幅、「一刀切被否决」、拍板四的禁令）**仍活在树上**
+⇒ 净效果是「加了 400 行、承重结论与 AD-2 相同、三处显式条款与该结论相反」。
 
-**差量口径**（只算「走 a 要付、走 b 不用付」的）：
+⚠️ **并且第 5 版的翻转论证本身也不干净**：「b 是可逆的那一侧」**只算了守卫成本、
+没算 b 侧判定法产物的不可逆性** —— 走 b 的每一件只要落 `step1/step2`
+（`decidedBy ⇒ kind` 映射写死 semantic），`ComponentRegistryGuard:518-519` 就**硬断言**
+`needsExtensionPoint`，而 `ComponentExtensionPointGuard` 的 `knownMissingExtensionPoints`
+**现为空集**、注释逐字禁止把新条目塞回去 ⇒ **必须同批交出真实扩展点**，
+那正是撤回记录第 1 条讨论的不可逆 API 表面。**两侧的后悔成本至今没有对称测量过。**
 
-| | 数值 | 依据 |
-|---|---|---|
-| **a 侧固定** | **≈ 12 600 字符** | 差集守卫 **10 173**（经验下限取 `ReachableTypeRegistryGuard`——本仓**唯一真做双向差集**的守卫；⚠️ 第 3 版取 `StyleConsumptionGuard` 8 146 打八折得 6 500，**那个参照选错了**：它不做差集，只对 4 个条目逐个查 `makeBody`，射程窄、结构简单，而本裁决给差集守卫加的是双向差集 + `entryPoints` 第二采集器 + 四字段 schema + 非样板理由质量断言，全部指向**上**）+ **仅路线 a 特有**的规范文字 ≈ 2 400（拍板一 + 默认扩展点条款；⚠️ 裁决表 / 本节 / 撤回记录 / 样本走查 / 拍板二三四 走 b 也照样要写，**不计入差量**） |
-| **a 侧每件** | **≈ 350 字符** | 一条 `effects-registry.json` 条目（实测本仓登记条目去掉 notes 后中位 **249**）+ 非样板的 `extensionPoint` 理由 ≈ 100。⚠️ **第 3 版把 `docs/components/*.md` 记进了 a 侧每件（估 200）——两处都错**：它实测中位 **2 066** 字符（低估 10 倍），而且 `252.md` 的 AC 与 `docs/README.md` 的索引链接要求**两条路线都写** ⇒ 是**共有成本**，不进差量。两个错误方向相反、恰好抵消 |
-| **b 侧固定** | **≈ 0** | 把 `ComponentRegistryGuard` 的扫描根多加一个目录 |
-| **b 侧每件** | **见下方敏感性** | 一条判定法 notes |
+##### 下游连锁一 · Charts 走 b 会触发整条 J-2 链
 
-**盈亏平衡**：`P* = 12 600 / (unit − 350)`。
+`step1/2 ⇒ semantic`（`ComponentRegistryGuard.swift:456-457`）⇒ **硬断言**
+`needsExtensionPoint`（`:518-519`）⇒ 进 J-2 定义域 ⇒
+`ComponentExtensionPointGuard.swift:76` 的 `inspected.count == 11` **变 15 ⇒ 红**；
+`:98` 的 `missing.isEmpty` 要求**同批交出真实扩展点**，而 `:108-110` 逐字禁止
+「为了让它变绿把新条目塞回 `knownMissingExtensionPoints`」。
 
-| b 侧单价 | 依据 | P* | P = 38 时 |
-|---|---|---|---|
-| **1 920** | notes 里引用 #53/#59 的 **21 条**（即经过**现行**口径判过的）中位 | 8.0 | **a 胜 2.9×** |
-| **850** | **本轮两个样本的首过实测**（AC 指定的取证路径） | 25.1 | **a 胜 1.25×** |
-| 478 | 未经现行口径的 26 条中位 | 98.2 | **b 胜 1.4×** |
-| ~50 | `step3` 的 4 条 Skeleton 遗留（39–106 字符） | 分母 ≤ 0 | **b 在任何 P 上都胜** |
+⚠️ **被顶动的不止 `== 47` 与 `== 31`**，还有 `ComponentTextParamGuard` 的
+`covered.count == 30`、`localizedByType.count == 11`、`carrying.count == 9`，
+以及 `unmappedOwners` / `functionSideBareText` 两个**固定集合**。
 
-⚠️⚠️ **这张表必须连下面两行一起读，否则它是在替对手辩护**（第 3 轮终审 C5：
-「敏感性分析只往对自己有利的方向做，不叫敏感性分析」——第 3 版的五个取值**全部
-≥ 均值**，能翻转结论的下侧一格没探）：
+⚠️ **「若落形态 C（不给扩展点）须在 notes 写明理由」这条出路对 `semantic` 条目
+机械上不可能** —— schema 硬断言 + J-2 定义域都不允许。
+⇒ 形态 C 的出路只对落 `prescriptive` 的条目成立，**这一点必须写明**，
+否则 `255.md` 会带着一条无法验收的 AC。
 
-- **结论只在单价 ≥ ~800 时成立。** 低于此值 b 更便宜；而 `step3` 那一档
-  （Effects 件最可能的落点类型：纯装饰、长相即含义）会让 b 在**任何 P** 上更便宜。
-- **为什么仍判 a**：`step3` 的 4 条低值是 **#59 之前的遗留**（`SkeletonLine` 39 字符
-  「文本行占位形状，纯几何圆角矩形 ⇒ 长相即含义」），而 **#59 之后**任何新判定
-  ——**无论走哪个出口**——都必须携带完整枚举（≥3 个具名候选 + 逐条来源 + 互异性 +
-  皮肤变体三分法 + 作用域三条件）。#59 逐字裁定「既判条目**不主动回溯**」⇒ 它们是
-  被祖父条款保护的旧口径产物，**不是新判定的预报**。
-  这一点有**双重实证**：现行口径条目中位 **1 920** vs 未经现行口径的 **478**；
-  以及本轮两个样本首过 **850**（都落 `tiebreaker`，即"最省"的那个出口，仍要 850）。
-- ⚠️ **但 850 这个数只比 800 的翻转线高 6%。** 诚实的结论是：
-  **a 胜，但优势在 1.25×–2.9× 之间，取决于单价落在样本首过还是现行口径中位。**
-  前几版声称的「胜 2.7×」「一个数量级」**都不成立**。
+##### 下游连锁二 · `transition` / `modifier` 走扩展成员扫描器（**与路线无关**）
 
-##### ⚠️ 成本模型的四条缺口（第 4 轮终审，我逐条独立复核后确认属实）
+task 250 的 8 个 `public extension View` 方法 + task 251 的 16 个转场 =
+**24 个公开入口点**，今天对**所有**守卫不可见——`Transition` 静态成员与
+`public extension View` 方法**在路线 b 下照样扫不到**。
+⇒ 新建扩展成员扫描器（把既有 `PublicTypeCollector` 扩到 extension 成员），
+登记进 `component-registry.json` 的 `entryPoints` 数组。
 
-1. **参照物选错，且与本文自相矛盾。** 上一版取 `ReachableTypeRegistryGuard`
-   （10 173）作差集守卫的经验下限，称它是「本仓唯一真做双向差集的守卫」
-   ——**实测它零个 `subtracting`**，而本文档 154 行之后的拍板一里逐字写着
-   「点名过的 `ReachableTypeRegistryGuard` **一处都没有**」。**同一份文档里两句打架。**
-   本仓真做这件事的最小同类是 `ComponentTextParamGuard` **28 293**，是所取"下限"的 **2.8 倍**；
-   而 `244.md` 的 AC **点名的参照集**是 `AccessibilityStringLiteralGuard`（13 475）
-   与 `BoolParameterScanner`（49 225）。⇒ a_fixed 是**区间**，不是点估算。
-2. **拍板四（1 932 字符）被误判为共有。** 它整节的内容是「根**只许**是
-   `CoreDesign + Charts`，加 Effects/Shaders **为本裁决所禁止**」——**走 b 时这一节不存在**
-   （根直接扩到三个 target）。按本裁决自己的反事实口径，它是 **a 特有**。
-3. **单位换算从未论证。** a_fixed 的主项是 **Swift 源码字符**，b 的单价是**中文散文字符**，
-   两者以 **1:1** 相减相除。一个中文字符的写作成本约是一行 Swift 里一个 ASCII 字符的
-   2–4 倍 ⇒ **一个 2–4× 的未定标度，压在一个 1.1× 量级的结论上**
-   ⇒ **模型在 850 那一档没有分辨力。**
-4. **决定性的那一档单价从未被测。** #59 的停止规则是**二选一**：
-   「≥3 个具名候选」**或**「写明已穷尽 + 基线名单」。上一版只写了贵的那一支，
-   而**便宜那一支**（候选为 0 ⇒ 来源义务为 0、三分法与作用域不触发）正是
-   「纯装饰、长相即含义」这类件的活路。两个样本都因为**真有候选**而走不了第二支
-   ⇒ **Effects 件最可能落的那一档，单价是未知数**。
+⚠️ **本条推翻** `251.md` / `246.md` / `foundation/epic.md` 三处已写下的
+「按 AD-4 的裁决**手工维护**并在盲区台账留痕」——24 条量级的手工表必漂，
+正是 G-7 记在案的失效形态。三份文件须回改。
 
-**按修正后的输入重算**（a 特有正文 = 拍板一 862 + 默认扩展点条款 1 787 + 拍板四 1 932 = 4 581）：
+##### 下游连锁三 · README 索引落点：**三个 target 全部进主索引**
 
-| 差集守卫锚 | a_fixed | 单价 1 920 | 单价 **850**（AC 指定的实测值） |
-|---|---|---|---|
-| AC 下锚（13 475） | 18 056 | a 胜 2.3× | **a 胜 1.03×**（噪声内） |
-| 最小真差集守卫（28 293） | 32 874 | a 胜 1.6× | **b 胜 1.43×** |
-| 本裁决自称的模板 `ComponentRegistryGuard`（43 858） | 48 439 | a 胜 1.2× | **b 胜 1.91×** |
-
-⇒ **在 AC 指定的实测单价下，六格里五格 b 胜。** 上一版「a 胜 1.25×–2.9×」不成立。
-
-##### ⚠️ 第 5 轮：默认值从 a 翻成 b —— 三条新证据，方向一致
-
-第 4 轮我把裁决降为「暂定 a + 复判闸」。第 5 轮终审查出**三条硬伤，全部指向同一侧**，
-我逐条独立复核后确认属实：
-
-1. **复判闸的公式量纲错误，写死为「永不触发」。**
-   我写的是 `unit < a_fixed / (P − 每件成本)` —— `P` 是**件数**（38）、
-   `每件成本` 是**字符数**（350）⇒ `38 − 350 = −312` ⇒ 阈值 ≈ **−58**
-   ⇒「实测单价 < −58」**恒为假**。整个闸门唯一的数值判据是死的。
-   正解由 `a_fixed + P·per > P·unit` 得出：**`unit < a_fixed/P + 每件成本`**，
-   三个锚下分别是 **825 / 1215 / 1625**
-   ⇒ **AC 实测的 850 今天就已经触发其中两档。**
-2. **闸门自身的成本一进模型，最后一格 a 也翻了。** 按本裁决在缺口 2 里用来把拍板四
-   判为 a 特有的**同一条反事实口径**，《复判闸》整节（1 300 字符）与它规定的实物工作
-   （前两件各走一遍 b 侧判定 = 2 × 850）**只在 a 路线下存在**、必须计入 a_fixed。
-   代进唯一那格 a 胜的低锚：a = 34 356 vs b = 32 300 ⇒ **b 胜**。
-   ⇒ **加上闸门后六格全部 b 胜**——我在用一个「成本使 a 必输」的机制去论证「暂定 a」。
-3. **从未考虑对称的「暂定 b」，而两侧的后悔成本严重不对称。**
-   本表自己写着 **b 侧固定成本 ≈ 0**（扫描根多加一个目录）：
-   · 暂定 a 判错 ⇒ 246 先建 ≈28 293 字符的差集守卫 + 四组 schema 字段，翻 b 后**整台作废**；
-   · 暂定 b 判错 ⇒ 多写若干条 notes，翻回 a 时 **notes 可复用**（`foundation/epic.md:70`
-     逐字写着「样本 notes 可被 A-6 复用，省一次返工」）。
-   ⚠️ 且顺序上必然是**先付 a 的全款、再决定 a 对不对**——闸门要读 registry，
-   而 registry 是 a 的产物。这是一个与**成本**之间的自举环。
-
-⇒ **裁定：默认值取可逆的那一侧，即 b。** 这与本公约在扩展点问题上的既有立场同构
-（「少给扩展点是可逆的；多给扩展点不可逆」）：**模型分辨不了时，选后悔成本低的默认值，
-而不是选自己一开始倾向的那个。**
-
-⇒ **246 现在不建差集守卫**，只做扫描根多 target 化（成本 ≈ 0）；
-差集守卫改为「复判翻 a 才建」。
-
-##### 复判闸（把「暂定」变成可终结的，而不是永久悬置）
-
-⚠️ 「暂不裁定」会卡住 task 246（它要知道建不建差集守卫）⇒ 取**暂定 + 硬复判闸**，
-且闸门**必须机器可触发**，不能是散文——否则它会和被本裁决判掉的
-「⚠️ 确有需要时」一样变成不可证伪的默认答案。
-
-⚠️ **闸门的方向随默认值一起翻了**：现在要问的是「单价高到什么程度才值得改判 a」。
-
-- **触发器挂在 task 252**（⚠️ **不是 246**）：252 是**第一个产出登记面 Effects 类型**
-  的 task（`ScanningOverlay` 正是本裁决的样本 1）。
-  ⚠️ 挂 246 是**落空的**——246 落地时真实 Effects 件是 **0 个**
-  （`252.md` 的 `depends_on` 含 246；task 250 的 8 个微交互按 AD-2 排除、进不了主数组）
-  ⇒「前两条非空」在空数组上**真空为真 ⇒ 绿**。而 `246.md` 自己就记录过同款失效形态
-  （「本 task 落地时两个新根是空目录…新守卫在 0 个文件上必绿」）——同一份 PR 在别处
-  防住了它、在闸门上又踩了一次。
-- **252 的 AC 增项**：前两个进登记表的 Effects 件，**如实记录 b 侧 notes 字符数**
-  与它走的是哪个出口（≥3 候选支 / 已穷尽支）。
-  ⚠️ **不再要求「至少一件须是纯装饰件」**——那是一条**不可判定**条款：
-  「纯装饰件」无定义（公约定义的是纯装饰**层**）、「能走已穷尽支」是判定的**产出**
-  而不是可选的输入（本裁决的两个样本正是"因为真有候选而走不了第二支"），
-  且没有兜底 ⇒ 会变成「那就跳过闸门」，即闸门被自己的前提静默关掉
-  ——正是本裁决判掉的「⚠️ 确有需要时」型条款的复刻。
-- **机器痕迹（fail-closed）**：registry schema 加 `bSideNotesChars`；断言写成
-  「主数组条目数 ≥ 1 时，前两条的 `bSideNotesChars` 必须 > 0；条目数 = 0 时
-  **闸门状态记为『未触发』，禁止据此认定任何一侧成立**」。
-- **改判条件**：若实测单价 **≥ `a_fixed/P + 每件成本`**（三个锚下 **825 / 1215 / 1625**）
-  ⇒ **改判 a**，并建差集守卫。
-  ⚠️ **绝对阈值写死在这里**，不要求读者代公式——上一版就是因为公式量纲错、
-  而没人去代过一次数，才让闸门恒假。
-- **承接（第 3 轮 I-10 批过「没指定由谁裁」，这里不再复现）**：由 **252 的 DoD** 触发，
-  开 `AD-4 复判` issue，结论以**修订本节正文 + 同步 246 / 251 / 252** 的形式落地。
-
-**P 的构成**（口径依据取自**实现**而非 AC）：
-
-- **Shaders = 28**：`shipswift-shaders` 的 **AD-E** 逐字写「28 个 shader 全部是
-  public 类型，AD-4 成本比较里的 P 口径统一」。⚠️ 第 3 版说「AD-E 只对 11 个
-  layerEffect 明写了形态」——**那是误述**（第 3 轮终审 I-8），方向上把自己说弱了，
-  但陈述为假，且发生在承重前提上。
-- **Effects = 10–12**：task 252/253/254 共 12 项，其中 `Confetti`（自述形态是
-  `myView.confetti(trigger:)`）与 `ParticleTransition`（若落成 `Transition`）
-  可能按 AD-2 / `251.md` 排除。⚠️ 更根本的是：252/253/254 **都没有指定类型形态**，
-  而 task 250 已实现的**唯一**先例是 `internal struct + public extension View`
-  （AD-2 明文排除）——若后续沿用同一惯例，P 会显著低于 12。**这是本裁决最脆弱的
-  承重前提**，未来若 P 跌破 25（样本单价下的平衡点）结论需重判。
-- **task 250 已实现的 8 个微交互全部排除**：实测 `Shake.swift:43` / `Jump.swift:73` /
-  `Ping.swift:77` / `Spin.swift:47` / `Spray.swift:85` / `Rise.swift:64` /
-  `Haptic.swift:8` / `Shine.swift:64` 全是 `public extension View`。
-  ⚠️ 它们**尚未合并**（在 `issue-250-micro` 分支上）。
-
-**2 个样本**（在 scratch 完成，产物不进主线；走查见下方《样本走查》）：
-
-| 样本 | 形态 | 落点 | notes 字符 |
-|---|---|---|---|
-| `ScanningOverlay` | public View struct（取自 task 252） | `prescriptive` / `tiebreaker` | 859 |
-| `SampleLayerEffectModifier` | `public struct : ViewModifier` | `prescriptive` / `tiebreaker` | 848 |
-
-⚠️ **这两个字符数是 AC 指定的取证路径产出的唯一直接测量**（`foundation/epic.md:57`
-为此专门打破了自举环）。第 3 版只报落点、**没报这个数**，转而用全仓统计替代
-——而它恰是敏感性表里争议最大的那一格（第 3 轮终审 I-5）。
-
-⚠️ **「两个样本落点相反」这个卖点已撤回**（第 2 轮终审 C-4）：样本 1 的走查在同一批
-判定里混用了形态级与角色级两种读法，按统一形态级读法重跑后与样本 2 **落点相同**。
-
-##### 撤回记录：第 1 版的三处事实错误
-
-⚠️ **照录，不删**——本公约的《事后补写的效力边界》要求错误留痕而不是抹掉。
-
-1. **「三个同型条目同落 tiebreaker」是假的**。实测 `docs/component-registry.json`：
-   `FloatingGlassModifier` 与 `TelegramGlassButtonModifier` 是 `prescriptive/tiebreaker`，
-   而 **`SpinningModifier` 是 `semantic` / `step2` / `needsExtensionPoint: true`**。
-2. **引了一段不存在的小节**。第 1 版写「本公约『⚠️ 默认给不给扩展点』一节自陈…」，
-   全文 `grep` 该字符串只有两处**引用**、**没有这个标题**（另一处是 `:67` 早就存在的
-   悬空自引用，第 1 版照抄了它）。
-3. **把论据用反了**。那句话的真实出处是 §2 形态 D 的裁定来源（本文件「⚠️ **裁定的动机是
-   不可逆性的不对称**」段），而**那段的目的恰恰是让人不必发 public 协议**。第 1 版拿它
-   论证「判定法会逼你发 public 协议」。
-
-⚠️ **更要紧的是第 4 点：`needsExtensionPoint: true` ≠ 必须发 public 样式协议。**
-§2 的优先序是 **A > B > D > C**，D（槽 / 配置枚举）是合法落点，且「⚠️ 候选形态清单 ≠
-扩展点需求集」明文允许「承认差异存在、但本轮不开扩展点」（形态 C，notes 写明理由）。
-**本仓实证**：#59 把 5 条翻成 `semantic/step2/true`，随后由 #60/#64/#65 **全部以配置枚举
-（形态 D）兑现，一个新的 public 样式协议都没发**。
-⇒ 「批量生产不可逆 API 表面」在本仓的实际兑现路径下**从未发生过**。
-
-##### 样本走查（终审 I-2：只给落点不给走查，读者无从复核）
-
-⚠️ **第 2 版的样本 1 走查有三处缺陷，已按第 2 轮终审 C-4 重跑**，照录于末尾。
-
-**样本 1 · `ScanningOverlay`**（在调用方内容之上扫过一条处理中光带）
-
-- **步骤 1「无」**：写不出「可改写为『系统控件 + 该协议的自定义 style』且不丢功能」
-  这句声明——最贴近的 `ProgressViewStyle` 只承载「进度 / 忙碌」，其 `Configuration`
-  不含被扫描的内容本身，而本组件的语义核心正是「**这一块内容**正在被处理」。
-- **步骤 2**，走「≥3 个具名候选」分支，逐条给来源：
-  ① **Apple HIG** —— 不确定态 `ProgressView`（线性 / 圆形）；
-  ② **Material Design 3** —— indeterminate `LinearProgressIndicator`；
-  ③ **Ant Design** —— `Skeleton`（active 态微光）；
-  ④ **Fluent** —— `Shimmer` 组件；
-  ⑤ 最贴近的真实产品 —— Apple 自家 Live Text / Visual Look Up 的扫掠。
-- **逐条判（五个全判，不留空）**：
-  - ⑤ **是本组件的当前形态本身** ⇒ 按「替代 = 不含组件当前的形态」**不入候选**。
-  - ③④ 同属「用占位骨架 / 微光**替换**内容」这一形态，**由兄弟组件 `Skeleton`
-    与 `SkeletonCircle` 承担**（两者都在登记表，均 `prescriptive/step3`）
-    ⇒ 作用域三条件满足，**排除**。
-  - ①② 是**同一形态的两个体系写法**（兄弟位、行内不确定态指示器；② 的 linear
-    形态本就包含在 ① 的「线性 / 圆形」里）⇒ 按皮肤变体的**互异性**要求，
-    两者**塌成一个**，不是两个。
-  - 该形态（兄弟位不确定态指示器）**由已登记的 `ProgressIndicator` 承担**——
-    ⚠️ 提问必须在**形态级**：「`ProgressIndicator` 承不承担『兄弟位不确定态进度
-    指示器』这个形态？」答案是**它就是那个东西**（其 notes 自陈 body 全部内容是
-    `ProgressView` + 文案 + tint + controlSize）⇒ 作用域三条件满足，**排除**。
-- ⇒ 非皮肤且未被排除的候选 **0 个** < 2 ⇒ 举得犹豫 ⇒ 出口 3 落步骤 4 ⇒
-  `prescriptive` / `tiebreaker` / `needsExtensionPoint: false`。
-
-⚠️ **第 2 版落 `semantic/step2/true` 是错的，三处缺陷**：
-1. **混用了两种读法**：排除 ③ 时用形态级（「骨架屏形态由 `Skeleton` 承担」，正确），
-   核验 ①② 时却改用**角色级**（「`ProgressIndicator` 不承担『覆盖在内容之上』这件事」
-   ——那是 `ScanningOverlay` **自己的位置 / 角色**）。本公约《候选形态的作用域》
-   条件 ③ 逐字禁止这种提问方式，并且明写「**同一批判定里不得混用两种读法**」，
-   而 #59 初稿栽的正是这一跤——**更松的那一侧又一次落在产生扩展点的分支上**。
-2. **没做互异性核验**：只把每个候选与**现状**比，没有两两比。①② 是同一形态。
-3. **走查不完整**：写着「三分法逐条」，实际只判了 ①②③，④⑤ 没有落点。
-
-**样本 2 · `SampleLayerEffectModifier`**（在被修饰视图之上叠一层移动高光）
-
-- **步骤 1「无」**：本身不是任何系统控件的样式。
-- **步骤 2** 候选：① Apple `redacted(reason: .placeholder)` 的占位微光；
-  ② Fluent `Shimmer`；③ Ant Design `Skeleton` active 扫光；
-  ④ Meta 开源的 Shimmer 库（该形态的事实原型）。
-- **逐条判**：①②③④ 与现状共享同一骨架——「在被修饰视图之上叠一层移动高光，
-  足迹不变、不引入内容槽、不改变排布」（实现即一句 `overlay` + 一个随时间平移的
-  渐变遮罩）；彼此只换高光本身的画法（渐变形状 / 角度 / 色带宽度），
-  而渐变 / 描边 / 阴影这类绘制层是补充规则 1 逐字列举的**纯装饰层**。
-  已按补充规则 3 核过「不因为遮罩是半透明就归装饰」并判**不适用**：
-  四种画法都落在同一被修饰视图的边界内，足迹量级不变。
-  ⚠️ ②③ 另有独立排除理由：其承担者是已登记的 `Skeleton`（形态级提问）。
-- ⇒ 非皮肤且未被排除的候选 **0 个** < 2 ⇒ 举得犹豫 ⇒ 出口 3 落步骤 4 ⇒ `tiebreaker`。
-
-⚠️ **两个样本落点相同（都是 `tiebreaker`）**。这不削弱裁决——成本论据不依赖
-「单价有方差」这个论点，而后者本来就没有样本支持（见上一节的撤回）。
-
-##### 一并拍板的四件下游事项
-
-**拍板一 · 轻公约的登记形态 ⇒ 独立 `docs/effects-registry.json` 双向差集。**
-
-⚠️ **理由已按终审 I-8 重写**（第 1 版写的「锚文件也得新建守卫，一分不省」按它自己的账
-就是错的——两条路线**都**要一条 ~10 KB 守卫，那一项是平局）：
-
-- **承重事实（已独立复核）**：本仓 `docs/components/` 有 38 份文件，**没有任何守卫锚定它**
-  ——全仓引用它的只有 `App/Sources/ComponentData.swift`、`App/Sources/Previews.swift`、
-  一句测试注释和若干散文（StoryUI 的 `ComponentRosterSourceAnchorTests` 在本仓**无对应物**）。
-  ⇒ 备选方案「少一张会漂移的表」的**前提在 CoreDesign 不成立**。
-- **真正的取舍**：两条路线守卫成本相当；差别在**多一份枚举**（JSON） vs **多一条
-  `fileExists` 锚**（锚文件）。选 JSON 是因为它能带 `provenance` / `platform` / `kind`
-  字段——**许可裁定（C-6）与平台限制（NFR-3）要用**，锚文件形态承载不了。
-- ⚠️ **「本仓有 8 处双向差集先例」是第 1 版的错数**：实测 `subtracting` 共 **15 处**，
-  分布在 **4 个文件**（`ComponentTextParamGuard` 7 / `ComponentRegistryGuard` 4 /
-  `BoolExemptionGuard` 3 / `BoolParameterScanner` 1）；点名过的
-  `ReachableTypeRegistryGuard` **一处都没有**（它自陈可达性由 story 侧承接）。
-  结论不变——双向差集确是本仓成语——但计数以此为准。
-
-**拍板二 · `transition` / `modifier` 两类 ⇒ 新建扩展成员扫描器。**
-
-⚠️ **不计入 a 侧差量**（第 3 轮终审 I1）：第 2 版的标题写「成本计入 a 侧」，而改成本表时
-已认定它**与路线无关**（`Transition` 静态成员与 `public extension View` 方法在路线 b 下
-照样扫不到）⇒ 标题是遗留、与成本节直接打架，已改正。
-
-否决「手工维护 + 盲区台账」的理由是**量级**：task 250 的 8 个 `public extension View`
-方法 + task 251 的 16 个转场 = **24 个公开入口点**，今天对**所有**守卫不可见。24 条量级
-的手工表必漂——G-7 记在案的失效形态逐字就是「手工清单与文档一起漏 ⇒ 两集合仍相等 ⇒
-判据永绿」。实现上**不是新建一台大扫描器**，是把既有 `PublicTypeCollector` 扩到
-extension 成员。
-
-⚠️ **本拍板推翻三份下游文件已经写下的相反做法**（终审 I-7）：
-`.claude/epics/shipswift-effects/251.md`、`.claude/epics/shipswift-**foundation**/246.md`、
-`.claude/epics/shipswift-**foundation**/epic.md` 三处都写着
-（⚠️ 第 2 版把后两个写成 `.../246.md` / `.../shipswift-effects/epic.md`，
-**两处路径都错**——而这一节的全部意义就是"错误引用的更正记录"，第 2 轮终审 I-5 抓到）「**按 AD-4 的裁决**手工维护并在盲区台账留痕」——它们预设了 AD-4 会选手工。
-**须回改**。
-⚠️ **两个机制的边界也在此钉死**：`docs/effects-registry.json` 的射程是
-**public `View` / `ViewModifier` 类型**；24 个 extension 入口点走**扩展成员扫描器**，
-登记进**同一份** `effects-registry.json` 的独立 `entryPoints` 数组（不另立台账）
-——一份枚举，两个采集器。
-
-**拍板三 · FR-17 的 README 索引落点 ⇒ 按 target 分叉。**
-
-⚠️ **第 1 版「三个新 target 一律另起小节」会把判据判红**（终审 C-1）：
 `ComponentRegistryGuard.readmeIndexRows`（`:338-343`）只解析
-`## 组件索引` 到 `## 生成预览图 / Generating Snapshots` **之间**的行，而反向判据
-`registryEntriesAreCoveredByReadme` 断言**每个非 excluded 的 `coredesign` 条目都被该范围
-内的某一行覆盖**。Charts 走 b ⇒ 4 条进登记表；索引行若落在解析范围之外 ⇒ `missing` = 4
-⇒ **红**。
+`## 组件索引` 到 `## 生成预览图 / Generating Snapshots` **之间**的行，
+而 `registryEntriesAreCoveredByReadme`（`:641-646`）断言**每个非 excluded 的
+`coredesign` 条目都被该范围内的某一行覆盖**。
+⇒ 三个 target 全走 b ⇒ 三组索引行**必须都在 `## 组件索引` 之内**。
 
-⇒ **裁决**：
-- **Charts 的 4 行进主索引**（`## 组件索引` 之内）——它走 b，登记表判据要求它在解析范围内；
-- **Effects / Shaders 的行在 `## 生成预览图 / Generating Snapshots` 之后另起小节**
-  ——它们走 a，不进 `component-registry.json`，不受该判据约束。
-- ⚠️ **新小节若带 `<img src="snapshots/…">` 单元格，PNG 须同批提交**——
-  `readmeSnapshotsExist` 扫的是**整份 README**，不只索引节（第 2 轮终审 S-5）。
-- ⚠️ **两处都须带模块名**：调用方须 `import CoreDesignCharts` / `import CoreDesignEffects`
-  而非 `import CoreDesign`，不写模块名则索引行会暗示同一条 import 路径。
+⚠️ **第 1–5 版裁的是「Effects/Shaders 另起小节」——那会让判据判红**，
+而该判据文档自己为 Charts 算过一遍、翻 b 后没有重跑。
+⚠️ 每行仍须带模块名（调用方要 `import CoreDesignEffects` 而非 `import CoreDesign`），
+但那是**可读性要求**，不是作用域要求。
 
-##### 拍板四 · `ComponentRegistryGuard` 扫描根的作用域
+##### 下游连锁四 · 扫描根的实施形态（工程事实，**不是禁令**）
 
-⚠️ **提成独立 h5 是因为它此前不被结构守卫钉住**（第 3 轮终审 C1）：它原本是
-`##### 一并拍板的…下游事项` 之下的一个粗体段落，删掉那 22 行，22 条字面量**一条不缺**
-⇒ `swift test` 照绿——而这一段正是本裁决自述「最容易被实现层反噬的一处」。
-⚠️ 且当时守卫钉死的字面量是「**三件**下游事项」，而其下已有四件 ⇒ 谁去改这个明显的
-事实错误，判据立刻红 ⇒ **判据在保护一个已知为假的标题**。两处一并修。
+⚠️ **第 4–5 版曾在此立过一条禁令**（「把 Effects/Shaders 加进这一个根**为本裁决所
+禁止**」）——**随结论收敛为 AD-2 原样，该禁令一并撤回**。保留的是工程事实：
 
-⚠️ **这是本裁决最容易被实现层反噬的一处**（第 2 轮终审 C-3）。那个根不是某一条断言
-私有的：`ComponentJudgeSources.scan()`（`ComponentExtensionPointGuard.swift:20`）
-读**同一个值**，再被 `ComponentTextParamGuard` / `ComponentExtensionPointGuard` /
-`ComponentHostAliasGuard` / `NativeProtocolPurityGuard` / `ComponentJudgeMutationTests`
-消费；`BoolExemptionGuard` 还直接调 `ComponentRegistryGuard.coreDesignScan()`。
-a/b 分路让这一个根变得**路线敏感**：
-
-- 根**不扩**到 Charts ⇒ Charts 的 4 条登记进表却无对应源码 ⇒
-  `registryCoversCoreDesignTypes` 的 `ghosts` = 4 ⇒ **红**；
-- 根**扩到 Effects** ⇒ Effects 的 public 类型出现在 `scanned` 却无登记条目 ⇒
-  `missing` ⇒ **红**，且 `ComponentTextParamGuard` 会开始看见 Effects 的裸文本参数。
-
-而实现者面对第二种红，**阻力最小的路是「把 Effects 的类型登记进去」**——
-那等于在实现层**静默推翻本裁决**，正是本段开篇警告的那个危害反向跑一遍。
-
-⚠️ **实施形态必须说清，否则 246 的实现者会以为这是"改一行常量"**（第 3 轮终审 C2）：
-`coreDesignSources` 现在是**单个 `URL`**（`ComponentRegistryGuard.swift:366`），不是列表。
-落这条要 `URL` → `[URL]`，连带改 `scanTypes(root:)` 与 `scanComponentJudgeInputs(root:)`。
-⚠️ **消费者名单比第 3 版列的多三个**：除 `ComponentTextParamGuard` /
-`ComponentExtensionPointGuard` / `ComponentHostAliasGuard` / `NativeProtocolPurityGuard` /
-`ComponentJudgeMutationTests` / `BoolExemptionGuard` 外，还有
-`StyleConsumptionGuard:166-167`、`ToastPublicEntryForwardingGuard:157`、
-`ComponentJudgeScannerTests:270`。
-⚠️ 而 `ComponentJudgeMutationTests:17-24` **不是"多接一个根"能解决的**：它把**单棵树**
-拷进临时目录、变异路径是相对的 ⇒ 两个根意味着副本布局要重构，否则
-`copiedTreeReproducesBaseline` 会因副本少一半源码而红。
-
-⇒ **裁决**：`coreDesignSources`（以及由它派生的 `ComponentJudgeSources.scan()`）
-的根**只许是 `Sources/CoreDesign` + `Sources/CoreDesignCharts`**。
-把 `CoreDesignEffects` / `CoreDesignShaders` 加进**这一个**根列表**为本裁决所禁止**。
-⚠️ 它与 `246.md` 里字面量 / Bool 守卫的那个根列表（含 Effects）**是两份不同的名单**，
-两处都要写明，防止下游把它们混为一谈。
-
-##### 轻公约的默认扩展点条款（终审 I-6：不继承 J-2 之后无人回答扩展点问题）
-
-轻公约**继承** J-1（禁未豁免 Bool 参数）与 FR-4 的文本参数纪律；**不继承**判定法步骤 1–4。
-
-⚠️ **「继承 FR-4」目前是**散文**，对这两个 target 零机器强制**（第 2 轮终审 I-4）：
-`ComponentTextParamGuard.publicInitTextParamsAreClassified` 的定义域是**登记表条目**
-（`repo == "coredesign"`），而 Effects / Shaders 不进登记表；新建的
-`ChromeTextLiteralGuard` 只覆盖 **A 类** chrome 字面量，**不覆盖 B 类**
-（public init 上的裸文本参数）。⇒ **裁定：并进 schema**。`effects-registry.json` 的每条须带 `textParams`，
-由差集守卫按 `ComponentTextParamGuard` 的同款分类判据校验（A/B/C 三类）。
-⚠️ 这同样是 task 246 的交付项，**不留给下游二选一**。
-
-⚠️ **「不继承 J-2」需要单独的理由，与「不继承步骤 1–4」不是同一件事**：后者关的是分类
-程序，前者关的是「语义组件必须有扩展点」这条义务。不继承 J-2 的理由是——**J-2 的定义域是
-判定法的产物**（`kind: semantic` 才触发该义务），而这两个 target 不走判定法，J-2 无输入。
-
-⇒ **取而代之的默认条款**：`CoreDesignEffects` / `CoreDesignShaders` 的 public 类型
-**默认不给扩展点**（相当于 §2 的形态 C）；确有需要时按 §2 的形态 **A / D1 / D2** 逐案裁，
-**默认不发** public 样式协议。
-⚠️ **第 2 版写的是「不得发」——那比证据强**（第 2 轮终审 I-3）：撤回记录第 4 点
-证明的是 `semantic` 判定**不强制**发协议，不是「发协议应被禁止」。硬禁 A/B 两种
-形态会与 §2 的优先序冲突，并给一个尚未枚举的组件类**制造新的不可逆性**
-（将来真有一件值得发协议的效果，正确答案被提前堵死）。
-⇒ 改为：要发须走 §2 的完整优先序，并在本裁决下补一条留痕。
-⚠️ 这与本仓 #60/#64/#65 的实际做法一致（`needsExtensionPoint: true` 全部以配置枚举兑现）。
-
-⚠️ **「确有需要时」必须有触发器，否则本条只是把问题挪了个地方**（第 2 轮终审 I-2）。
-路线 b 下触发器是机械的：`kind: semantic` ⇒ J-2 义务 ⇒ 由
-`ComponentRegistryGuard.registrySchemaIsValid` 的 `semantic ⇒ needsExtensionPoint`
-断言 + `ComponentExtensionPointGuard` 守。路线 a 没有 `kind`、不走判定法
-⇒ **没有任何触发器**，默认答案「不给」会变成永久且不可证伪的。
-⇒ **机器挂钩**：`docs/effects-registry.json` 的每条**必须**带
-`extensionPoint: "none" | "A" | "D1" | "D2"`，取 `"none"` 时须给**非样板的**理由，
-由差集守卫做 schema 校验（`ComponentRegistryGuard` 的 `readmeRowCoverage`
-理由质量断言是现成模板）。⇒ **裁定：做挂钩**（本裁决不把选择留给 246——第 3 轮终审 I-10 指出两处「二选一」
-都没裁、也没指定由谁裁，结果是 246 要替 244 重做两次裁决）。
-`docs/effects-registry.json` 的 schema **必须**含 `extensionPoint` 字段与
-`"none"` 时的非样板理由，由差集守卫校验；这是 task 246 的交付项。
-
-##### 本裁决**不**放松的东西
-
-- **task 246 的守卫重构不得放松任何现有断言**（FR-10）：`docs/bool-exemptions-baseline.json`
-  的 `maxEntries` **32** / `sourceSites` **35**、`ComponentTextParamGuard` 的 **31**、
-  `ComponentRegistryGuard` 的 **47** 与 **25**。
-- ⚠️⚠️ **Charts 走 b 会触发一整条 J-2 连锁，而它此前不在任何一张单子上**
-  （第 3 轮终审 C3）：`step1/2 ⇒ semantic`（`:456-457`）⇒ **硬断言**
-  `needsExtensionPoint`（`:518-519`）⇒ 进 J-2 定义域 ⇒
-  `ComponentExtensionPointGuard:76` 的 `inspected.count == 11` 变 15 ⇒ **红**；
-  且 `:98` `missing.isEmpty` 要求 4 个图表**同批交出真实扩展点**，而 `:108-110` 的注释
-  逐字禁止「为了让它变绿把新条目塞回 `knownMissingExtensionPoints`」。
-  ⚠️ `255.md` 的 AC 里**没有一条扩展点交付项**。
-  ⇒ **裁定**：Charts 若落 `semantic`，扩展点是 **task 255 的同批交付物**；
-  若 4 个图表实际落形态 C（不给扩展点），须在各自 notes 写明理由。
-  ⚠️ 会被顶动的**不止 `== 47` 与 `== 31`**，还有 `ComponentTextParamGuard` 的
-  `:260 covered.count == 30`、`:332 localizedByType.count == 11`、
-  `:337 carrying.count == 9`，以及 `:305 unmappedOwners` / `:319 functionSideBareText`
-  两个**固定集合**。
-- ⚠️ **但「逐字不变」不等于「永远是这个数」**（终审 C-2）：本裁决同时定了 Charts 走 b
-  ⇒ 4 个图表条目进表 ⇒ `ComponentRegistryGuard:450` 的 `== 47` **必须抬到 51**，
-  `ComponentTextParamGuard` 的 `== 31` 同样会被图表的 `textParams` 顶高。
-  **这属「增」不属「放松」**，由 task 255 随 Charts 登记**同批**执行，不与 FR-10 冲突。
-  第 1 版把这两个数列进「逐字不变」清单，等于给下游一条会撞墙的指令。
-- ⚠️ 作用域钉死后**必须配守卫**（task 246），否则本段的净效果是把一块地方正式命名为
-  无守卫空白地带，与引入它的 epic 意图相反。
+- `ComponentRegistryGuard.coreDesignSources`（`:366`）是**单个 `URL`**，不是列表
+  ⇒ 落地要 `URL` → `[URL]`，连带改 `scanTypes(root:)` 与 `scanComponentJudgeInputs(root:)`。
+- **消费者共 9 个文件**：`ComponentTextParamGuard` / `ComponentExtensionPointGuard` /
+  `ComponentHostAliasGuard` / `NativeProtocolPurityGuard` / `ComponentJudgeMutationTests` /
+  `BoolExemptionGuard` / `StyleConsumptionGuard` / `ToastPublicEntryForwardingGuard` /
+  `ComponentJudgeScannerTests`。
+- `ComponentJudgeMutationTests:17-24` 把**单棵树**拷进临时目录、变异路径是相对的
+  ⇒ 两个根意味着副本布局要重构，否则 `copiedTreeReproducesBaseline` 会红。
+- ⚠️ **扩根到 Effects 今天扫到 0 个类型**：`PublicTypeCollector`（`:846-880`）只认
+  `public struct : View/ViewModifier`，而 `Sources/CoreDesignEffects/` 目前只有一个
+  `public enum` 命名空间 ⇒ **必绿、零覆盖**。这与「闸门在空数组上真空为真」是同一形态，
+  实施时须一并防。

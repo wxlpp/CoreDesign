@@ -120,7 +120,7 @@ target**，没有任何公开值类型可调用（评审 I-1）。
 | `AccessibilityStringLiteralGuard` | `:189` 同上；按 target 分辨各自的 `.module` |
 | `EffectsColorLiteralGuard`（新建） | 禁色相字面量；射程仅新 target；**带触发红的 fixture** |
 | `ChromeTextLiteralGuard`（新建） | 扫 `Text("…")` / `Label("…"` 裸字面量（公约 A 类）；射程仅新 target，**不回溯 CoreDesign**；**带 fixture** |
-| **差集守卫** | ⚠️ **AD-4 对 Effects/Shaders 暂定 a ⇒ 本 task 交付它**（⚠️ 是**暂定**不是已裁定：AD-4 自陈其成本模型有四条缺口，任意两条叠加即翻到 b，故同时立了**复判闸**——本 task 须交付 `bSideNotesChars` 字段与「前两条非空」断言，见 AD-4《复判闸》）——形态**已裁定为独立 `docs/effects-registry.json` 双向差集**；射程 = public `View`/`ViewModifier`；`transition`/`modifier` 走**扩展成员扫描器**、登记进同一份 `effects-registry.json` 的 `entryPoints` 数组（⚠️ **AD-4 已裁：形态取 JSON 双向差集，且否决"手工维护 + 盲区台账"**，随 #244 回改）。不交付它 ⇒ Effects 的登记面就是 PRD 说的"无守卫空白地带"，且 Epic 成本少算一条 |
+| ~~**差集守卫**~~ | ⚠️ **不交付**——AD-4 第 6 轮收敛为「AD-2 原样适用」，无轻公约 ⇒ 无差集守卫。（原文：AD-4 对 Effects/Shaders 暂定 a ⇒ 本 task 交付它（⚠️ 是**暂定**不是已裁定：AD-4 自陈其成本模型有四条缺口，任意两条叠加即翻到 b，故同时立了**复判闸**——本 task 须交付 `bSideNotesChars` 字段与「前两条非空」断言，见 AD-4《复判闸》）——形态**已裁定为独立 `docs/effects-registry.json` 双向差集**；射程 = public `View`/`ViewModifier`；`transition`/`modifier` 走**扩展成员扫描器**、登记进同一份 `effects-registry.json` 的 `entryPoints` 数组（⚠️ **AD-4 已裁：形态取 JSON 双向差集，且否决"手工维护 + 盲区台账"**，随 #244 回改）。不交付它 ⇒ Effects 的登记面就是 PRD 说的"无守卫空白地带"，且 Epic 成本少算一条 |
 | `NFR-4` grep 断言 | 零 `@unchecked Sendable`。⚠️ **根列表与上面四条守卫同源，只含已存在的 target**（第 2 轮评审 I-1）——初版写"三个新 target"，但 A0-3 落地时只存在两个；对不存在的 `Sources/CoreDesignShaders/` 做 grep 无命中即绿，正是 AD-E 自己反对的 fail-open |
 
 ⚠️ `ComponentTextParamGuard` **只能守 B 类**，且定义域是登记表条目。它**守不到** FR-7 的
@@ -221,7 +221,7 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
       逐字不变，重构未放松任何现有断言
 - [ ] **已存在的**新 target 零 `@unchecked Sendable`（grep 断言；根列表与守卫同源，
       Shaders 根由 B-1 加入）
-- [ ] 差集守卫已交付并有 fixture（AD-4 暂定 a）；**并交付复判闸的机器痕迹**（`bSideNotesChars` + 前两条非空断言）
+- [ ] ~~差集守卫~~ **不交付**（AD-4 第 6 轮：AD-2 原样适用，无轻公约）；复判闸随成本模型一并撤回
 
 ### A0-4
 - [ ] probe manifest 接上两个新 product，每 target 一个 nonisolated 文件的结构已建
