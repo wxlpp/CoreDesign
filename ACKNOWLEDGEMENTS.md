@@ -20,6 +20,14 @@ CoreDesign 的部分实现衍生自第三方开源项目。按各自许可的要
 | **较大段落移植** | 直接采用了上游的实现（即便重命名、重排、改了参数表） | 转载完整原始许可 + 指明原作者与原始 URL |
 | **参考算法思路** | 对照上游或公开文献**重写**，未复制其代码 | 指明参考实现与其许可，说明是重写 |
 
+⚠️ **本表是「复制程度」这一根轴，回答「我们抄了多少」。**
+「抄了合不合法」是**另一根轴**——`许可地位`，取值域由
+`docs/shader-provenance.md` 的裁定取值表定义（MIT / Apache-2.0 / 自研实现 /
+待追溯〔分低指纹与强指纹两档〕/ 不落地）。
+⚠️ **两根轴不得混成一列**——共享原语一节上一版就是这么错的：
+把四个许可地位的值塞进「档位」列，于是 10 行里 5 行不属于本表任何一档，
+紧接着正文又写「统一登记为『待追溯』」，与那一列直接打架。
+
 ---
 
 ## ShipSwift
@@ -106,7 +114,16 @@ Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie）
 
 ---
 
-## `CoreDesignShaders` 的共享原语与公开配方（#261 落地，**必填**）
+## `CoreDesignShaders` 的共享原语与公开配方
+
+> ⚠️ **占位（与上面三节同一规则）**：本节描述的代码只存在于**未合并**的
+> `shaders-plasma` 分支（PR #261）。从 `epic/shipswift-foundation` 的角度看，
+> 它描述的东西**还不存在**。⇒ 本节**在 #261 合入时启用**。
+>
+> ⚠️ **为什么它仍然现在就写下来**：#261 的 `.metal` 与 Swift 文件多处**引用本文件**
+> 作为其署名的落脚点，而本节正是 #261 五轮鉴定的产物 ⇒ 两者互为前提。
+> 本节是**预登记**，不是已生效的对外声明——这与「逐 shader 条目由各自落地的 task
+> 追加」不冲突：那条规则约束的是**逐件**条目，本节是**共享原语**。
 
 ⚠️⚠️ **本节取代了第 1 版的「噪声参考实现（clean-room）」一节，因为那一节整个是错的。**
 
@@ -118,23 +135,65 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 
 **实际用到的来源逐项如下**（对应 `docs/shader-provenance.md` 的《共享原语的逐项出处》）：
 
-| 原语 / 片段 | 来源 | 档位 |
-|---|---|---|
-| `wangHash`（`0x27d4eb2d`） | Thomas Wang 整数 hash / **Nathan Reed**《Quick And Easy GPU Random Numbers in D3D11》(2013) | **较大段落移植**（逐字符一致）|
-| `hash21`/`hash22` 的素数三元组 | **Teschner et al. 2003**《Optimized Spatial Hashing for Collision Detection of Deformable Objects》 | 事实性算法常数 |
-| `valueNoise` | iq / The Book of Shaders（嵌套 `mix` 形态） | 教科书 |
-| `fbm` | **The Book of Shaders 第 13 章** / iq 的 fBm 文章 | **较大段落移植**（逐行同构）|
-| 域扭曲的 `q`/`r` 三级级联（`InkSmoke` / `FractalClouds`） | **Inigo Quilez《Domain Warping》** | **较大段落移植**（结构 + 变量名保留）|
-| `Plasma` 的四相正弦叠加 | **Lode Vandevenne**《Lode's Computer Graphics Tutorial — Plasma》 | **较大段落移植**（逐项对应）|
-| `roundedBoxSDF` | **iq 2D distance functions** | **较大段落移植** |
-| `edgeWidth`（`max(fwidth, ε)` + smoothstep） | iq 的 **distance-AA** 惯用法 | 公开惯用法 |
-| `ramp3` | **未指认到具体上游** | **待追溯**（不作原创声称）|
-| `RefractiveGlass` 的位移 + 色散主体 | SwiftUI `layerEffect` "liquid glass" 一族的通行形态 | **待追溯** |
+⚠️⚠️ **下表有两根轴，上一版把它们混成了一列**（第 5 轮终审 C2）：
 
-⚠️ **上述来源多数无显式许可声明**（Wang 的页面、iq 的文章页、Book of Shaders 的片段）。
-按本仓「正向裁定、不证否定」的门槛，它们**统一登记为「待追溯」**，
-**不得据此对外声称原创**——`docs/shader-provenance.md` 的第六条轴逐字写明了理由：
-**「指认不到」不等于「原创」，空白等于默认原创，而本仓已因这个默认吃了四次亏。**
+- **复制程度**（本文件《归属分档》定义的两档：`较大段落移植` / `参考算法思路`）
+  ——回答「我们抄了多少」；
+- **许可地位**（`docs/shader-provenance.md` 的裁定取值）——回答「抄了合不合法」。
+
+上一版把 `事实性算法常数` / `教科书` / `公开惯用法` / `待追溯` 四个**许可地位**的值
+塞进了「档位」列，于是 10 行里有 5 行**不属于本文件定义的任何一档**；
+紧接着正文又写「统一登记为『待追溯』」——**与那一列直接打架**。两根轴现已分开。
+
+⚠️ **并且：标为 `较大段落移植` 的行，本文件 §「归属分档」要求「转载完整原始许可
++ 指明原作者与原始 URL」——上一版一条都没给。** 本版补上 URL；
+无许可正文可转载的（作者页面本身无声明），**明写"无声明"而不是留白**
+——一份自称"我们逐字移植了这段"却既不给来源也不给法律依据的声明，
+**比它取代的沉默更糟**：它是一份没有辩护的书面自认。
+
+| 原语 / 片段 | 来源（URL） | 复制程度 | 许可地位 |
+|---|---|---|
+| `wangHash`（`0x27d4eb2d`） | Thomas Wang 整数 hash；GPU 版见 Nathan Reed《Quick And Easy GPU Random Numbers in D3D11》(2013)　`https://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/` | **较大段落移植**（逐字符一致） | ⚠️ **页面无许可声明** ⇒ `待追溯（低指纹）` |
+| `hash21`/`hash22` 的素数三元组 | Teschner et al. 2003《Optimized Spatial Hashing for Collision Detection of Deformable Objects》（VMV 2003 论文） | 参考算法思路（三个常数） | **事实性常数** ⇒ 可落地 |
+| `valueNoise` | 值噪声的标准形式（嵌套 `mix` 双线性插值 + `smoothstep` 权重） | 参考算法思路 | **教科书算法** ⇒ 可落地 |
+| `fbm` | **算法本身**：fBm 标准形式（gain 0.5 / lacunarity 2.0），Mandelbrot–Perlin–Musgrave 谱系，见 Ebert et al.《Texturing & Modeling》 | 参考算法思路 | **事实性算法** ⇒ 可落地。⚠️ **见下方 The Book of Shaders 的许可实查** |
+| 域扭曲的 `q`/`r` 三级级联（`InkSmoke` / `FractalClouds`） | Inigo Quilez《Domain Warping》　`https://iquilezles.org/articles/warp/` | **较大段落移植**（结构 + 变量名保留） | ⚠️ 页面无许可声明 ⇒ `待追溯（强指纹）` |
+| `Plasma` 的四相正弦叠加 | Lode Vandevenne《Lode's Computer Graphics Tutorial — Plasma》　`https://lodev.org/cgtutor/plasma.html` | **较大段落移植**（逐项对应） | ⚠️ 页面无许可声明 ⇒ `待追溯` |
+| `roundedBoxSDF` | Inigo Quilez, 2D distance functions　`https://iquilezles.org/articles/distfunctions2d/` | **较大段落移植**（标准闭式解） | ⚠️ 页面无许可声明 ⇒ `待追溯（低指纹）` |
+| `edgeWidth`（`max(fwidth, ε)` + smoothstep） | iq 的 distance-AA 惯用法（同上页面一族） | 参考算法思路 | **公开惯用法** ⇒ `待追溯（低指纹）` |
+| `ramp3` | **未指认到具体上游** | — | `待追溯（低指纹）`——⚠️「指认不到」不等于「原创」 |
+| `RefractiveGlass` 的位移 + 色散主体 | SwiftUI `layerEffect` "liquid glass" 一族的通行形态，**未指认到具体上游** | — | ⚠️ `待追溯（**强指纹**）`——本表自评「指纹强度不低于 InkSmoke 的 q/r 级联」⇒ **阻断 epic→main** |
+
+⚠️ **许可地位一列已逐行给出，不再有"统一登记"这句**（上一版那句与表格直接打架）。
+无许可正文可转载的行，**明写「页面无许可声明」**而不是留白。
+
+### ⚠️ The Book of Shaders 的许可实查（本文件最重要的一条）
+
+**实查 `raw.githubusercontent.com/patriciogonzalezvivo/thebookofshaders/master/LICENSE`：**
+
+```
+Copyright (c) 2025 Patricio Gonzalez Vivo
+All rights reserved.
+
+You cannot host, display, distribute or share this Work in any form…
+You cannot use this Work in any commercial or non-commercial product,
+website or project.
+```
+
+⇒ **比 Shadertoy 的默认 CC BY-NC-SA 还严**（后者至少允许非商业使用）。
+
+⚠️ **`cd::fbm` 曾被标注为与该书 ch.13「逐行同构」** ——若照原样合入，一个
+**多 shader 共用的原语**会带着一个比 Shadertoy 更严的来源标注发出去。
+
+⚠️ **但实查同时推翻了另一个方向**：我们的 `fbm` **并非逐行同构**
+——多了 `total` 累加与 `sum / total` 归一化（该书没有），`octaves` 是**函数参数**
+而非 `#define OCTAVES`。循环体本身就是 fBm 的**定义**（gain 0.5 / lacunarity 2.0），
+属 Mandelbrot–Perlin–Musgrave 谱系的**事实性算法**。
+⇒ 署名对象是**算法谱系**，**不是**「我在哪里读到它」；本文件**不引用该书作为依据**。
+
+⚠️ **这条同时是一次反向校准**：`docs/shader-provenance.md` 的第六条轴防的是
+**低估**抄袭，而本条显示**高估同样有代价**——它会把一个事实性算法错误地绑到一个
+`All rights reserved` 的来源上。**两个方向都要查实。**
 
 ---
 
