@@ -39,8 +39,8 @@ public struct GlowSweep<Content: View>: View {
 
 | 键 | 类型 | 默认 | 行为 |
 |---|---|---|---|
-| `\.effectsScenePhase` | `ScenePhase?` | `nil` ⇒ 读系统 `\.scenePhase` | `.inactive` / `.background` ⇒ **整层不建** |
-| `\.effectsPowerMode` | `EffectsPowerMode?` | `nil` ⇒ 读 `ProcessInfo.isLowPowerModeEnabled` | `.lowPower` ⇒ 降到 15 fps，并去掉离屏模糊的光晕 |
+| `\.scenePhaseOverride` | `ScenePhase?` | `nil` ⇒ 读系统 `\.scenePhase` | `.inactive` / `.background` ⇒ **整层不建** |
+| `\.lowPowerModeOverride` | `Bool?` | `nil` ⇒ 读 `ProcessInfo.isLowPowerModeEnabled` | `true` ⇒ 降到 15 fps，并去掉离屏模糊的光晕 |
 
 ## a11y 分工（FR-13）
 

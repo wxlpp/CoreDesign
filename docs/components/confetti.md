@@ -48,43 +48,51 @@ CheckoutSummary()
 
 | 键 | 类型 | 默认 | 行为 |
 |---|---|---|---|
-| `\.effectsScenePhase` | `ScenePhase?` | `nil` ⇒ 读系统 `\.scenePhase` | `.inactive` / `.background` ⇒ 彩纸层**不绘制**（含 Reduce Motion 路径，见下） |
-| `\.effectsPowerMode` | `EffectsPowerMode?` | `nil` ⇒ 读 `ProcessInfo.isLowPowerModeEnabled` | `.lowPower` ⇒ 降到 15 fps、彩纸数减半 |
+| `\.scenePhaseOverride` | `ScenePhase?` | `nil` ⇒ 读系统 `\.scenePhase` | `.inactive` / `.background` ⇒ 彩纸层**不绘制**（含 Reduce Motion 路径，见下） |
+| `\.lowPowerModeOverride` | `Bool?` | `nil` ⇒ 读 `ProcessInfo.isLowPowerModeEnabled` | `true` ⇒ 降到 15 fps、彩纸数减半 |
 
-⚠️ **注入的默认值是 `nil`（＝"没有人注入"），不是 `.standard`**：`nil` 时才会去读
-`ProcessInfo`；注入 `.standard` 的语义是宿主明确说"按常规供电渲染"，不该被系统读数覆盖。
+⚠️ **注入的默认值是 `nil`（＝"没有人注入"），不是 `false`**：`nil` 时才会去读
+`ProcessInfo`；注入 `false` 的语义是宿主明确说"按常规供电渲染"，不该被系统读数覆盖。
+
+⚠️ **这两个键住在 `CoreDesign`，不在 `CoreDesignEffects`**（PR #269 终审 S-2 的裁决）：
+它们是任何常驻渲染件都要的通用能耗信号，`shipswift-shaders` 的 `colorEffect` 背景同样按它们
+降级——键留在 Effects 会逼「只想要 shader 的消费者」链上整个 Effects product。
+⇒ 只想注入这两个键的宿主 `import CoreDesign` 就够。低电量键的类型也因此是**通用的 `Bool?`**
+（它是 `ProcessInfo.processInfo.isLowPowerModeEnabled` 的可注入镜像），
+动效层的语义档位 `EffectsPowerMode` 是 `CoreDesignEffects` 在它上面自己包的一层。
 
 ### 宿主主动注入的完整配方
 
-⚠️ **别照抄 `ContentView().environment(\.effectsPowerMode, .lowPower)`**——那是**永久锁定
+⚠️ **别照抄 `ContentView().environment(\.lowPowerModeOverride, true)`**——那是**永久锁定
 低电量**，不是"跟随系统"。这个键存在的第二个理由（第一个是可测）是让宿主拿回**响应性**：
 `EnvironmentValues` 的默认值只在被读取时求值一次，不会因为
 `NSProcessInfoPowerStateDidChange` 而让视图失效。要"用户中途打开低电量模式就立刻降级"，
 宿主得自己订阅那条通知：
 
 ```swift
-import CoreDesignEffects
+import CoreDesign
+import Foundation
 import SwiftUI
 
 struct RootView: View {
-    @State private var powerMode: EffectsPowerMode = .current
+    @State private var isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
 
     var body: some View {
         ContentView()
-            .environment(\.effectsPowerMode, self.powerMode)
+            .environment(\.lowPowerModeOverride, self.isLowPower)
             .onReceive(
                 NotificationCenter.default.publisher(
                     for: .NSProcessInfoPowerStateDidChange
                 )
             ) { _ in
-                self.powerMode = .current
+                self.isLowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
             }
     }
 }
 ```
 
-⚠️ 初值取 `EffectsPowerMode.current`（＝当次启动时读一遍 `ProcessInfo`），
-之后每收到一次通知重读一次。不订阅通知就别注入这个键——留 `nil` 走默认路径反而更对。
+⚠️ 初值直接读一遍 `ProcessInfo`（＝当次启动时的真实状态），之后每收到一次通知重读一次。
+不订阅通知就别注入这个键——留 `nil` 走默认路径反而更对。
 
 ⚠️ 已知不对称（本 PR 登记，未处置）：`usesGlow` 是在 `TimelineView` 闭包内**每帧**重解析的，
 所以即便不注入这个键它也会跟着系统变；而 `minimumInterval`（帧率）与彩纸数由外层求一次，

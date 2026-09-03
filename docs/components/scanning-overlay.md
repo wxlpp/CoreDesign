@@ -37,8 +37,8 @@ ScanningOverlay { documentImage }.tint(.green)
 
 | 键 | 类型 | 默认 | 行为 |
 |---|---|---|---|
-| `\.effectsScenePhase` | `ScenePhase?` | `nil` ⇒ 读系统 `\.scenePhase` | `.inactive` / `.background` ⇒ **整层不建**，驱动它的 `TimelineView` 不存在 |
-| `\.effectsPowerMode` | `EffectsPowerMode?` | `nil` ⇒ 读 `ProcessInfo.isLowPowerModeEnabled` | `.lowPower` ⇒ 降到 15 fps，并去掉离屏模糊的光晕 |
+| `\.scenePhaseOverride` | `ScenePhase?` | `nil` ⇒ 读系统 `\.scenePhase` | `.inactive` / `.background` ⇒ **整层不建**，驱动它的 `TimelineView` 不存在 |
+| `\.lowPowerModeOverride` | `Bool?` | `nil` ⇒ 读 `ProcessInfo.isLowPowerModeEnabled` | `true` ⇒ 降到 15 fps，并去掉离屏模糊的光晕 |
 
 ⚠️ 停摆是"整层不建"，不是 `TimelineView(paused: true)`——后者仍是一个活着的视图节点。
 
