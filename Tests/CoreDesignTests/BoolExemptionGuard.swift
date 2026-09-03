@@ -952,7 +952,7 @@ struct BoolExemptionGuard {
         )
         #expect(lowered.contains(where: { $0.contains("下降") && $0.contains("好方向") }),
                 "下降方向仍在用「破例」口吻：\(lowered)")
-        #expect(!lowered.contains(where: { $0.contains("下降") && $0.contains("**连同** raisedBy") }),
+        #expect(!lowered.contains(where: { $0.contains("下降") && $0.contains("连同 raisedBy") }),
                 "下降方向仍在要求补署名 —— 治理掉一个豁免不是破例")
     }
 
