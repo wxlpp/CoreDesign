@@ -366,13 +366,67 @@ struct ComponentRegistryGuard {
     static var coreDesignSources: URL { repoRoot.appendingPathComponent("Sources/CoreDesign") }
     static var registryURL: URL { repoRoot.appendingPathComponent("docs/component-registry.json") }
 
+    /// 登记表的**入口点**条目（AD-4《下游连锁二》）。
+    ///
+    /// ⚠️ **它与 `Entry` 是两套 schema，刻意不合并**：`Entry` 的九个字段
+    /// （`kind` / `decidedBy` / `nativeProtocol` / `needsExtensionPoint` / …）
+    /// 描述的是「一个**组件类型**按判定法落在哪一格」，而一个 `public extension View`
+    /// 方法或一个 `Transition` 静态成员没有「样式扩展点」可言——硬塞进 `Entry`
+    /// 会让 `registrySchemaIsValid` 的一串蕴含断言全部语义错配
+    /// （与 `ReachableTypeRegistryGuard` 当初另起一份文件的理由同型）。
+    /// ⇒ 同一份文件、**两个数组**。
+    struct EntryPoint: Codable {
+        /// 所属 target。必须是 `GuardScanRoots.targetNames` 里的名字。
+        let target: String
+        /// 被扩展的类型：`View` / `Transition` / `AnyTransition`。
+        let host: String
+        /// 成员名。**含参重载算同一条**（`251.md`：计数单位是「一种 transition」
+        /// 不是「一个静态成员」）——扫描器按名字去重，这里也一样。
+        let member: String
+        let notes: String
+    }
+
+    /// `docs/component-registry.json` 的顶层形状。
+    ///
+    /// ⚠️ **`#246` 把顶层从「裸数组」改成了对象**：AD-4《下游连锁二》指定
+    /// 24 个公开入口点「登记进 `component-registry.json` 的 `entryPoints` 数组」，
+    /// 而 JSON 的顶层只能有一个值 ⇒ 要在同一份文件里放第二个数组，顶层必须是对象。
+    /// 全仓**只有 `loadRegistry()` 一处读这个文件**，九个消费者都经它拿 `[Entry]`，
+    /// 故改动面止于本结构体：`loadRegistry()` 的签名与返回值逐字不变。
+    /// ⚠️ 两个字段都是**非可选**：缺 `entryPoints` 键时解码直接失败（fail-closed），
+    /// 而不是退化成「零入口点 ⇒ 零差集 ⇒ 绿」。
+    struct RegistryFile: Codable {
+        let components: [Entry]
+        let entryPoints: [EntryPoint]
+    }
+
+    static func loadRegistryFile() throws -> RegistryFile {
+        try JSONDecoder().decode(RegistryFile.self, from: Data(contentsOf: registryURL))
+    }
+
     static func loadRegistry() throws -> [Entry] {
-        try JSONDecoder().decode([Entry].self, from: Data(contentsOf: registryURL))
+        try Self.loadRegistryFile().components
+    }
+
+    static func loadEntryPoints() throws -> [EntryPoint] {
+        try Self.loadRegistryFile().entryPoints
     }
 
     /// ⚠️ **分类返回**（裁决 D1）：Style 实现**不是**登记表条目。
     /// 混在一个 Set 里会让完整性判据的双向差集**永久非空**。
-    struct ScanResult { var components: Set<String> = []; var styleImpls: Set<String> = [] }
+    ///
+    /// ⚠️ **`entryPoints` 是 `#246` 新增的第三个桶**（AD-4《下游连锁二》）：
+    /// `public extension View` 上的方法与 `Transition` 的静态成员**不是类型**，
+    /// `PublicTypeCollector` 原本结构上看不到它们——task 250 的 8 个 modifier +
+    /// task 251 的 16 个转场 = **24 个公开入口点**对所有守卫不可见。
+    /// 它**不进** `components`（那样会被登记表的双向差集判成幽灵条目），
+    /// 而是由 `ExtensionEntryPointGuard` 与 `component-registry.json` 的
+    /// `entryPoints` 数组比对。元素是**基键** `Host.member`（不含 target 前缀）。
+    struct ScanResult {
+        var components: Set<String> = []
+        var styleImpls: Set<String> = []
+        var entryPoints: Set<String> = []
+    }
 
     /// `Sources/CoreDesign` 扫描结果的缓存。
     ///
@@ -425,6 +479,7 @@ struct ComponentRegistryGuard {
             c.walk(tree)
             result.components.formUnion(c.components)
             result.styleImpls.formUnion(c.styleImpls)
+            result.entryPoints.formUnion(c.entryPoints)
         }
         return result
     }
@@ -840,9 +895,29 @@ struct ComponentRegistryGuard {
 /// **结构修复**——修复需要让 `PublicTypeCollector` 同时认出「public 但非 View/
 /// ViewModifier 的类型」，成本明显更高（要重新定义『组件』在语法树上的判据，而不是
 /// 加一个 conformance 名字），本次终审判断为超出 C1 的最小必要修复范围，留给后续任务。
-private nonisolated final class PublicTypeCollector: SyntaxVisitor {
+///
+/// ⚠️ **`#246` 扩到了 extension 成员**（AD-4《下游连锁二》）：上面记的第三 / 第四个盲区
+/// 说的都是「不是 `public struct: View/ViewModifier` 的**类型**看不见」，而还有一整类
+/// **根本不是类型**的公开表面同样看不见——`public extension View` 上的方法与
+/// `Transition` 的静态成员。它们是调用方真正写下的入口点
+/// （`.transition(.iris)` / `.confetti(...)`），task 250 + 251 一共 **24 个**。
+/// ⇒ 新增 `entryPoints` 桶，由 `ExtensionEntryPointGuard` 与登记表的 `entryPoints`
+/// 数组做双向差集。**它不进 `components`**：那样会被登记表的双向差集判成幽灵条目。
+///
+/// ⚠️ 本类由 `#246` 从 `private` 提为 internal —— `ExtensionEntryPointGuard` 要用它。
+nonisolated final class PublicTypeCollector: SyntaxVisitor {
     var components: Set<String> = []
     var styleImpls: Set<String> = []
+    /// `Host.member` 形状的入口点基键（不含 target 前缀）。
+    var entryPoints: Set<String> = []
+
+    /// 会产出「入口点」的被扩展类型。
+    ///
+    /// ⚠️ **不是「所有 extension 都算」**：`extension Tag where Label == Text` 上的
+    /// 便利 init 属于 `Tag` 这个**类型**的表面，已经由登记表条目覆盖；只有扩展在
+    /// **外部协议**上的成员才是「无处登记」的那一类——它们没有对应的登记表条目，
+    /// 因为本仓根本没有 `View` / `Transition` 这两个类型的声明。
+    static let entryPointHostTypes: Set<String> = ["View", "Transition", "AnyTransition"]
 
     /// ⚠️ **手拼清单是 C6 的病根**：第一版漏了 `PrimitiveButtonStyle`，而
     /// `CoreBorderlessButtonStyle.swift:62` 就是它 —— **用错的清单量出来的数本身就是错的**。
@@ -859,6 +934,62 @@ private nonisolated final class PublicTypeCollector: SyntaxVisitor {
     override func visit(_ node: IfConfigDeclSyntax) -> SyntaxVisitorContinueKind {
         for clause in node.clauses where clause.elements != nil { walk(clause.elements!) }
         return .skipChildren
+    }
+
+    /// 采 `public extension View` / `extension Transition where Self == …` 上的成员。
+    ///
+    /// ⚠️ **两种 public 写法都要认**：`public extension View { func f() }` 与
+    /// `extension View { public func f() }` 完全等价，只认一种会漏掉半数入口点
+    /// （`BoolParameterScanner` 当初踩过同一个坑，见它的「public extension 的两种写法」）。
+    /// ⚠️ **含参重载合并成一条**：键是 `Host.member`，不含标签表——
+    /// `251.md` 明写计数单位是「一种 transition」而不是「一个静态成员」。
+    override func visit(_ node: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
+        let host = node.extendedType.trimmedDescription
+            .split(separator: ".").last.map(String.init) ?? ""
+        guard Self.entryPointHostTypes.contains(host) else { return .visitChildren }
+        let extensionIsPublic = node.modifiers.contains(where: { $0.name.text == "public" || $0.name.text == "open" })
+
+        for member in node.memberBlock.members {
+            let decl = member.decl
+            if let fn = decl.as(FunctionDeclSyntax.self) {
+                guard Self.isEffectivelyPublic(fn.modifiers, extensionIsPublic: extensionIsPublic)
+                else { continue }
+                self.entryPoints.insert("\(host).\(fn.name.text)")
+            } else if let variable = decl.as(VariableDeclSyntax.self) {
+                guard Self.isEffectivelyPublic(variable.modifiers, extensionIsPublic: extensionIsPublic)
+                else { continue }
+                for binding in variable.bindings {
+                    guard let pattern = binding.pattern.as(IdentifierPatternSyntax.self) else { continue }
+                    self.entryPoints.insert("\(host).\(pattern.identifier.text)")
+                }
+            }
+        }
+        return .visitChildren
+    }
+
+    /// extension 成员的有效可见性：extension 自带 `public` ⇒ 成员默认 public；
+    /// 成员显式写了 `private` / `fileprivate` / `internal` ⇒ 以成员为准。
+    ///
+    /// ⚠️ **`open` 与 `public` 同等对待**（PR #265 Copilot A-2）：`open` 比 `public`
+    /// **更**开放（下游还能覆写），只认 `public` 会让 `open` 成为一条绕过登记表覆盖
+    /// 守卫的入口点通道。成本是一个字符串。
+    /// ⚠️⚠️ **但这条是预防性的，且在当前的 host 清单下不可达**（PR #265 第 3 轮终审 S-f）：
+    /// `open` 只对 class 及其成员合法，而 `entryPointHostTypes` 是
+    /// `["View", "Transition", "AnyTransition"]`——两个协议 + 一个 struct，
+    /// **没有一个能承载 `open` 成员** ⇒ `extension View { open func … }` 编译不过，
+    /// 这条分支永远不会被真实输入触发（`ExtensionEntryPointGuard.scannerSeesExtensionMembers`
+    /// 里那条 fixture 因此是 SwiftParser 解析得动、编译器接受不了的合成输入，
+    /// 与本 PR 其余「植入真实可编译的违规文件」的证据标准不同，已在该处照录）。
+    /// ⇒ 它的价值是「`entryPointHostTypes` 将来若纳入 class 宿主（如某个
+    /// `open class` 的样式基类），这条不必再补」，**不是**「今天堵住了一条真实通道」。
+    private static func isEffectivelyPublic(
+        _ modifiers: DeclModifierListSyntax, extensionIsPublic: Bool
+    ) -> Bool {
+        let names = Set(modifiers.map(\.name.text))
+        if names.contains("private") || names.contains("fileprivate") || names.contains("internal") {
+            return false
+        }
+        return names.contains("public") || names.contains("open") || extensionIsPublic
     }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
