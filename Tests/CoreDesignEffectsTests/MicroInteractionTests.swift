@@ -9,8 +9,16 @@ import Testing
 /// 三个 trigger（显式 `Sendable` 的枚举、`String`、`Double`）**全都是 `Sendable`**
 /// ⇒ 把代码回退成「泛型直接进动画 modifier」这枚变异，**测试照样绿**。
 ///
-/// 现在它是一个 **MainActor 隔离 conformance** 的类型：只有 `TriggerRelay` 那层中继
-/// 把泛型挡在动画 modifier 之外，它才编得过。**回退即编译失败**——这正是要钉住的性质。
+/// 现在它是一个 **MainActor 隔离 conformance** 的类型。
+///
+/// ⚠️⚠️ **上一版这里写「回退即编译失败」——第 3 轮终审 C-2 实测证伪**：把
+/// `TriggerRelay` 删掉、泛型直接进动画 modifier，只得到一条
+/// `warning: capture of non-Sendable type 'T.Type' in an isolated closure`，
+/// **Build complete、测试全绿**；而 CI 没开 `-warnings-as-errors` ⇒ 那不是机器判据。
+/// 本类型真正钉住的是**另一枚**变异：给 `T` 加回 `Sendable` 约束 ⇒
+/// `#IsolatedConformances` **编译红**。
+/// 「泛型直接进动画 modifier」那枚由 `MicroInteractionReduceMotionGuard`
+/// 的 `coreModifiersAreNotGeneric` 接管。
 private enum IsolatedTrigger: Equatable { case idle, done }
 
 @testable import CoreDesignEffects
@@ -45,15 +53,23 @@ struct MicroInteractionStrengthTests {
 @MainActor
 struct MicroInteractionAPITests {
 
-    /// 静息态渲染尺寸。⚠️ `nsImage` 是 macOS 专有，iOS 腿要走 `uiImage`——
-    /// 本仓成法见 `ToastPresentationRenderTests` 的同名 helper。
-    static func renderedSize(_ view: some View) -> CGSize? {
+    /// 静息态渲染**位图**。
+    ///
+    /// ⚠️⚠️ **上一版量的是 `size`，对本 modifier 家族检出力实测为零**（第 3 轮终审 C-1）：
+    /// `ImageRenderer` 的 `size` 是**布局尺寸**，而 `offset` / `scaleEffect` /
+    /// `rotationEffect` / `overlay` / `background` / `mask` **全都不改变布局尺寸**——
+    /// 而这八个 modifier 做的正好只有这些。评审实测：`.offset(x: 10)`、`.scaleEffect(3)`、
+    /// `.rotationEffect(45°)`、`.overlay { Circle 200×200 }` 全部量到与裸视图相同的
+    /// `(7.0, 16.0)`。⇒ `#expect(bare == stacked)` 结构上不可能判红，
+    /// 与它替换掉的 `#expect(composed is any View)`（编译期恒真）是同一种病换了层级。
+    /// ⇒ 改量**位图**，并按本仓 `SidebarLeadingSlotRenderTests` 的成法配一条**不等**断言互锁。
+    static func pixels(_ view: some View) -> Data? {
         let renderer = ImageRenderer(content: view)
         renderer.scale = 1
         #if canImport(UIKit)
-        return renderer.uiImage?.size
+        return renderer.uiImage?.pngData()
         #else
-        return renderer.nsImage?.size
+        return renderer.nsImage?.tiffRepresentation
         #endif
     }
 
@@ -87,17 +103,57 @@ struct MicroInteractionAPITests {
             .rise(trigger: 1, text: "+1")
             .haptic(.success, trigger: 1)
             .shine(trigger: 1)
-        // ⚠️ 初版这里是 `#expect(composed is any View)` —— **静态恒真**
-        //（编译器会给 `'is' test is always true`），与上一轮删掉的
-        // `#expect(Bool(true))` 是同一种病，只是加了诚实注释。已换成真断言：
-        // 静息态下叠满 8 个 modifier，**渲染尺寸必须与裸视图一致**
-        //（不移位、不撑大）——这是 US-1「可叠加、互不干扰」真正可观测的那一半。
-        let bare = Self.renderedSize(Text("x"))
-        let stacked = Self.renderedSize(composed)
-        // ⚠️ **非空断言不可省**：两边都渲染失败（都是 nil）时 `bare == stacked` 恒真，
-        // 那就又是一条假绿——正是本文件反复栽的那个跟头。
+        // ⚠️ 编译期契约：八个入口存在且可链式组合。
+        #expect(Self.pixels(composed) != nil, "叠加 8 个后渲染失败")
+    }
+
+    /// US-1「可叠加、互不干扰」在**静息位图**层面的断言。
+    ///
+    /// ⚠️ **`.shine` 有意排除在外，理由是实测出来的**：逐个二分测过八个 modifier，
+    /// 只有 `.shine` 会改变静息位图，其余七个**逐字节相同**。成因是 `.shine` 用
+    /// `.mask(content)` 把高光裁到内容形状——`mask` 会强制内容**离屏合成**，
+    /// 从而改变抗锯齿，这是 `.mask` 固有的，与光带位置无关（静息时光带在界外）。
+    /// ⇒ 它是一条**已知偏离**，由下面 `shineIsTheKnownException` 单独钉住；
+    /// 有人哪天把 `.shine` 改成不合成，那条会红、必须在 diff 里改，例外不会静默消失。
+    @Test("静息态：除 shine 外七个叠加后位图与裸视图逐字节相同")
+    func restingPixelsUnchanged() {
+        let bare = Self.pixels(Text("x"))
+        let stacked = Self.pixels(
+            Text("x")
+                .shake(trigger: 1)
+                .jump(trigger: 1)
+                .spin(trigger: 1)
+                .ping(trigger: 1)
+                .spray(trigger: 1, symbol: "heart.fill")
+                .rise(trigger: 1, text: "+1")
+                .haptic(.success, trigger: 1)
+        )
+        // ⚠️ **非空断言先行**（本仓明文纪律）：两边都渲染失败时相等断言恒真。
         #expect(bare != nil && stacked != nil, "渲染失败，下面的相等断言会静默变绿")
-        #expect(bare == stacked, "叠加 8 个微交互后静息尺寸变了：\(String(describing: bare)) → \(String(describing: stacked))")
+        #expect(bare == stacked, "叠加 7 个微交互后静息位图变了 —— 有效果在静息态就在画东西")
+    }
+
+    /// ⚠️ 把上面那条例外**钉在测试里**，而不是只写进注释。
+    @Test("shine 是已知例外：mask 强制离屏合成，静息位图确实会变")
+    func shineIsTheKnownException() {
+        let bare = Self.pixels(Text("x"))
+        let shined = Self.pixels(Text("x").shine(trigger: 1))
+        #expect(bare != nil && shined != nil)
+        #expect(bare != shined,
+                "shine 不再改变静息位图 —— 若这是有意修复，请同时把它并回上一条测试")
+    }
+
+    /// ⚠️ **上一条相等断言的非退化前置**（本仓 `SidebarLeadingSlotRenderTests` 的互锁成法）。
+    ///
+    /// 相等断言的退化路径是「两张全是空图 / 本平台根本量不出差异 ⇒ 恒真」。
+    /// 这一条从反面证明：同一套 harness 在本平台**确能**分辨出差异。
+    /// **删掉任一条，另一条会静默退化成恒真。**
+    @Test("互锁：同一 harness 能分辨出真实差异")
+    func harnessDetectsDifference() {
+        let bare = Self.pixels(Text("x"))
+        let probe = Self.pixels(Text("x").opacity(0.4))
+        #expect(bare != nil && probe != nil)
+        #expect(bare != probe, "harness 分辨不出 opacity 差异 —— 上一条相等断言是恒真的")
     }
 
     @Test("trigger 接受任意 Equatable —— 含 MainActor 隔离 conformance 的类型")
@@ -109,9 +165,9 @@ struct MicroInteractionAPITests {
             .spin(trigger: "string")
             .ping(trigger: 3.14)
         // 同上：换成可观测断言，不留恒真表达式。
-        let stacked = Self.renderedSize(v)
+        let stacked = Self.pixels(v)
         #expect(stacked != nil)
-        #expect(stacked == Self.renderedSize(Text("x")))
+        #expect(stacked == Self.pixels(Text("x")))
     }
 
 }

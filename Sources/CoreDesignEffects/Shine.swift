@@ -65,6 +65,22 @@ public extension View {
 
     /// `trigger` 变化时，让一道高光扫过本视图（遮罩到内容形状）。
     ///
+    /// ⚠️⚠️ **已知限度：本 modifier 会把被修饰内容的视图树实例化两次**
+    ///（#262 第 3 轮终审 I-3，评审用计数视图实测：裸视图 body 求值 1 次、
+    /// 加 `.shine()` 后 **2 次**）。成因是 `content` 同时被用作「被修饰视图」与
+    /// 「遮罩」——`.mask(content)`。
+    ///
+    /// 后果不只是性能：内容里带副作用的 modifier 会跑两遍
+    /// （`onAppear` 打点、`task {}`、`@FocusState` 自动聚焦——CLAUDE.md 记的
+    /// `BottomInputBar.autoFocus` 就是这类）。而本模块鼓励叠加，
+    /// `view.haptic(.success, trigger: n).shine(trigger: n)` 会把 `sensoryFeedback`
+    /// 一并复制进遮罩副本。
+    /// ⇒ **不要把带副作用的 modifier 放在 `.shine()` 之内。**
+    ///
+    /// ⚠️ 同一成因还让 `.shine()` 成为八个效果里**唯一改变静息位图**的一个
+    /// （`mask` 强制内容离屏合成 ⇒ 抗锯齿变化），已由
+    /// `MicroInteractionAPITests.shineIsTheKnownException` 钉住。
+    ///
     /// - Parameter highlight: 高光色，默认 `Color.specularHighlight`（第 3 层 token）。
     ///
     ///   ⚠️ **初版默认值是 `Color.contentPrimary.opacity(0.35)`，理由还写反了**

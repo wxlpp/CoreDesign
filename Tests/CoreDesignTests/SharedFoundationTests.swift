@@ -78,4 +78,25 @@ struct SharedFoundationTests {
         _ = highlight
         #expect(Bool(true))
     }
+
+    /// ⚠️ **这条断言的目标是钉住「它是高光、不是暗带」这个性质本身**
+    ///（PR #262 第 3 轮终审 I-2）。
+    ///
+    /// `.shine()` 的默认高光初版是 `Color.contentPrimary.opacity(0.35)` ——
+    /// `contentPrimary` 就是 `.label`，**浅色外观下近黑** ⇒ 扫过去的是一道黑带。
+    /// 本仓 #162 / 评审 #176 已就同一件事出过一次裁决（`skeletonHighlight`）。
+    /// ⇒ 断言解析出的颜色**确实是亮的**：任何人把它改回内容色族，这条立刻红。
+    ///
+    /// ⚠️ 不写 `#expect(Bool(true))`（本仓正在清除的空断言病型）。
+    @Test("specularHighlight 解析出来必须是「亮」的 —— 否则它就不是高光")
+    @MainActor
+    func specularHighlightIsActuallyBright() {
+        let resolved = Color.specularHighlight.resolve(in: EnvironmentValues())
+        let luminance = 0.2126 * Double(resolved.red)
+            + 0.7152 * Double(resolved.green)
+            + 0.0722 * Double(resolved.blue)
+        #expect(luminance > 0.8, "specularHighlight 的亮度只有 \(luminance) —— 它会读作暗带而不是高光")
+        // 半透明是必需的：不透明的白会把内容整块盖掉，而不是"扫过一道光"。
+        #expect(resolved.opacity > 0 && resolved.opacity < 1, "alpha = \(resolved.opacity)")
+    }
 }
