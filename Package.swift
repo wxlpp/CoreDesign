@@ -16,6 +16,20 @@ let package = Package(
             name: "CoreDesign",
             targets: ["CoreDesign"]
         ),
+        // ⚠️ 表达性视觉层与图表层是**独立 product**，不并进 CoreDesign
+        //（`shipswift-harvest` PRD / epic `shipswift-foundation` AD-A）：
+        // · 只想要系统原生观感的消费者不必背上动效与图表；
+        // · Metal shader 那一层（`CoreDesignShaders`）另有非默认构建系统依赖，
+        //   由 `shipswift-shaders` 在两闸通过后单独引入——**此处有意不预留它**，
+        //   闸不过时仓库里不该留下一个空 product。
+        .library(
+            name: "CoreDesignEffects",
+            targets: ["CoreDesignEffects"]
+        ),
+        .library(
+            name: "CoreDesignCharts",
+            targets: ["CoreDesignCharts"]
+        ),
     ],
     dependencies: [
         // ⚠️ 版本约束刻意写成 `.upToNextMinor` 而不是 `from:` 或 `.exact`
@@ -37,6 +51,16 @@ let package = Package(
             resources: [.process("Resources")],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
+        .target(
+            name: "CoreDesignEffects",
+            dependencies: ["CoreDesign"],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
+        ),
+        .target(
+            name: "CoreDesignCharts",
+            dependencies: ["CoreDesign"],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
+        ),
         .testTarget(
             name: "CoreDesignTests",
             dependencies: [
@@ -44,6 +68,23 @@ let package = Package(
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
             ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
+        ),
+        // ⚠️ 新 target 各建**独立** test target，**不并进 `CoreDesignTests`**
+        //（epic `shipswift-foundation` AD-D）：并进去需要
+        // `@testable import CoreDesignEffects`，会让 `CoreDesignTests` 的依赖图
+        // 包含新 target，判红本 issue 立下的隔离判据——
+        // `swift package describe --type json | jq '.targets[]
+        //   | select(.name=="CoreDesignTests") | .target_dependencies'`
+        // 必须恰为 `["CoreDesign"]`。
+        .testTarget(
+            name: "CoreDesignEffectsTests",
+            dependencies: ["CoreDesignEffects"],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
+        ),
+        .testTarget(
+            name: "CoreDesignChartsTests",
+            dependencies: ["CoreDesignCharts"],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
     ],

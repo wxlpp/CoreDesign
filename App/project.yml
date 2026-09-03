@@ -31,7 +31,16 @@ targets:
     sources:
       - path: Sources
     dependencies:
+      # ⚠️ 包变成多 product 后，`- package: CoreDesign` 这种不带 `product:` 的写法
+      # 只会链同名的 `CoreDesign` 产品——新增的 Effects / Charts 不会进来，
+      # 而失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」（#245）。
+      # ⇒ 多 product 下必须逐条写 `product:`。
       - package: CoreDesign
+        product: CoreDesign
+      - package: CoreDesign
+        product: CoreDesignEffects
+      - package: CoreDesign
+        product: CoreDesignCharts
     settings:
       base:
         SWIFT_VERSION: "6.0"

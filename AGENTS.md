@@ -37,6 +37,24 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 新增组件时优先使用第 3、4 层名称。如果缺少需要的语义 token，应在对应文件中补充新名称，而不是把第 1 层色相硬编码进组件。
 
+### 多 target 结构（`0.5.0` 起）
+
+本包不再是单 target。`Package.swift` 现有三个 library product：
+
+| product | 内容 | 备注 |
+|---|---|---|
+| `CoreDesign` | 系统原生观感的组件、四层色彩、token、modifier | 主体，**不依赖**下面两个 |
+| `CoreDesignEffects` | 表达性视觉层：微交互 / 转场 / 庆祝与处理中动效 | 依赖 `CoreDesign` |
+| `CoreDesignCharts` | Swift Charts 原生画不出来的四类图表（雷达图 / 活动环 / 贡献热力图 / 力导向网络图） | 依赖 `CoreDesign`；**有意不 `import Charts`** |
+
+拆开的理由：只想要系统原生观感的消费者不必背上动效与图表。依赖是**单向**的
+（`CoreDesign` 的 `target_dependencies` 必须恒为 `[]`），两条 `swift package describe`
+判据守着它，见下方《验证边界与常见坑》。
+
+⚠️ **新 target 各有独立的 test target**（`CoreDesignEffectsTests` / `CoreDesignChartsTests`），
+**不并进 `CoreDesignTests`**——并进去需要 `@testable import`，会让 `CoreDesignTests` 的
+依赖图包含新 target，破坏上面那条隔离判据。
+
 ### 按钮样式模式
 
 所有按钮样式遵循统一形态：`*ButtonStyle: ButtonStyle` + 在 `ButtonStyle where Self == ...` 上扩展 `static func *Button(role:) -> Self`，通过单个 `ButtonRoleStyleRole` 枚举（`Components/Button/ButtonRoleStyleRole.swift`）参数化。该枚举是 `color` / `activeColor` / `disabledColor` 的唯一来源——新增 role 时应扩展此枚举，而不是为每个样式各自定义调色板。样式从 `@Environment(\.controlSize)` 读取尺寸、从 `\.isEnabled` 决定禁用配色。
@@ -98,6 +116,17 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 - **新增 / 修改 `.xcassets` 里的 colorset 后必须 `swift package clean` 再构建/测试**：
   macOS SwiftPM 以目录形式而非 `.car` 分发 `.xcassets`，增量构建不会拷贝新加的目录，
   资源缺失是静默失败，颜色断言抓不到。
+
+- **多 product 之后，CI 的 iOS 腿必须用 `-scheme CoreDesign-Package`**：包只有一个
+  product 时 Xcode 把包 scheme 合并进同名 scheme，于是 `-scheme CoreDesign` 恰好能跑测试；
+  多 product 后 scheme 列表变成 `CoreDesign` / `CoreDesign-Package` / 各 product 一个，
+  而 `xcodebuild test -scheme CoreDesign` 会**硬红**（不是静默跳过）：
+  `error: Scheme CoreDesign is not currently configured for the test action`。
+- **两条隔离判据**（改 `Package.swift` 后必跑）：
+  `swift package describe --type json | jq '.targets[] | select(.name=="CoreDesignTests") | .target_dependencies'`
+  须恰为 `["CoreDesign"]`；同样的查询对 `CoreDesign` 自身须恰为 `[]`（禁反向依赖）。
+- **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
+  `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
 
 ## 仓库内的代码风格观察
 
