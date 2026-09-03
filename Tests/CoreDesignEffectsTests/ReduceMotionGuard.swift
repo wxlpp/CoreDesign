@@ -43,6 +43,15 @@ struct MicroInteractionReduceMotionGuard {
     /// 现在两边**双向差集**：新领一张豁免必须改本文件 ⇒ 在 diff 里必然可见。
     static let approvedFormTwo: Set<String> = ["Rise.swift"]
 
+    /// 走**早退**（RM 下整个装饰层不构建）的文件。
+    ///
+    /// ⚠️ **同样必须是集中名单**（第 4 轮终审 C4-2）：上一版只认文件里出现
+    /// `guard !isReduced` 这个字符串——**那和我在同一个 commit 里刚铲掉的
+    /// `// RM-FORM-2:` 自证标记是同一形态，只是伪装成了代码**。
+    /// 任何人在文件任意位置写下一句 `guard !isReduced`（哪怕只包住一个局部函数），
+    /// 整个文件的**每一处**运动调用就全部被豁免。评审实测过这枚变异：绿。
+    static let approvedEarlyExit: Set<String> = ["Ping.swift", "Spray.swift", "Shine.swift"]
+
     static var sourceRoot: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()   // Tests/CoreDesignEffectsTests
@@ -120,11 +129,19 @@ struct MicroInteractionReduceMotionGuard {
     func everyMotionCallIsGated() throws {
         var offenders: [String] = []
         for (url, code) in try Self.motionFiles() {
-            // 早退形态：整个装饰层在 RM 下根本不构建。
-            if code.contains("guard !isReduced") || code.contains("guard !self.reduceMotion") {
-                continue
-            }
+            // ⚠️ **早退只豁免 `guard` 之后的代码**（第 4 轮终审 C4-3）：
+            // 上一版 `continue` 掉整个文件 ⇒ 把运动加进 **RM 降级分支内部**
+            //（`guard` 的 `else { }` 块里）三条判据无一命中。评审实测：往 Shine 的
+            // 降级分支加 `.rotationEffect(15°).offset(x: 20)` ⇒ 绿。
+            // 那是在 Reduce Motion **开启**的路径上加运动，FR-11 的正面违反，
+            // 也正是本 issue 前三轮反复出问题的方向。
+            let name = url.lastPathComponent
+            let guardEnd: Int? = Self.approvedEarlyExit.contains(name)
+                ? Self.earlyExitBodyStart(in: code)
+                : nil
             for (call, args, line) in Self.motionCallArguments(in: code) {
+                // 只有落在早退 `guard` **之后**的调用才被豁免。
+                if let end = guardEnd, Self.offset(ofLine: line, in: code) > end { continue }
                 // ⚠️ **只看该调用自己的实参**（配对括号提取），不看行、也不看窗口。
                 // 逐行会把跨行调用误判（`.scaleEffect(` 的门控写在后续实参行上）；
                 // 而窗口会被**紧邻的另一个已门控调用**骗过——第 1 轮的 Jump 正是
@@ -136,6 +153,39 @@ struct MicroInteractionReduceMotionGuard {
             }
         }
         #expect(offenders.isEmpty, "这些运动变换没有被 Reduce Motion 门控：\n\(offenders.joined(separator: "\n"))")
+    }
+
+    /// 早退 `guard` 语句**结束**（其 `else { }` 块闭合）后的字符偏移。
+    /// 返回 `nil` 表示文件里没有早退。
+    static func earlyExitBodyStart(in code: String) -> Int? {
+        let chars = Array(code)
+        for marker in ["guard !isReduced", "guard !self.reduceMotion"] {
+            guard let r = code.range(of: marker) else { continue }
+            var k = code.distance(from: code.startIndex, to: r.lowerBound)
+            // 走到 `else {` 的那个 `{`，再配对到它的 `}`。
+            while k < chars.count, chars[k] != "{" { k += 1 }
+            var depth = 0
+            while k < chars.count {
+                if chars[k] == "{" { depth += 1 }
+                else if chars[k] == "}" {
+                    depth -= 1
+                    if depth == 0 { return k }
+                }
+                k += 1
+            }
+        }
+        return nil
+    }
+
+    /// 1-based 行号 → 字符偏移。
+    static func offset(ofLine line: Int, in code: String) -> Int {
+        var offset = 0, current = 1
+        for ch in code {
+            if current >= line { break }
+            offset += 1
+            if ch == "\n" { current += 1 }
+        }
+        return offset
     }
 
     /// 提取每个运动调用**自身的实参文本**（配对括号），连同起始行号。
@@ -164,6 +214,16 @@ struct MicroInteractionReduceMotionGuard {
             }
         }
         return result
+    }
+
+    /// 早退名单同样做**双向差集**——新领一张豁免必须改本文件 ⇒ 在 diff 里必然可见。
+    @Test("早退名单与实际一致（双向差集）")
+    func earlyExitListMatchesReality() throws {
+        let actual = Set(try Self.motionFiles()
+            .filter { $0.1.contains("guard !isReduced") || $0.1.contains("guard !self.reduceMotion") }
+            .map(\.0.lastPathComponent))
+        #expect(actual == Self.approvedEarlyExit,
+                "早退名单 \(Self.approvedEarlyExit.sorted()) 与实际 \(actual.sorted()) 不一致")
     }
 
     /// 形态 2 名单与实际使用**双向差集**——名单里有、文件却没走形态 2（或反之）都判红。

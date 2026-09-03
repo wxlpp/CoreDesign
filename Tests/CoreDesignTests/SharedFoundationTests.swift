@@ -80,23 +80,34 @@ struct SharedFoundationTests {
     }
 
     /// ⚠️ **这条断言的目标是钉住「它是高光、不是暗带」这个性质本身**
-    ///（PR #262 第 3 轮终审 I-2）。
+    ///（PR #262 终审 I-2 / C4-4）。
     ///
     /// `.shine()` 的默认高光初版是 `Color.contentPrimary.opacity(0.35)` ——
     /// `contentPrimary` 就是 `.label`，**浅色外观下近黑** ⇒ 扫过去的是一道黑带。
     /// 本仓 #162 / 评审 #176 已就同一件事出过一次裁决（`skeletonHighlight`）。
-    /// ⇒ 断言解析出的颜色**确实是亮的**：任何人把它改回内容色族，这条立刻红。
     ///
-    /// ⚠️ 不写 `#expect(Bool(true))`（本仓正在清除的空断言病型）。
-    @Test("specularHighlight 解析出来必须是「亮」的 —— 否则它就不是高光")
+    /// ⚠️⚠️ **上一版的断言比它宣称的弱**（第 4 轮终审 C4-4 实测）：`resolve(in:)`
+    /// 返回的是**未预乘**分量，alpha 单独放在 `opacity` 里 ⇒ `.white.opacity(0.02)`
+    ///（功能上等于没有高光）的 luminance 同样是 1.0，照样通过。
+    /// 而且只在默认（浅色）环境下求值 ⇒ 一个「浅色下白、深色下黑」的动态 token
+    ///（正是 #162 那条裁决的**镜像形态**）会静默通过。
+    /// ⇒ 本版：**两种 colorScheme 各求一次** + **把 alpha 纳入判据**。
+    @Test("specularHighlight 在明暗两端都必须是「亮」的，且不透明度足以看见")
     @MainActor
     func specularHighlightIsActuallyBright() {
-        let resolved = Color.specularHighlight.resolve(in: EnvironmentValues())
-        let luminance = 0.2126 * Double(resolved.red)
-            + 0.7152 * Double(resolved.green)
-            + 0.0722 * Double(resolved.blue)
-        #expect(luminance > 0.8, "specularHighlight 的亮度只有 \(luminance) —— 它会读作暗带而不是高光")
-        // 半透明是必需的：不透明的白会把内容整块盖掉，而不是"扫过一道光"。
-        #expect(resolved.opacity > 0 && resolved.opacity < 1, "alpha = \(resolved.opacity)")
+        func luminance(_ scheme: ColorScheme) -> (Double, Double) {
+            var env = EnvironmentValues()
+            env.colorScheme = scheme
+            let c = Color.specularHighlight.resolve(in: env)
+            return (0.2126 * Double(c.red) + 0.7152 * Double(c.green) + 0.0722 * Double(c.blue),
+                    Double(c.opacity))
+        }
+        for scheme in [ColorScheme.light, .dark] {
+            let (lum, alpha) = luminance(scheme)
+            #expect(lum > 0.8, "\(scheme) 下色相亮度只有 \(lum) —— 它会读作暗带而不是高光")
+            // ⚠️ alpha 必须纳入：色相再白，透明度 0.02 也等于没有高光。
+            #expect(alpha >= 0.25, "\(scheme) 下不透明度只有 \(alpha) —— 高光看不见")
+            #expect(alpha < 1, "\(scheme) 下不透明度是 \(alpha) —— 不透明会把内容整块盖掉")
+        }
     }
 }

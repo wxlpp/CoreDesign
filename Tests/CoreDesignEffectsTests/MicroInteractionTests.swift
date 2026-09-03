@@ -106,16 +106,21 @@ struct MicroInteractionAPITests {
         // ⚠️ 编译期契约：八个入口存在且可链式组合。
         #expect(Self.pixels(composed) != nil, "叠加 8 个后渲染失败")
     }
-
     /// US-1「可叠加、互不干扰」在**静息位图**层面的断言。
     ///
-    /// ⚠️ **`.shine` 有意排除在外，理由是实测出来的**：逐个二分测过八个 modifier，
-    /// 只有 `.shine` 会改变静息位图，其余七个**逐字节相同**。成因是 `.shine` 用
-    /// `.mask(content)` 把高光裁到内容形状——`mask` 会强制内容**离屏合成**，
-    /// 从而改变抗锯齿，这是 `.mask` 固有的，与光带位置无关（静息时光带在界外）。
-    /// ⇒ 它是一条**已知偏离**，由下面 `shineIsTheKnownException` 单独钉住；
-    /// 有人哪天把 `.shine` 改成不合成，那条会红、必须在 diff 里改，例外不会静默消失。
-    @Test("静息态：除 shine 外七个叠加后位图与裸视图逐字节相同")
+    /// ⚠️⚠️ **上一版把 `.shine` 从这条里剔了出去，理由是「`.mask` 强制离屏合成 ⇒
+    /// 抗锯齿差异」——那个成因是假的，而被它掩盖的是一个真视觉 bug**
+    ///（第 4 轮终审 C4-1）。三个对照实验当场证伪：高光设 `.clear` ⇒ 与裸视图**逐字节
+    /// 相同**；`Color.clear.mask(content)` ⇒ **逐字节相同**；差异像素全在字形内部、
+    /// 全部变亮，是一层半透明白盖上去而不是抗锯齿。
+    /// 真因见 `Shine.swift`：`keyframeAnimator` 的 `initialValue` 在首次求值时
+    /// `proxy.size == .zero` ⇒ 固化成 0 ⇒ **光带永久停在内容上**。
+    ///
+    /// ⚠️ 而上一版为它写的「已知例外」测试断言 `bare != shined`
+    /// ⇒ **修好这个 bug 会让那条测试变红** ⇒ 我留下了一条**保护缺陷**的回归测试。
+    /// 前三轮的病型是「判据宣称假事实」，这一轮升级为「假事实**掩盖了真缺陷**」。
+    /// ⇒ bug 已修，`.shine` **并回八件套**，那条例外测试已删除。
+    @Test("静息态：八个叠加后位图与裸视图逐字节相同")
     func restingPixelsUnchanged() {
         let bare = Self.pixels(Text("x"))
         let stacked = Self.pixels(
@@ -127,21 +132,34 @@ struct MicroInteractionAPITests {
                 .spray(trigger: 1, symbol: "heart.fill")
                 .rise(trigger: 1, text: "+1")
                 .haptic(.success, trigger: 1)
+                .shine(trigger: 1)
         )
         // ⚠️ **非空断言先行**（本仓明文纪律）：两边都渲染失败时相等断言恒真。
         #expect(bare != nil && stacked != nil, "渲染失败，下面的相等断言会静默变绿")
-        #expect(bare == stacked, "叠加 7 个微交互后静息位图变了 —— 有效果在静息态就在画东西")
+        #expect(bare == stacked, "叠加 8 个微交互后静息位图变了 —— 有效果在静息态就在画东西")
     }
 
-    /// ⚠️ 把上面那条例外**钉在测试里**，而不是只写进注释。
-    @Test("shine 是已知例外：mask 强制离屏合成，静息位图确实会变")
-    func shineIsTheKnownException() {
+    /// ⚠️ **逐个单独测**，不只测叠加——叠加相等时两个效果的相反偏差可能互相抵消。
+    /// 上一轮的 `.shine` bug 正是靠逐个二分才定位到的。
+    @Test("静息态：八个各自单独用也不改变位图")
+    func eachEffectRestsClean() {
         let bare = Self.pixels(Text("x"))
-        let shined = Self.pixels(Text("x").shine(trigger: 1))
-        #expect(bare != nil && shined != nil)
-        #expect(bare != shined,
-                "shine 不再改变静息位图 —— 若这是有意修复，请同时把它并回上一条测试")
+        #expect(bare != nil)
+        let cases: [(String, AnyView)] = [
+            ("shake", AnyView(Text("x").shake(trigger: 1))),
+            ("jump", AnyView(Text("x").jump(trigger: 1))),
+            ("spin", AnyView(Text("x").spin(trigger: 1))),
+            ("ping", AnyView(Text("x").ping(trigger: 1))),
+            ("spray", AnyView(Text("x").spray(trigger: 1, symbol: "heart.fill"))),
+            ("rise", AnyView(Text("x").rise(trigger: 1, text: "+1"))),
+            ("haptic", AnyView(Text("x").haptic(.success, trigger: 1))),
+            ("shine", AnyView(Text("x").shine(trigger: 1))),
+        ]
+        for (name, view) in cases {
+            #expect(Self.pixels(view) == bare, "\(name) 在静息态就改变了位图")
+        }
     }
+
 
     /// ⚠️ **上一条相等断言的非退化前置**（本仓 `SidebarLeadingSlotRenderTests` 的互锁成法）。
     ///

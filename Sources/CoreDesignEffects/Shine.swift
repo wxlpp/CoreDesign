@@ -41,12 +41,30 @@ private struct ShineCore: ViewModifier {
                     )
                     .frame(width: travel * 0.35, height: travel)
                     .rotationEffect(.degrees(28))
-                    .keyframeAnimator(initialValue: -travel, trigger: self.fire) { view, x in
-                        view.offset(x: x)
+                    // ⚠️⚠️ **动画量必须是无量纲进度，不能直接用 `travel`**
+                    //（第 4 轮终审 C4-1，实测出来的真 bug）：
+                    // `keyframeAnimator` 只在**首次求值**时固化 `initialValue`，
+                    // 而那一刻 `GeometryReader` 的 `proxy.size` 还是 `.zero`
+                    // ⇒ `travel == 0` ⇒ 初值是 **0 而不是 -travel**
+                    // ⇒ **光带静息时停在内容正上方，不是界外**，且每次动画结束还会回到
+                    // 这个值 ⇒ **永久驻留**的一道浅色斜切。
+                    // 实测：`PRO` 胶囊左缘有常驻斜切、`star.fill` 整体被洗淡
+                    //（7×16 字形上 max Δ 0.47，与 `.opacity(0.4)` 同量级）。
+                    //
+                    // ⚠️ 我上一轮把它误判成「`.mask` 强制离屏合成 ⇒ 抗锯齿差异」，
+                    // 并据此写了一条「已知例外」测试——**那条测试实际在保护这个 bug**。
+                    // 三个对照实验证伪了那个成因：高光设 `.clear` ⇒ 与裸视图逐字节相同；
+                    // `Color.clear.mask(content)` ⇒ 逐字节相同；而差异像素**全在字形内部、
+                    // 全部变亮**，是一层半透明白盖上去，不是抗锯齿。
+                    //
+                    // ⇒ 进度归一化到 [-1, 1]，`travel` 在**闭包内**相乘——闭包每帧重算，
+                    //   拿得到真实 size。
+                    .keyframeAnimator(initialValue: CGFloat(-1), trigger: self.fire) { view, progress in
+                        view.offset(x: progress * travel)
                     } keyframes: { _ in
                         KeyframeTrack {
-                            LinearKeyframe(-travel, duration: 0.05)
-                            CubicKeyframe(travel, duration: 0.65)
+                            LinearKeyframe(-1.0, duration: 0.05)
+                            CubicKeyframe(1.0, duration: 0.65)
                         }
                     }
                 }
@@ -77,10 +95,7 @@ public extension View {
     /// 一并复制进遮罩副本。
     /// ⇒ **不要把带副作用的 modifier 放在 `.shine()` 之内。**
     ///
-    /// ⚠️ 同一成因还让 `.shine()` 成为八个效果里**唯一改变静息位图**的一个
-    /// （`mask` 强制内容离屏合成 ⇒ 抗锯齿变化），已由
-    /// `MicroInteractionAPITests.shineIsTheKnownException` 钉住。
-    ///
+
     /// - Parameter highlight: 高光色，默认 `Color.specularHighlight`（第 3 层 token）。
     ///
     ///   ⚠️ **初版默认值是 `Color.contentPrimary.opacity(0.35)`，理由还写反了**
