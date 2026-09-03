@@ -130,7 +130,9 @@ swift package clean                          # 缓存出问题时清除 .build/ 
   `error: Scheme CoreDesign is not currently configured for the test action`。
 - **两条隔离判据**（改 `Package.swift` 后必跑）：
   `swift package describe --type json | jq '.targets[] | select(.name=="CoreDesignTests") | .target_dependencies'`
-  须恰为 `["CoreDesign"]`；同样的查询对 `CoreDesign` 自身须恰为 `[]`（禁反向依赖）。
+  须恰为 `["CoreDesign"]`；同样的查询对 `CoreDesign` 自身须输出 **`null`**（禁反向依赖）。
+  ⚠️ **是 `null` 不是 `[]`**：无依赖的 target 在 SwiftPM 的 JSON 里该字段**直接缺席**，
+  jq 取到的是 `null`。照 `[]` 写判据会永远判红。
 - **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
   `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
 

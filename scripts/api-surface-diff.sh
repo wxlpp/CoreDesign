@@ -11,8 +11,15 @@
 # **新增声明不算破坏，它一行都不报**。实测：往 `Sources/CoreDesign/` 加一个 `public enum`
 # 并提交，`-dump-sdk` 抓到了（json 1496775 → 1499683 字节、命中 8 处），
 # 而 `-diagnose-sdk` 输出为空 ⇒ 报「无变化」。而「多了一个公开符号」正是本工具要抓的
-# 两种情形之一。⇒ 改为**直接对两份 dump 做 USR 集合差**（`usr` 是 mangled 符号，
-# 增、删、改签名都会体现）。
+# 两种情形之一。⇒ 改为**直接对两份 dump 做集合差**。
+#
+# ⚠️ **比较键是 `(usr, declAttributes)`，不能只用 `usr`**（#257 Copilot CLI 复审）。
+# `usr` 是 mangled 符号，增、删、改签名都会体现——但 **actor isolation 的变化不改 usr**。
+# 实测（`CoreDesignEffects.moduleName`）：把 `nonisolated` 删掉后 usr 一字不差，
+# 只有 `declAttributes` 从 `[HasInitialValue, Nonisolated, HasStorage]` 变成
+# `[HasInitialValue, HasStorage, Custom]`。而本包所有 target 都启用
+# `.defaultIsolation(MainActor.self)`，**「某个公开成员的 isolation 域被改了」正是这里
+# 最容易悄悄发生、且对下游 nonisolated 消费者是破坏性的那类变更**——只比 usr 会对它假绿。
 #
 # ⚠️ **本脚本绝不改动调用者的工作树**（#245 终审 C-1 第一层）。初版用
 # `git stash -u` + `git checkout <base> -- .` 做往返，有四个缺陷，均已在最小 git 仓复现，
@@ -71,30 +78,48 @@ git worktree add -q --detach "${BASE_TREE}" "${BASE_REF}" \
   || { echo "❌ 无法为 ${BASE_REF} 建临时 worktree"; exit 2; }
 dump "${BASE_TREE}" "${WORK}/base.json"
 
-echo "→ 比对（USR 集合差）…"
+echo "→ 比对（USR + declAttributes）…"
 OUT="$(python3 - "${WORK}/base.json" "${WORK}/head.json" <<'PY'
 import json, sys
 
-def usrs(path):
-    """收集 dump 里所有带 usr 的声明：usr -> (declKind, printedName)。"""
+def decls(path):
+    """收集 dump 里所有带 usr 的声明：usr -> (declKind, printedName, 属性集合)。
+
+    ⚠️ 属性集合必须收——isolation 变化（`nonisolated` 增删、隐式 `@MainActor`）
+    **不改 usr**，只体现在 declAttributes 上。
+    """
     def walk(node, acc):
         if isinstance(node, dict):
             u = node.get("usr")
             if u:
-                acc[u] = (node.get("declKind") or node.get("kind"), node.get("printedName"))
+                acc[u] = (
+                    node.get("declKind") or node.get("kind"),
+                    node.get("printedName"),
+                    frozenset(node.get("declAttributes") or []),
+                )
             for child in node.get("children") or []:
                 walk(child, acc)
     acc = {}
     walk(json.load(open(path))["ABIRoot"], acc)
     return acc
 
-base, head = usrs(sys.argv[1]), usrs(sys.argv[2])
+base, head = decls(sys.argv[1]), decls(sys.argv[2])
+
 for u in sorted(set(base) - set(head)):
-    k, n = base[u]
+    k, n, _ = base[u]
     print(f"  - 删除  {k or '':14} {n}")
 for u in sorted(set(head) - set(base)):
-    k, n = head[u]
+    k, n, _ = head[u]
     print(f"  + 新增  {k or '':14} {n}")
+for u in sorted(set(base) & set(head)):
+    kb, nb, ab = base[u]
+    kh, nh, ah = head[u]
+    if ab != ah:
+        gone, got = sorted(ab - ah), sorted(ah - ab)
+        detail = []
+        if gone: detail.append("去掉 " + ", ".join(gone))
+        if got:  detail.append("加上 " + ", ".join(got))
+        print(f"  ~ 属性  {kh or '':14} {nh}  ({'；'.join(detail)})")
 PY
 )"
 
