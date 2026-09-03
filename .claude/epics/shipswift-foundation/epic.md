@@ -2,10 +2,10 @@
 name: shipswift-foundation
 status: backlog
 created: 2026-09-02T23:42:57Z
-updated: 2026-09-03T00:35:00Z
+updated: 2026-09-03T00:20:45Z
 progress: 0%
 prd: .claude/prds/shipswift-harvest.md
-github: (will be set on sync)
+github: https://github.com/wxlpp/CoreDesign/issues/241
 ---
 
 # Epic: shipswift-foundation（地基与两闸）
