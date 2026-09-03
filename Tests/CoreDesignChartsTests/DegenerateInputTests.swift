@@ -134,6 +134,39 @@ struct DegenerateValueTests {
             #expect(r.lowerBound < r.upperBound)
         }
     }
+
+    /// ⚠️ 第 3 轮 review：兜底用 `low + 1`，而 `Double` 在 |x| ≥ 2^53 时 ULP ≥ 2
+    /// ⇒ `low + 1 == low` ⇒ 「保证递增」的那一句自己产出**零宽区间**。
+    /// `.greatestFiniteMagnitude` 更是两头堵：`+ 1` 不动、`nextUp` 溢出成 `∞`，
+    /// 而 AX 数轴端点必须有限且不得 trap。
+    @Test("safeRange 在大量级上仍严格递增（+1 被舍入吃掉）")
+    func safeRangeStillIncreasesAtLargeMagnitudes() {
+        let twoPow53 = 9_007_199_254_740_992.0        // 2^53，此处 ULP == 2
+        #expect(twoPow53 + 1 == twoPow53, "前提失效：该量级上 +1 应当被舍掉")
+        let cases: [(Double, Double)] = [
+            (twoPow53, .nan), (twoPow53, twoPow53), (twoPow53, .infinity),
+            (-twoPow53, .nan), (1e300, .nan),
+            (.greatestFiniteMagnitude, .nan),
+            (.greatestFiniteMagnitude, .greatestFiniteMagnitude),
+            (.greatestFiniteMagnitude, -.infinity)
+        ]
+        for (lo, hi) in cases {
+            let r = safeRange(lo, hi)
+            #expect(r.lowerBound.isFinite && r.upperBound.isFinite,
+                    "端点非有限：\(r) —— 输入 (\(lo), \(hi))")
+            #expect(r.lowerBound < r.upperBound,
+                    "零宽区间：\(r) —— 输入 (\(lo), \(hi))")
+        }
+    }
+
+    /// 常规量级的取值不因上面的兜底而漂移——`+ 1` 仍是首选跨度。
+    @Test("safeRange 常规量级取值不变")
+    func safeRangeKeepsOrdinarySpans() {
+        #expect(safeRange(0, .nan) == 0...1)
+        #expect(safeRange(5, 1) == 5...6)
+        #expect(safeRange(.nan, 1) == 0...1)
+        #expect(safeRange(2, 9) == 2...9)
+    }
 }
 
 // MARK: - 安全归一化
@@ -747,7 +780,7 @@ struct TruncationConsistencyTests {
         let dup = (0..<200).map { _ in Node(id: "same", label: "L") }
         let g = NetworkGraph(nodes: dup, edges: [])
         #expect(g.layoutKey(for: .init(width: 300, height: 300)).iterations > 0,
-                "3 个不同 id 的图被误判为超限、力导向被关掉")
+                "200 个节点但只有 1 个不同 id 的图被误判为超限、力导向被关掉")
     }
 
     /// ⚠️ I-2：`buckets` 对 `Int.max` 不得 trap。

@@ -241,8 +241,33 @@ extension Collection where Element == Double {
 /// `_assertionFailure` 栈。而 `AXChartDescriptor` 的数轴要求给 range，
 /// 于是「VoiceOver 一请求描述符，宿主 App 就崩」。
 /// `NaN <= 0` 为假 ⇒ 调用点那句 `goal <= 0` 守卫**拦不住**。
+///
+/// ⚠️ **`+ 1` 在大量级上不递增**（第 3 轮 review）：`Double` 在 |x| ≥ 2^53 时
+/// ULP ≥ 2 ⇒ `low + 1 == low` ⇒ 上一版那句「保证递增」的兜底本身产出**零宽区间**，
+/// 恰恰是本函数存在的理由。`2^53...2^53` 不 trap，但对 `AXChartDescriptor` 是
+/// 一条量程为 0 的数轴，VoiceOver 播报的位置全部退化到同一点。
+/// ⇒ `+ 1` 失效时改用 `nextUp`（走一个 ULP，**总是**严格递增），
+/// 而 `nextUp` 在 `.greatestFiniteMagnitude` 上会溢出成 `.infinity`
+/// （端点必须有限，否则 descriptor 又拿到非有限值）⇒ 那一档改为**向下**让出一个
+/// ULP。全程无 trap、无 NaN、无 ∞。
 func safeRange(_ lower: Double, _ upper: Double) -> ClosedRange<Double> {
     let low = lower.isFinite ? lower : 0
-    let high = upper.isFinite ? upper : low + 1
-    return low...(high > low ? high : low + 1)
+    if upper.isFinite, upper > low { return low...upper }
+    // 上界不可用（非有限 / 不大于下界）⇒ 自己造一个严格更大的有限上界。
+    guard let high = strictlyAboveFinite(low) else {
+        // `low == .greatestFiniteMagnitude`：上方已无有限值可去，改为向下让一个 ULP。
+        return low.nextDown...low
+    }
+    return low...high
+}
+
+/// 返回一个**严格大于** `value` 的有限值；`value` 已是最大有限值时返回 `nil`。
+///
+/// 常规量级仍走 `+ 1`——跨度可读，且与既有取值（例如 `safeRange(0, .nan) == 0...1`）
+/// 保持一致；只有 `+ 1` 被浮点舍入吃掉时才退到 `nextUp` 这一个 ULP。
+private func strictlyAboveFinite(_ value: Double) -> Double? {
+    let stepped = value + 1
+    if stepped > value { return stepped }
+    let bumped = value.nextUp
+    return bumped.isFinite ? bumped : nil
 }
