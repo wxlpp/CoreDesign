@@ -4,7 +4,11 @@ import Testing
 
 @testable import CoreDesignShaders
 
-// ⚠️ **本文件补的是 FR-12 / FR-13 的行为契约**（PR #261 第 2 轮终审 I-5）。
+// ⚠️ **本文件补的是 FR-12 的行为契约**（PR #261 第 2 轮终审 I-5）。
+//
+// ⚠️ **第 2 轮把 suite 叫「FR-12 / FR-13」，但 FR-13 一条断言都没有**（第 3 轮终审 I-5）
+// ——名字比内容大，正是本 PR 反复栽的那个跟头。suite 名已改准；FR-13（装饰层
+// `accessibilityHidden`）的可断言部分见文件末尾的 `DecorativeLayerTests`。
 //
 // 代码与文档反复宣称这三条，而在本文件之前**一条断言都没有**：
 // ① Reduce Motion 下 `elapsed` 返回 0（冻结）；
@@ -17,7 +21,7 @@ import Testing
 // ⚠️ 本文件**能在原生 `swift test` 腿跑**——它不碰 Metal，只测纯值计算。
 // 需要 GPU 的渲染证明在 `RenderProofTests`（有意在原生腿判红）。
 
-@Suite("FR-12 / FR-13 的行为契约")
+@Suite("FR-12 的行为契约（冻结 / 收窄 / .still）")
 @MainActor
 struct ShaderAccessibilityTests {
 
@@ -114,16 +118,23 @@ struct ShaderEntryPointGuard {
     }
 
     /// 从 `.metal` 里抓出所有 `[[stitchable]]` 入口函数名。
+    ///
+    /// ⚠️ **初版用字符串切分，有三个静默漏检口**（第 3 轮终审 I-3），方向恰好都落在
+    /// 它存在的唯一理由「新增 shader 忘了登记」上：
+    /// ① `[[ stitchable ]]`（**带空格**）匹配不到——而那正是 **Apple 官方文档**里
+    ///    写这个属性的形态；照文档新增一个 shader ⇒ 清单没有、也抓不到 ⇒ **假绿**；
+    /// ② `[[stitchable]]` 单独一行的跨行声明 ⇒ 该行无 `(` ⇒ 直接 `continue`；
+    /// ③ 函数名不以 `coreDesign` 开头就被丢弃——而命名约定并不是机器强制的。
+    /// ⇒ 改用正则跨行匹配，且**不按前缀过滤**（命名约定另立一条断言）。
     static func declaredEntryPoints() throws -> Set<String> {
         let text = try String(contentsOf: Self.metalSource, encoding: .utf8)
+        let pattern = #"\[\[\s*stitchable\s*\]\]\s+\w+\s+(\w+)\s*\("#
+        let regex = try NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
+        let range = NSRange(text.startIndex..., in: text)
         var found = Set<String>()
-        for line in text.split(separator: "\n") {
-            guard line.contains("[[stitchable]]") else { continue }
-            // 形如：`[[stitchable]] half4 coreDesignPlasma(float2 position, ...)`
-            guard let paren = line.firstIndex(of: "(") else { continue }
-            let head = line[line.startIndex..<paren]
-            guard let name = head.split(separator: " ").last, name.hasPrefix("coreDesign") else { continue }
-            found.insert(String(name))
+        for m in regex.matches(in: text, range: range) {
+            guard let r = Range(m.range(at: 1), in: text) else { continue }
+            found.insert(String(text[r]))
         }
         return found
     }
@@ -132,11 +143,40 @@ struct ShaderEntryPointGuard {
     func listMatchesSource() throws {
         let declared = try Self.declaredEntryPoints()
         // ⚠️ **非空断言**：正则失配时两个集合都空，双向差集恒等 ⇒ 假绿。
-        #expect(declared.count >= 7, "只从 .metal 抓到 \(declared.count) 个入口 —— 判据多半失配了")
         let listed = Set(ShaderLibraryLoadTests.entryPoints)
+        // ⚠️ **非空断言**：正则失配时两个集合都空，双向差集恒等 ⇒ 假绿。
+        // ⚠️ 阈值取 `listed.count` 而非魔数 7（终审 S）——将来**合法地**删掉一个
+        // shader 时，魔数会以「判据多半失配了」这条误导性消息判红。
+        #expect(declared.count >= listed.count,
+                "只从 .metal 抓到 \(declared.count) 个入口、清单有 \(listed.count) 个 —— 判据多半失配了")
         #expect(declared.subtracting(listed).isEmpty,
                 ".metal 里有、清单里没有（新增 shader 忘了登记）：\(declared.subtracting(listed).sorted())")
         #expect(listed.subtracting(declared).isEmpty,
                 "清单里有、.metal 里没有（改名或删除后忘了同步）：\(listed.subtracting(declared).sorted())")
+    }
+
+    /// 命名约定单独成一条——**不再把它混进抓取正则**（混进去会让"命名不符"表现为
+    /// "根本不存在"，两种问题给同一条误导性消息）。
+    @Test("入口函数名统一 coreDesign 前缀")
+    func namingConvention() throws {
+        let declared = try Self.declaredEntryPoints()
+        let offenders = declared.filter { !$0.hasPrefix("coreDesign") }.sorted()
+        #expect(offenders.isEmpty, "入口名未用 coreDesign 前缀：\(offenders)")
+    }
+}
+
+
+// MARK: - FR-13：装饰层的 a11y
+
+/// ⚠️ FR-13 的实现有两处：`ProceduralBackground` 的 `.accessibilityHidden(true)`
+/// 与 `GlassSymbol` 本轮新加的可撤销入口。前者是无条件的、无可断言的分支；
+/// 后者的判定是纯值级的，抽出来即可测（与 `elapsed` 同一手法）。
+@Suite("FR-13 装饰层判定")
+struct DecorativeLayerTests {
+
+    @Test("无 label ⇒ 当装饰（隐藏）；有 label ⇒ 不隐藏")
+    func decorativeDependsOnLabel() {
+        #expect(GlassSymbol.isDecorative(accessibilityLabel: nil))
+        #expect(!GlassSymbol.isDecorative(accessibilityLabel: Text(verbatim: "成就徽章")))
     }
 }

@@ -50,6 +50,14 @@ public struct GlassSymbol: View {
         self.accessibilityLabel = accessibilityLabel
     }
 
+    /// 是否当作纯装饰处理（FR-13）。
+    ///
+    /// ⚠️ 抽成 `static` 纯函数只为**可断言**——第 3 轮终审 I-5：上一轮那个 suite
+    /// 叫「FR-12 / FR-13」，而 FR-13 一条断言都没有。
+    static func isDecorative(accessibilityLabel: Text?) -> Bool {
+        accessibilityLabel == nil
+    }
+
     public var body: some View {
         let ramp = ShaderRamp(tint: self.tint, reduceTransparency: self.reduceTransparency)
 
@@ -79,8 +87,12 @@ public struct GlassSymbol: View {
             // 自述的用例里就有「成就徽章」，那正是承载语义的一类
             // ⇒ 一个默认且**不可撤销**的 a11y 黑洞。改为可撤销：
             .accessibilityElement(children: .ignore)
-            .accessibilityHidden(self.accessibilityLabel == nil)
+            .accessibilityHidden(Self.isDecorative(accessibilityLabel: self.accessibilityLabel))
             .accessibilityLabel(self.accessibilityLabel ?? Text(verbatim: ""))
+            // ⚠️ 有 label 时补 `.isImage` trait（终审 S）：本类型自述的用例里有
+            // 「成就徽章」，缺 trait 时 VoiceOver 会念出 label 但不播报元素类型。
+            .accessibilityAddTraits(Self.isDecorative(accessibilityLabel: self.accessibilityLabel)
+                                    ? [] : .isImage)
     }
 }
 

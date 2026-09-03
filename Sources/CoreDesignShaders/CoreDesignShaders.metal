@@ -89,6 +89,7 @@ inline float hash21(float2 p) {
 inline float2 hash22(float2 p) {
     uint2 i = uint2(int2(floor(p)));
     uint sx = (i.x * 73856093u) ^ (i.y * 19349663u);
+    // ⚠️ `50331653` 不属 Teschner 三元组，是标准哈希表素数表里的条目（第 3 轮终审 S）。
     uint sy = (i.x * 83492791u) ^ (i.y * 50331653u);
     return float2(float(wangHash(sx) & 0x00FFFFFFu),
                   float(wangHash(sy) & 0x00FFFFFFu)) / float(0x01000000u);
@@ -96,7 +97,12 @@ inline float2 hash22(float2 p) {
 
 /// 值噪声：四角 hash 双线性插值。
 ///
-/// ⚠️ 双线性插值 + `smoothstep` 权重是值噪声的**定义**（教科书），不存在"另一种写法"；
+/// ⚠️ 双线性插值 + `smoothstep` 权重是值噪声的**定义**（教科书）。
+/// ⚠️ **初版这里写「不存在『另一种写法』」——那是一句可证伪的否定式 provenance 断言**
+///（第 3 轮终审 I-2），正是本文件自己判定不接受的那一类。至少有两种在野的标准形态：
+/// 嵌套 `mix(mix(a,b,u.x), mix(c,d,u.x), u.y)`（**本文件采用**，与 iq 的写法一致）
+/// 与 The Book of Shaders 的展开式 `mix(a,b,u.x) + (c-a)*u.y*(1-u.x) + (d-b)*u.x*u.y`。
+/// 两者等价，本文件选了前者；
 /// 可替换的是**底下的 hash**，那一层已按上面的说明重写。
 inline float valueNoise(float2 p) {
     float2 cell = floor(p);
@@ -198,7 +204,7 @@ inline float edgeWidth(float x) {
 [[stitchable]] half4 coreDesignDotGrid(float2 position, half4 currentColor,
                                        float2 size, float time,
                                        float spacing, float radius, float pulse,
-                                       half4 background, half4 dot) {
+                                       half4 background, half4 dotColor) {
     float2 s = max(size, float2(1.0));
     float2 uv = position / s;
     float aspect = s.x / s.y;
@@ -217,7 +223,7 @@ inline float edgeWidth(float x) {
     float edge = cd::edgeWidth(d) * 1.5;
     float mask = 1.0 - smoothstep(r - edge, r + edge, d);
 
-    return mix(background, dot, half(saturate(mask)));
+    return mix(background, dotColor, half(saturate(mask)));
 }
 
 // MARK: - FractalClouds
@@ -341,9 +347,18 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
     float2 dir = normalize(centred + 1e-5);
     float2 bend = dir * edgeness * edgeness * refraction;
 
-    // 色散：三通道各偏一点，只在边缘明显。
+    // ⚠️⚠️ **`layer.sample` 返回的是预乘 alpha 值**（`[R*A, G*A, B*A, A]`）——
+    // 依据是 SwiftUI 自己的 `SwiftUI_Metal.h` 里 `Layer::sample` 的文档注释。
+    // 下面两段的正确性全都挂在这一条上，改动前务必先读它。
     half4 sample = layer.sample(position - bend);
-    if (dispersion > 0.0) {
+
+    // 色散：三通道各偏一点，只在边缘明显。
+    //
+    // ⚠️ **限制在近乎不透明的区域**（第 3 轮终审 I-6）：预乘语义下三个通道各自被
+    // **不同位置的 alpha** 预乘过，把它们拼在一起再配中心采样的 `a`，在半透明区域
+    // 会产出 `rgb > a` 的**非法预乘值**。`GlassSymbol` 的符号边缘（抗锯齿像素
+    // alpha ∈ (0,1)）最容易暴露。半透明处的色散本就没有良定义 ⇒ 直接不做。
+    if (dispersion > 0.0 && sample.a > 0.99h) {
         float2 spread = dir * edgeness * edgeness * refraction * dispersion;
         sample.r = layer.sample(position - bend - spread).r;
         sample.b = layer.sample(position - bend + spread).b;
@@ -351,10 +366,19 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
 
     // 边缘高光：贴边一圈亮线，宽度用导数推，分辨率无关。
     float rimBand = 1.0 - smoothstep(0.0, aa * 3.0, abs(d));
-    // ⚠️ **只混 RGB，保住 `sample.a`**（终审 I-1）：初版写
-    // `mix(sample, rim, rimBand * rim.a)`，而 `mix` 会把 **alpha 一起插值**——
-    // 贴边处 `alpha_out = 1×(1-0.55) + 0.55×0.55 ≈ 0.75`
-    // ⇒ 不透明内容的边缘被打出约 25% 的**透明环**，透出底下的东西。
-    // 那与「加一圈高光」是两种视觉，而渲染证明只断言「像素有变化」，抓不到它。
-    return mix(sample, half4(rim.rgb, sample.a), half(rimBand * float(rim.a)));
+
+    // ⚠️⚠️ **预乘空间里的 source-over，两个失效一次消掉**（第 3 轮终审 C-2）。
+    // 这一行改过两次，两次都错，原因都是没读上面那条预乘约定：
+    //   · 第 1 版 `mix(sample, rim, rimBand * rim.a)` —— `mix` 把 **alpha 一起插值**，
+    //     贴边处 `alpha_out ≈ 0.75` ⇒ 不透明内容的边缘被打出约 25% 的**透明环**；
+    //   · 第 2 版 `mix(sample, half4(rim.rgb, sample.a), k)` —— 保住了 `sample.a`，
+    //     但 `sample.a == 0` 时输出 alpha 恒为 0 ⇒ **透明内容上 rim 整条消失**。
+    //     而本仓唯一内建的 rim 使用者 `GlassSymbol` 正是把它施加在 SF Symbol 上，
+    //     圆角矩形边框那一圈像素的符号 alpha 基本就是 0 ⇒ **默认路径直接失效**。
+    //     （旧版在这一点上反而是对的——这是"用新失效换掉旧失效"。）
+    // 正确写法是预乘的 source-over：`out = src + dst × (1 - src.a)`。
+    // `alpha_out = src.a + sample.a × (1 - src.a) ≥ sample.a` ⇒ 不透明内容 alpha 不降
+    //（无透明环），透明内容上 rim 照常显影，且输出恒为合法预乘值。
+    half4 src = rim * half(rimBand);
+    return src + sample * (1.0h - src.a);
 }

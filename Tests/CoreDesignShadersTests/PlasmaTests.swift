@@ -14,6 +14,11 @@ import Testing
 // ⚠️ **不要**为了让原生腿变绿而加 `.enabled(if:)`——那会把"metallib 没编出来"变成
 // 静默跳过，正是本仓反复堵的假绿病型（对照 #258 发现的 `ColorAssetGuardTests`
 // 在 swiftbuild 下静默失守）。
+// ⚠️⚠️ **`--filter` 在 `--build-system swiftbuild` 下恒返回 0 tests**（本轮实测）。
+// 即 `swift test --build-system swiftbuild --filter CoreDesignShadersTests` 打印
+// 「Test run with 0 tests ... passed」——**看起来是绿的，其实一条都没跑**。
+// ⇒ 验证 swiftbuild 腿必须**跑全量**（`swift test --build-system swiftbuild`），
+// 不要带 `--filter`。本 PR 上一版的「swiftbuild 腿 16/6 全绿」就是这么来的。
 @Suite("CoreDesignShaders metallib 加载 —— fail-closed")
 struct ShaderLibraryLoadTests {
 

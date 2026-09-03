@@ -15,10 +15,23 @@ import SwiftUI
 /// }
 /// ```
 ///
-/// ⚠️ **自研实现，非移植**——正弦叠加 + 调色斜坡是公开配方，属思路层。
-/// ⚠️ **"自研"的射程仅限组合与参数化**：本 shader 用到的共享原语
-/// （`wangHash` / `hash21` / `hash22`）有明确出处（Wang·Reed / Teschner et al. 2003），
-/// 见 `CoreDesignShaders.metal` 原语区的逐项署名。
+/// ⚠️⚠️ **不再声称「自研实现，非移植」**（第 3 轮终审 C-1）。两处都得改：
+///
+/// 1. **上一版的「射程限定」引了本 shader 根本没用到的原语**——它写着
+///    「用到的共享原语（`wangHash` / `hash21` / `hash22`）有明确出处」，
+///    而 `coreDesignPlasma` 的函数体**一次 hash 都没调**，只用 `cd::ramp3`。
+///    这与上一轮被判掉的 ashima 引用是**同一个错误的镜像**：引用了一个
+///    署名干净但实际没用到的来源。
+/// 2. **四相正弦叠加不是无出处的「经典配方」**：`sin(x)` / `sin(y)` /
+///    `sin((x+y)/2)` / `sin(dist)` 四项与 Lode Vandevenne《Lode's Computer
+///    Graphics Tutorial — Plasma》里被无数 demoscene / Shadertoy 版本转抄的公式
+///    `sin(dist(x,y,cx,cy)/8) + sin(x/16) + sin(y/8) + sin((x+y)/16)`
+///    **逐项对应**，差别只是把除数参数化成 `frequency`、每项加了不同时间相位。
+///    按本仓写死的判据（「改常量不构成独立」）——**与 `InkSmoke` 被降级同理**。
+///    ⚠️ 「经典配方」四个字是**没有出处的肯定式借用声明**，正是 #249 裁定要求
+///    转成正向判决的那一类。⇒ 出处待 #249 裁定表收录。
+///
+/// 本仓自有的部分是参数化（`Density` 语义档位）与经 `ShaderRamp` 的三档取色。
 /// 差异化依据见 `docs/shader-provenance.md`《第三条出路：自研实现》。
 public struct Plasma: View {
 
