@@ -123,8 +123,13 @@ nonisolated enum GuardScanRoots {
     /// · `EffectsColorLiteralGuard.scan(root:)` / `ChromeTextLiteralGuard.scan(root:)` /
     ///   `AccessibilityStringLiteralGuard.noBareAccessibilityLiterals` /
     ///   `ExtensionEntryPointGuard` ——多根，本来就走 `relativePath`；
-    /// · `ComponentRegistryGuard`（`:476`）、`ComponentJudgeScanner`（`:363`/`:365`）、
-    ///   `StyleConsumptionGuard`（`:174`）、`ToastPublicEntryForwardingGuard`（`:188`）
+    /// · `ComponentRegistryGuard.scanTypes(root:)`、`scanComponentJudgeInputs(root:)`
+    ///   （解析出错诊断 + `collectComponentJudgeInputs(tree:fileName:)` 的 `fileName` 实参）、
+    ///   `StyleConsumptionGuard.swiftSources()`、
+    ///   `ToastPublicEntryForwardingGuard.aliasEntriesForwardEveryParameter()`
+    ///   ——⚠️ **这里逐条引的是符号名不是行号**（PR #265 第 5 轮终审 S-e）：本 PR 的
+    ///   `4ce5366` / `0455e9f` 刚把行号引用统一改成符号名，本清单写回行号是反向漂移
+    ///   ——行号今天全对，下一次任何人在这四个文件里插一行就全错，而没有任何判据会红。
     ///   ——扫描根是 `ComponentRegistryGuard.coreDesignSources`（或它的临时拷贝）这**一个**根，
     ///   跨 target 同名不可能发生 ⇒ 有意保持原样。它们哪天扩到多根，必须同轮改成 `relativePath`。
     static func relativePath(_ url: URL) -> String {
