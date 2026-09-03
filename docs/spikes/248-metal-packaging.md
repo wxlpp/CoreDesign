@@ -8,15 +8,22 @@
 **PRD 与 epic 把路径 β（预编译 metallib 作二进制资源）定为默认走向**，理由是
 「所有已知消费路径都用原生 `swift build`，切不到 swiftbuild」。
 
-**实测推翻了这个前提。** 本 spike 建议改判 **路径 α（`.metal` 源随 target 编译）**：
+**实测推翻了这个前提。** 本 spike 建议改判 **路径 α（`.metal` 源随 target 编译）**。
+
+⚠️ **这不只是"前提被推翻"，而是一次 PRD 层的裁决变更，需要 PRD owner 拍板**
+（#258 终审 I-4）：PRD FR-2 把 α 的可选条件写死为「**所有**已知消费路径都能切 swiftbuild」
+并点名 StoryUI CI。本 spike 证明的是 **CoreDesign 自己的 CI 能切**；
+**StoryUI 的包能否在 swiftbuild 下构建没有测**。
+⇒ 本 spike 实际建议的是把该条件**从「全部可切」改为「Xcode 消费者不命中 + CLI 消费者
+按文档自担并有响亮失败兜底」**。**请连同下方《α 的残余风险》一并裁决 FR-2 的改写。**
 
 | | α（源码随 target 编译） | β（预编译 metallib） |
 |---|---|---|
-| CI SwiftPM 腿 | 加 `--build-system swiftbuild`，**已实测在真实 CoreDesign 包上跑通** | 不用改 |
+| CI SwiftPM 腿 | **保留 native**，另加一步只跑 shader 测试的 swiftbuild（⚠️ **不能整腿切**——会让 colorset 守卫静默失守，见问②） | 不用改 |
 | 分平台产物 | **构建系统自动按 destination 产出**，零额外工作 | 手工提交 **3 份** + 运行时 `#if` 选择 |
 | `.metal` 与产物同步 | **不可能失步**（同一次构建） | 需 sha256 manifest 守卫，否则改了 shader 忘重编 = 静默用旧效果 |
 | 仓库体积 | 0 | 每次改 shader 最多提交 6MB 二进制 |
-| 工具链耦合 | 跟随构建时的 Xcode | 需钉 `-std=` / `-mios-version-min`，否则新 Xcode 编的在旧运行时加载失败 |
+| 工具链耦合 | **不是「无」**：耦合从「我们编的 metallib 在旧运行时加载」换成「消费者的 Metal 编译器编我们的 MSL」——MSL 新版弃用/报错 ⇒ 下游**编译失败**。方向是 fail-loud，比 β 的静默好，但不是零 | 需钉 `-std=` / `-mios-version-min`，否则新 Xcode 编的在旧运行时**静默**加载失败 |
 | Mac Catalyst | 构建系统自己处理 | `#if os(macOS)` 在 Catalyst 下为假 ⇒ 会误选 `iphoneos` 份 |
 | 残余风险 | 见下方《α 的残余风险》 | 上面五行全是永久维护负担 |
 
@@ -28,7 +35,12 @@
 
 ### ① 构建系统选型 → **α**
 
-**处理矩阵**（实测，Swift 6.3 / Xcode 26.4）：
+**处理矩阵**（实测，**Xcode 26.4 / Swift 6.3，本机 Apple Silicon**）：
+
+⚠️ **可复现性声明**（#258 终审 I-6）：下方引用的 `CoreDesignEffects / Charts smoke passed`
+只在 **`epic/shipswift-foundation` 的 `7384ccd`**（含 #257）上存在——本 spike 分支基于
+更早的 commit，在其上复跑得到的是 474 而非 476。
+⚠️ **CI runner 用的是 Xcode 26.5**（`ci.yml`），**swiftbuild 在 26.5 上的行为本 spike 未验证**。
 
 | 构建系统 | `.metal` 声明方式 | 结果 |
 |---|---|---|
@@ -53,13 +65,39 @@ $ cd <CoreDesign worktree> && swift test --build-system swiftbuild
 
 ### ② CI 改法
 
-- **SwiftPM 腿**：`swift build` / `swift test` → 加 `--build-system swiftbuild`。
-  ⚠️ 该腿是**唯一**需要改的；下面两条腿不需要动。
-- **iOS Simulator 腿**：已经是 `xcodebuild`，天然编译 `.metal`，**零改动**。
-- **downstream-probe 腿**：build-only，且 probe 只依赖 `CoreDesign` product。
-  即便将来接 `CoreDesignShaders`，probe 验的是「nonisolated 能不能用这些类型」，
-  **不需要 metallib 在运行时存在** ⇒ **零改动**。
-- **Bool 棘轮腿**：不读 `Sources` ⇒ 零改动。
+⚠️ **初稿写「SwiftPM 腿只需加 `--build-system swiftbuild`，其它零改动」——实测为假，
+且失效形态是静默的**（#258 终审 C-1）。
+
+**实测**：整腿切到 swiftbuild 会让 `ColorAssetGuardTests` 的
+`Colorset 资源存在性守卫` suite **静默跳过**（skipped，不是 failed，CI 照常绿）：
+
+```
+native:      Suite "Colorset 资源存在性守卫" passed      （17 色相×10 色阶 + status 全查）
+swiftbuild:  该 suite 在输出里整个消失
+```
+
+**原因**：`Tests/CoreDesignTests/ColorAssetGuardTests.swift:70` 的
+`.enabled(if: rawXcassetsAvailable)` 只在 `Resources.xcassets/` **以目录形式**存在时启用。
+swiftbuild 调 `actool` 把它编成 `Assets.car` ⇒ 判据 false ⇒ 整个 suite 跳过。
+而 xcodebuild iOS 腿本来就是 `.car` 形态、同样跳过 ⇒ **整腿切换后，
+逐 colorset 的存在性守卫在四条腿上无一执行**。
+
+⚠️ 该文件 `:42-51` 的 canary 注释**已预见**「SwiftPM 将来改为调用 actool」这一漂移，
+但 canary 只守「xcassets 某种形态存在」，**不守逐 colorset**——所以它不会响。
+
+**⇒ 采用的改法（不整腿切）**：
+
+| 腿 | 改动 |
+|---|---|
+| **SwiftPM** | **保留 native** `swift build` / `swift test`（colorset 守卫继续生效）；**另加一步** `swift test --build-system swiftbuild --filter CoreDesignShadersTests`，只让 shader 加载测试走 swiftbuild |
+| **iOS Simulator** | 已是 `xcodebuild`，天然编译 `.metal` ⇒ **零改动** |
+| **downstream-probe** | build-only，且只依赖 `CoreDesign` product ⇒ **零改动** |
+| **Bool 棘轮** | 不读 `Sources` ⇒ **零改动** |
+
+⚠️ **被否决的改法**：整腿切 swiftbuild + 把 `ColorAssetGuardTests` 改成能读 `.car`
+——CoreUI 的 `.car` 格式不公开，实际做不到；改为按 `#filePath` 直接断言源码树的
+`Sources/CoreDesign/Resources.xcassets` 也可行，但那是一个独立的守卫重构，
+不该塞进 Metal 这条线。
 
 ### ③ metallib 定位 + fail-closed 加载测试
 
@@ -78,12 +116,26 @@ let lib = try device.makeDefaultLibrary(bundle: .module)   // 找不到即 throw
 for f in functions where lib.makeFunction(name: f) == nil { throw .functionMissing(f) }
 ```
 
+⚠️ **本 spike 证明的是「能编、能加载」，不是「能画」**（#258 终审 C-2）：
+`ShaderLibrary.bundle(.module)` 这个入口**一次都没被调用过**，而它正是 B-2 / B-3
+全部 wrapper 要用的那个入口；实验包里也**没有任何 `.colorEffect` / `.layerEffect` 调用**
+⇒ `.color` ↔ `half4`、`SwiftUI::Layer` 的参数位次这些**签名匹配从未被 SwiftUI 校验过**，
+而签名不匹配的失败形态恰恰就是本文档反复警告的「静默无渲染」。
+**⇒ B-1 的第一件事必须是：真的画一次**（真实 wrapper + 预览宿主或
+`xcodebuild test` 跑一遍 + 像素采样留证；⚠️ `ImageRenderer` 未必执行 shader，
+不能拿它当证据）。在那之前，④⑤ 的「可行」只到编译与加载为止。
+
 **fail-closed 已实证双向**：
 - 原生 `swift build`（无 metallib）⇒ 测试**判红** ✅（不是静默跳过）
 - `--build-system swiftbuild` ⇒ 测试**通过**，`spikeSwirl` / `spikeFoil` 两个 stitchable 函数都解析出来
 
 ⚠️ **未解项：GitHub Actions `macos-26` runner 有没有可用 Metal device？**
 本机（Apple Silicon）有。CI runner 是虚拟化环境，**本 spike 无法在本地回答**。
+⚠️ **本条未按 task AC 完成**（#258 终审 I-3）：`248.md` 要求「**已确认**」，
+而本 spike 只给了两个分支的处置。⚠️ **可以更早解决**：在本 PR 的 swiftpm job 里临时加
+一行打印 `MTLCreateSystemDefaultDevice() != nil` 即可拿到答案，成本几分钟
+——**建议 B-1 的第一个 commit 就做，不要真拖到 shader 落地时**。
+
 ⇒ **B-1 落地时先加一条一次性 CI 探针**（`MTLCreateSystemDefaultDevice() != nil` 打印结果）：
 - **有** ⇒ 加载测试进 SwiftPM 腿，缺 device 即判红；
 - **无** ⇒ 加载测试**仅在 iOS Simulator 腿作数**，macOS 腿以**显式 skip + 留痕**处理
@@ -98,7 +150,8 @@ for f in functions where lib.makeFunction(name: f) == nil { throw .functionMissi
                                 half4 c0, half4 c1, half4 c2) { … }
 ```
 
-编译通过、加载通过。⇒ FR-8「颜色 100% 由调用方传入」在 `.metal` 侧**技术上可达**。
+编译通过、加载通过。⇒ FR-8「颜色 100% 由调用方传入」在 `.metal` 侧**技术上可达**
+（⚠️ 限于"能编能加载"，未验渲染，见 ③ 的证据边界说明）。
 
 ### ⑤ layer 输入（`layerEffect`）→ **可行，但有一个必踩的坑**
 
@@ -110,6 +163,12 @@ for f in functions where lib.makeFunction(name: f) == nil { throw .functionMissi
 ⚠️ **必须 `#include <SwiftUI/SwiftUI_Metal.h>`**，否则 `error: use of undeclared
 identifier 'SwiftUI'`。上游 34 个 `.metal` 里 30 个都带这行——**改造那 7 个"颜色写死"件时
 不要在重排 include 时把它弄丢**。
+
+⚠️ **本条未按 task AC 取样**（#258 终审 I-1）：`248.md:35-37` 明写 layerEffect 样本
+**须取自** ChromaticGlass / Foil / Glitter / IntenseBling / PolishedAluminum / GlassLogo /
+LiquidMetal 之一；实验包里的 `spikeFoil` 是 6 行的条纹 mix，与上游 Foil
+（硬编码调色板 + 多层反射）无关。⇒ **下方交付 B 里那 7 个的「2–3 小时/个」是估算，
+无实测支撑**，而它们恰是已知 MIT 来源的主体，直接影响闸② ⇒ **`N_B` 按上界算**。
 
 ### ⑥ 分平台 metallib → **α 下不是问题**
 
@@ -123,6 +182,22 @@ identifier 'SwiftUI'`。上游 34 个 `.metal` 里 30 个都带这行——**改
 
 ⇒ **epic AD-C 规定的「3 份 metallib + 运行时 `#if` 选择 + `exclude:` + sha256 manifest 守卫」
 整套复杂度是 β 独有的，α 下全部消失。**
+
+**下游消费者实验**（#258 终审 I-7 补做，结论支持上表）：建一个 `.package(path:)` 依赖本实验包
+的下游包，分别构建——
+
+| 下游构建方式 | 结果 |
+|---|---|
+| native `swift test` | **判红**（无 metallib）—— fail-closed 生效 |
+| `swift test --build-system swiftbuild` | 通过，metallib 由**下游构建**产出 |
+| `xcodebuild -destination 'generic/platform=iOS Simulator'` | 产出 `Debug-iphonesimulator/…/default.metallib` |
+
+⇒ **「下游按自己的 destination 编我们的 `.metal`」成立**，不是把我们本地的产物分发下去。
+⚠️ 初稿的 ⑥ 只有**自建**产物的证据，把这个消费者实验补进来才闭环。
+
+⚠️ **`.process("X.metal")` 在 α 下是强制项，不是可选项**：swiftbuild 不声明也会编，
+但 **native 不声明 ⇒ `Bundle.module` 不合成 ⇒ `downstream-probe` 与 StoryUI 直接编译失败**。
+⚠️ 副作用：native + `.process` 会把 `.metal` 源码随 bundle 分发，B-1 需有意识。
 
 ⚠️ 顺带纠正 AD-C ③：swiftbuild 下 bundle 里**只有 `default.metallib`**，`.metal` 源
 **没有**被同时拷进去（即使声明为 `.process` 资源）⇒ AD-C 说的「产物冗余、必须 `exclude:`」
@@ -146,6 +221,14 @@ identifier 'SwiftUI'`。上游 34 个 `.metal` 里 30 个都带这行——**改
 - README 与 CLAUDE.md 明写「用原生 `swift build` 消费本 product 时须加
   `--build-system swiftbuild`」；
 - `docs/components/` 里每个 shader 的文档带同一句话。
+⚠️ 用 `precondition` 或 throw，**不要用 `assertionFailure`**——它在 release 下是 no-op
+（#258 终审 Suggestion）。
+⚠️ ③ 的 fail-closed 检查会创建 Metal device，B-1 应用 `static let` 缓存一次，
+不要每次使用都建。
+
+⚠️ **task DoD 的一项作废声明**（#258 终审 I-5）：`248.md` 的 DoD 写「可复用脚本
+（`build-metallib.sh` 雏形）留在仓内」——**α 下该脚本没有意义**（不需要预编译 metallib）
+⇒ **本项随 α 改判一并作废**，不是遗漏。
 
 ---
 
@@ -180,11 +263,26 @@ identifier 'SwiftUI'`。上游 34 个 `.metal` 里 30 个都带这行——**改
 
 ### `N_B` 的推导
 
-固定成本（α）≈ **10–16 小时** ÷ 边际成本 ≈ **1.5 小时/shader（加权均值）** ⇒ **`N_B` ≈ 7–11**。
+⚠️ **`N_B` 的语义**（PRD `:523-527` 钉死，此处写明免得误读）：它是
+**「摊销固定开销 ≤ 每 shader 直接成本」的盈亏平衡点**，**不是**「值不值得做」的阈值。
 
-⚠️ **取 `N_B` = 10**：低于 10 个 shader 可落地时，Epic B 的固定基建（新 target + product +
-CI flag + 文档/署名/画廊/快照排除）摊到每个 shader 上超过其自身成本，不划算——
-那种情况下更该把少数几个 shader 直接放进 `CoreDesignEffects`，不另立 target。
+⚠️ **初稿的推导有三处站不住，已修正**（#258 终审 I-2）：
+
+1. **分子分母重叠**——初稿把 B-4 的「文档/署名/画廊/快照排除」整块算进固定成本，
+   但其中**逐 shader 的条目**（`docs/components/*.md`、ACK 条目、画廊项）本质是**边际**。
+   ⇒ 从分子移到分母。**修正后固定成本 ≈ 8–12 小时**。
+2. **加权均值口径错**——1.5h 是按 28 个全落地加权；但**可能落地的集合**里有 7 个是
+   `layerEffect` 难件（2–3h），加上移到分母的逐 shader 文档/画廊 ⇒
+   **修正后边际 ≈ 2.0–2.5 小时/shader**。
+3. **取值无理由**——初稿在区间里取偏上值且未说明。
+
+**修正后**：8–12h ÷ 2.0–2.5h ⇒ **`N_B` ≈ 3–6 ⇒ 取 `N_B` = 5**（取区间中值；
+⚠️ 由于 ⑤ 未按 AC 取样、边际成本是估算，**取值偏保守对闸②更安全**）。
+
+⚠️ **被否决的兜底方案**：初稿写「低于 `N_B` 就把少数几个 shader 直接放进
+`CoreDesignEffects`」——**与 PRD 冲突**（PRD `:34-38` 否决单 target 的理由之一正是
+构建系统约束不该污染 Effects）。α 下这样做会把「native 构建静默无渲染」带进
+**StoryUI CI 正在消费的 Effects** ⇒ 该兜底作废；低于 `N_B` 就是**不做**。
 
 ⚠️ **这个数字取决于 #249 的许可裁定结果，两者相乘才是 go/no-go**：
 `N_B = 10` 意味着 28 个里至少要有 10 个能落地。上游已标注来源的只有 7 个
