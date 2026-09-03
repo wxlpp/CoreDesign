@@ -48,6 +48,22 @@ CheckoutSummary()
 而那个分支会随 `scenePhase` 出现/消失 ⇒ 开启「减弱动态效果」的用户**每次从后台切回
 App 都会重放一次庆祝**（PR #269 第 2 轮修的正是这条）。
 
+⚠️⚠️ **副产品：静态庆祝比上一版长了 52%，且这个取值尚未被裁决**（PR #269 第 4 轮 S2-4）。
+
+| | 旧（静态层自带计时器） | 现在（共用 `duration`） |
+|---|---|---|
+| 常量 | `staticHoldDuration = 1.2` + `staticFadeDuration = 0.35` | `ConfettiBurst.duration = 2.0` + `staticFadeDuration = 0.35` |
+| **完全消失于** | **1.55 s** | **2.35 s**（+52%） |
+
+**口径**：淡入的 0.35 s 与"停留"是**重叠**的（`.opacity` 从 0 动到 1 的同时停留计时已在走），
+⇒ 完全消失 = `duration + staticFadeDuration`；淡出那一段在 `active` 转 `false` 之后才开始。
+⚠️ `duration = 2.0` **不是可见时长**，它是 `active` 停留的终点——拿它直接比 1.55 s
+会得到 +29%，那个数是错的。
+
+这是**删掉独立常量之后落到的结果**，不是一次设计裁决；已上报，**待裁决**。
+（若最终要给静态层单独一条时长：**不得**把计时器还给静态层——那正是上面那条"后台往返即
+重放"的成因——只能由 `ConfettiCore` 的状态机按呈现档位取不同的 sleep 时长。）
+
 ## 后台与低电量（NFR-7）
 
 两个信号都做成了**可注入的 `EnvironmentValues`**（默认从系统读）：
@@ -151,6 +167,18 @@ burst 起始时刻存在 `@State var burstStart: Date?` 里，`ConfettiBurst.dur
 `accessibilityLabel` / `accessibilityValue`。
 
 ## 使用示例 / Usage
+
+⚠️ **本节（以及 `glow-sweep.md` / `light-sweep.md` / `scanning-overlay.md` 三份姊妹文档的
+同名小节）的示例代码，当前没有任何机器校验**（PR #269 第 4 轮 S2-5）——
+`import` 漏写、API 改名、参数标签变更都只能靠人工发现，`swift build` / `swift test` /
+CI 的任何一条腿都不会因为它们过期而变红。第 4 轮修掉的正是两份文档缺 `import` 这类问题。
+
+为什么不便机器化：这些示例是**片段**，要编译就得先补一层宿主脚手架（`struct … : View`
+外壳 + 状态变量），而那层脚手架一旦写进测试 target，"被校验的"就变成脚手架而不是文档本身；
+片段与脚手架之间还会各自漂移。`.build/` 里能看到一个
+`__DocExampleCompileCheck.swift.o`——那是一次这样的尝试留下的**陈旧产物，
+树里已经没有对应源文件**，别把它当成"其实有覆盖"的证据。
+⇒ 现状按**人工**记账：改动 `CoreDesignEffects` 的公开 API 时，四份文档的示例需人工过一遍。
 
 ```swift
 import CoreDesign

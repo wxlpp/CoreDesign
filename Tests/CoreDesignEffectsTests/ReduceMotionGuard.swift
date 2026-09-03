@@ -303,6 +303,16 @@ struct MicroInteractionReduceMotionGuard {
     /// 走 NFR-7 能耗闸的文件（**双向差集**，新增一个必须改本文件）。
     ///
     /// 判据见 `reduceMotionIsOnlyConsumedByTheSharedGate`。
+    ///
+    /// ⚠️⚠️ **登记一条本守卫看不见的方向**（#252 PR #269 第 4 轮终审 S2-3）：
+    /// 扫描根固定为 `Sources/CoreDesignEffects`（`sourceRoot`）⇒ 若把一个**常驻渲染件**
+    /// 落在 `Sources/CoreDesign`，它走不走能耗闸本守卫一概看不见。这不是本轮能修的
+    /// ——它是 issue #271 那条残余（NFR-7 的通用策略表仍在 `CoreDesignEffects`，
+    /// `shipswift-shaders` 的 B-2 只能在"import 整个 Effects product"与"自己再派生
+    /// 一份"之间二选一）的**判据侧**同一枚硬币：只要策略表没下沉，
+    /// `CoreDesign` 侧的常驻渲染件就既不共用那张表、也不进这个扫描根。
+    /// ⇒ **B-2 落件时与 #271 一并裁决**：策略表下沉到哪一层，扫描根就跟到哪一层。
+    /// 本轮只留痕，不改扫描根（现在 `CoreDesign` 里没有常驻渲染件，改了也只是空跑）。
     static let energyGatedFiles: Set<String> = ["Confetti.swift", "ProcessingSweep.swift"]
 
     /// ⚠️⚠️ **第 2 轮终审 I-A 的判据**（#252 PR #269）。
@@ -333,7 +343,17 @@ struct MicroInteractionReduceMotionGuard {
             (url.lastPathComponent, Self.stripComments(try String(contentsOf: url, encoding: .utf8)))
         }
         // ① 名单与实际**双向差集**：新增一个走能耗闸的效果必须来改本文件。
-        let actual = Set(scanned.filter { $0.1.contains("EffectsEnergyState.resolve(") }.map(\.0))
+        //
+        // ⚠️⚠️ **必须去空白后再匹配**（#252 PR #269 第 4 轮终审 S2-3，评审有变异实证）：
+        // 上一版直接 `contains("EffectsEnergyState.resolve(")`，这对**新增文件**是
+        // **fail-open** —— 一个新文件把调用写成跨行的
+        // `EffectsEnergyState\n    .resolve(`，它既不进 `actual`、也不在 `energyGatedFiles`
+        // 里 ⇒ 两个集合仍然相等 ⇒ ① 判绿，而下面 ② 的循环**根本不对它执行**
+        // ⇒ 它在调用点里怎么二次消费 `reduceMotion` 都没人看得见。
+        //（已经在名单里的文件这么写会判红——那个方向本来就是对的，漏的只有新增文件。）
+        let actual = Set(scanned.filter { entry in
+            entry.1.filter { !$0.isWhitespace }.contains("EffectsEnergyState.resolve(")
+        }.map(\.0))
         #expect(actual == Self.energyGatedFiles,
                 "走能耗闸的文件名单 \(Self.energyGatedFiles.sorted()) 与实际 \(actual.sorted()) 不一致")
 
@@ -346,7 +366,63 @@ struct MicroInteractionReduceMotionGuard {
                     "\(name) 没有把 reduceMotion 喂给 EffectsEnergyState.presentation(reduceMotion:) —— 两道闸的顺序在这个调用点上又变成各写一遍了")
             #expect(reads == fed,
                     "\(name) 里 `self.reduceMotion` 出现 \(reads) 次，但只有 \(fed) 次是喂给 presentation(reduceMotion:) 的 —— 多出来的那些是调用点自己又判了一遍 Reduce Motion，能耗闸会被绕过（I-1 的原形态）")
+
+            // ③ ⚠️⚠️ **形态断言：堵掉「去掉 `self.` 就逃逸」**
+            //（#252 PR #269 第 4 轮终审 S2-2，评审有变异实证）。
+            //
+            // ② 数的是**字面子串** `self.reduceMotion` ⇒ 把调用点写成
+            // `let isReduced = reduceMotion`（去掉 `self.`，Swift 完全合法——
+            // property wrapper 不强制 `self.`）⇒ `reads` 仍是 1、`fed` 仍是 1
+            // ⇒ ② **判绿**，而 I-1 的原形态原封不动回来了。
+            //
+            // ⚠️ 「同类型内也显式写 `self.`」是本仓 `CLAUDE.md` 的成文风格约定，
+            // 但**没有任何机器在守它**（无 SwiftLint 规则、无编译器诊断）
+            // ⇒ 这是一个实打实的逃逸位，不是理论上的。
+            //
+            // ⇒ 本条把 ② 依赖的那个前提**自己钉住**：能耗闸文件里，词边界意义上的
+            // `reduceMotion` 只许以三种形态出现——`var reduceMotion` 声明、
+            // 实参标签 `reduceMotion:`、以及 `self.reduceMotion` 读取。裸写一律判红。
+            //（`accessibilityReduceMotion` 里是大写 `R`，词边界匹配天然不会命中它。）
+            let strays = Self.bareReduceMotionOccurrences(in: code)
+            #expect(strays.isEmpty,
+                    "\(name) 里这些 `reduceMotion` 既不是声明、也不是实参标签、更不是 `self.reduceMotion`：\n\(strays.joined(separator: "\n"))\n—— 去掉 `self.` 就能绕过上面按字面子串的计数，把 I-1 原样放回来")
         }
+    }
+
+    /// 能耗闸文件里**裸写**的 `reduceMotion`（返回 `行号: 该行源码`，1-based）。
+    ///
+    /// 词边界意义上的每一处 `reduceMotion`，只接受三种形态：
+    /// · `var reduceMotion` —— `@Environment(\.accessibilityReduceMotion)` 声明本身；
+    /// · `reduceMotion:` —— 实参标签（`presentation(reduceMotion: …)`）；
+    /// · `self.reduceMotion` —— 读取。
+    /// 其余一律登记：`let isReduced = reduceMotion`、`reduceMotion ? … : …`、
+    /// `guard !reduceMotion` …——这些正是 `reduceMotionIsOnlyConsumedByTheSharedGate`
+    /// 的 ② 按字面 `self.reduceMotion` 计数时看不见的形态。
+    ///
+    /// ⚠️ 吃的是**已去注释**的源码（调用点传的就是 `stripComments` 的结果），
+    /// 否则文档注释里的 `presentation(reduceMotion:)` 会被当成真调用。
+    /// `stripComments` 逐行处理、保留行数 ⇒ 这里的行号与原文件对得上。
+    static func bareReduceMotionOccurrences(in code: String) -> [String] {
+        func isIdentifierChar(_ c: Character) -> Bool { c.isLetter || c.isNumber || c == "_" }
+        let needle = "reduceMotion"
+        var out: [String] = []
+        for (index, rawLine) in code.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+            let line = String(rawLine)
+            var searchStart = line.startIndex
+            while let r = line.range(of: needle, range: searchStart..<line.endIndex) {
+                searchStart = r.upperBound
+                // 词边界：前后都不能再是标识符字符。
+                if r.lowerBound > line.startIndex,
+                   isIdentifierChar(line[line.index(before: r.lowerBound)]) { continue }
+                if r.upperBound < line.endIndex, isIdentifierChar(line[r.upperBound]) { continue }
+                let prefix = line[line.startIndex..<r.lowerBound]
+                if prefix.hasSuffix("var ") { continue }                              // 声明
+                if r.upperBound < line.endIndex, line[r.upperBound] == ":" { continue } // 实参标签
+                if prefix.hasSuffix("self.") { continue }                             // 读取
+                out.append("\(index + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+        return out
     }
 
     /// 早退名单同样做**双向差集**——新领一张豁免必须改本文件 ⇒ 在 diff 里必然可见。

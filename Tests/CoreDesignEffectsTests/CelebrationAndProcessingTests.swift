@@ -18,6 +18,14 @@ import Testing
 // ⚠️ **低电量那条必须钉相位**：降帧本身拍不进静态帧（`ImageRenderer` 拍的是一帧），
 // 而若走 `TimelineView` 的活相位，两次渲染落在不同时刻上，位图必然不同 ⇒ 断言恒真。
 // ⇒ 判据吃的是 `ProcessingSweepBody(kind:phase:)`——同一个 `phase`、只换注入值。
+//
+// ⚠️ **本 target 的一条覆盖限度（#252 PR #269 第 4 轮终审 S2-5）**：
+// `docs/components/` 下 `confetti` / `glow-sweep` / `light-sweep` / `scanning-overlay`
+// 四份文档的示例代码**零机器覆盖**——`import` 漏写、API 改名、参数标签变更都不会让
+// 任何一条腿变红，只能人工发现（第 4 轮修的正是两份文档缺 `import`）。
+// 不便机器化的理由与记账方式写在 `docs/components/confetti.md` 的「使用示例」小节；
+// `.build/` 里那个 `__DocExampleCompileCheck.swift.o` 是一次尝试的**陈旧产物**，
+// 树里没有对应源文件，别把它当成"其实有覆盖"。
 
 // MARK: - 纯函数层：能耗状态 → 渲染策略
 
@@ -677,6 +685,22 @@ struct ConfettiTests {
         text.components(separatedBy: needle).count - 1
     }
 
+    /// 删掉 `marker` 及其后配对花括号区间（**所有**出现处），返回剩下的源码。
+    ///
+    /// ⚠️ 判据要问的是"**某个区间之外**还有没有 X"，而这类问题只能靠"把区间挖掉再看"
+    /// 来回答——直接数出现次数会把区间内外混在一起。
+    /// ⚠️ 找不到 `marker`（或它后面没有 `{`）时**原样返回**：这是有意的 fail-closed
+    /// ——区间没被挖掉，区间内的东西会留在结果里、被调用方的断言抓住。
+    static func removingRegion(after marker: String, in code: String) -> String {
+        var out = code
+        while let markerRange = out.range(of: marker),
+              let region = Self.bracedRegion(after: marker, in: out),
+              let regionRange = out.range(of: region, range: markerRange.lowerBound..<out.endIndex) {
+            out.removeSubrange(markerRange.lowerBound..<regionRange.upperBound)
+        }
+        return out
+    }
+
     /// ⚠️⚠️⚠️ **C-1 的判据**（#252 PR #269 第 2 轮终审）：钉住「后台往返不重放」
     /// 与「调用方内容子树不换身份」。
     ///
@@ -695,16 +719,27 @@ struct ConfettiTests {
     /// ⚠️ **位图路走不通，不是偷懒**：`\.accessibilityReduceMotion` 不可注入（写它编译红），
     /// 缺陷只在 RM 开启时才出现；而且要观测的是**视图身份在一次状态变化前后是否保持**，
     /// `ImageRenderer` 拍的是**一帧静态图**，身份这件事它根本不成像。
-    /// ⇒ 只能钉**形状**：`body` 只有一种形状，缺陷就无处可长。
+    /// ⇒ 只能钉**形状**：把 `body` 的**顶层分支**封死（与下面第 4 条同一措辞——
+    /// **顶层分支无路可走**）。
     ///
-    /// 四条一起才封得住，缺一条都有逃逸位（逐条对应一枚真实变异）：
+    /// ⚠️ **不是「`body` 只有一种形状，缺陷就无处可长」**（#252 PR #269 第 4 轮终审 S2-1）：
+    /// 上一版这里逐字写着那句话，而它是过头话——分支挪进 `overlay` 闭包内部、
+    /// 或挪进同文件的**兄弟类型**仍然写得出来，链尾追加 `.id(presentation)` 也写得出来。
+    /// 那两条路分别由下面第 5 条（`.id(` × 0）与文件级的「除 `ConfettiCore` 外
+    /// 不得声明 `@State`」接管。**本条的射程只到顶层分支，不多说一句。**
+    ///
+    /// 五条一起才封得住，缺一条都有逃逸位（逐条对应一枚真实变异）：
     /// · `content` × 1 —— 两个出口（`guard … else { return AnyView(content…) }`）
     ///   或 `@ViewBuilder` 的 `if/else` 都必须把 `content` 写两遍 ⇒ 判红；
     /// · `.task(` × 1 —— 堵"只把 `.task` 挂在其中一条路径上"（RM 路径此前正是**没有**它）；
     /// · `AnyView` × 0 —— 堵"用类型擦除在 `body` 顶层分支"这一整类写法；
     /// · `return` × 1 —— 堵上一条的漏网之鱼：`@ViewBuilder` 的隐式 `if/else` 不需要
     ///   `AnyView`，但它**没有** `return`（写了 `return` 就关掉 builder 变换、又需要
-    ///   两侧类型一致 ⇒ 回到需要 `AnyView`）。两条合起来，顶层分支无路可走。
+    ///   两侧类型一致 ⇒ 回到需要 `AnyView`）。两条合起来，顶层分支无路可走；
+    /// · `.id(` × 0 —— 堵**显式身份覆盖**（第 4 轮终审 S2-1 的变异 A）：`presentation`
+    ///   依赖 `scenePhase`，在链尾写 `.id(presentation)` 就是每次后台往返主动换掉
+    ///   整棵被修饰子树的身份——**与 C-1 等价，且比它更彻底**（C-1 至少只换 `AnyView`
+    ///   的底层类型，`.id` 是直接下令重建）。前四条对这枚变异**全绿**，实测过。
     ///
     /// 静态层那一半由后三条钉：它不得自带 `@State` / `.task(` / `fire`，
     /// 且必须由 `active` 参数驱动 —— 触发源回到 `.task(id: fire)` 是**编译失败**
@@ -730,6 +765,9 @@ struct ConfettiTests {
                 "ConfettiCore.body 又用上了 AnyView —— 类型擦除的顶层分支正是 C-1 的成因")
         #expect(Self.occurrences(of: "return ", in: body) == 1,
                 "ConfettiCore.body 的 return 不是恰好一处 —— 0 处意味着走了 @ViewBuilder 的隐式分支")
+        // ⚠️ 第 5 条：**显式身份覆盖等价于 C-1**（理由见上面文档的第 5 条）。
+        #expect(Self.occurrences(of: ".id(", in: body) == 0,
+                "ConfettiCore.body 里出现了 `.id(` —— presentation 随 scenePhase 翻转，显式换 id 就是每次后台往返都重建整棵被修饰子树，与 C-1 等价")
         #expect(body.contains("switch presentation {"),
                 "两道闸的结论不再由单个 switch 裁决")
 
@@ -743,6 +781,24 @@ struct ConfettiTests {
                 "静态庆祝层不再由外部传入的 active 驱动")
         #expect(!staticDecl.contains("@State"),
                 "静态庆祝层又自带 @State —— 它会随 scenePhase 的分支翻转被重建并复位")
+        // ⚠️⚠️ **射程从「`ConfettiStaticCelebration` 声明内」扩到「除 `ConfettiCore` 外
+        // 整个文件」**（#252 PR #269 第 4 轮终审 S2-1 的变异 B，评审有实证）：
+        // 上面三条禁止只扫 `struct ConfettiStaticCelebration: View {` 的括号区间
+        // ⇒ 把随 `presentation` 翻转的分支挪进同文件的**兄弟类型**
+        //（如新写一个 `ConfettiOverlay: ViewModifier`，`@State` 与真正的身份翻转都在它里面），
+        // 同时 `ConfettiCore.body` 里保留 `switch presentation {` 与 `.task(` 撑住上面五条
+        // ⇒ 全绿，新类型完全不在射程内。
+        // ⇒ 状态只许长在 `ConfettiCore` 上：它是本文件唯一挂着**恒在** `.task(id:)` 的类型，
+        // 别处的 `@State` 必然随分支出现/消失而重建复位，正是 C-1 的成因。
+        // ⚠️ `#Preview` 区间排除：`@Previewable @State` 是预览宿主的局部状态，不是视图成员。
+        // ⚠️ **fail-closed**：`ConfettiCore` 声明找不到时区间删不掉，`burstStart` 那句
+        // `@State` 会留在 `outsideCore` 里 ⇒ 判红，而不是静默变绿。
+        let outsideCore = Self.removingRegion(
+            after: "#Preview",
+            in: Self.removingRegion(after: "struct ConfettiCore: ViewModifier {", in: code)
+        )
+        #expect(!outsideCore.contains("@State"),
+                "Confetti.swift 里 ConfettiCore 之外还有 @State —— 状态只许长在挂着恒在 .task(id:) 的 ConfettiCore 上，别处的 @State 会随 scenePhase 分支重建复位（C-1 的成因）")
         #expect(!staticDecl.contains(".task("),
                 "静态庆祝层又自带 .task —— 后台往返把它移除再插回就会重放一次庆祝")
         #expect(!staticDecl.contains("fire"),

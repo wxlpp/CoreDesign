@@ -162,6 +162,15 @@ public nonisolated enum EffectsPowerMode: Sendable, Equatable, CaseIterable {
 /// ⚠️ 顺带登记：这三个类型全 `public`，而模块外唯一消费者是 probe 自己。
 /// 若上面选了"不下沉、也不让 B-2 消费"，它们（至少 `resolve`）可以降 internal、
 /// 少一份永久 API 承诺——同样是 B-2 落件时的裁决项，本轮不改。
+///
+/// ⚠️⚠️ **同一枚硬币的判据侧**（#252 PR #269 第 4 轮终审 S2-3）：守「凡走能耗闸的文件，
+/// `reduceMotion` 只许喂给 `presentation(reduceMotion:)`」那条判据
+/// （`MicroInteractionReduceMotionGuard.reduceMotionIsOnlyConsumedByTheSharedGate`）
+/// 的扫描根**固定为 `Sources/CoreDesignEffects`**。⇒ 只要这半张策略表没下沉，
+/// B-2 若把常驻渲染件落在 `Sources/CoreDesign`，那个件走不走能耗闸、
+/// 有没有在调用点二次消费 `reduceMotion`，**本仓没有任何机器看得见**。
+/// ⇒ 与上面那条一并裁决：**策略表下沉到哪一层，扫描根就跟到哪一层**。
+/// 两条残余同登记在 issue #271 下，本轮均只留痕。
 public nonisolated enum EffectsRenderPolicy: Sendable, Equatable, CaseIterable {
 
     /// 满帧、带光晕。
@@ -210,7 +219,9 @@ public nonisolated enum EffectsRenderPolicy: Sendable, Equatable, CaseIterable {
 ///
 /// 两个调用点（`ProcessingSweepDriver` / `ConfettiCore`）此前各写一遍这条链，
 /// 结果是 `Confetti` 把顺序写反了：RM 闸在前 ⇒ 开启「减弱动态效果」的用户在
-/// `.inactive` / `.background` 下**仍然**拿到一个静态庆祝层 + 1.55 s 透明度动画，
+/// `.inactive` / `.background` 下**仍然**拿到一个静态庆祝层 + 1.55 s 透明度动画
+///（当时 `staticHoldDuration = 1.2` + `staticFadeDuration = 0.35`——⚠️ 前者已随第 2 轮
+/// 终审 C-1 一并删除，这个数**在当前树里无法由任何常量重建**，故在此括注留档），
 /// NFR-7 在这条路径上整条失效。而当时**两道闸对调也是 42/42 全绿**——
 /// 终审做过这枚变异：没有任何判据看得见顺序。
 ///

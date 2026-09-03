@@ -73,7 +73,10 @@ struct ConfettiCore: ViewModifier {
         // 开启时 `policy` 根本不被求值 ⇒ 两个能耗键对 Confetti **完全无效**：
         // `.inactive`（App 切换器 / 通知中心 / 来电覆盖）下系统仍在合成这一层，
         // 开启「减弱动态效果」的用户恰好在 NFR-7 规定该停摆的状态下拿到
-        // 静态庆祝层 + 1.55 s 透明度动画；且静态层里 `policy` 写死 `.full`，
+        // 静态庆祝层 + 1.55 s 透明度动画（当时 `staticHoldDuration = 1.2` +
+        // `staticFadeDuration = 0.35`——⚠️ 前者已随第 2 轮终审 C-1 一并删除，
+        // 这个数**在当前树里无法由任何常量重建**，故在此括注留档）；
+        // 且静态层里 `policy` 写死 `.full`，
         // 低电量下粒子数也不减。
         //
         // ⇒ 顺序现在由 `EffectsEnergyState.presentation(reduceMotion:)` 固定，
@@ -345,6 +348,25 @@ nonisolated enum ConfettiBurst {
     /// 上一版另有一个 `staticHoldDuration`，那是因为静态层当时自带 `.task(id: fire)`
     /// 计时——而那正是 Reduce Motion 路径下"后台往返即重放"的成因
     /// （#252 PR #269 第 2 轮终审 C-1）。
+    ///
+    /// ⚠️⚠️ **删掉 `staticHoldDuration` 的副产品：静态庆祝变长了 52%，且尚未被裁决**
+    /// （#252 PR #269 第 4 轮终审 S2-4，终审复核过口径）。逐字记账：
+    ///
+    /// | | 旧（自带计时器） | 新（共用 `duration`） |
+    /// |---|---|---|
+    /// | 常量 | `staticHoldDuration = 1.2` + `staticFadeDuration = 0.35` | `duration = 2.0` + `staticFadeDuration = 0.35` |
+    /// | **完全消失于** | **1.55 s** | **2.35 s**（+52%） |
+    ///
+    /// ⚠️ **口径**：淡入的 0.35 s 与"停留"是**重叠**的（`.opacity` 从 0 动到 1 的同时
+    /// 停留计时已经在走），⇒ 可见总时长 = `duration + staticFadeDuration`，
+    /// 淡出那一段在 `active` 转 `false` 之后才开始。
+    /// ⚠️ **`duration = 2.0` 不是"可见时长"**：它是 `active` 停留的终点，
+    /// 用它直接与旧的 1.55 s 相比会得到 +29%——那个数是错的。
+    ///
+    /// ⇒ **这是一个用户可见的产品取值，本 PR 未就它做过设计裁决**，只是删掉独立常量
+    /// 之后落到的结果。已上报待裁决：要么接受 2.35 s，要么给静态层单独一条时长
+    /// （⚠️ 若走后者，**不得**把计时器还给静态层——C-1 的成因正是那个计时器；
+    /// 只能由 `ConfettiCore` 的状态机按呈现档位取不同的 sleep 时长）。
     static let staticFadeDuration: Double = 0.35
 
     /// 整个 burst 里彩纸自转的总度数基数。
