@@ -46,13 +46,24 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
 
     // ⚠️ **`weeks` / `buckets` 每次 body 求值重算，这是有意的**（第 2 轮终审 I-3）。
     // `NetworkGraph` 的布局挪去了后台，这里没有，理由是量级差两个数量级——
-    // 实测（`swift test -c release`，1830 天 = `maximumDays` 上限，UTC）：**8 ms**；
-    // 典型用法（一年 365 天）按比例约 1.6 ms。对照网络图上限处的 283 ms。
+    // ⚠️ **上一版的实测口径已被第 3 轮的截断修复作废**（第 4 轮终审 I-6）：
+    // `effectiveDays` 要对**调用方传入的全量**做一次 `sorted` + 两次 `startOfDay`
+    // 全表扫描 ⇒ 成本随**输入天数**增长，而不是随 `maximumDays` 封顶。
+    // 旧数「1830 天 = 8 ms」描述的不再是当前代码。
+    // ⇒ 现口径：**输入 N 条时 O(N log N)**，`maximumDays` 只封住渲染侧的列数。
+    // 喂 10 年（3653 条）时排序成本约为 1830 条的 2.2 倍。
     // ⇒ 8 ms 不值得为它引入 `@State` + 失效键的复杂度；**但这个数字必须在这里**，
     // 否则下一个人只能在「重算」与「缓存」之间凭感觉选。
     private var grid: some View {
-        let buckets = Self.buckets(for: self.days)
-        let weeks = Self.weeks(for: self.days, calendar: self.calendar)
+        // ⚠️⚠️ **上一轮的 C-1 只修了一半**（第 4 轮终审 C-3）：descriptor 与 `weeks`
+        // 都改走了 `effectiveDays`，**只有决定每个格子颜色的 `buckets` 留在原地**
+        // ⇒ 10 年数据、峰值 50 出现在 8 年前时，可见窗口内每格都落最低档、
+        // 整张图变成均匀最浅色、信息量归零，而 descriptor 的量程是 0...5
+        // ⇒ 屏幕与播报又一次不同源。
+        // ⇒ 算**一次**传给两边，顺带消掉 `weeks` 内的重复 sort。
+        let inputs = Self.renderInputs(self.days, calendar: self.calendar)
+        let buckets = inputs.buckets
+        let weeks = inputs.weeks
 
         return HStack(spacing: 3) {
             ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
@@ -78,6 +89,17 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     /// ⚠️ **提成 `static` 纯函数是为了可测**（终审 C-3）：初版它是 `private` 计算属性，
     /// 测试 target 即使 `@testable` 也够不到 ⇒ 整个分列逻辑零覆盖，
     /// 而下面那个 DST bug 就藏在里面。
+    /// 渲染真正消费的三样东西，**一次算齐**。
+    ///
+    /// ⚠️ **抽出来是为了让测试能走组件自己的路径**（第 4 轮终审 C-3 的教训）：
+    /// 上一版测试直接调 `buckets(for: 已收敛的数据)` ⇒ **绕过了组件**，
+    /// 把源码退回 `self.days` 它照样绿——正是本 PR 反复被判的假绿形态。
+    static func renderInputs(_ days: [Day], calendar: Calendar)
+        -> (shown: [Day], buckets: [Int], weeks: [[Day?]]) {
+        let shown = Self.effectiveDays(days, calendar: calendar)
+        return (shown, Self.buckets(for: shown), Self.weeks(ofEffective: shown, calendar: calendar))
+    }
+
     /// 渲染与 descriptor **共用**的有效数据：排序 → 去重（后者胜）→ 截断最近一段。
     ///
     /// ⚠️⚠️ **第 3 轮终审 C-1：这是第二轮 `RingChart` 那个 bug 的同形复发。**
@@ -100,7 +122,12 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     }
 
     static func weeks(for days: [Day], calendar: Calendar) -> [[Day?]] {
-        let sorted = Self.effectiveDays(days, calendar: calendar)
+        Self.weeks(ofEffective: Self.effectiveDays(days, calendar: calendar), calendar: calendar)
+    }
+
+    /// 已经过 `effectiveDays` 收敛的数据 → 列。⚠️ 分成两个入口是为了让调用方
+    /// **只算一次** `effectiveDays`（第 4 轮终审 C-3）。
+    static func weeks(ofEffective sorted: [Day], calendar: Calendar) -> [[Day?]] {
         guard let first = sorted.first, let last = sorted.last else { return [] }
 
         var result: [[Day?]] = []
@@ -165,11 +192,16 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     static func buckets(for days: [Day]) -> [Int] {
         let peak = days.map(\.count).max() ?? 0
         guard peak > 0 else { return [] }
-        // ⚠️ `min(..., peak)` 防 `Int(_:)` 越界 trap（第 3 轮终审 S-5）：
-        // `peak == Int.max` 时 `$0 == 4` 的结果是 `Double(Int.max)` = 2⁶³ ⇒ 越界。
-        // 与本 target 修过的 `Int(非有限)` 是同一族，而硬约束 3 写的是
-        // 「库代码不得让宿主 App crash」。
-        return (1...4).map { min(Int((Double(peak) * Double($0) / 4).rounded(.down)), peak) }
+        // ⚠️ 舍入语义**已从 `.up` 变为等价的整数下取整**（第 4 轮终审 S-2 指出
+        // 上一版的 `.up → .down` 是一次没说明也没测试的视觉语义变更）：
+        // 低计数格子整体深一档、`peak == 1` 时任何非零天从最浅变满色。
+        // **这是定案**——新分档让峰值总能到满色，更接近 GitHub 的观感。
+        // 下面 `bucketsPinsRounding` 钉住了具体取值表。
+        // ⚠️⚠️ **上一版的 `min` 加在 `Int(_:)` 之后 ⇒ 越界 trap 照旧发生**
+        //（第 4 轮终审 I-2 实测：`peak = Int.max - 1024` 起 SIGTRAP）。
+        // `$0 == 4` 时 `Double(peak)` 舍入到 2⁶³ > `Int.max`。
+        // ⇒ 改**纯整数运算**：无浮点、无 trap，且顺带定死舍入语义。
+        return (1...4).map { peak / 4 * $0 + (peak % 4) * $0 / 4 }
     }
 
     private func color(for day: Day?, buckets: [Int]) -> Color {
@@ -185,7 +217,7 @@ extension ActivityHeatmap: AXChartDescriptorRepresentable {
     public func makeChartDescriptor() -> AXChartDescriptor {
         // `count` 是 `Int`，天然有限；这里仍走 `safeRange` 是为了与另外三个图表同形。
         // ⚠️ 与渲染同源（第 3 轮终审 C-1）。
-        let shown = Self.effectiveDays(self.days, calendar: self.calendar)
+        let shown = Self.renderInputs(self.days, calendar: self.calendar).shown
         let peak = Double(shown.map(\.count).max() ?? 1)
         // ⚠️⚠️ **不要写成 `"\(Int($0))"`**——`Accessibility` 框架在构造描述符时会拿
         // **非有限的探针值**调用这个闭包，`Int(非有限)` 直接 trap。

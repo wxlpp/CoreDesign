@@ -379,12 +379,20 @@ struct NetworkGraphLayoutTests {
     /// 300 ms 预算 ≈ 860 000）、**全区间**检查、**把最坏边数计进去**。
     @Test("全区间的运算量有确定性上界（含最坏边数）")
     func pairwiseWorkIsBounded() {
-        // 0.35 µs/单位（实测 283 ms / 810k）× 300 ms 预算 ⇒ 约 860k。
+        // ⚠️⚠️ **上一版的换算用错了单位**（第 4 轮终审 I-4）：810 000 是**旧单位**
+        // `n²·iter`（150²×36），而本断言的单位是 `(n²/2 + E)·iter`
+        // ——n=150 的实际值是 `(11250 + 600) × 36 = 426 600`。
+        // 按同一次 283 ms 实测换算，新单位的吞吐是 `283 ms / 426 600 ≈ 0.66 µs/单位`
+        // ⇒ 300 ms 预算在新单位下是 **≈ 450 000**，不是 860 000。
+        // 上一版那道闸实际放行 ~570 ms，且把 `recommendedEdgeLimit` 提到 2000 仍然绿。
         // ⚠️ 改这个数须重跑基准并同步 `iterations(for:)` 的文档表格。
-        let budget = 860_000
+        let budget = 450_000
         for n in 1...NetworkGraph<Node>.recommendedNodeLimit {
             let iter = NetworkGraph<Node>.iterations(for: n)
-            let worstEdges = min(n * (n - 1) / 2, NetworkGraph<Node>.recommendedEdgeLimit)
+            // ⚠️ 最坏边数与 n **无关**（第 4 轮终审 I-4）：`edges: [Edge]` 允许平行边
+            // （本文件的 `edgeLimitTriggersDegradation` 就用 20 个节点造了 700 条），
+            // 所以上一版的 `min(n(n-1)/2, limit)` 假设简单图、与 API 契约不符。
+            let worstEdges = NetworkGraph<Node>.recommendedEdgeLimit
             let work = (n * n / 2 + worstEdges) * iter
             #expect(work <= budget, "n=\(n) 的运算量 \(work) 超出预算 \(budget)")
         }
@@ -564,20 +572,92 @@ struct LocalizationPathTests {
 @Suite("截断在三个组件间一致（渲染 == descriptor）")
 struct TruncationConsistencyTests {
 
+    static let utc: Calendar = {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(identifier: "UTC")!
+        c.locale = Locale(identifier: "en_US_POSIX")
+        return c
+    }()
+
     private func days(_ n: Int) -> [Day] {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
         let start = Date(timeIntervalSinceReferenceDate: 0)
         return (0..<n).map { Day(date: start.addingTimeInterval(Double($0) * 86400), count: $0 % 9) }
     }
 
     /// ⚠️ 与 `RingChartTruncationTests.descriptorMatchesRendering` 同形——
     /// 第 2 轮修 `RingChart` 时我写「两个兄弟组件走反了」，**那句话少数了一个兄弟**。
+    /// ⚠️ **必须注入 UTC 日历**（第 4 轮终审 I-5）：上一版用默认 `.current` 构造组件，
+    /// 而数据点落在 UTC 午夜 ⇒ 在 UTC-1/±0 的 DST 时区里会有相邻点落进同一个**本地**日、
+    /// 被 `effectiveDays` 去重合并。评审遍历 443 个时区实测：
+    /// `America/Scoresbysund` 与 `Atlantic/Azores` 两处得 1825 而非 1830 ⇒ **判红**。
+    /// ⚠️ 而 `days(_:)` 里那个 UTC 日历上一版**造了却从没用**（死变量、不触发 warning）。
     @Test("ActivityHeatmap：descriptor 只播报截断后的天数")
     func heatmapDescriptorMatchesRendering() {
         let limit = ActivityHeatmap<Day>.maximumDays
-        let d = ActivityHeatmap(self.days(limit + 400)).makeChartDescriptor()
+        let d = ActivityHeatmap(self.days(limit + 400), calendar: Self.utc).makeChartDescriptor()
         #expect(d.series.first?.dataPoints.count == limit)
+    }
+
+    /// ⚠️ C-2：descriptor 的度数必须按**截断后**的边算（渲染画 `effectiveEdges`）。
+    @Test("NetworkGraph：度数按截断后的边算")
+    func graphDegreeUsesTruncatedEdges() {
+        let nodes = (0..<20).map { Node(id: "n\($0)", label: "L") }
+        let many = (0..<(NetworkGraph<Node>.recommendedEdgeLimit + 400))
+            .map { GraphEdge(from: "n\($0 % 20)", to: "n\(($0 * 7) % 20)") }
+        let d = NetworkGraph(nodes: nodes, edges: many).makeChartDescriptor()
+        // ⚠️ `AXDataPointValue` 不可直接解构，用描述里的数字解析。
+        let ys = d.series.first?.dataPoints.compactMap {
+            Double(String(describing: $0.yValue).filter { "0123456789.".contains($0) })
+        } ?? []
+        #expect(!ys.isEmpty)
+        // 全量 1000 条边 ⇒ 度数总和 2000；截断到 600 ⇒ 1200。
+        let total = ys.reduce(0, +)
+        #expect(total <= Double(NetworkGraph<Node>.recommendedEdgeLimit) * 2,
+                "度数总和 \(total) 超过截断后边数的两倍 —— descriptor 用了全量边")
+    }
+
+    /// ⚠️ C-3：颜色分档必须与渲染同源（上一轮只修了 descriptor 与 weeks）。
+    @Test("ActivityHeatmap：分档按截断后的窗口算")
+    func heatmapBucketsUseEffectiveWindow() {
+        // 峰值 500 落在很久以前，最近一段峰值只有 5。
+        let old = [Day(date: Date(timeIntervalSinceReferenceDate: 0), count: 500)]
+        let recent = (1...10).map {
+            Day(date: Date(timeIntervalSinceReferenceDate: Double(ActivityHeatmap<Day>.maximumDays + $0) * 86400),
+                count: 5)
+        }
+        // ⚠️ **走组件自己的路径**（`renderInputs`），不是直接喂已收敛的数据
+        // ——后者会绕过被测的那一步，把源码退回 `self.days` 也照样绿。
+        let buckets = ActivityHeatmap<Day>.renderInputs(old + recent, calendar: Self.utc).buckets
+        #expect(buckets.last == 5, "分档上界是 \(String(describing: buckets.last)) —— 用了窗口外的峰值 500")
+    }
+
+    /// ⚠️ I-1：`isTruncated` 必须比**去重后**的数量。
+    @Test("重复 id 不触发假截断")
+    func duplicateIDsDoNotFakeTruncation() {
+        let dup = (0..<200).map { _ in Node(id: "same", label: "L") }
+        let g = NetworkGraph(nodes: dup, edges: [])
+        #expect(g.layoutKey(for: .init(width: 300, height: 300)).iterations > 0,
+                "3 个不同 id 的图被误判为超限、力导向被关掉")
+    }
+
+    /// ⚠️ I-2：`buckets` 对 `Int.max` 不得 trap。
+    @Test("buckets 对 Int.max 不 trap")
+    func bucketsSurviveIntMax() {
+        let b = ActivityHeatmap<Day>.buckets(for: [Day(date: Date(), count: .max)])
+        #expect(b.count == 4)
+        #expect(b.last == Int.max)
+    }
+
+    /// ⚠️ S-2：舍入语义是定案，钉住取值表。
+    @Test("分档取值表（舍入语义已定案）")
+    func bucketsPinsRounding() {
+        func b(_ peak: Int) -> [Int] {
+            ActivityHeatmap<Day>.buckets(for: [Day(date: Date(), count: peak)])
+        }
+        #expect(b(1) == [0, 0, 0, 1])
+        #expect(b(2) == [0, 1, 1, 2])
+        #expect(b(3) == [0, 1, 2, 3])
+        #expect(b(10) == [2, 5, 7, 10])
     }
 
     @Test("ActivityHeatmap：截断保留的是**最近**一段")

@@ -52,7 +52,9 @@ public struct NetworkGraph<Node: GraphNode>: View {
             VStack(spacing: 4) {
                 self.canvas
                 // ⚠️ 写**实际渲染数**而非上限（第 3 轮终审 S-6）：去重后实际渲染数可能 < 150。
-                Text(.chart("Showing the first \(self.effectiveNodes.count) nodes"))
+                Text(self.nodesTruncated
+                     ? .chart("Showing the first \(self.effectiveNodes.count) nodes")
+                     : .chart("Showing the first \(self.effectiveEdges.count) connections"))
                     .font(.caption2)
                     .foregroundStyle(Color.contentTertiary)
             }
@@ -88,6 +90,13 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// ⇒ O(E · iter)，`Path` 每帧画 E 条线段。性能表标注的是「边数 = 2n」即**稀疏图**；
     /// n=150 的稠密图 E 可达 11 175，与斥力回路的配对数同量级 ⇒ 实际耗时约为表中的两倍。
     /// 而 `pairwiseWorkIsBounded` 只算 `n²·iter`，对 E **完全无感**。
+    /// ⚠️ **未实测**（第 4 轮终审 I-3）：600 是按节点表的实测配置（E = 2n = 300）
+    /// 取的**两倍保守值**，与上面任何一个测得的量都没有推导关系。
+    /// 紧邻的 `iterations(for:)` 表格严格标注了测量条件——**同一个文件里不该有两种
+    /// 证据标准**，而我刚因为「性能表是假的」被判过一次。⇒ 如实标注，待基准补齐。
+    ///
+    /// **超限行为**：多余的边被 `prefix` **静默丢弃**，且**边超限会把力导向整个关掉**
+    /// （连节点没超限时也关）——与 `recommendedNodeLimit` 同一条降级路径。
     public static var recommendedEdgeLimit: Int { 600 }
 
     private var effectiveEdges: [Edge] {
@@ -109,7 +118,21 @@ public struct NetworkGraph<Node: GraphNode>: View {
     }
 
     private var isTruncated: Bool {
-        self.nodes.count > Self.recommendedNodeLimit || self.edges.count > Self.recommendedEdgeLimit
+        self.nodesTruncated || self.edgesTruncated
+    }
+
+    /// ⚠️ **必须比去重后的真实数量**（第 4 轮终审 I-1）：上一版用原始 `nodes.count`
+    /// ⇒ 传 200 条但只有 3 个不同 id 时 `isTruncated == true` ⇒ 界面显示
+    /// 「Showing the first 3 nodes」（**什么都没被截断**）且力导向被整个关掉。
+    private var nodesTruncated: Bool {
+        self.effectiveNodes.count < Set(self.nodes.map(\.id)).count
+            || Set(self.nodes.map(\.id)).count > Self.recommendedNodeLimit
+    }
+
+    /// ⚠️ 分维度是因为文案要分支：只截边时说「Showing the first N nodes」是错的
+    /// （20 个节点一个没少，真正被丢的是第 601 条起的边）。
+    private var edgesTruncated: Bool {
+        self.edges.count > Self.recommendedEdgeLimit
     }
 
     /// 布局缓存的失效键。
@@ -240,6 +263,13 @@ public struct NetworkGraph<Node: GraphNode>: View {
         let k = sqrt(w * h / Double(nodes.count))
 
         for step in 0..<iterations {
+            // ⚠️⚠️ **Swift 的取消是协作式的**（第 4 轮终审 C-1）：外层
+            // `handle.cancel()` 只置标志位、**不抢占**。上一版只在外层加了取消传导，
+            // 而本函数全程不检查 ⇒ 评审实测 `cancel()` 后 detached 任务**照样跑完
+            // 整整 300 轮**，注释描述的伤害（resize 时无界 CPU 堆积）**一字不差地原样存在**。
+            // ⇒ 每轮检查一次（36–90 次，开销可忽略）；提前返回的环形/中途布局仍是
+            //   合法坐标，调用方那侧的 `guard !Task.isCancelled` 会丢弃它。
+            if Task.isCancelled { return pos }
             var disp = [Node.ID: CGVector](minimumCapacity: ids.count)
             for id in ids { disp[id] = .zero }
 
@@ -317,7 +347,12 @@ extension NetworkGraph: AXChartDescriptorRepresentable {
     public func makeChartDescriptor() -> AXChartDescriptor {
         // 网络图没有数值轴——用「每个节点的度数」作为可播报的量。
         var degree = [Node.ID: Int]()
-        for e in self.edges {
+        // ⚠️ **必须用截断后的边**（第 4 轮终审 C-2）：渲染画 `effectiveEdges`，
+        // 而上一版 descriptor 按**全量** `self.edges` 算度数 ⇒ 边数 > 600 时
+        // 一个节点屏幕上连 2 条线、VoiceOver 播报 40 条，`peak`（y 轴量程）同样偏大。
+        // 这与 `RingChart`（走 self.values）、`ActivityHeatmap`（走 self.days）
+        // 是**同一句话**——上一轮我新增了第四个截断轴（边），又一次没核对 descriptor。
+        for e in self.effectiveEdges {
             degree[e.from, default: 0] += 1
             degree[e.to, default: 0] += 1
         }
