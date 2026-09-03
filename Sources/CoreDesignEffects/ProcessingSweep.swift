@@ -41,6 +41,11 @@ enum ProcessingSweepKind: CaseIterable {
 /// ⚠️ 顺序是承重的：**先 NFR-7 的能耗闸，再 Reduce Motion 闸**。
 /// 后台 / 非活跃时连静态层都不画（一个像素都不画才叫"停摆"）；
 /// 而 Reduce Motion 是 a11y 偏好，前台时仍要留下"这里正在处理"的静态呈现。
+///
+/// ⚠️⚠️ **这个顺序不再由本文件自己实现**（#252 PR #269 第 1 轮终审 I-1 / I-2）：
+/// 它被抽进 `EffectsEnergyState.presentation(reduceMotion:)`，与 `ConfettiCore`
+/// **共用同一份**。此前两处各写一遍，`Confetti` 就把顺序写反了，而两道闸对调
+/// 在当时是 42/42 全绿——没有任何判据看得见顺序。
 struct ProcessingSweepDriver: View {
 
     let kind: ProcessingSweepKind
@@ -51,17 +56,21 @@ struct ProcessingSweepDriver: View {
     @Environment(\.scenePhase) private var systemScenePhase
 
     var body: some View {
-        let policy = EffectsEnergyState.resolve(
+        let state = EffectsEnergyState.resolve(
             injectedScenePhase: self.injectedScenePhase,
             systemScenePhase: self.systemScenePhase,
             injectedPowerMode: self.injectedPowerMode
-        ).policy
+        )
+        // ⚠️ 两道闸的顺序在这个纯函数里，不在这里——见类型文档。
+        let presentation = state.presentation(reduceMotion: self.reduceMotion)
 
         // ⚠️ **NFR-7 停摆：整层不建**。不是 `paused: true` 的 `TimelineView`，
         // 是根本没有 `TimelineView`——后者仍是一个活着的视图节点。
-        guard policy.drawsAnything else { return AnyView(EmptyView()) }
+        guard presentation != .none else { return AnyView(EmptyView()) }
 
-        let isReduced = self.reduceMotion
+        // ⚠️ **`isReduced` 由 `presentation` 派生，不再直接读 `self.reduceMotion`**：
+        // 后者会让这道闸独立于能耗闸生效，正是 `Confetti` 当初翻车的形态。
+        let isReduced = presentation == .resting
         // ⚠️ **Reduce Motion 降级形态 2**（见 `View.reduceMotionFallback` 的文档）：
         // 保留这个效果**长什么样**，只把相位钉死在静止值上，**不叠透明度脉冲**
         // ——脉冲是给 trigger 驱动的一次性微交互用的反馈，而这三个是常驻状态呈现，
@@ -71,7 +80,7 @@ struct ProcessingSweepDriver: View {
         }
 
         return AnyView(
-            TimelineView(.animation(minimumInterval: policy.minimumInterval)) { context in
+            TimelineView(.animation(minimumInterval: state.policy.minimumInterval)) { context in
                 ProcessingSweepBody(
                     kind: self.kind,
                     phase: ProcessingSweep.phase(at: context.date)
@@ -89,6 +98,26 @@ struct ProcessingSweepDriver: View {
 /// 这样单测可以 `ProcessingSweepBody(kind:phase:).environment(\.effectsPowerMode, .lowPower)`
 /// ——**同一个相位**下比较两张位图，低电量的行为差异才是确定性可观测的
 /// （若靠驱动层传参，测试就只能走 `TimelineView`，两次渲染落在不同相位上，比不出来）。
+///
+/// ## ⚠️ 已登记未处置：每帧重解析，且两个旋钮的"响应性"不对称
+///
+/// （#252 PR #269 第 1 轮终审 S-1。**本轮只登记，不改结构**——改法要连 NFR-1
+/// 的性能闸一起想，属于 epic 级裁决。）
+///
+/// 本类型是在 `ProcessingSweepDriver` 的 `TimelineView` 闭包**内部**被构造的
+/// ⇒ 上面那次 `EffectsEnergyState.resolve(...)` **每帧都跑一次**，而在默认路径
+/// （没人注入 `\.effectsPowerMode`）下它每帧都命中
+/// `ProcessInfo.processInfo.isLowPowerModeEnabled`——60–120 Hz × 每个在场效果。
+///
+/// 由此产生一个**没人写下来过的不对称**，两个旋钮的行为并不一致：
+/// · `usesGlow` 在本类型里每帧求值 ⇒ 用户中途打开低电量模式，**下一帧就去掉光晕**，
+///   实际上**是**响应式的；
+/// · `minimumInterval` 由驱动层求**一次**并交给 `TimelineSchedule` ⇒ 帧率**不会**
+///   跟着变，直到驱动层因为别的原因重建。
+///
+/// ⇒ `EffectsPowerMode.current` 文档里那句"它不是响应式的"**只对 `minimumInterval`
+/// （以及 `Confetti` 的粒子数）成立**，对 `usesGlow` 不成立。这条不对称是本 PR
+/// 登记的已知限度，不是本轮要修的东西。
 struct ProcessingSweepBody: View {
 
     let kind: ProcessingSweepKind

@@ -33,16 +33,32 @@ import SwiftUI
 //
 // ## ⚠️ 为什么低电量键不是 `Bool`
 //
-// 本仓有 Bool 纪律（`BoolExemptionGuard` + `docs/bool-exemptions.json`，公约「配置开关
-// 的替代路径」），公开 API 上的裸 `Bool` 参数要带署名理由抬棘轮基线。
-// 而这里本来就有比 `Bool` 更好的形状：`EffectsPowerMode` 是一个**语义档位**，
-// 将来若要加"极省电"这类第三档，enum 直接扩，`Bool` 就得改签名。
+// 这里本来就有比 `Bool` 更好的形状：`EffectsPowerMode` 是一个**语义档位**，
+// 读作 `.lowPower` 比读作 `true` 说明了更多东西。
 // ⇒ 键的类型是 `EffectsPowerMode?` 而不是 `Bool?`。
 // NFR-7 只要求"可注入 + 默认从系统读"，没有规定键的类型。
+//
+// ⚠️ **别把这条理由的射程写宽了**（第 1 轮终审 Preference）。本仓的 Bool 纪律
+//（`BoolExemptionGuard` + `docs/bool-exemptions.json`）对两种声明**处置不同**：
+// · public **函数/init 参数**（例如 `EffectsEnergyState.resolve(injectedPowerMode:)`）
+//   ——裸 `Bool` 会命中判据、抬棘轮基线，换成枚举确实能省掉一条豁免；
+// · public **属性本身**（`EnvironmentValues.effectsPowerMode` 就是属性）
+//   ——`BoolParameterScanner.visit(_: VariableDeclSyntax)` 明写「public 的 Bool
+//   **属性**：只清点，不判据（裁决 (d)）」，且这个清点**没有基线**。
+//   ⇒ 就算这个键写成 `Bool?`，棘轮也一动不动。
+// 「净增 0 条豁免」在两种写法下都成立；成立的是"枚举读起来更清楚 + 参数面不欠账"，
+// 不是"写 Bool 会让棘轮判红"。
 
 // MARK: - 能耗档位 / Power mode
 
 /// 设备的能耗档位。`nil` 注入值 ⇒ 从 `ProcessInfo` 读（见 `EffectsEnergyState.resolve`）。
+///
+/// ⚠️ **「将来加第三档 enum 直接扩」这句要收窄**（第 1 轮终审 Preference）：
+/// 本枚举是 **public 且非 `@frozen`**，但 Swift 的非 frozen 只对**库演进模式**
+/// （`-enable-library-evolution`）下的二进制兼容有意义；本包以源码形式分发，
+/// 下游对它写的 exhaustive `switch` 在加了新 case 之后**会编译红**——
+/// 也就是说加档位是一次**源码破坏性变更**，只是不必改任何签名。
+/// 相对 `Bool`（加档位要改签名、改所有调用点）它仍然更好，但"直接扩"不是免费的。
 ///
 /// ⚠️ `nonisolated`：本包开了 `.defaultIsolation(MainActor.self)`，不标的话下游
 /// **nonisolated 上下文**（例如在后台线程准备渲染参数的宿主代码）用不了它——
@@ -60,6 +76,12 @@ public nonisolated enum EffectsPowerMode: Sendable, Equatable, CaseIterable {
     /// ⚠️ **已知限度：它不是响应式的**。`ProcessInfo` 的低电量状态变化会发
     /// `NSProcessInfoPowerStateDidChange` 通知，但 `EnvironmentValues` 的默认值
     /// 只在被读取时求值一次，不会因为该通知而让视图失效。
+    ///
+    /// ⚠️ **这句话有一处例外，别当成整块成立**（#252 PR #269 第 1 轮终审 S-1）：
+    /// `ProcessingSweepBody` 是在 `TimelineView` 闭包**内部**构造的，它每帧重跑
+    /// 一次 `resolve(...)` ⇒ 它读出的 `usesGlow` **实际上是响应式的**（也因此每帧
+    /// 都在读 `ProcessInfo`）。不响应的是驱动层求一次就交出去的 `minimumInterval`
+    /// 与 `Confetti` 的粒子数。完整登记见 `ProcessingSweepBody` 的类型文档。
     /// 需要"用户中途打开低电量模式就立刻降级"的宿主 App，应当自己订阅该通知并
     /// `.environment(\.effectsPowerMode, .lowPower)` 注入——这也正是这个键存在的
     /// 第二个用途（第一个是可测）。
@@ -74,6 +96,32 @@ public nonisolated enum EffectsPowerMode: Sendable, Equatable, CaseIterable {
 ///
 /// ⚠️ **这是一个纯函数的产物**（`EffectsEnergyState.policy`），不读任何全局状态
 /// ——测试可以直接对它断言，不必先把 App 推进后台。
+///
+/// ## ⚠️⚠️ 待裁决：本类型把「通用能耗信号」和「effects 专用旋钮」混在了一起
+///
+/// （#252 PR #269 第 1 轮终审 S-2 登记。**本轮只登记，不改结构**——改法跨 epic，
+/// 需要用户拍板；但 merge 之后再搬就是**破坏性变更**，故必须先写在这里。）
+///
+/// 本枚举现在同时承担两件事：
+/// · **通用**的能耗判定（`drawsAnything` / `minimumInterval`）——任何常驻渲染件都要；
+/// · **effects 专用**的旋钮（`particleScale`、多半还有 `usesGlow`）——
+///   `shipswift-shaders` 的 B-2 那 17 个 `colorEffect` 背景**没有粒子**，
+///   `particleScale` 对它们毫无意义。
+///
+/// 冲突在于：B-2 若为了前两个键 `import CoreDesignEffects`，那么**只想要 shader
+/// 的消费者也必须链上整个 Effects product**——而 `Package.swift` 拆 product 的
+/// 逐字理由正是「只想要系统原生观感的消费者不必背上动效与图表」。两者直接抵触。
+///
+/// 两条出路（未选定）：
+/// 1. **键下沉到 `CoreDesign`**：把 `\.effectsPowerMode` / `\.effectsScenePhase`
+///    与"通用"那半个策略挪进 `CoreDesign`，Effects 侧再包一层自己的策略
+///    （`particleScale` 之类留在这里）。代价：`CoreDesign` 长出一块与"系统原生观感"
+///    无关的表面；收益：shaders 不必依赖 Effects。
+/// 2. **明确接受「Shaders 依赖 Effects」**：把这条依赖写进 `Package.swift` 的拆分理由里
+///    （即修正那句话的射程），不再假装两者可分。代价：product 拆分的卖点缩水。
+///
+/// ⚠️ **B-2 开工前必须裁决**：这两个键与本枚举都是 `public`，一旦有第二个 target
+/// 开始 `import` 它们，再搬就是下游可见的**破坏性变更**（改 import、改类型名）。
 public nonisolated enum EffectsRenderPolicy: Sendable, Equatable, CaseIterable {
 
     /// 满帧、带光晕。
@@ -113,6 +161,47 @@ public nonisolated enum EffectsRenderPolicy: Sendable, Equatable, CaseIterable {
     }
 }
 
+// MARK: - 呈现档位 / Presentation
+
+/// 两道闸（NFR-7 能耗闸 + Reduce Motion 闸）**一起**裁出来的结果：这一层到底呈现什么。
+///
+/// ⚠️⚠️ **它存在的唯一理由是「顺序是承重的」这句话必须有机器判据**
+/// （#252 PR #269 第 1 轮终审 I-1 / I-2）。
+///
+/// 两个调用点（`ProcessingSweepDriver` / `ConfettiCore`）此前各写一遍这条链，
+/// 结果是 `Confetti` 把顺序写反了：RM 闸在前 ⇒ 开启「减弱动态效果」的用户在
+/// `.inactive` / `.background` 下**仍然**拿到一个静态庆祝层 + 1.55 s 透明度动画，
+/// NFR-7 在这条路径上整条失效。而当时**两道闸对调也是 42/42 全绿**——
+/// 终审做过这枚变异：没有任何判据看得见顺序。
+///
+/// ⇒ 裁决抽成本类型 + `EffectsEnergyState.presentation(reduceMotion:)` 一个纯函数，
+/// 两个调用点共用同一份；顺序由函数体本身固定（能耗闸写在 `guard` 里、先求值），
+/// 判据只需一行 `#expect(… .presentation(reduceMotion: true) == .none)`
+/// 就同时钉死 I-1 且让它不可能被重新引入。
+/// 这与本仓「纯函数 + 生产代码与判据共用同一份」的既有纪律一致
+/// （`ConfettiBurst` / `ProcessingSweep` 都是这个形态）。
+///
+/// ⚠️ **为什么不走位图判据**：`\.accessibilityReduceMotion` **不可注入**
+/// （`EnvironmentValues` 上它是只读的系统偏好，写它编译红——终审已实测）。
+/// ⇒ "RM 开启 × 后台"这个组合在 `ImageRenderer` 下根本构造不出来，纯函数是唯一可行路径。
+///
+/// ⚠️ **刻意 `internal`**：本类型只服务同模块的两个调用点，没有跨模块消费者；
+/// 而 `presentation(reduceMotion:)` 一旦 `public`，那个裸 `Bool` 参数就会命中
+/// `BoolExemptionGuard` 的判据、要求一条署名豁免并抬棘轮基线
+/// （`CoreDesignEffects` 当前是 0 条，见 `docs/bool-exemptions-baseline.json`）。
+/// 测试走 `@testable import CoreDesignEffects`，够用。
+enum EffectsPresentation: Sendable, Equatable, CaseIterable {
+
+    /// 一个像素都不画（NFR-7 停摆）。**优先级最高**——它在 Reduce Motion 之前裁决。
+    case none
+
+    /// 画，但钉在静止呈现上（Reduce Motion 的降级形态 2）。
+    case resting
+
+    /// 正常动。
+    case animated
+}
+
 // MARK: - 能耗状态 / Energy state
 
 /// 「注入值优先、否则从系统读」的解析结果，以及它推出的渲染策略。
@@ -137,6 +226,26 @@ public nonisolated struct EffectsEnergyState: Sendable, Equatable {
     public var policy: EffectsRenderPolicy {
         guard self.scenePhase == .active else { return .paused }
         return self.powerMode == .lowPower ? .reduced : .full
+    }
+
+    /// 两道闸的**唯一裁决点**：先 NFR-7 的能耗闸，再 Reduce Motion 闸。
+    ///
+    /// ⚠️⚠️ **顺序是承重的，且现在有机器判据**（理由见 `EffectsPresentation`）：
+    /// 能耗闸写在前面的 `guard` 里 ⇒ `.none` 永远压过 `.resting`。
+    /// 对调两行 ⇒ `EffectsEnergyStateTests.energyGateOutranksReduceMotion` 判红。
+    ///
+    /// 为什么是这个顺序而不是反过来：后台 / 非活跃时连**静态层**都不该画
+    /// （一个像素都不画才叫"停摆"，NFR-7）；而 Reduce Motion 是 a11y 偏好，
+    /// 它要求的是"别动"，不是"别显示"——前台时仍要留下静止呈现。
+    /// 反过来写的话，开启「减弱动态效果」的用户恰好在系统规定该停摆的状态下
+    /// 拿到一个还在跑透明度动画的装饰层。
+    ///
+    /// - Parameter reduceMotion: 调用点从 `\.accessibilityReduceMotion` 读到的值。
+    ///   ⚠️ 作为参数传入而不是在这里读环境：本类型 `nonisolated`、且要能被单测直接调用
+    ///   （同 `resolve(injectedScenePhase:systemScenePhase:injectedPowerMode:)` 的理由）。
+    func presentation(reduceMotion: Bool) -> EffectsPresentation {
+        guard self.policy.drawsAnything else { return .none }
+        return reduceMotion ? .resting : .animated
     }
 
     /// 解析「注入值优先，否则从系统读」。
@@ -164,8 +273,11 @@ public nonisolated struct EffectsEnergyState: Sendable, Equatable {
 // MARK: - 可注入的 EnvironmentValues 键 / Injectable environment keys
 
 // ⚠️ **扩展本身刻意写成 `extension` 而不是 `public extension`**：后者会让成员上的
-// `public` 变成"冗余修饰符"，在 `-Xswiftc -warnings-as-errors` 下**直接编译红**
-// （实测：`error: 'public' modifier is redundant for property declared in a public extension`）。
+// `public` 变成"冗余修饰符"。实测得到的**原样是一条 `warning:`**
+// （`'public' modifier is redundant for property declared in a public extension`），
+// **只有带上 `-Xswiftc -warnings-as-errors` 时才升级成编译红**
+// ——而本仓的本地验证与 `verification-before-completion` 恰好都带这个 flag，
+// 所以在我们的工作流里它确实是"红"。不带 flag 时它只是一条警告，别把这句读成无条件的。
 // 而这两个键的 `public` 是本 task 的承重契约，必须写在成员上、在 diff 里看得见
 // ——本仓 `\.toastHost` 用的也是这个形态（`extension EnvironmentValues` + `@Entry public var`）。
 extension EnvironmentValues {

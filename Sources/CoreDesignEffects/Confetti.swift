@@ -8,7 +8,14 @@ import SwiftUI
 
 /// 一次性彩纸喷发。典型用途：任务完成、连续打卡、支付成功。
 /// ⚠️ **非泛型**——理由见 `TriggerRelay`。
-private struct ConfettiCore: ViewModifier {
+///
+/// ⚠️ **`internal` 而不是 `private`**：本类型是 `.confetti(trigger:)` 的**真实渲染路径**，
+/// 而那条路径此前**零机器覆盖**（#252 PR #269 第 1 轮终审 I-3：终审同时施加
+/// 「`ConfettiLayer` 的 `progress:` 写死成 `1`」与「`colors:` 改成 `colors: []`」
+/// 两枚变异，42/42 仍然全绿——所有位图判据吃的都是更里面的 `ConfettiCanvas`，
+/// 接线只由三条 `code.contains(...)` 字符串检查守着）。
+/// ⇒ 提为 `internal`，让 `@testable` 的判据能直接渲染它，见 `initialBurstStart`。
+struct ConfettiCore: ViewModifier {
 
     let fire: Int
     let strength: MicroInteractionStrength
@@ -29,9 +36,59 @@ private struct ConfettiCore: ViewModifier {
     /// 之后完成。
     @State private var burstStart: Date?
 
-    func body(content: Content) -> some View {
-        let isReduced = self.reduceMotion
+    /// **判据用的渲染缝**：`burstStart` 的初值。
+    ///
+    /// ⚠️ **生产路径永远不传它**（`.confetti(trigger:)` 不暴露这个参数，默认 `nil`）。
+    /// 它存在的唯一理由与 `\.effectsScenePhase` / `\.effectsPowerMode` 两个可注入键
+    /// **完全同源**：判据无法从外部把 `burstStart` 推到"burst 进行中"
+    /// ⇒ `body` 里那段真正的接线（`progress` / `colors` / `count` / `minimumInterval`）
+    /// 一个像素都渲不出来，只能靠字符串检查守——而终审已实证那守不住
+    /// （见类型文档 I-3）。给一个初值，整条渲染路径就变成可断言的。
+    ///
+    /// ⚠️ **不能靠 `.task` 自己把 `burstStart` 设好**，两个平台各有各的坑：
+    /// macOS 的 `ImageRenderer` 下 `.task` **不跑**（`burstStart` 恒为 `nil`）；
+    /// 而 iOS Simulator 下它**会被调度**——实测 `fire > 0` 时同一个视图连渲 8 次
+    /// 得到 8 张互不相同的位图（差 4–22 字节），`fire: 0`（`runBurst()` 见它即早退）
+    /// 时稳定为 0 字节差。⇒ 判据用 `fire: 0` + 本参数把状态钉死，两端都确定性可比。
+    let initialBurstStart: Date?
 
+    init(
+        fire: Int,
+        strength: MicroInteractionStrength,
+        colors: [Color],
+        initialBurstStart: Date? = nil
+    ) {
+        self.fire = fire
+        self.strength = strength
+        self.colors = colors
+        self.initialBurstStart = initialBurstStart
+        self._burstStart = State(initialValue: initialBurstStart)
+    }
+
+    func body(content: Content) -> some View {
+        // ⚠️⚠️ **能耗闸必须在 Reduce Motion 闸之前，这里不再各写一遍**
+        // （#252 PR #269 第 1 轮终审 I-1 / I-2）。
+        //
+        // 上一版把 `guard !isReduced` 写在 `resolve(...)` **之前** ⇒ Reduce Motion
+        // 开启时 `policy` 根本不被求值 ⇒ 两个能耗键对 Confetti **完全无效**：
+        // `.inactive`（App 切换器 / 通知中心 / 来电覆盖）下系统仍在合成这一层，
+        // 开启「减弱动态效果」的用户恰好在 NFR-7 规定该停摆的状态下拿到
+        // 静态庆祝层 + 1.55 s 透明度动画；且静态层里 `policy` 写死 `.full`，
+        // 低电量下粒子数也不减。
+        //
+        // ⇒ 顺序现在由 `EffectsEnergyState.presentation(reduceMotion:)` 固定，
+        // 与 `ProcessingSweepDriver` 共用同一份。
+        let state = EffectsEnergyState.resolve(
+            injectedScenePhase: self.injectedScenePhase,
+            systemScenePhase: self.systemScenePhase,
+            injectedPowerMode: self.injectedPowerMode
+        )
+        let policy = state.policy
+        let presentation = state.presentation(reduceMotion: self.reduceMotion)
+
+        // ⚠️ `isReduced` 由 `presentation` 派生（能耗闸已在其中先行裁决），
+        // **不再直接读 `self.reduceMotion`**——直接读就是上一版翻车的那个形态。
+        let isReduced = presentation == .resting
         // ⚠️ **Reduce Motion：不放粒子，降级为一次淡入淡出的静态庆祝层**（AC 逐字）。
         // ⚠️ **不是 no-op**：庆祝本身承载"这件事成了"这个信息，抹掉它等于让开启该偏好的
         // 用户收不到反馈（`View.reduceMotionFallback` 的文档已就同一件事立过规矩）。
@@ -39,23 +96,22 @@ private struct ConfettiCore: ViewModifier {
         // 静态层本身就是一次淡入淡出，叠脉冲就是两次反馈。
         guard !isReduced else {
             return AnyView(content.overlay {
-                ConfettiStaticCelebration(fire: self.fire, strength: self.strength, colors: self.colors)
+                // ⚠️ `policy` 传进去而不是写死 `.full`：低电量下静态层的粒子数同样要减半。
+                ConfettiStaticCelebration(
+                    fire: self.fire, strength: self.strength, colors: self.colors, policy: policy
+                )
             })
         }
-
-        let policy = EffectsEnergyState.resolve(
-            injectedScenePhase: self.injectedScenePhase,
-            systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: self.injectedPowerMode
-        ).policy
 
         return AnyView(
             content
                 .overlay {
                     // ⚠️ **两个条件都是承重的**：
                     // · `burstStart != nil` —— burst 结束后整层被移除（AC）；
-                    // · `policy.drawsAnything` —— NFR-7：后台 / 非活跃时一个像素都不画。
-                    if let start = self.burstStart, policy.drawsAnything {
+                    // · `presentation == .animated` —— NFR-7：后台 / 非活跃时一个像素都不画
+                    //   （此处它与 `policy.drawsAnything` 等价，写成前者是为了让两道闸
+                    //   只有一个裁决点）。
+                    if let start = self.burstStart, presentation == .animated {
                         ConfettiLayer(
                             burstStart: start,
                             count: ConfettiBurst.particleCount(
@@ -69,6 +125,8 @@ private struct ConfettiCore: ViewModifier {
                 }
                 // ⚠️ `.task(id:)` 挂在**能耗闸之外**：进后台时只是不画，
                 // 不该把状态机也停掉——否则回到前台会重放一次已经结束的 burst。
+                // ⚠️ 也正因此，能耗闸**不能**写成 `guard … else { return AnyView(content) }`
+                //（那会把 `.task` 一起摘掉）：它只门控 overlay 里画什么。
                 .task(id: self.fire) { await self.runBurst() }
         )
     }
@@ -108,6 +166,12 @@ struct ConfettiStaticCelebration: View {
     let strength: MicroInteractionStrength
     let colors: [Color]
 
+    /// ⚠️ **由调用方传入，不在这里写死 `.full`**（#252 PR #269 第 1 轮终审 I-1）：
+    /// 写死 `.full` 时"低电量 ⇒ 粒子数减半"这条在 Reduce Motion 路径上完全失效。
+    /// 本层永远不会在 `.paused` 下被构造（那道闸在 `ConfettiCore` 里先行裁决），
+    /// 但 `.reduced` 会传进来。
+    let policy: EffectsRenderPolicy
+
     @State private var shown = false
 
     var body: some View {
@@ -115,7 +179,7 @@ struct ConfettiStaticCelebration: View {
             progress: ConfettiBurst.restingProgress,
             count: ConfettiBurst.particleCount(
                 baseParticleCount: self.strength.particleCount,
-                policy: .full
+                policy: self.policy
             ),
             colors: self.colors
         )
@@ -357,6 +421,11 @@ public extension View {
     /// - 低电量模式 ⇒ 降到 15 fps、彩纸数减半。
     ///
     /// 两个信号都可经 `\.effectsScenePhase` / `\.effectsPowerMode` 注入（默认从系统读）。
+    ///
+    /// ⚠️ **能耗闸在 Reduce Motion 闸之前**：上面这两条对开启了「减弱动态效果」的用户
+    /// **同样成立**（静态庆祝层在 `.inactive` / `.background` 下同样整层不建，
+    /// 在低电量下同样减半粒子数）。裁决在
+    /// `EffectsEnergyState.presentation(reduceMotion:)`，与三个"处理中"效果共用同一份。
     ///
     /// ## a11y 分工（FR-13）
     ///

@@ -76,6 +76,39 @@ struct EffectsEnergyStateTests {
         #expect(resolved.powerMode == expected, "注入 nil 时没有从 ProcessInfo 读 —— 默认值不是系统值")
     }
 
+    /// ⚠️⚠️ **I-1 的机器判据**（#252 PR #269 第 1 轮终审 I-1 / I-2）。
+    ///
+    /// 「顺序是承重的：先 NFR-7 的能耗闸，再 Reduce Motion 闸」这句话此前**只是注释**：
+    /// 终审把 `ProcessingSweepDriver` 的两道闸对调，**42/42 全绿**；而 `Confetti`
+    /// 当时就是反的（RM 闸在前 ⇒ `policy` 根本不被求值 ⇒ 两个能耗键对它完全无效）。
+    ///
+    /// ⇒ 裁决抽成纯函数 `EffectsEnergyState.presentation(reduceMotion:)`，两个调用点
+    /// 共用同一份，顺序由本条钉死：**只要不在 `.active`，无论 Reduce Motion 与能耗档位
+    /// 取什么值，结果都必须是 `.none`**。
+    ///
+    /// ⚠️ 为什么不走位图：`\.accessibilityReduceMotion` **不可注入**（写它编译红），
+    /// "RM 开启 × 后台"这个组合在 `ImageRenderer` 下构造不出来。纯函数是唯一可行路径。
+    @Test("两道闸的顺序：能耗闸压过 Reduce Motion 闸")
+    func energyGateOutranksReduceMotion() {
+        for phase in [ScenePhase.background, .inactive] {
+            for mode in EffectsPowerMode.allCases {
+                for reduceMotion in [true, false] {
+                    let state = EffectsEnergyState(scenePhase: phase, powerMode: mode)
+                    #expect(state.presentation(reduceMotion: reduceMotion) == .none,
+                            "\(phase) / \(mode) / reduceMotion=\(reduceMotion) 下没有停摆 —— 两道闸的顺序反了：Reduce Motion 闸不得先于 NFR-7 的能耗闸")
+                }
+            }
+        }
+        // 前台：这时才轮到 Reduce Motion 决定"动还是静止"。
+        for mode in EffectsPowerMode.allCases {
+            let state = EffectsEnergyState(scenePhase: .active, powerMode: mode)
+            #expect(state.presentation(reduceMotion: true) == .resting,
+                    "\(mode) 下 Reduce Motion 没有降级为静止呈现 —— 降级不是 no-op")
+            #expect(state.presentation(reduceMotion: false) == .animated,
+                    "\(mode) 下前台不动了 —— 上面那两条会退化成恒真")
+        }
+    }
+
     @Test("策略旋钮：停摆不画、低电量去光晕并降帧、满帧不限速")
     func policyKnobs() {
         #expect(EffectsRenderPolicy.full.drawsAnything)
@@ -231,7 +264,9 @@ struct ProcessingSweepTests {
         let baseline = EffectsEnergyRenderTests.pixels(
             Color.surfaceRaised.frame(width: 180, height: 120)
         )
-        #expect(baseline != nil)
+        // ⚠️ **非空断言先行**（本文件自己的纪律）：基线为 `nil` 时下面的不等断言恒真。
+        #expect(baseline != nil, "基线渲染失败，下面的不等断言会静默变绿")
+        #expect(baseline?.contains(where: { $0 != 0 }) == true, "基线位图全 0")
         for kind in ProcessingSweepKind.allCases {
             for step in 0..<8 {
                 let phase = CGFloat(step) / 8
@@ -241,6 +276,9 @@ struct ProcessingSweepTests {
                         .background(Color.surfaceRaised)
                         .environment(\.effectsScenePhase, .active)
                 )
+                // ⚠️ 少了这条，整体渲染失败（`drawn == nil`）会让下一条静默判绿
+                //（`nil != baseline` 恒真）——#252 PR #269 第 1 轮终审 S-3。
+                #expect(drawn != nil, "\(kind) 在相位 \(phase) 上渲染失败")
                 #expect(drawn != baseline, "\(kind) 在相位 \(phase) 上什么都没画")
             }
         }
@@ -361,6 +399,11 @@ struct ConfettiTests {
         // `.tint(_:)`"的错误结论。装上暖机后重测：它**不跟随**，两条判据都开火。
         let explicitRedTint = Self.pixels(Self.canvas(progress: 0.3, colors: [.green]).tint(.red))
         let explicitBlueTint = Self.pixels(Self.canvas(progress: 0.3, colors: [.green]).tint(.blue))
+        // ⚠️ **非空断言先行**：两者同时为 `nil` 时 `==` 恒真、`!=` 也恒真，
+        // 下面两条会一起变哑（上面 `red`/`blue` 有这条，这两个漏了）
+        //——#252 PR #269 第 1 轮终审 S-3。
+        #expect(explicitRedTint != nil && explicitBlueTint != nil,
+                "显式色板渲染失败，下面两条断言会静默变绿")
         #expect(explicitRedTint == explicitBlueTint,
                 "给了显式色板还跟着 .tint 变 —— 调用方参数没有优先，取色多半绕过了 colors")
         // 且显式色板与"回落 .tint"必须真的画出不同的东西（否则上一条可以恒真）。
@@ -369,6 +412,125 @@ struct ConfettiTests {
         // 取色函数层（与 `.spray` 共用同一实现）的契约同样钉住。
         #expect([Color]().particleColor(at: 0) == nil, "空色板必须回落到 .tint，而不是取某个具体色")
         #expect([Color.red, .blue].particleColor(at: 2) == .red, "非空色板必须按下标轮转")
+    }
+
+    // MARK: - 实际渲染路径（不是更里面的 ConfettiCanvas）
+
+    /// ⚠️ **钉住的 burst 起帧**：`burstStart` 取**未来**时刻 ⇒ `ConfettiBurst.progress`
+    /// 恒被钳到 0 ⇒ 无论什么时候渲染都是同一帧（所有彩纸叠在中心、不透明、未自转）。
+    ///
+    /// ⚠️ 这条是**相等断言**能成立的前提：`ConfettiLayer` 里的 `TimelineView` 读的是
+    /// **真实当前时刻**，用 `.now - 0.5` 这类活相位时两次渲染必然落在不同进度上
+    /// ⇒ 相等断言恒假、不等断言恒真（本文件头为 `lowPowerChangesRenderingAtSamePhase`
+    /// 记的是同一条教训）。
+    static var pinnedBurstStart: Date { .now.addingTimeInterval(3600) }
+
+    /// ⚠️⚠️ **本条补的是 `.confetti(trigger:)` 的实际渲染路径**
+    ///（#252 PR #269 第 1 轮终审 I-3）。
+    ///
+    /// 此前所有位图判据吃的都是更里面的 `ConfettiCanvas`，从 `ConfettiCore` 到
+    /// `ConfettiLayer` 再到 `ConfettiCanvas` 的**接线**只由三条 `code.contains(...)`
+    /// 字符串检查守着，而那三条既不覆盖 `progress:` 也不覆盖 `colors:`。
+    /// 终审同时施加两枚变异（`ConfettiLayer.body` 的 `progress:` 写死成 `1`
+    /// ⇒ 用户永远看不到彩纸；`colors:` 改成 `colors: []` ⇒ 公开参数变死参数），
+    /// **42/42 仍然全绿**。
+    @Test("ConfettiLayer：progress 真的接到画布，终帧不留残留，色板与 .tint 都接得上")
+    func confettiLayerRendersTheRealPath() {
+        let empty = Self.emptyBaseline
+        #expect(empty != nil, "基线渲染失败，下面的断言会静默变绿")
+        #expect(empty?.contains(where: { $0 != 0 }) == true, "基线位图全 0 —— 相等断言恒真")
+
+        func layer(_ start: Date, colors: [Color] = []) -> some View {
+            Self.framed(
+                ConfettiLayer(burstStart: start, count: 36, colors: colors, minimumInterval: nil)
+            )
+        }
+
+        // ① burst 进行中必须画得出彩纸。`progress:` 写死成 1 ⇒ 本条判红。
+        let mid = Self.pixels(layer(.now.addingTimeInterval(-0.5)))
+        #expect(mid != nil, "ConfettiLayer 渲染失败")
+        #expect(mid != empty, "burst 中途 ConfettiLayer 什么都没画 —— progress 没有接到画布")
+
+        // ② 终帧（burst 早已结束）必须一片不剩。这是**端到端**的，不是纯函数层。
+        let terminal = Self.pixels(layer(.now.addingTimeInterval(-10)))
+        #expect(terminal != nil, "ConfettiLayer 终帧渲染失败")
+        #expect(terminal == empty, "burst 结束后 ConfettiLayer 仍有残留")
+
+        // ③ 空色板回落 `.tint`：同一层换 tint 必须画出不同的东西。
+        let pinned = Self.pinnedBurstStart
+        let red = Self.pixels(layer(pinned).tint(.red))
+        let blue = Self.pixels(layer(pinned).tint(.blue))
+        #expect(red != nil && blue != nil, "渲染失败，下面的不等断言会静默变绿")
+        #expect(red != blue, "ConfettiLayer 的空色板没有跟随 .tint")
+
+        // ④ 显式色板必须真的进渲染（`colors:` 不是死参数），且不再跟随 `.tint`。
+        let green = Self.pixels(layer(pinned, colors: [.green]).tint(.red))
+        let greenAgain = Self.pixels(layer(pinned, colors: [.green]).tint(.blue))
+        #expect(green != nil && greenAgain != nil, "渲染失败，下面两条断言会静默变绿")
+        #expect(green == greenAgain, "给了显式色板还跟着 .tint 变 —— 取色绕过了 colors")
+        #expect(green != red, "显式色板与回落 .tint 画出的东西一样 —— colors 没进渲染")
+    }
+
+    /// ⚠️⚠️ **`ConfettiCore` 本身**（`.confetti(trigger:)` 真正装上去的那个 modifier）
+    /// 的渲染判据。上一条只覆盖 `ConfettiLayer`，从 `ConfettiCore.body` 到它的那段接线
+    /// （`colors: self.colors` / `count:` / `presentation == .animated` 门控）仍然在射程外。
+    ///
+    /// ⚠️ 能渲染是因为 `ConfettiCore` 开了 `initialBurstStart` 这道**判据用的渲染缝**：
+    /// `ImageRenderer` 下 `.task` 不跑 ⇒ `burstStart` 恒为 `nil` ⇒ 整条路径渲不出一个像素。
+    /// 生产路径永远不传它（`.confetti(trigger:)` 不暴露这个参数）。
+    ///
+    /// ⚠️ **`\.effectsScenePhase` 必须显式注入 `.active`**：单测里没有 `Scene`，
+    /// 系统 `\.scenePhase` 的默认值不保证是 `.active`。
+    @Test("ConfettiCore：能耗闸生效、burst 门控生效、colors 接得到画布")
+    func confettiCoreRendersTheRealPath() {
+        // ⚠️⚠️ **`fire: 0` 是承重的，不是随手写的**（本轮 iOS 腿判红后逐形态排查得到）。
+        //
+        // `.task(id:)` 在 **iOS Simulator 的 `ImageRenderer` 下是会跑的**（macOS 上不跑）
+        // ⇒ `fire > 0` 时 `runBurst()` 会把 `burstStart` 改成 `.now`，
+        // 于是同一个视图连渲 8 次得到 8 张**互不相同**的位图（实测差 4–22 字节，
+        // `fire: 0` 时稳定为 0）。那会让下面所有相等断言在 iOS 腿上随机判红。
+        // `fire == 0` 是 `TriggerRelay` 的初始态，`runBurst()` 见它即早退
+        // ⇒ `burstStart` 永远保持 `initialBurstStart` ⇒ 整条渲染路径确定性可比。
+        //
+        // ⚠️ 这条差异**只有 iOS 腿看得见**——`CLAUDE.md`「`swift test` 全绿不等于
+        // 验证过了，必须看 CI 的 xcodebuild iOS Simulator 腿」那条的又一个实例。
+        func core(
+            _ start: Date?, colors: [Color] = [], phase: ScenePhase = .active
+        ) -> some View {
+            Self.framed(
+                Color.clear
+                    .modifier(ConfettiCore(
+                        fire: 0, strength: .regular, colors: colors, initialBurstStart: start
+                    ))
+                    .environment(\.effectsScenePhase, phase)
+            )
+        }
+
+        let pinned = Self.pinnedBurstStart
+        // ⚠️ 基线取"同一个 modifier、只是没有 burst"——两侧包装层数逐字相同
+        //（`eachEffectRestsClean` 的文档记着：层数不一致会全体等量偏差）。
+        let resting = Self.pixels(core(nil))
+        let bursting = Self.pixels(core(pinned))
+        #expect(resting != nil && bursting != nil, "渲染失败，下面的断言会静默变绿")
+        #expect(bursting != resting,
+                "burst 进行中与静息态逐字节相同 —— .confetti 的渲染路径整条没接上")
+
+        // ① NFR-7：注入 .background / .inactive ⇒ 与"没有 burst"逐字节相同（一个像素都不画）。
+        for phase in [ScenePhase.background, .inactive] {
+            let gated = Self.pixels(core(pinned, phase: phase))
+            #expect(gated != nil, "\(phase) 下渲染失败")
+            #expect(gated == resting, "\(phase) 下彩纸层仍在画 —— NFR-7 的停摆没有落地")
+        }
+
+        // ② 公开的 `colors:` 一路接到画布：显式色板不跟 `.tint` 变，且与回落 `.tint` 不同。
+        let tintRed = Self.pixels(core(pinned).tint(.red))
+        let greenOnRed = Self.pixels(core(pinned, colors: [.green]).tint(.red))
+        let greenOnBlue = Self.pixels(core(pinned, colors: [.green]).tint(.blue))
+        #expect(tintRed != nil && greenOnRed != nil && greenOnBlue != nil,
+                "渲染失败，下面两条断言会静默变绿")
+        #expect(greenOnRed == greenOnBlue, "给了显式色板还跟着 .tint 变")
+        #expect(greenOnRed != tintRed,
+                "colors 参数没有从 ConfettiCore 传到画布 —— 公开的 colors: 是死参数")
     }
 
     @Test("进度被钳在 0...1；退化输入不产生 NaN")
@@ -421,9 +583,14 @@ struct ConfettiTests {
     /// `ConfettiLayer` 只在 `if let start = self.burstStart` 分支里被构造，
     /// `runBurst()` 在 `ConfettiBurst.duration` 之后把它清成 `nil`。
     ///
-    /// ⚠️ **本条如实登记覆盖限度**：`ImageRenderer` 拍的是静态帧、`.task` 在单测里不跑，
-    /// "两秒后那个节点真的消失了"这件事**没有**端到端的机器判据。
-    /// 能钉住的是三段结构 + 一条"没有 burst 时逐字节等于裸视图"的渲染判据（见下一条）。
+    /// ⚠️ **本条如实登记覆盖限度**：`ImageRenderer` 拍的是静态帧，
+    /// "两秒后那个节点真的消失了"这件事**没有**端到端的机器判据
+    ///（`.task` 在 macOS 的 `ImageRenderer` 下不跑；iOS Simulator 下虽会被调度，
+    /// 但落点不确定 ⇒ 拿它当判据只会得到一条随机判红的测试，
+    /// 实测见 `confettiCoreRendersTheRealPath` 里 `fire: 0` 那段注释）。
+    /// 能钉住的是三段结构、一条"没有 burst 时逐字节等于裸视图"的渲染判据（见下一条），
+    /// 外加 `confettiLayerRendersTheRealPath` 的终帧判据
+    ///（burst 早已结束 ⇒ 与空基线逐字节相同，这条是端到端的）。
     @Test("TimelineView 只在 burst 进行中存在")
     func timelineOnlyExistsDuringBurst() throws {
         let code = MicroInteractionReduceMotionGuard.stripComments(
@@ -436,11 +603,17 @@ struct ConfettiTests {
             Issue.record("找不到 ConfettiLayer 声明")
             return
         }
-        #expect(code.range(of: "TimelineView(")!.lowerBound > layerRange.lowerBound,
+        // ⚠️ **不强解包**：`TimelineView(` 若被整个删掉，`!` 会**崩掉测试进程**
+        // 而不是干净判红（#252 PR #269 第 1 轮终审 S-3；上面 `layerRange` 已是这个写法）。
+        guard let timelineRange = code.range(of: "TimelineView(") else {
+            Issue.record("Confetti.swift 里找不到 TimelineView( —— 上一条计数判据应当已经判红")
+            return
+        }
+        #expect(timelineRange.lowerBound > layerRange.lowerBound,
                 "TimelineView 不在 ConfettiLayer 里")
-        // ② `ConfettiLayer` 只在 `burstStart` 非空时被构造。
-        #expect(code.contains("if let start = self.burstStart, policy.drawsAnything {"),
-                "ConfettiLayer 的构造不再受 burstStart / 能耗策略双重门控")
+        // ② `ConfettiLayer` 只在 `burstStart` 非空、且两道闸裁出 `.animated` 时被构造。
+        #expect(code.contains("if let start = self.burstStart, presentation == .animated {"),
+                "ConfettiLayer 的构造不再受 burstStart / 呈现档位双重门控")
         // ③ 状态机等的是 `ConfettiBurst.duration`，并在其后清空。
         #expect(code.contains("try await Task.sleep(for: .seconds(ConfettiBurst.duration))"))
         #expect(code.contains("self.burstStart = nil"), "没有任何地方把 burstStart 清空 —— 层永不移除")
