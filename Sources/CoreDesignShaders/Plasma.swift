@@ -16,11 +16,14 @@ import SwiftUI
 /// ```
 ///
 /// ⚠️ **自研实现，非移植**——正弦叠加 + 调色斜坡是公开配方，属思路层。
+/// ⚠️ **"自研"的射程仅限组合与参数化**：本 shader 用到的共享原语
+/// （`wangHash` / `hash21` / `hash22`）有明确出处（Wang·Reed / Teschner et al. 2003），
+/// 见 `CoreDesignShaders.metal` 原语区的逐项署名。
 /// 差异化依据见 `docs/shader-provenance.md`《第三条出路：自研实现》。
 public struct Plasma: View {
 
     /// 视觉密度。⚠️ 一个语义枚举，而不是"频率 + 叠加层数"两个裸旋钮。
-    public enum Density: Sendable, CaseIterable {
+    public nonisolated enum Density: Sendable, CaseIterable {
         case subtle, regular, dense
 
         var field: (frequency: Float, octaves: Float) {

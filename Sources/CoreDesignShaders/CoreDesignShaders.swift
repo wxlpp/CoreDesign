@@ -25,7 +25,7 @@ public enum CoreDesignShaders {
 extension CoreDesignShaders {
 
     /// 加载检查失败的原因。
-    public enum ShaderLibraryError: Error, CustomStringConvertible, Sendable {
+    public nonisolated enum ShaderLibraryError: Error, CustomStringConvertible, Sendable {
         case noMetalDevice
         case libraryMissing(String)
         case functionMissing(String)

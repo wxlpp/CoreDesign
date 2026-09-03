@@ -13,7 +13,10 @@ import SwiftUI
 /// ⚠️ **与 Apple 的 `.glassEffect()` 是两回事，别混**：
 /// · `.glassEffect()` 是 iOS 26 的 **Liquid Glass** 材质，系统实现、随外观自动适配，
 ///   本仓 `BottomInputBar` / `Carousel` / `SegmentedControl` 用的是它；
-/// · 本 modifier 是**自研的 Metal 折射**，把内容当被折射的背景做几何弯折。
+/// · ⚠️ **本 modifier 曾自述"自研的 Metal 折射"，该声称已撤回**（终审 C-3）：
+/// `CoreDesignShaders.metal` 自己立过一条闸——「在 `RefractiveGlass` 的 provenance
+/// 追溯完成前**不得对外宣称原创**」，而**发布本身就是最强形式的宣称**。
+/// 本 modifier 的折射数学，把内容当被折射的背景做几何弯折。
 /// **需要系统材质就用 `.glassEffect()`**；本 modifier 只在需要可控折射强度/色散时用。
 /// ⇒ 命名刻意避开 `glass` 单独成词，防止与系统 API 混淆。
 struct RefractiveGlassModifier: ViewModifier {
@@ -58,7 +61,7 @@ struct RefractiveGlassModifier: ViewModifier {
 // MARK: - Strength
 
 /// 折射强度。⚠️ 语义枚举，不暴露"位移像素数 + 色散系数"两个裸旋钮。
-public enum RefractiveGlassStrength: Sendable, CaseIterable {
+public nonisolated enum RefractiveGlassStrength: Sendable, CaseIterable {
     case subtle, regular, pronounced
 
     nonisolated var refraction: Float {

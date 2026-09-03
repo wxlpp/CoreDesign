@@ -33,13 +33,28 @@ namespace cd {
 // **逐字节相同**，而那组常量出自 The Art of Code 的 Shadertoy 教程（Shadertoy 默认许可
 // CC BY-NC-SA）。
 //
-// ⇒ 本 PR 声称的「下一个 reviewer 用形参比对反查会落空」**当时是假的**：只要多做一步
+// ⇒ 本 PR 曾声称的「下一个 reviewer 用形参比对反查会落空」**是假的**：只要多做一步
 // `grep 123.34` 就命中。**形参不匹配不证明函数体独立**——函数体才是受保护的表达。
 //
-// 现在改用**位运算整数 hash**（Wang hash 家族的公开构造），与 sin/fract 族**结构不同**
-// 而非换个常量；域扭曲偏移也改成本仓自定值，不再沿用 iq 文章那组 `(1.7, 9.2)/(8.3, 2.8)`。
+// ⚠️⚠️ **第二版（改用位运算整数 hash）重蹈了同一失败模式，只是换了被复制的对象**
+//（PR #261 第 2 轮终审 C-1）。第二版的注释写「Wang hash 家族的**公开构造**」——
+// 那正是 #249 裁定明令不接受的「provenance 未知」型**否定断言**，裁定要求正向拿到
+// 三种判决之一。按本文件自己上面那条判据复核第二版：
+//   · `grep 0x27d4eb2d`  → 命中 **Thomas Wang** 整数 hash，经 **Nathan Reed**
+//     《Quick And Easy GPU Random Numbers In D3D11》(2013) 传播的 GPU 版本，逐字符一致；
+//   · `grep 73856093`    → 命中 **Teschner et al. 2003**《Optimized Spatial Hashing for
+//     Collision Detection of Deformable Objects》的素数三元组
+//     `73856093 / 19349663 / 83492791`。
+//
+// ⇒ **本版不再声称原创，改为正向署名**。这两项都是**公开发表的算法与常数**
+//（Wang 的页面无许可声明；Teschner 是论文里的数字），法律风险低于 Shadertoy 的
+// CC BY-NC-SA——但**低风险 ≠ 已裁定**，本仓的门是正向裁定，故逐项写明出处。
+// 逐项条目须随 `docs/shader-provenance.md`（task #249）落地，见本文件末尾的合入前置。
 
-/// 32-bit 整数雪崩混合。位运算构造，与 `sin`/`fract` 族无关。
+/// 32-bit 整数雪崩混合。
+///
+/// ⚠️ **出处：Thomas Wang 的整数 hash，GPU 版本经 Nathan Reed (2013) 传播。**
+/// 逐字符一致，**不是本仓原创**。常数 `0x27d4eb2d` 是它的指纹。
 inline uint wangHash(uint seed) {
     seed = (seed ^ 61u) ^ (seed >> 16);
     seed *= 9u;
@@ -50,17 +65,31 @@ inline uint wangHash(uint seed) {
 }
 
 /// 二维格点 → [0, 1)。两个整数坐标先线性组合成一个 seed，再走整数雪崩。
+///
+/// ⚠️ **出处：素数三元组 `73856093 / 19349663 / 83492791` 出自 Teschner et al. 2003**
+///《Optimized Spatial Hashing for Collision Detection of Deformable Objects》，
+/// 是图形代码里最好 grep 的常量之一，**不是本仓原创**。
+///
+/// ⚠️ **先转 `uint` 再乘不是风格问题**（终审 I-2）：`int × int` 在
+/// `DotGrid.Spacing.tight`（spacing 30）与 `Starfield.Density.dense`（cells 38）
+/// 乘上竖屏 aspect ≈ 2.16 后，格点索引到 65–82，`82 × 83492791 ≈ 6.8e9 > INT_MAX`
+/// ⇒ **默认档位就有符号溢出**。MSL 继承 C++ 语义，有符号溢出是 **UB**——
+/// 今天在 Apple GPU 上回绕、看着照样随机，但编译器有权按「不会溢出」优化。
+/// 无符号回绕是良定义的。
+///
+/// ⚠️ **偏移必须取整数**（终审 S-2）：本函数内部先 `floor(p)`，
+/// 故 `hash21(cell + 7.13)` 与 `hash21(cell + 7.0)` **完全等价**，小数部分是死值。
 inline float hash21(float2 p) {
-    int2 i = int2(floor(p));
-    uint seed = uint(i.x * 73856093) ^ uint(i.y * 19349663);
+    uint2 i = uint2(int2(floor(p)));
+    uint seed = (i.x * 73856093u) ^ (i.y * 19349663u);
     return float(wangHash(seed) & 0x00FFFFFFu) / float(0x01000000u);
 }
 
 /// 二维 hash → float2。第二个分量用不同的 seed 扰动，避免两轴相关。
 inline float2 hash22(float2 p) {
-    int2 i = int2(floor(p));
-    uint sx = uint(i.x * 73856093) ^ uint(i.y * 19349663);
-    uint sy = uint(i.x * 83492791) ^ uint(i.y * 50331653);
+    uint2 i = uint2(int2(floor(p)));
+    uint sx = (i.x * 73856093u) ^ (i.y * 19349663u);
+    uint sy = (i.x * 83492791u) ^ (i.y * 50331653u);
     return float2(float(wangHash(sx) & 0x00FFFFFFu),
                   float(wangHash(sy) & 0x00FFFFFFu)) / float(0x01000000u);
 }
@@ -223,7 +252,16 @@ inline float edgeWidth(float x) {
     p.y -= time * 0.5;   // 烟向上飘
 
     // 两级域扭曲：第二级用第一级的结果再扰动一次，丝缕由此而来。
-    // ⚠️ 偏移常量同 `coreDesignFractalClouds`：本仓自定，不沿用 iq 文章那组。
+    //
+    // ⚠️⚠️ **本段的结构派生自 Inigo Quilez《Domain Warping》一文的公开片段**
+    //（终审 C-2）。原文：`vec2 q = vec2(fbm(p+(0,0)), fbm(p+(5.2,1.3)));`
+    // `vec2 r = vec2(fbm(p+4*q+(1.7,9.2)), fbm(p+4*q+(8.3,2.8))); return fbm(p+4*r);`
+    // 与下面三行**一一对应**：同样的三级级联、同样的 `p + k*q + offset` 形状，
+    // **连变量名 `q` / `r` 都保留**。差别只是把 `4.0` 参数化成 `wisp`、把 vec2 偏移
+    // 换成标量。
+    // ⇒ 初版注释「偏移常量本仓自定，不沿用 iq 那组」**说的是实话，但不构成独立**
+    //   ——本文件上面已写死「改常量不构成独立」。本版不再声称原创。
+    // ⚠️ 同一问题的弱化版在 `coreDesignFractalClouds`（单级 warp，指纹较弱）。
     float2 q = float2(cd::fbm(p, int(octaves)), cd::fbm(p + 2.73, int(octaves)));
     float2 r = float2(cd::fbm(p + wisp * q + 4.19, int(octaves)),
                       cd::fbm(p + wisp * q + 7.61, int(octaves)));
@@ -313,5 +351,10 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
 
     // 边缘高光：贴边一圈亮线，宽度用导数推，分辨率无关。
     float rimBand = 1.0 - smoothstep(0.0, aa * 3.0, abs(d));
-    return mix(sample, rim, half(rimBand * float(rim.a)));
+    // ⚠️ **只混 RGB，保住 `sample.a`**（终审 I-1）：初版写
+    // `mix(sample, rim, rimBand * rim.a)`，而 `mix` 会把 **alpha 一起插值**——
+    // 贴边处 `alpha_out = 1×(1-0.55) + 0.55×0.55 ≈ 0.75`
+    // ⇒ 不透明内容的边缘被打出约 25% 的**透明环**，透出底下的东西。
+    // 那与「加一圈高光」是两种视觉，而渲染证明只断言「像素有变化」，抓不到它。
+    return mix(sample, half4(rim.rgb, sample.a), half(rimBand * float(rim.a)));
 }

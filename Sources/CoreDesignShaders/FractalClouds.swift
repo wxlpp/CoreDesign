@@ -8,15 +8,19 @@ import SwiftUI
 
 /// 分形云层背景。FBM + 域扭曲。
 ///
-/// ⚠️ **自研实现**，但 FBM 原语参考了许可已核的公开实现
-/// （[ashima](https://github.com/ashima/webgl-noise) / [stegu](https://github.com/stegu/webgl-noise)
-/// / [glsl-noise](https://github.com/hughsk/glsl-noise)，均 **MIT**）。
-/// ⚠️ 本仓实现用的是**值噪声**（四角 hash 双线性插值）而非 simplex——更简单、
-/// 对本用途足够，且不复制那些实现的具体表达。见 `docs/shader-provenance.md`。
+/// ⚠️⚠️ **不是自研实现**（PR #261 第 2 轮终审 C-2 改判）。真实来源：
+/// **整数 hash** = Thomas Wang（Nathan Reed 2013 的 GPU 版本）；
+/// **格点 seed 素数** = Teschner et al. 2003；
+/// **域扭曲**（本件为单级，指纹弱于 `InkSmoke`）结构上仍属 iq《Domain Warping》一族。
+///
+/// ⚠️ **初版把参考实现记成 webgl-noise 系（ashima / stegu / glsl-noise，MIT）是错的**
+/// ——那三个是 simplex + permutation 表，本实现是**值噪声**（四角 hash 双线性插值），
+/// 与它们没有任何一行对应关系。⇒ 那条引用已删除，不是"改得更准"而是**它本就不成立**。
+/// 本仓自有的部分是参数化与调色。
 public struct FractalClouds: View {
 
     /// 云的细腻程度。⚠️ 语义枚举，不暴露"scale + octaves + warp"三个裸旋钮。
-    public enum Density: Sendable, CaseIterable {
+    public nonisolated enum Density: Sendable, CaseIterable {
         case soft, regular, turbulent
 
         var field: (scale: Float, octaves: Float, warp: Float) {

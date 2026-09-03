@@ -24,6 +24,7 @@ public struct GlassSymbol: View {
     private let systemName: String
     private let tint: Color
     private let strength: RefractiveGlassStrength
+    private let accessibilityLabel: Text?
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -31,14 +32,22 @@ public struct GlassSymbol: View {
     ///   - systemName: SF Symbol 名。
     ///   - tint: 渐变背衬的基色。⚠️ 不能走 `.tint` 通路，理由见 `Plasma.init`。
     ///   - strength: 折射强度。
+    ///   - accessibilityLabel: 无障碍标签。**默认 `nil` = 当作纯装饰**（FR-13）。
+    ///
+    ///     ⚠️ **这个参数是终审 I-3 补的**：初版硬写 `.accessibilityHidden(true)` 且
+    ///     **无法从外部撤销**（元素已被移出 a11y 树，外层 `.accessibilityLabel(_:)`
+    ///     无元素可附着），而本类型自述的用例里就有「成就徽章」——那正是承载语义的
+    ///     一类。⇒ 默认仍是装饰，但**给得回来**。
     public init(
         _ systemName: String,
         tint: Color = .accent,
-        strength: RefractiveGlassStrength = .regular
+        strength: RefractiveGlassStrength = .regular,
+        accessibilityLabel: Text? = nil
     ) {
         self.systemName = systemName
         self.tint = tint
         self.strength = strength
+        self.accessibilityLabel = accessibilityLabel
     }
 
     public var body: some View {
@@ -64,8 +73,14 @@ public struct GlassSymbol: View {
                 rim: ramp.high.opacity(0.55),
                 isEnabled: !self.reduceTransparency
             )
-            // 符号本身承载语义时由调用方给 label；本类型默认当装饰处理（FR-13）。
-            .accessibilityHidden(true)
+            // ⚠️ **终审 I-3**：初版硬写 `.accessibilityHidden(true)` 并注释
+            // 「承载语义时由调用方给 label」——**那在 SwiftUI 里不成立**：元素已被
+            // 移出 a11y 树，外层 `.accessibilityLabel(_:)` 无元素可附着。而本类型
+            // 自述的用例里就有「成就徽章」，那正是承载语义的一类
+            // ⇒ 一个默认且**不可撤销**的 a11y 黑洞。改为可撤销：
+            .accessibilityElement(children: .ignore)
+            .accessibilityHidden(self.accessibilityLabel == nil)
+            .accessibilityLabel(self.accessibilityLabel ?? Text(verbatim: ""))
     }
 }
 

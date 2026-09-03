@@ -9,12 +9,15 @@ import SwiftUI
 /// 规则点阵背景，可选同心波呼吸。
 ///
 /// ⚠️ **自研实现，非移植**——网格 + 圆点是最基础的程序化图案，属思路层。
+/// ⚠️ **"自研"的射程仅限组合与参数化**：本 shader 用到的共享原语
+/// （`wangHash` / `hash21` / `hash22`）有明确出处（Wang·Reed / Teschner et al. 2003），
+/// 见 `CoreDesignShaders.metal` 原语区的逐项署名。
 /// ⚠️ 点的边缘用 `fwidth` 做屏幕空间抗锯齿，因此在任何分辨率下边宽一致
 /// （不是固定像素值）。
 public struct DotGrid: View {
 
     /// 点距。⚠️ 语义枚举，不暴露"格数 + 半径"两个裸旋钮。
-    public enum Spacing: Sendable, CaseIterable {
+    public nonisolated enum Spacing: Sendable, CaseIterable {
         case loose, regular, tight
 
         var metrics: (spacing: Float, radius: Float) {

@@ -8,7 +8,10 @@ import SwiftUI
 
 /// 液态铬背景。域扭曲后的坐标喂给正弦带，形成金属反射那种窄亮高光带 + 宽暗过渡。
 ///
-/// ⚠️ **自研实现**。与 `InkSmoke` / `FractalClouds` 同属域扭曲噪声派生，差别在
+/// ⚠️ **"自研"的射程仅限组合与参数化，不含共享原语**（终审 C-1/C-2 后统一口径）：
+/// `wangHash` / `hash21` / `hash22` 有明确出处（Wang·Reed / Teschner），
+/// 域扭曲结构属 iq 一族——逐条见 `CoreDesignShaders.metal` 的原语区注释。
+/// 与 `InkSmoke` / `FractalClouds` 同属域扭曲噪声派生，差别在
 /// **扭曲后的用法**：那两个把扭曲结果直接当密度，本类型把它喂给正弦带并额外加一层
 /// 高光收窄（`pow(1 - |raw - 0.5| * 2, 3)`）——金属感来自这里，不是来自噪声本身。
 ///
@@ -16,7 +19,7 @@ import SwiftUI
 public struct LiquidChrome: View {
 
     /// 带的疏密。⚠️ 语义枚举。
-    public enum Density: Sendable, CaseIterable {
+    public nonisolated enum Density: Sendable, CaseIterable {
         case wide, regular, fine
 
         var field: (scale: Float, bands: Float, flow: Float) {

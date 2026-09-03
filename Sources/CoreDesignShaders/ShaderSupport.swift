@@ -14,7 +14,7 @@ import SwiftUI
 ///
 /// ⚠️ 不暴露"时间缩放系数"这类裸数值——本仓的调参惯例是语义档位单一来源
 /// （对照 `ButtonRoleStyleRole`：role 调色板的唯一来源，新增 role 扩枚举而不是各自定义）。
-public enum ShaderMotion: Sendable, CaseIterable {
+public nonisolated enum ShaderMotion: Sendable, CaseIterable {
     case still, calm, regular, lively
 
     /// 展开成时间缩放。⚠️ 展开在 Swift 侧，公开面只有档位。
@@ -98,9 +98,24 @@ struct ProceduralBackground: View {
 
     /// Reduce Motion 下**冻结在某一帧**（保留视觉、去掉运动，FR-12），
     /// 而不是停止渲染或换成静态图。
-    private func elapsed(at date: Date) -> Float {
-        guard !self.reduceMotion, self.motion != .still else { return 0 }
-        return Float(date.timeIntervalSince(self.originOverride ?? self.origin) * self.motion.speed)
+    /// ⚠️ **判定抽成 `static` 纯函数是为了可测**（终审 I-5）：初版整段是 private 方法，
+    /// 而 `reduceMotion` 是 `@Environment` —— 脱离视图层级根本注入不了，于是
+    /// 「Reduce Motion 下冻结」这条 FR-12 承诺**零覆盖**。
+    /// 纯函数把环境读取与判定分开：读取仍在 View 里，判定任何平台都能断言。
+    static func elapsed(
+        at date: Date, origin: Date, motion: ShaderMotion, reduceMotion: Bool
+    ) -> Float {
+        guard !reduceMotion, motion != .still else { return 0 }
+        return Float(date.timeIntervalSince(origin) * motion.speed)
+    }
+
+    func elapsed(at date: Date) -> Float {
+        Self.elapsed(
+            at: date,
+            origin: self.originOverride ?? self.origin,
+            motion: self.motion,
+            reduceMotion: self.reduceMotion
+        )
     }
 }
 

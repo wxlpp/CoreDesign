@@ -41,6 +41,9 @@ targets:
         product: CoreDesignEffects
       - package: CoreDesign
         product: CoreDesignCharts
+      # ⚠️ 这条边目前**没有任何 App/Sources 文件 import 它**（PR #261 终审 I-6）。
+      # 保留的理由是它是 B-4 画廊接线的前置；**但不得据此声称已做视觉验证**——
+      # 7 个纯视觉组件至今只有"像素不全相同"这一条证据，见 PR 描述的记账。
       - package: CoreDesign
         product: CoreDesignShaders
     settings:

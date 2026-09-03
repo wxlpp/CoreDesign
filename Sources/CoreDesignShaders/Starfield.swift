@@ -9,10 +9,13 @@ import SwiftUI
 /// 程序化星空背景。网格分格 + 每格一颗随机星，亮度按距离衰减、相位各自独立。
 ///
 /// ⚠️ **自研实现，非移植**——网格 hash + 亮度衰减是程序化星空的公开做法，属思路层。
+/// ⚠️ **"自研"的射程仅限组合与参数化**：本 shader 用到的共享原语
+/// （`wangHash` / `hash21` / `hash22`）有明确出处（Wang·Reed / Teschner et al. 2003），
+/// 见 `CoreDesignShaders.metal` 原语区的逐项署名。
 public struct Starfield: View {
 
     /// 星密度。⚠️ 一个语义枚举，而不是"格数"这个裸数值。
-    public enum Density: Sendable, CaseIterable {
+    public nonisolated enum Density: Sendable, CaseIterable {
         case sparse, regular, dense
 
         var cells: Float {

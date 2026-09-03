@@ -8,13 +8,21 @@ import SwiftUI
 
 /// 墨烟背景。两级域扭曲 + 陡对比，读起来是丝缕而非团块。
 ///
-/// ⚠️ **自研实现**。与 `FractalClouds` 同属噪声派生，差别在**扭曲级数与对比曲线**：
-/// 云是一级扭曲 + 线性斜坡，烟是两级扭曲 + `smoothstep(0.28, 0.72)` 的陡对比。
-/// 参考实现同 `FractalClouds`（webgl-noise 系，MIT）。
+/// ⚠️⚠️ **不是自研实现**（PR #261 第 2 轮终审 C-2 改判）。逐层交代真实来源：
+/// - **域扭曲的级联结构**派生自 Inigo Quilez《Domain Warping》的公开片段
+///   （三级 `q` / `r` 级联，连变量名都保留；本仓只把倍率参数化、换了偏移常数）；
+/// - **整数 hash** 是 Thomas Wang 的构造（Nathan Reed 2013 的 GPU 版本）；
+/// - **格点 seed 的素数三元组**出自 Teschner et al. 2003。
+///
+/// ⚠️ **初版这里写的参考实现是 webgl-noise 系（ashima / stegu / glsl-noise，MIT）
+/// ——那三个是 simplex + permutation 表，与本实现没有任何一行对应关系。**
+/// 等于引用了一个许可干净但**实际没用到**的来源，而真正的影响源一个没写。
+/// 本仓自有的部分只是**参数化与调色**：扭曲级数、`smoothstep(0.28, 0.72)` 的陡对比、
+/// 以及经 `ShaderRamp` 的三档取色。
 public struct InkSmoke: View {
 
     /// 丝缕强度。⚠️ 语义枚举。
-    public enum Density: Sendable, CaseIterable {
+    public nonisolated enum Density: Sendable, CaseIterable {
         case faint, regular, heavy
 
         var field: (scale: Float, octaves: Float, wisp: Float) {
