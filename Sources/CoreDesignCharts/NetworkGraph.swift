@@ -97,6 +97,14 @@ public struct NetworkGraph<Node: GraphNode>: View {
     ///
     /// **超限行为**：多余的边被 `prefix` **静默丢弃**，且**边超限会把力导向整个关掉**
     /// （连节点没超限时也关）——与 `recommendedNodeLimit` 同一条降级路径。
+    ///
+    /// ⚠️ **为什么丢边也要关掉解算器**（第 5 轮终审 I-4 要求给出理由，否则就该放宽）：
+    /// 力导向布局的簇结构**完全由边决定**。丢掉 1/4 的边之后解出来的布局，
+    /// 会把本该相邻的节点摆开、把不相干的摆到一起——**它不是"精度差一点的图"，
+    /// 是一张会误导读者的图**。静态环形至少不声称任何拓扑关系。
+    /// ⚠️ 代价如实记录：n=100 / E=800 这类输入（预算够跑满迭代，
+    /// `(100²/2 + 600) × 54 = 302 400 < 450 000`）也会降级
+    /// ——**这是有意选择"不误导"而不是"更好看"**，不是性能所迫。
     public static var recommendedEdgeLimit: Int { 600 }
 
     private var effectiveEdges: [Edge] {
@@ -352,7 +360,14 @@ extension NetworkGraph: AXChartDescriptorRepresentable {
         // 一个节点屏幕上连 2 条线、VoiceOver 播报 40 条，`peak`（y 轴量程）同样偏大。
         // 这与 `RingChart`（走 self.values）、`ActivityHeatmap`（走 self.days）
         // 是**同一句话**——上一轮我新增了第四个截断轴（边），又一次没核对 descriptor。
-        for e in self.effectiveEdges {
+        // ⚠️⚠️ **还要按可见节点过滤**（第 5 轮终审 I-2）：渲染只画两端都在 `layout`
+        // 里的边（`layout` 的键恰是 `effectiveNodes`），而上一版只过滤了**边**这一个轴
+        // ⇒ 节点超限时，存活节点报 N 条连接、屏幕上只画 M < N 条；`peak`（y 轴量程）
+        // 还被**已被丢弃节点**的度数抬高，把所有点压向零。
+        // ⚠️ 这是同一 bug 类的**第四个轴**：`RingChart`（values）→ `ActivityHeatmap`
+        // （days）→ 边 → **节点**。前三个各自修过一轮，每次都没顺手核对下一个。
+        let visible = Set(self.effectiveNodes.map(\.id))
+        for e in self.effectiveEdges where visible.contains(e.from) && visible.contains(e.to) {
             degree[e.from, default: 0] += 1
             degree[e.to, default: 0] += 1
         }

@@ -16,6 +16,7 @@
 "Node" = "Node";
 "Connections" = "Connections";
 "Showing the first %lld nodes" = "Showing the first %lld nodes";
+"Showing the first %lld connections" = "Showing the first %lld connections";
 
 /* ⚠️ 测试哨兵：译文与 key **有意不同**。查表 miss 时 Foundation 原样返回 key，
    故只有当译文 != key 时，断言才能区分「命中」与「静默回退」。

@@ -562,6 +562,23 @@ struct LocalizationPathTests {
         #expect(chartAXString("Connections") == "Connections")
         #expect(!chartAXString("Node").isEmpty)
     }
+
+    /// ⚠️ **两条超限横幅都要断言**（第 5 轮终审 I-1）：`"Showing the first %lld
+    /// connections"` 上一版**根本不在 `Localizable.strings` 里**，而英文之所以显示正常
+    /// 是因为 Foundation **回退到 key 再套格式参数** ⇒ 翻译者拿不到条目、
+    /// 所有非英文 locale 静默显示英文。这正是本 target 为之加了哨兵的那个静默失败面,
+    /// 而哨兵只覆盖了 `"No data"` / `"Connections"` / `"Node"`。
+    /// ⇒ 判据：查表结果**必须与 key 本身不同**（带格式参数的 key 展开后天然不同，
+    /// 故改用「是否含未展开的 `%lld`」判定）。
+    @Test("两条超限横幅都在表里（不是回退到 key）")
+    func truncationBannersAreRegistered() {
+        for key in ["Showing the first %lld nodes", "Showing the first %lld connections"] {
+            let resolved = Bundle.module.localizedString(
+                forKey: key, value: "@@MISS@@", table: nil
+            )
+            #expect(resolved != "@@MISS@@", "`\(key)` 不在 Localizable.strings 里")
+        }
+    }
 }
 
 
@@ -599,6 +616,24 @@ struct TruncationConsistencyTests {
     }
 
     /// ⚠️ C-2：descriptor 的度数必须按**截断后**的边算（渲染画 `effectiveEdges`）。
+    /// ⚠️ 第 5 轮终审 I-2：同一 bug 类的**第四个轴**（节点截断）。
+    @Test("NetworkGraph：度数只算两端都可见的边")
+    func graphDegreeSkipsDroppedNodes() {
+        let limit = NetworkGraph<Node>.recommendedNodeLimit
+        let nodes = (0..<(limit + 50)).map { Node(id: "n\($0)", label: "L") }
+        // 边全部集中在**会被丢弃的尾部**节点上。
+        let tailEdges = (0..<100).map {
+            GraphEdge(from: "n\(limit + ($0 % 50))", to: "n0")
+        }
+        let d = NetworkGraph(nodes: nodes, edges: tailEdges).makeChartDescriptor()
+        let ys = d.series.first?.dataPoints.compactMap {
+            Double(String(describing: $0.yValue).filter { "0123456789.".contains($0) })
+        } ?? []
+        // 所有边都指向被丢弃的节点 ⇒ 可见节点的度数应全为 0。
+        #expect(ys.allSatisfy { $0 == 0 },
+                "被丢弃节点的度数被算进了可见节点：\(ys.filter { $0 != 0 }.prefix(5))")
+    }
+
     @Test("NetworkGraph：度数按截断后的边算")
     func graphDegreeUsesTruncatedEdges() {
         let nodes = (0..<20).map { Node(id: "n\($0)", label: "L") }
