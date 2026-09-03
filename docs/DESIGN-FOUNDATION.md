@@ -24,8 +24,7 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 | `CoreControlMetrics.height` | HIG 触控目标建议：常规交互控件最小可点击区域 ≈44pt，密集 chrome 收紧到 28–32pt，CTA 类放宽到 50–56pt |
 | `CoreControlMetrics.{horizontal,vertical}Padding` | 贴近系统按钮的视觉密度，全部落在 `CoreSpacing.*` 命名档位上 |
 | `CoreElevation` | HIG 的分层原则——层级优先靠 material（毛玻璃）与 separator 表达，阴影只用于真正悬浮的内容（popover / 菜单） |
-| `SurfaceColors` / `ContentColors` / `BorderColors` / `FillColors` | 直接改指系统语义色 API（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观与对比度设置自动更新 |
-⚠️ **本行已失真**（PR #262 第 3 轮终审 I-1）：`FillColors` 现含三个**非系统色**的派生 / 定值 token —— `skeletonBase` / `skeletonHighlight`（#162）与 `specularHighlight`（#262）。
+| `SurfaceColors` / `ContentColors` / `BorderColors` / `FillColors` | 直接改指系统语义色 API（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观与对比度设置自动更新 —— ⚠️ **本行已失真**（PR #262 第 3 轮终审 I-1）：`FillColors` 现含三个**非系统色**的派生 / 定值 token —— `skeletonBase` / `skeletonHighlight`（#162）与 `specularHighlight`（#262）。 |
 | `InteractionColors.accent` 及衍生族 | 改指宿主 App 的 `Color.accentColor`，衍生态用 `Color.mix(with:by:in:)` / `.opacity()` 对 `accent` 本身做调制，见下节 |
 | `StatusColors` / `secondaryAccent` / `neutralAccent` | **显式定案：不改指系统色**——Apple HIG 没有"5 态状态色板"或"第二强调色"的系统概念，继续由 `ColorGrade`（第 1 层资源调色板）供色 |
 
