@@ -18,9 +18,11 @@
 /// 「从 **nonisolated 上下文**消费本库的公开值类型」——不标 `nonisolated`，
 /// 下游 nonisolated 代码就用不了它，而那正是该 probe 唯一能看见的那类问题。
 ///
-/// ⚠️ **今天没有任何机器判据守着这个修饰符**：probe 现在只依赖 `CoreDesign` product，
-/// 零引用本模块——把 `nonisolated` 删掉，`swift build` / `swift test` / probe 全绿。
-/// 接进 probe 归 `#247`；在那之前这条只靠本注释与评审。
+/// ✅ **已被机器守住**（`#247`）：`scripts/downstream-probe` 现在依赖本 product，
+/// 并在 `EffectsNonisolatedUsage.swift` 里从 `nonisolated` 函数读它。删掉这个修饰符，
+/// CI 的 `downstream-probe` 腿会判红：
+/// `error: main actor-isolated static property 'moduleName' can not be referenced
+/// from a nonisolated context`（已实测反证）。
 public enum CoreDesignEffects {
 
     /// 模块名。供宿主 App 的组件画廊分组与调试输出使用。
