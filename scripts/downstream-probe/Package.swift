@@ -19,7 +19,17 @@ let package = Package(
         .package(name: "CoreDesign", path: "../.."),
     ],
     targets: [
-        .target(name: "DownstreamProbe", dependencies: [.product(name: "CoreDesign", package: "CoreDesign")]),
+        // ⚠️ 三个 product 都要接（#247）：本 probe 验的是「下游从 **nonisolated 上下文**
+        // 能不能用这些类型」，而 `.defaultIsolation(MainActor.self)` 是**逐 target** 生效的
+        // ——只接 `CoreDesign` 的话，Effects / Charts 的隔离契约在结构上无人验证。
+        .target(
+            name: "DownstreamProbe",
+            dependencies: [
+                .product(name: "CoreDesign", package: "CoreDesign"),
+                .product(name: "CoreDesignEffects", package: "CoreDesign"),
+                .product(name: "CoreDesignCharts", package: "CoreDesign"),
+            ]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )
