@@ -2,7 +2,7 @@
 name: shipswift-effects
 status: backlog
 created: 2026-09-02T23:42:57Z
-updated: 2026-09-03T00:20:00Z
+updated: 2026-09-03T00:35:00Z
 progress: 0%
 prd: .claude/prds/shipswift-harvest.md
 github: (will be set on sync)
@@ -133,7 +133,8 @@ A-1 ~ A-6 之间**无依赖，可六路并发**；A-7 依赖全部。
 ```
 A-1  微交互 8 个                                     ← 依赖 A0-1~A0-4
 A-2  转场 16 种（按 mask reveal / 3D / 弹性三组分批）  ← 同上
-A-3  庆祝与处理中 4 个 + 后台/低电量可注入 environment ← 同上
+A-3  庆祝与处理中 4 个 + 后台/低电量可注入 environment（须 public，Shaders 复用）← 同上
+     · 可选：若 Shaders 的 B-2 先到，NFR-1 性能 harness 在此落地而非 A-7
 A-4  文本与展示 4 个                                  ← 同上
 A-5  跨平台改造 4 个（AD-E）                          ← 同上
 A-6  四个图表 + 退化输入契约（≥15 条测试）+ 规模上限    ← 同上
@@ -141,8 +142,12 @@ A-7  收尾（依赖全部；ComponentData.swift 串行）：
      · 预览宿主 + 快照排除策略（run-snapshots.sh 会渲染所有 #Preview，Confetti /
        ParticleTransition 产出非确定 PNG）
      · **性能基准脚本**（NFR-1，一次性基建，Shaders 的 B-4 复用同一脚本）
+       ⚠️ **若 `shipswift-shaders` 的 B-2 先于本 task 完成，harness 应提前到 A-3 落地**
+       （Confetti 处），避免 17 个 colorEffect 全落完才第一次跑性能闸——该可选项
+       在 `shipswift-shaders` 也写了，两边须同步（第 3 轮评审 Suggestion 1）
      · **probe 补 Effects/Charts 全部公开值类型的 nonisolated 调用点**（A0-4 只做接线）
-     · **新建 `ACKNOWLEDGEMENTS.md`**（ShipSwift 条目，区分"参考思路"/"较大段落移植"）
+     · **`ACKNOWLEDGEMENTS.md` 追加 ShipSwift 条目**（区分"参考思路"/"较大段落移植"）
+       ⚠️ **文件骨架由 A0-6 建**，本 task 不新建（第 2 轮评审 I-4 已把骨架提前到许可裁定处）
      · **`docs/README.md` 索引**（落点按 A0-1 的 AD-4 裁决）+ `docs/components/*.md`
      · **`docs/reachable-type-registry.json` 登记**新增可达类型（图表数据模型的深度 ≥1
        文本参数正是它的定义域）
@@ -217,7 +222,7 @@ A-7  收尾（依赖全部；ComponentData.swift 串行）：
       ⚠️ 措辞刻意不写"全部**公开**值类型"（第 2 轮评审 S-1）——那是自指的：漏写 `public`
       的类型压根不算"公开"，probe 自然不覆盖它，FR-5 就没人查。**按 API 单位清单点名**，
       漏 `public` 会在 probe 编译期直接炸出来
-- [ ] **`ACKNOWLEDGEMENTS.md` 已新建**并含 ShipSwift 条目（MIT 要求署名，与 Epic B 是否启动无关）
+- [ ] **`ACKNOWLEDGEMENTS.md` 含 ShipSwift 条目**（骨架由 A0-6 建，本 epic 追加自己的条目）
 - [ ] **`docs/reachable-type-registry.json`** 已登记新增可达类型。
       ⚠️ **不写"`ReachableTypeRegistryGuard` 绿"——那对新 target 是空真**（第 2 轮评审 I-8）：
       实测该守卫只查 schema / 与登记表不相交 / 参数名唯一 / 全 C 四条，**不扫源码**；
@@ -232,6 +237,8 @@ A-7  收尾（依赖全部；ComponentData.swift 串行）：
       **或**明确承认这条是评审项而非机器判据——不得留在"看起来可查、实际没人查"的状态
 - [ ] **US-1 叠加互不干扰**：同一 trigger 驱动 ≥3 个微交互时行为可预期，有测试
 - [ ] **US-4 图表 a11y**：4 个图表各有 accessibility 表示，有测试
+- [ ] **AD-E 四件的平台限制已写进 `docs/components/*.md`**（第 3 轮评审 Suggestion 3
+      ——此前只写在 AD-E 里，SC 是扁平的、decompose 未必会把 AD 的话提成验收项）
 - [ ] **`BeforeAfterSlider` 的触控目标测试**在 `CoreDesignEffectsTests` 内同形态实现
       （⚠️ **不得**加进 `TouchTargetTests`——那会让 `CoreDesignTests` 依赖新 target，
       判红 NFR-5②，评审 I-4）

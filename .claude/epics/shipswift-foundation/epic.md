@@ -2,7 +2,7 @@
 name: shipswift-foundation
 status: backlog
 created: 2026-09-02T23:42:57Z
-updated: 2026-09-03T00:20:00Z
+updated: 2026-09-03T00:35:00Z
 progress: 0%
 prd: .claude/prds/shipswift-harvest.md
 github: (will be set on sync)
@@ -246,8 +246,10 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
 - [ ] `N_B` 已按经济性方法（B 固定成本 ÷ 每 shader 边际成本）反推出具体数字，**不取 7**
 - [ ] **闸②的通过判定本身**（评审 S-10，此前只散落在别处）：可落地数 **≥ `N_B`** ⇒ 闸过，
       `shipswift-shaders` 可启动；**< `N_B`** ⇒ 闸不过，该 epic 整体不启动
-- [ ] **`ACKNOWLEDGEMENTS.md` 的骨架由本 task 建**（评审 I-4）：FR-18 要求 provenance
-      表的"可落地"行在 ACK 有对应条目，两者本就是本 task 的同一份工作 ⇒ 不必等 A-7
+- [ ] **`ACKNOWLEDGEMENTS.md` 的骨架由本 task 建**（评审 I-4）：本仓此前无此文件。
+      ⚠️ **骨架 = 表头 + 说明 + 上游许可全文转载**；**逐 shader / 逐组件的条目由各自
+      落地的 task 追加**（第 3 轮评审 Suggestion 5）——闸②若不过，ACK 不得署名仓内
+      并不存在的 shader。与 `shipswift-shaders` SC「覆盖每一个**落地的** shader」对齐
 - [ ] 那 7 个已知 MIT 件的**传递来源**已核（ShaderKit 是否又移植自 Shadertoy）
 - [ ] **go/no-go 结论有 GitHub 侧落点**：在 A0-6 的 issue 关闭评论里固定记录
       "B 启动 / 不启动 + `N_B` 值 + 可落地 shader 名单"

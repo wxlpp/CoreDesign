@@ -2,7 +2,7 @@
 name: shipswift-shaders
 status: backlog
 created: 2026-09-02T23:42:57Z
-updated: 2026-09-03T00:20:00Z
+updated: 2026-09-03T00:35:00Z
 progress: 0%
 prd: .claude/prds/shipswift-harvest.md
 github: (will be set on sync)
@@ -48,13 +48,18 @@ github: (will be set on sync)
 | task | 前置 |
 |---|---|
 | **B-1** | A0-2 ~ A0-6 |
-| **B-2** | A0-2 ~ A0-6 **+ `shipswift-effects` 的 A-3**（NFR-7 可注入 environment 键） |
-| **B-3** | A0-2 ~ A0-6 |
+| **B-2** | A0-2 ~ A0-6 **+ B-1**（target 与 metallib 构建链）**+ `shipswift-effects` 的 A-3**（NFR-7 可注入 environment 键） |
+| **B-3** | A0-2 ~ A0-6 **+ B-1**（同上） |
 | **B-4** | 上述全部 **+ `shipswift-effects` 的 A-7**（ComponentData 串行窗口 / 性能基准脚本） |
 
-⇒ **B 的启动不被 Epic A 阻塞**（B-1 / B-3 闸过即可开工，B-2 只等 A-3 这个 A 的早期
-并行 task）；但 **B 的收尾被 A 的收尾阻塞**（B-4 等 A-7 = Epic A 全部完成）。
-这句话此前三个 epic 都没明说。
+⚠️ **B-2 / B-3 依赖 B-1 是 epic 内部边**（第 3 轮评审 Important-2）：初版表只列了跨 epic
+前置，并断言"B-1 / B-3 闸过即可开工"——**那句是错的**，B-3 的 11 个 layerEffect 要落进
+B-1 才建的 `CoreDesignShaders` target 与 metallib 构建链，B-1 不完 B-3 无处落。
+⇒ **B-1 闸过即可开工；B-2 / B-3 等 B-1；B-2 另等 A-3。**
+
+⇒ **B 的启动不被 Epic A 阻塞**（B-1 闸过即开工，B-2 只等 A-3 这个 A 的早期并行 task）；
+但 **B 的收尾被 A 的收尾阻塞**（B-4 等 A-7 = Epic A 全部完成）。这句话此前三个 epic
+都没明说。
 
 ⚠️ **三重耦合已解掉两重**（评审 I-4）：`ACKNOWLEDGEMENTS.md` 的**骨架改由 A0-6 建**
 （许可裁定与 ACK 条目本就是同一份工作），B-4 只追加逐 shader 条目；性能基准脚本仍在
@@ -168,12 +173,15 @@ B-1  CoreDesignShaders target + product + FR-2 选定路径落地
      + App/project.yml 补 product: CoreDesignShaders
        （⚠️ 改完不要在 worktree 里跑 `xcodegen generate`——会写死目录名并清空 scheme，
        见 PRD C-4 与本仓 CLAUDE.md）
-     + probe 补 CoreDesignShaders 的 nonisolated 调用点
+     （probe 的实质调用点移到 B-4，见该 task）
      + CLAUDE.md / AGENTS.md 同步（否则 AgentGuideSyncGuard 判红）
 B-2  17 个 colorEffect 背景（按 D-1 的复杂度分级分批：纯噪声 / 多 pass / 需 SDF）
 B-3  11 个 layerEffect 内容层效果（含 7 个"颜色写死"件的参数化改造，AD-F）
 B-4  收尾：
-     · ACKNOWLEDGEMENTS.md **追加**逐 shader 条目（文件由 A-7 新建）
+     · ACKNOWLEDGEMENTS.md **追加**逐 shader 条目（骨架由 **A0-6** 建，非 A-7）
+     · **probe 补 `CoreDesignShaders` 的 nonisolated 调用点**（⚠️ 从 B-1 移到此处，
+       第 3 轮评审 Suggestion 4：B-1 只建 target 骨架，那时没有任何 shader 类型可调，
+       与第 1 轮批评 A0-4 的问题同构）
      · docs/components/*.md + docs/README.md 索引（落点按 A0-1 裁决）
      · 预览宿主（⚠️ ComponentData.swift 须在 A-7 定义的串行窗口之外写）+ 快照排除
      · effects-registry.json / reachable-type-registry.json 登记补齐
@@ -197,8 +205,8 @@ B-4  收尾：
   ⇒ **B-2 依赖 A-3**。
 - **A-7** —— ① `App/Sources/ComponentData.swift` 是**跨 epic 的并行冲突面**，其串行写入
   窗口由 A-7 定义，B-4 必须在该窗口之外写；② **NFR-1 的性能基准脚本**由 A-7 建，
-  B-4 **复用同一脚本**，不重造；③ `ACKNOWLEDGEMENTS.md` 由 A-7 **新建**，B-4 只**追加**
-  逐 shader 条目。
+  B-4 **复用同一脚本**，不重造；③ `ACKNOWLEDGEMENTS.md` 的骨架由 **A0-6** 建（非 A-7），
+  B-4 只**追加**逐 shader 条目。
 
 ### 外部
 - ShipSwift 快照 + **其上游**（ShaderKit / Inferno / Shadertoy 各作者）—— AD-G 的核验对象
@@ -235,8 +243,9 @@ B-4  收尾：
       **只管主索引到 `## 生成预览图` 之间，对另起的小节是空真** ⇒ 真正的判据是
       A0-3 交付的**差集守卫 / 锚文档守卫**，本条应引那一条
 - [ ] **`docs/reachable-type-registry.json`** 已登记本 epic 新增的可达类型
-- [ ] **probe 补 `CoreDesignShaders` 全部公开值类型的 nonisolated 调用点**
-      （A0-4 只做接线，实质在此）
+- [ ] **probe 覆盖 28 个 shader 所对应的全部类型**的 nonisolated 调用点
+      （A0-4 只做接线，实质在 B-4）。⚠️ 措辞不写"全部**公开**值类型"——那是自指的
+      （第 3 轮评审 Suggestion 2，与 `shipswift-effects` 同款修正）
 - [ ] **`GlassOrb` 的触控目标测试**在 `CoreDesignShadersTests` 内同形态实现
       （⚠️ **不得**加进 `TouchTargetTests`——会判红 NFR-5②）
 - [ ] **NFR-5② 沿用**：`swift package describe … CoreDesignTests … target_dependencies`
