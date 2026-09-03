@@ -10,18 +10,25 @@ import Testing
 // 这种形态里，外层字面量显眼、**内层的 "search" 藏在插值里**，按 token 粗扫会漏。
 // #222 修的四个字面量里就有一个是这种形态，故变异自证的靶点专打它。
 //
-// 扫描范围：`Sources/CoreDesign/**/*.swift`，跳过 `#if DEBUG` 区块（预览宿主不是产品路径）。
-// 豁免台账：`docs/a11y-exemptions.json`。
+// 扫描范围：`GuardScanRoots.allRoots` 下的全部 `**/*.swift`（`#246` 起**多根**：
+// `CoreDesign` / `CoreDesignEffects` / `CoreDesignCharts`），跳过 `#if DEBUG` 区块
+// （预览宿主不是产品路径）。豁免台账：`docs/a11y-exemptions.json`。
+//
+// ⚠️ **多根化后必须按 target 分辨各自的 `.module`**（`#246` AC）：
+// `bundle: .module` 是**每个 target 各自的** bundle，不是「CoreDesign 的 String Catalog」
+// 的同义词。`CoreDesignEffects` / `CoreDesignCharts` 在 `Package.swift` 里**没有
+// `resources:` 声明** ⇒ SwiftPM 不给它们合成 `Bundle.module` ⇒ 在这两个 target 里
+// 写 `bundle: .module` 既编译不过、也到不了任何 catalog。而旧的放行条只看 span 文本里
+// 有没有 `bundle: .module` 这串字符 ⇒ 一旦多根化，它会把这种写法**当成已本地化放行**。
+// ⇒ 放行条改为「该 target 真的拥有自己的资源包」才成立，由
+// `GuardScanRoots.ownsResourceBundle(_:)` 提供事实。
 
 @Suite("a11y 字面量必须走 String Catalog")
 struct AccessibilityStringLiteralGuard {
 
     private static let modifiers = ["accessibilityLabel", "accessibilityValue", "accessibilityHint"]
 
-    private static func repoRoot() -> URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-    }
+    private static func repoRoot() -> URL { GuardScanRoots.repoRoot }
 
     private struct Exemption: Decodable {
         let location: String   // "相对路径:行号" —— ⚠️ 精确到行，不是整文件
@@ -183,32 +190,87 @@ struct AccessibilityStringLiteralGuard {
         return line
     }
 
-    @Test("Sources/ 下非 DEBUG 路径的 a11y 字面量全部走 bundle: .module")
+    /// 从仓库根相对路径（`Sources/CoreDesignEffects/Foo.swift`）里取回 target 名。
+    /// 取不出来时回落主 target——豁免台账的路径形态由 `exemptionsAreNotDead` 的
+    /// 格式检查兜底，这里不重复报错。
+    static func target(ofRelativePath rel: String) -> String {
+        let parts = rel.split(separator: "/").map(String.init)
+        guard parts.count >= 2, parts[0] == "Sources" else { return GuardScanRoots.primaryTargetName }
+        return parts[1]
+    }
+
+    // MARK: - 调用段的裁定 / Verdict for one call span
+
+    /// 一个 a11y 调用段的裁定结果。
+    ///
+    /// ⚠️ **抽成一个函数、两处共用**（`#246`）：`noBareAccessibilityLiterals` 与
+    /// `exemptionsAreNotDead` 此前各写一遍「有没有 `bundle: .module` + 有没有字面量」，
+    /// 多根化又要在其中一处加「该 target 有没有资源包」这条 ⇒ 两处必漂，
+    /// 而漂移的方向恰好是「死豁免自检看不见新形态的违规」。
+    enum SpanVerdict: Equatable {
+        case clean
+        /// 裸字面量（含插值内层、含折行形态）。
+        case bareLiteral([String])
+        /// 写了 `bundle: .module`，但该 target 根本没有自己的资源包。
+        case moduleWithoutBundle
+    }
+
+    /// - Parameter ownsBundle: 该 target 是否拥有自己的 `Bundle.module`
+    ///   （见 `GuardScanRoots.ownsResourceBundle(_:)`）。
+    static func classify(span body: String, ownsBundle: Bool) -> SpanVerdict {
+        if body.contains("bundle: .module") {
+            return ownsBundle ? .clean : .moduleWithoutBundle
+        }
+        let literals = Self.stringLiterals(in: body)
+        return literals.isEmpty ? .clean : .bareLiteral(literals)
+    }
+
+    @Test("全部已存在 target 下非 DEBUG 路径的 a11y 字面量全部走各自 target 的 bundle: .module")
     func noBareAccessibilityLiterals() throws {
-        let root = Self.repoRoot()
-        let sources = root.appendingPathComponent("Sources/CoreDesign")
+        // ⚠️ **fail-closed 先行**：根不存在时 `enumerator` 静默产出空序列，
+        // 「零文件 ⇒ 零违规 ⇒ 绿」。`#246` 之前这里还是个 `!` 强制解包的单根。
+        #expect(GuardScanRoots.assertRootsExist(GuardScanRoots.allRoots))
         let exempt = try Self.exemptedSites()
 
         var offenders: [String] = []
-        let e = FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil)!
-        for case let url as URL in e where url.pathExtension == "swift" {
-            let rel = url.path.replacingOccurrences(of: root.path + "/", with: "")
-            let text = try String(contentsOf: url, encoding: .utf8)
+        var scannedFiles = 0
+        for root in GuardScanRoots.allRoots {
+            // 该 target 是否拥有自己的 `Bundle.module` —— 决定 `bundle: .module` 算不算放行。
+            let ownsBundle = GuardScanRoots.ownsResourceBundle(root.target)
+            let files = GuardScanRoots.swiftFiles(in: root.url)
+            #expect(!files.isEmpty, "\(root.target) 下没有任何 .swift 文件 —— 本守卫在它上面恒绿")
+            scannedFiles += files.count
 
-            for span in Self.accessibilityCallSpans(in: text) {
-                // ⚠️ 豁免按 **文件 + 行**，不是整文件——整文件豁免会让该文件将来
-                // 新增的任何裸 a11y 字面量全部不可见（登记了 ≠ 守住了）。
-                if exempt.contains("\(rel):\(span.line)") { continue }
-                if span.body.contains("bundle: .module") { continue }
-                let literals = Self.stringLiterals(in: span.body)
-                if !literals.isEmpty {
+            for url in files {
+                let rel = GuardScanRoots.relativePath(url)
+                let text = try String(contentsOf: url, encoding: .utf8)
+
+                for span in Self.accessibilityCallSpans(in: text) {
+                    // ⚠️ 豁免按 **文件 + 行**，不是整文件——整文件豁免会让该文件将来
+                    // 新增的任何裸 a11y 字面量全部不可见（登记了 ≠ 守住了）。
+                    if exempt.contains("\(rel):\(span.line)") { continue }
                     let oneLine = span.body
                         .split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
                         .joined(separator: " ")
-                    offenders.append("\(rel):\(span.line) → \(literals) | \(oneLine)")
+                    switch Self.classify(span: span.body, ownsBundle: ownsBundle) {
+                    case .clean:
+                        continue
+                    case .bareLiteral(let literals):
+                        offenders.append("\(rel):\(span.line) → \(literals) | \(oneLine)")
+                    case .moduleWithoutBundle:
+                        // ⚠️ **按 target 分辨 `.module`**：该 target 没有自己的资源包时，
+                        // 这串字符不是「已本地化」的证据，判红并明说原因。
+                        offenders.append(
+                            "\(rel):\(span.line) → 写了 `bundle: .module`，但 target `\(root.target)` "
+                            + "**没有自己的资源包**（`Sources/\(root.target)/Resources/` 不存在，"
+                            + "`Package.swift` 也没给它 `resources:`）⇒ 这里的 `.module` 到不了任何 "
+                            + "String Catalog | \(oneLine)"
+                        )
+                    }
                 }
             }
         }
+        #expect(scannedFiles > 50, "只扫到 \(scannedFiles) 个源文件 —— 扫描失效，「零违规」不可信")
 
         #expect(
             offenders.isEmpty,
@@ -217,6 +279,9 @@ struct AccessibilityStringLiteralGuard {
             \(offenders.joined(separator: "\n"))
             处置：改走 `String(localized:bundle: .module)`；若该串由调用方传入、
             本库不该翻译，加进 docs/a11y-exemptions.json 并写明理由（按文件+行）。
+            ⚠️ 若违规落在**新 target** 里：`bundle: .module` 在没有资源包的 target 里不成立，
+            正确做法是把文案交给调用方，或先给该 target 声明它自己的 String Catalog
+            （`Package.swift` 的 `resources:` + `Sources/<target>/Resources/`）。
             """
         )
     }
@@ -246,11 +311,13 @@ struct AccessibilityStringLiteralGuard {
             guard let text = try? String(contentsOf: url, encoding: .utf8) else {
                 deadSites.append("\(site)（文件不存在）"); continue
             }
-            // 无视豁免地扫一遍：该站点必须**确实**产出字面量，否则这条豁免是空靶。
+            // 无视豁免地扫一遍：该站点必须**确实**被判为违规，否则这条豁免是空靶。
+            // ⚠️ `ownsBundle` 按该站点**所属 target** 取（`#246`）：写死 `true` 会让
+            // 「新 target 里写 `bundle: .module`」这类新形态的豁免被当成死豁免误删。
+            let ownsBundle = GuardScanRoots.ownsResourceBundle(Self.target(ofRelativePath: String(parts[0])))
             let hit = Self.accessibilityCallSpans(in: text).contains { span in
                 span.line == lineNo
-                    && !span.body.contains("bundle: .module")
-                    && !Self.stringLiterals(in: span.body).isEmpty
+                    && Self.classify(span: span.body, ownsBundle: ownsBundle) != .clean
             }
             if !hit { deadSites.append(site) }
         }
@@ -264,6 +331,34 @@ struct AccessibilityStringLiteralGuard {
             处置：删掉该条；确有需要豁免时，等它真的被守卫标记出来再登记。
             """
         )
+    }
+
+    @Test("按 target 分辨 `.module`：没有资源包的 target 里 `bundle: .module` 不算放行（合成输入变红自证）")
+    func moduleIsResolvedPerTarget() {
+        // ⚠️ **这条是 `#246` 多根化最容易假绿的一处的变红自证**：多根化之前，
+        // 判据只看 span 文本里有没有 `bundle: .module`。多根化之后，同一串字符在
+        // 一个**没有资源包**的 target 里既编译不过、也到不了任何 catalog——
+        // 但文本判据看不出区别，会把它当成「已本地化」放行。
+        let span = #"    .accessibilityLabel(String(localized: "Play", bundle: .module))"#
+        #expect(Self.classify(span: span, ownsBundle: true) == .clean,
+                "CoreDesign（有资源包）里的规范写法被误判为违规")
+        #expect(Self.classify(span: span, ownsBundle: false) == .moduleWithoutBundle,
+                "没有资源包的 target 里写 `bundle: .module` 被静默放行 —— 这正是多根化引入的假绿")
+
+        // 裸字面量两种 target 下都违规。
+        let bare = #"    .accessibilityLabel("Play")"#
+        #expect(Self.classify(span: bare, ownsBundle: true) == .bareLiteral(["Play"]))
+        #expect(Self.classify(span: bare, ownsBundle: false) == .bareLiteral(["Play"]))
+
+        // 无字面量的调用两种情形都干净。
+        #expect(Self.classify(span: "    .accessibilityLabel(self.title)", ownsBundle: false) == .clean)
+
+        // 现状核对：只有主 target 拥有资源包。
+        #expect(GuardScanRoots.ownsResourceBundle("CoreDesign"))
+        for target in GuardScanRoots.newTargetNames {
+            #expect(!GuardScanRoots.ownsResourceBundle(target),
+                    "\(target) 有了资源包 —— 请复核本守卫的按 target 放行逻辑是否仍然正确")
+        }
     }
 
     @Test("扫描器能看见跨行调用——评审实测的失明形态")

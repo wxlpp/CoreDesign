@@ -40,7 +40,13 @@ struct BoolExemptionGuard {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     }
-    static var coreDesignSources: URL { repoRoot.appendingPathComponent("Sources/CoreDesign") }
+
+    /// ⚠️ **`#246` 多根化**：扫描根从单根 `Sources/CoreDesign` 改为
+    /// `GuardScanRoots.allRoots`（当下三个已存在的 library target）。
+    /// 根列表、fail-closed 断言与「新 target 忘了扩根即红」的自守卫全在
+    /// `GuardScanRoots.swift` 里，本文件不再自己拼路径——两处各自维护一份根列表
+    /// 正是漂移的起点。
+    static var scanRoots: [(target: String, url: URL)] { GuardScanRoots.allRoots }
     static var exemptionsURL: URL { repoRoot.appendingPathComponent("docs/bool-exemptions.json") }
     static var baselineURL: URL { repoRoot.appendingPathComponent("docs/bool-exemptions-baseline.json") }
 
@@ -56,7 +62,7 @@ struct BoolExemptionGuard {
     /// 本 suite 的**唯一**扫描入口，不要直接调 `scanBoolParams(root:)`。
     static func boolScan() throws -> BoolScanResult {
         if let cached = Self.cachedScan { return cached }
-        let result = try scanBoolParams(root: Self.coreDesignSources)
+        let result = try scanBoolParams(roots: Self.scanRoots)
         if !result.hits.isEmpty { Self.cachedScan = result }
         return result
     }
@@ -215,29 +221,23 @@ struct BoolExemptionGuard {
     /// ⇒ 该分类的正向核对会空转恒绿（假阴性）。当前 `ownersWithoutRegistryEntry` 里
     /// 标 `.externalProtocolExtension` 的宿主（`#48` 回收 `ButtonStyle` 后只剩 `View`）
     /// 是顶层单段名，不触发；留痕供未来审阅。
+    /// ⚠️ **`#246` 起跨全部已存在 target**：「本仓根本没有该类型的声明」这句话的
+    /// 定义域是**整个包**，不是主 target 一家——只扫 `Sources/CoreDesign` 的话，
+    /// 新 target 里声明一个同名 `View`/`ButtonStyle` 会让这条正向核对继续说「没有」。
     static func declaredTypeNames() throws -> Set<String> {
         if let cached = Self.cachedDeclaredTypeNames { return cached }
-        guard FileManager.default.fileExists(atPath: Self.coreDesignSources.path) else {
-            Issue.record(
-                "源码路径不存在：\(Self.coreDesignSources.path) —— 判据无法工作，这不是「本仓没有该类型」"
-            )
-            return []
-        }
-        guard let walker = FileManager.default.enumerator(
-            at: Self.coreDesignSources, includingPropertiesForKeys: nil
-        ) else {
-            Issue.record("无法枚举源码目录：\(Self.coreDesignSources.path)（权限或 IO 异常）—— 判据无法工作")
-            return []
-        }
+        GuardScanRoots.assertRootsExist(Self.scanRoots)
         var names: Set<String> = []
-        for case let url as URL in walker where url.pathExtension == "swift" {
-            let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
-            if tree.hasError {
-                Issue.record("解析出错：\(url.lastPathComponent) —— swift-syntax major 可能与工具链不配套")
+        for root in Self.scanRoots {
+            for url in GuardScanRoots.swiftFiles(in: root.url) {
+                let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
+                if tree.hasError {
+                    Issue.record("解析出错：\(url.lastPathComponent) —— swift-syntax major 可能与工具链不配套")
+                }
+                let collector = DeclaredTypeNameCollector()
+                collector.walk(tree)
+                names.formUnion(collector.names)
             }
-            let collector = DeclaredTypeNameCollector()
-            collector.walk(tree)
-            names.formUnion(collector.names)
         }
         if !names.isEmpty { Self.cachedDeclaredTypeNames = names }
         return names
@@ -305,8 +305,12 @@ struct BoolExemptionGuard {
     /// 从豁免键 `Owner.decl#param` 里取回宿主名。
     /// `SegmentedControlStyleConfiguration.Segment.init#isSelected` ⇒
     /// `SegmentedControlStyleConfiguration.Segment`（去掉 `#` 之后的参数与最后一段 decl 名）。
+    /// ⚠️ **`#246`：先剥掉 target 前缀**（`CoreDesignEffects/Foo.init#flag` ⇒ 宿主 `Foo`）。
+    /// 不剥的话新 target 的宿主名会带着 `CoreDesignEffects/` 去查登记表与台账，
+    /// 永远查不到 ⇒ 一律落进 `unaccounted` 判红，诊断指向完全错误的方向。
     static func owner(ofExemptionKey key: String) -> String {
-        let head = key.split(separator: "#").first.map(String.init) ?? key
+        let head = GuardScanRoots.baseKey(key).split(separator: "#").first.map(String.init)
+            ?? GuardScanRoots.baseKey(key)
         var parts = head.split(separator: ".").map(String.init)
         if parts.count > 1 { parts.removeLast() }
         return parts.joined(separator: ".")
@@ -450,6 +454,14 @@ struct BoolExemptionGuard {
 
         // ⚠️ 用 print 不用 `Issue.record`——后者记录的是 failure，会让测试永远红。
         // ⚠️ **要打名单不只是数**：Task 3 已照这份名单写好 `bool-exemptions.json`。
+        // ⚠️ **`#246` 多根化后的逐 target 清点**：新 target 今天各是 0，这是**现状**
+        // 而不是「守卫覆盖到了」的证据——真正让「新 target 逃出 J-1」判红的是
+        // `GuardScanRootsGuard.libraryTargetsAreCoveredByScanRoots`（根列表 vs manifest
+        // 双向差集）。这行 print 是让「哪个 target 贡献了几条」在 CI 日志里看得见。
+        for root in Self.scanRoots {
+            let n = scan.hits.filter { $0.target == root.target }.count
+            print("【J-1 逐 target】\(root.target)：\(n) 处")
+        }
         print("【J-1 命中】\(scan.keys.count) 个豁免键 / \(scan.hits.count) 处源码位置：")
         for hit in scan.hits.sorted() { print("  \(hit.key)  ←  \(hit.file):\(hit.line)") }
         print("【裁决 (b) 归类为 .boolCarrying，不判违规】\(scan.carrying.count) 处：")
@@ -520,6 +532,34 @@ struct BoolExemptionGuard {
             // 那样它永远匹配不上、只会以「过期条目」的面目红掉，诊断绕远路。
             #expect(parameter.contains("#") && parameter.contains("."),
                     "豁免键「\(parameter)」不是 `Owner.decl#param` 形状")
+        }
+    }
+
+    // MARK: - `#246`：台账键的 target 前缀
+
+    @Test("台账键的 target 前缀合法且唯一形态：裸形只属于主 target，带前缀者必须指向已存在的 target")
+    func exemptionKeysAreCanonicallyQualified() throws {
+        let entries = try Self.loadExemptions()
+        #expect(!entries.isEmpty, "豁免清单为空 —— 本判据会在空循环上恒真")
+
+        let knownTargets = Set(GuardScanRoots.targetNames)
+        for entry in entries {
+            guard let parameter = entry.parameter else { continue }
+            guard parameter.contains("/") else { continue }   // 裸形 = 主 target，合法
+            let target = GuardScanRoots.target(ofKey: parameter)
+            // ① 前缀必须指向一个**当下真的存在**的 target。
+            #expect(knownTargets.contains(target), """
+            豁免键「\(parameter)」的 target 前缀「\(target)」不在 `GuardScanRoots.targetNames` 里
+            —— 要么 target 名写错了，要么它还没落地。挂在不存在的 target 上的豁免永远匹配不到
+            任何命中，只会以「过期条目」的面目红掉，诊断绕远路。
+            """)
+            // ② 主 target 的**唯一**合法拼法是裸形。允许两种拼法 = 同一条豁免有两个键，
+            //    差集会把其中一种当成过期条目，而另一种静默生效。
+            #expect(target != GuardScanRoots.primaryTargetName, """
+            豁免键「\(parameter)」给主 target 写了显式前缀 —— 主 target 的规范形态是**裸形**
+            `Owner.decl#param`（见 `GuardScanRoots.qualifiedKey(target:base:)` 的文档）。
+            同一条豁免存在两种拼法时，扫描器只产出其中一种，另一种恒为过期条目。
+            """)
         }
     }
 
