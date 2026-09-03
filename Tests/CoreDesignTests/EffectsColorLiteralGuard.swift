@@ -76,8 +76,8 @@ import Testing
 //    于是让单语句 accessor / `didSet` / `willSet` 里的赋值一路走到 `PatternBindingSyntax`，
 //    把**被赋值属性**的标注错安到右侧表达式上——**这正好推翻了本条上面那句**
 //    「`self.x = .init(red:…)` 里 stored property 的类型看不见 ⇒ 放行」：它当时不是放行，
-//    而是按**错的**类型判红。现在 `SequenceExprSyntax` 分支识别 `AssignmentExprSyntax`，
-//    落在 `=` 右侧一律 `return nil`（与实参位置同一条纪律：类型来自左值而非外层标注）。
+//    而是按**错的**类型判红。现在 `SequenceExprSyntax` 分支识别**赋值类算子**，
+//    落在赋值类算子右侧一律 `return nil`（与实参位置同一条纪律：类型来自左值而非外层标注）。
 //    ⚠️⚠️ **上一条修法还漏了两处「源码写了类型却被换掉」**（同轮 I-b）：
 //    · **默认参数值**——`InitializerClause → FunctionParameter → … → FunctionDecl` 一路
 //      不经过 `CodeBlockItemListSyntax` ⇒ `inReturnPosition` 恒为真 ⇒ 采信了外层
@@ -91,6 +91,21 @@ import Testing
 //    三条的**双向**实证在 `contextualTypeRespectsAssignmentsDefaultsAndBindings`
 //    ——⚠️ 上一轮的 ③ 段只测了「有没有换来新**漏报**」，**误报方向一条都没测**，
 //    I-a 正是从那个缺口漏过去的 ⇒ 本轮起两个方向都常驻。
+//    ⚠️⚠️ **I-a 的那道闸当轮只关了一半**（PR #265 第 5 轮终审 I-1）：`x += .init(…)` 里那个
+//    算子是 `BinaryOperatorExprSyntax("+=")`、**不是** `AssignmentExprSyntax`
+//    （只有裸 `=` 才是后者）⇒ 复合赋值整族（`+=` / `-=` / `*=` …）从闸下漏过、继续误报。
+//    根因同型：I-a 当轮补的三条探针行**全都只写了裸 `=`**，一个复合赋值都没有。
+//    现在那道闸走 `ImplicitMemberContext.assignmentOperators` **白名单**（为何是白名单
+//    而不是「以 `=` 结尾」的后缀判断，见该常量的文档：`~=` / `===` 这类反例列不全，
+//    且两种列法的失效方向相反——白名单误报、黑名单静默放行）。
+//    复合赋值形态已进 `contextualTypeRespectsAssignmentsDefaultsAndBindings` 常驻。
+//    ⚠️⚠️ **同族还有一条已知误报面，本轮只登记不改码**（同轮 S-1）：**模式位置**——
+//    `var c: Color { switch k { case .init(red: 1): … } }` 里的 `ExpressionPatternSyntax`
+//    宿主类型来自**被 `switch` 的值**，而上行走查会一路取到外层的 `Color` 标注 ⇒ 误报。
+//    与赋值右侧、实参位置同一族（「类型另有来源」），处置手法也会一样（走查在该节点处停）。
+//    ⚠️ **本条这份清单是「已知的」，不是「全部的」**：走查每补一处锚点，就可能新开一个
+//    「类型另有来源」的位置——这一族在本 PR 里已经复发三次（第 4 轮 I-1、第 5 轮 I-a、
+//    同轮 I-1）。**不要**在此处或别处把它写成完备断言。
 //    **这是拿一条漏报换掉一条误报**：首版对**任何**宿主为空的
 //    `.init` + `red`/`white`/`hue` 标签一律判红，实测把 `let p: Pixel = .init(red: 1)` /
 //    `let x: Insets = .init(white: 3)` 都报成了违规——而 `hue` 在 `numericColorLabels` 里、
@@ -482,6 +497,32 @@ struct EffectsColorLiteralGuard {
                 var tint: Color = .clear { willSet { self.cache = .init(hue: 1, saturation: 1, brightness: 1) } }
             }
             """),
+            // ⚠️ **复合赋值是同族的第二个口子**（PR #265 第 5 轮终审 I-1）：`x += .init(…)` 在
+            // 未折叠语法树里同样是 `SequenceExprSyntax`，但中间那个元素是
+            // `BinaryOperatorExprSyntax("+=")`、**不是** `AssignmentExprSyntax`
+            // （只有裸 `=` 才是后者）⇒ 上一轮那道闸整条漏过、继续上行到
+            // `PatternBindingSyntax`，把被赋值属性的标注错安到右侧。
+            // ⚠️ 上一轮 I-a 之所以没抓到它，正是因为下面三条 I-a 行**全都只写了裸 `=`**
+            // ——同型的方法论缺口，故本组常驻复合赋值形态。
+            ("`didSet` 里的**复合**赋值右侧（`+=`，第 5 轮终审 I-1）", """
+            import SwiftUI
+            struct S {
+                var x = 0.0
+                var tint: Color = .clear { didSet { self.x += .init(white: 1) } }
+            }
+            """),
+            ("计算属性 `set` 里的复合赋值右侧（`*=`）", """
+            import SwiftUI
+            struct S {
+                var store = 0.0
+                var c: Color { get { .clear } set { self.store *= .init(white: 1) } }
+            }
+            """),
+            // 单表达式函数体里的复合赋值：`inReturnPosition` 一路为真 ⇒ 不加闸就会采信 `-> Color`。
+            ("单表达式函数体里的复合赋值右侧（`-=`）", """
+            import SwiftUI
+            func f() -> Color { g -= .init(white: 1) }
+            """),
             // I-b①：默认参数值**不是返回位置**，`inReturnPosition` 却一路为真
             // （`InitializerClause → FunctionParameter → … → FunctionDecl` 不经过
             // `CodeBlockItemListSyntax`）⇒ 采信了外层 `-> Color`。
@@ -670,9 +711,14 @@ private nonisolated final class ColorLiteralCollector: SyntaxVisitor {
 /// `ChromeTextLiteralGuard` 的 `let t: Text = .init("…")`）：#265 第 3 轮终审 S-b 指出
 /// 两者对同一种形态的处理**不对称且无任何记录**，共用一份实现是那条不对称的结构性解法。
 ///
-/// ⚠️ **它给不出的**（两条守卫的已知口子里各自登记）：数组 / 字典字面量的元素、
+/// ⚠️ **它已知给不出的**（两条守卫的已知口子里各自登记）：数组 / 字典字面量的元素、
 /// 函数实参位置、`self.stored = .init(…)` 里 stored property 的类型、闭包返回值
 /// ——这些位置的类型只存在于推断里，语法树上没有可读的锚点。
+/// ⚠️ **它已知会给错的**：模式位置（`switch k { case .init(…): … }`）的宿主类型来自
+/// 被 `switch` 的值，走查却会取到外层标注 ⇒ 误报（第 5 轮终审 S-1，只登记未改码）。
+/// ⚠️ **两张表都是「已知的」，不是「全部的」**——每补一处锚点都可能新开一个
+/// 「类型另有来源」的位置（本 PR 五轮里这一族已经复发三次）。**不要**在任何地方
+/// 把它们写成完备清单。
 ///
 /// ⚠️ **它认的锚点共五处**（PR #265 第 5 轮终审 I-b 补了后两处）：
 /// ① `let c: Color = .init(…)` 的类型标注、② `.init(…) as Color` 的 `as` 断言、
@@ -755,8 +801,11 @@ nonisolated enum ImplicitMemberContext {
                     break
                 }
                 if let asType { return asType }
-                // ⚠️ **赋值右侧到此为止**（PR #265 第 5 轮终审 I-a）：`x = .init(…)` 在未折叠的
-                // 语法树里同样是 `SequenceExprSyntax`（`[左值, AssignmentExprSyntax, 右值]`）。
+                // ⚠️ **赋值右侧到此为止**（PR #265 第 5 轮终审 I-a / I-1）：`x = .init(…)` 在未折叠的
+                // 语法树里同样是 `SequenceExprSyntax`（`[左值, AssignmentExprSyntax, 右值]`）；
+                // **复合赋值 `x += .init(…)` 落成的却是
+                // `[左值, BinaryOperatorExprSyntax("+="), 右值]`**——只有裸 `=` 是
+                // `AssignmentExprSyntax`。上一轮只认后者，于是 `+=` / `-=` / `*=` 整族漏过。
                 // 下面那条「找不到 `as` 就继续上行」若不加这道闸，单语句 accessor /
                 // `didSet` / `willSet` 里的赋值会一路走到 `PatternBindingSyntax`，
                 // 把**被赋值属性**的标注错安到右侧表达式上——实测三条 accessor 形态
@@ -767,7 +816,7 @@ nonisolated enum ImplicitMemberContext {
                 // 与它的元素之间还隔着一层 `ExprListSyntax`（实测的父链是
                 // `functionCallExpr → exprList → sequenceExpr`），走到这里时 `current`
                 // 已经是那层 `ExprListSyntax`、不再是元素本身。
-                if let assignment = elements.first(where: { $0.is(AssignmentExprSyntax.self) }),
+                if let assignment = elements.first(where: { Self.isAssignmentOperator($0) }),
                    origin > assignment.position {
                     return nil
                 }
@@ -792,6 +841,36 @@ nonisolated enum ImplicitMemberContext {
             current = parent
         }
         return nil
+    }
+
+    /// **赋值类算子的白名单**（PR #265 第 5 轮终审 I-1）。
+    ///
+    /// ⚠️ **刻意不用「以 `=` 结尾」的后缀判断**，两条理由：
+    /// ① **后缀判断本身就不对**——`~=`（模式匹配，返回 `Bool`）、`===` / `!==`（同一性）
+    ///    都以 `=` 结尾却与赋值无关，`==` / `!=` / `<=` / `>=` 也一样；这些要靠**黑名单**
+    ///    一个个排除，而 Swift 允许自定义算子（`.=` / `<~=` …），黑名单**天然列不全**。
+    /// ② **两种列法的失效方向相反，白名单才是 fail-closed 的那一侧**：白名单漏了某个
+    ///    真赋值算子 ⇒ 这道闸不触发 ⇒ 继续上行、可能**误报**（吵，但看得见）；
+    ///    黑名单漏了某个非赋值算子（`~=` 这类）⇒ 闸被误触发 ⇒ `return nil`
+    ///    ⇒ 真违规被**静默放行**。守卫宁吵勿哑。
+    ///
+    /// ⚠️ 表内含 `??=`：它不在标准库里，但是社区里最常见的自定义赋值算子之一。
+    /// 出现表外的赋值算子时**补这张表**，不要改回后缀判断。
+    nonisolated static let assignmentOperators: Set<String> = [
+        "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=",
+        "&+=", "&-=", "&*=", "&<<=", "&>>=", "??=",
+    ]
+
+    /// `SequenceExprSyntax` 的某个元素是不是「赋值类算子」。
+    ///
+    /// 裸 `=` 在语法树里是 `AssignmentExprSyntax`，复合赋值是
+    /// `BinaryOperatorExprSyntax`（`operator.text` 形如 `"+="`）⇒ 两种节点都要认。
+    static func isAssignmentOperator(_ element: ExprSyntax) -> Bool {
+        if element.is(AssignmentExprSyntax.self) { return true }
+        if let binary = element.as(BinaryOperatorExprSyntax.self) {
+            return Self.assignmentOperators.contains(binary.operator.text)
+        }
+        return false
     }
 
     /// `Color` / `SwiftUI.Color` / `Color?` / `Color!` ⇒ `"Color"`。

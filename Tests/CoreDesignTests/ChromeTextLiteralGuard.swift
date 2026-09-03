@@ -114,7 +114,19 @@ import Testing
 //    （`var title: Text { if let id: Identifier = .init("Loading") { … } }` 误报，
 //    镜像的 `guard let t: Text = .init("Loading")` 漏报）。
 //    三条的**双向**实证在 `contextualTypeRespectsAssignmentsDefaultsAndBindings`。
-//    本条列举的「给不出」现在**确实**只剩数组 / 字典元素、函数实参、stored property、闭包返回值。
+//    ⚠️⚠️ **(c) 当轮只关了一半，第 5 轮终审 I-1 又在同一处抓到复合赋值**：
+//    `self.log += .init("Loading")` 里那个算子是 `BinaryOperatorExprSyntax("+=")`、
+//    **不是** `AssignmentExprSyntax` ⇒ 只认后者的闸整族漏过，右侧仍继承被赋值属性的标注。
+//    已改成走 `ImplicitMemberContext.assignmentOperators` 白名单，复合赋值形态进上面那条探针常驻。
+//    ⚠️ **本条不再声称这一类已经关净。**「给不出」与「给错」是两回事，而这个 PR 里
+//    已经有**三次**是被「现在确实只剩 …」这类完备性断言打回的（第 3/4/5 轮）：
+//    共用实现每补一处锚点就可能新开一个「另有来源」的位置，逐条穷举做不到。
+//    ⇒ **已知**给不出的有：数组 / 字典元素、函数实参、stored property、闭包返回值；
+//    **已知**会给错（误报面）的有：**模式位置**——
+//    `var title: Text { switch k { case .init("Loading"): … } }` 里的
+//    `ExpressionPatternSyntax` 宿主类型来自**被 `switch` 的值**，走查却会取到外层 `Text`
+//    （第 5 轮终审 S-1，与色相守卫口子 4 同一条，本轮只登记不改码）。
+//    两张表都只是「已知的」，不是「全部的」。
 // 9. **`isProse` 只要求「含至少一个字母」**（PR #265 第 4 轮终审 S-2）：于是标识符形态的
 //    字面量会被判成文案，实测 `ContentUnavailableView("no-results-id", systemImage: "x")`
 //    命中。这是 `isProse` 既有的启发式性质（它的文档已写明这是一条**收窄**），
@@ -533,6 +545,24 @@ struct ChromeTextLiteralGuard {
             struct S {
                 var store = Identifier("")
                 var title: Text = other { didSet { self.store = .init("Loading") } }
+            }
+            """),
+            // ⚠️ **复合赋值**（PR #265 第 5 轮终审 I-1）：`x += .init(…)` 里那个算子是
+            // `BinaryOperatorExprSyntax("+=")`、**不是** `AssignmentExprSyntax`，
+            // 上一轮只认后者的闸整条漏过 ⇒ 右侧继承了被赋值属性的 `Text` 标注。
+            // 上一轮两条 I-a 行只写了裸 `=`，故本组常驻复合赋值形态。
+            ("计算属性 `set` 里的**复合**赋值右侧（`+=`，第 5 轮终审 I-1）", """
+            import SwiftUI
+            struct S {
+                var log = ""
+                var title: Text { get { other } set { self.log += .init("Loading") } }
+            }
+            """),
+            ("`didSet` 里的复合赋值右侧（`+=`）", """
+            import SwiftUI
+            struct S {
+                var log = ""
+                var title: Text = other { didSet { self.log += .init("Loading") } }
             }
             """),
             ("默认参数值继承了外层返回类型（I-b①）", """
