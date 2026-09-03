@@ -49,9 +49,23 @@ import Testing
 // 4. **隐式 `.init(…)` 只在「上下文类型写得出来」时才判**（PR #265 第 3 轮终审 F-2）：
 //    `ImplicitMemberContext.contextualTypeName(of:)` 只认**语法上真的写下了类型**的三处
 //    ——`let c: Color = .init(red:…)` 的类型标注、`.init(red:…) as Color` 的 `as` 断言、
-//    `func c() -> Color { .init(red:…) }` 的返回类型（含计算属性）。类型只存在于**推断**里
+//    `func c() -> Color { .init(red:…) }` 的**返回位置**（单表达式体或 `return` 的直接子表达式，
+//    含计算属性）。类型只存在于**推断**里
 //    的位置（数组字面量元素、函数实参、`self.x = .init(red:…)` 里 stored property 的类型、
-//    闭包返回值）看不见 ⇒ 放行。**这是拿一条漏报换掉一条误报**：首版对**任何**宿主为空的
+//    闭包返回值）看不见 ⇒ 放行。
+//    ⚠️⚠️ **本条此前描述的收紧并不成立，已改码补上**（PR #265 第 4 轮终审 I-1）：
+//    首版的上行走查遇到实参位置（`LabeledExprSyntax` / `FunctionCallExprSyntax`）**不停**，
+//    一路走到外层的 `returnClause` / `typeAnnotation` ⇒ 把外层返回类型**错安**到实参上。
+//    实测 4/4 误报，其中就有本条自己拿来当动机的那一种：
+//    `var scrim: Color { convert(.init(hue: 0.5, saturation: 1, brightness: 1)) }`
+//    ——`HSBComponents` 形态只要出现在 `-> Color` 函数体的实参位置就仍然误报。
+//    现在实参位置一律 `return nil`，外层返回类型只在**返回位置**上采信。
+//    ⚠️⚠️ **三元 / `??` 此前会截断上行走查**（同一轮终审 I-2）：`SequenceExprSyntax` 分支
+//    找不到 `as` 就直接 `return nil`，于是 `let c: Color = flag ? .init(red:…) : .clear` 与
+//    `let c: Color = maybe ?? .init(red:…)` 这两条**写了类型标注的真违规**被放行
+//    ——既不在本条列举的四种漏报里，又违反本条自己的判据。已改成继续往上找。
+//    两处的实证在 `contextualTypeDoesNotLeakAcrossArgumentPositions`。
+//    **这是拿一条漏报换掉一条误报**：首版对**任何**宿主为空的
 //    `.init` + `red`/`white`/`hue` 标签一律判红，实测把 `let p: Pixel = .init(red: 1)` /
 //    `let x: Insets = .init(white: 3)` 都报成了违规——而 `hue` 在 `numericColorLabels` 里、
 //    `CoreDesignEffects` 恰恰是会出现 `let hsb: HSBComponents = .init(hue:saturation:brightness:)`
@@ -316,6 +330,96 @@ struct EffectsColorLiteralGuard {
         }
     }
 
+    /// PR #265 **第 4 轮**终审 I-1 / I-2 的探针实证。
+    ///
+    /// ⚠️ 这两条不是「再补几个 fixture」，而是**口子 4 的两处失真**：
+    /// · I-1（4 条误报）——口子 4 声称「改为要求上下文真的写下了颜色类型」，
+    ///   而外层函数 / 计算属性的返回类型此前会被**错安到实参位置**，
+    ///   于是它自己拿来当动机的 `HSBComponents.init(hue:saturation:brightness:)`
+    ///   形态只要出现在 `-> Color` 函数体的实参里**仍然误报**；
+    /// · I-2（2 条漏报）——三元 / `??` 截断上行走查，源码里**明明白白写了类型标注**的
+    ///   真违规被放行，而口子 4 列举的漏报只有「数组元素 / 函数实参 / stored property /
+    ///   闭包返回值」四种，这两种既不在列又违反它自己的判据。
+    @Test("上下文类型：实参位置不继承外层返回类型；三元 / `??` 不截断（第 4 轮终审 I-1 / I-2）")
+    func contextualTypeDoesNotLeakAcrossArgumentPositions() {
+        // ① I-1 的四条误报——修复后必须**清零**。
+        let falsePositives: [(name: String, source: String)] = [
+            ("计算属性返回类型被错安到实参（口子 4 的动机形态本身）", """
+            import SwiftUI
+            var scrim: Color { convert(.init(hue: 0.5, saturation: 1, brightness: 1)) }
+            """),
+            ("函数返回类型被错安到实参", """
+            import SwiftUI
+            func tint() -> Color { convert(.init(hue: 0.5, saturation: 1, brightness: 1)) }
+            """),
+            ("`return` 里的实参位置", """
+            import SwiftUI
+            func tint() -> Color { let a = 1; return convert(.init(red: 1, green: 0, blue: 0), a) }
+            """),
+            ("嵌套两层实参 + UIKit 返回类型", """
+            import UIKit
+            func tint() -> UIColor { UIColor(cgColor: make(.init(white: 3))) }
+            """),
+        ]
+        for c in falsePositives {
+            let hits = Self.scan(source: c.source)
+            #expect(hits.isEmpty, """
+            \(c.name)：误报 \(hits.map(\.description))
+            —— 隐式成员在**实参位置**的类型来自形参，与外层返回类型无关。
+            """)
+        }
+
+        // ② I-2 的两条漏报——源码里写了类型标注，修复后必须**判红**。
+        let falseNegatives: [(name: String, source: String)] = [
+            ("三元的分支（有类型标注）", """
+            import SwiftUI
+            let c: Color = flag ? .init(red: 1, green: 0, blue: 0) : .clear
+            """),
+            ("`??` 的右侧（有类型标注）", """
+            import SwiftUI
+            let c: Color = maybe ?? .init(red: 1, green: 0, blue: 0)
+            """),
+        ]
+        for c in falseNegatives {
+            #expect(!Self.scan(source: c.source).isEmpty, """
+            \(c.name)：漏报 —— `SequenceExprSyntax` 分支找不到 `as` 时若直接终止上行走查，
+            这条**写了类型标注**的真违规会被放行（口子 4 的判据是「上下文真的写下了颜色类型」）。
+            """)
+        }
+
+        // ③ **没有换来新的漏报**：真返回位置 / 真标注位置必须仍然命中。
+        let stillCaught: [(name: String, source: String)] = [
+            ("类型标注 `let c: Color = .init(red:…)`", """
+            import SwiftUI
+            let c: Color = .init(red: 1, green: 0, blue: 0)
+            """),
+            ("显式 `return .init(white:)`（真返回位置）", """
+            import SwiftUI
+            func scrim() -> Color { return .init(white: 0.5) }
+            """),
+            ("多语句体里的显式 `return`（真返回位置）", """
+            import SwiftUI
+            func scrim() -> Color { let a = 1; _ = a; return .init(white: 0.5) }
+            """),
+            ("单表达式体 `func … -> Color { .init(red:…) }`", """
+            import SwiftUI
+            func makeTint() -> Color { .init(red: 1, green: 0, blue: 0) }
+            """),
+            ("计算属性单表达式体 `var c: Color { .init(white:) }`", """
+            import SwiftUI
+            var scrim: Color { .init(white: 0.5) }
+            """),
+            ("`as` 断言 `.init(red:…) as Color`", """
+            import SwiftUI
+            let c = .init(red: 1, green: 0, blue: 0) as Color
+            """),
+        ]
+        for c in stillCaught {
+            #expect(!Self.scan(source: c.source).isEmpty,
+                    "\(c.name)：收紧上下文判据换来了一条新漏报 —— 这不是 I-1 / I-2 要的结果")
+        }
+    }
+
     @Test("探测器在真实源码上非真空：拿主 target 当靶场必须打出命中")
     func detectorFiresOnRealSource() throws {
         // ⚠️ **`CoreDesign` 不在本守卫射程内**（`#246` 明写不回溯改造），
@@ -442,14 +546,42 @@ private nonisolated final class ColorLiteralCollector: SyntaxVisitor {
 nonisolated enum ImplicitMemberContext {
 
     /// 从 `node` 往上找最近的**显式类型**，找不到返回 `nil`。
+    ///
+    /// ⚠️ **实参位置一律 `return nil`**（PR #265 第 4 轮终审 I-1）：隐式成员落在实参位置时，
+    /// 它的类型来自**形参**，与外层函数的返回类型 / 外层变量的标注**无关**。首版的上行走查
+    /// 遇到 `LabeledExprSyntax` / `FunctionCallExprSyntax` 不停，一路走到
+    /// `FunctionDeclSyntax` 的 `returnClause` 或 `PatternBindingSyntax` 的 `typeAnnotation`
+    /// ⇒ 把外层返回类型**错安**到实参上。实测 4/4 全误报，且**恰好是**口子 4 拿来当动机的
+    /// `HSBComponents.init(hue:saturation:brightness:)` 形态：
+    /// `var scrim: Color { convert(.init(hue: 0.5, saturation: 1, brightness: 1)) }`。
+    /// 同一工具被两条守卫共用 ⇒ chrome 守卫同样被传染
+    /// （`func title() -> Text { render(.init("Loading")) }`）。
+    ///
+    /// ⚠️ **外层函数 / 计算属性的返回类型只在「返回位置」上采信**：单表达式体，或
+    /// `ReturnStmtSyntax` 的直接子表达式。`func f() -> Color { _ = .init(red: 1); return .clear }`
+    /// 里那个 `.init` 不是函数的结果，采信返回类型同样是把类型错安上去。
     static func contextualTypeName(of node: some SyntaxProtocol) -> String? {
         var current = Syntax(node)
+        // 仍处在「函数 / 计算属性的返回位置」链上？一旦经过一个多语句块里的非 `return`
+        // 语句，外层的返回类型就不再是本表达式的上下文类型。
+        var inReturnPosition = true
+        var sawReturnStmt = false
         while let parent = current.parent {
             // ⚠️ 闭包边界处**停**：闭包的返回类型多数写不出来，继续往上会把外层
             // `let v: Color = ...` 的标注错安到闭包体里的表达式上（误报方向）。
             if parent.is(ClosureExprSyntax.self) { return nil }
+            // ⚠️ **实参位置处停**（终审 I-1）：`f(.init(red: 1))` 的类型来自 `f` 的形参。
+            // 元组 / 下标的元素同样落在 `LabeledExprSyntax` 上，一并停——它们的上下文类型
+            // 也不是外层的返回类型（`(Color, Color)` 这类元组类型 `leafTypeName` 本就给不出）。
+            if parent.is(LabeledExprSyntax.self) { return nil }
+            if let call = parent.as(FunctionCallExprSyntax.self),
+               Syntax(call.calledExpression).id != current.id {
+                // callee 之外的位置（trailing closure 等）同样不继承外层类型。
+                return nil
+            }
             if let binding = parent.as(PatternBindingSyntax.self) {
                 // `let c: Color = .init(…)` 与 `var c: Color { .init(…) }` 走同一条。
+                guard inReturnPosition else { return nil }
                 return binding.typeAnnotation.flatMap { Self.leafTypeName($0.type) }
             }
             if let asExpr = parent.as(AsExprSyntax.self) { return Self.leafTypeName(asExpr.type) }
@@ -459,15 +591,31 @@ nonisolated enum ImplicitMemberContext {
             // 只认 `AsExprSyntax` 会让 `.init(red:…) as Color` 整条形态漏掉。
             if let sequence = parent.as(SequenceExprSyntax.self) {
                 let elements = Array(sequence.elements)
+                var asType: String?
                 for (index, element) in elements.enumerated()
                 where element.is(UnresolvedAsExprSyntax.self) {
                     guard index + 1 < elements.count,
                           let typeExpr = elements[index + 1].as(TypeExprSyntax.self) else { continue }
-                    return Self.leafTypeName(typeExpr.type)
+                    asType = Self.leafTypeName(typeExpr.type)
+                    break
                 }
-                return nil
+                if let asType { return asType }
+                // ⚠️ **找不到 `as` 时必须继续往上，不能 `return nil`**（PR #265 第 4 轮终审 I-2）：
+                // 三元与 `??` 在未折叠的语法树里也是 `SequenceExprSyntax`，首版在这里直接终止
+                // ⇒ `let c: Color = flag ? .init(red: 1, green: 0, blue: 0) : .clear` 与
+                // `let c: Color = maybe ?? .init(red: 1, green: 0, blue: 0)` 这两条
+                // **源码里明明白白写了类型标注**的真违规被放行——既不在口子 4 列举的
+                // 漏报里，也违反口子 4 自己的判据（「上下文真的写下了颜色类型」）。
+                current = parent
+                continue
+            }
+            if parent.is(ReturnStmtSyntax.self) { sawReturnStmt = true }
+            // 多语句体里的非 `return` 语句 ⇒ 本表达式不是函数的结果。
+            if let list = parent.as(CodeBlockItemListSyntax.self), !sawReturnStmt, list.count != 1 {
+                inReturnPosition = false
             }
             if let fn = parent.as(FunctionDeclSyntax.self) {
+                guard inReturnPosition else { return nil }
                 return fn.signature.returnClause.map { Self.leafTypeName($0.type) } ?? nil
             }
             current = parent

@@ -80,6 +80,12 @@ import Testing
 //    共用），它给不出数组元素 / 函数实参 / 闭包返回值位置的类型。首版**连有类型标注的
 //    那种都漏**（`chromeCallName` 剥掉尾段 `init` 后要求尾段非空，隐式形态得到 `""` ⇒ `nil`），
 //    而色相守卫对同一形态**有**处理——这条不对称此前没有任何记录（PR #265 第 3 轮终审 S-b）。
+//    ⚠️ **共用即传染**（PR #265 第 4 轮终审 I-1 / I-2）：那份共用实现此前
+//    (a) 把外层函数 / 计算属性的返回类型**错安**到实参位置
+//    （`func title() -> Text { render(.init("Loading")) }` 误报）、
+//    (b) 在三元 / `??` 上截断上行走查（`let t: Text = flag ? .init("Loading") : other` 漏报）。
+//    两条都已改码修掉，实证在 `contextualTypeDoesNotLeakAcrossArgumentPositions`。
+//    本条列举的「给不出」现在**确实**只剩数组 / 字典元素、函数实参、stored property、闭包返回值。
 @Suite("新 target 禁 chrome 文案裸字面量")
 struct ChromeTextLiteralGuard {
 
@@ -398,6 +404,61 @@ struct ChromeTextLiteralGuard {
         #expect(Self.scan(source: #"let v = EmptyView().accessibilityHint("Opens settings")"#)
                 .violations.isEmpty,
                 "a11y modifier 被本守卫重复报了一遍 —— 同一处违规会被两条守卫各报一次")
+    }
+
+    /// PR #265 **第 4 轮**终审 I-1 / I-2 在 chrome 侧的对应形态。
+    ///
+    /// ⚠️ `ImplicitMemberContext` 由两条守卫**共用**（文件头口子 8），色相守卫那边的
+    /// 误报 / 漏报因此会**传染**到这里——本条是那条传染路径的实证。
+    @Test("上下文类型：实参位置不继承外层返回类型；三元 / `??` 不截断（第 4 轮终审 I-1 / I-2）")
+    func contextualTypeDoesNotLeakAcrossArgumentPositions() {
+        // ① 误报：外层 `-> Text` 的返回类型被错安到实参位置上的 `.init("…")`。
+        let falsePositives: [(name: String, source: String)] = [
+            ("函数返回类型被错安到实参", """
+            import SwiftUI
+            func title() -> Text { render(.init("Loading")) }
+            """),
+            ("计算属性返回类型被错安到实参", """
+            import SwiftUI
+            var title: Text { render(.init("Loading")) }
+            """),
+        ]
+        for c in falsePositives {
+            let hits = Self.scan(source: c.source).violations
+            #expect(hits.isEmpty, """
+            \(c.name)：误报 \(hits.map(\.description))
+            —— `.init("…")` 落在实参位置时类型来自形参，与外层 `-> Text` 无关。
+            """)
+        }
+
+        // ② 漏报：三元 / `??` 里**写了类型标注**的隐式 `.init`。
+        let falseNegatives: [(name: String, source: String, literal: String)] = [
+            ("三元的分支（有类型标注）", """
+            import SwiftUI
+            let t: Text = flag ? .init("Loading") : other
+            """, "Loading"),
+            ("`??` 的右侧（有类型标注）", """
+            import SwiftUI
+            let t: Text = maybe ?? .init("Loading")
+            """, "Loading"),
+        ]
+        for c in falseNegatives {
+            let hits = Self.scan(source: c.source).violations
+            #expect(hits.contains(where: { $0.literal == c.literal }),
+                    "\(c.name)：漏报（期望「\(c.literal)」，实得 \(hits.map(\.literal))）")
+        }
+
+        // ③ **没有换来新的漏报**：真标注 / 真返回位置必须仍然命中。
+        #expect(Self.scan(source: """
+        import SwiftUI
+        let t: Text = .init("Loading")
+        """).violations.contains(where: { $0.literal == "Loading" }),
+                "类型标注形态被收紧判据误伤 —— 这不是 I-1 / I-2 要的结果")
+        #expect(Self.scan(source: """
+        import SwiftUI
+        func title() -> Text { .init("Loading") }
+        """).violations.contains(where: { $0.literal == "Loading" }),
+                "单表达式返回位置被收紧判据误伤 —— 这不是 I-1 / I-2 要的结果")
     }
 
     @Test("探测器在真实源码上非真空：拿主 target 当靶场必须打出命中")
