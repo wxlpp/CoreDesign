@@ -10,7 +10,7 @@ import SwiftUI
 ///
 /// ```swift
 /// LightSweep {
-///     ListRow(title: "Syncing…")
+///     ListRow { Text("Syncing…") }
 /// }
 /// ```
 ///

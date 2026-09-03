@@ -61,7 +61,9 @@ ScanningOverlay { documentImage }.tint(.green)
 
 ```swift
 ScanningOverlay {
-    Image(uiImage: capturedPage)
+    // ⚠️ 用 `Image(decorative:scale:)`（吃 CGImage）而不是 `Image(uiImage:)`：
+    // 后者只在 UIKit 平台存在，本包同时支持 macOS。
+    Image(decorative: capturedPage, scale: 1)
         .resizable()
         .scaledToFit()
 }

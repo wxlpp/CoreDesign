@@ -59,7 +59,20 @@ public struct LightSweep<Content: View>: View {
 
 ```swift
 LightSweep {
-    ListRow(title: file.name, subtitle: "同步中…")
+    ListRow {
+        VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            Text(file.name)
+            Text("同步中…").font(.caption).foregroundStyle(Color.contentSecondary)
+        }
+    }
 }
-.accessibilityLabel("正在同步 \(file.name)")
+// ⚠️ ListRow 是**多元素容器**：只写 .accessibilityLabel 通常不生效
+//（标签落在容器上，而 VoiceOver 读的是里面各自成元素的两段文字）。
+// 要让「正在同步」这个状态真的被读出来，得先把子元素合并成一个元素。
+.accessibilityElement(children: .combine)
+.accessibilityLabel(Text("正在同步 \(file.name)"))
 ```
+
+⚠️ 上面这段 `.accessibilityElement(children: .combine)` **不是可有可无的排版**：
+本组件的光带层已 `accessibilityHidden(true)`，"正在传输"这个语义**只能**由调用方通告，
+而通告落不到 accessibility 树上就等于没通告。
