@@ -297,6 +297,55 @@ struct MicroInteractionReduceMotionGuard {
         return result
     }
 
+    /// 走 NFR-7 能耗闸的文件（**双向差集**，新增一个必须改本文件）。
+    ///
+    /// 判据见 `reduceMotionIsOnlyConsumedByTheSharedGate`。
+    static let energyGatedFiles: Set<String> = ["Confetti.swift", "ProcessingSweep.swift"]
+
+    /// ⚠️⚠️ **第 2 轮终审 I-A 的判据**（#252 PR #269）。
+    ///
+    /// `EffectsEnergyStateTests.energyGateOutranksReduceMotion` 是**纯函数判据**，钉的是
+    /// `presentation(reduceMotion:)` **函数体内**的顺序。**调用点是否真的用这个结论**
+    /// 是另一条链，而它此前**零覆盖**——终审逐条实测过：
+    /// · 位图路不可能覆盖：`\.accessibilityReduceMotion` 不可注入，测试里恒为 `false`，
+    ///   `presentation == .resting` 与 `self.reduceMotion` 两种写法渲染**逐字节相同**；
+    /// · 三条字符串守卫（`timelineOnlyExistsDuringBurst` /
+    ///   `reduceMotionFallsBackToStaticCelebration` / 本 suite 原有三条）在变异后**全绿**。
+    /// ⇒ 把 `Confetti` 的 `let isReduced = presentation == .resting` 改回
+    /// `let isReduced = self.reduceMotion`，**I-1 原封不动回来而全套测试仍绿**。
+    ///
+    /// ⇒ 本条直接守调用点：**凡走能耗闸的文件，读到的 `\.accessibilityReduceMotion`
+    /// 只许喂给 `EffectsEnergyState.presentation(reduceMotion:)` 这一个裁决点**，
+    /// 一次都不许另作他用。任何"自己再拿它判一次"的写法（`let isReduced = self.reduceMotion`、
+    /// `self.reduceMotion ? .resting : .animated`、`guard !self.reduceMotion`…）
+    /// 都会让 `self.reduceMotion` 的出现次数多于喂给纯函数的次数 ⇒ 判红。
+    ///
+    /// ⚠️ **射程只到走能耗闸的文件**：`Ping` / `Spray` / `Jump` 这些 trigger 驱动的一次性
+    /// 微交互**没有**能耗闸（它们不是常驻渲染件），`let isReduced = self.reduceMotion`
+    /// 在那边是正确写法。这也正是那句"让它不可能被重新引入"要收窄的地方——
+    /// 纯函数判据只管函数体内，调用点这一环由本条接管。
+    @Test("走能耗闸的文件：reduceMotion 只许喂给 presentation(reduceMotion:) 这一个裁决点")
+    func reduceMotionIsOnlyConsumedByTheSharedGate() throws {
+        let scanned = try Self.swiftFiles().map { url -> (String, String) in
+            (url.lastPathComponent, Self.stripComments(try String(contentsOf: url, encoding: .utf8)))
+        }
+        // ① 名单与实际**双向差集**：新增一个走能耗闸的效果必须来改本文件。
+        let actual = Set(scanned.filter { $0.1.contains("EffectsEnergyState.resolve(") }.map(\.0))
+        #expect(actual == Self.energyGatedFiles,
+                "走能耗闸的文件名单 \(Self.energyGatedFiles.sorted()) 与实际 \(actual.sorted()) 不一致")
+
+        // ② 每个这样的文件里，`self.reduceMotion` 的每一次出现都必须正好是喂给纯函数那一次。
+        for (name, code) in scanned where Self.energyGatedFiles.contains(name) {
+            let reads = code.components(separatedBy: "self.reduceMotion").count - 1
+            let fed = code.components(separatedBy: "presentation(reduceMotion: self.reduceMotion)")
+                .count - 1
+            #expect(fed >= 1,
+                    "\(name) 没有把 reduceMotion 喂给 EffectsEnergyState.presentation(reduceMotion:) —— 两道闸的顺序在这个调用点上又变成各写一遍了")
+            #expect(reads == fed,
+                    "\(name) 里 `self.reduceMotion` 出现 \(reads) 次，但只有 \(fed) 次是喂给 presentation(reduceMotion:) 的 —— 多出来的那些是调用点自己又判了一遍 Reduce Motion，能耗闸会被绕过（I-1 的原形态）")
+        }
+    }
+
     /// 早退名单同样做**双向差集**——新领一张豁免必须改本文件 ⇒ 在 diff 里必然可见。
     @Test("早退名单与实际一致（双向差集）")
     func earlyExitListMatchesReality() throws {

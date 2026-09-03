@@ -191,10 +191,28 @@ public nonisolated enum EffectsRenderPolicy: Sendable, Equatable, CaseIterable {
 ///
 /// ⇒ 裁决抽成本类型 + `EffectsEnergyState.presentation(reduceMotion:)` 一个纯函数，
 /// 两个调用点共用同一份；顺序由函数体本身固定（能耗闸写在 `guard` 里、先求值），
-/// 判据只需一行 `#expect(… .presentation(reduceMotion: true) == .none)`
-/// 就同时钉死 I-1 且让它不可能被重新引入。
+/// 判据只需一行 `#expect(… .presentation(reduceMotion: true) == .none)`。
 /// 这与本仓「纯函数 + 生产代码与判据共用同一份」的既有纪律一致
 /// （`ConfettiBurst` / `ProcessingSweep` 都是这个形态）。
+///
+/// ⚠️⚠️ **这条纯函数判据的射程只到函数体内，"让它不可能被重新引入"是过头话**
+/// （#252 PR #269 第 2 轮终审 I-A；上一版这里逐字写着那句话，现按实际射程改写）。
+///
+/// 它钉死的是「给定 `scenePhase` 与 `reduceMotion`，**这个函数**返回什么」。
+/// **调用点是否真的用这个结论**是另一条链——`ConfettiCore` / `ProcessingSweepDriver`
+/// 各有一行把 `\.accessibilityReduceMotion` 喂进来，那一行此前**零覆盖**：
+/// · 位图路不可能覆盖：该环境键不可注入，测试里恒为 `false`，
+///   「读 `presentation`」与「自己再读一遍 `reduceMotion`」两种写法渲染**逐字节相同**；
+/// · 当时的三条字符串守卫（`timelineOnlyExistsDuringBurst` /
+///   `reduceMotionFallsBackToStaticCelebration` / `MicroInteractionReduceMotionGuard`）
+///   终审逐条实测：变异后**全绿**。
+/// ⇒ 把调用点改回 `let isReduced = self.reduceMotion`，**I-1 原封不动回来而全套测试仍绿**。
+///
+/// ⇒ 调用点那一环现由源码判据接管：
+/// `MicroInteractionReduceMotionGuard.reduceMotionIsOnlyConsumedByTheSharedGate`
+/// ——凡走能耗闸的文件（名单 `energyGatedFiles` 与实际双向差集），
+/// `self.reduceMotion` 的出现次数必须恰好等于喂给 `presentation(reduceMotion:)` 的次数。
+/// **两条判据合起来才覆盖「顺序」这件事**：纯函数管函数体，源码判据管调用点。
 ///
 /// ⚠️ **为什么不走位图判据**：`\.accessibilityReduceMotion` **不可注入**
 /// （`EnvironmentValues` 上它是只读的系统偏好，写它编译红——终审已实测）。
