@@ -70,7 +70,7 @@ PRD 的裁决判据是「a 侧按既有守卫体量类比估固定成本，**b �
 ⇒ **两个样本改为**：Effects 的一个 **public View struct**（`Confetti` / `ScanningOverlay`
 之一）+ 一个 **public ViewModifier struct**（模拟 AD-E 为 layerEffect 钉死的形态），
 覆盖 P 里真实存在的两种类型形态。
-⚠️ 若 AD-4 最终对 Charts 选 b，`shipswift-effects` A-6 反正要为 4 个图表写判定法 notes；
+⚠️ **AD-4 已裁 Charts 走 b**（该半不依赖成本模型，理由是定性的）⇒ `shipswift-effects` A-6 要为 4 个图表写判定法 notes；
 样本产物虽不进主线，其 **notes 与步骤 2 的业界举证可被 A-6 复用**，省一次返工（评审 S-9）。
 
 ### AD-D 测试拓扑与 CI scheme 是同一个 commit 的事
@@ -122,7 +122,7 @@ target**，没有任何公开值类型可调用（评审 I-1）。
 | `AccessibilityStringLiteralGuard` | `:189` 同上；按 target 分辨各自的 `.module` |
 | `EffectsColorLiteralGuard`（新建） | 禁色相字面量；射程仅新 target；**带触发红的 fixture** |
 | `ChromeTextLiteralGuard`（新建） | 扫 `Text("…")` / `Label("…"` 裸字面量（公约 A 类）；射程仅新 target，**不回溯 CoreDesign**；**带 fixture** |
-| **差集守卫**（**条件项**，评审 C-1） | ⚠️ **若 AD-4 对 Effects/Shaders 选 a，本 task 必须交付它**——形态按 AD-4 所选（独立 `docs/effects-registry.json` 双向差集 **或** 锚 `docs/components/<slug>.md`）；射程 = public `View`/`ViewModifier`；`transition`/`modifier` 手工维护并在盲区台账留痕。不交付它 ⇒ Effects 的登记面就是 PRD 说的"无守卫空白地带"，且 Epic 成本少算一条 |
+| ~~**差集守卫**~~ | ⚠️ **不交付**——AD-4 第 6 轮收敛为「AD-2 原样适用」，无轻公约 ⇒ 无差集守卫。（原文：AD-4 对 Effects/Shaders 暂定 a ⇒ 本 task 交付它（⚠️ 是**暂定**不是已裁定：AD-4 自陈其成本模型有四条缺口，任意两条叠加即翻到 b，故同时立了**复判闸**——本 task 须交付 `bSideNotesChars` 字段与「前两条非空」断言，见 AD-4《复判闸》）——形态**已裁定为独立 `docs/effects-registry.json` 双向差集**；射程 = public `View`/`ViewModifier`；`transition`/`modifier` 走**扩展成员扫描器**、登记进同一份 `effects-registry.json` 的 `entryPoints` 数组（⚠️ **AD-4 已裁：形态取 JSON 双向差集，且否决"手工维护 + 盲区台账"**，随 #244 回改）。不交付它 ⇒ Effects 的登记面就是 PRD 说的"无守卫空白地带"，且 Epic 成本少算一条 |
 | `NFR-4` grep 断言 | 零 `@unchecked Sendable`。⚠️ **根列表与上面四条守卫同源，只含已存在的 target**（第 2 轮评审 I-1）——初版写"三个新 target"，但 A0-3 落地时只存在两个；对不存在的 `Sources/CoreDesignShaders/` 做 grep 无命中即绿，正是 AD-E 自己反对的 fail-open |
 
 ⚠️ `ComponentTextParamGuard` **只能守 B 类**，且定义域是登记表条目。它**守不到** FR-7 的
@@ -193,8 +193,10 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
 - [ ] 成本估算：a 侧按既有守卫体量类比（`AccessibilityStringLiteralGuard` 16KB /
       `BoolParameterScanner` 68KB），b 侧**实做 2 个样本外推**（AD-C：仓外做，产物不进主线），
       P 只算 Effects + Shaders
-- [ ] AD-4 一并拍板三件下游要用的事（评审 Suggestion）：① 独立 JSON vs 锚文档；
-      ② `transition`/`modifier` 手工维护 + 盲区台账的写法；③ **FR-17 的 README 索引落点**
+- [ ] AD-4 一并拍板**四件**下游要用的事（第四件是扫描根作用域，随 #244 追加）（评审 Suggestion）：① 独立 JSON vs 锚文档；
+      ② `transition`/`modifier` 的处置（⚠️ **AD-4 拍板二已裁：走扩展成员扫描器，
+      否决"手工维护 + 盲区台账"**——本行原只列了被否决的那一个选项，随 #244 回改）；
+      ③ **FR-17 的 README 索引落点**（AD-4 拍板三已裁：按 target 分叉）
       （主索引 vs `## 生成预览图` 之后另起小节）——A-7 / B-4 写文档时要依据它
 
 ### A0-2
@@ -221,7 +223,7 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
       逐字不变，重构未放松任何现有断言
 - [ ] **已存在的**新 target 零 `@unchecked Sendable`（grep 断言；根列表与守卫同源，
       Shaders 根由 B-1 加入）
-- [ ] **条件项**：若 AD-4 对 Effects/Shaders 选 a，差集守卫已交付并有 fixture
+- [ ] ~~差集守卫~~ **不交付**（AD-4 第 6 轮：AD-2 原样适用，无轻公约）；复判闸随成本模型一并撤回
 
 ### A0-4
 - [ ] probe manifest 接上两个新 product，每 target 一个 nonisolated 文件的结构已建

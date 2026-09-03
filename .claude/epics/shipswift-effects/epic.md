@@ -156,7 +156,7 @@ A-7  收尾（依赖全部；ComponentData.swift 串行）：
 7 个 task，落在本仓历史区间（5–13）内。
 ⚠️ **A-1（8 个）与 A-2（16 种）仍偏重**，decompose 阶段须按上面标注的分组再拆。
 
-⚠️ **登记表侧改动归 A-6**：若 AD-4 裁定 `CoreDesignCharts` 走 b（进登记表），则
+⚠️ **登记表侧改动归 A-6**：**AD-4 已裁 `CoreDesignCharts` 走 b**（进登记表），因此
 `ComponentRegistryGuard` 扫描根多 target 化 + 4 条登记 + `:449` 的 `47` 改 `51`
 + `readmeIndexReconcilesWithRegistry` 联动**全部在 A-6 内完成**，不留在 A0-3。
 ⚠️ **同一处还要接 `ComponentTextParamGuard`**（评审 I-8）：4 个图表进登记表后，

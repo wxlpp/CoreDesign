@@ -1267,6 +1267,11 @@ J-1 主判据 `BoolExemptionGuard.j1NoUnexemptedBoolParameters` 用 Swift Testin
   `Tests/CoreDesignTests/ComponentRegistryGuard.swift`）设计上就把 `View` 与
   `ViewModifier` 归为同一类「组件」一并采集。
 
+⚠️⚠️ **本裁决已被 AD-4 按 target 划了作用域**（#244，见本附录末尾）：
+`CoreDesignEffects` / `CoreDesignShaders` 的 public 类型**不进** `component-registry.json`
+（走轻公约），`CoreDesignCharts` 照常进。读到这里就停的人会拿到一个**已被推翻**的答案
+——而 AD-4 存在的全部理由，正是「实现层盲区不该被读成公约层许可」。
+
 ⇒ **裁决**：登记单位是「有 public 类型的 API 表面」，不是「是不是 `ViewModifier`」。
 public 的 `ViewModifier` 类型**照常登记进 `component-registry.json`，判定法同样适用**
 （`nativeProtocol`/`customStyleProtocol`/`needsExtensionPoint` 对它们同样有意义——
@@ -1408,3 +1413,113 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
    非皮肤且未被排除的候选 **1 个** < 2 ⇒ **举得犹豫** ⇒ **仍落步骤 4，`tiebreaker` 不变**。
    ⚠️ 本表**声明价值在于走查可复现**，不在落点 —— 故上面三处必须交代清楚，否则一个照它
    走的新人会在步骤 2 卡死。
+
+
+---
+
+#### AD-4 裁决：三个新 target 的登记表作用域 —— **裁定：AD-2 原样适用**
+
+⚠️⚠️ **本裁决经六轮终审后，其规范内容收敛为「AD-2 原样适用」。**
+第 1–5 版曾裁「Effects / Shaders 走轻公约（a）」，理由是成本模型；
+该模型经四次修正后**在实测单价下六格里五格 b 胜**，第 5 版据此把默认值翻成 b。
+⇒ **Charts = b + Effects/Shaders = b = 三个 target 全走 b = AD-2 逐字原样。**
+
+**因此本段不再产出新的作用域规则**，只留下四件在这个过程中被算清、且**与路线无关**
+的下游事实。**成本模型、轻公约、复判闸、拍板一（登记形态）全部撤回**
+——它们的结论已归零，留在公约里只制造误读面。
+
+##### 为什么裁「AD-2 原样适用」而不是「什么都不裁」
+
+问题本身是真的：`ComponentRegistryGuard.swift:366` 把扫描根硬编码为
+`Sources/CoreDesign`，而 AD-2 **通篇未按 target 划作用域** ⇒ 实现层盲区会被读成
+公约层许可（G-7 早已把「新增第二个源 target」记为逃生门）。
+⇒ **本裁决的产出是把「AD-2 适用于全部三个 target」这句话写下来**，
+以及下面四件下游连锁。**这不是零产出，但它也不是当初以为的那个产出。**
+
+##### 撤回记录：五版各错在哪（照录，不删）
+
+《事后补写的效力边界》要求错误留痕。五版的失败是**同一个形状**：
+**我先有了倾向（走 a），然后为它找论据；每次论据被证伪，就换一个论据继续撑同一结论。**
+
+1. **第 1 版「公开协议外溢」** —— 建立在三处事实错误上：`SpinningModifier` 实为
+   `semantic/step2/true` 而非 tiebreaker；引的公约小节**不存在**；
+   那句话的真实出处目的**相反**。且 `needsExtensionPoint: true` **≠** 必须发 public 协议
+   （本仓 #59 翻出的 5 条全部由 #60/#64/#65 以配置枚举兑现，一个协议都没发）。
+2. **第 2 版成本比较** —— 两侧单位不同（Swift 字节 vs 中文字符）、
+   56 KB 不是差量（其中 46 KB 两条路线共有）。
+3. **第 3 版敏感性表** —— 五个取值**全部 ≥ 均值**，能翻转结论的下侧一格没探。
+4. **第 4 版** —— 参照物 `ReachableTypeRegistryGuard` **实测零个 `subtracting`**，
+   而同一份文档 154 行后就写着这句话；拍板四被误判为共有成本。
+5. **第 5 版复判闸** —— 公式量纲错（件数 − 字符数）⇒ 阈值 −58 ⇒ **恒假、永不触发**；
+   且闸门自身成本一进模型，最后一格 a 也翻。
+
+⚠️ **第 6 版（本版）撤回结论本身**：翻成 b 之后规范内容归零，而三处反向指令
+（AD-2 横幅、「一刀切被否决」、拍板四的禁令）**仍活在树上**
+⇒ 净效果是「加了 400 行、承重结论与 AD-2 相同、三处显式条款与该结论相反」。
+
+⚠️ **并且第 5 版的翻转论证本身也不干净**：「b 是可逆的那一侧」**只算了守卫成本、
+没算 b 侧判定法产物的不可逆性** —— 走 b 的每一件只要落 `step1/step2`
+（`decidedBy ⇒ kind` 映射写死 semantic），`ComponentRegistryGuard:518-519` 就**硬断言**
+`needsExtensionPoint`，而 `ComponentExtensionPointGuard` 的 `knownMissingExtensionPoints`
+**现为空集**、注释逐字禁止把新条目塞回去 ⇒ **必须同批交出真实扩展点**，
+那正是撤回记录第 1 条讨论的不可逆 API 表面。**两侧的后悔成本至今没有对称测量过。**
+
+##### 下游连锁一 · Charts 走 b 会触发整条 J-2 链
+
+`step1/2 ⇒ semantic`（`ComponentRegistryGuard.swift:456-457`）⇒ **硬断言**
+`needsExtensionPoint`（`:518-519`）⇒ 进 J-2 定义域 ⇒
+`ComponentExtensionPointGuard.swift:76` 的 `inspected.count == 11` **变 15 ⇒ 红**；
+`:98` 的 `missing.isEmpty` 要求**同批交出真实扩展点**，而 `:108-110` 逐字禁止
+「为了让它变绿把新条目塞回 `knownMissingExtensionPoints`」。
+
+⚠️ **被顶动的不止 `== 47` 与 `== 31`**，还有 `ComponentTextParamGuard` 的
+`covered.count == 30`、`localizedByType.count == 11`、`carrying.count == 9`，
+以及 `unmappedOwners` / `functionSideBareText` 两个**固定集合**。
+
+⚠️ **「若落形态 C（不给扩展点）须在 notes 写明理由」这条出路对 `semantic` 条目
+机械上不可能** —— schema 硬断言 + J-2 定义域都不允许。
+⇒ 形态 C 的出路只对落 `prescriptive` 的条目成立，**这一点必须写明**，
+否则 `255.md` 会带着一条无法验收的 AC。
+
+##### 下游连锁二 · `transition` / `modifier` 走扩展成员扫描器（**与路线无关**）
+
+task 250 的 8 个 `public extension View` 方法 + task 251 的 16 个转场 =
+**24 个公开入口点**，今天对**所有**守卫不可见——`Transition` 静态成员与
+`public extension View` 方法**在路线 b 下照样扫不到**。
+⇒ 新建扩展成员扫描器（把既有 `PublicTypeCollector` 扩到 extension 成员），
+登记进 `component-registry.json` 的 `entryPoints` 数组。
+
+⚠️ **本条推翻** `251.md` / `246.md` / `foundation/epic.md` 三处已写下的
+「按 AD-4 的裁决**手工维护**并在盲区台账留痕」——24 条量级的手工表必漂，
+正是 G-7 记在案的失效形态。三份文件须回改。
+
+##### 下游连锁三 · README 索引落点：**三个 target 全部进主索引**
+
+`ComponentRegistryGuard.readmeIndexRows`（`:338-343`）只解析
+`## 组件索引` 到 `## 生成预览图 / Generating Snapshots` **之间**的行，
+而 `registryEntriesAreCoveredByReadme`（`:641-646`）断言**每个非 excluded 的
+`coredesign` 条目都被该范围内的某一行覆盖**。
+⇒ 三个 target 全走 b ⇒ 三组索引行**必须都在 `## 组件索引` 之内**。
+
+⚠️ **第 1–5 版裁的是「Effects/Shaders 另起小节」——那会让判据判红**，
+而该判据文档自己为 Charts 算过一遍、翻 b 后没有重跑。
+⚠️ 每行仍须带模块名（调用方要 `import CoreDesignEffects` 而非 `import CoreDesign`），
+但那是**可读性要求**，不是作用域要求。
+
+##### 下游连锁四 · 扫描根的实施形态（工程事实，**不是禁令**）
+
+⚠️ **第 4–5 版曾在此立过一条禁令**（「把 Effects/Shaders 加进这一个根**为本裁决所
+禁止**」）——**随结论收敛为 AD-2 原样，该禁令一并撤回**。保留的是工程事实：
+
+- `ComponentRegistryGuard.coreDesignSources`（`:366`）是**单个 `URL`**，不是列表
+  ⇒ 落地要 `URL` → `[URL]`，连带改 `scanTypes(root:)` 与 `scanComponentJudgeInputs(root:)`。
+- **消费者共 9 个文件**：`ComponentTextParamGuard` / `ComponentExtensionPointGuard` /
+  `ComponentHostAliasGuard` / `NativeProtocolPurityGuard` / `ComponentJudgeMutationTests` /
+  `BoolExemptionGuard` / `StyleConsumptionGuard` / `ToastPublicEntryForwardingGuard` /
+  `ComponentJudgeScannerTests`。
+- `ComponentJudgeMutationTests:17-24` 把**单棵树**拷进临时目录、变异路径是相对的
+  ⇒ 两个根意味着副本布局要重构，否则 `copiedTreeReproducesBaseline` 会红。
+- ⚠️ **扩根到 Effects 今天扫到 0 个类型**：`PublicTypeCollector`（`:846-880`）只认
+  `public struct : View/ViewModifier`，而 `Sources/CoreDesignEffects/` 目前只有一个
+  `public enum` 命名空间 ⇒ **必绿、零覆盖**。这与「闸门在空数组上真空为真」是同一形态，
+  实施时须一并防。
