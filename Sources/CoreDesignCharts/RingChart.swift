@@ -67,6 +67,17 @@ public struct RingChart<Value: ChartValue>: View {
             .prefix(Self.recommendedRingLimit))
     }
 
+    /// 把原始值折算成**画面上真正画出来的那个值** —— 与 `rings` 里
+    /// `max(0, min(value / goal, 1))` 同一区间，供 descriptor 复用（S-6）。
+    ///
+    /// ⚠️ 非有限值单独走一档，因为**要对齐的是画面，不是公式**：
+    /// `min(max(.nan, 0), goal)` 会把 `NaN` 原样透出，而渲染那侧走 `Comparable` 版
+    /// `min` / `max`，对 `NaN` 的短路结果是 **0**；`+∞` 画满环、`-∞` 画空环。
+    private static func drawnValue(_ value: Double, goal: Double) -> Double {
+        guard value.isFinite else { return value > 0 ? goal : 0 }
+        return min(max(value, 0), goal)
+    }
+
     private var rings: some View {
         GeometryReader { proxy in
             let side = min(proxy.size.width, proxy.size.height)
@@ -135,9 +146,18 @@ extension RingChart: AXChartDescriptorRepresentable {
         // ⇒ 现式把 `goal` 读成 `100%`；改成 `1 / goal` 反而会读成 `1%`。
         // 该语义由 `AccessibilityDescriptorTests.ringAxisReadsPercent` 钉住。
         ) { "\($0.formatted(.percent.scale(100 / denominator)))" }
+        // ⚠️⚠️ **y 必须与画面走同一道夹取**（PR #263 Copilot 第 4 轮 S-6）：渲染那侧写的是
+        // `max(0, min(value / goal, 1))`——超额完成画满即止、负值当 0；descriptor 这侧
+        // 却报**原始 `value`** ⇒ 喂 750（goal = 500）时屏幕是满环、VoiceOver 念「150%」，
+        // 喂 -100 时屏幕是空环、VoiceOver 念「-20%」：**视障用户听到的与视力用户看到的
+        // 不是同一张图**。这些 y 还落在上面 `safeRange(0, denominator)` 声明的量程之外。
+        // ⚠️ 与第 1 轮驳回的 `.scale(100 / goal)` 是**两件事**：那条讲格式化倍率
+        // （实测误报，见下方注释与 `ringAxisReadsPercent`），这条讲**取值域**。
         let series = AXDataSeriesDescriptor(
             name: "", isContinuous: false,
-            dataPoints: self.effectiveValues.map { AXDataPoint(x: $0.label, y: $0.value) }
+            dataPoints: self.effectiveValues.map {
+                AXDataPoint(x: $0.label, y: Self.drawnValue($0.value, goal: denominator))
+            }
         )
         return AXChartDescriptor(
             title: String(localized: self.title), summary: nil,

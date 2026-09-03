@@ -578,6 +578,56 @@ struct RingChartTruncationTests {
         let d = RingChart(dup, goal: 10).makeChartDescriptor()
         #expect(d.series.first?.dataPoints.count == 2)
     }
+
+    /// ⚠️ **descriptor 的 y 必须与画面同一夹取区间**（PR #263 Copilot 第 4 轮 S-6）。
+    /// 渲染那侧写的是 `max(0, min(value / goal, 1))`——超额完成**画满即止**、负值当 0；
+    /// 修复前 descriptor 报的是**原始 `value`** ⇒ 750/500 时屏幕是满环、VoiceOver 念
+    /// 「150%」，-100 时屏幕是空环、VoiceOver 念「-20%」：视障用户听到的与视力用户
+    /// 看到的不是同一张图。这些 y 还落在 `safeRange(0, goal)` 声明的量程之外。
+    /// ⚠️ 与第 1 轮驳回的 `.scale(100 / goal)` 是**两件事**：那条讲格式化倍率
+    /// （实测误报，由 `ringAxisReadsPercent` 钉住），这条讲**取值域**。
+    @Test("超额 / 负值：descriptor 的 y 夹在 0...goal（与画面一致）")
+    func descriptorClampsToGoal() throws {
+        let goal = 500.0
+        let d = RingChart([Point(label: "over", value: 750),
+                           Point(label: "under", value: -100),
+                           Point(label: "exact", value: goal),
+                           Point(label: "inside", value: 123)], goal: goal)
+            .makeChartDescriptor()
+        let ys = try #require(d.series.first?.dataPoints).map { $0.yValue?.__number }
+        #expect(ys == [goal, 0, goal, 123], "descriptor 播报的是未夹取的原始值：\(ys)")
+    }
+
+    /// ⚠️ 非有限值单独钉一条：要对齐的是**画面**，不是公式。
+    /// 渲染那侧 `max(0, min(x / goal, 1))` 走 `Comparable` 版 `min`/`max`，对 `NaN`
+    /// 的短路结果是 **0**（不是 NaN）；`+∞` 画满、`-∞` 画空。
+    @Test("非有限值：+∞ 读满环，-∞ 与 NaN 读 0（与渲染的短路一致）")
+    func descriptorClampsNonFiniteValues() throws {
+        let goal = 500.0
+        let d = RingChart([Point(label: "inf", value: .infinity),
+                           Point(label: "-inf", value: -.infinity),
+                           Point(label: "nan", value: .nan)], goal: goal)
+            .makeChartDescriptor()
+        let ys = try #require(d.series.first?.dataPoints).map { $0.yValue?.__number }
+        #expect(ys == [goal, 0, 0], "非有限值透进了 descriptor：\(ys)")
+    }
+
+    /// ⚠️ **截断路径改惰性后的行为锁**（PR #263 Copilot 第 4 轮 S-3）：`effectiveValues`
+    /// 由「全量 `filter` 去重 + `prefix`」改为「收够 6 个唯一值即停」。语义必须逐字不变：
+    /// **保留首次出现、保持原数组顺序、截断后取的是前 6 个唯一值**——重复项插在中间时
+    /// 尤其容易改变留下来的是哪一批。
+    @Test("去重 + 截断的取值与顺序（重复项插在中间，超限）")
+    func dedupeThenTruncateKeepsOrder() {
+        let limit = RingChart<Point>.recommendedRingLimit
+        // m0, m0, m1, m1, ... —— 每个 id 各来两次，共 20 个唯一 id。
+        let dup = (0..<20).flatMap { i in
+            [Point(id: "m\(i)", label: "m\(i)-first", value: Double(i)),
+             Point(id: "m\(i)", label: "m\(i)-second", value: Double(i))]
+        }
+        let d = RingChart(dup, goal: 100).makeChartDescriptor()
+        let category = d.xAxis as? AXCategoricalDataAxisDescriptor
+        #expect(category?.categoryOrder == (0..<limit).map { "m\($0)-first" })
+    }
 }
 
 // MARK: - 本地化通路
