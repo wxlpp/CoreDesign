@@ -77,7 +77,7 @@ let package = Package(
             // · 声明后：swiftbuild / xcodebuild 会真编成 `default.metallib`（bundle 里
             //   **只有** metallib，`.metal` 源不会被同时拷进去）；原生 `swift build`
             //   则只是把 `.metal` 源拷进 bundle，**不产生 metallib**。
-            resources: [.process("Plasma.metal")],
+            resources: [.process("CoreDesignShaders.metal")],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
         .testTarget(
