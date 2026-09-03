@@ -30,6 +30,13 @@ let package = Package(
             name: "CoreDesignCharts",
             targets: ["CoreDesignCharts"]
         ),
+        // ⚠️ 与 Effects / Charts 分开的理由不只是"内容不同"：本 target 含 `.metal` 源，
+        // 而**原生 `swift build` 不编译 `.metal`**（#248 spike 实测）。把它并进 Effects
+        // 会让"只想要 `.shake(trigger:)`"的消费者也背上构建系统约束。
+        .library(
+            name: "CoreDesignShaders",
+            targets: ["CoreDesignShaders"]
+        ),
     ],
     dependencies: [
         // ⚠️ 版本约束刻意写成 `.upToNextMinor` 而不是 `from:` 或 `.exact`
@@ -61,6 +68,18 @@ let package = Package(
             dependencies: ["CoreDesign"],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
+        .target(
+            name: "CoreDesignShaders",
+            dependencies: ["CoreDesign"],
+            // ⚠️ `.metal` **必须**声明为资源，这是 α 路径的强制项而非可选（#248 spike）：
+            // · 不声明 ⇒ 原生 `swift build` 报 `unhandled file`，且 **`Bundle.module`
+            //   根本不被合成** ⇒ `downstream-probe` 与下游直接编译失败；
+            // · 声明后：swiftbuild / xcodebuild 会真编成 `default.metallib`（bundle 里
+            //   **只有** metallib，`.metal` 源不会被同时拷进去）；原生 `swift build`
+            //   则只是把 `.metal` 源拷进 bundle，**不产生 metallib**。
+            resources: [.process("CoreDesignShaders.metal")],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
+        ),
         .testTarget(
             name: "CoreDesignTests",
             dependencies: [
@@ -85,6 +104,15 @@ let package = Package(
         .testTarget(
             name: "CoreDesignChartsTests",
             dependencies: ["CoreDesignCharts"],
+            swiftSettings: [.defaultIsolation(MainActor.self)]
+        ),
+        // ⚠️ 本 test target **在原生 `swift test` 下会判红**，这是**有意的**：
+        // 原生构建不产生 metallib，而 `assertShaderLibraryLoadable` 是 fail-closed 的。
+        // CI 因此把它从原生腿显式 `--skip` 掉，另起一步用 swiftbuild 跑它
+        // ——**显式跳过 + 留痕**，不是静默放过（见 `.github/workflows/ci.yml`）。
+        .testTarget(
+            name: "CoreDesignShadersTests",
+            dependencies: ["CoreDesignShaders"],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
     ],

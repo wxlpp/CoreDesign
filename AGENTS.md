@@ -39,13 +39,14 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 ### 多 target 结构
 
-本包不再是单 target。`Package.swift` 现有三个 library product：
+本包不再是单 target。`Package.swift` 现有**四个** library product：
 
 | product | 内容 | 备注 |
 |---|---|---|
 | `CoreDesign` | 系统原生观感的组件、四层色彩、token、modifier | 主体，**不依赖**下面两个 |
 | `CoreDesignEffects` | 表达性视觉层：微交互 / 转场 / 庆祝与处理中动效 | 依赖 `CoreDesign` |
 | `CoreDesignCharts` | Swift Charts 原生画不出来的四类图表（雷达图 / 活动环 / 贡献热力图 / 力导向网络图） | 依赖 `CoreDesign`；**有意不 `import Charts`** |
+| `CoreDesignShaders` | Metal shader 程序化背景与内容层效果 | 依赖 `CoreDesign`；⚠️ **含 `.metal` 源，构建有额外约束**——见下方《验证边界与常见坑》 |
 
 拆开的理由：只想要系统原生观感的消费者不必背上动效与图表。依赖是**单向**的
 （`CoreDesign` 的 `target_dependencies` 必须恒为 `[]`），两条 `swift package describe`
@@ -54,6 +55,17 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 ⚠️ **新 target 各有独立的 test target**（`CoreDesignEffectsTests` / `CoreDesignChartsTests`），
 **不并进 `CoreDesignTests`**——并进去需要 `@testable import`，会让 `CoreDesignTests` 的
 依赖图包含新 target，破坏上面那条隔离判据。
+
+
+⚠️ **`CoreDesignShaders` 的构建约束**（`0.5.0` 起）：**原生 `swift build` 不编译 `.metal`**
+——它只会把声明为资源的 `.metal` **源码**拷进 bundle，`default.metallib` 不会产生。
+只有 `swift build --build-system swiftbuild` 与 `xcodebuild` 会真编。
+⇒ 本地跑 shader 相关测试须用
+`swift test --build-system swiftbuild --filter CoreDesignShadersTests`；
+CI 的 SwiftPM 腿**显式 `--skip CoreDesignShadersTests`** 并另起一步用 swiftbuild 跑它。
+⚠️ **不要整腿切 swiftbuild**：那会让 `ColorAssetGuardTests` 的 colorset 存在性守卫
+**静默跳过**（swiftbuild 调 actool 把 `.xcassets` 编成 `Assets.car`，而那个 suite 的
+启用条件是「`Resources.xcassets/` 以目录形式存在」）。
 
 ⚠️ **四条源码守卫当前只扫 `Sources/CoreDesign`**（`ComponentRegistryGuard.swift:366`、
 `BoolExemptionGuard.swift:43`、`AccessibilityStringLiteralGuard.swift:189` 等的扫描根都是
