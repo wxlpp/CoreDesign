@@ -302,8 +302,11 @@ nonisolated enum GuardScanRoots {
                 if let name = Self.quotedName(in: code) { currentName = name } else { awaitingName = true }
             } else if !open {
                 continue
-            } else if awaitingName, code.hasPrefix("name:") {
-                currentName = Self.quotedName(in: code)
+            } else if awaitingName, let name = Self.quotedName(in: code, atDepth: 0) {
+                // ⚠️ **按深度 0 取**（第 5 轮终审 S-b）：这一行是块内单独一行的 `name: "X",`，
+                // `name:` 就在最外层。此前用 `code.hasPrefix("name:")` 前缀匹配，
+                // `name : "X"`（合法 Swift）匹配不上 ⇒ 整块被丢弃并报「name 可能不是字面量」。
+                currentName = name
                 awaitingName = false
             }
             // ⚠️ 一行写完的 `.target(name: "X", resources: [...])` 也要认 ⇒ 不能要求行首。
@@ -320,7 +323,12 @@ nonisolated enum GuardScanRoots {
     /// ⚠️ 只有块注释与多行字符串需要跨行——单行字符串字面量在 Swift 里不能跨行，
     /// 行尾 `//` 注释到行尾自然结束。
     nonisolated struct ManifestLexState: Hashable, Sendable {
-        var inBlockComment = false
+        /// ⚠️ **是深度不是布尔**（PR #265 第 5 轮终审 S-a）：**Swift 的块注释可嵌套**
+        /// （`/* 老写法： /* 更老的写法 */ .target(name: "Ghost") */` 整段都是注释）。
+        /// 布尔版遇**第一个** `*/` 就出注释 ⇒ 其后的内容重新被当成代码 ⇒
+        /// `90da0b1` 声称堵掉的「注释掉的 target 变成幽灵 library target」换个入口原样复现，
+        /// 且 `Issue.record` 一条都没有。
+        var blockCommentDepth = 0
         var inMultilineString = false
     }
 
@@ -339,6 +347,11 @@ nonisolated enum GuardScanRoots {
     ///   ⇒ **注释掉的 target 变成幽灵 library target**（还可能带上 `resources:`）。
     /// 第二条与首版靠「下一个 `.target(` 起始行隐式关块」时的 ② 号病同形，
     /// 只是换了个入口复现——本函数是那条入口的堵法。
+    ///
+    /// ⚠️ **块注释按深度计数，因为 Swift 的块注释可嵌套**（PR #265 第 5 轮终审 S-a）：
+    /// 布尔版遇第一个 `*/` 就出注释，于是嵌套注释的**尾部**重新被当成代码
+    /// ——上面第二条「幽灵 target」换个入口原样复现（实测
+    /// `/* 老写法： /* 更老的写法 */ .target(name: "Ghost", …), */` 产出 `Ghost`，零 `Issue.record`）。
     /// 多行字符串同理：`"""` 是**奇数个**引号，逐行重置的 `inString` 会被它带偏，
     /// 字符串体里的 `.target(` / 括号会被当成代码。
     ///
@@ -351,9 +364,13 @@ nonisolated enum GuardScanRoots {
         var inString = false
         while index < chars.count {
             let character = chars[index]
-            if state.inBlockComment {
-                if character == "*", index + 1 < chars.count, chars[index + 1] == "/" {
-                    state.inBlockComment = false
+            if state.blockCommentDepth > 0 {
+                // ⚠️ 嵌套：注释里再开一层 `/*` 要加深，`*/` 只关掉最内那一层。
+                if character == "/", index + 1 < chars.count, chars[index + 1] == "*" {
+                    state.blockCommentDepth += 1
+                    index += 2
+                } else if character == "*", index + 1 < chars.count, chars[index + 1] == "/" {
+                    state.blockCommentDepth -= 1
                     index += 2
                 } else {
                     index += 1
@@ -396,7 +413,7 @@ nonisolated enum GuardScanRoots {
             }
             if character == "/", index + 1 < chars.count, chars[index + 1] == "/" { break }
             if character == "/", index + 1 < chars.count, chars[index + 1] == "*" {
-                state.inBlockComment = true
+                state.blockCommentDepth += 1
                 index += 2
                 continue
             }
@@ -433,7 +450,11 @@ nonisolated enum GuardScanRoots {
         try Self.declaredTargets().filter(\.isLibrary).map(\.name)
     }
 
-    /// 取 `name:` 标签**紧随其后**的字符串字面量。取不到（name 不是字面量）返回 `nil`。
+    /// 取 `name:` 标签**紧随其后**的字符串字面量。取不到（name 不是字面量 / 是插值）返回 `nil`。
+    ///
+    /// `wantedDepth` 是 `name:` 相对**本段代码起点**的括号深度：调用点若传的是
+    /// `.target(name: "X", …)` 这一整行则为 `1`（`.target(` 之后），若传的是
+    /// 单独一行的 `name: "X",` 则为 `0`。
     ///
     /// ⚠️ **不能取整行的第一个引号串**（PR #265 第 4 轮终审 I-4）：首版是
     /// `firstQuoted(in: code)`，于是 `.target(name: shadersName, path: "Sources/Shaders")`
@@ -443,13 +464,86 @@ nonisolated enum GuardScanRoots {
     /// 方向仍是 fail-closed（差集判红），但**静默改名比丢弃更难排查**：读者会拿着
     /// 一个从没在 manifest 里出现过的 target 名去找。
     /// ⇒ 只认紧跟 `name:` 的字面量；取不到就落回 `awaitingName` / `Issue.record`。
-    static func quotedName(in code: String) -> String? {
-        guard let label = code.range(of: "name:") else { return nil }
-        let rest = code[label.upperBound...].drop(while: { $0 == " " || $0 == "\t" })
-        guard rest.first == "\"" else { return nil }
-        let body = rest.dropFirst()
-        guard let close = body.firstIndex(of: "\"") else { return nil }
-        return String(body[body.startIndex..<close])
+    ///
+    /// ⚠️⚠️ **上一版仍留着三条静默路径**（PR #265 第 5 轮终审 S-b），本版一并堵掉：
+    /// · **插值字面量**——`.target(name: "\(prefix)Alpha")` 产出一个名叫
+    ///   `\(prefix)Alpha` 的 target 且零 `Issue.record`，与 I-4 要治的「静默改名」同类；
+    /// · **`range(of: "name:")` 取整行第一个**——`.target(dependencies:
+    ///   [.product(name: "Inner", package: "p")], name: "Alpha")` 产出一个名叫 **`Inner`**
+    ///   的 target（多行写法不中招，只有单行 deps-在前会撞上）⇒ 改成按**括号深度**定位；
+    /// · **`name :`（冒号前空格）是合法 Swift**——此前整块被丢弃并报「name 可能不是
+    ///   字符串字面量」，**诊断误导**（那行的 name 明明就是字面量）⇒ 容忍标签与冒号之间的空白。
+    ///
+    /// ⚠️ 标签必须落在**标识符边界**上：`packageName:` / `names:` 不得被当成 `name:`。
+    static func quotedName(in code: String, atDepth wantedDepth: Int = 1) -> String? {
+        let chars = Array(code)
+        var index = 0
+        var depth = 0
+        var inString = false
+        while index < chars.count {
+            let character = chars[index]
+            if inString {
+                if character == "\\", index + 1 < chars.count { index += 2; continue }
+                if character == "\"" { inString = false }
+                index += 1
+                continue
+            }
+            if character == "\"" { inString = true; index += 1; continue }
+            if character == "(" { depth += 1; index += 1; continue }
+            if character == ")" { depth -= 1; index += 1; continue }
+            guard depth == wantedDepth, let valueStart = Self.nameLabelEnd(chars, at: index) else {
+                index += 1
+                continue
+            }
+            // 标签命中但值不是字符串字面量（`name: shadersName`）⇒ 继续找同深度的下一个，
+            // 找不到就返回 `nil` ⇒ 调用方落回 `awaitingName` / `Issue.record`。
+            if let name = Self.stringLiteralBody(chars, at: valueStart) { return name }
+            index += 1
+        }
+        return nil
+    }
+
+    /// `chars[index...]` 是否正是标签 `name`（允许 `name :` 的空白），是则返回值的起始下标。
+    private static func nameLabelEnd(_ chars: [Character], at index: Int) -> Int? {
+        let label = Array("name")
+        guard index + label.count <= chars.count,
+              Array(chars[index..<(index + label.count)]) == label
+        else { return nil }
+        // 标识符边界：前后都不能再接标识符字符（挡掉 `packageName:` / `names:`）。
+        if index > 0, Self.isIdentifierCharacter(chars[index - 1]) { return nil }
+        var cursor = index + label.count
+        if cursor < chars.count, Self.isIdentifierCharacter(chars[cursor]) { return nil }
+        while cursor < chars.count, chars[cursor] == " " || chars[cursor] == "\t" { cursor += 1 }
+        guard cursor < chars.count, chars[cursor] == ":" else { return nil }
+        cursor += 1
+        while cursor < chars.count, chars[cursor] == " " || chars[cursor] == "\t" { cursor += 1 }
+        return cursor
+    }
+
+    /// 从 `index` 读一个字符串字面量的内容；不是字面量、或**含插值**则返回 `nil`。
+    private static func stringLiteralBody(_ chars: [Character], at index: Int) -> String? {
+        guard index < chars.count, chars[index] == "\"" else { return nil }
+        var body = ""
+        var cursor = index + 1
+        while cursor < chars.count {
+            let character = chars[cursor]
+            if character == "\\", cursor + 1 < chars.count {
+                // ⚠️ 插值不是名字：`"\(prefix)Alpha"` 必须走 `Issue.record`，不得静默产出。
+                if chars[cursor + 1] == "(" { return nil }
+                body.append(character)
+                body.append(chars[cursor + 1])
+                cursor += 2
+                continue
+            }
+            if character == "\"" { return body }
+            body.append(character)
+            cursor += 1
+        }
+        return nil
+    }
+
+    private static func isIdentifierCharacter(_ character: Character) -> Bool {
+        character.isLetter || character.isNumber || character == "_"
     }
 }
 
@@ -611,6 +705,70 @@ struct GuardScanRootsGuard {
         且零 `Issue.record`。方向仍 fail-closed，但**静默改名比丢弃更难排查**：
         读者会拿着一个从没在 manifest 里出现过的名字去找。
         """)
+    }
+
+    /// PR #265 **第 5 轮**终审 S-a / S-b：三条**静默**路径（不 `Issue.record`、方向却错）。
+    ///
+    /// ⚠️ 三条都与 I-3 / I-4 同级别——产出一个 manifest 里根本不存在的 target 名，
+    /// 双向差集照样判红，但读者拿着那个名字无处可查。
+    @Test("manifest 解析器：嵌套块注释 / 插值 name / 同行多个 `name:`（第 5 轮终审 S-a / S-b）")
+    func manifestParserHandlesNestedCommentsAndTrickyNames() {
+        // ① **Swift 的块注释可嵌套**（`/* /* */ */` 合法）。首版遇**第一个** `*/` 就出注释
+        //    ⇒ 注释尾部的内容重新被当成代码 ⇒ `90da0b1` 声称堵掉的那条「幽灵 target」
+        //    换个入口原样复现，且 `Issue.record` 一条都没有。
+        let nested = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            /* 老写法：
+               /* 更老的写法 */
+               .target(name: "Ghost", resources: [.process("R")]),
+            */
+            .target(name: "Alpha"),
+            .target(name: "Beta"),
+        ]
+        """)
+        #expect(nested.map(\.name) == ["Alpha", "Beta"],
+                "嵌套块注释里被注释掉的 target 变成了幽灵条目 —— 双向差集会红在一个不存在的名字上")
+        #expect(nested.allSatisfy { !$0.hasResources },
+                "嵌套注释里的 `resources:` 被记到了真 target 上 —— `.module` 归属表凭空多一条")
+
+        // ② **插值字面量的 name 不得静默产出**：`"\(prefix)Alpha"` 是一段代码不是一个名字。
+        //    期望零 target + 一条 `Issue.record`（与 I-4 的非字面量 name 同一条纪律：
+        //    丢弃 + 报出来，好过静默改名）。
+        //    ⚠️ 本次 `swift test` 的 known issue 计数因此再 +1，那一条就是它。
+        var interpolated: [GuardScanRoots.DeclaredTarget] = []
+        withKnownIssue("插值 name 必须 Issue.record，不得静默产出一个含插值的 target 名") {
+            interpolated = GuardScanRoots.declaredTargets(manifestText: ##"""
+            targets: [
+                .target(name: "\(prefix)Alpha"),
+            ]
+            """##)
+        }
+        #expect(interpolated.isEmpty, """
+        插值 name 被静默产出成了 \(interpolated.map(\.name))
+        —— 那个名字在 manifest 里根本不存在，读者查不到它。
+        """)
+
+        // ③ `name:` 必须取**本块自己的**那一个：单行写法里 `dependencies:` 在前时，
+        //    「整行第一个 `name:`」会取到 `.product(name: "Inner", …)` 的那个
+        //    ⇒ 产出一个名叫 `Inner` 的 target，且零 `Issue.record`。
+        //    （多行写法不中招——那正是它此前没被发现的原因。）
+        let depsFirst = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(dependencies: [.product(name: "Inner", package: "p")], name: "Alpha"),
+        ]
+        """)
+        #expect(depsFirst.map(\.name) == ["Alpha"],
+                "同行的内层 `name:` 被当成了 target 名 —— 静默改名，双向差集会红在 `Inner` 上")
+
+        // ④ `name :`（冒号前空格）是**合法 Swift**。此前整块被丢弃并报
+        //    「name 可能不是字符串字面量」——诊断把读者指向一个根本不存在的问题。
+        let spaced = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(name : "Alpha"),
+        ]
+        """)
+        #expect(spaced.map(\.name) == ["Alpha"],
+                "`name :` 被判成非字面量 —— 诊断误导：那行的 name 明明就是字符串字面量")
     }
 
     @Test("根列表与 Package.swift 的 library target 双向吻合 —— 新增 target 忘了扩根即红")
