@@ -296,3 +296,101 @@ struct MicroInteractionAPITests {
     }
 
 }
+
+// MARK: - #262 第 1 轮 review：AC 逐字对齐
+
+/// ⚠️ **本 suite 钉的是「公开 API 形状与 #250 的 AC 逐字一致」**，不是渲染行为。
+///
+/// 起因：第 1 轮 review 抓到两处「实现自行改名 / 自行换形态、再在任务记账里
+/// 登记成有意偏离」——`palette:` vs AC 的 `colors:`、`.shine(trigger:)` vs AC 的
+/// `Shine { }`。登记本身不构成豁免（AC 约束的是**公开 API 长什么样**），
+/// 而这类偏离**没有任何机器判据**能在下一次改名时判红 ⇒ 补在这里。
+@Suite("AC 逐字契约")
+@MainActor
+struct MicroInteractionACContractTests {
+
+    static func source(_ fileName: String) throws -> String {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Sources/CoreDesignEffects/\(fileName)")
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    // MARK: spray 的色板契约
+
+    /// AC：「颜色只有三个合法来源：调用方参数 / `.tint` / 语义 token
+    /// （`.spray` 的粒子色**默认取 `.tint`**）」。
+    ///
+    /// ⚠️ `.tint` 在静息位图上**不可观测**（粒子静息 `opacity` 为 0，且 `.tint` 的解析
+    /// 发生在渲染期而非视图构建期）⇒ 这条规则只能在**取色函数**这一层断言，
+    /// 不能靠 `ImageRenderer` 比像素。`nil` 即"无显式色 ⇒ 交给 `.tint`"。
+    @Test("spray 空色板 ⇒ 无显式色（交给 .tint），非空 ⇒ 按下标轮转")
+    func sprayPaletteContract() {
+        #expect([Color]().particleColor(at: 0) == nil, "空色板必须回落到 .tint，而不是取某个具体色")
+        #expect([Color]().particleColor(at: 7) == nil)
+
+        let two: [Color] = [.red, .blue]
+        #expect(two.particleColor(at: 0) == .red)
+        #expect(two.particleColor(at: 1) == .blue)
+        #expect(two.particleColor(at: 2) == .red, "非空色板必须按下标轮转")
+        #expect(two.particleColor(at: 3) == .blue)
+    }
+
+    /// ⚠️ **直取那处回归**：初版是 `palette.isEmpty ? [Color.accent] : palette`。
+    /// `Color.accent` == `Color.accentColor`，**不跟随逐视图 `.tint(_:)`**
+    /// ⇒ 调用方 `.tint(.pink)` 对默认粒子色静默失效。
+    @Test("spray 的公开入口用 colors: 标签、默认空数组，且实现里没有 Color.accent 回退")
+    func sprayEntrySignatureMatchesAC() throws {
+        let code = try Self.source("Spray.swift")
+        #expect(code.contains("colors: [Color] = []"),
+                "AC 逐字写的是 `.spray(trigger:symbol:colors:)`，且默认应为空 ⇒ 回落 .tint")
+        #expect(!code.contains("[Color.accent]"),
+                "空色板不得回退到 Color.accent —— 它不跟随 .tint(_:)")
+    }
+
+    /// 编译期契约：`colors:` 这个标签真的存在（源码扫描只证明字符串在场）。
+    @Test("spray 可用 colors: 标签调用，也可省略")
+    func sprayCallableWithColorsLabel() {
+        let explicit = Text("x").spray(trigger: 1, symbol: "heart.fill", colors: [.red, .blue])
+        let defaulted = Text("x").spray(trigger: 1, symbol: "heart.fill")
+        #expect(MicroInteractionAPITests.stablePixels(explicit) != nil)
+        #expect(MicroInteractionAPITests.stablePixels(defaulted) != nil)
+    }
+
+    // MARK: Shine 的容器形态
+
+    /// AC 逐字列的第 8 个 API 是 `Shine { }`——八个里**唯一大写**的一项。
+    @Test("Shine { } 容器形态存在，且静息位图与裸视图逐字节相同")
+    func shineContainerExists() {
+        let bare = MicroInteractionAPITests.stablePixels(Text("x"))
+        let wrapped = MicroInteractionAPITests.stablePixels(Shine { Text("x") })
+        #expect(bare != nil && wrapped != nil, "渲染失败，下面的相等断言会静默变绿")
+        #expect(bare == wrapped, "Shine 容器在静息态就改变了位图")
+    }
+
+    /// ⚠️⚠️ **这条才是容器形态的真正风险点**：容器若自己实现一遍高光，
+    /// `MicroInteractionReduceMotionGuard` 的三条判据仍然全绿
+    /// （`Shine.swift` 在早退名单里、`accessibilityReduceMotion` 也在场），
+    /// 但 Reduce Motion 降级就会**只覆盖 modifier、不覆盖容器**。
+    /// ⇒ 钉死「容器必须委托给 `.shine(trigger:)`」，不得有第二套实现。
+    @Test("Shine 容器必须委托给 .shine(trigger:)，不得绕过它自建一套（RM 降级由 modifier 承载）")
+    func shineContainerDelegatesToModifier() throws {
+        let code = try Self.source("Shine.swift")
+        guard let start = code.range(of: "public struct Shine<Content: View>: View {") else {
+            Issue.record("找不到 Shine 容器声明")
+            return
+        }
+        // 容器声明到文件里下一个顶层 `public extension View` 之间的那一段。
+        let tail = code[start.upperBound...]
+        let end = tail.range(of: "\npublic extension View")?.lowerBound ?? tail.endIndex
+        let body = String(tail[tail.startIndex..<end])
+
+        #expect(body.contains(".shine(trigger:"),
+                "Shine 容器必须复用 `.shine(trigger:)`，RM 降级与 .mask 限度都继承自它")
+        let forbidden = ["keyframeAnimator(", "phaseAnimator(", "LinearGradient(", ".mask("]
+        let offenders = forbidden.filter { body.contains($0) }
+        #expect(offenders.isEmpty,
+                "Shine 容器里出现了自建的动画/绘制实现 \(offenders) —— 那会绕过 modifier 的 Reduce Motion 降级")
+    }
+}

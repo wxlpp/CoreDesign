@@ -20,6 +20,15 @@ public extension View {
     /// ```swift
     /// view.haptic(.success, trigger: purchased)
     /// ```
+    ///
+    /// ⚠️ **`trigger` 是 `some Equatable`，刻意*不*约束 `Sendable`** ——
+    /// 这与其余七个入口**完全一致**（它们同样只写 `some Equatable`），不是本文件的例外。
+    /// 加上 `Sendable` 会让 `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` 的下游工程
+    /// （Xcode 26 新建工程的默认值）里任何 `enum Step: Equatable` 当 trigger 都报
+    /// `main actor-isolated conformance ... cannot satisfy ... 'Sendable'`。
+    /// 完整来龙去脉见 `TriggerRelay` 的文档，机器判据见测试 `triggerIsGeneric`
+    /// （用一个 MainActor 隔离 conformance 的类型当 trigger，加约束即编译红）。
+    /// ⚠️ #262 第 1 轮 review 曾提出"本入口是唯一没约束 `Sendable` 的"，前提不成立，未采纳。
     func haptic(
         _ feedback: SensoryFeedback,
         trigger: some Equatable

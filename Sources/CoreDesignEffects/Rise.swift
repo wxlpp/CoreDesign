@@ -32,6 +32,18 @@ private struct RiseCore: ViewModifier {
                             // RM-FORM-2: 本效果的反馈**本身**就是"淡入 → 上浮 → 淡出"，
                             // 去掉上浮后仍留有完整的淡入淡出，再叠一次透明度脉冲会变成
                             // 两次反馈。⇒ 走形态 2：静止位移 + 保留原有的淡入淡出。
+                            //
+                            // ⚠️ **为什么真分支是 `-reach * 0.5` 而不是 `0`**
+                            //（#262 第 1 轮 review 明确要求归零，未采纳，理由如下）：
+                            // 这里是**常量**位移，`isReduced` 为真时它每一帧都相同
+                            // ⇒ 屏幕上**不产生任何运动**，FR-11 约束的是运动而非静态摆位。
+                            // 而 `.overlay(alignment: .top)` 下 `offset 0` 恰好把这段文字
+                            // **压在被修饰内容的顶部**（动画的起点位置，正常路径上它会立刻升走）
+                            // ⇒ 归零反而让开启 Reduce Motion 的用户读到一段与数字重叠的
+                            // "+1"，是可读性回退，不是无障碍改进。
+                            // ⚠️ `MicroInteractionReduceMotionGuard.everyMotionCallIsGated`
+                            // 的判据「真分支不得引用动画状态」正是为这一形态定的
+                            //（要求恒等字面量曾造成一次误红，见该判据注释）。
                             .offset(y: isReduced ? -reach * 0.5 : state.lift)
                             .opacity(state.opacity)
                     } keyframes: { _ in
