@@ -972,8 +972,16 @@ nonisolated final class PublicTypeCollector: SyntaxVisitor {
     ///
     /// ⚠️ **`open` 与 `public` 同等对待**（PR #265 Copilot A-2）：`open` 比 `public`
     /// **更**开放（下游还能覆写），只认 `public` 会让 `open` 成为一条绕过登记表覆盖
-    /// 守卫的入口点通道。`open` 只在 class 语境下合法，本仓今天一个都没有——
-    /// 这条是把口子在出现之前就堵上，成本是一个字符串。
+    /// 守卫的入口点通道。成本是一个字符串。
+    /// ⚠️⚠️ **但这条是预防性的，且在当前的 host 清单下不可达**（PR #265 第 3 轮终审 S-f）：
+    /// `open` 只对 class 及其成员合法，而 `entryPointHostTypes` 是
+    /// `["View", "Transition", "AnyTransition"]`——两个协议 + 一个 struct，
+    /// **没有一个能承载 `open` 成员** ⇒ `extension View { open func … }` 编译不过，
+    /// 这条分支永远不会被真实输入触发（`ExtensionEntryPointGuard.scannerSeesExtensionMembers`
+    /// 里那条 fixture 因此是 SwiftParser 解析得动、编译器接受不了的合成输入，
+    /// 与本 PR 其余「植入真实可编译的违规文件」的证据标准不同，已在该处照录）。
+    /// ⇒ 它的价值是「`entryPointHostTypes` 将来若纳入 class 宿主（如某个
+    /// `open class` 的样式基类），这条不必再补」，**不是**「今天堵住了一条真实通道」。
     private static func isEffectivelyPublic(
         _ modifiers: DeclModifierListSyntax, extensionIsPublic: Bool
     ) -> Bool {

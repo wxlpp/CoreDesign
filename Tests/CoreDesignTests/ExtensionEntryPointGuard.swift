@@ -235,6 +235,15 @@ struct ExtensionEntryPointGuard {
         """) == ["Transition.wipe"])
 
         // ④b `open` 成员同样是入口点（Copilot A-2：只认 `public` 会让 `open` 绕过登记）。
+        // ⚠️⚠️ **本条 fixture 不是可编译的 Swift，也不可能有可编译的版本**
+        // （PR #265 第 3 轮终审 S-f）：`open` 只对 class 及其成员合法，而
+        // `PublicTypeCollector.entryPointHostTypes` 是 `["View", "Transition", "AnyTransition"]`
+        // ——两个协议 + 一个 struct，一个都承载不了 `open` 成员。SwiftParser 只解析、
+        // 不做语义检查，所以它照样绿，但**这种输入在真实源码里永远不会出现**。
+        // ⇒ 它证的是「解析器认得 `open` 这个修饰符」，**不是**「一条真实绕过通道被堵上」；
+        // 与本 PR 其余判据「植入真实可编译的违规文件」的证据标准不同，照录在此。
+        // 真正的价值在 `entryPointHostTypes` 将来纳入 class 宿主时——见
+        // `PublicTypeCollector.isEffectivelyPublic` 的文档。
         #expect(entryPoints("""
         import SwiftUI
         extension View {
