@@ -51,7 +51,8 @@ public struct NetworkGraph<Node: GraphNode>: View {
             // 里躺着、全仓零引用——说明原本计划过这个提示，落地时掉了。
             VStack(spacing: 4) {
                 self.canvas
-                Text(.chart("Showing the first \(Self.recommendedNodeLimit) nodes"))
+                // ⚠️ 写**实际渲染数**而非上限（第 3 轮终审 S-6）：去重后实际渲染数可能 < 150。
+                Text(.chart("Showing the first \(self.effectiveNodes.count) nodes"))
                     .font(.caption2)
                     .foregroundStyle(Color.contentTertiary)
             }
@@ -81,13 +82,34 @@ public struct NetworkGraph<Node: GraphNode>: View {
     nonisolated static func iterations(for count: Int) -> Int {
         count <= 60 ? 90 : max(20, 90 * 60 / count)
     }
+    /// 建议的**边数**上限。
+    ///
+    /// ⚠️ **第 3 轮终审 I-5**：上一版只有节点上限，而弹簧回路每轮遍历**全部** edges
+    /// ⇒ O(E · iter)，`Path` 每帧画 E 条线段。性能表标注的是「边数 = 2n」即**稀疏图**；
+    /// n=150 的稠密图 E 可达 11 175，与斥力回路的配对数同量级 ⇒ 实际耗时约为表中的两倍。
+    /// 而 `pairwiseWorkIsBounded` 只算 `n²·iter`，对 E **完全无感**。
+    public static var recommendedEdgeLimit: Int { 600 }
+
+    private var effectiveEdges: [Edge] {
+        Array(self.edges.prefix(Self.recommendedEdgeLimit))
+    }
+
     /// 超限时截断。⚠️ 截断而不是拒绝——半张图仍有信息量，crash 没有。
+    /// ⚠️⚠️ **去重必须在这一层，不能只在 `layout` 内部**（第 3 轮终审 C-2）。
+    /// 上一版只在 `layout` 里去重 ⇒ 只保护了 `pos` 字典，而两个消费方拿的是
+    /// **未去重的** `effectiveNodes`：`ForEach` 会拿到重复 ID（SwiftUI 未定义行为，
+    /// 正是 `layout` 自己注释里点名的那个），descriptor 会多播报一个类目。
+    /// ⚠️ 顺序与 `RingChart.effectiveValues` 对齐：**先去重、后截断**。
+    /// ⚠️ 而 `NetworkGraphLayoutTests.duplicateIDs` 直接调 `layout` **绕过了本属性**
+    /// ⇒ 这个 bug 存在时它是绿的——与第 2 轮判 `overLimitTruncates` 为假绿是同一句理由。
     private var effectiveNodes: [Node] {
-        Array(self.nodes.prefix(Self.recommendedNodeLimit))
+        var seen = Set<Node.ID>()
+        return Array(self.nodes.filter { seen.insert($0.id).inserted }
+            .prefix(Self.recommendedNodeLimit))
     }
 
     private var isTruncated: Bool {
-        self.nodes.count > Self.recommendedNodeLimit
+        self.nodes.count > Self.recommendedNodeLimit || self.edges.count > Self.recommendedEdgeLimit
     }
 
     /// 布局缓存的失效键。
@@ -97,7 +119,9 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// 在每次布局/状态变化/旋转/父视图刷新时都会重跑，`GeometryReader` 一帧内被求值
     /// 多次也很常见。FR-20 只挡住了「>150 截断」，**没挡住「恰好 150 时每帧重算」**
     /// ——后者才是真正卡 UI 的那条。
-    private struct LayoutKey: Equatable, Sendable {
+    /// ⚠️ `internal` 是为了可测（第 3 轮终审 I-4）：C-4 修的「截断 ⇒ iterations 归零」
+    /// 与「150 → 200 时 key 必须变」此前**零覆盖**——把 `:116` 改回去，516 条测试全绿。
+    struct LayoutKey: Equatable, Sendable {
         let ids: [Node.ID]
         let edges: [Edge]
         let size: CGSize
@@ -108,10 +132,10 @@ public struct NetworkGraph<Node: GraphNode>: View {
         let iterations: Int
     }
 
-    private func layoutKey(for size: CGSize) -> LayoutKey {
+    func layoutKey(for size: CGSize) -> LayoutKey {
         LayoutKey(
             ids: self.effectiveNodes.map(\.id),
-            edges: self.edges,
+            edges: self.effectiveEdges,
             size: size,
             iterations: self.isTruncated ? 0 : Self.iterations(for: self.effectiveNodes.count)
         )
@@ -128,7 +152,7 @@ public struct NetworkGraph<Node: GraphNode>: View {
             ZStack {
                 // 边
                 Path { path in
-                    for edge in self.edges {
+                    for edge in self.effectiveEdges {
                         guard let a = layout[edge.from], let b = layout[edge.to] else { continue }
                         path.move(to: a)
                         path.addLine(to: b)
@@ -150,14 +174,26 @@ public struct NetworkGraph<Node: GraphNode>: View {
             // ① 实测上限处 283 ms ≈ 17 帧，同步跑必然掉帧（NFR-1）；
             // ② 上一版用 `@State` 缓存 + `onChange` 里重算，**每次 key 变化算两遍**
             //    （body 走未命中分支算一次、`onChange` 又算一次）⇒ 比不加缓存更慢。
-            // `.task(id:)` 天然解决二者：key 变才重算、算在主线程之外、旧任务自动取消。
+            // `.task(id:)` 让 key 变才重算、且算在主线程之外。
+            //
+            // ⚠️⚠️ **取消必须显式传导**（第 3 轮终审 I-1）：上一版注释写「旧任务自动取消」
+            // ——**对 detached 子任务不成立**。`Task.detached` 按定义不继承父任务的
+            // 优先级、task-local 与**取消**，一旦启动就会跑完整整 `iterations` 轮。
+            // 而 `key` 含 `size`，`GeometryReader` 在 resize / 旋转时**逐帧**报新尺寸
+            // ⇒ 每帧启动一个不可打断的 solve、旧的继续烧到底 ⇒ 把上一版**有界的卡顿**
+            // 换成**无界的 CPU 堆积**。
             .task(id: key) {
                 let nodes = self.effectiveNodes
-                let edges = self.edges
-                let result = await Task.detached(priority: .userInitiated) {
+                let edges = self.effectiveEdges
+                let handle = Task.detached(priority: .userInitiated) {
                     Self.layout(nodes: nodes, edges: edges,
                                 size: key.size, iterations: key.iterations)
-                }.value
+                }
+                let result = await withTaskCancellationHandler {
+                    await handle.value
+                } onCancel: {
+                    handle.cancel()
+                }
                 guard !Task.isCancelled else { return }
                 self.solved = result
             }

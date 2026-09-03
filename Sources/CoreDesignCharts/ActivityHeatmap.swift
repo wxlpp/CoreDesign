@@ -78,8 +78,29 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     /// ⚠️ **提成 `static` 纯函数是为了可测**（终审 C-3）：初版它是 `private` 计算属性，
     /// 测试 target 即使 `@testable` 也够不到 ⇒ 整个分列逻辑零覆盖，
     /// 而下面那个 DST bug 就藏在里面。
-    static func weeks(for days: [Day], calendar: Calendar) -> [[Day?]] {
+    /// 渲染与 descriptor **共用**的有效数据：排序 → 去重（后者胜）→ 截断最近一段。
+    ///
+    /// ⚠️⚠️ **第 3 轮终审 C-1：这是第二轮 `RingChart` 那个 bug 的同形复发。**
+    /// 上一轮我把 descriptor 从 `self.values` 改成 `effectiveValues` 时记账写的是
+    /// 「`NetworkGraph` 在同一件事上是对的，两个兄弟组件走反了」——**那句话少数了
+    /// 一个兄弟**。四个图表里有三个会截断，我只核对了两个。
+    /// 后果一致：10 年数据时屏幕画 1830 天、**VoiceOver 播报 3653 个点**。
+    static func effectiveDays(_ days: [Day], calendar: Calendar) -> [Day] {
         let sorted = days.sorted { $0.date < $1.date }
+        guard let last = sorted.last else { return [] }
+        var seen = Set<Date>()
+        // 后者胜：与 `weeks` 内 `byDate[...] = d` 的语义一致 ⇒ 反向去重再翻回来。
+        let deduped = sorted.reversed()
+            .filter { seen.insert(calendar.startOfDay(for: $0.date)).inserted }
+            .reversed()
+        let end = calendar.startOfDay(for: last.date)
+        guard let floorDate = calendar.date(byAdding: .day, value: -(Self.maximumDays - 1), to: end)
+        else { return Array(deduped) }
+        return deduped.filter { calendar.startOfDay(for: $0.date) >= floorDate }
+    }
+
+    static func weeks(for days: [Day], calendar: Calendar) -> [[Day?]] {
+        let sorted = Self.effectiveDays(days, calendar: calendar)
         guard let first = sorted.first, let last = sorted.last else { return [] }
 
         var result: [[Day?]] = []
@@ -87,10 +108,9 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
         // ⚠️ **截断保留最近的一段，不是最旧的**（第 2 轮终审 I-7）：贡献热力图的
         // 默认阅读方向是「最近」，上一版从最旧一天起步 + 到上限就 break ⇒ 有 10 年
         // 数据的用户看到的是**最早那五年**，最近的活动全部不显示。
+        // 起点/终点已由 `effectiveDays` 收敛过，这里直接取两端。
         let end = calendar.startOfDay(for: last.date)
-        let earliest = calendar.startOfDay(for: first.date)
-        let capped = calendar.date(byAdding: .day, value: -(Self.maximumDays - 1), to: end)
-        var cursor = max(earliest, capped ?? earliest)
+        var cursor = calendar.startOfDay(for: first.date)
         // ⚠️ **重复日期后者胜**，且这是有意的（终审 S-8）：调用方给同一天两条记录时
         // 静默取后一条，而不是相加——相加会让"重复"这个输入错误看起来像正常数据。
         var byDate = [Date: Day]()
@@ -127,7 +147,13 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     }
 
     /// 单张热力图渲染的天数上限（≈ 5 年）。超出即**截断最旧的一段**（FR-20：截断不断言）。
-    /// ⚠️ 截断目前**对用户静默**——与 `NetworkGraph` 一致，由调用方自行提示。
+    /// ⚠️ **截断对用户静默**。⚠️ 上一版这里写「与 `NetworkGraph` 一致」——
+    /// 那句在同一个 commit 里就已失真（`NetworkGraph` 已加可见提示，第 3 轮终审 I-6）。
+    /// 三个会截断的图表现在是三种行为，本轮**显式定案**：
+    /// 只有 `NetworkGraph` 提示，因为它的截断会**改变布局算法**（力导向 → 静态环形），
+    /// 用户看到的是一张"不一样的图"而不只是"少了几个"；
+    /// 热力图与活动环的截断是**同质的**（少几天 / 少几环），且都发生在时间/指标序列的
+    /// 一端，读图时可自明 ⇒ 由调用方按场景自行提示。
     /// ⚠️ 泛型类型不支持 static **存储**属性。
     public static var maximumDays: Int { 1830 }
 
@@ -139,7 +165,11 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     static func buckets(for days: [Day]) -> [Int] {
         let peak = days.map(\.count).max() ?? 0
         guard peak > 0 else { return [] }
-        return (1...4).map { Int((Double(peak) * Double($0) / 4).rounded(.up)) }
+        // ⚠️ `min(..., peak)` 防 `Int(_:)` 越界 trap（第 3 轮终审 S-5）：
+        // `peak == Int.max` 时 `$0 == 4` 的结果是 `Double(Int.max)` = 2⁶³ ⇒ 越界。
+        // 与本 target 修过的 `Int(非有限)` 是同一族，而硬约束 3 写的是
+        // 「库代码不得让宿主 App crash」。
+        return (1...4).map { min(Int((Double(peak) * Double($0) / 4).rounded(.down)), peak) }
     }
 
     private func color(for day: Day?, buckets: [Int]) -> Color {
@@ -154,7 +184,9 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
 extension ActivityHeatmap: AXChartDescriptorRepresentable {
     public func makeChartDescriptor() -> AXChartDescriptor {
         // `count` 是 `Int`，天然有限；这里仍走 `safeRange` 是为了与另外三个图表同形。
-        let peak = Double(self.days.map(\.count).max() ?? 1)
+        // ⚠️ 与渲染同源（第 3 轮终审 C-1）。
+        let shown = Self.effectiveDays(self.days, calendar: self.calendar)
+        let peak = Double(shown.map(\.count).max() ?? 1)
         // ⚠️⚠️ **不要写成 `"\(Int($0))"`**——`Accessibility` 框架在构造描述符时会拿
         // **非有限的探针值**调用这个闭包，`Int(非有限)` 直接 trap。
         // 这不是理论：本 target 的空数据 descriptor 测试**当场崩给我看**
@@ -166,11 +198,11 @@ extension ActivityHeatmap: AXChartDescriptorRepresentable {
         ) { $0.formatted(.number.precision(.fractionLength(0))) }
         let dates = AXCategoricalDataAxisDescriptor(
             title: chartAXString("Date"),
-            categoryOrder: self.days.map { $0.date.formatted(date: .abbreviated, time: .omitted) }
+            categoryOrder: shown.map { $0.date.formatted(date: .abbreviated, time: .omitted) }
         )
         let series = AXDataSeriesDescriptor(
             name: "", isContinuous: false,
-            dataPoints: self.days.map {
+            dataPoints: shown.map {
                 AXDataPoint(
                     x: $0.date.formatted(date: .abbreviated, time: .omitted),
                     y: Double($0.count)

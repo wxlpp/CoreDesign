@@ -55,8 +55,12 @@ struct PerChartDegenerateTests {
         #expect(ChartDegeneracy.of([1], minimumCount: 3) == .insufficientPoints(needed: 3))
         #expect(ChartDegeneracy.of([1, 2], minimumCount: 3) == .insufficientPoints(needed: 3))
         // 描述符是 VoiceOver 主动拉取的，空数据下同样不得 trap。
-        _ = RadarChart([Point]()).makeChartDescriptor()
-        _ = RadarChart(points([1])).makeChartDescriptor()
+        // ⚠️ 第 3 轮终审 S-2：这两条上一版是零断言的冒烟调用，
+        // 与第 2 轮判 `RingChart` 那条为不足是同一形态。
+        #expect(RadarChart([Point]()).makeChartDescriptor()
+            .series.first?.dataPoints.isEmpty == true)
+        #expect(RadarChart(points([1])).makeChartDescriptor()
+            .series.first?.dataPoints.count == 1)
     }
 
     @Test("RingChart：空数组走空态、描述符不崩")
@@ -365,11 +369,25 @@ struct NetworkGraphLayoutTests {
     /// ⚠️ 机器无关的**运算量上界**（第 2 轮终审 C-2 方案 3）。计时不进 CI（机器差异会变
     /// 随机红灯），但「上限被上调 / 轮数被放宽」必须有东西挡住——
     /// `#expect(iterations(for: 150) < 90)` 挡不住「上限调到 500、iter=20」这种回归。
-    @Test("上限处的配对运算量有确定性上界")
+    /// ⚠️ **上一版有三个问题**（第 3 轮终审 S-1 / I-5，我自己也怀疑过其中第一个）：
+    /// ① `900_000` 是按当前值 810 000 反推的 —— **用现状定义正确**，恒真陷阱的变体；
+    /// ② 只在 `n = limit` **一点**检查 —— 若 `iterations(for:)` 被改成非单调曲线、
+    ///    峰值不在上限处，就漏掉；
+    /// ③ 只算 `n²·iter`，对**边数完全无感** —— 而弹簧回路是 O(E·iter)，
+    ///    稠密图（E 可达 n(n-1)/2）的实际工作量约为表中的两倍。
+    /// ⇒ 本版：预算**与实测吞吐挂钩**（283 ms / 810 000 ≈ 0.35 µs 每单位 ⇒
+    /// 300 ms 预算 ≈ 860 000）、**全区间**检查、**把最坏边数计进去**。
+    @Test("全区间的运算量有确定性上界（含最坏边数）")
     func pairwiseWorkIsBounded() {
-        let n = NetworkGraph<Node>.recommendedNodeLimit
-        let work = n * n * NetworkGraph<Node>.iterations(for: n)
-        #expect(work <= 900_000, "上限处配对运算量 \(work) 超出预算 —— 上限或轮数被放宽了")
+        // 0.35 µs/单位（实测 283 ms / 810k）× 300 ms 预算 ⇒ 约 860k。
+        // ⚠️ 改这个数须重跑基准并同步 `iterations(for:)` 的文档表格。
+        let budget = 860_000
+        for n in 1...NetworkGraph<Node>.recommendedNodeLimit {
+            let iter = NetworkGraph<Node>.iterations(for: n)
+            let worstEdges = min(n * (n - 1) / 2, NetworkGraph<Node>.recommendedEdgeLimit)
+            let work = (n * n / 2 + worstEdges) * iter
+            #expect(work <= budget, "n=\(n) 的运算量 \(work) 超出预算 \(budget)")
+        }
     }
 
     @Test("布局确定性：同输入两次结果相同")
@@ -521,9 +539,93 @@ struct LocalizationPathTests {
         #expect(resolved != "__localization_probe__", "回退到了 key —— 资源没进 bundle")
     }
 
+    /// ⚠️ **上一版只测了 `chartAXString`（`String(localized:bundle:)`），
+    /// 而所有用户可见的 chrome 文案走的是另一条机制**
+    ///（`LocalizedStringResource(_:bundle: .atURL(...))`，第 3 轮终审 I-3）。
+    /// 有人把 `.atURL(...)` 误改成 `.main`、或 `bundleURL` 取错，哨兵抓不到。
+    @Test("chrome 文案走的 .atURL 通路同样命中")
+    func localizedStringResourcePathResolves() {
+        #expect(String(localized: .chart("__localization_probe__")) == "resource-bundle-resolved")
+        #expect(String(localized: .chart("No data")) == "No data")
+    }
+
     @Test("真实文案也走同一条通路")
     func realStringsResolve() {
         #expect(chartAXString("Connections") == "Connections")
         #expect(!chartAXString("Node").isEmpty)
+    }
+}
+
+
+// MARK: - 第 3 轮终审补的覆盖
+
+// ⚠️ 这三条各自钉住一个「同一 bug 类在另一个兄弟组件上原样留着」的实例。
+
+@Suite("截断在三个组件间一致（渲染 == descriptor）")
+struct TruncationConsistencyTests {
+
+    private func days(_ n: Int) -> [Day] {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        return (0..<n).map { Day(date: start.addingTimeInterval(Double($0) * 86400), count: $0 % 9) }
+    }
+
+    /// ⚠️ 与 `RingChartTruncationTests.descriptorMatchesRendering` 同形——
+    /// 第 2 轮修 `RingChart` 时我写「两个兄弟组件走反了」，**那句话少数了一个兄弟**。
+    @Test("ActivityHeatmap：descriptor 只播报截断后的天数")
+    func heatmapDescriptorMatchesRendering() {
+        let limit = ActivityHeatmap<Day>.maximumDays
+        let d = ActivityHeatmap(self.days(limit + 400)).makeChartDescriptor()
+        #expect(d.series.first?.dataPoints.count == limit)
+    }
+
+    @Test("ActivityHeatmap：截断保留的是**最近**一段")
+    func heatmapKeepsRecent() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let all = self.days(ActivityHeatmap<Day>.maximumDays + 100)
+        let kept = ActivityHeatmap<Day>.effectiveDays(all, calendar: cal)
+        #expect(kept.last?.date == all.last?.date, "丢掉的是最近的一段")
+        #expect(kept.first?.date != all.first?.date, "没有截断")
+    }
+
+    /// ⚠️ 第 3 轮终审 C-2：去重此前只在 `layout` 内部，而 `ForEach` 与 descriptor
+    /// 拿的是**未去重**的 `effectiveNodes` ⇒ SwiftUI 重复 ID + 多播报一个类目。
+    /// 而原来的 `duplicateIDs` 直接调 `layout`、**绕过了那一层**，bug 在时它是绿的。
+    @Test("NetworkGraph：重复 id 在组件层就去重（不只在 layout 内部）")
+    func graphDedupesAtComponentLevel() {
+        let dup = [Node(id: "a", label: "first"), Node(id: "a", label: "second"),
+                   Node(id: "b", label: "B")]
+        let d = NetworkGraph(nodes: dup, edges: []).makeChartDescriptor()
+        #expect(d.series.first?.dataPoints.count == 2)
+        let category = d.xAxis as? AXCategoricalDataAxisDescriptor
+        #expect(category?.categoryOrder.count == 2)
+    }
+
+    /// ⚠️ 第 3 轮终审 I-4：C-4 修的「截断 ⇒ iterations 归零」此前零覆盖。
+    @Test("FR-20 降级：超限时 iterations 归零，且 key 随节点数变化")
+    func truncationDegradesToStaticLayout() {
+        let size = CGSize(width: 300, height: 300)
+        let under = NetworkGraph(nodes: (0..<20).map { Node(id: "n\($0)", label: "L") }, edges: [])
+        let over = NetworkGraph(
+            nodes: (0..<(NetworkGraph<Node>.recommendedNodeLimit + 50))
+                .map { Node(id: "n\($0)", label: "L") },
+            edges: []
+        )
+        #expect(under.layoutKey(for: size).iterations > 0)
+        #expect(over.layoutKey(for: size).iterations == 0, "超限没有降级为静态布局")
+        // C-4 的原始论证：150 → 200 时 key 必须变（否则命中过期布局）。
+        #expect(under.layoutKey(for: size) != over.layoutKey(for: size))
+    }
+
+    /// ⚠️ 第 3 轮终审 I-5：边数此前完全无上限，而弹簧回路是 O(E·iter)。
+    @Test("边数超限也触发降级")
+    func edgeLimitTriggersDegradation() {
+        let nodes = (0..<20).map { Node(id: "n\($0)", label: "L") }
+        let many = (0..<(NetworkGraph<Node>.recommendedEdgeLimit + 100))
+            .map { GraphEdge(from: "n\($0 % 20)", to: "n\(($0 * 7) % 20)") }
+        let g = NetworkGraph(nodes: nodes, edges: many)
+        #expect(g.layoutKey(for: .init(width: 300, height: 300)).iterations == 0)
     }
 }
