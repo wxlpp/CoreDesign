@@ -36,7 +36,7 @@ import SwiftUI
 /// - 场景进入 `.inactive` / `.background` ⇒ **整层不建**，驱动它的 `TimelineView` 不存在；
 /// - 低电量模式 ⇒ 降到 15 fps 并去掉离屏模糊的光晕。
 ///
-/// 两个信号都可经 `\.effectsScenePhase` / `\.effectsPowerMode` 注入（默认从系统读）。
+/// 两个信号都可经 `\.scenePhaseOverride` / `\.lowPowerModeOverride` 注入（默认从系统读）。
 ///
 /// ⚠️ **本类型是薄封装**：驱动与绘制全在 `ProcessingSweep.swift`，
 /// 容器**不得**自建第二套动画——否则 Reduce Motion 与能耗降级只覆盖驱动层、不覆盖容器

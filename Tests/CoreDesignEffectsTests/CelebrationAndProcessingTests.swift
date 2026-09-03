@@ -12,8 +12,8 @@ import Testing
 // `ProcessInfo.isLowPowerModeEnabled` 与 `\.scenePhase` **在单测里都不可切换**。
 // ⇒ 实现把两个信号做成可注入的 `EnvironmentValues`，本文件注入伪值、断言**渲染行为**：
 //
-// · `\.effectsScenePhase = .background` ⇒ 三个常驻效果**一个像素都不画**（与裸内容逐字节相同）；
-// · `\.effectsPowerMode = .lowPower` ⇒ **同一相位**下位图与满电时不同（光晕那一层被去掉）。
+// · `\.scenePhaseOverride = .background` ⇒ 三个常驻效果**一个像素都不画**（与裸内容逐字节相同）；
+// · `\.lowPowerModeOverride = true` ⇒ **同一相位**下位图与满电时不同（光晕那一层被去掉）。
 //
 // ⚠️ **低电量那条必须钉相位**：降帧本身拍不进静态帧（`ImageRenderer` 拍的是一帧），
 // 而若走 `TimelineView` 的活相位，两次渲染落在不同时刻上，位图必然不同 ⇒ 断言恒真。
@@ -74,6 +74,22 @@ struct EffectsEnergyStateTests {
             injectedScenePhase: .active, systemScenePhase: .active, injectedPowerMode: nil
         )
         #expect(resolved.powerMode == expected, "注入 nil 时没有从 ProcessInfo 读 —— 默认值不是系统值")
+    }
+
+    /// ⚠️ **`CoreDesign` 的 `Bool?` 键 → 本 target 的语义档位，这一步是承重的**
+    ///（#252 PR #269 终审 S-2 的下沉处置）：三个调用点都靠
+    /// `EffectsPowerMode.lifted(from:)` 抬升，抬错就等于两个能耗键在动效层上失效。
+    ///
+    /// ⚠️ **`nil` 必须原样传下去**，不能就地折成 `.standard`：`nil` 的语义是
+    /// "没有人注入 ⇒ 去读 `ProcessInfo`"，折成 `.standard` 会把"默认从系统读"
+    /// 整条抹掉（`defaultPowerModeReadsSystem` 断的正是那条），
+    /// 而这两种写法在 `.policy` 上**只在真机开着低电量时**才可分辨——
+    /// 靠上面那个测试抓不到，必须在这里单独钉死。
+    @Test("lowPowerModeOverride（Bool?）抬成 EffectsPowerMode?：true ⇒ .lowPower，nil ⇒ nil")
+    func liftsGenericLowPowerKeyIntoPowerMode() {
+        #expect(EffectsPowerMode.lifted(from: true) == .lowPower)
+        #expect(EffectsPowerMode.lifted(from: false) == .standard)
+        #expect(EffectsPowerMode.lifted(from: nil) == nil, "nil 被折成了档位 —— 「默认从系统读」整条失效")
     }
 
     /// ⚠️⚠️ **I-1 的机器判据**（#252 PR #269 第 1 轮终审 I-1 / I-2）。
@@ -155,7 +171,7 @@ struct EffectsEnergyRenderTests {
             let probe = ProcessingSweepBody(kind: kind, phase: ProcessingSweep.restingPhase)
                 .frame(width: 180, height: 120)
                 .background(Color.surfaceRaised)
-                .environment(\.effectsScenePhase, .active)
+                .environment(\.scenePhaseOverride, .active)
             for _ in 0..<4 { _ = MicroInteractionAPITests.stablePixels(probe) }
         }
         return true
@@ -174,7 +190,7 @@ struct EffectsEnergyRenderTests {
         case .glow: AnyView(GlowSweep { content })
         case .light: AnyView(LightSweep { content })
         }
-        return Self.pixels(view.environment(\.effectsScenePhase, phase))
+        return Self.pixels(view.environment(\.scenePhaseOverride, phase))
     }
 
     /// ⚠️⚠️ **这是本 task 的核心判据**：注入"App 进了后台"，三个常驻效果必须
@@ -205,22 +221,22 @@ struct EffectsEnergyRenderTests {
     /// 低电量方向的渲染判据。**必须钉相位**——理由见文件头。
     @Test("注入 .lowPower ⇒ 同一相位下位图与满电不同（光晕那层被去掉）")
     func lowPowerChangesRenderingAtSamePhase() {
-        func pixels(_ kind: ProcessingSweepKind, _ mode: EffectsPowerMode) -> Data? {
+        func pixels(_ kind: ProcessingSweepKind, lowPower: Bool) -> Data? {
             Self.pixels(
                 ProcessingSweepBody(kind: kind, phase: ProcessingSweep.restingPhase)
                     .frame(width: 180, height: 120)
                     .background(Color.surfaceRaised)
-                    .environment(\.effectsScenePhase, .active)
-                    .environment(\.effectsPowerMode, mode)
+                    .environment(\.scenePhaseOverride, .active)
+                    .environment(\.lowPowerModeOverride, lowPower)
             )
         }
         for kind in ProcessingSweepKind.allCases {
-            let full = pixels(kind, .standard)
-            let low = pixels(kind, .lowPower)
+            let full = pixels(kind, lowPower: false)
+            let low = pixels(kind, lowPower: true)
             #expect(full != nil && low != nil, "\(kind) 渲染失败，下面的不等断言会静默变绿")
             #expect(full?.contains(where: { $0 != 0 }) == true, "\(kind) 位图全 0")
             #expect(full != low,
-                    "\(kind) 在低电量下与满电渲染完全一致 —— 注入的 \\.effectsPowerMode 没有影响渲染")
+                    "\(kind) 在低电量下与满电渲染完全一致 —— 注入的 \\.lowPowerModeOverride 没有影响渲染")
         }
     }
 }
@@ -274,7 +290,7 @@ struct ProcessingSweepTests {
                     ProcessingSweepBody(kind: kind, phase: phase)
                         .frame(width: 180, height: 120)
                         .background(Color.surfaceRaised)
-                        .environment(\.effectsScenePhase, .active)
+                        .environment(\.scenePhaseOverride, .active)
                 )
                 // ⚠️ 少了这条，整体渲染失败（`drawn == nil`）会让下一条静默判绿
                 //（`nil != baseline` 恒真）——#252 PR #269 第 1 轮终审 S-3。
@@ -479,7 +495,7 @@ struct ConfettiTests {
     /// `ImageRenderer` 下 `.task` 不跑 ⇒ `burstStart` 恒为 `nil` ⇒ 整条路径渲不出一个像素。
     /// 生产路径永远不传它（`.confetti(trigger:)` 不暴露这个参数）。
     ///
-    /// ⚠️ **`\.effectsScenePhase` 必须显式注入 `.active`**：单测里没有 `Scene`，
+    /// ⚠️ **`\.scenePhaseOverride` 必须显式注入 `.active`**：单测里没有 `Scene`，
     /// 系统 `\.scenePhase` 的默认值不保证是 `.active`。
     @Test("ConfettiCore：能耗闸生效、burst 门控生效、colors 接得到画布")
     func confettiCoreRendersTheRealPath() {
@@ -502,7 +518,7 @@ struct ConfettiTests {
                     .modifier(ConfettiCore(
                         fire: 0, strength: .regular, colors: colors, initialBurstStart: start
                     ))
-                    .environment(\.effectsScenePhase, phase)
+                    .environment(\.scenePhaseOverride, phase)
             )
         }
 

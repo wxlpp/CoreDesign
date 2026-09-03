@@ -2,56 +2,39 @@
 //  EffectsEnergy.swift
 //  CoreDesignEffects
 //
-//  NFR-7 能耗与生命周期：可注入的 EnvironmentValues + 渲染策略
-//  / Injectable energy environment + render policy.
+//  NFR-7 能耗与生命周期：动效层的渲染策略（两个可注入键住在 CoreDesign）
+//  / Effects-side render policy derived from CoreDesign's injectable energy keys.
 //
 
 import CoreDesign
 import Foundation
 import SwiftUI
 
-// MARK: - 为什么要有"可注入"这一层
+// MARK: - 两个可注入键在哪 / Where the injectable keys live
 
 // PRD 的 **NFR-7** 逐字要求：常驻渲染的效果（`colorEffect` 背景、Confetti、
 // ScanningOverlay）必须**定义**并**可测**它们在 App 进入后台、以及低电量模式下的行为。
 // ⚠️ 并且逐字写明「**不接受"或文档声明"**」——那会让这条退化成文档要求。
+// 两个信号在单测里都不可直接切换（`ProcessInfo` 只读、`ImageRenderer` 下没有 `Scene`）
+// ⇒ 必须有可注入的 `EnvironmentValues` 键。
 //
-// 而这两个信号在单测里**都不可直接切换**：
-// · `ProcessInfo.processInfo.isLowPowerModeEnabled` 是只读的系统状态；
-// · `\.scenePhase` 由 SwiftUI 的 `Scene` 供给，`ImageRenderer` 下没有 Scene 可驱动。
-//
-// ⇒ 本文件把这两个信号做成**可注入的 `EnvironmentValues` 键**（**默认从系统读**，
-// 注入值优先）。测试注入伪值 ⇒ 渲染行为可断言，判据落在机器上而不是文档里。
-//
-// ## ⚠️ 这两个键必须 `public` —— 一条**跨 epic 契约**
-//
-// `shipswift-shaders` 的 B-2（17 个 `colorEffect` 背景）要 `import CoreDesignEffects`
-// **复用**它们，而 `@Entry` 宏展开时**默认不继承 `public`**（本仓 `Color.toastHost`
-// 那条已经为同一件事显式标注过）。⇒ 这里逐个显式标 `public`；
-// 跨模块的可见性证明在 `scripts/downstream-probe`（同模块内的断言证不了这条：
-// internal 在同模块内一样能过）。
-//
-// ## ⚠️ 为什么低电量键不是 `Bool`
-//
-// 这里本来就有比 `Bool` 更好的形状：`EffectsPowerMode` 是一个**语义档位**，
-// 读作 `.lowPower` 比读作 `true` 说明了更多东西。
-// ⇒ 键的类型是 `EffectsPowerMode?` 而不是 `Bool?`。
-// NFR-7 只要求"可注入 + 默认从系统读"，没有规定键的类型。
-//
-// ⚠️ **别把这条理由的射程写宽了**（第 1 轮终审 Preference）。本仓的 Bool 纪律
-//（`BoolExemptionGuard` + `docs/bool-exemptions.json`）对两种声明**处置不同**：
-// · public **函数/init 参数**（例如 `EffectsEnergyState.resolve(injectedPowerMode:)`）
-//   ——裸 `Bool` 会命中判据、抬棘轮基线，换成枚举确实能省掉一条豁免；
-// · public **属性本身**（`EnvironmentValues.effectsPowerMode` 就是属性）
-//   ——`BoolParameterScanner.visit(_: VariableDeclSyntax)` 明写「public 的 Bool
-//   **属性**：只清点，不判据（裁决 (d)）」，且这个清点**没有基线**。
-//   ⇒ 就算这个键写成 `Bool?`，棘轮也一动不动。
-// 「净增 0 条豁免」在两种写法下都成立；成立的是"枚举读起来更清楚 + 参数面不欠账"，
-// 不是"写 Bool 会让棘轮判红"。
+// ⚠️ **那两个键不在本文件、也不在本 target**：`\.lowPowerModeOverride` 与
+// `\.scenePhaseOverride` 住在 `CoreDesign`（`Environment/EnergySignalEnvironment.swift`），
+// 因为它们是**任何**常驻渲染件都要的通用信号——理由见下面 `EffectsRenderPolicy`
+// 的类型文档「S-2 已裁决」一节。本文件保留的是**动效层专用**的那一半：
+// 把两个通用信号抬成语义档位（`EffectsPowerMode`）、再裁出渲染策略
+// （`EffectsRenderPolicy`，含 `particleScale` 这类只有动效层认得的旋钮）。
 
 // MARK: - 能耗档位 / Power mode
 
-/// 设备的能耗档位。`nil` 注入值 ⇒ 从 `ProcessInfo` 读（见 `EffectsEnergyState.resolve`）。
+/// 设备的能耗档位（**动效层的语义分级**）。
+///
+/// ⚠️ **它不是那个可注入键的类型**：键是 `CoreDesign` 的 `\.lowPowerModeOverride`
+/// （`Bool?`，形状跟着 `ProcessInfo.processInfo.isLowPowerModeEnabled` 走）。
+/// 本枚举是本 target 在它上面包的一层——`EffectsPowerMode.lifted(from:)` 负责抬升。
+/// 通用底座不该替所有消费者定义"档位"（`shipswift-shaders` 的 17 个 `colorEffect`
+/// 只关心"要不要省电"，没有分级），而动效层这边确实要分级：`.reduced` 与 `.paused`
+/// 的差别读作 `.lowPower` 比读作 `true` 说明了更多东西。
 ///
 /// ⚠️ **「将来加第三档 enum 直接扩」这句要收窄**（第 1 轮终审 Preference）：
 /// 本枚举是 **public 且非 `@frozen`**，但 Swift 的非 frozen 只对**库演进模式**
@@ -83,10 +66,23 @@ public nonisolated enum EffectsPowerMode: Sendable, Equatable, CaseIterable {
     /// 都在读 `ProcessInfo`）。不响应的是驱动层求一次就交出去的 `minimumInterval`
     /// 与 `Confetti` 的粒子数。完整登记见 `ProcessingSweepBody` 的类型文档。
     /// 需要"用户中途打开低电量模式就立刻降级"的宿主 App，应当自己订阅该通知并
-    /// `.environment(\.effectsPowerMode, .lowPower)` 注入——这也正是这个键存在的
+    /// `.environment(\.lowPowerModeOverride, true)` 注入——这也正是那个键存在的
     /// 第二个用途（第一个是可测）。
     public static var current: EffectsPowerMode {
         ProcessInfo.processInfo.isLowPowerModeEnabled ? .lowPower : .standard
+    }
+
+    /// 把 `CoreDesign` 的通用键 `\.lowPowerModeOverride`（`Bool?`）抬成本层的语义档位。
+    /// `nil`（没人注入）原样传下去 ⇒ 由 `EffectsEnergyState.resolve` 去读系统。
+    ///
+    /// ⚠️ **刻意 `internal`**：三个调用点（`ConfettiCore` / `ProcessingSweepDriver` /
+    /// `ProcessingSweepBody`）都在本 target 内，没有跨模块消费者。
+    /// 而它一旦 `public`，那个 `Bool?` 参数就从「public 属性只清点」的档
+    /// （裁决 (d)）掉进「public 函数参数命中判据」的档
+    /// （`BoolParameterScanner.collect(_:decl:modifiers:at:)`），要一条署名豁免并抬
+    /// `docs/bool-exemptions-baseline.json` 的棘轮——为一个纯内部的抬升函数付这个价不值。
+    static func lifted(from lowPowerModeOverride: Bool?) -> EffectsPowerMode? {
+        lowPowerModeOverride.map { $0 ? .lowPower : .standard }
     }
 }
 
@@ -97,31 +93,50 @@ public nonisolated enum EffectsPowerMode: Sendable, Equatable, CaseIterable {
 /// ⚠️ **这是一个纯函数的产物**（`EffectsEnergyState.policy`），不读任何全局状态
 /// ——测试可以直接对它断言，不必先把 App 推进后台。
 ///
-/// ## ⚠️⚠️ 待裁决：本类型把「通用能耗信号」和「effects 专用旋钮」混在了一起
+/// ## ✅ 已裁决（2026-09-04）：通用能耗信号下沉 `CoreDesign`，本类型留在 Effects
 ///
-/// （#252 PR #269 第 1 轮终审 S-2 登记。**本轮只登记，不改结构**——改法跨 epic，
-/// 需要用户拍板；但 merge 之后再搬就是**破坏性变更**，故必须先写在这里。）
+/// **裁决时点**：#252 / PR #269 第 1 轮终审提出 S-2，第 2 轮由用户拍板（2026-09-04），
+/// 本轮（#269 后续提交）落地。
 ///
-/// 本枚举现在同时承担两件事：
+/// ### 当初记下的冲突（原样保留，不删成只剩结论）
+///
+/// 本枚举当时同时承担两件事：
 /// · **通用**的能耗判定（`drawsAnything` / `minimumInterval`）——任何常驻渲染件都要；
 /// · **effects 专用**的旋钮（`particleScale`、多半还有 `usesGlow`）——
 ///   `shipswift-shaders` 的 B-2 那 17 个 `colorEffect` 背景**没有粒子**，
 ///   `particleScale` 对它们毫无意义。
 ///
-/// 冲突在于：B-2 若为了前两个键 `import CoreDesignEffects`，那么**只想要 shader
+/// 冲突在于：B-2 若为了两个能耗键 `import CoreDesignEffects`，那么**只想要 shader
 /// 的消费者也必须链上整个 Effects product**——而 `Package.swift` 拆 product 的
 /// 逐字理由正是「只想要系统原生观感的消费者不必背上动效与图表」。两者直接抵触。
+/// 且这是唯一一条**merge 后修改成本显著上升**的：两个键与本枚举都是 `public`，
+/// 一旦 B-2 开始 `import` 它们，再搬就是下游可见的破坏性变更（改 import、改类型名）。
 ///
-/// 两条出路（未选定）：
-/// 1. **键下沉到 `CoreDesign`**：把 `\.effectsPowerMode` / `\.effectsScenePhase`
-///    与"通用"那半个策略挪进 `CoreDesign`，Effects 侧再包一层自己的策略
-///    （`particleScale` 之类留在这里）。代价：`CoreDesign` 长出一块与"系统原生观感"
+/// 当时列出的两条出路：
+/// 1. **键下沉到 `CoreDesign`**：把两个键挪进 `CoreDesign`，Effects 侧再包一层自己的
+///    策略（`particleScale` 之类留在这里）。代价：`CoreDesign` 长出一块与"系统原生观感"
 ///    无关的表面；收益：shaders 不必依赖 Effects。
 /// 2. **明确接受「Shaders 依赖 Effects」**：把这条依赖写进 `Package.swift` 的拆分理由里
 ///    （即修正那句话的射程），不再假装两者可分。代价：product 拆分的卖点缩水。
 ///
-/// ⚠️ **B-2 开工前必须裁决**：这两个键与本枚举都是 `public`，一旦有第二个 target
-/// 开始 `import` 它们，再搬就是下游可见的**破坏性变更**（改 import、改类型名）。
+/// ### 裁决内容与理由
+///
+/// **选出路 1，并把低电量键的类型定为 `Bool?`**：
+/// · 两个键搬到 `CoreDesign/Environment/EnergySignalEnvironment.swift`，改名
+///   `\.lowPowerModeOverride` / `\.scenePhaseOverride`（`effects` 前缀在通用底座上名实不符）；
+/// · 理由：`Package.swift` 那句拆分承诺是**产品级**的，出路 2 等于用文字修正把它作废；
+///   而出路 1 付出的"`CoreDesign` 新增表面"只有两个 `EnvironmentValues` 键，
+///   **不含任何渲染策略**——通用底座只提供信号，不替消费者裁决画到什么程度。
+/// · 低电量键用 `Bool` 而非枚举：在通用底座这一层它就是
+///   `ProcessInfo.processInfo.isLowPowerModeEnabled` 的可注入镜像，形状本就是 `Bool`；
+///   要分级的模块自己包一层（本 target 的 `EffectsPowerMode.lifted(from:)`）。
+///
+/// ### 落地后本类型的位置
+///
+/// 本枚举**继续住在 `CoreDesignEffects`**，只是它的输入改为**从 `CoreDesign` 的两个键派生**
+/// （`EffectsEnergyState.resolve` ← `EffectsPowerMode.lifted(from:)` ← `\.lowPowerModeOverride`）。
+/// `particleScale` / `usesGlow` 这类只有动效层认得的旋钮**没有下沉**——这正是
+/// 出路 1 里「Effects 侧再包一层策略」那句话的落点。
 public nonisolated enum EffectsRenderPolicy: Sendable, Equatable, CaseIterable {
 
     /// 满帧、带光晕。
@@ -189,6 +204,9 @@ public nonisolated enum EffectsRenderPolicy: Sendable, Equatable, CaseIterable {
 /// 而 `presentation(reduceMotion:)` 一旦 `public`，那个裸 `Bool` 参数就会命中
 /// `BoolExemptionGuard` 的判据、要求一条署名豁免并抬棘轮基线
 /// （`CoreDesignEffects` 当前是 0 条，见 `docs/bool-exemptions-baseline.json`）。
+/// ⚠️ 本轮把低电量键改成 `Bool?` 之后这条**重新核过、结论不变**：改的是
+/// `EnvironmentValues` 上的一个 public **属性**，走裁决 (d)「只清点、不判据」；
+/// 而 `presentation(reduceMotion:)` 是**函数参数**，走的是另一条判据。两者不互相牵动。
 /// 测试走 `@testable import CoreDesignEffects`，够用。
 enum EffectsPresentation: Sendable, Equatable, CaseIterable {
 
@@ -251,9 +269,13 @@ public nonisolated struct EffectsEnergyState: Sendable, Equatable {
     /// 解析「注入值优先，否则从系统读」。
     ///
     /// - Parameters:
-    ///   - injectedScenePhase: `\.effectsScenePhase` 的注入值；`nil` ⇒ 用 `systemScenePhase`。
+    ///   - injectedScenePhase: `CoreDesign` 的 `\.scenePhaseOverride` 注入值；
+    ///     `nil` ⇒ 用 `systemScenePhase`。
     ///   - systemScenePhase: 宿主 `Scene` 供给的 `\.scenePhase`。
-    ///   - injectedPowerMode: `\.effectsPowerMode` 的注入值；`nil` ⇒ 读 `ProcessInfo`。
+    ///   - injectedPowerMode: 由 `CoreDesign` 的 `\.lowPowerModeOverride`（`Bool?`）
+    ///     经 `EffectsPowerMode.lifted(from:)` 抬上来的档位；`nil` ⇒ 读 `ProcessInfo`。
+    ///     ⚠️ 本参数保持**枚举**而不是跟着键改成 `Bool?`：它是本 target 的语义面，
+    ///     `Bool?` 的通用形状只活在 `CoreDesign` 的键上（见 `EffectsPowerMode` 的类型文档）。
     ///
     /// ⚠️ **`systemScenePhase` 是参数而不是在这里读环境**：本类型 `nonisolated`、
     /// 且要能被单测直接调用，读环境必须发生在 `View` 里。调用点见
@@ -268,48 +290,4 @@ public nonisolated struct EffectsEnergyState: Sendable, Equatable {
             powerMode: injectedPowerMode ?? EffectsPowerMode.current
         )
     }
-}
-
-// MARK: - 可注入的 EnvironmentValues 键 / Injectable environment keys
-
-// ⚠️ **扩展本身刻意写成 `extension` 而不是 `public extension`**：后者会让成员上的
-// `public` 变成"冗余修饰符"。实测得到的**原样是一条 `warning:`**
-// （`'public' modifier is redundant for property declared in a public extension`），
-// **只有带上 `-Xswiftc -warnings-as-errors` 时才升级成编译红**
-// ——而本仓的本地验证与 `verification-before-completion` 恰好都带这个 flag，
-// 所以在我们的工作流里它确实是"红"。不带 flag 时它只是一条警告，别把这句读成无条件的。
-// 而这两个键的 `public` 是本 task 的承重契约，必须写在成员上、在 diff 里看得见
-// ——本仓 `\.toastHost` 用的也是这个形态（`extension EnvironmentValues` + `@Entry public var`）。
-extension EnvironmentValues {
-
-    /// **可注入**的能耗档位。`nil`（默认）⇒ 从 `ProcessInfo` 读。
-    ///
-    /// ```swift
-    /// // 测试 / 预览里伪造低电量：
-    /// ScanningOverlay { card }.environment(\.effectsPowerMode, .lowPower)
-    /// ```
-    ///
-    /// ⚠️ **显式 `public`，不靠 `public extension` 推导**：`@Entry` 宏展开时是否继承
-    /// 外层扩展的访问级别是隐式行为（本仓 `\.toastHost` 已为同一件事显式标注过），
-    /// 而 `shipswift-shaders` 的 B-2 要跨模块读这个键——推导一旦不成立，
-    /// 断的是一条**跨 epic 契约**，且要等到另一个 epic 才会被发现。
-    ///
-    /// ⚠️ **默认值是 `nil` 而不是 `EffectsPowerMode.current`**：`nil` 的语义是
-    /// "**没有人注入**"，与"注入了 `.standard`"必须可区分——后者是宿主 App 明确说
-    /// "按常规供电渲染"（例如它自己订阅了 `NSProcessInfoPowerStateDidChange`），
-    /// 不该被系统读数覆盖。真正的"从系统读"发生在 `EffectsEnergyState.resolve`。
-    @Entry public var effectsPowerMode: EffectsPowerMode? = nil
-
-    /// **可注入**的场景阶段。`nil`（默认）⇒ 从系统的 `\.scenePhase` 读。
-    ///
-    /// ```swift
-    /// // 测试 / 预览里伪造"App 进了后台"：
-    /// ScanningOverlay { card }.environment(\.effectsScenePhase, .background)
-    /// ```
-    ///
-    /// ⚠️ **为什么不直接注入 SwiftUI 自己的 `\.scenePhase`**：那个键的语义是
-    /// "宿主 Scene 现在处于哪个阶段"，覆盖它会连带影响调用方视图里**任何**读
-    /// `\.scenePhase` 的代码（包括宿主自己的业务逻辑）。本库只想影响**自己的**
-    /// 装饰层，故另开一个键、且默认让位给系统值。
-    @Entry public var effectsScenePhase: ScenePhase? = nil
 }

@@ -24,8 +24,8 @@ struct ConfettiCore: ViewModifier {
     let colors: [Color]
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.effectsPowerMode) private var injectedPowerMode
-    @Environment(\.effectsScenePhase) private var injectedScenePhase
+    @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
+    @Environment(\.scenePhaseOverride) private var scenePhaseOverride
     @Environment(\.scenePhase) private var systemScenePhase
 
     /// 本次 burst 的起始时刻。**`nil` ⇒ 没有 burst 在进行 ⇒ `TimelineView` 不存在。**
@@ -39,7 +39,7 @@ struct ConfettiCore: ViewModifier {
     /// **判据用的渲染缝**：`burstStart` 的初值。
     ///
     /// ⚠️ **生产路径永远不传它**（`.confetti(trigger:)` 不暴露这个参数，默认 `nil`）。
-    /// 它存在的唯一理由与 `\.effectsScenePhase` / `\.effectsPowerMode` 两个可注入键
+    /// 它存在的唯一理由与 `\.scenePhaseOverride` / `\.lowPowerModeOverride` 两个可注入键
     /// **完全同源**：判据无法从外部把 `burstStart` 推到"burst 进行中"
     /// ⇒ `body` 里那段真正的接线（`progress` / `colors` / `count` / `minimumInterval`）
     /// 一个像素都渲不出来，只能靠字符串检查守——而终审已实证那守不住
@@ -79,9 +79,9 @@ struct ConfettiCore: ViewModifier {
         // ⇒ 顺序现在由 `EffectsEnergyState.presentation(reduceMotion:)` 固定，
         // 与 `ProcessingSweepDriver` 共用同一份。
         let state = EffectsEnergyState.resolve(
-            injectedScenePhase: self.injectedScenePhase,
+            injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: self.injectedPowerMode
+            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
         )
         let policy = state.policy
         let presentation = state.presentation(reduceMotion: self.reduceMotion)
@@ -420,7 +420,7 @@ public extension View {
     ///   回到前台不会重放已经结束的 burst）；
     /// - 低电量模式 ⇒ 降到 15 fps、彩纸数减半。
     ///
-    /// 两个信号都可经 `\.effectsScenePhase` / `\.effectsPowerMode` 注入（默认从系统读）。
+    /// 两个信号都可经 `\.scenePhaseOverride` / `\.lowPowerModeOverride` 注入（默认从系统读）。
     ///
     /// ⚠️ **能耗闸在 Reduce Motion 闸之前**：上面这两条对开启了「减弱动态效果」的用户
     /// **同样成立**（静态庆祝层在 `.inactive` / `.background` 下同样整层不建，

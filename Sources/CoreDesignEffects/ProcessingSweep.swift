@@ -51,15 +51,15 @@ struct ProcessingSweepDriver: View {
     let kind: ProcessingSweepKind
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.effectsPowerMode) private var injectedPowerMode
-    @Environment(\.effectsScenePhase) private var injectedScenePhase
+    @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
+    @Environment(\.scenePhaseOverride) private var scenePhaseOverride
     @Environment(\.scenePhase) private var systemScenePhase
 
     var body: some View {
         let state = EffectsEnergyState.resolve(
-            injectedScenePhase: self.injectedScenePhase,
+            injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: self.injectedPowerMode
+            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
         )
         // ⚠️ 两道闸的顺序在这个纯函数里，不在这里——见类型文档。
         let presentation = state.presentation(reduceMotion: self.reduceMotion)
@@ -95,7 +95,7 @@ struct ProcessingSweepDriver: View {
 /// 给定相位画出一帧。**不读时间、不调度**——因此可以被单测钉在任意相位上渲染。
 ///
 /// ⚠️ 它**自己**读能耗环境取 `usesGlow`，而不是由驱动层传进来：
-/// 这样单测可以 `ProcessingSweepBody(kind:phase:).environment(\.effectsPowerMode, .lowPower)`
+/// 这样单测可以 `ProcessingSweepBody(kind:phase:).environment(\.lowPowerModeOverride, true)`
 /// ——**同一个相位**下比较两张位图，低电量的行为差异才是确定性可观测的
 /// （若靠驱动层传参，测试就只能走 `TimelineView`，两次渲染落在不同相位上，比不出来）。
 ///
@@ -106,7 +106,7 @@ struct ProcessingSweepDriver: View {
 ///
 /// 本类型是在 `ProcessingSweepDriver` 的 `TimelineView` 闭包**内部**被构造的
 /// ⇒ 上面那次 `EffectsEnergyState.resolve(...)` **每帧都跑一次**，而在默认路径
-/// （没人注入 `\.effectsPowerMode`）下它每帧都命中
+/// （没人注入 `\.lowPowerModeOverride`）下它每帧都命中
 /// `ProcessInfo.processInfo.isLowPowerModeEnabled`——60–120 Hz × 每个在场效果。
 ///
 /// 由此产生一个**没人写下来过的不对称**，两个旋钮的行为并不一致：
@@ -123,15 +123,15 @@ struct ProcessingSweepBody: View {
     let kind: ProcessingSweepKind
     let phase: CGFloat
 
-    @Environment(\.effectsPowerMode) private var injectedPowerMode
-    @Environment(\.effectsScenePhase) private var injectedScenePhase
+    @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
+    @Environment(\.scenePhaseOverride) private var scenePhaseOverride
     @Environment(\.scenePhase) private var systemScenePhase
 
     var body: some View {
         let policy = EffectsEnergyState.resolve(
-            injectedScenePhase: self.injectedScenePhase,
+            injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: self.injectedPowerMode
+            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
         ).policy
         let glow = policy.usesGlow
 

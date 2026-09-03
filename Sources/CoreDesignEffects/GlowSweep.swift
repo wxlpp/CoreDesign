@@ -38,7 +38,7 @@ import SwiftUI
 /// ## 后台 / 低电量（NFR-7）
 ///
 /// 与 `ScanningOverlay` 同：后台/非活跃 ⇒ 整层不建；低电量 ⇒ 降帧并去掉离屏模糊。
-/// 两个信号可经 `\.effectsScenePhase` / `\.effectsPowerMode` 注入（默认从系统读）。
+/// 两个信号可经 `\.scenePhaseOverride` / `\.lowPowerModeOverride` 注入（默认从系统读）。
 ///
 /// ⚠️ **本类型是薄封装**，理由与判据见 `ScanningOverlay`。
 public struct GlowSweep<Content: View>: View {
