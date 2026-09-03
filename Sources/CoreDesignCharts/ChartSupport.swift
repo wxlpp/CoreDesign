@@ -136,16 +136,20 @@ enum ChartDegeneracy: Equatable {
 // `grep -rnE "(LocalizedStringKey|LocalizedStringResource) *= *\"" Sources/CoreDesign`
 // 在既有组件上**零命中**，即本仓没有一个组件这么写过。
 
-public extension LocalizedStringResource {
+extension LocalizedStringResource {
     /// 本 target 自带 chrome 文案的唯一入口（公约 §4 **A 类** ⇒ `LocalizedStringResource`）。
     ///
     /// ⚠️ `bundle:` 不能省——省了就回到 `Bundle.main`，等于没做本地化。
     ///
-    /// ⚠️ **为什么是 `public`**：`Bundle.module` 是 internal，而四个图表的
-    /// `title:` 缺省值是 **public init 的默认实参**——Swift 不允许默认实参引用
-    /// internal 符号。要么把标题缺省值删掉（调用方每次都得自己传），要么把这个
-    /// 入口提为 public。选后者：缺省标题对调用方是真实便利，且这个函数本身
-    /// 对下游也有用（他们给图表传自己的本地化文案时可以走同一条 bundle 通路）。
+    /// ⚠️⚠️ **上一版把它提为 `public`，理由是一个假二选一**（第 2 轮终审 I-1）。
+    /// 当时写的是「要么删掉标题缺省值、要么提 public」——**存在第三条路且是标准做法**：
+    /// 把默认实参写成 `nil`（不引用任何 internal 符号），在 init 体内兜底。
+    /// 公约自陈「多给扩展点不可逆」，public API 一旦发布删不掉，为一个 `nil` 能绕开的
+    /// 约束付不可逆代价是亏的 ⇒ 已降回 `internal`。
+    ///
+    /// ⚠️ 上一版还写过「这个函数对下游也有用」——**那是错的，而且会让下游静默丢本地化**：
+    /// 它把 key 绑死在本 target 的 `Bundle.module`，下游传自己的 key 必然查不到，
+    /// 而查不到时 Foundation **原样返回 key、不报错**。
     static func chart(_ key: String.LocalizationValue) -> Self {
         LocalizedStringResource(key, bundle: .atURL(Bundle.module.bundleURL))
     }

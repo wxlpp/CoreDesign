@@ -25,11 +25,11 @@ public struct RadarChart<Value: ChartValue>: View {
     ///     而 `values` 里的 `label` 是**调用方的内容**，是 `String`。
     public init(
         _ values: [Value],
-        title: LocalizedStringResource = .chart("Radar chart"),
+        title: LocalizedStringResource? = nil,
         tint: Color = .accent
     ) {
         self.values = values
-        self.title = title
+        self.title = title ?? .chart("Radar chart")
         self.tint = tint
     }
 

@@ -24,12 +24,12 @@ public struct RingChart<Value: ChartValue>: View {
     public init(
         _ values: [Value],
         goal: Double,
-        title: LocalizedStringResource = .chart("Activity rings"),
+        title: LocalizedStringResource? = nil,
         tint: Color = .accent
     ) {
         self.values = values
         self.goal = goal
-        self.title = title
+        self.title = title ?? .chart("Activity rings")
         self.tint = tint
     }
 
@@ -58,8 +58,13 @@ public struct RingChart<Value: ChartValue>: View {
     /// ⚠️ 泛型类型不支持 static **存储**属性，故写成计算属性。
     public static var recommendedRingLimit: Int { 6 }
 
+    /// ⚠️ **去重在截断之前**（第 2 轮终审 I-6）：`ForEach(id: \.element.id)` 拿到
+    /// 重复 ID 是 SwiftUI 未定义行为——`NetworkGraph.layout` 已就同一件事去过重，
+    /// 这里是同一论证的漏网。保留首次出现，与 `NetworkGraph` 同语义。
     private var effectiveValues: [Value] {
-        Array(self.values.prefix(Self.recommendedRingLimit))
+        var seen = Set<Value.ID>()
+        return Array(self.values.filter { seen.insert($0.id).inserted }
+            .prefix(Self.recommendedRingLimit))
     }
 
     private var rings: some View {
@@ -103,7 +108,11 @@ public struct RingChart<Value: ChartValue>: View {
 extension RingChart: AXChartDescriptorRepresentable {
     public func makeChartDescriptor() -> AXChartDescriptor {
         let category = AXCategoricalDataAxisDescriptor(
-            title: chartAXString("Metric"), categoryOrder: self.values.map(\.label)
+            // ⚠️⚠️ **必须用截断后的集合**（第 2 轮终审 C-1，这是我修 I-6 时引入的真 bug）：
+            // 渲染走 `effectiveValues`（最多 6 环），descriptor 却走 `self.values`
+            // ⇒ 喂 20 个指标时 **VoiceOver 播报 20 个、屏幕上只有 6 个环**。
+            // `NetworkGraph` 在同一件事上是对的（用 `effectiveNodes`），两个兄弟组件走反了。
+            title: chartAXString("Metric"), categoryOrder: self.effectiveValues.map(\.label)
         )
         // ⚠️ `safeRange` 与 `denominator` 都是终审 C-4 的产物：descriptor 是
         // VoiceOver 主动拉取的，**渲染没崩不代表这里不崩**。
@@ -114,7 +123,7 @@ extension RingChart: AXChartDescriptorRepresentable {
         ) { "\($0.formatted(.percent.scale(100 / denominator)))" }
         let series = AXDataSeriesDescriptor(
             name: "", isContinuous: false,
-            dataPoints: self.values.map { AXDataPoint(x: $0.label, y: $0.value) }
+            dataPoints: self.effectiveValues.map { AXDataPoint(x: $0.label, y: $0.value) }
         )
         return AXChartDescriptor(
             title: String(localized: self.title), summary: nil,

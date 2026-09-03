@@ -31,18 +31,30 @@ public struct NetworkGraph<Node: GraphNode>: View {
     public init(
         nodes: [Node],
         edges: [Edge],
-        title: LocalizedStringResource = .chart("Relationship graph"),
+        title: LocalizedStringResource? = nil,
         tint: Color = .accent
     ) {
         self.nodes = nodes
         self.edges = edges
-        self.title = title
+        self.title = title ?? .chart("Relationship graph")
         self.tint = tint
     }
 
     public var body: some View {
         if self.nodes.isEmpty {
             ChartEmptyState(message: .chart("No data"))
+        } else if self.isTruncated {
+            // ⚠️ **截断必须对用户可见**（第 2 轮终审 I-4）：上一版 `isTruncated` 只用来
+            // 把 `iterations` 置 0，界面与 a11y 都不提示 ⇒ 用户看到的是一张少了节点、
+            // 且悄悄从力导向变成环形排布的图，无任何线索。而
+            // `"Showing the first %lld nodes"` 这条 string 早就在 `Localizable.strings`
+            // 里躺着、全仓零引用——说明原本计划过这个提示，落地时掉了。
+            VStack(spacing: 4) {
+                self.canvas
+                Text(.chart("Showing the first \(Self.recommendedNodeLimit) nodes"))
+                    .font(.caption2)
+                    .foregroundStyle(Color.contentTertiary)
+            }
         } else {
             self.canvas
         }
@@ -52,26 +64,27 @@ public struct NetworkGraph<Node: GraphNode>: View {
 
     /// 迭代轮数随节点数收敛，让**单次布局的耗时有上界**。
     ///
-    /// ⚠️ **这是实测推出来的，不是拍脑袋**（终审 I-1 要求「实测的」上限）。
-    /// `swift test -c release`（Apple Silicon）固定 90 轮时：
+    /// ⚠️⚠️ **第 2 轮终审 C-2：上一版写进这里的表格是假的，差 3.1 倍。**
+    /// 成因是我的基准把结果用 `_ =` 丢弃 ⇒ 整个 `layout` 调用被**死代码消除**，
+    /// 量到的是空气。加 `precondition(r.count == n)` 消费结果 + best-of-3 后复测
+    /// （`swift test -c release`，Apple Silicon，390×390，边数 = 2n）：
     ///
-    /// | n | 50 | 100 | 150 | 200 | 300 |
-    /// |---|---|---|---|---|---|
-    /// | 耗时 | 25 ms | 97 ms | 231 ms | 377 ms | 897 ms |
+    /// | n | 固定 90 轮 | 本函数收敛后 |
+    /// |---|---|---|
+    /// | 50 | 80 ms | 80 ms（iter 90）|
+    /// | 100 | 311 ms | 187 ms（iter 54）|
+    /// | 150 | 709 ms | **283 ms**（iter 36）|
     ///
-    /// O(n²·iterations) ⇒ 上限 150 处 231 ms，**同步跑在主线程**、手机上还要更慢，
-    /// 是肉眼可见的卡顿。按 `n·√iterations` 近似恒定收敛质量把轮数压下去后，
-    /// 最坏情形回到 ~90 ms 量级。**布局结果仍是确定性的**（轮数只依赖 n）。
-    static func iterations(for count: Int) -> Int {
+    /// ⚠️ **283 ms ≈ 17 帧**。这就是为什么本组件的布局**不在主线程算**——
+    /// 光靠收敛轮数救不了 NFR-1 的「上限内不掉帧」，只能把计算挪出去。
+    /// 布局是纯函数（`nonisolated`、入参全值类型、无随机），可安全 detach。
+    nonisolated static func iterations(for count: Int) -> Int {
         count <= 60 ? 90 : max(20, 90 * 60 / count)
     }
-
     /// 超限时截断。⚠️ 截断而不是拒绝——半张图仍有信息量，crash 没有。
     private var effectiveNodes: [Node] {
         Array(self.nodes.prefix(Self.recommendedNodeLimit))
     }
-
-    @State private var cache: (LayoutKey, [Node.ID: CGPoint])?
 
     private var isTruncated: Bool {
         self.nodes.count > Self.recommendedNodeLimit
@@ -84,30 +97,33 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// 在每次布局/状态变化/旋转/父视图刷新时都会重跑，`GeometryReader` 一帧内被求值
     /// 多次也很常见。FR-20 只挡住了「>150 截断」，**没挡住「恰好 150 时每帧重算」**
     /// ——后者才是真正卡 UI 的那条。
-    private struct LayoutKey: Equatable {
+    private struct LayoutKey: Equatable, Sendable {
         let ids: [Node.ID]
         let edges: [Edge]
         let size: CGSize
+        /// ⚠️ **必须进 key**（第 2 轮终审 C-4）：`iterations` 取决于 `isTruncated`，
+        /// 而后者看的是**未截断的** `nodes.count` ——它不在 ids 里。
+        /// 150 → 追加 50 个（边与尺寸不变）时 `effectiveNodes` 仍是同样的前 150 个 id
+        /// ⇒ key 不变 ⇒ 命中缓存 ⇒ **继续用力导向布局**，而 FR-20 此时要求降级为静态环形。
+        let iterations: Int
     }
 
     private func layoutKey(for size: CGSize) -> LayoutKey {
         LayoutKey(
             ids: self.effectiveNodes.map(\.id),
             edges: self.edges,
-            size: size
+            size: size,
+            iterations: self.isTruncated ? 0 : Self.iterations(for: self.effectiveNodes.count)
         )
     }
+
+    /// 已解出的布局。⚠️ 空字典时渲染空 canvas（第一帧），`.task` 解完即填。
+    @State private var solved: [Node.ID: CGPoint] = [:]
 
     private var canvas: some View {
         GeometryReader { proxy in
             let key = self.layoutKey(for: proxy.size)
-            let layout = self.cache?.0 == key ? self.cache!.1 : Self.layout(
-                nodes: self.effectiveNodes,
-                edges: self.edges,
-                size: proxy.size,
-                // ⚠️ 超限时**跳过迭代**，直接用环形初始布局——这就是"降级为静态布局"。
-                iterations: self.isTruncated ? 0 : Self.iterations(for: self.effectiveNodes.count)
-            )
+            let layout = self.solved
 
             ZStack {
                 // 边
@@ -130,11 +146,21 @@ public struct NetworkGraph<Node: GraphNode>: View {
                     }
                 }
             }
-            .onAppear { self.cache = (key, layout) }
-            .onChange(of: key) { self.cache = ($1, Self.layout(
-                nodes: self.effectiveNodes, edges: self.edges,
-                size: $1.size, iterations: self.isTruncated ? 0 : Self.iterations(for: self.effectiveNodes.count)
-            )) }
+            // ⚠️⚠️ **布局不在主线程算**（第 2 轮终审 C-2 / C-3）。两处理由：
+            // ① 实测上限处 283 ms ≈ 17 帧，同步跑必然掉帧（NFR-1）；
+            // ② 上一版用 `@State` 缓存 + `onChange` 里重算，**每次 key 变化算两遍**
+            //    （body 走未命中分支算一次、`onChange` 又算一次）⇒ 比不加缓存更慢。
+            // `.task(id:)` 天然解决二者：key 变才重算、算在主线程之外、旧任务自动取消。
+            .task(id: key) {
+                let nodes = self.effectiveNodes
+                let edges = self.edges
+                let result = await Task.detached(priority: .userInitiated) {
+                    Self.layout(nodes: nodes, edges: edges,
+                                size: key.size, iterations: key.iterations)
+                }.value
+                guard !Task.isCancelled else { return }
+                self.solved = result
+            }
         }
         .accessibilityElement()
         .accessibilityLabel(Text(self.title))
@@ -146,7 +172,7 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// ⚠️ **初始位置必须是环形而不是随机/同点**：所有节点重合时斥力方向未定义，
     /// 归一化零向量会产生 **NaN**，整张图消失（FR-19 点名的退化形态）。
     /// 环形初始保证任意两点初始就不重合。
-    static func layout(
+    nonisolated static func layout(
         nodes: [Node], edges: [Edge], size: CGSize, iterations: Int
     ) -> [Node.ID: CGPoint] {
         guard !nodes.isEmpty else { return [:] }
@@ -238,7 +264,11 @@ public struct NetworkGraph<Node: GraphNode>: View {
     }
 }
 
-private extension CGVector {
+/// ⚠️ **必须 `nonisolated`**：本 target 设了 `defaultIsolation(MainActor)`，
+/// 它作用于**整个 target**，运算符也不例外。`layout` 是 `nonisolated` 纯函数，
+/// 里面调 MainActor 隔离的 `+=` 会报 `#ActorIsolatedCall`。
+/// 这是 `ChartValue` 文档里记的同一道摩擦的第四次现身。
+private nonisolated extension CGVector {
     static func += (lhs: inout CGVector, rhs: CGVector) {
         lhs = CGVector(dx: lhs.dx + rhs.dx, dy: lhs.dy + rhs.dy)
     }

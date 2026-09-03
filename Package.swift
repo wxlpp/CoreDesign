@@ -59,9 +59,17 @@ let package = Package(
         .target(
             name: "CoreDesignCharts",
             dependencies: ["CoreDesign"],
-            // ⚠️ **`resources:` 不是可选的**：没有它 SwiftPM 不合成 `Bundle.module`
-            // ⇒ 本 target 的 chrome 文案只能落到 `Bundle.main`（宿主 App）
-            // ⇒ 本包永远无法为自己的文案提供翻译（PR #263 终审 C-5）。
+            // 本 target 的 chrome 文案要有自己的 `Bundle.module` 才能被翻译
+            // （PR #263 终审 C-5：初版连资源目录都没有，文案只能落到宿主 App 的
+            // `Bundle.main`，本包永远无法为自己提供翻译）。
+            //
+            // ⚠️ **上一版这里写「`resources:` 不是可选的，没有它 SwiftPM 不合成
+            // `Bundle.module`」——实测为假**：本包设了 `defaultLocalization: "en"`，
+            // SwiftPM 会**自动**把 `*.lproj` 目录当本地化资源处理；把这一行删掉后
+            // `swift package clean && swift build` 照样生成
+            // `CoreDesign_CoreDesignCharts.bundle`（内含 `en.lproj`）。
+            // ⇒ 这一行是**显式声明**，不是必需品。保留它是为了将来放非 `.lproj`
+            // 资源时不必再想一次，但**不要再照抄那句错的理由**。
             resources: [.process("Resources")],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),

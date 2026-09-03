@@ -8,7 +8,7 @@ import Testing
 /// `defaultIsolation(MainActor)`，不标就拿不到满足 `Sendable` 的 `Identifiable`
 /// conformance。见 `ChartValue` 的文档。
 private nonisolated struct Point: ChartValue {
-    let id = UUID()
+    var id: String = UUID().uuidString
     let label: String
     let value: Double
 }
@@ -338,29 +338,38 @@ struct NetworkGraphLayoutTests {
     }
 
     /// FR-20：超限走**截断 + 静态布局**，不抛断言。
-    @Test("超过 recommendedNodeLimit：截断且不 crash")
+    ///
+    /// ⚠️⚠️ **上一版这条测试断言的是「没有截断」**（第 2 轮终审 C-1）：它绕过 `private`
+    /// 的 `effectiveNodes` 直接调 `layout(nodes: 全部 200 个)`，然后 `#expect(l.count == n)`
+    /// ——测试名与断言方向相反，FR-20 的截断行为**零覆盖**。而这个空洞底下压着一个
+    /// 真 bug（`RingChart` 的 descriptor 走未截断集合，见 `RingChartTruncationTests`）。
+    /// ⇒ 改成断言**经过组件**的可观测量。
+    @Test("超限：descriptor 只播报截断后的节点数")
     func overLimitTruncates() {
         let n = NetworkGraph<Node>.recommendedNodeLimit + 50
-        let graph = NetworkGraph(nodes: self.nodes(n), edges: [])
-        _ = graph.makeChartDescriptor()
+        let d = NetworkGraph(nodes: self.nodes(n), edges: []).makeChartDescriptor()
+        #expect(d.series.first?.dataPoints.count == NetworkGraph<Node>.recommendedNodeLimit)
+        let category = d.xAxis as? AXCategoricalDataAxisDescriptor
+        #expect(category?.categoryOrder.count == NetworkGraph<Node>.recommendedNodeLimit)
+    }
+
+    @Test("未超限时 layout 全量返回（与上一条互为对照）")
+    func underLimitKeepsAll() {
         let l = NetworkGraph<Node>.layout(
-            nodes: self.nodes(n), edges: [], size: .init(width: 300, height: 300), iterations: 0
+            nodes: self.nodes(20), edges: [], size: .init(width: 300, height: 300), iterations: 0
         )
-        #expect(l.count == n)
+        #expect(l.count == 20)
         #expect(l.values.allSatisfy { $0.x.isFinite && $0.y.isFinite })
     }
 
-    /// ⚠️ 轮数随规模收敛的**实测依据**见 `NetworkGraph.iterations(for:)` 的文档表格
-    /// （固定 90 轮时 n=150 要 231 ms，收敛后 89 ms）。**计时不进 CI**——机器差异会让它
-    /// 变成随机红灯；这里只钉住"轮数随 n 单调不增且恒为正"这条性质。
-    @Test("迭代轮数随节点数单调不增，且恒为正")
-    func iterationsShrinkWithSize() {
-        let counts = [1, 30, 60, 61, 100, 150, 400]
-        let iters = counts.map { NetworkGraph<Node>.iterations(for: $0) }
-        #expect(iters.allSatisfy { $0 > 0 })
-        #expect(zip(iters, iters.dropFirst()).allSatisfy { $0 >= $1 }, "\(iters)")
-        // 上限处必须已经收敛下来，否则实测的 231 ms 会原样回来。
-        #expect(NetworkGraph<Node>.iterations(for: NetworkGraph<Node>.recommendedNodeLimit) < 90)
+    /// ⚠️ 机器无关的**运算量上界**（第 2 轮终审 C-2 方案 3）。计时不进 CI（机器差异会变
+    /// 随机红灯），但「上限被上调 / 轮数被放宽」必须有东西挡住——
+    /// `#expect(iterations(for: 150) < 90)` 挡不住「上限调到 500、iter=20」这种回归。
+    @Test("上限处的配对运算量有确定性上界")
+    func pairwiseWorkIsBounded() {
+        let n = NetworkGraph<Node>.recommendedNodeLimit
+        let work = n * n * NetworkGraph<Node>.iterations(for: n)
+        #expect(work <= 900_000, "上限处配对运算量 \(work) 超出预算 —— 上限或轮数被放宽了")
     }
 
     @Test("布局确定性：同输入两次结果相同")
@@ -436,5 +445,85 @@ struct AccessibilityDescriptorTests {
             .series.first?.dataPoints.isEmpty == true)
         #expect(NetworkGraph<Node>(nodes: [], edges: []).makeChartDescriptor()
             .series.first?.dataPoints.isEmpty == true)
+    }
+}
+
+
+// MARK: - FR-19 第 5 类 + FR-20：RingChart 的截断与零总和
+
+// ⚠️ 这两条都是上一轮的**残留**（第 2 轮终审 C-1 / I-5）：
+// · 零总和此前只落在 `ChartDegeneracy.of([0,0,0])` 上，而 `ChartSupport` 自己写着
+//   「目前没有图表消费它，**不得据此声称 RingChart 零总和已覆盖**」——
+//   没有一条测试把全零 `values` 喂给 `RingChart`；
+// · 截断此前完全无覆盖，而 `RingChart` 的 descriptor 恰好走了未截断的集合。
+
+@Suite("RingChart · 截断与零总和")
+struct RingChartTruncationTests {
+
+    private func values(_ n: Int, all zero: Bool = false) -> [Point] {
+        (0..<n).map { Point(label: "m\($0)", value: zero ? 0 : Double($0 + 1)) }
+    }
+
+    /// ⚠️ **这条测试是为了钉住一个我自己引入的 bug**：渲染走 `effectiveValues`
+    /// （最多 6 环），descriptor 曾走 `self.values` ⇒ 喂 20 个指标时
+    /// **VoiceOver 播报 20 个、屏幕上只有 6 个环**。
+    @Test("超限：descriptor 与渲染看到的是同一批指标")
+    func descriptorMatchesRendering() {
+        let limit = RingChart<Point>.recommendedRingLimit
+        let d = RingChart(self.values(20), goal: 100).makeChartDescriptor()
+        #expect(d.series.first?.dataPoints.count == limit)
+        let category = d.xAxis as? AXCategoricalDataAxisDescriptor
+        #expect(category?.categoryOrder.count == limit)
+    }
+
+    @Test("全零 values（零总和）：不 trap，进度全为 0")
+    func zeroTotalValues() {
+        let d = RingChart(self.values(3, all: true), goal: 100).makeChartDescriptor()
+        #expect(d.series.first?.dataPoints.count == 3)
+        // ⚠️ `AXDataPointValue` 不可直接比较，用其描述判定（全零 ⇒ 每点 y 都是 0）。
+        let ys = d.series.first?.dataPoints.map { String(describing: $0.yValue) } ?? []
+        #expect(ys.count == 3)
+        #expect(ys.allSatisfy { $0.contains("0") && !$0.contains("1") }, "\(ys)")
+    }
+
+    @Test("单点：descriptor 有且只有一个数据点")
+    func singleValue() {
+        let d = RingChart(self.values(1), goal: 100).makeChartDescriptor()
+        #expect(d.series.first?.dataPoints.count == 1)
+    }
+
+    /// ⚠️ 终审 I-6：`ForEach(id: \.element.id)` 拿到重复 ID 是 SwiftUI 未定义行为。
+    @Test("重复 id 去重（保留首次出现）")
+    func duplicateIDs() {
+        let dup = [Point(id: "a", label: "first", value: 1),
+                   Point(id: "a", label: "second", value: 2),
+                   Point(id: "b", label: "B", value: 3)]
+        let d = RingChart(dup, goal: 10).makeChartDescriptor()
+        #expect(d.series.first?.dataPoints.count == 2)
+    }
+}
+
+// MARK: - 本地化通路
+
+/// ⚠️ **没有这条断言，本地化通路就是不可验证的**（第 2 轮终审 I-2）。
+/// 查表 miss 时 Foundation **原样返回 key、不报错** ⇒ 现有的
+/// `#expect(d.title?.isEmpty == false)` 在 `resources:` 被删、`.lproj` 没拷进 bundle、
+/// 或 `.atURL` 写错时**全部保持绿**。CLAUDE.md 已点名「资源缺失是静默失败」。
+/// ⇒ 用一个**译文与 key 不同**的哨兵条目，才能区分「命中」与「静默回退」。
+@Suite("Bundle.module 本地化通路")
+@MainActor
+struct LocalizationPathTests {
+
+    @Test("哨兵条目查得到，且不是回退到 key")
+    func bundleResolves() {
+        let resolved = chartAXString("__localization_probe__")
+        #expect(resolved == "resource-bundle-resolved")
+        #expect(resolved != "__localization_probe__", "回退到了 key —— 资源没进 bundle")
+    }
+
+    @Test("真实文案也走同一条通路")
+    func realStringsResolve() {
+        #expect(chartAXString("Connections") == "Connections")
+        #expect(!chartAXString("Node").isEmpty)
     }
 }

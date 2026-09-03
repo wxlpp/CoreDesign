@@ -24,12 +24,12 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     ///   是为了默认正确，但可注入才可测。
     public init(
         _ days: [Day],
-        title: LocalizedStringResource = .chart("Activity heatmap"),
+        title: LocalizedStringResource? = nil,
         tint: Color = .accent,
         calendar: Calendar = .current
     ) {
         self.days = days
-        self.title = title
+        self.title = title ?? .chart("Activity heatmap")
         self.tint = tint
         self.calendar = calendar
     }
@@ -44,6 +44,12 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
 
     // MARK: - Private
 
+    // ⚠️ **`weeks` / `buckets` 每次 body 求值重算，这是有意的**（第 2 轮终审 I-3）。
+    // `NetworkGraph` 的布局挪去了后台，这里没有，理由是量级差两个数量级——
+    // 实测（`swift test -c release`，1830 天 = `maximumDays` 上限，UTC）：**8 ms**；
+    // 典型用法（一年 365 天）按比例约 1.6 ms。对照网络图上限处的 283 ms。
+    // ⇒ 8 ms 不值得为它引入 `@State` + 失效键的复杂度；**但这个数字必须在这里**，
+    // 否则下一个人只能在「重算」与「缓存」之间凭感觉选。
     private var grid: some View {
         let buckets = Self.buckets(for: self.days)
         let weeks = Self.weeks(for: self.days, calendar: self.calendar)
@@ -78,8 +84,13 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
 
         var result: [[Day?]] = []
         var column = [Day?](repeating: nil, count: 7)
-        var cursor = calendar.startOfDay(for: first.date)
+        // ⚠️ **截断保留最近的一段，不是最旧的**（第 2 轮终审 I-7）：贡献热力图的
+        // 默认阅读方向是「最近」，上一版从最旧一天起步 + 到上限就 break ⇒ 有 10 年
+        // 数据的用户看到的是**最早那五年**，最近的活动全部不显示。
         let end = calendar.startOfDay(for: last.date)
+        let earliest = calendar.startOfDay(for: first.date)
+        let capped = calendar.date(byAdding: .day, value: -(Self.maximumDays - 1), to: end)
+        var cursor = max(earliest, capped ?? earliest)
         // ⚠️ **重复日期后者胜**，且这是有意的（终审 S-8）：调用方给同一天两条记录时
         // 静默取后一条，而不是相加——相加会让"重复"这个输入错误看起来像正常数据。
         var byDate = [Date: Day]()
@@ -91,7 +102,8 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
             // ~36500 次 `Calendar` 运算 + 5000 列视图，且**每次 body 求值重算一遍**。
             // 与 `NetworkGraph` 同一条 FR-20 原则：截断，不断言。
             guardCounter += 1
-            if guardCounter > Self.maximumDays { break }
+            // 起点已按上限前移，这里只是最后一道防线（日历异常导致游标不前进等）。
+            if guardCounter > Self.maximumDays + 14 { break }
 
             // `weekday` 是 1...7，减 1 归零；`firstWeekday` 让一周起点跟随 locale。
             let weekday = (calendar.component(.weekday, from: cursor)
@@ -114,7 +126,8 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
         return result
     }
 
-    /// 单张热力图渲染的天数上限（≈ 5 年）。超出即截断（FR-20：截断不断言）。
+    /// 单张热力图渲染的天数上限（≈ 5 年）。超出即**截断最旧的一段**（FR-20：截断不断言）。
+    /// ⚠️ 截断目前**对用户静默**——与 `NetworkGraph` 一致，由调用方自行提示。
     /// ⚠️ 泛型类型不支持 static **存储**属性。
     public static var maximumDays: Int { 1830 }
 
