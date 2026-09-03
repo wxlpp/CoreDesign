@@ -35,7 +35,7 @@ import Testing
 //   `MemberAccessExprSyntax` callee——首版要求 callee 必须是裸 `DeclReferenceExprSyntax`，
 //   把上面**三种**形态一起结构性排除了（Copilot A-1 + 终审 I-3）。
 //
-// ## 已知的四个口子（写在明处，不是漏了）
+// ## 已知的八个口子（写在明处，不是漏了）
 //
 // 1. **`Text(verbatim:)` 不判违规**——它是「这串东西不是给人读的自然语言」的显式声明
 //    （数字、用户数据、符号）。它可 grep、可评审，比逼人把 verbatim 改写成别的形状好。
@@ -52,6 +52,34 @@ import Testing
 //    应新增台账（形态照 `a11y-exemptions.json`：`location` + `symbol` + 署名 `reason`），
 //    不得放宽判据、更不得删掉本守卫**——「用削弱判据来消化一个正当例外」正是 G-7
 //    记在案的失效形态。follow-up 见 `246.md` 的《后续》。
+// 5. **`textConstructors` / `textModifiers` 是白名单，必然不完备**（PR #265 第 3 轮终审 F-3）。
+//    这不是「再补几个就完了」：SwiftUI 承载文案的构造器与 modifier 是一个开放集合，
+//    每个 iOS 大版本都会加。⚠️ **这条口子的危险不在漏报本身，而在「零命中会被采信」**
+//    ——本守卫的失败信息是通用口吻，读者会把「新 target 零违规」读成「新 target 没有裸文案」。
+//    终审第 2 轮已经用同一条理由把清单从 2 个扩到 9 个；第 3 轮实测又找出 6 个全数漏报的
+//    常见构造器（`Menu` / `Link` / `NavigationLink` / `GroupBox` / `ContentUnavailableView` /
+//    `DatePicker`）与 2 个 modifier（`navigationBarTitle` / `searchable(prompt:)`），本轮已补。
+//    ⇒ 处置纪律：**发现漏报就往清单里加，永远不要反过来说「清单里没有 ⇒ 不是违规」**。
+// 6. **modifier 分支不看接收者**（PR #265 第 3 轮终审 S-a）：`chromeCallName(of:)` 的
+//    ② 号分支只按 `member.declName` 匹配，base 是任意表达式。于是 `logger.help("…")` /
+//    `validator.alert("…", isPresented:)` / `MyNS.Section("Legend")` 都会被判红——
+//    `help` / `alert` 太通用，Effects / Charts 里的非 SwiftUI API 撞得上。
+//    ⚠️ **有意不加「接收者启发式」**：能写出来的廉价启发式（如「base 是小写裸标识符就跳过」）
+//    会把 `content.help("Save")` 这类**真违规**一起放掉——那是把一条误报换成一条 fail-open
+//    的漏报，与本守卫「宁可 fail-closed」的取向相反。⇒ 保留误报面，并把它钉成断言
+//    （见 `detectorFiresOnSyntheticSource` 里「已知误报面」那三条）。
+//    **第一个真误报出现时的处置**：走口子 4 的台账（新建 `docs/chrome-text-exemptions.json`，
+//    `location` + `symbol` + 署名 `reason`），**不得**从 `textModifiers` 里删 `help` / `alert`
+//    ——删掉等于把整类违规一起放掉，正是 G-7 记在案的形态。
+// 7. **`typealias` 可以绕过**（PR #265 第 3 轮终审 S-c）：本守卫按**文本**判构造器名，
+//    `typealias T = Text; T("Loading")` 因此看不见（与 `EffectsColorLiteralGuard` 的口子 5
+//    同源——纯语法、逐文件的扫描器解不了 alias）。没人会为了绕守卫这么写，登记在此
+//    是因为上面那句「口子写在明处」要求它被写下来，而不是留在读者的想象里。
+// 8. **隐式 `.init(…)` 只在上下文类型写得出来时才判**：`let t: Text = .init("Loading")`
+//    走 `ImplicitMemberContext.contextualTypeName(of:)`（与 `EffectsColorLiteralGuard`
+//    共用），它给不出数组元素 / 函数实参 / 闭包返回值位置的类型。首版**连有类型标注的
+//    那种都漏**（`chromeCallName` 剥掉尾段 `init` 后要求尾段非空，隐式形态得到 `""` ⇒ `nil`），
+//    而色相守卫对同一形态**有**处理——这条不对称此前没有任何记录（PR #265 第 3 轮终审 S-b）。
 @Suite("新 target 禁 chrome 文案裸字面量")
 struct ChromeTextLiteralGuard {
 
@@ -64,17 +92,42 @@ struct ChromeTextLiteralGuard {
     /// ⚠️ **`Text` / `Label` 之外的七个是 PR #265 终审 I-3 补的**：Epic A 的
     /// `BeforeAfterSlider` / `GlassOrb` 与图表图例现实中就会用 `Button` / `Section` /
     /// `Toggle`，只认两个构造器时本守卫会报零并被采信。
+    /// ⚠️ **再补的六个来自 PR #265 第 3 轮终审 F-3**：探针实测 `Menu("Options") { }` /
+    /// `Link("Open docs", destination:)` / `NavigationLink("Next") { }` / `GroupBox("Legend") { }` /
+    /// `ContentUnavailableView("Nothing here", systemImage:)` / `DatePicker("When", selection:)`
+    /// **全部漏报**（它们没有内层 `Text` 可兜底）。图例用 `Menu` / `GroupBox`、空状态用
+    /// `ContentUnavailableView`，至少和已覆盖的 `Stepper` / `SecureField` 一样常见。
+    /// ⚠️ 清单是白名单、**必然不完备**，见文件头口子 5——不要反过来把它读成违规的定义。
     nonisolated static let textConstructors: Set<String> = [
         "Text", "Label", "Button", "Toggle", "Section",
         "TextField", "SecureField", "Stepper", "Picker",
+        "Menu", "Link", "NavigationLink", "GroupBox", "ContentUnavailableView", "DatePicker",
     ]
 
     /// 承载 chrome 文案的 **modifier**（callee 是 `MemberAccessExprSyntax`）。
     ///
     /// ⚠️ **a11y 三件套有意不在这里**（见文件头口子 3）：它们归
     /// `AccessibilityStringLiteralGuard`，那条守卫的射程更宽（含主 target）且带台账。
+    ///
+    /// ⚠️ **`navigationBarTitle` / `searchable` 是 PR #265 第 3 轮终审 F-3 补的**；
+    /// 后者的文案在**带标签的** `prompt:` 上，「第一个无标签实参」这条通则对它不成立
+    /// ⇒ 另立 `labeledProseArguments`。
+    ///
+    /// ⚠️ **本分支不看接收者**（`logger.help("…")` 会被判红）——那是一条**有意保留**的
+    /// 误报面，理由与处置见文件头口子 6。
     nonisolated static let textModifiers: Set<String> = [
-        "navigationTitle", "navigationSubtitle", "alert", "confirmationDialog", "help",
+        "navigationTitle", "navigationSubtitle", "navigationBarTitle",
+        "alert", "confirmationDialog", "help", "searchable",
+    ]
+
+    /// 文案落在**带标签实参**上的调用：`调用名 → 承载文案的标签集合`。
+    ///
+    /// ⚠️ `.searchable(text: $q, prompt: "Search charts")` 的第一个实参是 `text:`（一个
+    /// Binding），通则的「第一个无标签实参」永远取不到它的文案 ⇒ 这里按标签取。
+    /// `prompt:` 写成 `Text("…")` 时由内层 `Text` 兜住，两条路不会把同一处报两次
+    /// （标签分支只认**字符串字面量**）。
+    nonisolated static let labeledProseArguments: [String: Set<String>] = [
+        "searchable": ["prompt"],
     ]
 
     nonisolated struct Violation: Hashable, Sendable {
@@ -219,6 +272,57 @@ struct ChromeTextLiteralGuard {
             import SwiftUI
             let v = EmptyView().alert("Something failed", isPresented: $shown) { }
             """, "Something failed"),
+            // ⚠️ 以下是 PR #265 **第 3 轮**终审补的形态（F-3 / S-b）：探针实测这批此前
+            // **全部漏报**，且都没有内层 `Text` 可兜底。
+            ("`Menu(\"…\") { }`（图例现实用法）", """
+            import SwiftUI
+            let m = Menu("Options") { EmptyView() }
+            """, "Options"),
+            ("`Link(\"…\", destination:)`", """
+            import SwiftUI
+            let l = Link("Open docs", destination: url)
+            """, "Open docs"),
+            ("`NavigationLink(\"…\") { }`", """
+            import SwiftUI
+            let n = NavigationLink("Next") { EmptyView() }
+            """, "Next"),
+            ("`GroupBox(\"…\") { }`（图例现实用法）", """
+            import SwiftUI
+            let g = GroupBox("Legend") { EmptyView() }
+            """, "Legend"),
+            ("`ContentUnavailableView(\"…\", systemImage:)`（空状态现实用法）", """
+            import SwiftUI
+            let e = ContentUnavailableView("Nothing here", systemImage: "x")
+            """, "Nothing here"),
+            ("`DatePicker(\"…\", selection:)`", """
+            import SwiftUI
+            let d = DatePicker("When", selection: $date)
+            """, "When"),
+            ("`.navigationBarTitle(\"…\")`（modifier 形态）", """
+            import SwiftUI
+            let v = EmptyView().navigationBarTitle("Settings")
+            """, "Settings"),
+            ("`.searchable(text:prompt:)`——文案在**带标签**实参上（`labeledProseArguments`）", """
+            import SwiftUI
+            let v = EmptyView().searchable(text: $q, prompt: "Search charts")
+            """, "Search charts"),
+            ("隐式 `.init` 形态 `let t: Text = .init(\"…\")`（S-b，与色相守卫对齐）", """
+            import SwiftUI
+            let t: Text = .init("Loading")
+            """, "Loading"),
+            // ⚠️ **口子 6 的落点**：modifier 分支**有意不看接收者**，因此下面三条
+            // **是已知误报、不是本该命中的违规**。把它钉成断言，是为了让这条误报面
+            // 在判据里可见——后人若加了接收者启发式，这里会当场红，逼一次口子清单的更新
+            // （而不是让「误报面」悄悄变成「fail-open 的漏报面」）。
+            ("已知误报面：非 SwiftUI 接收者的 `.help(…)`（口子 6）", """
+            let x = logger.help("this is documentation")
+            """, "this is documentation"),
+            ("已知误报面：非 SwiftUI 接收者的 `.alert(…)`（口子 6）", """
+            let x = validator.alert("some message", isPresented: $b)
+            """, "some message"),
+            ("已知误报面：模块限定的同名类型 `MyNS.Section(…)`（口子 6）", """
+            let s = MyNS.Section("Legend")
+            """, "Legend"),
         ]
         for c in cases {
             let hits = Self.scan(source: c.source).violations
@@ -258,6 +362,21 @@ struct ChromeTextLiteralGuard {
             import SwiftUI
             let p = Picker(selection: $mode, label: label) { EmptyView() }
             """),
+            // ⚠️ 以下两条钉的是**已知口子**，不是「本该干净」（文件头口子 7 / 8）。
+            // 它们**目前放行**；后人收紧判据会在这里当场红，必须同轮改口子清单。
+            ("口子 7：`typealias` 改名后按文本判构造器名看不见 ⇒ 放行", """
+            import SwiftUI
+            typealias T = Text
+            let t = T("Loading")
+            """),
+            ("口子 8：隐式 `.init` 的上下文类型只存在于推断里（数组元素位置）⇒ 放行", """
+            import SwiftUI
+            let rows: [Text] = [.init("Loading")]
+            """),
+            ("隐式 `.init` 但上下文类型不是文案构造器 ⇒ 放行", """
+            struct Tooltip { init(_ body: String) {} }
+            let t: Tooltip = .init("Loading")
+            """),
         ]
         for c in clean {
             let hits = Self.scan(source: c.source).violations
@@ -270,6 +389,10 @@ struct ChromeTextLiteralGuard {
         // ⚠️ initializer 形态同样要记账（Copilot A-1：首版连 verbatim 站点都绕过）。
         #expect(Self.scan(source: #"let t = Text.init(verbatim: "42")"#).verbatimSites.count == 1,
                 "`Text.init(verbatim:)` 没有被清点 —— 记账通道被 initializer 形态绕过")
+        // ⚠️ **隐式** initializer 形态的 verbatim 记账（PR #265 第 3 轮终审 S-b：
+        // 首版把 `let t: Text = .init(verbatim: "42")` 整条排除，连清点都丢了）。
+        #expect(Self.scan(source: #"let t: Text = .init(verbatim: "42")"#).verbatimSites.count == 1,
+                "隐式 `.init(verbatim:)` 没有被清点 —— 记账通道被隐式成员形态绕过")
 
         // ⚠️ 口子 3 的落点：a11y 三件套**有意**不在本守卫里（归 `AccessibilityStringLiteralGuard`）。
         #expect(Self.scan(source: #"let v = EmptyView().accessibilityHint("Opens settings")"#)
@@ -306,6 +429,13 @@ private nonisolated final class ChromeTextCollector: SyntaxVisitor {
         super.init(viewMode: .sourceAccurate)
     }
 
+    /// 字面量的**静态段**拼起来（插值段取不到文本，也不该算进可翻译文案）。
+    private static func proseText(of literal: StringLiteralExprSyntax) -> String {
+        literal.segments.compactMap { segment -> String? in
+            segment.as(StringSegmentSyntax.self)?.content.text
+        }.joined()
+    }
+
     override func visit(_ node: MacroExpansionDeclSyntax) -> SyntaxVisitorContinueKind {
         node.macroName.text == "Preview" ? .skipChildren : .visitChildren
     }
@@ -332,21 +462,47 @@ private nonisolated final class ChromeTextCollector: SyntaxVisitor {
         // ③ 限定 / initializer 形态：`SwiftUI.Label(…)` / `Text.init(…)` / `SwiftUI.Text.init(…)`。
         var segments = callee.trimmedDescription
             .split(separator: ".", omittingEmptySubsequences: false).map(String.init)
-        if segments.last == "init" { segments.removeLast() }
+        let isInitForm = segments.last == "init"
+        if isInitForm { segments.removeLast() }
+        // ④ **隐式** initializer 形态 `let t: Text = .init("Loading")`（PR #265 第 3 轮终审 S-b）：
+        // 剥掉尾段 `init` 之后只剩一个空段（`omittingEmptySubsequences: false` 之故），
+        // 首版在这里要求「尾段非空」⇒ 整条形态被结构性排除，**连 verbatim 记账都绕过**。
+        // 而 `EffectsColorLiteralGuard` 对同一形态**有**处理——这条不对称此前无任何记录。
+        // ⇒ 与色相守卫共用 `ImplicitMemberContext`：宿主类型来自上下文里真的写下的类型。
+        if isInitForm, segments.last == "" || segments.isEmpty {
+            guard let annotated = ImplicitMemberContext.contextualTypeName(of: callee),
+                  ChromeTextLiteralGuard.textConstructors.contains(annotated) else { return nil }
+            return annotated
+        }
         guard let last = segments.last,
               ChromeTextLiteralGuard.textConstructors.contains(last) else { return nil }
         return last
     }
 
     override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
-        guard Self.chromeCallName(of: node.calledExpression) != nil,
-              let first = node.arguments.first
+        guard let callName = Self.chromeCallName(of: node.calledExpression)
         else { return .visitChildren }
 
         let line = self.converter.location(for: node.positionAfterSkippingLeadingTrivia).line
         let snippet = node.trimmedDescription
             .split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
             .joined(separator: " ")
+
+        // 带标签实参上的文案（今天只有 `.searchable(prompt:)`，见 `labeledProseArguments`）。
+        if let labels = ChromeTextLiteralGuard.labeledProseArguments[callName] {
+            for argument in node.arguments {
+                guard let label = argument.label?.text, labels.contains(label),
+                      let literal = argument.expression.as(StringLiteralExprSyntax.self)
+                else { continue }
+                let text = Self.proseText(of: literal)
+                guard ChromeTextLiteralGuard.isProse(text) else { continue }
+                self.violations.append(
+                    .init(file: self.fileName, line: line, literal: text, snippet: String(snippet.prefix(120)))
+                )
+            }
+        }
+
+        guard let first = node.arguments.first else { return .visitChildren }
 
         // 口子 1：`Text(verbatim:)` 只清点。
         if first.label?.text == "verbatim" {
@@ -358,9 +514,7 @@ private nonisolated final class ChromeTextCollector: SyntaxVisitor {
               let literal = first.expression.as(StringLiteralExprSyntax.self)
         else { return .visitChildren }
 
-        let text = literal.segments.compactMap { segment -> String? in
-            segment.as(StringSegmentSyntax.self)?.content.text
-        }.joined()
+        let text = Self.proseText(of: literal)
         guard ChromeTextLiteralGuard.isProse(text) else { return .visitChildren }
 
         self.violations.append(
