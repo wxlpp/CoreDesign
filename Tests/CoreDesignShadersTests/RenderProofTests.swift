@@ -114,7 +114,7 @@ struct RenderProofTests {
     /// ⚠️⚠️ **rim 那一行改过三次，前两次都错，而它一直是零回归覆盖**
     ///（第 4 轮终审 I-2）。`glassRefracts` 用的是**不透明** `LinearGradient`
     /// ⇒ 第 2 版「`sample.a == 0` 时 rim 整条消失」在那里**不可能暴露**；
-    /// 且 `render(_:)` 只取 RGB 三个字节、**从不采样 alpha** ⇒ 第 1 版的
+    /// 且 `render(_:)` 只取 RGB 三通道、**从不采样 alpha** ⇒ 第 1 版的
     /// 「边缘 25% 透明环」对它也天然不可见。三个版本它都放行。
     ///
     /// ⇒ 本条以**透明内容**为被折射层，并**采样 alpha**：圆角边界一圈必须出现
@@ -174,26 +174,48 @@ struct RenderProofTests {
 
     // MARK: - Helpers
 
+    /// 渲染并**锁定像素格式**后的位图：8-bit RGBA、premultipliedLast、device RGB、
+    /// `bytesPerRow == width * 4`。
+    ///
+    /// ⚠️ **不要直接读 `cgImage` 的原生字节**（#261 第 1 轮 review）：`ImageRenderer`
+    /// 产出的 `bitmapInfo` 随系统/设备而异（BGRA / ARGB / 灰度 / 16-bit 都可能），
+    /// 按固定偏移取通道会误读甚至越界，测试因此变得偶发脆弱。仓库既有先例
+    /// （`CoreControlStyleTintTests.averageColor`）的做法是先重绘到己方构造的
+    /// `CGContext` 把格式钉死，再做采样——这里沿用同一写法，不另立平行模式。
+    private static func rgbaPixels(_ view: some View) throws -> (pixels: [UInt8], width: Int, height: Int) {
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 1
+        let cgImage = try #require(renderer.cgImage, "ImageRenderer 未产出图像")
+        let width = cgImage.width
+        let height = cgImage.height
+        guard width > 0, height > 0 else { throw RenderProbeError.noPixelData }
+
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            throw RenderProbeError.noPixelData
+        }
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return (pixels, width, height)
+    }
+
     /// 只取 alpha 通道的全图网格扫描。⚠️ 与 `render(_:)` 分开是有意的：
     /// 后者取 RGB，对「alpha 被改坏」这一类缺陷天然不可见。
     private static func renderAlpha(_ view: some View) throws -> [UInt8] {
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = 1
-        let image = try #require(renderer.uiImage, "ImageRenderer 未产出图像")
-        guard let cg = image.cgImage,
-              let data = cg.dataProvider?.data,
-              let ptr = CFDataGetBytePtr(data) else {
-            throw RenderProbeError.noPixelData
-        }
-        // ⚠️ alpha 在字节偏移 +3 的前提是 32-bit BGRA/RGBA（第 5 轮终审 S）。
-        // 若哪天变成 16-bit / 宽色域，这条断言会静默改测别的通道 ⇒ 把前提钉死。
-        #expect(cg.bitsPerPixel == 32, "位深不是 32 ⇒ alpha 不在偏移 +3")
-        let bytesPerRow = cg.bytesPerRow
-        let bytesPerPixel = cg.bitsPerPixel / 8
+        // alpha 落在每像素第 4 个字节，是 `rgbaPixels` 里 `premultipliedLast` 钉死的，
+        // 不再是对 `cgImage` 原生布局的假设。
+        let (pixels, width, height) = try Self.rgbaPixels(view)
         var out: [UInt8] = []
-        for y in stride(from: 0, to: cg.height, by: 2) {
-            for x in stride(from: 0, to: cg.width, by: 2) {
-                out.append(ptr[y * bytesPerRow + x * bytesPerPixel + 3])
+        for y in stride(from: 0, to: height, by: 2) {
+            for x in stride(from: 0, to: width, by: 2) {
+                out.append(pixels[(y * width + x) * 4 + 3])
             }
         }
         return out
@@ -204,23 +226,14 @@ struct RenderProofTests {
     /// 6 个点全落在空天区。稀疏效果需要足够的采样密度才谈得上"输出随位置变化"。
     /// ⚠️ 修法是**加密采样**而不是放宽断言——放宽会让这条守卫对真正的"静默无渲染"失灵。
     private static func render(_ view: some View) throws -> [UInt32] {
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = 1
-        let image = try #require(renderer.uiImage, "ImageRenderer 未产出图像")
-        guard let cg = image.cgImage,
-              let data = cg.dataProvider?.data,
-              let ptr = CFDataGetBytePtr(data) else {
-            throw RenderProbeError.noPixelData
-        }
-        let bytesPerRow = cg.bytesPerRow
-        let bytesPerPixel = cg.bitsPerPixel / 8
+        let (pixels, width, height) = try Self.rgbaPixels(view)
         var out: [UInt32] = []
         out.reserveCapacity(256)
-        for y in stride(from: 0, to: cg.height, by: 4) {
-            for x in stride(from: 0, to: cg.width, by: 4) {
-                let o = y * bytesPerRow + x * bytesPerPixel
+        for y in stride(from: 0, to: height, by: 4) {
+            for x in stride(from: 0, to: width, by: 4) {
+                let o = (y * width + x) * 4
                 out.append(
-                    (UInt32(ptr[o]) << 16) | (UInt32(ptr[o + 1]) << 8) | UInt32(ptr[o + 2])
+                    (UInt32(pixels[o]) << 16) | (UInt32(pixels[o + 1]) << 8) | UInt32(pixels[o + 2])
                 )
             }
         }
