@@ -232,7 +232,10 @@ struct BoolExemptionGuard {
             for url in GuardScanRoots.swiftFiles(in: root.url) {
                 let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
                 if tree.hasError {
-                    Issue.record("解析出错：\(url.lastPathComponent) —— swift-syntax major 可能与工具链不配套")
+                    // ⚠️ **诊断走仓库根相对路径，不是 `lastPathComponent`**（PR #265 第 3 轮
+                    // Copilot A-1）：本函数自 `#246` 起扫**多个根**，两个 target 各有一个
+                    // `Foo.swift` 时裸文件名指不出是哪一个。
+                    Issue.record("解析出错：\(GuardScanRoots.relativePath(url)) —— swift-syntax major 可能与工具链不配套")
                 }
                 let collector = DeclaredTypeNameCollector()
                 collector.walk(tree)

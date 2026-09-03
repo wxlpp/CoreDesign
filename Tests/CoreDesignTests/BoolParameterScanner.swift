@@ -645,10 +645,18 @@ func scanBoolParams(root: URL, target: String = GuardScanRoots.primaryTargetName
         let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
         // ⚠️ **解析保真检查**：parser major 与工具链不配套时会静默产出 error node
         // ⇒ 声明被漏采，而扫描器照样「成功」返回一个偏小的集合。
+        // ⚠️ **诊断与 `SourceLocationConverter` 都走仓库根相对路径，不是
+        // `lastPathComponent`**（PR #265 第 3 轮 Copilot A-2）：本函数自 `#246` 起被
+        // `scanBoolParams(roots:)` 逐 target 调用，`CoreDesign/Foo.swift` 与
+        // `CoreDesignEffects/Foo.swift` 的裸文件名一模一样 ⇒ 失败位置指不出是哪个 target
+        // （`BoolParamHit.file` 进的正是 `print` 出来的那份「键 ← 文件:行」清单）。
+        // ⚠️ `BoolParamHit.file` **不进豁免键**（键是 `owner.decl#param` 加 target 前缀，
+        // 见 `BoolParamHit.key`），所以换成相对路径不动任何既有计数。
+        let rel = GuardScanRoots.relativePath(url)
         if tree.hasError {
-            Issue.record("解析出错：\(url.lastPathComponent) —— swift-syntax major 可能与工具链不配套")
+            Issue.record("解析出错：\(rel) —— swift-syntax major 可能与工具链不配套")
         }
-        let partial = collectBoolParams(tree: tree, fileName: url.lastPathComponent, target: target)
+        let partial = collectBoolParams(tree: tree, fileName: rel, target: target)
         result.hits += partial.hits
         result.carrying += partial.carrying
         result.publicBoolProperties += partial.publicBoolProperties

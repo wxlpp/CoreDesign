@@ -110,6 +110,23 @@ nonisolated enum GuardScanRoots {
     }
 
     /// 仓库根相对路径，用于报错信息（`Sources/CoreDesignEffects/Foo.swift`）。
+    ///
+    /// ⚠️ **多根扫描的诊断一律走这里，不得用 `url.lastPathComponent`**
+    /// （PR #265 第 3 轮 Copilot A-1 / A-2）：`CoreDesign/Foo.swift` 与
+    /// `CoreDesignEffects/Foo.swift` 的裸文件名一模一样，失败位置会指错文件。
+    /// 传给 `SourceLocationConverter(fileName:)` 的也必须是它——那个名字会进
+    /// `Violation.file` / `BoolParamHit.file`，最终出现在给人读的清单里。
+    ///
+    /// **本轮已逐条排查过的全部 `lastPathComponent` 用点**（免得后人重扫一遍）：
+    /// · `BoolExemptionGuard.declaredTypeNames()`、`scanBoolParams(root:target:)`
+    ///   ——**多根**，本轮已改；
+    /// · `EffectsColorLiteralGuard.scan(root:)` / `ChromeTextLiteralGuard.scan(root:)` /
+    ///   `AccessibilityStringLiteralGuard.noBareAccessibilityLiterals` /
+    ///   `ExtensionEntryPointGuard` ——多根，本来就走 `relativePath`；
+    /// · `ComponentRegistryGuard`（`:476`）、`ComponentJudgeScanner`（`:363`/`:365`）、
+    ///   `StyleConsumptionGuard`（`:174`）、`ToastPublicEntryForwardingGuard`（`:188`）
+    ///   ——扫描根是 `ComponentRegistryGuard.coreDesignSources`（或它的临时拷贝）这**一个**根，
+    ///   跨 target 同名不可能发生 ⇒ 有意保持原样。它们哪天扩到多根，必须同轮改成 `relativePath`。
     static func relativePath(_ url: URL) -> String {
         url.path.replacingOccurrences(of: Self.repoRoot.path + "/", with: "")
     }
