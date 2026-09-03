@@ -1,3 +1,4 @@
+import CoreDesign
 import SwiftUI
 import Testing
 
@@ -109,8 +110,37 @@ struct MicroInteractionAPITests {
         return Data(buffer)
     }
 
-    /// ⚠️ 暖机一次再比——冷渲的第一帧在某些内容上与之后不同（见 `pixels` 的说明）。
+    /// ⚠️⚠️ **进程级暖机**（#262 第 4 轮 review S-2 / S-3 的副产物，本轮实测）。
+    ///
+    /// `ImageRenderer` 在**进程内最早的若干次渲染**上给出的字形光栅化与之后不同。
+    /// 实测：把 `Text("Unlock").frame(320×44).background(Color.accent)` 连渲 8 次，
+    /// **第 0 / 1 / 2 次彼此逐字节相同，第 3 次起整体差 7 个字节并从此稳定**，
+    /// 差异像素全落在 "Unlock" 的字形上。
+    ///
+    /// ⚠️ 两条推论，都直接关系到本文件所有相等断言的可信度：
+    /// 1. 「连渲到两次相同就算收敛」**行不通**——前三次正好彼此相同，会锁在错的那个值上；
+    ///    必须**固定次数**地把渲染栈跑热。
+    /// 2. 只暖机一次（上一版）时，**谁先被渲染谁就是那个异类**：某条判据的基线若恰好落在
+    ///    暖机窗口里，它会与随后所有被测项差 7 字节。而 Swift Testing 不保证测试顺序
+    ///    ⇒ 绿不绿取决于当次调度。**这正是本文件反复堵的病型**
+    ///    （`pixels` 的注释原话：「当前绿是因为 `Text("x")` 恰好稳定，不是因为判据稳」）。
+    ///
+    /// ⚠️ 它同时是上一版那条「第三种内容差 7 字节 ⇒ 不纳入判据」结论的**真正成因**：
+    /// 那 7 字节不是"视图树结构影响边缘光栅化"，是基线取在了暖机窗口里
+    /// ——见 `eachEffectRestsClean` 的说明。
+    ///
+    /// ⇒ 首次取像素前把渲染栈跑热。实测暖机之后**新出现的**宽内容（换一段文字、
+    /// 换一个尺寸）首帧即收敛 ⇒ 这是**进程级**暖机，不是逐视图的。
+    /// 次数取 8（实测拐点在第 3 次）留足余量；一次暖机不到 1 ms。
+    private static let processWarmUp: Bool = {
+        let probe = Text("Unlock").frame(width: 320, height: 44).background(Color.accent)
+        for _ in 0..<8 { _ = Self.pixels(probe) }
+        return true
+    }()
+
+    /// ⚠️ 进程级暖机 + 视图级暖机各一道，见 `processWarmUp`。
     static func stablePixels(_ view: some View) -> Data? {
+        _ = Self.processWarmUp
         _ = Self.pixels(view)
         return Self.pixels(view)
     }
@@ -196,15 +226,33 @@ struct MicroInteractionAPITests {
     /// ——「全体等量偏差」就是伪影的指纹，不是八个独立缺陷。
     /// ⇒ 改用泛型闭包，基线与用例走**同一条路径**，层数天然一致。
     ///
-    /// ⚠️⚠️ **本 harness 的实测下限**：带背景的宽视图
-    /// （`Text("Unlock").frame(320×44).background(Color.accent)`）上，
-    /// **八个效果全部差 7 字节 ≈ 2 像素**，且**差值完全相同、连不画任何东西的
-    /// `.haptic` 也在内**——差异来自视图树结构对边缘光栅化的影响，
-    /// **不是任何一个效果在画东西**。多种包装形态（裸 / `AnyView` / `EmptyModifier`）
-    /// 都试过，无法对齐到 0。
-    /// ⇒ **该内容不纳入本判据**，如实记在这里，而不是用容差把它糊过去
-    /// ——容差会让真实的 2 像素缺陷也一起漏掉。`Text` 与 SF Symbol 两种内容
-    /// **逐字节相等**，是本判据的有效射程。
+    /// ⚠️⚠️ **上一版这里写着「第三种内容不纳入本判据」，而测试名仍写「三种内容」**
+    ///（#262 第 4 轮 review S-2 / S-3）——名字宣称的覆盖面大于实际跑的两种。
+    ///
+    /// 那条排除的理由是：带背景的宽视图
+    /// （`Text("Unlock").frame(320×44).background(Color.accent)`）上
+    /// 「八个效果全部差 7 字节 ≈ 2 像素、差值完全相同、连不画任何东西的 `.haptic`
+    /// 也在内」，且多种包装形态都对不齐到 0。
+    ///
+    /// ⚠️ **那 7 个字节是真的、当场就能复现**（本轮实测），但**成因写错了**，
+    /// 而错误的成因把一个可修的 harness 缺陷记成了"物理下限"：
+    /// · 它**与被测的是哪个效果无关**——连 `.haptic`（什么都不画）都在内，
+    ///   八个效果彼此**逐字节相同**，唯一的异类是**基线**；
+    /// · 把该内容连渲 8 次：第 0 / 1 / 2 次彼此相同，**第 3 次起整体差 7 字节并从此稳定**
+    ///   ⇒ 异类不是"结构"，是**谁落在了渲染栈的暖机窗口里**。
+    ///   `check` 先渲基线、再渲八个效果 ⇒ 只有基线掉在窗口内。
+    /// ⇒ 真正的修法是**把渲染栈跑热**，不是排除内容。见 `stablePixels.processWarmUp`。
+    ///
+    /// ⚠️ 这也解释了为什么它"多种包装形态都对不齐到 0"——换包装换不出暖机窗口。
+    ///
+    /// ⇒ 装上进程级暖机后重测：该内容在 macOS 与 iOS Simulator **两条腿**上、
+    /// 八个效果**全部 0 字节差异**（另试过 `Circle` / 纯色块 / 圆角矩形 / 带内边距的
+    /// `Text` / 胶囊背景，同样全 0）。**第三种内容补回来**，测试名与实际覆盖对齐。
+    ///
+    /// ⚠️ 选它而不选别的：它是三种里唯一带**大面积不透明背景**的，射程明显更大。
+    /// **变异实证**：往 `ShineCore` 加一个 `.offset(x: 100)` 的 1×1 脏点
+    /// ——`Text("x")` 与 SF Symbol 都只有几像素宽，那个点**落在画面之外、两者全绿**，
+    /// 只有本内容判红。第三种内容不是凑数。
     @Test("静息态：八个各自单独用、三种内容都不改变位图")
     func eachEffectRestsClean() {
         func check(_ contentName: String, _ content: some View) {
@@ -227,6 +275,7 @@ struct MicroInteractionAPITests {
         }
         check("Text", Text("x"))
         check("SFSymbol", Image(systemName: "star.fill").font(.system(size: 40)))
+        check("WideBackground", Text("Unlock").frame(width: 320, height: 44).background(Color.accent))
     }
 
     /// `.rise(text:)` 文档里写的**跨 package 绕行方式**的机器判据（#262 第 3 轮 review）。
@@ -284,31 +333,125 @@ struct MicroInteractionAPITests {
     }
 
 
+    /// 把 Shine 的光带**钉在指定 `progress` 上**渲染出来。
+    ///
+    /// ⚠️ 光带几何（`ShineBand.gradient`）与「进度 → 位移」（`ShineBand.offset`）
+    /// **全部取自生产代码**；这里只重演 `ShineCore` 的组合方式
+    /// （`overlay` + `GeometryReader` + `mask`）——因为 `ShineCore` 是 `private`，
+    /// 且它那一层的 `keyframeAnimator` 在 `ImageRenderer` 下永远跑不到终帧。
+    /// 组合一旦与生产代码漂移，`terminalFrameIsIdentity` 里 `progress = 0`
+    /// 那条**不等**互锁会判红。
+    static func shinePinned(_ content: some View, progress: CGFloat) -> some View {
+        content.overlay {
+            GeometryReader { proxy in
+                let travel = proxy.size.width + proxy.size.height
+                ShineBand.gradient(travel: travel, highlight: .specularHighlight)
+                    .offset(x: ShineBand.offset(progress: progress, travel: travel))
+            }
+            .mask(content)
+        }
+    }
+
     /// ⚠️⚠️ **上面两条只覆盖「首次 trigger 之前」的静息态**（第 5 轮终审 C5-2）：
     /// 它们的 trigger 是字面量 `1`、永不变化 ⇒ `TriggerRelay.fire` 恒为 0
     /// ⇒ 动画从未跑过 ⇒ 渲染的是 `initialValue` 态。
     ///
     /// 而 `keyframeAnimator` 的静息态**有两个**：`initialValue` 态，与**终帧态**
     /// （每次动画结束后停在最后一个 keyframe，且**那是用户实际长期看到的那个**）。
-    /// 测试名与 250.md 都写「静息态」，读者会理解为覆盖了后者——**上一版没有**。
     /// `Spin` 的 360° 残留正是从这个缺口漏过去的。
     ///
-    /// ⇒ 本条直接断言两个 keyframe 类效果的**终帧变换是恒等的**。
-    /// ⚠️ 只修 C5-1 而不装这条护栏，就是「修症状不装护栏」——正是本 PR 前四轮
-    /// 反复出现的形态。
-    @Test("动画终帧态：keyframe 类效果的终点变换必须是恒等")
+    /// ⚠️⚠️ **上一版这条判据自己就掉在同一个缺口里**（#262 第 4 轮 review S-1，
+    /// 已逐条复核成立）：
+    /// · **Shine 那半截**写的是 `Text("x").shine(trigger: 1)`——**又是常量 trigger**，
+    ///   `TriggerRelay.fire` 恒为 0、`onChange` 永不触发 ⇒ 量到的仍是 `initialValue`
+    ///   态，与它上面两条静息判据量的是**同一帧**，跟"终帧"没有任何关系；
+    /// · **Spin 那半截**写的是 `(360.0 * sign).truncatingRemainder(dividingBy: 360) == 0`
+    ///   ——一条**纯算术恒等式**，一行生产代码都没读到：把 `SpinCore` 里的取模删掉
+    ///   （就是 C5-1 修掉的那枚缺陷本身），它照样全绿。
+    ///
+    /// ⇒ 换成**真求值 + 真渲染**。`ImageRenderer` 拍的是静态帧，**没有办法让动画
+    /// 在单测里跑到终点**（本仓 `ToastPresentationRenderTests` 已写死这条限度），
+    /// 但 keyframe **轨道本身是可求值的数据**：
+    /// 1. 用 `KeyframeTimeline` 对**生产代码里的那条轨道**求 `value(time: duration)`
+    ///    ⇒ 拿到真实终帧值；
+    /// 2. 把它喂给**生产代码里的**取角 / 取偏移函数；
+    /// 3. 把结果那一帧渲染出来，与裸视图逐字节比。
+    /// 每一步吃的都是 `SpinTurn` / `ShineBand`，没有测试自抄的常量。
+    ///
+    /// ⚠️ **覆盖射程如实写在这里**：本条只覆盖 `Spin` 与 `Shine`。其余六个用动画器的
+    /// 文件（`Shake` / `Jump` / `Ping` / `Spray` / `Rise` 与降级用的 `OpacityPulse`）
+    /// 终帧仍是零覆盖——它们的动画状态是多轨道自定义 struct（`Jump` 更是
+    /// `phaseAnimator`，没有 `KeyframeTimeline` 这样的求值入口），要同样"补真"
+    /// 需要逐个把状态与轨道抽成 internal，另开一轮做。
+    /// 这个缺口由下面的 `animatorFilesAreEnumerated` 钉成机器可见的。
+    @Test("动画终帧态：Spin / Shine 的终点变换是恒等（真轨道求值 + 位图）")
     func terminalFrameIsIdentity() {
-        // Spin 的终帧是 `360 * sign` ⇒ 取模后必须落回 0。
-        for sign in [1.0, -1.0] {
-            let terminal = (360.0 * sign).truncatingRemainder(dividingBy: 360)
-            #expect(terminal == 0, "Spin 终帧 \(360 * sign)° 取模后是 \(terminal)，不是恒等")
-        }
-        // Shine 的终帧是 progress = +1 ⇒ 光带 offset = +travel ⇒ 完全出界。
-        // 用位图验证：终帧渲染必须与裸视图逐字节相同。
         let bare = Self.stablePixels(Text("x"))
-        #expect(bare != nil)
-        #expect(Self.stablePixels(Text("x").shine(trigger: 1)) == bare,
-                "shine 的终帧不是干净的")
+        // ⚠️ **非空断言先行**（本仓明文纪律）：渲染失败时下面的相等断言恒真。
+        #expect(bare != nil, "渲染失败，下面的相等断言会静默变绿")
+
+        // MARK: Spin —— 终帧转角取模后必须是 0，且施加它与裸视图逐字节相同
+
+        for direction in SpinDirection.allCases {
+            let timeline = KeyframeTimeline(initialValue: SpinTurn.initialTurns) {
+                SpinTurn.track(direction: direction)
+            }
+            // ⚠️ `value(time: duration)` = 轨道真正停住的那一帧。
+            let turns = timeline.value(time: timeline.duration)
+            let angle = SpinTurn.angle(turns: turns, isReduced: false)
+            let detail = "Spin(\(direction)) 终帧转到 \(turns)°，取角后是 \(angle)° —— "
+                + "不是恒等，动画结束后会永久残留一个变换"
+            #expect(angle == 0, "\(detail)")
+            #expect(Self.stablePixels(Text("x").rotationEffect(.degrees(angle))) == bare,
+                    "Spin(\(direction)) 终帧角 \(angle)° 施加后位图与裸视图不同")
+        }
+        // ⚠️ **互锁**：证明同一条渲染路径确实分辨得出"非恒等的角度"，
+        // 否则上面那条相等断言是恒真的。
+        #expect(Self.stablePixels(Text("x").rotationEffect(.degrees(37))) != bare,
+                "harness 分辨不出 37° 旋转 —— Spin 那条相等断言是恒真的")
+
+        // MARK: Shine —— 终帧光带必须完全扫出遮罩之外
+
+        let timeline = KeyframeTimeline(initialValue: ShineBand.initialProgress) {
+            ShineBand.track()
+        }
+        let terminal = timeline.value(time: timeline.duration)
+        #expect(Self.stablePixels(Self.shinePinned(Text("x"), progress: terminal)) == bare,
+                "Shine 终帧 progress = \(terminal) —— 光带没有完全扫出界，会永久留在内容上")
+        // ⚠️ **互锁**：`progress = 0`（光带正压在内容上）必须判出差异。
+        // 那正是第 4 轮那枚真 bug 的形态（`initialValue` 被固化成 0 ⇒ 常驻斜切）。
+        // 这一条同时兜住「钉帧路径与 `ShineCore` 的组合漂移了」——漂移后光带画不出来，
+        // 本条判红，上一条就不会静默退化成恒真。
+        #expect(Self.stablePixels(Self.shinePinned(Text("x"), progress: 0)) != bare,
+                "钉帧路径在 progress = 0 都量不出光带 —— 上一条相等断言是恒真的")
+    }
+
+    /// ⚠️ **把终帧覆盖的缺口钉成机器可见的**（#262 第 4 轮 review S-1）。
+    ///
+    /// `terminalFrameIsIdentity` 只覆盖 `Spin` / `Shine` 两个效果，另外六个用动画器的
+    /// 文件终帧无人钉。与 `entryCountMatchesLists` 同一形态：**新增（或挪走）一个用
+    /// `keyframeAnimator` / `phaseAnimator` 的文件即判红**，把作者推回上一条去补，
+    /// 而不是让第九个效果静悄悄地又落在缺口里。
+    @Test("用动画器的文件清单固定 —— 新增一个就必须回头补它的终帧判据")
+    func animatorFilesAreEnumerated() throws {
+        var animatorFiles: Set<String> = []
+        for url in try MicroInteractionReduceMotionGuard.swiftFiles() {
+            let code = MicroInteractionReduceMotionGuard.stripComments(
+                try String(contentsOf: url, encoding: .utf8)
+            )
+            guard code.contains("keyframeAnimator(") || code.contains("phaseAnimator(")
+            else { continue }
+            animatorFiles.insert(url.lastPathComponent)
+        }
+        // 当前已被 `terminalFrameIsIdentity` 覆盖终帧的只有前两个。
+        let known: Set<String> = [
+            "Spin.swift", "Shine.swift",
+            "Shake.swift", "Jump.swift", "Ping.swift", "Spray.swift", "Rise.swift",
+            "MicroInteractionSupport.swift",
+        ]
+        let detail = "用动画器的文件从 \(known.sorted()) 变成了 \(animatorFiles.sorted()) —— "
+            + "请同步本清单，并到 terminalFrameIsIdentity 补上新文件的终帧判据"
+        #expect(animatorFiles == known, "\(detail)")
     }
 
     /// ⚠️ **上一条相等断言的非退化前置**（本仓 `SidebarLeadingSlotRenderTests` 的互锁成法）。

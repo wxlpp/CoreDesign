@@ -34,13 +34,7 @@ private struct ShineCore: ViewModifier {
                 GeometryReader { proxy in
                     let travel = proxy.size.width + proxy.size.height
 
-                    LinearGradient(
-                        colors: [.clear, highlight, .clear],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .frame(width: travel * 0.35, height: travel)
-                    .rotationEffect(.degrees(28))
+                    ShineBand.gradient(travel: travel, highlight: highlight)
                     // ⚠️⚠️ **动画量必须是无量纲进度，不能直接用 `travel`**
                     //（第 4 轮终审 C4-1，实测出来的真 bug）：
                     // `keyframeAnimator` 只在**首次求值**时固化 `initialValue`，
@@ -61,14 +55,17 @@ private struct ShineCore: ViewModifier {
                     // **按值捕获**，它随 body **每次求值**更新（不是每帧重算）。
                     // 修复真正成立的理由是另一个：`initialValue` 改成了**无量纲常量 -1**，
                     // 因此不再依赖首次求值时的 size。
-                    //   拿得到真实 size。
-                    .keyframeAnimator(initialValue: CGFloat(-1), trigger: self.fire) { view, progress in
-                        view.offset(x: progress * travel)
+                    //
+                    // ⚠️ 初值 / 轨道 / 进度→位移三者都取自 `ShineBand`，**不在此处写字面量**
+                    //（#262 第 4 轮 review S-1）：终帧判据要能对**这条真轨道**求值，
+                    // 见 `ShineBand` 的文档。
+                    .keyframeAnimator(
+                        initialValue: ShineBand.initialProgress,
+                        trigger: self.fire
+                    ) { view, progress in
+                        view.offset(x: ShineBand.offset(progress: progress, travel: travel))
                     } keyframes: { _ in
-                        KeyframeTrack {
-                            LinearKeyframe(-1.0, duration: 0.05)
-                            CubicKeyframe(1.0, duration: 0.65)
-                        }
+                        ShineBand.track()
                     }
                 }
                 // ⚠️ **遮罩到内容形状**——高光只在内容内部扫过，不溢出成一个矩形块。
@@ -79,6 +76,69 @@ private struct ShineCore: ViewModifier {
                 .accessibilityHidden(true)   // 纯装饰（FR-13）
                 .allowsHitTesting(false)
             })
+    }
+}
+
+/// 高光光带的**几何与进度契约**——从 `ShineCore.body` 里抽出来的纯数据 / 纯视图部分。
+///
+/// ⚠️ **抽出来的唯一理由是可测性**（#262 第 4 轮 review S-1）。
+///
+/// 上一版的「终帧态」判据写的是 `Text("x").shine(trigger: 1)`——**常量 trigger**，
+/// `TriggerRelay.fire` 恒为 0、`onChange` 永不触发 ⇒ `keyframeAnimator` 从未跑过
+/// ⇒ 量到的是 `initialValue` 态，与它旁边两条静息判据量的是**同一帧**，
+/// 和测试名宣称的"终帧"没有关系。
+///
+/// ⚠️ 而 `ImageRenderer` 拍的是静态帧，**没有办法让动画在单测里跑到终点**
+///（本仓 `ToastPresentationRenderTests` 早已写死这条限度）。
+/// 但 keyframe **轨道本身是可求值的数据**：测试用 `KeyframeTimeline` 对下面这条
+/// 真轨道求 `value(time: duration)` 拿到终帧 progress，再用下面这两个真函数
+/// （`offset` / `gradient`）把那一帧钉出来渲染。判据吃的全是生产代码，
+/// 不是测试里重抄一遍的常量。
+///
+/// ⚠️ **不要把字面量写回 `ShineCore`**——那会让终帧判据重新变成"测试自说自话"。
+enum ShineBand {
+
+    /// 静息（动画尚未开始）时的进度。**负 = 光带完全在内容左侧界外**。
+    nonisolated static let initialProgress: CGFloat = -1
+
+    /// 动画结束后停住的进度。**正 = 光带完全扫出内容右侧界外**。
+    ///
+    /// ⚠️ `keyframeAnimator` 动画结束后**停在最后一个 keyframe，不回 `initialValue`**
+    /// （第 5 轮终审 C5-1 对 `Spin` 的实测结论，对本效果同样成立）
+    /// ⇒ 这个值就是用户实际长期看到的那一帧，它必须也是"界外"。
+    nonisolated static let terminalProgress: CGFloat = 1
+
+    /// 光带宽度相对 `travel` 的比例。
+    nonisolated static let widthRatio: CGFloat = 0.35
+
+    /// 光带倾角。
+    nonisolated static let tilt: Angle = .degrees(28)
+
+    /// 无量纲进度 → 横向位移。`travel` = 内容的 `w + h`。
+    ///
+    /// `|progress| == 1` ⇒ 位移 `±travel`，而内容横向只占 `w ≤ travel`
+    /// ⇒ 光带整条落在遮罩之外。
+    nonisolated static func offset(progress: CGFloat, travel: CGFloat) -> CGFloat {
+        progress * travel
+    }
+
+    /// 一道**尚未位移**的光带。
+    static func gradient(travel: CGFloat, highlight: Color) -> some View {
+        LinearGradient(
+            colors: [.clear, highlight, .clear],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .frame(width: travel * Self.widthRatio, height: travel)
+        .rotationEffect(Self.tilt)
+    }
+
+    /// 扫光的进度轨道：从界外扫到界外。
+    nonisolated static func track() -> some Keyframes<CGFloat> {
+        KeyframeTrack {
+            LinearKeyframe(Self.initialProgress, duration: 0.05)
+            CubicKeyframe(Self.terminalProgress, duration: 0.65)
+        }
     }
 }
 
