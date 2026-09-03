@@ -106,23 +106,35 @@ Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie）
 
 ---
 
-## 噪声参考实现（待相应 shader 落地时启用）
+## `CoreDesignShaders` 的共享原语与公开配方（#261 落地，**必填**）
 
-> ⚠️ 占位。**仅 `FractalClouds` / `InkSmoke` 两个**落地时填入。
->
-> ⚠️ **第 1 版这里还列了 `SimplexNoise` / `SmokeRing` / `NeuroNoise` / `Water` /
-> `GrainGradient`——它们已改判**：前四个追到 `paper-design/shaders`（Apache-2.0，见上一节），
-> `GrainGradient` 匹配存疑判 `待追溯`。**它们不走 clean-room，走带署名的移植。**
+⚠️⚠️ **本节取代了第 1 版的「噪声参考实现（clean-room）」一节，因为那一节整个是错的。**
 
-这两个 shader 走 **clean-room 重写**——对照下列许可兼容的参考实现重写，**不复制其代码**：
+第 1 版写：`FractalClouds` / `InkSmoke` 走 clean-room 重写，参考实现是
+ashima / stegu / glsl-noise（均 MIT）。**PR #261 第 2 轮查明：那三个是 simplex +
+permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有任何一行对应关系**
+——等于引用了一个许可干净但**实际没用到**的来源，而真正的影响源一个没写。
+⇒ 该引用**已删除**，不是"改得更准"而是**它本就不成立**。
 
-- [ashima/webgl-noise](https://github.com/ashima/webgl-noise) — MIT
-- [stegu/webgl-noise](https://github.com/stegu/webgl-noise) — MIT
-- [hughsk/glsl-noise](https://github.com/hughsk/glsl-noise) — MIT
+**实际用到的来源逐项如下**（对应 `docs/shader-provenance.md` 的《共享原语的逐项出处》）：
 
-- 档位：**参考算法思路**
-- ⚠️ 噪声原语只覆盖 FBM 的底座；**domain-warp 与调色的组合仍须先按 provenance 表
-  《方法论教训》追一轮**，不得直接认定为原创。
+| 原语 / 片段 | 来源 | 档位 |
+|---|---|---|
+| `wangHash`（`0x27d4eb2d`） | Thomas Wang 整数 hash / **Nathan Reed**《Quick And Easy GPU Random Numbers in D3D11》(2013) | **较大段落移植**（逐字符一致）|
+| `hash21`/`hash22` 的素数三元组 | **Teschner et al. 2003**《Optimized Spatial Hashing for Collision Detection of Deformable Objects》 | 事实性算法常数 |
+| `valueNoise` | iq / The Book of Shaders（嵌套 `mix` 形态） | 教科书 |
+| `fbm` | **The Book of Shaders 第 13 章** / iq 的 fBm 文章 | **较大段落移植**（逐行同构）|
+| 域扭曲的 `q`/`r` 三级级联（`InkSmoke` / `FractalClouds`） | **Inigo Quilez《Domain Warping》** | **较大段落移植**（结构 + 变量名保留）|
+| `Plasma` 的四相正弦叠加 | **Lode Vandevenne**《Lode's Computer Graphics Tutorial — Plasma》 | **较大段落移植**（逐项对应）|
+| `roundedBoxSDF` | **iq 2D distance functions** | **较大段落移植** |
+| `edgeWidth`（`max(fwidth, ε)` + smoothstep） | iq 的 **distance-AA** 惯用法 | 公开惯用法 |
+| `ramp3` | **未指认到具体上游** | **待追溯**（不作原创声称）|
+| `RefractiveGlass` 的位移 + 色散主体 | SwiftUI `layerEffect` "liquid glass" 一族的通行形态 | **待追溯** |
+
+⚠️ **上述来源多数无显式许可声明**（Wang 的页面、iq 的文章页、Book of Shaders 的片段）。
+按本仓「正向裁定、不证否定」的门槛，它们**统一登记为「待追溯」**，
+**不得据此对外声称原创**——`docs/shader-provenance.md` 的第六条轴逐字写明了理由：
+**「指认不到」不等于「原创」，空白等于默认原创，而本仓已因这个默认吃了四次亏。**
 
 ---
 

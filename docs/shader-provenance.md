@@ -164,10 +164,51 @@ clean-room 重写这条出口上。」
 | **动效契约** | 无 | Reduce Motion / Reduce Transparency / 后台 / 低电量**四条降级路径从第一行就在** |
 | **代码风格** | 英文注释、无 `self.` | 中英混排注释、显式 `self.`、`// MARK: -` |
 
-⚠️ **「参数集」这一轴最关键**——它正是本表用来指认 paper 的证据（签名逐个对应，见
-§B）。反过来说：**只要我们的参数面是从 CoreDesign 概念推出来的、而不是抄上游的 uniform
-列表，那条指认链在我们身上就不成立**。这是一个**可被下一个 reviewer 用同样方法反查**的
-承诺，不是自我声明。
+⚠️ **「参数集」这一轴最关键**——它正是本表用来指认 paper 的证据（签名逐个对应，见 §B）。
+
+### ⚠️⚠️ 第六条轴：**函数体**（五轴是必要不充分的，这一条由 #261 用四轮实证补上）
+
+**上面五个轴全部只描述 API 表面。而受版权保护的表达在函数体里。**
+
+第 1 版据此写下过一句承诺：「只要我们的参数面是从 CoreDesign 概念推出来的，那条指认链
+在我们身上就不成立——这是**可被下一个 reviewer 用同样方法反查**的承诺」。
+**PR #261 的五轮终审逐轮证伪了它，四次命中，每次都在函数体：**
+
+| 轮次 | 五轴全部满足（参数面确实是 CoreDesign 概念）| 而函数体里被一击命中的 |
+|---|---|---|
+| 1 | ✅ | `hash21` 与 ShipSwift 的 `swInkSmokeHash21` **逐字节相同**（`grep 123.34`）|
+| 2 | ✅ | `grep 0x27d4eb2d` → Thomas Wang / Nathan Reed；`grep 73856093` → Teschner et al. 2003；`coreDesignInkSmoke` 是 iq《Domain Warping》的结构复制，**连变量名 `q`/`r` 都保留** |
+| 3 | ✅ | `Plasma` / `DotGrid` 的「射程限定」引了它们**根本没调用**的原语——**与错引 ashima 互为镜像** |
+| 4 | ✅ | `cd::fbm` 逐行同构于 The Book of Shaders ch.13；`Plasma` 的四相正弦是 Lode Vandevenne 的公式 |
+| 5 | ✅ | `ramp3` / `edgeWidth` / `coreDesignRefractiveGlass` **主体**三处零署名 |
+
+⇒ **裁定：五轴是必要条件，不是充分条件。** 任何「自研实现」的声称，**必须额外**通过
+一条函数体判据：
+
+1. **逐常量 grep**：把函数体里所有魔数（`0x…`、七位以上素数、`123.34` 这类）拿去搜。
+   本仓四次命中全部来自这一步，**它比五轴便宜一个数量级，却被放在最后**。
+2. **逐结构对照**：级联层数、变量命名、循环体形态与已知公开片段比对
+   ——「改常量、改名不构成独立」（本仓已成文）。
+3. **逐原语核对调用面**：声称"自研"的件，其**实际调用的**共享原语必须逐个有出处
+   ——不是"我用到的那些"，是 `grep cd::` 出来的那些。第 3 轮的镜像错误就出在这里。
+
+⚠️ **「指认不到」不等于「原创」**：`ramp3` 至今未指认到上游，本表登记为**待追溯**
+而非「自研」。**空白等于默认原创，而本 PR 已因这个默认吃了四次亏。**
+
+### 共享原语的逐项出处（#261 落地时补，本表的必填项）
+
+| 原语 / 片段 | 出处 | 许可地位 |
+|---|---|---|
+| `wangHash`（`0x27d4eb2d`） | Thomas Wang 整数 hash，GPU 版经 **Nathan Reed**《Quick And Easy GPU Random Numbers in D3D11》(2013) | 页面无许可声明 ⇒ **待追溯**（算法层，风险低但**低风险 ≠ 已裁定**）|
+| `hash21`/`hash22` 的素数三元组 `73856093 / 19349663 / 83492791` | **Teschner et al. 2003**《Optimized Spatial Hashing for Collision Detection of Deformable Objects》 | 论文里的常数 ⇒ **事实性算法**，可落地 |
+| `valueNoise`（嵌套 `mix` 形态） | iq / The Book of Shaders（两种在野形态，本仓选嵌套 mix） | 教科书 ⇒ 可落地 |
+| `fbm`（gain 0.5 / lacunarity 2.0 循环体） | **The Book of Shaders 第 13 章** / iq 的 fBm 文章，**逐行同构** | 公开片段 ⇒ **待追溯** |
+| 域扭曲的 `q`/`r` 三级级联 | **Inigo Quilez《Domain Warping》** | ⇒ **待追溯**；`InkSmoke` 已按此**撤回原创声称** |
+| `Plasma` 的四相正弦叠加 | **Lode Vandevenne**《Lode's Computer Graphics Tutorial — Plasma》，逐项对应 | ⇒ **待追溯** |
+| `roundedBoxSDF` | **iq 2D distance functions** 的标准闭式解（另有四半径变体） | 页面无许可声明 ⇒ **待追溯** |
+| `edgeWidth`（`max(fwidth, ε)` + 下游 smoothstep） | iq 的 **distance-AA** 一族，公开惯用法 | ⇒ **待追溯** |
+| `ramp3`（三档插值） | **未指认到具体上游** | ⇒ **待追溯**（不作原创声称）|
+| `coreDesignRefractiveGlass` 的位移 + 通道色散**主体** | 2025 年 SwiftUI `layerEffect` "liquid glass" 一族的通行形态，**指纹强度不低于 InkSmoke 的 q/r 级联** | ⇒ **待追溯** |
 
 ### ⚠️ 界线：「效果类别」可自研，「某人的具体设计」不可
 
@@ -246,6 +287,24 @@ public struct Plasma: View {
 | `Plasma` `Starfield` `Dots` `LiquidChrome` `FractalClouds` `InkSmoke` `Glass` `GlassLogo` | `ChromaticGlass` `Foil` `Glitter` `IntenseBling` `PolishedAluminum`（ShaderKit 5，观感即设计 + GPL-3.0 视觉参考）· `AnimatedLoop`（18 参数 hand-tuned 组合） |
 
 ⚠️ `LiquidMetal` 待 §C 的追溯结论出来再定档。
+
+⚠️⚠️ **本表左列是「**效果类别**层面可以自研」，不是「实现出来就是自研的」**
+——两者被 #261 的五轮实证分开了。**实际落地后的档位以 #261 为准，全部下调：**
+
+| 件 | 本表原判 | #261 落地后的实际档位 |
+|---|---|---|
+| `InkSmoke` | 可走自研 | **不是自研**——域扭曲级联派生自 iq，hash 层出处见上表 |
+| `FractalClouds` | 可走自研 | **不是自研**——同上（单级 warp，指纹较弱）|
+| `LiquidChrome` | 可走自研 | 「自研」射程**仅限组合与参数化**，不含共享原语 |
+| `Plasma` | 可走自研 | **撤回「非移植」**——四相正弦是 Vandevenne 的公式 |
+| `Starfield` | 可走自研 | **撤回「非移植」**——网格 hash + step 熄灭 + smoothstep 辉光 + sin 相位是网格星空模板的逐项形态（`id`/`gv` 只是改名成 `cell`/`local`）|
+| `Dots`（`DotGrid`）| 可走自研 | **撤回「非移植」**——网格 + 抗锯齿圆盘是公开形态 |
+| `Glass`（`RefractiveGlass`）| 可走自研 | **撤回「自研的 Metal 折射」**——主体零署名，见上表 |
+
+⚠️ **这不是"当初判错了"**：本表判的是**效果类别可不可以自研**（那个判断仍然成立），
+而实现出来的东西是否**事实上**是自研的，只能在**函数体写完之后**用第六条轴查。
+⇒ **本表的左列是准入，不是结论**——落地件的档位由 provenance 复查决定，
+且**默认档位是「待追溯」而不是「自研」**。
 
 
 ## §B 追到 `paper-design/shaders`（Apache-2.0）的 11 个
@@ -338,6 +397,21 @@ public struct Plasma: View {
 ⇒ **B-2 / B-3 分解时按「移植 + 署名」重估，不是按 clean-room。**
 
 ---
+
+## ⚠️ #261 的落地反馈（本表的第一次实战复查）
+
+`shipswift-shaders` 的 B-1 首批 8 个 shader 落地时（PR #261）跑了**五轮**署名鉴定，
+**每一轮我都声称"这次全了"，每一轮都还有**。给本表留下三条可操作的结论：
+
+1. **五轴框架必须加第六条（函数体）** —— 见上文，四次命中全在函数体，而五轴全部满足。
+2. **默认档位是「待追溯」不是「自研」** —— 落地件的档位由函数体复查决定，
+   本表的「可走自研」左列是**准入**不是**结论**。
+3. **逐常量 grep 必须前置** —— 它比五轴便宜一个数量级，四次命中全部来自这一步，
+   而第 1 版把它放在最后。
+
+⚠️ **本表与 #261 的引用关系是双向的**：#261 的 `.metal` 与三个 Swift 文件共四处引用
+本文件，而本文件的《共享原语的逐项出处》是 #261 写出来的。⇒ **#261 不得先于本 PR 合入**
+（该前置已写在 #261 的描述顶部）。
 
 ## 需要回改的文档
 
