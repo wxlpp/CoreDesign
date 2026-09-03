@@ -110,6 +110,16 @@ import Testing
 //    （`func title() -> Text { render(.init("Loading")) }` 误报）、
 //    (b) 在三元 / `??` 上截断上行走查（`let t: Text = flag ? .init("Loading") : other` 漏报）。
 //    两条都已改码修掉，实证在 `contextualTypeDoesNotLeakAcrossArgumentPositions`。
+//    ⚠️⚠️ **第 5 轮终审又在共用实现上抓到三条**（I-a / I-b），同样原样传染到这里：
+//    (c) 赋值右侧继承了被赋值属性的标注
+//    （`var title: Text { get { … } set { self.store = .init("Loading") } }` 误报）；
+//    (d) 默认参数值继承了外层返回类型
+//    （`func title(id: Identifier = .init("Loading")) -> Text` 误报，镜像的
+//    `func f(t: Text = .init("Loading"))` 漏报）；
+//    (e) 条件绑定自带的 `typeAnnotation` 被外层标注顶掉
+//    （`var title: Text { if let id: Identifier = .init("Loading") { … } }` 误报，
+//    镜像的 `guard let t: Text = .init("Loading")` 漏报）。
+//    三条的**双向**实证在 `contextualTypeRespectsAssignmentsDefaultsAndBindings`。
 //    本条列举的「给不出」现在**确实**只剩数组 / 字典元素、函数实参、stored property、闭包返回值。
 @Suite("新 target 禁 chrome 文案裸字面量")
 struct ChromeTextLiteralGuard {
@@ -500,6 +510,81 @@ struct ChromeTextLiteralGuard {
         func title() -> Text { .init("Loading") }
         """).violations.contains(where: { $0.literal == "Loading" }),
                 "单表达式返回位置被收紧判据误伤 —— 这不是 I-1 / I-2 要的结果")
+    }
+
+    /// PR #265 **第 5 轮**终审 I-a / I-b 在 chrome 侧的对应形态。
+    ///
+    /// ⚠️ 与上一条同理：`ImplicitMemberContext` 由两条守卫**共用**（文件头口子 8），
+    /// 色相守卫那边的赋值右侧误报、默认参数值误报、条件绑定误报会原样**传染**到这里。
+    /// 上一轮补断言时 chrome 侧同样只覆盖了实参位置与三元 / `??` 两类 ⇒ 本条补齐两个方向。
+    @Test("上下文类型：赋值右侧 / 默认参数值 / 条件绑定各按自己的类型判（第 5 轮终审 I-a / I-b）")
+    func contextualTypeRespectsAssignmentsDefaultsAndBindings() {
+        // ① 误报方向 —— 必须**清零**（这些位置的宿主类型来自左值 / 形参 / 绑定自己的标注）。
+        let falsePositives: [(name: String, source: String)] = [
+            ("计算属性 `set` 里的赋值右侧（I-a）", """
+            import SwiftUI
+            struct S {
+                var store = Identifier("")
+                var title: Text { get { other } set { self.store = .init("Loading") } }
+            }
+            """),
+            ("`didSet` 里的赋值右侧（I-a）", """
+            import SwiftUI
+            struct S {
+                var store = Identifier("")
+                var title: Text = other { didSet { self.store = .init("Loading") } }
+            }
+            """),
+            ("默认参数值继承了外层返回类型（I-b①）", """
+            import SwiftUI
+            struct Identifier { init(_ raw: String) {} }
+            func title(id: Identifier = .init("Loading")) -> Text { other }
+            """),
+            ("条件绑定自带的类型标注被换成外层标注（I-b②）", """
+            import SwiftUI
+            struct Identifier { init(_ raw: String) {} }
+            var title: Text { if let id: Identifier = .init("Loading") { other } else { other } }
+            """),
+        ]
+        for c in falsePositives {
+            let hits = Self.scan(source: c.source).violations
+            #expect(!hits.contains(where: { $0.literal == "Loading" }), """
+            \(c.name)：误报 \(hits.map(\.description))
+            —— 共用的 `ImplicitMemberContext` 把外层标注 / 返回类型错安到了这里。
+            """)
+        }
+
+        // ② 漏报方向 —— 源码里**写下了** `Text`，必须判红。
+        let falseNegatives: [(name: String, source: String)] = [
+            ("默认参数值写了 `Text`（I-b① 的镜像）", """
+            import SwiftUI
+            struct S { func f(t: Text = .init("Loading")) {} }
+            """),
+            ("`guard let t: Text = .init(…)`（I-b② 的镜像）", """
+            import SwiftUI
+            func title() -> Text {
+                guard let t: Text = .init("Loading") else { return other }
+                return t
+            }
+            """),
+        ]
+        for c in falseNegatives {
+            let hits = Self.scan(source: c.source).violations
+            #expect(hits.contains(where: { $0.literal == "Loading" }),
+                    "\(c.name)：漏报（期望「Loading」，实得 \(hits.map(\.literal))）")
+        }
+
+        // ③ 旧行为不许回退。
+        #expect(!Self.scan(source: """
+        import SwiftUI
+        func title() -> Text { render(.init("Loading")) }
+        """).violations.contains(where: { $0.literal == "Loading" }),
+                "实参位置的旧修法回退了（第 4 轮 I-1）")
+        #expect(Self.scan(source: """
+        import SwiftUI
+        let t: Text = .init("Loading")
+        """).violations.contains(where: { $0.literal == "Loading" }),
+                "类型标注这条基本形态被本轮修法误伤")
     }
 
     @Test("探测器在真实源码上非真空：拿主 target 当靶场必须打出命中")

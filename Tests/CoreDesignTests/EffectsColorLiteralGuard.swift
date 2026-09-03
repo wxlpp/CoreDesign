@@ -51,10 +51,12 @@ import Testing
 //    不得放宽判据、更不得删掉本守卫**——「用削弱判据来消化一个正当例外」正是 G-7
 //    记在案的失效形态。follow-up 见 `246.md` 的《后续》。
 // 4. **隐式 `.init(…)` 只在「上下文类型写得出来」时才判**（PR #265 第 3 轮终审 F-2）：
-//    `ImplicitMemberContext.contextualTypeName(of:)` 只认**语法上真的写下了类型**的三处
+//    `ImplicitMemberContext.contextualTypeName(of:)` 只认**语法上真的写下了类型**的五处
 //    ——`let c: Color = .init(red:…)` 的类型标注、`.init(red:…) as Color` 的 `as` 断言、
 //    `func c() -> Color { .init(red:…) }` 的**返回位置**（单表达式体或 `return` 的直接子表达式，
-//    含计算属性）。类型只存在于**推断**里
+//    含计算属性）、**默认参数值**的形参类型（`func f(c: Color = .init(red:…))`）、
+//    **条件绑定**自带的 `typeAnnotation`（`guard let c: Color = .init(red:…)`）。
+//    类型只存在于**推断**里
 //    的位置（数组字面量元素、函数实参、`self.x = .init(red:…)` 里 stored property 的类型、
 //    闭包返回值）看不见 ⇒ 放行。
 //    ⚠️⚠️ **本条此前描述的收紧并不成立，已改码补上**（PR #265 第 4 轮终审 I-1）：
@@ -69,6 +71,26 @@ import Testing
 //    `let c: Color = maybe ?? .init(red:…)` 这两条**写了类型标注的真违规**被放行
 //    ——既不在本条列举的四种漏报里，又违反本条自己的判据。已改成继续往上找。
 //    两处的实证在 `contextualTypeDoesNotLeakAcrossArgumentPositions`。
+//    ⚠️⚠️ **上一条修法本身带来了一条回归，本轮已修**（PR #265 第 5 轮终审 I-a）：
+//    `x = .init(…)` 在未折叠的语法树里同样是 `SequenceExprSyntax`，「找不到 `as` 就继续上行」
+//    于是让单语句 accessor / `didSet` / `willSet` 里的赋值一路走到 `PatternBindingSyntax`，
+//    把**被赋值属性**的标注错安到右侧表达式上——**这正好推翻了本条上面那句**
+//    「`self.x = .init(red:…)` 里 stored property 的类型看不见 ⇒ 放行」：它当时不是放行，
+//    而是按**错的**类型判红。现在 `SequenceExprSyntax` 分支识别 `AssignmentExprSyntax`，
+//    落在 `=` 右侧一律 `return nil`（与实参位置同一条纪律：类型来自左值而非外层标注）。
+//    ⚠️⚠️ **上一条修法还漏了两处「源码写了类型却被换掉」**（同轮 I-b）：
+//    · **默认参数值**——`InitializerClause → FunctionParameter → … → FunctionDecl` 一路
+//      不经过 `CodeBlockItemListSyntax` ⇒ `inReturnPosition` 恒为真 ⇒ 采信了外层
+//      `returnClause`，与上面「只在返回位置采信」的判据直接冲突（`func makeColor(
+//      p: Pixel = .init(red:…)) -> Color` 误报，镜像的 `c: Color = .init(red:…)` 漏报）；
+//    · **条件绑定**——`OptionalBindingConditionSyntax` 有自己的 `typeAnnotation`，
+//      忽略它径直取外层 `PatternBinding` 的 `Color` 不是「看不见」而是**看错了**
+//      （`var c: Color { if let p: Pixel = .init(red: 1) { … } }` 误报）。
+//      同处还有一条上一轮**新引入且未登记**的漏报：`func f() -> Color { guard let c: Color =
+//      .init(red:…) else { … } }` 在 `0455e9f` 判红、在 `89431de` 被 `inReturnPosition` 闸放行。
+//    三条的**双向**实证在 `contextualTypeRespectsAssignmentsDefaultsAndBindings`
+//    ——⚠️ 上一轮的 ③ 段只测了「有没有换来新**漏报**」，**误报方向一条都没测**，
+//    I-a 正是从那个缺口漏过去的 ⇒ 本轮起两个方向都常驻。
 //    **这是拿一条漏报换掉一条误报**：首版对**任何**宿主为空的
 //    `.init` + `red`/`white`/`hue` 标签一律判红，实测把 `let p: Pixel = .init(red: 1)` /
 //    `let x: Insets = .init(white: 3)` 都报成了违规——而 `hue` 在 `numericColorLabels` 里、
@@ -424,6 +446,110 @@ struct EffectsColorLiteralGuard {
         }
     }
 
+    /// PR #265 **第 5 轮**终审 I-a / I-b 的**双向**探针。
+    ///
+    /// ⚠️ **本条存在的第一理由是上一轮的方法论缺口**：
+    /// `contextualTypeDoesNotLeakAcrossArgumentPositions` 的 ③ 段只断言「没有换来新**漏报**」，
+    /// **没有任何一条覆盖「是否换来新误报」**——于是 I-2 的修法（`SequenceExprSyntax` 里
+    /// 找不到 `as` 就继续上行）把**赋值右侧**一路走到 `PatternBindingSyntax`、
+    /// 把**被赋值属性**的标注错安到右侧表达式上，三条 accessor 形态由放行变成误报而无人看见。
+    /// ⇒ 本条**两个方向都常驻**，不再只测一边。
+    @Test("上下文类型：赋值右侧 / 默认参数值 / 条件绑定各按自己的类型判（第 5 轮终审 I-a / I-b）")
+    func contextualTypeRespectsAssignmentsDefaultsAndBindings() {
+        // ① 误报方向 —— 必须**清零**。
+        let falsePositives: [(name: String, source: String)] = [
+            // I-a：`x = .init(…)` 在未折叠语法树里就是 `SequenceExprSyntax`，
+            // 继续上行会撞上**被赋值属性**的类型标注。这正是口子 4 自己写下的
+            // 「`self.x = .init(red:…)` 里 stored property 的类型看不见 ⇒ 放行」。
+            ("`didSet` 里的赋值右侧（I-a）", """
+            import SwiftUI
+            struct S {
+                var cache = 0
+                var tint: Color = .clear { didSet { self.cache = .init(hue: 1, saturation: 1, brightness: 1) } }
+            }
+            """),
+            ("计算属性 `set` 里的赋值右侧（I-a）", """
+            import SwiftUI
+            struct S {
+                var store = 0
+                var c: Color { get { .clear } set { self.store = .init(hue: 1, saturation: 1, brightness: 1) } }
+            }
+            """),
+            ("`willSet` 里的赋值右侧（I-a）", """
+            import SwiftUI
+            struct S {
+                var cache = 0
+                var tint: Color = .clear { willSet { self.cache = .init(hue: 1, saturation: 1, brightness: 1) } }
+            }
+            """),
+            // I-b①：默认参数值**不是返回位置**，`inReturnPosition` 却一路为真
+            // （`InitializerClause → FunctionParameter → … → FunctionDecl` 不经过
+            // `CodeBlockItemListSyntax`）⇒ 采信了外层 `-> Color`。
+            ("默认参数值继承了外层返回类型（I-b①）", """
+            import SwiftUI
+            struct Pixel { init(red: Int, green: Int, blue: Int) {} }
+            func makeColor(p: Pixel = .init(red: 1, green: 0, blue: 0)) -> Color { .clear }
+            """),
+            // I-b②：`OptionalBindingConditionSyntax` **自带** `typeAnnotation`，
+            // 忽略它径直取外层 `PatternBinding` 的 `Color` 不是「类型看不见」，
+            // 而是**源码写下了类型却被换成另一个**。
+            ("条件绑定自带的类型标注被换成外层标注（I-b②）", """
+            import SwiftUI
+            struct Pixel { init(red: Int) {} }
+            var c: Color { if let p: Pixel = .init(red: 1) { .clear } else { .clear } }
+            """),
+        ]
+        for c in falsePositives {
+            let hits = Self.scan(source: c.source)
+            #expect(hits.isEmpty, """
+            \(c.name)：误报 \(hits.map(\.description))
+            —— 这些位置的类型各有自己的来源（左值 / 形参 / 绑定自己的标注），
+            与外层属性标注、外层返回类型无关。
+            """)
+        }
+
+        // ② 漏报方向 —— **源码里真的写下了颜色类型**，必须判红。
+        let falseNegatives: [(name: String, source: String)] = [
+            ("默认参数值写了颜色类型（I-b① 的镜像）", """
+            import SwiftUI
+            struct S { func f(c: Color = .init(red: 1, green: 0, blue: 0)) {} }
+            """),
+            // ⚠️ 这一条是**上一轮新引入且未登记**的漏报：`0455e9f` 判红、`89431de` 放行
+            // （被 `inReturnPosition` 闸关掉），而口子 4 列的四种漏报里没有它。
+            ("`guard let c: Color = .init(…)`（I-b② 的镜像）", """
+            import SwiftUI
+            func f() -> Color {
+                guard let c: Color = .init(red: 1, green: 0, blue: 0) else { return .clear }
+                return c
+            }
+            """),
+            ("`if let c: Color = .init(…)`", """
+            import SwiftUI
+            func f() { if let c: Color = .init(white: 0.5) { _ = c } }
+            """),
+        ]
+        for c in falseNegatives {
+            #expect(!Self.scan(source: c.source).isEmpty, """
+            \(c.name)：漏报 —— 上下文里**写下了**颜色类型（形参类型 / 绑定自己的 `typeAnnotation`），
+            按口子 4 的判据（「上下文真的写下了颜色类型」）这就该判红。
+            """)
+        }
+
+        // ③ 两个方向的**旧行为不许回退**：上一轮已经钉住的形态在本轮修法之后仍要对。
+        #expect(Self.scan(source: """
+        import SwiftUI
+        var scrim: Color { convert(.init(hue: 0.5, saturation: 1, brightness: 1)) }
+        """).isEmpty, "实参位置的旧修法回退了（第 4 轮 I-1）")
+        #expect(!Self.scan(source: """
+        import SwiftUI
+        let c: Color = flag ? .init(red: 1, green: 0, blue: 0) : .clear
+        """).isEmpty, "三元不截断的旧修法回退了（第 4 轮 I-2）")
+        #expect(!Self.scan(source: """
+        import SwiftUI
+        let c: Color = .init(red: 1, green: 0, blue: 0)
+        """).isEmpty, "类型标注这条基本形态被本轮修法误伤")
+    }
+
     @Test("探测器在真实源码上非真空：拿主 target 当靶场必须打出命中")
     func detectorFiresOnRealSource() throws {
         // ⚠️ **`CoreDesign` 不在本守卫射程内**（`#246` 明写不回溯改造），
@@ -547,6 +673,12 @@ private nonisolated final class ColorLiteralCollector: SyntaxVisitor {
 /// ⚠️ **它给不出的**（两条守卫的已知口子里各自登记）：数组 / 字典字面量的元素、
 /// 函数实参位置、`self.stored = .init(…)` 里 stored property 的类型、闭包返回值
 /// ——这些位置的类型只存在于推断里，语法树上没有可读的锚点。
+///
+/// ⚠️ **它认的锚点共五处**（PR #265 第 5 轮终审 I-b 补了后两处）：
+/// ① `let c: Color = .init(…)` 的类型标注、② `.init(…) as Color` 的 `as` 断言、
+/// ③ 函数 / 计算属性的**返回位置**、④ **默认参数值**的形参类型、
+/// ⑤ **条件绑定**（`if let p: Pixel = .init(…)`）自带的 `typeAnnotation`。
+/// 后两处此前被外层标注 / 外层返回类型顶掉——那不是「看不见」，是**看错了**。
 nonisolated enum ImplicitMemberContext {
 
     /// 从 `node` 往上找最近的**显式类型**，找不到返回 `nil`。
@@ -566,6 +698,9 @@ nonisolated enum ImplicitMemberContext {
     /// 里那个 `.init` 不是函数的结果，采信返回类型同样是把类型错安上去。
     static func contextualTypeName(of node: some SyntaxProtocol) -> String? {
         var current = Syntax(node)
+        // 上行走查会越过 `ExprListSyntax` 这类中间层 ⇒ 「本表达式落在 `=` 的哪一侧」
+        // 只能按**源码位置**判，锚点是最初那个节点本身。
+        let origin = Syntax(node).position
         // 仍处在「函数 / 计算属性的返回位置」链上？一旦经过一个多语句块里的非 `return`
         // 语句，外层的返回类型就不再是本表达式的上下文类型。
         var inReturnPosition = true
@@ -582,6 +717,22 @@ nonisolated enum ImplicitMemberContext {
                Syntax(call.calledExpression).id != current.id {
                 // callee 之外的位置（trailing closure 等）同样不继承外层类型。
                 return nil
+            }
+            // ⚠️ **默认参数值按形参自己的类型判**（PR #265 第 5 轮终审 I-b①）：
+            // `func f(p: Pixel = .init(red: 1)) -> Color` 的默认值**不是返回位置**，
+            // 而 `InitializerClause → FunctionParameter → … → FunctionDecl` 一路
+            // **不经过** `CodeBlockItemListSyntax` ⇒ `inReturnPosition` 仍为 `true`
+            // ⇒ 此前采信了外层 `returnClause`，与下面「只在返回位置采信」的判据直接冲突。
+            // 读形参自己的 `type` 同时治好镜像方向的漏报（`c: Color = .init(red:…)` 判红）。
+            if let parameter = parent.as(FunctionParameterSyntax.self) {
+                return Self.leafTypeName(parameter.type)
+            }
+            // ⚠️ **条件绑定有自己的 `typeAnnotation`**（同轮 I-b②）：
+            // `if let p: Pixel = .init(red: 1)` 里源码**写下了** `Pixel`，
+            // 此前走查不认它、径直上行取外层 `PatternBinding` 的 `Color`
+            // ——这不是「类型只存在于推断里 ⇒ 看不见」，是**把写下的类型换成了另一个**。
+            if let condition = parent.as(OptionalBindingConditionSyntax.self) {
+                return condition.typeAnnotation.flatMap { Self.leafTypeName($0.type) }
             }
             if let binding = parent.as(PatternBindingSyntax.self) {
                 // `let c: Color = .init(…)` 与 `var c: Color { .init(…) }` 走同一条。
@@ -604,6 +755,22 @@ nonisolated enum ImplicitMemberContext {
                     break
                 }
                 if let asType { return asType }
+                // ⚠️ **赋值右侧到此为止**（PR #265 第 5 轮终审 I-a）：`x = .init(…)` 在未折叠的
+                // 语法树里同样是 `SequenceExprSyntax`（`[左值, AssignmentExprSyntax, 右值]`）。
+                // 下面那条「找不到 `as` 就继续上行」若不加这道闸，单语句 accessor /
+                // `didSet` / `willSet` 里的赋值会一路走到 `PatternBindingSyntax`，
+                // 把**被赋值属性**的标注错安到右侧表达式上——实测三条 accessor 形态
+                // 由放行变成误报，且**推翻了口子 4 自己写下的**「`self.x = .init(red:…)` 里
+                // stored property 的类型看不见 ⇒ 放行」。右值的类型来自**左值**，
+                // 与外层标注无关 ⇒ 与实参位置同一条纪律：`return nil`。
+                // ⚠️ 按**源码位置**比，不能按「`current` 是第几个元素」比：`SequenceExprSyntax`
+                // 与它的元素之间还隔着一层 `ExprListSyntax`（实测的父链是
+                // `functionCallExpr → exprList → sequenceExpr`），走到这里时 `current`
+                // 已经是那层 `ExprListSyntax`、不再是元素本身。
+                if let assignment = elements.first(where: { $0.is(AssignmentExprSyntax.self) }),
+                   origin > assignment.position {
+                    return nil
+                }
                 // ⚠️ **找不到 `as` 时必须继续往上，不能 `return nil`**（PR #265 第 4 轮终审 I-2）：
                 // 三元与 `??` 在未折叠的语法树里也是 `SequenceExprSyntax`，首版在这里直接终止
                 // ⇒ `let c: Color = flag ? .init(red: 1, green: 0, blue: 0) : .clear` 与
