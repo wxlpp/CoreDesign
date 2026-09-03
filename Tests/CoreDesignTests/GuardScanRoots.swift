@@ -216,12 +216,14 @@ nonisolated enum GuardScanRoots {
     /// 解析 `Package.swift` 里声明的**全部** target（含 name / 种类 / 有无 `resources:`）。
     ///
     /// ⚠️ 逐行状态机而非正则：manifest 里 `.target(` 与 `name:` 通常分行写。
-    /// 注释行整行跳过——注释里提到 `.testTarget` 的地方不少，按子串匹配会误判。
+    /// 注释（行首 / 行尾 `//` 与跨行 `/* */`）与多行字符串体由 `code(of:state:)` 剥掉
+    /// ——注释里提到 `.testTarget` 的地方不少，按子串匹配会误判。
     ///
-    /// ⚠️ **解析不出 name 的块会 `Issue.record`，不静默丢弃**（PR #265 终审 S-4）：
-    /// `.target(name: shadersName,` 这类非字面量 name 会让 `firstQuoted` 返回 `nil`，
-    /// 首版据此把整个块丢掉 ⇒ 该 target 悄悄不进 `targetNames` 的双向差集、
-    /// 也不进 `.module` 归属表，而两者都是 fail-open 方向的漏。
+    /// ⚠️ **解析不出 name 的块会 `Issue.record`，不静默丢弃**（PR #265 终审 S-4，
+    /// 第 4 轮终审 I-4 把它真正接上）：`.target(name: shadersName,` 这类非字面量 name
+    /// 会让 `quotedName` 返回 `nil`，据此把整个块丢掉并报一条可读的失败 ⇒ 该 target
+    /// 不会悄悄不进 `targetNames` 的双向差集、也不会悄悄不进 `.module` 归属表，
+    /// 而两者都是 fail-open 方向的漏。
     /// （更精确的做法是 `swift package describe --type json`，但那会给测试引入
     /// 子进程依赖——本仓的守卫至今没有先例，故不引。）
     static func declaredTargets(sourceLocation: SourceLocation = #_sourceLocation) throws -> [DeclaredTarget] {
@@ -282,23 +284,26 @@ nonisolated enum GuardScanRoots {
             awaitingName = false
         }
 
+        // ⚠️ **词法状态跨行保持**（PR #265 第 4 轮终审 I-3）：块注释 `/* */` 与多行字符串
+        // `"""` 都能跨行，逐行独立地剥注释解不了它们（详见 `code(of:state:)`）。
+        var lex = ManifestLexState()
+
         for (index, raw) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
             let line = raw.trimmingCharacters(in: .whitespaces)
-            // 整行注释直接跳过；行尾注释在 `code(of:)` 里剥掉（**按引号状态剥**，
-            // 否则 `"https://…"` 里的 `//` 会把半行代码连同它的右括号一起吃掉，
-            // 括号深度就再也回不到 0）。
-            if line.hasPrefix("//") { continue }
-            let code = Self.code(of: line)
+            // 行首整行注释、行尾 `//`、跨行 `/* */`、多行字符串体全部在 `code(of:state:)`
+            // 里剥掉（**按引号状态剥**，否则 `"https://…"` 里的 `//` 会把半行代码连同
+            // 它的右括号一起吃掉，括号深度就再也回不到 0）。
+            let code = Self.code(of: line, state: &lex)
             // ⚠️ **块内不再开新块**：`dependencies: [.target(name: "CoreDesign")]` 是地道写法。
             if !open, let starter = starters.first(where: { code.hasPrefix($0.prefix) }) {
                 open = true
                 openedAtLine = index + 1
                 currentIsLibrary = starter.isLibrary
-                if let name = Self.firstQuoted(in: code) { currentName = name } else { awaitingName = true }
+                if let name = Self.quotedName(in: code) { currentName = name } else { awaitingName = true }
             } else if !open {
                 continue
             } else if awaitingName, code.hasPrefix("name:") {
-                currentName = Self.firstQuoted(in: code)
+                currentName = Self.quotedName(in: code)
                 awaitingName = false
             }
             // ⚠️ 一行写完的 `.target(name: "X", resources: [...])` 也要认 ⇒ 不能要求行首。
@@ -310,24 +315,101 @@ nonisolated enum GuardScanRoots {
         return out
     }
 
-    /// 剥掉行尾 `//` 注释——**按引号状态**，字符串字面量里的 `//` 不算注释。
-    static func code(of line: String) -> String {
-        var inString = false
-        var escaped = false
-        var previous: Character?
+    /// 逐行扫 manifest 时**跨行保持**的词法状态。
+    ///
+    /// ⚠️ 只有块注释与多行字符串需要跨行——单行字符串字面量在 Swift 里不能跨行，
+    /// 行尾 `//` 注释到行尾自然结束。
+    nonisolated struct ManifestLexState: Hashable, Sendable {
+        var inBlockComment = false
+        var inMultilineString = false
+    }
+
+    /// 剥掉这一行里的**全部非代码文本**，返回剩下的代码。
+    ///
+    /// 处理四种：① 行尾 / 整行 `//` 注释；② 跨行块注释 `/* … */`；
+    /// ③ 多行字符串 `"""…"""`；④ 单行字符串字面量（其内容**保留**，`firstQuoted` /
+    /// `quotedName` 要从里面取 name；括号由 `parenDelta` 自己按引号状态排除）。
+    ///
+    /// ⚠️ **块注释与多行字符串是 PR #265 第 4 轮终审 I-3 补的**：首版只认 `//`
+    /// （行首 `hasPrefix("//")` + `code(of:)` 里的行尾剥离），块注释与 `"""` 的内容
+    /// 因此被当成代码，实测两种真实后果——
+    /// · 块注释里含**未配对的括号**（`/* 见 Package.swift 的 .target( 用法 */` 只有左括号）
+    ///   ⇒ `depth` 永远回不到 0 ⇒ 当前块吃掉其后**所有** target，后面的 target 整个丢失；
+    /// · 块注释里含 `.target(`（注释掉的一段 manifest）⇒ 被当成一个真块解析
+    ///   ⇒ **注释掉的 target 变成幽灵 library target**（还可能带上 `resources:`）。
+    /// 第二条与首版靠「下一个 `.target(` 起始行隐式关块」时的 ② 号病同形，
+    /// 只是换了个入口复现——本函数是那条入口的堵法。
+    /// 多行字符串同理：`"""` 是**奇数个**引号，逐行重置的 `inString` 会被它带偏，
+    /// 字符串体里的 `.target(` / 括号会被当成代码。
+    ///
+    /// ⚠️ 失败方向仍是 fail-closed（丢块 ⇒ 双向差集判红），但诊断会把读者指向
+    /// 一个不存在的 target——「守卫红了却指错地方」与守卫没红同样浪费一次排查。
+    static func code(of line: String, state: inout ManifestLexState) -> String {
         var out = ""
-        for character in line {
-            if escaped { escaped = false; out.append(character); previous = character; continue }
-            if character == "\\", inString { escaped = true; out.append(character); previous = character; continue }
-            if character == "\"" { inString.toggle(); out.append(character); previous = character; continue }
-            if character == "/", previous == "/", !inString {
-                out.removeLast()
-                return out.trimmingCharacters(in: .whitespaces)
+        let chars = Array(line)
+        var index = 0
+        var inString = false
+        while index < chars.count {
+            let character = chars[index]
+            if state.inBlockComment {
+                if character == "*", index + 1 < chars.count, chars[index + 1] == "/" {
+                    state.inBlockComment = false
+                    index += 2
+                } else {
+                    index += 1
+                }
+                continue
+            }
+            if state.inMultilineString {
+                if character == "\"", index + 2 < chars.count,
+                   chars[index + 1] == "\"", chars[index + 2] == "\"" {
+                    state.inMultilineString = false
+                    index += 3
+                } else {
+                    index += 1
+                }
+                continue
+            }
+            if inString {
+                // 转义：连同被转义的那个字符一起原样带走（`\"` 不能关闭字符串）。
+                if character == "\\", index + 1 < chars.count {
+                    out.append(character)
+                    out.append(chars[index + 1])
+                    index += 2
+                    continue
+                }
+                out.append(character)
+                if character == "\"" { inString = false }
+                index += 1
+                continue
+            }
+            if character == "\"" {
+                if index + 2 < chars.count, chars[index + 1] == "\"", chars[index + 2] == "\"" {
+                    state.inMultilineString = true
+                    index += 3
+                    continue
+                }
+                inString = true
+                out.append(character)
+                index += 1
+                continue
+            }
+            if character == "/", index + 1 < chars.count, chars[index + 1] == "/" { break }
+            if character == "/", index + 1 < chars.count, chars[index + 1] == "*" {
+                state.inBlockComment = true
+                index += 2
+                continue
             }
             out.append(character)
-            previous = character
+            index += 1
         }
         return out.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// 无状态的便捷重载——单行输入（不跨行的注释 / 字符串）用它。
+    static func code(of line: String) -> String {
+        var state = ManifestLexState()
+        return Self.code(of: line, state: &state)
     }
 
     /// 一行代码的括号净增量（字符串字面量里的括号不计）。
@@ -351,11 +433,23 @@ nonisolated enum GuardScanRoots {
         try Self.declaredTargets().filter(\.isLibrary).map(\.name)
     }
 
-    private static func firstQuoted(in line: String) -> String? {
-        guard let open = line.firstIndex(of: "\"") else { return nil }
-        let rest = line[line.index(after: open)...]
-        guard let close = rest.firstIndex(of: "\"") else { return nil }
-        return String(rest[rest.startIndex..<close])
+    /// 取 `name:` 标签**紧随其后**的字符串字面量。取不到（name 不是字面量）返回 `nil`。
+    ///
+    /// ⚠️ **不能取整行的第一个引号串**（PR #265 第 4 轮终审 I-4）：首版是
+    /// `firstQuoted(in: code)`，于是 `.target(name: shadersName, path: "Sources/Shaders")`
+    /// 会产出一个**名叫 `"Sources/Shaders"` 的幽灵 library target**，且
+    /// `Issue.record` 一条都不发——本文件的文档却写着「非字面量 name 会让 `firstQuoted`
+    /// 返回 `nil` ⇒ 走 `awaitingName` ⇒ 丢块并 `Issue.record`」，两者不符。
+    /// 方向仍是 fail-closed（差集判红），但**静默改名比丢弃更难排查**：读者会拿着
+    /// 一个从没在 manifest 里出现过的 target 名去找。
+    /// ⇒ 只认紧跟 `name:` 的字面量；取不到就落回 `awaitingName` / `Issue.record`。
+    static func quotedName(in code: String) -> String? {
+        guard let label = code.range(of: "name:") else { return nil }
+        let rest = code[label.upperBound...].drop(while: { $0 == " " || $0 == "\t" })
+        guard rest.first == "\"" else { return nil }
+        let body = rest.dropFirst()
+        guard let close = body.firstIndex(of: "\"") else { return nil }
+        return String(body[body.startIndex..<close])
     }
 }
 
@@ -440,6 +534,83 @@ struct GuardScanRootsGuard {
         ]
         """)
         #expect(kinds.filter(\.isLibrary).map(\.name) == ["Lib"])
+    }
+
+    /// PR #265 **第 4 轮**终审 I-3：块注释 / 多行字符串此前完全不被处理。
+    ///
+    /// ⚠️ 四条探针里前两条与 S-d 的形态②**同级别**（幽灵 target / 丢 target），
+    /// 只是换了个入口复现——S-d 换实现时新开的盲区，此前没登记在任何口子里。
+    @Test("manifest 解析器：块注释与多行字符串不再吃掉 / 伪造 target（第 4 轮终审 I-3）")
+    func manifestParserHandlesBlockCommentsAndMultilineStrings() {
+        // ① 块注释里含**未配对**的括号 ⇒ 首版 `depth` 永远回不到 0 ⇒ 其后的 target 全丢。
+        // ⚠️ 注释必须落在**块内**才复现：块外的行走 `else if !open { continue }`，
+        // `parenDelta` 根本不参与——这一点实测过，别把 fixture 写在 `targets: [` 与
+        // 第一个 `.target(` 之间然后以为它证伪了什么。
+        let unbalanced = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(
+                name: "Alpha"
+                /* 历史备注：早期这里写的是 .target( 形态，见 #244 */
+            ),
+            .target(name: "Beta"),
+        ]
+        """)
+        #expect(unbalanced.map(\.name) == ["Alpha", "Beta"],
+                "块注释里的未配对括号把后面的 target 吃掉了 —— 丢失的 target 完全不受守卫覆盖")
+
+        // ② 块注释里含 `.target(` ⇒ 首版把**注释掉的** target 解析成幽灵 library target，
+        //    还会连它的 `resources:` 一起记上（`.module` 归属表因此凭空多一条）。
+        let commentedOut = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            /*
+            .target(
+                name: "Ghost",
+                resources: [.process("Resources")]
+            ),
+            */
+            .target(name: "Real"),
+        ]
+        """)
+        #expect(commentedOut.map(\.name) == ["Real"],
+                "注释掉的 target 变成了幽灵条目 —— 双向差集会红在一个 manifest 里根本不存在的名字上")
+        #expect(commentedOut.first?.hasResources == false,
+                "注释里的 `resources:` 被记到了真 target 上 —— `.module` 归属判据会说 Real 有资源包")
+
+        // ③ 多行字符串体同样不能当代码读：`"""` 是**奇数个**引号，逐行重置的引号状态
+        //    会被它带偏，字符串里的括号 / `.target(` 会吃掉后面的 target。
+        let multiline = GuardScanRoots.declaredTargets(manifestText: #"""
+        targets: [
+            .target(
+                name: "Doc",
+                swiftSettings: [.define("""
+                一段说明：这里故意写 .target( 和一个左括号 (
+                """)]
+            ),
+            .target(name: "Next"),
+        ]
+        """#)
+        #expect(multiline.map(\.name) == ["Doc", "Next"],
+                "多行字符串体被当成代码 —— 后面的 target 丢失或多出幽灵条目")
+
+        // ④ 非字面量 `name:` 同行还有别的字面量时**不得静默改名**（第 4 轮终审 I-4）。
+        //    期望：产出零个 target + 一条 `Issue.record`。
+        //    ⚠️ `withKnownIssue` 在这里**是一颗牙不是消音器**：块内一条 issue 都没记录时
+        //    它自己会判红 ⇒ 「解析不出 name 必须报出来」这条被机器钉住，而不是靠读文档。
+        //    （代价：本次 `swift test` 的 known issue 计数 2 → 3，那一条就是它。）
+        var renamed: [GuardScanRoots.DeclaredTarget] = []
+        withKnownIssue("非字面量 name 必须 Issue.record，不得静默改名") {
+            renamed = GuardScanRoots.declaredTargets(manifestText: """
+            targets: [
+                .target(name: shadersName, path: "Sources/Shaders"),
+            ]
+            """)
+        }
+        #expect(renamed.isEmpty, """
+        `.target(name: shadersName, path: "Sources/Shaders")` 被解析成了 \(renamed.map(\.name))
+        —— 首版取「整行第一个引号串」，于是产出一个名叫 "Sources/Shaders" 的幽灵 library target
+        且零 `Issue.record`。方向仍 fail-closed，但**静默改名比丢弃更难排查**：
+        读者会拿着一个从没在 manifest 里出现过的名字去找。
+        """)
     }
 
     @Test("根列表与 Package.swift 的 library target 双向吻合 —— 新增 target 忘了扩根即红")
