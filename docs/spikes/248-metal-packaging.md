@@ -39,7 +39,7 @@
 
 ⚠️ **可复现性声明**（#258 终审 I-6）：下方引用的 `CoreDesignEffects / Charts smoke passed`
 只在 **`epic/shipswift-foundation` 的 `7384ccd`**（含 #257）上存在——本 spike 分支基于
-更早的 commit，在其上复跑得到的是 474 而非 476。
+更早的 commit，在其上复跑得到的是 **474 个通过的测试**而非 476（差的 2 个正是那两个新 target 的 smoke 测试）。
 ⚠️ **CI runner 用的是 Xcode 26.5**（`ci.yml`），**swiftbuild 在 26.5 上的行为本 spike 未验证**。
 
 | 构建系统 | `.metal` 声明方式 | 结果 |
@@ -60,7 +60,7 @@ $ cd <CoreDesign worktree> && swift test --build-system swiftbuild
 … CoreDesignEffects 模块 smoke / CoreDesignCharts 模块 smoke 均 passed
 ```
 
-⇒ CI 的 SwiftPM 腿**切得动**。PRD C-1 与 epic AD-B 写的「α 等于把构建系统约束转嫁给下游」
+⇒ CI 的 SwiftPM 腿**切得动**（⚠️ 但**不能整腿切**，见问②）。PRD C-1 与 epic AD-B 写的「α 等于把构建系统约束转嫁给下游」
 **只对一类下游成立**，见《α 的残余风险》。
 
 ### ② CI 改法
@@ -89,7 +89,7 @@ swiftbuild 调 `actool` 把它编成 `Assets.car` ⇒ 判据 false ⇒ 整个 su
 
 | 腿 | 改动 |
 |---|---|
-| **SwiftPM** | **保留 native** `swift build` / `swift test`（colorset 守卫继续生效）；**另加一步** `swift test --build-system swiftbuild --filter CoreDesignShadersTests`，只让 shader 加载测试走 swiftbuild |
+| **SwiftPM** | **保留 native** `swift build` / `swift test`（colorset 守卫继续生效）；**另加一步** `swift test --build-system swiftbuild --filter CoreDesignShadersTests`，只让 shader 加载测试走 swiftbuild。⚠️ **该 `--filter` 组合本 spike 未实跑**（②只实测了「整腿切会跳过 colorset suite」）⇒ **B-1 须先验它** |
 | **iOS Simulator** | 已是 `xcodebuild`，天然编译 `.metal` ⇒ **零改动** |
 | **downstream-probe** | build-only，且只依赖 `CoreDesign` product ⇒ **零改动** |
 | **Bool 棘轮** | 不读 `Sources` ⇒ **零改动** |
@@ -168,7 +168,7 @@ identifier 'SwiftUI'`。上游 34 个 `.metal` 里 30 个都带这行——**改
 **须取自** ChromaticGlass / Foil / Glitter / IntenseBling / PolishedAluminum / GlassLogo /
 LiquidMetal 之一；实验包里的 `spikeFoil` 是 6 行的条纹 mix，与上游 Foil
 （硬编码调色板 + 多层反射）无关。⇒ **下方交付 B 里那 7 个的「2–3 小时/个」是估算，
-无实测支撑**，而它们恰是已知 MIT 来源的主体，直接影响闸② ⇒ **`N_B` 按上界算**。
+无实测支撑**，而它们恰是已知 MIT 来源的主体，直接影响闸② ⇒ **`N_B` 取值偏保守**（见下方推导；⚠️「保守」= **取更小的 `N_B`**，即**更宽松的闸**——边际成本无实测支撑时，不该用一个没根据的高门槛去卡掉可落地的 shader）。
 
 ### ⑥ 分平台 metallib → **α 下不是问题**
 
@@ -243,7 +243,7 @@ LiquidMetal 之一；实验包里的 `spikeFoil` 是 6 行的条纹 mix，与上
 | sha256 manifest 同步守卫 + fixture | 有 | **无** |
 | `.metal` `exclude:` 与产物冗余处理 | 有 | **无** |
 | 工具链版本钉死（`-std=` / `-mios-version-min`） | 有 | **无** |
-| CI 改动 | 无 | **1 处**（SwiftPM 腿加 flag） |
+| CI 改动 | 无 | **1 处**（SwiftPM 腿**另加一步**只跑 shader 测试的 swiftbuild；⚠️ **不是**给整腿加 flag——那正是问②否决的读法） |
 | target + product + project.yml + probe + AGENTS 同步 | 有 | 有 |
 | fail-closed 加载检查 + 首次使用响亮失败 | 有 | 有 |
 | Mac Catalyst 声明 | 有 | **无**（构建系统处理） |
@@ -284,9 +284,11 @@ LiquidMetal 之一；实验包里的 `spikeFoil` 是 6 行的条纹 mix，与上
 构建系统约束不该污染 Effects）。α 下这样做会把「native 构建静默无渲染」带进
 **StoryUI CI 正在消费的 Effects** ⇒ 该兜底作废；低于 `N_B` 就是**不做**。
 
-⚠️ **这个数字取决于 #249 的许可裁定结果，两者相乘才是 go/no-go**：
-`N_B = 10` 意味着 28 个里至少要有 10 个能落地。上游已标注来源的只有 7 个
-（且那 7 个的**传递来源**尚未核）⇒ **闸②大概率成为真正的瓶颈，而不是本闸。**
+⚠️ **这个数字要与 #249 的许可裁定结果相乘才是 go/no-go**：
+`N_B = 5` 意味着 28 个里至少要有 5 个能落地。
+⚠️ **撰写本 spike 时的预判是「闸②大概率才是瓶颈」**（上游已标注来源的只有 7 个，
+且那 7 个的传递来源当时未核）——**该预判已被 #249 推翻**：它裁定 **26 个可落地**
+（2 个已追到兼容许可 + 24 个 clean-room），26 ≥ 5 ⇒ **闸②通过**。
 
 ---
 
@@ -297,7 +299,13 @@ LiquidMetal 之一；实验包里的 `spikeFoil` 是 6 行的条纹 mix，与上
   - **AD-C**「3 份 metallib」整节 → α 下不适用，改为记录 β 作为**被否决的备选**
   - **AD-D** 验证路径表 → α 下是 `swiftbuild` + `xcodebuild`
   - 新增：α 的残余风险与三条缓解（首次使用响亮失败 / README / 逐组件文档）
-  - `N_B` 填 **10**
-- `.claude/prds/shipswift-harvest.md` **FR-2** → α/β 判据的结论侧回填
+  - `N_B` 填 **5**（⚠️ **不是 10** —— 10 是本 spike 初稿的值，已随 I-2 的推导修正作废）
+- `.claude/prds/shipswift-harvest.md` **FR-2** → **可选条件改写（待 PRD owner 裁决）**——不是「填结论」，是把 α 的可选条件从「所有已知消费路径都能切 swiftbuild」改成「Xcode 消费者不命中 + CLI 消费者按文档自担 + 响亮失败兜底」
 - `.claude/epics/shipswift-foundation/epic.md` A0-5 的 SC → 勾选，并记「macOS runner 的
   Metal device 未解，转 B-1 的一次性 CI 探针」
+- **`docs/shader-provenance.md`（#249）** → 它引用的 `N_B = 10` 与
+  「10–16h ÷ 1.5h」推导口径**已作废**，须同步改为 **5** 与 `8–12h ÷ 2.0–2.5h`
+  ⚠️ 两个 PR 同时开着，不点名就没人负责改那边
+- **B-2 / B-3 拆 task 时**：#249 裁定 24/26 走 **clean-room 重写**而非移植，
+  而本 spike 的边际成本是从「难件 + 逐 shader 文档」推的、**不是**从 clean-room 推的
+  ⇒ **边际成本须按 clean-room 再核一次**
