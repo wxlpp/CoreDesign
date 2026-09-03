@@ -18,8 +18,22 @@ import Testing
 // ⚠️ 覆盖面本来选错了地方：既有的档位单调性测试测的是**可调的实现细节**，
 // 而真正的行为契约反倒没测。
 //
-// ⚠️ 本文件**能在原生 `swift test` 腿跑**——它不碰 Metal，只测纯值计算。
-// 需要 GPU 的渲染证明在 `RenderProofTests`（有意在原生腿判红）。
+// ⚠️ 本文件**不碰 Metal**（只测纯值计算），因此在本地原生 `swift test` 下也能编译并通过。
+// ⚠️ **但 CI 的 native SwiftPM 腿跑不到它**：`.github/workflows/ci.yml` 的 `Test` 步骤是
+// `swift test --skip CoreDesignShadersTests`，**整个 target 一起跳过**。本文件在 CI 上的
+// 覆盖来自另外两条腿——`Test (swiftbuild) — CoreDesignShaders` 步骤
+//（`swift test --build-system swiftbuild --filter CoreDesignShadersTests`）与 iOS Simulator 腿
+//（`xcodebuild test -scheme CoreDesign-Package`，未 `-skip-testing` 本 target）。
+//
+// ⚠️ 该 `--skip` 的成因是同 target 的 `ShaderLibraryLoadTests`（在 `PlasmaTests.swift`）：
+// 原生 SwiftPM 不编译 `.metal`，bundle 里没有 metallib，而 `assertShaderLibraryLoadable`
+// 是 **fail-closed** 的（缺 device / 缺 library / 缺函数一律 `throw`）⇒ 原生腿上必红。
+// **那才是"有意在原生腿判红"的 suite。**
+//
+// ⚠️ 需要 GPU 的渲染证明在 `RenderProofTests`，但它**整个文件包在 `#if os(iOS)` 里**
+//（首行 `#if os(iOS)` / 末行 `#endif`）⇒ macOS 上根本不编译，**不可能判红**；
+// 它只在 iOS Simulator 腿上真正运行。（上一版这里把它写成"有意在原生腿判红"，
+// 与 `ModuleSmokeTests` 里已更正过的那句是同一处失真；第 3 轮 review 抓到。）
 
 @Suite("FR-12 的行为契约（冻结 / 收窄 / .still）")
 @MainActor

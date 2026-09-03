@@ -141,11 +141,11 @@ inline float fbm(float2 p, int octaves) {
     return sum / max(total, 1e-4);
 }
 
-/// 三档调色斜坡
+/// 三档调色斜坡：`v ∈ [0,1]` → low → mid → high，接缝用 smoothstep 抹平。
 ///
 /// ⚠️ **出处：未指认到具体上游**（第 5 轮终审 I-3）。按 #249 的判据，
 /// 「指认不到」**不能写成空白**——空白等于默认原创，而本 PR 已因这个默认吃了四次亏。
-/// ⇒ 登记为**待 #249 正向裁定**，不作原创声称。：`v ∈ [0,1]` → low → mid → high，接缝用 smoothstep 抹平。
+/// ⇒ 登记为**待 #249 正向裁定**，不作原创声称（`docs/shader-provenance.md` 同口径）。
 inline half4 ramp3(float v, half4 low, half4 mid, half4 high) {
     half4 lower = mix(low, mid, half(smoothstep(0.0, 0.5, v)));
     half4 upper = mix(mid, high, half(smoothstep(0.5, 1.0, v)));
