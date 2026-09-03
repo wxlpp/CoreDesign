@@ -85,14 +85,27 @@ struct MicroInteractionAPITests {
         else { return nil }
         #endif
         // 重绘进一个自有的 RGBA8 缓冲 ⇒ 与编码格式、色彩空间标注全部解耦。
+        //
+        // ⚠️⚠️ **缓冲必须整段封在 `withUnsafeMutableBytes` 里**（#262 第 2 轮 review）：
+        // 上一版写的是 `CGContext(data: &buffer, ...)`。`&array` 传给
+        // `UnsafeMutableRawPointer?` 走的是 inout-to-pointer 隐式转换，Swift 只保证
+        // 该指针在**那一次调用期间**有效；而 `CGContext` 会把它**存下来**、在之后的
+        // `ctx.draw(...)` 里继续写 ⇒ 跨调用使用一个已过期的指针（UB）。
+        // 它当前"看起来能跑"只是因为 `Array` 的存储恰好没被搬动，不是语言保证。
+        // ⇒ 把「建 context → draw」整段放进闭包，让指针在其被使用的全程都有效。
         let w = cg.width, h = cg.height
+        guard w > 0, h > 0 else { return nil }
         var buffer = [UInt8](repeating: 0, count: w * h * 4)
-        guard let ctx = CGContext(
-            data: &buffer, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
-        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        let drawn = buffer.withUnsafeMutableBytes { raw -> Bool in
+            guard let base = raw.baseAddress, let ctx = CGContext(
+                data: base, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard drawn else { return nil }
         return Data(buffer)
     }
 
@@ -222,14 +235,16 @@ struct MicroInteractionAPITests {
     /// ⇒ 第九个效果就算被 RM 判据逼着补齐降级，静息像素这一层仍是零覆盖。
     @Test("public 入口数 == 叠加/逐件清单的长度")
     func entryCountMatchesLists() throws {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().appendingPathComponent("Sources/CoreDesignEffects")
+        // ⚠️ **必须递归枚举**（#262 第 2 轮 review）：上一版用 `contentsOfDirectory`
+        // 只扫顶层，而 `MicroInteractionReduceMotionGuard.swiftFiles()` 早就为同一个
+        // 逃逸位改成了递归。效果文件一旦挪进子目录（本仓 `Sources/CoreDesign/Components/*/`
+        // 正是这么组织的），新入口就不再被计入 ⇒ 入口数仍是 8、清单也是 8 ⇒ **静默全绿**，
+        // 「入口数 == 清单长度」这条交叉判据自己先漏掉了覆盖漂移。
+        // ⇒ 直接复用那个已递归、且目录缺失时 fail-closed 判红的枚举，不另立一套。
         // ⚠️ 只数 `public extension View` **之后**的顶层 `func` —— 入口的签名是跨行的，
         // 「同一行同时含 `func` 与 `trigger:`」会 0 命中（我第一版就是这样）。
         var entries = 0
-        for url in try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
-        where url.pathExtension == "swift" {
+        for url in try MicroInteractionReduceMotionGuard.swiftFiles() {
             let code = try String(contentsOf: url, encoding: .utf8)
             guard let r = code.range(of: "public extension View") else { continue }
             entries += code[r.upperBound...].components(separatedBy: "\n")
@@ -278,6 +293,12 @@ struct MicroInteractionAPITests {
         let bare = Self.stablePixels(Text("x"))
         let probe = Self.stablePixels(Text("x").opacity(0.4))
         #expect(bare != nil && probe != nil)
+        // ⚠️ **「缓冲真的被画进去了」这一条也必须断言**（#262 第 2 轮 review）：
+        // `CGContext` 若拿到过期指针（上一版 `data: &buffer` 的隐患），
+        // `Data(buffer)` 返回的就是一片**全 0**——两边全 0 ⇒ 相等断言恒真。
+        // 全 0 是这类退化的指纹，直接判红。
+        #expect(bare?.contains(where: { $0 != 0 }) == true,
+                "位图全 0 —— CGContext 没有写进我们比较的这块缓冲，所有相等断言都是恒真的")
         #expect(bare != probe, "harness 分辨不出 opacity 差异 —— 上一条相等断言是恒真的")
     }
 
