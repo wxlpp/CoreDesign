@@ -13,12 +13,19 @@ CoreDesign 的部分实现衍生自第三方开源项目。按各自许可的要
 
 ## 归属分档
 
-每个条目须标明属于哪一档，两者的义务不同：
+每个条目须标明属于哪一档，各档的义务不同：
 
 | 档 | 含义 | 义务 |
 |---|---|---|
 | **较大段落移植** | 直接采用了上游的实现（即便重命名、重排、改了参数表） | 转载完整原始许可 + 指明原作者与原始 URL |
 | **参考算法思路** | 对照上游或公开文献**重写**，未复制其代码 | 指明参考实现与其许可，说明是重写 |
+| **未知（上游未指认）** | ⚠️ **未定档，不是第三种结论**：已判定它有外部谱系（故不作原创声称），但**具体上游尚未指认到**，因而无法判断复制了多少 | **不得作原创声称**；落地前须按 `docs/shader-provenance.md`《方法论教训》追一轮，**追到后必须改判为上面两档之一**；追不到 ⇒ 该件不落地 |
+
+⚠️ **第三档是本文件《共享原语与公开配方》一节的实际需要**（`ramp3` 与
+`RefractiveGlass` 的位移 + 色散主体两行）：**「指认不到具体上游」既不是「移植了一大段」、
+也不是「对照某个参考实现重写」**——上一版只有前两档，于是这两行在 `复制程度` 列里
+不属于本表任何一档（PR #259 review round-2 指出）。⇒ 补设本档并写明它是**待定态**，
+而不是把它们硬塞进前两档之一。
 
 ⚠️ **本表是「复制程度」这一根轴，回答「我们抄了多少」。**
 「抄了合不合法」是**另一根轴**——`许可地位`，取值域由
@@ -41,7 +48,8 @@ CoreDesign 的表达性视觉层（`CoreDesignEffects` / `CoreDesignShaders`）�
 ⚠️ 第 1 版在此断言"是重写的，不是拷贝"——**当时两个 target 还是空骨架，那是预判**，
 已改为义务描述。
 ⚠️ **更要紧**：`docs/shader-provenance.md` 已证 **ShipSwift 的 MIT 声明不覆盖它内含的
-Apache-2.0 衍生物**（至少 10 个 shader 来自 `paper-design/shaders`）⇒ **不得把 ShipSwift
+Apache-2.0 衍生物**（provenance 表 §B 追到 **11 个** shader 源自 `paper-design/shaders`，
+其中 **9 个**已正向裁定为 Apache-2.0、2 个仍 `待追溯`）⇒ **不得把 ShipSwift
 的 MIT 当作全集**，逐项署名以 provenance 表为准。
 
 ```
@@ -98,9 +106,15 @@ Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie）
 
 ## paper-design/shaders（Apache-2.0，待相应 shader 落地时启用）
 
-> ⚠️ 占位。`docs/shader-provenance.md` §B 裁定的 10 个 shader（Voronoi / NeuroNoise /
-> Swirl / SimplexNoise / Water / ColorPanels / DotOrbit / SmokeRing / Metaballs /
-> Halftone）落地时填入。
+> ⚠️ 占位。`docs/shader-provenance.md` 裁定为 **`已追到兼容许可 · Apache-2.0` 的 9 个**
+> shader（Voronoi / Swirl / SimplexNoise / Water / ColorPanels / DotOrbit / SmokeRing /
+> Metaballs / Halftone）落地时填入。
+>
+> ⚠️ **`NeuroNoise` 与 `GrainGradient` 不在本名单内**：两者同样追到 paper，但裁定是
+> **`待追溯`**——前者的上游是一条无许可声明的推文、paper 的再许可断言无法独立核实；
+> 后者参数仅部分匹配、匹配未确认。⇒ 追完一轮改判为 Apache-2.0 之前，
+> **不得随本节署名落地**（上一版把 `NeuroNoise` 写进名单、且写作「10 个」，
+> 与 provenance 表的 Apache-2.0 档 = 9 打架，PR #259 review round-2 指出）。
 
 - 上游：[paper-design/shaders](https://github.com/paper-design/shaders) — **Apache-2.0**
 - 档位：**较大段落移植**
@@ -110,7 +124,8 @@ Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie）
   3. **标注修改**（§4(b)）——我们改了参数化与色彩层。
 - ⚠️ **paper 之上还有一层**，落地前须直读确认：`voronoi.ts` 指向 iq 的 Shadertoy
   `ldl3W8`（该 shader 许可**变过**：旧拷贝头 CC BY-NC-SA 3.0、新拷贝头 MIT）；
-  `neuro-noise.ts` 指向一条**无许可声明的推文**。
+  `neuro-noise.ts` 指向一条**无许可声明的推文**——**这正是 `NeuroNoise` 被排除在上面
+  9 个名单之外的原因**（provenance 表《汇总与闸②判定》第 5 轮终审 I4）。
 
 ---
 
@@ -141,7 +156,8 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 
 ⚠️⚠️ **下表有两根轴，上一版把它们混成了一列**（第 5 轮终审 C2）：
 
-- **复制程度**（本文件《归属分档》定义的两档：`较大段落移植` / `参考算法思路`）
+- **复制程度**（本文件《归属分档》定义的三档：`较大段落移植` / `参考算法思路` /
+  `未知（上游未指认）`——第三档是**待定态**，追到上游后须改判为前两档之一）
   ——回答「我们抄了多少」；
 - **许可地位**（`docs/shader-provenance.md` 的裁定取值）——回答「抄了合不合法」。
 

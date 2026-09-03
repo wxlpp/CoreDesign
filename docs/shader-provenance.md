@@ -399,7 +399,12 @@ public struct Plasma: View {
 且**默认档位是「待追溯」而不是「自研」**。
 
 
-## §B 追到 `paper-design/shaders`（Apache-2.0）的 11 个
+## §B 追到 `paper-design/shaders` 的 11 个 —— 9 个正向裁定 Apache-2.0 + 2 个待追溯
+
+⚠️ **标题里的 11 是「追到 paper 的件数」，不是「Apache-2.0 档的件数」**——本节内
+`NeuroNoise`（上游是无许可推文，paper 的再许可断言无法独立核实）与 `GrainGradient`
+（参数仅部分匹配、匹配未确认）**均为 `待追溯`**，Apache-2.0 档实为 **9**。
+⇒ 与《统一裁定表》《汇总与闸②判定》的 9 逐档一致。
 
 上游：**[paper-design/shaders](https://github.com/paper-design/shaders)，Apache-2.0，
 3414 stars，带 `LICENSE` 与 `NOTICE`**（一手核，GitHub API）。
@@ -407,7 +412,7 @@ public struct Plasma: View {
 | # | shader | paper 对应文件 | 匹配依据 | 核验者 |
 |---|---|---|---|---|
 | 8 | `Voronoi` | `voronoi.ts` | 描述句**近逐字** + 参数集全对应 + `randomGB`↔`textureRandomizerGB` | **本人一手** |
-| 9 | `NeuroNoise` | `neuro-noise.ts` | 描述句**逐字** + `brightness/contrast/colorFront/colorMid/colorBack` | **本人一手** |
+| 9 | `NeuroNoise` | `neuro-noise.ts` | 描述句**逐字** + `brightness/contrast/colorFront/colorMid/colorBack` | **本人一手**（⚠️ **匹配确认、许可未确认** ⇒ 裁定 `待追溯`，不在 Apache-2.0 档） |
 | 10 | `Swirl` | `swirl.ts` | `bandCount/twist/center/proportion/softness/noise` | 终审 reviewer |
 | 11 | `SimplexNoise` | `simplex-noise.ts` | `stepsPerColor/softness/10 colors`；双层 simplex 叠加 | 终审 reviewer |
 | 12 | `Water` | `water.ts` | `highlights/layering/edges/waves/caustic/size/colorBack/colorHighlight` | 终审 reviewer |
@@ -418,7 +423,12 @@ public struct Plasma: View {
 | 17 | `Halftone` | `halftone-dots.ts` + `halftone-cmyk.ts` | 两入口一一对应；`classic/gooey/holes/soft`、`originalColors`、`colorC/M/Y/K`。**ShipSwift 自己在 `SWHalftone.metal:350` 写着 "simplified port"** | 终审 reviewer |
 | 18 | `GrainGradient` | `grain-gradient.ts` | 参数**部分**匹配 | 终审 reviewer（**存疑**） |
 
-**裁定：#8–17 为 `已追到兼容许可 · Apache-2.0`；#18 `GrainGradient` 为 `待追溯`**（匹配未确认）。
+**裁定：#8、#10–#17 共 9 个为 `已追到兼容许可 · Apache-2.0`；#9 `NeuroNoise` 与
+#18 `GrainGradient` 为 `待追溯`**——前者的上游是一条**无任何许可声明的推文**，
+paper 以 Apache-2.0 再许可是 paper 的断言、我们无法独立核实（见下方《paper 之上还有一层》
+与《汇总与闸②判定》的第 5 轮终审 I4）；后者参数仅部分匹配、匹配未确认。
+⚠️ **上一版这里写「#8–17」（10 个）**，与《统一裁定表》《汇总与闸②判定》的 9 打架
+（PR #259 review round-2 指出）——**以统一裁定表为准，本行已改**。
 
 ### 落地义务（与 MIT 档不同，别混）
 
@@ -475,6 +485,19 @@ public struct Plasma: View {
 ② **`clean-room 重写` 已废除**（见《第三条出路：自研实现》与《汇总与闸②判定》）；
 ③ **`待追溯` 不能折进 `不落地`**——前者是「尚未用有效方法追过」，后者是「追过且追不到」，
 把前者报成后者等于把「未查」谎报成「查过且不兼容」。
+
+⚠️⚠️ **关闭 #249 的硬前置（本偏离必须先被批准，不得默认生效）**：本 PR 以 `Closes #249`
+关闭 issue，而 issue 的 AC 逐字写的仍是「裁定取值仅三种」。**「文档解释了偏离」不等于
+「AC 被满足」**——照现状合入会留下一个「已关闭但未满足 AC」的记录。
+⇒ **合入本 PR / 关闭 #249 之前，下列二者必须至少做到一条，并在 PR 里指明做的是哪条**：
+
+- [ ] **改 AC**：把 `.claude/epics/shipswift-foundation/249.md` 与 GitHub issue #249 的
+      「裁定取值仅三种」同步为本表实际的五种取值；**或**
+- [ ] **显式批准偏离**：在 #249 的关闭评论里逐字写明「AC 的三取值域已被本表的五取值域
+      取代，批准该偏离」，并附上文 ①②③ 的理由索引。
+
+**两条都没做 ⇒ 不得关闭 #249**（可先合 PR、把 `Closes` 改为 `Refs`，留 issue 开着）。
+⚠️ 本条款在 `.claude/epics/shipswift-foundation/249.md` 的 AC 处有反向指针，两边不得单改。
 
 ⚠️ **`—` 表示本表未持有该字段的可核内容**（不是「没有出处」，是「尚未追到 / 尚未核」）
 ⇒ 按定义即 `待追溯`，**不得据现状落地**。凡填 `—` 的行，落地前必须先按
@@ -574,7 +597,9 @@ public struct Plasma: View {
 
 - **9/11 是"带署名的移植"，不是 clean-room**（⚠️ 上一版写 12/14，是 `NeuroNoise` 降档与两件 clean-room 改判之前的数） —— 移植**比** clean-room **便宜**；
 - 但多了 **Apache-2.0 的署名义务**（LICENSE + NOTICE + 修改标注）；
-- 另有 **14 个 `待追溯`**，每个须先追一轮（小时级）才能定档。
+- 另有 **17 个 `待追溯`**，每个须先追一轮（小时级）才能定档（⚠️ 上一版写 14——那是
+  `FractalClouds` / `InkSmoke` 改判与 `NeuroNoise` 降档**之前**的数，与《统一裁定表》
+  《汇总与闸②判定》的 17 打架，PR #259 review round-2 一并改齐）。
 
 ⇒ **B-2 / B-3 分解时按「移植 + 署名」重估，不是按 clean-room。**
 
@@ -616,7 +641,8 @@ public struct Plasma: View {
 - `.claude/epics/shipswift-shaders/epic.md`：
   - AD-G 补本表结论；`N_B` 填 **5**；SC 的「可落地数 ≥ `N_B`」标记为**已满足（11 ≥ 5）**（⚠️ 上一版写 14 ≥ 5——那个 14 已被撤回，而本行是写进 epic SC 的指令，会把撤回的数字固化进闸②验收记录）
   - **B-2 / B-3 的工时按「移植 + 署名」重估**（⚠️ **不是** clean-room——第 1 版结论已反转）
-  - 新增：**14 个 `待追溯` 件必须先追一轮**才能进 B-2 / B-3 的任务清单
+  - 新增：**17 个 `待追溯` 件必须先追一轮**才能进 B-2 / B-3 的任务清单（⚠️ 上一版写 14，
+    同上，已按《统一裁定表》改齐）
   - 删除「`LiquidChrome` / `LiquidMetal` 不在范围内」——已改判 `待追溯`
 - `.claude/epics/shipswift-foundation/epic.md`：A0-6 的 SC 勾选
 - `ACKNOWLEDGEMENTS.md`：**预留 Apache-2.0 + NOTICE 段**（paper-design/shaders）
@@ -628,7 +654,9 @@ public struct Plasma: View {
   webgl-noise / glsl-noise 许可 · Shadertoy 默认许可
 - **采信终审 reviewer 的一手比对**：§B 表中标注"终审 reviewer"的 9 行（参数签名比对）
 - **二手**：StarNest 的 MIT（五个独立来源逐字一致，但未直读 shadertoy 原页面）
-- **未证**：§C 里 8 个 `待追溯` 的实际出处 —— 故判 `待追溯` 而非 clean-room
+- **未证**：§C 全部 **10** 个 `待追溯` 的实际出处（含本轮由 clean-room 改判的
+  `FractalClouds` / `InkSmoke`）—— 故判 `待追溯` 而非 clean-room
+  （⚠️ 上一版写 8，是那两件改判前的数）
 
 ⚠️ **第 1 版在此处写「本表没有声称知道那 21 个来自哪里，故日后有人追到也不受影响」——
 该辩护随本版作废**：它建立在"追不到"的前提上，而那个前提被一小时的比对推翻了。
