@@ -69,6 +69,22 @@ struct MicroInteractionReduceMotionGuard {
         "Confetti.swift", "ProcessingSweep.swift",
     ]
 
+    /// 「整段换一套呈现」的三种写法。**文件必须同时在 `approvedEarlyExit` 名单上**
+    /// ——单有标记不放行（第 4 轮终审 C4-2 立的规矩）。
+    ///
+    /// ⚠️ **第三种是 `#252` PR #269 第 2 轮终审 C-1 加的**：`Confetti.swift` 不再能写
+    /// `guard !isReduced else { return AnyView(…) }`——那个形态给 `body` 造出了**两个**
+    /// `AnyView` 出口，而出口选择依赖 `scenePhase` ⇒ 每次后台往返调用方内容子树换身份、
+    /// 且 Reduce Motion 下的庆祝会重放。单出口的写法把两道闸的结论物化成
+    /// `EffectsPresentation` 再 `switch`，**语义与早退等价**（整段换一套呈现、不逐处门控），
+    /// 只是决策点从 `guard` 挪进了 `switch`。
+    /// ⇒ 标记的**射程与 `guard` 一样窄**：`switch presentation {` 之后的代码才被豁免，
+    /// 而三个 `switch` 分支本身仍在射程内（判据实测：往 `.resting` 分支加一处
+    /// `.offset(x: 20)` 会被 `everyMotionCallIsGated` 判红）。
+    static let earlyExitMarkers = [
+        "guard !isReduced", "guard !self.reduceMotion", "switch presentation {",
+    ]
+
     /// **确认不含运动**的文件。
     ///
     /// ⚠️⚠️ **分类必须 fail-closed**（第 5 轮终审 I5-1，评审有变异实证）：
@@ -224,7 +240,7 @@ struct MicroInteractionReduceMotionGuard {
     /// 返回 `nil` 表示文件里没有早退。
     static func earlyExitBodyStart(in code: String) -> Int? {
         let chars = Array(code)
-        for marker in ["guard !isReduced", "guard !self.reduceMotion"] {
+        for marker in Self.earlyExitMarkers {
             guard let r = code.range(of: marker) else { continue }
             var k = code.distance(from: code.startIndex, to: r.lowerBound)
             // 走到 `else {` 的那个 `{`，再配对到它的 `}`。
@@ -285,7 +301,7 @@ struct MicroInteractionReduceMotionGuard {
     @Test("早退名单与实际一致（双向差集）")
     func earlyExitListMatchesReality() throws {
         let actual = Set(try Self.motionFiles()
-            .filter { $0.1.contains("guard !isReduced") || $0.1.contains("guard !self.reduceMotion") }
+            .filter { code in Self.earlyExitMarkers.contains(where: { code.1.contains($0) }) }
             .map(\.0.lastPathComponent))
         #expect(actual == Self.approvedEarlyExit,
                 "早退名单 \(Self.approvedEarlyExit.sorted()) 与实际 \(actual.sorted()) 不一致")

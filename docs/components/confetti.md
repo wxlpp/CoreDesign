@@ -42,6 +42,12 @@ CheckoutSummary()
 本效果走的是共享降级**形态 2**（保留"长什么样"、去掉运动，**不再叠透明度脉冲**——
 静态层本身就是一次淡入淡出，叠脉冲就是两次反馈）。
 
+⚠️ **静态层没有自己的计时器**：它的可见时长与正常 burst 共用同一个状态机
+（`ConfettiBurst.duration`，两端各一次 `staticFadeDuration` 的淡入淡出），
+由 `ConfettiCore` 的 `burstStart` 驱动。上一版它自带 `@State` + `.task(id: fire)`，
+而那个分支会随 `scenePhase` 出现/消失 ⇒ 开启「减弱动态效果」的用户**每次从后台切回
+App 都会重放一次庆祝**（PR #269 第 2 轮修的正是这条）。
+
 ## 后台与低电量（NFR-7）
 
 两个信号都做成了**可注入的 `EnvironmentValues`**（默认从系统读）：
@@ -109,6 +115,19 @@ RM 开启时两个能耗键对 Confetti 完全无效）。裁决抽在
 ⚠️ **状态机挂在能耗闸之外**：进后台只是不画，`burst` 的计时照走——否则回到前台会
 重放一次已经结束的庆祝。
 
+⚠️⚠️ 这句话此前**只在非 Reduce Motion 路径上成立**：那一版把 RM 分支写成
+`guard !isReduced else { return AnyView(…) }`，于是 `body` 有两个出口，
+**而出口的选择依赖 `scenePhase`**（RM 开启时 `.active ⇒ .resting ⇒ 出口 A`、
+后台 `⇒ .none ⇒ 出口 B`）。出口 A 里根本没有那个 `.task`，两条后果：
+RM 用户每次后台往返都重放一次庆祝；**被 `.confetti` 包住的整棵调用方子树**
+随之换身份，里面的 `@State` / 动画 / `.task` 全部重置。
+⇒ 现在 `body` 只有**一种形状**：`content` 与 `.task(id:)` 恒在，两道闸只决定
+`overlay` 里画什么（`switch presentation`）。
+判据 `ConfettiTests.confettiKeepsOneShapeAcrossScenePhase` 钉住这个形状
+（`content` × 1、`.task(` × 1、`AnyView` × 0、`return` × 1，静态层不得自带
+`@State` / `.task` / `fire`）——`\.accessibilityReduceMotion` 不可注入、
+且"视图身份是否保持"本就不在一张静态位图里，源码结构是唯一可行的判据形态。
+
 ### burst 结束后没有常驻调度
 
 驱动彩纸的是 `TimelineView(.animation)`（不是 `Timer` / `CADisplayLink`）。
@@ -118,8 +137,9 @@ burst 起始时刻存在 `@State var burstStart: Date?` 里，`ConfettiBurst.dur
 ⚠️ 已知覆盖限度：`ImageRenderer` 拍的是静态帧，"两秒后那个节点真的消失了"**没有**
 端到端的机器判据（`.task` 在 macOS 的 `ImageRenderer` 下不跑；iOS Simulator 下会被调度，
 但落点不确定，拿它当判据只会得到一条随机判红的测试）。机器守住的是三段结构
-（全文件只有一处 `TimelineView(`、它只在 `burstStart` 非空且两道闸裁出 `.animated` 时
-被构造、状态机等的是 `ConfettiBurst.duration` 且随后清空），加上两条渲染判据：
+（全文件只有一处 `TimelineView(`、它只在 `switch presentation` 的 `.animated` 分支里
+对 `burstStart` 做 `if let` 时被构造、状态机等的是 `ConfettiBurst.duration` 且随后清空），
+加上两条渲染判据：
 "没有 burst 时与裸视图逐字节相同"，以及"burst 早已结束的那一帧与空基线逐字节相同"。
 
 ## a11y 分工（FR-13）

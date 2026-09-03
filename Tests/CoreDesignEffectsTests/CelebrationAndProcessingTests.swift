@@ -628,11 +628,150 @@ struct ConfettiTests {
         #expect(timelineRange.lowerBound > layerRange.lowerBound,
                 "TimelineView 不在 ConfettiLayer 里")
         // ② `ConfettiLayer` 只在 `burstStart` 非空、且两道闸裁出 `.animated` 时被构造。
-        #expect(code.contains("if let start = self.burstStart, presentation == .animated {"),
-                "ConfettiLayer 的构造不再受 burstStart / 呈现档位双重门控")
+        // ⚠️ 门控形态在第 2 轮终审 C-1 后从 `if let …, presentation == .animated` 改成
+        // `switch presentation` 的 `.animated` 分支里的 `if let`（单出口，理由见
+        // `confettiKeepsOneShapeAcrossScenePhase`）——两个条件一条不少，只是位置换了。
+        guard let animatedCase = code.range(of: "case .animated:") else {
+            Issue.record("找不到 switch presentation 的 .animated 分支")
+            return
+        }
+        // `.animated:` 之后的**第一行有效代码**必须就是那句 `if let`——中间不许插别的，
+        // 否则"只在 burst 进行中才建 TimelineView"就多了一条没被看住的路径。
+        let firstStatement = code[animatedCase.upperBound...]
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty } ?? ""
+        #expect(firstStatement == "if let start = self.burstStart {",
+                "`.animated` 分支的第一句不是对 burstStart 的 `if let`（实为 `\(firstStatement)`）—— 双重门控被拆掉了一半")
+        #expect(code.contains("switch presentation {"),
+                "两道闸的结论不再由 switch presentation 单点裁决")
         // ③ 状态机等的是 `ConfettiBurst.duration`，并在其后清空。
         #expect(code.contains("try await Task.sleep(for: .seconds(ConfettiBurst.duration))"))
         #expect(code.contains("self.burstStart = nil"), "没有任何地方把 burstStart 清空 —— 层永不移除")
+    }
+
+    /// 从 `marker` 起，配对它之后第一个 `{` 到其闭合 `}`（含两端）的源码文本。
+    ///
+    /// ⚠️ **必须配对括号而不是"找下一个 `}`"**：后者会在第一个嵌套闭包处就截断，
+    /// 而本文件要看的正是整段 `body` / 整个类型声明。
+    static func bracedRegion(after marker: String, in code: String) -> String? {
+        guard let r = code.range(of: marker) else { return nil }
+        let chars = Array(code)
+        var k = code.distance(from: code.startIndex, to: r.lowerBound)
+        while k < chars.count, chars[k] != "{" { k += 1 }
+        guard k < chars.count else { return nil }
+        let start = k
+        var depth = 0
+        while k < chars.count {
+            if chars[k] == "{" { depth += 1 }
+            else if chars[k] == "}" {
+                depth -= 1
+                if depth == 0 { return String(chars[start...k]) }
+            }
+            k += 1
+        }
+        return nil
+    }
+
+    static func occurrences(of needle: String, in text: String) -> Int {
+        text.components(separatedBy: needle).count - 1
+    }
+
+    /// ⚠️⚠️⚠️ **C-1 的判据**（#252 PR #269 第 2 轮终审）：钉住「后台往返不重放」
+    /// 与「调用方内容子树不换身份」。
+    ///
+    /// ## 缺陷形态（第 1 批新引入的）
+    ///
+    /// `isReduced` 改成由 `presentation` 派生之后，它就**依赖 `scenePhase`** 了。
+    /// 对开启 Reduce Motion 的用户：`.active` ⇒ `.resting` ⇒ 走 `guard !isReduced` 的
+    /// 早退出口（静态庆祝层，**没有 `.task`**）；`.inactive` / `.background` ⇒ `.none`
+    /// ⇒ 走主出口（`.task(id:)` + 空 overlay）。**每次后台往返 `content` 被包进底层类型
+    /// 不同的两个 `AnyView`**，两条后果：庆祝重放（静态层是新插入实例，`@State` 复位、
+    /// `.task(id: fire)` 重跑，而 `fire` 触发过就永远 `> 0`）、调用方整棵被修饰子树的
+    /// `@State` / 动画 / `.task` 全部重置。
+    ///
+    /// ## 为什么是**源码结构**判据，以及它凭什么真能咬住
+    ///
+    /// ⚠️ **位图路走不通，不是偷懒**：`\.accessibilityReduceMotion` 不可注入（写它编译红），
+    /// 缺陷只在 RM 开启时才出现；而且要观测的是**视图身份在一次状态变化前后是否保持**，
+    /// `ImageRenderer` 拍的是**一帧静态图**，身份这件事它根本不成像。
+    /// ⇒ 只能钉**形状**：`body` 只有一种形状，缺陷就无处可长。
+    ///
+    /// 四条一起才封得住，缺一条都有逃逸位（逐条对应一枚真实变异）：
+    /// · `content` × 1 —— 两个出口（`guard … else { return AnyView(content…) }`）
+    ///   或 `@ViewBuilder` 的 `if/else` 都必须把 `content` 写两遍 ⇒ 判红；
+    /// · `.task(` × 1 —— 堵"只把 `.task` 挂在其中一条路径上"（RM 路径此前正是**没有**它）；
+    /// · `AnyView` × 0 —— 堵"用类型擦除在 `body` 顶层分支"这一整类写法；
+    /// · `return` × 1 —— 堵上一条的漏网之鱼：`@ViewBuilder` 的隐式 `if/else` 不需要
+    ///   `AnyView`，但它**没有** `return`（写了 `return` 就关掉 builder 变换、又需要
+    ///   两侧类型一致 ⇒ 回到需要 `AnyView`）。两条合起来，顶层分支无路可走。
+    ///
+    /// 静态层那一半由后三条钉：它不得自带 `@State` / `.task(` / `fire`，
+    /// 且必须由 `active` 参数驱动 —— 触发源回到 `.task(id: fire)` 是**编译失败**
+    /// （初始化器签名变了，下面 `staticCelebrationIsDrivenByItsActiveParameter` 用的是
+    /// `active:`），而"既留 `active:` 又偷偷加一个 `.task`"由这里的结构判据接住。
+    @Test("ConfettiCore.body 只有一种形状（content 与 .task 恒在，分支只在 overlay 内部）")
+    func confettiKeepsOneShapeAcrossScenePhase() throws {
+        let code = MicroInteractionReduceMotionGuard.stripComments(
+            try ProcessingSweepTests.source("Confetti.swift")
+        )
+        guard let body = Self.bracedRegion(
+            after: "func body(content: Content) -> some View {", in: code
+        ) else {
+            Issue.record("找不到 ConfettiCore.body —— 判据无法工作，这不是「零违规」")
+            return
+        }
+
+        #expect(Self.occurrences(of: "content", in: body) == 1,
+                "ConfettiCore.body 里 `content` 出现了 \(Self.occurrences(of: "content", in: body)) 次 —— 多于一次意味着 body 有多条出口，调用方内容子树会随 scenePhase 换身份")
+        #expect(Self.occurrences(of: ".task(", in: body) == 1,
+                ".task( 不是恰好一处 —— burst 状态机必须恒在，否则某条路径上它会被整个摘掉")
+        #expect(Self.occurrences(of: "AnyView", in: body) == 0,
+                "ConfettiCore.body 又用上了 AnyView —— 类型擦除的顶层分支正是 C-1 的成因")
+        #expect(Self.occurrences(of: "return ", in: body) == 1,
+                "ConfettiCore.body 的 return 不是恰好一处 —— 0 处意味着走了 @ViewBuilder 的隐式分支")
+        #expect(body.contains("switch presentation {"),
+                "两道闸的结论不再由单个 switch 裁决")
+
+        guard let staticDecl = Self.bracedRegion(
+            after: "struct ConfettiStaticCelebration: View {", in: code
+        ) else {
+            Issue.record("找不到 ConfettiStaticCelebration 声明")
+            return
+        }
+        #expect(staticDecl.contains("let active: Bool"),
+                "静态庆祝层不再由外部传入的 active 驱动")
+        #expect(!staticDecl.contains("@State"),
+                "静态庆祝层又自带 @State —— 它会随 scenePhase 的分支翻转被重建并复位")
+        #expect(!staticDecl.contains(".task("),
+                "静态庆祝层又自带 .task —— 后台往返把它移除再插回就会重放一次庆祝")
+        #expect(!staticDecl.contains("fire"),
+                "静态庆祝层又直接吃 trigger —— 触发源必须是 ConfettiCore 的 burstStart")
+    }
+
+    /// C-1 的**渲染侧**一半：静态庆祝层画什么完全由传进来的 `active` 决定。
+    ///
+    /// ⚠️ 这条与上一条是互补的，不是重复：上一条钉"没有自带状态机"，本条钉
+    /// "**确实**由参数驱动"——否则 `active` 可以是个死参数，结构判据看不出来。
+    /// ⚠️ 且它让"把触发源改回 `.task(id: fire)`"变成**编译失败**（初始化器签名变了），
+    /// 这是本仓能拿到的最硬的一种红。
+    @Test("静态庆祝层是 active 的纯函数（active: false ⇒ 一个像素都不画）")
+    func staticCelebrationIsDrivenByItsActiveParameter() {
+        func layer(active: Bool, policy: EffectsRenderPolicy) -> Data? {
+            Self.pixels(Self.framed(ConfettiStaticCelebration(
+                active: active, strength: .regular, colors: [], policy: policy
+            )))
+        }
+        let on = layer(active: true, policy: .full)
+        let off = layer(active: false, policy: .full)
+        // ⚠️ **互锁基线**：包装层数与上面两者**逐字相同**，只把粒子数打成 0
+        //（`eachEffectRestsClean` 的文档：层数不一致会全体等量偏差）。
+        let empty = layer(active: true, policy: .paused)
+        #expect(on != nil && off != nil && empty != nil, "渲染失败，下面的断言会静默变绿")
+        #expect(on != off,
+                "静态庆祝层没有跟着 active 变 —— 它的触发源不是 ConfettiCore 的 burstStart")
+        #expect(on != empty, "active: true 也什么都没画 —— 上一条是恒真的")
+        #expect(off == empty, "active: false 时静态层仍在画东西")
     }
 
     // ⚠️ **"没有 burst 时与裸视图逐字节相同"这条判据不在本 suite**，
@@ -655,15 +794,22 @@ struct ConfettiTests {
         let code = MicroInteractionReduceMotionGuard.stripComments(
             try ProcessingSweepTests.source("Confetti.swift")
         )
-        guard let guardRange = code.range(of: "guard !isReduced else {"),
-              let end = code.range(of: "}", range: guardRange.upperBound..<code.endIndex)
+        // ⚠️ 第 2 轮终审 C-1 之后 RM 分支不再是 `guard !isReduced else { return AnyView(…) }`
+        // 而是 `switch presentation` 的 `.resting` case（单出口，理由见
+        // `confettiKeepsOneShapeAcrossScenePhase`）。
+        guard let restingCase = code.range(of: "case .resting:"),
+              let end = code.range(of: "case .animated:", range: restingCase.upperBound..<code.endIndex)
         else {
-            Issue.record("找不到 Reduce Motion 早退分支")
+            Issue.record("找不到 Reduce Motion 的 .resting 分支")
             return
         }
-        let branch = String(code[guardRange.upperBound..<end.upperBound])
+        let branch = String(code[restingCase.upperBound..<end.lowerBound])
         #expect(branch.contains("ConfettiStaticCelebration("),
                 "Reduce Motion 分支没有渲染静态庆祝层 —— 降级成了 no-op")
+        // ⚠️ 静态层的触发源必须是 `burstStart`（C-1）：它自带 `.task(id: fire)` 时，
+        // 后台往返把这一层移除再插回就等于重放一次已经结束的庆祝。
+        #expect(branch.contains("active: self.burstStart != nil"),
+                "静态庆祝层不是由 ConfettiCore 的 burstStart 驱动 —— 后台往返会重放")
         // 静态层用的那一帧真的画得出东西 —— 在 `terminalFrameDrawsNothing` 里已断言。
         #expect(ConfettiBurst.restingProgress > 0 && ConfettiBurst.restingProgress < 1,
                 "静态庆祝层的相位落在了终帧或起帧上 —— 那一帧要么空要么全挤在中心")

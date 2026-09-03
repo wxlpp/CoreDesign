@@ -86,32 +86,59 @@ struct ConfettiCore: ViewModifier {
         let policy = state.policy
         let presentation = state.presentation(reduceMotion: self.reduceMotion)
 
-        // ⚠️ `isReduced` 由 `presentation` 派生（能耗闸已在其中先行裁决），
-        // **不再直接读 `self.reduceMotion`**——直接读就是上一版翻车的那个形态。
-        let isReduced = presentation == .resting
-        // ⚠️ **Reduce Motion：不放粒子，降级为一次淡入淡出的静态庆祝层**（AC 逐字）。
-        // ⚠️ **不是 no-op**：庆祝本身承载"这件事成了"这个信息，抹掉它等于让开启该偏好的
-        // 用户收不到反馈（`View.reduceMotionFallback` 的文档已就同一件事立过规矩）。
-        // 走的是**降级形态 2**（保留淡入淡出、去掉运动，不再叠透明度脉冲）：
-        // 静态层本身就是一次淡入淡出，叠脉冲就是两次反馈。
-        guard !isReduced else {
-            return AnyView(content.overlay {
-                // ⚠️ `policy` 传进去而不是写死 `.full`：低电量下静态层的粒子数同样要减半。
-                ConfettiStaticCelebration(
-                    fire: self.fire, strength: self.strength, colors: self.colors, policy: policy
-                )
-            })
-        }
-
-        return AnyView(
-            content
-                .overlay {
-                    // ⚠️ **两个条件都是承重的**：
-                    // · `burstStart != nil` —— burst 结束后整层被移除（AC）；
-                    // · `presentation == .animated` —— NFR-7：后台 / 非活跃时一个像素都不画
-                    //   （此处它与 `policy.drawsAnything` 等价，写成前者是为了让两道闸
-                    //   只有一个裁决点）。
-                    if let start = self.burstStart, presentation == .animated {
+        // ⚠️⚠️⚠️ **单出口：`content` 与 `.task(id:)` 恒在，两道闸只决定 overlay 里画什么。**
+        //
+        // （#252 PR #269 第 2 轮终审 C-1。**这条是本文件最容易被改坏的地方**。）
+        //
+        // 上一版把 Reduce Motion 分支写成 `guard !isReduced else { return AnyView(…) }`
+        // ⇒ `body` 有**两个** `AnyView` 出口，而 `isReduced` 由 `presentation` 派生、
+        // `presentation` 又依赖 `scenePhase`。对开启「减弱动态效果」的用户：
+        //
+        // | scenePhase | presentation | 走哪个出口 |
+        // |---|---|---|
+        // | `.active` | `.resting` | 出口 A（静态层，**没有 `.task`**） |
+        // | `.inactive` / `.background` | `.none` | 出口 B（`.task` + 空 overlay） |
+        //
+        // ⇒ 每次后台往返，`content` 被包进**底层类型不同**的两个 `AnyView`，两条后果：
+        // 1. **庆祝重放**：静态层只存在于出口 A ⇒ 回前台是**新插入**的实例，
+        //    它自带的 `@State shown` 复位、`.task(id: fire)` 重跑，而 `TriggerRelay.fire`
+        //    只增不减、触发过一次就永远 `> 0` ⇒ 此后每次切回 App 都放一次彩纸；
+        // 2. **调用方内容子树被销毁重建**：`.confetti` 包的是**任意调用方内容**，
+        //    换身份等于把整棵被修饰子树里的 `@State` / 动画 / `.task` 全部重置。
+        //
+        // ⇒ 现在只有**一个**出口、**一种** `body` 形状：`content` 恰好出现一次、
+        // `.task(id:)` 恰好挂一次、全文件不再需要 `AnyView`。分支只发生在 `overlay`
+        // 闭包**内部**（与 `ScanningOverlay` / `GlowSweep` / `LightSweep` 同形态：
+        // 它们的 `AnyView` 分支也只活在 `content.overlay { … }` 里面）。
+        //
+        // ⚠️ 判据：`ConfettiTests.confettiKeepsOneShapeAcrossScenePhase`
+        //（`content` × 1、`.task(` × 1、`AnyView` × 0、`return` × 1 —— 四条一起才堵得住，
+        // 逐条的理由写在那条判据的文档里）。
+        return content
+            .overlay {
+                switch presentation {
+                case .none:
+                    // NFR-7 停摆：一个像素都不画。
+                    EmptyView()
+                case .resting:
+                    // ⚠️ **Reduce Motion：不放粒子，降级为一次淡入淡出的静态庆祝层**（AC 逐字）。
+                    // ⚠️ **不是 no-op**：庆祝本身承载"这件事成了"这个信息，抹掉它等于让开启该
+                    // 偏好的用户收不到反馈（`View.reduceMotionFallback` 已就同一件事立过规矩）。
+                    // 走**降级形态 2**（保留淡入淡出、去掉运动，不再叠透明度脉冲）。
+                    //
+                    // ⚠️⚠️ **触发源是 `burstStart`，不是静态层自己的 `.task(id: fire)`**
+                    //（C-1 的另一半）：`burstStart` 由**恒在**的 `.task(id: self.fire)` 驱动，
+                    // 因此这一层被后台往返移除再插回也不会重放——它是 `burstStart` 的纯函数。
+                    // ⚠️ `policy` 传进去而不是写死 `.full`：低电量下粒子数同样要减半。
+                    ConfettiStaticCelebration(
+                        active: self.burstStart != nil,
+                        strength: self.strength,
+                        colors: self.colors,
+                        policy: policy
+                    )
+                case .animated:
+                    // burst 结束后 `burstStart` 被清空 ⇒ 整个 `TimelineView` 分支消失（AC）。
+                    if let start = self.burstStart {
                         ConfettiLayer(
                             burstStart: start,
                             count: ConfettiBurst.particleCount(
@@ -123,12 +150,12 @@ struct ConfettiCore: ViewModifier {
                         )
                     }
                 }
-                // ⚠️ `.task(id:)` 挂在**能耗闸之外**：进后台时只是不画，
-                // 不该把状态机也停掉——否则回到前台会重放一次已经结束的 burst。
-                // ⚠️ 也正因此，能耗闸**不能**写成 `guard … else { return AnyView(content) }`
-                //（那会把 `.task` 一起摘掉）：它只门控 overlay 里画什么。
-                .task(id: self.fire) { await self.runBurst() }
-        )
+            }
+            // ⚠️ `.task(id:)` 挂在**两道闸之外**：进后台时只是不画，
+            // 不该把状态机也停掉——否则回到前台会重放一次已经结束的 burst。
+            // ⚠️ 这句话此前**只在非 Reduce Motion 路径上成立**（RM 路径根本没有这个
+            // `.task`，见上面那张表）；单出口之后它才在两条路径上都成立。
+            .task(id: self.fire) { await self.runBurst() }
     }
 
     /// burst 的状态机：起一轮 → 等 `ConfettiBurst.duration` → 清空（从而移除 `TimelineView`）。
@@ -160,9 +187,27 @@ struct ConfettiCore: ViewModifier {
 ///
 /// ⚠️ 复用的是同一个 `ConfettiCanvas` + 同一套几何函数，因此"长得还是彩纸"，
 /// 只是**不动**。另起一套图形会让降级形态与正常形态各自漂移。
+///
+/// ⚠️⚠️ **本类型没有自己的状态机，是 `active` 的纯函数**（#252 PR #269 第 2 轮终审 C-1）。
+///
+/// 上一版它自带 `@State shown` + `.task(id: fire)`，而它**只存在于 `ConfettiCore` 的
+/// Reduce Motion 分支里**——那个分支会随 `scenePhase` 出现/消失 ⇒ 每次后台往返本类型
+/// 都是**新插入**的实例 ⇒ `shown` 复位、`.task(id: fire)` 重跑，而 `fire` 触发过一次
+/// 就永远 `> 0`（`TriggerRelay.fire` 只增不减）⇒ 开启「减弱动态效果」的用户此后每次
+/// 切回 App 都会看到一次彩纸。
+///
+/// ⇒ 触发源改由 `ConfettiCore` 的 `burstStart` 状态机供给（`active: burstStart != nil`），
+/// 那个状态机挂在**恒在**的 `.task(id: self.fire)` 上、不随 `scenePhase` 重建。
+/// 本类型被移除再插回是无害的：它画什么完全由传进来的 `active` 决定。
+///
+/// ⚠️ 这也顺带把"静态庆祝持续多久"与 burst 本身统一成一个常量
+/// （`ConfettiBurst.duration`，两端各 `staticFadeDuration` 的淡入淡出），
+/// 不再有一份只服务本类型的 `staticHoldDuration`。
 struct ConfettiStaticCelebration: View {
 
-    let fire: Int
+    /// 是否处于"正在庆祝"。**由 `ConfettiCore.burstStart` 供给，本类型不自己计时。**
+    let active: Bool
+
     let strength: MicroInteractionStrength
     let colors: [Color]
 
@@ -171,8 +216,6 @@ struct ConfettiStaticCelebration: View {
     /// 本层永远不会在 `.paused` 下被构造（那道闸在 `ConfettiCore` 里先行裁决），
     /// 但 `.reduced` 会传进来。
     let policy: EffectsRenderPolicy
-
-    @State private var shown = false
 
     var body: some View {
         ConfettiCanvas(
@@ -183,20 +226,10 @@ struct ConfettiStaticCelebration: View {
             ),
             colors: self.colors
         )
-        .opacity(self.shown ? 1 : 0)
-        .animation(.easeInOut(duration: ConfettiBurst.staticFadeDuration), value: self.shown)
+        .opacity(self.active ? 1 : 0)
+        .animation(.easeInOut(duration: ConfettiBurst.staticFadeDuration), value: self.active)
         .accessibilityHidden(true)
         .allowsHitTesting(false)
-        .task(id: self.fire) {
-            guard self.fire > 0 else { return }
-            self.shown = true
-            do {
-                try await Task.sleep(for: .seconds(ConfettiBurst.staticHoldDuration))
-            } catch {
-                return
-            }
-            self.shown = false
-        }
     }
 }
 
@@ -305,9 +338,14 @@ nonisolated enum ConfettiBurst {
     /// Reduce Motion 静态层所用的进度：彩纸已经散开、还没开始消失的那一帧。
     static let restingProgress: Double = 0.45
 
-    /// 静态庆祝层的淡入淡出时长与停留时长（秒）。
+    /// 静态庆祝层的淡入淡出时长（秒）。
+    ///
+    /// ⚠️ **停留时长不在这里**：静态层的可见时长与 burst 本身共用 `duration`
+    /// （它由 `ConfettiStaticCelebration.active` ← `ConfettiCore.burstStart` 驱动）。
+    /// 上一版另有一个 `staticHoldDuration`，那是因为静态层当时自带 `.task(id: fire)`
+    /// 计时——而那正是 Reduce Motion 路径下"后台往返即重放"的成因
+    /// （#252 PR #269 第 2 轮终审 C-1）。
     static let staticFadeDuration: Double = 0.35
-    static let staticHoldDuration: Double = 1.2
 
     /// 整个 burst 里彩纸自转的总度数基数。
     static let spinTurns: Double = 540
