@@ -984,5 +984,54 @@
       "notes": "写作状态栏：字数 / 目标进度（ProgressView(.core)）/ 保存三态。步骤 1 无（组件本身是复合视图，非单一系统控件的样式扩展）。步骤 2/3：字数文案 + 进度条 + 保存态是这块状态栏的全部定义，换一种呈现无实际意义 ⇒ 步骤 3 规定性。展示文本由 WritingStatusBarState 派生（wordCountText/saveText 均为 internal 纯函数），组件 init 本身无裸 String 参数。"
     }
   ],
-  "entryPoints": []
+  "entryPoints": [
+    {
+      "target": "CoreDesignEffects",
+      "host": "View",
+      "member": "shake",
+      "notes": "trigger 值变化时左右抖动，承载状态语义（如 PinCode 输错）；a11y 通告由调用方提供。Reduce Motion 下走共享 reduceMotionFallback 的透明度脉冲，不做位移。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "View",
+      "member": "jump",
+      "notes": "trigger 值变化时上跳并带 squash/stretch。Reduce Motion 下 scaleEffect 的 x/y 一并门控，不留残余形变。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "View",
+      "member": "spin",
+      "notes": "trigger 值变化时单次整圈旋转，方向由 SpinDirection 决定。终帧角为 360° 取模后的恒等，由 SpinTurn 轨道求值钉住。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "View",
+      "member": "ping",
+      "notes": "trigger 值变化时在内容背后扩散同心圆环，装饰层 accessibilityHidden(true)。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "View",
+      "member": "spray",
+      "notes": "trigger 值变化时喷出 SF Symbol 粒子。colors 默认空数组 ⇒ 取 .tint，不自带色板；Reduce Motion 下缩放固定为 1、只保留透明度。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "View",
+      "member": "rise",
+      "notes": "trigger 值变化时浮起一段文字。text 为 LocalizedStringKey（公约 B 类）；Reduce Motion 下保留常量位移与淡入淡出，不做逐帧运动。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "View",
+      "member": "haptic",
+      "notes": "对 sensoryFeedback 的薄封装，提升可发现性。trigger 只约束 Equatable 不加 Sendable——下游 SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor 时加了会编译红。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "View",
+      "member": "shine",
+      "notes": "trigger 值变化时一道高光扫过内容形状。高光色取 contentPrimary 低透明度而非写死白色；Reduce Motion 下早退到共享回退，保留反馈不做扫掠。"
+    }
+  ]
 }
