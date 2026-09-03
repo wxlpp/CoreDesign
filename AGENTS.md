@@ -37,6 +37,29 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 新增组件时优先使用第 3、4 层名称。如果缺少需要的语义 token，应在对应文件中补充新名称，而不是把第 1 层色相硬编码进组件。
 
+### 多 target 结构
+
+本包不再是单 target。`Package.swift` 现有三个 library product：
+
+| product | 内容 | 备注 |
+|---|---|---|
+| `CoreDesign` | 系统原生观感的组件、四层色彩、token、modifier | 主体，**不依赖**下面两个 |
+| `CoreDesignEffects` | 表达性视觉层：微交互 / 转场 / 庆祝与处理中动效 | 依赖 `CoreDesign` |
+| `CoreDesignCharts` | Swift Charts 原生画不出来的四类图表（雷达图 / 活动环 / 贡献热力图 / 力导向网络图） | 依赖 `CoreDesign`；**有意不 `import Charts`** |
+
+拆开的理由：只想要系统原生观感的消费者不必背上动效与图表。依赖是**单向**的
+（`CoreDesign` 的 `target_dependencies` 必须恒为 `[]`），两条 `swift package describe`
+判据守着它，见下方《验证边界与常见坑》。
+
+⚠️ **新 target 各有独立的 test target**（`CoreDesignEffectsTests` / `CoreDesignChartsTests`），
+**不并进 `CoreDesignTests`**——并进去需要 `@testable import`，会让 `CoreDesignTests` 的
+依赖图包含新 target，破坏上面那条隔离判据。
+
+⚠️ **四条源码守卫当前只扫 `Sources/CoreDesign`**（`ComponentRegistryGuard.swift:366`、
+`BoolExemptionGuard.swift:43`、`AccessibilityStringLiteralGuard.swift:189` 等的扫描根都是
+硬编码的）——**新 target 目前不受 Bool 纪律 / a11y 字面量 / 登记表守卫覆盖**，
+多根化归 `#246`。在那之前不要假设新 target 已被这些守卫守着。
+
 ### 按钮样式模式
 
 所有按钮样式遵循统一形态：`*ButtonStyle: ButtonStyle` + 在 `ButtonStyle where Self == ...` 上扩展 `static func *Button(role:) -> Self`，通过单个 `ButtonRoleStyleRole` 枚举（`Components/Button/ButtonRoleStyleRole.swift`）参数化。该枚举是 `color` / `activeColor` / `disabledColor` 的唯一来源——新增 role 时应扩展此枚举，而不是为每个样式各自定义调色板。样式从 `@Environment(\.controlSize)` 读取尺寸、从 `\.isEnabled` 决定禁用配色。
@@ -81,7 +104,8 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 - **`swift build` 不编译 `Tests/`**，`swift test` 才编译并跑测试；但 `Tests/` 下 `#if
   os(iOS)` 的 suite（如 `DynamicTypeLayoutTests`）在 macOS 上是**空 suite**——`swift
   test` 通过在这类 suite 上是假绿，必须看 CI 的 **xcodebuild iOS Simulator 腿**（或本地跑
-  `xcodebuild test -scheme CoreDesign -destination 'platform=iOS Simulator,...'`）才作数。
+  `xcodebuild test -scheme CoreDesign-Package -destination 'platform=iOS Simulator,...'`）才作数。
+  ⚠️ scheme 必须是 `CoreDesign-Package`——理由见下方《多 target 结构》。
 - **`App/`（预览宿主）不受 `swift build` / `swift test` 覆盖，CI 也不构建它**——它是独立的
   `xcodegen` 生成的 `.xcodeproj`，只能用 `scripts/run-preview.sh` 或直接
   `xcodebuild -project App/CoreDesignPreview.xcodeproj` 手动验证。删除或改名公开符号后
@@ -98,6 +122,19 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 - **新增 / 修改 `.xcassets` 里的 colorset 后必须 `swift package clean` 再构建/测试**：
   macOS SwiftPM 以目录形式而非 `.car` 分发 `.xcassets`，增量构建不会拷贝新加的目录，
   资源缺失是静默失败，颜色断言抓不到。
+
+- **多 product 之后，CI 的 iOS 腿必须用 `-scheme CoreDesign-Package`**：包只有一个
+  product 时 Xcode 把包 scheme 合并进同名 scheme，于是 `-scheme CoreDesign` 恰好能跑测试；
+  多 product 后 scheme 列表变成 `CoreDesign` / `CoreDesign-Package` / 各 product 一个，
+  而 `xcodebuild test -scheme CoreDesign` 会**硬红**（不是静默跳过）：
+  `error: Scheme CoreDesign is not currently configured for the test action`。
+- **两条隔离判据**（改 `Package.swift` 后必跑）：
+  `swift package describe --type json | jq '.targets[] | select(.name=="CoreDesignTests") | .target_dependencies'`
+  须恰为 `["CoreDesign"]`；同样的查询对 `CoreDesign` 自身须输出 **`null`**（禁反向依赖）。
+  ⚠️ **是 `null` 不是 `[]`**：无依赖的 target 在 SwiftPM 的 JSON 里该字段**直接缺席**，
+  jq 取到的是 `null`。照 `[]` 写判据会永远判红。
+- **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
+  `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
 
 ## 仓库内的代码风格观察
 
