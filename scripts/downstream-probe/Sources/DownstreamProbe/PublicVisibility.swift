@@ -338,31 +338,14 @@ func consumeProgressIndicatorVerbatimText(_ status: String) -> some View {
     ProgressIndicator(text: status)
 }
 
-// MARK: - CoreDesignEffects：NFR-7 的两个可注入能耗环境键（Issue #252）
+// MARK: - NFR-7 的两个可注入能耗环境键：**不在本文件**（Issue #252）
 //
-// ⚠️⚠️ **本节是那条跨 epic 契约的唯一跨模块证明。**
-// `@Entry` 宏展开时**默认不继承 `public`**，而库内断言证不了这一条——internal
-// 在同模块内一样能过。`shipswift-shaders` 的 B-2（17 个 `colorEffect` 背景）要
-// `import CoreDesignEffects` 复用这两个键；一旦某天有人把成员上的 `public` 去掉，
-// 库自身的 `swift build` / `swift test` **全绿**，只有这里会红：
-// `error: 'effectsPowerMode' is inaccessible due to 'internal' protection level`。
-//
-// ⚠️ 写侧与读侧都要覆盖：只证得了"写得进去"而读不出来，键一样是断的。
-// ⚠️ 这些函数必须 `@MainActor`——`EnvironmentValues` 的这两个访问器落在
-// `CoreDesignEffects` 的 `defaultIsolation(MainActor.self)` 上（与本文件其余
-// View / modifier 同类，见文件头的分工说明）。
-
-@MainActor
-func injectEffectsEnergyEnvironment() -> some View {
-    Text("content")
-        .environment(\.effectsPowerMode, .lowPower)
-        .environment(\.effectsScenePhase, .background)
-}
-
-@MainActor
-func readEffectsEnergyEnvironment(_ values: EnvironmentValues) -> (EffectsPowerMode?, ScenePhase?) {
-    (values.effectsPowerMode, values.effectsScenePhase)
-}
+// `\.lowPowerModeOverride` / `\.scenePhaseOverride` 已从 `CoreDesignEffects` 下沉到
+// `CoreDesign`（PR #269 终审 S-2 的已裁决处置），它们的跨模块证明随之搬到
+// `EnergySignalEnvironment.swift`——**那个文件只 `import CoreDesign`**，
+// 而 Swift 的 import 是**逐文件**的：本文件顶部的 `import CoreDesignEffects`
+// 对它一个符号都不泄漏。⇒ 那边编译得过，就等于证明了"只 import CoreDesign 就够"，
+// 这正是下沉要换来的东西。放在本文件里证不了这一条（本文件同时接着 Effects）。
 
 // MARK: - CoreDesignEffects：#252 的四个 API 单位
 
