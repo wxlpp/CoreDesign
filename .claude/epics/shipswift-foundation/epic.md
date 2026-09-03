@@ -1,9 +1,9 @@
 ---
 name: shipswift-foundation
-status: backlog
+status: in-progress
 created: 2026-09-02T23:42:57Z
-updated: 2026-09-03T00:20:45Z
-progress: 0%
+updated: 2026-09-03T15:39:46Z
+progress: 67%
 prd: .claude/prds/shipswift-harvest.md
 github: https://github.com/wxlpp/CoreDesign/issues/241
 ---
