@@ -59,7 +59,7 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 |---|---|---|
 | `GuardScanRoots.allRoots`（`Tests/CoreDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep | 三个 target 全覆盖 |
 | `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 CoreDesign 现状 |
-| `ComponentRegistryGuard.coreDesignSources`（`:366`，仍是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | 仍只有 `Sources/CoreDesign` —— 扩它会顶动 `ComponentExtensionPointGuard` 的 `inspected.count == 11` 等一串断言（AD-4《下游连锁一》），归 Charts 落件时（`#255`）处置 |
+| `ComponentRegistryGuard.coreDesignSources`（仍是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | 仍只有 `Sources/CoreDesign` —— 扩它会顶动 `ComponentExtensionPointGuard` 的 `inspected.count == 11` 等一串断言（AD-4《下游连锁一》），归 Charts 落件时（`#255`）处置 |
 
 ⚠️ 新增 library target 时**必须**把它加进 `GuardScanRoots.targetNames`——该表与
 `Package.swift` 声明的 library target 做双向差集，忘了扩根会当场判红（这是刻意的

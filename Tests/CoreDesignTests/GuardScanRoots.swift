@@ -5,10 +5,17 @@ import Testing
 //
 // 本仓从 `#244`/`#245` 起有三个 library target（`CoreDesign` / `CoreDesignEffects` /
 // `CoreDesignCharts`），而在 `#246` 之前，**四条源码守卫的扫描根全部是硬编码的单根**
-// `Sources/CoreDesign`（`BoolExemptionGuard.swift:43`、
-// `AccessibilityStringLiteralGuard.swift:189`、`ComponentRegistryGuard.swift:366`）
-// ⇒ 新 target 里写什么都不受纪律约束。本文件把「根列表」抽成**一份**数据，
-// 由 Bool / a11y / 字面量 / 扩展成员四类守卫共用。
+// `Sources/CoreDesign`——各自在自己的文件里拼 `repoRoot + "Sources/CoreDesign"`
+// （`BoolExemptionGuard.scanRoots` 与 `AccessibilityStringLiteralGuard` 的扫描循环
+// 今天已改指 `GuardScanRoots.allRoots`；`ComponentRegistryGuard.coreDesignSources`
+// 仍是单根，见下）⇒ 新 target 里写什么都不受纪律约束。本文件把「根列表」抽成
+// **一份**数据，由 Bool / a11y / 字面量 / 扩展成员四类守卫共用。
+//
+// ⚠️ **此处刻意只引符号名、不引行号**（PR #265 第 5 轮终审 I-4）：上面括号里的三处
+// 描述的是 `#246` **之前**的历史状态，行号注定随文件漂移——本文件头初版写下的
+// `BoolExemptionGuard.swift:43` / `AccessibilityStringLiteralGuard.swift:189`
+// **在写下的当天就已经指到空行和一个 `}`**，且没有任何判据会为此判红。
+// 与下面 `relativePath(_:)` 文档里那条同样的纪律（活引用一律用符号名）。
 //
 // ⚠️ **本文件不含 `ComponentRegistryGuard.coreDesignSources`**：登记表守卫的根
 // 是否扩到新 target，是 AD-4《下游连锁一》的题目（Charts 走 b 会顶动
