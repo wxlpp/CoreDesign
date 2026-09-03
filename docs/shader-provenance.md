@@ -13,16 +13,72 @@
 而 ShipSwift 的 `ACKNOWLEDGEMENTS.md` **只标注了 7/28 个** shader 的来源，
 **其余 21 个零来源标注**。直接移植那 21 个 = 在不知道原始许可的情况下重新分发。
 
+---
+
+## ⚠️ 本表第 1 版的核心前提被证伪 —— 必读
+
+**第 1 版写**：「那 21 个零标注 shader 的**实际出处**无法确立；它们的可落地性完全建立在
+clean-room 重写这条出口上。」
+
+**这句话是错的，而且错在有法律后果的那一侧。** 终审 reviewer 用**参数签名比对 + 文件头
+描述句比对**，在一小时内追到了其中 10+ 个的真实上游：
+
+> **[`paper-design/shaders`](https://github.com/paper-design/shaders) —— Apache-2.0，
+> 且带 `NOTICE` 文件。**
+
+本人一手复核（读 paper 源码，非转述）：
+
+| | 文本 |
+|---|---|
+| paper `voronoi.ts:11` | "Anti-aliased animated Voronoi pattern with **smooth and customizable edges**" |
+| ShipSwift `SWVoronoi.metal` | "Anti-aliased animated Voronoi pattern with **smooth, customizable edges**" |
+| paper `neuro-noise.ts:6` | "**A glowing, web-like structure of fluid lines and soft intersections**" |
+| ShipSwift `SWNeuroNoise.metal` | "**A glowing web-like structure of fluid lines and soft intersections**" |
+
+参数集同样逐个对应（Voronoi：`scale` / 最多 5 色 / `colorsCount` / `stepsPerColor` /
+`colorGlow` / `colorGap` / `distortion` / `gap` / `glow`，连 `randomGB` ↔
+`textureRandomizerGB` 都对得上）。paper 的 `NOTICE` 内容是
+`Powered by Paper Shaders: https://shaders.paper.design`，**Apache-2.0 §4(d) 让这条署名
+对衍生作品具有约束力**。
+
+### 第 1 版会造成什么后果
+
+按第 1 版裁定，这十几个走「对照 webgl-noise 重写」⇒ **产物是 Paper 作品的衍生物，
+却以零署名落地，违反 Apache-2.0 的 NOTICE 义务**。
+
+⚠️ **这正是"判太松"**——只不过方向与预期相反：不是"CC BY-NC-SA 混进来了"，而是
+**我把一个一小时就能查到的东西宣布为"不可知"，而 clean-room 出口恰好会把署名义务洗掉**。
+
+### 方法论教训（写给后续 task）
+
+**追溯 shader 出处的有效方法不是搜算法名，是比对签名与散文**：
+① `[[stitchable]]` 形参列表 vs 候选上游的 uniform 列表；
+② 文件头描述句的逐字比对（移植者极少重写这段）。
+⇒ **本表标 `待追溯` 的那些，落地前必须先用同一方法再追一轮**，不得直接走 clean-room。
+
+---
+
 ## 裁定方法：正向裁定，不证否定
 
 ⚠️ **"证明来源不明"是要证一个否定，做不到。** 本表用**正向裁定**——每个 shader 只有
 拿到下列三种结论之一才算裁定完成：
 
-| 裁定 | 含义 | 落地方式 |
+| 裁定 | 含义 | 落地义务 |
 |---|---|---|
-| `已追到兼容许可` | 追到原始实现，且其许可为 MIT / BSD / PD / CC0 | 可移植；须在 `ACKNOWLEDGEMENTS.md` 转载原始许可 |
-| `clean-room 重写` | 属公开算法，且**存在具名的、许可兼容的参考实现** | **对照参考实现重写，不看 ShipSwift 的 `.metal`** |
-| `不落地` | 追不到兼容许可，也不属可 clean-room 的公开算法 | 不进 `CoreDesignShaders` |
+| `已追到兼容许可 · MIT` | 追到原始实现，许可为 MIT / BSD / PD / CC0 | 可移植；`ACKNOWLEDGEMENTS.md` 转载原始许可 |
+| `已追到兼容许可 · Apache-2.0` | 追到原始实现，许可为 Apache-2.0 | 可移植；**须转载 LICENSE + `NOTICE`，并标注修改**（§4(a)(b)(d)） |
+| `clean-room 重写` | 属公开算法，**且本表已在该行具名一个许可已核实的参考实现** | 对照该参考实现重写 |
+| `待追溯` | 尚未用上面《方法论教训》的方法追过 | **不得据现状落地**；先追一轮 |
+| `不落地` | 追过且追不到兼容来源，也无具名参考实现 | 不进 `CoreDesignShaders` |
+
+⚠️ **`Apache-2.0` 是第 1 版遗漏的档位**（第 1 版只列 MIT / BSD / PD / CC0）。它与 MIT
+分发兼容，但**义务更多**：保留 LICENSE、保留 NOTICE、标注修改。
+
+⚠️ **`clean-room` 的成立条件在第 1 版形同虚设**：第 1 版判 24 行 clean-room，其中
+**17 行没有具名任何参考实现**——只写了「标准教科书内容」「Blinn 1982」「公开的图形学配方」。
+**没有具名参考实现，"不看 ShipSwift" 就退化成"看 Shadertoy"**，而 Shadertoy 默认许可
+正是 CC BY-NC-SA。⇒ **本版规定：`clean-room` 行必须给出 URL + 已核实的许可，
+否则一律降级为 `待追溯`。**
 
 ### `clean-room 重写` 的可核产物条款
 
@@ -43,15 +99,27 @@
 
 | # | shader | 直接上游 | 上游许可 | 传递来源核验 | 裁定 |
 |---|---|---|---|---|---|
-| 1 | `GlassOrb` | [Inferno](https://github.com/twostraws/Inferno) 的 "Warping Loupe"（Paul Hudson） | **MIT**（已核实读取 LICENSE 全文） | ✅ **链条闭合**。Inferno 的 LICENSE 附有逐 shader 的移植来源清单，仅含 5 项（Crosswarp / Radial / Swirl / Wind / Genie，均来自 gl-transitions）；**"Warping Loupe" 不在其中** ⇒ 它是 Inferno 的**原创**，由其 MIT 覆盖，无进一步传递问题 | **已追到兼容许可** |
-| 2 | `StarNest` | ["Star Nest" by Pablo Roman Andrioli（Kali）](https://www.shadertoy.com/view/XlfGRj) | **MIT**（作者在源码头声明，覆盖 Shadertoy 默认许可） | ✅ 多个独立移植各自记录其为 MIT（[a-frame 组件](https://github.com/urish/aframe-starnest-component)、[Godot Shaders](https://godotshaders.com/shader/star-nest-2/)、[NatronGitHub/openfx-misc](https://github.com/NatronGitHub/openfx-misc/blob/master/Shadertoy/presets/default/star%20nest-natron.frag.glsl)）。⚠️ shadertoy.com 对自动抓取返回 403，**未能直读源码头**——证据是多个独立第三方的一致记录，非一手 | **已追到兼容许可**（⚠️ 落地前建议人工打开该页面目视确认源码头的 MIT 声明） |
-| 3 | `ChromaticGlass` | [ShaderKit](https://github.com/jamesrochabrun/ShaderKit)（James Rochabrun） | **MIT**（GitHub 识别 + 已核 LICENSE） | ⚠️ **传递来源未闭合**——ShaderKit 的 LICENSE **只有 21 行纯 MIT 正文，没有任何移植来源说明**（对比：Inferno 有）。这 5 个的更上游是原创还是移植自 Shadertoy，**ShaderKit 自身未记录** | **clean-room 重写**（见下方裁断） |
-| 4 | `Foil` | 同上 | 同上 | 同上 | **clean-room 重写** |
-| 5 | `Glitter` | 同上 | 同上 | 同上 | **clean-room 重写** |
-| 6 | `IntenseBling` | 同上 | 同上 | 同上 | **clean-room 重写** |
-| 7 | `PolishedAluminum` | 同上 | 同上 | 同上 | **clean-room 重写** |
+| 1 | `GlassOrb` | [Inferno](https://github.com/twostraws/Inferno) 的 "Warping Loupe"（Paul Hudson） | **MIT**（已核实读取 LICENSE 全文） | ✅ **链条闭合**。Inferno 的 LICENSE 附逐 shader 移植清单，**6 组**（Circle/Circle Wave/Diamond/Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie）；**"Warping Loupe" 不在其中** ⇒ **推论**为 Inferno 原创。⚠️ 第 1 版写"仅含 5 项"**漏数了第一组**；"不在清单 ⇒ 原创"是**推论不是断言** | **已追到兼容许可 · MIT** |
+| 2 | `StarNest` | ["Star Nest" by Pablo Roman Andrioli（Kali）](https://www.shadertoy.com/view/XlfGRj) | **MIT**（作者在源码头声明，覆盖 Shadertoy 默认许可） | ✅ 多个独立移植各自记录其为 MIT（[a-frame 组件](https://github.com/urish/aframe-starnest-component)、[Godot Shaders](https://godotshaders.com/shader/star-nest-2/)、[NatronGitHub/openfx-misc](https://github.com/NatronGitHub/openfx-misc/blob/master/Shadertoy/presets/default/star%20nest-natron.frag.glsl)）。⚠️ shadertoy.com 对自动抓取返回 403，**未能直读源码头**——证据是多个独立第三方的一致记录，非一手 | **已追到兼容许可 · MIT**（⚠️ **人工目视确认该页面源码头是落地 task 的硬 AC，不是"建议"**——另有 xscreensaver `hacks/glx/glsl/starnest.glsl`、pythonarcade/arcade 等**五个独立来源逐字一致**） |
+| 3 | `ChromaticGlass` | [ShaderKit](https://github.com/jamesrochabrun/ShaderKit)（James Rochabrun） | **MIT**（GitHub 识别 + 已核 LICENSE） | ⚠️ **第 1 版说"ShaderKit 没有任何来源说明"是错的**：LICENSE 里没有，但 `docs/shadercards/css-parity.md` 声明视觉参考是 [simeydotme/pokemon-cards-css](https://github.com/simeydotme/pokemon-cards-css)（**GPL-3.0**），并主张自身是 "original, procedural Metal recreation" | **`待追溯`**（见下方裁断） |
+| 4 | `Foil` | 同上 | 同上 | 同上 | **`待追溯`** |
+| 5 | `Glitter` | 同上 | 同上 | 同上 | **`待追溯`** |
+| 6 | `IntenseBling` | 同上 | 同上 | 同上 | **`待追溯`** |
+| 7 | `PolishedAluminum` | 同上 | 同上 | 同上 | **`待追溯`** |
 
-### 对 ShaderKit 那 5 个的裁断说明
+### 对 ShaderKit 那 5 个的裁断：从 `clean-room` 降为 `待追溯`
+
+⚠️ **第 1 版判它们走 clean-room，理由是"效果都是公开的图形学配方"——该理由不成立**：
+**没有具名参考实现**（按本版 clean-room 成立条件直接降级）；**且 clean-room 在这里本就
+做不到**——本表作者与实现者都已读过 ShaderKit / ShipSwift 的实现（调研阶段 grep 过全部
+34 个 `.metal`），**在已读原实现的情况下"重写"是改写（paraphrase），不是 clean-room**。
+可核产物三条只保证**文档与评审的指向**，**不建立独立性**。ShaderKit 明示的 **GPL-3.0
+视觉参考**让这更敏感，而不是更轻。
+
+⇒ **三选一，由落地 task 定案**：① 接受 ShaderKit 的 MIT 与其明示的原创主张（记录风险）；
+② 具名一个真实的、许可已核的参考实现；③ 不落地。**本表不替它拍板。**
+
+<details><summary>第 1 版的原裁断（已作废，留档）</summary>
 
 **MIT 在 ShaderKit 那一层是真的**，问题在于**它上面还有没有一层**。ShaderKit 没有记录，
 我也无法证明它有或没有。两个选项：
@@ -64,59 +132,70 @@
 
 ⇒ **裁定走 clean-room**：成本增量不大（本来就要把它们的调色板从 `.metal` 提到 Swift 侧，
 见 spike #248 交付 B：这 7 个"颜色写死"件本就 ≈2–3h/个），换掉一个**无法闭合的法律不确定性**。
-⚠️ 这不是说 ShaderKit 有问题——是说**我们无法核实**，而无法核实的东西不该进以 MIT 分发的库。
+⚠️ 这不是说 ShaderKit 有问题——是说**我们无法核实**。
+
+</details>
 
 ---
 
-## B. 零标注的 21 个 —— 按"是否有具名的、许可兼容的参考实现"裁定
+## §B 追到 `paper-design/shaders`（Apache-2.0）的 11 个
 
-⚠️ **本节的裁定不是对"它们来自哪里"的断言**——那我无法确立。裁定的依据是
-**「这个效果是不是公开算法，且存在一个我能具名、许可兼容的参考实现可供重写」**。
+上游：**[paper-design/shaders](https://github.com/paper-design/shaders)，Apache-2.0，
+3414 stars，带 `LICENSE` 与 `NOTICE`**（一手核，GitHub API）。
 
-### B-1 噪声派生（参考实现：MIT）
+| # | shader | paper 对应文件 | 匹配依据 | 核验者 |
+|---|---|---|---|---|
+| 8 | `Voronoi` | `voronoi.ts` | 描述句**近逐字** + 参数集全对应 + `randomGB`↔`textureRandomizerGB` | **本人一手** |
+| 9 | `NeuroNoise` | `neuro-noise.ts` | 描述句**逐字** + `brightness/contrast/colorFront/colorMid/colorBack` | **本人一手** |
+| 10 | `Swirl` | `swirl.ts` | `bandCount/twist/center/proportion/softness/noise` | 终审 reviewer |
+| 11 | `SimplexNoise` | `simplex-noise.ts` | `stepsPerColor/softness/10 colors`；双层 simplex 叠加 | 终审 reviewer |
+| 12 | `Water` | `water.ts` | `highlights/layering/edges/waves/caustic/size/colorBack/colorHighlight` | 终审 reviewer |
+| 13 | `ColorPanels` | `color-panels.ts` | `density/angle1/angle2/length/edges/blur` | 终审 reviewer |
+| 14 | `DotOrbit` | `dot-orbit.ts` | `size/sizeRange/spreading/stepsPerColor` | 终审 reviewer |
+| 15 | `SmokeRing` | `smoke-ring.ts` | `thickness/radius/innerShape/noiseScale/noiseIterations/colorBack` | 终审 reviewer |
+| 16 | `Metaballs` | `metaballs.ts` | `count/size/colors` | 终审 reviewer |
+| 17 | `Halftone` | `halftone-dots.ts` + `halftone-cmyk.ts` | 两入口一一对应；`classic/gooey/holes/soft`、`originalColors`、`colorC/M/Y/K`。**ShipSwift 自己在 `SWHalftone.metal:350` 写着 "simplified port"** | 终审 reviewer |
+| 18 | `GrainGradient` | `grain-gradient.ts` | 参数**部分**匹配 | 终审 reviewer（**存疑**） |
 
-参考实现均已核实许可：
-[ashima/webgl-noise](https://github.com/ashima/webgl-noise) **MIT** ·
-[stegu/webgl-noise](https://github.com/stegu/webgl-noise) **MIT** ·
-[hughsk/glsl-noise](https://github.com/hughsk/glsl-noise) **MIT**
+**裁定：#8–17 为 `已追到兼容许可 · Apache-2.0`；#18 `GrainGradient` 为 `待追溯`**（匹配未确认）。
 
-| # | shader | 算法 | 裁定 |
-|---|---|---|---|
-| 8 | `SimplexNoise` | Simplex noise（Ken Perlin），事实标准实现是 Ashima/Gustavson | **clean-room 重写** |
-| 9 | `FractalClouds` | FBM over noise + domain warp | **clean-room 重写** |
-| 10 | `InkSmoke` | domain-warped FBM | **clean-room 重写** |
-| 11 | `SmokeRing` | value-noise FBM 扭曲环 | **clean-room 重写** |
-| 12 | `NeuroNoise` | domain-warped noise | **clean-room 重写** |
-| 13 | `GrainGradient` | noise + 渐变 | **clean-room 重写** |
-| 14 | `Water` | noise 驱动的水面扰动 | **clean-room 重写** |
+### 落地义务（与 MIT 档不同，别混）
 
-### B-2 教科书级程序化图形（参考：公开文献 / 教科书）
+1. 转载 paper 的 **LICENSE 全文**；
+2. 转载其 **`NOTICE`**：`Powered by Paper Shaders: https://shaders.paper.design`；
+3. **标注修改**（§4(b)）——我们改了参数化与色彩层，属"修改"；
+4. 逐 shader 的 `.metal` 文件头注明 paper 的对应 `.ts` 路径。
 
-| # | shader | 算法与公开出处 | 裁定 |
-|---|---|---|---|
-| 15 | `Voronoi` | 元胞/Voronoi 距离场，标准教科书内容 | **clean-room 重写** |
-| 16 | `Metaballs` | Blinn 的 blobby model（1982），标准教科书内容 | **clean-room 重写** |
-| 17 | `Plasma` | 经典 demoscene 正弦叠加，公有领域级别的老配方 | **clean-room 重写** |
-| 18 | `Starfield` | 网格 hash + 亮度衰减，程序化星空标准做法 | **clean-room 重写** |
-| 19 | `Halftone` | 半调网屏（印刷术数学），标准做法 | **clean-room 重写** |
-| 20 | `Dots` | 网格 + 三角函数 | **clean-room 重写** |
-| 21 | `DotOrbit` | 网格 + 极坐标轨道 | **clean-room 重写** |
-| 22 | `Swirl` | 极坐标扭转 | **clean-room 重写** |
-| 23 | `ColorPanels` | 网格/Voronoi 分区 + 调色板映射 | **clean-room 重写** |
+### ⚠️ paper 之上还有一层，落地前必须直读确认
 
-### B-3 复合 / 特征性强的 —— 逐个判，不搭便车
+- `voronoi.ts:14`：`Original algorithm: https://www.shadertoy.com/view/ldl3W8`（iq）。
+  ⚠️ 该 shader 的许可**变过**：2013 年第三方拷贝头是 **CC BY-NC-SA 3.0**，较新拷贝头是
+  **MIT**。**落地前须直读现页面确认。** ⚠️ 这也是"Shadertoy 许可看头部、且会变"的活例。
+- `neuro-noise.ts:33`：`Original algorithm: x.com/zozuar/status/1625182758745128981`
+  —— **一条推文，无任何许可声明**（默认保留所有权利）。paper 以 Apache-2.0 再许可
+  **是 paper 的断言**，我们无法独立核实 ⇒ **这一条须单独评估是否落地**。
 
-| # | shader | 判断 | 裁定 |
-|---|---|---|---|
-| 24 | `AnimatedLoop` | 它是**调度器**，按名字分派到上面那些效果（`.metal` 头自述「use a single argument list and dispatch by name」），本身无独立算法 | **clean-room 重写**（随被它调度的效果一起） |
-| 25 | `Glass` | SDF 定义区域 + 折射 + 边缘 mask 交叉淡入。SDF 与折射都是公开配方（iq 的 SDF 文章为公认参考） | **clean-room 重写** |
-| 26 | `GlassLogo` | `Glass` 的变体 + 硬编码调色板（`SWGlassLogoStyle`）。算法同 25；调色板本就要重做（FR-8 禁硬编码色） | **clean-room 重写** |
-| 27 | `LiquidChrome` | ⚠️ **特征性很强的观感**，非通用配方。无法具名一个许可兼容的参考实现；很可能对应某个具体的 Shadertoy 作品 | **不落地** |
-| 28 | `LiquidMetal` | ⚠️ 同上。且它是 7 个"颜色写死"件之一（`coolTint` 是 `Float`），复杂度也最高 | **不落地** |
+---
 
-⚠️ **27 / 28 判"不落地"的理由不是"它们一定有问题"**，而是**我无法为它们具名一个
-许可兼容的参考实现**——而 clean-room 出口的成立**依赖于能具名参考实现**。
-若将来有人追到其原始出处且许可兼容，可改判。
+## §C 仍未追到的 10 个
+
+⚠️ **第 1 版把这些判为 clean-room 且未具名参考实现 ⇒ 本版按新规则降级。**
+
+| # | shader | 第 1 版 | 本版 | 理由 |
+|---|---|---|---|---|
+| 19 | `FractalClouds` | clean-room | **`clean-room 重写`** | 参考实现已具名且许可已核：[ashima](https://github.com/ashima/webgl-noise) / [stegu](https://github.com/stegu/webgl-noise) / [glsl-noise](https://github.com/hughsk/glsl-noise) 均 **MIT**。⚠️ 噪声原语只覆盖 FBM 底座，**domain-warp 与调色的组合仍须先追一轮** |
+| 20 | `InkSmoke` | clean-room | **`clean-room 重写`** | 同上 |
+| 21 | `Plasma` | clean-room（"经典 demoscene"） | **`待追溯`** | 无具名参考实现 |
+| 22 | `Starfield` | clean-room（"标准做法"） | **`待追溯`** | 无具名参考实现 |
+| 23 | `Dots` | clean-room（"网格 + 三角函数"） | **`待追溯`** | ⚠️ paper 有 `dot-grid.ts` 但描述不同（静态几何网格 vs ShipSwift 的 5 个 `.metal` 变体）⇒ **不是**匹配 |
+| 24 | `Glass` | clean-room（"iq 的 SDF 文章"） | **`待追溯`** | iq 的 distfunctions2d / warp 页面**无许可声明**——"iq 文章代码是 MIT"是需要证的。⚠️ paper 的 `fluted-glass.ts` 是肋纹图像滤镜，与此 SDF 折射玻璃**不是**同一件 |
+| 25 | `GlassLogo` | clean-room | **`待追溯`** | 同上 |
+| 26 | `AnimatedLoop` | clean-room（"调度器，无独立算法"） | **`待追溯`** | ⚠️ **第 1 版是事实误读**：`SWAnimatedLoop.metal:5-21` 是四个 **hand-tuned styles**，共享 per-line phase ramp + RGB 通道分离 + 加法合成，仅距离度量与 pattern 项不同；"dispatch by name" 指在**这四个自有入口**间选，不是分派到别的效果。18 个参数，是**独立作品** |
+| 27 | `LiquidChrome` | **不落地** | **`待追溯`** | ⚠️ **准则统一**：`SWLiquidChrome.metal:7-9` 自述 "Three sequential value-noise samples are domain-warped"，与 InkSmoke / FractalClouds **同一算法类别**。第 1 版用"观感特征性强"判它不落地、却用"算法类别"给 InkSmoke 放行，是**双标** |
+| 28 | `LiquidMetal` | **不落地** | **`待追溯`** | ⚠️ 线索未穷尽：`SWLiquidMetal.metal:26-28` 用 Ashima simplex 常量；paper 有 `liquid-metal.ts` 但描述与参数集**不同**（paper 的是"应用到上传 logo"）⇒ **线索，非匹配**，须追 |
+
+⚠️ **`待追溯` 不等于"判不了"**——它是「**尚未用有效方法追过**」。§A/§B 的经验表明，
+用签名 + 散文比对追一轮的成本是**小时级**，而错判的代价是**署名义务落空**。
 
 ---
 
@@ -124,44 +203,50 @@
 
 | 裁定 | 数量 | 明细 |
 |---|---|---|
-| **已追到兼容许可** | **2** | GlassOrb（Inferno MIT，链条闭合）、StarNest（作者声明 MIT） |
-| **clean-room 重写** | **24** | ShaderKit 5 + 噪声派生 7 + 教科书 9 + 复合 3 |
-| **不落地** | **2** | LiquidChrome、LiquidMetal |
+| **已追到兼容许可 · MIT** | **2** | GlassOrb、StarNest |
+| **已追到兼容许可 · Apache-2.0** | **10** | §B 的 #8–17 |
+| **clean-room 重写**（已具名参考实现） | **2** | FractalClouds、InkSmoke |
+| **待追溯** | **14** | ShaderKit 5 + GrainGradient + §C 的 8 个 |
+| **不落地** | **0** | ⚠️ 第 1 版判的 2 个已改判 `待追溯`——原理由与 §C 其余项双标 |
 | 合计 | **28** | 无空裁定 ✅ |
 
 ### 闸②判定：**通过**
 
-- **可落地数 = 2 + 24 = 26**
+- **现可落地数 = 2 + 10 + 2 = 14**
 - **`N_B` = 5**（由 #248 spike 按「固定成本 8–12h ÷ 边际 2.0–2.5h/shader」反推）
-  ⚠️ #248 初稿曾给 **10**（按 10–16h ÷ 1.5h），该推导有分子分母重叠等三处问题，**已作废**
-- **26 ≥ 5 ⇒ 闸②通过，`shipswift-shaders`（#243）可启动**
-  ⚠️ 按作废前的 10 算同样通过（26 ≥ 10）⇒ **go/no-go 结论不受该修正影响**
+  ⚠️ #248 初稿曾给 10（按 10–16h ÷ 1.5h），该推导有分子分母重叠等三处问题，**已作废**
+- **14 ≥ 5 ⇒ 闸②通过，`shipswift-shaders`（#243）可启动**
 
-⚠️ **但落地形态与 epic 的假设很不一样**：**24/26 走 clean-room 重写，只有 2 个是移植**。
-这对 Epic B 的成本有实质影响——clean-room 比"改调色板 + 包 wrapper"贵，
-因为要**对照参考实现从头写 `.metal`**。#248 交付 B 给的 ≈1.5h/shader 边际成本
-**是按「难件 + 逐 shader 文档」估的，不是按 clean-room 估的** ⇒ **B-2 / B-3 分解时必须按 clean-room 重估工时**（#248 的回改清单已点名此项，两边一致）。
+### ⚠️ 与第 1 版相比，成本方向**反转了**
 
-### 需要回改的文档
+第 1 版说「24/26 走 clean-room，比移植贵得多，B-2/B-3 须上调工时」。**本版相反**：
+
+- **12/14 是"带署名的移植"，不是 clean-room** —— 移植**比** clean-room **便宜**；
+- 但多了 **Apache-2.0 的署名义务**（LICENSE + NOTICE + 修改标注）；
+- 另有 **14 个 `待追溯`**，每个须先追一轮（小时级）才能定档。
+
+⇒ **B-2 / B-3 分解时按「移植 + 署名」重估，不是按 clean-room。**
+
+---
+
+## 需要回改的文档
 
 - `.claude/epics/shipswift-shaders/epic.md`：
-  - AD-G 补本表结论；`N_B` 填 **5**（⚠️ **不是 10**——10 是 #248 初稿的作废值）；
-    SC 的「可落地数 ≥ `N_B`」标记为**已满足（26 ≥ 5）**
-  - **B-2 / B-3 的工时按 clean-room 重估**（不是移植）
-  - 明确 `LiquidChrome` / `LiquidMetal` **不在范围内**（28 → 26）
+  - AD-G 补本表结论；`N_B` 填 **5**；SC 的「可落地数 ≥ `N_B`」标记为**已满足（14 ≥ 5）**
+  - **B-2 / B-3 的工时按「移植 + 署名」重估**（⚠️ **不是** clean-room——第 1 版结论已反转）
+  - 新增：**14 个 `待追溯` 件必须先追一轮**才能进 B-2 / B-3 的任务清单
+  - 删除「`LiquidChrome` / `LiquidMetal` 不在范围内」——已改判 `待追溯`
 - `.claude/epics/shipswift-foundation/epic.md`：A0-6 的 SC 勾选
-- `ACKNOWLEDGEMENTS.md`：本 task 建骨架（表头 + 说明 + 上游许可全文转载）；
-  **逐 shader 条目由各自落地的 task 追加**——闸②虽通过，仍不得署名尚未落地的 shader
+- `ACKNOWLEDGEMENTS.md`：**预留 Apache-2.0 + NOTICE 段**（paper-design/shaders）
 
-## 本表的证据强度声明
+## 证据强度声明
 
-⚠️ **诚实说明本表能证什么、不能证什么**：
+- **一手核实**：paper-design/shaders 的许可与 NOTICE（GitHub API）· Voronoi 与 NeuroNoise
+  的描述句逐字比对（读 paper 源码）· Inferno LICENSE 全文 · ShaderKit LICENSE ·
+  webgl-noise / glsl-noise 许可 · Shadertoy 默认许可
+- **采信终审 reviewer 的一手比对**：§B 表中标注"终审 reviewer"的 9 行（参数签名比对）
+- **二手**：StarNest 的 MIT（五个独立来源逐字一致，但未直读 shadertoy 原页面）
+- **未证**：§C 里 8 个 `待追溯` 的实际出处 —— 故判 `待追溯` 而非 clean-room
 
-- **能证**：GlassOrb 与 StarNest 的许可链（一手读取 Inferno LICENSE 全文；
-  StarNest 是多个独立第三方的一致记录，**非一手**——shadertoy.com 返回 403）。
-  ShaderKit / Inferno / webgl-noise / glsl-noise 的仓库许可（一手，GitHub API）。
-  Shadertoy 默认许可为 CC BY-NC-SA 3.0（公开来源）。
-- **不能证**：那 21 个零标注 shader 的**实际出处**。本表**没有**声称知道它们来自哪里；
-  它们的可落地性**完全建立在 clean-room 重写这条出口上**，而不是建立在对其来源的判断上。
-- ⇒ **若有人日后追到某个 shader 的原始出处且不兼容，本表的裁定不受影响**——
-  因为我们本来就不打算移植它，而是对照独立的、具名的、许可兼容的参考实现重写。
+⚠️ **第 1 版在此处写「本表没有声称知道那 21 个来自哪里，故日后有人追到也不受影响」——
+该辩护随本版作废**：它建立在"追不到"的前提上，而那个前提被一小时的比对推翻了。

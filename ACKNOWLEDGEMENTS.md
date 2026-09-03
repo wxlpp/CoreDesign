@@ -28,9 +28,13 @@ CoreDesign 的表达性视觉层（`CoreDesignEffects` / `CoreDesignShaders`）�
 （`CoreDesignCharts`）的**点子与算法**来自
 [ShipSwift](https://github.com/signerlabs/ShipSwift)（SignerLabs）。
 
-⚠️ **归档说明**：CoreDesign 的实现是**按自身 API 公约与色彩地基重写的**，不是拷贝——
-上游源码全部 `internal`、硬编码色、零 accessibility、零 `controlSize` / Dynamic Type
-适配、零测试。逐组件属于哪一档见其 `docs/components/*.md`。
+⚠️ **归档义务（不是既成陈述）**：CoreDesign 的实现**须**按自身 API 公约与色彩地基重做；
+逐组件属于哪一档见其 `docs/components/*.md`。
+⚠️ 第 1 版在此断言"是重写的，不是拷贝"——**当时两个 target 还是空骨架，那是预判**，
+已改为义务描述。
+⚠️ **更要紧**：`docs/shader-provenance.md` 已证 **ShipSwift 的 MIT 声明不覆盖它内含的
+Apache-2.0 衍生物**（至少 10 个 shader 来自 `paper-design/shaders`）⇒ **不得把 ShipSwift
+的 MIT 当作全集**，逐项署名以 provenance 表为准。
 
 ```
 MIT License
@@ -69,7 +73,7 @@ Genie 五项，均来自 gl-transitions），**"Warping Loupe" 不在其中** �
 由其 MIT 覆盖。
 
 - 上游：[Inferno](https://github.com/twostraws/Inferno) by Paul Hudson — MIT
-- 档位：**较大段落移植**（折射数学保留自原实现）
+- 预期档位：**较大段落移植**（折射数学预计保留自原实现）⚠️ 代码尚未落地，**档位待落地时定案**
 
 ---
 
@@ -78,9 +82,27 @@ Genie 五项，均来自 gl-transitions），**"Warping Loupe" 不在其中** �
 > ⚠️ 占位。落地时（`shipswift-shaders` B-2）填入并转载 MIT 正文。
 
 - 上游：["Star Nest" by Pablo Roman Andrioli（Kali）](https://www.shadertoy.com/view/XlfGRj) — 作者在源码头声明 MIT
-- 档位：**较大段落移植**（分形"magic formula"与体积步进保留自原实现）
-- ⚠️ **落地前须人工目视确认**该 Shadertoy 页面源码头的 MIT 声明——自动抓取返回 403，
-  现有证据是多个独立第三方移植的一致记录，非一手。
+- 预期档位：**较大段落移植**（分形"magic formula"与体积步进预计保留）⚠️ 档位待落地时定案
+- ⚠️ **落地 task 的硬 AC**：人工目视确认该 Shadertoy 页面源码头的 MIT 声明——自动抓取
+  返回 403，现有证据是**五个**独立第三方移植的逐字一致记录，非一手。
+
+---
+
+## paper-design/shaders（Apache-2.0，待相应 shader 落地时启用）
+
+> ⚠️ 占位。`docs/shader-provenance.md` §B 裁定的 10 个 shader（Voronoi / NeuroNoise /
+> Swirl / SimplexNoise / Water / ColorPanels / DotOrbit / SmokeRing / Metaballs /
+> Halftone）落地时填入。
+
+- 上游：[paper-design/shaders](https://github.com/paper-design/shaders) — **Apache-2.0**
+- 档位：**较大段落移植**
+- ⚠️ **Apache-2.0 的义务比 MIT 多，三条缺一不可**：
+  1. 转载 **LICENSE 全文**；
+  2. 转载其 **`NOTICE`**：`Powered by Paper Shaders: https://shaders.paper.design`（§4(d)）；
+  3. **标注修改**（§4(b)）——我们改了参数化与色彩层。
+- ⚠️ **paper 之上还有一层**，落地前须直读确认：`voronoi.ts` 指向 iq 的 Shadertoy
+  `ldl3W8`（该 shader 许可**变过**：旧拷贝头 CC BY-NC-SA 3.0、新拷贝头 MIT）；
+  `neuro-noise.ts` 指向一条**无许可声明的推文**。
 
 ---
 
