@@ -2,7 +2,7 @@
 name: shipswift-foundation
 status: backlog
 created: 2026-09-02T23:42:57Z
-updated: 2026-09-03T00:05:00Z
+updated: 2026-09-03T00:20:00Z
 progress: 0%
 prd: .claude/prds/shipswift-harvest.md
 github: (will be set on sync)
@@ -59,9 +59,19 @@ PRD 的裁决判据是「a 侧按既有守卫体量类比估固定成本，**b �
 ⇒ **做裁决所需的样本，要等裁决做完才能立项**（Copilot structure 评审 Critical 2）。
 
 **打破方式**：**2 个 b 侧样本作为 A0-1 内部的一个子步骤**，明确它
-**不受 A0-2 骨架限制**——在 scratch / 临时分支上按登记表路线走完 2 个样本（取 Charts 的
-`RadarChart` 与 Effects 的一个 modifier，覆盖两种形态），只为产出成本数字，**产物不进主线**。
-⇒ 环被打破：A0-1 自足，不依赖 A0-2 / Epic A。
+**不受 A0-2 骨架限制**——在 scratch / 临时分支上按登记表路线走完 2 个样本，只为产出
+成本数字，**产物不进主线**。⇒ 环被打破：A0-1 自足，不依赖 A0-2 / Epic A。
+
+⚠️ **样本必须取自 P 的定义域**（第 2 轮评审 I-2，初版选错了）：初版写"取 `RadarChart`
+与 Effects 的一个 modifier"，但 ① `RadarChart` 属 Charts，而 **P 不算 Charts**；
+② Effects 的 modifier 形态是 `internal struct + public extension View`，按 AD-2
+**明文排除登记** ⇒ 拿一个在 b 路线下**零登记成本**的东西去测 b 的成本，外推出的
+`P × 单价` 失真，而这个数字**同时喂 AD-4 与 A0-6 的 `N_B`**。
+⇒ **两个样本改为**：Effects 的一个 **public View struct**（`Confetti` / `ScanningOverlay`
+之一）+ 一个 **public ViewModifier struct**（模拟 AD-E 为 layerEffect 钉死的形态），
+覆盖 P 里真实存在的两种类型形态。
+⚠️ 若 AD-4 最终对 Charts 选 b，`shipswift-effects` A-6 反正要为 4 个图表写判定法 notes；
+样本产物虽不进主线，其 **notes 与步骤 2 的业界举证可被 A-6 复用**，省一次返工（评审 S-9）。
 
 ### AD-D 测试拓扑与 CI scheme 是同一个 commit 的事
 
@@ -98,6 +108,9 @@ target**，没有任何公开值类型可调用（评审 I-1）。
   那个 commit 的事，否则 `AgentGuideSyncGuard` 判红。
 - **`ColorAssetGuardTests` 一句话定案**（Copilot 🟡6）：Effects / Charts 颜色全走 CoreDesign
   语义 token，**不带独立 `.xcassets` ⇒ 不纳入**；若实现期发现需要，则纳入并回改本条。
+- ⚠️ **改 `App/project.yml` 后不要在 worktree 里跑 `xcodegen generate`**（PRD C-4 /
+  本仓 CLAUDE.md 均点名，评审 S-5）：会把 local package 的 `name` 按当前目录名写死并
+  清空 `xcshareddata/xcschemes/CoreDesignPreview.xcscheme`。`shipswift-shaders` B-1 同此。
 
 ### 守卫（A0-3）
 
@@ -108,7 +121,7 @@ target**，没有任何公开值类型可调用（评审 I-1）。
 | `EffectsColorLiteralGuard`（新建） | 禁色相字面量；射程仅新 target；**带触发红的 fixture** |
 | `ChromeTextLiteralGuard`（新建） | 扫 `Text("…")` / `Label("…"` 裸字面量（公约 A 类）；射程仅新 target，**不回溯 CoreDesign**；**带 fixture** |
 | **差集守卫**（**条件项**，评审 C-1） | ⚠️ **若 AD-4 对 Effects/Shaders 选 a，本 task 必须交付它**——形态按 AD-4 所选（独立 `docs/effects-registry.json` 双向差集 **或** 锚 `docs/components/<slug>.md`）；射程 = public `View`/`ViewModifier`；`transition`/`modifier` 手工维护并在盲区台账留痕。不交付它 ⇒ Effects 的登记面就是 PRD 说的"无守卫空白地带"，且 Epic 成本少算一条 |
-| `NFR-4` grep 断言（评审 Suggestion） | 三个新 target 零 `@unchecked Sendable`，一条 grep 即可，顺手放本 task |
+| `NFR-4` grep 断言 | 零 `@unchecked Sendable`。⚠️ **根列表与上面四条守卫同源，只含已存在的 target**（第 2 轮评审 I-1）——初版写"三个新 target"，但 A0-3 落地时只存在两个；对不存在的 `Sources/CoreDesignShaders/` 做 grep 无命中即绿，正是 AD-E 自己反对的 fail-open |
 
 ⚠️ `ComponentTextParamGuard` **只能守 B 类**，且定义域是登记表条目。它**守不到** FR-7 的
 A 类 chrome 文案——公约 G-4（`:1017`）明载 A 类连 CoreDesign 自己都无机器判据。
@@ -191,7 +204,9 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
       恰为 `["CoreDesign"]`（NFR-5②）
 - [ ] `swift package describe --type json | jq '.targets[] | select(.name=="CoreDesign") | .target_dependencies'`
       恰为 `[]`（FR-1 反向依赖禁令的机器判据，评审 Suggestion）
-- [ ] `CoreDesign` 公开 API 表面 diff 为空
+- [ ] `CoreDesign` 公开 API 表面 diff 为空 —— ⚠️ **须钉一个工具**（评审 S-7）：
+      `swift-api-digester` 或 symbol dump diff；`downstream-probe` 只能证"还能编"，
+      证不了"没多没少"
 - [ ] CLAUDE.md / AGENTS.md 已同步，`AgentGuideSyncGuard` 绿
 - [ ] `ColorAssetGuardTests` 的纳入与否已定案并写进 epic
 
@@ -202,7 +217,8 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
 - [ ] **既有 CoreDesign 判据字面不变**（FR-10）：`bool-exemptions-baseline.json` 的
       32 / 35、`ComponentTextParamGuard` 的 `== 31`、`ComponentRegistryGuard` 的 47 / 25
       逐字不变，重构未放松任何现有断言
-- [ ] 三个新 target 零 `@unchecked Sendable`（grep 断言）
+- [ ] **已存在的**新 target 零 `@unchecked Sendable`（grep 断言；根列表与守卫同源，
+      Shaders 根由 B-1 加入）
 - [ ] **条件项**：若 AD-4 对 Effects/Shaders 选 a，差集守卫已交付并有 fixture
 
 ### A0-4
@@ -214,15 +230,24 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
 - [ ] D-1 **六问**全部有书面结论，α/β 已选定
 - [ ] **四个可预见失败模式**各有结论（评审 I-3）：工具链耦合（`-std=` / `-mios-version-min`）、
       Mac Catalyst 误选、仓库体积、构建产物冗余
-- [ ] **shader 加载测试的 fail-closed 形态已验证**：缺 Metal device 即判红，
-      且已确认 macOS CI runner 是否有可用 device
-- [ ] **B-1 + B-4 的固定成本估算**已产出（A0-6 反推 `N_B` 的输入）
+- [ ] **shader 加载测试的 fail-closed 形态已验证**，且已确认 macOS CI runner 是否有
+      可用 Metal device。⚠️ **两个分支都要有结论**（第 2 轮评审 I-6，初版只要求"确认是否有"）：
+      · **有** ⇒ 加载测试进 SwiftPM 腿，缺 device 即判红；
+      · **无** ⇒ 加载测试**仅在 iOS Simulator 腿作数**，macOS 腿以**显式 skip + 留痕**
+        处理（**不得**静默 `return`），并回改 `shipswift-shaders` AD-D 的 β 验证路径表
+- [ ] **B-1 + B-4 的固定成本估算**已产出（`N_B` 的**分子**）
+- [ ] **每 shader 的边际成本估算**已产出（`N_B` 的**分母**，评审 S-3）——spike 恰好做了
+      1 个 `colorEffect` + 1 个 `layerEffect`，顺手记下两者的实际耗时
 - [ ] spike 在仓外完成，仓内只留结论文档 + 可复用脚本（AD-A）
 
 ### A0-6【闸②】
 - [ ] `docs/shader-provenance.md` 覆盖全部 28 个 shader，无空裁定
       （⚠️ 本条**归属 A0-6**；`shipswift-shaders` 的同名验收项是**启动前核验**，不是重复交付）
 - [ ] `N_B` 已按经济性方法（B 固定成本 ÷ 每 shader 边际成本）反推出具体数字，**不取 7**
+- [ ] **闸②的通过判定本身**（评审 S-10，此前只散落在别处）：可落地数 **≥ `N_B`** ⇒ 闸过，
+      `shipswift-shaders` 可启动；**< `N_B`** ⇒ 闸不过，该 epic 整体不启动
+- [ ] **`ACKNOWLEDGEMENTS.md` 的骨架由本 task 建**（评审 I-4）：FR-18 要求 provenance
+      表的"可落地"行在 ACK 有对应条目，两者本就是本 task 的同一份工作 ⇒ 不必等 A-7
 - [ ] 那 7 个已知 MIT 件的**传递来源**已核（ShaderKit 是否又移植自 Shadertoy）
 - [ ] **go/no-go 结论有 GitHub 侧落点**：在 A0-6 的 issue 关闭评论里固定记录
       "B 启动 / 不启动 + `N_B` 值 + 可落地 shader 名单"

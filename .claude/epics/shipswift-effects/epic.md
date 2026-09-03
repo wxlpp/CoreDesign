@@ -2,7 +2,7 @@
 name: shipswift-effects
 status: backlog
 created: 2026-09-02T23:42:57Z
-updated: 2026-09-03T00:05:00Z
+updated: 2026-09-03T00:20:00Z
 progress: 0%
 prd: .claude/prds/shipswift-harvest.md
 github: (will be set on sync)
@@ -69,6 +69,8 @@ ShipSwift 源码全部 `internal`、硬编码色、零 accessibility、零 `cont
 - `FullScreenButton` — 依赖 `navigationTransition(.zoom)`，iOS-only
 
 处理二选一：重写为跨平台 SwiftUI，或 `#if canImport(UIKit)` 隔离 + 文档标注平台限制。
+⚠️ **"文档标注平台限制"须进 A-5 的验收项**（第 2 轮评审 S-2），否则四件的平台限制
+只存在于代码的 `#if` 里，调用方看不到。
 
 ### AD-F 图表的退化输入是一等契约，不是边角
 
@@ -91,6 +93,9 @@ ShipSwift 源码全部 `internal`、硬编码色、零 accessibility、零 `cont
   `ProcessInfo.isLowPowerModeEnabled` 与 `scenePhase` 在测试里不可直接切换 ⇒ 做成
   **可注入的 `EnvironmentValues`**（默认从系统读），测试注入伪值断言渲染行为。
   ⚠️ 不接受"或文档声明"——那会让这条退化成文档要求。
+  ⚠️ **这两个键必须 `public`**（第 2 轮评审 I-3）：`shipswift-shaders` 的 17 个
+  `colorEffect` 要 `import CoreDesignEffects` 复用它们，而 `@Entry` 默认 internal
+  ⇒ 不显式 `public`，B-2 用不了，跨 epic 契约断掉。
 - Confetti 的 burst 结束后驱动它的 `TimelineView` 须停止调度或被移除
   （上游用 `TimelineView(.animation)`，不是 Timer / DisplayLink）。
 - **FR-13 的 a11y 分工必须落到代码与文档**（评审 I-6，初版三个 epic 都没接）：
@@ -184,6 +189,7 @@ A-7  收尾（依赖全部；ComponentData.swift 串行）：
 
 - [ ] 40 个 API 单位中 **≥ 37** 项"可用"
 - [ ] CI 四条腿全绿；`CoreDesign` 公开 API 表面 diff 为空
+      （工具同 A0-2 所钉：`swift-api-digester` 或 symbol dump diff）
 - [ ] `EffectsColorLiteralGuard` 零违规
 - [ ] 含运动的效果 **100%** 有 Reduce Motion 降级路径，测试可证
 - [ ] Reduce Transparency 下，依赖半透明/折射的效果降级为不透明形态
@@ -191,18 +197,39 @@ A-7  收尾（依赖全部；ComponentData.swift 串行）：
       本 epic 分得 2、`shipswift-shaders` 分得 1；评审 Suggestion），每条有书面理由，
       按 `scripts/bool-exemptions-ratchet.sh` 流程抬基线
 - [ ] FR-19 的 9 类退化输入 100% 有测试（**实际 ≥ 15 条**），不 crash / 不 NaN
+- [ ] **FR-20 超限输入有测试**（第 2 轮评审 I-9，与 FR-19 同一 crash 类别）：
+      `NetworkGraph` 超过声明节点上限时**截断 + 降级静态布局**，不 crash / 不 NaN
+- [ ] **NFR-7 后台与低电量**（第 2 轮评审 I-3，此前只在技术路线、SC 缺席）：
+      Confetti / ScanningOverlay 的行为经**注入伪值测试**可证；
+      `isLowPowerModeEnabled` / `scenePhase` 两个可注入键为 **`public`**（Shaders 复用）
 - [ ] `scripts/run-preview.sh` 能构建并展示全部已落地 API 单位
 - [ ] 快照排除策略落地，`run-snapshots.sh` 不因非确定 PNG 而漂移
 - [ ] **NFR-1 性能基准闸**：基准脚本落地且可重复跑；Confetti 默认粒子数不掉帧、
-      `NetworkGraph` 在 FR-20 声明的节点上限内不掉帧，**均由脚本断言而非人工抽测**
+      `NetworkGraph` 在 FR-20 声明的节点上限内不掉帧，**均由脚本断言而非人工抽测**。
+      ⚠️ **须钉运行环境**（第 2 轮评审 I-5）：PRD NFR-1 钉的是"iPhone 15 满帧"，
+      而 CI 只有 macOS runner 与 iOS Simulator——**Simulator 上的 GPU frame-time 无意义**，
+      在 CI 上绿不等于 NFR-1 过。⇒ **脚本须在真机（iPhone 15 或钉死的替代机型）执行，
+      至少随 epic 收尾跑一次并留证**；CI 上的数值只作趋势参考，不作验收依据。
 - [ ] **NFR-5② 沿用**（评审 Suggestion，Epic A 加测试时最容易破坏它）：
       `swift package describe … CoreDesignTests … target_dependencies` 仍恰为 `["CoreDesign"]`
-- [ ] **probe 覆盖 Effects / Charts 的全部公开值类型**（nonisolated 调用点，非仅 import）
-      ⇒ NFR-4 的 MainActor 隔离契约在这两个 target 上真的被验证
+- [ ] **probe 覆盖 Effects / Charts 的 40 个 API 单位所对应的全部类型**（nonisolated
+      调用点，非仅 import）⇒ NFR-4 的 MainActor 隔离契约在这两个 target 上真的被验证。
+      ⚠️ 措辞刻意不写"全部**公开**值类型"（第 2 轮评审 S-1）——那是自指的：漏写 `public`
+      的类型压根不算"公开"，probe 自然不覆盖它，FR-5 就没人查。**按 API 单位清单点名**，
+      漏 `public` 会在 probe 编译期直接炸出来
 - [ ] **`ACKNOWLEDGEMENTS.md` 已新建**并含 ShipSwift 条目（MIT 要求署名，与 Epic B 是否启动无关）
-- [ ] **`docs/reachable-type-registry.json`** 已登记新增可达类型，`ReachableTypeRegistryGuard` 绿
+- [ ] **`docs/reachable-type-registry.json`** 已登记新增可达类型。
+      ⚠️ **不写"`ReachableTypeRegistryGuard` 绿"——那对新 target 是空真**（第 2 轮评审 I-8）：
+      实测该守卫只查 schema / 与登记表不相交 / 参数名唯一 / 全 C 四条，**不扫源码**；
+      深度扫描在 `ComponentExtensionPointGuard.swift:20` 走
+      `ComponentRegistryGuard.coreDesignSources` = `Sources/CoreDesign`
+      ⇒ Charts 数据模型少登记一条，守卫照样绿。**处置**：A-6 为了 `== 31` 那条本来就要
+      扩 `ComponentJudgeSources.scan` 的根，**顺带让本条引用扩根后的扫描结果**；
+      若最终不扩根，则诚实写明"登记完整性靠人工 + PR 评审，守卫只查 schema"
 - [ ] **FR-13 分工**：装饰层 100% `accessibilityHidden(true)`；承载状态语义的 modifier
-      在文档中写明"a11y 通告由调用方提供"
+      在文档中写明"a11y 通告由调用方提供"。
+      ⚠️ **验证机制二选一**（第 2 轮评审 S-8）：每个效果一条 a11y 断言测试，
+      **或**明确承认这条是评审项而非机器判据——不得留在"看起来可查、实际没人查"的状态
 - [ ] **US-1 叠加互不干扰**：同一 trigger 驱动 ≥3 个微交互时行为可预期，有测试
 - [ ] **US-4 图表 a11y**：4 个图表各有 accessibility 表示，有测试
 - [ ] **`BeforeAfterSlider` 的触控目标测试**在 `CoreDesignEffectsTests` 内同形态实现
