@@ -35,7 +35,12 @@ import Testing
 //   `MemberAccessExprSyntax` callee——首版要求 callee 必须是裸 `DeclReferenceExprSyntax`，
 //   把上面**三种**形态一起结构性排除了（Copilot A-1 + 终审 I-3）。
 //
-// ## 已知的八个口子（写在明处，不是漏了）
+// ## 已知口子（写在明处，不是漏了）
+//
+// ⚠️ **本标题有意不带数字**（PR #265 第 4 轮终审 S-3）：它此前写「已知的八个口子」，
+// 于是每加一条口子都要顺手改标题——而这类「标题里的计数」在本仓已经漂过一次
+// （`CLAUDE.md` 的按钮样式一节）。计数标题的唯一作用是给读者一个校验和，
+// 而它恰恰是最容易与正文脱节的那一行。
 //
 // 1. **`Text(verbatim:)` 不判违规**——它是「这串东西不是给人读的自然语言」的显式声明
 //    （数字、用户数据、符号）。它可 grep、可评审，比逼人把 verbatim 改写成别的形状好。
@@ -71,6 +76,26 @@ import Testing
 //    **第一个真误报出现时的处置**：走口子 4 的台账（新建 `docs/chrome-text-exemptions.json`，
 //    `location` + `symbol` + 署名 `reason`），**不得**从 `textModifiers` 里删 `help` / `alert`
 //    ——删掉等于把整类违规一起放掉，正是 G-7 记在案的形态。
+//    ⚠️⚠️ **`docs/chrome-text-exemptions.json` 今天并不存在**（PR #265 第 4 轮终审 S-2）：
+//    口子 4 与本条都拿它当处置出口，但它是一份**待建**的文件，不是现成的落点。
+//    第一个误报出现时要先**新建**它并同轮补上「双向差集 + 死豁免自检」（照
+//    `AccessibilityStringLiteralGuard.exemptionsAreNotDead` 的形态），否则「登记了 ≠ 守住了」。
+//    ⚠️⚠️ **`textConstructors` 的裸同名类型撞车已经能点名，不再是抽象风险**
+//    （同一条终审）：本条上面举的是**限定形态** `MyNS.Section("Legend")`，而
+//    **裸形态**同样落在本守卫唯一的射程（新 target）上——
+//    · `struct Link { init(_ id: String) {} }; Link("node-a to node-b")` → 误报；
+//    · `struct Section { init(_ id: String) {} }; Section("legend area")` → 误报。
+//    而 `CLAUDE.md`《多 target 结构》给 `CoreDesignCharts` 定的四类图表里就有
+//    **力导向网络图**，图论里 edge 的惯用名恰恰是 `Link`（`Node` / `Link` 这一对）。
+//    ⇒ `#255` 落件时**极可能**第一个撞上，届时请按上面那条走台账，**不要**把
+//    `Link` / `Section` 从 `textConstructors` 里删掉当 bug 修——删掉会把
+//    `SwiftUI.Link("Open docs", destination:)` 这类真违规一起放掉。
+// 9. **`isProse` 只要求「含至少一个字母」**（PR #265 第 4 轮终审 S-2）：于是标识符形态的
+//    字面量会被判成文案，实测 `ContentUnavailableView("no-results-id", systemImage: "x")`
+//    命中。这是 `isProse` 既有的启发式性质（它的文档已写明这是一条**收窄**），
+//    但口子 5 新补的 6 个构造器把它的暴露面放大了——`ContentUnavailableView` /
+//    `Link` / `NavigationLink` 的第一个无标签实参在现实代码里常是 id / route 而非文案。
+//    ⇒ 处置同上：走台账，不要把 `isProse` 收得更窄（收窄会把真文案一起放掉）。
 // 7. **`typealias` 可以绕过**（PR #265 第 3 轮终审 S-c）：本守卫按**文本**判构造器名，
 //    `typealias T = Text; T("Loading")` 因此看不见（与 `EffectsColorLiteralGuard` 的口子 5
 //    同源——纯语法、逐文件的扫描器解不了 alias）。没人会为了绕守卫这么写，登记在此
@@ -329,6 +354,22 @@ struct ChromeTextLiteralGuard {
             ("已知误报面：模块限定的同名类型 `MyNS.Section(…)`（口子 6）", """
             let s = MyNS.Section("Legend")
             """, "Legend"),
+            // ⚠️ **裸同名类型同样撞车，且落在本守卫唯一射程上**（PR #265 第 4 轮终审 S-2）：
+            // 口子 6 此前只钉了**限定形态**，读起来像「裸形态没事」。`CoreDesignCharts`
+            // 要交付力导向网络图，图论里 edge 的惯用名就是 `Link` ⇒ `#255` 落件时极可能第一个撞上。
+            ("已知误报面：裸同名类型 `Link(…)`（图论 edge 的惯用名，口子 6）", """
+            struct Link { init(_ id: String) {} }
+            let e = Link("node-a to node-b")
+            """, "node-a to node-b"),
+            ("已知误报面：裸同名类型 `Section(…)`（口子 6）", """
+            struct Section { init(_ id: String) {} }
+            let s = Section("legend area")
+            """, "legend area"),
+            // ⚠️ 口子 9：`isProse` 只要求含一个字母 ⇒ 标识符形态的字面量被判成文案。
+            ("已知误报面：标识符形态被 `isProse` 判成文案（口子 9）", """
+            import SwiftUI
+            let e = ContentUnavailableView("no-results-id", systemImage: "x")
+            """, "no-results-id"),
         ]
         for c in cases {
             let hits = Self.scan(source: c.source).violations

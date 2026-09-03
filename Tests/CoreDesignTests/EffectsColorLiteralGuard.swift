@@ -33,7 +33,11 @@ import Testing
 //   `Color.init(red:…)` / `SwiftUI.Color.init(white:)` / `let c: Color = .init(red:…)`；
 // · **`#colorLiteral(red:green:blue:alpha:)`** —— Xcode 取色器自动插入的那一种。
 //
-// ## 三个**已知的口子**（写在明处，不是漏了）
+// ## **已知口子**（写在明处，不是漏了）
+//
+// ⚠️ **标题有意不带数字**（PR #265 第 4 轮终审 S-3 的同一条理由）：它此前写「三个」
+// 而正文实际是五条——正是那条「计数标题必然漂」的活证据。`ChromeTextLiteralGuard`
+// 的同款标题同轮一并去数字。
 //
 // 1. **`#Preview` 整体跳过**：预览是视觉冒烟入口、不是产品路径（与 a11y 守卫跳过
 //    `#if DEBUG` 同一条裁断）。把违规写进 `#Preview` 里它看不见。之所以接受：
