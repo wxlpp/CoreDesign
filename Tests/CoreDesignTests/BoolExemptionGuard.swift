@@ -464,6 +464,18 @@ struct BoolExemptionGuard {
     /// `scripts/bool-exemptions-ratchet.sh` 只比较 rationale 是否逐字变了、然后 warning + `exit 0`，
     /// 它读不出「这次抬高属于哪个 target」。定义域自 `#246` 起是全包 ⇒ 一条不点名 target 的
     /// rationale 会让读者默认按 CoreDesign 的老口径理解，而实际可能来自 Effects / Charts。
+    ///
+    /// ⚠️⚠️ **这条判据的实际强度只有「一个 target 名都不提就红」，不是归属校验**
+    /// （PR #265 第 4 轮终审 S-1，如实记录）：它只做 `rationale.contains(任一 targetName)`，
+    /// 而 `"CoreDesign"` 是极常见子串——任何提到 `Sources/CoreDesign/…` / `CoreDesignTests` /
+    /// 甚至仓库名本身的理由都自动通过。⇒ 它**区分不了**「点名本次抬高属于哪个 target」与
+    /// 「顺手提了个路径」。真正承重的归属判据是 `perTargetProblems(perTarget:exemptionKeys:hits:)`
+    /// ——逐 target 的严格等式，改不了措辞就蒙混不过去。
+    /// ⚠️ **仍然保留本条**：它至少挡住「一条 target 名都不提」的 rationale，成本为零。
+    /// ⚠️ **装实牙的路径（follow-up，不在 `#246` 射程内）**：给 `Baseline` 加一个结构化字段
+    /// `raisedForTargets: [String]`，并与 `perTarget` **相对上一版基线的变化集合**做交叉核对
+    /// ——声称为 A 抬高、实际动的是 B 的计数时当场红。那需要读上一版基线（跨历史），
+    /// 与 `sourceSites` 的跨历史闸同属 #41/#43 的题目。
     static func rationaleTargetProblems(_ rationale: String?) -> [String] {
         guard let rationale, !rationale.trimmingCharacters(in: .whitespaces).isEmpty else {
             return ["棘轮基线缺 rationale —— 无从判断这次抬高属于哪个 target"]
@@ -509,18 +521,29 @@ struct BoolExemptionGuard {
             let counts = perTarget[target] ?? .init(exemptions: 0, sourceSites: 0)
             let exemptions = actualExemptions[target] ?? 0
             let sites = actualSites[target] ?? 0
+            // ⚠️ **失败文案按方向分两支**（PR #265 第 4 轮终审 S-1）：这条判据是**严格等式**，
+            // 计数**下降**（治理掉一个 Bool、删掉一条不再需要的豁免）同样会红，而那是**好方向**
+            // ——对它说「请同轮更新（连同 raisedBy / raisedOn / rationale）」语义不贴切：
+            // 收紧不需要署名破例，只需要把基线跟着降下来。
             if counts.exemptions != exemptions {
+                let raised = exemptions > counts.exemptions
                 problems.append("""
                 逐 target 棘轮：\(target) 的豁免条目数 \(exemptions) ≠ 基线 \(counts.exemptions)。
                 总数 `maxEntries` 不变**不代表**没变化——删一个 CoreDesign 的、加一个 Effects 的，
-                总数纹丝不动而定义域已经漂了。请同轮更新 docs/bool-exemptions-baseline.json 的
-                perTarget（连同 raisedBy / raisedOn / rationale，rationale 必须点名 target）。
+                总数纹丝不动而定义域已经漂了。
+                \(raised
+                    ? "本次是**抬高**（\(counts.exemptions) → \(exemptions)）⇒ 这是一次破例，请同轮更新 docs/bool-exemptions-baseline.json 的 perTarget，**连同 raisedBy / raisedOn / rationale**（rationale 必须点名 target）。"
+                    : "本次是**下降**（\(counts.exemptions) → \(exemptions)）⇒ 治理掉了豁免，这是好方向，不是破例：只需把 docs/bool-exemptions-baseline.json 的 perTarget 跟着降下来，**不必**改 raisedBy / raisedOn / rationale（那三项记的是上一次抬高）。")
                 """)
             }
             if counts.sourceSites != sites {
+                let raised = sites > counts.sourceSites
                 problems.append("""
                 逐 target 棘轮：\(target) 的源码位置数 \(sites) ≠ 基线 \(counts.sourceSites)。
                 同上——`sourceSites` 的全包合计挡不住跨 target 的一加一减。
+                \(raised
+                    ? "本次是**抬高**（\(counts.sourceSites) → \(sites)）⇒ 破例，署名同上。"
+                    : "本次是**下降**（\(counts.sourceSites) → \(sites)）⇒ 好方向，把基线跟着降下来即可。")
                 """)
             }
         }
@@ -911,6 +934,26 @@ struct BoolExemptionGuard {
             perTarget: ["CoreDesign": .init(exemptions: 0, sourceSites: 0)],
             exemptionKeys: [], hits: []
         ).isEmpty, "perTarget 少列一个 target 不会红 —— 那个 target 就有了免审额度")
+
+        // ④ **失败文案按方向分两支**（PR #265 第 4 轮终审 S-1）：这条判据是严格等式，
+        //    计数**下降**（治理掉一个 Bool）同样判红，而那是好方向——对它说
+        //    「请同轮更新 raisedBy / raisedOn / rationale」语义不贴切。
+        let raised = Self.perTargetProblems(
+            perTarget: baseline,
+            exemptionKeys: ["A.init#flag", "C.init#flag", "D.init#flag"],
+            hits: [hit("CoreDesign", "A"), hit("CoreDesign", "C")]
+        )
+        #expect(raised.contains(where: { $0.contains("抬高") && $0.contains("破例") }),
+                "抬高方向的文案没说这是破例：\(raised)")
+        let lowered = Self.perTargetProblems(
+            perTarget: baseline,
+            exemptionKeys: ["A.init#flag"],
+            hits: [hit("CoreDesign", "A"), hit("CoreDesign", "C")]
+        )
+        #expect(lowered.contains(where: { $0.contains("下降") && $0.contains("好方向") }),
+                "下降方向仍在用「破例」口吻：\(lowered)")
+        #expect(!lowered.contains(where: { $0.contains("下降") && $0.contains("**连同** raisedBy") }),
+                "下降方向仍在要求补署名 —— 治理掉一个豁免不是破例")
     }
 
     @Test("豁免宿主要么在登记表里，要么在 AD 台账里且该分类真的成立")
