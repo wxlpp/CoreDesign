@@ -66,17 +66,44 @@ struct SharedFoundationTests {
 
     // MARK: - 骨架屏取色 token（可引用性 · 非 colorset 派生）
 
-    @Test("Skeleton 取色 token 可引用且编译可用")
+    /// ⚠️ **上一版这里是一句 `#expect(Bool(true))`**（PR #262 第 2 轮 review 指出；
+    /// 缺陷本身自 #161 Phase 0 就在，**不是 #262 引入**）。恒真断言会在测试报告里
+    /// 以「Skeleton 取色 token 已覆盖」的名义出现，而它一个性质都没钉住。
+    /// ⇒ 换成可观测判据：`skeletonHighlight` 是 `skeletonBase` 向白提亮派生的
+    ///（`mix(with: .white, by: 0.5)`，#162 裁决），那么在明暗两端**它盖在同一块
+    /// 底衬上都必须更亮**。这条会对「派生方向被写反」「提亮系数被改成 0」判红。
+    ///
+    /// ⚠️⚠️ **必须合成后再比，不能只比 `resolve(in:)` 的色相分量**——这正是
+    /// 隔壁 `specularHighlight` 那条在第 4 轮终审 C4-4 学到的同一课（未预乘、
+    /// alpha 单独放在 `opacity` 里）。实测两端取值：
+    /// · light：base `#00000019`、highlight `#E1E1E18C`
+    /// · dark ：base `#FFFFFF19`、highlight `#FFFFFF8C`
+    /// **dark 下两者色相同为纯白**，差别整个落在 alpha（0.098 → 0.549）上
+    /// ⇒ 只比色相亮度时 dark 判红（1.0 不 > 1.0），而那是判据错、不是 token 错。
+    ///
+    /// 底衬取中性灰 0.5：纯黑底会让 light 的 base 退化成 0（断言变得平凡），
+    /// 纯白底会让 dark 两者都合成到 1.0（断言恒假）。
+    @Test("Skeleton 取色 token 可引用，且高光在明暗两端合成后都比底色亮")
     @MainActor
     func skeletonColorTokensAreUsable() {
         // 注意：`@testable import` 下 internal 符号一样可解析，本测试**只**证明
         // 「token 存在且编译可用」，不构成真正的 public 可见性护栏——后者由
         // `scripts/downstream-probe` 从外部包 `consumeSkeletonColorTokens()` 守。
-        let base = Color.skeletonBase
-        let highlight = Color.skeletonHighlight
-        _ = base
-        _ = highlight
-        #expect(Bool(true))
+        let backdrop = 0.5
+        func compositedLuminance(_ color: Color, _ scheme: ColorScheme) -> Double {
+            var env = EnvironmentValues()
+            env.colorScheme = scheme
+            let c = color.resolve(in: env)
+            let hue = 0.2126 * Double(c.red) + 0.7152 * Double(c.green) + 0.0722 * Double(c.blue)
+            let alpha = Double(c.opacity)
+            return hue * alpha + backdrop * (1 - alpha)
+        }
+        for scheme in [ColorScheme.light, .dark] {
+            let base = compositedLuminance(Color.skeletonBase, scheme)
+            let highlight = compositedLuminance(Color.skeletonHighlight, scheme)
+            #expect(highlight > base,
+                    "\(scheme) 下 skeletonHighlight 合成亮度 \(highlight) 不高于 skeletonBase \(base) —— shimmer 会扫出一道暗带而不是高光")
+        }
     }
 
     /// ⚠️ **这条断言的目标是钉住「它是高光、不是暗带」这个性质本身**
