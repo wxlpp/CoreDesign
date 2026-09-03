@@ -1,4 +1,5 @@
 import CoreDesign
+import CoreDesignEffects
 import Foundation
 import SwiftUI
 
@@ -335,4 +336,29 @@ func consumeProgressIndicatorLocalizedText() -> some View {
 @MainActor
 func consumeProgressIndicatorVerbatimText(_ status: String) -> some View {
     ProgressIndicator(text: status)
+}
+
+// MARK: - NFR-7 的两个可注入能耗环境键：**不在本文件**（Issue #252）
+//
+// `\.lowPowerModeOverride` / `\.scenePhaseOverride` 已从 `CoreDesignEffects` 下沉到
+// `CoreDesign`（PR #269 终审 S-2 的已裁决处置），它们的跨模块证明随之搬到**另一个
+// target**：`CoreDesignOnlyProbe`（只接 `CoreDesign` 一个 product）。
+//
+// ⚠️ **不能留在本 target**，哪怕单开一个"只写 `import CoreDesign`"的文件——
+// 变异实证现场抓到的：Swift 对**扩展成员**的名字查找是**逐模块**而不是逐文件的，
+// 本文件顶上这句 `import CoreDesignEffects` 会让 Effects 挂在 `EnvironmentValues`
+// 上的成员在同 target 的**其它文件里也可见**。⇒ 那样的"证明"在"键搬回 Effects"
+// 这枚变异下照样全绿，是摆设。理由全文见 `CoreDesignOnlyProbe` 的文件头与
+// `Package.swift` 里那个 target 的注释。
+
+// MARK: - CoreDesignEffects：#252 的四个 API 单位
+
+@MainActor
+func consumeCelebrationAndProcessingEffects() -> some View {
+    VStack {
+        ScanningOverlay { Text("scanning") }
+        GlowSweep { Text("glow") }
+        LightSweep { Text("light") }
+    }
+    .confetti(trigger: 1)
 }

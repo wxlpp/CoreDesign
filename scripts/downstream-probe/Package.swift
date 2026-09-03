@@ -12,7 +12,10 @@ import PackageDescription
 let package = Package(
     name: "DownstreamProbe",
     platforms: [.iOS(.v26), .macOS(.v26)],
-    products: [.library(name: "DownstreamProbe", targets: ["DownstreamProbe"])],
+    products: [
+        .library(name: "DownstreamProbe", targets: ["DownstreamProbe"]),
+        .library(name: "CoreDesignOnlyProbe", targets: ["CoreDesignOnlyProbe"]),
+    ],
     dependencies: [
         // 必须显式写 name:——SwiftPM 对 path 依赖的 identity 取目录 basename,
         // 而本仓库可能在 worktree 中检出(目录名如 issue-92-build-config)。
@@ -33,6 +36,24 @@ let package = Package(
                 .product(name: "CoreDesign", package: "CoreDesign"),
                 .product(name: "CoreDesignEffects", package: "CoreDesign"),
                 .product(name: "CoreDesignCharts", package: "CoreDesign"),
+            ]
+        ),
+        // ⚠️⚠️ **独立 target，只接 `CoreDesign` 一个 product——这是承重的，别给它加依赖。**
+        //
+        // 它证的是 #252 终审 S-2 下沉要换来的那句话：「**`import CoreDesign` 就够**」
+        //（`shipswift-shaders` 的 B-2 不必为两个能耗键链上整个 Effects product）。
+        //
+        // ⚠️ **为什么必须是独立 target，而不是 `DownstreamProbe` 里一个"只写
+        // `import CoreDesign`"的文件**——这条是**变异实证现场抓到的**，不是预防性设计：
+        // 初版就是那个形态，而把两个键搬回 `CoreDesignEffects` 之后 probe **照样全绿**。
+        // 原因是 Swift 对**扩展成员**的名字查找是**逐模块**而不是逐文件的：只要同一个
+        // target 里**任何一个文件** `import CoreDesignEffects`，该模块在 `EnvironmentValues`
+        // 上挂的成员在**同 target 的其它文件里也可见**，哪怕那个文件自己没 import 它。
+        // ⇒ 文件级的 import 隔离对扩展成员**不成立**，只有 target 边界才成立。
+        .target(
+            name: "CoreDesignOnlyProbe",
+            dependencies: [
+                .product(name: "CoreDesign", package: "CoreDesign"),
             ]
         ),
     ],

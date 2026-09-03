@@ -163,7 +163,7 @@ struct MicroInteractionAPITests {
     // `#expect(Bool(true))` 的 `noBoolParameters`，会以"J-1 已覆盖"的名义出现在
     // 测试报告里，已删除。
 
-    @Test("八个入口全部存在且可链式组合")
+    @Test("九个入口全部存在且可链式组合")
     func allEntryPointsCompose() {
         // 全部叠在同一个视图上 —— 同时也验证它们互不冲突（US-1 的"可叠加"）。
         let composed = Text("x")
@@ -175,8 +175,9 @@ struct MicroInteractionAPITests {
             .rise(trigger: 1, text: "+1")
             .haptic(.success, trigger: 1)
             .shine(trigger: 1)
-        // ⚠️ 编译期契约：八个入口存在且可链式组合。
-        #expect(Self.stablePixels(composed) != nil, "叠加 8 个后渲染失败")
+            .confetti(trigger: 1)
+        // ⚠️ 编译期契约：九个入口存在且可链式组合。
+        #expect(Self.stablePixels(composed) != nil, "叠加 9 个后渲染失败")
     }
     /// US-1「可叠加、互不干扰」在**静息位图**层面的断言。
     ///
@@ -192,7 +193,7 @@ struct MicroInteractionAPITests {
     /// ⇒ **修好这个 bug 会让那条测试变红** ⇒ 我留下了一条**保护缺陷**的回归测试。
     /// 前三轮的病型是「判据宣称假事实」，这一轮升级为「假事实**掩盖了真缺陷**」。
     /// ⇒ bug 已修，`.shine` **并回八件套**，那条例外测试已删除。
-    @Test("静息态：八个叠加后位图与裸视图逐字节相同")
+    @Test("静息态：九个叠加后位图与裸视图逐字节相同")
     func restingPixelsUnchanged() {
         let bare = Self.stablePixels(Text("x"))
         let stacked = Self.stablePixels(
@@ -205,10 +206,11 @@ struct MicroInteractionAPITests {
                 .rise(trigger: 1, text: "+1")
                 .haptic(.success, trigger: 1)
                 .shine(trigger: 1)
+                .confetti(trigger: 1)
         )
         // ⚠️ **非空断言先行**（本仓明文纪律）：两边都渲染失败时相等断言恒真。
         #expect(bare != nil && stacked != nil, "渲染失败，下面的相等断言会静默变绿")
-        #expect(bare == stacked, "叠加 8 个微交互后静息位图变了 —— 有效果在静息态就在画东西")
+        #expect(bare == stacked, "叠加 9 个微交互后静息位图变了 —— 有效果在静息态就在画东西")
     }
 
     /// ⚠️ **逐个单独测**，不只测叠加——叠加相等时两个效果的相反偏差可能互相抵消。
@@ -253,7 +255,7 @@ struct MicroInteractionAPITests {
     /// **变异实证**：往 `ShineCore` 加一个 `.offset(x: 100)` 的 1×1 脏点
     /// ——`Text("x")` 与 SF Symbol 都只有几像素宽，那个点**落在画面之外、两者全绿**，
     /// 只有本内容判红。第三种内容不是凑数。
-    @Test("静息态：八个各自单独用、三种内容都不改变位图")
+    @Test("静息态：九个各自单独用、三种内容都不改变位图")
     func eachEffectRestsClean() {
         func check(_ contentName: String, _ content: some View) {
             // 基线：同一条路径、零效果。
@@ -268,6 +270,7 @@ struct MicroInteractionAPITests {
                 ("rise", Self.stablePixels(content.rise(trigger: 1, text: "+1"))),
                 ("haptic", Self.stablePixels(content.haptic(.success, trigger: 1))),
                 ("shine", Self.stablePixels(content.shine(trigger: 1))),
+                ("confetti", Self.stablePixels(content.confetti(trigger: 1))),
             ]
             for (name, pixels) in cases {
                 #expect(pixels == bare, "\(name) 在 \(contentName) 上静息就改变了位图")
@@ -328,8 +331,10 @@ struct MicroInteractionAPITests {
                 .filter { $0.hasPrefix("    func ") }.count
         }
         let detail = "`public extension View` 里有 \(entries) 个 trigger 入口，"
-            + "而本文件两处清单是 8 个 —— 新增效果后请同步，否则它在静息像素这一层零覆盖"
-        #expect(entries == 8, "\(detail)")
+            + "而本文件两处清单是 9 个 —— 新增效果后请同步，否则它在静息像素这一层零覆盖"
+        // ⚠️ `#252` 把 8 抬到 9（新增 `.confetti(trigger:)`）。抬这个数的**同轮**必须把
+        // 新入口加进上面两处清单，否则它在静息像素这一层零覆盖——这正是本判据存在的理由。
+        #expect(entries == 9, "\(detail)")
     }
 
 

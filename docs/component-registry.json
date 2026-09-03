@@ -1032,6 +1032,12 @@
       "host": "View",
       "member": "shine",
       "notes": "trigger 值变化时一道高光扫过内容形状。高光色取 contentPrimary 低透明度而非写死白色；Reduce Motion 下早退到共享回退，保留反馈不做扫掠。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "View",
+      "member": "confetti",
+      "notes": "trigger 值变化时喷发一次彩纸。colors 默认空数组 ⇒ 取调用方 .tint（与 spray 共用 particleStyle），不自带彩虹色板；Reduce Motion 下不放粒子、降级为一次淡入淡出的静态庆祝层而非 no-op；burst 结束后 burstStart 置空，驱动它的 TimelineView 整层被移除；后台/非活跃经 CoreDesign 的 scenePhaseOverride 判定后不绘制，低电量经 CoreDesign 的 lowPowerModeOverride 判定后降帧并减半粒子数——这道能耗闸在 Reduce Motion 闸之前裁决，故对开启减弱动态效果的用户同样成立（两个调用点共用 EffectsEnergyState.presentation(reduceMotion:)）；两道闸只决定 overlay 里画什么——content 与驱动 burst 的 .task(id:) 恒在单一出口上，静态庆祝层由 burstStart 驱动而非自带 trigger 任务，故后台往返既不重放庆祝、也不让被修饰的调用方子树换身份。"
     }
   ]
 }
