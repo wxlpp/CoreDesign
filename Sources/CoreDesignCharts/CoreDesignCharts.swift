@@ -17,7 +17,8 @@
 /// ⚠️ `nonisolated` 是为了让下游 **nonisolated 上下文**能消费它：本 package 的 target
 /// 都启用了 `.defaultIsolation(MainActor.self)`，公开成员默认落在 `MainActor` 上，
 /// 而 `scripts/downstream-probe` 存在的唯一理由就是验这一类问题。
-/// ⚠️ **今天没有机器判据守着它**——probe 接线归 `#247`，在那之前只靠注释与评审。
+/// ✅ **已被机器守住**（`#247`）：见 `ChartsNonisolatedUsage.swift`；删掉这个修饰符，
+/// CI 的 `downstream-probe` 腿会判红（已实测反证）。
 public enum CoreDesignCharts {
 
     /// 模块名。供宿主 App 的组件画廊分组与调试输出使用。

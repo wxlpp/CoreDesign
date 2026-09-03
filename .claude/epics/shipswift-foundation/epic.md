@@ -94,7 +94,9 @@ action`）⇒ 改 manifest 与切 scheme 必须同 commit。
 `downstream-probe` 的价值是 **nonisolated 上下文的调用点**，但 A0-2 交付的是**空骨架
 target**，没有任何公开值类型可调用（评审 I-1）。
 ⇒ **A0-4 交付 = probe manifest 接线（依赖两个新 product）+ 每 target 一个 nonisolated
-文件的结构**；**实质调用点由 `shipswift-effects` A-7 与 `shipswift-shaders` B-1 各自补齐**。
+文件的结构**；**实质调用点由 `shipswift-effects` A-7 与 `shipswift-shaders` **B-4** 各自补齐**。
+⚠️ **是 B-4 不是 B-1**（#260 终审）：B-1 只建 target 骨架，那时没有任何 shader 类型可调，
+与本条批评 A0-4 的问题同构。`shipswift-shaders` epic 已把它记在 B-4。
 
 ## Technical Approach
 
@@ -224,7 +226,8 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
 ### A0-4
 - [ ] probe manifest 接上两个新 product，每 target 一个 nonisolated 文件的结构已建
 - [ ] `cd scripts/downstream-probe && swift build` 绿
-- [ ] epic 内明写：实质调用点归 A-7（Effects/Charts）与 B-1（Shaders）
+- [ ] epic 内明写：实质调用点归 **A-7**（Effects/Charts）与 **B-4**（Shaders）
+      ⚠️ **不是 B-1** —— B-1 那时还没有 shader 类型可调
 
 ### A0-5【闸①】
 - [ ] D-1 **六问**全部有书面结论，α/β 已选定
@@ -269,7 +272,7 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
 | **Copilot C-2（AD-4 裁决判据自举成环）** | **接受**，本轮最有价值的一条。b 侧要"实做 2 样本"，而能产样本的 Effects 又依赖 AD-4 完成。新增 AD-C：2 个样本作为 A0-1 内部子步骤，**仓外/临时分支做、产物不进主线** ⇒ A0-1 自足，环打破 |
 | **superpowers C-2 / Copilot C-1（NFR-1 性能回归闸是孤儿）** | **接受**。三份 epic grep「性能/掉帧/frame-time」零命中属实。基准脚本归 `shipswift-effects` A-7（一次性基建），Effects / Shaders 的 SC 各加对应项 |
 | **superpowers C-3（shaders 漏了对 effects 的真实依赖）** | **接受**。NFR-7 的可注入 environment 键落 `CoreDesignEffects`（正是 FR-1 允许 Shaders→Effects 单向依赖的用途），B-2 依赖 A-3；`ComponentData.swift` 的跨 epic 串行窗口依赖 A-7。已写进 shaders 的 Dependencies |
-| I-1（A0-4 在 foundation 阶段是空的） | **接受**。新增 AD-F：A0-4 只做接线 + 结构，实质 nonisolated 调用点归 A-7 与 B-1，两处 SC 都加 |
+| I-1（A0-4 在 foundation 阶段是空的） | **接受**。新增 AD-F：A0-4 只做接线 + 结构，实质调用点归 A-7 与 B-1，两处 SC 都加（⚠️ **Shaders 侧后于 #260 改为 B-4**——B-1 那时只有 target 骨架、无 shader 类型可调；正文 AD-F 已更新，本行为历史记录） |
 | I-2（A0-2 依赖描述自相矛盾） | **接受**。删掉"A0-1 阻塞 A0-2 的一部分"——A0-2 的三项内容确实无一取决于 AD-4 |
 | I-3（A0-5 验收窄于下游期待） | **接受**。A0-5 的 SC 补三项：四个失败模式、fail-closed + macOS runner 有无 Metal device、B-1+B-4 固定成本估算 |
 | I-4（TouchTarget 处置撞 NFR-5②） | **接受**，且评审说得对：往 `TouchTargetTests` 加 `BeforeAfterSlider` 会让 `CoreDesignTests` 依赖新 target，把 A0-2 那条 `jq` 判据判红。改为两件交互件在**各自独立测试 target** 里同形态实现 |
