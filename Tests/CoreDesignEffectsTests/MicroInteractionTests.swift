@@ -229,6 +229,34 @@ struct MicroInteractionAPITests {
         check("SFSymbol", Image(systemName: "star.fill").font(.system(size: 40)))
     }
 
+    /// `.rise(text:)` 文档里写的**跨 package 绕行方式**的机器判据（#262 第 3 轮 review）。
+    ///
+    /// 该参数是 `LocalizedStringKey`，走 `Bundle.main` 查表 ⇒ 另一个 package 的
+    /// `.module` 本地化不会命中。成文绕行是「调用方先用自己的 bundle 解析成 `String`，
+    /// 再包成 `LocalizedStringKey` 传进来」——它成立**只因为** `Bundle.main` 查不到该
+    /// 键时 `Text` 原样回落。
+    ///
+    /// ⚠️ 「注释写了绕行、代码里却没人走过」正是本 PR 前几轮反复堵的失真病型
+    /// ⇒ 这里用**位图比对**把回落语义钉死：`Text(verbatim:)` 与
+    /// `Text(LocalizedStringKey(runtimeString))` 必须逐字节相同。回落一旦不成立
+    /// （例如未来改用带默认值 / 抛错的解析路径），文档那条绕行就是假的，本条判红。
+    @Test("rise 的跨 bundle 绕行：预解析字符串包成 LocalizedStringKey 后原样渲染")
+    func riseAcceptsPreResolvedLocalizedString() {
+        // 模拟「另一个 package 已用自己的 bundle 解析好的译文」——刻意选一个
+        // `Bundle.main` 里必然查不到、且不含 markdown 记号的串。
+        let resolved = "已加一分"
+        let verbatim = Self.stablePixels(Text(verbatim: resolved))
+        let viaKey = Self.stablePixels(Text(LocalizedStringKey(resolved)))
+        // ⚠️ **非空断言先行**（本仓明文纪律）：两边都渲染失败时相等断言恒真。
+        #expect(verbatim != nil && viaKey != nil, "渲染失败，下面的相等断言会静默变绿")
+        #expect(verbatim == viaKey, "Bundle.main 查不到该键时未原样回落 —— rise 文档写的绕行方式失效")
+        // 且这个 key 真能喂给 `.rise`（编译期契约，防止将来把参数换成不接受运行期串的类型）。
+        let applied = Self.stablePixels(
+            Text("x").rise(trigger: 1, text: LocalizedStringKey(resolved))
+        )
+        #expect(applied != nil, "预解析字符串包成的 key 无法传给 .rise")
+    }
+
     /// ⚠️ **入口数与三处硬编码清单的交叉判据**（第 5 轮终审 C4-5 / I5-4）：
     /// `scanActuallyMatches` 会强制新增效果的作者去动 `ReduceMotionGuard.swift`，
     /// 但**没有任何机制**把他推去动本文件——两个文件之间零交叉判据

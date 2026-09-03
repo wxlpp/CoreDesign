@@ -78,10 +78,36 @@ public extension View {
     /// `trigger` 变化时，从视图上方浮起一段文字。
     ///
     /// - Parameter text: 浮起的文字。⚠️ 类型是 `LocalizedStringKey` 而非 `String`
-    ///   ——它是**组件自带的 UI 文案**（公约 A 类），必须可本地化（FR-7）。
+    ///   ——它是**调用方传入的界面文案**（公约第 4 节 **B 类**），必须可本地化（FR-7）。
     ///
-    /// ⚠️ `LocalizedStringKey` 在本模块内解析走 **`Bundle.main`**——App 调用方没问题，
-    /// 但来自另一个 package 的调用方，其本地化不会生效。
+    /// ⚠️ **不是 A 类**（初版注释写「组件自带的 UI 文案（公约 A 类）」，是误引）：
+    /// A 的判别特征是「文案**写在组件源码里**，调用方看不见也改不了」，而公约同节明写
+    /// 「A 类按定义不会出现在 `textParams[]` 里……参数按定义对调用方可见」
+    /// ⇒ 一个 public 参数只可能是 B / C，不可能是 A。`"+1"` 由调用方给、内容是界面文案
+    /// ⇒ **B**。（#262 第 3 轮 review 正是循着这处误引，推出「应改
+    /// `LocalizedStringResource`」的建议。）
+    ///
+    /// ⚠️ **为什么不是 `LocalizedStringResource`**（#262 第 3 轮 review 建议，未采纳）：
+    /// 1. 公约第 4 节有成文裁决——「**新增 B 类参数用 `LocalizedStringKey`**，与本仓既有
+    ///    `SectionHeader` 一致、`Bundle.main` 解析语义不变，**不是**
+    ///    `LocalizedStringResource`」（`docs/component-contract.md`）。本仓 6 个 B 类
+    ///    文本参数（`SectionHeader` / `InsetGroupedSection` / `ProgressIndicator` /
+    ///    `SettingsRow`）全是 `LocalizedStringKey`，只把这一个改掉是制造不一致。
+    /// 2. 建议援引的 FR-7 自身写的是「`LocalizedStringResource` / `LocalizedStringKey`」
+    ///    **二选一**（`.claude/prds/shipswift-harvest.md`）⇒ 现状已合规，不存在契约削弱。
+    /// 3. 换成 `LocalizedStringResource` **并不自动**修好 bundle：字面量走
+    ///    `init(stringLiteral:)`，实测其 `_bundleURL` 同样是 `Bundle.main`
+    ///    （`String(reflecting:)` 可见）——只有调用方显式写 `bundle:` 才有区别，
+    ///    而那条能力下面的绕行方式已经提供。
+    ///
+    /// ⚠️ **已知且有意接受的限制**：`LocalizedStringKey` 走 **`Bundle.main`** 查表
+    /// ——App 调用方即其自身 bundle，没问题；**来自另一个 package 的调用方**，
+    /// 其 `.module` 里的本地化不会被命中。
+    /// **绕行方式**：调用方先用自己的 bundle 解析成字符串，再包成 key 传进来——
+    /// `text: LocalizedStringKey(String(localized: "plus_one", bundle: .module))`。
+    /// `Bundle.main` 查不到该键时 `Text` 原样回落，显示的正是调用方已解析好的译文
+    /// （该回落由 `MicroInteractionAPITests.riseAcceptsPreResolvedLocalizedString`
+    /// 用位图比对钉住；⚠️ 前提是译文本身不与宿主 App 的某个键字面相同）。
     func rise(
         trigger: some Equatable,
         text: LocalizedStringKey,
