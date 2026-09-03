@@ -43,7 +43,17 @@ struct MicroInteractionReduceMotionGuard {
     /// 文件里**，评审时没有集中位置能看见「谁又新领了一张豁免」。
     /// 本仓对同类问题的成法是集中豁免名单（`BoolExemptionGuard`）。
     /// 现在两边**双向差集**：新领一张豁免必须改本文件 ⇒ 在 diff 里必然可见。
-    static let approvedFormTwo: Set<String> = ["Rise.swift"]
+    /// ⚠️ **`#252` 起本名单从 1 个变成 3 个**，形态 2 的定义随之被**明确**（而不是被放宽）：
+    /// 「保留这个效果**长什么样**、只把运动去掉，且**不再叠透明度脉冲**」。
+    /// · `Rise.swift` —— 保留淡入淡出，位移换成静止位移；
+    /// · `Confetti.swift` —— 不放粒子，降级为**一次淡入淡出的静态庆祝层**（`#252` AC 逐字）。
+    ///   它本身就是一次淡入淡出，再叠脉冲就是两次反馈；
+    /// · `ProcessingSweep.swift` —— 三个常驻"处理中"效果把相位钉在
+    ///   `ProcessingSweep.restingPhase` 上静止呈现。它们没有 trigger，
+    ///   而 `OpacityPulse` 是 trigger 驱动的一次性反馈，形态上根本对不上。
+    static let approvedFormTwo: Set<String> = [
+        "Rise.swift", "Confetti.swift", "ProcessingSweep.swift",
+    ]
 
     /// 走**早退**（RM 下整个装饰层不构建）的文件。
     ///
@@ -52,7 +62,12 @@ struct MicroInteractionReduceMotionGuard {
     /// `// RM-FORM-2:` 自证标记是同一形态，只是伪装成了代码**。
     /// 任何人在文件任意位置写下一句 `guard !isReduced`（哪怕只包住一个局部函数），
     /// 整个文件的**每一处**运动调用就全部被豁免。评审实测过这枚变异：绿。
-    static let approvedEarlyExit: Set<String> = ["Ping.swift", "Spray.swift", "Shine.swift"]
+    static let approvedEarlyExit: Set<String> = [
+        "Ping.swift", "Spray.swift", "Shine.swift",
+        // `#252`：两者都在 Reduce Motion 下**换一整套呈现**（静态庆祝层 / 静止相位），
+        // 而不是在原路径上逐处门控 ⇒ 走早退。
+        "Confetti.swift", "ProcessingSweep.swift",
+    ]
 
     /// **确认不含运动**的文件。
     ///
@@ -68,6 +83,17 @@ struct MicroInteractionReduceMotionGuard {
         "CoreDesignEffects.swift",      // 模块标识
         "MicroInteractionSupport.swift", // 档位枚举 + TriggerRelay + 降级基线
         "Haptic.swift",                  // 只有 sensoryFeedback，无视觉运动
+        // `#252` 新增。
+        "EffectsEnergy.swift",           // NFR-7 的两个可注入环境键 + 纯策略枚举，无绘制
+        // ⚠️ 下面三个是**薄封装**：`body` 只有一行 `content.overlay { ProcessingSweepDriver(...) }`，
+        // 运动全部在 `ProcessingSweep.swift` 里（那份在早退名单 + 形态 2 名单上）。
+        // "文件里没有运动关键字"这一条在这里**不是**逃逸位——
+        // `ProcessingSweepTests.containersDelegateToDriver` 逐个断言这三个文件里
+        // 既出现 `ProcessingSweepDriver(`、又不出现任何自建动画/绘制调用，
+        // 两条判据合起来才堵住"容器自建一套、绕过降级"这个洞。
+        "ScanningOverlay.swift",
+        "GlowSweep.swift",
+        "LightSweep.swift",
     ]
 
     static var sourceRoot: URL {
