@@ -24,12 +24,13 @@ struct ComponentContractStructureGuard {
         "## 5. 环境值清单",
     ]
 
-    /// **14 个**承重 `###`/`####` 小节——tiebreaker、优先级固定、边界条款、终局条款、
+    /// **15 个**承重 `###`/`####` 小节——tiebreaker、优先级固定、边界条款、终局条款、
     /// 头号反例、Style Configuration 状态 Bool 豁免，是四轮评审换来的增量；
     /// `by-type` 取值定义、三方同步通则、AD-2、AD-3 四条是 Issue #38 Task 2 本轮
     /// 新增的承重内容。#44 回写的「候选形态的作用域」是第 11 条。#44 回写的
     /// 「事后补写的效力边界」是第 12 条。#44 回写 D-41-1 的『取值域的命名规矩』是第 13 条。
     /// #44 回写 D-41-2/4/5 与 #43-2 的『已知判据缺口』是第 14 条（D-41-4 = G-2 已由 Task 9 落地）。
+    /// #244 的 AD-4（三个新 target 的登记表作用域）是第 15 条。
     /// ⚠️ **数字与下面数组的元素数必须一致**：第一版注释写「5 个」并逐一列举，
     /// 而数组在同一轮里已补到 6 个——**新增的那条不在列举里，最容易被后人当成多余而误删**
     /// （Copilot round 1 报出）。本轮终审 I1 发现同一种病复发：数组停在 6 个，而公约
@@ -69,6 +70,11 @@ struct ComponentContractStructureGuard {
         // #44 SC-8 回写 D-41-2/4/5 与 #43-2：公约有规定、机器判据够不到的地方（D-41-4 = G-2 已由 Task 9 落）。
         // 缺陷定义明文含「判据漏判」⇒ 这些同样要回写公约，实现层另行移交。
         "### ⚠️ 已知判据缺口：本公约有规定、机器判据够不到的地方",
+        // #244 AD-4：三个新 target 的登记表作用域。没有它，公约对
+        // `CoreDesignEffects` / `CoreDesignCharts` / `CoreDesignShaders` 零裁定，
+        // 而 `ComponentRegistryGuard.swift` 的扫描根硬编码 `Sources/CoreDesign`
+        // ⇒ 实现层盲区会被后人读成公约层许可（G-7 记在案的逃生门）。
+        "#### AD-4 裁决：三个新 target（`CoreDesignEffects` / `CoreDesignCharts` / `CoreDesignShaders`）的登记表作用域",
     ]
 
     static var contractURL: URL {

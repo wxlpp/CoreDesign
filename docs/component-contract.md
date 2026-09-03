@@ -1408,3 +1408,103 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
    非皮肤且未被排除的候选 **1 个** < 2 ⇒ **举得犹豫** ⇒ **仍落步骤 4，`tiebreaker` 不变**。
    ⚠️ 本表**声明价值在于走查可复现**，不在落点 —— 故上面三处必须交代清楚，否则一个照它
    走的新人会在步骤 2 卡死。
+
+---
+
+#### AD-4 裁决：三个新 target（`CoreDesignEffects` / `CoreDesignCharts` / `CoreDesignShaders`）的登记表作用域
+
+**这一段回答的问题**：`shipswift-*` 三个 epic 引入的新 target，其 public 类型归哪套公约管。
+
+⚠️ **为什么必须显式裁决，不能默认**：`shipswift-harvest` PRD 初版把「新 target 不进
+`docs/component-registry.json`」当作**假设**写下，被评审证伪——上面 **AD-2** 逐字裁定
+「登记单位是**有 public 类型的 API 表面**，不是『是不是 `ViewModifier`』」，且**通篇未按
+target 划作用域**。守卫今天扫不到新 target（`ComponentRegistryGuard.swift:366` 把扫描根
+硬编码为 `Sources/CoreDesign`）**只是实现层盲区，不是公约层许可**——这正是「⚠️ 已知判据
+缺口」一节 G-7 早已记在案的「新增第二个源 target」逃生门。⇒ 作用域必须写下来。
+
+##### 裁决：按 target 分别定，**不一刀切**
+
+| target | 归属 | 理由 |
+|---|---|---|
+| **`CoreDesignCharts`** | **b：照常进 `component-registry.json`，判定法全套适用** | 4 个图表是**有形态选择的常规组件**——「同一份数据换一种图形表达」正是步骤 2 问的那个问题，对它们真有内容（雷达图 ↔ 平行坐标图 ↔ 分组条形图 是三个真实业界形态，不是同一骨架换画法）。 |
+| **`CoreDesignEffects`** | **a：轻公约** | 见下方成本比较与「公开协议外溢」实证。 |
+| **`CoreDesignShaders`** | **a：轻公约** | 同上；且其 `.metal` 侧本就在所有 SwiftSyntax 守卫的射程之外（见 `shipswift-shaders` 的 **AD-F**），走 b 只会买到半套。 |
+
+⚠️ **三 target 一刀切是被否决的方案**。把 4 个图表和 `.shake(trigger:)` 划进同一套轻公约，
+恰是在**判定法最有内容的地方**绕开它。
+
+##### 两侧成本，**估法不同**（AC 明列的要求）
+
+**a 侧以固定项为主**，按既有守卫体量类比（`Tests/CoreDesignTests/` 实测字节数）：
+
+| 项 | 类比对象 | 量级 |
+|---|---|---|
+| 轻公约本体（即本段 + 配套条款） | — | 150–250 行 |
+| `EffectsColorLiteralGuard` | `AccessibilityStringLiteralGuard` 16.8 KB | ~17 KB |
+| `ChromeTextLiteralGuard` | 同上 | ~17 KB |
+| 差集守卫 | `StyleConsumptionGuard` 11.0 KB / `ComponentHostAliasGuard` 7.6 KB | ~10 KB |
+| 扩展成员扫描器（见下方拍板三） | `ComponentExtensionPointGuard` 12.3 KB | ~12 KB |
+
+⇒ **a ≈ 56 KB 守卫代码 + 一份轻公约，一次性，不随件数增长。**
+
+**b 侧是逐条 × P**，按 AC 要求**实做 2 个样本外推**：
+
+- **P 只算 Effects + Shaders**（Charts 已定走 b，不进本比较）。
+  **Shaders = 28**（`shipswift-shaders` **AD-E** 把 17 个 colorEffect 与 11 个 layerEffect
+  全部钉为 public 类型）；**Effects = 12**（task 252/253/254 的 12 个 public View struct；
+  task 250 的 8 个微交互是 `internal struct + public extension View` 形态，**按 AD-2 明文
+  排除登记**，不计入）。⇒ **P = 40**。
+- **2 个样本**（在 scratch 完成，产物不进主线）：
+  - **样本 1 · `ScanningOverlay`**（public View struct，取自 task 252）
+    → 走完判定法落 **`semantic` / `step2` / `needsExtensionPoint: true`**，
+    即**须发布公开的 `ScanningOverlayStyle` 协议**。
+  - **样本 2 · `LightSweepModifier`**（`public struct : ViewModifier`，模拟 layerEffect 形态）
+    → 落 **`prescriptive` / `tiebreaker` / 不给扩展点**。
+- **单价**：两样本首过 notes 各 ~850 字符。⚠️ **首过不是终值**——本仓同型条目
+  （`FloatingGlassModifier` / `SpinningModifier` / `TelegramGlassButtonModifier`，同为纯视觉、
+  同落 tiebreaker）实测 notes **1903 / 2164 / 2426 字符**，且**各被重判两次**（#53、#59）。
+  ⇒ 稳态单价取 **~2.1 K 字符**，**40 × 2.1 K ≈ 84 K 字符**判定法散文，逐条须过
+  `ComponentJudgeScanner` 与 `ComponentRegistryGuard`。
+
+##### 决定性论据不是字数，是**公开协议外溢**
+
+样本 1 是本裁决的核心实证：**一个纯装饰的动效件，走完整判定法后被推向发布 public 样式协议。**
+本公约「⚠️ 默认给不给扩展点」自陈「**少给扩展点是可逆的；多给扩展点不可逆**（public 协议
+一旦发布，删它是破坏性变更）」。在 P = 40 的规模上套判定法，等于**批量生产不可逆 API 表面**，
+而这些件的共同特征恰恰是「长相即全部含义」。
+
+**第二项复利成本**：公约每次修订都要**重判全部条目**（#53、#59 各来过一轮）。
+今天 47 条，走 b 后 87 条 ⇒ 下一次修订的重判成本 **×1.85**。
+
+⇒ Effects / Shaders 走 **a**。
+
+##### 一并拍板的三件下游事项
+
+**拍板一 · 轻公约的登记形态 ⇒ 独立 `docs/effects-registry.json` 双向差集。**
+⚠️ 备选方案「锚 `docs/components/<slug>.md` 文件」的卖点是「少一张会漂移的表」，
+**但该前提在 CoreDesign 不成立**：本仓 `docs/components/` 有 38 份文件，**没有任何守卫锚定它**
+——全仓引用它的只有 `App/Sources/ComponentData.swift`、`App/Sources/Previews.swift`、
+一句测试注释和若干散文（StoryUI 那边的 `ComponentRosterSourceAnchorTests` 在本仓**没有对应物**）。
+选锚文件形态等于**还得新建一条锚守卫**，一分不省；而双向差集在本仓有 8 处先例
+（`ComponentRegistryGuard` / `ReachableTypeRegistryGuard` / `BoolExemptionGuard` 等），是本仓成语。
+
+**拍板二 · `transition` / `modifier` 两类 ⇒ 新建扩展成员扫描器，成本计入 a 侧。**
+⚠️ 否决「手工维护 + 盲区台账」的理由是**量级**：task 250 的 8 个 `public extension View`
+方法 + task 251 的 16 个转场 = **24 个公开入口点**，今天对**所有**守卫不可见。
+24 条量级的手工表必漂，而这正是 G-7 记在案的那类逃生门。实现上它**不是新建一台大扫描器**，
+是把既有 SwiftSyntax 采集器（`PublicTypeCollector`）扩到 extension 成员，故量级类比
+`ComponentExtensionPointGuard` 而非 `BoolParameterScanner`。
+
+**拍板三 · FR-17 的 README 索引落点 ⇒ `## 生成预览图` 之后另起小节。**
+理由是 **import 边界**：三个新 target 是独立 product，调用方须 `import CoreDesignEffects`
+而非 `import CoreDesign`。混进主索引会让索引行**暗示同一条 import 路径**。
+⚠️ 该小节内**每行须带模块名**，否则另起小节这个动作本身不传达边界。
+（task 007 / A-7 与 shaders 的 B-4 写文档时依据本条。）
+
+##### 本裁决**不**放松的东西
+
+轻公约**继承** J-1（禁未豁免 Bool 参数）与 FR-4 的文本参数纪律；**不继承**判定法步骤 1–4
+与扩展点判据 J-2。既有 CoreDesign 判据字面**逐字不变**（`maxEntries` 32 / `sourceSites` 35 /
+`ComponentTextParamGuard` 的 31 / `ComponentRegistryGuard` 的 47 与 25）——本裁决只**加**作用域，
+不**减**任何现有断言。⚠️ 作用域钉死后**必须配守卫**（task 246），否则这一段的净效果是
+把一块地方正式命名为无守卫空白地带，与引入它的 epic 意图相反。
