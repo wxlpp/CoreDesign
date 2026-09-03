@@ -156,7 +156,7 @@ A-7  收尾（依赖全部；ComponentData.swift 串行）：
 7 个 task，落在本仓历史区间（5–13）内。
 ⚠️ **A-1（8 个）与 A-2（16 种）仍偏重**，decompose 阶段须按上面标注的分组再拆。
 
-⚠️ **登记表侧改动归 A-6**：若 AD-4 裁定 `CoreDesignCharts` 走 b（进登记表），则
+⚠️ **登记表侧改动归 A-6**：**AD-4 已裁 `CoreDesignCharts` 走 b**（进登记表），因此
 `ComponentRegistryGuard` 扫描根多 target 化 + 4 条登记 + `:449` 的 `47` 改 `51`
 + `readmeIndexReconcilesWithRegistry` 联动**全部在 A-6 内完成**，不留在 A0-3。
 ⚠️ **同一处还要接 `ComponentTextParamGuard`**（评审 I-8）：4 个图表进登记表后，
@@ -217,8 +217,8 @@ A-7  收尾（依赖全部；ComponentData.swift 串行）：
       至少随 epic 收尾跑一次并留证**；CI 上的数值只作趋势参考，不作验收依据。
 - [ ] **NFR-5② 沿用**（评审 Suggestion，Epic A 加测试时最容易破坏它）：
       `swift package describe … CoreDesignTests … target_dependencies` 仍恰为 `["CoreDesign"]`
-- [ ] **probe 覆盖 Effects / Charts 的 40 个 API 单位所对应的全部类型**（nonisolated
-      调用点，非仅 import）⇒ NFR-4 的 MainActor 隔离契约在这两个 target 上真的被验证。
+- [ ] **probe 覆盖 Effects / Charts 的 40 个 API 单位所对应的全部类型**（实质调用点，非仅 import）
+      ⚠️ **分流规则见 `EffectsNonisolatedUsage.swift` 文件头**（#260 终审 Important-2）：**值类型 / 配置类型 / 数据入参**进 `*NonisolatedUsage.swift`；**View / modifier / style 类**进 `PublicVisibility.swift`（`@MainActor`）——本包开了 `.defaultIsolation(MainActor.self)`，View 的 `init` 与 modifier 函数**天然是 MainActor 隔离的**，从 `nonisolated func` 里构造必然编译失败。「按 API 单位清单点名」= **每个单位在这两处之一必有引用**，不是全部塞进 nonisolated 文件。⇒ NFR-4 的 MainActor 隔离契约在这两个 target 上真的被验证。
       ⚠️ 措辞刻意不写"全部**公开**值类型"（第 2 轮评审 S-1）——那是自指的：漏写 `public`
       的类型压根不算"公开"，probe 自然不覆盖它，FR-5 就没人查。**按 API 单位清单点名**，
       漏 `public` 会在 probe 编译期直接炸出来
