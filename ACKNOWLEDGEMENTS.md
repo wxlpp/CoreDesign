@@ -120,8 +120,12 @@ Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie）
 > `shaders-plasma` 分支（PR #261）。从 `epic/shipswift-foundation` 的角度看，
 > 它描述的东西**还不存在**。⇒ 本节**在 #261 合入时启用**。
 >
-> ⚠️ **为什么它仍然现在就写下来**：#261 的 `.metal` 与 Swift 文件多处**引用本文件**
-> 作为其署名的落脚点，而本节正是 #261 五轮鉴定的产物 ⇒ 两者互为前提。
+> ⚠️ **为什么它仍然现在就写下来**：`docs/shader-provenance.md` 与 #261 互为前提
+> （#261 的 5 处引用**全部指向 provenance 表**），而本文件是那张表判为可落地行的
+> **对外落脚点** ⇒ 本节随表一并预登记。
+> ⚠️ **上一版这里写「#261 多处引用本文件」——实查 `git grep ACKNOWLEDGEMENTS` 零命中**
+>（第 2 轮终审 I-a）。而这条理由是本节豁免「不得署名尚未落地的东西」的**唯一依据**
+> ——依据本身是假的，等于没有豁免。已改为真实的那条。
 > 本节是**预登记**，不是已生效的对外声明——这与「逐 shader 条目由各自落地的 task
 > 追加」不冲突：那条规则约束的是**逐件**条目，本节是**共享原语**。
 
@@ -152,7 +156,7 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 **比它取代的沉默更糟**：它是一份没有辩护的书面自认。
 
 | 原语 / 片段 | 来源（URL） | 复制程度 | 许可地位 |
-|---|---|---|
+|---|---|---|---|
 | `wangHash`（`0x27d4eb2d`） | Thomas Wang 整数 hash；GPU 版见 Nathan Reed《Quick And Easy GPU Random Numbers in D3D11》(2013)　`https://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/` | **较大段落移植**（逐字符一致） | ⚠️ **页面无许可声明** ⇒ `待追溯（低指纹）` |
 | `hash21`/`hash22` 的素数三元组 | Teschner et al. 2003《Optimized Spatial Hashing for Collision Detection of Deformable Objects》（VMV 2003 论文） | 参考算法思路（三个常数） | **事实性常数** ⇒ 可落地 |
 | `valueNoise` | 值噪声的标准形式（嵌套 `mix` 双线性插值 + `smoothstep` 权重） | 参考算法思路 | **教科书算法** ⇒ 可落地 |
@@ -161,8 +165,8 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 | `Plasma` 的四相正弦叠加 | Lode Vandevenne《Lode's Computer Graphics Tutorial — Plasma》　`https://lodev.org/cgtutor/plasma.html` | **较大段落移植**（逐项对应） | ⚠️ 页面无许可声明 ⇒ `待追溯` |
 | `roundedBoxSDF` | Inigo Quilez, 2D distance functions　`https://iquilezles.org/articles/distfunctions2d/` | **较大段落移植**（标准闭式解） | ⚠️ 页面无许可声明 ⇒ `待追溯（低指纹）` |
 | `edgeWidth`（`max(fwidth, ε)` + smoothstep） | iq 的 distance-AA 惯用法（同上页面一族） | 参考算法思路 | **公开惯用法** ⇒ `待追溯（低指纹）` |
-| `ramp3` | **未指认到具体上游** | — | `待追溯（低指纹）`——⚠️「指认不到」不等于「原创」 |
-| `RefractiveGlass` 的位移 + 色散主体 | SwiftUI `layerEffect` "liquid glass" 一族的通行形态，**未指认到具体上游** | — | ⚠️ `待追溯（**强指纹**）`——本表自评「指纹强度不低于 InkSmoke 的 q/r 级联」⇒ **阻断 epic→main** |
+| `ramp3` | **未指认到具体上游** | **未知（上游未指认）** | `待追溯（低指纹）`——⚠️「指认不到」不等于「原创」 |
+| `RefractiveGlass` 的位移 + 色散主体 | SwiftUI `layerEffect` "liquid glass" 一族的通行形态，**未指认到具体上游** | **未知（上游未指认）** | ⚠️ `待追溯（**强指纹**）`——本表自评「指纹强度不低于 InkSmoke 的 q/r 级联」⇒ **阻断 epic→main** |
 
 ⚠️ **许可地位一列已逐行给出，不再有"统一登记"这句**（上一版那句与表格直接打架）。
 无许可正文可转载的行，**明写「页面无许可声明」**而不是留白。
