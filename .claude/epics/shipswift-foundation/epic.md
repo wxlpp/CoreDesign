@@ -70,7 +70,7 @@ PRD 的裁决判据是「a 侧按既有守卫体量类比估固定成本，**b �
 ⇒ **两个样本改为**：Effects 的一个 **public View struct**（`Confetti` / `ScanningOverlay`
 之一）+ 一个 **public ViewModifier struct**（模拟 AD-E 为 layerEffect 钉死的形态），
 覆盖 P 里真实存在的两种类型形态。
-⚠️ 若 AD-4 最终对 Charts 选 b，`shipswift-effects` A-6 反正要为 4 个图表写判定法 notes；
+⚠️ **AD-4 已裁 Charts 走 b**（该半不依赖成本模型，理由是定性的）⇒ `shipswift-effects` A-6 要为 4 个图表写判定法 notes；
 样本产物虽不进主线，其 **notes 与步骤 2 的业界举证可被 A-6 复用**，省一次返工（评审 S-9）。
 
 ### AD-D 测试拓扑与 CI scheme 是同一个 commit 的事
@@ -94,7 +94,9 @@ action`）⇒ 改 manifest 与切 scheme 必须同 commit。
 `downstream-probe` 的价值是 **nonisolated 上下文的调用点**，但 A0-2 交付的是**空骨架
 target**，没有任何公开值类型可调用（评审 I-1）。
 ⇒ **A0-4 交付 = probe manifest 接线（依赖两个新 product）+ 每 target 一个 nonisolated
-文件的结构**；**实质调用点由 `shipswift-effects` A-7 与 `shipswift-shaders` B-1 各自补齐**。
+文件的结构**；**实质调用点由 `shipswift-effects` A-7 与 `shipswift-shaders` **B-4** 各自补齐**。
+⚠️ **是 B-4 不是 B-1**（#260 终审）：B-1 只建 target 骨架，那时没有任何 shader 类型可调，
+与本条批评 A0-4 的问题同构。`shipswift-shaders` epic 已把它记在 B-4。
 
 ## Technical Approach
 
@@ -120,7 +122,8 @@ target**，没有任何公开值类型可调用（评审 I-1）。
 | `AccessibilityStringLiteralGuard` | `:189` 同上；按 target 分辨各自的 `.module` |
 | `EffectsColorLiteralGuard`（新建） | 禁色相字面量；射程仅新 target；**带触发红的 fixture** |
 | `ChromeTextLiteralGuard`（新建） | 扫 `Text("…")` / `Label("…"` 裸字面量（公约 A 类）；射程仅新 target，**不回溯 CoreDesign**；**带 fixture** |
-| **差集守卫**（**条件项**，评审 C-1） | ⚠️ **若 AD-4 对 Effects/Shaders 选 a，本 task 必须交付它**——形态按 AD-4 所选（独立 `docs/effects-registry.json` 双向差集 **或** 锚 `docs/components/<slug>.md`）；射程 = public `View`/`ViewModifier`；`transition`/`modifier` 手工维护并在盲区台账留痕。不交付它 ⇒ Effects 的登记面就是 PRD 说的"无守卫空白地带"，且 Epic 成本少算一条 |
+| ~~**差集守卫**~~ | ⚠️ **不交付**——AD-4 第 6 轮收敛为「AD-2 原样适用」，路线 a 及其轻公约、成本模型、复判闸、拍板一（独立 `docs/effects-registry.json`）**全部撤回** ⇒ 无轻公约、也就无差集守卫，条件项的触发前提不成立 |
+| **扩展成员扫描器**（新建，**替换上一行的条件项**） | AD-4《下游连锁二》，**与路线无关**：task 250 的 8 个 `public extension View` 方法 + task 251 的 16 个转场 = **24 个公开入口点**，今天对**所有**守卫结构上不可见（它们不是类型）。⇒ 把既有 `PublicTypeCollector` 扩到 extension 成员，产物登记进 **`docs/component-registry.json` 的 `entryPoints` 数组**，由 `ExtensionEntryPointGuard` 做双向差集。⚠️ **AD-4 逐字否决了原文的「手工维护 + 盲区台账」**（24 条量级的手工表必漂，G-7 已记在案的失效形态），`246.md` / `251.md` / 本文件三处随 #244/#246 回改；射程仅新 target；**带触发红的 fixture** |
 | `NFR-4` grep 断言 | 零 `@unchecked Sendable`。⚠️ **根列表与上面四条守卫同源，只含已存在的 target**（第 2 轮评审 I-1）——初版写"三个新 target"，但 A0-3 落地时只存在两个；对不存在的 `Sources/CoreDesignShaders/` 做 grep 无命中即绿，正是 AD-E 自己反对的 fail-open |
 
 ⚠️ `ComponentTextParamGuard` **只能守 B 类**，且定义域是登记表条目。它**守不到** FR-7 的
@@ -191,9 +194,18 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
 - [ ] 成本估算：a 侧按既有守卫体量类比（`AccessibilityStringLiteralGuard` 16KB /
       `BoolParameterScanner` 68KB），b 侧**实做 2 个样本外推**（AD-C：仓外做，产物不进主线），
       P 只算 Effects + Shaders
-- [ ] AD-4 一并拍板三件下游要用的事（评审 Suggestion）：① 独立 JSON vs 锚文档；
-      ② `transition`/`modifier` 手工维护 + 盲区台账的写法；③ **FR-17 的 README 索引落点**
-      （主索引 vs `## 生成预览图` 之后另起小节）——A-7 / B-4 写文档时要依据它
+- [x] AD-4 已落盘（`docs/component-contract.md`），**终局裁定「AD-2 原样适用」**：
+      三个 target 全走路线 b ⇒ 原先要拍的「① 独立 JSON vs 锚文档」随路线 a 一并**撤回**，
+      成本模型 / 轻公约 / 复判闸 / 拍板一 / 拍板四的禁令**全部撤回**。留下的是四条
+      **与路线无关**的下游连锁：
+      ① 《连锁一》Charts 走 b 会触发整条 J-2 链（`inspected.count == 11` 等）——归 #255；
+      ② 《连锁二》`transition` / `modifier` 走**扩展成员扫描器**、登记进
+         `component-registry.json` 的 `entryPoints`（⚠️ **逐字否决"手工维护 + 盲区台账"**，
+         本文件与 `246.md` / `251.md` 三处随 #244/#246 回改）——已由 #246 交付；
+      ③ 《连锁三》README 索引落点：**三个 target 全部进主索引**（`## 组件索引` 之内；
+         另起小节会让 `registryEntriesAreCoveredByReadme` 判红）——A-7 / B-4 依据它；
+      ④ 《连锁四》扫描根的实施形态是**工程事实、不是禁令**（`coreDesignSources` 由
+         `URL` 变 `[URL]` 时的 9 个消费者与 `ComponentJudgeMutationTests` 的副本布局）
 
 ### A0-2
 - [ ] CI 四条腿全绿，且**实测确认 iOS 腿的新 scheme 真的在跑新测试 target**
@@ -219,12 +231,13 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
       逐字不变，重构未放松任何现有断言
 - [ ] **已存在的**新 target 零 `@unchecked Sendable`（grep 断言；根列表与守卫同源，
       Shaders 根由 B-1 加入）
-- [ ] **条件项**：若 AD-4 对 Effects/Shaders 选 a，差集守卫已交付并有 fixture
+- [ ] ~~差集守卫~~ **不交付**（AD-4 第 6 轮：AD-2 原样适用，无轻公约）；复判闸随成本模型一并撤回
 
 ### A0-4
 - [ ] probe manifest 接上两个新 product，每 target 一个 nonisolated 文件的结构已建
 - [ ] `cd scripts/downstream-probe && swift build` 绿
-- [ ] epic 内明写：实质调用点归 A-7（Effects/Charts）与 B-1（Shaders）
+- [ ] epic 内明写：实质调用点归 **A-7**（Effects/Charts）与 **B-4**（Shaders）
+      ⚠️ **不是 B-1** —— B-1 那时还没有 shader 类型可调
 
 ### A0-5【闸①】
 - [ ] D-1 **六问**全部有书面结论，α/β 已选定
@@ -269,7 +282,7 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
 | **Copilot C-2（AD-4 裁决判据自举成环）** | **接受**，本轮最有价值的一条。b 侧要"实做 2 样本"，而能产样本的 Effects 又依赖 AD-4 完成。新增 AD-C：2 个样本作为 A0-1 内部子步骤，**仓外/临时分支做、产物不进主线** ⇒ A0-1 自足，环打破 |
 | **superpowers C-2 / Copilot C-1（NFR-1 性能回归闸是孤儿）** | **接受**。三份 epic grep「性能/掉帧/frame-time」零命中属实。基准脚本归 `shipswift-effects` A-7（一次性基建），Effects / Shaders 的 SC 各加对应项 |
 | **superpowers C-3（shaders 漏了对 effects 的真实依赖）** | **接受**。NFR-7 的可注入 environment 键落 `CoreDesignEffects`（正是 FR-1 允许 Shaders→Effects 单向依赖的用途），B-2 依赖 A-3；`ComponentData.swift` 的跨 epic 串行窗口依赖 A-7。已写进 shaders 的 Dependencies |
-| I-1（A0-4 在 foundation 阶段是空的） | **接受**。新增 AD-F：A0-4 只做接线 + 结构，实质 nonisolated 调用点归 A-7 与 B-1，两处 SC 都加 |
+| I-1（A0-4 在 foundation 阶段是空的） | **接受**。新增 AD-F：A0-4 只做接线 + 结构，实质调用点归 A-7 与 B-1，两处 SC 都加（⚠️ **Shaders 侧后于 #260 改为 B-4**——B-1 那时只有 target 骨架、无 shader 类型可调；正文 AD-F 已更新，本行为历史记录） |
 | I-2（A0-2 依赖描述自相矛盾） | **接受**。删掉"A0-1 阻塞 A0-2 的一部分"——A0-2 的三项内容确实无一取决于 AD-4 |
 | I-3（A0-5 验收窄于下游期待） | **接受**。A0-5 的 SC 补三项：四个失败模式、fail-closed + macOS runner 有无 Metal device、B-1+B-4 固定成本估算 |
 | I-4（TouchTarget 处置撞 NFR-5②） | **接受**，且评审说得对：往 `TouchTargetTests` 加 `BeforeAfterSlider` 会让 `CoreDesignTests` 依赖新 target，把 A0-2 那条 `jq` 判据判红。改为两件交互件在**各自独立测试 target** 里同形态实现 |
