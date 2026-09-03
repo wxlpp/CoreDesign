@@ -41,6 +41,8 @@ targets:
         product: CoreDesignEffects
       - package: CoreDesign
         product: CoreDesignCharts
+      - package: CoreDesign
+        product: CoreDesignShaders
     settings:
       base:
         SWIFT_VERSION: "6.0"

@@ -41,7 +41,15 @@ jobs:
         run: |
           set -o pipefail
           run_tests() {
-            swift test
+            # ⚠️ **必须 `--skip CoreDesignShadersTests`**，且这是**显式跳过、不是静默放过**：
+            # 原生 SwiftPM **不编译 `.metal`**（#248 spike 实测），bundle 里不会有
+            # metallib，而 `CoreDesignShaders.assertShaderLibraryLoadable` 是 fail-closed
+            # 的——它不会"查不到就算了"。该 target 由下面独立的 swiftbuild 步骤覆盖。
+            #
+            # ⚠️ **不要**改成给那个测试加 `.enabled(if:)` 让本腿变绿——那会把"metallib
+            # 没编出来"变成静默跳过，正是本仓反复堵的假绿病型（对照 #258 发现的
+            # `ColorAssetGuardTests` 在 swiftbuild 下静默失守）。
+            swift test --skip CoreDesignShadersTests
           }
           run_tests 2>&1 | tee first.log || {
             # 先落到变量再匹配：`grep -q` 命中即退出并向上游发 SIGPIPE，
@@ -60,6 +68,20 @@ jobs:
             echo "仅已知 flake 失败，重跑一次"
             run_tests 2>&1 | tee second.log
           }
+
+      - name: Test (swiftbuild) — CoreDesignShaders
+        # ⚠️ 只有 swiftbuild / xcodebuild 会真正编译 `.metal` 成 metallib；原生
+        # `swift build` 只会把声明为资源的 `.metal` **源码**拷进 bundle（#248 spike）。
+        # ⇒ shader 的加载检查只能在这条路径上作数。
+        #
+        # ⚠️ **本腿其余部分刻意保持 native**：整腿切 swiftbuild 会让
+        # `ColorAssetGuardTests` 的 colorset 存在性守卫**静默跳过**——swiftbuild 调
+        # actool 把 `.xcassets` 编成 `Assets.car`，而那个 suite 的启用条件是
+        # 「`Resources.xcassets/` 以目录形式存在」（#258 终审 C-1 实测）。
+        run: |
+          set -o pipefail
+          swift test --build-system swiftbuild --filter CoreDesignShadersTests 2>&1 \
+            | tee shaders.log
 
       - name: Upload test logs
         if: always()
