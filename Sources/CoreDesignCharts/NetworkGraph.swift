@@ -43,25 +43,31 @@ public struct NetworkGraph<Node: GraphNode>: View {
     public var body: some View {
         if self.nodes.isEmpty {
             ChartEmptyState(message: .chart("No data"))
-        } else if self.isTruncated {
-            // ⚠️ **截断必须对用户可见**（第 2 轮终审 I-4）：上一版 `isTruncated` 只用来
-            // 把 `iterations` 置 0，界面与 a11y 都不提示 ⇒ 用户看到的是一张少了节点、
-            // 且悄悄从力导向变成环形排布的图，无任何线索。而
-            // `"Showing the first %lld nodes"` 这条 string 早就在 `Localizable.strings`
-            // 里躺着、全仓零引用——说明原本计划过这个提示，落地时掉了。
-            VStack(spacing: 4) {
-                self.canvas
-                // ⚠️ 写**实际渲染数**而非上限（第 3 轮终审 S-6）：去重后实际渲染数可能 < 150。
-                Text(self.nodesTruncated
-                     ? .chart("Showing the first \(self.effectiveNodes.count) nodes")
-                     : .chart("Showing the first \(self.effectiveEdges.count) connections"))
-                    // ⚠️ 同 `ChartEmptyState`：运行期 chrome 走 `.coreFont(_:)`（PR #263 Copilot 第 1 轮）。
-                    // 评论只点了空态那一处，但这条截断横幅是**同一类的第二处**，一并改。
-                    .coreFont(.caption2)
-                    .foregroundStyle(Color.contentTertiary)
-            }
         } else {
-            self.canvas
+            // ⚠️ **可见节点集只解一次**（PR #263 Copilot 第 5 轮）：截断判定与横幅
+            // 计数都要按它过滤边，各自现算一遍就是三次 `Set` 构造。
+            let shownNodes = self.effectiveNodes
+            let visible = Set(shownNodes.map(\.id))
+            if self.nodesTruncated || self.edgesTruncated(visibleIn: visible) {
+                // ⚠️ **截断必须对用户可见**（第 2 轮终审 I-4）：上一版 `isTruncated` 只用来
+                // 把 `iterations` 置 0，界面与 a11y 都不提示 ⇒ 用户看到的是一张少了节点、
+                // 且悄悄从力导向变成环形排布的图，无任何线索。而
+                // `"Showing the first %lld nodes"` 这条 string 早就在 `Localizable.strings`
+                // 里躺着、全仓零引用——说明原本计划过这个提示，落地时掉了。
+                VStack(spacing: 4) {
+                    self.canvas
+                    // ⚠️ 写**实际渲染数**而非上限（第 3 轮终审 S-6）：去重后实际渲染数可能 < 150。
+                    Text(self.nodesTruncated
+                         ? .chart("Showing the first \(shownNodes.count) nodes")
+                         : .chart("Showing the first \(self.effectiveEdges(visibleIn: visible).count) connections"))
+                        // ⚠️ 同 `ChartEmptyState`：运行期 chrome 走 `.coreFont(_:)`（PR #263 Copilot 第 1 轮）。
+                        // 评论只点了空态那一处，但这条截断横幅是**同一类的第二处**，一并改。
+                        .coreFont(.caption2)
+                        .foregroundStyle(Color.contentTertiary)
+                }
+            } else {
+                self.canvas
+            }
         }
     }
 
@@ -133,8 +139,23 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// ⚠️ **收够即停**（PR #263 Copilot 第 4 轮 S-1）：上一版 `filter { … }.prefix(limit)`
     /// 会在截断之前把整张边表扫完 —— 与本组件「超限就降级」的意图直接相悖
     /// （`edgesTruncated` 那侧还要再扫一遍）。改走 `firstUnique`，凑满 600 条唯一边即返回。
-    private var effectiveEdges: [Edge] {
-        Self.firstUnique(self.edges, limit: Self.recommendedEdgeLimit, key: UndirectedKey.init)
+    ///
+    /// ⚠️⚠️ **只数两端都可见的边**（PR #263 Copilot 第 5 轮）：`GraphEdge` 的契约写明
+    /// 「指向不存在节点的边会被**静默忽略**」（`ChartSupport.swift`），渲染那侧也确实
+    /// `guard let a = layout[edge.from], let b = layout[edge.to] else { continue }`——
+    /// 而上一版按**全量** `self.edges` 去重计数 ⇒ 调用方传一批指向缺失（或已被节点上限
+    /// 截断掉的）节点的边时，`edgesTruncated` 为真、力导向被整个关掉、界面还弹出
+    /// 「Showing the first N connections」，**可屏幕上一条边都没少**。
+    /// ⚠️ 第 5 轮 I-2 已按可见节点修过**度数统计**，但本属性与 `edgesTruncated`
+    /// 没跟上 ⇒ 三处口径不一致。现在统一到「两端都在 `effectiveNodes` 内」这一条上，
+    /// descriptor 那侧的 `where visible.contains(…)` 也随之收进这里。
+    /// ⚠️ 谓词必须在 `seen.insert` **之前**短路（`&&` 保证），否则被排除的边仍会污染
+    /// 去重集合，把它后面那条同键的可见边一起吃掉。
+    private func effectiveEdges(visibleIn visible: Set<Node.ID>) -> [Edge] {
+        Self.firstUnique(
+            self.edges, limit: Self.recommendedEdgeLimit, key: UndirectedKey.init,
+            where: { visible.contains($0.from) && visible.contains($0.to) }
+        )
     }
 
     /// 无序对键——`a→b` 与 `b→a` 归一化成同一个。
@@ -200,13 +221,14 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// ⇒ 显式循环，保证每个元素**恰好求值一次**。
     /// 取值 / 顺序 / 边界由 `TruncationPathTests` 逐条钉住。
     private static func firstUnique<Element, Key: Hashable>(
-        _ source: [Element], limit: Int, key: (Element) -> Key
+        _ source: [Element], limit: Int, key: (Element) -> Key,
+        where isIncluded: (Element) -> Bool = { _ in true }
     ) -> [Element] {
         guard limit > 0 else { return [] }
         var seen = Set<Key>()
         var kept: [Element] = []
         kept.reserveCapacity(min(source.count, limit))
-        for element in source where seen.insert(key(element)).inserted {
+        for element in source where isIncluded(element) && seen.insert(key(element)).inserted {
             kept.append(element)
             if kept.count >= limit { break }
         }
@@ -219,17 +241,21 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// 整张表折成一个 `Set` 再比 `count`，而这两个判据会被 `layoutKey(for:)` 与 `body`
     /// 反复调用。
     private static func uniqueCountExceeds<Element, Key: Hashable>(
-        _ limit: Int, in source: [Element], key: (Element) -> Key
+        _ limit: Int, in source: [Element], key: (Element) -> Key,
+        where isIncluded: (Element) -> Bool = { _ in true }
     ) -> Bool {
         var seen = Set<Key>()
-        for element in source where seen.insert(key(element)).inserted {
+        for element in source where isIncluded(element) && seen.insert(key(element)).inserted {
             if seen.count > limit { return true }
         }
         return false
     }
 
-    private var isTruncated: Bool {
-        self.nodesTruncated || self.edgesTruncated
+    /// ⚠️ 取 `visible` 作参数而不是自己现算（PR #263 Copilot 第 5 轮）：调用方
+    /// （`body` / `layoutKey(for:)`）本来就要为别的用途解一次 `effectiveNodes`，
+    /// 这里再解一遍就是同一份工作做两次，且两份结果**理论上可能不一致**。
+    private func isTruncated(visibleIn visible: Set<Node.ID>) -> Bool {
+        self.nodesTruncated || self.edgesTruncated(visibleIn: visible)
     }
 
     /// ⚠️ **必须比去重后的真实数量**（第 4 轮终审 I-1）：上一版用原始 `nodes.count`
@@ -248,9 +274,12 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// ⚠️ 比**去重后**的数量（第 6 轮终审 C-3）：601 条同一条边不该触发截断。
     /// ⚠️ **数到第 601 条唯一边即短路**（第 4 轮 S-5）：问题只是「超没超 600」，
     /// 上一版为此把整张边表的唯一数算了个准。
-    private var edgesTruncated: Bool {
+    /// ⚠️ **只数两端都可见的边**（PR #263 Copilot 第 5 轮）：与 `effectiveEdges(visibleIn:)`
+    /// 同一条理由——判据与被判的那批边必须是同一批，否则「超限」说的不是屏幕上的事。
+    private func edgesTruncated(visibleIn visible: Set<Node.ID>) -> Bool {
         Self.uniqueCountExceeds(
-            Self.recommendedEdgeLimit, in: self.edges, key: UndirectedKey.init
+            Self.recommendedEdgeLimit, in: self.edges, key: UndirectedKey.init,
+            where: { visible.contains($0.from) && visible.contains($0.to) }
         )
     }
 
@@ -275,11 +304,13 @@ public struct NetworkGraph<Node: GraphNode>: View {
     }
 
     func layoutKey(for size: CGSize) -> LayoutKey {
-        LayoutKey(
-            ids: self.effectiveNodes.map(\.id),
-            edges: self.effectiveEdges,
+        let shownNodes = self.effectiveNodes
+        let visible = Set(shownNodes.map(\.id))
+        return LayoutKey(
+            ids: shownNodes.map(\.id),
+            edges: self.effectiveEdges(visibleIn: visible),
             size: size,
-            iterations: self.isTruncated ? 0 : Self.iterations(for: self.effectiveNodes.count)
+            iterations: self.isTruncated(visibleIn: visible) ? 0 : Self.iterations(for: shownNodes.count)
         )
     }
 
@@ -293,8 +324,11 @@ public struct NetworkGraph<Node: GraphNode>: View {
 
             ZStack {
                 // 边
+                // ⚠️ **复用 `key.edges`，不要再调一次 `effectiveEdges`**（PR #263 Copilot
+                // 第 5 轮）：`key` 里存的就是这一批；各自重算既是 body 求值期的重复扫描，
+                // 也让「画出来的边」与「喂给解算器的边」在理论上可能分叉。
                 Path { path in
-                    for edge in self.effectiveEdges {
+                    for edge in key.edges {
                         guard let a = layout[edge.from], let b = layout[edge.to] else { continue }
                         path.move(to: a)
                         path.addLine(to: b)
@@ -326,7 +360,9 @@ public struct NetworkGraph<Node: GraphNode>: View {
             // 换成**无界的 CPU 堆积**。
             .task(id: key) {
                 let nodes = self.effectiveNodes
-                let edges = self.effectiveEdges
+                // ⚠️ 同上：`key.edges` 是本次要解的那批边，重算一遍既多扫一趟全量边表，
+                // 也可能与 `key` 不一致（而缓存命中与否正是按 `key` 判的）。
+                let edges = key.edges
                 let handle = Task.detached(priority: .userInitiated) {
                     Self.layout(nodes: nodes, edges: edges,
                                 size: key.size, iterations: key.iterations)
@@ -477,14 +513,18 @@ extension NetworkGraph: AXChartDescriptorRepresentable {
         // 还被**已被丢弃节点**的度数抬高，把所有点压向零。
         // ⚠️ 这是同一 bug 类的**第四个轴**：`RingChart`（values）→ `ActivityHeatmap`
         // （days）→ 边 → **节点**。前三个各自修过一轮，每次都没顺手核对下一个。
-        let visible = Set(self.effectiveNodes.map(\.id))
-        for e in self.effectiveEdges where visible.contains(e.from) && visible.contains(e.to) {
+        // ⚠️ 第 5 轮 Copilot：这道 `visible` 过滤已经收进 `effectiveEdges(visibleIn:)`
+        // 本身——上一版只在 descriptor 这一处做，`effectiveEdges` / `edgesTruncated`
+        // 两条路径没跟上，三处口径不一致。现在三处走的是同一个判据。
+        let shownNodes = self.effectiveNodes
+        let visible = Set(shownNodes.map(\.id))
+        for e in self.effectiveEdges(visibleIn: visible) {
             degree[e.from, default: 0] += 1
             degree[e.to, default: 0] += 1
         }
         let peak = degree.values.max() ?? 1
         let category = AXCategoricalDataAxisDescriptor(
-            title: chartAXString("Node"), categoryOrder: self.effectiveNodes.map(\.label)
+            title: chartAXString("Node"), categoryOrder: shownNodes.map(\.label)
         )
         // ⚠️⚠️ **不要写成 `"\(Int($0))"`**——`Accessibility` 框架在构造描述符时会拿
         // **非有限的探针值**调用这个闭包，`Int(非有限)` 直接 trap。
@@ -497,7 +537,7 @@ extension NetworkGraph: AXChartDescriptorRepresentable {
         ) { $0.formatted(.number.precision(.fractionLength(0))) }
         let series = AXDataSeriesDescriptor(
             name: "", isContinuous: false,
-            dataPoints: self.effectiveNodes.map {
+            dataPoints: shownNodes.map {
                 AXDataPoint(x: $0.label, y: Double(degree[$0.id] ?? 0))
             }
         )
