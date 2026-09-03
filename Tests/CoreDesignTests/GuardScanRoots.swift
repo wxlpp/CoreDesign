@@ -208,7 +208,28 @@ nonisolated enum GuardScanRoots {
     /// （更精确的做法是 `swift package describe --type json`，但那会给测试引入
     /// 子进程依赖——本仓的守卫至今没有先例，故不引。）
     static func declaredTargets(sourceLocation: SourceLocation = #_sourceLocation) throws -> [DeclaredTarget] {
-        let text = try String(contentsOf: Self.packageManifestURL, encoding: .utf8)
+        Self.declaredTargets(
+            manifestText: try String(contentsOf: Self.packageManifestURL, encoding: .utf8),
+            sourceLocation: sourceLocation
+        )
+    }
+
+    /// 合成输入入口——`GuardScanRootsGuard.manifestParserHandlesAwkwardShapes` 用它证伪
+    /// 三种畸形写法，不碰磁盘。
+    ///
+    /// ⚠️ **括号深度是承重的**（PR #265 第 3 轮终审 S-d）：首版靠「下一个 `.target(` 起始行」
+    /// 隐式关块 + 行首前缀匹配，三种真实存在的写法会把 `resources:` 记到**错的 target** 上：
+    /// ① `.target(name: "X", resources: [...])` 写成一行 ⇒ `resources:` 不在行首 ⇒ 漏记；
+    /// ② `dependencies:` 数组里嵌套的 `.target(name: "CoreDesign")`（地道 SwiftPM 写法）
+    ///    被当成一个**新块**：它提前 flush 外层块、偷走外层还没读到的 `resources:`，
+    ///    并注入一个幽灵 library target；
+    /// ③ `targets:` 数组闭合之后出现的 `resources:` 会被记到最后一个块上。
+    /// 三种都是 fail-closed（判红，不会假绿），但诊断会把读者指向一个不存在的 target
+    /// ——「守卫红了却指错地方」与守卫没红同样浪费一次排查。
+    /// ⇒ 用括号深度界定块的起止：块内的 `.target(` 不再开新块，块外的 `resources:` 不再归属。
+    static func declaredTargets(
+        manifestText text: String, sourceLocation: SourceLocation = #_sourceLocation
+    ) -> [DeclaredTarget] {
         /// 每种 target 构造器的前缀，与「它算不算 library target」。
         let starters: [(prefix: String, isLibrary: Bool)] = [
             (".target(", true),
@@ -217,6 +238,7 @@ nonisolated enum GuardScanRoots {
         ]
         var out: [DeclaredTarget] = []
         var open = false
+        var depth = 0
         var openedAtLine = 0
         var currentName: String?
         var currentIsLibrary = false
@@ -236,6 +258,7 @@ nonisolated enum GuardScanRoots {
                 """, sourceLocation: sourceLocation)
             }
             open = false
+            depth = 0
             currentName = nil
             currentIsLibrary = false
             currentHasResources = false
@@ -244,25 +267,66 @@ nonisolated enum GuardScanRoots {
 
         for (index, raw) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
             let line = raw.trimmingCharacters(in: .whitespaces)
+            // 整行注释直接跳过；行尾注释在 `code(of:)` 里剥掉（**按引号状态剥**，
+            // 否则 `"https://…"` 里的 `//` 会把半行代码连同它的右括号一起吃掉，
+            // 括号深度就再也回不到 0）。
             if line.hasPrefix("//") { continue }
-            if let starter = starters.first(where: { line.hasPrefix($0.prefix) }) {
-                flush()
+            let code = Self.code(of: line)
+            // ⚠️ **块内不再开新块**：`dependencies: [.target(name: "CoreDesign")]` 是地道写法。
+            if !open, let starter = starters.first(where: { code.hasPrefix($0.prefix) }) {
                 open = true
                 openedAtLine = index + 1
                 currentIsLibrary = starter.isLibrary
-                if let name = Self.firstQuoted(in: line) { currentName = name } else { awaitingName = true }
+                if let name = Self.firstQuoted(in: code) { currentName = name } else { awaitingName = true }
+            } else if !open {
                 continue
-            }
-            guard open else { continue }
-            if awaitingName, line.hasPrefix("name:") {
-                currentName = Self.firstQuoted(in: line)
+            } else if awaitingName, code.hasPrefix("name:") {
+                currentName = Self.firstQuoted(in: code)
                 awaitingName = false
-                continue
             }
-            if line.hasPrefix("resources:") { currentHasResources = true }
+            // ⚠️ 一行写完的 `.target(name: "X", resources: [...])` 也要认 ⇒ 不能要求行首。
+            if code.contains("resources:") { currentHasResources = true }
+            depth += Self.parenDelta(of: code)
+            if depth <= 0 { flush() }
         }
         flush()
         return out
+    }
+
+    /// 剥掉行尾 `//` 注释——**按引号状态**，字符串字面量里的 `//` 不算注释。
+    static func code(of line: String) -> String {
+        var inString = false
+        var escaped = false
+        var previous: Character?
+        var out = ""
+        for character in line {
+            if escaped { escaped = false; out.append(character); previous = character; continue }
+            if character == "\\", inString { escaped = true; out.append(character); previous = character; continue }
+            if character == "\"" { inString.toggle(); out.append(character); previous = character; continue }
+            if character == "/", previous == "/", !inString {
+                out.removeLast()
+                return out.trimmingCharacters(in: .whitespaces)
+            }
+            out.append(character)
+            previous = character
+        }
+        return out.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// 一行代码的括号净增量（字符串字面量里的括号不计）。
+    static func parenDelta(of code: String) -> Int {
+        var inString = false
+        var escaped = false
+        var delta = 0
+        for character in code {
+            if escaped { escaped = false; continue }
+            if character == "\\", inString { escaped = true; continue }
+            if character == "\"" { inString.toggle(); continue }
+            guard !inString else { continue }
+            if character == "(" { delta += 1 }
+            if character == ")" { delta -= 1 }
+        }
+        return delta
     }
 
     /// 解析 `Package.swift` 里声明的 **library** target 名（不含 `.testTarget` 等）。
@@ -293,6 +357,72 @@ struct GuardScanRootsGuard {
             #expect(!GuardScanRoots.swiftFiles(in: root.url).isEmpty,
                     "\(root.target) 的根 \(root.url.path) 下一个 .swift 都没有 —— 扫描器会在空输入上恒绿")
         }
+    }
+
+    @Test("manifest 解析器：三种畸形写法不再把 `resources:` 归给错的 target（终审 S-d）")
+    func manifestParserHandlesAwkwardShapes() {
+        // ① 一行写完的 target ⇒ `resources:` 不在行首，首版漏记。
+        let inline = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(name: "Alpha", resources: [.process("Resources")]),
+            .target(name: "Beta"),
+        ]
+        """)
+        #expect(inline.map(\.name) == ["Alpha", "Beta"])
+        #expect(inline.first(where: { $0.name == "Alpha" })?.hasResources == true,
+                "一行写完的 `resources:` 漏记 —— `.module` 归属表会说 Alpha 没有资源包")
+        #expect(inline.first(where: { $0.name == "Beta" })?.hasResources == false)
+
+        // ② `dependencies:` 里嵌套的 `.target(name:)`：首版把它当新块 ⇒ 提前 flush 外层、
+        //    偷走外层的 `resources:`、并注入一个幽灵 library target `CoreDesign`。
+        let nested = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(
+                name: "Effects",
+                dependencies: [
+                    .target(name: "CoreDesign"),
+                ],
+                resources: [.process("Resources")]
+            ),
+        ]
+        """)
+        #expect(nested.map(\.name) == ["Effects"],
+                "嵌套的 `.target(name:)` 被当成了一个独立 target —— 幽灵条目会顶动根列表的双向差集")
+        #expect(nested.first?.hasResources == true,
+                "外层 target 的 `resources:` 被嵌套块偷走了")
+
+        // ③ `targets:` 数组闭合之后的 `resources:` 不再归给最后一个块。
+        let trailing = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(name: "Gamma"),
+        ]
+        // 下面这行不属于任何 target 块
+        resources: [.process("Resources")]
+        """)
+        #expect(trailing.map(\.name) == ["Gamma"])
+        #expect(trailing.first?.hasResources == false,
+                "块外的 `resources:` 被记到了最后一个 target 上")
+
+        // ④ 字符串里的 `//` 不能被当成注释剥掉——剥掉会连右括号一起吃，块永远关不上。
+        let url = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(
+                name: "Delta",
+                dependencies: ["https://example.com/not-a-comment"]
+            ),
+            .target(name: "Epsilon"),
+        ]
+        """)
+        #expect(url.map(\.name) == ["Delta", "Epsilon"])
+
+        // ⑤ 种类判别不变：`.testTarget` 不是 library target。
+        let kinds = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(name: "Lib"),
+            .testTarget(name: "LibTests", dependencies: ["Lib"]),
+        ]
+        """)
+        #expect(kinds.filter(\.isLibrary).map(\.name) == ["Lib"])
     }
 
     @Test("根列表与 Package.swift 的 library target 双向吻合 —— 新增 target 忘了扩根即红")
