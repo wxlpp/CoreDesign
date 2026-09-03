@@ -353,11 +353,17 @@ struct AccessibilityStringLiteralGuard {
         // 无字面量的调用两种情形都干净。
         #expect(Self.classify(span: "    .accessibilityLabel(self.title)", ownsBundle: false) == .clean)
 
-        // 现状核对：只有主 target 拥有资源包。
+        // 现状核对：主 target 拥有资源包（本守卫的 `.clean` 放行条依赖它）。
+        //
+        // ⚠️ **不再断言「新 target 没有资源包」**（PR #265 终审 I-4）：那条 `#expect(!…)`
+        // 与 `ChromeTextLiteralGuard` 开出的处方（「给该 target 声明它自己的 String Catalog」）
+        // 直接矛盾——照守卫说的做，这里就红。`.module` 归属的权威判据只有一处：
+        // `GuardScanRootsGuard.moduleBundleOwnership`（manifest 的 `resources:` 与
+        // `Resources/` 目录同进同退）。本守卫只消费 `ownsResourceBundle` 的返回值，
+        // **两种取值下的分类行为都已在上面钉死**，故新 target 何时拿到资源包与本条无关。
         #expect(GuardScanRoots.ownsResourceBundle("CoreDesign"))
-        for target in GuardScanRoots.newTargetNames {
-            #expect(!GuardScanRoots.ownsResourceBundle(target),
-                    "\(target) 有了资源包 —— 请复核本守卫的按 target 放行逻辑是否仍然正确")
+        for target in GuardScanRoots.newTargetNames where GuardScanRoots.ownsResourceBundle(target) {
+            print("【a11y】\(target) 现在拥有自己的资源包 —— `bundle: .module` 在它里面开始有意义了。")
         }
     }
 

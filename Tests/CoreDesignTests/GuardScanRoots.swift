@@ -147,7 +147,7 @@ nonisolated enum GuardScanRoots {
 
     // MARK: - 每个 target 各自的 `.module`（`#246` AC「按 target 分辨各自的 .module」）
 
-    /// 该 target 是否拥有**自己的** `Bundle.module`（即 `Package.swift` 给它声明了资源）。
+    /// 该 target 是否拥有**自己的** `Bundle.module`（即 `Package.swift` 给它声明了 `resources:`）。
     ///
     /// ⚠️ **这是 a11y 守卫多根化后最容易假绿的一处**：`bundle: .module` 在
     /// `Sources/CoreDesignEffects/` 里解析到的是 **CoreDesignEffects 自己的** bundle，
@@ -156,42 +156,118 @@ nonisolated enum GuardScanRoots {
     /// ⇒ 在这两个 target 里写 `bundle: .module` 既不能编译、也不会去到任何 catalog，
     /// 但**旧的文本判据只看 span 里有没有 `bundle: .module` 这串字符**，
     /// 于是它会被当成「已本地化」放行。本函数把「谁真的有 `.module`」变成可查的事实。
+    ///
+    /// ⚠️ **判据是 `Package.swift` 的 `resources:`，不是 `Sources/<target>/Resources/` 目录**
+    /// （PR #265 终审 I-4）：首版只 `fileExists` 查目录，与本行文档逐字不符——而
+    /// **合成 `Bundle.module` 的是 manifest 的 `resources:` 声明，不是目录**。
+    /// 光建目录不声明，SwiftPM 只会报 unhandled resource 警告、`.module` 依然不存在；
+    /// 那时旧实现返回 `true`，等于把「假绿」从 a11y 守卫搬进了本函数。
+    /// 目录与声明是否同步，由 `GuardScanRootsGuard.moduleBundleOwnership` 单独钉住。
     static func ownsResourceBundle(_ target: String) -> Bool {
-        var isDirectory: ObjCBool = false
-        let exists = FileManager.default.fileExists(
-            atPath: Self.sourcesURL(of: target).appendingPathComponent("Resources").path,
-            isDirectory: &isDirectory
-        )
-        return exists && isDirectory.boolValue
+        Self.resourceOwningTargets().contains(target)
+    }
+
+    /// `Package.swift` 里带 `resources:` 声明的 target 名集合。
+    ///
+    /// ⚠️ **有意不缓存**：`GuardScanRoots` 是 `nonisolated enum`（本 package 的
+    /// `.defaultIsolation(MainActor.self)` 对它不生效），可变静态量在 Swift 6 严格并发下
+    /// 直接判错；而 manifest 只有 ~90 行、解析一次以 µs 计，缓存不值得为它开一个
+    /// 并发安全的口子。⚠️ 解析失败时返回空集并 `Issue.record`——**空集不能被当成
+    /// 「没人有资源包」静默消费**，故失败必须以可读的测试失败现形。
+    static func resourceOwningTargets(sourceLocation: SourceLocation = #_sourceLocation) -> Set<String> {
+        guard let targets = try? Self.declaredTargets(sourceLocation: sourceLocation) else {
+            Issue.record("读不到 / 解析不了 Package.swift —— `.module` 归属无法判定", sourceLocation: sourceLocation)
+            return []
+        }
+        return Set(targets.filter(\.hasResources).map(\.name))
     }
 
     // MARK: - `Package.swift` 的 library target 清单
 
     static var packageManifestURL: URL { Self.repoRoot.appendingPathComponent("Package.swift") }
 
-    /// 解析 `Package.swift` 里声明的 **library** target 名（不含 `.testTarget`）。
+    /// `Package.swift` 里解析出来的一个 target 声明。
+    nonisolated struct DeclaredTarget: Hashable, Sendable {
+        let name: String
+        /// 是否由 `.target(` 声明。`.testTarget` / `.executableTarget` / `.macro` /
+        /// `.binaryTarget` / `.plugin` / `.systemLibrary` 都**不是** library target。
+        let isLibrary: Bool
+        /// 该 target 块里写了 `resources:` —— `Bundle.module` 只对它们存在。
+        let hasResources: Bool
+    }
+
+    /// 解析 `Package.swift` 里声明的**全部** target（含 name / 种类 / 有无 `resources:`）。
     ///
     /// ⚠️ 逐行状态机而非正则：manifest 里 `.target(` 与 `name:` 通常分行写。
     /// 注释行整行跳过——注释里提到 `.testTarget` 的地方不少，按子串匹配会误判。
-    static func declaredLibraryTargets() throws -> [String] {
+    ///
+    /// ⚠️ **解析不出 name 的块会 `Issue.record`，不静默丢弃**（PR #265 终审 S-4）：
+    /// `.target(name: shadersName,` 这类非字面量 name 会让 `firstQuoted` 返回 `nil`，
+    /// 首版据此把整个块丢掉 ⇒ 该 target 悄悄不进 `targetNames` 的双向差集、
+    /// 也不进 `.module` 归属表，而两者都是 fail-open 方向的漏。
+    /// （更精确的做法是 `swift package describe --type json`，但那会给测试引入
+    /// 子进程依赖——本仓的守卫至今没有先例，故不引。）
+    static func declaredTargets(sourceLocation: SourceLocation = #_sourceLocation) throws -> [DeclaredTarget] {
         let text = try String(contentsOf: Self.packageManifestURL, encoding: .utf8)
-        var out: [String] = []
+        /// 每种 target 构造器的前缀，与「它算不算 library target」。
+        let starters: [(prefix: String, isLibrary: Bool)] = [
+            (".target(", true),
+            (".testTarget(", false), (".executableTarget(", false), (".macro(", false),
+            (".binaryTarget(", false), (".plugin(", false), (".systemLibrary(", false),
+        ]
+        var out: [DeclaredTarget] = []
+        var open = false
+        var openedAtLine = 0
+        var currentName: String?
+        var currentIsLibrary = false
+        var currentHasResources = false
         var awaitingName = false
-        for raw in text.split(separator: "\n", omittingEmptySubsequences: false) {
+
+        func flush() {
+            guard open else { return }
+            if let name = currentName {
+                out.append(.init(name: name, isLibrary: currentIsLibrary, hasResources: currentHasResources))
+            } else {
+                Issue.record("""
+                Package.swift:\(openedAtLine) 的 target 块解析不出 name（name 可能不是字符串字面量）
+                —— 静默丢弃它意味着该 target 既不进 `GuardScanRoots.targetNames` 的双向差集、
+                也不进 `.module` 归属表，两者都是 fail-open 方向的漏。
+                处置：把 name 写成字面量，或扩展本解析器。
+                """, sourceLocation: sourceLocation)
+            }
+            open = false
+            currentName = nil
+            currentIsLibrary = false
+            currentHasResources = false
+            awaitingName = false
+        }
+
+        for (index, raw) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
             let line = raw.trimmingCharacters(in: .whitespaces)
             if line.hasPrefix("//") { continue }
-            if line.hasPrefix(".testTarget(") { awaitingName = false; continue }
-            if line.hasPrefix(".target(") {
-                awaitingName = true
-                if let name = Self.firstQuoted(in: line) { out.append(name); awaitingName = false }
+            if let starter = starters.first(where: { line.hasPrefix($0.prefix) }) {
+                flush()
+                open = true
+                openedAtLine = index + 1
+                currentIsLibrary = starter.isLibrary
+                if let name = Self.firstQuoted(in: line) { currentName = name } else { awaitingName = true }
                 continue
             }
-            if awaitingName, line.hasPrefix("name:"), let name = Self.firstQuoted(in: line) {
-                out.append(name)
+            guard open else { continue }
+            if awaitingName, line.hasPrefix("name:") {
+                currentName = Self.firstQuoted(in: line)
                 awaitingName = false
+                continue
             }
+            if line.hasPrefix("resources:") { currentHasResources = true }
         }
+        flush()
         return out
+    }
+
+    /// 解析 `Package.swift` 里声明的 **library** target 名（不含 `.testTarget` 等）。
+    static func declaredLibraryTargets() throws -> [String] {
+        try Self.declaredTargets().filter(\.isLibrary).map(\.name)
     }
 
     private static func firstQuoted(in line: String) -> String? {
@@ -342,18 +418,68 @@ struct GuardScanRootsGuard {
                 != GuardScanRoots.qualifiedKey(target: "CoreDesignCharts", base: "Foo.init#flag"))
     }
 
-    @Test("`.module` 归属：只有 CoreDesign 拥有自己的资源包")
+    /// `.module` 归属的**唯一**权威判据，a11y 守卫不再自己重复断言一遍
+    /// （PR #265 终审 I-4 / P-1）。
+    ///
+    /// ⚠️ **本条不禁止新 target 拥有资源包**——首版在「新 target 有了 Resources」时
+    /// `Issue.record`，那是**硬测试失败**，尽管消息自称「只是提醒，不是禁令」。
+    /// 而 `ChromeTextLiteralGuard` 规定的补救措施逐字就是「给该 target 声明它自己的
+    /// String Catalog（`Package.swift` 的 `resources:` + `Sources/<target>/Resources/`）」
+    /// ⇒ 照守卫说的做 ⇒ 测试红。**守卫不许禁止自己开出的处方。**
+    /// ⇒ 现状只 `print`，真正的断言换成一条**不自相矛盾**的一致性判据：
+    /// manifest 的 `resources:` 与 `Sources/<target>/Resources/` 目录必须同进同退。
+    /// 只建目录不声明 ⇒ SwiftPM 只报 unhandled resource 警告、`.module` 根本不存在，
+    /// 而写 `bundle: .module` 的文本判据会把它当「已本地化」放行（正是要防的假绿）；
+    /// 只声明不建目录 ⇒ SwiftPM 直接构建失败。
+    @Test("`.module` 归属：manifest 的 `resources:` 与 `Resources/` 目录同进同退")
     func moduleBundleOwnership() {
         #expect(GuardScanRoots.ownsResourceBundle("CoreDesign"),
-                "CoreDesign 的 Sources/CoreDesign/Resources 不见了 —— a11y 守卫的 `bundle: .module` 放行条失去依据")
-        for target in GuardScanRoots.newTargetNames where GuardScanRoots.ownsResourceBundle(target) {
-            // 不是「不许有」，是「有了就必须同轮告诉 a11y 守卫」：该 target 一旦有了自己的
-            // String Catalog，`bundle: .module` 在它里面才开始有意义。
-            Issue.record("""
-            \(target) 现在有了 Sources/\(target)/Resources —— 若它真的带 String Catalog，
-            请确认 `Package.swift` 也给它声明了 `resources:`，并复核
-            `AccessibilityStringLiteralGuard` 的按 target 放行逻辑（本条只是提醒，不是禁令）。
+                "Package.swift 里 CoreDesign 的 `resources:` 声明不见了 —— a11y 守卫的 `bundle: .module` 放行条失去依据")
+
+        for target in GuardScanRoots.targetNames {
+            let declared = GuardScanRoots.ownsResourceBundle(target)
+            var isDirectory: ObjCBool = false
+            let dirExists = FileManager.default.fileExists(
+                atPath: GuardScanRoots.sourcesURL(of: target).appendingPathComponent("Resources").path,
+                isDirectory: &isDirectory
+            ) && isDirectory.boolValue
+            #expect(declared == dirExists, """
+            \(target)：Package.swift 声明了 `resources:`=\(declared)，而
+            `Sources/\(target)/Resources/` 目录存在=\(dirExists) —— 两者必须一致：
+            · 有目录没声明 ⇒ SwiftPM 只报 unhandled resource 警告、**不合成 `Bundle.module`**，
+              但写 `bundle: .module` 的文本判据会把它当「已本地化」放行（假绿）；
+            · 有声明没目录 ⇒ SwiftPM 构建直接失败。
+            处置：两样一起加，或两样一起删。
             """)
+            if declared, target != GuardScanRoots.primaryTargetName {
+                // ⚠️ 提醒，不是禁令（见本函数文档）：新 target 有了自己的 String Catalog 之后，
+                // `bundle: .module` 在它里面才开始有意义，a11y 守卫的按 target 放行逻辑值得复核。
+                print("【.module 归属】\(target) 现在拥有自己的资源包 —— 请复核 `AccessibilityStringLiteralGuard` 的按 target 放行逻辑。")
+            }
         }
+    }
+
+    // MARK: - manifest 解析器自身的变红自证（PR #265 终审 S-4）
+
+    @Test("manifest 解析器：现状快照 + 非字面量 name 不被静默丢弃")
+    func manifestParserSnapshot() throws {
+        let targets = try GuardScanRoots.declaredTargets()
+        let libraries = Set(targets.filter(\.isLibrary).map(\.name))
+        #expect(libraries == Set(GuardScanRoots.targetNames),
+                "manifest 解析出的 library target \(libraries.sorted()) 与根列表不符")
+        // 三个 test target 必须被认出来、且**不算** library。
+        let nonLibraries = Set(targets.filter { !$0.isLibrary }.map(\.name))
+        #expect(nonLibraries.contains("CoreDesignTests"), "`.testTarget(` 没被解析出来 —— 解析器可能失效")
+        #expect(!libraries.contains("CoreDesignTests"), "test target 被误判成 library target")
+        // `resources:` 归属：解析器**真的**从 manifest 里读出了 `resources:`。
+        //
+        // ⚠️ **不写成 `== ["CoreDesign"]`**：那会把「新 target 声明自己的 String Catalog」
+        // 判红，而那正是 `ChromeTextLiteralGuard` 开出的处方——守卫不许禁止自己开出的处方
+        // （终审 I-4 的同一条病，别在这里复发一次）。承重的只有「主 target 有」这半句：
+        // a11y 守卫的 `.clean` 放行条依赖它。
+        #expect(GuardScanRoots.resourceOwningTargets().contains("CoreDesign"),
+                "解析器没从 Package.swift 读出 CoreDesign 的 `resources:` —— `.module` 归属判据失效")
+        #expect(!targets.filter(\.hasResources).isEmpty,
+                "解析器一条 `resources:` 都没读出来 —— 「谁有资源包」会退化成恒 false")
     }
 }
