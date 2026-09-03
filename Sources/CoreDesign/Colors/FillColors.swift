@@ -90,4 +90,17 @@ public extension Color {
     /// > 亮色下近白）。承 `InteractionColors` accent 衍生态「对系统色调制」的先例，token 可动——
     /// > 后续若视觉评审要微调，改这里的掺色因子即可，`Skeleton` 组件复用本 token、不在组件内绕开。
     static var skeletonHighlight: Color { Color.skeletonBase.mix(with: .white, by: 0.5) }
+
+    /// 扫光高光色（`.shine()` 这类掠过内容的高光带）。Specular sweep highlight.
+    ///
+    /// **固定为白**，与 `contentOnAccent` 族同理——扫光是**光源反射**，
+    /// 它在明暗两端都应当比底下的内容**更亮**，而不是"跟随外观取反"。
+    ///
+    /// > Note（承 Issue #162 / 评审 #176 的裁决）：`skeletonHighlight` 当初正是因为
+    /// > 用了**同色叠加**（`.opacity(0.35)`）而被判「扫光读作暗带而非高光」，改为向
+    /// > `.white` 掺色。`.shine()` 的初版默认值 `Color.contentPrimary.opacity(0.35)`
+    /// > 重犯了同一形态——`contentPrimary` 是 `.label`，浅色外观下近黑 ⇒ 浅色下扫过去
+    /// > 的是一道 35% 的**黑带**。`label` 保证的是「与背景对比」，**不是**「比背景亮」。
+    /// > ⇒ 本 token 建立，`.shine()` 的默认值改指它，不在组件内绕开。
+    static var specularHighlight: Color { Color.white.opacity(0.45) }
 }

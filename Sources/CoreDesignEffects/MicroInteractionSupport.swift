@@ -94,8 +94,10 @@ struct TriggerRelay<T: Equatable, Core: ViewModifier>: ViewModifier {
 //    触发点是 `keyframeAnimator` 的 `PlaceholderContentView<XModifier<T>>` 依赖 `T`
 //    ——**与 trigger 本身是不是 Sendable 无关**。见 `TriggerRelay` 的文档。
 //
-// ⚠️ 这两条与 `CoreDesignShaders` 踩到的是同一类问题（`Bundle.module` 也是 MainActor
-// 隔离的）——本包的 `defaultIsolation` 让"闭包里随手读 self"变成一个反复出现的坑。
+// ⚠️ 这两条是**同一类问题**：本包的 `defaultIsolation` 让"闭包里随手读 self"变成一个
+// 反复出现的坑。⚠️ 初版这里写的是「与 `CoreDesignShaders` 踩到的是同一类问题」——
+// **那是一句过去时陈述，而当时 `CoreDesignShaders` 这个 target 还不存在**
+//（它在另一个 epic 里、尚未合入）。改为不指名的同族描述。
 
 // MARK: - Reduce Motion 降级
 
@@ -107,6 +109,19 @@ extension View {
     /// 直接抹掉会让开启该偏好的用户收不到反馈。⇒ 保留"有反馈"，去掉"有运动"（FR-11）。
     ///
     /// ⚠️ 本仓的降级基线由此统一。各效果**不要**各自实现降级路径——那样必然漂移。
+    ///
+    /// ## 两种被批准的降级形态（终审 I-2：初版同一个 commit 里有四种走法）
+    ///
+    /// - **形态 1（默认）**：调用本函数，把运动换成一次透明度脉冲。
+    ///   `Shake` / `Jump` / `Spin`（逐表达式门控 + 链尾调用）与
+    ///   `Spray` / `Shine` / `Ping`（早退整层装饰 + 调用）都走这条。
+    /// - **形态 2（本身即淡入淡出的效果）**：保留淡入淡出、把位移换成**静止位移**，
+    ///   **不再叠脉冲**——叠了就是两次反馈。目前只有 `Rise`（"+1 上浮"）走这条。
+    ///   走形态 2 的文件**必须**带一行 `// RM-FORM-2:` 标记说明理由，
+    ///   `MicroInteractionReduceMotionGuard` 按此放行。
+    ///
+    /// ⚠️ **不写第三种**。初版的第四种走法（部分门控、无降级）已按 I-1 修掉——
+    /// 那不是一种形态，是漏。
     @ViewBuilder
     func reduceMotionFallback(active: Bool, trigger: Int) -> some View {
         if active {

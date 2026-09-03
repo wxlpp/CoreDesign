@@ -65,11 +65,16 @@ public extension View {
 
     /// `trigger` 变化时，让一道高光扫过本视图（遮罩到内容形状）。
     ///
-    /// - Parameter highlight: 高光色。默认 `Color.contentPrimary` 的低透明度
-    ///   ——⚠️ 不写死白色：深浅外观下"更亮"的方向相反，语义 token 会自动适配。
+    /// - Parameter highlight: 高光色，默认 `Color.specularHighlight`（第 3 层 token）。
+    ///
+    ///   ⚠️ **初版默认值是 `Color.contentPrimary.opacity(0.35)`，理由还写反了**
+    ///   （「深浅外观下更亮的方向相反，语义 token 会自动适配」）：`contentPrimary`
+    ///   就是 `.label`，浅色外观下近黑 ⇒ 浅色下扫过去的是一道 **35% 的黑带**。
+    ///   `label` 保证的是「与背景**对比**」，**不是**「比背景**亮**」。
+    ///   本仓 #162 / 评审 #176 已就同一件事出过裁决（见 `Color.specularHighlight`）。
     func shine(
         trigger: some Equatable,
-        highlight: Color = .contentPrimary.opacity(0.35)
+        highlight: Color = .specularHighlight
     ) -> some View {
         self.modifier(
             TriggerRelay(trigger: trigger) { ShineCore(fire: $0, highlight: highlight) }

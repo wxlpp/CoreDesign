@@ -29,6 +29,9 @@ private struct RiseCore: ViewModifier {
                     .foregroundStyle(color)
                     .keyframeAnimator(initialValue: RiseState(), trigger: self.fire) { view, state in
                         view
+                            // RM-FORM-2: 本效果的反馈**本身**就是"淡入 → 上浮 → 淡出"，
+                            // 去掉上浮后仍留有完整的淡入淡出，再叠一次透明度脉冲会变成
+                            // 两次反馈。⇒ 走形态 2：静止位移 + 保留原有的淡入淡出。
                             .offset(y: isReduced ? -reach * 0.5 : state.lift)
                             .opacity(state.opacity)
                     } keyframes: { _ in
