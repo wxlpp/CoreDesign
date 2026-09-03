@@ -55,7 +55,9 @@ public struct NetworkGraph<Node: GraphNode>: View {
                 Text(self.nodesTruncated
                      ? .chart("Showing the first \(self.effectiveNodes.count) nodes")
                      : .chart("Showing the first \(self.effectiveEdges.count) connections"))
-                    .font(.caption2)
+                    // ⚠️ 同 `ChartEmptyState`：运行期 chrome 走 `.coreFont(_:)`（PR #263 Copilot 第 1 轮）。
+                    // 评论只点了空态那一处，但这条截断横幅是**同一类的第二处**，一并改。
+                    .coreFont(.caption2)
                     .foregroundStyle(Color.contentTertiary)
             }
         } else {

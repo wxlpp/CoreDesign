@@ -89,7 +89,15 @@ public struct RingChart<Value: ChartValue>: View {
                         Circle()
                             .trim(from: 0, to: progress)
                             .stroke(
-                                self.tint.opacity(1.0 - Double(index) * 0.18),
+                                // ⚠️ 透明度夹一道 0.1 地板（PR #263 Copilot 第 1 轮）。
+                                // 先说事实：`recommendedRingLimit == 6` ⇒ `index ≤ 5`
+                                // ⇒ 本式最小为 `1.0 - 5 × 0.18 = 0.1`，**现状下取不到负值**
+                                // ——评论说的「环数多了变负」在截断存在时不可达。
+                                // 仍加地板是因为上限是一个 public 计算属性、改它只需一行，
+                                // 而 7 环起本式就 ≤ -0.08（`opacity` 对负值无定义）。
+                                // 地板取 0.1 而不是 0：夹到 0 同样是「看不见」，与「最内环仍可辨」
+                                // 的层级意图相反。最外层（index == 0）仍为 1.0，视觉层级不变。
+                                self.tint.opacity(max(1.0 - Double(index) * 0.18, 0.1)),
                                 style: StrokeStyle(lineWidth: width, lineCap: .round)
                             )
                             .rotationEffect(.degrees(-90))
@@ -120,6 +128,12 @@ extension RingChart: AXChartDescriptorRepresentable {
         let axis = AXNumericDataAxisDescriptor(
             title: chartAXString("Completion"),
             range: safeRange(0, denominator), gridlinePositions: []
+        // ⚠️ **scale 是 `100 / goal`，不是 `1 / goal`**（PR #263 Copilot 第 1 轮判它
+        // 「`.percent` 自带 ×100 ⇒ 会放大 100 倍」——**实测为假**）。真相是
+        // `.scale(_:)` **替换**掉 `Percent` 那个隐式的 ×100，而不是与它相乘：
+        // `(2.0).formatted(.percent) == "200%"`，但 `(2.0).formatted(.percent.scale(1)) == "2%"`。
+        // ⇒ 现式把 `goal` 读成 `100%`；改成 `1 / goal` 反而会读成 `1%`。
+        // 该语义由 `AccessibilityDescriptorTests.ringAxisReadsPercent` 钉住。
         ) { "\($0.formatted(.percent.scale(100 / denominator)))" }
         let series = AXDataSeriesDescriptor(
             name: "", isContinuous: false,

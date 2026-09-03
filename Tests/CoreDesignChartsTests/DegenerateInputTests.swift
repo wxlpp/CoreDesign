@@ -436,6 +436,24 @@ struct AccessibilityDescriptorTests {
         #expect(d.title?.isEmpty == false)
     }
 
+    /// ⚠️ **钉住 `.percent` 的 scale 语义**（PR #263 Copilot 第 1 轮建议把
+    /// `.scale(100 / goal)` 改成 `.scale(1 / goal)`，理由是「`.percent` 自带 ×100」）。
+    /// 实测：`.scale(_:)` **替换**掉 `Percent` 的隐式 ×100，不与它相乘——
+    /// `(2.0).formatted(.percent) == "200%"` 而 `(2.0).formatted(.percent.scale(1)) == "2%"`。
+    /// ⇒ 现式是对的，改成 `1 / goal` 会把满环读成 `1%`。此前这条读数**零覆盖**。
+    /// ⚠️ 不比字面量（百分号位置与分隔符随 locale 变），而是与**另一条路径**对齐：
+    /// 先手工归一化、再走裸 `.percent`。
+    @Test("RingChart：数值轴把 goal 读成 100%（既不是 1% 也不是 10000%）")
+    func ringAxisReadsPercent() throws {
+        let goal = 500.0
+        let d = RingChart(points([420]), goal: goal).makeChartDescriptor()
+        let describe = try #require(d.yAxis as? AXNumericDataAxisDescriptor)
+            .valueDescriptionProvider
+        #expect(describe(goal) == (1.0).formatted(.percent))
+        #expect(describe(goal / 2) == (0.5).formatted(.percent))
+        #expect(describe(0) == (0.0).formatted(.percent))
+    }
+
     @Test("ActivityHeatmap：每天一个数据点")
     func heatmap() {
         var cal = Calendar(identifier: .gregorian)

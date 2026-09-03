@@ -174,7 +174,10 @@ struct ChartEmptyState: View {
 
     var body: some View {
         Text(self.message)
-            .font(.footnote)
+            // ⚠️ 走 `.coreFont(_:)` 而不是原生 `.font(_:)`（PR #263 Copilot 第 1 轮）：
+            // 空态是组件**运行期 chrome**（不是 preview），而全库文字入口统一在
+            // `CoreTypography.Token` 上。两者今天取值相同，但 token 才是**唯一改点**。
+            .coreFont(.footnote)
             .foregroundStyle(Color.contentTertiary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityLabel(Text(self.message))
