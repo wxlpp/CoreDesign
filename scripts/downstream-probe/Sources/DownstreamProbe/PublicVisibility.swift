@@ -1,4 +1,5 @@
 import CoreDesign
+import CoreDesignEffects
 import Foundation
 import SwiftUI
 
@@ -335,4 +336,42 @@ func consumeProgressIndicatorLocalizedText() -> some View {
 @MainActor
 func consumeProgressIndicatorVerbatimText(_ status: String) -> some View {
     ProgressIndicator(text: status)
+}
+
+// MARK: - CoreDesignEffects：NFR-7 的两个可注入能耗环境键（Issue #252）
+//
+// ⚠️⚠️ **本节是那条跨 epic 契约的唯一跨模块证明。**
+// `@Entry` 宏展开时**默认不继承 `public`**，而库内断言证不了这一条——internal
+// 在同模块内一样能过。`shipswift-shaders` 的 B-2（17 个 `colorEffect` 背景）要
+// `import CoreDesignEffects` 复用这两个键；一旦某天有人把成员上的 `public` 去掉，
+// 库自身的 `swift build` / `swift test` **全绿**，只有这里会红：
+// `error: 'effectsPowerMode' is inaccessible due to 'internal' protection level`。
+//
+// ⚠️ 写侧与读侧都要覆盖：只证得了"写得进去"而读不出来，键一样是断的。
+// ⚠️ 这些函数必须 `@MainActor`——`EnvironmentValues` 的这两个访问器落在
+// `CoreDesignEffects` 的 `defaultIsolation(MainActor.self)` 上（与本文件其余
+// View / modifier 同类，见文件头的分工说明）。
+
+@MainActor
+func injectEffectsEnergyEnvironment() -> some View {
+    Text("content")
+        .environment(\.effectsPowerMode, .lowPower)
+        .environment(\.effectsScenePhase, .background)
+}
+
+@MainActor
+func readEffectsEnergyEnvironment(_ values: EnvironmentValues) -> (EffectsPowerMode?, ScenePhase?) {
+    (values.effectsPowerMode, values.effectsScenePhase)
+}
+
+// MARK: - CoreDesignEffects：#252 的四个 API 单位
+
+@MainActor
+func consumeCelebrationAndProcessingEffects() -> some View {
+    VStack {
+        ScanningOverlay { Text("scanning") }
+        GlowSweep { Text("glow") }
+        LightSweep { Text("light") }
+    }
+    .confetti(trigger: 1)
 }

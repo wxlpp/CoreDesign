@@ -1,4 +1,5 @@
 import CoreDesignEffects
+import SwiftUI
 
 // `CoreDesignEffects` 的 nonisolated 消费面（#247 建结构）。
 //
@@ -28,4 +29,25 @@ import CoreDesignEffects
 
 nonisolated func readEffectsModuleName() -> String {
     CoreDesignEffects.moduleName
+}
+
+// MARK: - NFR-7 的能耗值类型（Issue #252）
+//
+// ⚠️ 这三个类型走**本文件**而不是 `PublicVisibility.swift`，按文件头的分流表：
+// 它们是**值类型 / 配置类型**——`shipswift-shaders` 的 17 个 `colorEffect` 会在
+// 渲染参数准备阶段用它们，而那段代码不一定跑在 `MainActor` 上。
+// 若哪天有人把 `EffectsEnergyState` 上的 `nonisolated` 拿掉，本函数当场编译红
+// （`main actor-isolated ... can not be referenced from a nonisolated context`）。
+
+nonisolated func resolveEffectsRenderPolicy() -> EffectsRenderPolicy {
+    EffectsEnergyState.resolve(
+        injectedScenePhase: nil,
+        systemScenePhase: .active,
+        injectedPowerMode: EffectsPowerMode.current
+    ).policy
+}
+
+nonisolated func readEffectsPolicyKnobs() -> (Bool, Bool, Double?, Double) {
+    let policy = EffectsRenderPolicy.reduced
+    return (policy.drawsAnything, policy.usesGlow, policy.minimumInterval, policy.particleScale)
 }

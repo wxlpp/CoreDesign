@@ -1032,6 +1032,12 @@
       "host": "View",
       "member": "shine",
       "notes": "trigger 值变化时一道高光扫过内容形状。高光色取 contentPrimary 低透明度而非写死白色；Reduce Motion 下早退到共享回退，保留反馈不做扫掠。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "View",
+      "member": "confetti",
+      "notes": "trigger 值变化时喷发一次彩纸。colors 默认空数组 ⇒ 取调用方 .tint（与 spray 共用 particleStyle），不自带彩虹色板；Reduce Motion 下不放粒子、降级为一次淡入淡出的静态庆祝层而非 no-op；burst 结束后 burstStart 置空，驱动它的 TimelineView 整层被移除；后台/非活跃经 effectsScenePhase 判定后不绘制，低电量经 effectsPowerMode 判定后降帧并减半粒子数。"
     }
   ]
 }
