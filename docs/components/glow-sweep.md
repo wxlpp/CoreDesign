@@ -5,8 +5,13 @@
 `GlowSweep { }`（`CoreDesignEffects/GlowSweep.swift`，Issue #252）。**容器视图形态**。
 
 ```swift
+import CoreDesign        // 下面示例里的 `Card` 来自 `CoreDesign`
 import CoreDesignEffects
 ```
+
+⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`CoreDesignEffects` 不会把
+`CoreDesign` 的符号带出来。只写一个，下面的示例照抄进项目**编译不过**
+（#252 PR #269 第 2 轮终审 S-b）。
 
 ## API
 

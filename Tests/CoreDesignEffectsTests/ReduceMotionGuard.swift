@@ -100,7 +100,10 @@ struct MicroInteractionReduceMotionGuard {
         "MicroInteractionSupport.swift", // 档位枚举 + TriggerRelay + 降级基线
         "Haptic.swift",                  // 只有 sensoryFeedback，无视觉运动
         // `#252` 新增。
-        "EffectsEnergy.swift",           // NFR-7 的两个可注入环境键 + 纯策略枚举，无绘制
+        // ⚠️ 两个可注入环境键**已不在本文件**：`#252` PR #269 把 `\.lowPowerModeOverride` /
+        // `\.scenePhaseOverride` 下沉到 `CoreDesign/Environment/EnergySignalEnvironment.swift`
+        //（终审 S-2）。本文件现在只剩 Effects 侧的语义档位与策略枚举。
+        "EffectsEnergy.swift",           // NFR-7 的能耗档位 + 纯策略/呈现枚举，无绘制
         // ⚠️ 下面三个是**薄封装**：`body` 只有一行 `content.overlay { ProcessingSweepDriver(...) }`，
         // 运动全部在 `ProcessingSweep.swift` 里（那份在早退名单 + 形态 2 名单上）。
         // "文件里没有运动关键字"这一条在这里**不是**逃逸位——
