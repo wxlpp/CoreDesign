@@ -150,6 +150,15 @@ func consumeSkeletonColorTokens() -> [Color] {
     [Color.skeletonBase, Color.skeletonHighlight]
 }
 
+/// ⚠️ **新增公开 token 必须在这里被消费**（PR #262 第 3 轮终审 I-2）：本文件
+/// `:154-159` 自己写着「下游对新符号**零引用**时，probe 对它们**恒绿**」。
+/// `specularHighlight` 落地时漏了这一步 ⇒ 验证清单里的「probe 通过」
+/// 对本次唯一新增的公开面**不构成任何证据**。`skeletonBase` / `skeletonHighlight`
+/// 当初是两处都补的（probe + 库内可引用性测试），本 token 补齐。
+func consumeSpecularHighlightToken() -> Color {
+    Color.specularHighlight
+}
+
 // MARK: - semi-mobile-components epic 全部新增公开面（Phase 3 / #173）
 //
 // Phase 1（002–012）10 个组件 + Phase 0 骨架屏取色 token（上面已覆盖）在各自 Issue 里
