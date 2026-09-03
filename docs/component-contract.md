@@ -1267,10 +1267,20 @@ J-1 主判据 `BoolExemptionGuard.j1NoUnexemptedBoolParameters` 用 Swift Testin
   `Tests/CoreDesignTests/ComponentRegistryGuard.swift`）设计上就把 `View` 与
   `ViewModifier` 归为同一类「组件」一并采集。
 
-⚠️⚠️ **本裁决已被 AD-4 按 target 划了作用域**（#244，见本附录末尾）：
+⚠️⚠️ ~~**本裁决已被 AD-4 按 target 划了作用域**（#244，见本附录末尾）：
 `CoreDesignEffects` / `CoreDesignShaders` 的 public 类型**不进** `component-registry.json`
-（走轻公约），`CoreDesignCharts` 照常进。读到这里就停的人会拿到一个**已被推翻**的答案
+（走轻公约），`CoreDesignCharts` 照常进。~~ 读到这里就停的人会拿到一个**已被推翻**的答案
 ——而 AD-4 存在的全部理由，正是「实现层盲区不该被读成公约层许可」。
+
+⚠️⚠️ **上面这段横幅本身已随 AD-4 第 6 轮撤回**（#246 / PR #265 终审 I-7，
+见本附录末尾《AD-4 裁决》：终稿裁定「**AD-2 原样适用**」——三个 target 全走路线 b，
+轻公约与选 a 的全部产物撤回；该裁决的《第 6 版》段落更把本横幅逐字点名为
+「三处反向指令仍活在树上」之一）。⇒ **`CoreDesignEffects` / `CoreDesignShaders` 的
+public 类型与 `CoreDesignCharts` 一样，照常进 `component-registry.json`。**
+⚠️ 这不是文字洁癖：`#246` 交付的 `ExtensionEntryPointGuard` 在 `schemaProblems(for:)`
+里**硬断言**入口点条目的 `target != GuardScanRoots.primaryTargetName`
+（即新 target 的公开入口点**必须**登记进这份文件），
+与上面那段「Effects 不进」**直接冲突**——公约说「不进」，守卫要求「必须进」。
 
 ⇒ **裁决**：登记单位是「有 public 类型的 API 表面」，不是「是不是 `ViewModifier`」。
 public 的 `ViewModifier` 类型**照常登记进 `component-registry.json`，判定法同样适用**
