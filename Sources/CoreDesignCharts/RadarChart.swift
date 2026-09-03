@@ -14,18 +14,18 @@ public struct RadarChart<Value: ChartValue>: View {
 
     private let values: [Value]
     private let tint: Color
-    private let title: LocalizedStringKey
+    private let title: LocalizedStringResource
 
     /// 轴数下限。⚠️ **少于 3 轴不成其为雷达图**（两轴退化成一条线段）。
     static var minimumAxes: Int { 3 }
 
     /// - Parameters:
     ///   - values: 各维度。`label` 作轴名、`value` 作长度。
-    ///   - title: 图表标题。⚠️ **组件自带的 chrome 文案**，走 `LocalizedStringKey`（FR-7）；
+    ///   - title: 图表标题。⚠️ **组件自带的 chrome 文案**，走 `LocalizedStringResource`（公约 §4 A 类 / #43-1）；
     ///     而 `values` 里的 `label` 是**调用方的内容**，是 `String`。
     public init(
         _ values: [Value],
-        title: LocalizedStringKey = "雷达图",
+        title: LocalizedStringResource = .chart("Radar chart"),
         tint: Color = .accent
     ) {
         self.values = values
@@ -38,10 +38,14 @@ public struct RadarChart<Value: ChartValue>: View {
 
         switch ChartDegeneracy.of(raw, minimumCount: Self.minimumAxes) {
         case .empty:
-            ChartEmptyState(message: "暂无数据")
-        case .singlePoint:
+            ChartEmptyState(message: .chart("No data"))
+        case .insufficientPoints:
             // ⚠️ 不是错误，是"轴不够"。给出可操作的提示而非空白。
-            ChartEmptyState(message: "雷达图至少需要 3 个维度")
+            ChartEmptyState(message: .chart("A radar chart needs at least 3 dimensions"))
+        case .nonFinite:
+            // ⚠️ 非有限值单列一支（终审 C-4）：继续画会让 `ClosedRange` 端点变 NaN，
+            // 那是**进程 trap**，不是画歪。
+            ChartEmptyState(message: .chart("Data contains values that are not finite"))
         default:
             self.web(normalized: raw.normalizedSafely())
         }
@@ -79,7 +83,7 @@ public struct RadarChart<Value: ChartValue>: View {
             }
         }
         .accessibilityElement()
-        .accessibilityLabel(self.title)
+        .accessibilityLabel(Text(self.title))
         .accessibilityChartDescriptor(self)
     }
 
@@ -111,18 +115,17 @@ extension RadarChart: AXChartDescriptorRepresentable {
     /// ⚠️ 走 `Accessibility` 框架的 `AXChartDescriptor`，**不需要 `import Charts`**
     /// （本 target 的硬约束之一；落地前已一次性验证，见 epic 的 A-3 checkpoint）。
     public func makeChartDescriptor() -> AXChartDescriptor {
-        let raw = self.values.map(\.value)
-        let low = raw.min() ?? 0
-        let high = raw.max() ?? 1
-
+        // ⚠️ 只取有限值定轴（终审 C-4）：`min()`/`max()` 遇 NaN 会把 NaN 传出来
+        //（NaN 的比较恒 false ⇒ 保留 seed），`NaN...NaN` 直接 trap。
+        let raw = self.values.map(\.value).filter(\.isFinite)
         let axis = AXNumericDataAxisDescriptor(
-            title: "维度",
-            range: low...(high > low ? high : low + 1),
+            title: chartAXString("Value"),
+            range: safeRange(raw.min() ?? 0, raw.max() ?? 1),
             gridlinePositions: []
         ) { "\($0.formatted())" }
 
         let category = AXCategoricalDataAxisDescriptor(
-            title: "维度",
+            title: chartAXString("Dimension"),
             categoryOrder: self.values.map(\.label)
         )
 
@@ -135,7 +138,9 @@ extension RadarChart: AXChartDescriptorRepresentable {
         )
 
         return AXChartDescriptor(
-            title: nil,
+            // ⚠️ 终审 S-5：初版四处全传 nil ⇒ VoiceOver 的音频图表没有标题。
+            // 每个图表本来就有 `self.title`，传进去成本为零。
+            title: String(localized: self.title),
             summary: nil,
             xAxis: category,
             yAxis: axis,

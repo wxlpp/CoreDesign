@@ -5,7 +5,6 @@
 //  四个图表的公共约定 / Shared conventions for the four charts.
 //
 
-import Accessibility
 import CoreDesign
 import SwiftUI
 
@@ -35,8 +34,10 @@ import SwiftUI
 /// `main actor-isolated conformance ... cannot satisfy conformance requirement
 /// for a 'Sendable' type parameter`。
 /// ⇒ **解法是给该类型标 `nonisolated`**（提到文件作用域不够——该设置作用于整个 target）。
-/// ⚠️ **下游 App 通常不设 `defaultIsolation`**，那里的普通 `struct` 天然满足 `Sendable`
-/// ⇒ 这道摩擦主要落在本包自己的 Preview / 测试类型上。
+/// ⚠️ **别以为"下游 App 不设 `defaultIsolation`，所以不受影响"**——Xcode 26 的工程模板
+/// 默认就写 `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`，而本库的部署目标正是 iOS 26+
+/// ⇒ **下游多半和这里一样**，同一道摩擦会原样出现在调用方的模型类型上。
+/// 解法相同：给该类型标 `nonisolated`。
 ///
 /// ⚠️ **为什么仍然要 `Sendable`**：图表的数据入参是**调用方在自己模型层构造的值类型**，
 /// 若被 `MainActor` 隔离，下游在后台线程准备数据时就用不了——而那正是
@@ -48,29 +49,77 @@ public protocol ChartValue: Identifiable, Sendable {
     var value: Double { get }
 }
 
+// MARK: - 另外两个数据契约
+
+// ⚠️ **AC 要求四个图表的数据入参都泛型**（终审 I-7 抓到初版只做了 2 个）：
+// `ActivityHeatmap` 与 `NetworkGraph` 曾绑死自带的具体 struct，调用方必须先把自己的
+// 模型映射一遍——正是 AC 要避开的形态。与 `ChartValue` 同理，`nonisolated` 不可省。
+
+/// 热力图的一天。
+public protocol HeatmapDay: Identifiable, Sendable {
+    /// 该格对应的日期。⚠️ 归一化到哪一天由图表按注入的 `Calendar` 决定，调用方不必对齐。
+    var date: Date { get }
+    /// 该天的计数。
+    var count: Int { get }
+}
+
+/// 网络图的一个节点。
+public protocol GraphNode: Identifiable, Sendable where ID: Hashable & Sendable {
+    /// 节点的显示名。
+    var label: String { get }
+}
+
+/// 网络图的一条边。**以节点 `ID` 相连**，不持有节点本身。
+///
+/// ⚠️ 指向不存在节点的边会被**静默忽略**（不是错误：调用方常常先删节点后删边）。
+public nonisolated struct GraphEdge<ID: Hashable & Sendable>: Sendable, Hashable {
+    public let from: ID
+    public let to: ID
+    public init(from: ID, to: ID) {
+        self.from = from
+        self.to = to
+    }
+}
+
 // MARK: - 退化输入
 
 /// 一组数据点的退化形态。**每个图表在渲染前都要过这一关。**
 enum ChartDegeneracy: Equatable {
+
     /// 数据可用。
     case usable
     /// 空数组 —— 渲染空态。
     case empty
-    /// 只有一个数据点 —— 多数图表（雷达/网络图）需要 ≥3 才有意义。
-    case singlePoint
+    /// 点数不足以构成该图表 —— 附上所需的最小点数。
+    ///
+    /// ⚠️ **原名 `.singlePoint` 名不副实**（评审 S-2）：`of([1, 2], minimumCount: 3)`
+    /// 返回的是它，但那是 **2** 个点；而 `of([5])`（默认 `minimumCount: 1`）返回的
+    /// 是 `.flat` 不是它。名字暗示的"恰好一个点"两头都不成立 ⇒ 改成按**缺口**命名。
+    case insufficientPoints(needed: Int)
     /// 所有值相等 —— 归一化会除零。
     case flat
-    /// 总和为 0 —— 占比类图表（活动环）会除零。
+    /// 总和为 0 —— 占比类图表会除零。
+    ///
+    /// ⚠️ **目前没有图表消费它**（评审 C-3 证据 3）：`RingChart` 走的是自己的
+    /// `goal` 守卫，从不调用 `ChartDegeneracy`。保留本 case 是因为
+    /// `of()` 是通用判定器，**但不得据此声称"RingChart 零总和已覆盖"**——
+    /// 那是本轮评审抓到的一处虚假信心。
     case zeroTotal
+    /// 含非有限值（`NaN` / `±∞`）—— 归一化与 `ClosedRange` 构造都会炸。
+    ///
+    /// ⚠️ **这一类是评审 C-4 实测出来的**：`ClosedRange` 拿到 `NaN` 端点会直接
+    /// **触发前置条件失败、进程 trap**——而 `NaN <= 0` 为假，普通的
+    /// `<= 0` 守卫**拦不住它**。库代码让宿主 App crash 与 FR-20 的原则冲突。
+    case nonFinite
 
-    /// ⚠️ **判定顺序有意为之**：空 > 单点 > 零总和 > 全等。
-    /// `[0]` 同时是"单点"与"零总和"，报单点更有信息量（调用方更可能是漏了数据）。
+    /// ⚠️ **判定顺序有意为之**：空 > 非有限 > 点数不足 > 零总和 > 全等。
+    /// 非有限排在很前面，因为它会让后面每一步的算术都失去意义。
     static func of(_ values: [Double], minimumCount: Int = 1) -> Self {
         guard !values.isEmpty else { return .empty }
-        guard values.count >= max(minimumCount, 2) || minimumCount <= 1 else {
-            return .singlePoint
-        }
-        if values.count < minimumCount { return .singlePoint }
+        guard values.allSatisfy({ $0.isFinite }) else { return .nonFinite }
+        // ⚠️ 这里原本还有一行 `guard count >= max(minimumCount, 2) || minimumCount <= 1`，
+        // 与下面这句**结果完全等价**（穷举 minimumCount ∈ {1,2,3} 无差异分支）⇒ 已删（评审 S-1）。
+        if values.count < minimumCount { return .insufficientPoints(needed: minimumCount) }
         let total = values.reduce(0, +)
         if total == 0 { return .zeroTotal }
         if let first = values.first, values.allSatisfy({ $0 == first }) { return .flat }
@@ -78,18 +127,53 @@ enum ChartDegeneracy: Equatable {
     }
 }
 
+// MARK: - 本地化
+
+// ⚠️ **本 target 必须有 `resources:` 才拿得到 `Bundle.module`**（评审 C-5）。
+// 初版没声明资源 ⇒ `Text(LocalizedStringKey)` 只能落到 `Bundle.main`（宿主 App）
+// ⇒ 本包**永远无法为自己的 chrome 文案提供翻译**。而初版还把中文字面量当默认值，
+// 与全库 `defaultLocalization: "en"`、`en.lproj` 为源语言的事实相反——
+// `grep -rnE "(LocalizedStringKey|LocalizedStringResource) *= *\"" Sources/CoreDesign`
+// 在既有组件上**零命中**，即本仓没有一个组件这么写过。
+
+public extension LocalizedStringResource {
+    /// 本 target 自带 chrome 文案的唯一入口（公约 §4 **A 类** ⇒ `LocalizedStringResource`）。
+    ///
+    /// ⚠️ `bundle:` 不能省——省了就回到 `Bundle.main`，等于没做本地化。
+    ///
+    /// ⚠️ **为什么是 `public`**：`Bundle.module` 是 internal，而四个图表的
+    /// `title:` 缺省值是 **public init 的默认实参**——Swift 不允许默认实参引用
+    /// internal 符号。要么把标题缺省值删掉（调用方每次都得自己传），要么把这个
+    /// 入口提为 public。选后者：缺省标题对调用方是真实便利，且这个函数本身
+    /// 对下游也有用（他们给图表传自己的本地化文案时可以走同一条 bundle 通路）。
+    static func chart(_ key: String.LocalizationValue) -> Self {
+        LocalizedStringResource(key, bundle: .atURL(Bundle.module.bundleURL))
+    }
+}
+
+/// a11y 描述符要的是 `String`，不是 `LocalizedStringResource`。
+///
+/// ⚠️ **这些字面量 `AccessibilityStringLiteralGuard` 抓不到**（评审 C-5）：该守卫
+/// (`:139`) 只认 `.accessibility*(` 前缀的调用，`AXChartDescriptor` 系列构造器
+/// 不在它的 modifier 列表里 ⇒ **即便 #246 把扫描根多 target 化，这里仍是盲区**。
+/// 「等 #246 兜底」在这一项上是失效的记账，故本 target 自己把入口收窄到这一个函数。
+func chartAXString(_ key: String.LocalizationValue) -> String {
+    String(localized: key, bundle: .module)
+}
+
 // MARK: - 空态
 
-/// 所有图表共用的空态。⚠️ 文案是**组件自带的 chrome**，走 `LocalizedStringKey`（FR-7）。
+/// 所有图表共用的空态。⚠️ 文案是**组件自带的 chrome** ⇒ 公约 §4 **A 类**
+/// ⇒ `LocalizedStringResource`（初版用 `LocalizedStringKey` + 中文字面量，两处都错）。
 struct ChartEmptyState: View {
-    let message: LocalizedStringKey
+    let message: LocalizedStringResource
 
     var body: some View {
         Text(self.message)
             .font(.footnote)
             .foregroundStyle(Color.contentTertiary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityLabel(self.message)
+            .accessibilityLabel(Text(self.message))
     }
 }
 
@@ -101,10 +185,46 @@ extension Collection where Element == Double {
     ///
     /// ⚠️ **全等时返回全 0.5 而不是除零**——雷达图轴值全相等是常见输入
     /// （所有维度同分），不是错误，不该 NaN 也不该崩。
+    /// ⚠️ **非有限输入是真实的**（评审 C-4 实测）：初版 `[1, .infinity]` 吐
+    /// `[0, nan]`、`[1, .nan, 3]` 吐 `[0, nan, 1]`，而本文件开头的硬约束 2 与
+    /// FR-19 都写着「不产生 NaN」。⇒ 非有限值**逐个夹到确定值**，且**不参与**
+    /// 跨度计算（否则一个 `∞` 会把其余所有点压成 0）。
+    ///
+    /// 保证：返回的每个元素都是有限值且落在 `[0, 1]`。
     func normalizedSafely() -> [Double] {
-        guard let low = self.min(), let high = self.max() else { return [] }
+        guard !self.isEmpty else { return [] }
+        let finite = self.filter { $0.isFinite }
+        // 全是非有限值 ⇒ 没有可用跨度，一律居中，不猜。
+        guard let low = finite.min(), let high = finite.max() else {
+            return self.map { _ in 0.5 }
+        }
         let span = high - low
-        guard span > 0 else { return self.map { _ in 0.5 } }
-        return self.map { ($0 - low) / span }
+        guard span > 0 else { return self.map { $0.isFinite ? 0.5 : Self.clampNonFinite($0) } }
+        return self.map { value in
+            guard value.isFinite else { return Self.clampNonFinite(value) }
+            return (value - low) / span
+        }
     }
+
+    /// `+∞ → 1`、`-∞ → 0`、`NaN → 0.5`。**确定性映射**，不引入随机或就近吸附。
+    private static func clampNonFinite(_ value: Double) -> Double {
+        if value == .infinity { return 1 }
+        if value == -.infinity { return 0 }
+        return 0.5          // NaN
+    }
+}
+
+// MARK: - 区间构造
+
+/// 构造一个**保证合法**的 `ClosedRange<Double>`。
+///
+/// ⚠️ **这不是防御性编程，是防 trap**（评审 C-4 实测）：`ClosedRange` 的
+/// 前置条件在端点为 `NaN` 时**直接让进程 trap**——`0...Double.nan` 拿到的是
+/// `_assertionFailure` 栈。而 `AXChartDescriptor` 的数轴要求给 range，
+/// 于是「VoiceOver 一请求描述符，宿主 App 就崩」。
+/// `NaN <= 0` 为假 ⇒ 调用点那句 `goal <= 0` 守卫**拦不住**。
+func safeRange(_ lower: Double, _ upper: Double) -> ClosedRange<Double> {
+    let low = lower.isFinite ? lower : 0
+    let high = upper.isFinite ? upper : low + 1
+    return low...(high > low ? high : low + 1)
 }

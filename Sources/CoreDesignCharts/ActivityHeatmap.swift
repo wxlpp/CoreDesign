@@ -11,26 +11,12 @@ import SwiftUI
 ///
 /// ⚠️ Swift Charts 画不出来：`RectangleMark` 能画格子，但**按周分列 + 按星期几分行 +
 /// 日期对齐**是一套布局，不是一个 mark；且它没有"缺失日期留空"的概念。
-public struct ActivityHeatmap: View {
+public struct ActivityHeatmap<Day: HeatmapDay>: View {
 
-    /// 一天的数据。
-    ///
-    /// ⚠️ `nonisolated` 的理由见 `ChartValue` 的文档（本 target 设了 `defaultIsolation`）。
-    public nonisolated struct Day: Identifiable, Sendable {
-        public let id: Date
-        public let date: Date
-        public let count: Int
-
-        public init(date: Date, count: Int) {
-            self.id = date
-            self.date = date
-            self.count = count
-        }
-    }
 
     private let days: [Day]
     private let tint: Color
-    private let title: LocalizedStringKey
+    private let title: LocalizedStringResource
     private let calendar: Calendar
 
     /// - Parameter calendar: ⚠️ 显式接受而不是取 `.current`——一周从周日还是周一开始
@@ -38,7 +24,7 @@ public struct ActivityHeatmap: View {
     ///   是为了默认正确，但可注入才可测。
     public init(
         _ days: [Day],
-        title: LocalizedStringKey = "活动热力图",
+        title: LocalizedStringResource = .chart("Activity heatmap"),
         tint: Color = .accent,
         calendar: Calendar = .current
     ) {
@@ -50,7 +36,7 @@ public struct ActivityHeatmap: View {
 
     public var body: some View {
         if self.days.isEmpty {
-            ChartEmptyState(message: "暂无数据")
+            ChartEmptyState(message: .chart("No data"))
         } else {
             self.grid
         }
@@ -60,7 +46,7 @@ public struct ActivityHeatmap: View {
 
     private var grid: some View {
         let buckets = Self.buckets(for: self.days)
-        let weeks = self.weeks
+        let weeks = Self.weeks(for: self.days, calendar: self.calendar)
 
         return HStack(spacing: 3) {
             ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
@@ -77,43 +63,67 @@ public struct ActivityHeatmap: View {
             }
         }
         .accessibilityElement()
-        .accessibilityLabel(self.title)
+        .accessibilityLabel(Text(self.title))
         .accessibilityChartDescriptor(self)
     }
 
-    /// 按 ISO 周切成列，每列 7 个槽（缺失为 `nil`）。
-    private var weeks: [[Day?]] {
-        let sorted = self.days.sorted { $0.date < $1.date }
+    /// 按周切成列，每列 7 个槽（缺失为 `nil`）。
+    ///
+    /// ⚠️ **提成 `static` 纯函数是为了可测**（终审 C-3）：初版它是 `private` 计算属性，
+    /// 测试 target 即使 `@testable` 也够不到 ⇒ 整个分列逻辑零覆盖，
+    /// 而下面那个 DST bug 就藏在里面。
+    static func weeks(for days: [Day], calendar: Calendar) -> [[Day?]] {
+        let sorted = days.sorted { $0.date < $1.date }
         guard let first = sorted.first, let last = sorted.last else { return [] }
 
         var result: [[Day?]] = []
         var column = [Day?](repeating: nil, count: 7)
-        var cursor = self.calendar.startOfDay(for: first.date)
-        let end = self.calendar.startOfDay(for: last.date)
+        var cursor = calendar.startOfDay(for: first.date)
+        let end = calendar.startOfDay(for: last.date)
+        // ⚠️ **重复日期后者胜**，且这是有意的（终审 S-8）：调用方给同一天两条记录时
+        // 静默取后一条，而不是相加——相加会让"重复"这个输入错误看起来像正常数据。
         var byDate = [Date: Day]()
-        for d in sorted { byDate[self.calendar.startOfDay(for: d.date)] = d }
+        for d in sorted { byDate[calendar.startOfDay(for: d.date)] = d }
 
+        var guardCounter = 0
         while cursor <= end {
+            // ⚠️ **上限**（终审 S-7）：区间无上限时，两个相距百年的 `Day` 会产生
+            // ~36500 次 `Calendar` 运算 + 5000 列视图，且**每次 body 求值重算一遍**。
+            // 与 `NetworkGraph` 同一条 FR-20 原则：截断，不断言。
+            guardCounter += 1
+            if guardCounter > Self.maximumDays { break }
+
             // `weekday` 是 1...7，减 1 归零；`firstWeekday` 让一周起点跟随 locale。
-            let weekday = (self.calendar.component(.weekday, from: cursor)
-                           - self.calendar.firstWeekday + 7) % 7
+            let weekday = (calendar.component(.weekday, from: cursor)
+                           - calendar.firstWeekday + 7) % 7
             column[weekday] = byDate[cursor]
             if weekday == 6 {
                 result.append(column)
                 column = [Day?](repeating: nil, count: 7)
             }
-            guard let next = self.calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            // ⚠️⚠️ **`startOfDay` 这一层不能省**（终审 C-1，已实测复现）：
+            // `byDate` 的键是 `startOfDay`，而 `date(byAdding: .day)` 在**午夜被跳过**
+            // 的 DST 转换（智利 / 古巴 / 伊朗…）上会把 cursor 推到 01:00 并**永久漂移**，
+            // 此后每次 `byDate[cursor]` 全部 miss。
+            // 实测 `America/Santiago` + 2026-09-06 转换 + 14 天连续数据：
+            // 落格 **6/14**，其余 8 天在网格里**静默消失**、无任何报错。
+            cursor = calendar.startOfDay(for: next)
         }
         if column.contains(where: { $0 != nil }) { result.append(column) }
         return result
     }
 
+    /// 单张热力图渲染的天数上限（≈ 5 年）。超出即截断（FR-20：截断不断言）。
+    /// ⚠️ 泛型类型不支持 static **存储**属性。
+    public static var maximumDays: Int { 1830 }
+
     /// 分档阈值。
     ///
     /// ⚠️ **全零时返回空数组**，`color(for:)` 据此把所有格子画成空槽——
-    /// 而不是让 `max == 0` 去做除数（FR-19 的 `zeroTotal` 形态）。
-    private static func buckets(for days: [Day]) -> [Int] {
+    /// 而不是让 `max == 0` 去做除数。
+    /// ⚠️ 与 `weeks(for:calendar:)` 同理提为 `internal`，否则零覆盖。
+    static func buckets(for days: [Day]) -> [Int] {
         let peak = days.map(\.count).max() ?? 0
         guard peak > 0 else { return [] }
         return (1...4).map { Int((Double(peak) * Double($0) / 4).rounded(.up)) }
@@ -130,13 +140,19 @@ public struct ActivityHeatmap: View {
 
 extension ActivityHeatmap: AXChartDescriptorRepresentable {
     public func makeChartDescriptor() -> AXChartDescriptor {
-        let counts = self.days.map { Double($0.count) }
-        let peak = counts.max() ?? 1
+        // `count` 是 `Int`，天然有限；这里仍走 `safeRange` 是为了与另外三个图表同形。
+        let peak = Double(self.days.map(\.count).max() ?? 1)
+        // ⚠️⚠️ **不要写成 `"\(Int($0))"`**——`Accessibility` 框架在构造描述符时会拿
+        // **非有限的探针值**调用这个闭包，`Int(非有限)` 直接 trap。
+        // 这不是理论：本 target 的空数据 descriptor 测试**当场崩给我看**
+        // （`Fatal error: Double value cannot be converted to Int because it is
+        // either infinite or NaN`），而在补这批 a11y 断言之前它一直是绿的。
+        // ⇒ 走 `formatted`，既不 trap 也不会在大数上溢出。
         let axis = AXNumericDataAxisDescriptor(
-            title: "次数", range: 0...max(peak, 1), gridlinePositions: []
-        ) { "\(Int($0))" }
+            title: chartAXString("Count"), range: safeRange(0, peak), gridlinePositions: []
+        ) { $0.formatted(.number.precision(.fractionLength(0))) }
         let dates = AXCategoricalDataAxisDescriptor(
-            title: "日期",
+            title: chartAXString("Date"),
             categoryOrder: self.days.map { $0.date.formatted(date: .abbreviated, time: .omitted) }
         )
         let series = AXDataSeriesDescriptor(
@@ -149,16 +165,22 @@ extension ActivityHeatmap: AXChartDescriptorRepresentable {
             }
         )
         return AXChartDescriptor(
-            title: nil, summary: nil,
+            title: String(localized: self.title), summary: nil,
             xAxis: dates, yAxis: axis, additionalAxes: [], series: [series]
         )
     }
 }
 
 #Preview("ActivityHeatmap") {
+    // ⚠️ Preview 自己造一个遵从 `HeatmapDay` 的类型——这正是泛型化后调用方的用法。
+    nonisolated struct Day: HeatmapDay {
+        let id = UUID()
+        let date: Date
+        let count: Int
+    }
     let start = Calendar.current.date(byAdding: .day, value: -120, to: .now)!
     let days = (0..<120).map { offset in
-        ActivityHeatmap.Day(
+        Day(
             date: Calendar.current.date(byAdding: .day, value: offset, to: start)!,
             count: [0, 0, 1, 2, 3, 5, 8][offset % 7]
         )
@@ -166,7 +188,7 @@ extension ActivityHeatmap: AXChartDescriptorRepresentable {
     return VStack(spacing: 24) {
         ActivityHeatmap(days).frame(height: 110)
         // 退化：全零 —— 应全部画成空槽，不 NaN
-        ActivityHeatmap(days.map { .init(date: $0.date, count: 0) }).frame(height: 110)
+        ActivityHeatmap(days.map { Day(date: $0.date, count: 0) }).frame(height: 110)
     }
     .padding()
 }

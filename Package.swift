@@ -59,6 +59,10 @@ let package = Package(
         .target(
             name: "CoreDesignCharts",
             dependencies: ["CoreDesign"],
+            // ⚠️ **`resources:` 不是可选的**：没有它 SwiftPM 不合成 `Bundle.module`
+            // ⇒ 本 target 的 chrome 文案只能落到 `Bundle.main`（宿主 App）
+            // ⇒ 本包永远无法为自己的文案提供翻译（PR #263 终审 C-5）。
+            resources: [.process("Resources")],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
         .testTarget(
