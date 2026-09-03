@@ -39,9 +39,14 @@ CoreDesign 的部分实现衍生自第三方开源项目。按各自许可的要
 
 ## ShipSwift
 
-CoreDesign 的表达性视觉层（`CoreDesignEffects` / `CoreDesignShaders`）与图表层
-（`CoreDesignCharts`）的**点子与算法**来自
+CoreDesign 的表达性视觉层（`CoreDesignEffects`，以及**计划中、尚未合入本仓**的
+`CoreDesignShaders`）与图表层（`CoreDesignCharts`）的**点子与算法**来自
 [ShipSwift](https://github.com/signerlabs/ShipSwift)（SignerLabs）。
+⚠️ **`CoreDesignShaders` 的状态**：本仓 `Package.swift` **有意不预留**该 product/target
+（见其 `products:` 处注释），它由 `shipswift-shaders` 在两闸通过后单独引入，
+当前只存在于**未合入**的 PR #261。⇒ 本文件凡提到 `CoreDesignShaders` 的小节
+（下方《Inferno》《Star Nest》《paper-design/shaders》《`CoreDesignShaders` 的共享原语
+与公开配方》）**一律是预登记的占位，不是已生效的对外声明**。
 
 ⚠️ **归档义务（不是既成陈述）**：CoreDesign 的实现**须**按自身 API 公约与色彩地基重做；
 逐组件属于哪一档见其 `docs/components/*.md`。
