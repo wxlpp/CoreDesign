@@ -21,16 +21,20 @@ CoreDesign 的部分实现衍生自第三方开源项目。按各自许可的要
 | **参考算法思路** | 对照上游或公开文献**重写**，未复制其代码 | 指明参考实现与其许可，说明是重写 |
 | **未知（上游未指认）** | ⚠️ **未定档，不是第三种结论**：已判定它有外部谱系（故不作原创声称），但**具体上游尚未指认到**，因而无法判断复制了多少 | **不得作原创声称**；落地前须按 `docs/shader-provenance.md`《方法论教训》追一轮，**追到后必须改判为上面两档之一**；追不到 ⇒ 该件不落地 |
 
-⚠️ **第三档是本文件《共享原语与公开配方》一节的实际需要**（`ramp3` 与
-`RefractiveGlass` 的位移 + 色散主体两行）：**「指认不到具体上游」既不是「移植了一大段」、
+⚠️ **第三档是本文件《`CoreDesignShaders` 的共享原语与公开配方》一节的实际需要**
+（`ramp3` 与 `coreDesignRefractiveGlass` 的位移 + 通道色散主体两行）：**「指认不到具体上游」既不是「移植了一大段」、
 也不是「对照某个参考实现重写」**——上一版只有前两档，于是这两行在 `复制程度` 列里
 不属于本表任何一档（PR #259 review round-2 指出）。⇒ 补设本档并写明它是**待定态**，
 而不是把它们硬塞进前两档之一。
 
 ⚠️ **本表是「复制程度」这一根轴，回答「我们抄了多少」。**
 「抄了合不合法」是**另一根轴**——`许可地位`，取值域由
-`docs/shader-provenance.md` 的裁定取值表定义（MIT / Apache-2.0 / 自研实现 /
-待追溯〔分低指纹与强指纹两档〕/ 不落地）。
+`docs/shader-provenance.md`《裁定方法：正向裁定，不证否定》的裁定取值表定义。
+**逐字取值**（两份文档按同一串字面量互查）：`已追到兼容许可 · MIT` /
+`已追到兼容许可 · Apache-2.0` / `自研实现` / `待追溯` / `不落地`；
+其中 `待追溯` 按同文《清偿条款》再分 `待追溯（低指纹）` 与
+`待追溯（强指纹 · 阻断）` 两档。
+⚠️ `clean-room 重写` **不在取值域内**——它已废除，同文对它只保留一节留档说明。
 ⚠️ **两根轴不得混成一列**——共享原语一节上一版就是这么错的：
 把四个许可地位的值塞进「档位」列，于是 10 行里 5 行不属于本表任何一档，
 紧接着正文又写「统一登记为『待追溯』」，与那一列直接打架。
@@ -183,12 +187,12 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 | `hash21`/`hash22` 的素数三元组 | Teschner et al. 2003《Optimized Spatial Hashing for Collision Detection of Deformable Objects》（VMV 2003 论文） | 参考算法思路（三个常数） | **事实性常数** ⇒ 可落地 |
 | `valueNoise` | 值噪声的标准形式（嵌套 `mix` 双线性插值 + `smoothstep` 权重） | 参考算法思路 | **教科书算法** ⇒ 可落地 |
 | `fbm` | **算法本身**：fBm 标准形式（gain 0.5 / lacunarity 2.0），Mandelbrot–Perlin–Musgrave 谱系，见 Ebert et al.《Texturing & Modeling》 | 参考算法思路 | **事实性算法** ⇒ 可落地。⚠️ **见下方 The Book of Shaders 的许可实查** |
-| 域扭曲的 `q`/`r` 三级级联（`InkSmoke` / `FractalClouds`） | Inigo Quilez《Domain Warping》　`https://iquilezles.org/articles/warp/` | **较大段落移植**（结构 + 变量名保留） | ⚠️ 页面无许可声明 ⇒ `待追溯（强指纹）` |
+| 域扭曲的 `q`/`r` 三级级联（落地函数 `coreDesignInkSmoke`；组件 `InkSmoke` / `FractalClouds`） | Inigo Quilez《Domain Warping》　`https://iquilezles.org/articles/warp/` | **较大段落移植**（结构 + 变量名保留） | ⚠️ 页面无许可声明 ⇒ `待追溯（强指纹 · 阻断）` |
 | `Plasma` 的四相正弦叠加 | Lode Vandevenne《Lode's Computer Graphics Tutorial — Plasma》　`https://lodev.org/cgtutor/plasma.html` | **较大段落移植**（逐项对应） | ⚠️ 页面无许可声明 ⇒ `待追溯` |
 | `roundedBoxSDF` | Inigo Quilez, 2D distance functions　`https://iquilezles.org/articles/distfunctions2d/` | **较大段落移植**（标准闭式解） | ⚠️ 页面无许可声明 ⇒ `待追溯（低指纹）` |
 | `edgeWidth`（`max(fwidth, ε)` + smoothstep） | iq 的 distance-AA 惯用法（同上页面一族） | 参考算法思路 | **公开惯用法** ⇒ `待追溯（低指纹）` |
 | `ramp3` | **未指认到具体上游** | **未知（上游未指认）** | `待追溯（低指纹）`——⚠️「指认不到」不等于「原创」 |
-| `RefractiveGlass` 的位移 + 色散主体 | SwiftUI `layerEffect` "liquid glass" 一族的通行形态，**未指认到具体上游** | **未知（上游未指认）** | ⚠️ `待追溯（**强指纹**）`——本表自评「指纹强度不低于 InkSmoke 的 q/r 级联」⇒ **阻断 epic→main** |
+| `coreDesignRefractiveGlass` 的位移 + 通道色散主体（= 组件侧 `Glass`（`RefractiveGlass`）的主体原语） | SwiftUI `layerEffect` "liquid glass" 一族的通行形态，**未指认到具体上游** | **未知（上游未指认）** | ⚠️ `待追溯（强指纹 · 阻断）`——provenance 表自评「指纹强度不低于 `InkSmoke` 的 `q`/`r` 级联」⇒ **阻断 epic→main** |
 
 ⚠️ **许可地位一列已逐行给出，不再有"统一登记"这句**（上一版那句与表格直接打架）。
 无许可正文可转载的行，**明写「页面无许可声明」**而不是留白。
