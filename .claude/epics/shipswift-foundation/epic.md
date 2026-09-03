@@ -192,7 +192,9 @@ A0-6  C-6 逐 shader 许可裁定表                    ← 填表无依赖；�
       `BoolParameterScanner` 68KB），b 侧**实做 2 个样本外推**（AD-C：仓外做，产物不进主线），
       P 只算 Effects + Shaders
 - [ ] AD-4 一并拍板三件下游要用的事（评审 Suggestion）：① 独立 JSON vs 锚文档；
-      ② `transition`/`modifier` 手工维护 + 盲区台账的写法；③ **FR-17 的 README 索引落点**
+      ② `transition`/`modifier` 的处置（⚠️ **AD-4 拍板二已裁：走扩展成员扫描器，
+      否决"手工维护 + 盲区台账"**——本行原只列了被否决的那一个选项，随 #244 回改）；
+      ③ **FR-17 的 README 索引落点**（AD-4 拍板三已裁：按 target 分叉）
       （主索引 vs `## 生成预览图` 之后另起小节）——A-7 / B-4 写文档时要依据它
 
 ### A0-2
