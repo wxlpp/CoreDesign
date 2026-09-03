@@ -141,7 +141,11 @@ inline float fbm(float2 p, int octaves) {
     return sum / max(total, 1e-4);
 }
 
-/// 三档调色斜坡：`v ∈ [0,1]` → low → mid → high，接缝用 smoothstep 抹平。
+/// 三档调色斜坡
+///
+/// ⚠️ **出处：未指认到具体上游**（第 5 轮终审 I-3）。按 #249 的判据，
+/// 「指认不到」**不能写成空白**——空白等于默认原创，而本 PR 已因这个默认吃了四次亏。
+/// ⇒ 登记为**待 #249 正向裁定**，不作原创声称。：`v ∈ [0,1]` → low → mid → high，接缝用 smoothstep 抹平。
 inline half4 ramp3(float v, half4 low, half4 mid, half4 high) {
     half4 lower = mix(low, mid, half(smoothstep(0.0, 0.5, v)));
     half4 upper = mix(mid, high, half(smoothstep(0.5, 1.0, v)));
@@ -149,7 +153,12 @@ inline half4 ramp3(float v, half4 low, half4 mid, half4 high) {
 }
 
 /// 抗锯齿边宽。⚠️ **必须经此取，不要直接用 `fwidth`**：平坦区域 `fwidth` 可为 0，
-/// 会让 `smoothstep(x - 0, x + 0, …)` 变成 0/0 → NaN（#261 终审 I-5）。
+/// 会让 `smoothstep(x - 0, x + 0, …)` 变成 0/0 → NaN（**第 1 轮**终审 I-5）。
+///
+/// ⚠️ **出处（第 5 轮终审 I-3）**：`max(fwidth(x), ε)` + 下游
+/// `smoothstep(v - aa, v + aa, x)` 是**公开的解析抗锯齿惯用法**（iq 的 distance-AA
+/// 一族），**非本仓原创**，待 #249 收录。
+/// ⚠️ 交叉引用从本行起一律带**轮次**——同一 PR 内已经出现两个不同轮次的 I-5。
 inline float edgeWidth(float x) {
     return max(fwidth(x), 1e-4);
 }
@@ -328,7 +337,11 @@ namespace cd {
 
 /// 圆角矩形 SDF：内部为负、外部为正、边界为 0。
 ///
-/// ⚠️ 这是圆角矩形 SDF 的**标准闭式解**，无第二种写法（`length(max(q,0)) + min(max(q.x,q.y),0) - r`）。
+/// ⚠️ 这是 iq 2D distance functions 里圆角矩形 SDF 的**标准闭式解**
+/// （`length(max(q,0)) + min(max(q.x,q.y),0) - r`）。
+/// ⚠️ **上一版写「无第二种写法」——与 `valueNoise` 上一轮被判掉的是同一种
+/// 可证伪的否定式断言**（第 5 轮终审 C-2）：iq 自己还有**四半径变体**
+/// （`r.xy = p.x>0 ? r.xy : r.zw`，函数体不同），另有「先 `sdBox` 再减 r」的教学写法。
 /// 公开出处为 Inigo Quilez 的 2D distance functions 文章——⚠️ **该页无许可声明**
 /// （`docs/shader-provenance.md` §C #24 已就此把 `Glass` 判 `待追溯`）。
 /// ⇒ **本函数按同一标准处理：在 `RefractiveGlass` 的 provenance 追溯完成前不得对外宣称原创。**
@@ -344,6 +357,14 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
 /// ⚠️ 这是 `layerEffect` 不是 `colorEffect`——它读的是**内容层本身**（`layer.sample`），
 /// 因此不能当 `.background { }` 用，只能作用在内容上。
 ///
+/// ⚠️⚠️ **本函数主体（透镜位移 + 通道色散）零署名**（第 5 轮终审 I-3）：
+/// `dir = normalize(centred)` + `edgeness² · refraction` 位移 +「R 通道向内偏、
+/// B 通道向外偏」的色散，是 2025 年 SwiftUI `layerEffect` "liquid glass" 一族里
+/// 被转抄最广的形态，**指纹强度不低于 `InkSmoke` 的 q/r 级联**。
+/// 上一版只给 `roundedBoxSDF` 署了 iq，主体留白 ⇒ **空白等于默认原创**，
+/// 而本 PR 已经因为这个默认吃了四次亏。
+/// ⇒ 登记为**待 #249 正向裁定**，不作原创声称；#249 的输入清单必须含本函数。
+///
 /// ⚠️ **不吃时间**：折射由几何驱动，不是动画。按 FR-12，`layerEffect` 类效果冻结时间
 /// 输入、保留空间输入——这里干脆没有时间输入，从根上避开 `Float` 精度坑。
 [[stitchable]] half4 coreDesignRefractiveGlass(float2 position, SwiftUI::Layer layer,
@@ -356,15 +377,28 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
 
     // 区域外原样透过——玻璃只在自己的形状里起作用。
     float aa = cd::edgeWidth(d);
+    // `inside` 是**抗锯齿覆盖度**（0…1），不是布尔量。
+    //
+    // ⚠️⚠️ **第 4 轮 I-1 / 第 5 轮 C-1**：上一版把它算出来却**只当阈值用、
+    // 从不参与混合**，于是有两条硬缝：
+    //   · rim 覆盖到 `|d| < 3·aa`，而早退在 `d ≈ 0.955·aa` 就返回 ⇒ rim 从 0.76
+    //     一步掉到 0 ⇒ **四个圆角的高光弧外缘是硬边、直边侧是柔边**；
+    //   · 更大的一条：`edgeness = saturate(1 + d/halfmin)` 在 `d ≈ 0` 取**最大值 1**
+    //     ⇒ 边界内侧一像素位移是满档（pronounced = 26px）、外侧一像素是 0
+    //     ⇒ **整圈边界（不只圆角）有一条 26px 位移的阶跃**。
+    // 抗锯齿代码自己制造锯齿，正是它要消除的东西。
+    //
+    // ⇒ ① 早退推到 rim 带之外（`d > 3·aa`）；② 位移与色散**乘上 `inside`**，
+    //   让它随覆盖度淡出。两条缝一次消掉，且 `rimBand` 下面仍只算一次。
     float inside = 1.0 - smoothstep(-aa, aa, d);
-    if (inside <= 0.001) {
+    if (d > aa * 3.0) {
         return layer.sample(position);
     }
 
     // 透镜位移：越靠近边缘弯折越强（`d` 为负且接近 0 处最强），中心几乎不动。
     float edgeness = saturate(1.0 + d / max(min(s.x, s.y) * 0.5, 1.0));
     float2 dir = normalize(centred + 1e-5);
-    float2 bend = dir * edgeness * edgeness * refraction;
+    float2 bend = dir * edgeness * edgeness * refraction * inside;
 
     // ⚠️⚠️ **两个输入都是预乘 alpha**，下面两段的正确性全挂在这一条上：
     // · `layer.sample` —— `SwiftUI_Metal.h` 的 `Layer::sample` 文档逐字写明；
@@ -384,7 +418,7 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
     // 会产出 `rgb > a` 的**非法预乘值**。`GlassSymbol` 的符号边缘（抗锯齿像素
     // alpha ∈ (0,1)）最容易暴露。半透明处的色散本就没有良定义 ⇒ 直接不做。
     if (dispersion > 0.0 && sample.a > 0.99h) {
-        float2 spread = dir * edgeness * edgeness * refraction * dispersion;
+        float2 spread = dir * edgeness * edgeness * refraction * dispersion * inside;
         sample.r = layer.sample(position - bend - spread).r;
         sample.b = layer.sample(position - bend + spread).b;
     }

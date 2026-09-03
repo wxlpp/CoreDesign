@@ -82,6 +82,13 @@ jobs:
           set -o pipefail
           swift test --build-system swiftbuild --filter CoreDesignShadersTests 2>&1 \
             | tee shaders.log
+          # ⚠️ **filter 命不中的 bundle 会打印「0 tests … passed」且不影响退出码**
+          # （#261 第 4 轮实测）。若 test target 改名/拆分导致 `--filter` 匹配为空，
+          # 本步骤会**绿**，而上一步的 `--skip CoreDesignShadersTests` 也一起静默失效
+          # ⇒ 整个 metallib 覆盖从 CI 消失、两条腿全绿。与 #258 的
+          # `ColorAssetGuardTests` 静默跳过是同一病型（第 5 轮终审 I-4）。
+          grep -qE 'Test run with [1-9][0-9]* tests?' shaders.log \
+            || { echo "::error::swiftbuild 腿一条 shader 测试都没跑（--filter 失配？）"; exit 1; }
 
       - name: Upload test logs
         if: always()

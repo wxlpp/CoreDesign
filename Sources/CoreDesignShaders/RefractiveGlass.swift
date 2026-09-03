@@ -50,6 +50,9 @@ struct RefractiveGlassModifier: ViewModifier {
                     .color(rim)
                 ),
                 // 最大位移 = refraction × (1 + dispersion)；`pronounced` 档为 26 × 1.45 ≈ 38。
+    /// ⚠️ **注释描述的是需求、代码取的是更大的余量**（第 5 轮终审 S）：
+    /// 实际是 `refraction * 2`（pronounced = 52），不是 26 × 1.45 ≈ 38。
+    /// 余量更大是对的，但别照注释"优化"回 38。
                 // 给小了的表现是边缘一圈采到 layer 外 ⇒ 玻璃边缘出现暗环 / 透明环。
                 maxSampleOffset: CGSize(width: maxOffset, height: maxOffset),
                 isEnabled: enabled

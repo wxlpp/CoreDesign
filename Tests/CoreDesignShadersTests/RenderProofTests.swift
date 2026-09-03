@@ -119,7 +119,13 @@ struct RenderProofTests {
     ///
     /// ⇒ 本条以**透明内容**为被折射层，并**采样 alpha**：圆角边界一圈必须出现
     ///   `alpha > 0` 的 rim 像素。
-    @Test("rim 高光在透明内容上仍然显影（前两版都会在这条上判红）")
+    /// ⚠️ **测试名与注释曾宣称「前两版都会在这条上判红」——那句话只对第 2 版成立**
+    /// （第 5 轮终审 I-1）。推演第 1 版 `mix(sample, rim, rimBand * rim.a)`：
+    /// 测试传不透明的 `rim: .accent`（`rim.a = 1`）⇒ 透明处
+    /// `out.a = 0·(1-k) + 1·k = rimBand > 0` ⇒ **本条对第 1 版判绿**。
+    /// 第 1 版的真实失效形态是**不透明内容的边缘被打出透明环**，
+    /// 由下面 `rimDoesNotPunchHolesInOpaqueContent` 覆盖。
+    @Test("rim 高光在透明内容上仍然显影（覆盖第 2 版的失效形态）")
     func rimShowsOnTransparentContent() throws {
         // SF Symbol 四周 alpha = 0，正是第 2 版失效的那类内容。
         let content = Image(systemName: "bolt.fill")
@@ -149,6 +155,23 @@ struct RenderProofTests {
                 "rim 在透明内容上没有抬高任何 alpha（\(opaqueWithout) → \(opaqueWith)）—— 这正是第 2 版的失效形态")
     }
 
+    /// ⚠️ **覆盖第 1 版的失效形态**（第 5 轮终审 I-1）：
+    /// `mix(sample, rim, k)` 会把 alpha 一起插值 ⇒ 用默认 `rim: .accent.opacity(0.55)`
+    /// 时贴边处 `out.a = 1 - 0.2475·rimBand` ⇒ **不透明内容的边缘被打出约 25% 的透明环**。
+    /// 上一版补的是透明内容那一侧，这一条补不透明那一侧——两条各挡一个版本。
+    @Test("rim 不在不透明内容上打洞（覆盖第 1 版的失效形态）")
+    func rimDoesNotPunchHolesInOpaqueContent() throws {
+        let content = LinearGradient(colors: [.blue, .white],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing)
+            .frame(width: 64, height: 64)
+        let alphas = try Self.renderAlpha(
+            content.refractiveGlass(corner: 12, strength: .pronounced)
+        )
+        #expect(!alphas.isEmpty)
+        let minAlpha = alphas.min() ?? 0
+        #expect(minAlpha >= 250, "不透明内容被 rim 打出透明环：min alpha = \(minAlpha)")
+    }
+
     // MARK: - Helpers
 
     /// 只取 alpha 通道的全图网格扫描。⚠️ 与 `render(_:)` 分开是有意的：
@@ -162,6 +185,9 @@ struct RenderProofTests {
               let ptr = CFDataGetBytePtr(data) else {
             throw RenderProbeError.noPixelData
         }
+        // ⚠️ alpha 在字节偏移 +3 的前提是 32-bit BGRA/RGBA（第 5 轮终审 S）。
+        // 若哪天变成 16-bit / 宽色域，这条断言会静默改测别的通道 ⇒ 把前提钉死。
+        #expect(cg.bitsPerPixel == 32, "位深不是 32 ⇒ alpha 不在偏移 +3")
         let bytesPerRow = cg.bytesPerRow
         let bytesPerPixel = cg.bitsPerPixel / 8
         var out: [UInt8] = []
