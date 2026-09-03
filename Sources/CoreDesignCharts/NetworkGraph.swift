@@ -129,11 +129,12 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// **自环计 2**（`degree[from] += 1; degree[to] += 1` 落在同一 id 上）是**有意的**
     /// ——它在图论里就是度数 2；但它**画不出来**（零长度 stroke），
     /// 这条渲染/播报差异如实记在这里。
+    ///
+    /// ⚠️ **收够即停**（PR #263 Copilot 第 4 轮 S-1）：上一版 `filter { … }.prefix(limit)`
+    /// 会在截断之前把整张边表扫完 —— 与本组件「超限就降级」的意图直接相悖
+    /// （`edgesTruncated` 那侧还要再扫一遍）。改走 `firstUnique`，凑满 600 条唯一边即返回。
     private var effectiveEdges: [Edge] {
-        var seen = Set<UndirectedKey>()
-        return Array(self.edges
-            .filter { seen.insert(UndirectedKey($0)).inserted }
-            .prefix(Self.recommendedEdgeLimit))
+        Self.firstUnique(self.edges, limit: Self.recommendedEdgeLimit, key: UndirectedKey.init)
     }
 
     /// 无序对键——`a→b` 与 `b→a` 归一化成同一个。
@@ -181,10 +182,50 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// ⚠️ 顺序与 `RingChart.effectiveValues` 对齐：**先去重、后截断**。
     /// ⚠️ 而 `NetworkGraphLayoutTests.duplicateIDs` 直接调 `layout` **绕过了本属性**
     /// ⇒ 这个 bug 存在时它是绿的——与第 2 轮判 `overLimitTruncates` 为假绿是同一句理由。
+    /// ⚠️ 同 `effectiveEdges`：**收够 150 个唯一 id 即停**，不扫完全表（第 4 轮 S-2）。
     private var effectiveNodes: [Node] {
-        var seen = Set<Node.ID>()
-        return Array(self.nodes.filter { seen.insert($0.id).inserted }
-            .prefix(Self.recommendedNodeLimit))
+        Self.firstUnique(self.nodes, limit: Self.recommendedNodeLimit, key: \.id)
+    }
+
+    /// 按 `key` 去重（保留首次出现）后取前 `limit` 项 —— **收够即停**。
+    ///
+    /// ⚠️⚠️ **不能写成 `xs.lazy.filter { seen.insert(…).inserted }.prefix(limit)`**——
+    /// 这不是风格取舍，是**会让宿主 App trap 的写法**。`xs` 是 `Collection` ⇒
+    /// `LazyFilterCollection.prefix(_:)` 走 `Collection` 的默认实现
+    /// `self[startIndex..<index(startIndex, offsetBy: limit, limitedBy: endIndex)]`：
+    /// `startIndex` 与索引推进都要**跑谓词**，而下标那一步会把 `startIndex` **再算一遍**。
+    /// 谓词带副作用（`seen.insert`）⇒ 第二遍所有 `insert` 返回 `false` ⇒ 两个端点
+    /// 不再自洽。实测（`swiftc` 直跑 7 元素样例）：
+    /// `Swift/Range.swift: Fatal error: Range requires lowerBound <= upperBound`。
+    /// ⇒ 显式循环，保证每个元素**恰好求值一次**。
+    /// 取值 / 顺序 / 边界由 `TruncationPathTests` 逐条钉住。
+    private static func firstUnique<Element, Key: Hashable>(
+        _ source: [Element], limit: Int, key: (Element) -> Key
+    ) -> [Element] {
+        guard limit > 0 else { return [] }
+        var seen = Set<Key>()
+        var kept: [Element] = []
+        kept.reserveCapacity(min(source.count, limit))
+        for element in source where seen.insert(key(element)).inserted {
+            kept.append(element)
+            if kept.count >= limit { break }
+        }
+        return kept
+    }
+
+    /// 唯一键数是否**超过** `limit` —— 数到第 `limit + 1` 个唯一键即短路。
+    ///
+    /// ⚠️ 只问「超没超」就不必知道确切的唯一数（第 4 轮 S-4 / S-5）：上一版两处都先把
+    /// 整张表折成一个 `Set` 再比 `count`，而这两个判据会被 `layoutKey(for:)` 与 `body`
+    /// 反复调用。
+    private static func uniqueCountExceeds<Element, Key: Hashable>(
+        _ limit: Int, in source: [Element], key: (Element) -> Key
+    ) -> Bool {
+        var seen = Set<Key>()
+        for element in source where seen.insert(key(element)).inserted {
+            if seen.count > limit { return true }
+        }
+        return false
     }
 
     private var isTruncated: Bool {
@@ -194,18 +235,23 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// ⚠️ **必须比去重后的真实数量**（第 4 轮终审 I-1）：上一版用原始 `nodes.count`
     /// ⇒ 传 200 条但只有 3 个不同 id 时 `isTruncated == true` ⇒ 界面显示
     /// 「Showing the first 3 nodes」（**什么都没被截断**）且力导向被整个关掉。
+    /// ⚠️ **两条子句本就是同一件事**（第 4 轮 S-4 顺手收敛）：`effectiveNodes.count`
+    /// 恒等于 `min(唯一数, 上限)` ⇒ `effectiveNodes.count < 唯一数` ⟺ `唯一数 > 上限`。
+    /// 上一版把等价的判据写了两遍，还各构造一次 `Set(self.nodes.map(\.id))`
+    /// （整个 map + set 做两次）。
     private var nodesTruncated: Bool {
-        self.effectiveNodes.count < Set(self.nodes.map(\.id)).count
-            || Set(self.nodes.map(\.id)).count > Self.recommendedNodeLimit
+        Self.uniqueCountExceeds(Self.recommendedNodeLimit, in: self.nodes, key: \.id)
     }
 
     /// ⚠️ 分维度是因为文案要分支：只截边时说「Showing the first N nodes」是错的
     /// （20 个节点一个没少，真正被丢的是第 601 条起的边）。
     /// ⚠️ 比**去重后**的数量（第 6 轮终审 C-3）：601 条同一条边不该触发截断。
+    /// ⚠️ **数到第 601 条唯一边即短路**（第 4 轮 S-5）：问题只是「超没超 600」，
+    /// 上一版为此把整张边表的唯一数算了个准。
     private var edgesTruncated: Bool {
-        var seen = Set<UndirectedKey>()
-        return self.edges.filter { seen.insert(UndirectedKey($0)).inserted }.count
-            > Self.recommendedEdgeLimit
+        Self.uniqueCountExceeds(
+            Self.recommendedEdgeLimit, in: self.edges, key: UndirectedKey.init
+        )
     }
 
     /// 布局缓存的失效键。

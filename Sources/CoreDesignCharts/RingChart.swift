@@ -61,10 +61,22 @@ public struct RingChart<Value: ChartValue>: View {
     /// ⚠️ **去重在截断之前**（第 2 轮终审 I-6）：`ForEach(id: \.element.id)` 拿到
     /// 重复 ID 是 SwiftUI 未定义行为——`NetworkGraph.layout` 已就同一件事去过重，
     /// 这里是同一论证的漏网。保留首次出现，与 `NetworkGraph` 同语义。
+    /// ⚠️ **收够 6 个唯一值即停**（PR #263 Copilot 第 4 轮 S-3）：上一版
+    /// `filter { … }.prefix(limit)` 会在截断之前把整个数组扫完，与「超限就截断」的
+    /// 意图相悖。⚠️ 不能改写成 `values.lazy.filter { … }.prefix(6)` —— `[Value]` 是
+    /// `Collection`，`prefix` 会让带副作用的谓词**求值两次**，实测直接 trap
+    /// （`Range requires lowerBound <= upperBound`，推导见 `NetworkGraph.firstUnique`）；
+    /// 显式循环才保证每个元素恰好求值一次。
+    /// 取值 / 顺序由 `dedupeThenTruncateKeepsOrder` 钉住。
     private var effectiveValues: [Value] {
         var seen = Set<Value.ID>()
-        return Array(self.values.filter { seen.insert($0.id).inserted }
-            .prefix(Self.recommendedRingLimit))
+        var kept: [Value] = []
+        kept.reserveCapacity(min(self.values.count, Self.recommendedRingLimit))
+        for value in self.values where seen.insert(value.id).inserted {
+            kept.append(value)
+            if kept.count >= Self.recommendedRingLimit { break }
+        }
+        return kept
     }
 
     /// 把原始值折算成**画面上真正画出来的那个值** —— 与 `rings` 里

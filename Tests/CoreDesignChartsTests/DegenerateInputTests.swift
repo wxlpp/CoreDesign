@@ -914,6 +914,85 @@ struct TruncationConsistencyTests {
     }
 }
 
+// MARK: - 截断路径的行为锁（PR #263 Copilot 第 4 轮 S-1 ~ S-5）
+
+/// ⚠️ **这一组是为「改惰性/短路」准备的行为锁，不是新契约**。
+///
+/// `effectiveNodes` / `effectiveEdges` / `RingChart.effectiveValues` 原本是
+/// 「全量 `filter` 去重 + `prefix` 截断」——在截断之前把整张表扫完，与组件
+/// 「超限就降级」的意图相悖。改成「收够 limit 个唯一项即停」之后，**留下来的是
+/// 哪一批、顺序如何、边界在哪**必须逐字不变，本组逐条钉住。
+///
+/// ⚠️ 顺带钉死 `lazy` 那个坑：`Array(xs.lazy.filter { seen.insert(…).inserted }.prefix(n))`
+/// 在 `xs` 是 `Collection` 时会把有副作用的谓词**求值两次**（`prefix` 先走一遍索引、
+/// 下标那步再把 `startIndex` 算一遍）⇒ 两个端点不自洽，实测直接
+/// `Fatal error: Range requires lowerBound <= upperBound`。
+/// 下面几条只要退回那种写法就立刻判红（而且是崩，不是断言不符）。
+@Suite("截断路径：去重 + 截断的取值、顺序与边界")
+struct TruncationPathTests {
+
+    private static let size = CGSize(width: 300, height: 300)
+
+    /// 每个 id 各出现两次、唯一 id 数远超上限 ⇒ 留下的必须是**前 150 个唯一 id**，
+    /// 顺序与原数组一致（保留首次出现）。
+    @Test("节点：保留首次出现的前 N 个唯一 id，顺序不变")
+    func nodesKeepFirstUniqueInOrder() {
+        let limit = NetworkGraph<Node>.recommendedNodeLimit
+        let dup = (0..<(limit + 50)).flatMap {
+            [Node(id: "n\($0)", label: "first"), Node(id: "n\($0)", label: "second")]
+        }
+        let ids = NetworkGraph(nodes: dup, edges: []).layoutKey(for: Self.size).ids
+        #expect(ids == (0..<limit).map { "n\($0)" })
+    }
+
+    /// 恰好等于上限：**不截断**（`> limit` 而不是 `>=`）。
+    @Test("节点：恰好 N 个唯一 id 不触发截断，N + 1 触发")
+    func nodeLimitBoundary() {
+        let limit = NetworkGraph<Node>.recommendedNodeLimit
+        func graph(_ n: Int) -> NetworkGraph<Node> {
+            NetworkGraph(nodes: (0..<n).map { Node(id: "n\($0)", label: "L") }, edges: [])
+        }
+        #expect(graph(limit).layoutKey(for: Self.size).iterations > 0, "恰好 N 被误判为超限")
+        #expect(graph(limit + 1).layoutKey(for: Self.size).iterations == 0)
+    }
+
+    /// 边同理，且去重键是**无向**的：`a→b` 与 `b→a` 算同一条。
+    @Test("边：保留首次出现的前 N 条唯一无向边，顺序不变")
+    func edgesKeepFirstUniqueInOrder() {
+        let limit = NetworkGraph<Node>.recommendedEdgeLimit
+        let unique = Self.distinctEdges(count: limit + 20)
+        // 每条边后面紧跟一条反向重复 ⇒ 输入长度是唯一边数的两倍。
+        let dup = unique.flatMap { [$0, GraphEdge(from: $0.to, to: $0.from)] }
+        let nodes = Set(unique.flatMap { [$0.from, $0.to] }).sorted().map { Node(id: $0, label: "L") }
+        let kept = NetworkGraph(nodes: nodes, edges: dup).layoutKey(for: Self.size).edges
+        #expect(kept == Array(unique.prefix(limit)))
+    }
+
+    @Test("边：恰好 N 条唯一边不触发截断，N + 1 触发")
+    func edgeLimitBoundary() {
+        let limit = NetworkGraph<Node>.recommendedEdgeLimit
+        func graph(_ n: Int) -> NetworkGraph<Node> {
+            let edges = Self.distinctEdges(count: n)
+            let ids = Set(edges.flatMap { [$0.from, $0.to] }).sorted()
+            return NetworkGraph(nodes: ids.map { Node(id: $0, label: "L") }, edges: edges)
+        }
+        #expect(graph(limit).layoutKey(for: Self.size).iterations > 0, "恰好 N 被误判为超限")
+        #expect(graph(limit + 1).layoutKey(for: Self.size).iterations == 0)
+    }
+
+    /// `count` 条**两两互异**的无向边（40 个节点最多 780 条，够用）。
+    private static func distinctEdges(count: Int) -> [GraphEdge<String>] {
+        var edges: [GraphEdge<String>] = []
+        outer: for i in 0..<40 {
+            for j in (i + 1)..<40 {
+                edges.append(GraphEdge(from: "n\(i)", to: "n\(j)"))
+                if edges.count == count { break outer }
+            }
+        }
+        return edges
+    }
+}
+
 // MARK: - 无向边归一化（PR #263 Copilot 第 2 轮）
 
 /// `hashValue` **恒定**的 ID —— 任意两个不相等的值都必然 hash 碰撞。
