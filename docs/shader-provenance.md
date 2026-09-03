@@ -67,7 +67,7 @@ clean-room 重写这条出口上。」
 |---|---|---|
 | `已追到兼容许可 · MIT` | 追到原始实现，许可为 MIT / BSD / PD / CC0 | 可移植；`ACKNOWLEDGEMENTS.md` 转载原始许可 |
 | `已追到兼容许可 · Apache-2.0` | 追到原始实现，许可为 Apache-2.0 | 可移植；**须转载 LICENSE + `NOTICE`，并标注修改**（§4(a)(b)(d)） |
-| `clean-room 重写` | 属公开算法，**且本表已在该行具名一个许可已核实的参考实现** | 对照该参考实现重写 |
+| `自研实现` | 属**效果类别**（非某人的具体设计），按上方《第三条出路》的五轴差异化自研 | 按差异化五轴实现；参数面须从 CoreDesign 概念推出 |
 | `待追溯` | 尚未用上面《方法论教训》的方法追过 | **不得据现状落地**；先追一轮 |
 | `不落地` | 追过且追不到兼容来源，也无具名参考实现 | 不进 `CoreDesignShaders` |
 
@@ -137,6 +137,116 @@ clean-room 重写这条出口上。」
 </details>
 
 ---
+
+---
+
+## 第三条出路：**自研实现**（取代 `clean-room 重写`）
+
+⚠️ **`clean-room 重写` 这个名字要退场。** 严格意义的 clean-room 要求**实现者从未接触过
+原实现**——该前提本仓已经违反（调研阶段 grep 过全部 34 个 `.metal`），所以拿它当裁定
+是自欺，终审 reviewer 也是这么判的。
+
+**但这条路本身成立，只是法理依据不同**：
+
+> **著作权保护的是「表达」，不是「思路 / 算法」。** "一团旋转的等离子背景""程序化星空"
+> 是思路，不受保护；具体的 GLSL / MSL 代码是表达，受保护。
+
+⇒ 正名为 **`自研实现`**。它的保障**不是**"我没看过"（已不可能，且**不可验证**），
+**而是「可验证的差异化」**——这比 clean-room **更硬**，因为它能拿出来核。
+
+### 差异化的五个轴（每一条都是本仓既有约束，不是为此临时发明的）
+
+| 轴 | 上游（paper / ShaderKit / Shadertoy） | CoreDesign 自研 |
+|---|---|---|
+| **颜色** | shader 内部调色板 / uniform 传一组固定色 | **只吃 `.tint` 与第 3/4 层语义 token**（FR-8 禁色相字面量，`EffectsColorLiteralGuard` 机器判） |
+| **参数集** | `u_stepsPerColor` / `u_colorGlow` / `u_distortion` 等上游自创的调参面 | 按 CoreDesign 概念表达：`controlSize`、`CoreSpacing` 尺度、语义枚举（Bool 走 J-1 禁令） |
+| **API 形态** | `.colorEffect(ShaderLibrary.xxx(...))` 裸暴露 | 裸名 `public struct: View` + `#Preview`，与 `Badge` / `Card` 同构 |
+| **动效契约** | 无 | Reduce Motion / Reduce Transparency / 后台 / 低电量**四条降级路径从第一行就在** |
+| **代码风格** | 英文注释、无 `self.` | 中英混排注释、显式 `self.`、`// MARK: -` |
+
+⚠️ **「参数集」这一轴最关键**——它正是本表用来指认 paper 的证据（签名逐个对应，见
+§B）。反过来说：**只要我们的参数面是从 CoreDesign 概念推出来的、而不是抄上游的 uniform
+列表，那条指认链在我们身上就不成立**。这是一个**可被下一个 reviewer 用同样方法反查**的
+承诺，不是自我声明。
+
+### ⚠️ 界线：「效果类别」可自研，「某人的具体设计」不可
+
+| 分类 | 判断 | 能否自研 |
+|---|---|---|
+| **效果类别**——等离子、星空、Voronoi 距离场、值噪声域扭曲、半调网屏 | 公开的图形学配方，**思路层** | ✅ **能** |
+| **某人的具体设计**——ShaderKit 的箔片 / 闪片 / bling（"看起来像宝可梦卡"的观感就是设计本身）、`AnimatedLoop` 的 18 参数 hand-tuned 组合 | **观感即作品**，参数与调校本身是表达 | ❌ **不能**——自研出来的会是另一个东西；不如诚实地不做，或接受上游许可 |
+
+⚠️ ShaderKit 那 5 个尤其要小心：它自己在 `docs/shadercards/css-parity.md` 里声明视觉参考
+是 **GPL-3.0** 的 `pokemon-cards-css`。**那个观感是别人的设计**——我们"自研"一个像它的
+东西，规避的只是代码、不是设计。
+
+### 走查样例：`Plasma` 的自研 API 面长什么样
+
+⚠️ **不是空谈**——把「参数集」这一轴摊开看，两边的调参面**根本不是同一套东西**：
+
+**上游的形态**（Shadertoy 系经典等离子，调参面是「shader 内部参数」）：
+
+```
+u_time, u_scale, u_frequency, u_amplitude,
+u_color1, u_color2, u_color3,      // shader 自带调色板
+u_iterations, u_warpStrength
+```
+
+**CoreDesign 自研的形态**（调参面是「设计系统概念」）：
+
+```swift
+/// 程序化等离子背景。
+///
+/// ⚠️ 本类型**不持有任何颜色**——渲染色全部来自调用方的 `.tint` 与第 3 层语义 token，
+/// 与 `ProgressView` / `Label` 的 `.core` style 走同一条 `TintShapeStyle` 通路
+/// （见 CLAUDE.md《系统控件 `.core` style》：强调色一律经 `.tint` 取，不得写死 `Color.accent`）。
+public struct Plasma: View {
+
+    /// 视觉密度。⚠️ 不是上游的 `u_frequency` / `u_iterations` 两个独立旋钮——
+    /// 本仓的调参惯例是**单个语义枚举**（对照 `ButtonRoleStyleRole` 是 role 调色板的唯一来源）。
+    public enum Density: Sendable { case subtle, regular, dense }
+
+    /// 运动速度。⚠️ 同理不暴露 `u_time` 缩放，改为语义档位。
+    public enum Motion: Sendable { case calm, regular, lively }
+
+    private let density: Density
+    private let motion: Motion
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    public init(density: Density = .regular, motion: Motion = .regular) {
+        self.density = density
+        self.motion = motion
+    }
+
+    public var body: some View {
+        // ⚠️ Reduce Motion 下冻结在某一帧而非停止渲染——保留视觉、去掉运动（FR-12）。
+        // ⚠️ 颜色经 .tint 通路取，`.metal` 侧零硬编码色（FR-8）。
+        …
+    }
+}
+```
+
+**差异化在此可核**：
+- **零 Bool 参数**（J-1）—— 上游那种 `showX: Bool` 在本仓要么改语义枚举、要么抬棘轮基线；
+- **零颜色入参** —— 上游传 3 个色，我们一个都不传，全走 `.tint`；
+- **参数从 9 个 uniform 收敛成 2 个语义枚举** —— 这不是"改个名"，是**调参面的重新设计**，
+  且理由来自本仓既有惯例（`ButtonRoleStyleRole` 是 role 调色板唯一来源、`.core` style 走
+  `.tint` 通路），不是为规避而临时发明；
+- **a11y 从第一行就在** —— 上游没有这个概念。
+
+⇒ **下一个 reviewer 可以用指认 paper 的同一套方法反查我们**：拿我们的形参列表去比对任何
+上游的 uniform 列表，**对不上**。这就是「可验证的差异化」的意思。
+
+### 逐件适用性
+
+| 可走自研（效果类别） | 不走自研（具体设计） |
+|---|---|
+| `Plasma` `Starfield` `Dots` `LiquidChrome` `FractalClouds` `InkSmoke` `Glass` `GlassLogo` | `ChromaticGlass` `Foil` `Glitter` `IntenseBling` `PolishedAluminum`（ShaderKit 5，观感即设计 + GPL-3.0 视觉参考）· `AnimatedLoop`（18 参数 hand-tuned 组合） |
+
+⚠️ `LiquidMetal` 待 §C 的追溯结论出来再定档。
+
 
 ## §B 追到 `paper-design/shaders`（Apache-2.0）的 11 个
 
