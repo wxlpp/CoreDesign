@@ -83,7 +83,8 @@ SOFTWARE.
 > ⚠️ 占位。`CoreDesignShaders` 的 `GlassOrb` 落地时（`shipswift-shaders` B-3）填入，
 > 并转载 Inferno 的完整 MIT 正文。
 
-裁定依据（`docs/shader-provenance.md` 第 1 行）：**已追到兼容许可，链条闭合**。
+裁定依据（`docs/shader-provenance.md`《统一裁定表》的 `GlassOrb` 行，论证见同文
+《A. 有上游标注的 7 个》的 `GlassOrb` 行）：**已追到兼容许可 · MIT，链条闭合**。
 Inferno 的 LICENSE 附逐 shader 移植来源清单（**6 组**：Circle/Circle Wave/Diamond/
 Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie），
 **"Warping Loupe" 不在其中** ⇒ **推论**为 Inferno 原创，由其 MIT 覆盖。
