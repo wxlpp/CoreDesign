@@ -444,8 +444,8 @@ public struct Plasma: View {
 
 | # | shader | 第 1 版 | 本版 | 理由 |
 |---|---|---|---|---|
-| 19 | `FractalClouds` | clean-room | **`clean-room 重写`** | 参考实现已具名且许可已核：[ashima](https://github.com/ashima/webgl-noise) / [stegu](https://github.com/stegu/webgl-noise) / [glsl-noise](https://github.com/hughsk/glsl-noise) 均 **MIT**。⚠️ 噪声原语只覆盖 FBM 底座，**domain-warp 与调色的组合仍须先追一轮** |
-| 20 | `InkSmoke` | clean-room | **`clean-room 重写`** | 同上 |
+| 19 | `FractalClouds` | clean-room | **`待追溯`** | ⚠️ **本轮再降一级**：参考实现候选 [ashima](https://github.com/ashima/webgl-noise) / [stegu](https://github.com/stegu/webgl-noise) / [glsl-noise](https://github.com/hughsk/glsl-noise) 虽均 **MIT**，但只覆盖 FBM 底座，**domain-warp 与调色的组合本就未追到出处** ⇒ 依据不成立；且 `clean-room 重写` 档已随本 PR 删除，本行不得再用该取值 |
+| 20 | `InkSmoke` | clean-room | **`待追溯`** | 同上。⚠️ #261 实证：域扭曲的 `q`/`r` 三级级联派生自 **iq《Domain Warping》**，已撤回原创声称 |
 | 21 | `Plasma` | clean-room（"经典 demoscene"） | **`待追溯`** | 无具名参考实现 |
 | 22 | `Starfield` | clean-room（"标准做法"） | **`待追溯`** | 无具名参考实现 |
 | 23 | `Dots` | clean-room（"网格 + 三角函数"） | **`待追溯`** | ⚠️ paper 有 `dot-grid.ts` 但描述不同（静态几何网格 vs ShipSwift 的 5 个 `.metal` 变体）⇒ **不是**匹配 |
@@ -460,13 +460,72 @@ public struct Plasma: View {
 
 ---
 
+## 统一裁定表（28 行 · AC 固定 5 列）
+
+⚠️ **本节是 #249 AC 逐字指定的表结构**——`shader | 原始出处 | 许可 | 证据链接 | 裁定`，
+**一行一个 shader，28 行无空裁定**，行序即上文的 #1–#28。
+上面的 §A / §B / §C 与各裁断段落是**同一批结论的论证与备注**，不是另一张表；
+**两处冲突时以本表为准，并回改论证段落**。
+
+⚠️ **与 AC 的一处显式偏离，必须连同本表一起读**：AC 写「裁定取值仅三种
+（`已追到兼容许可` / `clean-room 重写` / `不落地`）」，而本表实际取值为
+`已追到兼容许可 · MIT` / `已追到兼容许可 · Apache-2.0` / `自研实现` / `待追溯` / `不落地`
+（定义见《裁定方法：正向裁定，不证否定》）。理由本文已逐条写明，此处只作索引：
+① **Apache-2.0 是 AC 遗漏的档位**，义务与 MIT 不同（LICENSE + `NOTICE` + 修改标注）；
+② **`clean-room 重写` 已废除**（见《第三条出路：自研实现》与《汇总与闸②判定》）；
+③ **`待追溯` 不能折进 `不落地`**——前者是「尚未用有效方法追过」，后者是「追过且追不到」，
+把前者报成后者等于把「未查」谎报成「查过且不兼容」。
+
+⚠️ **`—` 表示本表未持有该字段的可核内容**（不是「没有出处」，是「尚未追到 / 尚未核」）
+⇒ 按定义即 `待追溯`，**不得据现状落地**。凡填 `—` 的行，落地前必须先按
+《方法论教训》的签名 + 散文比对追一轮。
+
+| shader | 原始出处 | 许可 | 证据链接 | 裁定 |
+|---|---|---|---|---|
+| `GlassOrb` | [Inferno](https://github.com/twostraws/Inferno) 的 "Warping Loupe"（Paul Hudson）——**不在 Inferno LICENSE 的移植清单内 ⇒ 推论为其原创，不是断言** | **MIT**（已读 LICENSE 全文） | https://github.com/twostraws/Inferno | **已追到兼容许可 · MIT** |
+| `StarNest` | "Star Nest"，Pablo Roman Andrioli（Kali），Shadertoy | **MIT**（作者在源码头声明）。⚠️ **二手证据**：shadertoy 返 403，未直读原页面 ⇒ 人工目视确认是落地 task 的硬 AC | https://www.shadertoy.com/view/XlfGRj | **已追到兼容许可 · MIT** |
+| `ChromaticGlass` | [ShaderKit](https://github.com/jamesrochabrun/ShaderKit)（James Rochabrun）；ShaderKit 自述视觉参考为 `pokemon-cards-css`，**其自身的更上游未记录** | ShaderKit **MIT**（已核 LICENSE）；其视觉参考 **GPL-3.0** | https://github.com/jamesrochabrun/ShaderKit · https://github.com/simeydotme/pokemon-cards-css | **`待追溯`** |
+| `Foil` | [ShaderKit](https://github.com/jamesrochabrun/ShaderKit)（James Rochabrun）；ShaderKit 自述视觉参考为 `pokemon-cards-css`，**其自身的更上游未记录** | ShaderKit **MIT**（已核 LICENSE）；其视觉参考 **GPL-3.0** | https://github.com/jamesrochabrun/ShaderKit · https://github.com/simeydotme/pokemon-cards-css | **`待追溯`** |
+| `Glitter` | [ShaderKit](https://github.com/jamesrochabrun/ShaderKit)（James Rochabrun）；ShaderKit 自述视觉参考为 `pokemon-cards-css`，**其自身的更上游未记录** | ShaderKit **MIT**（已核 LICENSE）；其视觉参考 **GPL-3.0** | https://github.com/jamesrochabrun/ShaderKit · https://github.com/simeydotme/pokemon-cards-css | **`待追溯`** |
+| `IntenseBling` | [ShaderKit](https://github.com/jamesrochabrun/ShaderKit)（James Rochabrun）；ShaderKit 自述视觉参考为 `pokemon-cards-css`，**其自身的更上游未记录** | ShaderKit **MIT**（已核 LICENSE）；其视觉参考 **GPL-3.0** | https://github.com/jamesrochabrun/ShaderKit · https://github.com/simeydotme/pokemon-cards-css | **`待追溯`** |
+| `PolishedAluminum` | [ShaderKit](https://github.com/jamesrochabrun/ShaderKit)（James Rochabrun）；ShaderKit 自述视觉参考为 `pokemon-cards-css`，**其自身的更上游未记录** | ShaderKit **MIT**（已核 LICENSE）；其视觉参考 **GPL-3.0** | https://github.com/jamesrochabrun/ShaderKit · https://github.com/simeydotme/pokemon-cards-css | **`待追溯`** |
+| `Voronoi` | [paper-design/shaders](https://github.com/paper-design/shaders) 的 `voronoi.ts`；paper 自述 `Original algorithm` 为 iq 的 Shadertoy 作品 | paper **Apache-2.0**（LICENSE + `NOTICE`，一手核）。⚠️ iq 原页面许可**变过**（旧拷贝头 CC BY-NC-SA 3.0 / 新拷贝头 MIT）⇒ 落地前须直读现页面 | https://github.com/paper-design/shaders · https://www.shadertoy.com/view/ldl3W8 | **已追到兼容许可 · Apache-2.0** |
+| `NeuroNoise` | paper 的 `neuro-noise.ts`；paper 自述 `Original algorithm` 是 **@zozuar 的一条推文，无任何许可声明**（默认保留所有权利） | paper 以 Apache-2.0 再许可**是 paper 的断言，我们无法独立核实** ⇒ 不构成正向裁定 | https://github.com/paper-design/shaders · https://x.com/zozuar/status/1625182758745128981 | **`待追溯`** |
+| `Swirl` | paper 的 `swirl.ts`（参数签名逐项对应） | paper **Apache-2.0**（LICENSE + `NOTICE`，一手核）。⚠️ **未查「paper 之上还有一层」** | https://github.com/paper-design/shaders | **已追到兼容许可 · Apache-2.0** |
+| `SimplexNoise` | paper 的 `simplex-noise.ts`（参数签名逐项对应） | paper **Apache-2.0**（LICENSE + `NOTICE`，一手核）。⚠️ **未查「paper 之上还有一层」** | https://github.com/paper-design/shaders | **已追到兼容许可 · Apache-2.0** |
+| `Water` | paper 的 `water.ts`（参数签名逐项对应） | paper **Apache-2.0**（LICENSE + `NOTICE`，一手核）。⚠️ **未查「paper 之上还有一层」** | https://github.com/paper-design/shaders | **已追到兼容许可 · Apache-2.0** |
+| `ColorPanels` | paper 的 `color-panels.ts`（参数签名逐项对应） | paper **Apache-2.0**（LICENSE + `NOTICE`，一手核）。⚠️ **未查「paper 之上还有一层」** | https://github.com/paper-design/shaders | **已追到兼容许可 · Apache-2.0** |
+| `DotOrbit` | paper 的 `dot-orbit.ts`（参数签名逐项对应） | paper **Apache-2.0**（LICENSE + `NOTICE`，一手核）。⚠️ **未查「paper 之上还有一层」** | https://github.com/paper-design/shaders | **已追到兼容许可 · Apache-2.0** |
+| `SmokeRing` | paper 的 `smoke-ring.ts`（参数签名逐项对应） | paper **Apache-2.0**（LICENSE + `NOTICE`，一手核）。⚠️ **未查「paper 之上还有一层」** | https://github.com/paper-design/shaders | **已追到兼容许可 · Apache-2.0** |
+| `Metaballs` | paper 的 `metaballs.ts`（参数签名逐项对应） | paper **Apache-2.0**（LICENSE + `NOTICE`，一手核）。⚠️ **未查「paper 之上还有一层」** | https://github.com/paper-design/shaders | **已追到兼容许可 · Apache-2.0** |
+| `Halftone` | paper 的 `halftone-dots.ts` + `halftone-cmyk.ts`（两入口一一对应；**ShipSwift 自己在 `SWHalftone.metal:350` 写着 "simplified port"**） | paper **Apache-2.0**（LICENSE + `NOTICE`，一手核）。⚠️ **未查「paper 之上还有一层」** | https://github.com/paper-design/shaders | **已追到兼容许可 · Apache-2.0** |
+| `GrainGradient` | paper 的 `grain-gradient.ts`——**参数仅部分匹配，匹配未确认** | —（paper 为 Apache-2.0，但匹配未确认 ⇒ 不得据此定档） | https://github.com/paper-design/shaders | **`待追溯`** |
+| `FractalClouds` | **—**（未追到）；FBM 底座可对照 ashima / stegu / glsl-noise，但 **domain-warp 与调色的组合未追到出处** | 参考实现 **MIT**；本体 — | https://github.com/ashima/webgl-noise · https://github.com/stegu/webgl-noise · https://github.com/hughsk/glsl-noise | **`待追溯`** |
+| `InkSmoke` | **—**（未追到）；#261 实证：域扭曲的 `q`/`r` 三级级联派生自 **iq《Domain Warping》** | —（iq 页面无许可声明） | — | **`待追溯`** |
+| `Plasma` | **—**（未追到）；#261 实证：四相正弦叠加是 **Lode Vandevenne《Lode's Computer Graphics Tutorial — Plasma》** 的公式 | —（本表未核该页面许可） | — | **`待追溯`** |
+| `Starfield` | **—**（未追到）；#261 实证：网格 hash + step 熄灭 + smoothstep 辉光 + sin 相位，是网格星空模板的逐项形态 | — | — | **`待追溯`** |
+| `Dots`（`DotGrid`） | **—**（未追到）；paper 有 `dot-grid.ts` 但描述不同（静态几何网格 vs ShipSwift 的 5 个 `.metal` 变体）⇒ **不是**匹配 | — | — | **`待追溯`** |
+| `Glass`（`RefractiveGlass`） | **—**（未追到）；第 1 版曾引 iq 的 SDF 文章；#261 实证主体为 2025 年 `layerEffect` "liquid glass" 一族的通行形态 | —（iq distfunctions2d / warp 页面**无许可声明**） | — | **`待追溯`**（⚠️ 其主体原语 `coreDesignRefractiveGlass` 经 #261 复查为**强指纹**档 ⇒ **阻断 epic→main**，须在 B-4 前追完） |
+| `GlassLogo`（落地名 `GlassSymbol`） | **—**（未追到）；同 `Glass`；⚠️ `GlassSymbol.swift` 里**零 provenance 引用**，改名亦未记录 | — | — | **`待追溯`** |
+| `AnimatedLoop` | **—**（未追到）；`SWAnimatedLoop.metal:5-21` 是四个 **hand-tuned styles**、18 个参数，属**独立作品**（第 1 版"调度器无独立算法"是事实误读） | — | — | **`待追溯`** |
+| `LiquidChrome` | **—**（未追到）；`SWLiquidChrome.metal:7-9` 自述 "Three sequential value-noise samples are domain-warped" | — | — | **`待追溯`** |
+| `LiquidMetal` | **—**（未追到）；`SWLiquidMetal.metal:26-28` 用 **Ashima simplex 常量**（线索，非匹配）；paper 有 `liquid-metal.ts` 但描述与参数集**不同** | — | https://github.com/ashima/webgl-noise | **`待追溯`** |
+
+**计数校验**：2（MIT）+ 9（Apache-2.0）+ 17（待追溯）+ 0（自研实现）+ 0（不落地）= **28** ✅
+——与下方《汇总与闸②判定》逐档一致。
+
+**逐行详情与论证**：§A（#1–#7）· §B（#8–#18）· §C（#19–#28）·
+共享原语层（跨 shader）见《共享原语的逐项出处》。
+
+---
+
 ## 汇总与闸②判定
 
 | 裁定 | 数量 | 明细 |
 |---|---|---|
 | **已追到兼容许可 · MIT** | **2** | GlassOrb、StarNest |
 | **已追到兼容许可 · Apache-2.0** | **9** | §B 的 #8–17，**减 `NeuroNoise`**（上游是无许可推文，paper 的再许可断言无法独立核实 ⇒ 不构成正向裁定）|
-| ~~**clean-room 重写**~~ | ~~2~~ → **0** | ⚠️ **该档已随本 PR 删除**（第 5 轮终审 C1）：`FractalClouds` / `InkSmoke` 的依据（ashima / stegu / glsl-noise 均 MIT）**已被证明本就不成立**，且 `:81` 自己的规则「clean-room 行必须给出 URL + 已核实许可，否则一律降级 `待追溯`」本就该触发。两件改判 `待追溯`。**该档亦不在裁定取值表里**——文档用了一个自己已废除的取值 |
+| ~~**clean-room 重写**~~ | ~~2~~ → **0** | ⚠️ **该档已随本 PR 删除**（第 5 轮终审 C1）：`FractalClouds` / `InkSmoke` 的依据（ashima / stegu / glsl-noise 均 MIT）**已被证明本就不成立**，且 `:81` 自己的规则「clean-room 行必须给出 URL + 已核实许可，否则一律降级 `待追溯`」本就该触发。两件改判 `待追溯`。**该档亦不在裁定取值表里** ⇒ 正文任何位置都不得再作为裁定值出现（⚠️ 上一版只在本行写了改判，§C 的 #19 / #20 两行仍留着这个已废除的取值 —— **PR #259 review round-1 指出，本轮已同步改掉**）|
 | **待追溯** | **17** | ShaderKit 5 + GrainGradient + §C 的 8 个 + FractalClouds / InkSmoke（本轮改判）+ NeuroNoise（下条）|
 | **不落地** | **0** | ⚠️ 第 1 版判的 2 个已改判 `待追溯`——原理由与 §C 其余项双标 |
 | **自研实现** | **0** | ⚠️ 显式写 0——《逐件适用性》左列有 8 个名字，但那是**准入不是结论**；实际落地件经第六条轴复查**无一维持自研** |
