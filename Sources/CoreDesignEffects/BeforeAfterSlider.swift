@@ -160,6 +160,15 @@ nonisolated enum BeforeAfterSweep {
         )
     }
 
+    /// 入场摆动的**回程**还该不该执行。**用户已经碰过把手 ⇒ 不执行。**
+    ///
+    /// ⚠️⚠️ **这条是 #253 PR #273 终审 I-6 的裁决点**：回程发生在 `sweepDuration × 2 ≈ 1.1s`
+    /// 之后，而 `DragGesture.onChanged` 写的是**同一个** `fraction`。上一版两者无协调
+    /// ⇒ 用户在扫掠途中抓住把手拖到别处，1.1s 一到会被 `withAnimation` 拽回 0.5。
+    /// 对一个"就是要你马上抓"的组件，那 1.1s 是很现实的窗口。
+    /// ⚠️ 摆动只是一次"这里可以拖"的**提示**；提示绝不能覆盖用户的显式输入。
+    static func settlesAfterSweep(hasInteracted: Bool) -> Bool { !hasInteracted }
+
     /// 手指横坐标 → 分隔线位置，钳在 `0...1`。
     /// ⚠️ 宽度为 0（首帧 `GeometryReader` 尚未量到尺寸）时返回初始位置，**不产生 NaN**。
     static func fraction(dragX: CGFloat, width: CGFloat) -> CGFloat {
@@ -167,7 +176,12 @@ nonisolated enum BeforeAfterSweep {
         return Self.clamp01(dragX / width)
     }
 
-    /// 分隔线位置 → "之后"那一层的揭示宽度。
+    /// 分隔线位置 → **左侧**（"之前"）那一层的揭示宽度，也就是分隔线本身的横坐标。
+    ///
+    /// ⚠️ **上一版这行文档写的是「"之后"那一层的揭示宽度」，与 `init` 的语义相反**
+    ///（#253 PR #273 终审 C-1）：`init` 文档逐字写着 `before` 露在**左**、`after` 露在**右**，
+    /// 而绘制层把 `after` mask 到了 leading ⇒ 左右整个画反、默认标签把两半都标错。
+    /// 现在以 `init` 的语义为准：leading 那一段是 `before`。
     static func revealWidth(fraction: CGFloat, width: CGFloat) -> CGFloat {
         Self.clamp01(fraction) * max(0, width)
     }
@@ -248,11 +262,21 @@ struct BeforeAfterSliderBody<Before: View, After: View>: View {
             let reveal = BeforeAfterSweep.revealWidth(fraction: self.fraction, width: width)
 
             ZStack(alignment: .topLeading) {
-                self.before
+                // ⚠️⚠️ **叠放顺序与遮罩方向都是承重的**（#253 PR #273 终审 C-1）。
+                // 唯一的语义权威是 `BeforeAfterSlider.init` 的文档：
+                //「`before` 露在分隔线**左侧**、`after` 露在**右侧**」，
+                // `labelPair` 的 chip 顺序（左 before / 右 after）也是照这条来的。
+                // ⇒ 底层铺满 `after`（露在右半），上层的 `before` mask 到 leading 的 `reveal`。
+                //
+                // ⚠️ 上一版反着写（`after` 叠在上、mask 到 leading）⇒ 左半画 `after`、
+                // 右半画 `before`，而 chip 顺序没跟着反 ⇒ **默认 `.standard` 标签把两半都标错**，
+                // 且当时全套测试全绿——没有任何判据钉过"哪边是哪个"。
+                // ⇒ 判据补在 `BeforeAfterSliderTests.beforeIsOnTheLeadingSide`（逐像素取色）。
+                self.after
                     .frame(width: width, height: proxy.size.height)
                     .clipped()
 
-                self.after
+                self.before
                     .frame(width: width, height: proxy.size.height)
                     .clipped()
                     // ⚠️ 遮罩用 `Color.primary` 而不是白色：`mask` 吃的是 alpha 通道，
@@ -341,6 +365,12 @@ struct BeforeAfterSliderBody<Before: View, After: View>: View {
 /// 冻结它会让这个组件不可用。裁决点是纯函数
 /// `BeforeAfterSweep.introSweep(reduceMotion:)`。
 ///
+/// ## 入场摆动**不会覆盖用户的拖拽**
+///
+/// 摆动是一次性的"这里可以拖"提示，前后共约 `sweepDuration × 2 ≈ 1.1s`。
+/// 用户在这段窗口里抓住把手时，回程**不再执行**（`BeforeAfterSweep.settlesAfterSweep`）
+/// ——否则显式输入会被一个提示动画拽回正中（#253 PR #273 终审 I-6）。
+///
 /// ## 后台 / 低电量（NFR-7）
 ///
 /// ⚠️ **本组件不接能耗闸，这是一条判定不是遗漏**：NFR-7 管的是**常驻渲染**的效果
@@ -363,6 +393,10 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
 
     /// 分隔线位置。**由拖拽与入场摆动共同推进。**
     @State private var fraction: CGFloat = BeforeAfterSweep.initialFraction
+
+    /// 用户是否已经碰过把手。**入场摆动的回程要先看它**——见
+    /// `BeforeAfterSweep.settlesAfterSweep(hasInteracted:)`（终审 I-6）。
+    @State private var hasInteracted = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -393,6 +427,9 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         // ⚠️ 拖拽**不经过任何 Reduce Motion 门控**（FR-12）。
+                        // ⚠️ 但它必须**吃掉入场摆动的回程**（终审 I-6）：置位后
+                        // `playIntroSweep` 的第二段会被 `settlesAfterSweep` 挡住。
+                        self.hasInteracted = true
                         self.fraction = BeforeAfterSweep.fraction(
                             dragX: value.location.x, width: proxy.size.width
                         )
@@ -416,6 +453,10 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
     }
 
     /// 一次性入场摆动：摆过去 → 摆回来。**`nil` ⇒ 什么都不做（Reduce Motion）。**
+    ///
+    /// ⚠️ **回程受 `hasInteracted` 门控**（终审 I-6）：用户在这 ~1.1s 里抓过把手，
+    /// 就不再把分隔线拽回 `settle`。裁决点是纯函数
+    /// `BeforeAfterSweep.settlesAfterSweep(hasInteracted:)`。
     private func playIntroSweep(_ sweep: BeforeAfterIntroSweep?) async {
         guard let sweep else { return }
         withAnimation(.easeInOut(duration: sweep.duration)) { self.fraction = sweep.peak }
@@ -424,6 +465,7 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
         } catch {
             return
         }
+        guard BeforeAfterSweep.settlesAfterSweep(hasInteracted: self.hasInteracted) else { return }
         withAnimation(.easeInOut(duration: sweep.duration)) { self.fraction = sweep.settle }
     }
 }
