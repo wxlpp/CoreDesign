@@ -56,7 +56,17 @@ public struct RingChart<Value: ChartValue>: View {
     /// 6 是取「最内环仍有正半径」反推：`outer - 5 * width * 1.5 > 0` 在 `width`
     /// 走公式（非地板）时恒成立。
     /// ⚠️ 泛型类型不支持 static **存储**属性，故写成计算属性。
-    public static var recommendedRingLimit: Int { 6 }
+    /// ⚠️ **`nonisolated` 是有意的**（`#256`）：AD-F 的「超限固定为截断 + 降级 + 文档」
+    /// 契约要求调用方**在自己的数据层**按这个数先行分页 / 抽样，而那是后台线程上的活。
+    /// 不标它，下游从 nonisolated 上下文读会拿到
+    /// `warning: main actor-isolated static property ... can not be referenced
+    /// from a nonisolated context`，而库自身四条验证命令全绿。
+    ///
+    /// ⚠️⚠️ **但没有任何机器判据守着它 —— 实测**：`scripts/downstream-probe` 的
+    /// `readChartScaleLimits()` 只是**观测点**，把 `nonisolated` 拿掉它只多一条
+    /// warning、`swift build` 退出码仍是 0，CI 的 `downstream-probe` job 照样绿
+    /// （那一步不带 `-warnings-as-errors`）。⇒ 这一条靠人读 build 输出 + PR 评审。
+    public nonisolated static var recommendedRingLimit: Int { 6 }
 
     /// ⚠️ **去重在截断之前**（第 2 轮终审 I-6）：`ForEach(id: \.element.id)` 拿到
     /// 重复 ID 是 SwiftUI 未定义行为——`NetworkGraph.layout` 已就同一件事去过重，

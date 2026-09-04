@@ -165,3 +165,26 @@ nonisolated func readMaskRevealTransitionDefaults() -> (Int, CGFloat, Double, Do
         MaskRevealTransition.defaultGlareAngle.radians
     )
 }
+
+// MARK: - #250 的公开值类型（8 个微交互 modifier）
+//
+// ⚠️ 按文件头的分流表，`#250` 的 8 个 API 单位里**只有两个枚举**落在本文件：
+// `MicroInteractionStrength`（7 个 modifier 的档位入参）与 `SpinDirection`
+// （`.spin` 与 `.clock` 共用的方向枚举）。它们是调用方在**自己的配置层**构造的东西
+// ——「这个按钮抖多狠」「这个刷新图标往哪转」不该被逼上主线程。
+// 8 个 modifier 本身是 `public extension View` 的方法 ⇒ 天然 MainActor 隔离，
+// 在 `PublicVisibility.swift`（`consumeMicroInteractionModifiers`）。
+//
+// ⚠️ **`SpinDirection` 不只服务 `.spin`**：`Transition.clock(direction:)`（#268）
+// 的实参也是它 ⇒ 它掉 `nonisolated` 会同时打断两个 API 单位的下游配置层。
+//
+// ⚠️ 与 `TransitionTravel` / `TransitionAxis3D` 同一形态（见 `TransitionClusterProbe.swift`
+// 里那段实测记录）：`allCases` + `==` 这两条路径分别踩 key path 与 isolated conformance，
+// 是本 probe 唯一看得见的那类回归。
+nonisolated func readMicroInteractionStrengths() -> [Bool] {
+    MicroInteractionStrength.allCases.map { $0 == .regular }
+}
+
+nonisolated func readSpinDirections() -> [Bool] {
+    SpinDirection.allCases.map { $0 == .clockwise }
+}

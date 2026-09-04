@@ -36,3 +36,19 @@ public extension View {
         self.sensoryFeedback(feedback, trigger: trigger)
     }
 }
+
+// ⚠️ **本 `#Preview` 看不出任何东西，这是有意留的**（`#256` 补齐 40 个 API 单位的
+// 「有 `#Preview`」那一条时发现本文件是八个微交互里唯一没有的）：
+// 触感没有视觉表现，模拟器也没有 Taptic Engine ⇒ 它**不是**视觉冒烟，
+// 只是「本入口点在库内可被构造、可被点按」的存在性冒烟 + 真机上手动验触感的入口。
+// 想真的感觉到它，在**真机**上跑 `./scripts/run-preview.sh` 并进画廊的
+// `.haptic(_:trigger:)` 条目。
+#Preview("haptic") {
+    @Previewable @State var taps = 0
+    VStack(spacing: 24) {
+        Text(verbatim: "taps: \(taps)")
+        Button("播一次 .success") { taps += 1 }
+            .haptic(.success, trigger: taps)
+    }
+    .padding()
+}

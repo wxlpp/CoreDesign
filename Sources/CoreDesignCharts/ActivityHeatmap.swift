@@ -210,7 +210,17 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     /// 热力图与活动环的截断是**同质的**（少几天 / 少几环），且都发生在时间/指标序列的
     /// 一端，读图时可自明 ⇒ 由调用方按场景自行提示。
     /// ⚠️ 泛型类型不支持 static **存储**属性。
-    public static var maximumDays: Int { 1830 }
+    /// ⚠️ **`nonisolated` 是有意的**（`#256`）：AD-F 的「超限固定为截断 + 降级 + 文档」
+    /// 契约要求调用方**在自己的数据层**按这个数先行分页 / 抽样，而那是后台线程上的活。
+    /// 不标它，下游从 nonisolated 上下文读会拿到
+    /// `warning: main actor-isolated static property ... can not be referenced
+    /// from a nonisolated context`，而库自身四条验证命令全绿。
+    ///
+    /// ⚠️⚠️ **但没有任何机器判据守着它 —— 实测**：`scripts/downstream-probe` 的
+    /// `readChartScaleLimits()` 只是**观测点**，把 `nonisolated` 拿掉它只多一条
+    /// warning、`swift build` 退出码仍是 0，CI 的 `downstream-probe` job 照样绿
+    /// （那一步不带 `-warnings-as-errors`）。⇒ 这一条靠人读 build 输出 + PR 评审。
+    public nonisolated static var maximumDays: Int { 1830 }
 
     /// 分档阈值。
     ///

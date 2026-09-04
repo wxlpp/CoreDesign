@@ -1,5 +1,10 @@
 import SwiftUI
 import CoreDesign
+// ⚠️ **多 product 之后必须逐条 import**（#245 的失效形态：`App/project.yml` 只写
+// `- package: CoreDesign` 时预览宿主编译得过、但画廊里的新组件 import 不到）。
+// `project.yml` 那侧的三条 `product:` 与这两行是**一对**，改一边必须改另一边。
+import CoreDesignCharts
+import CoreDesignEffects
 
 // MARK: - ComponentCategory
 
@@ -11,6 +16,11 @@ enum ComponentCategory: String, CaseIterable, Identifiable {
     case container = "Container"
     case navigation = "Navigation"
     case feedback = "Feedback"
+    /// `CoreDesignEffects` 的 36 个 API 单位（微交互 8 + 转场 16 + 庆祝与处理中 4
+    /// + 文本与展示 4 + 跨平台改造 4）。
+    case effect = "Effect"
+    /// `CoreDesignCharts` 的 4 个图表。
+    case chart = "Chart"
 
     var id: String { self.rawValue }
 }
@@ -176,6 +186,183 @@ extension ComponentMeta {
         },
         ComponentMeta(id: "spinning-nonblocking", name: "Spinning · 非阻塞", description: "topBar 顶条 / inline 行内：不铺遮罩、不禁用交互", category: .feedback) {
             SpinningNonBlockingPreview()
+        },
+    ] + Self.shipSwiftEntries
+}
+
+// MARK: - `shipswift-effects` epic 的 40 个 API 单位（#256 串行合并）
+//
+// ⚠️⚠️ **本数组是本 epic 唯一的画廊写入窗口**：`epic.md`《Implementation Strategy》把
+// `ComponentData.swift` 列为并行冲突面，task 001–006 只产出片段、**由本 task 统一合并**；
+// `shipswift-shaders` 的 B-4 复用同一窗口（追加自己的分节，不要重排本节）。
+//
+// ⚠️ 与主数组分成两个 `static let` 是有意的：40 条追加进上面那个字面量会让整个
+// `all` 的类型检查退化（SwiftUI 的 `some View` 闭包 + 40 元素数组字面量），
+// 且合并冲突面会从「本节」扩大到「整个 all」。
+//
+// ⚠️ **"可用"的第 ③ 条（有 `#Preview` 且进画廊）在本仓分两处兑现**：`#Preview` 在
+// 各自的 `Sources/CoreDesign*/…` 源文件里（库内视觉冒烟），画廊条目在这里。
+//
+// ⚠️ **本节有意不补 `App/Sources/Previews.swift` 的宿主 `#Preview`**，两条理由：
+// ① 这批 API 单位绝大多数是**只在值变化 / 进出那一瞬间**才有东西可看的动效，
+//    静止帧与未加修饰的内容像素级相同，收进 `docs/snapshots` 只是噪声；
+// ② 提交态的快照按**产地**收（只收 `CoreDesignPreview_*`），而库内 `#Preview`
+//    一律不入库 —— 规则与三次全量渲染的实测证据写在
+//    `scripts/run-snapshots.sh` 默认模式那段注释里，判据在
+//    `Tests/CoreDesignTests/SnapshotArtifactGuard.swift`。
+extension ComponentMeta {
+
+    @MainActor static let shipSwiftEntries: [ComponentMeta] = [
+        // MARK: 微交互 8 个（#250）
+        ComponentMeta(id: "effect-shake", name: ".shake(trigger:)", description: "trigger 值变化时左右抖动；承载「输入错误」这类状态语义，a11y 通告由调用方提供", category: .effect) {
+            MicroInteractionDemo(label: "抖一下", symbol: "exclamationmark.triangle.fill") { view, fire in
+                view.shake(trigger: fire)
+            }
+        },
+        ComponentMeta(id: "effect-jump", name: ".jump(trigger:)", description: "trigger 值变化时上跳并带 squash / stretch；Reduce Motion 下降级为无位移", category: .effect) {
+            MicroInteractionDemo(label: "跳一下", symbol: "arrow.up.circle.fill") { view, fire in
+                view.jump(trigger: fire)
+            }
+        },
+        ComponentMeta(id: "effect-spin", name: ".spin(trigger:)", description: "trigger 值变化时单次整圈旋转，方向由 SpinDirection 决定（不是 clockwise: Bool）", category: .effect) {
+            MicroInteractionDemo(label: "转一圈", symbol: "arrow.triangle.2.circlepath") { view, fire in
+                view.spin(trigger: fire, direction: .counterClockwise)
+            }
+        },
+        ComponentMeta(id: "effect-ping", name: ".ping(trigger:)", description: "trigger 值变化时在内容背后扩散同心圆环；装饰层已 accessibilityHidden(true)", category: .effect) {
+            MicroInteractionDemo(label: "扩散一次", symbol: "dot.radiowaves.left.and.right") { view, fire in
+                view.ping(trigger: fire)
+            }
+        },
+        ComponentMeta(id: "effect-spray", name: ".spray(trigger:symbol:)", description: "trigger 值变化时喷出 SF Symbol 粒子；colors 默认空数组 ⇒ 取调用方 .tint", category: .effect) {
+            MicroInteractionDemo(label: "喷一次", symbol: "heart.fill") { view, fire in
+                view.spray(trigger: fire, symbol: "heart.fill", strength: .pronounced)
+            }
+        },
+        ComponentMeta(id: "effect-rise", name: ".rise(trigger:text:)", description: "trigger 值变化时浮起一段文字；text 是 LocalizedStringKey（公约 B 类）", category: .effect) {
+            MicroInteractionDemo(label: "+1", symbol: "star.fill") { view, fire in
+                view.rise(trigger: fire, text: "+1")
+            }
+        },
+        ComponentMeta(id: "effect-haptic", name: ".haptic(_:trigger:)", description: "对 sensoryFeedback 的薄封装，提升可发现性；⚠️ 模拟器上没有触感硬件，只能在真机上感知", category: .effect) {
+            MicroInteractionDemo(label: "触感（真机可感）", symbol: "iphone.radiowaves.left.and.right") { view, fire in
+                view.haptic(.success, trigger: fire)
+            }
+        },
+        ComponentMeta(id: "effect-shine", name: ".shine(trigger:)", description: "trigger 值变化时一道高光扫过内容形状；高光色取 Color.specularHighlight 而非写死白色", category: .effect) {
+            MicroInteractionDemo(label: "扫一道光", symbol: "sparkles") { view, fire in
+                view.shine(trigger: fire)
+            }
+        },
+
+        // MARK: 转场簇 A · 滤镜类 4 种（#266）
+        ComponentMeta(id: "effect-transition-blur", name: "Transition .blur", description: "进出时内容失焦并淡出；hasMotion == false，无位移", category: .effect) {
+            TransitionDemo(transition: .blur)
+        },
+        ComponentMeta(id: "effect-transition-film-exposure", name: "Transition .filmExposure", description: "像一格胶片被过度曝光：亮度冲高、饱和度与对比度洗白", category: .effect) {
+            TransitionDemo(transition: .filmExposure)
+        },
+        ComponentMeta(id: "effect-transition-snapshot", name: "Transition .snapshot", description: "像即显相纸：一下快门白场，随后从低对比逐渐显影", category: .effect) {
+            TransitionDemo(transition: .snapshot)
+        },
+        ComponentMeta(id: "effect-transition-flicker", name: "Transition .flicker", description: "像接触不良的灯管忽明忽暗；频率钉在 WCAG 的 3 次/秒线下", category: .effect) {
+            TransitionDemo(transition: .flicker)
+        },
+
+        // MARK: 转场簇 B · 3D 与弹性 6 种（#267）
+        ComponentMeta(id: "effect-transition-flip", name: "Transition .flip", description: "卡片翻面：带透视的 3D 旋转（两端 ±90°）+ 淡入淡出", category: .effect) {
+            TransitionDemo(transition: .flip)
+        },
+        ComponentMeta(id: "effect-transition-rotate3d", name: "Transition .rotate3D", description: "绕任意轴翻滚并向纵深退一点；默认 75°，与 flip 钉死的 90° 有意错开", category: .effect) {
+            TransitionDemo(transition: .rotate3D)
+        },
+        ComponentMeta(id: "effect-transition-swoosh", name: "Transition .swoosh", description: "穿行转场：从 edge 进、朝对侧出，途中带动态模糊与沿运动方向的拉伸", category: .effect) {
+            TransitionDemo(transition: .swoosh)
+        },
+        ComponentMeta(id: "effect-transition-boing", name: "Transition .boing", description: "弹性缩放：从小放大、越过原尺寸再回落坐定", category: .effect) {
+            TransitionDemo(transition: .boing(strength: .pronounced))
+        },
+        ComponentMeta(id: "effect-transition-skid", name: "Transition .skid", description: "刹车打滑：从 edge 滑进来、冲过头再刹住，车身跟着甩一个小角度", category: .effect) {
+            TransitionDemo(transition: .skid)
+        },
+        ComponentMeta(id: "effect-transition-move", name: "Transition .move（极坐标）", description: "沿任意极角平移进出；与 SwiftUI 自带的 .move(edge:) 是重载而非覆盖", category: .effect) {
+            TransitionDemo(transition: .move(angle: .degrees(-45), distance: 60))
+        },
+
+        // MARK: 转场簇 C · mask reveal 6 种（#268）
+        ComponentMeta(id: "effect-transition-iris", name: "Transition .iris", description: "圆形光圈从 anchor 向外张开，半径自动取到最远角", category: .effect) {
+            TransitionDemo(transition: .iris)
+        },
+        ComponentMeta(id: "effect-transition-wipe", name: "Transition .wipe", description: "一条直边沿指定角度扫过（默认 0°，左→右）", category: .effect) {
+            TransitionDemo(transition: .wipe)
+        },
+        ComponentMeta(id: "effect-transition-blinds", name: "Transition .blinds", description: "若干条横向百叶各自从自己的中线向上下张开，默认 8 条", category: .effect) {
+            TransitionDemo(transition: .blinds)
+        },
+        ComponentMeta(id: "effect-transition-clock", name: "Transition .clock", description: "扇形扫针从 12 点扫一圈，方向由 SpinDirection 决定", category: .effect) {
+            TransitionDemo(transition: .clock)
+        },
+        ComponentMeta(id: "effect-transition-glare", name: "Transition .glare", description: "斜掠的直边扫过（默认 35°），揭示边上骑一条柔光带", category: .effect) {
+            TransitionDemo(transition: .glare)
+        },
+        ComponentMeta(id: "effect-transition-dissolve", name: "Transition .dissolve", description: "网格逐格按确定性伪随机次序浮现，默认格边长 24pt", category: .effect) {
+            TransitionDemo(transition: .dissolve)
+        },
+
+        // MARK: 庆祝与处理中 4 个（#252）
+        ComponentMeta(id: "effect-confetti", name: ".confetti(trigger:)", description: "trigger 值变化时喷发一次彩纸；后台不画、低电量减半（NFR-7）", category: .effect) {
+            ConfettiDemo()
+        },
+        ComponentMeta(id: "effect-scanning-overlay", name: "ScanningOverlay", description: "上下往复的扫描光带，表示「正在识别 / 处理」；常驻渲染，受能耗闸管辖", category: .effect) {
+            ScanningOverlayDemo()
+        },
+        ComponentMeta(id: "effect-glow-sweep", name: "GlowSweep", description: "沿内容轮廓环绕的辉光扫针；低电量下不画辉光（policy.usesGlow）", category: .effect) {
+            GlowSweepDemo()
+        },
+        ComponentMeta(id: "effect-light-sweep", name: "LightSweep", description: "横向往复的柔光带，表示「后台仍在工作」", category: .effect) {
+            LightSweepDemo()
+        },
+
+        // MARK: 文本与展示 4 个（#253）
+        ComponentMeta(id: "effect-typewriter-text", name: "TypewriterText", description: "逐字打字机；两个 init 分别收 LocalizedStringResource 与 verbatim 流式文本", category: .effect) {
+            TypewriterTextDemo()
+        },
+        ComponentMeta(id: "effect-animated-mesh-gradient", name: "AnimatedMeshGradient", description: "MeshGradient 控制点缓慢漂移；colors 默认空数组 ⇒ 取语义 token", category: .effect) {
+            AnimatedMeshGradientDemo()
+        },
+        ComponentMeta(id: "effect-before-after-slider", name: "BeforeAfterSlider", description: "拖动分隔线对比两张内容；labels 是语义枚举（.shown / .hidden），不是 Bool", category: .effect) {
+            BeforeAfterSliderDemo()
+        },
+        ComponentMeta(id: "effect-particle-transition", name: "Transition .particle", description: "进出时内容轻微缩放淡出、一圈粒子向外飞散", category: .effect) {
+            TransitionDemo(transition: .particle)
+        },
+
+        // MARK: 跨平台改造 4 个（#254）
+        ComponentMeta(id: "effect-orbiting-logos", name: "OrbitingLogos", description: "环形轨道上的点阵与 logo；上游用 SpriteKit，本仓重写为纯 SwiftUI（AD-E）", category: .effect) {
+            OrbitingLogosDemo()
+        },
+        ComponentMeta(id: "effect-dot-sphere", name: "DotSphere", description: "自转的点阵球；上游 import UIKit，本仓重写为跨平台 Canvas（AD-E）", category: .effect) {
+            DotSphereDemo()
+        },
+        ComponentMeta(id: "effect-char-sphere", name: "CharSphere", description: "自转的字符球，字形由确定性散列分配（不是 Int.random）", category: .effect) {
+            CharSphereDemo()
+        },
+        ComponentMeta(id: "effect-full-screen-button", name: "FullScreenButton", description: "点开为全屏详情；zoom 转场是 iOS-only，其它平台按 FullScreenTransitionPlan 降级（AD-E）", category: .effect) {
+            FullScreenButtonDemo()
+        },
+
+        // MARK: 四个图表（#255）
+        ComponentMeta(id: "chart-radar", name: "RadarChart", description: "多维雷达图；轴少于 3 条 / 含非有限值时渲染空态而不是 crash（AD-F）", category: .chart) {
+            RadarChartDemo()
+        },
+        ComponentMeta(id: "chart-ring", name: "RingChart", description: "同心活动环；goal ≤ 0 或非有限时渲染空态，建议环数上限 6", category: .chart) {
+            RingChartDemo()
+        },
+        ComponentMeta(id: "chart-activity-heatmap", name: "ActivityHeatmap", description: "贡献热力图；日期归一化由注入的 Calendar 决定，上限 1830 天", category: .chart) {
+            ActivityHeatmapDemo()
+        },
+        ComponentMeta(id: "chart-network-graph", name: "NetworkGraph", description: "力导向关系图；超过 150 节点 / 600 边时截断 + 降级 + 标注，不抛断言（AD-F）", category: .chart) {
+            NetworkGraphDemo()
         },
     ]
 }
@@ -796,5 +983,352 @@ private struct SpinningNonBlockingPreview: View {
                 Text("已保存").coreFont(.callout).spinning(false, presentation: .inline)
             }
         }
+    }
+}
+
+// MARK: - ShipSwift 动效与图表的画廊演示
+//
+// ⚠️ 本节全部是**可交互**的演示宿主，不是静态截图源：36 个动效里绝大多数只有在
+// 值变化 / 插入删除的**那一瞬间**才有东西可看，静止帧与未加修饰的内容像素级相同。
+// ⇒ 画廊（模拟器里点得动）才是这批 API 单位的真实评审面。
+
+// MARK: 微交互：8 个 modifier 共用一个演示宿主
+
+/// 8 个 `trigger:` 型微交互的共用宿主。
+///
+/// ⚠️ **`decorate` 收 `AnyView` 而不是泛型 `Content: View`**：8 个 modifier 的返回类型
+/// 各不相同（`ModifiedContent<…, TriggerRelay<…>>` 各是一个具体类型），泛型闭包参数
+/// 在调用点无法从 `{ view, fire in view.shake(trigger: fire) }` 反推出 `Content`。
+/// 返回类型那一侧才是需要泛型的（`Decorated`），入参这侧擦除掉最省事。
+private struct MicroInteractionDemo<Decorated: View>: View {
+    let label: LocalizedStringKey
+    let symbol: String
+    let decorate: (AnyView, Int) -> Decorated
+
+    @State private var fire = 0
+
+    init(
+        label: LocalizedStringKey,
+        symbol: String,
+        decorate: @escaping (AnyView, Int) -> Decorated
+    ) {
+        self.label = label
+        self.symbol = symbol
+        self.decorate = decorate
+    }
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.lg) {
+            self.decorate(
+                AnyView(
+                    Image(systemName: self.symbol)
+                        .font(.system(size: 44))
+                        .foregroundStyle(.tint)
+                ),
+                self.fire
+            )
+            .frame(height: 72)
+
+            Button(self.label) { self.fire += 1 }
+                .buttonStyle(.light(role: .primary))
+
+            Text(verbatim: "trigger = \(self.fire)")
+                .font(CoreTypography.Token.caption.font)
+                .foregroundStyle(Color.contentSubtle)
+        }
+    }
+}
+
+// MARK: 转场：16 + 1 种共用一个演示宿主
+
+/// 全部 `Transition` 入口点的共用宿主。
+///
+/// ⚠️ **必须由 `withAnimation` 驱动插入/删除**：`Transition` 只在视图**进出**时求值，
+/// 光把它挂在一个常驻视图上什么都看不到。
+private struct TransitionDemo<T: Transition>: View {
+    let transition: T
+
+    @State private var isShown = true
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.lg) {
+            ZStack {
+                Color.clear.frame(height: 140)
+                if self.isShown {
+                    RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+                        .fill(.tint)
+                        .frame(width: 160, height: 110)
+                        .overlay {
+                            Text(verbatim: "Hello")
+                                .font(CoreTypography.Token.headline.font)
+                                .foregroundStyle(Color.surfaceCanvas)
+                        }
+                        .transition(self.transition)
+                }
+            }
+
+            Button(self.isShown ? "移除" : "插入") {
+                withAnimation(.easeInOut(duration: 0.8)) { self.isShown.toggle() }
+            }
+            .buttonStyle(.light(role: .primary))
+        }
+    }
+}
+
+// MARK: 庆祝与处理中 4 个
+
+private struct ConfettiDemo: View {
+    @State private var completed = 0
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.lg) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(.tint)
+            Button("完成一项") { self.completed += 1 }
+                .buttonStyle(.light(role: .primary))
+            Text(verbatim: "completed = \(self.completed)")
+                .font(CoreTypography.Token.caption.font)
+                .foregroundStyle(Color.contentSubtle)
+        }
+        .frame(height: 180)
+        .frame(maxWidth: .infinity)
+        .confetti(trigger: self.completed, strength: .pronounced)
+    }
+}
+
+private struct ScanningOverlayDemo: View {
+    var body: some View {
+        ScanningOverlay {
+            RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+                .fill(Color.surfaceRaised)
+                .frame(height: 120)
+                .overlay {
+                    Image(systemName: "doc.text.viewfinder")
+                        .font(.system(size: 36))
+                        .foregroundStyle(Color.contentMuted)
+                }
+        }
+    }
+}
+
+private struct GlowSweepDemo: View {
+    var body: some View {
+        GlowSweep {
+            RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+                .fill(Color.surfaceRaised)
+                .frame(height: 100)
+                .overlay {
+                    Text("Thinking…").font(CoreTypography.Token.callout.font)
+                }
+        }
+    }
+}
+
+private struct LightSweepDemo: View {
+    var body: some View {
+        LightSweep {
+            RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+                .fill(Color.surfaceRaised)
+                .frame(height: 100)
+                .overlay {
+                    Text("Syncing…").font(CoreTypography.Token.callout.font)
+                }
+        }
+    }
+}
+
+// MARK: 文本与展示 4 个
+
+private struct TypewriterTextDemo: View {
+    @State private var streamed = "流式文本走 verbatim init，不进本地化目录。"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            TypewriterText("Welcome aboard", speed: .slow)
+                .font(CoreTypography.Token.headline.font)
+            TypewriterText(verbatim: self.streamed)
+                .font(CoreTypography.Token.callout.font)
+                .foregroundStyle(Color.contentSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct AnimatedMeshGradientDemo: View {
+    var body: some View {
+        AnimatedMeshGradient()
+            .frame(height: 160)
+            .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
+    }
+}
+
+private struct BeforeAfterSliderDemo: View {
+    var body: some View {
+        BeforeAfterSlider(labels: .shown(before: "Draft", after: "Final")) {
+            ZStack {
+                Color.secondaryFill
+                Image(systemName: "photo")
+                    .font(.system(size: 40))
+                    .foregroundStyle(Color.contentSubtle)
+            }
+        } after: {
+            ZStack {
+                Color.accentSubtleBackground
+                Image(systemName: "photo.fill")
+                    .font(.system(size: 40))
+                    .foregroundStyle(.tint)
+            }
+        }
+        .frame(height: 180)
+        .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
+    }
+}
+
+// MARK: 跨平台改造 4 个
+
+/// `OrbitingLogos` 的入参是**泛型集合 + `Identifiable`**（AD-E 重写后的形态），
+/// 这里用画廊自己的模型类型接上，正是下游的用法。
+private struct OrbitingBrand: Identifiable {
+    let id: Int
+    let symbol: String
+}
+
+private struct OrbitingLogosDemo: View {
+    private static let brands = [
+        OrbitingBrand(id: 0, symbol: "swift"),
+        OrbitingBrand(id: 1, symbol: "applelogo"),
+        OrbitingBrand(id: 2, symbol: "cloud.fill"),
+        OrbitingBrand(id: 3, symbol: "bolt.fill"),
+        OrbitingBrand(id: 4, symbol: "cube.fill"),
+    ]
+
+    var body: some View {
+        OrbitingLogos(Self.brands) { brand in
+            Image(systemName: brand.symbol)
+                .font(.system(size: 18))
+                .foregroundStyle(.tint)
+        } center: {
+            Image(systemName: "circle.hexagongrid.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(Color.contentPrimary)
+        }
+        .frame(height: 220)
+    }
+}
+
+private struct DotSphereDemo: View {
+    var body: some View {
+        DotSphere().frame(height: 200)
+    }
+}
+
+private struct CharSphereDemo: View {
+    var body: some View {
+        CharSphere(["道", "德", "经", "S", "w", "i", "f", "t"])
+            .frame(height: 200)
+    }
+}
+
+private struct FullScreenButtonDemo: View {
+    // ⚠️ 自带 `NavigationStack`：`navigationTransition(.zoom)` 要求源与目的地在**同一个**
+    // 导航栈里，而画廊详情页把 preview 渲染两遍（Light / Dark）、本身不提供栈。
+    var body: some View {
+        NavigationStack {
+            FullScreenButton {
+                VStack(spacing: CoreSpacing.md) {
+                    Image(systemName: "photo.fill")
+                        .font(.system(size: 64))
+                        .foregroundStyle(.tint)
+                    Text("展开后的全屏详情")
+                        .font(CoreTypography.Token.headline.font)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.surfaceCanvas)
+            } label: {
+                RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
+                    .fill(Color.surfaceRaised)
+                    .frame(height: 120)
+                    .overlay {
+                        Label("点开看看", systemImage: "arrow.up.left.and.arrow.down.right")
+                            .font(CoreTypography.Token.callout.font)
+                    }
+            }
+        }
+        .frame(height: 200)
+    }
+}
+
+// MARK: 四个图表
+
+/// ⚠️ 三个图表的数据契约都是**泛型协议**，画廊按下游用法用自己的模型类型接上
+/// （而不是库自带的具体 struct —— 那正是 `#255` 终审 I-7 要求避开的形态）。
+private struct GalleryMetric: ChartValue {
+    let id: Int
+    let label: String
+    let value: Double
+}
+
+private struct GalleryDay: HeatmapDay {
+    let id: Int
+    let date: Date
+    let count: Int
+}
+
+private struct GalleryNode: GraphNode {
+    let id: String
+    let label: String
+}
+
+private struct RadarChartDemo: View {
+    var body: some View {
+        RadarChart([
+            GalleryMetric(id: 0, label: "速度", value: 82),
+            GalleryMetric(id: 1, label: "力量", value: 61),
+            GalleryMetric(id: 2, label: "耐力", value: 94),
+            GalleryMetric(id: 3, label: "技巧", value: 47),
+            GalleryMetric(id: 4, label: "智力", value: 73),
+        ])
+        .frame(height: 220)
+    }
+}
+
+private struct RingChartDemo: View {
+    var body: some View {
+        RingChart([
+            GalleryMetric(id: 0, label: "活动", value: 420),
+            GalleryMetric(id: 1, label: "锻炼", value: 28),
+            GalleryMetric(id: 2, label: "站立", value: 9),
+        ], goal: 500)
+        .frame(height: 200)
+    }
+}
+
+private struct ActivityHeatmapDemo: View {
+    /// ⚠️ **锚定到固定日期而不是 `.now`**：`.now` 会让同一份代码每天渲出不同的日期标签
+    /// ——库内那个 `#Preview` 用的正是 `.now`（视觉冒烟无所谓），而画廊要能横向对比。
+    private static let anchor = Date(timeIntervalSince1970: 1_767_225_600) // 2026-01-01 UTC
+
+    private static let days: [GalleryDay] = (0..<120).map { offset in
+        GalleryDay(
+            id: offset,
+            date: Self.anchor.addingTimeInterval(Double(offset) * 86_400),
+            count: [0, 0, 1, 2, 3, 5, 8][offset % 7]
+        )
+    }
+
+    var body: some View {
+        ActivityHeatmap(Self.days).frame(height: 120)
+    }
+}
+
+private struct NetworkGraphDemo: View {
+    private static let nodes = (0..<14).map { GalleryNode(id: "n\($0)", label: "节点 \($0)") }
+    private static let edges = (0..<20).map {
+        GraphEdge(from: "n\($0 % 14)", to: "n\(($0 * 5 + 3) % 14)")
+    }
+
+    var body: some View {
+        NetworkGraph(nodes: Self.nodes, edges: Self.edges).frame(height: 260)
     }
 }
