@@ -16,6 +16,7 @@ import CoreDesignEffects
 public struct FilmExposureTransition: Transition {
     public let intensity: Double
     public nonisolated static let defaultIntensity: Double   // 0.55
+    public static let properties: TransitionProperties       // hasMotion: false
     public init(intensity: Double = FilmExposureTransition.defaultIntensity)
     public func body(content: Content, phase: TransitionPhase) -> some View
 }
@@ -40,18 +41,50 @@ public extension Transition where Self == FilmExposureTransition {
 无害的成像效果，而真正需要保护的（只开启「减弱闪烁灯光」的那批）仍然拿不到保护
 ——**张冠李戴的信号比没有信号更糟**。
 
-⚠️ **过曝为什么仍在射程内**：它是**单向、一次性**的，不构成 WCAG 2.3.1 定义的「闪烁」
-（那要求每秒 ≥ 3 次）；但同一条款的通用闪光阈值同时看**幅度**
-（相对亮度变化 ≥ 0.1 视为大面积闪光）。
+⚠️ **过曝构不构成 WCAG 2.3.1 违规？不构成。**（PR #289 终审 I-1 的更正）
+它是**单向、一次性**的：2.3.1 里「一次 flash」的定义要求**一对反向的**相对亮度变化，
+而构成违规还要**每秒 > 3 次** —— 一次性单向变化两条都不满足，幅度多大都一样。
+⚠️ 上一版这里写「同一条款的通用闪光阈值同时看幅度（≥ 0.1）⇒ 峰值仍在射程内」，
+那是**误述**：0.1 不是一条独立的幅度上限，而是那条定义里的一个合取项
+（还带着「较暗一侧的相对亮度 < 0.80」），且它与另一条独立的**面积**判据被混在了一起。
 
-⇒ 开启「减弱闪烁灯光」时峰值压到 `FilterTransitionSafety.calmedBrightnessCeiling`
-（**0.08**，落在 0.1 之下）。
-⚠️ **口径照实说**：`.brightness(_:)` 是对各通道做**加性**偏移，不等于相对亮度的精确定义；
-0.08 是一个**保守的替身**，不是逐像素达标证明。
+⇒ **那为什么还压制？因为用户显式打开了「减弱闪烁灯光」**——那是系统为光敏性提供的
+偏好开关，一次大面积亮冲正是它想减弱的东西。这个理由自己站得住，不需要 WCAG 背书。
+开启时峰值压到 `FilterTransitionSafety.calmedBrightnessCeiling`（**0.08**）。
+
+⚠️ **0.08 是一条产品策略线，不是达标线**：`.brightness(_:)` 是对色彩分量做**加性**偏移，
+而 WCAG 量的是加权后的**相对亮度**。实测 `.brightness(0.08)` 的真实 ΔrelLum：
+
+| 灰阶 | relLum 前 → 后 | ΔrelLum |
+|---|---|---|
+| 0.00 | 0.0000 → 0.0102 | 0.0102 |
+| 0.50 | 0.2892 → 0.3756 | 0.0864 |
+| 0.70 | 0.5289 → 0.6400 | **0.1111** |
+| 0.85 | 0.7479 → 0.8765 | **0.1286** |
+| 1.00 | 1.0000 → 1.0000 | 0.0000 |
+
+对中到亮的内容（浅色卡片、白底照片——恰恰是本转场的典型宿主），它给出的相对亮度变化
+**比 0.1 还高约 30%**。「保守的替身」这个说法方向是反的：只有暗底才保守。
+要真把 ΔrelLum 压到 0.1 以下需要 ≈ 0.05，或改用乘性 / 线性空间的调制
+——那是另一次裁决（会明显削弱效果），不在 #266 射程内。
 
 ⚠️ **不是 no-op**：饱和度洗白、对比度下降、淡出全部保留，用户仍看得出这是一次胶片式曝光
-（判据 `exposureGateClampsPeakBelowTheFlashThreshold` 断言压制后的峰值 `> 0`，
+（判据 `exposureGateClampsPeakToThePolicyCeiling` 断言压制后的峰值 `> 0`，
 `calmedExposureFramesDifferFromFullFrames` 断言压制帧与「完全没有曝光」那一帧不同）。
+
+### ⚠️⚠️ `properties.hasMotion` 必须是 `false`，否则「有意不读 Reduce Motion」是假的
+
+`Transition` 协议有 `static var properties: TransitionProperties`，**默认 `hasMotion == true`**。
+SDK 原文：
+
+> Whether the transition includes motion. When this behavior is included in a transition,
+> that transition will be replaced by opacity when Reduce Motion is enabled. Defaults to `true`.
+
+⇒ 不显式声明的话，只开启「减弱动态效果」的用户**照样**丢掉这条成像效果
+——只是丢在框架那一层，本文件一个字都看不见，而上表却写着"有意不读"。
+本类型因此写了 `public static let properties = TransitionProperties(hasMotion: false)`，
+判据 `everyTransitionOptsOutOfTheFrameworkMotionSubstitution` 直接断言那个**性质**
+（PR #289 终审 C-4）。
 
 ⚠️ **调用方调不高这个上限**：`intensity` 先过 `FilterTransitionSafety.exposurePeak(_:)`，
 `.calmed` 档下 `min(requested, 0.08)`。

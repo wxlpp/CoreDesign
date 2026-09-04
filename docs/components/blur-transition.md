@@ -18,6 +18,7 @@ import CoreDesignEffects
 public struct BlurTransition: Transition {
     public let radius: CGFloat
     public nonisolated static let defaultRadius: CGFloat   // 12
+    public static let properties: TransitionProperties     // hasMotion: false
     public init(radius: CGFloat = BlurTransition.defaultRadius)
     public func body(content: Content, phase: TransitionPhase) -> some View
 }
@@ -43,6 +44,22 @@ public extension Transition where Self == BlurTransition {
 
 ⇒ 判据 `FilterTransitionTests.blurConsumesNoAccessibilitySignal` 把这个决定**钉在源码上**：
 文件里出现 `reduceMotion` / `dimFlashingLights` 任一即判红，逼人回到这份文档重新裁决。
+
+### ⚠️⚠️ `properties.hasMotion` 必须是 `false`，否则上表在运行时是假的
+
+`Transition` 协议有 `static var properties: TransitionProperties`，**默认 `hasMotion == true`**。
+SDK 对该位的原文：
+
+> Whether the transition includes motion. When this behavior is included in a transition,
+> that transition will be replaced by opacity when Reduce Motion is enabled. Defaults to `true`.
+
+⇒ 不显式声明的话，**框架已经在 Reduce Motion 下把本转场整个换成了 `.opacity`**
+——正是上表「降级的代价：等于删掉它」那一行说绝不能发生的事。
+本类型因此写了 `public static let properties = TransitionProperties(hasMotion: false)`，
+由 `everyTransitionOptsOutOfTheFrameworkMotionSubstitution` 直接断言那个**性质**
+（并用一个不覆写 `properties` 的探针类型互锁，证明默认值真的是 `true`）。
+⚠️ 这一条是 PR #289 终审 C-4 的处置：`blurConsumesNoAccessibilitySignal` 钉的是
+「文件里没出现某个词」，与「Reduce Motion 下这条转场**实际发生什么**」无关。
 
 ⚠️ 同簇另外三种的判断**各不相同**（`filmExposure` / `snapshot` 只读「减弱闪烁灯光」，
 `flicker` 两个都读），完整对照表见 `Sources/CoreDesignEffects/FilterTransitionSupport.swift` 文件头。

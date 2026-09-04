@@ -16,6 +16,7 @@ import CoreDesignEffects
 public struct SnapshotTransition: Transition {
     public let intensity: Double
     public nonisolated static let defaultIntensity: Double   // 0.7
+    public static let properties: TransitionProperties       // hasMotion: false
     public init(intensity: Double = SnapshotTransition.defaultIntensity)
     public func body(content: Content, phase: TransitionPhase) -> some View
 }
@@ -37,12 +38,33 @@ public extension Transition where Self == SnapshotTransition {
 | 光敏（亮度） | **有（强）**——快门白场是全簇**最陡**的一次亮度上冲 | 读 `\.accessibilityDimFlashingLights` |
 
 白场被刻意做成一个**窄窗**（半宽 0.25 的升余弦），窄意味着**陡**。
-它仍然是一次性、单向的，构不成 WCAG 2.3.1 意义上的"闪烁"（≥ 3 次/秒），
-但**幅度**这一侧比 `filmExposure` 更该管 ⇒ 走同一道闸、同一个上限
+它仍然是**一次性、单向**的 ⇒ **不构成 WCAG 2.3.1 违规**：那一条要求「一对反向的相对
+亮度变化」且「每秒 > 3 次」，两条都不满足（PR #289 终审 I-1 的更正——上一版把 0.1
+写成一条独立的幅度阈值，那是误述）。
+⇒ 压制它的理由与 `filmExposure` 逐字相同：**用户显式打开了「减弱闪烁灯光」**，
+而这是全簇最陡的一下亮冲。走同一道闸、同一个上限
 （`FilterTransitionSafety.exposure(dimFlashingLights:)` ⇒ 峰值 ≤ **0.08**）。
+⚠️ 0.08 是一条**产品策略线**，不是达标线；`.brightness(_:)` 与 WCAG 的相对亮度不是同一个量，
+逐格实测（`.brightness(0.08)` 在 gray 0.85 上的 ΔrelLum 是 0.1286）见
+`docs/components/film-exposure-transition.md` 与
+`FilterTransitionSafety.calmedBrightnessCeiling` 的文档。
 
 ⚠️ **不是 no-op**：显影（饱和度 / 对比度从洗白回到常态）与淡入淡出全部保留，
 去掉的只有那一下白场。
+
+### ⚠️⚠️ `properties.hasMotion` 必须是 `false`，否则「有意不读 Reduce Motion」是假的
+
+`Transition` 协议有 `static var properties: TransitionProperties`，**默认 `hasMotion == true`**。
+SDK 原文：
+
+> Whether the transition includes motion. When this behavior is included in a transition,
+> that transition will be replaced by opacity when Reduce Motion is enabled. Defaults to `true`.
+
+⇒ 不显式声明的话，只开启「减弱动态效果」的用户**照样**丢掉这条成像效果
+——只是丢在框架那一层，本文件一个字都看不见，而上表却写着"有意不读"。
+本类型因此写了 `public static let properties = TransitionProperties(hasMotion: false)`，
+判据 `everyTransitionOptsOutOfTheFrameworkMotionSubstitution` 直接断言那个**性质**
+（PR #289 终审 C-4）。
 
 ## 相位契约与曲线
 

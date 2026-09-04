@@ -23,9 +23,15 @@ import SwiftUI
 /// ⚠️ `#266` 要求的「逐个判断」在本转场上的结论：
 ///
 /// - **前庭（光流）**：无位移 / 旋转 / 缩放 ⇒ 与 Reduce Motion 无关，**有意不读**它。
+///   ⚠️⚠️ 与 `filmExposure` 同：这条「有意不读」只有在 `properties.hasMotion == false`
+///   时才落得了地，否则框架会在 Reduce Motion 下把整条转场换成 `.opacity`（终审 C-4）。
 /// - **光敏**：快门白场是全簇**最陡**的一次亮度上冲——它被刻意做成一个窄窗
-///   （`shutterWidth = 0.25` 的升余弦），窄意味着**陡**。仍然是**一次性、单向**的，
-///   构不成 WCAG 2.3.1 意义上的"闪烁"（≥ 3 次/秒），但幅度这一侧比 `filmExposure` 更该管。
+///   （`shutterWidth = 0.25` 的升余弦），窄意味着**陡**。它仍然是**一次性、单向**的
+///   ⇒ **不构成 WCAG 2.3.1 违规**（那一条要求「一对反向变化」且「每秒 > 3 次」）。
+///   压制它的理由与 `filmExposure` 逐字相同：**用户显式打开了「减弱闪烁灯光」**，
+///   而这是全簇最陡的一下亮冲，幅度这一侧比 `filmExposure` 更该管。
+///   ⚠️ 上一版这里把 0.1 写成一条独立的幅度阈值，那是误述，更正见
+///   `FilterTransitionSafety.calmedBrightnessCeiling`（终审 I-1）。
 ///
 /// ⇒ 与 `filmExposure` 走**同一道闸、同一个上限**
 ///（`FilterTransitionSafety.exposure(dimFlashingLights:)` ⇒ `calmedBrightnessCeiling`）。
@@ -51,6 +57,11 @@ public struct SnapshotTransition: Transition {
     /// 默认快门强度。
     /// ⚠️ `nonisolated` 的理由见 `BlurTransition.defaultRadius`（probe 的隔离契约）。
     public nonisolated static let defaultIntensity: Double = 0.7
+
+    /// ⚠️⚠️ 理由逐字同 `FilmExposureTransition.properties`（终审 C-4）：协议默认值
+    /// `hasMotion == true` 会让框架在 Reduce Motion 下把整条转场替换成 opacity。
+    /// 判据：`FilterTransitionTests.everyTransitionOptsOutOfTheFrameworkMotionSubstitution`。
+    public static let properties = TransitionProperties(hasMotion: false)
 
     public init(intensity: Double = SnapshotTransition.defaultIntensity) {
         self.intensity = intensity

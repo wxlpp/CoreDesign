@@ -22,6 +22,22 @@ import Testing
 // `flickerDrawsDifferentFramesMidFlight` 三条：它们把 SwiftUI 的插值步骤原样跑一遍，
 // 再用位图证明那一帧确实与两个端点都不同。
 //
+// ⚠️⚠️ **第 2 个重演形态：整层被绕过**（终审 C-1 / C-2）。上一版全部判据都构造
+// 第 2 / 3 层（`chromeCases` 直接 new 四个 Chrome、E 组直接 new 三个 Film），
+// 仓库里**没有任何东西**求值过四个 `XxxTransition.body` ⇒ 把那四条 `body` 改成
+// `content`（四种转场全部变成硬跳变、参数被静默丢弃），752/752 照绿；
+// 让 `FlickerTransition.body` 跳过 `FlickerChrome` 直接接 `FlickerFilm`
+//（光敏用户拿到满幅闪烁），同样 752/752 照绿。
+// ⇒ 新增 `transitionBodiesAndEntryPointsArePinnedVerbatim` 把**第 1 层**逐字钉住。
+//
+// ⚠️⚠️ **第 3 个形态：判据钉的是变量名，改个名就整条绕过**（终审 C-3）。
+// ⇒ 新增 `accessibilityKeyPathsLiveOnlyInsideThePinnedChromes` 扫**不可改名的键路径**。
+//
+// ⚠️⚠️ **第 4 个形态：钉了形状、没钉性质**（终审 C-4）。`blurConsumesNoAccessibilitySignal`
+// 钉的是「文件里没出现 `reduceMotion` 这个词」，而 `Transition.properties` 默认
+// `hasMotion == true` ⇒ 框架早就在 Reduce Motion 下把四种转场全部换成了 `.opacity`。
+// ⇒ 新增 `everyTransitionOptsOutOfTheFrameworkMotionSubstitution` 直接断言那个**性质**。
+//
 // ⚠️ 两个 a11y 环境键（`\.accessibilityDimFlashingLights` /
 // `\.accessibilityReduceMotion`）**都不可注入**（`.environment(...)` 对它们编译红，
 // 实测两者皆然）⇒ 「档位真的被消费」只能走**纯函数 + 调用点源码判据**两条链，
@@ -41,7 +57,10 @@ struct FilterTransitionTests {
 
     // MARK: - 公共 harness
 
-    /// 本簇的五个源文件。**顺序即分类顺序**，下面多条判据对它做双向差集。
+    /// 本簇的五个源文件。下面多条判据对它做双向差集。
+    ///
+    /// ⚠️ **`Set` 无序**——上一版这里写着「顺序即分类顺序」，那句话是错的（终审 S-2）：
+    /// 字面量里的排列对遍历顺序毫无影响，实际用的一律是 `.sorted()`。
     static let clusterFiles: Set<String> = [
         "FilterTransitionSupport.swift", "BlurTransition.swift",
         "FilmExposureTransition.swift", "SnapshotTransition.swift", "FlickerTransition.swift",
@@ -112,12 +131,56 @@ struct FilterTransitionTests {
     /// 「渲一次丢掉、再渲一次取用」只覆盖到"同一个视图刚出现"那一档，
     /// 覆盖不到"前面渲过一大堆别的东西"。加长暖机（丢掉前三帧）实测**更糟**，不是解法。
     ///
-    /// ⇒ 本 suite 的纪律：
-    /// · **可以**比「同一个 Film 类型、只有实参不同」的两帧（相邻两次取样，实测稳定）；
-    /// · **不可以**比「chrome vs film」「有滤镜 vs 无滤镜」「跨 `#Test` 复用的基线」
-    ///   ——这三类的契约改由**源码判据**承担（`chromeBodiesArePinnedVerbatim`
-    ///   逐字钉住每个 chrome 把什么喂给绘制层）与**纯函数判据**承担
-    ///   （`identityIsNeutralForEveryFilter` / `endpointsFadeContentToZero`）。
+    /// ⚠️⚠️ **上一版这里写的「同一个 Film 类型、只有实参不同的两帧**实测稳定**」是假的**
+    ///（终审 I-2）。评审实测：`probeContent.opacity(0)` 与 `probeContent.opacity(1)`
+    /// 渲出**逐字节相同**的位图（`nonZero=57909`、同一个 FNV），3/3 复现；
+    /// `MicroInteractionAPITests.stablePixels` 本身也在**同一条 `#Test` 内**对同一实参
+    /// 不收敛（`FilmExposureFilm(progress: 1, peak: 0.55)` 第三次才返回全透明位图）。
+    ///
+    /// ⚠️⚠️ **病因不是「`.opacity` 在 modifier 栈里的位置」**（那是第一版归因，已被
+    /// 姊妹 PR #291 的独立实测推翻）：把 `.opacity` 放在 5 个不同位置**隔离**测，
+    /// 全部正常可见、每条连跑 3 次稳定：
+    ///
+    /// ```
+    /// ZZ-E noBlur(op0)==blank : true    noBlur(op1)==blank : false
+    /// ZZ-B band(op0)==blank   : true    band(op1)==blank   : false
+    /// ZZ-F chrome op0==blank  : true    chrome op0==op1    : false
+    /// ZZ-D RM opacity0.25 == RM opacity1.0 : false
+    /// ```
+    ///
+    /// 真正的变量是**跨测试交错**。同一视图、同一进程、进程级暖机**已经生效**的前提下：
+    ///
+    /// ```
+    /// === 隔离跑 x5 ===                                    全部一致且正确
+    /// opacity0==opacity1 : false   opacity0==clear : true   opacity0 allZero : true
+    ///
+    /// === 放进 7 条测试的同一 suite 里跑 x4 ===             三种不同答案
+    /// run1: op0==op1 true    op0==clear false   allZero false   ← opacity(0) 渲成了不透明
+    /// run2: op0==op1 true    op0==clear true    allZero false
+    /// run3: op0==op1 true    op0==clear false   allZero false
+    /// run4: op0==op1 false   op0==clear true    allZero true
+    /// ```
+    ///
+    /// ⇒ **「多暖几次」和「把 `.opacity` 挪个位置」两条都不管用**，别再往那两个方向修。
+    /// 上面「某条判据的基线跑在别的判据后面就变了」那一段，成因也是这一条。
+    ///
+    /// ⇒ **真实射程**（本轮更正）：
+    /// · **可以**用来问「同一条 `#Test` 内、相邻的两次调用里，两种构造方式是否给出
+    ///   **同一张**位图」——那正是 `matchesDirect`（插值出来的帧 vs 直接构造的帧）
+    ///   在做的事，它同时是本 suite 里唯一能证明「harness 对同一内容确定」的锚点；
+    /// · **可以**用来问「两帧不同」，但那**不能**当作某条链的**非退化前置**
+    ///   ——`.opacity` 这一路它可能整段看不见，前置会以「运气绿」的形态成立，
+    ///   而前置一旦变假，被它守着的那几条 `#expect(!…)` 就变成恒真、**不会判红**。
+    /// · **不可以**比「chrome vs film」「有滤镜 vs 无滤镜」「跨 `#Test` 复用的基线」。
+    /// ⇒ 所有非退化前置一律改由**纯函数**承担（`filmExposureOnlyBlowsOutMidFlight`
+    /// / `snapshotOnlyFlashesInsideTheShutterWindow` / `identityIsNeutralForEveryFilter`
+    /// / `endpointsFadeContentToZero`），契约的形状一律改由**源码判据**承担
+    ///（`transitionBodiesAndEntryPointsArePinnedVerbatim` / `chromeBodiesArePinnedVerbatim`）。
+    ///
+    /// ⚠️ **本 suite 的位图判据一律走本函数**（形态级暖机在这里，不在
+    /// `MicroInteractionAPITests.stablePixels` 里）。绕过它直接调那一层就静默丢掉暖机
+    /// ⇒ 由 `bitmapAssertionsAllGoThroughTheLocalHarness` 守住（形态同
+    /// `ProcessingSweepTests.containersDelegateToDriver`）。
     static func pixels(_ view: some View) -> Data? {
         _ = Self.warmUp
         return MicroInteractionAPITests.stablePixels(view.frame(width: 200, height: 160))
@@ -326,8 +389,19 @@ struct FilterTransitionTests {
 
     // MARK: - D. 安全档位（两道闸）
 
-    @Test("曝光闸：只看减弱闪烁灯光，且把峰值压到 WCAG 阈值以下但不为 0")
-    func exposureGateClampsPeakBelowTheFlashThreshold() {
+    /// ⚠️⚠️ **上一版这条判据里有一句自说自话的断言，已删**（终审 I-1）：
+    /// `#expect(calmedBrightnessCeiling < 0.1, "上限没有落在 WCAG 2.3.1 通用闪光阈值以下")`
+    /// ——它以「已验证达标」的名义出现在测试报告里，而它**不证明它声称的事**：
+    /// (a) 2.3.1 的 0.1 不是独立的幅度上限，而是「什么算一次 flash」定义里的合取项，
+    ///     构成违规还要每秒 > 3 次；本簇的曝光是**一次性单向**变化，不在射程内。
+    /// (b) `.brightness(_:)` 是**加性**通道偏移，与 WCAG 的**相对亮度**不是同一个量：
+    ///     实测 `.brightness(0.08)` 在 gray 0.70 / 0.85 上的 ΔrelLum 是 0.1111 / 0.1286
+    ///     ——**高于** 0.1，方向与那条断言声称的相反。逐格实测见
+    ///     `FilterTransitionSafety.calmedBrightnessCeiling` 的文档。
+    /// ⇒ 本条现在只断言这道闸**自己**的性质（压得下去、压不到 0、调用方抬不高），
+    /// 不再借 WCAG 的名义。
+    @Test("曝光闸：只看减弱闪烁灯光，且把峰值压到策略上限以下但不为 0")
+    func exposureGateClampsPeakToThePolicyCeiling() {
         #expect(FilterTransitionSafety.exposure(dimFlashingLights: false) == .full)
         #expect(FilterTransitionSafety.exposure(dimFlashingLights: true) == .calmed)
 
@@ -336,8 +410,6 @@ struct FilterTransitionTests {
         let calmed = FilterTransitionSafety.calmed.exposurePeak(requested)
         #expect(full == 1)
         #expect(calmed <= FilterTransitionSafety.calmedBrightnessCeiling)
-        #expect(FilterTransitionSafety.calmedBrightnessCeiling < 0.1,
-                "上限没有落在 WCAG 2.3.1 通用闪光阈值（相对亮度变化 0.1）以下")
         #expect(calmed < full, "压制档与完整档给出同一个峰值 —— 这道闸没有效果")
         // ⚠️ **不是 no-op**：压制档仍保留一点曝光，抹到 0 会让这条转场只剩淡出。
         #expect(calmed > 0, "压制档把曝光抹成 0 —— 那不是降级，是删掉这条转场的全部内容")
@@ -387,10 +459,23 @@ struct FilterTransitionTests {
 
         let midMatchesIdentity = Self.framesMatch(midFlight, atIdentity)
         let midMatchesAppearing = Self.framesMatch(midFlight, atAppearing)
-        let endpointsMatch = Self.framesMatch(atIdentity, atAppearing)
         #expect(!midMatchesIdentity, "插值出来的中间帧与恒等帧逐字节相同 —— 转场什么都没做")
         #expect(!midMatchesAppearing, "插值出来的中间帧与端点帧逐字节相同 —— 转场什么都没做")
-        #expect(!endpointsMatch, "两个端点自己就一样 —— 上面两条是恒真的")
+
+        // ⚠️⚠️ **非退化前置走纯函数，不走位图**（终审 I-2）。
+        // 上一版这里写的是 `#expect(!Self.framesMatch(atIdentity, atAppearing))`
+        // ——「两个端点自己就一样 ⇒ 上面两条恒真」。那条前置**今天绿是运气**：
+        // 本 harness 在跨测试交错下会把 `.opacity(0)` 与 `.opacity(1)` 渲成同一张位图
+        //（逐字实测见 `pixels(_:)` 的文档），而两个端点的差别恰恰主要在 `.opacity` 上。
+        // 前置一旦变假，上面两条就变成恒真且**不会判红**。
+        // ⇒ 改成对**这条曲线自己**断言：中点非中性、两端中性、不透明度三点互不相同。
+        #expect(FilmExposure.brightness(progress: 0.5, peak: peak) > 0,
+                "中点没有过曝 —— 上面两条位图断言没有可判的东西")
+        #expect(FilmExposure.brightness(progress: Self.identityProgress, peak: peak) == 0)
+        #expect(FilmExposure.brightness(progress: Self.appearingProgress, peak: peak) == 0)
+        let midOpacity = FilmExposure.contentOpacity(progress: 0.5)
+        #expect(midOpacity != FilmExposure.contentOpacity(progress: Self.identityProgress))
+        #expect(midOpacity != FilmExposure.contentOpacity(progress: Self.appearingProgress))
 
         // `animatableData` 必须**真的绑在 `progress` 上**：插出来的那一帧必须与
         // 「直接用中间进度构造」的那一帧逐字节相同，否则它绑在了某个不参与绘制的字段上。
@@ -420,10 +505,17 @@ struct FilterTransitionTests {
 
         let shutterMatchesIdentity = Self.framesMatch(atShutter, atIdentity)
         let shutterMatchesAppearing = Self.framesMatch(atShutter, atAppearing)
-        let endpointsMatch = Self.framesMatch(atIdentity, atAppearing)
         #expect(!shutterMatchesIdentity, "白场帧与恒等帧逐字节相同 —— 快门什么都没做")
         #expect(!shutterMatchesAppearing, "白场帧与端点帧逐字节相同 —— 快门什么都没做")
-        #expect(!endpointsMatch, "两个端点自己就一样 —— 上面两条是恒真的")
+
+        // ⚠️ 非退化前置走纯函数，理由逐字同 `filmExposureDrawsTheBlowOutMidFlight`（终审 I-2）。
+        #expect(SnapshotDevelop.brightness(progress: SnapshotDevelop.shutterCenter, peak: peak) > 0,
+                "窗口中心没有白场 —— 上面两条位图断言没有可判的东西")
+        #expect(SnapshotDevelop.brightness(progress: Self.identityProgress, peak: peak) == 0)
+        #expect(SnapshotDevelop.brightness(progress: Self.appearingProgress, peak: peak) == 0)
+        let shutterOpacity = SnapshotDevelop.contentOpacity(progress: SnapshotDevelop.shutterCenter)
+        #expect(shutterOpacity != SnapshotDevelop.contentOpacity(progress: Self.identityProgress))
+        #expect(shutterOpacity != SnapshotDevelop.contentOpacity(progress: Self.appearingProgress))
 
         let direct = try #require(
             Self.pixels(Self.probeContent.modifier(
@@ -515,6 +607,9 @@ struct FilterTransitionTests {
     /// 「chrome 把什么喂给绘制层」由 `chromeBodiesArePinnedVerbatim` 逐字钉；
     /// 「两端淡到 0、identity 中性」由 `endpointsFadeContentToZero` /
     /// `identityIsNeutralForEveryFilter` 两条纯函数判据钉。
+    /// ⚠️ **上一版把本条登记为「无法用变异证明」，那只对位图这一路成立**（终审 S-1）：
+    /// 它真正想覆盖的东西（第 1 层活着、chrome 真的被接上）现在由
+    /// `transitionBodiesAndEntryPointsArePinnedVerbatim` 逐字钉住，那条**能**变异证明。
     @Test("四种 chrome 在三个真实相位上都渲染得出来")
     func everyChromeRendersAtEveryRealPhase() {
         for (name, make) in Self.chromeCases {
@@ -544,6 +639,11 @@ struct FilterTransitionTests {
         #expect(FlickerWave.opacity(progress: 0.5, cycles: 2) > 0)
     }
 
+    /// ⚠️ **本条是编译期契约，位图路加强不了**（射程见 `pixels(_:)`）。
+    /// 但它想覆盖的另一半——「这八个静态成员真的接到了各自的实现上」——
+    /// 由 `transitionBodiesAndEntryPointsArePinnedVerbatim` 逐字钉住四个
+    /// `public extension Transition where Self == …` 区间承担，那条**能**变异证明
+    ///（终审 S-1：登记「无法证明」时只想到了位图这一路）。
     @Test("四个入口点都存在、可用点语法、可与内容组合")
     func allFourEntryPointsCompose() {
         let composed = VStack {
@@ -755,10 +855,13 @@ struct FilterTransitionTests {
                         dimFlashingLights: self.dimFlashingLights,
                         reduceMotion: self.reduceMotion
                     )
-                    return content.modifier(FlickerFilm(
-                        progress: FilterTransitionPhase.progress(phase: self.phase),
-                        cycles: safety.oscillationCycles(self.cycles)
-                    ))
+                    let cycles = safety.oscillationCycles(self.cycles)
+                    return content
+                        .modifier(FlickerFilm(
+                            progress: FilterTransitionPhase.progress(phase: self.phase),
+                            cycles: cycles
+                        ))
+                        .animation(.easeInOut(duration: FlickerPace.duration(cycles: cycles)), value: self.phase)
                 }
             }
             """#),
@@ -780,6 +883,333 @@ struct FilterTransitionTests {
             期望：\(Self.squeezed(body))
             """)
         }
+    }
+
+    /// ⚠️⚠️⚠️ **第 1 层逐字钉死：四个 `XxxTransition` 的类型体 + 四个入口点 extension。**
+    ///
+    /// 它堵的是终审 C-1 / C-2 那个洞：**整层被绕过**。上一版全部判据都构造第 2 / 3 层
+    ///（`chromeCases` 直接 new 四个 Chrome、E 组直接 new 三个 Film），
+    /// `chromeBodiesArePinnedVerbatim` 钉的也只是 `struct XxxChrome`
+    /// ⇒ 仓库里**没有任何东西**求值过四个 `XxxTransition.body`。评审实证：
+    ///
+    /// ```
+    /// M1  BlurTransition.swift:68
+    ///     -  content.modifier(BlurTransitionChrome(phase: phase, radius: self.radius))
+    ///     +  content
+    ///     swift test --filter FilterTransitionTests → 22 tests passed
+    /// M2  同样处置四条 body → swift test → 752 tests in 110 suites passed
+    /// M3  FlickerTransition.swift:69 —— 跳过 FlickerChrome 直接接 FlickerFilm
+    ///     （SnapshotTransition.swift:60 同款，peak 用裸 self.intensity）
+    ///     swift test → 752 tests in 110 suites passed
+    /// ```
+    ///
+    /// M1 / M2 下四条转场**全部不再有任何视觉效果**（连淡入淡出都没有，是硬跳变），
+    /// 调用方的 `radius` / `intensity` / `cycles` 在第 1 层被静默丢弃；
+    /// M3 下光敏用户拿到满 3 次往复、depth 0.75 的闪烁与 intensity 0.7 的满幅白场
+    /// ——**而全套测试照绿**。`safetySignalsAreOnlyConsumedByTheSharedGate` 是**按文件**
+    /// 扫源码的：Chrome 类型还在文件里、还含那句 `FilterTransitionSafety.oscillation(`，
+    /// 它就继续匹配，**哪怕已经没有任何人构造它**。
+    ///
+    /// ⇒ 断言面必须包含**第 1 层本身**。位图路补不了这一刀（`.opacity` 那一路它看不见，
+    /// 见 `pixels(_:)` 的射程），所以这里走与 `chromeBodiesArePinnedVerbatim` 同一条技术。
+    /// ⚠️ 代价照录：给这八个区间换行 / 加一个成员 / 调整缩进都会判红，
+    /// 必须连同期望串一起改——这四个 `body` 是两道 a11y 闸与全部绘制的**唯一**入口。
+    @Test("四个 Transition 类型体与四个入口点 extension 逐字钉死（整层被绕过也判红）")
+    func transitionBodiesAndEntryPointsArePinnedVerbatim() throws {
+        let expected: [(file: String, marker: String, body: String)] = [
+            ("BlurTransition.swift", "public struct BlurTransition: Transition", #"""
+            {
+                public let radius: CGFloat
+                public nonisolated static let defaultRadius: CGFloat = 12
+                public static let properties = TransitionProperties(hasMotion: false)
+                public init(radius: CGFloat = BlurTransition.defaultRadius) {
+                    self.radius = radius
+                }
+                public func body(content: Content, phase: TransitionPhase) -> some View {
+                    content.modifier(BlurTransitionChrome(phase: phase, radius: self.radius))
+                }
+            }
+            """#),
+            ("BlurTransition.swift", "public extension Transition where Self == BlurTransition", #"""
+            {
+                static var blur: BlurTransition { BlurTransition() }
+                static func blur(radius: CGFloat = BlurTransition.defaultRadius) -> BlurTransition {
+                    BlurTransition(radius: radius)
+                }
+            }
+            """#),
+            ("FilmExposureTransition.swift", "public struct FilmExposureTransition: Transition", #"""
+            {
+                public let intensity: Double
+                public nonisolated static let defaultIntensity: Double = 0.55
+                public static let properties = TransitionProperties(hasMotion: false)
+                public init(intensity: Double = FilmExposureTransition.defaultIntensity) {
+                    self.intensity = intensity
+                }
+                public func body(content: Content, phase: TransitionPhase) -> some View {
+                    content.modifier(FilmExposureChrome(phase: phase, intensity: self.intensity))
+                }
+            }
+            """#),
+            ("FilmExposureTransition.swift",
+             "public extension Transition where Self == FilmExposureTransition", #"""
+            {
+                static var filmExposure: FilmExposureTransition { FilmExposureTransition() }
+                static func filmExposure(
+                    intensity: Double = FilmExposureTransition.defaultIntensity
+                ) -> FilmExposureTransition {
+                    FilmExposureTransition(intensity: intensity)
+                }
+            }
+            """#),
+            ("SnapshotTransition.swift", "public struct SnapshotTransition: Transition", #"""
+            {
+                public let intensity: Double
+                public nonisolated static let defaultIntensity: Double = 0.7
+                public static let properties = TransitionProperties(hasMotion: false)
+                public init(intensity: Double = SnapshotTransition.defaultIntensity) {
+                    self.intensity = intensity
+                }
+                public func body(content: Content, phase: TransitionPhase) -> some View {
+                    content.modifier(SnapshotChrome(phase: phase, intensity: self.intensity))
+                }
+            }
+            """#),
+            ("SnapshotTransition.swift",
+             "public extension Transition where Self == SnapshotTransition", #"""
+            {
+                static var snapshot: SnapshotTransition { SnapshotTransition() }
+                static func snapshot(
+                    intensity: Double = SnapshotTransition.defaultIntensity
+                ) -> SnapshotTransition {
+                    SnapshotTransition(intensity: intensity)
+                }
+            }
+            """#),
+            ("FlickerTransition.swift", "public struct FlickerTransition: Transition", #"""
+            {
+                public let cycles: Int
+                public nonisolated static let defaultCycles: Int = 3
+                public static let properties = TransitionProperties(hasMotion: false)
+                public init(cycles: Int = FlickerTransition.defaultCycles) {
+                    self.cycles = cycles
+                }
+                public func body(content: Content, phase: TransitionPhase) -> some View {
+                    content.modifier(FlickerChrome(phase: phase, cycles: self.cycles))
+                }
+            }
+            """#),
+            ("FlickerTransition.swift",
+             "public extension Transition where Self == FlickerTransition", #"""
+            {
+                static var flicker: FlickerTransition { FlickerTransition() }
+                static func flicker(cycles: Int = FlickerTransition.defaultCycles) -> FlickerTransition {
+                    FlickerTransition(cycles: cycles)
+                }
+            }
+            """#),
+        ]
+
+        for (file, marker, body) in expected {
+            let code = try Self.strippedSource(file)
+            #expect(ConfettiTests.occurrences(of: marker, in: code) == 1,
+                    "`\(marker)` 不是恰好出现一次 —— 下面取到的可能不是被测的那个")
+            guard let actual = ConfettiTests.bracedRegion(after: marker, in: code) else {
+                Issue.record("找不到 `\(marker)` 的区间 —— 下面的断言无从谈起")
+                continue
+            }
+            #expect(Self.squeezed(actual) == Self.squeezed(body), """
+            `\(marker)` 与期望形态逐字不符。
+
+            实测：\(Self.squeezed(actual))
+
+            期望：\(Self.squeezed(body))
+            """)
+        }
+        // ⚠️ **非空前置**：期望表被削空时上面的循环一次都不执行 ⇒ 恒绿。
+        #expect(expected.count == 8, "期望表只剩 \(expected.count) 条 —— 第 1 层有区间没被钉住")
+    }
+
+    /// ⚠️⚠️⚠️ **扫「不可改名的东西」：两个 a11y 环境键路径。**
+    ///
+    /// `safetySignalsAreOnlyConsumedByTheSharedGate` 数的是字面子串
+    /// `self.dimFlashingLights` / `self.reduceMotion`，裸写检查按**小写词边界**匹配
+    /// `dimFlashingLights` —— 而环境键路径写作 `\.accessibilityDimFlashingLights`（**大写 D**）
+    /// ⇒ **把 `@Environment` 变量取任何别的名字，两侧计数都是 0、`0 == 0` 成立、无 stray**。
+    /// 评审实证（终审 C-3）：
+    ///
+    /// ```
+    /// M4  FlickerTransition.swift:106-120 —— 绘制层自己再读一遍原始信号，把闸的结论反过来
+    ///     + @Environment(\.accessibilityDimFlashingLights) private var dim
+    ///     -   let cycles = self.cycles
+    ///     +   let cycles = self.dim ? FlickerTransition.defaultCycles : self.cycles
+    ///     swift test → 752 tests in 110 suites passed, 4 known issues
+    /// ```
+    ///
+    /// 语义：**恰恰对开启「减弱闪烁灯光」的用户**恢复满幅闪烁。
+    /// `FlickerChrome` 被逐字钉住反而给了虚假安全感——缺陷放进**没被钉的相邻类型**即可。
+    /// ⇒ 本条改扫键路径本身（`\.accessibility…` 这串**不可改名**，它是 SDK 的属性名），
+    /// 并要求每一处都落在被 `chromeBodiesArePinnedVerbatim` 逐字钉住的四个类型体之内。
+    @Test("两个 a11y 键路径只许出现在被逐字钉住的四个 chrome 类型体内")
+    func accessibilityKeyPathsLiveOnlyInsideThePinnedChromes() throws {
+        let dimKeyPath = #"\.accessibilityDimFlashingLights"#
+        let motionKeyPath = #"\.accessibilityReduceMotion"#
+        // 与 `chromeBodiesArePinnedVerbatim` 的期望表同一批类型 —— 那四个体是逐字钉住的，
+        // 键路径落在里面才等于"落在被钉住的形态里"。
+        let pinnedChromes = [
+            "struct BlurTransitionChrome", "struct FilmExposureChrome",
+            "struct SnapshotChrome", "struct FlickerChrome",
+        ]
+        var totalDim = 0, totalMotion = 0
+        var strayDim: [String] = [], strayMotion: [String] = []
+
+        for name in Self.clusterFiles.sorted() {
+            let code = try Self.strippedSource(name)
+            totalDim += ConfettiTests.occurrences(of: dimKeyPath, in: code)
+            totalMotion += ConfettiTests.occurrences(of: motionKeyPath, in: code)
+
+            var outside = code
+            for type in pinnedChromes { outside = ConfettiTests.removingRegion(after: type, in: outside) }
+            let dimOutside = ConfettiTests.occurrences(of: dimKeyPath, in: outside)
+            let motionOutside = ConfettiTests.occurrences(of: motionKeyPath, in: outside)
+            if dimOutside > 0 { strayDim.append("\(name): \(dimOutside) 处") }
+            if motionOutside > 0 { strayMotion.append("\(name): \(motionOutside) 处") }
+        }
+
+        #expect(strayDim.isEmpty, """
+        这些地方在被逐字钉住的四个 chrome **之外**读了 `\(dimKeyPath)`：\(strayDim)
+        —— 绘制层（或任何相邻类型）自己再读一遍原始信号，就能把共享闸的结论反过来，
+        而按变量名计数的 `safetySignalsAreOnlyConsumedByTheSharedGate` 对此**零可见性**
+        （改个变量名两侧计数都归 0）。
+        """)
+        #expect(strayMotion.isEmpty, "这些地方在四个 chrome 之外读了 `\(motionKeyPath)`：\(strayMotion)")
+
+        // ⚠️⚠️ **非空前置**：键路径一处都不出现时，上面两条恒真。
+        // 3 = FilmExposureChrome 1 + SnapshotChrome 1 + FlickerChrome 1；1 = FlickerChrome。
+        #expect(totalDim == 3, """
+        全簇 `\(dimKeyPath)` 实测 \(totalDim) 处，裁决表说 3 处
+        （`FilmExposureChrome` / `SnapshotChrome` / `FlickerChrome` 各一）。
+        多出来的那些没有被任何逐字判据钉住；少了的那几个说明某条转场不再读这个信号
+        —— 两种都要回 `FilterTransitionSupport.swift` 的裁决表重判。
+        """)
+        #expect(totalMotion == 1, """
+        全簇 `\(motionKeyPath)` 实测 \(totalMotion) 处，裁决表说 1 处（只有 `FlickerChrome`）。
+        """)
+    }
+
+    /// 一个**不覆写** `properties` 的最小 `Transition`，只用来读协议默认值。
+    ///
+    /// ⚠️ 它是下面那条判据的**互锁**：若哪天 `Transition.properties` 的默认值变成
+    /// `hasMotion == false`，那四条 `== false` 就对「什么都没声明」同样成立、不再证明任何事。
+    private struct DefaultPropertiesProbe: Transition {
+        func body(content: Content, phase: TransitionPhase) -> some View { content }
+    }
+
+    /// ⚠️⚠️⚠️ **钉的是性质，不是形状**（终审 C-4）。
+    ///
+    /// `Transition` 协议有 `static var properties: TransitionProperties`，默认 `hasMotion == true`。
+    /// SDK 对该位的原文（从 `SwiftUICore.swiftdoc` 提取）：
+    ///
+    /// > Whether the transition includes motion. When this behavior is included in a transition,
+    /// > that transition will be replaced by opacity when Reduce Motion is enabled. Defaults to `true`.
+    ///
+    /// ⇒ 不声明的话，**框架已经在 Reduce Motion 下把四种转场全部换成了 `.opacity`**：
+    /// `blur` 的类型文档说「降级等于删掉这条转场，那是把 API 变成一个骗人的别名」，
+    /// 而框架已经替它做了那件它说绝不能发生的事；`filmExposure` / `snapshot` 的
+    /// 「**有意不读** Reduce Motion」也落空。
+    /// ⚠️ `blurConsumesNoAccessibilitySignal` 声称把这条裁决钉在源码上，但它钉的是
+    /// 「文件里没出现 `reduceMotion` 这个词」——与「Reduce Motion 下这条转场**实际发生什么**」
+    /// 无关。那正是本仓反复栽的「判定通过而东西不工作」。
+    @Test("四种转场都显式退出框架的 Reduce Motion 替换（hasMotion == false）")
+    func everyTransitionOptsOutOfTheFrameworkMotionSubstitution() {
+        let note = """
+        —— `Transition.properties` 默认 `hasMotion == true`，其语义是「Reduce Motion 开启时
+        把这条转场整个替换成 opacity」。不显式声明 `false` 的话，四种转场的裁决表、
+        类型文档与 `docs/components/*.md` 在运行时**全部是假的**。
+        """
+        #expect(BlurTransition.properties.hasMotion == false, "`blur` 没有退出框架替换 \(note)")
+        #expect(FilmExposureTransition.properties.hasMotion == false, "`filmExposure` 没有退出框架替换 \(note)")
+        #expect(SnapshotTransition.properties.hasMotion == false, "`snapshot` 没有退出框架替换 \(note)")
+        #expect(FlickerTransition.properties.hasMotion == false, """
+        `flicker` 没有退出框架替换 \(note)
+        ⚠️ 它取 `false` 是一次**显式裁决**（留 `true` 会让那道手写闸在 Reduce Motion 路径上
+        变成死代码），两条路的权衡逐字写在 `FilterTransitionSupport.swift` 的
+        《`TransitionProperties.hasMotion`》一节。要改这一位，先改那一节。
+        """)
+
+        // ⚠️⚠️ **互锁**：协议默认值必须真的是 `true`，否则上面四条恒真。
+        #expect(Self.DefaultPropertiesProbe.properties.hasMotion, """
+        `Transition.properties` 的协议默认值不再是 `hasMotion == true`
+        —— 上面四条 `== false` 于是不再证明任何事（"显式声明"与"什么都没写"不可分辨）。
+        """)
+    }
+
+    /// ⚠️⚠️ **闪烁的速率上界**（终审 I-3）。
+    ///
+    /// 上一版把「感知频率 = `cycles` ÷ 调用方时长」写进文档就算完，而最常见的写法
+    /// `withAnimation { shown.toggle() }`（`.default` ≈ 0.35 s）在默认 `cycles = 3` 下给出
+    /// **≈ 8.6 次/秒**、depth 0.75 的往复——对**未**开启「减弱闪烁灯光」的光敏用户，
+    /// 那是库自己的默认路径在伤人。库不该把「不这样写会伤到用户」的责任放进文档。
+    /// ⇒ `FlickerChrome` 用 `.animation(_:value:)` 把时长钉在 `FlickerPace.duration(cycles:)` 上。
+    ///
+    /// ⚠️ **本条只覆盖比值这一半**：时长真的跑了多久在 macOS 单测里不可观测
+    ///（`ImageRenderer` 拍的是静态帧）。另一半由 `chromeBodiesArePinnedVerbatim`
+    /// 逐字钉住的那一行 `.animation(...)` 承担——两条合起来才是完整的链，
+    /// 时序本身靠 `#Preview` 人工确认，这条限度如实登记。
+    @Test("flicker 自己钉死时长：任何 cycles 下的感知频率都在 WCAG 的 3 次/秒线下")
+    func flickerPaceStaysUnderTheFlashRateLimit() {
+        #expect(FlickerPace.maximumFlashesPerSecond < 3,
+                "本簇给自己定的速率上界 \(FlickerPace.maximumFlashesPerSecond) 没有落在 WCAG 2.3.1 的 3 次/秒线下")
+        for cycles in [1, 2, 3, 4, 8, 20, 100] {
+            let duration = FlickerPace.duration(cycles: cycles)
+            #expect(duration > 0)
+            let rate = Double(cycles) / duration
+            #expect(rate <= FlickerPace.maximumFlashesPerSecond + 1e-12,
+                    "cycles = \(cycles) 时感知频率 \(rate) 次/秒，超过上界 \(FlickerPace.maximumFlashesPerSecond)")
+        }
+        // 默认形态逐字：3 次 ÷ 1.2 秒 = 2.5 次/秒。
+        #expect(abs(FlickerPace.duration(cycles: FlickerTransition.defaultCycles) - 1.2) < 1e-12,
+                "默认往复次数下的时长变了 —— 默认路径的速率账要重算")
+        // ⚠️ **压制档不能是 0 时长**：那会让降级形态从"淡出"变成硬跳变。
+        #expect(FlickerPace.duration(cycles: 0) == FlickerPace.calmedDuration)
+        #expect(FlickerPace.calmedDuration > 0, "压制档时长为 0 —— 那不是淡出，是硬跳变")
+        // 非法入参不抛断言（epic AD-F），也不给出非有限时长。
+        #expect(FlickerPace.duration(cycles: -5) == FlickerPace.calmedDuration)
+        #expect(FlickerPace.duration(cycles: Int.min).isFinite)
+        // ⚠️ **互锁**：`duration(_:)` 必须真的随 cycles 变长，否则上面的速率断言
+        // 对一条"恒返回一个大常数"的实现同样成立，而那会让 cycles 调高时无声变慢。
+        #expect(FlickerPace.duration(cycles: 20) > FlickerPace.duration(cycles: 3))
+    }
+
+    /// 本 suite 的位图判据一律走 `Self.pixels(_:)`（形态级暖机在那里）。
+    ///
+    /// ⚠️ 绕过它直接调 `MicroInteractionAPITests` 那一层就静默丢掉暖机，
+    /// 而丢掉暖机的后果不是"判据变红"而是"判据变得看当次调度"（见 `pixels(_:)` 的射程）。
+    /// 形态同 `ProcessingSweepTests.containersDelegateToDriver`：薄封装必须真的转交。
+    @Test("本文件的位图取样只许经本地 harness，不许直调底层 stablePixels")
+    func bitmapAssertionsAllGoThroughTheLocalHarness() throws {
+        let code = try String(contentsOf: URL(fileURLWithPath: #filePath), encoding: .utf8)
+        let stripped = MicroInteractionReduceMotionGuard.stripComments(code)
+        // ⚠️ needle 与两个 marker **都必须拼出来**：写成完整字面量的话，本判据会命中
+        // 它自己写下的那几个字符串 ⇒ 恒红（`noRawBitmapComparisonsInThisFile` 踩过同一个坑）。
+        let needle = "MicroInteractionAPITests" + ".stablePixels("
+        let warmUpMarker = "private static let " + "warmUp"
+        let pixelsMarker = "static func " + "pixels(_ view:"
+
+        #expect(ConfettiTests.occurrences(of: needle, in: stripped) == 2, """
+        本文件里直调底层取样的地方实测 \(ConfettiTests.occurrences(of: needle, in: stripped)) 处，
+        应当恰好 2 处（形态级暖机 1 处 + `pixels(_:)` 这道漏斗 1 处）。
+        """)
+        var outside = stripped
+        outside = ConfettiTests.removingRegion(after: warmUpMarker, in: outside)
+        outside = ConfettiTests.removingRegion(after: pixelsMarker, in: outside)
+        #expect(!outside.contains(needle), """
+        暖机与 `pixels(_:)` 之外还有地方直调底层取样 —— 那条判据静默丢掉了形态级暖机。
+        """)
+        // ⚠️ 非空前置：文件读不到 / marker 改名时上面两条恒真。
+        #expect(stripped.contains(needle), "读不到本文件源码 —— 上面那条是恒真的")
+        #expect(stripped.contains(warmUpMarker) && stripped.contains(pixelsMarker),
+                "两个 marker 里有已经改名的 —— `removingRegion` 会原样返回，判据形同虚设")
     }
 
     /// 三个非单调曲线的绘制层必须真的 `Animatable`；`blur` 那一层**有意不是**。

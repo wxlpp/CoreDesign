@@ -26,13 +26,20 @@ import SwiftUI
 ///   **有意不读** `\.accessibilityReduceMotion`：读了会让只开启「减弱动态效果」的用户
 ///   白白丢掉一条无害的成像效果，而真正需要保护的（只开启「减弱闪烁灯光」的那批）
 ///   仍然拿不到保护——张冠李戴的信号比没有信号更糟。
-/// - **光敏**：过曝峰值是一次**大面积亮度上冲**。它是**单向、一次性**的，
-///   不构成 WCAG 2.3.1 所定义的「闪烁」（那要求每秒 ≥ 3 次），
-///   但同一条款的通用闪光阈值同时看**相对亮度变化幅度**（≥ 0.1 视为大面积闪光）
-///   ⇒ 峰值本身仍在射程内。
+///   ⚠️⚠️ **这条「有意不读」只有在 `properties.hasMotion == false` 时才落得了地**：
+///   `Transition.properties` 默认 `hasMotion == true` ⇒ 框架会在 Reduce Motion 下
+///   把整条转场换成 `.opacity`，只开减弱动态效果的用户照样丢掉这条成像效果，
+///   只是丢在框架那一层、本文件一个字都看不见（终审 C-4）。见下面 `properties`。
+/// - **光敏**：过曝峰值是一次**大面积亮度上冲**。它是**单向、一次性**的
+///   ⇒ **不构成 WCAG 2.3.1 违规**：那一条同时要求「一对反向的相对亮度变化」
+///   与「每秒 > 3 次」，一次性单向变化两条都不满足，幅度多大都一样。
+///   ⚠️ 上一版这里写的是「幅度 ≥ 0.1 仍在射程内」，那是**误述**（终审 I-1），
+///   逐字更正见 `FilterTransitionSafety.calmedBrightnessCeiling` 的文档。
 ///
+/// ⇒ 那为什么还压制？**因为用户显式打开了「减弱闪烁灯光」**——那是系统为光敏性提供的
+/// 偏好开关，一次大面积亮冲正是它想减弱的东西。这个理由自己站得住，不需要 WCAG 背书。
 /// ⇒ 读 `\.accessibilityDimFlashingLights`，开启时把峰值压到
-/// `FilterTransitionSafety.calmedBrightnessCeiling`（0.08）**以下**。
+/// `FilterTransitionSafety.calmedBrightnessCeiling`（0.08）。
 /// ⚠️ **不是 no-op**：饱和度洗白、对比度下降、淡出全部保留，
 /// 用户仍然看得出"这是一次胶片式的曝光"，只是不再有那一下亮冲。
 ///
@@ -60,6 +67,12 @@ public struct FilmExposureTransition: Transition {
     /// 默认过曝强度。
     /// ⚠️ `nonisolated` 的理由见 `BlurTransition.defaultRadius`（probe 的隔离契约）。
     public nonisolated static let defaultIntensity: Double = 0.55
+
+    /// ⚠️⚠️ **不写这一行，上面「有意不读 Reduce Motion」那条裁决在运行时就是假的**
+    ///（终审 C-4）：协议默认值 `hasMotion == true` 的语义是「Reduce Motion 开启时
+    /// 把这条转场替换成 opacity」。判据：
+    /// `FilterTransitionTests.everyTransitionOptsOutOfTheFrameworkMotionSubstitution`。
+    public static let properties = TransitionProperties(hasMotion: false)
 
     public init(intensity: Double = FilmExposureTransition.defaultIntensity) {
         self.intensity = intensity

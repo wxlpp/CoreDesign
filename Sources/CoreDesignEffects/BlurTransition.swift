@@ -36,6 +36,12 @@ import SwiftUI
 /// 把这个决定钉在源码上：哪天有人给本文件加一处 `reduceMotion` /
 /// `dimFlashingLights`，那条判据当场判红，逼人回到这段文档重新裁决。
 ///
+/// ⚠️⚠️ **上面这条结论只有在 `properties.hasMotion == false` 时才是真的**：
+/// `Transition.properties` 默认 `hasMotion == true`，而框架对该位的语义正是
+/// 「Reduce Motion 开启时把这条转场**整个换成 opacity**」——那恰恰是本段说
+/// 「等于删掉这条转场」的那件事。见下面 `properties` 的声明与
+/// `FilterTransitionSupport.swift` 的《`TransitionProperties.hasMotion`》一节。
+///
 /// ## a11y 分工（FR-13）
 ///
 /// 本转场**没有装饰层**——所有滤镜直接作用在调用方内容上，没有可以
@@ -59,6 +65,13 @@ public struct BlurTransition: Transition {
     /// ⚠️ **`#253` 的 `ParticleTransition.defaultCount` 今天仍带着这条警告**（本轮实测），
     /// 本簇不照抄那个形态；那一条归它自己的 follow-up，本 PR 不顺手改别人的文件。
     public nonisolated static let defaultRadius: CGFloat = 12
+
+    /// ⚠️⚠️ **不写这一行，本类型文档的「不降级」裁决在运行时就是假的**（终审 C-4）：
+    /// `Transition.properties` 的协议默认值是 `hasMotion == true`，其语义是
+    /// 「Reduce Motion 开启时把这条转场替换成 opacity」⇒ 框架会替本转场做掉
+    /// 它自己声明绝不能发生的那件事。判据：
+    /// `FilterTransitionTests.everyTransitionOptsOutOfTheFrameworkMotionSubstitution`。
+    public static let properties = TransitionProperties(hasMotion: false)
 
     public init(radius: CGFloat = BlurTransition.defaultRadius) {
         self.radius = radius

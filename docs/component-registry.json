@@ -1049,25 +1049,25 @@
       "target": "CoreDesignEffects",
       "host": "Transition",
       "member": "blur",
-      "notes": "视图进出时内容失焦并淡出。含参重载 .blur(radius:) 与无参 .blur 按 Host.member 去重算同一条。两条曲线（半径、不透明度）在进度上都是仿射的 ⇒ 绘制层有意不套 Animatable（判据 blurCurvesAreAffine 守着这张豁免）。全簇唯一一个 Reduce Motion 与「减弱闪烁灯光」两个信号都不读的：无位移/缩放/旋转 ⇒ 无光流，亮度单调不往复 ⇒ 无闪光；降级会把这条转场本身抹成 .opacity。该裁决由 blurConsumesNoAccessibilitySignal 钉在源码上。"
+      "notes": "视图进出时内容失焦并淡出。含参重载 .blur(radius:) 与无参 .blur 按 Host.member 去重算同一条。两条曲线（半径、不透明度）在进度上都是仿射的 ⇒ 绘制层有意不套 Animatable（判据 blurCurvesAreAffine 守着这张豁免）。全簇唯一一个 Reduce Motion 与「减弱闪烁灯光」两个信号都不读的：无位移/缩放/旋转 ⇒ 无光流，亮度单调不往复 ⇒ 无闪光；降级会把这条转场本身抹成 .opacity。该裁决由 blurConsumesNoAccessibilitySignal（源码形状）与 everyTransitionOptsOutOfTheFrameworkMotionSubstitution（运行时性质）两条判据共同钉住 —— 后者是承重的：Transition.properties 默认 hasMotion == true，其语义是「Reduce Motion 开启时把这条转场整个替换成 opacity」，不显式声明 false 的话框架已经替它做了这份文档说绝不能发生的那件事。"
     },
     {
       "target": "CoreDesignEffects",
       "host": "Transition",
       "member": "filmExposure",
-      "notes": "视图进出时像一格胶片被过度曝光：亮度先冲上去、饱和度与对比度洗白，然后消失。含参重载 .filmExposure(intensity:) 与无参按 Host.member 去重算同一条。亮度曲线 4p(1−p) 在两个可达相位上精确为 0、峰值只在中间 ⇒ 绘制层必须 Animatable，否则过曝一次都不会发生（#253 ParticleTransition 的原形态）。只读 accessibilityDimFlashingLights：无位移故与 Reduce Motion 无关，而过曝是一次大面积亮度上冲；开启时峰值压到 calmedBrightnessCeiling(0.08) 以下——落在 WCAG 2.3.1 通用闪光阈值 0.1 之下，且不为 0（洗白与淡出保留，不是 no-op）。"
+      "notes": "视图进出时像一格胶片被过度曝光：亮度先冲上去、饱和度与对比度洗白，然后消失。含参重载 .filmExposure(intensity:) 与无参按 Host.member 去重算同一条。亮度曲线 4p(1−p) 在两个可达相位上精确为 0、峰值只在中间 ⇒ 绘制层必须 Animatable，否则过曝一次都不会发生（#253 ParticleTransition 的原形态）。只读 accessibilityDimFlashingLights：无位移故与 Reduce Motion 无关（该「有意不读」由 properties = TransitionProperties(hasMotion: false) 落地，否则框架会在 Reduce Motion 下把整条转场换成 opacity），而过曝是一次大面积亮度上冲；开启时峰值压到 calmedBrightnessCeiling(0.08)，且不为 0（洗白与淡出保留，不是 no-op）。⚠️ 0.08 是一条产品策略线而不是 WCAG 达标线：一次性单向的亮度上冲不构成 2.3.1 违规（那要求一对反向变化且每秒 > 3 次），而 .brightness 是加性通道偏移、与相对亮度不是同一个量——实测 .brightness(0.08) 在 gray 0.85 上的 ΔrelLum 是 0.1286。压制它的理由是用户显式打开了「减弱闪烁灯光」。"
     },
     {
       "target": "CoreDesignEffects",
       "host": "Transition",
       "member": "snapshot",
-      "notes": "视图像即显相纸那样出现：一下快门白场，随后从洗白的低对比逐渐显影。含参重载 .snapshot(intensity:) 与无参按 Host.member 去重算同一条。白场是升余弦窗，中心在进度 0.75、半宽 0.25 ⇒ 两个可达相位上恒为 0，绘制层必须 Animatable。与 filmExposure 走同一道闸、同一个上限（只读 accessibilityDimFlashingLights，峰值压到 0.08 以下）；它是全簇最陡的一次亮度上冲，故幅度这一侧比 filmExposure 更该管。压制后显影与淡出保留。"
+      "notes": "视图像即显相纸那样出现：一下快门白场，随后从洗白的低对比逐渐显影。含参重载 .snapshot(intensity:) 与无参按 Host.member 去重算同一条。白场是升余弦窗，中心在进度 0.75、半宽 0.25 ⇒ 两个可达相位上恒为 0，绘制层必须 Animatable。与 filmExposure 走同一道闸、同一个上限（只读 accessibilityDimFlashingLights，峰值压到 0.08）；它是全簇最陡的一次亮度上冲，故幅度这一侧比 filmExposure 更该管。压制后显影与淡出保留。同样声明 properties = TransitionProperties(hasMotion: false)，否则「有意不读 Reduce Motion」这条裁决会被框架的默认替换推翻。0.08 是产品策略线而非 WCAG 达标线，口径与 filmExposure 逐字相同。"
     },
     {
       "target": "CoreDesignEffects",
       "host": "Transition",
       "member": "flicker",
-      "notes": "视图像接触不良的灯管那样忽明忽暗地出现/消失。含参重载 .flicker(cycles:) 与无参按 Host.member 去重算同一条。不透明度曲线在两个可达相位上分别是 1 与 0，每一次明暗全靠 SwiftUI 对 animatableData 的插值 ⇒ 绘制层必须 Animatable。全簇唯一同时读两个 a11y 信号的：accessibilityDimFlashingLights 是 WCAG 2.3.1 点名的正确信号，accessibilityReduceMotion 也读是因为往复本身属「重复的非必要动画」，两者取或（各自独立的系统开关）；压制后 cycles 归 0、退化为单调淡出，转场仍然发生。已知限度：感知频率 = cycles ÷ 调用方动画时长，Transition 拿不到时间源，默认 3 次要落在 3 次/秒线下需时长 ≥ 1 秒。"
+      "notes": "视图像接触不良的灯管那样忽明忽暗地出现/消失。含参重载 .flicker(cycles:) 与无参按 Host.member 去重算同一条。不透明度曲线在两个可达相位上分别是 1 与 0，每一次明暗全靠 SwiftUI 对 animatableData 的插值 ⇒ 绘制层必须 Animatable。全簇唯一同时读两个 a11y 信号的：accessibilityDimFlashingLights 是 WCAG 2.3.1 点名的正确信号，accessibilityReduceMotion 也读是因为往复本身属「重复的非必要动画」，两者取或（各自独立的系统开关）；压制后 cycles 归 0、退化为单调淡出，转场仍然发生。频率由本转场自己钉死：FlickerChrome 用 .animation(_:value:) 把时长钉在 FlickerPace.duration(cycles:) = max(0.35, cycles / 2.5) 上，感知频率恒 ≤ 2.5 次/秒（WCAG 2.3.1 的 3 次/秒线下留余量），与调用方 withAnimation 的时长无关；默认 3 次 ⇒ 1.2 秒。代价：调用方对本转场的时长失去控制；时序本身在 macOS 单测里不可观测（判据只覆盖速率比值与那一行 .animation 的逐字形状）。properties 取 hasMotion: false 是显式裁决——留 true 会让那道手写 a11y 闸在 Reduce Motion 路径上变成死代码。"
     }
   ]
 }

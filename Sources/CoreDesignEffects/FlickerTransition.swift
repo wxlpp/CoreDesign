@@ -33,21 +33,30 @@ import SwiftUI
 ///
 /// 压制后 `cycles` 归 0 ⇒ 曲线退化为**单调淡出** `1 − p`。
 /// ⚠️ **不是 no-op**：转场仍然发生（内容仍然淡入 / 淡出），去掉的只有往复。
-/// 判据：`FilterTransitionTests.calmedFlickerIsMonotone` 与
-/// `flickerActuallyOscillates` 互锁——后者证明未压制时真的在往复，
-/// 否则前者是恒真的。
+/// 判据：`FilterTransitionTests.flickerActuallyOscillates` 一条里两半互锁——
+/// 先证未压制时曲线上真的存在**上升段**（一条普通淡出永远不会有），
+/// 再证**经那道闸取到的** `cycles` 下没有上升段、且逐点等于 `1 − p`；
+/// 少了前一半，后一半是恒真的。
+/// ⚠️ 上一版这里引用的是 `calmedFlickerIsMonotone`，那个符号**从来不存在**
+///（`grep -c` = 0，终审 I-4）——断言写在 `flickerActuallyOscillates` 内部。
 ///
-/// ## ⚠️ 已知限度：闪烁**频率**由调用方的动画时长决定，本类型控制不了
+/// ## ⚠️⚠️ 频率：本转场**自己钉死**动画时长，不跟随调用方
 ///
-/// 一次转场里发生 `cycles` 次明暗往复，而这段动画有多长**写在调用方的
-/// `withAnimation(_:)` 里**——`Transition` 拿不到任何时间源（同 `ParticleTransition`
-/// 记的那条：它只被喂三个离散相位，不知道时长与曲线）。
-/// ⇒ 感知频率 = `cycles ÷ 时长`。默认 `cycles = 3`，**要落在 WCAG 的 3 次/秒线下，
-/// 调用方的动画时长需 ≥ 1 秒**（本类型文档与 `docs/components/flicker-transition.md`
-/// 都写明了这条，`#Preview` 用的就是 1.1 秒）。
-/// ⚠️ 这条限度**不能**靠"把默认调小"绕开——`cycles = 1` 就不是闪烁了。
-/// 真正兜底的是上面那道闸：开启「减弱闪烁灯光」的用户拿到的是单调淡出，
-/// 与调用方写了多短的时长无关。
+/// 一次转场里发生 `cycles` 次明暗往复 ⇒ 感知频率 = `cycles ÷ 时长`。
+/// ⚠️ **上一版把这条账写进文档就算完，那是不够的**（终审 I-3）：最常见的写法
+/// `withAnimation { shown.toggle() }`（`.default` ≈ 0.35 s）在默认 `cycles = 3` 下给出
+/// **≈ 8.6 次/秒**、depth 0.75 的往复——对**未**开启「减弱闪烁灯光」的光敏用户，
+/// 那是库自己的默认路径在伤人。「不这样写会伤到用户」不能由文档兜底。
+///
+/// ⇒ `FlickerChrome` 用 `.animation(_:value:)` 把这段转场钉在
+/// `FlickerPace.duration(cycles:)` 上（显式动画 modifier 覆盖调用方事务里的 ambient 动画）
+/// ⇒ 感知频率恒 ≤ `FlickerPace.maximumFlashesPerSecond`（2.5 次/秒，WCAG 2.3.1 的 3 次/秒
+/// 线下留一档余量），**与调用方写了多短的时长无关**。默认 3 次 ⇒ 1.2 秒。
+/// 代价、限度与「为什么不走 `Transition.animation(_:)`」逐条记在 `FlickerPace` 的类型文档里。
+///
+/// ⚠️ 那道 a11y 闸仍然在：开启「减弱闪烁灯光」或「减弱动态效果」的用户拿到的是
+/// 单调淡出（`cycles = 0` ⇒ 时长回落到 `FlickerPace.calmedDuration`）。
+/// 两者是**独立**的两层——闸管"要不要闪"，`FlickerPace` 管"闪多快"。
 ///
 /// ## a11y 分工（FR-13）
 ///
@@ -60,6 +69,15 @@ public struct FlickerTransition: Transition {
     /// 默认往复次数。
     /// ⚠️ `nonisolated` 的理由见 `BlurTransition.defaultRadius`（probe 的隔离契约）。
     public nonisolated static let defaultCycles: Int = 3
+
+    /// ⚠️⚠️ **`false` 是一次显式裁决，不是照抄另外三个**（终审 C-4）：留 `true` 会让框架
+    /// 在 Reduce Motion 下把整条转场换成 `.opacity`，与本文件那道手写闸重复，
+    /// 且会把手写闸在那条路径上变成**死代码**（判据仍钉着它，屏幕上却不走它）；
+    /// 何况 `hasMotion` 对**只开「减弱闪烁灯光」**的用户零保护，当不了主保护。
+    /// 取 `false` ⇒ 手写闸是唯一保护，文档、判据与屏幕上发生的事三者一致。
+    /// 两条路的完整权衡见 `FilterTransitionSupport.swift` 的
+    /// 《`TransitionProperties.hasMotion`》一节。
+    public static let properties = TransitionProperties(hasMotion: false)
 
     public init(cycles: Int = FlickerTransition.defaultCycles) {
         self.cycles = cycles
@@ -74,7 +92,14 @@ public struct FlickerTransition: Transition {
 ///
 /// ⚠️ 纪律与 `FilmExposureChrome` 同：绘制层不再看见原始信号，调用点不许自己
 /// 再判一遍。判据 `FilterTransitionTests.safetySignalsAreOnlyConsumedByTheSharedGate`
-/// 对本文件同时数 `self.dimFlashingLights` 与 `self.reduceMotion` 两个计数。
+/// 对本文件同时数 `self.dimFlashingLights` 与 `self.reduceMotion` 两个计数，
+/// 而 `accessibilityKeyPathsLiveOnlyInsideThePinnedChromes` 再扫**不可改名的键路径本身**
+///（改个变量名就能绕过按字面子串的计数——终审 C-3 实证过）。
+///
+/// ⚠️⚠️ **`.animation(_:value:)` 那一行是承重的**（终审 I-3）：它把闪烁的
+/// **速率**从调用方手里收回来，理由与代价见 `FlickerPace`。它挂在**闸的输出**
+/// `cycles` 上而不是 `self.cycles` ⇒ 压制档拿到的是一次普通时长的淡出，
+/// 而不是被拉长到 1.2 秒的淡出。
 struct FlickerChrome: ViewModifier {
 
     let phase: TransitionPhase
@@ -88,10 +113,13 @@ struct FlickerChrome: ViewModifier {
             dimFlashingLights: self.dimFlashingLights,
             reduceMotion: self.reduceMotion
         )
-        return content.modifier(FlickerFilm(
-            progress: FilterTransitionPhase.progress(phase: self.phase),
-            cycles: safety.oscillationCycles(self.cycles)
-        ))
+        let cycles = safety.oscillationCycles(self.cycles)
+        return content
+            .modifier(FlickerFilm(
+                progress: FilterTransitionPhase.progress(phase: self.phase),
+                cycles: cycles
+            ))
+            .animation(.easeInOut(duration: FlickerPace.duration(cycles: cycles)), value: self.phase)
     }
 }
 
@@ -147,20 +175,74 @@ nonisolated enum FlickerWave {
     }
 }
 
+// MARK: - 节奏（把闪烁的**速率**从调用方手里收回来）
+
+/// 闪烁的**时间**契约：一次转场持续多久，由本转场自己钉死。
+///
+/// ⚠️⚠️ **这是终审 I-3 的处置**：上一版把「感知频率 = `cycles` ÷ 调用方时长」这条账
+/// 写进文档、把安全责任留给调用方，而库的**默认路径本身**不安全
+///（`withAnimation { … }` 的 `.default` ≈ 0.35 s × 默认 3 次 ⇒ ≈ 8.6 次/秒）。
+///
+/// ⇒ `FlickerChrome` 用 `.animation(_:value:)` 把这段转场钉在 `duration(cycles:)` 上。
+/// 显式动画 modifier 覆盖调用方事务里的那条 ambient 动画 ⇒ 感知频率
+/// = `cycles ÷ duration(cycles)` ≤ `maximumFlashesPerSecond`，与调用方无关。
+///
+/// ⚠️ **代价与限度，逐条照录**：
+/// 1. **调用方对这条转场的时长失去控制**：`withAnimation(.easeInOut(duration: 0.2))`
+///    不再能缩短它。这是有意的——闪烁有内在节奏，"快到不安全"那一档不该是可选项。
+///    另外三种转场**不**钉时长（它们没有"频率"这回事），本条只改 `flicker`。
+/// 2. **没有走 SwiftUI 自己的 `Transition.animation(_:)`**：它存在
+///    （`public func animation(_:) -> some Transition`），但返回**不透明类型**
+///    ⇒ `extension Transition where Self == FlickerTransition` 那套点语法入口点
+///    与 `Host.member` 登记键都得跟着变形。本形态把公开 API 形状原样留住，
+///    只在 chrome 内部加一行 modifier。
+/// 3. **单测看不见时序**：本仓的 harness（`ImageRenderer`）拍的是静态帧，
+///    「这段动画真的跑了 1.2 秒」在 macOS 单测里**不可观测**。本条的机器判据只有两半
+///    ——纯函数的速率上界（`FilterTransitionTests.flickerPaceStaysUnderTheFlashRateLimit`）
+///    与 `chromeBodiesArePinnedVerbatim` 逐字钉住的那一行 `.animation(...)`。
+///    时序本身靠 `#Preview` 人工确认；这条限度如实登记，**不假称已验证**。
+/// ⚠️ 即便 SwiftUI 在调用方事务结束时提前把视图摘掉（截断本条转场），
+/// 安全性质仍然成立：截断只会**少放几次**闪烁，抬不高**速率**——
+/// 速率就是 `cycles ÷ duration` 这条比值本身，而它已经被钉死。
+nonisolated enum FlickerPace {
+
+    /// 允许的最高闪光速率（次 / 秒）。
+    ///
+    /// ⚠️ WCAG 2.3.1 的通用闪光阈值线是 **3 次/秒**；取 2.5 留一档余量，
+    /// 免得缓入缓出的动画曲线把中段的瞬时速率顶到线上。
+    static let maximumFlashesPerSecond: Double = 2.5
+
+    /// 无往复时（压制档 `cycles == 0`）的时长——一次普通的淡入淡出。
+    ///
+    /// ⚠️ **不能取 0**：0 会让压制档变成硬跳变，而那道闸的结论是
+    /// 「仍然淡入淡出，只去掉往复」，不是"删掉这条转场"。
+    static let calmedDuration: Double = 0.35
+
+    /// 给定（**已经过安全闸压制的**）往复次数的转场时长，单位秒。
+    ///
+    /// - Parameter cycles: 负数按 0 处理——库代码对非法入参不抛断言（epic 的 AD-F）。
+    static func duration(cycles: Int) -> Double {
+        let n = Double(Swift.max(0, cycles))
+        return Swift.max(Self.calmedDuration, n / Self.maximumFlashesPerSecond)
+    }
+}
+
 // MARK: - 公开入口点（`Transition` 的静态成员）
 
 public extension Transition where Self == FlickerTransition {
 
     /// 闪烁转场。
     ///
-    /// ⚠️ 调用方的动画时长需 ≥ 1 秒才能让默认的 3 次往复落在 WCAG 的 3 次/秒线下，
-    /// 见 `FlickerTransition` 的类型文档《已知限度》。
+    /// ⚠️ 本转场**自己钉死动画时长**（默认 3 次往复 ⇒ 1.2 秒，即 2.5 次/秒），
+    /// 调用方 `withAnimation(_:)` 里的时长对它不生效——理由与代价见 `FlickerPace`。
     static var flicker: FlickerTransition { FlickerTransition() }
 
     /// 闪烁转场，可指定往复次数。
     ///
     /// ⚠️ 与无参 `static var flicker` 按 `Host.member` 去重，**算同一种转场**。
     /// ⚠️ 传进来的值仍会被那道 a11y 闸压制到 0——调用方**绕不过**它。
+    /// ⚠️ 调高 `cycles` 只会把转场**拉长**（`FlickerPace.duration(cycles:)`），
+    /// **抬不高速率**——调用方同样绕不过 2.5 次/秒这条线。
     static func flicker(cycles: Int = FlickerTransition.defaultCycles) -> FlickerTransition {
         FlickerTransition(cycles: cycles)
     }
@@ -180,8 +262,10 @@ public extension Transition where Self == FlickerTransition {
         }
         .frame(height: 160)
 
-        // ⚠️ 1.1 秒不是随手取的：默认 3 次往复 ÷ 1.1 秒 < 3 次/秒（WCAG 2.3.1）。
-        Button("切换") { withAnimation(.easeInOut(duration: 1.1)) { shown.toggle() } }
+        // ⚠️ 这里**故意写一个很短的时长**：本转场自己把节奏钉在
+        // `FlickerPace.duration(cycles: 3)` = 1.2 秒上，调用方的 0.25 秒对它不生效。
+        // 预览里看到的仍然是 1.2 秒、3 次往复 —— 那正是 I-3 要的「默认路径安全」。
+        Button("切换") { withAnimation(.easeInOut(duration: 0.25)) { shown.toggle() } }
     }
     .padding(CoreSpacing.huge)
 }
