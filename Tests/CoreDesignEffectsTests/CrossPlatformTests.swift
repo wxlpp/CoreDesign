@@ -196,6 +196,67 @@ struct SphereFieldTests {
         // ④ 互锁：也不许退化成"永远同一个字"。
         let spread = Set((0..<40).map { SphereField.glyphSlot(index: $0, glyphCount: 5) })
         #expect(spread.count == 5, "40 个点位只用到了 \(spread.count) 个字 —— 分配退化了")
+
+        // ⑤ ⚠️⚠️ **③④ 钉的是"形状"，不是"分布"**（PR #274 终审 S-1，有变异实证）：
+        // `(index &* 3) % glyphCount` 同时通过 ③（与 `index % count` 不逐项相同）
+        // 与 ④（用满了字表），而它**正是本条要防的那个缺陷**——周期 5 的整齐重复，
+        // 渲出来照样是一圈圈规律。
+        // ⇒ 直接钉性质：不许存在任何短周期（`p <= 2n`）的整齐重复。
+        for count in [3, 5, 8] {
+            for period in 1...(2 * count) {
+                let repeatsWithPeriod = (0..<200).allSatisfy {
+                    SphereField.glyphSlot(index: $0, glyphCount: count)
+                        == SphereField.glyphSlot(index: $0 + period, glyphCount: count)
+                }
+                #expect(!repeatsWithPeriod, """
+                count=\(count) 时 glyphSlot 有周期 \(period) 的整齐重复 —— 字表会沿着
+                Vogel 螺旋一圈圈复现，肉眼能看出规律（本轮渲图实测到的正是这个）。
+                ⚠️ 「不等于 index % count」不足以排除它：`(index &* 3) % 5` 就同时逃过
+                上面 ③ 与 ④ 两条。
+                """)
+            }
+        }
+    }
+
+    /// ⚠️⚠️ **本条钉的是一处"照录差异"清单漏掉的分歧**（PR #274 终审 I-3）。
+    ///
+    /// 上游 `SWDotSphere` 用 `UIColor(color).getRed(&r,&g,&b,&a)` + 分量 lerp 插值，
+    /// 那等价于 **`.device`**；`Color.mix(with:by:)` 的默认是 **`.perceptual`**（Oklab 系）。
+    /// 实测 red→blue @ t=0.5：
+    ///
+    ///     perceptual  r=0.6728 g=0.4743 b=0.6589
+    ///     device      r=0.5000 g=0.3765 b=0.6176   ← 上游给的
+    ///
+    /// 中间调肉眼可辨 ⇒ 这不是"等价重写"，是一处**有意的分歧**。
+    /// ⚠️ 且 `tone(…)` 此前依赖的是一个**隐式 SwiftUI 默认**：Apple 改了默认配色空间，
+    /// 本件的观感会静默换掉而没有任何东西变红。⇒ 源码里必须显式写出色彩空间。
+    @Test("插值走 perceptual，且色彩空间是显式写出来的（不吃 SwiftUI 的默认值）")
+    func toneMixesInPerceptualSpace() throws {
+        let env = EnvironmentValues()
+        let wave = SphereField.Wave(base: 0, next: 1, timeInCycle: 0)
+        let palette: [Color] = [.accent, .contentSecondary]
+        let tone = try #require(SphereField.tone(palette: palette, wave: wave, progress: 0.5))
+
+        let perceptual = palette[0].mix(with: palette[1], by: 0.5, in: .perceptual).resolve(in: env)
+        let device = palette[0].mix(with: palette[1], by: 0.5, in: .device).resolve(in: env)
+        #expect(perceptual != device, """
+        这两个色彩空间在本色板上给出了同一个结果 —— 判据挑不出差别，请换一对色重钉。
+        """)
+        #expect(tone.resolve(in: env) == perceptual, """
+        `SphereField.tone` 没有走 perceptual —— 与本仓记下的裁决不符。
+        """)
+
+        // ⚠️ **显式性**这一半只能落在源码链上：今天 SwiftUI 的默认恰好就是 perceptual，
+        // 删掉 `in: .perceptual` 上面那条断言照样绿；变红要等 Apple 改默认值，
+        // 而那正是本条要提前堵住的那一天。
+        let code = MicroInteractionReduceMotionGuard.stripComments(try String(
+            contentsOf: MicroInteractionReduceMotionGuard.sourceRoot
+                .appendingPathComponent("SphereField.swift"),
+            encoding: .utf8
+        ))
+        #expect(code.contains("in: .perceptual"), """
+        `SphereField.swift` 没有显式写出插值的色彩空间 —— 它在吃 SwiftUI 的隐式默认。
+        """)
     }
 
     @Test("静止相位不是 0（0 那一帧看起来像没做任何事）")
@@ -246,6 +307,58 @@ struct OrbitRingTests {
         #expect(OrbitRing.slot(of: 0, logoCount: 1) == 0)
         // logo 比 slot 还多时按 slot 取模，仍在合法区间。
         #expect(OrbitRing.slot(of: 99, logoCount: 99) < OrbitRing.dotsPerRing)
+        // 零座位（停摆档 `perRing == 0`）同样不许除零。
+        #expect(OrbitRing.slot(of: 3, logoCount: 4, dotsPerRing: 0) == 0)
+
+        // ⚠️ **座位数 <= dotsPerRing 时必须两两不同**——旧判据只测了 4 与 99，
+        // 正好跨过中间那一段（终审 S-4）。
+        for logoCount in 1...OrbitRing.dotsPerRing {
+            let all = (0..<logoCount).map { OrbitRing.slot(of: $0, logoCount: logoCount) }
+            #expect(Set(all).count == logoCount,
+                    "logoCount=\(logoCount) 时有 logo 共用同一个 slot：\(all)")
+        }
+    }
+
+    /// ⚠️⚠️ **两条缺陷合在一条判据里**（PR #274 终审 S-3 / S-4）：
+    ///
+    /// · **S-3**：`dotsPerRing` 必须是**这一档真的画出来的**点数。低电量下每环
+    ///   `round(23 × 0.5) = 12` 个点，座位数还钉在 23 ⇒ logo 悬在环点之间；
+    /// · **S-4**：`logoCount = 24` 时 `stride = 23/24 < 1` ⇒ `slot(0) == slot(1) == 0`，
+    ///   两个 logo **完全重叠**。旧文档只写「按 slot 取模，不越界」，没描述碰撞。
+    @Test("logo 的角度：坐在真实画出来的环点上，且任何数量下都不重叠")
+    func logoAnglesSitOnRealSeatsAndNeverCollide() {
+        // ① S-3：座位数 <= 环点数时，logo 的角度必须**恰好**是某个环点的角度。
+        for seats in [OrbitRing.dotsPerRing, 12, 1] {
+            let ringAngles = (0..<seats).map { OrbitRing.angle(index: $0, of: seats, turns: 0.3, ring: 0) }
+            for index in 0..<min(4, seats) {
+                let a = OrbitRing.logoAngle(logoIndex: index, logoCount: min(4, seats),
+                                            dotsPerRing: seats, turns: 0.3)
+                #expect(ringAngles.contains { abs($0 - a) < 1e-9 }, """
+                seats=\(seats) 时第 \(index) 个 logo 的角度 \(a) 不在实际画出来的环点上
+                —— 低电量下环变稀，logo 会悬在点与点之间。
+                """)
+            }
+        }
+
+        // ② S-4：任何数量下角度都两两不同（超出座位数时改为按角度均分）。
+        for logoCount in [1, 4, 8, 22, 23, 24, 40, 99] {
+            let angles = (0..<logoCount).map {
+                OrbitRing.logoAngle(logoIndex: $0, logoCount: logoCount,
+                                    dotsPerRing: OrbitRing.dotsPerRing, turns: 0)
+            }
+            for (i, a) in angles.enumerated() {
+                for (j, b) in angles.enumerated() where j > i {
+                    #expect(abs(a - b) > 1e-9, """
+                    logoCount=\(logoCount) 时第 \(i) 与第 \(j) 个 logo 落在同一个角度上
+                    —— 它们在屏幕上完全重叠。
+                    """)
+                }
+            }
+        }
+
+        // ③ 退化输入：零个 logo / 零座位都不许产生 NaN。
+        #expect(OrbitRing.logoAngle(logoIndex: 0, logoCount: 0, dotsPerRing: 23, turns: 0.5) == 0)
+        #expect(OrbitRing.logoAngle(logoIndex: 2, logoCount: 4, dotsPerRing: 0, turns: 0.5).isFinite)
     }
 
     @Test("轮播：每个 logo 轮流被点名，进度落在 [0, 1)")
@@ -305,6 +418,37 @@ struct OrbitRingTests {
         }
         #expect(abs(OrbitRing.alpha(angle: 0) - OrbitRing.alpha(angle: 2 * .pi)) < 1e-9,
                 "0 与 2π 的取值不同 ⇒ 整圈会有一条缝")
+    }
+}
+
+// MARK: - 常驻自转件的第三道闸（周期非法）
+
+/// ⚠️⚠️ **本 suite 是 PR #274 终审 I-4 的落点。**
+///
+/// 文档一直写着「`rotationPeriod <= 0` 退化为静止」——**它此前不是真的**：
+/// `SphereField.phase(period: 0)` 只让**自转**冻结，而 `SphereField.wave(at:)` /
+/// `OrbitRing.feature(at:)` 都**不吃** `rotationPeriod` ⇒ 非空色板时色波仍每 10.5s
+/// 循环、logo 仍每 2.4s 弹一次；更要紧的是 `presentation` 还是 `.animated`
+/// ⇒ `TimelineView(.animation)` 照常构建、display link 满帧跑，只为产出同一批帧。
+@Suite("周期非法时的呈现降级")
+struct DegeneratePeriodTests {
+
+    @Test("`<= 0` 把 .animated 降到 .resting，其余两档原样穿过")
+    func degeneratePeriodFreezesAnimated() {
+        for period in [0.0, -3.0, -0.001] {
+            #expect(EffectsPresentation.animated.frozenIfPeriodIsDegenerate(period) == .resting,
+                    "period=\(period) 时仍在建调度器")
+            #expect(EffectsPresentation.resting.frozenIfPeriodIsDegenerate(period) == .resting)
+            // ⚠️ **停摆档不许被这道闸抬回 .resting**：NFR-7 的优先级最高。
+            #expect(EffectsPresentation.none.frozenIfPeriodIsDegenerate(period) == .none,
+                    "period=\(period) 把停摆档抬回了 .resting —— 能耗闸被这道闸绕过了")
+        }
+        for period in [0.001, 10.0, 24.0] {
+            #expect(EffectsPresentation.animated.frozenIfPeriodIsDegenerate(period) == .animated,
+                    "period=\(period) 是合法周期，不该被冻结")
+            #expect(EffectsPresentation.none.frozenIfPeriodIsDegenerate(period) == .none)
+            #expect(EffectsPresentation.resting.frozenIfPeriodIsDegenerate(period) == .resting)
+        }
     }
 }
 
@@ -388,17 +532,27 @@ struct CrossPlatformRenderTests {
     /// 固定相位的轨道环绘制层。
     static func orbitBody(
         colors: [Color] = [], turns: Double = OrbitRing.restingPhase,
-        feature: (index: Int, progress: Double) = OrbitRing.restingFeature
+        feature: (index: Int, progress: Double) = OrbitRing.restingFeature,
+        layers: OrbitLayers = .full
     ) -> some View {
         OrbitingLogosBody(
             items: OrbitingLogosPreviewItem.samples, colors: colors, turns: turns, feature: feature,
-            logo: { item in
-                Circle().fill(Color.contentPrimary).frame(width: 12, height: 12)
-                    .accessibilityHidden(true)
-                    .id(item.id)
-            },
-            center: Circle().fill(Color.accent).frame(width: 40, height: 40)
+            layers: layers,
+            logo: { item in Self.orbitLogo(item) },
+            center: Self.orbitCenter
         )
+    }
+
+    /// ⚠️ logo / center 抽成两个共用常量：`orbitBody`（直接构造绘制层）与
+    /// `orbitContainer`（走公开包装器）必须**逐像素可比**，两处各写一遍必然漂移。
+    static func orbitLogo(_ item: OrbitingLogosPreviewItem) -> some View {
+        Circle().fill(Color.contentPrimary).frame(width: 12, height: 12)
+            .accessibilityHidden(true)
+            .id(item.id)
+    }
+
+    static var orbitCenter: some View {
+        Circle().fill(Color.accent).frame(width: 40, height: 40)
     }
 
     /// ⚠️⚠️ **本 suite 只用系统语义色做位图判据，不用资源色阶（本轮实测的坑）**：
@@ -421,6 +575,7 @@ struct CrossPlatformRenderTests {
             AnyView(Self.staged(Self.sphereBody(mark: .glyphs(["道"], fontSize: 11), colors: [.accent]))),
             AnyView(Self.staged(Self.orbitBody())),
             AnyView(Self.staged(Self.orbitBody(colors: [.accent]))),
+            AnyView(Self.staged(Self.orbitBody(layers: .contentOnly))),
         ]
         for probe in probes {
             for _ in 0..<8 { _ = MicroInteractionAPITests.stablePixels(probe) }
@@ -465,6 +620,131 @@ struct CrossPlatformRenderTests {
         #expect(c == d, "给了色板还跟着 .tint 变")
     }
 
+    /// ⚠️⚠️ **承重**（PR #274 终审 C-2）：`.tint` 那条路与显式单色色板那条路
+    /// 必须**逐字节渲成同一张图**。
+    ///
+    /// 上一版在空色板那条路上包了 `Rectangle().fill(.tint).mask { Canvas }`，遮罩色写的是
+    /// `Color.primary`，注释宣称"`.primary` 恒不透明、与写死白色等效"。**实测为假**
+    ///（macOS 26，明暗两端）：
+    ///
+    ///     Color.primary  light a=0.8471 | dark a=0.8471
+    ///     Color.white    light a=1.0000 | dark a=1.0000
+    ///
+    /// `.primary` 映射到 `label` / `labelColor`，是 **0.847 alpha**。`mask` 吃的正是
+    /// alpha ⇒ `.tint` 路上每个点的实际不透明度是 `0.8471 × alpha(depth:)`
+    ///（`SphereField` 的 `0.28…1.0` 实际成了 `0.237…0.847`），比显式色板那条路
+    ///（`tone.opacity(alpha)`，满量程）**暗 15%**。
+    /// 全部既有位图判据都是 `a != b` / `!= blank` ⇒ **一条都抓不到这枚偏差**。
+    ///
+    /// ⇒ 本条把两条路摆在一起比。单色色板下 `SphereField.tone` 因 `base == next`
+    /// 提前返回 `base`（与进度、与色波无关），`OrbitRing` 那边 `slot` 恒为 0
+    /// ⇒ 两边都该是"同一个颜色 × 同一条 alpha 曲线"。只要谁再吃掉一层 alpha 就判红。
+    @Test("空色板 + .tint(X) 必须与 colors: [X] 渲成同一张图（遮罩不许再吃一层 alpha）")
+    func tintPathMatchesSinglePalette() {
+        // ⚠️ 用**不透明**的 accent（实测 a=1.0）：拿 a<1 的色当 tint 会让两条路
+        // 各自再乘一次自己的 alpha，反而掩盖差异。
+        let tone = Color.accent
+        for mark in [SphereMark.dots(diameter: 4), .glyphs(["道", "德"], fontSize: 14)] {
+            let tinted = Self.pixels(Self.staged(Self.sphereBody(mark: mark).tint(tone)))
+            let explicit = Self.pixels(Self.staged(Self.sphereBody(mark: mark, colors: [tone]).tint(tone)))
+            #expect(tinted != nil && tinted != Self.blank, "\(mark) 什么都没画 —— 下面的相等断言会恒真")
+            #expect(tinted == explicit, """
+            \(mark)：空色板走 `.tint` 与显式单色色板渲出了**不同**的图。
+            两条路的量程本该逐字相同 —— 差异来自 `.tint` 那条路上多吃的一层 alpha
+            （`Rectangle().fill(.tint).mask { … }` + `Color.primary` 哨兵，`.primary` 实测 a=0.8471）。
+            """)
+        }
+        let tintedOrbit = Self.pixels(Self.staged(Self.orbitBody().tint(tone)))
+        let explicitOrbit = Self.pixels(Self.staged(Self.orbitBody(colors: [tone]).tint(tone)))
+        #expect(tintedOrbit != nil && tintedOrbit != Self.blank)
+        #expect(tintedOrbit == explicitOrbit, """
+        轨道环：空色板走 `.tint` 与显式单色色板渲出了不同的图 —— 同一枚遮罩偏差。
+        """)
+    }
+
+    // MARK: 公开包装器的参数管线（终审 I-2）
+
+    /// ⚠️⚠️ **三个公开包装器的参数管线此前零覆盖**（PR #274 终审 I-2）：全部取色 /
+    /// 相位判据都**直接构造** `SphereSurfaceBody` / `OrbitingLogosBody`，绕过了包装器
+    /// ⇒ 从 `DotSphere.body` 删掉 `colors: self.colors`（**静默忽略调用方的色板**）
+    /// 全套判据仍绿，`spheresFollowTheCallerTint` 也绿。
+    ///
+    /// ⚠️ 判据要能比位图就必须**与挂钟无关** ⇒ 一律传 `rotationPeriod: 0`：
+    /// 它现在把呈现降到 `.resting`（终审 I-4），自转相位与色波双双钉死。
+    @Test("公开包装器：调用方的 colors 真的交到了绘制层")
+    func publicWrappersForwardTheirPalette() {
+        // 三对都钉死同一个 `.tint` ⇒ 位图上的差异只可能来自 `colors`。
+        let tint = Color.borderSubtle
+        let dotA = Self.pixels(Self.staged(DotSphere(count: 240, colors: [.accent], rotationPeriod: 0).tint(tint)))
+        let dotB = Self.pixels(Self.staged(DotSphere(count: 240, colors: [.contentSecondary], rotationPeriod: 0).tint(tint)))
+        #expect(dotA != nil && dotA != Self.blank, "DotSphere 什么都没画 —— 下面的不等断言会失去意义")
+        #expect(dotA != dotB, "DotSphere 换色板位图没变 —— `colors: self.colors` 没交到 SphereSurface")
+        // ⚠️ 互锁：同一份输入必须渲成同一张图，否则上面的"不等"可能只是挂钟在动。
+        let dotAgain = Self.pixels(Self.staged(DotSphere(count: 240, colors: [.accent], rotationPeriod: 0).tint(tint)))
+        #expect(dotA == dotAgain, "同一份输入渲出两张不同的图 —— 判据与挂钟有关，不可信")
+
+        let charA = Self.pixels(Self.staged(CharSphere(["道", "德"], count: 160, colors: [.accent], rotationPeriod: 0).tint(tint)))
+        let charB = Self.pixels(Self.staged(CharSphere(["道", "德"], count: 160, colors: [.contentSecondary], rotationPeriod: 0).tint(tint)))
+        #expect(charA != nil && charA != Self.blank)
+        #expect(charA != charB, "CharSphere 换色板位图没变 —— `colors: self.colors` 没交到 SphereSurface")
+
+        let orbitA = Self.pixels(Self.staged(Self.orbitContainer(colors: [.accent], rotationPeriod: 0).tint(tint)))
+        let orbitB = Self.pixels(Self.staged(Self.orbitContainer(colors: [.contentSecondary], rotationPeriod: 0).tint(tint)))
+        #expect(orbitA != nil && orbitA != Self.blank)
+        #expect(orbitA != orbitB, "OrbitingLogos 换色板位图没变 —— `colors: self.colors` 没交到绘制层")
+    }
+
+    /// ⚠️⚠️ **一条判据同时钉住三件事**（终审 I-4 + I-2）：
+    ///
+    /// ① `rotationPeriod <= 0` 必须**真的**静止——落到 `.resting` 那一帧
+    ///   （`restingPhase` + `restingWave` / `restingFeature`），而不是"相位恒为 0、
+    ///    色波照转、`TimelineView` 照建"；
+    /// ② 三个公开包装器的 `rotationPeriod` 参数管线（删掉 `rotationPeriod: self.rotationPeriod`
+    ///    ⇒ 落回默认周期 ⇒ 走 `.animated` ⇒ 与挂钟有关 ⇒ 对不上右边这张钉死的参考帧）；
+    /// ③ `count` / `mark` 两条参数管线（对不上就是形态或点数被改了）。
+    @Test("rotationPeriod <= 0：公开包装器渲出的正是那张钉死的静止帧")
+    func degeneratePeriodRendersTheRestingFrame() {
+        let tint = Color.accent
+        let dot = Self.pixels(Self.staged(DotSphere(count: 240, rotationPeriod: 0).tint(tint)))
+        let dotReference = Self.pixels(Self.staged(Self.sphereBody(mark: .dots(diameter: 3), count: 240).tint(tint)))
+        #expect(dot != nil && dot != Self.blank, "周期为 0 渲成了空白 —— 那是停摆不是静止")
+        #expect(dot == dotReference, """
+        `DotSphere(rotationPeriod: 0)` 渲出的不是钉死的静止帧。
+        要么它还在走 `.animated`（`TimelineView` 照建、每帧同一张图，白付 NFR-1/NFR-7），
+        要么 `count` / `mark` / `rotationPeriod` 里有一条没交到 `SphereSurface`。
+        """)
+
+        let char = Self.pixels(Self.staged(CharSphere(["道", "德"], count: 160, rotationPeriod: 0).tint(tint)))
+        let charReference = Self.pixels(Self.staged(
+            Self.sphereBody(mark: .glyphs(["道", "德"], fontSize: 11), count: 160).tint(tint)
+        ))
+        #expect(char != nil && char != Self.blank)
+        #expect(char == charReference, "`CharSphere(rotationPeriod: 0)` 渲出的不是钉死的静止帧")
+
+        let orbit = Self.pixels(Self.staged(Self.orbitContainer(rotationPeriod: 0).tint(tint)))
+        let orbitReference = Self.pixels(Self.staged(Self.orbitBody().tint(tint)))
+        #expect(orbit != nil && orbit != Self.blank)
+        #expect(orbit == orbitReference, "`OrbitingLogos(rotationPeriod: 0)` 渲出的不是钉死的静止帧")
+    }
+
+    /// ⚠️⚠️ **承重**（终审 S-3）：低电量下每环点数减半（23 → 12），logo 必须**跟着**
+    /// 挪到新的环点上；旧实现的座位数钉死在 `OrbitRing.dotsPerRing`（23），
+    /// logo 会悬在环点之间 —— 本件"logo 坐在环上随之巡游"的整个视觉立意就没了，而且无人记录。
+    ///
+    /// ⚠️ 把环画成 `.clear` 是本条能成立的关键：否则位图差异会被"环变稀"这件事淹没，
+    /// 判据无法区分"环变了"与"logo 跟着环变了"。`.clear` 不是色相（`EffectsColorLiteralGuard`
+    /// 的表里有一条明确裁定），画出来是"不画" ⇒ 位图上只剩 logo 与中心视图。
+    @Test("低电量：logo 跟着变稀的环挪位（不许悬在环点之间）")
+    func logoSeatsFollowTheThinnedRing() {
+        let full = Self.pixels(Self.staged(Self.orbitBody(colors: [.clear])))
+        let low = Self.pixels(Self.staged(Self.orbitBody(colors: [.clear]), lowPower: true))
+        #expect(full != nil && full != Self.blank, "环画成 .clear 之后连 logo 都没了 —— 判据在比两张空白图")
+        #expect(full != low, """
+        低电量下 logo 的位置一点没变 —— 座位数还钉在标称的 23，而这一档每环只画 12 个点
+        ⇒ logo 会悬在环点之间。
+        """)
+    }
+
     // MARK: NFR-7 能耗闸
 
     /// ⚠️⚠️ **承重**：`.background` / `.inactive` ⇒ 一个像素都不画。
@@ -473,26 +753,69 @@ struct CrossPlatformRenderTests {
     /// 能耗环境，停摆时 `particleScale == 0` ⇒ 「`.none` 分支返回 `EmptyView()`」与
     /// 「`.none` 分支照常建绘制层」渲出来**逐字节相同**。那一半由
     /// `presentationBranchesAreWiredCorrectly`（源码链）接管。
-    @Test("后台与非活跃：四件里的三个常驻件一个像素都不画")
+    @Test("后台与非活跃：两个球面件一个像素都不画")
     func pausedDrawsNothing() {
         for phase in [ScenePhase.background, .inactive] {
             let dot = Self.pixels(Self.staged(DotSphere(), phase: phase))
             let char = Self.pixels(Self.staged(CharSphere(["道"]), phase: phase))
-            let orbit = Self.pixels(Self.staged(Self.orbitContainer(), phase: phase))
             #expect(dot == Self.blank, "DotSphere 在 \(phase) 下还在画")
             #expect(char == Self.blank, "CharSphere 在 \(phase) 下还在画")
-            #expect(orbit == Self.blank, "OrbitingLogos 在 \(phase) 下还在画")
         }
-        // ⚠️ **互锁**：`.active` 下必须画得出东西，否则上面三条对"永远不画"的实现也恒真。
+        // ⚠️ **互锁**：`.active` 下必须画得出东西，否则上面两条对"永远不画"的实现也恒真。
         let active = Self.pixels(Self.staged(DotSphere()))
         #expect(active != nil && active != Self.blank, "活跃态下什么都没画 —— 上面的停摆判据是空真")
     }
 
-    static func orbitContainer() -> some View {
-        OrbitingLogos(OrbitingLogosPreviewItem.samples) { _ in
-            Circle().fill(Color.contentPrimary).frame(width: 12, height: 12)
+    /// ⚠️⚠️ **承重**（PR #274 终审 C-1）：`OrbitingLogos` 的 `.none` 档**不许**返回
+    /// `EmptyView()`。
+    ///
+    /// `.none` 在 `.inactive` / `.background` 触发，而 macOS 上 `.inactive` = 窗口不是
+    /// 前台（**窗口完全可见**）、iPadOS 上 = 台前调度后台。本件的视图树里装着**调用方的
+    /// 内容**——`logo(item)` 与 `center`，两者都**有意不** `accessibilityHidden`
+    ///（只有点环隐藏）⇒ 返回 `EmptyView()` 会让宿主 App 的品牌 logo 与全部合作方 logo
+    /// 在可见窗口里凭空消失，VoiceOver 也一并丢掉这些元素。
+    ///
+    /// 本仓已就这一情形裁决过（`MicroInteractionReduceMotionGuard.energyGatedFiles` 逐字：
+    /// 「能耗闸的 `.none` 语义是『一个像素都不画』，而它们画的是**内容**，把内容隐藏
+    /// 不是停摆、是 bug」——那正是 `BeforeAfterSlider` / `ParticleTransition` 被排除在
+    /// 名单之外的理由）。⇒ 收窄成：`.none` 摘掉的是**装饰层与调度器**，内容层静态留下。
+    ///
+    /// ⚠️ **已知限度**：停摆档 `particleScale == 0` ⇒ 环本来就画不出点
+    /// ⇒ "`.contentOnly` 与 `.full` 在 `.none` 下渲出同一张图"，位图分不出这两种写法。
+    /// 本条钉的是"内容还在不在"这一半，"装饰层不建"那一半由
+    /// `orbitPresentationBranchesAreWiredCorrectly`（源码链）接管。
+    @Test("后台与非活跃：OrbitingLogos 摘掉装饰，但调用方的内容必须留下")
+    func pausedKeepsCallerContentInOrbitingLogos() {
+        let contentOnly = Self.pixels(Self.staged(Self.orbitBody(layers: .contentOnly)))
+        #expect(contentOnly != nil && contentOnly != Self.blank,
+                "内容层自己就画不出东西 —— 下面的相等断言会恒真")
+        for phase in [ScenePhase.background, .inactive] {
+            let orbit = Self.pixels(Self.staged(Self.orbitContainer(), phase: phase))
+            #expect(orbit != Self.blank, """
+            OrbitingLogos 在 \(phase) 下变成了空白 —— 调用方的 logo 与中心视图被能耗闸
+            一起删掉了。`.inactive` 在 macOS 上就是"窗口没聚焦"，窗口完全可见。
+            """)
+            #expect(orbit == contentOnly, """
+            OrbitingLogos 在 \(phase) 下渲出的不是"只有内容"那一帧
+            —— 要么装饰层还在建，要么内容层被改了。
+            """)
+        }
+    }
+
+    /// 走**公开包装器**的同一份内容。与 `orbitBody` 的 logo / center 逐字相同
+    /// ⇒ 两者可以直接比位图（`degeneratePeriodRendersTheRestingFrame` 靠这条）。
+    static func orbitContainer(
+        // ⚠️ 写 `OrbitRing.rotationPeriod` 而不是 `OrbitingLogos.defaultRotationPeriod`：
+        // 后者是**泛型类型上的**静态成员，当默认实参用时三个泛型参数推不出来。
+        // 两者同一个值（`defaultRotationPeriod` 就返回它）。
+        colors: [Color] = [], rotationPeriod: Double = OrbitRing.rotationPeriod
+    ) -> some View {
+        OrbitingLogos(
+            OrbitingLogosPreviewItem.samples, colors: colors, rotationPeriod: rotationPeriod
+        ) { item in
+            Self.orbitLogo(item)
         } center: {
-            Circle().fill(Color.accent).frame(width: 40, height: 40)
+            Self.orbitCenter
         }
     }
 
@@ -624,9 +947,25 @@ struct CrossPlatformRenderTests {
         let animatedBranch = switchBody.components(separatedBy: "case .animated:").last ?? ""
         #expect(animatedBranch.contains("SphereSurfaceTimeline("), "`.animated` 分支没有建调度器")
         #expect(code.contains("TimelineView("), "整份文件都没有 TimelineView —— 这个效果根本没在动")
+
+        // ④ 第三道闸（终审 I-4）：`rotationPeriod <= 0` 在建调度器之前就降到 .resting。
+        let beforeSwitch = String(code[..<switchRange.lowerBound])
+        #expect(beforeSwitch.contains("frozenIfPeriodIsDegenerate(self.rotationPeriod)"), """
+        驱动层没有接"周期非法"这道闸 —— `rotationPeriod <= 0` 会照常建
+        `TimelineView(.animation)`，永远产出同一张图，白付 NFR-1 / NFR-7 的代价。
+        """)
     }
 
     /// `OrbitingLogos` 的同一条链（它有自己的 `switch`，不与球面件共用驱动）。
+    ///
+    /// ⚠️⚠️ **本条此前比它的球面兄弟少四条断言，后果是整个动画可以被删光而全套判据仍绿**
+    ///（PR #274 终审 I-1，已复现）：把 `.animated` 分支改成建一帧冻结的 `OrbitingLogosBody`、
+    /// 再把文件里的 `TimelineView` 整个删掉 ⇒ 组件已死，而
+    /// `pausedKeepsCallerContentInOrbitingLogos` 只分辨空白 / 非空白、位图判据直接构造
+    /// `OrbitingLogosBody` 绕过 driver、`motionFiles()` 仍靠 `Canvas(` 把本文件分类为
+    /// 运动文件 ⇒ **一条都不红**。
+    /// ⇒ 球面版 `presentationBranchesAreWiredCorrectly` 的那四条（`.resting` 不许建调度器
+    /// ×2、`.animated` 必须建调度器、文件里必须有 `TimelineView(` 的非平凡性互锁）逐条补齐。
     @Test("轨道环的三档呈现同样接对了")
     func orbitPresentationBranchesAreWiredCorrectly() throws {
         let code = MicroInteractionReduceMotionGuard.stripComments(try String(
@@ -640,15 +979,50 @@ struct CrossPlatformRenderTests {
         }
         let afterSwitch = String(code[switchRange.upperBound...])
         let switchBody = afterSwitch.components(separatedBy: "struct OrbitingLogosTimeline").first ?? afterSwitch
+
+        // ① 停摆档：**摘装饰、留内容**（终审 C-1）。
         let noneBranch = switchBody.components(separatedBy: "case .resting:").first ?? ""
-        #expect(noneBranch.contains("EmptyView()"), "`.none` 分支不是 EmptyView()")
-        #expect(!noneBranch.contains("OrbitingLogosBody("), "`.none` 分支还在建绘制层")
+        #expect(!noneBranch.contains("EmptyView()"), """
+        `.none` 分支又回到了 `EmptyView()` —— 那会把**调用方的** logo 与中心视图一起删掉。
+        能耗闸的"一个像素都不画"只适用于装饰层；画内容的件把内容藏掉不是停摆、是 bug
+        （`BeforeAfterSlider` / `ParticleTransition` 被排除在 `energyGatedFiles` 之外用的是同一条理由）。
+        """)
+        #expect(noneBranch.contains("layers: .contentOnly"), """
+        `.none` 分支没有把绘制层钉在 `.contentOnly` 上 —— 装饰层（环 + Canvas）会跟着建出来。
+        """)
+        #expect(!noneBranch.contains("OrbitingLogosTimeline("), "`.none` 分支还在建调度器")
+        #expect(!noneBranch.contains("TimelineView("), "`.none` 分支还在建调度器")
+
+        // ② 静止档钉在 restingPhase / restingFeature 上，画整件，且**不建调度器**。
         let restingBranch = (switchBody.components(separatedBy: "case .resting:").last ?? "")
             .components(separatedBy: "case .animated:").first ?? ""
         #expect(restingBranch.contains("OrbitRing.restingPhase"), "`.resting` 分支没有钉住自转相位")
         #expect(restingBranch.contains("OrbitRing.restingFeature"),
                 "`.resting` 分支没有钉住轮播 —— Reduce Motion 下仍会有 logo 弹出放大")
+        #expect(restingBranch.contains("layers: .full"),
+                "`.resting` 分支没有画整件 —— 降级形态 2 是「冻结」，不是「摘掉环」")
+        #expect(!restingBranch.contains("TimelineView("), "`.resting` 分支建了调度器")
+        #expect(!restingBranch.contains("OrbitingLogosTimeline("), "`.resting` 分支建了调度器")
+
+        // ③ 只有 animated 档建调度器，而且 `TimelineView` 本身关在独立类型里。
         #expect(!switchBody.contains("TimelineView("), "驱动层的 switch 体里直接建了 TimelineView")
+        let animatedBranch = switchBody.components(separatedBy: "case .animated:").last ?? ""
+        #expect(animatedBranch.contains("OrbitingLogosTimeline("), """
+        `.animated` 分支没有建调度器 —— 本件不再动了，而位图判据全都直接构造
+        `OrbitingLogosBody`、绕过 driver ⇒ 没有任何别的判据看得见这件事。
+        """)
+        #expect(code.contains("TimelineView("), """
+        整份文件都没有 TimelineView —— 这个效果根本没在动。
+        （非平凡性互锁：没有这条，上面每一条 `!contains("TimelineView(")` 在
+        "把 TimelineView 整个删掉"这枚变异下全部恒真。）
+        """)
+
+        // ④ 第三道闸（终审 I-4）：周期非法必须在**建调度器之前**就降到 .resting。
+        let beforeSwitch = String(code[..<switchRange.lowerBound])
+        #expect(beforeSwitch.contains("frozenIfPeriodIsDegenerate(self.rotationPeriod)"), """
+        驱动层没有接"周期非法"这道闸 —— `rotationPeriod <= 0` 会照常建
+        `TimelineView(.animation)`，display link 满帧跑只为产出同一张图。
+        """)
     }
 
     // MARK: 薄封装的互锁
@@ -663,6 +1037,16 @@ struct CrossPlatformRenderTests {
                     .appendingPathComponent(name), encoding: .utf8)
             )
             #expect(code.contains("SphereSurface("), "\(name) 没有转发给共享驱动")
+            // ⚠️ **"转发了"不等于"把参数交出去了"**（终审 I-2）：上一版只查
+            // `SphereSurface(` 出现过，不查交了什么 ⇒ 删掉 `colors: self.colors`
+            // （静默忽略调用方色板）本条照样绿。位图那半由
+            // `publicWrappersForwardTheirPalette` / `degeneratePeriodRendersTheRestingFrame` 管，
+            // 这里补上源码这半，`count` 这条位图上不易单独隔离的也一并钉住。
+            for forwarded in ["count: self.count", "colors: self.colors", "rotationPeriod: self.rotationPeriod"] {
+                #expect(code.contains(forwarded), """
+                \(name) 没有把 `\(forwarded)` 交给 `SphereSurface` —— 调用方传的这个参数被静默忽略。
+                """)
+            }
             for keyword in MicroInteractionReduceMotionGuard.motionCalls {
                 #expect(!code.contains(keyword), "\(name) 自己写了运动调用 `\(keyword)` —— 它不再是薄封装")
             }
@@ -856,31 +1240,115 @@ struct PlatformSupportGuard {
 
     // MARK: ④ 平台限制必须写进 docs/components/*.md
 
+    /// 每件的 slug ↔ 源文件。文档说的平台差异必须与源码里**真实存在的围栏**对得上。
+    static let documentedPieces: [(slug: String, source: String)] = [
+        ("dot-sphere", "DotSphere.swift"),
+        ("char-sphere", "CharSphere.swift"),
+        ("orbiting-logos", "OrbitingLogos.swift"),
+        ("full-screen-button", "FullScreenButton.swift"),
+    ]
+
+    /// 从 Markdown 里取出 `## <title>` 这一节（到下一个**二级**标题为止）。
+    ///
+    /// ⚠️ **必须按行首、按级别匹配**（PR #274 终审 S-2）：`text.range(of: "## 平台支持")`
+    /// 是子串匹配，会命中 `### 平台支持` 这样的三级子标题，也会命中目录里带 `##` 的一行
+    /// ⇒ 取到的"节"根本不是那一节。
+    static func section(named title: String, in text: String) -> String? {
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        func isHeading(_ line: String, level: Int) -> Bool {
+            let hashes = String(repeating: "#", count: level)
+            return line.hasPrefix(hashes + " ")
+        }
+        guard let start = lines.firstIndex(where: { isHeading($0, level: 2) && $0.contains(title) })
+        else { return nil }
+        let rest = lines[(start + 1)...]
+        let end = rest.firstIndex { isHeading($0, level: 2) } ?? rest.endIndex
+        return rest[..<end].joined(separator: "\n")
+    }
+
+    /// 「这一行到底说了什么行为」的词表。
+    ///
+    /// ⚠️ **纯字数门槛太便宜**（终审 S-2 有变异实证：一段 75 字符的占位再加一句就过 80）。
+    /// ⇒ 每一行平台表格行都必须带一个**行为动词**，「| iOS 26+ | ✅ |」这类占位判红。
+    static let behaviourWords = [
+        "可用", "不可用", "编译", "退化", "降级", "推入", "放大", "一致", "相同",
+        "同一份", "支持", "不支持", "转场", "完整", "空转", "冻结",
+    ]
+
+    /// 文档**声称两端有差异**的说法。
+    static let differenceClaims = ["不可用", "编译不过", "差别", "差异", "只包住", "只有 iOS", "仅 iOS"]
+
+    /// 文档**声称两端一致**的说法。
+    static let parityClaims = ["同一份代码", "完全一致", "没有任何条件编译", "没有平台分支", "没有条件编译"]
+
+    /// 一节平台说明必须过的全部检查。返回违规说明（空 = 通过）。
+    ///
+    /// ⚠️ **合成输入与真文档走同一个函数** ⇒ 变红自证不必去改真文档
+    ///（同 `importDetectorFires` / `fenceScannerFires` 的形态）。
+    static func platformSectionOffenders(
+        slug: String, section: String, hasPlatformFence: Bool
+    ) -> [String] {
+        var out: [String] = []
+        let trimmed = section.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !section.contains("macOS") { out.append("\(slug)：平台支持一节没提 macOS") }
+        if !section.contains("iOS") { out.append("\(slug)：平台支持一节没提 iOS") }
+        if trimmed.count < 80 { out.append("\(slug)：平台支持一节只有 \(trimmed.count) 字符，像占位") }
+
+        // ① 表格行必须**说出行为**，不能只是一个勾。
+        let platformRows = section.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.hasPrefix("|") && ($0.contains("iOS") || $0.contains("macOS")) }
+        if platformRows.count < 2 {
+            out.append("\(slug)：平台支持一节里少于两行平台表格行（iOS / macOS 各一行）")
+        }
+        for row in platformRows where !Self.behaviourWords.contains(where: row.contains) {
+            out.append("\(slug)：平台行没说清行为（一个行为动词都没有）→ \(row)")
+        }
+
+        // ② ⚠️⚠️ **文档的声称必须与源码里真实存在的围栏一致**（终审 S-2）：
+        // 有围栏 ⇔ 文档必须说两端有差异；没围栏 ⇔ 文档必须说两端一致。
+        // 「文档说反了照样绿」这个已知口子被这一条堵掉一半。
+        let claimsDifference = Self.differenceClaims.contains(where: section.contains)
+        let claimsParity = Self.parityClaims.contains(where: section.contains)
+        if hasPlatformFence, !claimsDifference {
+            out.append("\(slug)：源码里真有平台围栏，文档却没说两端有差异")
+        }
+        if !hasPlatformFence, !claimsParity {
+            out.append("\(slug)：源码里一道平台围栏都没有，文档却没说两端是同一份代码")
+        }
+        return out
+    }
+
     /// AD-E 第 2 轮评审 S-2 逐字：**平台限制不能只活在代码的 `#if` 里，调用方看不见**。
-    /// ⇒ 四件各自的文档必须有一节写明它在两端各是什么行为。
-    @Test("四件的平台限制都写进了 docs/components/*.md")
+    /// ⇒ 四件各自的文档必须有一节写明它在两端各是什么行为，**且与源码对得上**。
+    @Test("四件的平台限制都写进了 docs/components/*.md，且与源码里的围栏一致")
     func platformLimitsAreDocumented() throws {
-        let docs = ["dot-sphere", "char-sphere", "orbiting-logos", "full-screen-button"]
-        for slug in docs {
-            let url = Self.repoRoot
-                .appendingPathComponent("docs/components/\(slug).md")
+        var offenders: [String] = []
+        for piece in Self.documentedPieces {
+            let url = Self.repoRoot.appendingPathComponent("docs/components/\(piece.slug).md")
             // fail-closed：文档不存在直接判红。
             guard let text = try? String(contentsOf: url, encoding: .utf8) else {
-                Issue.record("docs/components/\(slug).md 不存在 —— AD-E 的硬 AC 没有落地")
+                Issue.record("docs/components/\(piece.slug).md 不存在 —— AD-E 的硬 AC 没有落地")
                 continue
             }
-            guard let range = text.range(of: "## 平台支持") else {
-                Issue.record("docs/components/\(slug).md 没有「## 平台支持」一节")
+            guard let section = Self.section(named: "平台支持", in: text) else {
+                Issue.record("docs/components/\(piece.slug).md 没有「## 平台支持」二级标题")
                 continue
             }
-            // 取到下一个二级标题为止。
-            let rest = text[range.upperBound...]
-            let section = rest.range(of: "\n## ").map { String(rest[..<$0.lowerBound]) } ?? String(rest)
-            #expect(section.contains("macOS"), "\(slug).md 的平台支持一节没提 macOS")
-            #expect(section.contains("iOS"), "\(slug).md 的平台支持一节没提 iOS")
-            #expect(section.trimmingCharacters(in: .whitespacesAndNewlines).count >= 80,
-                    "\(slug).md 的平台支持一节只有 \(section.count) 字符，像占位")
+            let code = try String(
+                contentsOf: MicroInteractionReduceMotionGuard.sourceRoot
+                    .appendingPathComponent(piece.source),
+                encoding: .utf8
+            )
+            let hasFence = !Self.fences(in: code, file: piece.source).isEmpty
+            offenders += Self.platformSectionOffenders(
+                slug: piece.slug, section: section, hasPlatformFence: hasFence
+            )
         }
+        #expect(offenders.isEmpty, """
+        平台支持一节写得不合格（AD-E 的硬 AC）：
+        \(offenders.joined(separator: "\n"))
+        """)
         // ⚠️ `FullScreenButton` 是四件里唯一真有平台差异的一件，文档必须点名那个 API。
         let fullScreen = try String(
             contentsOf: Self.repoRoot.appendingPathComponent("docs/components/full-screen-button.md"),
@@ -888,6 +1356,61 @@ struct PlatformSupportGuard {
         )
         #expect(fullScreen.contains("zoom"),
                 "full-screen-button.md 没点名 .zoom —— 调用方无从知道 macOS 上少的是哪一层")
+    }
+
+    /// **非真空自证**：文档检查器对合成输入必须逐形态开火。
+    @Test("文档检查器真的会开火（含终审构造的那段占位）")
+    func platformDocDetectorFires() {
+        // ⚠️ **终审给的绕过形态照录**：一段 75 字符的占位，再加一句就过了 80 字符门槛。
+        let padded = """
+        | 平台 | 行为 |
+        |---|---|
+        | iOS 26+ | ✅ |
+        | macOS 26+ | ✅ |
+
+        两端都跑得起来，细节见源码。两端都跑得起来，细节见源码。两端都跑得起来。
+        """
+        #expect(padded.trimmingCharacters(in: .whitespacesAndNewlines).count >= 80,
+                "这段占位本来就该过字数门槛 —— 否则下面证不到「字数不够用」这件事")
+        let paddedOffenders = Self.platformSectionOffenders(
+            slug: "x", section: padded, hasPlatformFence: false
+        )
+        #expect(paddedOffenders.contains { $0.contains("行为动词") },
+                "只写一个勾的平台行没被抓住：\(paddedOffenders)")
+
+        // 说反了：源码里有围栏，文档却宣称两端一模一样。
+        let liar = """
+        | 平台 | 行为 |
+        |---|---|
+        | iOS 26+ | 完整可用 |
+        | macOS 26+ | 完整可用，与 iOS 逐行同一份代码 |
+
+        本件没有任何条件编译，两端完全一致，同一份代码同样跑得起来，观感逐字相同。
+        """
+        #expect(Self.platformSectionOffenders(slug: "x", section: liar, hasPlatformFence: true)
+            .contains { $0.contains("真有平台围栏") }, "说反了的平台说明没被抓住")
+
+        // 反向：一段合格的说明必须**零违规**，否则检查器是"永远开火"。
+        let good = """
+        | 平台 | 转场 |
+        |---|---|
+        | iOS 26+ | `.zoom(sourceID:in:)` 几何匹配放大 |
+        | macOS 26+ | 系统默认推入转场（`.zoom` 在 macOS 上不可用） |
+
+        `.zoom` 在 macOS 上编译不过，`#if os(iOS)` 只包住那一行，其余两端完全一致。
+        """
+        #expect(Self.platformSectionOffenders(slug: "x", section: good, hasPlatformFence: true).isEmpty,
+                "合格的说明被误伤了：\(Self.platformSectionOffenders(slug: "x", section: good, hasPlatformFence: true))")
+
+        // 取节：`### 平台支持` 这样的三级子标题**不许**被当成那一节。
+        let subheading = "# T\n\n### 平台支持\n\n只是个子节。\n"
+        #expect(Self.section(named: "平台支持", in: subheading) == nil,
+                "三级子标题被当成了 `## 平台支持` —— 取到的节根本不是那一节")
+        // 取节：终止在下一个**二级**标题，`###` 子节留在本节内。
+        let nested = "## 平台支持\n\n一行。\n\n### 细节\n\n二行。\n\n## 下一节\n\n三行。\n"
+        let picked = Self.section(named: "平台支持", in: nested) ?? ""
+        #expect(picked.contains("二行。"), "`###` 子节被错误地当成了本节的终止符")
+        #expect(!picked.contains("三行。"), "本节越过了下一个二级标题")
     }
 
     // MARK: ⑤ FullScreenButton 的隔离与降级
@@ -986,6 +1509,36 @@ struct PlatformSupportGuard {
         // `fed` 是前缀匹配 ⇒ `reduceMotion: self.reduceMotion && false` 同时命中两边，
         // `reads == fed` 照样成立而喂进闸的恒为 `false`。堵它要上语法树，
         // 属那条存量判据的统一改造，不在本 task 射程内。
+    }
+
+    /// ⚠️⚠️ **Copilot #3930970767（含 suppressed 的同一件）**：`sourceID` 只许有一个来源。
+    ///
+    /// 上一版目的地侧写的是 `FullScreenButton<EmptyView, EmptyView>.sourceID`
+    /// ——它依赖「泛型类型的静态成员是与泛型实参无关的常量计算属性」这个**隐含前提**。
+    /// Swift 的泛型静态成员是**按具体特化分开**的：一旦 `sourceID` 变成存储属性、
+    /// 或它的值开始依赖 `Label` / `Destination`，label 侧与 destination 侧就会拿到两个
+    /// 不同的 id ⇒ zoom 静默退化成普通 push，**编译不报错、测试不变红、无人发现**。
+    /// ⇒ 改成由 `FullScreenButton` 把值传进 `FullScreenButtonDestination`。
+    @Test("sourceID 单一来源：不许跨泛型特化去取静态成员")
+    func sourceIDHasASingleSource() throws {
+        let code = MicroInteractionReduceMotionGuard.stripComments(try String(
+            contentsOf: MicroInteractionReduceMotionGuard.sourceRoot
+                .appendingPathComponent("FullScreenButton.swift"),
+            encoding: .utf8
+        ))
+        // ⚠️ 判据形态是 `>.sourceID`（任何**特化后**的静态访问），不是某一个具体特化：
+        // `FullScreenButton<Text, Text>.sourceID` 这类变体一并抓住。
+        #expect(!code.contains(">.sourceID"), """
+        出现了跨泛型特化的 `sourceID` 静态访问（形如 `FullScreenButton<A, B>.sourceID`）。
+        Swift 的泛型静态成员按具体特化分开 ⇒ label 与 destination 可能拿到两个不同的 id，
+        zoom 静默退化成普通 push 且无编译错误、无测试失败。
+        """)
+        #expect(code.contains("matchedTransitionSource(id: Self.sourceID"),
+                "label 侧不再用 `Self.sourceID` —— 单一来源这条断了")
+        #expect(code.contains("sourceID: Self.sourceID"),
+                "目的地没有从 `FullScreenButton` 拿到 sourceID —— 它又在自己取了")
+        #expect(code.contains(".zoom(sourceID: self.sourceID"),
+                "`.zoom` 用的不是传进来的那个 sourceID")
     }
 
     /// 四件都必须有 `#Preview`（AC 逐字）。

@@ -407,6 +407,20 @@ struct MicroInteractionReduceMotionGuard {
     /// · `ParticleTransition` —— 转场由 SwiftUI 驱动，瞬态。
     /// 后两者还有同一条硬理由：能耗闸的 `.none` 语义是「一个像素都不画」，
     /// 而它们画的是**内容**，把内容隐藏不是停摆、是 bug。
+    ///
+    /// ⚠️⚠️ **上面这条规则在 `#254` 的 `OrbitingLogos` 上被收窄了一次，记在这里**
+    ///（PR #274 终审 C-1）：`OrbitingLogos` **同时**画装饰（四圈点环，常驻渲染，该停）
+    /// 与**调用方的内容**（`logo(item)` / `center`，两者有意不 `accessibilityHidden`）。
+    /// 「进名单 ⇒ 整层不建」与「画内容 ⇒ 不许藏」在它身上正面撞车，而当时选的是前者
+    /// ⇒ macOS 上一失焦（`.inactive`，**窗口完全可见**）宿主 App 的品牌 logo 与全部
+    /// 合作方 logo 就从窗口里消失。
+    /// ⇒ 规则收窄为：**`.none` 的语义是「一个*装饰*像素都不画」**。一个既画装饰又画
+    /// 内容的件仍然进名单（装饰该停），但它的 `.none` 分支摘掉的是装饰层与调度器，
+    /// 内容层静态留下（`OrbitingLogos` 走 `OrbitLayers.contentOnly`）。
+    /// 纯内容件（`BeforeAfterSlider` / `ParticleTransition`）仍然整个不进名单——
+    /// 它们没有可停的常驻装饰层，进来只会白挨一道闸。
+    /// 判据：`CrossPlatformRenderTests.pausedKeepsCallerContentInOrbitingLogos`
+    /// + `orbitPresentationBranchesAreWiredCorrectly` ①。
     /// ⚠️ **`#254` 加入两条**：`SphereSurface`（`DotSphere` / `CharSphere` 共用）与
     /// `OrbitingLogos` 都是**常驻渲染件**（`TimelineView` 持续驱相位），与
     /// `AnimatedMeshGradient` 同类。

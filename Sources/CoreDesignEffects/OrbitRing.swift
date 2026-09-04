@@ -119,12 +119,37 @@ nonisolated enum OrbitRing {
     /// 第 `logoIndex` 个 logo 落在外环的哪个 slot 上。
     ///
     /// ⚠️ 上游用 `round(dotsPerRing / images.count)` 当步长，logo 数不整除时
-    /// 末尾几个会挤在一起；这里按浮点均分再取整，任意数量都尽量摊开。
-    static func slot(of logoIndex: Int, logoCount: Int) -> Int {
-        guard logoCount > 0 else { return 0 }
-        let stride = Double(Self.dotsPerRing) / Double(logoCount)
+    /// 末尾几个会挤在一起；这里按浮点均分再取整，`logoCount <= dotsPerRing` 时
+    /// 步长 `>= 1` ⇒ **逐个严格递增、必然互不相同**。
+    ///
+    /// ⚠️⚠️ **`dotsPerRing` 是参数而不是那个常量**（PR #274 终审 S-3）：低电量下
+    /// 每环真正画出来的点数会减半（`policy.particleScale`），座位数还钉在标称的 23
+    /// 会让 logo 悬在环点**之间** —— 本件"logo 坐在环上随之巡游"的整个视觉立意就没了。
+    static func slot(of logoIndex: Int, logoCount: Int, dotsPerRing: Int = OrbitRing.dotsPerRing) -> Int {
+        guard logoCount > 0, dotsPerRing > 0 else { return 0 }
+        let stride = Double(dotsPerRing) / Double(logoCount)
         let raw = Int((Double(logoIndex) * stride).rounded(.down))
-        return ((raw % Self.dotsPerRing) + Self.dotsPerRing) % Self.dotsPerRing
+        return ((raw % dotsPerRing) + dotsPerRing) % dotsPerRing
+    }
+
+    /// 第 `logoIndex` 个 logo 此刻在**最外环**上的角度（弧度）。
+    ///
+    /// ⚠️⚠️ **logo 比环点还多时不再吸附到环点**（PR #274 终审 S-4）：那一档下
+    /// `slot` 的步长 `dotsPerRing / logoCount < 1`，相邻 logo 会落到**同一个 slot**、
+    /// 在屏幕上**完全重叠**（23 个点位上放 24 个 logo，第 0 与第 1 个的 slot 都是 0；
+    /// 旧判据只测了 4 与 99 两个数量，正好跨过这一段）。
+    /// ⇒ 超出座位数时改为**按角度均分**：logo 不再落在点上（本来也没有那么多点可坐），
+    /// 但至少互不重叠、仍然摊开整整一圈。
+    static func logoAngle(logoIndex: Int, logoCount: Int, dotsPerRing: Int, turns: Double) -> Double {
+        guard logoCount > 0 else { return 0 }
+        let seats = max(1, dotsPerRing)
+        guard logoCount <= seats else {
+            return Self.angle(index: logoIndex, of: logoCount, turns: turns, ring: 0)
+        }
+        return Self.angle(
+            index: Self.slot(of: logoIndex, logoCount: logoCount, dotsPerRing: seats),
+            of: seats, turns: turns, ring: 0
+        )
     }
 
     /// 当前被点名的 logo 与它在自己那段窗口里的进度。
