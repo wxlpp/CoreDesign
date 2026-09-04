@@ -31,8 +31,21 @@ Cloudflare 挑战后对自动访问返 **403**（`/terms`、`/view/*`、`/embed/
 实测，普通 UA 与浏览器 UA 均 403，响应体为 `<title>Just a moment...</title>`）。
 上面的原文是从 **Internet Archive 对官方 URL 本身的快照**读出的：
 `https://web.archive.org/web/20250920061115id_/https://www.shadertoy.com/terms`
-（快照时间 **2025-09-20**，CDX 记录该 URL 在 2025-03…2025-10 间有 7 个 `statuscode:200`
-快照、`digest` 反复出现同一值 `VXQDYWRJX6VUYTNE6MNEYNC5IWHKSI6V` ⇒ 该期间条款文本未变）。
+（快照时间 **2025-09-20**）。
+
+⚠️⚠️ **上一版这里写「2025-03…2025-10 间有 7 个 `statuscode:200` 快照、`digest` 反复为
+同一值 `VXQDYWRJX6VUYTNE6MNEYNC5IWHKSI6V` ⇒ 该期间条款文本未变」——第 6 轮终审 I2
+复算不成立，本轮换成可复现的写法。** 该窗口实际是 **18 个 200 快照、三个不同 digest**：
+9 × `MPDBENGYRF46CLHLYCHQ2EZHIS6SFWAG`、8 × `VXQDYWRJX6VUYTNE6MNEYNC5IWHKSI6V`、
+1 × `3I42H3S6NNFQ2MSVX7XZKYAYSCX5QBYJ`（**最后这个是空载荷的 SHA-1**，2025-10-11）。
+
+⇒ **「文本未变」改由逐字比对证明，不再由 digest 证明**（本轮实做，可复现）：取两个
+**不同 digest** 的快照 —— `20250920061115`（`VXQDY…`）与 `20251001020819`（`MPDBE…`）
+—— 以 `id_` 原样取回并解压，**两份各 29202 字节、MD5 同为
+`a2550c88cf19fdad987d8aff09dc5d35`** ⇒ **内容逐字节相同**。
+⇒ digest 交替出在**存储层的编码**（一份存 gzip、一份存明文），**不在文本层**。
+⚠️ 这一行是全表地基又被标为可重核，**下一个人跑 CDX 会看到 18 / 三个 digest**——
+所以必须按上面这个口径读，不要拿 digest 当文本证据。
 ⇒ **它是官方页面自身的内容，不是第三方转述**（这与 Wikipedia 概述、与第三方 GitHub
 拷贝头是三个不同的证据档次）；但**不是实时读取**，快照与"今天"之间有约 11 个月的窗口。
 ⇒ **降级掉的只有"实时性"，不是"一手性"。** 上一版的 Wikipedia 链接已作废、不再作为依据。
@@ -104,7 +117,7 @@ clean-room 重写这条出口上。」
 | `已追到兼容许可 · MIT` | 追到原始实现，许可为 MIT / BSD / PD / CC0 | 可移植；`ACKNOWLEDGEMENTS.md` 转载原始许可 |
 | `已追到兼容许可 · Apache-2.0` | 追到原始实现，许可为 Apache-2.0 | 可移植；**须转载 LICENSE + `NOTICE`，并标注修改**（§4(a)(b)(d)） |
 | `自研实现` | 属**效果类别**（非某人的具体设计），按**下方**《第三条出路》的**六轴**差异化自研 | 五轴之外**必过第六条轴（函数体）**；参数面须从 CoreDesign 概念推出。⚠️ 上一版这里写「**上方**…**五轴**」——方位与轴数两处都错（第 5 轮终审 I2），而这是本档位的**操作性定义**，只读裁定方法一节的人拿到的就是被证伪的旧标准 |
-| `待追溯` | 尚未用上面《方法论教训》的方法追过 | **不得据现状落地**；先追一轮 |
+| `待追溯` | 尚未用上面《方法论教训》的方法追过；⚠️ **或已追到具名上游、但该上游没有任何许可声明**（第 6 轮终审 S2 补的限定：`NeuroNoise` / `Water` 就是这一形态——追是追到了，卡在无法正向裁定许可，**照字面读会白白重追一轮**）| **不得据现状落地**；先追一轮。⚠️ 若属后一形态，"追一轮"的内容不是再找上游，而是**取得许可或换实现**（见《#280 的落地前核验》⑥-B 给 `Water` 列的两个出口）|
 | `不落地` | 追过且追不到兼容来源，也无具名参考实现 | 不进 `CoreDesignShaders` |
 
 ⚠️ **`Apache-2.0` 是第 1 版遗漏的档位**（第 1 版只列 MIT / BSD / PD / CC0）。它与 MIT
@@ -163,7 +176,7 @@ clean-room 重写这条出口上。」
 | # | shader | 直接上游 | 上游许可 | 传递来源核验 | 裁定 |
 |---|---|---|---|---|---|
 | 1 | `GlassOrb` | [Inferno](https://github.com/twostraws/Inferno) 的 "Warping Loupe"（Paul Hudson） | **MIT**（已核实读取 LICENSE 全文；#280 复核一致） | ⚠️ **#280 下调**。Inferno 的 LICENSE 附逐 shader 移植清单，**6 组**（Circle/Circle Wave/Diamond/Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie）；**"Warping Loupe" 不在其中**。⚠️ 第 1 版写"仅含 5 项"**漏数了第一组**；"不在清单 ⇒ 原创"是**推论不是断言**。⚠️⚠️ **#280 发现该推论的前提更弱**：Inferno 的 **README 清单是 7 条**（多一个 `Shimmer`），与 LICENSE 的 6 组**互不一致** ⇒ **清单被自身证明非穷尽**。⇒ 理由改挂两条并列：① Inferno 以 MIT 对整仓授权；② `WarpingLoupe.metal` **函数体零魔数**（逐常量 grep 零命中）且自述派生自 Inferno 自有的 `SimpleLoupe`。**残余风险接受并记录**，见《#280 的落地前核验》③ | **已追到兼容许可 · MIT** |
-| 2 | `StarNest` | ["Star Nest" by Pablo Roman Andrioli（Kali）](https://www.shadertoy.com/view/XlfGRj) | **MIT**（作者在源码头声明，覆盖 Shadertoy 默认许可） | ✅ **#280 升档**：读到 **Shadertoy 公开 API 对该 shader 的响应本身**（`GabeRundlett/shadertoy-api-shaders` `shaders/XlfGRj.json`，刷新 2025-05-29），`info.username = "Kali"`，code 头逐字 `// Star Nest by Pablo Roman Andrioli` / `// License: MIT` ⇒ **一手内容 · 归档载体**。此前的多个独立移植记录（[a-frame 组件](https://github.com/urish/aframe-starnest-component)、[Godot Shaders](https://godotshaders.com/shader/star-nest-2/)、[NatronGitHub/openfx-misc](https://github.com/NatronGitHub/openfx-misc/blob/master/Shadertoy/presets/default/star%20nest-natron.frag.glsl)、xscreensaver、pythonarcade/arcade）与之**逐字一致**。⚠️ shadertoy.com 仍全站 403，**非实时** | **已追到兼容许可 · MIT**（⚠️ **人工目视确认仍是硬 AC**，但**不阻断开工**——先验已升档，且失败时 10 → 9 仍 ≥ `N_B`；⚠️ 该头**无版权行、无 MIT 全文**，署名只能写「作者声明 MIT」） |
+| 2 | `StarNest` | ["Star Nest" by Pablo Roman Andrioli（Kali）](https://www.shadertoy.com/view/XlfGRj) | **MIT**（作者在源码头声明，覆盖 Shadertoy 默认许可） | ✅ **#280 升档**：读到 **Shadertoy 公开 API 对该 shader 的响应本身**（`GabeRundlett/shadertoy-api-shaders` `shaders/XlfGRj.json`，刷新 2025-05-29），`info.username = "Kali"`，code 头逐字 `// Star Nest by Pablo Roman Andrioli` / `// License: MIT` ⇒ **一手内容 · 归档载体**。⚠️ **上一版在这里写「此前的多个独立移植记录（a-frame / Godot Shaders / openfx-misc / xscreensaver / pythonarcade）与之**逐字一致**」——第 6 轮终审 I3 复算不成立，本轮撤回该说法。** 实读两份：[NatronGitHub/openfx-misc](https://github.com/NatronGitHub/openfx-misc/blob/master/Shadertoy/presets/default/star%20nest-natron.frag.glsl) 头部逐字是 `// Star Nest by Pablo Román Andrioli`（**带重音**）/ `// This content is under the MIT License.`，[urish/aframe-starnest-component](https://github.com/urish/aframe-starnest-component) 内嵌 fragment shader 同为后一种措辞；**与转储的 `// Star Nest by Pablo Roman Andrioli` / `// License: MIT` 是两种措辞**。其余三份本轮**未逐字复核，不再声称**。⇒ **一致的是「具名作者 + MIT 授予」这个事实，不是字面**——而授予本身比逐字一致更强，裁定不受影响。⚠️⚠️ **并按 ④ 对 `Voronoi` 定下的同一把尺（「旧的第三方拷贝不能确立当前许可」），这些移植拷贝在本行只能作旁证，主证是 API 转储本身**——两处必须用同一把尺。⚠️ shadertoy.com 仍全站 403，**非实时** | **已追到兼容许可 · MIT**（⚠️ **人工目视确认仍是硬 AC**，但**不阻断开工**——先验已升档，且失败时 10 → 9 仍 ≥ `N_B`；⚠️ 该头**无版权行、无 MIT 全文**，署名只能写「作者声明 MIT」） |
 | 3 | `ChromaticGlass` | [ShaderKit](https://github.com/jamesrochabrun/ShaderKit)（James Rochabrun） | **MIT**（GitHub 识别 + 已核 LICENSE） | ⚠️ **第 1 版说"ShaderKit 没有任何来源说明"是错的**：LICENSE 里没有，但 `docs/shadercards/css-parity.md` 声明视觉参考是 [simeydotme/pokemon-cards-css](https://github.com/simeydotme/pokemon-cards-css)（**GPL-3.0**），并主张自身是 "original, procedural Metal recreation" | **`待追溯`**（见下方裁断） |
 | 4 | `Foil` | 同上 | 同上 | 同上 | **`待追溯`** |
 | 5 | `Glitter` | 同上 | 同上 | 同上 | **`待追溯`** |
@@ -261,6 +274,11 @@ clean-room 重写这条出口上。」
   ⚠️ **#280 补一条使用要点**：`Voronoi` 与 `Water` 这两次命中**不是靠魔数**
   （前者只有一个 `0.00001`，后者一个都没有），是靠**把函数体读全 + 拿特征代码行去 code search**。
   ⇒ **判据 1 的正确读法是「逐常量 grep **以及** 逐特征行 code search」**，只 grep 数字会漏。
+  ⚠️⚠️ **这条修正的追溯范围，以及它依赖什么（第 6 轮终审 S3 要求写明）**：本修正**不要求
+  整体重做既往的零命中结论**——理由是 #281 已对 §C 各项做过 code search（`ramp3` 四种
+  措辞、`DotGrid`、`LiquidChrome`），#280 的 ⑥ 表又把 11 件的函数体全读了一遍。
+  ⚠️ **但这个"不需要重做"的判断，依赖的是本文档自己的记录，本轮并未独立重跑那些
+  code search。** 谁要推翻它，去重跑；谁要沿用它，知道它建立在什么上面。
 2. **逐结构对照**：级联层数、变量命名、循环体形态与已知公开片段比对
    ——「改常量、改名不构成独立」（本仓已成文）。
 3. **逐原语核对调用面**：声称"自研"的件，其**实际调用的**共享原语必须逐个有出处
@@ -900,8 +918,10 @@ copies" **必须由我们自己转载**——paper 把它们删干净了。
 
 ### ⚠️ paper 之上还有一层 —— **#280 已逐条查完**
 
-**paper 自述的来源标注只有两条**（一手：对 14 个 `shaders/*.ts` + `shader-utils.ts` 做
-来源关键词全量 grep，输出只有下面两行 + 一行无关的参数文档）：
+**paper 自述的来源标注只有两条**（一手：对**本表相关的 14 个** `shaders/*.ts` +
+`shader-utils.ts` 做来源关键词 grep，**该检查集内**的输出只有下面两行 + 一行无关的
+参数文档。⚠️ **不是"全仓全量"**——`main` 分支该目录**今日共 30 个** `.ts`，检查集的
+完整枚举与理由见 ⑤）：
 
 - `voronoi.ts:14`：`Original algorithm: https://www.shadertoy.com/view/ldl3W8`（iq）。
   ✅ **#280 查实**：现许可为 **MIT**（`// The MIT License` / `// Copyright © 2013 Inigo
@@ -989,15 +1009,37 @@ copies" **必须由我们自己转载**——paper 把它们删干净了。
   // License: MIT
   ```
 
-⇒ 与本表 §A #2 记录的、五个独立移植（xscreensaver / a-frame / Godot Shaders /
-openfx-misc / pythonarcade）**逐字一致**，且这一次的载体是 **API 响应本身**而非移植拷贝。
+⇒ 载体是 **API 响应本身**而非移植拷贝 ⇒ **主证在此**。
 **裁定维持 `已追到兼容许可 · MIT`。**
+
+⚠️⚠️ **上一版在这里写「与……五个独立移植**逐字一致**」——第 6 轮终审 I3 复算不成立，撤回。**
+实读 `NatronGitHub/openfx-misc` 与 `urish/aframe-starnest-component` 两份，头部逐字为
+`// Star Nest by Pablo Román Andrioli`（**带重音**）/ `// This content is under the MIT License.`
+——**与转储的 `// Star Nest by Pablo Roman Andrioli` / `// License: MIT` 是两种措辞**；
+两种写法在公开代码里都广泛流传。其余三份（xscreensaver / Godot Shaders / pythonarcade）
+本轮**未逐字复核**，不再声称。⇒ **一致的是「具名作者 + MIT 授予」这个事实，不是字面。**
+⚠️ **标准一致性（本轮补正）**：④ 对 `Voronoi` 已裁定「旧的第三方拷贝**不能**确立当前许可」。
+同一把尺对 `StarNest` 也适用 ⇒ **移植拷贝在这里只作旁证，主证是 API 转储**。
+上一版对两件用了两把尺，本轮统一。
+
+⚠️⚠️ **对转储本身的交叉验证（第 6 轮终审补的缺口：转储是可以被篡改的）**——
+`shaders/XlfGRj.json` 在 `90091f43d47a`（**2024-10-06**，initial commit）与
+`f6d538adf936`（**2025-05-29**，Update shaders）两个版本里，`renderpass[0].code`
+**逐字节相同**；两版之间只有 `likes`（1300 → 1414）、`viewed`（91276 → 103929）、
+`usePreview`（1 → 0）三个计数字段变了。
+⇒ **同一份 `// Star Nest by Pablo Roman Andrioli` / `// License: MIT` 头在该仓存在了
+至少 8 个月且未被改动过**，不是一次性写入的孤证。
+（`Voronoi` 的同类交叉验证，另加两条非转储载体，见 ④ 的 (b′)。）
 
 ⚠️ **两条必须写下的瑕疵，不掩盖**：
 1. 该头**只写 `License: MIT`，既无版权行、也无 MIT 全文** ⇒ 是一个**形式不完整的 MIT 授予**
    （MIT 自身要求"the above copyright notice"，而这里没有 "above copyright notice"）。
    落地时的署名写法只能是「Star Nest — Pablo Roman Andrioli (Kali)，作者声明 MIT」，
    **不得替作者补造一行版权声明**。
+   ⚠️ **本轮补一条限定**：移植拷贝里的措辞变体（`Román` + `This content is under the
+   MIT License.`）说明**该头部的文本可能随时间变过** ⇒ 本条 caveat 只对**转储所记的那一版
+   头部**成立；人工目视核验（下方转交清单第 1 项）要照抄**当天页面上的实际写法**，
+   不要照抄本表。
 2. 载体仍是归档，**人工目视确认 `https://www.shadertoy.com/view/XlfGRj` 的硬 AC 保留**
    （但先验已从"五份二手拷贝"升级为"API 响应本身"）。
 
@@ -1061,6 +1103,30 @@ Inferno 的 MIT 对它就是无权再许可，我们跟着错。**该风险与 #
   （MIT 全文在同一行内展开，含 "The above copyright notice and this permission notice shall
   be included in all copies or substantial portions of the Software."）
 
+**(b′) 对转储本身的交叉验证（第 6 轮终审补的缺口：转储是可以被篡改的）**
+
+上一版只有 (b) 这一个仓库承载，**结论不该只靠单一仓库**。本轮补三条：
+
+1. **同一转储的两次提交内容一致**（一手内容 · 归档）：`shaders/ldl3W8.json` 在
+   `90091f43d47a`（**2024-10-06**，initial commit）与 `f6d538adf936`（**2025-05-29**，
+   Update shaders）两个版本里，`renderpass[0].code` **逐字节相同**；两版之间只有
+   `likes`（553 → 575）、`viewed`（112999 → 122212）、`usePreview`（1 → 0）三个计数字段变了。
+   ⇒ **同一份 MIT 头在该仓存在了至少 8 个月且未被改动过。**
+2. **非转储的独立载体之一**（二手 · 归档）：`diwi/PixelFlow` ·
+   `examples/Shadertoy/Shadertoy_VoronoiDistances/data/VoronoiDistances.frag` **`:31-33`**
+   逐字带 `// The MIT License` / `// Copyright © 2013 Inigo Quilez` + MIT 全文
+   （该文件提交于 **2017-10-07**）。
+3. **非转储的独立载体之二**（二手 · 归档）：`studentutu/shadertoy-to-unity-URP` ·
+   `Assets/UmutBebek/URP/ShaderToy/Scenes and Shaders/Voronoi - distances ldl3W8.shader`
+   **`:145-147`** 同样逐字带 MIT 头（提交于 **2020-07-11**）。
+
+⚠️ **这三条的作用要说准**：它们**不确立"今天的许可"**——按本表对 `Voronoi` 自己定下的
+尺子，旧的第三方拷贝不能确立当前许可（(a) 的三份 2013 拷贝就是反例）。
+它们确立的是**转储没有被伪造**：一份 2017 的拷贝与一份 2020 的拷贝都已经是 MIT ⇒
+**许可变更发生在 2013 与 2017 之间，且此后 MIT 一直稳定**，与 (b) 完全吻合。
+⇒ **载体档次**：(b) = 一手内容 · 归档载体；(b′)-1 = 同上（同一载体的时间维交叉）；
+(b′)-2/3 = **二手 · 归档**（旁证，不作主证）。
+
 **(c) 独立第二条通路（一手 · 实时，今天读取，完全绕开 shadertoy.com）**
 
 iq 把**同一个算法**发表在自己站点的文章里：`https://iquilezles.org/articles/voronoilines/`
@@ -1088,13 +1154,26 @@ iq 单方定义，不是我们能穷尽的**。若评审不接受这一读法，
 
 ### ⑤ §B 的 8 条「paper 之上还有一层」—— ✅ **逐条查完**（一手 · 实时）
 
-**做法**：一手取 `paper-design/shaders` `main` 分支下**全部 14 个** `packages/shaders/src/
-shaders/*.ts`（含不在本表 11 件里的 `dot-grid` / `liquid-metal` / `grain-gradient` /
-`neuro-noise`）+ `packages/shaders/src/shader-utils.ts` + `LICENSE` + `NOTICE`，
-对全部文件做 `grep -n -i -E 'original algorithm|based on|adapted|credit|author|thanks|
-inspired|shadertoy|iquilezles|https?://|copyright|license|ashima|stefan|gustavson|@\w+'`。
+**做法**：一手取 `paper-design/shaders` `main` 分支下**与本表相关的 14 个**
+`packages/shaders/src/shaders/*.ts` + `packages/shaders/src/shader-utils.ts` +
+`LICENSE` + `NOTICE`，对**这些文件**做 `grep -n -i -E 'original algorithm|based on|
+adapted|credit|author|thanks|inspired|shadertoy|iquilezles|https?://|copyright|license|
+ashima|stefan|gustavson|@\w+'`。
 
-**结果（全量输出，只有 3 行命中）**：
+⚠️⚠️ **检查集的完整枚举（第 6 轮终审 I4：上一版写「全部 14 个」，对仓库的描述是错的）**：
+`main` 分支 `packages/shaders/src/shaders/` **今日共 30 个 `.ts`**，本次读的是其中
+**14 个** —— §B 的 11 件对应的 12 个文件（`voronoi` / `neuro-noise` / `swirl` /
+`simplex-noise` / `water` / `color-panels` / `dot-orbit` / `smoke-ring` / `metaballs` /
+`halftone-dots` / `halftone-cmyk` / `grain-gradient`）**＋** 两个候选比对件
+（`dot-grid` / `liquid-metal`）。
+**未读的 16 个**（`dithering` / `fluted-glass` / `gem-smoke` / `god-rays` / `heatmap` /
+`image-dithering` / `lens-distortion` / `mesh-gradient` / `paper-texture` / `perlin-noise` /
+`pulsing-border` / `spiral` / `static-mesh-gradient` / `static-radial-gradient` / `warp` /
+`waves`）**与本表 28 件无对应关系** ⇒ 不在检查集内。
+⇒ **⑤ 的结论只覆盖这 14 个，而八条未查项全在其中 ⇒ 结论成立**；但**不得读成"paper 仓
+已被穷尽"**——它没有。
+
+**结果（上述 14 文件 + `shader-utils.ts` 检查集内的完整输出，3 行命中）**：
 
 ```
 neuro-noise.ts:33: * Original algorithm: https://x.com/zozuar/status/1625182758745128981/
@@ -1112,9 +1191,73 @@ water.ts:17:       * - u_waves (float): Additional distortion based on simplex n
 **特征代码行**做 GitHub code search（排除 paper 自身与其下游拷贝）。结果并入 ⑥。
 
 **⑤ 单独产出的一条硬结论**：`shader-utils.ts` 是本表此前**从未看过的一层**——
-§B 的 11 条**全部**从它取原语（`simplexNoise` / `colorBandingFix` / `proceduralHash21` /
-`rotation2` / `textureRandomizer*` / `declarePI`），而**上一版的比对只做到 `<shader>.ts`**。
+§B 的 11 条**全部**从它取原语，而**上一版的比对只做到 `<shader>.ts`**。
 ⇒ **§B 的"paper 之上还有一层"真正的那一层在 `shader-utils.ts` 里，不在各 shader 文件里。**
+
+⚠️ **该文件的导出是 10 个，不是 6 个**（第 6 轮终审 S1：上一版只列了 6 个，而这一节的
+标题恰恰是"此前没人看过的那一层"）。逐个列全，并标出本表是否有件用到：
+
+| 导出 | GLSL 符号 | 可落地 10 件用到？ | 备注 |
+|---|---|---|---|
+| `declarePI` | `PI` / `TWO_PI` | ✅ | 常数定义，无出处问题 |
+| `rotation2` | `rotate(vec2,float)` | ✅ | 2×2 旋转矩阵，事实性构造 |
+| `proceduralHash11` | `hash11(float)` | ❌ | ⚠️ §B 内**唯一使用者是 `grain-gradient.ts`**（`import` 于文件头，调用在 `:212`），而 `GrainGradient` 是 `待追溯`、不在可落地 10 件内。与 `hash21` 同族（`0.3183099` / `19.19` = iq + Dave Hoskins 谱系）|
+| `proceduralHash21` | `hash21(vec2)` | ✅（`halftone-dots`）| 已追溯：Hoskins / iq，见 ⑥-C |
+| `proceduralHash22` | `hash22(vec2)` | ❌ **§B 全 11 件均未使用** | ⚠️ 同上，同族 |
+| `textureRandomizerR` | `randomR(vec2)` | ✅ | 从 `u_noiseTexture` 采样 |
+| `textureRandomizerGB` | `randomGB(vec2)` | ✅ | 同上 |
+| `colorBandingFix` | 内联 dither 行 | ✅ | 通行 sin-fract hash，署名指向算法本身 |
+| `simplexNoise` | `permute` / `snoise` | ✅ | = Ashima `noise2D.glsl`，许可头被 paper 删，见 ⑥ |
+| `fiberNoise` | `fiberRandom` / `fiberValueNoise` / `fiberNoiseFbm` / `fiberNoise` | ❌ **§B 全 11 件均未使用** | 亦从 `u_noiseTexture` 采样（`.b` 通道）|
+
+⇒ **本轮实查（检查集 = §B 的 11 件对应的 12 个 `.ts`，逐个读 `import` 语句与调用点）**：
+`proceduralHash22` / `fiberNoise` **11 件全未使用**；`proceduralHash11` **只被
+`GrainGradient` 使用**，而它是 `待追溯`、不在可落地 10 件内。
+⇒ **可落地 10 件对这三个原语零依赖 ⇒ 没有遗漏的通知义务。**
+⚠️ **但 `hash11` / `hash22` 与已追溯的 `hash21` 同属 Hoskins / iq 家族**（同样的
+`0.3183099` / `0.3678794` / `19.19`）⇒ **将来若有件用到，通知义务与 `hash21` 相同**，
+不必重追一轮。
+
+⚠️⚠️ **口径提醒（第 6 轮终审 I1 的同族盲区）**：按**共享原语名**（`randomR` / `hash21` /
+`snoise` …）匹配会**漏掉在 shader 文件里本地重定义的等价物**。本轮按「本地等价定义」
+的口径把可落地 10 件复查了一遍，结果见下方 ⑤-bis。
+
+### ⑤-bis 「本地等价定义」复查（第 6 轮终审 I1 要求，可落地 10 件逐个）
+
+⚠️ **盲区的形态**：按共享原语名匹配 ⇒ **在 `<shader>.ts` 里本地重定义的等价函数会逃逸**。
+本表**抓到过一次**（`water.ts` 已 `import rotate()` 却又本地写 `rotate2D`），
+**又漏掉过一次**（`halftone-cmyk.ts` 本地写 `randomRG`，见下）。⇒ 本轮逐件重查。
+
+| 件 | 本地定义的函数（`<shader>.ts` 内） | 是否共享原语的等价物 | 结论 |
+|---|---|---|---|
+| `GlassOrb` | —（非 paper 件，Inferno `.metal`）| — | 无 |
+| `StarNest` | —（非 paper 件，Shadertoy 原文）| — | 无 |
+| `Voronoi` | `voronoi()` | ❌ | 已由 ⑥ #3 处置（iq） |
+| `Swirl` | 无（全部走 `import`）| — | 无 |
+| `SimplexNoise` | `getNoise` / `steppedSmooth` | ❌ | 无 |
+| `ColorPanels` | `getPanel` / `blendColor` | ❌ | 无 |
+| `DotOrbit` | `voronoiShape` | ❌ | 已由 ⑥ 处置（Worley 谱系） |
+| `SmokeRing` | `valueNoise` / `fbm` / `getNoise` / `getRingShape` | ⚠️ `valueNoise` 与 `shader-utils.fiberValueNoise` 同形 | 双线性 value noise = **事实性算法**，无新义务 |
+| `Metaballs` | `noise(float)` / `getBallShape` | ❌（`noise` 建在 `import` 的 `randomR` 上）| 无 |
+| **`Halftone`** | `halftone-cmyk.ts:98` **`randomRG`**、`:102` `hash23`、`:108` `sst`、`:112` `valueNoise3`；`halftone-dots.ts:70` `valueNoise`、`:87` `sst` … | ⚠️⚠️ **`randomRG` 是 `textureRandomizerR/GB` 的本地等价物** | ⇒ **`Halftone` 也依赖 `u_noiseTexture`**，见下 |
+
+⚠️⚠️ **本轮新发现（第 6 轮终审 I1）**：`halftone-cmyk.ts:80` 声明 `uniform sampler2D
+u_noiseTexture;`，`:98-101` **本地定义**等价随机器，`:171` 真的调用：
+
+```glsl
+vec2 randomRG(vec2 p) { vec2 uv = floor(p) / 100. + .5; return texture(u_noiseTexture, fract(uv)).rg; }
+…
+return cellCenter + (randomRG(cellCenter + channelIdx * 50.) - .5) * u_gridNoise;
+```
+
+⇒ **依赖 `u_noiseTexture` 的是 5 件，不是 4 件**（`Voronoi` / `DotOrbit` / `SmokeRing` /
+`Metaballs` **＋ `Halftone`**）。成本模型已按此更正，见《`N_B` 重估》。
+⚠️ 该发现**不改变任何裁定档位**——`randomRG` 是从一张随包纹理里采样的一行代码，
+无可归属的第三方著作权人；它改变的**只有落地工时**。
+
+⚠️ 顺带记一条**不是问题**的观察：`halftone-cmyk.ts` 没有 `import rotation2`，而是在
+`:175` / `:219-222` 直接内联 `mat2(cos,±sin,∓sin,cos)`。旋转矩阵是事实性构造，
+**不产生通知义务**；列在这里只是为了让下一个人知道这一处也查过了。
 
 ### ⑥ 逐常量 grep + 逐结构对照（无条件适用，11 件全做）
 
@@ -1267,7 +1410,8 @@ color += 1. / 256. * (fract(sin(dot(.014 * gl_FragCoord.xy, vec2(12.9898, 78.233
 | # | 读了什么（URL） | 载体档 | 读到的关键原文 |
 |---|---|---|---|
 | 1 | `web.archive.org/web/20250920061115id_/https://www.shadertoy.com/terms` | 一手内容 · 归档 | "…if you don't place a license on a shader, it will be protected by our default license: **Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License**" |
-| 2 | `web.archive.org/cdx/…?url=www.shadertoy.com/terms&filter=statuscode:200` | 一手 · 实时 | 2025-03…2025-10 共 7 个 200 快照，`digest` 反复为同一值 ⇒ 条款文本该期间未变 |
+| 2 | `web.archive.org/cdx/…?url=www.shadertoy.com/terms&filter=statuscode:200&from=20250301&to=20251031` | 一手 · 实时 | **18 个 200 快照、三个 digest**（9 × `MPDBE…` / 8 × `VXQDY…` / 1 × `3I42H3S…` = 空载荷 SHA-1，2025-10-11）。⚠️ **上一版写的「7 个 + 单一 digest」不成立，已撤回**（第 6 轮终审 I2）|
+| 2′ | `web.archive.org/web/20250920061115id_/…` 与 `…/20251001020819id_/…`（**两个不同 digest** 的快照）| 一手内容 · 归档 | 各 **29202 字节**、MD5 同为 `a2550c88cf19fdad987d8aff09dc5d35` ⇒ **逐字节相同** ⇒ 条款文本该期间未变（digest 差异在存储编码层）|
 | 3 | `raw.githubusercontent.com/GabeRundlett/shadertoy-api-shaders/master/shaders/XlfGRj.json` | 一手内容 · 归档（API 响应，刷新 2025-05-29） | `"username":"Kali"`；code 头 `// Star Nest by Pablo Roman Andrioli` / `// License: MIT` |
 | 4 | 同上 `shaders/ldl3W8.json` | 同上 | `"username":"iq"`；code 头 `// The MIT License` / `// Copyright © 2013 Inigo Quilez` + MIT 全文 |
 | 5 | 同上 `shaders/4djSRW.json` | 同上 | `"username":"Dave_Hoskins"`；`// Hash without Sine` / `/* Copyright (c)2014 David Hoskins.` + MIT 全文 |
@@ -1276,7 +1420,7 @@ color += 1. / 256. * (fract(sin(dot(.014 * gl_FragCoord.xy, vec2(12.9898, 78.233
 | 8 | `iquilezles.org/articles/` | 一手 · 实时 | "all technical code snippets you'll find are under the MIT license…"（复核 #281 第 1 条，一致） |
 | 9 | `iquilezles.org/articles/voronoilines/` | 一手 · 实时 | `float voronoiDistance( in vec2 x )` 两趟算法全文 + `dot(0.5*(a+b),normalize(b-a))` |
 | 10 | `raw.githubusercontent.com/twostraws/Inferno/main/LICENSE` / `README.md` / `WarpingLoupe.metal` / `SimpleLoupe.metal` + commit API | 一手 · 实时 | LICENSE 移植清单 **6 组**、README 清单 **7 条**（多 `Shimmer`）⇒ **清单非穷尽**；`WarpingLoupe.metal` 零上游标注、零魔数 |
-| 11 | `paper-design/shaders` `main`：14 个 `shaders/*.ts` + `shader-utils.ts` + `LICENSE` + `NOTICE` | 一手 · 实时 | `LICENSE` = Apache-2.0 全文；`NOTICE` = `Powered by Paper Shaders: https://shaders.paper.design`（**仅此两行，无任何第三方署名**）；来源标注 grep 全量输出只有 `neuro-noise.ts:33` 与 `voronoi.ts:14` 两行 |
+| 11 | `paper-design/shaders` `main`：**本表相关的 14 个** `shaders/*.ts`（该目录今日**共 30 个**，枚举见 ⑤）+ `shader-utils.ts` + `LICENSE` + `NOTICE` | 一手 · 实时 | `LICENSE` = Apache-2.0 全文；`NOTICE` = `Powered by Paper Shaders: https://shaders.paper.design`（**仅此两行，无任何第三方署名**）；**该检查集内**的来源标注 grep 输出只有 `neuro-noise.ts:33` 与 `voronoi.ts:14` 两行（⚠️ **不是全仓全量**）|
 | 12 | `ashima/webgl-noise` 与 `stegu/webgl-noise` 的 `src/noise2D.glsl` + `LICENSE` | 一手 · 实时 | 两仓 `noise2D.glsl` `diff` 完全一致；LICENSE = MIT，`Copyright (C) 2011 by Ashima Arts` / `Copyright (C) 2011-2016 by Stefan Gustavson` |
 | 13 | `libretro/glsl-shaders` · `procedural/bigwings-luminescence.glsl` | 一手 · 实时 | `:230` `// 3 out, 1 in... DAVE HOSKINS` 紧接 `p3 += dot(p3, p3.yzx + 19.19);`；`:155-159` `fract( p*0.3183099+.1 )` |
 
@@ -1362,7 +1506,7 @@ color += 1. / 256. * (fract(sin(dot(.014 * gl_FragCoord.xy, vec2(12.9898, 78.233
 | `FractalClouds` | **—**（本体未追到）；FBM 底座可对照 ashima / stegu / glsl-noise，但 **domain-warp 与调色的组合未追到出处**。⚠️ **#281 又追一轮，本体仍未指认到上游** | 参考实现 **MIT**；本体 —；⚠️ **其 domain-warp 所属的 iq 一族已追到 iq 站点级 MIT** | https://github.com/ashima/webgl-noise · https://iquilezles.org/articles/ | **`待追溯（低指纹）`**（#281 分档，不阻断） |
 | `InkSmoke` | **—**（本体未追到）；#261 实证：域扭曲的 `q`/`r` 三级级联派生自 **iq《Domain Warping》** | ⚠️⚠️ **改判**：上一版写「iq 页面无许可声明」——**错的，只是没读对页面**。文章父页 `iquilezles.org/articles/` 逐字「**all technical code snippets you'll find are under the MIT license**」（#281 两次独立一手读取）⇒ 该级联 **MIT** | https://iquilezles.org/articles/warp/ · https://iquilezles.org/articles/ | **`待追溯（低指纹）`** —— ⚠️ **强档阻断已解除**（既追到、许可又兼容 ⇒ 义务已兑现，转为署名） |
 | `Plasma` | **—**（本体未追到）；#261 实证：四相正弦叠加是 **Lode Vandevenne《Lode's Computer Graphics Tutorial — Plasma》** 的公式 | ⚠️ **改判**：上一版写「本表未核该页面许可」——**#281 核了**。plasma 页页脚确为 `All rights reserved`，但 `lodev.org/cgtutor/legal.html` **把散文与代码分开授权**，代码逐字为 **BSD-2-Clause**（保留版权通知 + 条件 + 免责声明）| https://lodev.org/cgtutor/plasma.html · https://lodev.org/cgtutor/legal.html | **`待追溯（低指纹）`**（该片段已 `已追到兼容许可`；本体其余未指认 ⇒ 低指纹，不阻断） |
-| **`Starfield`** | ⚠️⚠️ **#281 追到了**：**Martijn Steinrucken（BigWings / *The Art of Code*）《Starfield Tutorial》(2020)**。⚠️ 上一版写「未追到 / 网格星空模板」是**既漏了具名上游、又过度归因了范围**（`step` 熄灭与 `smoothstep` 圆盘辉光不是他的） | ⚠️⚠️ **CC BY-NC-SA 3.0**——源码头逐字 `// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.`。**与本仓 MIT 分发不兼容**（禁商用 + 传染性 share-alike） | ⚠️ **二手载体、一手读取**：shadertoy 返 403，未直读原页；证据是两份互相独立的 GitHub 拷贝逐字一致（`sentinelweb/processink`、`GalaxyCr8r/solarance-beginnings`）⇒ **人工目视确认 https://www.shadertoy.com/view/ls3Xzn 是硬 AC** | ⚠️⚠️ **`不落地`** —— 兜底的「追到不兼容」分支。**判定已下、撤回未执行 ⇒ 阻断 `epic → main`** |
+| **`Starfield`** | ⚠️⚠️ **#281 追到了**：**Martijn Steinrucken（BigWings / *The Art of Code*）《Starfield Tutorial》(2020)**。⚠️ 上一版写「未追到 / 网格星空模板」是**既漏了具名上游、又过度归因了范围**（`step` 熄灭与 `smoothstep` 圆盘辉光不是他的） | ⚠️⚠️ **CC BY-NC-SA 3.0**——源码头逐字 `// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.`。**与本仓 MIT 分发不兼容**（禁商用 + 传染性 share-alike） | ⚠️ **二手载体、一手读取**：shadertoy 返 403，未直读原页；证据是两份互相独立的 GitHub 拷贝逐字一致（`sentinelweb/processink`、`GalaxyCr8r/solarance-beginnings`）⇒ **人工目视确认 https://www.shadertoy.com/view/ls3Xzn 是硬 AC** | ⚠️⚠️ **`不落地`** —— 兜底的「追到不兼容」分支。✅ **判定已下、撤回已执行**（base commit `807f074` 即那次撤回，整件删除）⇒ **本行不再阻断 `epic → main`**。⚠️ 上一版本行写「撤回未执行 ⇒ 阻断」，与 `:344` / `:430` / `:940` / 收尾勾选框的"已执行"相矛盾，而本表声明"两处冲突时以本表为准" ⇒ 那句假话会赢；第 6 轮终审 I5 已改正 |
 | `Dots`（`DotGrid`） | **—**（未追到）；paper 有 `dot-grid.ts` 但描述不同 ⇒ **不是**匹配。⚠️ **#281 又追一轮**：一手读全 paper `dot-grid.ts` 与 Inferno `LightGrid.metal`，**均不匹配**；code search 无候选 | — | https://github.com/paper-design/shaders · https://github.com/twostraws/Inferno | **`待追溯（低指纹）`**（#281 分档，不阻断） |
 | `Glass`（`RefractiveGlass`） | **—**（主体未追到）；第 1 版曾引 iq 的 SDF 文章。⚠️⚠️ **#281 证伪了上一版的事实主张**：所谓「2025 年 `layerEffect` "liquid glass" 一族的通行形态」——**逐个读完具名的 SwiftUI-Metal 玻璃库后，没有找到这样一族** | `roundedBoxSDF` ⇒ **iq 站点级 MIT**（已追到）；**主体 ⇒ 仍未指认到具名上游** | https://iquilezles.org/articles/ · 逐候选比对表见《`coreDesignRefractiveGlass` 主体的追溯》 | **`待追溯（低指纹）`** —— ⚠️ **由强指纹改判**（三条强档判据逐条不成立，逐常量 grep 零命中）⇒ **不再阻断**；⚠️ **该改判须 `epic → main` 评审显式确认**，不确认则回落 `不落地` |
 | `GlassLogo`（落地名 `GlassSymbol`） | **—**（未追到）；同 `Glass`。⚠️ `GlassSymbol.swift` 里**零 provenance 引用**、改名 `GlassLogo → GlassSymbol` 亦未记录 ⇒ **#281 已补**（源码注释加了 provenance 段并同时写出两个名字，便于交叉引用 grep） | 随 `Glass` | — | **`待追溯（低指纹）`**（无自有 shader，档位完全随 `Glass`） |
@@ -1393,7 +1537,7 @@ color += 1. / 256. * (fract(sin(dot(.014 * gl_FragCoord.xy, vec2(12.9898, 78.233
 | **已追到兼容许可 · Apache-2.0** | **8** | §B 的 #8–17，**减 `NeuroNoise`**（上游是无许可推文，paper 的再许可断言无法独立核实 ⇒ 不构成正向裁定）**，#280 再减 `Water`**（同因：其 `getCausticNoise` 与 `neuro-noise` 是同一算法、同一条无许可推文，而 paper 连来源都没标）。⚠️ 其中 4 行（`Voronoi` / `Swirl` / `SimplexNoise` / `Halftone`）另带一个 paper 未兑现的 **MIT 通知义务**，见《#280 的落地前核验》⑥ |
 | ~~**clean-room 重写**~~ | ~~2~~ → **0** | ⚠️ **该档已随本 PR 删除**（第 5 轮终审 C1）：`FractalClouds` / `InkSmoke` 的依据（ashima / stegu / glsl-noise 均 MIT）**已被证明本就不成立**，且《裁定方法：正向裁定，不证否定》自己的规则「`clean-room` 行必须给出 URL + 已核实的许可，否则一律降级为 `待追溯`」本就该触发。两件改判 `待追溯`。**该档亦不在裁定取值表里** ⇒ 正文任何位置都不得再作为裁定值出现（⚠️ 上一版只在本行写了改判，§C 的 #19 / #20 两行仍留着这个已废除的取值 —— **PR #259 review round-1 指出，本轮已同步改掉**）|
 | **待追溯** | **17** | ShaderKit 5 + GrainGradient + §C 的 8 个 + FractalClouds / InkSmoke（第 5 轮改判）+ NeuroNoise，**减 `Starfield`**（#281 改判 `不落地`），**加 `Water`**（#280 由 Apache-2.0 改判）。⚠️ **其中 #261 已落地的 7 件全部由 #281 分入低指纹档**（《清偿条款》表 B）⇒ 不阻断 `epic → main`。⚠️ **`Water` 不阻断 `epic → main`**（它从未落地），它阻断的是**自己进 #282 / #283 的成员名单** |
-| **不落地** | **1** | ⚠️⚠️ **`Starfield`（#281）** —— 追到 **Martijn Steinrucken / BigWings《Starfield Tutorial》(2020)**，源码头 **CC BY-NC-SA 3.0**，与本仓 MIT 分发不兼容 ⇒ 命中兜底的「追到不兼容」分支。⚠️ **判定已下、撤回未执行 ⇒ 这是当前唯一阻断 `epic → main` 的裁定项**。<br>（第 1 版判的另 2 个仍维持第 5 轮的 `待追溯` 改判——原理由与 §C 其余项双标）|
+| **不落地** | **1** | ⚠️⚠️ **`Starfield`（#281）** —— 追到 **Martijn Steinrucken / BigWings《Starfield Tutorial》(2020)**，源码头 **CC BY-NC-SA 3.0**，与本仓 MIT 分发不兼容 ⇒ 命中兜底的「追到不兼容」分支。✅ **判定已下、撤回已执行**（base commit `807f074`，整件删除，见《`Starfield` 的追溯》的《执行记录》）⇒ **不再阻断 `epic → main`；当前无任何裁定项阻断 `epic → main`**。⚠️ 上一版写「撤回未执行 ⇒ 唯一阻断项」——第 6 轮终审 I5 改正。<br>（第 1 版判的另 2 个仍维持第 5 轮的 `待追溯` 改判——原理由与 §C 其余项双标）|
 | **自研实现** | **0** | ⚠️ 显式写 0——《逐件适用性》左列有 8 个名字，但那是**准入不是结论**；实际落地件经第六条轴复查**无一维持自研** |
 | 合计 | **28** | 2 + 8 + 0 + 17 + 1 = 28 ✅ |
 
@@ -1432,7 +1576,8 @@ color += 1. / 256. * (fract(sin(dot(.014 * gl_FragCoord.xy, vec2(12.9898, 78.233
     但仍非实时 ⇒ 人工目视确认**保留为硬 AC**；
   · `Voronoi` —— 现许可**已查实为 MIT**（API 响应 + iq 站级 MIT 两条独立通路），
     人工目视确认同样保留为硬 AC。
-- ⚠️ **`N_B` 已按「移植 + 署名」重估（#280）：`N_B` ≈ 3.5–9.0，点估 5.6 ⇒ 取 `N_B` = 6。**
+- ⚠️ **`N_B` 已按「移植 + 署名」重估（#280；第 6 轮终审 I1 更正 `Halftone` 后复算）：
+  `N_B` ∈ [3.40, 8.75]，点估 5.41 ⇒ 取 `N_B` = 6。**
   推导见下方《`N_B` 的重估》。（旧值 5 由 #248 按「固定成本 8–12h ÷ 边际 2.0–2.5h/shader」
   反推，而那个边际是**按 7 个"颜色写死"难件加权**算的，那 7 个**无一可落地** ⇒ 口径不适用。）
 - **10 ≥ 6 ⇒ 闸②仍然通过**，`shipswift-shaders`（#243）可继续；#282 / #283 按下面的
@@ -1461,10 +1606,11 @@ color += 1. / 256. * (fract(sin(dot(.014 * gl_FragCoord.xy, vec2(12.9898, 78.233
 
   ⇒ **现实地板 = 8**（`GlassOrb` + `StarNest` 两条各自独立、都判失败）；
   **绝对地板 = 7**（再叠加 `Voronoi` 的两条通路同时失败——这需要三个互不相干的判断同时反转）。
-  ⇒ **7 ≥ `N_B` = 6，闸②即使在绝对地板上仍然通过**（⚠️ 但 **7 < `N_B` 区间上端的 9**
+  ⇒ **7 ≥ `N_B` = 6，闸②即使在绝对地板上仍然通过**（⚠️ 但 **7 < `N_B` 区间上端的 8.75**
   ——按悲观端口径就不通过了。**两个口径都写下，不挑对自己有利的那个。**）
 - ⚠️ **注意上面全是"许可侧"的地板**——它不保证工程侧不出问题
-  （见《`N_B` 的重估》里 4 件依赖噪声纹理的成本项）。
+  （见《`N_B` 的重估》里 **5** 件依赖噪声纹理的成本项——⚠️ **`Halftone` 是第 5 件**，
+  第 6 轮终审 I1 补入，见 ⑤-bis）。
 - ⚠️ **口径**：本表的「可落地」= **已正向裁定为兼容许可、落地前尚有具体核验项**。
   #280 之后「无条件可落地」由 **0 变为 7**（见上方逐条），剩 3 条各带一项残留事项。
 - **可落地 10 的名单**（#282 / #283 按此列成员）：
@@ -1488,27 +1634,43 @@ LiquidMetal）在本表里无一可落地，全部是 `待追溯`** ⇒ 分母�
   §4(b) 修改标注的**成文机制**，以及 Ashima/Gustavson · Dave Hoskins · iq 三份 MIT 通知的
   样板。**这些是一次性的**，落 1 个还是落 10 个都只写一遍。
 
-**分母（每 shader 边际）**：**1.55–2.55 小时/shader**（按**实际的 10 件**加权，非 28 件）
+**分母（每 shader 边际）**：**1.60–2.65 小时/shader**（按**实际的 10 件**加权，非 28 件）
 
-| 分组 | 件 | 单件 | 依据 |
-|---|---|---|---|
-| 普通件 | `StarNest` · `Swirl` · `SimplexNoise` · `ColorPanels` · `Halftone` 之外的其余 | **1.0–1.5h** | #248 实测「参数化改造 + wrapper + Preview + 文档 ≈ 1–1.5h/个」 |
-| **依赖噪声纹理的** | `Voronoi` · `DotOrbit` · `SmokeRing` · `Metaballs` | **1.5–2.5h** | ⚠️ **#280 新发现的成本项**：这 4 件都从 `u_noiseTexture` 采样（`randomR` / `randomGB`）。移植到 Metal 要么随包发一张预计算噪声纹理（资源 + 加载路径 + bundle 约束），要么把它换成程序化 hash——**后者会改变观感，是设计决策不只是工程量**。+0.5–1h |
-| **难件** | `Halftone` | **2.0–3.0h** | 两个入口（`halftone-dots` + `halftone-cmyk`，合计 ≈26 KB TS）、`layerEffect` over image、CMYK 分色 + 四组网屏角 |
-| 全部件另加 | —— | **+0.25–0.5h** | `.metal` 头注明 paper 对应 `.ts` 路径 + Apache-2.0 §4(b) 修改标注 + `ACKNOWLEDGEMENTS.md` 逐条（含 #280 新查出的三份 MIT 通知）|
+⚠️ **本表在第 6 轮终审 I1 后改过一次**：`Halftone` 也依赖 `u_noiseTexture`（本地定义的
+`randomRG`，见 ⑤-bis），上一版把它漏在纹理组之外 ⇒ 它的单件工时上调。
 
-- 低端合计：5×1.0 + 4×1.5 + 1×2.0 + 10×0.25 = **15.5h** ⇒ 均 **1.55h/shader**
-- 高端合计：5×1.5 + 4×2.5 + 1×3.0 + 10×0.5 = **25.5h** ⇒ 均 **2.55h/shader**
+| 分组 | 件（**逐个列出，不用排除式**）| 件数 | 单件 | 依据 |
+|---|---|---|---|---|
+| 普通件 | `GlassOrb` · `StarNest` · `Swirl` · `SimplexNoise` · `ColorPanels` | **5** | **1.0–1.5h** | #248 实测「参数化改造 + wrapper + Preview + 文档 ≈ 1–1.5h/个」 |
+| **依赖噪声纹理的** | `Voronoi` · `DotOrbit` · `SmokeRing` · `Metaballs` | **4** | **1.5–2.5h** | ⚠️ **#280 发现的成本项**：都从 `u_noiseTexture` 采样（`randomR` / `randomGB`）。移植到 Metal 要么随包发一张预计算噪声纹理（资源 + 加载路径 + bundle 约束），要么换成程序化 hash——**后者会改变观感，是设计决策不只是工程量**。+0.5–1h |
+| **难件（且同样依赖噪声纹理）** | `Halftone` | **1** | **2.5–4.0h** | 两个入口（`halftone-dots` + `halftone-cmyk`，合计 ≈26 KB TS）、`layerEffect` over image、CMYK 分色 + 四组网屏角（＝原 2.0–3.0h）**＋纹理依赖附加 0.5–1.0h**（`halftone-cmyk.ts:80/98/171`，见 ⑤-bis）|
+| 全部件另加 | —— | 10 | **+0.25–0.5h** | `.metal` 头注明 paper 对应 `.ts` 路径 + Apache-2.0 §4(b) 修改标注 + `ACKNOWLEDGEMENTS.md` 逐条（含 #280 新查出的三份 MIT 通知）|
 
-**`N_B` = 分子 ÷ 分母 = 9…14 ÷ 1.55…2.55 ⇒ `N_B` ∈ [3.5, 9.0]，点估 11.5 ÷ 2.05 = 5.6。**
+⚠️ **`Halftone` 只计一次**：它同时属"难件"与"依赖噪声纹理"，纹理附加已并进它那一行的
+2.5–4.0h 里，**不在纹理组重复计价**（纹理组仍是 4 件参与算术）。5 + 4 + 1 = **10** ✅
 
-⇒ **取 `N_B` = 6**（点估上取整）。
+- 低端合计：5×1.0 + 4×1.5 + 1×2.5 + 10×0.25 = 5 + 6 + 2.5 + 2.5 = **16.0h** ⇒ 均 **1.60h/shader**
+- 高端合计：5×1.5 + 4×2.5 + 1×4.0 + 10×0.5 = 7.5 + 10 + 4 + 5 = **26.5h** ⇒ 均 **2.65h/shader**
+
+**`N_B` = 分子 ÷ 分母 = 9…14 ÷ 1.60…2.65**
+- 区间下端 = **乐观端**（固定成本最低 ÷ 边际最高）：9 ÷ 2.65 = **3.40**
+- 区间上端 = **悲观端**（固定成本最高 ÷ 边际最低）：14 ÷ 1.60 = **8.75**
+  ⚠️ **方向别读反**：`N_B` 是"落几件才回本"的门槛，**`N_B` 越大对本表的"闸②通过"
+  结论越不利** ⇒ 区间**上**端才是悲观端。
+- 点估（11.5h ÷ 2.125h）= **5.41**
+
+⇒ **`N_B` ∈ [3.40, 8.75]，点估 5.41 ⇒ 取 `N_B` = 6**（点估上取整）。
+⚠️ **分子分母不重叠**：分子是**与件数无关**的一次性项，分母是**逐件**项，
+两边没有同一笔工时被算两次（#248 曾在这里犯过重叠错误，本表刻意避开）。
 ⚠️ **这里刻意没有按 #248 的"取更小更安全"惯例取 4**——#280 的结论是"闸②通过"，
 **取一个更高的 `N_B` 是对自己结论更不利的方向**，这样得出的"通过"才有意义。
 
-⚠️⚠️ **必须写下的一条**：区间上端 **`N_B` = 9**，而可落地数是 **10** ⇒ **悲观端的余量只有 1**。
-**⇒ 新的重开触发器**：若 `Water` 之外**再有任何一件掉出可落地**（含人工目视核验不通过），
-可落地数降到 9，与悲观端持平；**再掉一件即 8 < 9，须按悲观端口径重开闸②**。
+⚠️⚠️ **必须写下的一条**：区间上端 **`N_B` = 8.75**，而可落地数是 **10** ⇒ **悲观端的
+余量是 1.25 件**（上一版按 `N_B` = 9 写的"余量只有 1"——`Halftone` 更正后余量略微变宽，
+但**触发器不放松**）。
+**⇒ 重开触发器（维持）**：若 `Water` 之外**再有任何一件掉出可落地**（含人工目视核验
+不通过），可落地数降到 9，仍 > 8.75 但只剩 0.25；**再掉一件即 8 < 8.75，
+须按悲观端口径重开闸②**。
 ⚠️ 而按**点估** `N_B` = 6，余量是 4——**两个数都记下，不要只记有利的那个。**
 
 ⚠️ **#280 之前挂在这里的重开触发器（「B-2 / B-3 分解时按『移植 + 署名』重估 `N_B`；
@@ -1531,7 +1693,7 @@ LiquidMetal）在本表里无一可落地，全部是 `待追溯`** ⇒ 分母�
   **#280 加 `Water` 后为 17**）。
 
 ⇒ **B-2 / B-3 分解时按「移植 + 署名」重估，不是按 clean-room。**
-⇒ ⚠️ **该重估已由 #280 交付**，见《`N_B` 的重估》：`N_B` = **6**（区间 3.5–9.0）。
+⇒ ⚠️ **该重估已由 #280 交付**，见《`N_B` 的重估》：`N_B` = **6**（区间 [3.40, 8.75]，点估 5.41）。
 
 ---
 
@@ -1569,7 +1731,7 @@ LiquidMetal）在本表里无一可落地，全部是 `待追溯`** ⇒ 分母�
 ## 需要回改的文档
 
 - `.claude/epics/shipswift-shaders/epic.md`：
-  - AD-G 补本表结论；⚠️ **`N_B` 填 6**（#280 按「移植 + 署名」重估，区间 3.5–9.0、点估 5.6；
+  - AD-G 补本表结论；⚠️ **`N_B` 填 6**（#280 按「移植 + 署名」重估，区间 [3.40, 8.75]、点估 5.41；
     **旧值 5 的分母口径已作废**——它按 7 个"颜色写死"难件加权，而那 7 个无一可落地）；
     SC 的「可落地数 ≥ `N_B`」标记为**已满足（10 ≥ 6）**
     （⚠️ 历史：第 1 版写 26 ≥ 5、第 2 版写 14 ≥ 5、#281 后写 11 ≥ 5——**前三个数都已被撤回**，
