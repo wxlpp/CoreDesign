@@ -68,10 +68,25 @@ struct MicroInteractionReduceMotionGuard {
     ///   （`OrbitRing.restingPhase`）与轮播（`OrbitRing.restingFeature` ⇒
     ///   `popScale == 1`，谁都不放大）钉死。
     /// 两者都不叠 `OpacityPulse`：它是 trigger 驱动的一次性反馈，而这两件没有 trigger。
+    /// ⚠️⚠️ **`#267` 一次加进来六个转场，它们走的是形态 2 的**另一个子形态**，
+    /// 记在这里免得下一个人照 `Confetti` 那条读：
+    /// · `Confetti` / `ProcessingSweep` / `AnimatedMeshGradient` / `SphereSurface` /
+    ///   `OrbitingLogos` 是**整段换一套呈现**（同时在 `approvedEarlyExit` 名单上）；
+    /// · `Rise` 与 `#267` 的六个转场（`FlipTransition` / `Rotate3DTransition` /
+    ///   `SwooshTransition` / `BoingTransition` / `SkidTransition` /
+    ///   `PolarMoveTransition`）是**逐表达式三元门控**，一处早退都没有
+    ///   ⇒ **只在本名单、不在 `approvedEarlyExit`**。
+    /// 它们保留的是 `TransitionCurve.opacity` 那条淡入淡出（内容仍然进出，只是不动），
+    /// 不叠 `OpacityPulse`——那个吃的是 `TriggerRelay` 的计数，转场没有 trigger。
+    /// ⚠️ 六个文件的每一处运动因此**全部**落在 `everyMotionCallIsGated` 的射程里
+    /// （早退形态反而是整段豁免、射程更窄），这是选它的理由之一。
     static let approvedFormTwo: Set<String> = [
         "Rise.swift", "Confetti.swift", "ProcessingSweep.swift",
         "AnimatedMeshGradient.swift", "ParticleTransition.swift",
         "SphereSurface.swift", "OrbitingLogos.swift",
+        // `#267`：3D 与弹性转场簇 B（6 种）。
+        "FlipTransition.swift", "Rotate3DTransition.swift", "SwooshTransition.swift",
+        "BoingTransition.swift", "SkidTransition.swift", "PolarMoveTransition.swift",
     ]
 
     /// 走**早退**（RM 下整个装饰层不构建）的文件。
@@ -199,7 +214,45 @@ struct MicroInteractionReduceMotionGuard {
         //    哪天有人往里加一处 `offset(`，`everyFileIsClassified` 与
         //    `motionFilesReadReduceMotion` 当场判红，逼人回来重新分类。
         "FullScreenButton.swift",
+        // `#267` 新增。**纯几何 / 纯裁决**，一行运动变换都没有：
+        // 档位枚举（`TransitionTravel`）、轴枚举（`TransitionAxis3D`）与相位曲线
+        // （`TransitionCurve`：`opacity` / `distance` / `elastic` / `direction`）。
+        // ⚠️ 「文件里没有运动关键字」在这里**不是**逃逸位——六个转场文件各自都在
+        // `approvedFormTwo` 名单上、每一处运动各自带门控；本文件只提供它们调用的
+        // 那几条纯函数，`TransitionClusterTests.identityPhaseIsExactlyNeutral` 逐个钉住
+        // 「恒等相位恰为恒等值」这条承重契约。
+        "TransitionSupport.swift",
+
+        // `#266` 新增（滤镜类转场五件）。**这一整组的分类理由是同一条**：
+        // 它们**不改变几何、只改变成像**——全组只用 `.blur(radius:)` / `.brightness(_:)` /
+        // `.saturation(_:)` / `.contrast(_:)` / `.opacity(_:)`，一个 `motionCalls`
+        // 关键字都不出现。⇒ 本守卫的三条 RM 判据对它们**结构上无话可说**。
         //
+        // ⚠️⚠️ **「文件里没有运动关键字」在这里同样不是逃逸位**（形态同上面
+        // `BeforeAfterSlider` / `FullScreenButton` 两条）：
+        // · `FilterTransitionTests.filterClusterChangesImagingNotGeometry`
+        //   —— 逐个断言这五个文件不含任何 `motionCalls` 关键字（本豁免的前提本身），
+        //   并与本名单做双向差集；哪天有人往里加一处 `offset(`，它当场判红；
+        // · `FilterTransitionTests.safetySignalsAreOnlyConsumedByTheSharedGate`
+        //   —— 两个 a11y 信号（`\.accessibilityDimFlashingLights` /
+        //   `\.accessibilityReduceMotion`）只许喂给 `FilterTransitionSafety`
+        //   这一个裁决点，且不许裸写（形态同本文件
+        //   `reduceMotionIsOnlyConsumedByTheSharedGate`）；
+        // · `FilterTransitionTests.chromeBodiesArePinnedVerbatim`
+        //   —— 四个 chrome 的类型体逐字钉死。
+        //
+        // ⚠️ **本组的 Reduce Motion 判据是逐个裁的、不是一刀切**，逐字见
+        // `FilterTransitionSupport.swift` 文件头那张表：`blur` 两个信号都不读
+        //（无光流、无亮度往复，降级等于删掉这条转场）；`filmExposure` / `snapshot`
+        // 只读「减弱闪烁灯光」；`flicker` 两个都读（WCAG 2.3.1 点名的往复闪烁）。
+        // ⚠️ 因此 `FlickerTransition.swift` 里**确实有** `accessibilityReduceMotion`，
+        // 而它仍然在本名单上——本名单判的是"有没有运动"，不是"读不读 RM"。
+        "FilterTransitionSupport.swift",
+        "BlurTransition.swift",
+        "FilmExposureTransition.swift",
+        "SnapshotTransition.swift",
+        "FlickerTransition.swift",
+
         // `#268` 新增两条。⚠️⚠️ **这两条不是「它不动」，必须读清楚**：
         // mask reveal 六种转场当然在动——一条揭示边扫过内容，那正是 FR-11 约束的运动。
         // 它们进本名单的理由与 `BeforeAfterSlider` / `FullScreenButton` **同型**：

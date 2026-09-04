@@ -1048,6 +1048,66 @@
     {
       "target": "CoreDesignEffects",
       "host": "Transition",
+      "member": "flip",
+      "notes": "视图像卡片一样翻面：带透视的 3D 旋转（两端 ±90°，有符号 ⇒ 进出两侧朝相反方向转）+ 淡入淡出。含参重载 .flip(axis:) 与无参 .flip 按 Host.member 去重算同一条（计数单位是「一种 transition」）。轴走共享的 TransitionAxis3D，与 rotate3D 同一份。层 3 的 FlipMotion conform Animatable、animatableData 绑在有符号相位值上，中间帧才来自 SwiftUI 插值而不是端点跳变；Reduce Motion 下旋转经三元门控到 0°，只剩 TransitionCurve.opacity 那条淡入淡出（不是 no-op），文件在 approvedFormTwo 名单上、有意不走早退。恒等相位精确归零，转场停住后与裸内容逐字节相同。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "rotate3D",
+      "notes": "视图绕任意轴翻滚并向纵深退一点：角度由调用方给（默认 75°，与 flip 钉死的 90° 有意错开）、轴走共享的 TransitionAxis3D（默认斜向）。含参重载 .rotate3D(angle:axis:) 与无参 .rotate3D 按 Host.member 去重算同一条。旋转与缩放各自带 Reduce Motion 三元门控——「缩放也算运动」正是 #250 第 1 轮 Jump 的原缺陷形态（offset 门控了、scaleEffect 没门控而守卫全绿）；降级后剩下的恰好是纯淡入淡出，由位图判据与只加 .opacity 的对照组逐字节比较。层 3 conform Animatable，绑有符号相位值。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "swoosh",
+      "notes": "穿行转场：从 edge 那一侧进来、朝对侧出去（位移取有符号相位值），途中带正比于行程的动态模糊与沿运动方向的拉伸。含参重载 .swoosh(edge:travel:) 与无参 .swoosh 按 Host.member 去重算同一条。与同侧进出的 move / skid 语义分界写在类型文档里，别合并成一个带 Bool 开关的转场。模糊与 scaleEffect(x:y:) 都不在 MicroInteractionReduceMotionGuard.motionCalls 的关键字表里，守卫看不见它们 ⇒ 三处一并三元门控，由「降级帧与纯淡入淡出对照组逐字节相同」那条位图判据兜底。行程走共享的 TransitionTravel 档位。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "boing",
+      "notes": "弹性缩放转场：从小放大、越过原尺寸再回落坐定。含参重载 .boing(strength:) 与无参 .boing 按 Host.member 去重算同一条；强度复用 MicroInteractionStrength 但另有振幅映射（该枚举的 scaleDelta 是 0.06/0.14/0.24，量级是「胀一下」，用作入场缩放等于没做）。过冲只能靠层 3 的 Animatable：只把最终 scale 交给 SwiftUI 插值得到的是两端之间一条直线，缩放永远不超过 1、「弹」从未发生，而纯函数判据对那种实现照样绿 ⇒ 承重判据钉的是渲染出来的中间帧内容面积大于恒等帧。Reduce Motion 下缩放门控到 1，只剩淡入淡出。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "skid",
+      "notes": "刹车打滑转场：从 edge 滑进来、冲过头再刹住，车身跟着甩一个小角度；同侧进出（位移与甩尾共用 TransitionCurve.elastic，它吃的是取过绝对值的 distance）。含参重载 .skid(edge:travel:) 与无参 .skid 按 Host.member 去重算同一条。曲线与 boing 是同一条、只是作用在位移与旋转上，整簇只有一份实现在 TransitionSupport.swift。过冲同样只能靠层 3 的 Animatable 绑有符号相位值。Reduce Motion 下位移与旋转一并门控到恒等值，只剩淡入淡出。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "move",
+      "notes": "沿任意极角（角 + 距离）平移进出，线性、同侧、无附加效果——要过冲用 skid、要穿行加动态模糊用 swoosh。含参重载 .move(angle:distance:) 与无参 .move 按 Host.member 去重算同一条。⚠️ 类型名是 PolarMoveTransition 而不是 MoveTransition：SwiftUICore 已有同名类型与 .move(edge:)，同名会让同时 import 两边的下游歧义，而库自身 swift build 仍是绿的；静态成员仍叫 move，与系统那个按实参标签构成重载而非覆盖。⚠️ 守住这张解析表的是 scripts/downstream-probe 的跨模块编译期探针 systemMoveEdgeKeepsResolvingToSwiftUI（守类型名冲突）与 systemMoveEdgeIsUnambiguousWithoutAnyAnnotation（守无标注调用歧义），两条各守一半；库内的 systemMoveEdgeStillResolvesToSwiftUI 写的是 let system: MoveTransition = .move(edge: .top)，显式结果类型标注已按返回类型消歧，它只能证「我们没把系统那个截胡」这一个子集，不是改名守卫（#267 终审 C-4）。Reduce Motion 下位移门控到 0，只剩淡入淡出。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "blur",
+      "notes": "视图进出时内容失焦并淡出。含参重载 .blur(radius:) 与无参 .blur 按 Host.member 去重算同一条。两条曲线（半径、不透明度）在进度上都是仿射的 ⇒ 绘制层有意不套 Animatable（判据 blurCurvesAreAffine 守着这张豁免）。全簇唯一一个 Reduce Motion 与「减弱闪烁灯光」两个信号都不读的：无位移/缩放/旋转 ⇒ 无光流，亮度单调不往复 ⇒ 无闪光；降级会把这条转场本身抹成 .opacity。该裁决由 blurConsumesNoAccessibilitySignal（源码形状）与 everyTransitionOptsOutOfTheFrameworkMotionSubstitution（运行时性质）两条判据共同钉住 —— 后者是承重的：Transition.properties 默认 hasMotion == true，其语义是「Reduce Motion 开启时把这条转场整个替换成 opacity」，不显式声明 false 的话框架已经替它做了这份文档说绝不能发生的那件事。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "filmExposure",
+      "notes": "视图进出时像一格胶片被过度曝光：亮度先冲上去、饱和度与对比度洗白，然后消失。含参重载 .filmExposure(intensity:) 与无参按 Host.member 去重算同一条。亮度曲线 4p(1−p) 在两个可达相位上精确为 0、峰值只在中间 ⇒ 绘制层必须 Animatable，否则过曝一次都不会发生（#253 ParticleTransition 的原形态）。只读 accessibilityDimFlashingLights：无位移故与 Reduce Motion 无关（该「有意不读」由 properties = TransitionProperties(hasMotion: false) 落地，否则框架会在 Reduce Motion 下把整条转场换成 opacity），而过曝是一次大面积亮度上冲；开启时峰值压到 calmedBrightnessCeiling(0.08)，且不为 0（洗白与淡出保留，不是 no-op）。⚠️ 0.08 是一条产品策略线而不是 WCAG 达标线。亮度曲线 0 → 峰 → 0 本身就是 2.3.1 定义的一次 general flash——规范把「一对反向变化」逐字定义为「先升后降或先降后升」，所以「单向所以不在射程内」那句是误述（PR #289 第 2 轮 I-1 更正）。单次使用不构成违规靠的是频率：一次转场只放 1 次 flash，而阈值的第一条通过条件是任意一秒内 general flash 不超过 3 次。⚠️ 有边界，不是无条件豁免：一秒内插入/移除 4 个以上带本转场的视图（列表批量插入、照片墙逐格出现）就越过 3 次/秒线，届时 full 档 0.55 的峰值幅度也远高于「10% 相对亮度」那条合取项——批量场景请自行核对触发频率。另一侧，.brightness 是加性通道偏移、与相对亮度不是同一个量——实测 .brightness(0.08) 在 gray 0.85 上的 ΔrelLum 是 0.1286。压制它的理由是用户显式打开了「减弱闪烁灯光」。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "snapshot",
+      "notes": "视图像即显相纸那样出现：一下快门白场，随后从洗白的低对比逐渐显影。含参重载 .snapshot(intensity:) 与无参按 Host.member 去重算同一条。白场是升余弦窗，中心在进度 0.75、半宽 0.25 ⇒ 两个可达相位上恒为 0，绘制层必须 Animatable。与 filmExposure 走同一道闸、同一个上限（只读 accessibilityDimFlashingLights，峰值压到 0.08）；它是全簇最陡的一次亮度上冲，故幅度这一侧比 filmExposure 更该管。压制后显影与淡出保留。同样声明 properties = TransitionProperties(hasMotion: false)，否则「有意不读 Reduce Motion」这条裁决会被框架的默认替换推翻。0.08 是产品策略线而非 WCAG 达标线，口径与 filmExposure 逐字相同：快门窗 0 → 峰 → 0 同样构成一次 general flash，单次不违规靠的是「任意一秒内不超过 3 次」这条频率线而不是「单向」；一秒内触发 4 次以上（批量插入 / 网格逐格出现）就越线，届时 full 档 0.7 的峰值幅度也远高于 10% 那条合取项，批量场景请自行核对触发频率。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "flicker",
+      "notes": "视图像接触不良的灯管那样忽明忽暗地出现/消失。含参重载 .flicker(cycles:) 与无参按 Host.member 去重算同一条。不透明度曲线在两个可达相位上分别是 1 与 0，每一次明暗全靠 SwiftUI 对 animatableData 的插值 ⇒ 绘制层必须 Animatable。全簇唯一同时读两个 a11y 信号的：accessibilityDimFlashingLights 是 WCAG 2.3.1 点名的正确信号，accessibilityReduceMotion 也读是因为往复本身属「重复的非必要动画」，两者取或（各自独立的系统开关）；压制后 cycles 归 0、退化为单调淡出，转场仍然发生。频率由本转场自己钉死：FlickerChrome 用 .animation(_:value:) 把时长钉在 FlickerPace.duration(cycles:) = max(0.35, cycles / 2.5) 上，感知频率恒 ≤ 2.5 次/秒（WCAG 2.3.1 的 3 次/秒线下留余量），与调用方 withAnimation 的时长无关；默认 3 次 ⇒ 1.2 秒。代价：调用方对本转场的时长失去控制；时序本身在 macOS 单测里不可观测（判据只覆盖速率比值与那一行 .animation 的逐字形状），靠 #Preview 人工确认，且 macOS 与 iOS 两侧都要做——本轮的逐帧 wall-clock 实测只在 macOS 上做过；duration(cycles:) 无上界，.flicker(cycles: 1000) 给出 400 秒的转场（观感接近卡死），有意不钳位（钳分母会把速率抬过 2.5 次/秒线，钳 cycles 会让入口点静默忽略调用方的值），该极端由 flickerPaceStaysUnderTheFlashRateLimit 逐字钉住。properties 取 hasMotion: false 是显式裁决——留 true 会让那道手写 a11y 闸在 Reduce Motion 路径上变成死代码。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
       "member": "iris",
       "notes": "圆形光圈从 anchor（默认中心）向外张开，半径自动取到最远角故任何 anchor 都能铺满内容。走 clipShape 纯几何裁剪而非 alpha 遮罩：本仓没有现成的保证 α=1 的可用颜色（contentPrimary 实测 α≈0.8471，black/white 被 EffectsColorLiteralGuard 判红，ColorGrade 在 macOS 单测下全透明），遮罩少一档不透明度不会报错只会静默变淡——但⚠️遮罩路线并非不可行，只是代价更高（在 Sources/CoreDesign/Colors/ 新开一个第 3 层不透明 token 不会命中该守卫，已有 specularHighlight 先例），⇒ 选裁剪的真正理由是可判据性（Path.contains 是不经渲染栈、两端平台一致的纯函数，alpha 遮罩只能靠位图比对）。完整记账见 MaskReveal.swift 文件头与 docs/components/mask-reveal-transitions.md。含参重载 .iris(anchor:) 与无参 .iris 按 Host.member 去重算同一条。"
     },

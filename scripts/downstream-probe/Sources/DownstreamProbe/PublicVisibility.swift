@@ -431,6 +431,30 @@ struct CrossPlatformProbeItem: Identifiable {
     let name: String
 }
 
+// MARK: - CoreDesignEffects：#266 的四种滤镜类转场
+
+// ⚠️ 四个 `Transition` 静态成员都要**经点语法**触达（`.transition(.blur)`），
+// 不能写 `Transition.blur`——该静态成员定义在
+// `extension Transition where Self == BlurTransition` 上，经协议元类型访问会报
+// `static member 'blur' cannot be used on protocol metatype '(any Transition).Type'`
+// （同本文件 `consumeCircularGlassAccessor` 记的那条）。
+// ⚠️ 含参与无参两条重载**都**要覆盖：它们按 `Host.member` 去重算同一条转场，
+// 但**可见性是各自独立的**——只覆盖一条，另一条漏了 `public` 时 probe 照样绿。
+// 四个默认值常量（值类型那一档）在 `EffectsNonisolatedUsage.swift`。
+@MainActor
+func consumeFilterTransitions() -> some View {
+    VStack {
+        Text(verbatim: "blur").transition(.blur)
+        Text(verbatim: "blur+").transition(.blur(radius: 8))
+        Text(verbatim: "exposure").transition(.filmExposure)
+        Text(verbatim: "exposure+").transition(.filmExposure(intensity: 0.4))
+        Text(verbatim: "snapshot").transition(.snapshot)
+        Text(verbatim: "snapshot+").transition(.snapshot(intensity: 0.5))
+        Text(verbatim: "flicker").transition(.flicker)
+        Text(verbatim: "flicker+").transition(.flicker(cycles: 4))
+    }
+}
+
 // MARK: - CoreDesignEffects：#268 的六个 API 单位（mask reveal 转场簇）
 
 // ⚠️ 六种转场各有「无参 `var`」与「含参 `func`」两个静态成员（登记表按 `Host.member`
