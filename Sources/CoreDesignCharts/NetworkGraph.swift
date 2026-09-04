@@ -348,11 +348,17 @@ public struct NetworkGraph<Node: GraphNode>: View {
                 // 第 5 轮）：`key` 里存的就是这一批；各自重算既是 body 求值期的重复扫描，
                 // 也让「画出来的边」与「喂给解算器的边」在理论上可能分叉。
                 Path { path in
+                    // ⚠️ 基准的存活读数（见 `NetworkGraphRenderProbe`）：数的是
+                    // **真的落笔画了边**的帧 —— 解算落定之前 `layout` 是空的，
+                    // 这个循环一条都画不出来，那时候采样等于量空屏。
+                    var drawn = 0
                     for edge in key.edges {
                         guard let a = layout[edge.from], let b = layout[edge.to] else { continue }
                         path.move(to: a)
                         path.addLine(to: b)
+                        drawn += 1
                     }
+                    if drawn > 0 { NetworkGraphRenderProbe.recordDrawnFrame() }
                 }
                 .stroke(Color.dividerDefault, lineWidth: CoreBorderWidth.hairline)
 
@@ -580,4 +586,30 @@ extension NetworkGraph: AXChartDescriptorRepresentable {
     return NetworkGraph(nodes: nodes, edges: edges)
         .frame(height: 300)
         .padding()
+}
+
+// MARK: - 渲染存活读数（基准专用观测点）
+
+/// `NetworkGraph` **真的把边画出来了**的帧数。
+///
+/// ⚠️⚠️ **它存在的唯一理由是让 NFR-1 基准的 networkGraph 腿有一个「被测对象在不在画」
+/// 的读数**（`#256` PR #294 终审 C-2）。那一轮评审把宿主的 `body` 换成 `Color.clear`、
+/// 跑**未改动的**基准脚本，三条腿照样 `PERF-VERDICT: PASS` ——
+/// 「什么都不渲染」与「渲染得很流畅」在输出上**不可分辨**。
+///
+/// ⚠️ **本组件没有 `TimelineView`**（`grep -c TimelineView` = 0），布局是一次性
+/// `.task(id:)` 派到 `Task.detached`，落定后视图完全静止、逐帧零工作。⇒ 基准若在
+/// 解算落定**之前**开采，量到的是空 canvas；若在落定**之后**开采而画面静止，
+/// 量到的是空闲主线程。两种失效形态都靠这个读数区分：它只在**画了边的那一帧**自增。
+///
+/// ⚠️ **`@_spi` 而不是普通 `public`**：这是仪器，不是图表的 API 面。
+@_spi(CoreDesignBenchmark)
+public nonisolated enum NetworkGraphRenderProbe {
+
+    nonisolated(unsafe) private static var counter = 0
+
+    /// 至今画出过边的帧数。基准取**窗口前后的差值**。
+    public static var drawnFrames: Int { Self.counter }
+
+    static func recordDrawnFrame() { Self.counter &+= 1 }
 }

@@ -260,6 +260,34 @@ struct ConfettiLayer: View {
     }
 }
 
+// MARK: - 渲染存活读数（基准专用观测点）
+
+/// `ConfettiCanvas` **真的画出了粒子**的帧数。
+///
+/// ⚠️⚠️ **它存在的唯一理由是让 NFR-1 基准的 confetti 腿有一个「被测对象在不在画」的
+/// 读数**（`#256` PR #294 终审 C-2）。那一轮评审把 `App` 宿主里的 `.confetti(trigger:)`
+/// 整句删掉、跑**未改动的**基准脚本，三条腿照样 `PERF-VERDICT: PASS` ——
+/// 「什么都不渲染」与「渲染得很流畅」在输出上**不可分辨**。
+/// 对照组早就有 `bodyEvaluations` 这个读数（那正是初版 `bodyEvaluations=1` 抓到
+/// 「渲染循环没转」的方式），两条 feature 腿却没有 ⇒ 补齐同形的读数。
+///
+/// ⚠️ **`@_spi` 而不是普通 `public`**：这是仪器，不是设计系统的 API 面。
+/// 只有 `@_spi(CoreDesignBenchmark) import CoreDesignEffects` 的调用方看得见它，
+/// 普通下游的补全列表里不出现。
+///
+/// ⚠️ **只在「至少填了一片彩纸」时自增**：`Canvas` 在 `count == 0` /
+/// 全透明时也会被渲染，按「渲染了几次」计数会把空画布也算成活的。
+@_spi(CoreDesignBenchmark)
+public nonisolated enum ConfettiRenderProbe {
+
+    nonisolated(unsafe) private static var counter = 0
+
+    /// 至今画出过粒子的帧数。基准取**窗口前后的差值**。
+    public static var drawnFrames: Int { Self.counter }
+
+    static func recordDrawnFrame() { Self.counter &+= 1 }
+}
+
 // MARK: - 绘制层
 
 /// 给定进度画出一帧彩纸。**不读时间**——因此可以被单测钉在任意进度上渲染。
@@ -281,6 +309,9 @@ struct ConfettiCanvas: View {
         let progress = self.progress
 
         Canvas { context, size in
+            // ⚠️ 基准的存活读数（见 `ConfettiRenderProbe`）：数的是**画出了粒子**的帧，
+            // 不是 `Canvas` 被渲染的次数。
+            var filled = 0
             for index in 0..<max(0, count) {
                 let particle = ConfettiBurst.particle(at: index, count: count)
                 let alpha = ConfettiBurst.opacity(of: particle, progress: progress)
@@ -305,7 +336,9 @@ struct ConfettiCanvas: View {
                     // 同一帧在 `.tint(.red)` 与 `.tint(.blue)` 下位图必须不同。
                     with: .style(colors.particleStyle(at: index))
                 )
+                filled += 1
             }
+            if filled > 0 { ConfettiRenderProbe.recordDrawnFrame() }
         }
     }
 }

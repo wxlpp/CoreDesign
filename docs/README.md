@@ -94,7 +94,7 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 ## 动效与图表索引 / Effects & Charts Index
 
 `CoreDesignEffects`（36 个）与 `CoreDesignCharts`（4 个）的 API 单位。由
-`shipswift-effects` epic（#241）落地，逐单位说明见各自的 `components/*.md`。
+`shipswift-effects` epic（#242）落地，逐单位说明见各自的 `components/*.md`。
 
 > ⚠️ **落点说明（`#256`）**：本节**刻意不在上面的「## 组件索引」小节之内**，
 > 与 AD-4《下游连锁三》写的「三个 target 全部进主索引」不同 —— **那条的前提没有兑现**。
@@ -141,7 +141,6 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 | skid | `.transition(.skid)` / `.skid(edge:travel:)` | [skid-transition.md](components/skid-transition.md) |
 | move（极坐标） | `.transition(.move)` / `.move(angle:distance:)` | [move-transition.md](components/move-transition.md) |
 | iris / wipe / blinds / clock / glare / dissolve | `.transition(.iris)` … 六种各有无参与含参两个入口 | [mask-reveal-transitions.md](components/mask-reveal-transitions.md) |
-| particle | `.transition(.particle)` / `.particle(count:colors:)` | [particle-transition.md](components/particle-transition.md) |
 
 > ⚠️ `.move` 与 SwiftUI 自带的 `.move(edge:)` 是**重载**而不是覆盖（本仓的类型叫
 > `PolarMoveTransition`，不叫 `MoveTransition`）。这条契约由
@@ -149,6 +148,12 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 > 库内守不住 —— 理由见该文件。
 > 3D 与弹性那一簇（flip / rotate3D / swoosh / boing / skid / move）另有一份合并说明：
 > [transition-cluster-3d-elastic.md](components/transition-cluster-3d-elastic.md)。
+>
+> ⚠️ **`particle` 按入口是转场，但它归在下面的「文本与展示」组里数**（PR #294 终审 S-4）。
+> 上一版把它**同时**列进本表与「文本与展示」⇒ 本表标题写「16 种」而实际列了 17 个单位，
+> 且与 `ACKNOWLEDGEMENTS.md`《逐单位归档》的分组（转场 16 / 文本与展示 4，
+> `ParticleTransition` 在后者）对不上。而「36 + 4 = 40」这个算术在本 epic 里是承重的
+> ——两处重复计一个单位会把 40 变成 41。⇒ 以归档表为准，本表只列 16 种。
 
 ### 庆祝与处理中 / Celebration & processing
 
@@ -166,7 +171,7 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 | TypewriterText | `TypewriterText(_:speed:)` / `TypewriterText(verbatim:speed:)` | [typewriter-text.md](components/typewriter-text.md) |
 | AnimatedMeshGradient | `AnimatedMeshGradient(colors:alternateColors:)` | [animated-mesh-gradient.md](components/animated-mesh-gradient.md) |
 | BeforeAfterSlider | `BeforeAfterSlider(labels:before:after:)` | [before-after-slider.md](components/before-after-slider.md) |
-| ParticleTransition | 见上「转场」表的 `particle` 行 | [particle-transition.md](components/particle-transition.md) |
+| ParticleTransition | `.transition(.particle)` / `.particle(count:colors:)` | [particle-transition.md](components/particle-transition.md) |
 
 ### 跨平台改造 / Cross-platform rewrites（AD-E）
 
@@ -190,10 +195,24 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 
 `./scripts/run-perf-benchmark.sh` 把 Confetti（默认粒子数）与 NetworkGraph（声明的节点 /
 边上限）放进**真实运行的 App** 里，用 `CADisplayLink` 采样帧间隔并按「掉帧率 ≤ 5%」判定。
+第一条腿是**对照组**（每帧主线程死等 40 ms），它必须被判为掉帧 —— 否则这把秤是坏的。
+
+每条 `[perf]` 行带三样必须连带看的读数（PR #294 终审 C-1 / C-2 / I-1）：
+
+- `bodyEvaluations=` / `drawnFrames=` —— 被测对象在窗口内**真的干了活**的次数。
+  低于下限直接判红。⚠️ 它存在的理由是一次实测：上一版把 `.confetti(trigger:)` 删掉、
+  把 NetworkGraph 宿主换成 `Color.clear`，同一个脚本**照样三条全 PASS**。
+- `budget=` / `threshold=` —— **运行时实测**的帧预算与门槛（取 `CADisplayLink.duration`），
+  不再写死 1/60。
+- `graph-input: … uniqueUndirected=` —— NetworkGraph 那条腿真的喂进了 600 条**不重复的
+  无向边**（`NetworkGraph` 按无向去重且先于一切进行；上一版的生成式在 mod 150 下
+  实际只有 147 条唯一边）。输入退化会在开跑之前判红。
 
 ⚠️ **Simulator 上跑绿不构成 NFR-1 达标证据**（PRD 钉的是「iPhone 15 满帧」，
 Simulator 没有真实 GPU 调度）。真机跑法见脚本头部注释。
 ⚠️ **截至 `#256` 合入，真机那一次尚未执行。**
+⚠️ **本脚本不在任何 CI 腿里**（`App/` 整个不在 CI 里，见 `.github/workflows/ci.yml`）
+—— 上面那类回归只能靠有人手跑它才会被发现。
 
 ## 运行演示应用 / Running the Preview App
 

@@ -20,6 +20,23 @@ set -euo pipefail
 # 而 Confetti / NetworkGraph 的全部开销正来自那条循环。
 # ⇒ 基准必须跑在**正常启动的 App** 里。详见 `App/Sources/PerformanceBenchmark.swift` 文件头。
 #
+# ## 怎么知道「PASS」不是空跑出来的（PR #294 终审 C-1 / C-2）
+#
+# 上一版三条判词全 PASS，而评审把 `.confetti(trigger:)` 删掉、把 NetworkGraph 宿主的
+# body 换成 `Color.clear`，跑**同一个脚本**照样全 PASS —— 「什么都不渲染」与
+# 「渲染得很流畅」不可分辨。现在每条 `[perf]` 行都带三样可核对的读数：
+#
+#   · `bodyEvaluations=` / `drawnFrames=` —— 被测对象在窗口内**真的干了活**的次数；
+#     低于 `minimumLiveness` 直接判红（上面那两枚变异现在都会打出 `drawnFrames=0`）。
+#   · `budget=` / `threshold=` —— **运行时从 `CADisplayLink.duration` 实测**的帧预算
+#     与门槛，不再写死 1/60（120 Hz 屏上写死 25 ms 门槛 = 3 倍预算，
+#     一台每两帧掉一帧的设备会报 0.0%）。
+#   · `graph-input: … uniqueUndirected=` —— NetworkGraph 那条腿**真的喂进了 600 条
+#     不重复的无向边**。上一版的生成式在 mod 150 下产生 147 条唯一边，
+#     「恰好用声明的上限」是假的；现在输入退化会在跑之前就判红。
+#
+# ⚠️ 读到 `PERF-VERDICT: PASS` 时，请连带看这三样读数是否合理 —— 判词只是它们的函数。
+#
 # ## 跑法
 #
 #   # Simulator（趋势参考；不构成 NFR-1 证据）
@@ -138,7 +155,18 @@ echo "完整日志：${LOG}"
 # stdout 里一行 `[perf]` 都没有，只查 "FAIL" 不存在会让脚本静默返回 0
 # —— 那正是本仓反复记在案的「零输出 ⇒ 零违规 ⇒ 绿」。
 if ! grep -q "PERF-VERDICT:" "${LOG}"; then
-  echo "❌ 日志里没有 PERF-VERDICT —— App 没跑起来或提前崩了，这不是「通过」" >&2
+  echo "❌ 日志里没有 PERF-VERDICT —— 这不是「通过」" >&2
+  echo "   排查顺序（⚠️ 不要一上来就当成「App 没跑起来」）：" >&2
+  echo "   1. 日志里有没有任何 [perf] 行？有 ⇒ App 跑了，是**输出被吞**，不是没启动。" >&2
+  if [ "${PERF_PLATFORM}" = "device" ]; then
+    echo "   2. 真机路径用的是 \`devicectl … --console\`（它没有 --console-pty），" >&2
+    echo "      而 App 在打完判词后会自行 exit()（PerformanceBenchmark.swift 末尾）" >&2
+    echo "      —— Simulator 那条路径正是因为 --console 会吞掉最后几行才改用 --console-pty。" >&2
+    echo "      ⚠️ 这条路径**至今未被真机行使过**（`#256` 合入时实现者没有物理设备）。" >&2
+    echo "      若日志停在 [perf] 的中间几行，先怀疑吞输出，再怀疑启动失败。" >&2
+  else
+    echo "   2. 一行 [perf] 都没有 ⇒ 才是 App 没起来 / 提前崩了。看上面的 simctl 输出。" >&2
+  fi
   exit 3
 fi
 if grep -q "PERF-VERDICT: FAIL" "${LOG}"; then

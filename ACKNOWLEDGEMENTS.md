@@ -85,7 +85,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### 逐单位归档：`shipswift-effects` 的 40 个 API 单位（`#241`，由 `#256` 补录）
+### 逐单位归档：`shipswift-effects` 的 40 个 API 单位（`#242`，由 `#256` 补录）
 
 **全部 40 个单位归入「参考算法思路」档**，不涉及「较大段落移植」。
 
