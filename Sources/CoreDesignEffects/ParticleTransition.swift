@@ -100,15 +100,24 @@ struct ParticleTransitionChrome: ViewModifier {
             return AnyView(content.opacity(ParticleBurst.contentOpacity(phase: phase)))
         }
 
+        // ⚠️ **恒等相位（`progress == 0`）与空粒子数直接跳过整层**（PR #273 Copilot inline）：
+        // `.identity` 是转场停住后**长期**停留的那一帧，而 `ParticleBurst.opacity` 在
+        // `progress == 0` 上恒为 0 ⇒ 上一版仍会建一个 `Canvas`、在里面空跑 `count` 次
+        // 循环只为逐颗 `alpha == 0` 早退。⇒ 在建层之前就判掉。
+        // ⚠️ 这**不改变**任何一帧的像素（`identityFrameDrawsNothing` 仍然逐字节相等），
+        // 只是把常驻态的空转去掉。
+        let progress = ParticleBurst.progress(phase: phase)
+        let drawsParticles = progress > 0 && self.count > 0
+        let count = self.count
+        let colors = self.colors
+
         return AnyView(content
             .scaleEffect(ParticleBurst.contentScale(phase: phase))
             .opacity(ParticleBurst.contentOpacity(phase: phase))
             .overlay {
-                ParticleBurstLayer(
-                    progress: ParticleBurst.progress(phase: phase),
-                    count: self.count,
-                    colors: self.colors
-                )
+                if drawsParticles {
+                    ParticleBurstLayer(progress: progress, count: count, colors: colors)
+                }
             })
     }
 }
