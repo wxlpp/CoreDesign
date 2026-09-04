@@ -26,8 +26,15 @@ import SwiftUI
 ///
 /// - **取色只有三个合法来源**（AD-D）⇒ 不许写 `Color(red:green:blue:)`，
 ///   `EffectsColorLiteralGuard` 对数值构造直接判红；
-/// - 插值改走 SwiftUI 自己的 `Color.mix(with:by:)`（iOS 18+ / macOS 15+）
+/// - 插值改走 SwiftUI 自己的 `Color.mix(with:by:in:)`（iOS 18+ / macOS 15+）
 ///   ⇒ **不需要**把颜色拆成分量，那个 UIKit 依赖连同它的平台分支一起消失。
+///
+/// ⚠️ **这不是"照录上游"，是一处有意的分歧**：`mix` 走 `.perceptual`（Oklab 系），
+/// 上游的分量 lerp 等价于 `.device`；且**半透明色板下两者性质不同**
+///（`mix` 保留不透明色的 RGB、只 lerp alpha：`opaque × clear @ .5` 实测
+/// `r=1.0, a=0.5`；分量 lerp 会连 RGB 一起 lerp）⇒ 传 `.accent.opacity(0.3)`
+/// 这种色板的调用方会看到与上游**不同**的中间调。逐条记在
+/// `docs/components/dot-sphere.md` 的《与上游的有意分歧》一节。
 ///
 /// ⇒ 三维投影本身是纯算术，本来就与 UIKit 无关。**本文件与两个球面件在 macOS 上
 /// 与 iOS 上是同一份代码**，不是"能编译但空转"。
@@ -213,12 +220,21 @@ nonisolated enum SphereField {
 
     /// 本点该用的颜色。**空色板返回 `nil`** ⇒ 绘制层改用调用方的 `.tint`（FR-8）。
     ///
-    /// ⚠️ 插值走 SwiftUI 的 `Color.mix(with:by:)`，**不拆分量**——见类型文档。
+    /// ⚠️ 插值走 SwiftUI 的 `Color.mix(with:by:in:)`，**不拆分量**——见类型文档。
+    ///
+    /// ⚠️⚠️ **色彩空间显式写出来，不吃 SwiftUI 的默认值**（PR #274 终审 I-3）：
+    /// `mix` 的默认是 `.perceptual`（Oklab 系），而上游 `UIColor.getRed` + 分量 lerp
+    /// 等价的是 `.device`。两者**中间调肉眼可辨**（实测 red→blue @ t=0.5：
+    /// perceptual `r=0.673 g=0.474 b=0.659`、device `r=0.500 g=0.376 b=0.618`
+    /// ——device 经过一段发闷的深紫，perceptual 保色度）。
+    /// ⇒ 本仓**有意选 perceptual**（换色是一次观感过渡，保色度更像"洗过去"一层色），
+    /// 但那是一条**裁决**，不能留给一个隐式默认：Apple 哪天改了默认值，
+    /// 这里会静默换掉观感而没有任何东西变红。逐条见 `docs/components/dot-sphere.md`。
     static func tone(palette: [Color], wave: Wave, progress: Double) -> Color? {
         guard !palette.isEmpty else { return nil }
         let base = palette[wave.base % palette.count]
         let next = palette[wave.next % palette.count]
         guard base != next else { return base }
-        return base.mix(with: next, by: min(max(0, progress), 1))
+        return base.mix(with: next, by: min(max(0, progress), 1), in: .perceptual)
     }
 }

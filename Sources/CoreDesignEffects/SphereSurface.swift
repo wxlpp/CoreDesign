@@ -77,7 +77,10 @@ struct SphereSurface: View {
             injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
         )
         // ⚠️ 两道闸的顺序在这个纯函数里，不在这里（先 NFR-7 能耗闸、再 Reduce Motion 闸）。
+        // ⚠️ 第三道闸是"自转周期非法"：`rotationPeriod <= 0` 的调用方要的就是**静止**，
+        // 建一个每帧产出同一张图的 `TimelineView` 纯属白烧电（PR #274 终审 I-4）。
         let presentation = state.presentation(reduceMotion: self.reduceMotion)
+            .frozenIfPeriodIsDegenerate(self.rotationPeriod)
 
         // ⚠️ **单出口**：分支只发生在这个 `switch` 内部（同 `AnimatedMeshGradient`）。
         switch presentation {
@@ -166,20 +169,19 @@ struct SphereSurfaceBody: View {
             limit: self.mark.countLimit
         )
 
-        Group {
-            if self.colors.isEmpty {
-                // 空色板 ⇒ 调用方的 `.tint` + 一张 alpha 遮罩（同 `AnimatedMeshBody` 的手法）。
-                // **本件不凭空造色相**，只把调用方那一个色相铺成有景深的点云。
-                Rectangle()
-                    .fill(.tint)
-                    .mask { self.canvas(total: total) }
-            } else {
-                self.canvas(total: total)
-            }
-        }
-        // 球面点云是**纯装饰**（FR-13）：它不承载任何语义，语义由它背后 / 上面的内容提供。
-        .accessibilityHidden(true)
-        .allowsHitTesting(false)
+        // ⚠️⚠️ **不再走 `Rectangle().fill(.tint).mask { … }`**（PR #274 终审 C-2）：
+        // 那一版用 `Color.primary` 当遮罩色，注释宣称"`.primary` 恒不透明、与写死白色等效"
+        // ——**实测为假**：`Color.primary.resolve(in:)` 在明暗两端都给 `a = 0.8471`
+        //（它映射到 `label` / `labelColor`）。`mask` 吃 alpha ⇒ `.tint` 那条路上
+        // 每个点的实际不透明度是 `0.8471 × alpha(depth:)`，近侧的点**从来不是**
+        // `maximumAlpha` 那个常量选来的"实"，而且与显式色板那条路差了 15%
+        //（后者走 `tone.opacity(alpha)`，满量程）。位图判据全是 `a != b` ⇒ 抓不到。
+        // ⇒ 直接用 `.tint` 给 `Canvas` 上色（`Color.white` 被 `EffectsColorLiteralGuard` 禁），
+        // 顺带去掉一层离屏合成。判据：`CrossPlatformRenderTests.tintPathMatchesSinglePalette`。
+        self.canvas(total: total)
+            // 球面点云是**纯装饰**（FR-13）：它不承载任何语义，语义由它背后 / 上面的内容提供。
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
     }
 
     private func canvas(total: Int) -> some View {
@@ -198,16 +200,18 @@ struct SphereSurfaceBody: View {
                     elevation: SphereField.elevation(of: unit),
                     timeInCycle: self.wave.timeInCycle
                 )
-                // ⚠️ 空色板时用 `Color.primary` 画**遮罩**：`mask` 吃的是 alpha 通道，
-                // `.primary` 恒不透明，与写死白色等效但它是语义色。
+                // ⚠️ 空色板 ⇒ 直接拿调用方的 `.tint` 上色（**不凭空造色相**，
+                // 只把调用方那一个色相铺成有景深的点云）；非空色板 ⇒ 用色板里那一档。
+                // 两条路都只叠**一次** `alpha(depth:)`，量程逐字相同。
+                let alpha = SphereField.alpha(depth: projected.depth)
                 let tone = SphereField.tone(palette: self.colors, wave: self.wave, progress: progress)
-                let paint = (tone ?? Color.primary).opacity(SphereField.alpha(depth: projected.depth))
+                let paint = tone.map { AnyShapeStyle($0.opacity(alpha)) } ?? AnyShapeStyle(.tint.opacity(alpha))
 
                 switch self.mark {
                 case let .dots(diameter):
                     let d = max(1, diameter * projected.depth)
                     let box = CGRect(x: projected.x - d / 2, y: projected.y - d / 2, width: d, height: d)
-                    context.fill(Path(ellipseIn: box), with: .color(paint))
+                    context.fill(Path(ellipseIn: box), with: .style(paint))
                 case let .glyphs(glyphs, fontSize):
                     guard !glyphs.isEmpty else { continue }
                     let glyph = glyphs[SphereField.glyphSlot(index: index, glyphCount: glyphs.count)]
