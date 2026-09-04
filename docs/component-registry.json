@@ -1044,6 +1044,42 @@
       "host": "Transition",
       "member": "particle",
       "notes": "视图进出时内容轻微缩放淡出、一圈粒子向外飞散（进入时反向汇聚）。含参重载 .particle(count:colors:) 与无参 .particle 按 Host.member 去重算同一条（计数单位是「一种 transition」）。colors 默认空数组 ⇒ 取调用方 .tint，与 spray / confetti 共用 [Color].particleStyle(at:)，不自带色板；Reduce Motion 下走早退，不放粒子也不缩放，只留内容自身的淡入淡出——不是 no-op；identity 相位进度恒为 0，一颗粒子都不画，转场结束后不留残留。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "flip",
+      "notes": "视图像卡片一样翻面：带透视的 3D 旋转（两端 ±90°，有符号 ⇒ 进出两侧朝相反方向转）+ 淡入淡出。含参重载 .flip(axis:) 与无参 .flip 按 Host.member 去重算同一条（计数单位是「一种 transition」）。轴走共享的 TransitionAxis3D，与 rotate3D 同一份。层 3 的 FlipMotion conform Animatable、animatableData 绑在有符号相位值上，中间帧才来自 SwiftUI 插值而不是端点跳变；Reduce Motion 下旋转经三元门控到 0°，只剩 TransitionCurve.opacity 那条淡入淡出（不是 no-op），文件在 approvedFormTwo 名单上、有意不走早退。恒等相位精确归零，转场停住后与裸内容逐字节相同。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "rotate3D",
+      "notes": "视图绕任意轴翻滚并向纵深退一点：角度由调用方给（默认 75°，与 flip 钉死的 90° 有意错开）、轴走共享的 TransitionAxis3D（默认斜向）。含参重载 .rotate3D(angle:axis:) 与无参 .rotate3D 按 Host.member 去重算同一条。旋转与缩放各自带 Reduce Motion 三元门控——「缩放也算运动」正是 #250 第 1 轮 Jump 的原缺陷形态（offset 门控了、scaleEffect 没门控而守卫全绿）；降级后剩下的恰好是纯淡入淡出，由位图判据与只加 .opacity 的对照组逐字节比较。层 3 conform Animatable，绑有符号相位值。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "swoosh",
+      "notes": "穿行转场：从 edge 那一侧进来、朝对侧出去（位移取有符号相位值），途中带正比于行程的动态模糊与沿运动方向的拉伸。含参重载 .swoosh(edge:travel:) 与无参 .swoosh 按 Host.member 去重算同一条。与同侧进出的 move / skid 语义分界写在类型文档里，别合并成一个带 Bool 开关的转场。模糊与 scaleEffect(x:y:) 都不在 MicroInteractionReduceMotionGuard.motionCalls 的关键字表里，守卫看不见它们 ⇒ 三处一并三元门控，由「降级帧与纯淡入淡出对照组逐字节相同」那条位图判据兜底。行程走共享的 TransitionTravel 档位。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "boing",
+      "notes": "弹性缩放转场：从小放大、越过原尺寸再回落坐定。含参重载 .boing(strength:) 与无参 .boing 按 Host.member 去重算同一条；强度复用 MicroInteractionStrength 但另有振幅映射（该枚举的 scaleDelta 是 0.06/0.14/0.24，量级是「胀一下」，用作入场缩放等于没做）。过冲只能靠层 3 的 Animatable：只把最终 scale 交给 SwiftUI 插值得到的是两端之间一条直线，缩放永远不超过 1、「弹」从未发生，而纯函数判据对那种实现照样绿 ⇒ 承重判据钉的是渲染出来的中间帧内容面积大于恒等帧。Reduce Motion 下缩放门控到 1，只剩淡入淡出。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "skid",
+      "notes": "刹车打滑转场：从 edge 滑进来、冲过头再刹住，车身跟着甩一个小角度；同侧进出（位移与甩尾共用 TransitionCurve.elastic，它吃的是取过绝对值的 distance）。含参重载 .skid(edge:travel:) 与无参 .skid 按 Host.member 去重算同一条。曲线与 boing 是同一条、只是作用在位移与旋转上，整簇只有一份实现在 TransitionSupport.swift。过冲同样只能靠层 3 的 Animatable 绑有符号相位值。Reduce Motion 下位移与旋转一并门控到恒等值，只剩淡入淡出。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "move",
+      "notes": "沿任意极角（角 + 距离）平移进出，线性、同侧、无附加效果——要过冲用 skid、要穿行加动态模糊用 swoosh。含参重载 .move(angle:distance:) 与无参 .move 按 Host.member 去重算同一条。⚠️ 类型名是 PolarMoveTransition 而不是 MoveTransition：SwiftUICore 已有同名类型与 .move(edge:)，同名会让同时 import 两边的下游歧义，而库自身 swift build 仍是绿的；静态成员仍叫 move，与系统那个按实参标签构成重载而非覆盖，解析表由判据 systemMoveEdgeStillResolvesToSwiftUI 钉住。Reduce Motion 下位移门控到 0，只剩淡入淡出。"
     }
   ]
 }
