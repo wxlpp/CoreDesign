@@ -51,14 +51,32 @@ namespace cd {
 // CC BY-NC-SA——但**低风险 ≠ 已裁定**，本仓的门是正向裁定，故逐项写明出处。
 // 逐项条目已落地在 `docs/shader-provenance.md`（task #249）的《共享原语的逐项出处》与
 // 《清偿条款》两节 —— 本文件涉及的两项在那里各有一行（`wangHash` / Teschner 素数三元组）。
-// ⚠️ 仍未了结的是那两行的**承接 issue 编号**：现为 `TBD`，按该文档的规则
-// 「`TBD` 视为未清偿，合入 `main` 前必须填实」。
+// ⚠️ **承接 issue 编号已填实：#281**（原为 `TBD`；该文档的规则是「`TBD` 视为未清偿，
+// 合入 `main` 前必须填实」）。
+//
+// ⚠️⚠️ **#281 做完许可实查后，上面这段的两处「无许可 / 风险低」需要更正**：
+//   · **Teschner 的三个素数是事实性常数**（已读 VMV 2003 原文 §4.1），义务是学术引用，
+//     不是许可义务 —— 这一半原文说对了；
+//   · ⚠️ **Wang 那一半说错了**。「Wang 的页面无许可声明」属实，但**本文件复制的不是
+//     Wang 的写法**：Wang 与 Bob Jenkins 写的都是 `a = a + (a << 3)`，
+//     而 **Nathan Reed 把它改写成 `seed *= 9`——本文件写的正是后者**。
+//     Reed 的站点页脚逐字：「© 2007–2025 by Nathan Reed. Licensed **CC-BY-4.0**」。
+//     ⇒ **署名 Reed 是许可条件，不是礼节**；另据 Jenkins「So are the ones on
+//     Thomas Wang's page」，算法层本身是公有领域。
+//     ⇒ 本项**已离开 `待追溯`，改判 `已追到兼容许可`**。
 // ⚠️ 此处刻意只写小节名、不写行号 —— 该文档仍在改，行号引用必然失真（前几轮已因此返工两次）。
 
 /// 32-bit 整数雪崩混合。
 ///
 /// ⚠️ **出处：Thomas Wang 的整数 hash，GPU 版本经 Nathan Reed (2013) 传播。**
 /// 逐字符一致，**不是本仓原创**。常数 `0x27d4eb2d` 是它的指纹。
+///
+/// ⚠️⚠️ **许可（#281 一手实查）**：下面第二行写的是 `seed *= 9u`，而
+/// **Wang 与 Bob Jenkins 的原式是 `a = a + (a << 3)`——`*= 9` 是 Reed 的改写**。
+/// ⇒ 本函数复制的是 **Reed 那一份**，而 `reedbeta.com` 页脚逐字
+/// 「© 2007–2025 by Nathan Reed. Licensed **CC-BY-4.0**」⇒ **署名是许可条件**。
+/// 算法层本身据 Jenkins 为**公有领域**（「So are the ones on Thomas Wang's page」）。
+/// ⇒ 义务落在 `ACKNOWLEDGEMENTS.md`：署名 Reed + 链接 CC-BY-4.0 + 注明算法出自 Wang。
 inline uint wangHash(uint seed) {
     seed = (seed ^ 61u) ^ (seed >> 16);
     seed *= 9u;
@@ -125,11 +143,17 @@ inline float valueNoise(float2 p) {
 ///
 /// ⚠️ **出处（第 3 轮终审 I-1；⚠️ 第 4 轮终审 C-1 发现上一轮"已处置"实际没落地——
 /// 我的替换锚点没匹配，而 commit message 却写了已加，本次补上并核对过 diff）**：
+/// ⚠️⚠️ **口径已按 `docs/shader-provenance.md` 的硬前置改（#281 补做——该前置写在
+/// #261 的合入清单里却没落地）**：出处指**算法谱系**，**不再引 The Book of Shaders**。
+/// 理由是那本书的 LICENSE 实查为 `All rights reserved`（「You cannot use this Work in
+/// any commercial or non-commercial product」），**比 Shadertoy 的默认许可还严**
+/// ⇒ 把一个事实性算法绑到那个来源上，是一份没有辩护的书面自认。
+/// 且实查对照后「逐行同构」这个说法**本身就过强**：本实现多了 `total` 累加与
+/// `sum / total` 归一化，`octaves` 也是函数参数而非 `#define OCTAVES`。
 /// `amplitude = 0.5` / `sum += noise(p) * amplitude` / `p *= 2.0` / `amplitude *= 0.5`
-/// 这个循环体与 **The Book of Shaders 第 13 章**及 **iq 的 fBm 文章**逐行同构，
-/// 唯一差异是末尾除 `total` 归一化。
-/// gain 0.5 / lacunarity 2.0 是 fBm 的**定义**，但这段**代码形态**是被转抄最广的
-/// 公开片段之一 ⇒ 与 `wangHash` / `roundedBoxSDF` 同一标准署名，不留白。
+/// **就是 fBm 的定义**（gain 0.5、lacunarity 2.0），属 Mandelbrot–Perlin–Musgrave
+/// 谱系的**事实性算法**（见 Ebert et al.《Texturing & Modeling》），不是某一份
+/// 教学资源的表达 ⇒ **署名对象是算法本身**。
 /// ⚠️ 本文件里其余原语都交代了出处，唯独 fbm 曾一个字没有——而三个 shader 的
 /// 自述第一句都是「FBM + 域扭曲」。
 inline float fbm(float2 p, int octaves) {
@@ -149,7 +173,12 @@ inline float fbm(float2 p, int octaves) {
 ///
 /// ⚠️ **出处：未指认到具体上游**（第 5 轮终审 I-3）。按 #249 的判据，
 /// 「指认不到」**不能写成空白**——空白等于默认原创，而本 PR 已因这个默认吃了四次亏。
-/// ⇒ 登记为**待 #249 正向裁定**，不作原创声称（`docs/shader-provenance.md` 同口径）。
+///
+/// ⚠️ **#281 又追了一轮，仍未指认到**（四种 code-search 措辞 + 两次 web search +
+/// 查了 LYGIA 的 color-ramp 条目，无任何具名作者 / 出版物 / 库发表过这三行结构）。
+/// ⇒ 裁定仍是 **`待追溯`**，分档 **低指纹**（3 行；两段 smoothstep 的分界点由「三档」
+/// 这个需求唯一确定 ⇒ 功能性），承接 issue **#281**。
+/// ⚠️ **「又追了一轮没找到」不等于「原创」**——不作任何原创声称。
 inline half4 ramp3(float v, half4 low, half4 mid, half4 high) {
     half4 lower = mix(low, mid, half(smoothstep(0.0, 0.5, v)));
     half4 upper = mix(mid, high, half(smoothstep(0.5, 1.0, v)));
@@ -159,9 +188,14 @@ inline half4 ramp3(float v, half4 low, half4 mid, half4 high) {
 /// 抗锯齿边宽。⚠️ **必须经此取，不要直接用 `fwidth`**：平坦区域 `fwidth` 可为 0，
 /// 会让 `smoothstep(x - 0, x + 0, …)` 变成 0/0 → NaN（**第 1 轮**终审 I-5）。
 ///
-/// ⚠️ **出处（第 5 轮终审 I-3）**：`max(fwidth(x), ε)` + 下游
-/// `smoothstep(v - aa, v + aa, x)` 是**公开的解析抗锯齿惯用法**（iq 的 distance-AA
-/// 一族），**非本仓原创**，待 #249 收录。
+/// ⚠️⚠️ **归属更正（#281）**：上一版写「iq 的 **distance-AA** 一族」——**该归属不成立**。
+/// #281 逐页 grep 了 iq 的 `distfunctions2d/` `distfunctions/` `functions/` `distance/`
+/// `filterableprocedurals/` 五篇，**`fwidth` 一次都没有出现**；那是凭印象归的属。
+/// 最接近的**具名**发表是 Stefan Gustavson《2D Shape Rendering by Distance Fields》
+/// (OpenGL Insights ch.12, 2011)，其代码自述 "This code is in the public domain."，
+/// **但他写的是 `0.7 * length(vec2(dFdx, dFdy))`，不是同一表达**。
+/// ⇒ 正确的说法是：**无可归属上游的通用惯用法**（1 行；`fwidth` 是内建函数，
+/// 把它夹到 0 以上无表达余地）。裁定 `待追溯`、分档**低指纹**，承接 issue **#281**。
 /// ⚠️ 交叉引用从本行起一律带**轮次**——同一 PR 内已经出现两个不同轮次的 I-5。
 inline float edgeWidth(float x) {
     return max(fwidth(x), 1e-4);
@@ -181,6 +215,18 @@ inline float edgeWidth(float x) {
 /// ⚠️ 上一版这里写「**经典配方**」——那是**没有出处的肯定式借用声明**，正是 #249
 /// 裁定要求转成正向判决的那一类。而 Vandevenne 当时只写进了 `Plasma.swift`，
 /// **函数体所在的文件仍是无出处的**，与本文件确立的「函数体才是受保护的表达」相悖。
+///
+/// ⚠️⚠️ **许可（#281 一手实查）**：plasma 页页脚是 `All rights reserved`，**但那只管散文**。
+/// `https://lodev.org/cgtutor/legal.html` 逐字：「**The source code of QuickCG and all the
+/// source code of the examples given in this tutorial and all its articles is released
+/// under the following license:** … Redistributions of source code must retain the above
+/// copyright notice, this list of conditions and the following disclaimer.」
+/// ⇒ **BSD-2-Clause**，与本仓 MIT 分发兼容。
+/// ⚠️ **义务：`ACKNOWLEDGEMENTS.md` 须保留版权通知 + 两条条件 + 免责声明全文**，
+/// 一句「参考自 Lode 的教程」**不满足**第 1 条。
+/// ⚠️ 同时记下有利的一半：他那组具体取值（中心 `(128,128)`/`(64,64)`/`(192,64)`/`(192,100)`、
+/// 除数 `/8 /8 /7 /8`）**本函数一个都没用**——四项全部参数化、各带不同时间相位
+/// ⇒ 取的是思路层。**通知照给**，成本为零。
 [[stitchable]] half4 coreDesignPlasma(float2 position, half4 currentColor,
                                       float2 size, float time,
                                       float frequency, float octaves,
@@ -204,6 +250,35 @@ inline float edgeWidth(float x) {
 // MARK: - Starfield
 
 /// 网格分格，每格随机放一颗星；亮度按到星心的距离衰减，闪烁由每星独立相位驱动。
+///
+/// ⚠️⚠️⚠️ **本函数已被 `docs/shader-provenance.md` 判为 `不落地`（#281），撤回待 owner 拍板。**
+///
+/// **具名上游（#281 一手追到）**：**Martijn Steinrucken（aka BigWings / *The Art of Code*）
+/// 的《Starfield Tutorial》(2020)**。其源码头逐字：
+/// `// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.`
+/// ⇒ **CC BY-NC-SA 3.0 与 CoreDesign 的 MIT 分发不兼容**（既禁商用，又有传染性 share-alike）。
+///
+/// **对应关系**（≈13 行中 5 行）：`cell = floor(uv*grid)` ↔ 他的 `vec2 id = floor(uv)`；
+/// `local = fract(uv*grid) - 0.5` ↔ `vec2 gv = fract(uv)-.5`（**逐字对应，只是改名**，
+/// 而本文件已成文「改名不构成独立」）；每格 hash 抖动星心；以及下面那行闪烁相位
+/// ↔ 他的 `star *= sin(u_time*3.+n*6.2831)*.5+1.`（同一构造 `sin(时间·k + hash·TAU)·0.5 + c`）。
+///
+/// ⚠️⚠️ **接触与复制已由本文件自己的注释确立**：文件头记着 `hash21` 第一版用的是
+/// `fract(p * float2(123.34, 456.21)); p += dot(p, p + 45.32)`——**那正是同一份
+/// CC BY-NC-SA 文件里 `Hash21` 的常量，逐字符一致**。hash 层后来换掉了，
+/// **星场本体的结构没有换**。⇒ 不是"碰巧写得像"。
+///
+/// ⚠️ 如实记下相反方向：他最有辨识度的部分（3×3 邻格循环、衍射光芒、`Rot()`、
+/// 6 层视差、`.05/d` 反距离辉光）本函数**一个都没有**；而本函数的 `step(0.55, …)` 熄灭
+/// 门限与 `smoothstep(0.16, 0.0, d)` 圆盘辉光**追不到任何上游**
+/// ⇒ 上一版说"整条级联都是模板的逐项形态"是**过度归因**，已按实测改述。
+///
+/// ⚠️ **证据强度**：`shadertoy.com` 对自动抓取返 403，**未直读原页**；证据是两份互相
+/// 独立的 GitHub 拷贝逐字一致。**人工目视确认 `https://www.shadertoy.com/view/ls3Xzn`
+/// 是执行撤回前的硬 AC**——不利方向的判定更不能只凭二手证据就执行。
+///
+/// ⚠️ **不要"改几行绕过去"**：本文件已成文「改常量、改名不构成独立」。
+/// 走替代方案（重写对应的 5 行而不撤回）须由 owner 显式承担该判断。
 [[stitchable]] half4 coreDesignStarfield(float2 position, half4 currentColor,
                                          float2 size, float time,
                                          float density, float twinkle,
@@ -299,6 +374,16 @@ inline float edgeWidth(float x) {
     // 换成标量。
     // ⇒ 初版注释「偏移常量本仓自定，不沿用 iq 那组」**说的是实话，但不构成独立**
     //   ——本文件上面已写死「改常量不构成独立」。本版不再声称原创。
+    //
+    // ⚠️⚠️ **许可（#281 一手实查）**：`iquilezles.org/articles/warp/` 页面本身无许可声明，
+    // **但它的父页 `https://iquilezles.org/articles/` 有站点级授权**，逐字：
+    // 「**all technical code snippets you'll find are under the MIT license** so you can
+    // easily reuse them, but the mathematical/shader art is protected and requires a
+    // license for use.」⇒ 本段 **`已追到兼容许可 · MIT`**。
+    // ⇒ **本段曾被判「待追溯（强指纹 · 阻断）」，该阻断已解除**——强档的义务是
+    // 「追完前不得合入 `main`」，现在既追到、许可又兼容 ⇒ **义务已兑现，不是被绕过**。
+    // ⚠️ **指纹强不等于不能用，等于必须署名**：`ACKNOWLEDGEMENTS.md` 须转载 MIT 通知并具名 iq。
+    // ⚠️ iq 自述那几个偏移「don't have any special meaning」——**恰恰因此它们是表达而非事实**。
     // ⚠️ 同一问题的弱化版在 `coreDesignFractalClouds` 与 `coreDesignLiquidChrome`（均单级 warp，指纹较弱）。
     float2 q = float2(cd::fbm(p, int(octaves)), cd::fbm(p + 2.73, int(octaves)));
     float2 r = float2(cd::fbm(p + wisp * q + 4.19, int(octaves)),
@@ -341,6 +426,15 @@ namespace cd {
 
 /// 圆角矩形 SDF：内部为负、外部为正、边界为 0。
 ///
+/// ⚠️⚠️ **许可已追到（#281）：iq 站点级 MIT** —— `https://iquilezles.org/articles/` 逐字
+/// 「**all technical code snippets you'll find are under the MIT license**」。
+/// ⚠️ 且**精确来源是 3D 页的单半径 `sdRoundBox`**（`vec3 q = abs(p) - b + r; return
+/// length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;`），本函数是它的 2D 降维；
+/// 2D 页上的 `sdRoundedBox` 是**四半径 `vec4` 变体**，不是这一份。
+/// ⇒ 裁定 **`已追到兼容许可 · MIT`**，义务是转载 MIT 通知 + 具名 iq。
+/// ⚠️ 下面「该页无许可声明」那句是**旧结论，已被上面这条推翻**，保留是为了记住
+/// 教训本身：许可常常不在那篇文章上，而在站点的 `/articles/` 或 `legal.html`。
+///
 /// ⚠️ 这是 iq 2D distance functions 里圆角矩形 SDF 的**标准闭式解**
 /// （`length(max(q,0)) + min(max(q.x,q.y),0) - r`）。
 /// ⚠️ **上一版写「无第二种写法」——与 `valueNoise` 上一轮被判掉的是同一种
@@ -368,6 +462,18 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
 /// 上一版只给 `roundedBoxSDF` 署了 iq，主体留白 ⇒ **空白等于默认原创**，
 /// 而本 PR 已经因为这个默认吃了四次亏。
 /// ⇒ 登记为**待 #249 正向裁定**，不作原创声称；#249 的输入清单必须含本函数。
+///
+/// ⚠️⚠️ **#281 做完了这次追溯，结论有三条，别合并读**：
+/// ① **上面那句「被转抄最广的形态」是没有证据的断言，已被证伪**——逐个读完具名的
+///    SwiftUI-Metal 玻璃库（Inferno / GlassEffect / SwiftUIShaders / LiquidGlass /
+///    LiquidGlassKit / victorBaro/TryMetal / ShipSwift）后，**没有找到这样一族**；
+/// ② **仍未指认到具名上游**。可具名的只有 `cd::roundedBoxSDF`（⇒ iq，MIT）。
+///    ⚠️ **「追不到」不等于「原创」**——裁定仍是 `待追溯`，**不是「自研」**；
+/// ③ **分档由强指纹改判低指纹**：强档判据是「级联结构 / 变量命名保留 / 审美性的参数组合」，
+///    本函数**三条全不成立**——无级联；`edgeness`/`rimBand` 追不到任何来源；
+///    常量只有 `0.5`/`1e-5`/`3.0`/`0.99`，**全部功能性**，逐常量 grep 无物可 grep。
+/// ⚠️ 该改判须在 `epic → main` 的评审上显式确认；不确认则按兜底回落 `不落地`
+/// （撤回范围见 `docs/shader-provenance.md` 的专节）。承接 issue **#281**。
 ///
 /// ⚠️ **不吃时间**：折射由几何驱动，不是动画。按 FR-12，`layerEffect` 类效果冻结时间
 /// 输入、保留空间输入——这里干脆没有时间输入，从根上避开 `Float` 精度坑。

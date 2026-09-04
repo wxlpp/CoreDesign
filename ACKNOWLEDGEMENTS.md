@@ -183,19 +183,60 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 
 | 原语 / 片段 | 来源（URL） | 复制程度 | 许可地位 |
 |---|---|---|---|
-| `wangHash`（`0x27d4eb2d`） | Thomas Wang 整数 hash；GPU 版见 Nathan Reed《Quick And Easy GPU Random Numbers in D3D11》(2013)　`https://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/` | **较大段落移植**（逐字符一致） | ⚠️ **页面无许可声明** ⇒ `待追溯（低指纹）` |
+| `wangHash`（`0x27d4eb2d`） | 算法：Thomas Wang《Integer Hash Function》（页面已失效，Wayback 2007 快照）；「公有领域」的说法出自 Bob Jenkins　`http://www.burtleburtle.net/bob/hash/integer.html`。⚠️ **本仓逐字符复制的是 Nathan Reed 的写法**　`https://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/` | **较大段落移植**（逐字符一致；判别点：Wang/Jenkins 写 `a + (a << 3)`，**Reed 与本仓都写 `*= 9`**） | ⚠️⚠️ **上一版「页面无许可声明」是事实错误（#281 实查推翻）**。Jenkins 逐字：「The hashes on this page … are all public domain. **So are the ones on Thomas Wang's page.**」⇒ 算法层 **PD**；而 Reed 站点页脚逐字「**© 2007–2025 by Nathan Reed. Licensed CC-BY-4.0.**」⇒ **本仓实际复制的那一份是 CC-BY-4.0，署名是许可条件** ⇒ `已追到兼容许可`（⚠️ 取值域缺 `CC-BY` 档，见 provenance 表）|
 | `hash21`/`hash22` 的素数三元组 | Teschner et al. 2003《Optimized Spatial Hashing for Collision Detection of Deformable Objects》（VMV 2003 论文） | 参考算法思路（三个常数） | **事实性常数** ⇒ 可落地 |
 | `valueNoise` | 值噪声的标准形式（嵌套 `mix` 双线性插值 + `smoothstep` 权重） | 参考算法思路 | **教科书算法** ⇒ 可落地 |
+| `hash22` 的第四个素数 `50331653` | SGI STL / libstdc++ 的标准哈希表素数梯（`gcc-mirror/gcc` 的 `libstdc++-v3/include/backward/hashtable.h`：`25165843ul, 50331653ul, 100663319ul, …`） | 参考算法思路（1 个常数） | **事实性常数** ⇒ 可落地。⚠️ **上一版本行缺失**——本文件刚宣布「逐常量 grep 无条件适用」，而一个已知落在具名来源之外的常数就漏在表外（#261 自己记下的遗留项，#281 补入）|
 | `fbm` | **算法本身**：fBm 标准形式（gain 0.5 / lacunarity 2.0），Mandelbrot–Perlin–Musgrave 谱系，见 Ebert et al.《Texturing & Modeling》 | 参考算法思路 | **事实性算法** ⇒ 可落地。⚠️ **见下方 The Book of Shaders 的许可实查** |
-| 域扭曲的 `q`/`r` 三级级联（落地函数 `coreDesignInkSmoke`；组件 `InkSmoke` / `FractalClouds`） | Inigo Quilez《Domain Warping》　`https://iquilezles.org/articles/warp/` | **较大段落移植**（结构 + 变量名保留） | ⚠️ 页面无许可声明 ⇒ `待追溯（强指纹 · 阻断）` |
-| `Plasma` 的四相正弦叠加 | Lode Vandevenne《Lode's Computer Graphics Tutorial — Plasma》　`https://lodev.org/cgtutor/plasma.html` | **较大段落移植**（逐项对应） | ⚠️ 页面无许可声明 ⇒ `待追溯` |
-| `roundedBoxSDF` | Inigo Quilez, 2D distance functions　`https://iquilezles.org/articles/distfunctions2d/` | **较大段落移植**（标准闭式解） | ⚠️ 页面无许可声明 ⇒ `待追溯（低指纹）` |
-| `edgeWidth`（`max(fwidth, ε)` + smoothstep） | iq 的 distance-AA 惯用法（同上页面一族） | 参考算法思路 | **公开惯用法** ⇒ `待追溯（低指纹）` |
+| 域扭曲的 `q`/`r` 三级级联（落地函数 `coreDesignInkSmoke`；组件 `InkSmoke` / `FractalClouds`） | Inigo Quilez《Domain Warping》　`https://iquilezles.org/articles/warp/` | **较大段落移植**（结构 + 变量名保留） | ⚠️⚠️ **上一版「页面无许可声明」是事实错误（#281 实查推翻）**：warp 页本身确无，但其父页 `https://iquilezles.org/articles/` 逐字「**all technical code snippets you'll find are under the MIT license**」⇒ **`已追到兼容许可 · MIT`**。⇒ **强指纹档的阻断义务已兑现**（既追到、许可又兼容），义务转为**转载 MIT 通知 + 具名 iq** |
+| `Plasma` 的四相正弦叠加 | Lode Vandevenne《Lode's Computer Graphics Tutorial — Plasma》　`https://lodev.org/cgtutor/plasma.html`；⚠️ **许可在另一页**：`https://lodev.org/cgtutor/legal.html` | **参考算法思路**（⚠️ **由「较大段落移植」下调**：#281 比对后确认他那组具体取值——中心 `(128,128)`/`(64,64)`/`(192,64)`/`(192,100)`、除数 `/8 /8 /7 /8`——**本仓一个都没用**，四项全部参数化且各带不同时间相位） | ⚠️⚠️ **上一版「页面无许可声明」是事实错误（#281 实查推翻）**：plasma 页页脚确为 `All rights reserved`，但 legal.html **把散文与代码分开授权**，代码逐字为 **BSD-2-Clause** ⇒ `已追到兼容许可`。⚠️ **义务：源码中保留版权通知 + 两条条件 + 免责声明全文**，一句「参考自 Lode 的教程」不满足第 1 条 |
+| `roundedBoxSDF` | Inigo Quilez —— ⚠️ **精确来源是 3D 页的单半径 `sdRoundBox`**　`https://iquilezles.org/articles/distfunctions/`（2D 页上的 `sdRoundedBox` 是四半径 `vec4` 变体，**不是**本仓这一份） | **较大段落移植**（2 行，标准闭式解的 2D 降维） | ⚠️ **上一版「页面无许可声明」是事实错误**：站点级声明见 `https://iquilezles.org/articles/` ⇒ **`已追到兼容许可 · MIT`**，义务是转载 MIT 通知 + 具名 iq |
+| `edgeWidth`（`max(fwidth, ε)` + smoothstep） | ⚠️⚠️ **归属改判：无可归属的上游。** 上一版写「iq 的 distance-AA 惯用法」——**#281 逐页 grep 了 iq 的五篇相关文章，`fwidth` 一次都没出现**。最接近的具名发表是 Stefan Gustavson《2D Shape Rendering by Distance Fields》(OpenGL Insights ch.12, 2011)，其代码自述「This code is in the public domain.」，**但他写的是 `0.7 * length(vec2(dFdx, dFdy))`，不是同一表达** | 参考算法思路（1 行） | **无可归属上游的通用惯用法**（一手读到三份互不相关的独立实现）⇒ `待追溯（低指纹）`，风险低于上一版认定 |
 | `ramp3` | **未指认到具体上游** | **未知（上游未指认）** | `待追溯（低指纹）`——⚠️「指认不到」不等于「原创」 |
-| `coreDesignRefractiveGlass` 的位移 + 通道色散主体（= 组件侧 `Glass`（`RefractiveGlass`）的主体原语） | SwiftUI `layerEffect` "liquid glass" 一族的通行形态，**未指认到具体上游** | **未知（上游未指认）** | ⚠️ `待追溯（强指纹 · 阻断）`——provenance 表自评「指纹强度不低于 `InkSmoke` 的 `q`/`r` 级联」⇒ **阻断 epic→main** |
+| `coreDesignRefractiveGlass` 的位移 + 通道色散主体（= 组件侧 `Glass`（`RefractiveGlass`）的主体原语） | ⚠️⚠️ **上一版「SwiftUI `layerEffect` "liquid glass" 一族的通行形态」经 #281 追溯被证伪——逐个读完具名的 SwiftUI-Metal 玻璃库后，没有找到这样一族。** 仍**未指认到具体上游** | **未知（上游未指认）** | ⚠️ `待追溯`，分档由**强指纹改判低指纹**（三条强档判据逐条不成立；逐常量 grep 零命中）⇒ **不再阻断 epic→main**，⚠️ 但该改判须评审确认。详见 provenance 表专节 |
 
 ⚠️ **许可地位一列已逐行给出，不再有"统一登记"这句**（上一版那句与表格直接打架）。
-无许可正文可转载的行，**明写「页面无许可声明」**而不是留白。
+
+⚠️⚠️⚠️ **#281 的实查结论：上一版有 5 行写着「页面无许可声明」，其中 4 行是事实错误。**
+本文件当时写下「无许可正文可转载的行，**明写"页面无许可声明"**而不是留白」——
+这条规矩本身是对的，**但它被当成了终点**：写下"没找到许可"之后就没有人再去找了。
+实查结果是 **iq（MIT）· Lode Vandevenne（BSD-2-Clause）· Nathan Reed（CC-BY-4.0）
+三家都有真实许可，而且三家都带署名义务**。
+⇒ **规矩补一条：写「页面无许可声明」时必须同时写明"读了哪一页"**
+（许可常常不在那篇文章上，而在站点的 `/articles/` 或 `legal.html`）。
+
+### ⚠️⚠️⚠️ #281 追到的**不兼容**许可：`Starfield`（本文件最重的一条）
+
+上表是**共享原语**层。**shader 本体层出了一件更严重的**，记在这里以免只读本文件的人漏掉：
+
+> **`Starfield`（`coreDesignStarfield`）的上游是 Martijn Steinrucken（BigWings /
+> *The Art of Code*）的《Starfield Tutorial》(2020)，源码头逐字：**
+>
+> ```
+> // Starfield Tutorial by Martijn Steinrucken aka BigWings - 2020
+> // License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+> ```
+>
+> **CC BY-NC-SA 3.0 与 CoreDesign 的 MIT 分发不兼容**（既禁商用，又有传染性 share-alike）。
+
+⚠️ **旁证**：`CoreDesignShaders.metal` 自己的注释记着 `hash21` 第一版是
+`fract(p * float2(123.34, 456.21)); p += dot(p, p + 45.32)` ——**那正是同一份文件里
+`Hash21` 的常量，逐字符一致** ⇒ 接触与复制均有直接证据，不是巧合。
+
+⇒ **裁定 `不落地`**（`docs/shader-provenance.md`《`Starfield` 的追溯》专节）。
+⚠️ **本文件不为 `Starfield` 写署名条目**——署名解决不了 NC 与 share-alike，
+**唯一的出路是不分发它**。⚠️ 撤回尚未执行，由 owner 拍板；在此之前
+**`epic → main` 被本条阻断**。
+
+### ⚠️ #281 新增的三条署名义务（`epic → main` 前必须在本文件落地）
+
+| 权利人 | 许可 | 覆盖的原语 | 义务的**具体形态**（不是"提一下" |
+|---|---|---|---|
+| **Inigo Quilez** | **MIT**（`https://iquilezles.org/articles/` 站点级声明）| `roundedBoxSDF` · 域扭曲 `q`/`r` 三级级联 | 转载 MIT 许可通知全文 + 具名 + 原始 URL |
+| **Lode Vandevenne** | **BSD-2-Clause**（`https://lodev.org/cgtutor/legal.html`）| `Plasma` 的四相正弦叠加 | ⚠️ **保留版权通知 + 两条条件 + 免责声明全文**——BSD 第 1 条逐字要求 "retain the above copyright notice, this list of conditions and the following disclaimer" |
+| **Nathan Reed** | **CC-BY-4.0**（站点页脚）| `wangHash`（本仓复制的是他的 `seed *= 9` 写法）| 署名 Reed + 链接许可；并注明算法本身出自 Thomas Wang（Jenkins 称其为公有领域）|
+
+⚠️ 另有 **Teschner et al. 2003** 的**学术引用**义务（三个素数是事实，不承载许可义务）。
 
 ### ⚠️ The Book of Shaders 的许可实查（本文件最重要的一条）
 

@@ -19,6 +19,24 @@ import SwiftUI
 ///
 /// ⚠️ 与 `Card` 的取舍相反：`Card` 是薄封装、刻意不重造背景；本类型**必须**自带背衬，
 /// 否则效果不成立。
+///
+/// ## Provenance
+///
+/// ⚠️⚠️ **上一版本文件里零 provenance 引用**（`docs/shader-provenance.md` 第 2 轮终审 C-8
+/// 点名：一个已落地组件在对账表上留白 = 本表自己制造了一次「空白等于默认原创」）。
+/// #281 补上：
+///
+/// - ⚠️ **改名记录**：本类型在 `docs/shader-provenance.md` 与 `ShipSwift` 侧的旧名是
+///   **`GlassLogo`**。改名从未记录，导致交叉引用 grep 不到——**两个名字都写在这里**，
+///   以后按 `GlassSymbol` 或 `GlassLogo` 任一都能搜到。
+/// - **本类型没有自己的 shader**：它是 `Image(systemName:)` + 渐变背衬 +
+///   `.refractiveGlass(...)` 的组合 ⇒ **provenance 档位完全随 `RefractiveGlass`**。
+/// - `RefractiveGlass` 的主体原语 `coreDesignRefractiveGlass` 经 #281 追溯**仍未指认到
+///   具名上游**（上一版所称「2025 年 layerEffect "liquid glass" 一族的通行形态」
+///   **已被证伪**——没有找到这样一族）；其调用的 `cd::roundedBoxSDF` 已追到
+///   **Inigo Quilez，MIT**。分档由**强指纹改判低指纹**，不阻断 `epic → main`。
+/// - ⚠️ **本类型不作任何原创声称。** 若 `RefractiveGlass` 在评审时回落 `不落地`，
+///   **本类型随之撤回**（它是唯一的消费者）。
 public struct GlassSymbol: View {
 
     private let systemName: String

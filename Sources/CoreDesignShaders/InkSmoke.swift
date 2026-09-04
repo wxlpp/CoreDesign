@@ -10,7 +10,12 @@ import SwiftUI
 ///
 /// ⚠️⚠️ **不是自研实现**（PR #261 第 2 轮终审 C-2 改判）。逐层交代真实来源：
 /// - **域扭曲的级联结构**派生自 Inigo Quilez《Domain Warping》的公开片段
-///   （三级 `q` / `r` 级联，连变量名都保留；本仓只把倍率参数化、换了偏移常数）；
+///   （三级 `q` / `r` 级联，连变量名都保留；本仓只把倍率参数化、换了偏移常数）。
+///   ⚠️⚠️ **#281 追完了它的许可：iq 站点级 MIT**——`https://iquilezles.org/articles/`
+///   逐字「**all technical code snippets you'll find are under the MIT license**」。
+///   ⇒ 本段 **`已追到兼容许可 · MIT`**，**曾经的「强指纹 · 阻断」已解除**
+///   （强档的义务是"追完前不得合入 `main`"，现在既追到、许可又兼容 ⇒ 义务已兑现）。
+///   ⚠️ **指纹强不等于不能用，等于必须署名**：`ACKNOWLEDGEMENTS.md` 须转载 MIT 通知并具名 iq；
 /// - **整数 hash** 是 Thomas Wang 的构造（Nathan Reed 2013 的 GPU 版本）；
 /// - **格点 seed 的素数三元组**出自 Teschner et al. 2003。
 ///
