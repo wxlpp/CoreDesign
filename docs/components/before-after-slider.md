@@ -30,6 +30,34 @@ public enum BeforeAfterSliderLabels {
 }
 ```
 
+## 哪边画哪一层
+
+**`before` 露在分隔线左侧，`after` 露在右侧**——`init` 的参数文档是这条语义的唯一权威，
+默认 `.standard` 标签的 chip 顺序（左 "Before" / 右 "After"）也照它排。
+
+⚠️ **这条曾经反了，而全套测试全绿**（#253 PR #273 终审 C-1）：绘制层把 `after` 叠在
+`before` 之上并 mask 到 **leading** ⇒ 左半画的是 `after`、右半是 `before`，
+而 chip 顺序没跟着反 ⇒ 默认标签把**两半都标错**，`.shown(before:after:)` 对所有调用方
+同样标错。当时的两条渲染判据（`fractionReachesRendering` 只比"两个位置的位图不同"、
+`labelDomainIsAnEnumWithThreeDistinctRenderings` 只比"三档互不相同"）**对方向完全不敏感**。
+
+⇒ 现在由**逐像素取色**判据钉住：`BeforeAfterSliderTests.beforeIsOnTheLeadingSide`
+（fraction 0.5 时左侧必须是 `before` 的色、右侧必须是 `after` 的色）
++ `endpointsRevealASingleSide`（fraction 0 / 1 两个端点各整块换成另一层，作互锁）。
+⚠️ 采样点必须避开把手：44pt 的命中区在端点形态下会盖住 `[0,44]` / `[width-44,width]`。
+
+## 入场摆动不会覆盖拖拽
+
+摆动是一次性的"这里可以拖"提示，前后共约 `sweepDuration × 2 ≈ 1.1s`。用户在这段窗口里
+抓住把手时，**回程不再执行**——否则显式输入会被一个提示动画拽回正中
+（#253 PR #273 终审 I-6：上一版 `playIntroSweep` 与 `DragGesture.onChanged` 写同一个
+`fraction`、无任何协调）。
+
+裁决点是纯函数 `BeforeAfterSweep.settlesAfterSweep(hasInteracted:)`，两条判据：
+- `BeforeAfterSliderTests.settleIsGatedByInteraction`（函数体 + 互锁）；
+- `BeforeAfterSliderTests.introSweepYieldsToTheDrag`（调用点：`onChanged` 置位、
+  闸出现且排在回程赋值**之前**）。
+
 ## ⚠️ 标签为什么不是 `showLabels: Bool`（J-1 / FR-6）
 
 上游 ShipSwift 的签名是 `showLabels: Bool`，而 `shipswift-harvest` 的 **FR-6** 逐字点名了

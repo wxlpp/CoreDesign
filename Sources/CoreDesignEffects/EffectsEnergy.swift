@@ -292,9 +292,24 @@ public nonisolated struct EffectsEnergyState: Sendable, Equatable {
 
     /// 当前状态下的渲染策略。
     ///
-    /// ⚠️ **`.inactive` 也判 `.paused`**：`.inactive` 是 App 切换器 / 通知中心拉下 /
-    /// 来电覆盖这类"用户看不到或看不清"的时刻，继续满帧跑一个装饰动画纯属白烧电。
+    /// ⚠️ **`.inactive` 也判 `.paused`**：`.inactive` 的典型场景是 App 切换器 /
+    /// 通知中心拉下 / 来电覆盖，继续满帧跑一个装饰动画纯属白烧电。
     /// 这与"后台"在能耗上是同一类，故不为它单列第四档。
+    ///
+    /// ⚠️⚠️ **但那条理由里的"用户看不到或看不清"是个假前提，成本要按真实的记**
+    ///（#253 PR #273 终审 I-3；上一版的措辞把危害低估成"快照会缺一层装饰"）。
+    /// `.inactive` 至少有两种**完全可见**的常见情形：
+    ///
+    /// - **macOS**：`WindowGroup` 场景在 App 不是前台时即报 `.inactive`，窗口照常显示
+    ///   ⇒ 用户点一下别的 App，接了本闸的效果**当场从可见窗口里消失**，切回来又出现；
+    /// - **iPadOS 多任务 / 台前调度**：完全可见但非聚焦的 App 同样是 `.inactive`。
+    ///
+    /// ⇒ 对**盖在内容上的小装饰**（`ScanningOverlay` / `Confetti`）这条代价可接受；
+    /// 对**整块背景面**（`AnimatedMeshGradient`）它意味着失焦时底色消失，
+    /// 已在该类型的文档里逐字登记为已知限度。
+    /// **改这条属 epic 级裁决**——本函数是三个调用点共用的纯函数（#252 已合并），
+    /// 处置路径是给 `EffectsRenderPolicy` 增设「停摆但保留静止帧」一档，
+    /// 或把 `.inactive` 与 `.background` 分开判；两者都要同轮改三个调用点。
     public var policy: EffectsRenderPolicy {
         guard self.scenePhase == .active else { return .paused }
         return self.powerMode == .lowPower ? .reduced : .full

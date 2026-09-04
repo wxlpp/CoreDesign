@@ -891,6 +891,28 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 ⚠️ **裁决：新增 B 类参数用 `LocalizedStringKey`**，与本仓既有 `SectionHeader` 一致、
 `Bundle.main` 解析语义不变，**不是** `LocalizedStringResource`。
 
+⚠️⚠️ **上面这条裁决有一条成文例外，射程如下**（`wxlpp/CoreDesign#253` 引入，PR #273 终审 I-5 定射程；
+**裁决措辞本身不动**，本段只登记例外）：**仅当组件必须对解析后的字符串做索引 / 切片时**，
+该 B 类文案参数可改用 `LocalizedStringResource`。依据：SwiftUI **没有**把
+`LocalizedStringKey` 解析成 `String` 的公开 API（它只能整体交给 `Text`），
+而 `LocalizedStringResource` 有（`String(localized:)`）⇒ 这不是"两种都行、选了另一种"，
+是只有一种做得到。FR-7 自身写的是「`LocalizedStringResource` / `LocalizedStringKey`」
+**二选一**，故两者都合规。
+今天唯一的落点是 `CoreDesignEffects.TypewriterText`（打字机要按**字素簇**切前缀）。
+
+⚠️ **射程是谓词，不是白名单、也不是"任何需要逐字符处理的文本参数"**：
+写成「就这一个组件」不可维护（下一个同形态组件要从头重打这一仗），
+写成「任何逐字符处理」又太松（会招来裸 `String` 参数）。
+⇒ 判据是「**必须对解析后的字符串做索引 / 切片**」——做不到就不能援引本例外。
+
+⚠️ **代价照录，援引本例外的组件必须一并登记**：
+① `.rise(text:)` 用 LSK、`TypewriterText` 用 LSR ⇒ 本仓 B 类文案参数**不再是同一种类型**；
+② `String(localized:)` 按 resource 自己的 locale 解析，**不看 SwiftUI 的 `\.locale` 环境**
+⇒ 援引本例外的组件若在 `init` 里急切解析，`.environment(\.locale, …)` 对它**无效**
+（`TypewriterText` 已在类型文档与 `docs/components/typewriter-text.md` 里登记这条）。
+⚠️ **本例外无机器判据**——A / B 类**类型**本就无机器判别，公约自己把它记为缺口 **G-4**
+（见《已知判据缺口》一节）。⇒ 靠评审 + 本段。
+
 ⚠️ **B 类改造有隐藏破坏性**：现有 B 类 API 有成文的 `Bundle.main` 解析语义
 （`SectionHeader.swift`）。把**存量**改成 `LocalizedStringResource` 会**改变 bundle
 解析行为**——属破坏性变更，必须进 `docs/BREAKING-CHANGES.md`，节奏归 #42；

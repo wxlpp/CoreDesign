@@ -32,6 +32,13 @@ public struct AnimatedMeshGradient: View {
 | `colors` 为空 | 回落到调用方的 **`.tint`** |
 | `alternateColors` 非空 | 两组色板之间**往复混合**（`Color.mix(with:by:)`）——AC 里「9 色 × 2 组」的第二组 |
 | `alternateColors` 为空 | 颜色不变，只有网格点在漂 |
+| `colors` 为空 **+** `alternateColors` 非空 | ⚠️ **静态地用那一组色板，不回落 `.tint`**（见下） |
+
+⚠️ **「`colors` 为空 ⇒ 回落 `.tint`」的完整形式是「*两组都*为空 ⇒ 回落 `.tint`」**
+（#253 PR #273 终审 S-2）：只给 `alternateColors` 时 `MeshDrift.blended` 返回那一组，
+既不混合（没有第二组可混）也不取 `.tint`。**有意不归一化成 `nil`**——调用方显式给了
+9 个颜色，把它们丢掉去取 `.tint` 比"用你给的那组"更让人意外。
+判据：`AnimatedMeshGradientTests.alternateOnlyPaletteDoesNotFollowTint`。
 
 ⚠️ **`.tint` 那一档跑的是透明度而不是色相**：`Rectangle().fill(.tint)` 被一张由
 `Color.primary.opacity(…)` 组成的网格**遮罩**（`mask` 吃 alpha 通道，`.primary` 恒不透明
@@ -68,17 +75,29 @@ public struct AnimatedMeshGradient: View {
 `ProcessingSweepDriver` **共用同一份**。此前两处各写一遍时 `Confetti` 就把顺序写反了，
 而当时全套测试是绿的（#252 PR #269 第 1 轮终审 I-1 / I-2）。
 
-## ⚠️ 已知限度：`.inactive` 下这块面会从 App 切换器的快照里消失
+## ⚠️⚠️ 已知限度：`.inactive` 下这块背景面会**在用户眼前**变空白
 
 「`.inactive` / `.background` ⇒ 一个像素都不画」是本仓既有的、有机器判据守着的停摆语义
 （`EffectsRenderPolicy.drawsAnything` 的文档逐字：「调用方应当**整层不建**」）。
-对 `ScanningOverlay` 那类**盖在内容上的小装饰**它无副作用；而本组件是一整块**背景面**
-⇒ App 切换器里那张快照（`.inactive`）会缺掉底色。
+对 `ScanningOverlay` 那类**盖在内容上的小装饰**它无副作用；而本组件是一整块**背景面**。
 
-**本轮按既有语义落地、不为一个组件另开一档**：「两处各写一遍必然漂移」正是本仓反复在堵的
-形态，而 `EffectsPresentation` 的存在本身就是那次漂移的产物。
-⇒ 这条**登记为已知限度**，处置属 epic 级裁决（要么给 `EffectsRenderPolicy` 增设
-「停摆但保留静止帧」一档并同时改三个调用点，要么接受快照缺底色）。
+⚠️ **别把这条读成"只是 App 切换器快照会缺底色"**（#253 PR #273 终审 I-3 逐字纠正了上一版）。
+`EffectsEnergyState.policy` 给出的理由是「`.inactive` 是 App 切换器 / 通知中心 / 来电这类
+**用户看不到或看不清**的时刻」，而这个前提在两种**常见**情形下直接为假：
+
+| 情形 | 窗口可见？ | 后果 |
+|---|---|---|
+| **macOS**：`WindowGroup` 场景在 App 非前台时即报 `.inactive` | **完全可见** | 用户一点别的 App，这块网格背景**当场变空白**；切回来又出现 |
+| **iPadOS 多任务 / 台前调度**：可见但非聚焦的 App | **完全可见** | 同上 |
+
+⇒ 真实成本是「**可见窗口的底色在失焦时消失**」，App 切换器快照只是这一族里最轻的实例。
+
+**本轮仍按既有语义落地、不为一个组件另开一档**：`presentation(reduceMotion:)` 是
+`ConfettiCore` / `ProcessingSweepDriver` / 本组件**共用**的纯函数（#252 已合并），
+改它要同轮动三个调用点 ⇒ **属 epic 级裁决**。
+⇒ 这条**登记为已知限度并按上表的真实成本记账**（处置：给 `EffectsRenderPolicy` 增设
+「停摆但保留静止帧」一档，或把 `.inactive` 与 `.background` 分开判；
+**接受这条限度等于接受上表两行**）。
 需要立刻规避的宿主 App 可以自己注入 `\.scenePhaseOverride = .active`。
 
 ## a11y 分工（FR-13）

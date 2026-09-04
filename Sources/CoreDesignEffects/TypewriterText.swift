@@ -94,8 +94,16 @@ nonisolated enum TypewriterReveal {
 ///
 /// ⚠️⚠️ **必须用全文做尺寸底稿**（`opacity(0)` 的幽灵层 + `overlay` 的可见前缀）：
 /// 直接渲染前缀会让每多打一个字就重排一次行宽 / 行数，文字在打字过程中不停跳动，
-/// 且会把**下方**的整块布局一起推来推去。判据在
-/// `TypewriterTextTests.revealedCountReachesRendering` 的"位图字节数必须相同"那一条。
+/// 且会把**下方**的整块布局一起推来推去。
+/// 判据在 `TypewriterTextTests.ghostSizingKeepsLayoutStable`：量 `ImageRenderer` 在
+/// revealed=1 与 revealed=全文时的**布局尺寸**并断言相等，配一条"裸 `Text` 前缀与全文
+/// 尺寸必须不同"的互锁。
+///
+/// ⚠️ **上一版这里引的是 `revealedCountReachesRendering` 的「位图字节数必须相同」，
+/// 那条结构性恒真**（PR #273 终审 I-2）：位图是 `w*h*4` 的裸缓冲，而被测视图被外层
+/// `.frame(220×40)` 钉死 ⇒ 两个字节数**永远**相等。终审实证：把本类型整个换成裸
+/// `Text(verbatim: shown)`（即删掉这个机制），那条判据 7/7 仍绿。
+/// ⇒ 观测布局必须量**尺寸**，且被测视图不能被外层 `frame` 钉死。
 ///
 /// ⚠️ 幽灵层用 `.opacity(0)` 而不是 `.hidden()`：后者在 SwiftUI 里同样保留布局，
 /// 但它会把整棵子树从 a11y 树里摘掉——而这里**要的正好相反**，见下面的 a11y 分工。
@@ -157,10 +165,37 @@ struct TypewriterBody: View {
 /// 不再是同一种类型。FR-7 自身写的是「`LocalizedStringResource` / `LocalizedStringKey`」
 /// **二选一**（`shipswift-harvest` PRD），故两者都合规；但"新增 B 类一律 LSK"这句
 /// 从本组件起有了一条**成文例外**，理由就是上一段。
+/// ⚠️ **例外已登记进公约本体**（PR #273 终审 I-5）：`docs/component-contract.md` §4
+/// 「文案类型三分法」里那条裁决**下面**有一段带射程的例外记录，射程是**谓词**——
+///「**仅当**组件必须对解析后的字符串做索引 / 切片时」。
+/// ⇒ 下一个同形态组件照那条射程判，**不要**照抄本文件却不带理由；
+/// 也不要把它读成「就这一个组件」或「任何逐字符处理的文本参数」。
+/// ⚠️ 该例外**无机器判据**（A / B 类类型本就无机器判别，公约记为缺口 **G-4**）⇒ 靠评审。
 /// ⚠️ 顺带一条**行为差异**（不是等价替换）：`LocalizedStringResource` 的字面量走
 /// `init(stringLiteral:)`，其 bundle 同样是 `Bundle.main`（`Rise.swift` 实测记着这条），
 /// 但调用方**可以**显式写 `bundle:` 指向自己的 `.module`——LSK 做不到，
 /// 只能靠"先解析成字符串再包成 key"绕。⇒ 对来自另一个 package 的调用方，本组件更好用。
+///
+/// ## ⚠️⚠️ 已知限度：本组件**不跟随 `\.locale` 环境**
+///
+/// （#253 PR #273 终审 I-4。上一版只用"性能"解释急切解析，**没有任何地方记这个后果**。）
+///
+/// 文本在 `init` 里就用 `String(localized:)` 解析完（理由见 `text` 属性），
+/// 而 `String(localized:)` 按 **resource 自己的 locale**（默认进程 locale）查表，
+/// **不看 SwiftUI 的 `\.locale` 环境**。⇒
+///
+/// ```swift
+/// TypewriterText("Welcome").environment(\.locale, .init(identifier: "fr"))  // ⚠️ 无效
+/// Text("Welcome").rise().environment(\.locale, .init(identifier: "fr"))     // ✅ 有效（LSK）
+/// ```
+///
+/// 换 locale 要**重建视图**（例如 `.id(locale)`）。这条对 `.rise(text:)` 那种走
+/// `LocalizedStringKey` 的参数不成立——同一份 B 类文案，两种类型的 locale 行为**不同**。
+///
+/// **为什么记而不改**：改成"存 LSR + 在 `body` 里按 `\.locale` 重解析"要每帧走一次查表
+///（`text` 属性逐字记着为什么不这么做），且 `init(verbatim:)` 那条 C 类路径根本没有
+/// 可重解析的 resource ⇒ 两条 init 会分岔成两种生命周期。
+/// ⇒ 本轮**登记为已知限度**；真要跟随环境 locale 属独立改动，届时两条 init 一起重设计。
 ///
 /// ## Reduce Motion
 ///
@@ -190,6 +225,9 @@ public struct TypewriterText: View {
     /// ⚠️ 在 `init` 里就解析成 `String`，而不是把 `LocalizedStringResource` 存起来
     /// 每帧解析：`String(localized:)` 要走一次查表，逐帧做它是白烧 CPU；
     /// 且揭示进度以字素簇计，必须先有 `String` 才谈得上"第几个字"。
+    ///
+    /// ⚠️⚠️ **代价照录**：急切解析 ⇒ 本组件**看不见 `\.locale` 环境**，
+    /// 换 locale 必须重建视图。完整说明在类型文档「已知限度」一节（终审 I-4）。
     private let text: String
     private let speed: TypewriterSpeed
 
