@@ -268,9 +268,14 @@ enum EffectsPresentation: Sendable, Equatable, CaseIterable {
     ///
     /// ⚠️ **"一个像素"指的是本件自己画的那些**。一个把**调用方内容**也放在自己
     /// 视图树里的效果（`OrbitingLogos` 的 logo 与中心视图），`.none` 档要摘掉的是
-    /// **装饰层与调度器**，内容层必须静态留下 —— 把调用方的内容藏掉不是停摆、是 bug
-    ///（这正是 `BeforeAfterSlider` / `ParticleTransition` 被排除在能耗闸之外的那条理由，
-    /// 逐字见 `MicroInteractionReduceMotionGuard.energyGatedFiles`）。
+    /// **装饰层与调度器**，内容层必须静态留下 —— 把调用方的内容藏掉不是停摆、是 bug。
+    ///
+    /// ⚠️⚠️ **别再用"画内容"当"排除在能耗闸之外"的理由**（PR #274 第 2 轮终审 I-E）：
+    /// 收窄之后「画内容」**不再蕴含**「排除在闸外」——`OrbitingLogos` 自己就是反例
+    ///（画内容，且**在** `energyGatedFiles` 名单里）。`BeforeAfterSlider` /
+    /// `ParticleTransition` 现在的理由是另一条：**它们没有可停的常驻装饰层**
+    ///（两件全文件无 `TimelineView`、无常驻调度器），进名单只会白挨一道闸。
+    /// 逐字见 `MicroInteractionReduceMotionGuard.energyGatedFiles`。
     case none
 
     /// 画，但钉在静止呈现上（Reduce Motion 的降级形态 2）。
@@ -279,7 +284,7 @@ enum EffectsPresentation: Sendable, Equatable, CaseIterable {
     /// 正常动。
     case animated
 
-    /// 常驻自转件的**第三道闸**：自转周期非法（`<= 0`）时把 `.animated` 降到 `.resting`。
+    /// 常驻自转件的**第三道闸**：自转周期非法（不是**有限的正数**）时把 `.animated` 降到 `.resting`。
     ///
     /// ⚠️⚠️ **它不是锦上添花，是让文档那句"`rotationPeriod <= 0` 退化为静止"变成真的**
     ///（PR #274 终审 I-4）。此前 `period <= 0` 只让**自转相位**恒为 0，而
@@ -289,8 +294,15 @@ enum EffectsPresentation: Sendable, Equatable, CaseIterable {
     /// **只为产出同一批帧**，白付 NFR-1 / NFR-7 的代价。
     /// ⚠️ 顺带修掉一处自相矛盾：`restingPhase = 0.125` 的存在理由是"0 那一帧螺旋的
     /// 接缝正对着观察者，看起来像没做任何事"，而 `period <= 0` 恰好把调用方送到相位 0。
+    ///
+    /// ⚠️⚠️ **判据是"合法"而不是"`<= 0`"**（PR #274 第 2 轮终审 I-C）：写成
+    /// `rotationPeriod <= 0` 时 `NaN`（`0/0` 这类算出来的周期）与 `+∞`（调用方写
+    /// `rotationPeriod: .infinity` 表达"永不自转"，很自然的写法）**都绕过这道闸**
+    /// ——实测两者都给 `presentation = .animated` 而 `turns == 0`：`TimelineView(.animation)`
+    /// 照建、display link 满帧跑，自转相位却恒为 0 ⇒ 上面批判的两条自相矛盾原样复现。
+    /// ⇒ 收成「**有限且为正**才算合法周期」，其余一概降到 `.resting`。
     func frozenIfPeriodIsDegenerate(_ rotationPeriod: Double) -> EffectsPresentation {
-        guard self == .animated, rotationPeriod <= 0 else { return self }
+        guard self == .animated, !(rotationPeriod.isFinite && rotationPeriod > 0) else { return self }
         return .resting
     }
 }

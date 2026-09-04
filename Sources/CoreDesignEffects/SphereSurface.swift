@@ -77,7 +77,7 @@ struct SphereSurface: View {
             injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
         )
         // ⚠️ 两道闸的顺序在这个纯函数里，不在这里（先 NFR-7 能耗闸、再 Reduce Motion 闸）。
-        // ⚠️ 第三道闸是"自转周期非法"：`rotationPeriod <= 0` 的调用方要的就是**静止**，
+        // ⚠️ 第三道闸是"自转周期非法"（`<= 0` / `NaN` / `±∞`）：这样的调用方要的就是**静止**，
         // 建一个每帧产出同一张图的 `TimelineView` 纯属白烧电（PR #274 终审 I-4）。
         let presentation = state.presentation(reduceMotion: self.reduceMotion)
             .frozenIfPeriodIsDegenerate(self.rotationPeriod)
@@ -190,6 +190,16 @@ struct SphereSurfaceBody: View {
             let worldRadius = min(size.width, size.height) / 2 * SphereField.radiusRatio
             guard total > 0, worldRadius > 0 else { return }
 
+            // ⚠️⚠️ **`.tint` 只解析一次**（第 2 轮终审 S-a，带实测）：
+            // `.style(AnyShapeStyle(…))` 是逐点装箱 + **逐点解析 `ShapeStyle`**，
+            // 而 `.dots` 上限 3000 点/帧。终审基准（3000 次 fill，20 次取均值）：
+            // `.color(Color)` 3.47ms / `.style(AnyShapeStyle(Color))` 4.84ms /
+            // `.style(AnyShapeStyle(.tint))` 5.77ms / `.style(.tint)` 不装箱 5.91ms
+            // ⇒ 装箱不是瓶颈，逐点解析 `.tint` 才是；`resolve` 提到循环外 + 逐点
+            // `context.opacity` 给出 **2.21ms（2.6×）**。
+            // ⚠️ **字形那条仍走 `AnyShapeStyle`**：`Text.foregroundStyle(_:)` 要的是
+            // `ShapeStyle` 而不是 `GraphicsContext.Shading`，且它的上限只有 1000 点。
+            let tintShading = context.resolve(.style(.tint))
             for index in 0..<total {
                 let unit = SphereField.unitPoint(index: index, count: total)
                 let spun = SphereField.spun(unit, byTurns: self.turns)
@@ -205,20 +215,31 @@ struct SphereSurfaceBody: View {
                 // 两条路都只叠**一次** `alpha(depth:)`，量程逐字相同。
                 let alpha = SphereField.alpha(depth: projected.depth)
                 let tone = SphereField.tone(palette: self.colors, wave: self.wave, progress: progress)
-                let paint = tone.map { AnyShapeStyle($0.opacity(alpha)) } ?? AnyShapeStyle(.tint.opacity(alpha))
 
                 switch self.mark {
                 case let .dots(diameter):
                     let d = max(1, diameter * projected.depth)
                     let box = CGRect(x: projected.x - d / 2, y: projected.y - d / 2, width: d, height: d)
-                    context.fill(Path(ellipseIn: box), with: .style(paint))
+                    if let tone {
+                        // ⚠️ 冗余但有意留下（同 `OrbitingLogos.ringMarks`）：`SphereField.tone`
+                        // 只在空色板时给 `nil` ⇒ 两条分支在整个循环里二选一。没有机器判据。
+                        context.opacity = 1
+                        context.fill(Path(ellipseIn: box), with: .color(tone.opacity(alpha)))
+                    } else {
+                        // 不透明度改由 context 给（`tintShading` 是满量程的调用方 tint）。
+                        context.opacity = alpha
+                        context.fill(Path(ellipseIn: box), with: tintShading)
+                    }
                 case let .glyphs(glyphs, fontSize):
                     guard !glyphs.isEmpty else { continue }
                     let glyph = glyphs[SphereField.glyphSlot(index: index, glyphCount: glyphs.count)]
+                    let paint = tone.map { AnyShapeStyle($0.opacity(alpha)) }
+                        ?? AnyShapeStyle(.tint.opacity(alpha))
                     let resolved = Text(glyph)
                         .font(.system(size: max(4, fontSize * projected.depth),
                                       weight: .semibold, design: .rounded))
                         .foregroundStyle(paint)
+                    context.opacity = 1
                     context.draw(resolved, at: CGPoint(x: projected.x, y: projected.y))
                 }
             }

@@ -60,10 +60,14 @@ import SwiftUI
 /// macOS 上 `.inactive` = 窗口不是前台（**窗口完全可见**）、iPadOS 上 = 台前调度后台
 /// ⇒ 返回 `EmptyView()` 会让宿主 App 的品牌 logo 与全部合作方 logo 在**可见窗口里**
 /// 凭空消失、VoiceOver 也一并丢掉这些元素。本仓已就这一情形裁决过：能耗闸的
-/// `.none` 语义是「一个**装饰**像素都不画」，画内容的件把内容藏掉不是停摆、是 bug
-///（`BeforeAfterSlider` / `ParticleTransition` 被排除在 `energyGatedFiles` 之外用的是
-/// 同一条理由）。⇒ 本件留在闸上（环是常驻渲染，该停），但 `.none` 只摘装饰层。
+/// `.none` 语义是「一个**装饰**像素都不画」，画内容的件把内容藏掉不是停摆、是 bug。
+/// ⇒ 本件留在闸上（环是常驻渲染，该停），但 `.none` 只摘装饰层。
 /// 装饰层的完整记账仍见 `EffectsEnergyState.policy`。
+///
+/// ⚠️ **别把这条与"`BeforeAfterSlider` / `ParticleTransition` 为什么不进名单"混为一谈**
+///（第 2 轮终审 I-E）：收窄之后「画内容」**不再蕴含**「排除在闸外」——本件正是反例
+///（画内容，却**在** `energyGatedFiles` 里）。那两件不进名单的理由是
+/// **它们没有可停的常驻装饰层**，逐字见 `MicroInteractionReduceMotionGuard.energyGatedFiles`。
 ///
 /// ## a11y（FR-13）
 ///
@@ -90,8 +94,14 @@ where Data.Element: Identifiable {
     /// - Parameters:
     ///   - items: 落在最外环上的条目。**空集合 ⇒ 只有点环与中心视图**，不崩。
     ///   - colors: 点环取色的色板。**默认为空 ⇒ 取调用方的 `.tint`**。
-    ///   - rotationPeriod: 转一圈用多少秒。**`<= 0` ⇒ 整件冻结**（自转、轮播一并停，
-    ///     且**不建调度器**）——见 `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)`。
+    ///   - rotationPeriod: 转一圈用多少秒。**非法值（`<= 0` / `NaN` / `±∞`）⇒ 整件冻结**
+    ///     （自转、轮播一并停，且**不建调度器**）——见
+    ///     `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)`。
+    ///     ⚠️ **已登记的形状缺陷**（第 2 轮终审 S-b）：这一个旋钮同时管住了"停自转"与
+    ///     "停轮播"，调用方想要"环不转但 logo 照常轮播"**已无表达方式**，而这个名字
+    ///     读不出"整件冻结"——一个旋钮被重载成了开关，与本仓 J-1 的口味相左。
+    ///     ⇒ **如需分离，另开档位**（一个描述"这件动到什么程度"的枚举），别再往
+    ///     `rotationPeriod` 上叠语义。
     ///   - logo: 每个条目画成什么。
     ///   - center: 中心视图。
     public init(
@@ -115,7 +125,7 @@ where Data.Element: Identifiable {
             injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
         )
         // ⚠️ 两道闸的顺序在这个纯函数里（先能耗、后 Reduce Motion），不在这里。
-        // ⚠️ 第三道闸是"自转周期非法"：`rotationPeriod <= 0` 要的就是静止（终审 I-4）。
+        // ⚠️ 第三道闸是"自转周期非法"（`<= 0` / `NaN` / `±∞`）：调用方要的就是静止（终审 I-4 / I-C）。
         let presentation = state.presentation(reduceMotion: self.reduceMotion)
             .frozenIfPeriodIsDegenerate(self.rotationPeriod)
 
@@ -223,12 +233,7 @@ where Data.Element: Identifiable {
     /// 这条写在 `docs/components/orbiting-logos.md` 的 API 一节（终审 S-7 ②）。
     var body: some View {
         let perRing = self.ringDotCount
-        // ⚠️ **logo 必须坐在这一档真的画出来的环点上**（终审 S-3）：低电量下每环
-        // 点数减半（23 → 12），座位数还钉在标称的 23 会让 logo 悬在环点之间，
-        // 本件"logo 坐在环上随之巡游"的整个视觉立意就没了。
-        // `.contentOnly` 档没有环可坐 ⇒ 回落到标称点数（否则停摆时 `perRing == 0`，
-        // 全部 logo 会叠到角度 0 那一个位置上）。
-        let seats = (self.layers == .full && perRing > 0) ? perRing : OrbitRing.dotsPerRing
+        let seats = self.seatCount
 
         GeometryReader { proxy in
             let side = min(proxy.size.width, proxy.size.height)
@@ -248,17 +253,44 @@ where Data.Element: Identifiable {
         .aspectRatio(1, contentMode: .fit)
     }
 
-    /// 这一档每环实际画多少个点。
+    /// 本件自己解析出来的能耗状态。
     ///
     /// ⚠️ 它自己读能耗环境（同 `SphereSurfaceBody` / `AnimatedMeshBody` 的理由）：
     /// 降帧拍不进静态帧，密度才是低电量在位图上唯一可观测的差异。
-    private var ringDotCount: Int {
-        let policy = EffectsEnergyState.resolve(
+    private var energy: EffectsEnergyState {
+        EffectsEnergyState.resolve(
             injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
             injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
+        )
+    }
+
+    /// 这一档每环实际画多少个点。停摆档 `particleScale == 0` ⇒ 一个都不画。
+    private var ringDotCount: Int {
+        max(0, Int((Double(OrbitRing.dotsPerRing) * self.energy.policy.particleScale).rounded()))
+    }
+
+    /// logo 的**座位数**。
+    ///
+    /// ⚠️ **logo 必须坐在这一档真的画出来的环点上**（终审 S-3）：低电量下每环
+    /// 点数减半（23 → 12），座位数还钉在标称的 23 会让 logo 悬在环点之间，
+    /// 本件"logo 坐在环上随之巡游"的整个视觉立意就没了。
+    ///
+    /// ⚠️⚠️ **但座位数只吃能耗档位、不吃 `scenePhase`**（第 2 轮终审 I-D）。
+    /// 上一版写的是 `(layers == .full && perRing > 0) ? perRing : OrbitRing.dotsPerRing`
+    /// ——`.contentOnly`（停摆）档没有环可坐，于是回落到标称的 23。实测后果：
+    /// 低电量 + 活跃时座位 12（8 个 logo 的角度 `0, 30, 90, 120, 180, 210, 270, 300`），
+    /// 窗口一失焦转 `.contentOnly` 座位回到 23（`0, 31.3, 78.3, …, 313.0`）
+    /// ⇒ **最大差 11.7°、320pt 容器上约 28pt**：环消失（本意）之外，调用方的品牌 logo
+    /// 还会整体跳一下。而 `.inactive` 正是 C-1 要保护的"**窗口完全可见**"那一档。
+    /// 条目数落在 13…23 之间时更糟——两档分别走"超座位均分"与"吸附环点"**两套排布**。
+    /// ⇒ 座位数改由「**若此刻在活跃档会画出几个点**」决定，与 `scenePhase` 解耦；
+    /// `layers` 不再参与。判据：`CrossPlatformRenderTests.seatCountFollowsPowerModeNotScenePhase`。
+    private var seatCount: Int {
+        let activePolicy = EffectsEnergyState(
+            scenePhase: .active, powerMode: self.energy.powerMode
         ).policy
-        return max(0, Int((Double(OrbitRing.dotsPerRing) * policy.particleScale).rounded()))
+        return OrbitRing.seats(particleScale: activePolicy.particleScale)
     }
 
     /// 第 `index` 个 logo 此刻在屏幕上的位置。座位数由调用方给（见 `body` 里的 `seats`）。
@@ -286,6 +318,17 @@ where Data.Element: Identifiable {
     ) -> some View {
         Canvas { context, _ in
             guard perRing > 0, side > 0 else { return }
+            // ⚠️⚠️ **`.tint` 只解析一次**（第 2 轮终审 S-a，带实测）：
+            // `context.fill(…, with: .style(AnyShapeStyle(…)))` 是**逐点装箱 + 逐点解析
+            // `ShapeStyle`**。终审基准（`ImageRenderer`，3000 次 fill，20 次取均值）：
+            // `.color(Color)` 3.47ms / `.style(AnyShapeStyle(Color))` 4.84ms /
+            // `.style(AnyShapeStyle(.tint))` 5.77ms / `.style(.tint)` 不装箱 5.91ms
+            // ⇒ **装箱不是瓶颈，逐点解析 `.tint` 才是**；把 `resolve` 提到循环外、
+            // 逐点改用 `context.opacity` 给出 **2.21ms（2.6×）**。
+            // ⇒ 色板那条走 `.color(tone.opacity(alpha))`（连 `AnyShapeStyle` 一起省掉），
+            // `.tint` 那条走"解析一次 + 逐点调 `opacity`"。两条路的**量程逐字未变**，
+            // 由 `CrossPlatformRenderTests.tintPathMatchesSinglePalette` 逐字节钉住。
+            let tintShading = context.resolve(.style(.tint))
             for ring in 0..<OrbitRing.ringCount {
                 let radius = OrbitRing.ringRadius(ring: ring, size: side)
                 let diameter = OrbitRing.dotDiameter(ring: ring, size: side)
@@ -301,7 +344,19 @@ where Data.Element: Identifiable {
                     )
                     let box = CGRect(x: dot.x - diameter / 2, y: dot.y - diameter / 2,
                                      width: diameter, height: diameter)
-                    context.fill(Path(ellipseIn: box), with: .style(self.dotPaint(angle: angle)))
+                    let alpha = OrbitRing.alpha(angle: angle)
+                    if let tone = self.dotTone(angle: angle) {
+                        // ⚠️ 这一句今天是**冗余**的（`dotTone` 只在空色板时给 `nil`
+                        // ⇒ 两条分支在整个循环里二选一，不会交替）⇒ 它没有机器判据，
+                        // 删掉不会判红。留着是为了下一个人：一旦色板变成"逐点可能为空"，
+                        // 少了它上一点的 `opacity` 会漏到这一点上。
+                        context.opacity = 1
+                        context.fill(Path(ellipseIn: box), with: .color(tone.opacity(alpha)))
+                    } else {
+                        // 不透明度改由 context 给（`tintShading` 是满量程的调用方 tint）。
+                        context.opacity = alpha
+                        context.fill(Path(ellipseIn: box), with: tintShading)
+                    }
                 }
             }
         }
@@ -317,13 +372,16 @@ where Data.Element: Identifiable {
     /// 满量程）差 15%，而所有位图判据都是 `a != b` ⇒ 抓不到。
     /// ⇒ 直接用 `.tint` 给 `Canvas` 上色（`Color.white` 被 `EffectsColorLiteralGuard` 禁），
     /// 顺带去掉一层离屏合成。判据：`CrossPlatformRenderTests.tintPathMatchesSinglePalette`。
-    private func dotPaint(angle: Double) -> AnyShapeStyle {
-        let alpha = OrbitRing.alpha(angle: angle)
-        guard !self.colors.isEmpty else { return AnyShapeStyle(.tint.opacity(alpha)) }
+    ///
+    /// ⚠️ **返回 `Color?` 而不是 `AnyShapeStyle`**（终审 S-a）：`nil` ⇒ 走 `.tint` 那条路，
+    /// 由调用点用**循环外解析一次**的 shading + `context.opacity` 上色；不透明度的**量程
+    /// 两条路仍然逐字相同**（都只叠一次 `alpha(angle:)`）。
+    private func dotTone(angle: Double) -> Color? {
+        guard !self.colors.isEmpty else { return nil }
         let turn = (angle / (2 * .pi)).truncatingRemainder(dividingBy: 1)
         let normalized = turn < 0 ? turn + 1 : turn
         let slot = Int(normalized * Double(self.colors.count)) % self.colors.count
-        return AnyShapeStyle(self.colors[slot].opacity(alpha))
+        return self.colors[slot]
     }
 
     /// 外环上的 logo。**不进 `Canvas`**：它们是调用方的视图（可能带 a11y、可能可点），

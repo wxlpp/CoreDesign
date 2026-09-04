@@ -116,6 +116,16 @@ nonisolated enum OrbitRing {
 
     // MARK: logo 的 slot 与轮播
 
+    /// logo 的**座位数**：标称点数按 `particleScale` 缩放。
+    ///
+    /// ⚠️ 至少 1：座位数为 0 会让 `slot` 除零 / 全部 logo 叠到角度 0 那一个位置上。
+    /// ⚠️ 调用点（`OrbitingLogosBody.seatCount`）传的是**活跃档**的 `particleScale`
+    /// ——座位数不吃 `scenePhase`，理由逐条见那里（第 2 轮终审 I-D）。
+    static func seats(particleScale: Double) -> Int {
+        guard particleScale.isFinite, particleScale > 0 else { return 1 }
+        return max(1, Int((Double(Self.dotsPerRing) * particleScale).rounded()))
+    }
+
     /// 第 `logoIndex` 个 logo 落在外环的哪个 slot 上。
     ///
     /// ⚠️ 上游用 `round(dotsPerRing / images.count)` 当步长，logo 数不整除时

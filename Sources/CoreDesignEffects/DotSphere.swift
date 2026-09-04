@@ -68,7 +68,8 @@ public struct DotSphere: View {
     ///   - count: 点数。**超出上限（3000）会被截断而不是断言**——库代码对数据规模
     ///     抛断言就是让宿主 App crash（AD-F）。负数与 0 都退化为"不画"。
     ///   - colors: 循环渐变的色板。**默认为空 ⇒ 取调用方的 `.tint`**。
-    ///   - rotationPeriod: 转一圈用多少秒。`<= 0` 退化为静止。
+    ///   - rotationPeriod: 转一圈用多少秒。**非法值（`<= 0` / `NaN` / `±∞`）退化为静止**
+    ///     ——见 `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)`。
     public init(
         count: Int = DotSphere.defaultCount,
         colors: [Color] = [],

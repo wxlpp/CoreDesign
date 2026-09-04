@@ -390,6 +390,30 @@ struct MicroInteractionReduceMotionGuard {
     ///
     /// 判据见 `reduceMotionIsOnlyConsumedByTheSharedGate`。
     ///
+    /// ## 当前规则（下一个件照这条判，后面的《沿革》只是它怎么来的）
+    ///
+    /// 1. **进不进名单只看一件事：有没有可停的常驻装饰层**（`TimelineView` /
+    ///    常驻调度器持续驱相位的那一层）。有 ⇒ 进；没有 ⇒ 不进，进来只会白挨一道闸。
+    /// 2. **`.none` 的语义是「一个*装饰*像素都不画」**。一个件若同时画装饰与
+    ///    **调用方的内容**，`.none` 分支摘掉的是装饰层与调度器，**内容层静态留下**
+    ///    （`OrbitingLogos` 走 `OrbitLayers.contentOnly`）——把调用方的内容藏掉
+    ///    不是停摆、是 bug。
+    /// 3. ⚠️ **「画内容」不是排除在名单外的理由**（第 2 轮终审 I-E）：收窄之后它
+    ///    **不再蕴含**「排除在闸外」，`OrbitingLogos` 就是反例（画内容且**在**名单里）。
+    ///
+    /// 当前名单：`Confetti` / `ProcessingSweep` / `AnimatedMeshGradient` /
+    /// `SphereSurface`（`DotSphere` / `CharSphere` 共用）/ `OrbitingLogos`。
+    /// 有意**不在**名单里的：`TypewriterText`（有限时长的一次性揭示）、
+    /// `BeforeAfterSlider`（入场摆动一次性，其余是静止图 + 手势）、
+    /// `ParticleTransition`（转场由 SwiftUI 驱动，瞬态）、
+    /// `FullScreenButton`（一次性导航转场，无常驻调度器）——四件的共同点是**规则 1**：
+    /// 全文件无 `TimelineView`、无常驻调度器，**没有可停的装饰层**。
+    /// 判据：`CrossPlatformRenderTests.pausedKeepsCallerContentInOrbitingLogos`
+    /// + `orbitPresentationBranchesAreWiredCorrectly` ①
+    /// + `accessibilityHiddenStaysOnTheDecorationLayer`。
+    ///
+    /// ## 沿革（历史，读到这里就够了；下面只解释规则怎么变成现在这样）
+    ///
     /// ⚠️⚠️ **登记一条本守卫看不见的方向**（#252 PR #269 第 4 轮终审 S2-3）：
     /// 扫描根固定为 `Sources/CoreDesignEffects`（`sourceRoot`）⇒ 若把一个**常驻渲染件**
     /// 落在 `Sources/CoreDesign`，它走不走能耗闸本守卫一概看不见。这不是本轮能修的
@@ -407,6 +431,9 @@ struct MicroInteractionReduceMotionGuard {
     /// · `ParticleTransition` —— 转场由 SwiftUI 驱动，瞬态。
     /// 后两者还有同一条硬理由：能耗闸的 `.none` 语义是「一个像素都不画」，
     /// 而它们画的是**内容**，把内容隐藏不是停摆、是 bug。
+    /// ⚠️ **上面这句已于下一段（`#254`）收窄，别再照它判新件**：收窄之后「画内容」
+    /// 不再蕴含「排除在闸外」，那两件现在的理由是"没有可停的常驻装饰层"。
+    /// 现行规则见本文档开头的《当前规则》。
     ///
     /// ⚠️⚠️ **上面这条规则在 `#254` 的 `OrbitingLogos` 上被收窄了一次，记在这里**
     ///（PR #274 终审 C-1）：`OrbitingLogos` **同时**画装饰（四圈点环，常驻渲染，该停）

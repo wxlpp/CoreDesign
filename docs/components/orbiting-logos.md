@@ -117,9 +117,14 @@ OrbitingLogos(brands) { brand in
 > 能耗闸的 `.none` 语义是「一个像素都不画」，而它们画的是**内容**，
 > 把内容隐藏不是停摆、是 bug。
 
-那正是 `BeforeAfterSlider` / `ParticleTransition` 被**刻意排除**在能耗闸之外的理由。
 本件画的同样是内容（`logo(item)` / `center`，两者都**有意不** `accessibilityHidden`）
 ⇒ 规则收窄为：**`.none` 摘掉的是装饰层与调度器，内容层静态留下**。
+
+⚠️ **收窄之后，"画内容"不再是"排除在能耗闸之外"的理由**（PR #274 第 2 轮终审 I-E）：
+本件自己就是反例——它画内容，却**在** `energyGatedFiles` 名单里。
+`BeforeAfterSlider` / `ParticleTransition` 现在不进名单用的是另一条理由：
+**它们没有可停的常驻装饰层**（两件全文件无 `TimelineView`、无常驻调度器），
+进来只会白挨一道闸。现行规则逐字见 `energyGatedFiles` 类型文档开头的《当前规则》。
 之前那句"需要规避的宿主 App 自行注入 `\.scenePhaseOverride = .active`"是在**记录症状**，
 并把一个已判定为 bug 的默认行为的 opt-out 推给每个消费方 —— 已删。
 装饰层（环）的完整记账仍见 `EffectsEnergyState.policy`。
@@ -129,9 +134,21 @@ OrbitingLogos(brands) { brand in
 整个视觉立意就没了。`OrbitRing.logoAngle(logoIndex:logoCount:dotsPerRing:turns:)` 把
 座位数收成参数，绘制层传的是**这一档真的画出来的**点数。
 
+⚠️⚠️ **但座位数只吃能耗档位、不吃 `scenePhase`**（第 2 轮终审 I-D）。
+`0.4.x` 的第一版把座位数写成"`.full` 档用真的画出来的点数，否则回落到标称的 23"
+⇒ **低电量下窗口一失焦，调用方的 logo 会整体跳一下**：8 个 logo 的角度从
+`0, 30, 90, 120, 180, 210, 270, 300`（座位 12）跳到 `0, 31.3, 78.3, …, 313.0`（座位 23），
+最大差 **11.7°**，320pt 容器上约 **28pt**。而 `.inactive` 正是 C-1 要保护的
+"**窗口完全可见**"那一档——环消失是本意，logo 挪窝不是。条目数落在 13…23 之间时更糟：
+两档分别走"超座位均分"与"吸附环点"**两套排布**。
+⇒ 座位数改由「**若此刻在活跃档会画出几个点**」决定（`OrbitRing.seats(particleScale:)`），
+与 `scenePhase` 解耦；停摆档因此与它前一刻的排布**逐点一致**。
+
 判据：`CrossPlatformRenderTests.pausedKeepsCallerContentInOrbitingLogos`（内容还在）
 + `orbitPresentationBranchesAreWiredCorrectly`（装饰层不建）
++ `accessibilityHiddenStaysOnTheDecorationLayer`（a11y 隐藏不许上移到整件）
 + `logoSeatsFollowTheThinnedRing`（把环画成 `.clear`，位图上只剩 logo，低电量下必须挪位）
++ `seatCountFollowsPowerModeNotScenePhase`（座位数与 `scenePhase` 解耦）
 + `OrbitRingTests.logoAnglesSitOnRealSeatsAndNeverCollide`。
 
 ## 退化输入
@@ -141,7 +158,7 @@ OrbitingLogos(brands) { brand in
 | `items` 为空 | 只画点环与中心视图，不崩 |
 | 条目数 `<=` 外环座位数 | 每个 logo 一个专属环点，**两两不同** |
 | 条目数 `>` 外环座位数（默认 23） | **改按角度均分**，不再吸附到环点——但仍然两两不重叠 |
-| `rotationPeriod <= 0` | **整件冻结**：呈现降到 `.resting`，自转与轮播一并停，且**不建 `TimelineView`** |
+| `rotationPeriod` 非法（`<= 0` / `NaN` / `±∞`） | **整件冻结**：呈现降到 `.resting`，自转与轮播一并停，且**不建 `TimelineView`** |
 | 点与被点名的 logo 重合 | 位移方向无定义 ⇒ 显式返回原位，不放 NaN 进 `Canvas` |
 
 ⚠️ **"条目数 > 座位数"这一行此前写的是「按 slot 取模，不越界」，那没描述真正的后果**
@@ -156,6 +173,18 @@ OrbitingLogos(brands) { brand in
 **不吃** `rotationPeriod` ⇒ logo 仍每 2.4s 弹一次；呈现档仍是 `.animated`
 ⇒ `TimelineView(.animation)` 照常建、满帧跑只为产出同一批帧。
 现在由 `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)` 这道第三闸统一降到 `.resting`。
+
+⚠️ **`NaN` 与 `±∞` 同样算非法**（第 2 轮终审 I-C）：这道闸最初写作 `rotationPeriod <= 0`，
+而 `NaN <= 0` 与 `inf <= 0` **都是 `false`** ⇒ 两者当场绕过（实测 `presentation=.animated`
+而 `turns == 0`：display link 满帧跑，自转相位恒为 0）。`+∞` 尤其不是臆造的输入——
+调用方写 `rotationPeriod: .infinity` 表达"永不自转"是很自然的写法。
+现在的判据是"**有限且为正**才算合法"。
+
+⚠️ **已登记的形状缺陷**（第 2 轮终审 S-b）：`rotationPeriod` 这一个旋钮同时管住了
+"停自转"与"停轮播"，调用方想要"环不转但 logo 照常轮播"**已无表达方式**，
+而这个名字读不出"整件冻结"——一个旋钮被重载成了开关，与本仓 J-1 的口味相左。
+⇒ **如需分离，另开档位**（一个描述"这件动到什么程度"的枚举），别再往 `rotationPeriod`
+上叠语义。
 
 判据：`OrbitRingTests` 的七条 + `CrossPlatformRenderTests.degenerateInputsDoNotCrash`
 + `DegeneratePeriodTests.degeneratePeriodFreezesAnimated`

@@ -141,7 +141,7 @@ device      r=0.5000 g=0.3765 b=0.6176   ← 上游给的
 |---|---|
 | `count <= 0` | 一个点都不画，不崩 |
 | `count > 3000` | **截断**到 3000（不 `precondition`——库代码对数据规模抛断言就是让宿主 App crash） |
-| `rotationPeriod <= 0` | **整件冻结**：呈现降到 `.resting`（相位钉在 `SphereField.restingPhase`、色波钉在 `restingWave`），且**不建 `TimelineView`** |
+| `rotationPeriod` 非法（`<= 0` / `NaN` / `±∞`） | **整件冻结**：呈现降到 `.resting`（相位钉在 `SphereField.restingPhase`、色波钉在 `restingWave`），且**不建 `TimelineView`** |
 | 容器尺寸为 0 | 世界半径为 0，投影显式退化到 `depth = 1`，不放 NaN 进 `Canvas` |
 
 ⚠️ **`rotationPeriod <= 0` 这一条在 `0.4.x` 之前不是真的**（PR #274 终审 I-4）：
@@ -152,6 +152,12 @@ device      r=0.5000 g=0.3765 b=0.6176   ← 上游给的
 "0 那一帧螺旋的接缝正对着观察者，看起来像没做任何事"，`<= 0` 恰好把调用方送到相位 0。
 ⇒ 现在由 `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)` 这道**第三闸**统一降到
 `.resting`，文档那句"退化为静止"才成立。
+
+⚠️ **`NaN` 与 `±∞` 同样算非法**（PR #274 第 2 轮终审 I-C）：这道闸最初写作
+`rotationPeriod <= 0`，而 `NaN <= 0` 与 `inf <= 0` **都是 `false`** ⇒ 两者当场绕过
+（实测 `presentation=.animated` 而 `turns == 0`）。`+∞` 尤其不是臆造的输入——
+调用方写 `rotationPeriod: .infinity` 表达"永不自转"是很自然的写法。
+现在的判据是"**有限且为正**才算合法"。
 
 判据：`SphereFieldTests` 的四条 + `CrossPlatformRenderTests.degenerateInputsDoNotCrash`
 + `DegeneratePeriodTests.degeneratePeriodFreezesAnimated`（纯函数真值表）

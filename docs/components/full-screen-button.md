@@ -82,6 +82,10 @@ Swift 的泛型静态成员是**按具体特化分开**的：一旦 `sourceID` �
 `CrossPlatformRenderTests.fullScreenButtonRenders` 只断言折叠态卡片非空白。
 ⇒ **"iOS 上 zoom 真的触发了"这件事目前只由"它能编译"背书**（PR #274 终审 S-6）。
 
+⚠️ **这条已挂到 [issue #277](https://github.com/wxlpp/CoreDesign/issues/277) 上**
+（PR #274 第 2 轮终审 S-d）：此前"需要人工确认一次、并把结论写回本节"只活在这段文字里，
+**没有任何触发器** —— 谁也不会因为读到一段文档而去跑一次模拟器。现在有了。
+
 需要人工在 iOS 模拟器上确认一次，并把结论写回本节：
 
 1. 点开卡片是否**真的**几何放大成整屏（而不是普通 push）；

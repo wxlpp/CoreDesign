@@ -359,6 +359,31 @@ struct OrbitRingTests {
         // ③ 退化输入：零个 logo / 零座位都不许产生 NaN。
         #expect(OrbitRing.logoAngle(logoIndex: 0, logoCount: 0, dotsPerRing: 23, turns: 0.5) == 0)
         #expect(OrbitRing.logoAngle(logoIndex: 2, logoCount: 4, dotsPerRing: 0, turns: 0.5).isFinite)
+
+        // ④ **超座位分支必须吃 `turns`**（第 2 轮终审 I-A：变异存活）。
+        //
+        // ① 只用 `logoCount = min(4, seats)` ⇒ 结构上进不了 `logoCount > seats` 那条分支；
+        // ② 进得了，但**只传 `turns: 0`** ⇒ 一个把 `turns` 整个丢掉的实现（把那一行写成
+        // `turns: 0`）同样满足"两两不同"。终审实测该变异下全套判据 148/19 全绿，
+        // 而它的实际后果是：logo 数一超过 23，整圈 logo **原地冻住、只有环在转**
+        // —— 本件"logo 坐在环上随之巡游"的视觉立意当场死掉。
+        // ⇒ 钉死"logo 的角位移与环点的角位移**同步**"。
+        let seats = OrbitRing.dotsPerRing
+        let ringShift = OrbitRing.angle(index: 0, of: seats, turns: 0.25, ring: 0)
+            - OrbitRing.angle(index: 0, of: seats, turns: 0, ring: 0)
+        #expect(abs(ringShift + .pi / 2) < 1e-9, "环自己的 1/4 圈位移不再是 -π/2 —— 下面的判据失去参照")
+        for logoCount in [seats + 1, 40, 99] {
+            for index in [0, 1, logoCount - 1] {
+                let at0 = OrbitRing.logoAngle(logoIndex: index, logoCount: logoCount,
+                                              dotsPerRing: seats, turns: 0)
+                let atQuarter = OrbitRing.logoAngle(logoIndex: index, logoCount: logoCount,
+                                                    dotsPerRing: seats, turns: 0.25)
+                #expect(abs((atQuarter - at0) - ringShift) < 1e-9, """
+                logoCount=\(logoCount)（> \(seats) 个座位）时第 \(index) 个 logo 的角度不吃 `turns`
+                —— 它与环的自转脱钩了，整圈 logo 原地冻住而只有环在转。
+                """)
+            }
+        }
     }
 
     @Test("轮播：每个 logo 轮流被点名，进度落在 [0, 1)")
@@ -433,9 +458,16 @@ struct OrbitRingTests {
 @Suite("周期非法时的呈现降级")
 struct DegeneratePeriodTests {
 
-    @Test("`<= 0` 把 .animated 降到 .resting，其余两档原样穿过")
+    /// ⚠️⚠️ **`.nan` / `.infinity` 两行是第 2 轮终审 I-C 的落点**：上一版的闸写作
+    /// `rotationPeriod <= 0`，而 `NaN <= 0` 与 `inf <= 0` **都是 `false`**
+    /// ⇒ 两者当场绕过这道闸（实测 `presentation=.animated` 而 `turns == 0`：
+    /// display link 满帧跑，自转相位恒为 0）。`+∞` 尤其不是臆造的输入——
+    /// 调用方写 `rotationPeriod: .infinity` 表达"永不自转"是很自然的写法。
+    /// ⇒ 判据按本仓对退化输入的既有标准**逐条列举**（同 `pushed` 的三种、
+    /// `slot` 的两种、`logoAngle` ③ 的零座位）。
+    @Test("非法周期（含 nan / inf）把 .animated 降到 .resting，其余两档原样穿过")
     func degeneratePeriodFreezesAnimated() {
-        for period in [0.0, -3.0, -0.001] {
+        for period in [0.0, -3.0, -0.001, .nan, .infinity, -.infinity] {
             #expect(EffectsPresentation.animated.frozenIfPeriodIsDegenerate(period) == .resting,
                     "period=\(period) 时仍在建调度器")
             #expect(EffectsPresentation.resting.frozenIfPeriodIsDegenerate(period) == .resting)
@@ -984,8 +1016,9 @@ struct CrossPlatformRenderTests {
         let noneBranch = switchBody.components(separatedBy: "case .resting:").first ?? ""
         #expect(!noneBranch.contains("EmptyView()"), """
         `.none` 分支又回到了 `EmptyView()` —— 那会把**调用方的** logo 与中心视图一起删掉。
-        能耗闸的"一个像素都不画"只适用于装饰层；画内容的件把内容藏掉不是停摆、是 bug
-        （`BeforeAfterSlider` / `ParticleTransition` 被排除在 `energyGatedFiles` 之外用的是同一条理由）。
+        能耗闸的"一个像素都不画"只适用于装饰层；画内容的件把内容藏掉不是停摆、是 bug。
+        （⚠️ 别拿这条去判断下一个件：`BeforeAfterSlider` / `ParticleTransition` 不进
+        `energyGatedFiles` 用的是**另一条**理由——它们没有可停的常驻装饰层。终审 I-E。）
         """)
         #expect(noneBranch.contains("layers: .contentOnly"), """
         `.none` 分支没有把绘制层钉在 `.contentOnly` 上 —— 装饰层（环 + Canvas）会跟着建出来。
@@ -1023,6 +1056,121 @@ struct CrossPlatformRenderTests {
         驱动层没有接"周期非法"这道闸 —— `rotationPeriod <= 0` 会照常建
         `TimelineView(.animation)`，display link 满帧跑只为产出同一张图。
         """)
+    }
+
+    /// ⚠️⚠️ **C-1 立论的 a11y 那半此前零判据**（第 2 轮终审 I-B，变异已复现）。
+    ///
+    /// C-1 的规则收窄（`.none` 只摘装饰、内容层静态留下）靠**两条腿**站着：
+    /// ① "调用方的 logo 与中心视图在可见窗口里不许消失"——由
+    /// `pausedKeepsCallerContentInOrbitingLogos` 的位图判据钉住；
+    /// ② "VoiceOver 也不许一并丢掉这些元素"（类型文档 / `energyGatedFiles` 逐字写着
+    /// 「logo 与中心视图**有意不** `accessibilityHidden`」）——**此前没有任何判据**。
+    /// 终审实测：给 `OrbitingLogosBody.body` 的 `ZStack` 加一句
+    /// `.accessibilityHidden(true)`（**整件对 VoiceOver 消失**，正是 C-1 声称要防的后果）
+    /// ⇒ 全套 148/19 全绿。全仓测试里 `accessibilityHidden` 只出现在一个夹具与两处注释。
+    ///
+    /// ⚠️ **走源码守卫而不是位图 / 元素计数**：`.accessibilityHidden` 是渲染树属性，
+    /// `ImageRenderer` 拍不到它（`ToastPresentationRenderTests` 已就同一条立过限度）；
+    /// 而元素计数那条路会被本文件夹具自己带的 `.accessibilityHidden(true)`
+    ///（`orbitLogo`）污染。
+    @Test("a11y 隐藏只贴在装饰层上，不许套住整件")
+    func accessibilityHiddenStaysOnTheDecorationLayer() throws {
+        // 文件 → 这一句**必须**贴在哪条链上。
+        let hosts = [
+            ("OrbitingLogos.swift", "self.ringMarks("),
+            ("SphereSurface.swift", "self.canvas("),
+        ]
+        let marker = ".accessibilityHidden(true)"
+        for (file, host) in hosts {
+            let code = MicroInteractionReduceMotionGuard.stripComments(try String(
+                contentsOf: MicroInteractionReduceMotionGuard.sourceRoot.appendingPathComponent(file),
+                encoding: .utf8
+            ))
+            let count = code.components(separatedBy: marker).count - 1
+            #expect(count == 1, """
+            \(file) 里 `\(marker)` 出现了 \(count) 次（应当恰好 1 次）。
+            多出来的那一句多半套在整件上 —— 那会让**调用方的**内容一并对 VoiceOver 消失，
+            正是 C-1 的规则收窄要防的后果；少一句则装饰层重新进了 a11y 树。
+            """)
+            guard let range = code.range(of: marker) else { continue }
+            // 紧挨着它的那一段链里必须出现装饰层的构造调用。
+            let window = String(code[..<range.lowerBound].suffix(240))
+            #expect(window.contains(host), """
+            \(file) 的 `\(marker)` 没有贴在 `\(host)` 这条**装饰层**链上。
+            它一旦上移到 `ZStack` / `body` 这一层，藏掉的就不只是装饰。
+            """)
+        }
+    }
+
+    /// ⚠️⚠️ **座位数不许跟着 `scenePhase` 变**（第 2 轮终审 I-D）。
+    ///
+    /// 上一版 `seats = (layers == .full && perRing > 0) ? perRing : OrbitRing.dotsPerRing`
+    /// ⇒ 低电量 + 活跃座位 12、一失焦转 `.contentOnly` 座位回到 23，8 个 logo 的角度
+    /// 从 `0, 30, 90, 120, 180, 210, 270, 300` 跳到 `0, 31.3, 78.3, …, 313.0`
+    ///（最大差 11.7°，320pt 容器上约 28pt）。而 `.inactive` 在 macOS 上正是
+    /// "**窗口完全可见**"那一档 —— C-1 保住了"logo 还在"，却没保住"logo 没挪窝"。
+    ///
+    /// ⇒ 两条判据：① 座位数这条纯函数按 `particleScale` 走；
+    /// ② `.contentOnly` 档换能耗档位**必须**改变位图（座位跟着能耗走，而不是回落到标称值）。
+    @Test("座位数只吃能耗档位、不吃 scenePhase")
+    func seatCountFollowsPowerModeNotScenePhase() {
+        // ① 纯函数：满帧 23、低电量 12、退化输入不塌成 0。
+        #expect(OrbitRing.seats(particleScale: 1) == OrbitRing.dotsPerRing)
+        #expect(OrbitRing.seats(particleScale: 0.5) == 12)
+        #expect(OrbitRing.seats(particleScale: 0) == 1, "座位数为 0 会让全部 logo 叠到角度 0")
+        #expect(OrbitRing.seats(particleScale: .nan) == 1)
+        #expect(OrbitRing.seats(particleScale: -1) == 1)
+
+        // ② 停摆档（`.contentOnly`，环一个点都不画）下，换能耗档位仍必须改变 logo 的落位。
+        let normal = Self.pixels(Self.staged(Self.orbitBody(layers: .contentOnly)))
+        let low = Self.pixels(Self.staged(Self.orbitBody(layers: .contentOnly), lowPower: true))
+        #expect(normal != nil && normal != Self.blank, "内容层什么都没画 —— 下面的不等断言会失去意义")
+        #expect(normal != low, """
+        `.contentOnly` 档下换低电量位图没变 —— 座位数又回落到标称的 23 了。
+        后果：低电量下窗口一失焦（`.active` ⇒ `.inactive`，窗口**完全可见**），
+        调用方的 logo 会整体挪位（实测最大 11.7°，320pt 容器上约 28pt）。
+        """)
+    }
+
+    /// ⚠️ **`aspectRatio(1, contentMode: .fit)` 此前是一条没有判据的文档承诺**
+    ///（第 2 轮终审 S-c）：所有位图判据都走 `staged()` 的 220×220 **正方形**容器，
+    /// 而在正方形里删掉那一行位图逐字节不变（`side = min(w, h)` 与中心点都不变）。
+    ///
+    /// ⇒ 用**非等比**容器测，并且量的是**本件自己的布局尺寸**：`.background` 贴合的是
+    /// 被它修饰的那个视图的尺寸，而不是外面那层 `.frame` 的尺寸 ⇒ 有 `aspectRatio`
+    /// 时它是 200×200（居中、左右各留 60pt 信箱边），没有时它铺满 320×200。
+    @Test("非等比容器里本件仍是正方形（信箱边）")
+    func orbitBodyStaysSquareInNonSquareContainer() {
+        let width: CGFloat = 320, height: CGFloat = 200
+        let view = Self.orbitBody()
+            .environment(\.scenePhaseOverride, ScenePhase.active)
+            .environment(\.lowPowerModeOverride, false)
+            .background(Color.accent)
+            .frame(width: width, height: height)
+        guard let bounds = Self.inkColumns(view, width: Int(width), height: Int(height)) else {
+            Issue.record("渲染失败，取不到墨迹边界")
+            return
+        }
+        #expect(bounds.width == Int(height), """
+        本件在 \(Int(width))×\(Int(height)) 容器里的布局宽度是 \(bounds.width)pt，
+        不是正方形的 \(Int(height))pt —— `aspectRatio(1, contentMode: .fit)` 没了，
+        环会被拉成椭圆。
+        """)
+        #expect(bounds.first == (Int(width) - Int(height)) / 2, "内容没有居中：左边界 \(bounds.first)")
+    }
+
+    /// 位图上 alpha `> 0` 的列区间（左边界与宽度）。
+    static func inkColumns(_ view: some View, width: Int, height: Int) -> (first: Int, width: Int)? {
+        guard let data = Self.pixels(view), data.count == width * height * 4 else { return nil }
+        var first = width, last = -1
+        for y in 0..<height {
+            for x in 0..<width where data[(y * width + x) * 4 + 3] > 0 {
+                first = min(first, x)
+                last = max(last, x)
+            }
+        }
+        guard last >= first else { return nil }
+        return (first, last - first + 1)
     }
 
     // MARK: 薄封装的互锁
