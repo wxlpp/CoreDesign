@@ -910,8 +910,14 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 ② `String(localized:)` 按 resource 自己的 locale 解析，**不看 SwiftUI 的 `\.locale` 环境**
 ⇒ 援引本例外的组件若在 `init` 里急切解析，`.environment(\.locale, …)` 对它**无效**
 （`TypewriterText` 已在类型文档与 `docs/components/typewriter-text.md` 里登记这条）。
-⚠️ **本例外无机器判据**——A / B 类**类型**本就无机器判别，公约自己把它记为缺口 **G-4**
-（见《已知判据缺口》一节）。⇒ 靠评审 + 本段。
+⚠️ **本例外无机器判据**——⇒ 靠评审 + 本段。
+⚠️ **引用精确到类**（#253 PR #273 终审 S-B）：**A 类**见缺口 **G-4**（《已知判据缺口》一节，
+其标题逐字是「A 类的类型要求有规定、无判据」）；**B 类**的类型今天**同样无机器判据**
+——FR-4 的扫描器只清点 public init 的文本参数并核对 `category`，
+**不查那个参数用的是 `LocalizedStringKey` 还是 `LocalizedStringResource`**
+⇒ B 类那一半由**本段登记**，G-4 本行不覆盖它。
+（上一版写「A / B 类**类型**本就无机器判别，公约自己把它记为缺口 G-4」——结论对，
+但 G-4 本行不含 B 类，引用与被引用行不符。）
 
 ⚠️ **B 类改造有隐藏破坏性**：现有 B 类 API 有成文的 `Bundle.main` 解析语义
 （`SectionHeader.swift`）。把**存量**改成 `LocalizedStringResource` 会**改变 bundle
