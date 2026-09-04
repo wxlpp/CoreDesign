@@ -205,9 +205,11 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 ⇒ **规矩补一条：写「页面无许可声明」时必须同时写明"读了哪一页"**
 （许可常常不在那篇文章上，而在站点的 `/articles/` 或 `legal.html`）。
 
-### ⚠️⚠️⚠️ #281 追到的**不兼容**许可：`Starfield`（本文件最重的一条）
+### ⚠️⚠️⚠️ #281 追到的**不兼容**许可：`Starfield`（本文件最重的一条，**撤回已执行**）
 
-上表是**共享原语**层。**shader 本体层出了一件更严重的**，记在这里以免只读本文件的人漏掉：
+上表是**共享原语**层。**shader 本体层出了一件更严重的**，记在这里以免只读本文件的人漏掉。
+⚠️ **本条保留在文件里是有意的**：`Starfield` 已经不在树上了（见文末的执行记录），
+但「为什么这个仓不提供星空 shader」只有这条记录能回答——删掉记录，下一个人会重新写一遍。
 
 > **`Starfield`（`coreDesignStarfield`）的上游是 Martijn Steinrucken（BigWings /
 > *The Art of Code*）的《Starfield Tutorial》(2020)，源码头逐字：**
@@ -225,8 +227,22 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 
 ⇒ **裁定 `不落地`**（`docs/shader-provenance.md`《`Starfield` 的追溯》专节）。
 ⚠️ **本文件不为 `Starfield` 写署名条目**——署名解决不了 NC 与 share-alike，
-**唯一的出路是不分发它**。⚠️ 撤回尚未执行，由 owner 拍板；在此之前
-**`epic → main` 被本条阻断**。
+**唯一的出路是不分发它**。
+
+#### ✅ 执行记录：撤回已完成
+
+**`Starfield` 已从 `CoreDesignShaders` 整件删除**（`Starfield.swift` 整份 +
+`CoreDesignShaders.metal` 的 `coreDesignStarfield` 段 + 两份测试里的对应用例）。
+⇒ ⚠️ **本条不再阻断 `epic → main`**。
+
+⚠️ **未走「重写那 5 行以保留它」的替代方案**：那需要 owner 显式承担
+"残留对应部分不达独创性门槛"的判断，且重写者已读过原文、独立性存疑。本次是**纯撤回**。
+
+⚠️ **`cd::hash21` / `cd::hash22` / `cd::wangHash` 留下**，理由与撤回时核实的事实：
+当前 `hash21` 是 **Wang/Reed 整数构造**（`seed ^ 61`→`*= 9`→`*= 0x27d4eb2d`）+
+**Teschner 素数三元组**，`123.34 / 456.21 / 45.32` 那组 CC BY-NC-SA 常量**早已不在代码里**
+（只作为历史记录留在注释与本表中）⇒ 撤回 `Starfield` 即清干净了这条污染，
+不需要连带撤回原语。`hash22` 因此暂时无调用方，**有意保留**——它自身许可已清偿。
 
 ### ⚠️ #281 新增的三条署名义务（`epic → main` 前必须在本文件落地）
 

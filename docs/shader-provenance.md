@@ -310,7 +310,7 @@ grep -n '^| ' docs/shader-provenance.md | grep TBD
 | 件（落地名） | `grep cd::` 调用面 | 档 | 承接 issue（ⓑ） | 分档理由（引判据原文） |
 |---|---|---|---|---|
 | `Plasma` | `ramp3` | 低指纹 | **#281** | 自身借用 = 四相正弦 ⇒ **已追到 BSD-2-Clause**（表 A）；调用面只有 `ramp3`（低指纹）⇒ max = **低指纹**。不阻断 |
-| **`Starfield`** | `hash21` `hash22` | ⚠️⚠️ **强指纹 ⇒ 已追完 ⇒ 裁定 `不落地`** | **不适用** —— 强档的义务是「追完前不得合入 `main`」；本项**已追完**，结论是许可不兼容 ⇒ 走 `不落地`，不是走承接 issue | ⚠️⚠️ **#281 追到了具名上游，而它的许可不兼容。** 详见下方《`Starfield` 的追溯》专节。判据引强档行「**有可辨识的个人表达：级联结构 / 变量命名保留**」：网格分解 `id`/`gv` → `cell`/`local` 是**改名**（本表已成文「改名不构成独立」），且**同一份 CC BY-NC-SA 源文件的 `Hash21` 曾被本仓逐字符复制**（本文件自己的注释记着 `123.34 / 456.21 / 45.32`）⇒ **接触与复制均已确立**。<br>⇒ **阻断 `epic → main`** |
+| **`Starfield`** | `hash21` `hash22` | ⚠️⚠️ **强指纹 ⇒ 已追完 ⇒ 裁定 `不落地`** | **不适用** —— 强档的义务是「追完前不得合入 `main`」；本项**已追完**，结论是许可不兼容 ⇒ 走 `不落地`，不是走承接 issue | ⚠️⚠️ **#281 追到了具名上游，而它的许可不兼容。** 详见下方《`Starfield` 的追溯》专节。判据引强档行「**有可辨识的个人表达：级联结构 / 变量命名保留**」：网格分解 `id`/`gv` → `cell`/`local` 是**改名**（本表已成文「改名不构成独立」），且**同一份 CC BY-NC-SA 源文件的 `Hash21` 曾被本仓逐字符复制**（本文件自己的注释记着 `123.34 / 456.21 / 45.32`）⇒ **接触与复制均已确立**。<br>⇒ ✅ **撤回已执行**（整件删除，见本文《执行记录》）⇒ **不再阻断 `epic → main`** |
 | `DotGrid` | `edgeWidth` | 低指纹 | **#281** | 自身借用：#281 追了一轮（paper 的 `dot-grid.ts` 一手读全文 ⇒ **不匹配**：静态、simplex 随机化、polygon SDF；Inferno 的 `LightGrid.metal` ⇒ 不匹配；code search 无候选）⇒ **未指认到上游**。调用面只有 `edgeWidth`（低指纹）。<br>判据：①（可具名复制 = 0 行）②（`sin(length(centred)*12 - time*2)` 的同心波与 AA 圆盘均为功能性构造）③（无可归属上游）⇒ **低指纹**。不阻断 |
 | `FractalClouds` | `fbm` `ramp3` | 低指纹 | **#281** | 自身借用 = **单级** warp（`offset` 一层，**无 `q`/`r` 命名、无三级级联**）⇒ 指纹弱于 `InkSmoke`；其所属的 iq domain-warp 一族现已 **MIT**（表 A）。调用面 `fbm`（事实性算法）+ `ramp3`（低指纹）⇒ max = **低指纹**。不阻断 |
 | `InkSmoke` | `fbm` `ramp3` | 低指纹 | **#281** | ⚠️ **本件曾是"强档参照物"的宿主**。自身借用 = q/r 三级级联 ⇒ **#281 追完，iq 站点级 MIT**（表 A）⇒ **强档的阻断义务已兑现**，转为署名义务。调用面 `fbm` + `ramp3` 均不阻断 ⇒ max = **低指纹**。<br>⚠️ **不阻断 ≠ 无义务**：`ACKNOWLEDGEMENTS.md` 必须转载 MIT 通知并具名 iq，否则就是拿着兼容许可却不履行它唯一的条件 |
@@ -350,7 +350,7 @@ grep -n '^| ' docs/shader-provenance.md | grep TBD
 | 作品 | **"Starfield Tutorial"（2020）**，YouTube 系列 *Shader Coding: Making a starfield* 的配套代码 |
 | 许可 | ⚠️⚠️ **源码头逐字：`// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.`** |
 | 证据强度 | **一手**（读到源码全文与许可头），⚠️ **但不是从 shadertoy.com 原页读的**——该站对自动抓取返 **403**。证据是**两份互相独立的 GitHub 拷贝逐字一致**（`sentinelweb/processink` 的 `st_starField_orig.glsl`、`GalaxyCr8r/solarance-beginnings` 的 `starfield.glsl`），另有第三份独立文件（`TornaxO7/website`）使用同一 `id`/`gv` 形态。**#281 两次独立读取**：调研 agent 一次、本人复核一次 |
-| ⚠️ 遗留 | **人工目视确认 `https://www.shadertoy.com/view/ls3Xzn` 原页的许可头，是本行的硬 AC**——形态同 `StarNest` 行（那一行是二手证据判**有利**方向，这一行是二手证据判**不利**方向；⚠️ **不利方向更不能只凭二手就执行撤回**）|
+| ⚠️ 遗留 | **人工目视确认 `https://www.shadertoy.com/view/ls3Xzn` 原页的许可头，是本行的硬 AC**。⚠️⚠️ **该 AC 至今未满足，而撤回已在 owner 指示下执行** —— 为什么未满足仍执行、以及它现在改为阻断哪一侧（任何**恢复**动作），见下方《执行记录》——形态同 `StarNest` 行（那一行是二手证据判**有利**方向，这一行是二手证据判**不利**方向；⚠️ **不利方向更不能只凭二手就执行撤回**）|
 
 #### 逐行对应（一手，两边都读过）
 
@@ -394,16 +394,55 @@ hash 层后来被换掉了（现为 Wang/Reed 构造，见表 A），**但星场
 3. ⚠️ **不得改走「自研」**：兜底同一句写着「**不得默认回落到「自研」**」。
    而且本项连"追不到"都不是——是追到了。
 
-#### ⚠️⚠️ 执行缺口（写死，否则本表就重演它自己批评过的错误）
+#### ✅ 执行记录（原《执行缺口》一节）
 
-**本判定尚未执行：`Starfield` 仍在 `epic/shipswift-shaders` 分支上。**
-本表批评过「一条被它唯一的消费者在第一天就违反的规则，不是规则」——
-所以这里**不**假装它已经不在了：
+**撤回已执行**：`Starfield` 已从 `epic/shipswift-shaders` 整件删除。
+⇒ ⚠️ **本行不再阻断 `epic → main`**。
 
-- **#281 只做裁定与撤回预案，不执行撤回。** 撤回已合入件是有成本的决定，
-  由 owner 拍板（本表规定：分档由 provenance 表 owner 判、**merge 前评审复核**）。
-- ⇒ ⚠️⚠️ **本行即 `epic → main` 的阻断项**：**撤回执行完成（或 owner 显式改判）之前
-  不得合入 `main`**。这不是"记账后放行"，与低指纹档的处理**不同**。
+保留本节的历史读法：#281 只做裁定与撤回预案、不执行撤回（撤回已合入件由 owner 拍板）；
+本表批评过「一条被它唯一的消费者在第一天就违反的规则，不是规则」，所以在执行落地之前
+它一直被写死为阻断项。**owner 拍板后由独立的撤回 PR 执行**，其范围与结果记在下面。
+
+**实际删除的东西**（与下方《撤回范围与代价》对齐，逐项核对过）：
+
+| 落点 | 处置 |
+|---|---|
+| `Sources/CoreDesignShaders/Starfield.swift` | 整份删除 |
+| `CoreDesignShaders.metal` 的 `// MARK: - Starfield` 段 | 整段删除（含 `coreDesignStarfield`） |
+| `CoreDesignShaders.metal` 的 `hash21` 溢出说明 | 改述——原文拿 `Starfield.Density.dense` 当算例，改为不依赖已撤件的表述 |
+| `DotGrid.swift` 头注释的「同 `Starfield`」 | 去掉交叉引用 |
+| `PlasmaTests.swift` | 入口清单去 `"coreDesignStarfield"`、测试名「七个入口」→「六个」、删 `Starfield.Density` 单调性断言、头注释的 bundle 计数 18 → 17 |
+| `RenderProofTests.swift` | `Background` 去 `.starfield`、测试名「六个背景」→「五个」、全图扫描那条设计说明改为不依赖已撤件 |
+| `ACKNOWLEDGEMENTS.md` | 「撤回尚未执行 ⇒ 阻断」→ 执行记录；⚠️ **不为本件写署名条目**这条不变 |
+
+⚠️ **撤回时复核过的一件事**（本节自己的《决定性旁证》要求）：当前
+`cd::hash21` / `cd::hash22` / `cd::wangHash` **确已不含** `123.34 / 456.21 / 45.32`
+——`hash21` 现为 `(i.x * 73856093u) ^ (i.y * 19349663u)` 喂给 Wang/Reed 的
+`0x27d4eb2d` 雪崩。那三个常量只以**历史记录**形态留在注释与本文档里。
+⇒ 撤回 `Starfield` 一件即清干净这条污染，**撤回范围不需要扩大到原语层**。
+
+⚠️ **`hash22` 自本次撤回起无调用方**（`hash21` 仍经 `valueNoise` → `fbm` 服务另外三件）。
+**有意保留**、不顺手删：它自身已 `已追到兼容许可`，删它属于与本次裁定无关的清理。
+
+⚠️ **本次未走替代方案**：没有"重写那 5 行以保留 `Starfield`"。理由见下方《唯一的替代方案》
+——它需要 owner 显式承担独创性门槛的判断，且重写者已读过原文、独立性存疑。
+
+##### ⚠️⚠️ 一条**未满足**的前置，写明而不掩盖
+
+本节《具名上游（一手）》表的「⚠️ 遗留」行给撤回设了一条硬 AC：
+「**人工目视确认 `https://www.shadertoy.com/view/ls3Xzn` 原页的许可头**」，
+理由是「不利方向的判定更不能只凭二手证据就执行」。
+
+**该 AC 在本次撤回执行时仍未满足**（`shadertoy.com` 对自动抓取持续返 **403**，
+见《一手实查清单》的「未能直读」段）。**撤回是在 owner 指示下执行的**，
+未等这条目视确认。写下这条而不悄悄划掉，理由：
+
+1. **这条 AC 的风险方向是不对称的**，而原文设它时按对称处理了：它防的是
+   「凭二手证据误删一件本可保留的作品」——代价是**丢一个未发布的 shader**；
+   反向的代价是**在 MIT 分发里带一件 CC BY-NC-SA 的移植**。⇒ 未满足该 AC 而执行撤回，
+   落在**保守侧**，与本表「分档有争议时一律按强档处理」同向。
+2. ⚠️ **但这不等于该 AC 作废**：它仍是**若要反悔（恢复 `Starfield` 或走重写方案）
+   的前置**。任何恢复动作必须先补上目视确认，不得引用本次执行当作"已经核过了"。
 
 #### 撤回范围与代价（`Starfield`）
 
@@ -825,7 +864,7 @@ paper 以 Apache-2.0 再许可是 paper 的断言、我们无法独立核实（�
 | 19 | `FractalClouds` | clean-room | **`待追溯（低指纹）`** | ⚠️ **本轮再降一级**：参考实现候选 ashima / stegu / glsl-noise 虽均 **MIT**，但只覆盖 FBM 底座，**domain-warp 与调色的组合本就未追到出处** ⇒ 依据不成立。⚠️ **#281 更新**：其 domain-warp 所属的 iq 一族**已追到 iq 站点级 MIT**；本体自身仍未指认到上游 ⇒ 低指纹，不阻断 |
 | 20 | `InkSmoke` | clean-room | **`待追溯（低指纹）`** | 同上。#261 实证：域扭曲的 `q`/`r` 三级级联派生自 **iq《Domain Warping》**，已撤回原创声称。⚠️⚠️ **#281 追完许可：iq 的 `/articles/` 站点级声明逐字「all technical code snippets you'll find are under the MIT license」** ⇒ 该级联 **`已追到兼容许可 · MIT`**，**强档的阻断义务已兑现** ⇒ 本件**不再阻断 `epic → main`**，义务转为署名 |
 | 21 | `Plasma` | clean-room（"经典 demoscene"） | **`待追溯（低指纹）`** | 上一版：无具名参考实现。⚠️ **#281 更新**：四相正弦已具名 **Lode Vandevenne**，且**许可实查为 BSD-2-Clause**（`lodev.org/cgtutor/legal.html` 代码与散文分开授权）⇒ 该片段 `已追到兼容许可`，义务是**保留版权通知 + 条件 + 免责声明**。本体其余部分未指认到上游 ⇒ 低指纹，不阻断 |
-| 22 | **`Starfield`** | clean-room（"标准做法"） | ⚠️⚠️ **`不落地`** | ⚠️⚠️ **上一版写「无具名参考实现」——#281 追到了。** **Martijn Steinrucken（BigWings / The Art of Code）《Starfield Tutorial》(2020)**，源码头逐字 `// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.` ⇒ **与 MIT 分发不兼容**（禁商用 + 传染性 share-alike）。命中兜底的「**追到不兼容**」分支 ⇒ `不落地`。⚠️ **旁证：本仓 `hash21` 第一版的 `123.34/456.21/45.32` 正是该文件 `Hash21` 的常量，逐字符一致** ⇒ 接触与复制均有直接证据。⚠️ **判定已下、撤回未执行 ⇒ 本行阻断 `epic → main`**，详见《`Starfield` 的追溯》|
+| 22 | **`Starfield`** | clean-room（"标准做法"） | ⚠️⚠️ **`不落地`** | ⚠️⚠️ **上一版写「无具名参考实现」——#281 追到了。** **Martijn Steinrucken（BigWings / The Art of Code）《Starfield Tutorial》(2020)**，源码头逐字 `// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.` ⇒ **与 MIT 分发不兼容**（禁商用 + 传染性 share-alike）。命中兜底的「**追到不兼容**」分支 ⇒ `不落地`。⚠️ **旁证：本仓 `hash21` 第一版的 `123.34/456.21/45.32` 正是该文件 `Hash21` 的常量，逐字符一致** ⇒ 接触与复制均有直接证据。✅ **判定已下、撤回已执行（整件删除）⇒ 本行不再阻断 `epic → main`**，详见《`Starfield` 的追溯》|
 | 23 | `Dots` | clean-room（"网格 + 三角函数"） | **`待追溯（低指纹）`** | ⚠️ paper 有 `dot-grid.ts` 但描述不同（静态几何网格 vs ShipSwift 的 5 个 `.metal` 变体）⇒ **不是**匹配。⚠️ **#281 又追了一轮**：一手读全 paper 的 `dot-grid.ts`（静态、simplex 随机化、polygon SDF ⇒ 不匹配）与 Inferno 的 `LightGrid.metal`（无圆盘、无 `fwidth` ⇒ 不匹配），code search 无候选 ⇒ **仍未指认到上游**，低指纹，不阻断 |
 | 24 | `Glass` | clean-room（"iq 的 SDF 文章"） | **`待追溯（低指纹）`** | ⚠️ 上一版写「iq 的 distfunctions2d / warp 页面**无许可声明**——"iq 文章代码是 MIT"是需要证的」。⚠️⚠️ **#281 把它证了**：iq 的 `/articles/`（两篇文章的父页）逐字「**all technical code snippets you'll find are under the MIT license**」⇒ `roundedBoxSDF` **`已追到兼容许可 · MIT`**。而**主体**（位移 + 通道色散）追完**仍未指认到具名上游**，且上一版「2025 年 layerEffect liquid glass 一族的通行形态」这句被证伪 ⇒ 分档**强指纹改判低指纹**，详见专节 |
 | 25 | `GlassLogo` | clean-room | **`待追溯（低指纹）`** | 同上（**落地名 `GlassSymbol`**）。本件无自有 shader，档位完全随 `Glass` |
@@ -1069,9 +1108,12 @@ Hacking with Swift 的 layerEffect 页 **403**。
       **不得有任何一行出现在《清偿条款》的表 A / 表 B 内**（现存的 `TBD` 字样只在
       ⓑ 的**规则原文**与本节说明里，那是在讲规则，不是占位符）
 - [ ] **表 A / 表 B 无遗漏**：表 A 覆盖《共享原语的逐项出处》全部 7 个 `待追溯` 项，
-      表 B 覆盖 #261 落地的全部 8 个本体
-- [ ] ⚠️⚠️ **`Starfield` 的撤回已执行，或 owner 已显式改判并写明理由**
-      —— **这是当前唯一的硬阻断项**
+      表 B 覆盖 #261 落地的全部 8 个本体。⚠️ **`Starfield` 撤回后树上只剩 7 件，
+      但表 B 仍保留它那一行**——那一行现在是**撤回的记录**，不是登记；删掉它就等于
+      抹掉「为什么这个仓不提供星空 shader」，下一个人会把它重新写回来
+- [x] ⚠️⚠️ **`Starfield` 的撤回已执行** —— 整件删除，执行记录见《`Starfield` 的追溯》
+      的《执行记录》小节。⚠️ 该小节记着一条**未满足**的前置（Shadertoy 原页的人工目视
+      确认，403 未读），评审要读的是那条为何不阻断撤回、却仍阻断任何恢复动作
 - [ ] ⚠️ **`Glass`（`RefractiveGlass`）由强指纹改判低指纹一事，评审已显式确认**
       —— 不确认则按兜底回落 `不落地`，撤回预案见其专节
 - [ ] **署名义务已落地到 `ACKNOWLEDGEMENTS.md`**：iq（**MIT**，两项）·

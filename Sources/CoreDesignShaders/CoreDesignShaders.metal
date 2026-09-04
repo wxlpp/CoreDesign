@@ -92,10 +92,12 @@ inline uint wangHash(uint seed) {
 ///《Optimized Spatial Hashing for Collision Detection of Deformable Objects》，
 /// 是图形代码里最好 grep 的常量之一，**不是本仓原创**。
 ///
-/// ⚠️ **先转 `uint` 再乘不是风格问题**（终审 I-2）：`int × int` 在
-/// `DotGrid.Spacing.tight`（spacing 30）与 `Starfield.Density.dense`（cells 38）
-/// 乘上竖屏 aspect ≈ 2.16 后，格点索引到 65–82，`82 × 83492791 ≈ 6.8e9 > INT_MAX`
-/// ⇒ **默认档位就有符号溢出**。MSL 继承 C++ 语义，有符号溢出是 **UB**——
+/// ⚠️ **先转 `uint` 再乘不是风格问题**（终审 I-2）：`int × int` 在格点索引到
+/// 数十量级时就溢出——`82 × 83492791 ≈ 6.8e9 > INT_MAX`。
+/// ⚠️ 提这条时举的实例是 `Starfield.Density.dense`（cells 38，乘竖屏 aspect ≈ 2.16
+/// ⇒ 索引 82），**该件已随 #281 撤回**；但结论不随实例走——`fbm` → `valueNoise`
+/// → 本函数这条链上的坐标由调用方的 `scale` 决定，同样够得到这个量级。
+/// MSL 继承 C++ 语义，有符号溢出是 **UB**——
 /// 今天在 Apple GPU 上回绕、看着照样随机，但编译器有权按「不会溢出」优化。
 /// 无符号回绕是良定义的。
 ///
@@ -245,63 +247,6 @@ inline float edgeWidth(float x) {
         f *= 2.0;
     }
     return cd::ramp3(saturate(value / max(total, 1e-4) * 0.5 + 0.5), low, mid, high);
-}
-
-// MARK: - Starfield
-
-/// 网格分格，每格随机放一颗星；亮度按到星心的距离衰减，闪烁由每星独立相位驱动。
-///
-/// ⚠️⚠️⚠️ **本函数已被 `docs/shader-provenance.md` 判为 `不落地`（#281），撤回待 owner 拍板。**
-///
-/// **具名上游（#281 一手追到）**：**Martijn Steinrucken（aka BigWings / *The Art of Code*）
-/// 的《Starfield Tutorial》(2020)**。其源码头逐字：
-/// `// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.`
-/// ⇒ **CC BY-NC-SA 3.0 与 CoreDesign 的 MIT 分发不兼容**（既禁商用，又有传染性 share-alike）。
-///
-/// **对应关系**（≈13 行中 5 行）：`cell = floor(uv*grid)` ↔ 他的 `vec2 id = floor(uv)`；
-/// `local = fract(uv*grid) - 0.5` ↔ `vec2 gv = fract(uv)-.5`（**逐字对应，只是改名**，
-/// 而本文件已成文「改名不构成独立」）；每格 hash 抖动星心；以及下面那行闪烁相位
-/// ↔ 他的 `star *= sin(u_time*3.+n*6.2831)*.5+1.`（同一构造 `sin(时间·k + hash·TAU)·0.5 + c`）。
-///
-/// ⚠️⚠️ **接触与复制已由本文件自己的注释确立**：文件头记着 `hash21` 第一版用的是
-/// `fract(p * float2(123.34, 456.21)); p += dot(p, p + 45.32)`——**那正是同一份
-/// CC BY-NC-SA 文件里 `Hash21` 的常量，逐字符一致**。hash 层后来换掉了，
-/// **星场本体的结构没有换**。⇒ 不是"碰巧写得像"。
-///
-/// ⚠️ 如实记下相反方向：他最有辨识度的部分（3×3 邻格循环、衍射光芒、`Rot()`、
-/// 6 层视差、`.05/d` 反距离辉光）本函数**一个都没有**；而本函数的 `step(0.55, …)` 熄灭
-/// 门限与 `smoothstep(0.16, 0.0, d)` 圆盘辉光**追不到任何上游**
-/// ⇒ 上一版说"整条级联都是模板的逐项形态"是**过度归因**，已按实测改述。
-///
-/// ⚠️ **证据强度**：`shadertoy.com` 对自动抓取返 403，**未直读原页**；证据是两份互相
-/// 独立的 GitHub 拷贝逐字一致。**人工目视确认 `https://www.shadertoy.com/view/ls3Xzn`
-/// 是执行撤回前的硬 AC**——不利方向的判定更不能只凭二手证据就执行。
-///
-/// ⚠️ **不要"改几行绕过去"**：本文件已成文「改常量、改名不构成独立」。
-/// 走替代方案（重写对应的 5 行而不撤回）须由 owner 显式承担该判断。
-[[stitchable]] half4 coreDesignStarfield(float2 position, half4 currentColor,
-                                         float2 size, float time,
-                                         float density, float twinkle,
-                                         half4 sky, half4 star) {
-    float2 uv = position / max(size, float2(1.0));
-    float aspect = max(size.x, 1.0) / max(size.y, 1.0);
-    float2 grid = float2(density * aspect, density);
-    float2 cell = floor(uv * grid);
-    float2 local = fract(uv * grid) - 0.5;
-
-    float2 jitter = cd::hash22(cell) - 0.5;
-    float brightness = cd::hash21(cell + 7.0);
-
-    // 只有一部分格子有星：亮度低于门限的直接熄灭，避免规则网格感。
-    float alive = step(0.55, brightness);
-    float d = length(local - jitter * 0.7);
-    float glow = alive * smoothstep(0.16, 0.0, d) * brightness;
-
-    // 每颗星独立相位，`twinkle` 控制振幅（0 = 不闪）。
-    float phase = brightness * 6.2831853;
-    glow *= 1.0 - twinkle * 0.5 * (1.0 - sin(time * 2.0 + phase));
-
-    return mix(sky, star, half(saturate(glow)));
 }
 
 // MARK: - DotGrid
