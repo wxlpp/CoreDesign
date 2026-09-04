@@ -569,10 +569,15 @@ struct BeforeAfterSliderTests {
         return (Int(data[i]), Int(data[i + 1]), Int(data[i + 2]), Int(data[i + 3]))
     }
 
-    static func probe(fraction: CGFloat, before: Color, after: Color) -> Data? {
+    static func probe(
+        fraction: CGFloat,
+        before: Color,
+        after: Color,
+        labels: BeforeAfterSliderLabels = .hidden
+    ) -> Data? {
         Self.pixels(
             BeforeAfterSliderBody(
-                fraction: fraction, labels: .hidden, before: before, after: after
+                fraction: fraction, labels: labels, before: before, after: after
             )
             .frame(width: CGFloat(Self.probeWidth), height: CGFloat(Self.probeHeight))
         )
@@ -591,6 +596,10 @@ struct BeforeAfterSliderTests {
     /// `fractionReachesRendering` 只比"两个位置的位图不同"，
     /// `labelDomainIsAnEnumWithThreeDistinctRenderings` 只比"三档互不相同"，
     /// 两条都对"哪边是哪个"完全不敏感。
+    ///
+    /// ⚠️⚠️ **本条只钉住图层方向那一半**（终审 I-A）：它走 `labels: .hidden`，
+    /// 结构上观测不到 chip ⇒ 单把 `labelPair` 里两个 chip 对调（图层不动）仍然全绿。
+    /// chip 那一半在 `beforeChipIsOnTheLeadingSide`，两条合起来才闭合 C-1。
     @Test("before 画在分隔线左边、after 画在右边（init 文档的语义）")
     func beforeIsOnTheLeadingSide() throws {
         let data = try #require(
@@ -613,15 +622,119 @@ struct BeforeAfterSliderTests {
         """)
     }
 
+    /// ⚠️⚠️ **C-1 的另一半：chip 与图层的对应关系**（#253 PR #273 终审 I-A）。
+    ///
+    /// C-1 的真实危害是「chip 顺序与绘制层不一致 ⇒ 默认标签把两半都标错」，而
+    /// **两侧任一处翻转都会复现它**。上面那条 `beforeIsOnTheLeadingSide` 走的是
+    /// `labels: .hidden`，**结构上观测不到 chip** ⇒ 只钉住了图层方向那一半。
+    ///
+    /// 终审实测的绕过：只把 `labelPair` 里 `self.chip(before)` 与 `self.chip(after)`
+    /// 对调（图层一动不动）⇒ "Before" 压在 `after` 那半、"After" 压在 `before` 那半，
+    /// **与 C-1 的用户可见后果逐字相同**，而当时 `swift test` **665 全绿**。
+    ///
+    /// ## 形态：宽窄文案 + 差分计数（不是"认字"）
+    ///
+    /// 位图路认不出"这个 chip 写的是哪个词"，但认得出**宽度**。⇒ 一次给
+    /// `before` 长文案 / `after` 短文案，一次反过来，各与 `.hidden` 基线做差分计数：
+    /// 长文案那一侧的差异像素必须**跟着它的实参位置走**。
+    /// ⚠️ 采样带从 `handleSpan(fraction:)` 推导，避开正中的把手（同端点判据的理由）。
+    @Test("chip 与图层对应：before 的 chip 压在 before 那半（长文案跟着实参走）")
+    func beforeChipIsOnTheLeadingSide() throws {
+        let narrow: LocalizedStringKey = "l"
+        let wide: LocalizedStringKey = "MMMMMMMMMMMM"
+        // ⚠️ 两层给**同色**：这样与基线的差分只可能来自 chip 本身，不掺图层方向。
+        let base = try #require(Self.probe(fraction: 0.5, before: .red, after: .red),
+                                "基线渲染失败，下面的计数断言会静默变绿")
+        let beforeIsWide = try #require(Self.probe(
+            fraction: 0.5, before: .red, after: .red, labels: .shown(before: wide, after: narrow)
+        ), "渲染失败")
+        let afterIsWide = try #require(Self.probe(
+            fraction: 0.5, before: .red, after: .red, labels: .shown(before: narrow, after: wide)
+        ), "渲染失败")
+
+        let handle = Self.handleSpan(fraction: 0.5)
+        let leftBand = 0..<handle.lowerBound
+        let rightBand = handle.upperBound..<Self.probeWidth
+        let topBand = 0..<(Self.probeHeight / 2)
+
+        let leftWideBefore = Self.differingPixels(beforeIsWide, from: base, x: leftBand, y: topBand)
+        let leftWideAfter = Self.differingPixels(afterIsWide, from: base, x: leftBand, y: topBand)
+        let rightWideBefore = Self.differingPixels(beforeIsWide, from: base, x: rightBand, y: topBand)
+        let rightWideAfter = Self.differingPixels(afterIsWide, from: base, x: rightBand, y: topBand)
+
+        // 非退化前置：四个方向上 chip 都必须真的画出来了，否则下面的大小比较无意义。
+        for (name, n) in [("left/wide-before", leftWideBefore), ("left/wide-after", leftWideAfter),
+                          ("right/wide-before", rightWideBefore), ("right/wide-after", rightWideAfter)] {
+            #expect(n > 0, "\(name) 一个差异像素都没有 —— chip 根本没画出来，下面的比较是空话")
+        }
+
+        #expect(leftWideBefore > leftWideAfter, """
+        把长文案给 `before` 时，**左**半的 chip 并没有变宽
+        （左半差异像素 \(leftWideBefore) vs 反过来时 \(leftWideAfter)）——
+        "Before" 的 chip 没有压在 `before` 那半上。绘制层左边画的是 `before`
+        （`beforeIsOnTheLeadingSide` 已钉住），两者对不上 ⇒ 默认标签把两半都标错。
+        """)
+        #expect(rightWideAfter > rightWideBefore, """
+        把长文案给 `after` 时，**右**半的 chip 并没有变宽
+        （右半差异像素 \(rightWideAfter) vs 反过来时 \(rightWideBefore)）。
+        """)
+    }
+
+    /// 两张同尺寸位图在给定矩形区域内**逐像素不等**的个数。
+    ///
+    /// ⚠️ 用差分而不是"取一个像素判颜色"：chip 是圆角胶囊 + 文字，
+    /// 没有一个可以硬编码的采样点；而"这里比那里多了多少东西"是稳定可比的。
+    static func differingPixels(_ data: Data, from base: Data, x: Range<Int>, y: Range<Int>) -> Int {
+        var count = 0
+        for row in y {
+            for column in x {
+                guard let lhs = Self.rgba(data, at: column, y: row),
+                      let rhs = Self.rgba(base, at: column, y: row) else { continue }
+                if lhs != rhs { count += 1 }
+            }
+        }
+        return count
+    }
+
     /// 上一条的**互锁**：两个端点位置必须整块换成另一边，否则"左右"是一句没被观测的话。
     ///
-    /// ⚠️ **采样点必须避开把手**：`leadingInset` 把 44pt 的命中区推到分隔线两侧，
-    /// fraction=0 时它占 `[0, 44]`、fraction=1 时占 `[width-44, width]`，
-    /// 而把手是不透明的 `contentOnAccent` ⇒ 落在里面会取到把手的颜色（实测灰 156）
-    /// 而不是被测的两层。⇒ 端点判据取 `probeMidLeft` / `probeMidRight`（60 / 140），
-    /// 两个端点形态下都在把手之外。
-    static let probeMidLeft = 60
-    static let probeMidRight = 140
+    /// ⚠️ **采样点必须避开把手**：`leadingInset` 把命中区推到分隔线两侧，
+    /// fraction=0 时它占 `[0, handleHitSize]`、fraction=1 时占
+    /// `[width - handleHitSize/2, width]`，而把手是不透明的 `contentOnAccent`
+    /// ⇒ 落在里面会取到把手的颜色（实测灰 156）而不是被测的两层。
+    ///
+    /// ⚠️⚠️ **从 `BeforeAfterSweep.handleHitSize` 推导，不写裸字面量**（#253 PR #273
+    /// 终审 Preference）：上一版是 `60` / `140` 两个相对 `probeWidth = 200` 的裸数，
+    /// 今天正确、但改 `probeWidth` 或 `handleHitSize` 时**无人提醒**——采样点会静默
+    /// 落进把手里，端点判据于是对着把手的灰色断言"这是 before / after"。
+    /// ⇒ 与本仓 `SettingsRowMetrics`「inset 从常量推导、不硬编码」同一条纪律。
+    /// 取值 = 「把手外侧边缘」到「画布中线」的中点。自洽核对见
+    /// `endpointProbesStayOutsideTheHandle`。
+    static let probeMidLeft = (Int(BeforeAfterSweep.handleHitSize) + Self.probeWidth / 2) / 2
+    static let probeMidRight = Self.probeWidth - Self.probeMidLeft
+
+    /// 给定 fraction 时把手在探针画布上占据的横向区间（像素下标）。
+    static func handleSpan(fraction: CGFloat) -> Range<Int> {
+        let lead = Int(BeforeAfterSweep.leadingInset(fraction: fraction, width: CGFloat(Self.probeWidth)))
+        return lead..<(lead + Int(BeforeAfterSweep.handleHitSize))
+    }
+
+    /// 上面那条推导的**自洽核对**：两个采样点在两个端点形态下都必须落在把手之外。
+    /// ⚠️ 它替代的正是上一版那两个裸字面量所依赖的、只存在于注释里的算术。
+    @Test("端点采样点由 handleHitSize 推导，且两个端点形态下都在把手之外")
+    func endpointProbesStayOutsideTheHandle() {
+        for fraction in [CGFloat(0), 1] {
+            let span = Self.handleSpan(fraction: fraction)
+            for x in [Self.probeMidLeft, Self.probeMidRight] {
+                #expect(!span.contains(x), """
+                fraction=\(fraction) 时把手占 \(span)，采样点 x=\(x) 落在里面 ——
+                端点判据会对着把手的颜色断言"这是 before / after"。
+                改了 probeWidth / handleHitSize 就要重看 probeMidLeft 的推导。
+                """)
+            }
+        }
+        #expect(Self.probeMidLeft < Self.probeMidRight, "两个采样点重合或反了")
+    }
 
     @Test("端点位置：fraction=0 整块是 after，fraction=1 整块是 before")
     func endpointsRevealASingleSide() throws {
@@ -775,6 +888,21 @@ struct BeforeAfterSliderTests {
         #expect(count("settlesAfterSweep(hasInteracted: self.hasInteracted)") == 1, """
         回程没有过 `BeforeAfterSweep.settlesAfterSweep` 闸
         （命中 \(count("settlesAfterSweep(hasInteracted: self.hasInteracted)")) 次）。
+        """)
+
+        // ⚠️⚠️ **置位必须落在 `onChanged` 闭包内部**（#253 PR #273 终审 S-A ②）。
+        // 上面那条只是逐次计数，钉的是**形状**不是**位置**：终审把置位从 `onChanged`
+        // 挪到 `onEnded`，计数与下面的顺序断言**都还成立**、665 全绿，而 I-6 的原始危害
+        //（用户**正握着**把手时回程触发被拽回 0.5）原封不动回来——`onEnded` 只在松手
+        // 那一刻才置位，摆动窗口内的整段拖拽全程 `hasInteracted == false`。
+        // ⇒ 用配对括号取 `.onChanged` 的闭包体，断言置位就在里面。
+        guard let onChanged = ConfettiTests.bracedRegion(after: ".onChanged", in: code) else {
+            Issue.record("找不到 `.onChanged` 闭包 —— 拖拽入口没了？")
+            return
+        }
+        #expect(onChanged.contains("self.hasInteracted = true"), """
+        `self.hasInteracted = true` 不在 `.onChanged` 闭包里（挪到 `.onEnded` 是终审
+        实证过的等价绕过：计数与顺序断言全绿，而摆动窗口内的整段拖拽仍会被回程拽回 0.5）。
         """)
 
         // ⚠️ **顺序也是承重的**：闸必须在回程那次 `withAnimation` 之**前**。

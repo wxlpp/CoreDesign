@@ -41,10 +41,26 @@ public enum BeforeAfterSliderLabels {
 同样标错。当时的两条渲染判据（`fractionReachesRendering` 只比"两个位置的位图不同"、
 `labelDomainIsAnEnumWithThreeDistinctRenderings` 只比"三档互不相同"）**对方向完全不敏感**。
 
-⇒ 现在由**逐像素取色**判据钉住：`BeforeAfterSliderTests.beforeIsOnTheLeadingSide`
-（fraction 0.5 时左侧必须是 `before` 的色、右侧必须是 `after` 的色）
-+ `endpointsRevealASingleSide`（fraction 0 / 1 两个端点各整块换成另一层，作互锁）。
-⚠️ 采样点必须避开把手：44pt 的命中区在端点形态下会盖住 `[0,44]` / `[width-44,width]`。
+⇒ **两条判据分别钉住这件事的两半，缺一条都能被绕过**：
+
+- **图层方向**——`BeforeAfterSliderTests.beforeIsOnTheLeadingSide`（逐像素取色：
+  fraction 0.5 时左侧必须是 `before` 的色、右侧必须是 `after` 的色）
+  + `endpointsRevealASingleSide`（fraction 0 / 1 两个端点各整块换成另一层，作互锁）。
+- **chip 与图层的对应**——`BeforeAfterSliderTests.beforeChipIsOnTheLeadingSide`。
+
+⚠️⚠️ **上一版这里只写了「逐像素取色判据钉住」，而那条走 `labels: .hidden`、
+结构上观测不到 chip**（#253 PR #273 终审 I-A）：终审只把 `labelPair` 里
+`self.chip(before)` 与 `self.chip(after)` 对调（**图层一动不动**），
+"Before" 就压在 `after` 那半上——**与 C-1 的用户可见后果逐字相同**，
+而当时 `swift test` **665 全绿**。⇒ chip 那一半必须单独有判据。
+它的形态是「宽窄文案 + 差分计数」：位图路认不出 chip 上写的是哪个词，但认得出宽度
+——一次给 `before` 长文案、一次给 `after` 长文案，各与 `.hidden` 基线做差分计数，
+长文案那一侧的差异像素必须**跟着它的实参位置走**。
+
+⚠️ 采样点必须避开把手：`handleHitSize` 的命中区在端点形态下会盖住
+`[0, handleHitSize]` / `[width - handleHitSize/2, width]`（落进去会取到把手的灰 156）。
+采样点**从 `BeforeAfterSweep.handleHitSize` 推导、不写裸字面量**
+（终审 Preference；自洽核对见 `endpointProbesStayOutsideTheHandle`）。
 
 ## 入场摆动不会覆盖拖拽
 
