@@ -2,8 +2,8 @@
 name: shipswift-effects
 status: in-progress
 created: 2026-09-02T23:42:57Z
-updated: 2026-09-03T23:19:50Z
-progress: 43%
+updated: 2026-09-04T03:54:41Z
+progress: 57%
 prd: .claude/prds/shipswift-harvest.md
 github: https://github.com/wxlpp/CoreDesign/issues/242
 ---
