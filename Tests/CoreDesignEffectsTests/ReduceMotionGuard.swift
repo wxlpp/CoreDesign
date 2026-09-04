@@ -199,6 +199,35 @@ struct MicroInteractionReduceMotionGuard {
         //    哪天有人往里加一处 `offset(`，`everyFileIsClassified` 与
         //    `motionFilesReadReduceMotion` 当场判红，逼人回来重新分类。
         "FullScreenButton.swift",
+        // `#266` 新增（滤镜类转场五件）。**这一整组的分类理由是同一条**：
+        // 它们**不改变几何、只改变成像**——全组只用 `.blur(radius:)` / `.brightness(_:)` /
+        // `.saturation(_:)` / `.contrast(_:)` / `.opacity(_:)`，一个 `motionCalls`
+        // 关键字都不出现。⇒ 本守卫的三条 RM 判据对它们**结构上无话可说**。
+        //
+        // ⚠️⚠️ **「文件里没有运动关键字」在这里同样不是逃逸位**（形态同上面
+        // `BeforeAfterSlider` / `FullScreenButton` 两条）：
+        // · `FilterTransitionTests.filterClusterChangesImagingNotGeometry`
+        //   —— 逐个断言这五个文件不含任何 `motionCalls` 关键字（本豁免的前提本身），
+        //   并与本名单做双向差集；哪天有人往里加一处 `offset(`，它当场判红；
+        // · `FilterTransitionTests.safetySignalsAreOnlyConsumedByTheSharedGate`
+        //   —— 两个 a11y 信号（`\.accessibilityDimFlashingLights` /
+        //   `\.accessibilityReduceMotion`）只许喂给 `FilterTransitionSafety`
+        //   这一个裁决点，且不许裸写（形态同本文件
+        //   `reduceMotionIsOnlyConsumedByTheSharedGate`）；
+        // · `FilterTransitionTests.chromeBodiesArePinnedVerbatim`
+        //   —— 四个 chrome 的类型体逐字钉死。
+        //
+        // ⚠️ **本组的 Reduce Motion 判据是逐个裁的、不是一刀切**，逐字见
+        // `FilterTransitionSupport.swift` 文件头那张表：`blur` 两个信号都不读
+        //（无光流、无亮度往复，降级等于删掉这条转场）；`filmExposure` / `snapshot`
+        // 只读「减弱闪烁灯光」；`flicker` 两个都读（WCAG 2.3.1 点名的往复闪烁）。
+        // ⚠️ 因此 `FlickerTransition.swift` 里**确实有** `accessibilityReduceMotion`，
+        // 而它仍然在本名单上——本名单判的是"有没有运动"，不是"读不读 RM"。
+        "FilterTransitionSupport.swift",
+        "BlurTransition.swift",
+        "FilmExposureTransition.swift",
+        "SnapshotTransition.swift",
+        "FlickerTransition.swift",
     ]
 
     static var sourceRoot: URL {

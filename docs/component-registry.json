@@ -1044,6 +1044,30 @@
       "host": "Transition",
       "member": "particle",
       "notes": "视图进出时内容轻微缩放淡出、一圈粒子向外飞散（进入时反向汇聚）。含参重载 .particle(count:colors:) 与无参 .particle 按 Host.member 去重算同一条（计数单位是「一种 transition」）。colors 默认空数组 ⇒ 取调用方 .tint，与 spray / confetti 共用 [Color].particleStyle(at:)，不自带色板；Reduce Motion 下走早退，不放粒子也不缩放，只留内容自身的淡入淡出——不是 no-op；identity 相位进度恒为 0，一颗粒子都不画，转场结束后不留残留。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "blur",
+      "notes": "视图进出时内容失焦并淡出。含参重载 .blur(radius:) 与无参 .blur 按 Host.member 去重算同一条。两条曲线（半径、不透明度）在进度上都是仿射的 ⇒ 绘制层有意不套 Animatable（判据 blurCurvesAreAffine 守着这张豁免）。全簇唯一一个 Reduce Motion 与「减弱闪烁灯光」两个信号都不读的：无位移/缩放/旋转 ⇒ 无光流，亮度单调不往复 ⇒ 无闪光；降级会把这条转场本身抹成 .opacity。该裁决由 blurConsumesNoAccessibilitySignal 钉在源码上。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "filmExposure",
+      "notes": "视图进出时像一格胶片被过度曝光：亮度先冲上去、饱和度与对比度洗白，然后消失。含参重载 .filmExposure(intensity:) 与无参按 Host.member 去重算同一条。亮度曲线 4p(1−p) 在两个可达相位上精确为 0、峰值只在中间 ⇒ 绘制层必须 Animatable，否则过曝一次都不会发生（#253 ParticleTransition 的原形态）。只读 accessibilityDimFlashingLights：无位移故与 Reduce Motion 无关，而过曝是一次大面积亮度上冲；开启时峰值压到 calmedBrightnessCeiling(0.08) 以下——落在 WCAG 2.3.1 通用闪光阈值 0.1 之下，且不为 0（洗白与淡出保留，不是 no-op）。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "snapshot",
+      "notes": "视图像即显相纸那样出现：一下快门白场，随后从洗白的低对比逐渐显影。含参重载 .snapshot(intensity:) 与无参按 Host.member 去重算同一条。白场是升余弦窗，中心在进度 0.75、半宽 0.25 ⇒ 两个可达相位上恒为 0，绘制层必须 Animatable。与 filmExposure 走同一道闸、同一个上限（只读 accessibilityDimFlashingLights，峰值压到 0.08 以下）；它是全簇最陡的一次亮度上冲，故幅度这一侧比 filmExposure 更该管。压制后显影与淡出保留。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "flicker",
+      "notes": "视图像接触不良的灯管那样忽明忽暗地出现/消失。含参重载 .flicker(cycles:) 与无参按 Host.member 去重算同一条。不透明度曲线在两个可达相位上分别是 1 与 0，每一次明暗全靠 SwiftUI 对 animatableData 的插值 ⇒ 绘制层必须 Animatable。全簇唯一同时读两个 a11y 信号的：accessibilityDimFlashingLights 是 WCAG 2.3.1 点名的正确信号，accessibilityReduceMotion 也读是因为往复本身属「重复的非必要动画」，两者取或（各自独立的系统开关）；压制后 cycles 归 0、退化为单调淡出，转场仍然发生。已知限度：感知频率 = cycles ÷ 调用方动画时长，Transition 拿不到时间源，默认 3 次要落在 3 次/秒线下需时长 ≥ 1 秒。"
     }
   ]
 }

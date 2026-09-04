@@ -109,3 +109,24 @@ nonisolated func readCrossPlatformDefaults() -> [Double] {
         CharSphere.defaultRotationPeriod,
     ]
 }
+
+// MARK: - #266 滤镜类转场的公开值类型
+
+// ⚠️ 按文件头的分流表，`#266` 的四种转场只有**默认值常量**这一档落在本文件：
+// 它们是调用方在自己配置层会读的东西（"这块卡片用多大的失焦半径"），
+// 被 `MainActor` 隔离会让下游在后台线程准备参数时用不了——**这只有本 probe 看得见**。
+// 四个 `Transition` 静态成员（`.blur` / `.filmExposure` / `.snapshot` / `.flicker`）
+// 是**转场形态**，从 `nonisolated func` 里构造必然编译失败 ⇒ 它们在
+// `PublicVisibility.swift`（`@MainActor`）那侧。
+//
+// ⚠️ **安全档位那套（`FilterTransitionSafety`）有意不在这里**：它是 `internal`
+// ——理由与 `EffectsPresentation` 逐字相同（`public` 会让它的裸 `Bool` 参数命中
+// `BoolExemptionGuard`，要一条署名豁免并抬棘轮，而本 epic 的净增预算只有 2 条）。
+nonisolated func readFilterTransitionDefaults() -> (Double, Double, Double, Int) {
+    (
+        Double(BlurTransition.defaultRadius),
+        FilmExposureTransition.defaultIntensity,
+        SnapshotTransition.defaultIntensity,
+        FlickerTransition.defaultCycles
+    )
+}
