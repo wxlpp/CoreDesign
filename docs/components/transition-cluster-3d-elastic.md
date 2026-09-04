@@ -58,6 +58,17 @@ import CoreDesignEffects
 判据：`chromeOnlyRelaysReduceMotion`（层 2 读到的 `reduceMotion` 次数必须恰好等于
 递给层 3 的次数）+ `chromeDoesNothingButForward`（层 2 的类型体里不许出现任何绘制调用）。
 
+⚠️ **两跳的接线本身另有一条判据**：`transitionBodyWiresEveryStoredPropertyDownOneLayer`
+从源码里**现取**每一层的存储属性（`let` / `var` 一视同仁），要求每个 `self.<属性>`
+都出现在下一层的构造里——位图判据全部**直接构造层 3**，看不见这两跳，
+整层被绕过时它们照样绿（`#267` 终审 C-1 / C-2 的两枚变异实证）。
+
+> **射程边界**（明知而接受）：它是**子串检查**，三条路径能满足它而实际仍然断线——
+> 丢弃式使用（`_ = self.travel` 配写死的实参）、同名替身 `struct XChrome`、
+> 在层 1 与层 2 之间插一层。三者都要**刻意为之**，且位图那一半能抓住有意义的子集。
+> 反过来，把同一层里两个**同类型**实参对调是源码判据抓不到、
+> 只有 `realTransitionEntryPointRendersTheWholeChain` 判红的 —— 两半互补。
+
 ## ⚠️ 与 `ParticleTransition`（#253）**有意**不同的两处
 
 ### 1. 没有 `AnyView`，也没有 `if` / `guard` 早退
@@ -113,6 +124,15 @@ SwiftUI 的 attribute graph 在两个出口之间对不上号 ⇒ 动画退化�
   「一层 modifier 都不套」的裸内容**逐字节相同**）。
   ⚠️ 这一条抓的是纯函数看不见的东西——实测往层 3 加一句无条件的 `.blur(radius: 0.5)`，
   纯函数判据与 `MicroInteractionReduceMotionGuard` **全绿**，只有它判红。
+
+⚠️⚠️ **两个端点的符号也要绝对地钉**（`#267` 复审 B）：上表里的 `-1` / `+1` 是整簇
+进出方向的源头。把 `TransitionCurve.value(of:)` 改成 `-phase.value` ⇒ 六条转场方向
+**全反**（`.swoosh(edge: .trailing)` 变成从左边进），而在补上 ⓪ 之前全量测试 **754 全绿**——
+`identityPhaseIsExactlyNeutral` 只查 `.identity ⇒ 0`（对符号不变）、位图探针都用
+字面量 `phaseValue` 直接构造层 3、经 `Transition.apply` 的那条链在端点上不透明度恰为 0。
+⇒ `absoluteDirectionsMatchTheDocumentedEdges` 的 ⓪ 钉「它在两个端点返回什么」，
+`transitionBodyWiresEveryStoredPropertyDownOneLayer` 钉「层 1 确实经它路由 `phase`」，
+两条合起来才闭环。
 
 共享的曲线在 `TransitionSupport.swift` 的 `TransitionCurve`：
 

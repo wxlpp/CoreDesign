@@ -1079,7 +1079,7 @@
       "target": "CoreDesignEffects",
       "host": "Transition",
       "member": "move",
-      "notes": "沿任意极角（角 + 距离）平移进出，线性、同侧、无附加效果——要过冲用 skid、要穿行加动态模糊用 swoosh。含参重载 .move(angle:distance:) 与无参 .move 按 Host.member 去重算同一条。⚠️ 类型名是 PolarMoveTransition 而不是 MoveTransition：SwiftUICore 已有同名类型与 .move(edge:)，同名会让同时 import 两边的下游歧义，而库自身 swift build 仍是绿的；静态成员仍叫 move，与系统那个按实参标签构成重载而非覆盖，解析表由判据 systemMoveEdgeStillResolvesToSwiftUI 钉住。Reduce Motion 下位移门控到 0，只剩淡入淡出。"
+      "notes": "沿任意极角（角 + 距离）平移进出，线性、同侧、无附加效果——要过冲用 skid、要穿行加动态模糊用 swoosh。含参重载 .move(angle:distance:) 与无参 .move 按 Host.member 去重算同一条。⚠️ 类型名是 PolarMoveTransition 而不是 MoveTransition：SwiftUICore 已有同名类型与 .move(edge:)，同名会让同时 import 两边的下游歧义，而库自身 swift build 仍是绿的；静态成员仍叫 move，与系统那个按实参标签构成重载而非覆盖。⚠️ 守住这张解析表的是 scripts/downstream-probe 的跨模块编译期探针 systemMoveEdgeKeepsResolvingToSwiftUI（守类型名冲突）与 systemMoveEdgeIsUnambiguousWithoutAnyAnnotation（守无标注调用歧义），两条各守一半；库内的 systemMoveEdgeStillResolvesToSwiftUI 写的是 let system: MoveTransition = .move(edge: .top)，显式结果类型标注已按返回类型消歧，它只能证「我们没把系统那个截胡」这一个子集，不是改名守卫（#267 终审 C-4）。Reduce Motion 下位移门控到 0，只剩淡入淡出。"
     }
   ]
 }

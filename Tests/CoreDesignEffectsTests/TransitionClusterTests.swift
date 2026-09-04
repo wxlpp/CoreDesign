@@ -91,12 +91,17 @@ struct TransitionClusterTests {
         func hash(into hasher: inout Hasher) { hasher.combine(self.bytes) }
 
         /// 第一个相异字节的下标；完全相同时 `nil`。只在失败信息里求值。
+        ///
+        /// ⚠️ 直接遍历 `Data`，**不转 `Array`**：一帧 ≈192KB，转两次等于在**失败路径上**
+        /// 白复制整整两帧。`zip` 逐元素惰性走，顺带把"较短的那个先走完"处理掉；
+        /// 返回的是**相对偏移**（`Data` 切片的 `startIndex` 不一定是 0，别拿它当下标用）。
         func firstDifference(from other: Frame) -> Int? {
-            let mine = Array(self.bytes)
-            let theirs = Array(other.bytes)
-            let shared = min(mine.count, theirs.count)
-            for index in 0..<shared where mine[index] != theirs[index] { return index }
-            return mine.count == theirs.count ? nil : shared
+            for (offset, pair) in zip(self.bytes, other.bytes).enumerated() where pair.0 != pair.1 {
+                return offset
+            }
+            return self.bytes.count == other.bytes.count
+                ? nil
+                : min(self.bytes.count, other.bytes.count)
         }
 
         var description: String { "帧(\(self.bytes.count) 字节，指纹 \(Self.digest(self.bytes)))" }
@@ -781,21 +786,35 @@ struct TransitionClusterTests {
 
     // MARK: - ⑤ 层 1 → 层 2 → 层 3 的接线
 
-    /// 从一段类型体源码里取出**存储属性**的名字（`let x: T` / `public let x: T`）。
+    /// 从一段类型体源码里取出**存储属性**的名字（`let x: T` / `public let x: T` /
+    /// `var x: T` / `public var x: T` / `private var x: T`）。
     ///
     /// ⚠️ 只认「带类型标注、整行不含 `=`、名字是合法标识符」的行 ⇒
     /// `public nonisolated static let quarterTurn: Double = 90`（静态常量，不是每实例
     /// 的参数）、`let travel = Skid.travel(…)`（函数体里的局部量）都进不来。
     /// ⚠️ **不写死一张属性清单**：写死的话「新加一个参数却忘了往下传」正是抓不到的
     /// 那一类——名单不改，判据不动。从源码里现取才有射程。
+    ///
+    /// ⚠️⚠️ **`var ` 与 `let ` 一视同仁（`#267` 复审 A）**：只认 `let ` 的那一版有个
+    /// 洞——把 `public let travel: TransitionTravel` 改成 `public var travel`
+    /// 再把 `SwooshChrome(… points: 0)` 写死，那一版看不见 `travel`，
+    /// `.swoosh(travel:)` 于是成了一个彻底的死公开参数，而**整份 suite 24 条全绿**
+    ///（复审实证；本函数认了 `var ` 之后同一枚变异当场判红）。
+    /// 而 `var` 在这几个文件里本来就是惯用写法（层 3 为了 `Animatable`
+    /// **必须**写 `var phaseValue: Double`），照着往上一层抄是很自然的编辑。
+    /// ⚠️ 对层 2 是安全的：`@Environment(\.accessibilityReduceMotion) private var reduceMotion`
+    /// 以 `@Environment` 开头，永远走不到 `hasPrefix("var ")` 那一步；
+    /// `public static var properties: …` 的 `static ` 也不在剥离名单上。
     static func storedProperties(in typeBody: String) -> [String] {
         var names: [String] = []
         for rawLine in typeBody.split(separator: "\n", omittingEmptySubsequences: false) {
             var line = rawLine.trimmingCharacters(in: .whitespaces)
             guard !line.contains("=") else { continue }
-            if line.hasPrefix("public ") { line = String(line.dropFirst("public ".count)) }
-            guard line.hasPrefix("let ") else { continue }
-            let rest = line.dropFirst("let ".count)
+            for modifier in ["public ", "private "] where line.hasPrefix(modifier) {
+                line = String(line.dropFirst(modifier.count))
+            }
+            guard line.hasPrefix("let ") || line.hasPrefix("var ") else { continue }
+            let rest = line.dropFirst(4)   // `let ` / `var ` 同长
             guard let colon = rest.firstIndex(of: ":") else { continue }
             let name = rest[rest.startIndex..<colon].trimmingCharacters(in: .whitespaces)
             guard let first = name.first, !first.isNumber,
@@ -828,6 +847,17 @@ struct TransitionClusterTests {
     /// ⇒ 本条走**源码**，按「每一个存储属性都必须**逐层往下传**」这条结构性契约钉：
     /// 上面每一枚变异都会让某个 `self.<属性>` 从对应的 `body` 里消失，或让
     /// `XChrome(` 变成 `XMotion(`。形态取自 `ProcessingSweepTests.containersDelegateToDriver`。
+    ///
+    /// ⚠️ **射程边界（`#267` 复审 C，明知而接受，别当成没发现）**：本条是**子串检查**，
+    /// 下面三条路径能满足它而实际仍然断线——
+    /// · **丢弃式使用**：`_ = self.travel` 摆在 `body` 里、真实参写死常量；
+    /// · **同名替身**：在文件里另写一个 `struct XChrome` 顶掉真的那个；
+    /// · **插层**：在层 1 与层 2 之间再塞一层，属性传给它却不再往下走。
+    /// 三者都需要**刻意为之**（不是"新加参数忘了传"这类自然编辑），
+    /// 而位图那一半能抓住有意义的子集 ⇒ 判定为可接受，不为它们加解析器。
+    /// ⚠️ 反过来也有它抓不到、只有位图能抓的：把 `Rotate3DTransition.body` 里两个
+    /// **同类型**实参对调 —— 每个 `self.<属性>` 都还在，源码判据全瞎，
+    /// 只有 `realTransitionEntryPointRendersTheWholeChain` 判红。两半互补，缺一不可。
     @Test("层 1 交给层 2、层 2 交给层 3，两跳都必须把每一个存储属性原样带下去")
     func transitionBodyWiresEveryStoredPropertyDownOneLayer() throws {
         for probe in Self.probes {
@@ -1006,8 +1036,26 @@ struct TransitionClusterTests {
     /// ⇒ 本条钉**绝对**取值，并把从未被行使过的 `.top` / `.bottom`
     /// 与 `Skid.tilt` 的**纵向分支**（`SkidTransition.swift` 里那个 `-Double(unit.height)`）
     /// 一起拉进射程。
+    ///
+    /// ⚠️⚠️ **`#267` 复审 B：喂给它们的 `phase → 符号` 映射也得钉**（下面 ⓪）。
+    /// 上一版把四个方向向量绝对地钉死了，却漏了上一层：`TransitionCurve.value(of:)`
+    /// 改成 `-phase.value` ⇒ 六条转场的进出方向**全反**（`.swoosh(edge: .trailing)`
+    /// 变成从左边进，违反 `SwooshTransition.swift` 与 `docs/components/swoosh-transition.md`
+    /// 里那张表），而在补上 ⓪ 之前 `swift test` **754 全绿**：`identityPhaseIsExactlyNeutral` 只查
+    /// `value(of: .identity) == 0`（对符号不变）、所有位图探针都用**字面量**
+    /// `phaseValue` 构造层 3 完全绕过它、`realTransitionEntryPointRendersTheWholeChain`
+    /// 在两个端点上按构造是瞎的（`opacity(±1) == 0`）。
+    /// ⇒ ⓪ 与 `transitionBodyWiresEveryStoredPropertyDownOneLayer` 里那条
+    /// `layerOne.contains("TransitionCurve.value(of: phase)")` 合起来闭环：
+    /// 一条钉「层 1 确实经它路由 `phase`」，一条钉「它在两个端点返回什么」。
     @Test("四条边的方向是绝对的：单位向量、位移、甩尾角逐个钉死（含 .top / .bottom）")
     func absoluteDirectionsMatchTheDocumentedEdges() {
+        // ⓪ 相位 → 符号：整簇方向的**源头**。取反会让六条转场的进出方向全反。
+        #expect(TransitionCurve.value(of: .willAppear) == -1,
+                "进场相位不是 -1 —— 六条转场的进出方向全反了")
+        #expect(TransitionCurve.value(of: .didDisappear) == 1,
+                "出场相位不是 +1 —— 六条转场的进出方向全反了")
+
         // ① 单位向量**指向那条边的外侧**（SwiftUI 的 y 轴朝下 ⇒ `.top` 是 -1）。
         #expect(TransitionCurve.direction(of: .leading) == CGSize(width: -1, height: 0))
         #expect(TransitionCurve.direction(of: .trailing) == CGSize(width: 1, height: 0))

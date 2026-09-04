@@ -160,6 +160,17 @@ nonisolated enum TransitionCurve {
     ///
     /// ⚠️ 中间值**不来自本函数**：它只可能返回那三个数（`TransitionPhase` 是 3 case
     /// frozen enum）。连续的中间值全部来自 SwiftUI 对 `animatableData` 的插值。
+    /// ⚠️⚠️ **符号是承重的，判据得绝对地钉住它**（`#267` 复审 B）：整簇的进出
+    /// 方向全从这里发源。把它改成 `-phase.value` ⇒ 六条转场的方向**全反**
+    ///（`.swoosh(edge: .trailing)` 变成从左边进），而在补上下面那条之前
+    /// 全量测试**754 全绿**——
+    /// `identityPhaseIsExactlyNeutral` 只查 `.identity ⇒ 0`（对符号不变）、
+    /// 位图探针都用字面量 `phaseValue` 直接构造层 3 绕过了本函数、
+    /// 经 `Transition.apply` 那条链在两个端点上不透明度恰为 0 ⇒ 瞎。
+    /// ⇒ 由 `TransitionClusterTests.absoluteDirectionsMatchTheDocumentedEdges` 的 ⓪
+    ///（`.willAppear ⇒ -1`、`.didDisappear ⇒ +1`）与
+    /// `transitionBodyWiresEveryStoredPropertyDownOneLayer` 里那条
+    /// 「层 1 的 `body` 必须含 `TransitionCurve.value(of: phase)`」合起来闭环。
     static func value(of phase: TransitionPhase) -> Double { phase.value }
 
     /// 「离恒等有多远」，钳在 `0...1`。
