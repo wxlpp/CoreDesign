@@ -71,3 +71,26 @@ nonisolated func readEffectsPolicyKnobs() -> (Bool, Bool, Double?, Double) {
     let policy = EffectsRenderPolicy.reduced
     return (policy.drawsAnything, policy.usesGlow, policy.minimumInterval, policy.particleScale)
 }
+
+// MARK: - 文本与展示动效的值类型（Issue #253）
+//
+// ⚠️ 按文件头的分流表，`#253` 的四个 API 单位只有**值类型**这一档落在本文件：
+// · `TypewriterSpeed` —— `public nonisolated enum`，调用方会在自己的配置层构造它
+//   （"这段引导语用哪一档速度"这种决定不该被逼上主线程）。
+// · `ParticleTransition.defaultCount` —— `public static let`，同上。
+// 其余三个（`TypewriterText` / `AnimatedMeshGradient` / `BeforeAfterSlider` 三个 View、
+// 以及 `Transition.particle` 这个静态成员）是 **View / 转场形态**，
+// 从 `nonisolated func` 里构造它们必然编译失败 ⇒ 它们的可见性由
+// `PublicVisibility.swift` 那侧的 `@MainActor func` 守，不进本文件。
+//
+// ⚠️ 若哪天有人把 `TypewriterSpeed` 上的 `nonisolated` 拿掉，本函数当场编译红
+// （`main actor-isolated ... can not be referenced from a nonisolated context`）
+// ——那正是本 probe 唯一看得见的那类回归。
+
+nonisolated func readTypewriterSpeedKnobs() -> [Double] {
+    TypewriterSpeed.allCases.map(\.secondsPerCharacter)
+}
+
+nonisolated func readParticleTransitionDefaultCount() -> Int {
+    ParticleTransition.defaultCount
+}

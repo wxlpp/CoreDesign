@@ -1,0 +1,11 @@
+/* CoreDesignEffects internal UI strings (source language = en). */
+
+/* BeforeAfterSlider —— 组件自带的默认标签（公约 §4 A 类）。 */
+"Before" = "Before";
+"After" = "After";
+"Before and after comparison" = "Before and after comparison";
+
+/* ⚠️ 测试哨兵：译文与 key **有意不同**。查表 miss 时 Foundation 原样返回 key，
+   故只有当译文 != key 时，断言才能区分「命中」与「静默回退」。
+   删掉它 = 让本地化通路重新变成不可验证的。 */
+"__localization_probe__" = "resource-bundle-resolved";
