@@ -79,6 +79,11 @@ locale 行为**不同**，这是上面那条"只有一种做得到"的例外附�
 全文以 `.opacity(0)` 作**尺寸底稿**，可见前缀叠在 `overlay` 上 ⇒ 打字过程中行宽 / 行数
 不变，也不会把下方布局推来推去。
 
+⚠️ **`.opacity(0)` 与 `.hidden()` 在这里没有区别**：源码上一版写「`.hidden()` 会把整棵
+子树从 a11y 树里摘掉——而这里要的正好相反」，**那条理由是空的**（#253 PR #273 终审 S-C）：
+同一条链紧接着就是 `.accessibilityElement(children: .ignore)` + `.accessibilityLabel(全文)`
+⇒ 子树的 a11y 本来就被整块丢弃、标签显式给出。选 `.opacity(0)` 只是本仓惯例。
+
 判据：`TypewriterTextTests.ghostSizingKeepsLayoutStable`——量 `ImageRenderer` 在
 revealed=1 与 revealed=全文时的**布局尺寸**并断言相等，配一条"裸 `Text` 前缀与全文
 尺寸必须不同"的互锁。
@@ -100,6 +105,36 @@ revealed=1 与 revealed=全文时的**布局尺寸**并断言相等，配一条"
 
 ⚠️ **这两条缺一不可**：`\.accessibilityReduceMotion` 不可注入，位图路结构上不可达；
 只有纯函数判据时，调用点把 `reduceMotion:` 换成字面量 `false` 仍然全绿。
+
+⚠️⚠️ **第三条：闸的结论不许被后处理**（#253 PR #273 终审 S-A ①）。
+上面两条 + `planIsTheOnlyThingBodyHandsDown` 钉的都是**形状**（逐次计数），不是**性质**。
+终审构造的绕过是在 `body` 里把闸的结果重算掉：
+
+```swift
+let plan = TypewriterReveal.plan(total: total, typed: self.typed, reduceMotion: self.reduceMotion)
+    .recomputed(total: total, typed: self.typed)   // 忽略 reduceMotion 重算
+```
+
+三个计数**全部原样为 1**、`reads == fed` 也成立 ⇒ **Reduce Motion 在渲染路径上完全失效
+而 665 全绿**。⇒ `TypewriterTextTests.planIsOnlyEverBuiltByTheGate` 补上性质那一面：
+**`TypewriterPlan` 只许在 `TypewriterReveal.plan` 的函数体里被构造**，任何重算 / 覆盖 /
+后处理都必须造出第二个 `TypewriterPlan`。扫描面是**整个 `Sources/CoreDesignEffects`**
+（把 `recomputed` 定义到另一个文件是同一枚变异的等价形态，只扫单个文件抓不到）。
+
+## 打字任务的重启条件（`.task(id:)`）
+
+打字任务的 id 是 `TypewriterRun(text:typing:speed:)`——**三个字段任意一个变化都重启**。
+
+⚠️ **上一版只用 `text` 做 key**（#253 PR #273 Copilot 第 2 轮），两个后果：
+① 视图存活期间用户在系统设置里打开 Reduce Motion ⇒ 渲染那一侧立刻跳到全文，
+但**先前启动的任务不会被取消**，它会继续每 `secondsPerCharacter` 醒一次、
+一路写状态跑到底（白烧一条定时任务，且每次写状态触发一次无谓重绘）；
+② `text` 不变而 `speed` 变了 ⇒ 任务不重启，新速度要等下次换文案才生效。
+
+⚠️ **key 里放的是闸的结论 `plan.types`，不是 `self.reduceMotion`**：后者会让上面那条
+`reads == fed` 判红（Copilot 明确是在这条约束内给的方案）。
+⚠️ **代价照录**：换 `speed` 会从第 0 个字重打，而不是保持进度换速度。
+判据：`TypewriterTextTests.typingTaskRestartsOnPlanAndSpeed`。
 
 ## 后台 / 低电量（NFR-7）
 

@@ -105,8 +105,13 @@ nonisolated enum TypewriterReveal {
 /// `Text(verbatim: shown)`（即删掉这个机制），那条判据 7/7 仍绿。
 /// ⇒ 观测布局必须量**尺寸**，且被测视图不能被外层 `frame` 钉死。
 ///
-/// ⚠️ 幽灵层用 `.opacity(0)` 而不是 `.hidden()`：后者在 SwiftUI 里同样保留布局，
-/// 但它会把整棵子树从 a11y 树里摘掉——而这里**要的正好相反**，见下面的 a11y 分工。
+/// ⚠️ 幽灵层用 `.opacity(0)` 而不是 `.hidden()`：两者在这里**布局等价**，
+/// a11y 上也**没有差别**——本视图链尾就是 `.accessibilityElement(children: .ignore)`
+/// + `.accessibilityLabel(全文)`，子树的 a11y 本来就被整块丢弃、标签显式给出。
+/// ⇒ 选 `.opacity(0)` 只是本仓惯例，**不是**因为 `.hidden()` 会有别的后果。
+/// ⚠️ 上一版这里写的是「`.hidden()` 会把整棵子树从 a11y 树里摘掉——而这里要的正好相反」
+///（#253 PR #273 终审 S-C）：那条理由**今天是空的**，因为紧接着的 `children: .ignore`
+/// 已经做了同一件事。留着会让下一个人以为这里有一条真的约束。
 struct TypewriterBody: View {
 
     /// 完整文本（已解析为 `String`）。
@@ -134,6 +139,22 @@ struct TypewriterBody: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: text))
     }
+}
+
+// MARK: - 打字任务的身份
+
+/// 打字 `.task(id:)` 的身份。**三个字段任意一个变化都要重启打字任务。**
+///
+/// ⚠️ **单独立一个类型而不是塞元组**：`.task(id:)` 要 `Equatable & Sendable`，
+/// 而具名字段让「为什么这三个」有地方写（见 `TypewriterText.body` 上的说明）。
+/// ⚠️ **字段名是 `typing` 不是 `types`**：本文件的调用点判据逐次计数
+/// `"types: plan.types"`，它必须恰好命中**状态机那一次**调用；这里再写一次
+/// 会把计数顶到 2、判红一条本来正确的实现（判据
+/// `TypewriterTextTests.typingTaskRestartsOnPlanAndSpeed` 反过来钉住本行的字面形态）。
+nonisolated struct TypewriterRun: Equatable, Sendable {
+    let text: String
+    let typing: Bool
+    let speed: TypewriterSpeed
 }
 
 // MARK: - 公开入口
@@ -273,8 +294,24 @@ public struct TypewriterText: View {
             total: total, typed: self.typed, reduceMotion: self.reduceMotion
         )
         TypewriterBody(text: self.text, revealed: plan.revealed)
-            // ⚠️ `id:` 取全文：换一段文字要从头打，而不是接着上一段的进度。
-            .task(id: self.text) { await self.type(total: total, types: plan.types) }
+            // ⚠️⚠️ **`id:` 必须带上 `plan.types` 与 `speed`，不能只有 `text`**
+            //（#253 PR #273 Copilot 第 2 轮）。上一版只用 `self.text` 做 key，两个后果：
+            // ① 视图存活期间用户在系统设置里打开 Reduce Motion ⇒ 渲染那一侧立刻跳到全文
+            //    （`plan.revealed`），但**先前启动的任务不会被取消**，它会继续每
+            //    `secondsPerCharacter` 醒一次、一路 `self.typed = index` 写到底
+            //    ——白烧一条定时任务，且中途每次写状态都触发一次无谓的重绘；
+            // ② `text` 不变而 `speed` 变了（调用方按状态换档）⇒ 任务不重启，
+            //    新速度要等下一次换文案才生效。
+            // ⚠️ **不新增一次 `self.reduceMotion` 读取**：本文件的调用点判据
+            //（`reduceMotionIsOnlyConsumedByTheRevealGate`）数的是
+            // 「`self.reduceMotion` 出现次数 == 喂给闸的次数」，多读一次即判红。
+            // ⇒ key 里放的是闸的**结论** `plan.types`，不是环境本身。
+            // ⚠️ 代价照录：换 `speed` 会从第 0 个字重打（`type` 开头就 `self.typed = 0`），
+            // 而不是保持进度换速度。这是有意的——保持进度换速度要把 `typed` 从
+            // `.task` 里搬出来单独维护，换来的只是一个没人提过的用法。
+            .task(id: TypewriterRun(text: self.text, typing: plan.types, speed: self.speed)) {
+                await self.type(total: total, types: plan.types)
+            }
     }
 
     /// 打字状态机。**逐字推进，打完即结束**（没有常驻调度器 —— 见类型文档 NFR-7 一节）。

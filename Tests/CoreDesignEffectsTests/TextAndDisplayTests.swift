@@ -161,6 +161,81 @@ struct TypewriterTextTests {
         """)
     }
 
+    /// ⚠️⚠️ **`planIsTheOnlyThingBodyHandsDown` 的加固**（#253 PR #273 终审 S-A ①）。
+    ///
+    /// 那条钉的是**形状**（"`plan.revealed` / `plan.types` 各出现一次"），不是**性质**。
+    /// 终审构造的绕过：在 `body` 里把闸的结果**后处理**掉——
+    ///
+    /// ```swift
+    /// let plan = TypewriterReveal.plan(total: total, typed: self.typed, reduceMotion: self.reduceMotion)
+    ///     .recomputed(total: total, typed: self.typed)   // 忽略 reduceMotion 重算
+    /// ```
+    ///
+    /// 三个计数**全部原样为 1**、`reads == fed` 也成立 ⇒ **Reduce Motion 在渲染路径上
+    /// 完全失效，而 `swift test` 665 全绿**。
+    ///
+    /// ⇒ 补上"性质"那一面：**`TypewriterPlan` 只许在 `TypewriterReveal.plan` 的函数体里
+    /// 被构造**。任何"重算 / 覆盖 / 后处理"都必须造出第二个 `TypewriterPlan`，
+    /// 于是必然落在闸的函数体之外 ⇒ 判红。
+    ///
+    /// ⚠️ **扫描面是整个 `Sources/CoreDesignEffects`，不是单个文件**：把 `recomputed(...)`
+    /// 定义在**另一个文件**里是同一枚变异的等价形态，只扫 `TypewriterText.swift` 抓不到。
+    /// 复用 `MicroInteractionReduceMotionGuard.swiftFiles()`（递归 + 目录缺失 fail-closed）。
+    @Test("TypewriterPlan 只许在 TypewriterReveal.plan 的函数体内被构造")
+    func planIsOnlyEverBuiltByTheGate() throws {
+        var offenders: [String] = []
+        for url in try MicroInteractionReduceMotionGuard.swiftFiles() {
+            let code = MicroInteractionReduceMotionGuard.stripComments(
+                try String(contentsOf: url, encoding: .utf8)
+            )
+            guard code.contains("TypewriterPlan(") else { continue }
+            let outside = ConfettiTests.removingRegion(after: "static func plan(", in: code)
+            let remaining = outside.components(separatedBy: "TypewriterPlan(").count - 1
+            if remaining > 0 { offenders.append("\(url.lastPathComponent)：\(remaining) 处") }
+        }
+        #expect(offenders.isEmpty, """
+        `TypewriterPlan` 在 `TypewriterReveal.plan` 的函数体之外被构造了：
+        \(offenders.joined(separator: "\n"))
+        —— 那正是"闸的结论被后处理掉"这枚变异的形态（终审 S-A ①）：
+        `plan(...).recomputed(...)` 会让 Reduce Motion 在渲染路径上完全失效，
+        而三条逐次计数判据全部照绿。
+        """)
+
+        // ⚠️ **非退化前置**：闸自己必须**真的**在那个函数体里构造 plan，
+        // 否则上面那条对"整个模块一处都不构造"的世界也恒真（那意味着类型被换掉了）。
+        let gate = MicroInteractionReduceMotionGuard.stripComments(try Self.source("TypewriterText.swift"))
+        guard let body = ConfettiTests.bracedRegion(after: "static func plan(", in: gate) else {
+            Issue.record("找不到 `TypewriterReveal.plan` 的函数体 —— 上面那条判据是恒真的")
+            return
+        }
+        #expect(body.components(separatedBy: "TypewriterPlan(").count - 1 == 2,
+                "闸的函数体里构造 `TypewriterPlan` 的次数不是 2（Reduce Motion 一次 + 常规一次）")
+    }
+
+    /// ⚠️⚠️ **打字任务的 `id:` 必须带上 `plan.types` 与 `speed`**
+    ///（#253 PR #273 Copilot 第 2 轮）。
+    ///
+    /// 上一版只用 `self.text` 做 key，两个后果：① 视图存活期间用户打开 Reduce Motion，
+    /// 渲染立刻跳到全文，但**先前启动的任务不会被取消**、会继续 sleep / 写状态直到跑完；
+    /// ② `text` 不变而 `speed` 变了则任务不重启，新速度要等换文案才生效。
+    ///
+    /// ⚠️ **key 里放的是闸的结论 `plan.types`，不是 `self.reduceMotion`**：后者会让
+    /// `reduceMotionIsOnlyConsumedByTheRevealGate` 的 `reads == fed` 判红
+    ///（Copilot 明确是在这条约束内给的方案）。
+    @Test("调用点：打字任务的 id 带上 plan.types 与 speed，且不多读一次环境")
+    func typingTaskRestartsOnPlanAndSpeed() throws {
+        let code = MicroInteractionReduceMotionGuard.stripComments(try Self.source("TypewriterText.swift"))
+        func count(_ needle: String) -> Int { code.components(separatedBy: needle).count - 1 }
+
+        #expect(count(".task(id:") == 1,
+                "本文件里有 \(count(".task(id:")) 个 `.task(id:)` —— 下面的逐字判据不再说明「那一个」用的是什么")
+        #expect(count(".task(id: TypewriterRun(text: self.text, typing: plan.types, speed: self.speed))") == 1, """
+        打字任务的 id 不是 `TypewriterRun(text: self.text, typing: plan.typing, speed: self.speed)`。
+        少了 `plan.types` ⇒ 切换 Reduce Motion 时旧任务不被取消，会继续逐字写状态跑到底；
+        少了 `speed` ⇒ 换速度不重启，新速度要等下次换文案才生效。
+        """)
+    }
+
     /// 揭示是**真的**接到渲染上的：不同揭示数必须画出不同的东西。
     @Test("揭示数真的接到渲染：0 字与全文的位图不同")
     func revealedCountReachesRendering() {
