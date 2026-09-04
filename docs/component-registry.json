@@ -1044,6 +1044,42 @@
       "host": "Transition",
       "member": "particle",
       "notes": "视图进出时内容轻微缩放淡出、一圈粒子向外飞散（进入时反向汇聚）。含参重载 .particle(count:colors:) 与无参 .particle 按 Host.member 去重算同一条（计数单位是「一种 transition」）。colors 默认空数组 ⇒ 取调用方 .tint，与 spray / confetti 共用 [Color].particleStyle(at:)，不自带色板；Reduce Motion 下走早退，不放粒子也不缩放，只留内容自身的淡入淡出——不是 no-op；identity 相位进度恒为 0，一颗粒子都不画，转场结束后不留残留。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "iris",
+      "notes": "圆形光圈从 anchor（默认中心）向外张开，半径自动取到最远角故任何 anchor 都能铺满内容。走 clipShape 纯几何裁剪而非 alpha 遮罩——本仓没有保证 α=1 的可用颜色（contentPrimary 实测 α≈0.8471，black/white 被 EffectsColorLiteralGuard 判红，ColorGrade 在 macOS 单测下全透明），遮罩少一档不透明度不会报错只会静默变淡。含参重载 .iris(anchor:) 与无参 .iris 按 Host.member 去重算同一条。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "wipe",
+      "notes": "一条直边沿指定角度扫过（默认 0° 左→右），边始终垂直于该方向。与 .glare 共用同一条半平面数学，差别是默认角度与有无柔光带——两个公开名字算两条登记。Reduce Motion 下遮罩全开、内容不透明度跟着进度走，退化成纯淡入淡出而非 no-op。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "blinds",
+      "notes": "若干条横向百叶各自从自己的中线向上下张开，默认 8 条。count 传 0 或负数会被钳到 1，否则整条转场退化成什么都不揭示的死转场；相邻百叶在完全揭示时互相压住 2%，避免抗锯齿在恒等相位画出发丝缝。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "clock",
+      "notes": "扇形扫针从 12 点方向扫一圈，方向由 SpinDirection 决定而不是 clockwise: Bool（J-1 禁未豁免 Bool 参数）。半径取到内容最远角并留 2% 余量，避免完全揭示时那一角的覆盖取决于浮点比较。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "glare",
+      "notes": "斜掠的直边扫过（默认 35°），揭示边上骑一条 Color.specularHighlight 的柔光带。柔光带是纯装饰叠加层而非遮罩的一部分（accessibilityHidden(true) + allowsHitTesting(false)），不透明度包络两端恒为 0——恒等相位不留任何永久高光。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "dissolve",
+      "notes": "网格逐格按确定性伪随机次序浮现，默认格边长 24pt。过小的 cellSize 会被自动放大到让格数落在 MaskReveal.dissolveMaximumCells 以内，否则全屏内容配 0.5pt 会是百万级子路径逐帧重建；0/负数/非有限值回落到默认值。"
     }
   ]
 }

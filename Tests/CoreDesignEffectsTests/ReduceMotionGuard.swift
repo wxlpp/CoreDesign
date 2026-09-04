@@ -199,6 +199,31 @@ struct MicroInteractionReduceMotionGuard {
         //    哪天有人往里加一处 `offset(`，`everyFileIsClassified` 与
         //    `motionFilesReadReduceMotion` 当场判红，逼人回来重新分类。
         "FullScreenButton.swift",
+        //
+        // `#268` 新增两条。⚠️⚠️ **这两条不是「它不动」，必须读清楚**：
+        // mask reveal 六种转场当然在动——一条揭示边扫过内容，那正是 FR-11 约束的运动。
+        // 它们进本名单的理由与 `BeforeAfterSlider` / `FullScreenButton` **同型**：
+        // **运动整个长在 `Path` 几何里**（`clipShape(MaskRevealShape(...))` 的路径每帧
+        // 由 `MaskReveal.path(for:in:)` 重算），本文件的 `motionCalls` 关键字表
+        // ——它认的是 `offset(` / `scaleEffect(` / `Canvas(` 这类**变换与绘制调用**——
+        // 一个都不命中，因此三条 RM 判据对它们结构上无话可说。
+        // ⚠️ 为什么不改成「用 `.offset` / `.scaleEffect` 实现」以便被本守卫看见：
+        // 那是把实现将就判据。裁剪是这一簇唯一可行的实现形态，理由（本仓没有保证
+        // α = 1 的可用颜色 / #276 / #275 / `EffectsColorLiteralGuard`）逐条写在
+        // `Sources/CoreDesignEffects/MaskReveal.swift` 的文件头。
+        // ⇒ 「文件里没有运动关键字」在这里**不是**逃逸位，由三条判据合起来堵：
+        // · `MaskRevealSourceGuard.maskRevealFilesCarryNoMotionKeywords`
+        //   —— 逐个断言这两个文件确实不含任何 `motionCalls` 关键字（本豁免的前提本身），
+        //   并反向断言两者都在本名单上，两份清单不许脱节；
+        // · `MaskRevealSourceGuard.reduceMotionIsOnlyConsumedByThePlan`
+        //   —— `reduceMotion` 只许喂给 `MaskReveal.plan(kind:progress:reduceMotion:)`；
+        // · `MaskRevealGeometryTests.reduceMotionOpensTheMaskAndCrossFadesInstead`
+        //   —— 降级的**结论**本身：遮罩全开 + 内容不透明度跟着进度走（不是 no-op），
+        //   六种逐个求值，并配一条"运动路径上不透明度恒为 1"的互锁。
+        // 哪天有人往里加一处 `offset(`，`everyFileIsClassified` 的矛盾分支与上面第一条
+        // 会一起判红，逼人回来重新分类。
+        "MaskReveal.swift",
+        "MaskRevealTransitions.swift",
     ]
 
     static var sourceRoot: URL {
