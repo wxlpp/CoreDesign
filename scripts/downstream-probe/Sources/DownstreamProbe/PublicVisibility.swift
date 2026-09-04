@@ -391,3 +391,42 @@ func consumeTextAndDisplayEffects(streamed: String) -> some View {
         Text("badge").transition(.particle(count: 8, colors: [.surfaceRaised]))
     }
 }
+
+// MARK: - CoreDesignEffects：#254 的四个 API 单位（跨平台改造）
+
+// ⚠️ 四件都是 `View` struct ⇒ 全部落在**本文件**（`@MainActor`），
+// `EffectsNonisolatedUsage.swift` 那边只放值类型 —— 分流理由见那份文件的文件头。
+//
+// ⚠️⚠️ **本函数同时是"macOS 支持没被降低"的跨模块证据**：
+// probe 是一个独立 SwiftPM 包，`swift build` 在 macOS 上编译它。若哪天有人把
+// `FullScreenButton` 整个塞进 `#if os(iOS)`（"让库编译得过"的那种改法），
+// 本仓的 `swift build` 仍然全绿，而**这里会当场编译红**——那正是下游 macOS App
+// 会遇到的形态。`PlatformSupportGuard.zoomIsFencedToIOS` 从源码那一侧守同一件事。
+@MainActor
+func consumeCrossPlatformEffects(brands: [CrossPlatformProbeItem]) -> some View {
+    VStack {
+        DotSphere()
+        DotSphere(count: 200, colors: [.surfaceRaised], rotationPeriod: 8)
+        CharSphere(["道", "德"])
+        CharSphere(["S", "h"], count: 120, colors: [.secondaryFill], rotationPeriod: 6)
+        OrbitingLogos(brands) { item in
+            Text(verbatim: item.name)
+        } center: {
+            Text(verbatim: "core")
+        }
+        NavigationStack {
+            FullScreenButton {
+                Text(verbatim: "expanded")
+            } label: {
+                Text(verbatim: "card")
+            }
+        }
+    }
+}
+
+/// probe 侧的示例数据类型：`OrbitingLogos` 的入参是**泛型集合 + `Identifiable`**，
+/// 不绑定具体模型 ⇒ 下游用自己的模型也接得上，这一条只有跨模块调用点看得见。
+struct CrossPlatformProbeItem: Identifiable {
+    let id: Int
+    let name: String
+}

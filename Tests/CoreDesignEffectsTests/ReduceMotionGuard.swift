@@ -59,9 +59,19 @@ struct MicroInteractionReduceMotionGuard {
     /// · `ParticleTransition.swift` —— 不放粒子、不缩放，**只留内容自身的淡入淡出**。
     ///   它本身就是一次淡入淡出，再叠 `OpacityPulse` 就是两次；且 `OpacityPulse`
     ///   吃的是 `TriggerRelay` 的计数，转场根本没有那个 trigger。
+    /// ⚠️ **`#254` 新增两条**，两者都是"整块常驻呈现"、抹掉它等于把界面的一部分拿走：
+    /// · `SphereSurface.swift` —— `DotSphere` / `CharSphere` 共用的驱动与绘制：
+    ///   球照常画，只把自转相位与色波钉死在 `SphereField.restingPhase` /
+    ///   `SphereField.restingWave(paletteCount:)` 上（与 `AnimatedMeshGradient`
+    ///   的"冻结在某一帧"逐字同形）；
+    /// · `OrbitingLogos.swift` —— 环、点、logo 与中心视图照常画，只把自转
+    ///   （`OrbitRing.restingPhase`）与轮播（`OrbitRing.restingFeature` ⇒
+    ///   `popScale == 1`，谁都不放大）钉死。
+    /// 两者都不叠 `OpacityPulse`：它是 trigger 驱动的一次性反馈，而这两件没有 trigger。
     static let approvedFormTwo: Set<String> = [
         "Rise.swift", "Confetti.swift", "ProcessingSweep.swift",
         "AnimatedMeshGradient.swift", "ParticleTransition.swift",
+        "SphereSurface.swift", "OrbitingLogos.swift",
     ]
 
     /// 走**早退**（RM 下整个装饰层不构建）的文件。
@@ -81,6 +91,10 @@ struct MicroInteractionReduceMotionGuard {
         //   共享裁决点：先能耗闸、再 RM 闸）；
         // · `ParticleTransition` 走 `guard !isReduced`（与 `Ping` / `Spray` / `Shine` 同形态）。
         "AnimatedMeshGradient.swift", "ParticleTransition.swift",
+        // `#254`：两者都在 Reduce Motion 下**换一整套呈现**（静止相位），走
+        // 与 `AnimatedMeshGradient` 同一个共享裁决点 `switch presentation {`
+        //（先能耗闸、再 RM 闸）。
+        "SphereSurface.swift", "OrbitingLogos.swift",
     ]
 
     /// 「整段换一套呈现」的三种写法。**文件必须同时在 `approvedEarlyExit` 名单上**
@@ -155,6 +169,36 @@ struct MicroInteractionReduceMotionGuard {
         // 哪天有人往里加一处 `offset(`，第一条当场判红，逼人回来重新分类。
         "TypewriterText.swift",
         "BeforeAfterSlider.swift",
+        // `#254` 新增。分两类，理由各不相同：
+        //
+        // ① **纯几何 / 纯裁决**，一行 SwiftUI 都没有：
+        "SphereField.swift",             // Vogel 螺旋 + 透视投影 + 色波，纯算术
+        "OrbitRing.swift",               // 同心环几何 + 解析挤压位移场，纯算术
+        "FullScreenTransitionPlan.swift", // 两个 Bool 进、一个枚举出的裁决函数
+        //
+        // ② **薄封装**：`body` 只有一句 `SphereSurface(mark:…)`，运动全部在
+        //    `SphereSurface.swift` 里（那份同时在早退名单与形态 2 名单上）。
+        //    ⚠️ 「文件里没有运动关键字」在这里**不是**逃逸位——
+        //    `CrossPlatformRenderTests.spheresDelegateToSharedSurface` 逐个断言这两个
+        //    文件里既出现 `SphereSurface(`、又不出现任何自建动画 / 绘制 / 能耗闸调用，
+        //    两条判据合起来才堵住"薄封装自建一套、绕过降级"这个洞（形态同
+        //    `ProcessingSweepTests.containersDelegateToDriver`）。
+        "DotSphere.swift",
+        "CharSphere.swift",
+        //
+        // ③ ⚠️⚠️ `FullScreenButton.swift` —— **这一条不是「它不动」**，必须读清楚：
+        //    点开时卡片会几何匹配地放大成整屏，那当然是运动。它进本名单的理由是
+        //    **那次运动整个发生在系统的导航转场里**：本文件一个 `motionCalls` 关键字
+        //    都不出现（放大由 `.navigationTransition(.zoom(sourceID:in:))` 驱动，
+        //    位移 / 缩放没有一处写在本仓代码里），因此三条 RM 判据对它无话可说。
+        //    ⇒ 「文件里没有运动关键字」在这里同样**不是**逃逸位，由两条判据合起来堵：
+        //    · `PlatformSupportGuard.reduceMotionIsOnlyConsumedByTheTransitionPlan`
+        //      —— `reduceMotion` 只许喂给 `FullScreenTransitionPlan.resolve(...)`；
+        //    · `PlatformSupportGuard.zoomIsFencedToIOS`
+        //      —— `.zoom(` 只许出现在 `#if os(iOS)` 里，且必须由 `plan` 门控。
+        //    哪天有人往里加一处 `offset(`，`everyFileIsClassified` 与
+        //    `motionFilesReadReduceMotion` 当场判红，逼人回来重新分类。
+        "FullScreenButton.swift",
     ]
 
     static var sourceRoot: URL {
@@ -346,6 +390,30 @@ struct MicroInteractionReduceMotionGuard {
     ///
     /// 判据见 `reduceMotionIsOnlyConsumedByTheSharedGate`。
     ///
+    /// ## 当前规则（下一个件照这条判，后面的《沿革》只是它怎么来的）
+    ///
+    /// 1. **进不进名单只看一件事：有没有可停的常驻装饰层**（`TimelineView` /
+    ///    常驻调度器持续驱相位的那一层）。有 ⇒ 进；没有 ⇒ 不进，进来只会白挨一道闸。
+    /// 2. **`.none` 的语义是「一个*装饰*像素都不画」**。一个件若同时画装饰与
+    ///    **调用方的内容**，`.none` 分支摘掉的是装饰层与调度器，**内容层静态留下**
+    ///    （`OrbitingLogos` 走 `OrbitLayers.contentOnly`）——把调用方的内容藏掉
+    ///    不是停摆、是 bug。
+    /// 3. ⚠️ **「画内容」不是排除在名单外的理由**（第 2 轮终审 I-E）：收窄之后它
+    ///    **不再蕴含**「排除在闸外」，`OrbitingLogos` 就是反例（画内容且**在**名单里）。
+    ///
+    /// 当前名单：`Confetti` / `ProcessingSweep` / `AnimatedMeshGradient` /
+    /// `SphereSurface`（`DotSphere` / `CharSphere` 共用）/ `OrbitingLogos`。
+    /// 有意**不在**名单里的：`TypewriterText`（有限时长的一次性揭示）、
+    /// `BeforeAfterSlider`（入场摆动一次性，其余是静止图 + 手势）、
+    /// `ParticleTransition`（转场由 SwiftUI 驱动，瞬态）、
+    /// `FullScreenButton`（一次性导航转场，无常驻调度器）——四件的共同点是**规则 1**：
+    /// 全文件无 `TimelineView`、无常驻调度器，**没有可停的装饰层**。
+    /// 判据：`CrossPlatformRenderTests.pausedKeepsCallerContentInOrbitingLogos`
+    /// + `orbitPresentationBranchesAreWiredCorrectly` ①
+    /// + `accessibilityHiddenStaysOnTheDecorationLayer`。
+    ///
+    /// ## 沿革（历史，读到这里就够了；下面只解释规则怎么变成现在这样）
+    ///
     /// ⚠️⚠️ **登记一条本守卫看不见的方向**（#252 PR #269 第 4 轮终审 S2-3）：
     /// 扫描根固定为 `Sources/CoreDesignEffects`（`sourceRoot`）⇒ 若把一个**常驻渲染件**
     /// 落在 `Sources/CoreDesign`，它走不走能耗闸本守卫一概看不见。这不是本轮能修的
@@ -363,8 +431,34 @@ struct MicroInteractionReduceMotionGuard {
     /// · `ParticleTransition` —— 转场由 SwiftUI 驱动，瞬态。
     /// 后两者还有同一条硬理由：能耗闸的 `.none` 语义是「一个像素都不画」，
     /// 而它们画的是**内容**，把内容隐藏不是停摆、是 bug。
+    /// ⚠️ **上面这句已于下一段（`#254`）收窄，别再照它判新件**：收窄之后「画内容」
+    /// 不再蕴含「排除在闸外」，那两件现在的理由是"没有可停的常驻装饰层"。
+    /// 现行规则见本文档开头的《当前规则》。
+    ///
+    /// ⚠️⚠️ **上面这条规则在 `#254` 的 `OrbitingLogos` 上被收窄了一次，记在这里**
+    ///（PR #274 终审 C-1）：`OrbitingLogos` **同时**画装饰（四圈点环，常驻渲染，该停）
+    /// 与**调用方的内容**（`logo(item)` / `center`，两者有意不 `accessibilityHidden`）。
+    /// 「进名单 ⇒ 整层不建」与「画内容 ⇒ 不许藏」在它身上正面撞车，而当时选的是前者
+    /// ⇒ macOS 上一失焦（`.inactive`，**窗口完全可见**）宿主 App 的品牌 logo 与全部
+    /// 合作方 logo 就从窗口里消失。
+    /// ⇒ 规则收窄为：**`.none` 的语义是「一个*装饰*像素都不画」**。一个既画装饰又画
+    /// 内容的件仍然进名单（装饰该停），但它的 `.none` 分支摘掉的是装饰层与调度器，
+    /// 内容层静态留下（`OrbitingLogos` 走 `OrbitLayers.contentOnly`）。
+    /// 纯内容件（`BeforeAfterSlider` / `ParticleTransition`）仍然整个不进名单——
+    /// 它们没有可停的常驻装饰层，进来只会白挨一道闸。
+    /// 判据：`CrossPlatformRenderTests.pausedKeepsCallerContentInOrbitingLogos`
+    /// + `orbitPresentationBranchesAreWiredCorrectly` ①。
+    /// ⚠️ **`#254` 加入两条**：`SphereSurface`（`DotSphere` / `CharSphere` 共用）与
+    /// `OrbitingLogos` 都是**常驻渲染件**（`TimelineView` 持续驱相位），与
+    /// `AnimatedMeshGradient` 同类。
+    /// ⚠️ 第四件 `FullScreenButton` **有意不在这里**：它是一次性的导航转场（点一下才发生），
+    /// 没有任何常驻调度器；它的 Reduce Motion 降级由纯函数
+    /// `FullScreenTransitionPlan.resolve(reduceMotion:platformSupportsZoom:)` +
+    /// `PlatformSupportGuard.reduceMotionIsOnlyConsumedByTheTransitionPlan`
+    ///（调用点逐次计数，与本条 ② ③ 同形态）两条判据接管。
     static let energyGatedFiles: Set<String> = [
         "Confetti.swift", "ProcessingSweep.swift", "AnimatedMeshGradient.swift",
+        "SphereSurface.swift", "OrbitingLogos.swift",
     ]
 
     /// ⚠️⚠️ **第 2 轮终审 I-A 的判据**（#252 PR #269）。
