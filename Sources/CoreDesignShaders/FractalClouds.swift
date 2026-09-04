@@ -11,7 +11,12 @@ import SwiftUI
 /// ⚠️⚠️ **不是自研实现**（PR #261 第 2 轮终审 C-2 改判）。真实来源：
 /// **整数 hash** = Thomas Wang（Nathan Reed 2013 的 GPU 版本）；
 /// **格点 seed 素数** = Teschner et al. 2003；
-/// **域扭曲**（本件为单级，指纹弱于 `InkSmoke`）结构上仍属 iq《Domain Warping》一族。
+/// **域扭曲**（本件为单级，指纹弱于 `InkSmoke`）结构上仍属 iq《Domain Warping》一族
+/// ——⚠️ **#281 追完其许可：iq 站点级 MIT**（`https://iquilezles.org/articles/` 逐字
+/// 「all technical code snippets you'll find are under the MIT license」）⇒ 可用，
+/// 条件是 `ACKNOWLEDGEMENTS.md` 转载 MIT 通知并具名 iq。
+/// ⚠️ 本件本体自身**仍未指认到上游**，裁定 `待追溯`、分档**低指纹**、不阻断，
+/// 承接 issue **#281**；不作任何原创声称。
 ///
 /// ⚠️ **初版把参考实现记成 webgl-noise 系（ashima / stegu / glsl-noise，MIT）是错的**
 /// ——那三个是 simplex + permutation 表，本实现是**值噪声**（四角 hash 双线性插值），

@@ -16,10 +16,32 @@ import SwiftUI
 /// `sin(time·w + hash·6.2831853)` 闪烁——是网格星空模板的逐项形态
 /// （`id`/`gv` 只是被改名成 `cell`/`local`）。而本仓刚把「连变量名都保留」当作复制证据、
 /// 把「只改常量」判为不构成独立——**改名 + 改常量当然更不构成独立**。
-/// ⇒ 裁定交 #249。「自研」的射程仅限组合与参数化。
-/// ⚠️ **"自研"的射程仅限组合与参数化**：本 shader 确实调用 `cd::hash21` /
-/// `cd::hash22`（已逐函数核对），它们有明确出处（Wang·Reed 的整数 hash /
-/// Teschner et al. 2003 的素数三元组），见 `CoreDesignShaders.metal` 原语区。
+/// ⇒ 裁定交 #249。
+/// ⚠️ **本类型不作任何原创声称**（上一版此处还留着「"自研"的射程仅限组合与参数化」，
+/// #281 一并删掉——追到不兼容上游之后，连"组合是自研的"这句也不该再说）。
+/// 本 shader 调用 `cd::hash21` / `cd::hash22`（已逐函数核对），它们有明确出处
+/// （Wang·Reed 的整数 hash / Teschner et al. 2003 的素数三元组），
+/// 见 `CoreDesignShaders.metal` 原语区。
+///
+/// ⚠️⚠️⚠️ **#281 追溯结论：本类型已被 `docs/shader-provenance.md` 判为 `不落地`。**
+///
+/// 上面那段「是网格星空模板的逐项形态」当时**没有具名到人**——#281 具名到了：
+/// **Martijn Steinrucken（BigWings / *The Art of Code*）《Starfield Tutorial》(2020)**，
+/// 源码头逐字 `// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0
+/// Unported License.` ⇒ **CC BY-NC-SA 3.0，与 CoreDesign 的 MIT 分发不兼容**
+/// （既禁商用，又有传染性 share-alike）。命中 provenance 表兜底的
+/// 「**追到不兼容**」分支 ⇒ `不落地`。
+///
+/// ⚠️ **决定性旁证**：`CoreDesignShaders.metal` 文件头记着 `hash21` 第一版用的是
+/// `123.34 / 456.21 / 45.32`——**正是同一份 CC BY-NC-SA 文件里 `Hash21` 的常量，
+/// 逐字符一致** ⇒ 接触与复制均有直接证据。
+///
+/// ⚠️ **上一版也有过度归因的一半，一并更正**：`step` 熄灭门限与 `smoothstep` 圆盘辉光
+/// **追不到任何上游**（BigWings 用的是 `.05/d` 反距离辉光，且没有 `step` 门限）。
+/// 真正对应的是网格分解、每格 hash 抖动、与闪烁相位那一行。
+///
+/// ⚠️ **撤回未执行，由 owner 拍板**；在此之前本类型**阻断 `epic → main`**。
+/// 撤回范围与唯一的替代方案见 `docs/shader-provenance.md`《`Starfield` 的追溯》。
 public struct Starfield: View {
 
     /// 星密度。⚠️ 一个语义枚举，而不是"格数"这个裸数值。

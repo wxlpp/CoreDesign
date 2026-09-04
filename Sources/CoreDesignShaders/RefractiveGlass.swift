@@ -17,6 +17,14 @@ import SwiftUI
 /// `CoreDesignShaders.metal` 自己立过一条闸——「在 `RefractiveGlass` 的 provenance
 /// 追溯完成前**不得对外宣称原创**」，而**发布本身就是最强形式的宣称**。
 /// 本 modifier 的折射数学，把内容当被折射的背景做几何弯折。
+/// ⚠️⚠️ **#281 追溯结论**：主体**仍未指认到具名上游**，且上一版所称
+/// 「2025 年 SwiftUI `layerEffect` "liquid glass" 一族的通行形态」**已被证伪**
+/// ——逐个读完具名的 SwiftUI-Metal 玻璃库后，没有找到这样一族。
+/// ⇒ 裁定仍是 **`待追溯`（不是「自研」）**，分档由**强指纹改判低指纹**
+/// （强档三条判据逐条不成立；逐常量 grep 零命中）⇒ **不再阻断 `epic → main`**。
+/// ⚠️ 该改判**须由 `epic → main` 评审显式确认**，不确认则回落 `不落地`，
+/// 本 modifier 与 `GlassSymbol` 一并撤回。承接 issue **#281**。
+/// 调用的 `cd::roundedBoxSDF` 已追到 **Inigo Quilez，MIT**（须署名）。
 /// **需要系统材质就用 `.glassEffect()`**；本 modifier 只在需要可控折射强度/色散时用。
 /// ⇒ 命名刻意避开 `glass` 单独成词，防止与系统 API 混淆。
 struct RefractiveGlassModifier: ViewModifier {
