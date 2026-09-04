@@ -171,7 +171,12 @@ device      r=0.5000 g=0.3765 b=0.6176   ← 上游给的
 
 ## ⚠️ 登记
 
-`public struct DotSphere` **不**进 `docs/component-registry.json` 的 `components`：
-`ComponentRegistryGuard.coreDesignSources` 仍是单根 `Sources/CoreDesign`，塞进去会被
-判成幽灵条目（同 #250 `Shine` / #252 三容器 / #253 三件的处置；该口子由 issue #270 收口）。
-本件也**没有** `public extension View` / `Transition` 成员 ⇒ `entryPoints` 同样零改动。
+⚠️ **`#270` 已收口，本节整段改写**（上句原写「不进 `components`，因为扫描根仍是单根」）：
+`ComponentRegistryGuard` 的扫描根已扩成 `GuardScanRoots.allRoots`（三个 target），
+`public struct DotSphere` 由 `PublicTypeCollector` 正常采到，**已按判定法登记进**
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+判定理由（步骤 2 先过「候选形态的作用域」条款：字形球面由已登记的兄弟条目 `CharSphere`
+真实承担 ⇒ 该候选不计入；其余候选是同一球面换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫）
+逐字写在该条目的 `notes` 里。
+本件仍**没有** `public extension View` / `Transition` 成员 ⇒ `entryPoints` 零改动。

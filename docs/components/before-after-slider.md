@@ -209,3 +209,15 @@ struct RetouchComparison: View {
 ```
 
 ⚠️ **本文档的示例代码零机器覆盖**（与 `confetti.md` 同一条登记）。
+
+## ⚠️ 登记（`#270`）
+
+`public struct BeforeAfterSlider` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+⚠️ **本条与同批其余条目不同，是这批里最可能被改判为 semantic 的一条**：它的候选
+（竖向分隔 / 并排对照）按三分法属**排布**差异、本该计入 ≥2。落 tiebreaker 是因为
+**枚举本身未完成**——`#270` 未做公约步骤 2 停止规则要求的候选来源核验 ⇒ 按门槛的兜底句落步骤 4。
+改判入口是补一份合格的候选枚举，不是改判据。
+`BeforeAfterSliderLabels` 是**标签内容**取值域不是外观配置枚举，故 `styleEnum` 留空。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

@@ -138,6 +138,8 @@ Reduce Motion 分支混在 `body` 的 `#if` 里，macOS 上那半段代码根本
 
 ## ⚠️ 登记
 
-同另外三件：不进 `components`（`ComponentRegistryGuard.coreDesignSources` 仍是单根
-`Sources/CoreDesign`，塞进去会被判成幽灵条目；该口子由 issue #270 收口），
-也没有 `public extension View` / `Transition` 成员 ⇒ `entryPoints` 零改动。
+⚠️ **`#270` 已收口，本节整段改写**（上句原写「不进 `components`（扫描根仍是单根）」）：
+扫描根已扩成三个 target，`public struct FullScreenButton` **已按判定法登记进**
+`docs/component-registry.json` 的 `components`（`prescriptive` / `tiebreaker` /
+不给扩展点），判定理由见该条目 `notes`。
+本件仍没有 `public extension View` / `Transition` 成员 ⇒ `entryPoints` 零改动。

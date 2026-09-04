@@ -7,9 +7,9 @@ import Testing
 // `CoreDesignCharts`），而在 `#246` 之前，**四条源码守卫的扫描根全部是硬编码的单根**
 // `Sources/CoreDesign`——各自在自己的文件里拼 `repoRoot + "Sources/CoreDesign"`
 // （`BoolExemptionGuard.scanRoots` 与 `AccessibilityStringLiteralGuard` 的扫描循环
-// 今天已改指 `GuardScanRoots.allRoots`；`ComponentRegistryGuard.coreDesignSources`
-// 仍是单根，见下）⇒ 新 target 里写什么都不受纪律约束。本文件把「根列表」抽成
-// **一份**数据，由 Bool / a11y / 字面量 / 扩展成员四类守卫共用。
+// 已在 `#246` 改指 `GuardScanRoots.allRoots`；`ComponentRegistryGuard` 的根
+// **`#270` 才跟上**，见下）⇒ 新 target 里写什么都不受纪律约束。本文件把「根列表」抽成
+// **一份**数据，由 Bool / a11y / 字面量 / 扩展成员 / **组件登记表**五类守卫共用。
 //
 // ⚠️ **此处刻意只引符号名、不引行号**（PR #265 第 5 轮终审 I-4）：上面括号里的三处
 // 描述的是 `#246` **之前**的历史状态，行号注定随文件漂移——本文件头初版写下的
@@ -17,10 +17,14 @@ import Testing
 // **在写下的当天就已经指到空行和一个 `}`**，且没有任何判据会为此判红。
 // 与下面 `relativePath(_:)` 文档里那条同样的纪律（活引用一律用符号名）。
 //
-// ⚠️ **本文件不含 `ComponentRegistryGuard.coreDesignSources`**：登记表守卫的根
-// 是否扩到新 target，是 AD-4《下游连锁一》的题目（Charts 走 b 会顶动
-// `ComponentExtensionPointGuard` 的 `inspected.count == 11` 等一串断言），
-// 归 Charts 落件时（`#255`）处置，不在 `#246` 的射程内。此处点名，免得后人以为漏了。
+// ⚠️ **上句原写「本文件不含 `ComponentRegistryGuard.coreDesignSources`」，`#270` 已作废**：
+// 登记表守卫的根曾停在单根，理由是「扩根会顶动 AD-4《下游连锁一》那串断言，归 `#255` 处置」
+// ——而 `#255` 落地时没做 ⇒ 两个新 target 的 public 类型对登记表**结构上不可见**，
+// 少登记一条不会有任何判据红。`#270` 把它接过来收口：
+// `ComponentRegistryGuard.componentScanRoots` 现在**直接返回 `Self.allRoots`**，
+// 不另列一份根名（两套根必然漂，这是 `#270` AC 逐字写死的）。
+// ⇒ 本文件现在是**全部五类守卫**的唯一根来源，`libraryTargetsAreCoveredByScanRoots`
+// 与 `Package.swift` 的双向差集因此也同时守住了登记表的射程。
 //
 // ## 防假绿的两条纪律（`#246` AC「防假绿」节）
 //
@@ -137,8 +141,16 @@ nonisolated enum GuardScanRoots {
     ///   ——⚠️ **这里逐条引的是符号名不是行号**（PR #265 第 5 轮终审 S-e）：本 PR 的
     ///   `4ce5366` / `0455e9f` 刚把行号引用统一改成符号名，本清单写回行号是反向漂移
     ///   ——行号今天全对，下一次任何人在这四个文件里插一行就全错，而没有任何判据会红。
-    ///   ——扫描根是 `ComponentRegistryGuard.coreDesignSources`（或它的临时拷贝）这**一个**根，
-    ///   跨 target 同名不可能发生 ⇒ 有意保持原样。它们哪天扩到多根，必须同轮改成 `relativePath`。
+    ///   ——⚠️ **上句原写「扫描根是这**一个**根，跨 target 同名不可能发生 ⇒ 有意保持原样。
+    ///   它们哪天扩到多根，必须同轮改成 `relativePath`」——`#270` 就是那一天，已兑现**：
+    ///   · `ComponentRegistryGuard.scanTypes(root:)` 的解析出错诊断 → 改走 `relativePath`；
+    ///   · `StyleConsumptionGuard.swiftSources()` 的键 → 改走 `relativePath`；
+    ///   · `ToastPublicEntryForwardingGuard.aliasEntriesForwardEveryParameter()` → 多根扫描，
+    ///     命中以 `URL` 传递，不再经裸文件名；
+    ///   · `scanComponentJudgeInputs(root:)` 的 `fileName` → 改成 **`<根目录名>/<根内相对路径>`**
+    ///     而**不是** `relativePath`。那一处是唯一的例外，理由写在该函数的文档里：
+    ///     它的 `file` 串被 `ComponentJudgeMutationTests` 拿来比对「临时副本 vs 真实源码」，
+    ///     用仓库根相对路径的话副本侧会退化成绝对路径、等值断言不再成立。
     static func relativePath(_ url: URL) -> String {
         url.path.replacingOccurrences(of: Self.repoRoot.path + "/", with: "")
     }

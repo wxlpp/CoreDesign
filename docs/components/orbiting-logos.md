@@ -201,5 +201,10 @@ OrbitingLogos(brands) { brand in
 
 ## ⚠️ 登记
 
-同两个球面件：不进 `components`（扫描根仍是单根 `Sources/CoreDesign`），
-也没有扩展成员 ⇒ `entryPoints` 零改动。
+⚠️ **`#270` 已收口，本节整段改写**（上句原写「不进 `components`（扫描根仍是单根）」）：
+扫描根已扩成三个 target，`public struct OrbitingLogos` **已按判定法登记进**
+`docs/component-registry.json` 的 `components`（`prescriptive` / `tiebreaker` /
+不给扩展点），判定理由见该条目 `notes`。
+⚠️ 上面那条已登记的形状缺陷（`rotationPeriod` 一个旋钮管两件事）**不受此影响**：
+它的处置是另开一个「动到什么程度」的**行为**档位枚举，不是样式扩展点。
+本件仍没有扩展成员 ⇒ `entryPoints` 零改动。

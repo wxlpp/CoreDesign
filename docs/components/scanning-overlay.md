@@ -76,3 +76,12 @@ ScanningOverlay {
 - [`glow-sweep.md`](glow-sweep.md) —— 辉光沿边框转，内容不被遮挡
 - [`light-sweep.md`](light-sweep.md) —— 光带掠过表面，更轻
 - [`confetti.md`](confetti.md) —— 同批落地的一次性庆祝效果，共用同一套 NFR-7 能耗键
+
+## ⚠️ 登记（`#270`）
+
+`public struct ScanningOverlay` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+落 tiebreaker 的理由：步骤 2 先过「候选形态的作用域」条款——「环形辉光」由 `GlowSweep`、
+「斜向光带」由 `LightSweep` 真实承担 ⇒ 两个候选不计入；其余是同一道光带换画法 ⇒ 装饰。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

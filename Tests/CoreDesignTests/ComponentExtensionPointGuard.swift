@@ -17,7 +17,7 @@ enum ComponentJudgeSources {
 
     static func scan() throws -> ComponentJudgeScanResult {
         if let cached = Self.cached { return cached }
-        let result = try scanComponentJudgeInputs(root: ComponentRegistryGuard.coreDesignSources)
+        let result = try scanComponentJudgeInputs(roots: ComponentRegistryGuard.componentScanRoots)
         // ⚠️ 判「失败」的信号是**四个桶全空**，不是「`textParams` 空」（PR #195 第 2 轮 review）：
         // 失败路径返回的是全空的 `ComponentJudgeScanResult()`，所以两种写法对**失败情形完全等价**；
         // 但只看 `textParams` 会把「扫描成功、恰好零文本参数」（例如 FR-4 定义域调整）也判成失败，

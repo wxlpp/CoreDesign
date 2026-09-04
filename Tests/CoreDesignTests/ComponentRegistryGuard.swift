@@ -154,7 +154,7 @@ struct ComponentRegistryGuard {
     /// 「登记表 / styleImpls / 已知墓碑 / 已知排除**四选一**」。后果不只是描述不实：
     /// 把 `Sources/CoreDesign/Components/Style/` 整个删掉，这三行照样绿。
     /// ⇒ 改成映射，值是该行必须存在的 style 实现类型名；判据要求它们真的出现在
-    /// `coreDesignScan().styleImpls` 里，把白名单变成**承重**的判据。
+    /// `componentScan().styleImpls` 里，把白名单变成**承重**的判据。
     static let knownStyleAnnotationRows: [String: Set<String>] = [
         // 这三个是 `Button` 行背后的 ButtonStyle 实现（README 行名本身不是类型名）。
         "Button": ["SolidButtonStyle", "LightButtonStyle", "CoreBorderlessButtonStyle"],
@@ -176,6 +176,21 @@ struct ComponentRegistryGuard {
     /// modifier 函数名 `View.spinning(_:text:)`，登记表与扫描器认的是类型名
     /// `SpinningModifier`）。
     static let knownReadmeAliases: [String: String] = ["spinning": "SpinningModifier"]
+
+    /// README 索引行名 → `component-registry.json` `entryPoints` 里的**成员名**
+    /// （`View.confetti` 的 `confetti`）。`#270` 随「动效与图表索引进入定义域」新增。
+    ///
+    /// ⚠️ **只收「行名与成员名确实不同」的两条**：`## 动效与图表索引` 里 24 行的行名
+    /// 与成员名逐字相同（`shake` ↔ `View.shake`），直接命中上面的成员名匹配；
+    /// 只有这两行按**类型名**列（`Confetti` 是 `ConfettiLayer` 那一整套的俗名、
+    /// `ParticleTransition` 是转场类型名），而它们的公开入口分别是
+    /// `View.confetti` 与 `Transition.particle`。
+    /// ⚠️ **不许靠「大小写不敏感」把 `Confetti` 混过去** —— 那会顺带放行任何大小写写错的
+    /// 行名。显式两条，且由 `readmeEntryPointRowsAreLoadBearing` 断言「每条都真的被用到」。
+    static let knownReadmeEntryPointRows: [String: String] = [
+        "Confetti": "confetti",
+        "ParticleTransition": "particle",
+    ]
 
     /// README 行名是「容器名」、登记表按子类型分别登记（不存在与容器同名的条目）时，
     /// 只要求登记表里存在以该前缀开头的条目。现状只有 `Sidebar`：README 一行索引，
@@ -241,6 +256,15 @@ struct ComponentRegistryGuard {
             ["SpinningModifier"],
             "README 行名是 modifier 的调用名 spinning，与类型名 SpinningModifier 大小写/后缀均不同，必须显式映射"
         ),
+        // ⚠️ `#270`：`Shine` 是 `shine` 那一行的**第二种形态**。`docs/components/shine.md`
+        // 首段逐字写着「两种形态，同一套实现」——`View.shine(trigger:highlight:)` 与
+        // 容器 `Shine { }`。README 的动效索引按**入口点名**（小写 `shine`）列行，
+        // 于是容器类型 `Shine` 没有属于自己的行。⇒ 挂到同一行下，而不是给同一份实现
+        // 再开一行索引。（结构关系成立：`Shine`.lowercased() 以行名 `shine` 为前缀。）
+        "shine": (
+            ["Shine"],
+            "shine.md 同时收录 View.shine 修饰符与容器形态 Shine，README 按入口点名列行，容器类型挂在同一行下"
+        ),
         "Skeleton": (
             ["SkeletonLine", "SkeletonRect", "SkeletonCircle"],
             "三种骨架形状写在 Skeleton 行的括号里，而解析器在首个括号处截断、不递归解析括号内容"
@@ -281,9 +305,22 @@ struct ComponentRegistryGuard {
     /// 不再靠名字白名单直接放行，而是要求 `knownStyleAnnotationRows` 给它列出的每个
     /// style 实现类型都真的被扫描器采到。测试名里的「styleImpls」这一项此前是空话。
     static func resolveReadmeCandidate(
-        _ name: String, isTombstone: Bool, registered: Set<String>, styleImpls: Set<String>
+        _ name: String, isTombstone: Bool, registered: Set<String>, styleImpls: Set<String>,
+        entryPointMembers: Set<String>
     ) -> Bool {
         if registered.contains(name) { return true }
+        // ⚠️ **入口点桶（`#270` 新增）**：`## 动效与图表索引` 进入定义域后，那一节里
+        // **一半的行不是类型而是入口点**（`shake` / `blur` / `iris` …）——它们按 AD-4
+        // 《下游连锁二》登记在 `component-registry.json` 的 `entryPoints` 数组里，
+        // 结构上永远不会出现在 `components` 里。⇒ 给它们一个自己的桶，而不是塞进
+        // 豁免清单当特例。**匹配的是成员名本身**（`View.shake` 的 `shake`），
+        // 大小写敏感、不做模糊比对：README 行名与 Swift 成员名本来就该逐字相同，
+        // 放宽成大小写不敏感等于给「行名写错一个字母」发一张通行证。
+        // 两个行名与成员名确实不同的（`Confetti` / `ParticleTransition`）走下面的
+        // `knownReadmeEntryPointRows` 显式映射，由 `readmeEntryPointRowsAreLoadBearing`
+        // 钉住「不许有过期条目、也不许有本来就能直接匹配的多余条目」。
+        if entryPointMembers.contains(name) { return true }
+        if let member = Self.knownReadmeEntryPointRows[name] { return entryPointMembers.contains(member) }
         if isTombstone { return Self.knownReadmeTombstones.contains(name) }
         if Self.knownExcludedReadmeRows.contains(name) { return true }
         if let required = Self.knownStyleAnnotationRows[name] {
@@ -333,16 +370,71 @@ struct ComponentRegistryGuard {
         return false
     }
 
-    /// 抽出 `docs/README.md` 「## 组件索引」小节里的表格数据行（跳过表头与分隔行），
+    /// `docs/README.md` 里**两个索引小节**的边界（起始标题 → 终止标题）。
+    ///
+    /// ⚠️ **`#270` 之前只有第一段**：`## 动效与图表索引` 整节落在
+    /// `## 生成预览图` **之后**，因此不在解析范围内。这是 `#256` 的**有意选择**，
+    /// 它在 README 里逐字写明了理由——「这 40 个单位不是登记条目，写进主索引会让
+    /// `readmeIndexReconcilesWithRegistry` 当场判红」。`#270` 把两个新 target 的 public
+    /// 类型纳入登记表之后，那个前提消失，反过来变成：**这 14 条登记条目在 README 里
+    /// 没有任何行覆盖** ⇒ `registryEntriesAreCoveredByReadme` 判红。
+    ///
+    /// ⚠️ **为什么扩解析范围而不是把行搬进 `## 组件索引`**：公约 AD-4《下游连锁三》
+    /// 写的是「三个 target 全部进主索引」，但它的**论据**是解析范围止于 `## 生成预览图`
+    /// 这条工程事实，不是「必须同一个 `##` 标题」这条规范要求；AD-4 自己下一句就写着
+    /// 「每行仍须带模块名……那是**可读性要求**」。而按 `import` 分组恰恰是可读性的那一侧
+    /// （调用方要知道 `import CoreDesignEffects` 还是 `CoreDesign`）。
+    /// ⇒ 保留 `#256` 的分节，把**判据的定义域**扩到两节。
+    ///
+    /// ⚠️ **这是收紧不是放松**：定义域从 37 行涨到 77 行，每一条新进来的行都必须
+    /// 在 `resolveReadmeCandidate` 的桶里找到归宿（入口点行由此第一次与
+    /// `component-registry.json` 的 `entryPoints` 数组对上账），任何一行落空即红。
+    static let readmeIndexSections: [(start: String, end: String)] = [
+        (start: "## 组件索引", end: "## 生成预览图"),
+        (start: "## 动效与图表索引", end: "## NFR-1 帧率基准"),
+    ]
+
+    /// 抽出 `docs/README.md` 两个索引小节里的表格数据行（跳过表头与分隔行），
     /// 每个元素是该行第一列的原始文本。
     static func readmeIndexRows(_ text: String) -> [String] {
-        guard let sectionStart = text.range(of: "## 组件索引") else { return [] }
-        let sectionEnd = text.range(
-            of: "## 生成预览图", range: sectionStart.upperBound..<text.endIndex
-        )?.lowerBound ?? text.endIndex
-        let section = text[sectionStart.upperBound..<sectionEnd]
+        var out: [String] = []
+        for section in Self.readmeIndexSections {
+            guard let range = Self.readmeSectionRange(in: text, section) else { continue }
+            out += Self.tableFirstCells(in: text[range])
+        }
+        return out
+    }
 
-        return section.split(separator: "\n", omittingEmptySubsequences: true).compactMap { line -> String? in
+    /// 一个索引小节在全文里的范围（不含起始标题行本身）。
+    ///
+    /// ⚠️ **必须锚在行首（`\n` + 标题），不能裸 `range(of: "## …")`**（`#270` 实测踩到）：
+    /// README 正文里就有**行内**提到这些标题的地方（本轮改写的 `#256` 落点说明里逐字写着
+    /// 「解析范围 `## 组件索引 → ## 生成预览图` 与 `## 动效与图表索引 → ## NFR-1 帧率基准`」）。
+    /// 裸子串搜索会把**第二节内部**那句行内提及当成该节的终止标题 ⇒ 整节被截成几行，
+    /// 40 行索引静默掉出定义域，而 `rows.count > 20` 这类合计下界**照样成立**
+    /// ——正是「解析器失效 ⇒ 空输入 ⇒ 恒绿」那一族。
+    /// ⇒ 行内提及一律以 `` ` `` 包裹、位于行中，锚 `\n` 即可与真标题区分。
+    /// 这一条同时由 `readmeIndexSectionsAllParse` 的**逐节**下界断言接住。
+    static func readmeSectionRange(
+        in text: String, _ section: (start: String, end: String)
+    ) -> Range<String.Index>? {
+        guard let start = text.range(of: "\n" + section.start) else { return nil }
+        let end = text.range(
+            of: "\n" + section.end, range: start.upperBound..<text.endIndex
+        )?.lowerBound ?? text.endIndex
+        return start.upperBound..<end
+    }
+
+    /// 一段 markdown 里全部表格数据行的第一列。
+    ///
+    /// ⚠️ **表头行按结构识别，不按字面**（`#270`）：上一版写的是
+    /// `guard first != "组件"`，而两个索引小节的表头分别是 `组件` 与 `单位`
+    /// ——把 `单位` 也加进字面清单只是把同一个坑挖深一格（第三张表换个词就又漏）。
+    /// markdown 对「表头」的定义是**下一行是分隔行**，这里就按这条结构判：
+    /// 一个 `|` 行若紧跟着一个全 `-` 的 `|` 行，它是表头。
+    /// ⇒ 表头再叫什么名字都跑不掉，而字面清单只钉得住已经见过的那两个词。
+    static func tableFirstCells(in section: Substring) -> [String] {
+        func firstCell(_ line: Substring) -> String? {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard trimmed.hasPrefix("|") else { return nil }
             // ⚠️ `trimmed` 以 "|" 开头，`split(separator: "|")` 会在 index 0 产出一个
@@ -351,19 +443,90 @@ struct ComponentRegistryGuard {
                 .map { $0.trimmingCharacters(in: .whitespaces) }
             guard cells.count > 1 else { return nil }
             let first = cells[1]
-            guard !first.isEmpty else { return nil }
-            guard first != "组件" else { return nil }                       // 表头行
-            guard !first.allSatisfy({ $0 == "-" }) else { return nil }      // 分隔行
-            return first
+            return first.isEmpty ? nil : first
         }
+        func isSeparator(_ cell: String) -> Bool {
+            !cell.isEmpty && cell.allSatisfy { $0 == "-" || $0 == ":" }
+        }
+
+        let cells = section.split(separator: "\n", omittingEmptySubsequences: true).map(firstCell)
+        var out: [String] = []
+        for (index, cell) in cells.enumerated() {
+            guard let cell else { continue }
+            if isSeparator(cell) { continue }                                   // 分隔行
+            let next = index + 1 < cells.count ? cells[index + 1] : nil
+            if let next, isSeparator(next) { continue }                         // 表头行（下一行是分隔行）
+            out.append(cell)
+        }
+        return out
     }
 
     /// ⚠️ 用 `#filePath` 推导，worktree 与主仓两种布局下都稳（上三级到仓库根）。
-    static var repoRoot: URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-    }
-    static var coreDesignSources: URL { repoRoot.appendingPathComponent("Sources/CoreDesign") }
+    ///
+    /// ⚠️ **不要在这里另拼一份 `Sources/<target>`** —— 根列表的单一来源是
+    /// `GuardScanRoots`（见 `componentScanRoots`）。本属性只服务
+    /// `registryURL` / `docs/README.md` 这类**仓库根相对**的资源路径。
+    static var repoRoot: URL { GuardScanRoots.repoRoot }
+
+    /// 组件登记表的扫描根 —— **多根**，直接复用 `GuardScanRoots.allRoots`（`#270`）。
+    ///
+    /// ⚠️ **`#270` 之前这里是单根 `Sources/CoreDesign`**（一个 `URL`，名叫
+    /// `coreDesignSources`）：`#244`/`#245` 落地 `CoreDesignEffects` / `CoreDesignCharts`
+    /// 两个 library target 之后，这两个 target 里的 **public 类型对本登记表结构上不可见**
+    /// ——`PublicTypeCollector` 采不到它们，双向差集自然不会红，「少登记一条」这件事
+    /// **没有任何判据能发现**。公约 `docs/component-contract.md` AD-4《下游连锁一》
+    /// 把这条链记在案（挂给 `#255`，`#255` 未做），`#270` 把它接过来收口。
+    ///
+    /// ⚠️ **必须是 `GuardScanRoots.allRoots` 本身，不许在这里再列一份名字**
+    /// （`#270` AC 逐字）：两套根列表必然漂 —— `GuardScanRoots` 那份由
+    /// `libraryTargetsAreCoveredByScanRoots` 与 `Package.swift` 做双向差集钉着，
+    /// 而本文件里另抄的一份不受任何判据约束，将来新增 target 时只会更新前者。
+    ///
+    /// ⚠️ **根列表带 target 名，不只是 `URL`**：诊断要走
+    /// `GuardScanRoots.relativePath(_:)`（`CoreDesign/Foo.swift` 与
+    /// `CoreDesignEffects/Foo.swift` 的裸文件名一模一样），而
+    /// `assertRootsExist(_:)` 的失败消息也要报出是哪个 target 的根不见了。
+    ///
+    /// ## ⚠️ 扩根之后**仍然存在**的绕过路径（`#270` 逐条推演的结果，明知而接受）
+    ///
+    /// 本仓反复付出代价的失效形态是「判据钉形状而非性质」，所以这里不写「已堵死」，
+    /// 只如实列出**我能想到的等价改写**，以及每条今天由谁接住 / 没人接住：
+    ///
+    /// 1. **新增一个 library target 而不动 `GuardScanRoots.targetNames`**
+    ///    ⇒ 由 `GuardScanRootsGuard.libraryTargetsAreCoveredByScanRoots` 与
+    ///    `Package.swift` 的双向差集接住。⚠️ **但那条判据靠一个手写的 manifest 词法器**，
+    ///    它自己已登记了两条已知边缘写法限度（本仓 4 个 known issue 里的 2 个）
+    ///    ⇒ 用那两种写法声明的 target **仍然逃逸**。**没人接住。**
+    /// 2. **把 public 类型放进非 library target**（executable / 只在某个 trait 下可达的 target）
+    ///    ⇒ `declaredLibraryTargets()` 只收 library ⇒ 根本不进根列表。**没人接住。**
+    /// 3. **换一种声明形态**：`public enum` / `class` / `actor` 挂 `View`，
+    ///    或把 `: View` 一致性挂在 `extension` 上 ⇒ `PublicTypeCollector` 结构上看不见
+    ///    （它只覆写 `visit(_:StructDeclSyntax)` 并只读**声明处**的继承子句）。
+    ///    这是本类**早于 `#270` 就登记在案的第三 / 第四个盲区**，扩根**没有**缩小它。
+    ///    **没人接住**（`ReachableTypeRegistryGuard` 守的是另一件事）。
+    /// 4. **两个 target 里放同名类型** ⇒ `#270` 新增的
+    ///    `componentTypeNamesAreUniqueAcrossTargets` 接住 `components` 这一路。
+    ///    ⚠️ **但它只查 `components`**：`styleImpls` 跨 target 同名**仍会静默塌成一条**
+    ///    （`knownStyleAnnotationRows` 拿它当 README 行的归宿依据）。今天两个新 target
+    ///    的 `styleImpls` 都是空集 ⇒ 不可达；第一个新 target 落 style 实现时要补。
+    /// 5. **给 README 加第三个索引小节** ⇒ 该节的行不进 `readmeIndexRows` 的定义域。
+    ///    ⚠️ 这一条**方向是安全的**：新组件仍会被「扫描器 ↔ 登记表」双向差集抓成缺失，
+    ///    补登记后又会被 `registryEntriesAreCoveredByReadme` 要求某条**已知小节**里的行覆盖
+    ///    ⇒ fail-closed。它能造成的只是「文档写了但判据看不见」，不是「少登记不会红」。
+    /// 6. **给新类型起一个与既有入口点成员同名的 README 行名**（例如给某个新类型写一行
+    ///    叫 `blur`）⇒ 它会在入口点桶里被认掉。⚠️ 同样**只影响 README 对账那一路**：
+    ///    类型本身照旧被双向差集抓。且入口点桶**只比对成员名、不比对 host**
+    ///    （`View.blur` 与 `Transition.blur` 在这里无法区分）—— 明知而接受，
+    ///    因为收紧到 `Host.member` 会要求 README 行名写成 `Transition.blur` 那种形态，
+    ///    而那一列是给人读的调用名。
+    /// 7. **在一行表格数据行后面紧跟一行「全是 `-`」的行** ⇒ 前一行会被结构性表头识别
+    ///    当成表头跳过。这是 markdown 表头定义本身的形状，换成字面清单（只跳 `组件`/`单位`）
+    ///    只会把坑挖深一格（第三张表换个表头词就漏）。**明知而接受。**
+    /// 8. **把新条目登记成 `tiebreaker` / `prescriptive`** ⇒ 它不进 J-2 定义域，
+    ///    永远不必交出扩展点。⚠️ 这**不是漏洞，是公约写死的默认值**（「少给扩展点是可逆的」），
+    ///    `#270` 自己的 15 条走的就是这条路。它的约束是**社会性的**（notes 要写明两可理由、
+    ///    评审可以质疑），不是机器性的 —— 本行把这一点写在明处，免得后人以为机器在管。
+    static var componentScanRoots: [(target: String, url: URL)] { GuardScanRoots.allRoots }
     static var registryURL: URL { repoRoot.appendingPathComponent("docs/component-registry.json") }
 
     /// 登记表的**入口点**条目（AD-4《下游连锁二》）。
@@ -440,15 +603,48 @@ struct ComponentRegistryGuard {
     /// 第一条判据吃到失败、后两条却拿着缓存里的空集算差集 ⇒「零类型 ⇒ 零缺失 ⇒ **绿**」
     /// ——正是本 issue 反复栽的「测量工具制造自己的绿」。⇒ 空结果不入缓存，让后续判据
     /// **重新扫、重新失败**，每条都各自报出自己的诊断。
-    private static var cachedCoreDesignScan: ScanResult?
+    private static var cachedComponentScan: ScanResult?
 
-    /// 三条判据统一走这个入口，不要直接调 `scanTypes(root: coreDesignSources)`。
-    static func coreDesignScan() throws -> ScanResult {
-        if let cached = Self.cachedCoreDesignScan { return cached }
-        let result = try Self.scanTypes(root: Self.coreDesignSources)
+    /// 三条判据统一走这个入口，不要直接调 `scanTypes(roots:)`。
+    ///
+    /// ⚠️ `#270` 起它扫的是**三个 target**（`GuardScanRoots.allRoots`），不再只有
+    /// `Sources/CoreDesign` —— 旧名 `coreDesignScan()` 已随之改名，免得名字继续声称
+    /// 一个已经不成立的射程。
+    static func componentScan() throws -> ScanResult {
+        if let cached = Self.cachedComponentScan { return cached }
+        let result = try Self.scanTypes(roots: Self.componentScanRoots)
         // 见上：空结果说明扫描失败，不缓存。
-        if !result.components.isEmpty { Self.cachedCoreDesignScan = result }
+        if !result.components.isEmpty { Self.cachedComponentScan = result }
         return result
+    }
+
+    /// 多根扫描。**列表级** fail-closed 断言先行（`GuardScanRoots.assertRootsExist`），
+    /// 逐根再走 `scanTypes(root:)` 自己那条**逐根**断言。
+    ///
+    /// ⚠️ **`components` 是按名字合并的 `Set`** ⇒ 两个 target 里的同名 public 类型会
+    /// **塌成一条**（`Entry` 没有 target 字段，登记表按名字对账）。塌掉的那一条在双向
+    /// 差集里看不见 —— 与 `#246` 给豁免台账键加 target 前缀所防的是同一种病。
+    /// 这里不改 `Entry` 的 schema（那会顶动九个消费者），而是由
+    /// `componentTypeNamesAreUniqueAcrossTargets` 把「今天跨 target 无同名」钉成判据：
+    /// 第一条同名类型出现时当场红，而不是静默合并。
+    static func scanTypes(roots: [(target: String, url: URL)]) throws -> ScanResult {
+        var result = ScanResult()
+        for (_, one) in try Self.scanTypesByTarget(roots: roots) {
+            result.components.formUnion(one.components)
+            result.styleImpls.formUnion(one.styleImpls)
+            result.entryPoints.formUnion(one.entryPoints)
+        }
+        return result
+    }
+
+    /// 逐 target 的扫描结果。合并版 `scanTypes(roots:)` 会把三个 target 的集合并成一份，
+    /// **谁来自哪个 target 这个信息在合并里丢失** —— 而它正是
+    /// `componentTypeNamesAreUniqueAcrossTargets` 需要的那一份。
+    static func scanTypesByTarget(
+        roots: [(target: String, url: URL)]
+    ) throws -> [(target: String, scan: ScanResult)] {
+        GuardScanRoots.assertRootsExist(roots)
+        return try roots.map { ($0.target, try Self.scanTypes(root: $0.url)) }
     }
 
     /// ⚠️ **必须先断言路径存在**：`FileManager.enumerator(at:)` 对不存在的路径
@@ -472,8 +668,11 @@ struct ComponentRegistryGuard {
             let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
             // ⚠️ **解析保真检查**：parser major 与工具链不配套时会静默产出 error node
             // ⇒ 类型被漏采，而扫描器照样「成功」返回一个偏小的集合。
+            // ⚠️ **诊断走 `GuardScanRoots.relativePath(_:)` 而不是 `lastPathComponent`**
+            // （`#270`）：`GuardScanRoots.relativePath` 的文档逐字写着「它们哪天扩到多根，
+            // 必须同轮改成 `relativePath`」—— 本轮正是那一天。裸文件名在三根之下会指错文件。
             if tree.hasError {
-                Issue.record("解析出错：\(url.lastPathComponent) —— swift-syntax major 可能与工具链不配套")
+                Issue.record("解析出错：\(GuardScanRoots.relativePath(url)) —— swift-syntax major 可能与工具链不配套")
             }
             let c = PublicTypeCollector()
             c.walk(tree)
@@ -502,8 +701,22 @@ struct ComponentRegistryGuard {
         // 的机器判据。数字是本次终审实测值（45 + 25 = 70，含终审 C1 新增的 `Toast`
         // 条目——补录前是 44 + 25 = 69），#43 落地后若改用源码比对判据，可以放宽/
         // 移除本断言。
-        #expect(entries.filter { $0.repo == "coredesign" }.count == 47,
-                "CoreDesign 侧条目数不是 47（#221 把 BottomInputBar 提为 public 并按判定法补录后由 46 变为 47）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        // ⚠️ **47 → 62 的出处（`#270`）**：扫描根由单根 `Sources/CoreDesign` 扩成
+        // `GuardScanRoots.allRoots` 三根后，`PublicTypeCollector` 在
+        // `Sources/CoreDesignEffects` 采到 **11** 个、`Sources/CoreDesignCharts` 采到 **4** 个
+        // `public struct: View` ⇒ 15 条新条目。**这 15 个数不是估的**，是本轮
+        // `scannerFindsComponentTypes` 那条 print 逐 target 打出来的实测名单
+        // （Effects：AnimatedMeshGradient / BeforeAfterSlider / CharSphere / DotSphere /
+        // FullScreenButton / GlowSweep / LightSweep / OrbitingLogos / ScanningOverlay /
+        // Shine / TypewriterText；Charts：ActivityHeatmap / NetworkGraph / RadarChart / RingChart）。
+        // ⚠️ **本 issue 正文点名的是 8 个**（`Shine` + 四个图表 + `ScanningOverlay` /
+        // `GlowSweep` / `LightSweep`）—— 那是按**产出它们的三个 task**（#250 / #252 / #255）
+        // 数的；`#253` / `#254` 落地的另外 7 个（TypewriterText / AnimatedMeshGradient /
+        // BeforeAfterSlider / OrbitingLogos / DotSphere / CharSphere / FullScreenButton）
+        // 同样是 `public struct: View`、同样对本登记表结构上不可见，只是没被 issue 正文数进去。
+        // ⇒ 本轮收口的是**扫描器实测到的 15 个**，不是 issue 正文的 8 个。
+        #expect(entries.filter { $0.repo == "coredesign" }.count == 62,
+                "CoreDesign 侧条目数不是 62（#270 扩扫描根到三个 target，Effects 11 + Charts 4 共 15 条按判定法补录后由 47 变为 62）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 
@@ -585,9 +798,9 @@ struct ComponentRegistryGuard {
         }
     }
 
-    @Test("扫描器真的扫到了 CoreDesign 的类型")
-    func scannerFindsCoreDesignTypes() throws {
-        let r = try Self.coreDesignScan()
+    @Test("扫描器真的扫到了三个 target 的类型，且类型名跨 target 不重名")
+    func scannerFindsComponentTypes() throws {
+        let r = try Self.componentScan()
         // ⚠️ 非空断言先行：扫描器失效时「零类型 ⇒ 零缺失 ⇒ 绿」会静默通过。
         // ⚠️ 下界是**量级**断言，不是精确数 —— 精确数由本次运行给出（见 print）。
         #expect(r.components.count > 15, "只扫到 \(r.components.count) 个组件类型 —— 扫描器失效")
@@ -597,12 +810,54 @@ struct ComponentRegistryGuard {
         // 只有数的话执行者得从完整性测试的失败消息里倒推，绕。
         print("组件 \(r.components.count) 个：\(r.components.sorted())")
         print("Style 实现 \(r.styleImpls.count) 个：\(r.styleImpls.sorted())")
+
+        // ⚠️ **逐 target 打印 + 逐 target 非空断言**（`#270`）：合并集合的下界
+        // （上面那两条）在「Effects / Charts 两根整个扫不到」时**照样成立** ——
+        // 主 target 一家就有 46 个，`> 15` 恒真。多根扫描最容易的假绿正是
+        // 「新根静默产出空集」，故每个根各自也要有非空断言。
+        // ⚠️ 下界写 `> 0` 而不是精确数：精确数由本条 print 给出，写进断言会让
+        // 每加一个组件都要来改这里，而它挡的是「整根空掉」不是「少一个」。
+        let byTarget = try Self.scanTypesByTarget(roots: Self.componentScanRoots)
+        #expect(byTarget.count == GuardScanRoots.targetNames.count,
+                "逐 target 扫描只回来 \(byTarget.count) 组，根列表有 \(GuardScanRoots.targetNames.count) 个")
+        for (target, scan) in byTarget {
+            print("· \(target)：组件 \(scan.components.count) 个 \(scan.components.sorted())"
+                  + "；Style 实现 \(scan.styleImpls.count) 个；入口点 \(scan.entryPoints.count) 个")
+            #expect(!scan.components.isEmpty,
+                    "扫描根 \(target) 一个组件类型都没采到 —— 多根扫描最常见的假绿就是新根静默产出空集")
+        }
+
+        // ⚠️ **跨 target 同名会在 `components` 这个 `Set` 里静默塌成一条**：`Entry` 没有
+        // target 字段，登记表按名字对账 ⇒ 两个 target 里的同名 public 类型只需一条登记
+        // 就能同时喂饱双向差集的两个方向，「少登记一条」看不出来。这与 `#246` 给豁免台账键
+        // 加 target 前缀所防的是同一种病。今天三根之间零同名，本条把「今天为零」钉成判据。
+        // ⚠️ **不改 `Entry` 的 schema 给它加 target 字段**：那会顶动九个消费者与
+        // 一整套按名字建的索引（`byComponent` / `ownerAliases` / `readmeRowCoverage` …），
+        // 收益是「将来某天可能出现的同名」，成本是现在就要改一圈 —— 先钉住，撞上再改。
+        var seenIn: [String: String] = [:]
+        var collisions: [String] = []
+        for (target, scan) in byTarget {
+            for name in scan.components.sorted() {
+                if let previous = seenIn[name] {
+                    collisions.append("\(name)（\(previous) 与 \(target)）")
+                } else {
+                    seenIn[name] = target
+                }
+            }
+        }
+        #expect(collisions.isEmpty, """
+        这些 public 组件类型名在两个 target 里同时出现：\(collisions)。
+        登记表按**名字**对账（`Entry` 无 target 字段）⇒ 同名会在 `ScanResult.components`
+        这个 Set 里塌成一条，一条登记就能同时满足双向差集的两个方向，「少登记一条」不会红。
+        处置：给其中一个改名，或给 `Entry` 加 target 字段并把按名字建的索引全部改成按
+        (target, name) 建 —— **不要**为了让本条变绿把它删掉。
+        """)
     }
 
     @Test("CoreDesign 侧：登记表覆盖全部组件类型，且无幽灵条目")
     func registryCoversCoreDesignTypes() throws {
         let entries = try Self.loadRegistry()
-        let scanned = try Self.coreDesignScan().components
+        let scanned = try Self.componentScan().components
         #expect(scanned.count > 15, "只扫到 \(scanned.count) 个类型 —— 扫描器失效")   // 与 Task 1 自检同下界
 
         // ⚠️ **分仓比对**（AC 原文要求「分 repo 计数吻合」）：合并成一个 Set 后
@@ -647,7 +902,7 @@ struct ComponentRegistryGuard {
     func readmeIndexReconcilesWithRegistry() throws {
         let entries = try Self.loadRegistry()
         let registered = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
-        let scan = try Self.coreDesignScan()
+        let scan = try Self.componentScan()
         let scanned = scan.components
 
         let readmeText = try String(
@@ -661,12 +916,20 @@ struct ComponentRegistryGuard {
         """
         #expect(rows.count > 20, "\(parseFailureMessage)")
 
+        // ⚠️ 入口点成员名取自**登记表**而不是扫描器：本条判据核的是「README 行 ↔ 登记表」，
+        // 拿扫描器当参照会让「源码有、登记表没有」的入口点也放行 —— 那个方向由
+        // `ExtensionEntryPointGuard` 的双向差集守，两条判据各守各的方向。
+        let entryPointMembers = Set(try Self.loadEntryPoints().map(\.member))
+        #expect(entryPointMembers.count > 20,
+                "登记表只读到 \(entryPointMembers.count) 个入口点成员 —— 疑似解析失效，入口点桶会在空集上把整节判红")
+
         var unresolved: [String] = []
         for raw in rows {
             let (names, isTombstone) = Self.candidateNames(fromReadmeCell: raw)
             for name in names
             where !Self.resolveReadmeCandidate(
-                name, isTombstone: isTombstone, registered: registered, styleImpls: scan.styleImpls
+                name, isTombstone: isTombstone, registered: registered,
+                styleImpls: scan.styleImpls, entryPointMembers: entryPointMembers
             ) {
                 unresolved.append("「\(raw)」→ 「\(name)」")
             }
@@ -787,6 +1050,66 @@ struct ComponentRegistryGuard {
             #expect(declared.contains(alias), """
             `knownReadmeAliases["\(rowName)"] = "\(alias)"`，但             `readmeRowCoverage["\(rowName)"]` 里没有它 —— 两张表已漂移。
             """)
+        }
+    }
+
+    @Test("两个 README 索引小节都真的解析出了行（`#270`：定义域扩了要有活证据）")
+    func readmeIndexSectionsAllParse() throws {
+        let readmeText = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
+        )
+        // ⚠️ **逐节断言，不是只看合计**：合计行数在「第二节整个解析不到」时**照样 > 20**
+        // （主索引一节就有 37 行）⇒ 只看合计等于没守住新扩的那一半。
+        // 改了 README 的小节标题、或把某节整个搬走时，本条给出的诊断是「哪一节没解析到」，
+        // 而不是让人从 `registryEntriesAreCoveredByReadme` 的一屏缺失条目里倒推。
+        for section in Self.readmeIndexSections {
+            guard let range = Self.readmeSectionRange(in: readmeText, section) else {
+                Issue.record("README 里找不到行首小节标题「\(section.start)」—— 该节的行整段掉出定义域，判据对它恒真")
+                continue
+            }
+            // ⚠️ 从**小节起点**往后找终止标题，不能在 `range` 内找：`range` 的上界正是终止标题
+            // 那个 `\n` 的位置 ⇒ 终止标题本身不在 `range` 里，在里面找必然找不到、恒红。
+            #expect(readmeText.range(
+                        of: "\n" + section.end, range: range.lowerBound..<readmeText.endIndex
+                    ) != nil,
+                    "README 里「\(section.start)」之后找不到行首终止标题「\(section.end)」—— 解析范围会一路吃到文末")
+            let rows = Self.tableFirstCells(in: readmeText[range])
+            #expect(rows.count > 10,
+                    "README 小节「\(section.start)」只解析到 \(rows.count) 行 —— 解析器或标题文案可能失效")
+            // ⚠️ 表头行必须被结构性地剔除掉：两节的表头分别是 `组件` 与 `单位`，
+            // 任何一个漏进来都会变成一个永远解析不掉的候选名。
+            #expect(!rows.contains("组件") && !rows.contains("单位"),
+                    "小节「\(section.start)」的表头行没被剔除：\(rows.filter { $0 == "组件" || $0 == "单位" })")
+        }
+    }
+
+    @Test("`knownReadmeEntryPointRows` 承重：两条映射都真的被用到，且都不是多余的")
+    func readmeEntryPointRowsAreLoadBearing() throws {
+        let entries = try Self.loadRegistry()
+        let registered = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
+        let entryPointMembers = Set(try Self.loadEntryPoints().map(\.member))
+        let readmeText = try String(
+            contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
+        )
+        let rowNames = Set(Self.readmeIndexRows(readmeText).flatMap { Self.candidateNames(fromReadmeCell: $0).names })
+
+        // ⚠️ 非空前置：三个集合任一为空，下面的循环会在空集上恒真。
+        #expect(!Self.knownReadmeEntryPointRows.isEmpty, "映射表为空 —— 本守卫会在空循环上恒真")
+        #expect(!rowNames.isEmpty, "README 行名解析为空 —— 第 ① 条会恒假、其余恒真")
+        #expect(entryPointMembers.count > 20, "登记表只读到 \(entryPointMembers.count) 个入口点成员 —— 疑似解析失效")
+
+        for (rowName, member) in Self.knownReadmeEntryPointRows.sorted(by: { $0.key < $1.key }) {
+            // ① key 必须真的是 README 索引里的行名（悬空键 = 过期条目）。
+            #expect(rowNames.contains(rowName),
+                    "`knownReadmeEntryPointRows` 的 key「\(rowName)」不是 README 索引里的行名 —— 悬空键")
+            // ② value 必须真的是登记表 `entryPoints` 里的成员名。
+            #expect(entryPointMembers.contains(member),
+                    "`knownReadmeEntryPointRows[\(rowName)]` 指向的入口点成员「\(member)」不在登记表的 entryPoints 里")
+            // ③ ⚠️ **不许有多余条目**：key 若本来就能被前面几个桶接住（登记条目名 / 成员名
+            //    直接同名），这条映射就是**死代码**，而死代码会让人误以为「这里已经守着了」
+            //    ——本文件的 `resolveReadmeCandidate` 上一版正是栽在「加了 consult 却不可达」。
+            #expect(!registered.contains(rowName) && !entryPointMembers.contains(rowName),
+                    "`knownReadmeEntryPointRows` 的 key「\(rowName)」不用映射也能解析（它本身就是登记条目名或入口点成员名）—— 这条是死代码，删掉")
         }
     }
 

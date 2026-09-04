@@ -225,9 +225,12 @@ direction(of:) // Edge → 单位方向向量（三条位移转场共用一份 s
 ⚠️ **含参重载与无参形态按 `Host.member` 去重，算同一条**（口径同 #251：计数单位是
 「一种 transition」不是「一个静态成员」）⇒ 六种转场 = 六条登记、十二个静态成员。
 
-⚠️ 六个 `public struct *Transition` 本身**不**进 `components` 数组：
-`ComponentRegistryGuard.coreDesignSources` 仍是单根 `Sources/CoreDesign`，
-塞进去会被判成幽灵条目（同 `ParticleTransition` 的处置；该口子由 issue #270 收口）。
+⚠️ `public struct *Transition` 本身**不**进 `components` 数组，但 `#270` 起**理由变了**：
+`ComponentRegistryGuard` 的扫描根已由单根 `Sources/CoreDesign` 扩成
+`GuardScanRoots.allRoots`（三个 target），**扫描根不再是理由**；
+真正的理由是 `PublicTypeCollector` 只采 `public struct: View / ViewModifier`，
+而它是 `public struct: Transition` ⇒ 结构上仍不进 `components`。
+公开表面由上面那条 `entryPoints` 覆盖，不是漏登记。
 
 ## ⚠️ 已知限度
 

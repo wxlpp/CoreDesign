@@ -964,7 +964,7 @@ struct BoolExemptionGuard {
         )
         #expect(registered.count > 30, "登记表只读到 \(registered.count) 条 coredesign 条目 —— 疑似没读到")
 
-        let scan = try ComponentRegistryGuard.coreDesignScan()
+        let scan = try ComponentRegistryGuard.componentScan()
         #expect(scan.components.count > 15, "登记表扫描器只扫到 \(scan.components.count) 个组件类型 —— 失效")
 
         let readmeText = try String(

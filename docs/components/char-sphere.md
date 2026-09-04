@@ -93,5 +93,9 @@ SplitMix64 的终混（两轮"右移异或 + 乘"再一次右移异或）把高�
 
 ## ⚠️ 登记
 
-同 `DotSphere`：不进 `components`（扫描根仍是单根 `Sources/CoreDesign`），
-也没有扩展成员 ⇒ `entryPoints` 零改动。
+⚠️ **`#270` 已收口，本节整段改写**（上句原写「不进 `components`（扫描根仍是单根）」）：
+扫描根已扩成三个 target，`public struct CharSphere` **已按判定法登记进**
+`docs/component-registry.json` 的 `components`（`prescriptive` / `tiebreaker` /
+不给扩展点），判定理由见该条目 `notes`。
+`characters: [String]` 按 FR-7 是调用方数据、进扫描器的 text-carrying 桶，不进 FR-4 主判据。
+本件仍没有扩展成员 ⇒ `entryPoints` 零改动。

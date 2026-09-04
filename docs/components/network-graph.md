@@ -272,3 +272,14 @@ struct TeamGraph: View {
 - [`ring-chart.md`](ring-chart.md) —— 活动环，同样「先去重、后截断」，但**不提示**截断
 - [`activity-heatmap.md`](activity-heatmap.md) —— 贡献热力图，同样**不提示**截断；
   它的布局在**主线程**上算，与本图表的 detached 解算相反
+
+## ⚠️ 登记（`#270`）
+
+`public struct NetworkGraph` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+落 tiebreaker 的理由同另外三个图表：候选（邻接矩阵 / 分层树布局）属排布差异，
+但候选来源核验未做 ⇒ 枚举未完成 ⇒ 落步骤 4。
+文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
+⚠️ `NetworkGraphRenderProbe` 是 `@_spi(CoreDesignBenchmark)` 的仪器，不是 `View` ⇒ 不进登记表。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

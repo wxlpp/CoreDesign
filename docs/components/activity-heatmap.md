@@ -226,3 +226,14 @@ struct ContributionsCard: View {
 - [`network-graph.md`](network-graph.md) —— 力导向网络图，四个图表里唯一**会提示截断**的那个
 - [`ring-chart.md`](ring-chart.md) —— 活动环，与本图表同为「截断但不提示」的一侧
 - [`radar-chart.md`](radar-chart.md) —— 雷达图；它**没有**公开的规模上限
+
+## ⚠️ 登记（`#270`）
+
+`public struct ActivityHeatmap` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+落 tiebreaker 的理由同另外三个图表：候选（日历月视图 / 折线时间序列）属排布差异，
+但候选来源核验未做 ⇒ 枚举未完成 ⇒ 落步骤 4。
+`calendar:` 是可注入的行为依赖不是外观面。
+文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

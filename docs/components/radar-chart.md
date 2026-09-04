@@ -196,3 +196,13 @@ struct PlayerCard: View {
 - [`ring-chart.md`](ring-chart.md) —— 活动环：多个独立环各表示一个指标的**完成度**，共用 `ChartValue`
 - [`activity-heatmap.md`](activity-heatmap.md) —— 贡献热力图，数据契约是 `HeatmapDay`
 - [`network-graph.md`](network-graph.md) —— 力导向网络图，数据契约是 `GraphNode` / `GraphEdge`
+
+## ⚠️ 登记（`#270`）
+
+`public struct RadarChart` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+落 tiebreaker 的理由：候选（并排条形 / 平行坐标）属**排布**差异、本该计入 ≥2，但 `#270`
+未做公约步骤 2 停止规则要求的候选来源核验 ⇒ 枚举视为未完成 ⇒ 按兜底句落步骤 4。
+文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

@@ -212,3 +212,13 @@ struct MoveSummary: View {
 - [`radar-chart.md`](radar-chart.md) —— 雷达图，共用 `ChartValue`；它**没有**公开的规模上限
 - [`activity-heatmap.md`](activity-heatmap.md) —— 贡献热力图，同样是「截断但不提示」的一侧
 - [`network-graph.md`](network-graph.md) —— 力导向网络图，四个图表里唯一**会提示截断**的那个
+
+## ⚠️ 登记（`#270`）
+
+`public struct RingChart` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+落 tiebreaker 的理由同 `RadarChart`：候选（堆叠条 / 并排进度条）属排布差异，
+但候选来源核验未做 ⇒ 枚举未完成 ⇒ 落步骤 4。
+文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

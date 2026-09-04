@@ -13,22 +13,49 @@ import Testing
 @Suite("组件判据端到端变异")
 struct ComponentJudgeMutationTests {
 
-    /// 把源码树拷到临时目录，返回副本根路径。调用方负责在 `defer` 里删掉。
+    /// 把**三个 target** 的源码树拷到同一个临时目录，返回该目录（不是某一个根）。
+    /// 调用方负责在 `defer` 里删掉它。
+    ///
+    /// ⚠️ `#270` 之前这里只拷 `Sources/CoreDesign` 一棵树并直接返回那棵树的根。
+    /// 登记表扩到三根之后，`copiedTreeReproducesBaseline` 拿「一棵树的扫描结果」
+    /// 去比「三棵树的扫描结果」必然不等 —— 而那条断言的语义是「拷贝没出问题」，
+    /// 不是「射程变了」。⇒ 副本布局与仓库一致：`<tmp>/CoreDesign`、
+    /// `<tmp>/CoreDesignEffects`、`<tmp>/CoreDesignCharts`。
+    ///
+    /// ⚠️ **子目录名必须与真实根同名**：`scanComponentJudgeInputs(root:)` 的 `fileName`
+    /// 前缀取的是根目录名（见该函数文档），同名才能让副本与真实源码产出**逐字相同**的
+    /// `file` 串，`copiedTreeReproducesBaseline` 的等值断言才成立。
     private func copySources() throws -> URL {
         let destination = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("component-judge-mutation-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-        let root = destination.appendingPathComponent("CoreDesign")
-        try FileManager.default.copyItem(at: ComponentRegistryGuard.coreDesignSources, to: root)
-        return root
+        for root in ComponentRegistryGuard.componentScanRoots {
+            try FileManager.default.copyItem(
+                at: root.url, to: destination.appendingPathComponent(root.target)
+            )
+        }
+        return destination
+    }
+
+    /// 副本目录里与 `ComponentRegistryGuard.componentScanRoots` 一一对应的根列表。
+    private func copiedRoots(in destination: URL) -> [(target: String, url: URL)] {
+        ComponentRegistryGuard.componentScanRoots.map {
+            ($0.target, destination.appendingPathComponent($0.target))
+        }
     }
 
     /// 在副本的某个文件上做文本替换，并**断言真的替换到了**。
+    /// ⚠️ `relativePath` 是**相对 `Sources/CoreDesign` 那棵树**的路径（全部现存变异都落在
+    /// 主 target 里），`root` 是 `copySources()` 返回的**临时目录**。`#270` 之前两者
+    /// 恰好同一个 URL，改多根后必须在这里补上 target 段，否则替换会找不到文件、
+    /// 上面那条「变异没命中」的自证断言会红 —— 那是好的失败形态（不会静默变绿）。
     private func applyMutation(
         root: URL, relativePath: String, find: String, replace: String,
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
-        let url = root.appendingPathComponent(relativePath)
+        let url = root
+            .appendingPathComponent(GuardScanRoots.primaryTargetName)
+            .appendingPathComponent(relativePath)
         let original = try String(contentsOf: url, encoding: .utf8)
         let mutated = original.replacingOccurrences(of: find, with: replace)
         #expect(mutated != original,
@@ -37,12 +64,74 @@ struct ComponentJudgeMutationTests {
         try mutated.write(to: url, atomically: true, encoding: .utf8)
     }
 
+    /// ⚠️ **本条是 `#270` 的承重实证，不是锦上添花**：AC 要求的不只是「新增未登记类型 ⇒ 判红」，
+    /// 还要求证明**扩根前后有差别** —— 只做单向验证会漏掉「红是别的原因造成的 / 修的不是那个洞」。
+    /// 这里把两侧放进**同一棵被污染的树**上跑：多根判红、单根**完全不红**，
+    /// 差别只可能来自扫描根本身。
+    ///
+    /// ⚠️ 用副本而不是真实源码：真实源码里写一个 probe 类型会污染工作区，
+    /// 而 CI 上「跑完忘了删」就是一条永久的假条目。
+    @Test("`#270` 扩根实证：新 target 里未登记的 public 类型，多根下判红、单根下完全不红")
+    func multiRootCatchesUnregisteredTypeInNewTarget() throws {
+        let root = try self.copySources()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let probe = "ZZUnregisteredProbeView"
+        let probeSource = """
+        import SwiftUI
+
+        /// 变异用的合成类型：形态与 `Shine` / `GlowSweep` 等同款（`public struct: View`），
+        /// 唯一的区别是**登记表里没有它**。
+        public struct \(probe): View {
+            public init() {}
+            public var body: some View { Color.clear }
+        }
+        """
+        try probeSource.write(
+            to: root.appendingPathComponent("CoreDesignEffects/ZZUnregisteredProbe.swift"),
+            atomically: true, encoding: .utf8
+        )
+
+        let entries = try ComponentRegistryGuard.loadRegistry()
+        let registered = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
+            .subtracting(ComponentRegistryGuard.knownOffScannerComponents)
+
+        // ---- 多根（`#270` 之后）：判红，且违规集合**恰好**是那一条 ----
+        let multiRoot = try ComponentRegistryGuard.scanTypes(roots: self.copiedRoots(in: root))
+        let multi = compareRegistryToScan(scanned: multiRoot.components, registered: registered)
+        #expect(multi.missing == [probe],
+                "多根扫描下未登记类型没有被判成缺失，实际缺失集合：\(multi.missing.sorted())")
+        #expect(multi.ghosts.isEmpty, "多根扫描下出现了幽灵条目：\(multi.ghosts.sorted())")
+
+        // ---- 单根（`#270` 之前的形态）：**同一棵被污染的树上完全不红** ----
+        // ⚠️ 这一半才是本条存在的理由。缺了它，上面那条只证明「判据会红」，
+        // 证明不了「红是因为扩了根」——本仓的教训是只做单向验证会漏掉「修的不是那个洞」。
+        let singleRoot = try ComponentRegistryGuard.scanTypes(
+            root: root.appendingPathComponent(GuardScanRoots.primaryTargetName)
+        )
+        let single = compareRegistryToScan(scanned: singleRoot.components, registered: registered)
+        #expect(!single.missing.contains(probe),
+                "单根扫描竟然看到了 CoreDesignEffects 里的类型 —— 前后对照失效，本条证明不了任何事")
+        #expect(single.missing.isEmpty, """
+        单根扫描下的缺失集合本应为空（旧判据看不见 Sources/CoreDesignEffects），实际 \(single.missing.sorted())。
+        """)
+
+        // ---- 补登记 ⇒ 转绿 ----
+        let afterRegistering = compareRegistryToScan(
+            scanned: multiRoot.components, registered: registered.union([probe])
+        )
+        #expect(afterRegistering.missing.isEmpty,
+                "补登记后仍判缺失：\(afterRegistering.missing.sorted())")
+        #expect(afterRegistering.ghosts.isEmpty,
+                "补登记后出现幽灵条目：\(afterRegistering.ghosts.sorted())")
+    }
+
     @Test("端到端：副本未变异时，三条判据的结果与真实源码一致（基线）")
     func copiedTreeReproducesBaseline() throws {
         let root = try self.copySources()
-        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+        defer { try? FileManager.default.removeItem(at: root) }
         let entries = try ComponentRegistryGuard.loadRegistry()
-        let copied = try scanComponentJudgeInputs(root: root)
+        let copied = try scanComponentJudgeInputs(roots: self.copiedRoots(in: root))
         let real = try ComponentJudgeSources.scan()
 
         #expect(copied.bareTextKeys == real.bareTextKeys, "副本与真实源码的裸文本参数集合不一致 —— 拷贝有问题")
@@ -60,13 +149,13 @@ struct ComponentJudgeMutationTests {
     @Test("端到端 J-2 变异：把 BannerStyle 协议声明改名 ⇒ Banner 判缺扩展点")
     func j2EndToEndMutation() throws {
         let root = try self.copySources()
-        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+        defer { try? FileManager.default.removeItem(at: root) }
         try self.applyMutation(
             root: root, relativePath: "Components/Banner/Banner.swift",
             find: "public protocol BannerStyle {", replace: "public protocol BannerAppearanceContract {"
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
-        let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(root: root))
+        let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)))
         #expect(result.missing == ["Banner"],
                 "登记表说 Banner 的扩展点是 BannerStyle，源码里没有这个协议声明了 ⇒ 必须判红")
         #expect(result.diagnostics.contains { $0.contains("Banner：") && $0.contains("无该协议声明") })
@@ -75,7 +164,7 @@ struct ComponentJudgeMutationTests {
     @Test("端到端 J-2 变异：删掉 BannerStyle 的全部实现 ⇒ Banner 判缺扩展点（『定义 + 使用』的使用侧）")
     func j2EndToEndMutationImplementationsRemoved() throws {
         let root = try self.copySources()
-        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+        defer { try? FileManager.default.removeItem(at: root) }
         try self.applyMutation(
             root: root, relativePath: "Components/Banner/Banner.swift",
             find: "public struct PlainBannerStyle: BannerStyle {", replace: "public struct PlainBannerStyle {"
@@ -85,7 +174,7 @@ struct ComponentJudgeMutationTests {
             find: "public struct BorderedBannerStyle: BannerStyle {", replace: "public struct BorderedBannerStyle {"
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
-        let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(root: root))
+        let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)))
         #expect(result.missing == ["Banner"])
         #expect(result.diagnostics.contains { $0.contains("Banner：") && $0.contains("无实现类型") },
                 "只查协议声明、不查实现的话，把两个 style 实现删光判据照绿 —— AC 原文是『定义 + 使用』")
@@ -94,7 +183,7 @@ struct ComponentJudgeMutationTests {
     @Test("端到端 J-3 变异（通道 i）：往 ProgressIndicator.swift 塞一个自有样式协议 ⇒ 判红")
     func j3EndToEndMutationDeclarationChannel() throws {
         let root = try self.copySources()
-        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+        defer { try? FileManager.default.removeItem(at: root) }
         try self.applyMutation(
             root: root, relativePath: "Components/ProgressIndicator/ProgressIndicator.swift",
             find: "public struct ProgressIndicator: View {",
@@ -109,7 +198,7 @@ struct ComponentJudgeMutationTests {
             """
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
-        let result = judgeNativeProtocolPurity(entries: entries, scan: try scanComponentJudgeInputs(root: root))
+        let result = judgeNativeProtocolPurity(entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)))
         #expect(result.violations.map(\.symbol) == ["ProgressIndicatorStyle"])
         #expect(result.violations.map(\.channel) == ["作用域内声明"])
         #expect(result.violations.map(\.component) == ["ProgressIndicator"])
@@ -118,14 +207,14 @@ struct ComponentJudgeMutationTests {
     @Test("端到端 J-3 变异（通道 ii）：让 ProgressIndicator 采纳 BannerStyle ⇒ 判红")
     func j3EndToEndMutationConformanceChannel() throws {
         let root = try self.copySources()
-        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+        defer { try? FileManager.default.removeItem(at: root) }
         try self.applyMutation(
             root: root, relativePath: "Components/ProgressIndicator/ProgressIndicator.swift",
             find: "public struct ProgressIndicator: View {",
             replace: "extension ProgressIndicator: BannerStyle {}\n\npublic struct ProgressIndicator: View {"
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
-        let result = judgeNativeProtocolPurity(entries: entries, scan: try scanComponentJudgeInputs(root: root))
+        let result = judgeNativeProtocolPurity(entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)))
         #expect(result.violations.map(\.symbol) == ["BannerStyle"])
         #expect(result.violations.map(\.channel) == ["组件采纳"])
     }
@@ -133,13 +222,13 @@ struct ComponentJudgeMutationTests {
     @Test("端到端 FR-4 变异：给 Avatar 加一个未登记的裸 String 参数 ⇒ 判红；补登记 ⇒ 转绿")
     func fr4EndToEndMutation() throws {
         let root = try self.copySources()
-        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+        defer { try? FileManager.default.removeItem(at: root) }
         try self.applyMutation(
             root: root, relativePath: "Components/Avatar/Avatar.swift",
             find: "public init(name: String) {", replace: "public init(name: String, caption: String) {"
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
-        let scan = try scanComponentJudgeInputs(root: root)
+        let scan = try scanComponentJudgeInputs(roots: self.copiedRoots(in: root))
 
         let red = judgeTextParamCoverage(
             entries: entries, scan: scan, ownerAliases: ComponentTextParamGuard.ownerAliases
@@ -169,14 +258,14 @@ struct ComponentJudgeMutationTests {
     @Test("端到端 FR-4 反向变异：把已登记参数改名 ⇒ 登记表条目变成幽灵")
     func fr4EndToEndGhostMutation() throws {
         let root = try self.copySources()
-        defer { try? FileManager.default.removeItem(at: root.deletingLastPathComponent()) }
+        defer { try? FileManager.default.removeItem(at: root) }
         try self.applyMutation(
             root: root, relativePath: "Components/Avatar/Avatar.swift",
             find: "public init(name: String) {", replace: "public init(displayName: String) {"
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let result = judgeTextParamCoverage(
-            entries: entries, scan: try scanComponentJudgeInputs(root: root),
+            entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)),
             ownerAliases: ComponentTextParamGuard.ownerAliases
         )
         #expect(result.ghostRegistryParams == ["Avatar.name"],
