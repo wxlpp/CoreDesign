@@ -391,9 +391,21 @@ struct MaskRevealGeometryTests {
         """)
 
         // ② 非法值回落到默认值。
+        //
+        // ⚠️ 断言的是**回落值与 `.dissolve()` 的默认实参同源**，不只是"合法"
+        // （#291 第 2 轮 Copilot id=3933604025）：上一版 `MaskReveal.dissolveDefaultCellSize`
+        // 与 `MaskRevealTransition.defaultCellSize` 各自独立写了一个 `24`，
+        // 只改一处两者就静默分叉，而"合法且为正"这条弱断言对那枚缺陷零可见性。
         for bad: CGFloat in [0, -5, .nan, .infinity] {
             let resolved = MaskReveal.effectiveCellSize(bad, in: Self.rect)
             #expect(resolved.isFinite && resolved > 0, "cellSize \(bad) 解析成了 \(resolved)")
+            #expect(resolved == MaskRevealTransition.defaultCellSize, """
+            `cellSize \(bad)` 回落到 \(resolved)，而 `.dissolve()` 的默认实参是
+            `MaskRevealTransition.defaultCellSize` = \(MaskRevealTransition.defaultCellSize)
+            —— 两个"默认值"已经分叉：同一个 `.dissolve()` 在「不传参」与「传非法值」
+            两条入口上会画出两种格子，而且都不报错。
+            请让 `MaskReveal.dissolveDefaultCellSize` 继续直接引用那个 `public` 常量。
+            """)
         }
         // ③ 退化输入下转场仍然发生。
         #expect(!Self.revealed(.dissolve(cellSize: 0), progress: 0.5).isEmpty)
@@ -589,9 +601,13 @@ struct MaskRevealRenderTests {
     /// `MicroInteractionAPITests.stablePixels`）时，`clock` / `glare` 在**同一条 `#Test`
     /// 内**三次调用都不收敛；走 `Self.pixels` 时 6/6 稳定、连跑 6 次全同，
     /// 真实 suite 隔离 8/8、全量 10/10。
-    /// ⇒ **本文件的每一条位图断言都必须走 `Self.pixels`**，由
-    /// `MaskRevealSourceGuard.bitmapAssertionsGoThroughTheWarmUpGate` 钉住
-    /// （今天确实全部走它，但在那条判据之前没有任何东西守着这件事）。
+    /// ⇒ **本文件的每一条位图断言都必须走 `Self.pixels`**。
+    ///
+    /// ⚠️⚠️ **这句话是要求，不是既成事实的完备保证——判据只是"大部分守住"**
+    /// （#291 第 2 轮 Imp-2，上一版这里宣称由判据"钉住"，那是高估，照录更正）：
+    /// `MaskRevealSourceGuard.bitmapAssertionsGoThroughTheWarmUpGate` 靠**源码后缀计数**
+    /// 拦截，射程与已知缺口逐条写在那条判据的文档注释里。今天全簇确实都走 `Self.pixels`,
+    /// 但别把那条判据读成"绕不过去"。
     ///
     /// ⚠️⚠️ **必须把「带 chrome 的形态」也跑热**：上一版只暖机了裸内容与空白两种，
     /// `chromeRevealsMidFlight` 于是**间歇性判红**——它比较「插值出的中间帧」与
@@ -1048,8 +1064,10 @@ struct MaskRevealTransitionBodyTests {
     /// Apple 文档逐字：`hasMotion == true` ⇒ **Reduce Motion 打开时 SwiftUI 直接把
     /// 本转场换成 `.opacity`**（默认值就是 `true`）。实测继承值：
     /// ```
-    /// MaskRevealTransition.hasMotion = true    ParticleTransition.hasMotion  = true
-    /// OpacityTransition.hasMotion    = false   IdentityTransition.hasMotion  = false
+    /// MaskRevealTransition.properties.hasMotion == true
+    /// ParticleTransition.properties.hasMotion   == true
+    /// OpacityTransition.properties.hasMotion    == false
+    /// IdentityTransition.properties.hasMotion   == false
     /// ```
     /// ⇒ **框架那道闸在前**，`MaskReveal.plan(…isReduced:)` 是它为假时的兜底。
     /// 取值理由、内层 RM 路径「保留」的裁定与代价，全部写在 `MaskRevealTransition`
@@ -1058,6 +1076,18 @@ struct MaskRevealTransitionBodyTests {
     /// ⚠️ 只断言取值是不够的——`true` 恰好也是 SDK 默认值，一条纯 `#expect` 在
     /// 「有人把整个 `properties` 删掉」这枚变异下**零红**。因此配一条源码断言：
     /// 这个声明必须真的写在本仓代码里（它换来的是"下一个人看得见框架闸"）。
+    ///
+    /// ⚠️⚠️ **下面那条源码断言逐字钉的是「本簇自己那一种写法」，射程要读清楚**
+    /// （#291 第 2 轮 Sug-1）：三簇今天各写各的，语义完全相同——
+    /// ```
+    /// #268（本簇）  public static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
+    /// #267（簇 B）  public static var properties: TransitionProperties { .init(hasMotion: true) }
+    /// #266（滤镜簇）public static let properties = TransitionProperties(hasMotion: false)
+    /// ```
+    /// ⇒ **`#292` 统一声明形态的那次改动会让本条判红，而那不是真缺陷**：届时请连同
+    /// 下面的期望串 `"static let properties: TransitionProperties"` 一起改成新形态，
+    /// 别把它读成"有人偷偷删了声明"。逐字钉是本仓惯例（换来的是"删掉声明必红"），
+    /// 代价就是这一次统一形态的返工，照录在此。
     @Test("MaskRevealTransition 显式声明 properties，且 hasMotion 为 true")
     func transitionDeclaresItHasMotion() throws {
         #expect(MaskRevealTransition.properties.hasMotion, """
@@ -1097,7 +1127,7 @@ struct MaskRevealSourceGuard {
         try String(contentsOf: URL(fileURLWithPath: #filePath), encoding: .utf8)
     }
 
-    /// ⚠️⚠️ **暖机门不许被绕过**（终审 I-6）。
+    /// ⚠️⚠️ **暖机门不许被绕过**（终审 I-6；射程按 #291 第 2 轮 Imp-2 扩宽 + 限度照录）。
     ///
     /// `MaskRevealRenderTests.warmUp` 是本文件所有位图断言的承重前提——实测绕过它
     /// （直接调 `MicroInteractionAPITests.stablePixels`）时 `clock` / `glare`
@@ -1108,14 +1138,59 @@ struct MaskRevealSourceGuard {
     ///
     /// 形态照 `ProcessingSweepTests.containersDelegateToDriver`：底层调用只许出现在
     /// **暖机块**与**闸函数**这两个区间内，区间之外一次都不许有。
+    ///
+    /// ## ⚠️ 上一版只钉一个符号，射程远小于它自称的那样（照录，已修）
+    ///
+    /// 上一版的 needle 是 `MicroInteractionAPITests.stablePixels` 一串。评审实测两枚
+    /// 等价改写**双双判绿**：
+    /// ```
+    /// MicroInteractionAPITests.pixels(composed)                    → 全绿
+    /// typealias Harness = MicroInteractionAPITests
+    ///   → Harness.stablePixels(composed)                           → 全绿
+    /// ```
+    /// 第一条尤其咬人：`MicroInteractionAPITests.pixels`（`MicroInteractionTests.swift`）
+    /// **连进程级暖机都不跑**（`processWarmUp` 只挂在 `stablePixels` 上）
+    /// ⇒ 旧判据**禁住了较好的那个调用、放过了严格更差的那个**，而 `pixels` 恰恰是
+    /// 下一个人更可能顺手写下的名字。本 target 里另有 6 个同名 `static func pixels`
+    /// 助手（`CelebrationAndProcessingTests` / `TextAndDisplayTests` / `CrossPlatformTests`），
+    /// 同样在旧 needle 之外。
+    ///
+    /// ⇒ 现在按**两个后缀** `Tests.pixels(` 与 `Tests.stablePixels(` 计数，
+    /// 把 `MaskRevealRenderTests.pixels(` 单列为第三条豁免（那正是这道闸本身，
+    /// `MaskRevealTransitionBodyTests` 从别的 suite 调它是合法的）
+    /// ⇒ 上表第一行与那 6 个同名助手一起被关掉。
+    ///
+    /// ## ⚠️⚠️ 已知缺口：`typealias` / 元类型绑定关不掉
+    ///
+    /// 上表第二行（`typealias Harness = MicroInteractionAPITests`，随后
+    /// `Harness.stablePixels(...)`）**今天仍然判绿**，源码后缀计数结构上看不见它；
+    /// 真要关掉得改成扫 `ImageRenderer` 或干脆禁 `typealias`，两者都会把射程扩到
+    /// 本判据无意承担的范围。⇒ **有意留着，写在这里**——别把本条读成"绕不过去"。
+    ///
+    /// ⚠️ 另一条限度：豁免是**按后缀**给的，`MaskRevealRenderTests.pixels(` 若出现在
+    /// 暖机块或闸函数**内部**会被计两次 `allowed` ⇒ `allowed > total`，本条判红。
+    /// 那是安全方向的假红（这两处本来也不该递归调闸），照录以免下一个人误判。
     @Test("本文件的位图断言只许走 MaskRevealRenderTests.pixels（暖机门）")
     func bitmapAssertionsGoThroughTheWarmUpGate() throws {
         let code = MicroInteractionReduceMotionGuard.stripComments(try Self.testSource())
-        // ⚠️ 拼出来而不是写成一个字面量：本判据扫的是**它自己所在的文件**，
-        // 写成整串的话这行自己就是第 7 次出现，`total` 永远比 `allowed` 多 1
-        //（实测：`Expectation failed: (total → 7) == (allowed → 6)`）。
-        let needle = "MicroInteractionAPITests." + "stablePixels"
-        let total = ConfettiTests.occurrences(of: needle, in: code)
+        // ⚠️ 三条 needle 一律**拼出来**，不写成整串字面量：本判据扫的是**它自己所在的
+        // 文件**，而 `stripComments` 不动字符串字面量 ⇒ 写成整串的话这几行自己就会被
+        // 计进 `total`，判据永远比 `allowed` 多（旧版实测：
+        // `Expectation failed: (total → 7) == (allowed → 6)`）。
+        // ⚠️ 同理，下面所有 `#expect` 的失败文案里**不许**出现这三串的字面形态
+        // ——提到那道闸时写 `MaskRevealRenderTests.pixels`（不带左括号）。
+        let plain = "Tests." + "pixels("
+        let stable = "Tests." + "stablePixels("
+        let gateCall = "MaskRevealRenderTests." + "pixels("
+
+        // 两个后缀一起数：`MicroInteractionAPITests.pixels` / 本 target 里另外 6 个
+        // 同名 `pixels` 助手 / 任何 `*Tests.stablePixels` 都会命中。
+        func hits(_ text: String) -> Int {
+            ConfettiTests.occurrences(of: plain, in: text)
+                + ConfettiTests.occurrences(of: stable, in: text)
+        }
+
+        let total = hits(code)
 
         let warmUp = try #require(
             ConfettiTests.bracedRegion(after: "private static let warmUp", in: code),
@@ -1123,19 +1198,27 @@ struct MaskRevealSourceGuard {
         )
         let gate = try #require(
             ConfettiTests.bracedRegion(after: "static func pixels(_ view: some View)", in: code),
-            "找不到 `MaskRevealRenderTests.pixels(_:)` 这道闸 —— 下面的差集无从谈起"
+            "找不到 `MaskRevealRenderTests.pixels` 这道闸 —— 下面的差集无从谈起"
         )
-        let allowed = ConfettiTests.occurrences(of: needle, in: warmUp)
-            + ConfettiTests.occurrences(of: needle, in: gate)
+        // 第三条豁免：调这道闸**本身**永远合法（`MaskRevealTransitionBodyTests`
+        // 在别的 suite 里就是这么调的），它天然带着暖机。
+        let viaGate = ConfettiTests.occurrences(of: gateCall, in: code)
+        let inRegions = hits(warmUp) + hits(gate)
+        let allowed = inRegions + viaGate
 
-        // 互锁：两个区间里确实有调用，否则本条守的是空气。
-        #expect(allowed > 0, "暖机块与闸函数里一次 `\(needle)` 都没有 —— 本条已经与实现脱节")
+        // 互锁一：两个区间里确实有调用，否则本条守的是空气。
+        #expect(inRegions > 0, "暖机块与闸函数里一次底层 harness 调用都没有 —— 本条已经与实现脱节")
+        // 互锁二：闸确实被人从外面调，否则第三条豁免守的是空气。
+        #expect(viaGate > 0, "全文件一次 `MaskRevealRenderTests.pixels` 调用都没有 —— 第三条豁免已与实现脱节")
         #expect(total == allowed, """
-        `\(needle)` 在本文件里出现 \(total) 次，而暖机块 + 闸函数里只占 \(allowed) 次
-        —— 多出来的 \(total - allowed) 次绕过了 `MaskRevealRenderTests.pixels(_:)` 的暖机门。
+        `\(plain)` + `\(stable)` 在本文件里共出现 \(total) 次，而
+        暖机块 + 闸函数（\(inRegions) 次）+ 对闸本身的调用（\(viaGate) 次）只占 \(allowed) 次
+        —— 多出来的 \(total - allowed) 次绕过了 `MaskRevealRenderTests.pixels` 的暖机门。
         位图断言必须走 `Self.pixels` / `MaskRevealRenderTests.pixels`：实测直接调底层
         harness 时 `clock` / `glare` 在同一条 `#Test` 内三次调用都不收敛，
         失效形态是**间歇性判红**，而不是稳定的红。
+        ⚠️ `MicroInteractionAPITests.pixels` 也在禁列——它连进程级暖机都不跑
+        （`processWarmUp` 只挂在 `stablePixels` 上），比直接调 `stablePixels` 更差。
         """)
     }
 

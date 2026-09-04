@@ -1049,7 +1049,7 @@
       "target": "CoreDesignEffects",
       "host": "Transition",
       "member": "iris",
-      "notes": "圆形光圈从 anchor（默认中心）向外张开，半径自动取到最远角故任何 anchor 都能铺满内容。走 clipShape 纯几何裁剪而非 alpha 遮罩——本仓没有保证 α=1 的可用颜色（contentPrimary 实测 α≈0.8471，black/white 被 EffectsColorLiteralGuard 判红，ColorGrade 在 macOS 单测下全透明），遮罩少一档不透明度不会报错只会静默变淡。含参重载 .iris(anchor:) 与无参 .iris 按 Host.member 去重算同一条。"
+      "notes": "圆形光圈从 anchor（默认中心）向外张开，半径自动取到最远角故任何 anchor 都能铺满内容。走 clipShape 纯几何裁剪而非 alpha 遮罩：本仓没有现成的保证 α=1 的可用颜色（contentPrimary 实测 α≈0.8471，black/white 被 EffectsColorLiteralGuard 判红，ColorGrade 在 macOS 单测下全透明），遮罩少一档不透明度不会报错只会静默变淡——但⚠️遮罩路线并非不可行，只是代价更高（在 Sources/CoreDesign/Colors/ 新开一个第 3 层不透明 token 不会命中该守卫，已有 specularHighlight 先例），⇒ 选裁剪的真正理由是可判据性（Path.contains 是不经渲染栈、两端平台一致的纯函数，alpha 遮罩只能靠位图比对）。完整记账见 MaskReveal.swift 文件头与 docs/components/mask-reveal-transitions.md。含参重载 .iris(anchor:) 与无参 .iris 按 Host.member 去重算同一条。"
     },
     {
       "target": "CoreDesignEffects",

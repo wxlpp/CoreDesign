@@ -136,6 +136,14 @@ content.transition(.dissolve(cellSize: 12))
 只是把阈值从 0 抬到了一条对角线。同一限度当时也落在 Reduce Motion 的 `openPath` 上。
 
 ⚠️ 现在这句话仍然是**有界**的（`openReach` 是个大常数，不是无穷），只是界与内容脱钩了。
+
+⚠️ **代价照录**（#291 第 2 轮 Sug-2）：短路只发生在**端点**、不碰任何中间进度，
+但这不等于"没有副作用"。`progress` 逼近 1 的那一段余量仍按内容对角线走
+（`progress = 0.99` 时 ≈ 0.93 条对角线），到 `progress == 1` 一步跳到 `openReach`
+⇒ **超过一条自身对角线的溢出内容是在最后一帧一次性「弹」出来的，而不是渐显**
+（移除转场则在第一帧「弹」进去随即被裁）。这是选「端点短路、不碰插值」这条路线的
+必然代价，比上一版「转场结束后永久吃掉」严格更好，因此**有意不改实现**；
+写在这里是为了让收到「转场收尾闪一下」这类反馈的人省一次归因。
 三条判据钉住它：
 `MaskRevealGeometryTests.identityClipsNothingRegardlessOfContentSize`（对 160×120 /
 60×24 / 4×4 三种尺寸各采到 `openReach * 0.9`，恒等相位与 Reduce Motion 两条路都走）、

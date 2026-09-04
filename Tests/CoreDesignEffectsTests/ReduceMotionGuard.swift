@@ -228,8 +228,10 @@ struct MicroInteractionReduceMotionGuard {
         //
         // ⚠️⚠️ **上面后两条的射程要读清楚，别高估它**（终审 I-5，实测继承值）：
         // ```
-        // MaskRevealTransition.hasMotion = true    ParticleTransition.hasMotion  = true
-        // OpacityTransition.hasMotion    = false   IdentityTransition.hasMotion  = false
+        // MaskRevealTransition.properties.hasMotion == true
+        // ParticleTransition.properties.hasMotion   == true
+        // OpacityTransition.properties.hasMotion    == false
+        // IdentityTransition.properties.hasMotion   == false
         // ```
         // `MaskRevealTransition` 现在**显式声明** `hasMotion == true`，而 Apple 文档逐字：
         // 「*that transition will be replaced by opacity when Reduce Motion is enabled*」

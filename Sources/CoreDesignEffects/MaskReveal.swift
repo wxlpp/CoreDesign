@@ -260,6 +260,14 @@ nonisolated enum MaskReveal {
     /// ⇒ 现在这两端直接给一个与内容尺寸**无关**的余量（`openReach`）。
     /// ⚠️ 短路只发生在**端点**，不碰任何中间进度 ⇒ `haloPath` 那条随进度张开的曲线
     /// （以及它换来的单调性）原样保留，插值路径一个字都没动。
+    ///
+    /// ⚠️ **代价照录**（#291 第 2 轮 Sug-2）：「不碰中间进度」不等于"没有副作用"。
+    /// `progress` 逼近 1 的那一段余量仍是 `hypot(w, h) * halo(progress)`
+    /// （`progress = 0.99` 时 ≈ 0.93 条对角线），到 `progress == 1` 一步跳到 `openReach`
+    /// ⇒ **超过一条自身对角线的溢出内容是在最后一帧一次性「弹」出来的，而不是渐显**
+    /// （移除转场则在第一帧「弹」进去随即被裁）。这是选「端点短路、不碰插值」这条路线的
+    /// **必然代价**，比上一版「转场结束后永久吃掉」严格更好，因此**有意不改实现**；
+    /// 写在这里是为了让下一个人收到「转场收尾闪一下」的反馈时省一次归因。
     static func path(for plan: MaskRevealPlan, in rect: CGRect) -> Path {
         guard rect.width > 0, rect.height > 0 else { return Path() }
         guard plan.progress < 1, let kind = plan.kind else { return Self.openPath(in: rect) }
@@ -429,7 +437,14 @@ nonisolated enum MaskReveal {
     }
 
     /// `dissolve` 的默认格边长（pt）。
-    static let dissolveDefaultCellSize: CGFloat = 24
+    ///
+    /// ⚠️ **唯一来源是 `MaskRevealTransition.defaultCellSize`**（#291 第 2 轮 Copilot）：
+    /// 上一版这里独立写了一个字面量 `24`，而 `.dissolve()` 的默认实参取的是那个
+    /// `public` 常量 ⇒ 只改一处，「默认值」与「`.nan` / `<= 0` 的回落值」就会**静默分叉**
+    /// （两条路都不报错，只是同一个 `.dissolve()` 在两个入口给出两种格子）。
+    /// 判据：`MaskRevealTransitionTests.dissolveDegenerateCellSize` 的 ② 段直接断言
+    /// 回落值 `== MaskRevealTransition.defaultCellSize`。
+    static let dissolveDefaultCellSize: CGFloat = MaskRevealTransition.defaultCellSize
 
     /// 一次转场最多画多少格。
     ///
