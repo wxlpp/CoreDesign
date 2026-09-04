@@ -216,10 +216,31 @@ struct MicroInteractionReduceMotionGuard {
         //   —— 逐个断言这两个文件确实不含任何 `motionCalls` 关键字（本豁免的前提本身），
         //   并反向断言两者都在本名单上，两份清单不许脱节；
         // · `MaskRevealSourceGuard.reduceMotionIsOnlyConsumedByThePlan`
-        //   —— `reduceMotion` 只许喂给 `MaskReveal.plan(kind:progress:reduceMotion:)`；
+        //   —— `reduceMotion` 只许喂给 `MaskReveal.plan(kind:progress:isReduced:)`；
+        //   ⚠️ **上一版这里写的是 `plan(kind:progress:reduceMotion:)`，那个签名不存在**
+        //   （终审 I-4）：形参本来就叫 `isReduced`（理由见该函数的文档注释——
+        //   `reduceMotion` 这个词会命中 `bareReduceMotionOccurrences`）。
+        //   一条豁免的理由指向了一个 grep 不到的符号，与 `TypewriterText` 上一版
+        //   被判过的形态逐字相同，照录在此。
         // · `MaskRevealGeometryTests.reduceMotionOpensTheMaskAndCrossFadesInstead`
         //   —— 降级的**结论**本身：遮罩全开 + 内容不透明度跟着进度走（不是 no-op），
         //   六种逐个求值，并配一条"运动路径上不透明度恒为 1"的互锁。
+        //
+        // ⚠️⚠️ **上面后两条的射程要读清楚，别高估它**（终审 I-5，实测继承值）：
+        // ```
+        // MaskRevealTransition.hasMotion = true    ParticleTransition.hasMotion  = true
+        // OpacityTransition.hasMotion    = false   IdentityTransition.hasMotion  = false
+        // ```
+        // `MaskRevealTransition` 现在**显式声明** `hasMotion == true`，而 Apple 文档逐字：
+        // 「*that transition will be replaced by opacity when Reduce Motion is enabled*」
+        // ⇒ **真正的第一道闸是 SwiftUI**，它先触发且**永远不让 `plan` 看到
+        // `isReduced == true`**——经 `.transition(.iris)` 这条正常路径走不到那条分支。
+        // ⇒ 后两条判据守的是**兜底路径**（`hasMotion` 被改回 `false`、`AnyTransition`
+        // 包装、别的平台 / 版本上替换时机不同），不是日常会走到的那条路。
+        // 本簇的 RM 保护**并没有因此变弱**：框架那道闸的替换结果（纯 opacity）
+        // 与本簇自己的降级结论（遮罩全开 + 不透明度跟进度）**是同一个观感**。
+        // 保留内层路径的完整裁定见 `MaskRevealTransition` 的类型文档。
+        //
         // 哪天有人往里加一处 `offset(`，`everyFileIsClassified` 的矛盾分支与上面第一条
         // 会一起判红，逼人回来重新分类。
         "MaskReveal.swift",

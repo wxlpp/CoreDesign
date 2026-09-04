@@ -109,3 +109,27 @@ nonisolated func readCrossPlatformDefaults() -> [Double] {
         CharSphere.defaultRotationPeriod,
     ]
 }
+
+// MARK: - #268 的公开值类型（mask reveal 转场簇）
+//
+// ⚠️⚠️ **这四个常量是本 probe 在 #268 上唯一看得见、而库自身四条验证命令结构上
+// 看不见的东西**（#268 终审 I-3）：本包开了 `.defaultIsolation(MainActor.self)`,
+// 而 `CoreDesignEffects` 也开了 —— 不给它们标 `nonisolated` 时，从**本文件这样的
+// `nonisolated` 上下文**读一个默认值会拿到：
+//
+//     warning: main actor-isolated static property 'defaultWipeAngle'
+//              can not be referenced from a nonisolated context
+//
+// 而库自身的 `swift build` / `swift test` 全跑在被隔离的 target **内部**，全绿。
+// ⇒ 本函数就是那条警告的常驻判据（`swift build` 要求**零新警告**）。
+//
+// ⚠️ 六种转场的十二个入口点是**转场形态**，在 `PublicVisibility.swift`
+// （`@MainActor func consumeMaskRevealTransitions()`）——分流理由见本文件头的表。
+nonisolated func readMaskRevealTransitionDefaults() -> (Int, CGFloat, Double, Double) {
+    (
+        MaskRevealTransition.defaultBlindCount,
+        MaskRevealTransition.defaultCellSize,
+        MaskRevealTransition.defaultWipeAngle.radians,
+        MaskRevealTransition.defaultGlareAngle.radians
+    )
+}

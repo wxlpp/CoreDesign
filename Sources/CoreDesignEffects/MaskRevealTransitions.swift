@@ -41,13 +41,40 @@ import SwiftUI
 /// 的 `entryPoints` 数组，由 `ExtensionEntryPointGuard` 做双向差集
 /// （漏登记与幽灵条目两个方向都判红）。
 ///
-/// ## Reduce Motion
+/// ## Reduce Motion —— ⚠️⚠️ **两道闸，框架那道在前**
 ///
-/// **遮罩全开、内容不透明度跟着进度走**——退化成一次纯淡入淡出（`#251` 给整簇定的
-/// 「位移 / 旋转类降级为淡入淡出」）。⚠️ **不是 no-op**：转场承载的是"这块内容
-/// 出现 / 消失了"这个信息，抹掉它会让开启该偏好的用户看到界面瞬间跳变。
-/// 裁决点是 `MaskReveal.plan(kind:progress:isReduced:)` 这**一个**纯函数，
-/// 由 `MaskRevealSourceGuard.reduceMotionIsOnlyConsumedByThePlan` 钉住它不被绕过。
+/// 结论形态：**遮罩全开、内容不透明度跟着进度走**，退化成一次纯淡入淡出
+/// （`#251` 给整簇定的「位移 / 旋转类降级为淡入淡出」）。⚠️ **不是 no-op**：
+/// 转场承载的是"这块内容出现 / 消失了"这个信息，抹掉它会让开启该偏好的用户
+/// 看到界面瞬间跳变。
+///
+/// ⚠️⚠️ **上一版这里写「裁决点是 `MaskReveal.plan(…)` 这一个纯函数」——
+/// 那句话在运行时是假的，照录更正**（终审 I-5）：
+///
+/// | 闸 | 谁 | 何时生效 |
+/// |---|---|---|
+/// | **第一道（真正生效的那道）** | SwiftUI，看 `properties.hasMotion` | 本类型声明 `hasMotion == true` ⇒ **RM 打开时框架直接把整条转场换成 `.opacity`**，本类型的 `body` 根本不被调用 |
+/// | 第二道（兜底） | `MaskReveal.plan(kind:progress:isReduced:)` | 只在框架**没有**替换时才轮得到 |
+///
+/// ⇒ 经 `.transition(.iris)` 这条正常路径，`plan` **永远看不到 `isReduced == true`**。
+///
+/// ## ⚠️ 内层 RM 路径：**显式裁定为保留**，理由与代价照录
+///
+/// `MaskReveal.plan` 的 `guard !isReduced`、`MaskRevealChrome` 的
+/// `@Environment(\.accessibilityReduceMotion)` 读取、以及守着它们的两条判据
+/// （`reduceMotionOpensTheMaskAndCrossFadesInstead` /
+/// `reducedPlanRendersAsPlainFade`）**保留**，理由：
+/// · `hasMotion` 是一个**一行就能改**的开关（`#292` 正在统一跟踪本仓的声明面）——
+///   哪天它被改成 `false`，内层这道闸当场从"兜底"变成"唯一保护"，而删掉它之后
+///   那次改动会**静默**让 RM 用户看到完整运动；
+/// · 框架替换的**时机与范围**没有文档承诺（`AnyTransition` 包装、别的平台 / 版本），
+///   内层闸让本簇在任何一种情况下的结论都一样。
+/// **代价照录**：这四处今天守的是**不可达路径**，别把「RM 降级有判据」读成
+/// 「RM 在生产里由我们处置」——生产里处置它的是 SwiftUI。
+///
+/// `MaskRevealSourceGuard.reduceMotionIsOnlyConsumedByThePlan` 钉的仍然是
+/// **内层这道闸不被绕过**（本簇代码里 `reduceMotion` 只喂给 `plan` 一处），
+/// 这一条与上面的更正不冲突：它守的是第二道闸的完整性，不是"它是唯一的闸"。
 ///
 /// ## a11y 分工
 ///
@@ -68,21 +95,80 @@ public struct MaskRevealTransition: Transition {
     /// 签名当默认实参用，而 Swift 不允许默认实参引用 internal 符号
     /// （实测 `error: … is internal and cannot be referenced from a default argument value`；
     /// `ParticleTransition.defaultCount` 记着同一条）。
-    public static let defaultBlindCount: Int = 8
+    ///
+    /// ⚠️⚠️ **四个默认值常量都必须 `nonisolated`，这是下游 probe 实测换来的**
+    /// （终审 I-3）：本 target 开了 `.defaultIsolation(MainActor.self)` ⇒ 不写
+    /// `nonisolated` 时它们是 MainActor 隔离的静态属性，下游从 `nonisolated`
+    /// 上下文（在自己的模型 / 配置层读一个默认值）引用会拿到
+    /// `warning: main actor-isolated static property '…' can not be referenced
+    /// from a nonisolated context`。这只有 `scripts/downstream-probe` 看得见，
+    /// 库自身的 `swift build` / `swift test` 全跑在被隔离的 target **内部**。
+    /// 判据：`readMaskRevealTransitionDefaults()`（那个包的
+    /// `EffectsNonisolatedUsage.swift`，`nonisolated func`）。
+    public nonisolated static let defaultBlindCount: Int = 8
 
-    /// 默认格边长（pt）。同上，`public` 是默认实参的要求。
-    public static let defaultCellSize: CGFloat = 24
+    /// 默认格边长（pt）。同上，`public` 是默认实参的要求、`nonisolated` 是下游的要求。
+    public nonisolated static let defaultCellSize: CGFloat = 24
 
     /// `wipe` 的默认方向：左 → 右。
-    public static let defaultWipeAngle: Angle = .degrees(0)
+    public nonisolated static let defaultWipeAngle: Angle = .degrees(0)
 
     /// `glare` 的默认方向：左上 → 右下的斜掠。
     ///
     /// ⚠️ 与 `wipe` 的默认值**有意不同**——两者共用同一条半平面数学，
     /// 若默认角度也相同，调用方在默认参数下就分不出 `.glare` 与 `.wipe`
     /// （差别只剩那条柔光带）。
-    public static let defaultGlareAngle: Angle = .degrees(35)
+    public nonisolated static let defaultGlareAngle: Angle = .degrees(35)
 
+    /// ## ⚠️⚠️ `hasMotion` 取 `true`，这是一次**有代价**的定案，代价照录
+    ///
+    /// Apple 文档逐字：「*Whether the transition includes motion. When this behavior
+    /// is included in a transition, that transition **will be replaced by opacity**
+    /// when Reduce Motion is enabled.*」（`TransitionProperties.hasMotion`，默认 `true`）
+    /// ⇒ 声明 `true` 意味着 **Reduce Motion 打开时 SwiftUI 直接把本转场换成
+    /// `.opacity`，本类型的 `body` 根本不会被调用**。
+    ///
+    /// **为什么仍然取 `true`**：
+    /// 1. **它是事实。** `properties` 是 `static`，拿不到环境 ⇒ 它描述的只能是
+    ///    **未降级形态**的本转场，而那个形态确实有一条边扫过内容。
+    ///    取 `false` 是对系统撒谎，且 `TransitionProperties` 的文档明写这些属性
+    ///    「决定转场如何与**包括辅助功能在内**的系统特性交互」——今天只有 RM 一项，
+    ///    骗过这一项等于把将来所有基于它的适配一并关掉。
+    /// 2. **降级结论一致，用户看不出差别。** 系统的替换是纯 opacity；本簇自己的降级
+    ///    （`MaskReveal.plan(…isReduced: true)`：遮罩全开 + 内容不透明度跟着进度走）
+    ///    **就是**一次纯淡入淡出。两条路径同一个观感 ⇒ 交给系统不损失任何东西。
+    /// 3. 取 `false` 则**唯一**的保护是手写闸；一旦有人把 `isReduced` 那条分支重构掉，
+    ///    RM 用户当场看到完整运动，且没有任何系统兜底。
+    ///
+    /// ⚠️⚠️ **代价（别把它读成"两道保险"）**：`true` ⇒ 本类型自己那套 RM 降级在
+    /// **生产路径上不可达**。保留它的裁定与理由写在本类型的文档注释里
+    /// （「## ⚠️ 内层 RM 路径：**显式裁定为保留**」那一节）。
+    ///
+    /// ⚠️ **显式写出来的意义**：`true` 与 SDK 默认值相同 ⇒ 这一行不改变任何行为，
+    /// 它换来的是**下一个人能在代码里看见框架那道闸**——上一版没有这行，于是
+    /// 整份文档把 `plan(…)` 说成"唯一裁决点"，而那在运行时是假的。
+    /// 判据：`MaskRevealTransitionBodyTests.transitionDeclaresItHasMotion`
+    /// （运行时取值 + 源码钉住这是**显式声明**而不是继承 SDK 默认）。
+    ///
+    /// ⚠️ 追踪：`#292` 统一跟踪本仓 `Transition` 的 `properties` 声明面
+    /// （含 `ParticleTransition`，**本 PR 有意不动它**）。
+    public static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
+
+    /// ⚠️⚠️ **本函数是六个公开静态成员通向 `MaskRevealChrome` 的唯一路径，
+    /// 而它曾经完全没有判据**（终审 C-1，变异 M-A 实证）：把本函数整段改成
+    /// 「丢弃调用方的相位与几何族、恒定交出 `progress: 1` 与 `.iris`」——即六种转场
+    /// 全部退化成「内容凭空出现」——本簇 31 条判据与全量 761 条**零红**。
+    /// 成因：`entryPoints` 取的是静态成员的存储属性 `kind`、渲染判据直接构造
+    /// `MaskRevealChrome`、逐字钉只钉 `MaskRevealChrome` 的类型体，
+    /// 三条都绕开了本函数。
+    /// ⇒ 现由 `MaskRevealTransitionBodyTests` 的两条判据合起来钉住：
+    /// · `bodyHandsChromeThePhaseAndTheKind` —— 对本函数**直接求值**（`Transition.Content`
+    ///   是零尺寸类型，可以从 `()` 位转换出来），逐相位 × 逐入口点断言 `MaskRevealChrome`
+    ///   拿到的 `(progress, kind)` 恰是 `(MaskReveal.progress(phase:), self.kind)`,
+    ///   12 个入口点 × 3 个相位；
+    /// · `appliedTransitionRendersThroughBody` —— 经**公开的**
+    ///   `Transition.apply(content:phase:)` 渲染，端到端把 SwiftUI 自己那段接线也走一遍。
+    /// 上面那枚变异下两条合计判红 **69** 次（`37 tests … failed … with 69 issues`）。
     public func body(content: Content, phase: TransitionPhase) -> some View {
         // ⚠️ **走 `ViewModifier` 而不是就地写**：`Transition.body(content:phase:)`
         // 拿不到 `@Environment`（它不是 `View`），而 Reduce Motion 必须从环境里读。

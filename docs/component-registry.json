@@ -1061,13 +1061,13 @@
       "target": "CoreDesignEffects",
       "host": "Transition",
       "member": "blinds",
-      "notes": "若干条横向百叶各自从自己的中线向上下张开，默认 8 条。count 传 0 或负数会被钳到 1，否则整条转场退化成什么都不揭示的死转场；相邻百叶在完全揭示时互相压住 2%，避免抗锯齿在恒等相位画出发丝缝。"
+      "notes": "若干条横向百叶各自从自己的中线向上下张开，默认 8 条。count 传 0 或负数会被钳到 1，否则整条转场退化成什么都不揭示的死转场。相邻百叶在完全揭示时互相压住 2%（MaskReveal.seamOverlap）——⚠️ 该常量今天没有任何判据守着，把它改成 0 重跑整簇 37 条判据零红；它是防御性的浮点余量，不是被观测到过的缺陷（上一版这里写的理由「避免抗锯齿在恒等相位画出发丝缝」已被实测证伪并在源码里逐字撤回，见 MaskReveal.seamOverlap 的注释）。"
     },
     {
       "target": "CoreDesignEffects",
       "host": "Transition",
       "member": "clock",
-      "notes": "扇形扫针从 12 点方向扫一圈，方向由 SpinDirection 决定而不是 clockwise: Bool（J-1 禁未豁免 Bool 参数）。半径取到内容最远角并留 2% 余量，避免完全揭示时那一角的覆盖取决于浮点比较。"
+      "notes": "扇形扫针从 12 点方向扫一圈，方向由 SpinDirection 决定而不是 clockwise: Bool（J-1 禁未豁免 Bool 参数）。半径取到内容最远角并留 2% 余量（MaskReveal.seamOverlap）——⚠️ 与 blinds 同一份台账：该余量今天没有判据守着，把它改成 0 重跑整簇 37 条判据零红，它是防御性的浮点余量而非被观测到过的缺陷。"
     },
     {
       "target": "CoreDesignEffects",

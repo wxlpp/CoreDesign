@@ -97,6 +97,18 @@ content.transition(.dissolve(cellSize: 12))
    - `Color.black` / `Color.white` / `Color(white: 1)` 会被 `EffectsColorLiteralGuard`
      判红，而该守卫至今没有例外台账。
    - `ColorGrade` 资源色在 macOS `swift test` 下全部解析为透明（issue #275）。
+
+   ⚠️⚠️ **上一版这里把本条写成"三条路全堵死"，那是错的，照录更正**（终审 S-1）：
+   `EffectsColorLiteralGuard` 的扫描根**有意不含** `Sources/CoreDesign`
+   （它扫的是 `GuardScanRoots.newTargetRoots`，只有 Effects / Charts）⇒ 在
+   `Sources/CoreDesign/Colors/` 加一个第 3 层不透明 token 再从 Effects 引用
+   **不会命中该守卫**。本仓已有现成先例：`glare` 用的 `Color.specularHighlight`
+   就是 `Sources/CoreDesign/Colors/FillColors.swift` 里的 `Color.white.opacity(0.45)`,
+   `CLAUDE.md` 也明写「缺少需要的语义 token，应在对应文件中补充新名称」；#275
+   对这类字面量派生 token 同样不适用（它说的是资源色）。
+   ⇒ **正确的记账是：遮罩路线可行，只是代价更高**（要新开一个第 3 层 token，
+   且"α 恒为 1"这件事本身还得有判据守着）；**选裁剪的真正理由是下面第 2 条。**
+
 2. **裁剪的判据可以是纯函数。** `Path.contains(_:)` 让"这一点此刻揭示了没有"成为
    一个不经过渲染栈、两端平台一致、可穷举采样的布尔值。
 
@@ -109,10 +121,26 @@ content.transition(.dissolve(cellSize: 12))
 相位是 `.identity`，修饰器并不会被摘掉）。一个"裁到自身 bounds"的 `clipShape` 会
 **永久**吃掉阴影 / 溢出子视图，而且是在转场结束**之后**才吃掉——最难归因的那一类。
 
-⇒ 揭示进度越过 `haloOnset`（0.85）之后，裁剪路径外会并上一圈向外张开的外框，
-`progress == 1` 时张到一整条对角线宽，裁剪对任何溢出内容都不再有作用。
-判据 `MaskRevealRenderTests.identityIsBytewiseIdentityEvenWithOverflow` 用一个
-**故意画到 bounds 之外**的被测内容钉住这件事：恒等相位下必须与裸视图逐字节相同。
+⇒ 解法分两段：
+
+- **最后 15%**（揭示进度越过 `haloOnset` = 0.85）：裁剪路径外并上一圈向外张开的外框，
+  张开量按内容对角线走，只增不减；
+- **恒等相位本身**（`progress == 1`，以及 Reduce Motion 的遮罩全开）：直接短路到
+  `MaskReveal.openPath(in:)`，余量是与内容尺寸**无关**的 `openReach`（一百万 pt）。
+
+⚠️⚠️ **第二段是终审 I-2 补的，上一版这里写的是绝对句、而它是假的**：上一版恒等相位
+也按内容对角线派生余量 ⇒ 「裁剪对任何溢出内容都不再有作用」**只在一条对角线以内成立**。
+实测（4×4 的内容，恒等相位）：`contains(-4pt above) = true`、
+`contains(-30pt above) = false` ⇒ 一个 20×20 的图标配 `.shadow(radius: 30)`，
+阴影在**转场结束之后**仍被永久吃掉——正是这段设计要消灭的那类缺陷，
+只是把阈值从 0 抬到了一条对角线。同一限度当时也落在 Reduce Motion 的 `openPath` 上。
+
+⚠️ 现在这句话仍然是**有界**的（`openReach` 是个大常数，不是无穷），只是界与内容脱钩了。
+三条判据钉住它：
+`MaskRevealGeometryTests.identityClipsNothingRegardlessOfContentSize`（对 160×120 /
+60×24 / 4×4 三种尺寸各采到 `openReach * 0.9`，恒等相位与 Reduce Motion 两条路都走）、
+`MaskRevealRenderTests.identityIsBytewiseIdentityEvenWithOverflow`、
+以及 `…ForTinyContentWithHugeOverflow`（4×4 内容 + 73pt 溢出，上一版在它上面判红）。
 
 ⚠️ 初版用的是"整条路径按中心整体放大"，实测**对非中心对称的几何族不单调**：
 `blinds` 的每条百叶、`dissolve` 的每个格子都有自己的中心，整体放大把它们推离
@@ -136,9 +164,22 @@ bounds 中心，已经揭示的采样点会掉进缝里 ⇒ 最后 15% 一次闪
 「位移 / 旋转类降级为淡入淡出」）。⚠️ **不是 no-op**：转场承载的是"这块内容出现 /
 消失了"这个信息，抹掉它会让开启该偏好的用户看到界面瞬间跳变。
 
-裁决点是 `MaskReveal.plan(kind:progress:isReduced:)` 这**一个**纯函数
-（刻意 `internal`：一旦 `public`，裸 `Bool` 参数会命中 `BoolExemptionGuard`）。
-`MaskRevealSourceGuard.reduceMotionIsOnlyConsumedByThePlan` 钉住它不被绕过。
+⚠️⚠️ **上一版这里写「裁决点是 `MaskReveal.plan(…)` 这一个纯函数」——那句话在运行时
+是假的，照录更正**（终审 I-5）。实际上有**两道闸，框架那道在前**：
+
+| 闸 | 谁 | 何时生效 |
+|---|---|---|
+| **第一道（真正生效的那道）** | SwiftUI，看 `MaskRevealTransition.properties.hasMotion` | 本簇显式声明 `hasMotion == true`；Apple 文档逐字「*that transition will be replaced by opacity when Reduce Motion is enabled*」⇒ RM 打开时框架**直接把整条转场换成 `.opacity`**，`MaskRevealTransition.body` 根本不被调用 |
+| 第二道（兜底） | `MaskReveal.plan(kind:progress:isReduced:)`（刻意 `internal`：一旦 `public`，裸 `Bool` 参数会命中 `BoolExemptionGuard`） | 只在框架**没有**替换时才轮得到 |
+
+⇒ 经 `.transition(.iris)` 这条正常路径，`plan` **永远看不到 `isReduced == true`**。
+两道闸的结论是**同一个观感**（纯淡入淡出），因此用户看到的东西与本节开头描述的一致。
+
+内层那条路径**显式裁定为保留**（防御 `hasMotion` 将来被改判、`AnyTransition` 包装、
+以及别的平台 / 版本上替换时机不同），完整理由写在 `MaskRevealTransition` 的类型文档里。
+`MaskRevealSourceGuard.reduceMotionIsOnlyConsumedByThePlan` 钉的是**内层这道闸**
+不被绕过；`MaskRevealTransitionBodyTests.transitionDeclaresItHasMotion` 钉住
+`properties` 是显式声明（`true` 与 SDK 默认值相同，不显式写出来下一个人就看不见框架闸）。
 
 ## 退化输入
 

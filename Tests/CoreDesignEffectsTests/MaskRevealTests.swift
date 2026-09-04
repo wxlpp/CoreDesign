@@ -23,9 +23,26 @@ import Testing
 //    —— **六个名字确实是六种东西**。本仓最常见的缺陷形态是「判定通过而东西
 //    不工作」（粒子从没出现过、滑块左右画反而标签把两半都标错），六条静态成员
 //    全部悄悄指向同一族几何是这一簇最可能的落点。
+// 4. `MaskRevealTransitionBodyTests.bodyHandsChromeThePhaseAndTheKind`
+//    —— **`MaskRevealTransition.body` 真的把调用方的相位与几何族交给了 chrome**。
+//    ⚠️⚠️ **这一条是终审 C-1 补的，补的是上面三条全都看不见的洞**：`body` 是六个
+//    公开静态成员通向 `MaskRevealChrome` 的**唯一**路径，而把它整段改成
+//    `content.modifier(MaskRevealChrome(progress: 1, kind: .iris(anchor: .center)))`
+//    （六种转场全部退化成「内容凭空出现」）时，本簇 31 条与全量 761 条**零红**
+//    ——1 取的是静态成员的存储属性、2/3 直接构造 chrome、逐字钉不含 `body`。
+// 5. `MaskRevealGeometryTests.identityClipsNothingRegardlessOfContentSize`
+//    —— **恒等相位的"不裁"与内容尺寸无关**（终审 I-2）。上一版的余量按内容对角线
+//    派生 ⇒ 一个 20×20 的图标配 `.shadow(radius: 30)`，阴影在转场结束**之后**
+//    仍被永久裁掉，而 2 的被测内容（60×60、溢出 45pt）对这枚缺陷结构上不可见。
 //
 // ⚠️ 每一条断言在写下时都做过**变红自证**（故意注入对应缺陷 → 跑 → 看红 → 改回），
 // 结果贴在 PR 正文里。没有做过这一步的断言不写结论性注释。
+//
+// ⚠️⚠️ **PR 正文上一版写过「31 条里 30 条被变异打红过、唯一没有的
+// `allSixEntryPointsCompose` 是编译期契约、没有『绿着但不工作』的状态」——
+// 那句话是假的，已按实测更正**：M-A 就是一个「编译通过、31 条全绿、六种转场全部
+// 不工作」的状态。真实的覆盖缺口不是那一条，而是**整个 `MaskRevealTransitions.swift`
+// 的 `body` 没有任何变异落在上面**。
 
 // MARK: - 纯几何
 
@@ -79,6 +96,11 @@ struct MaskRevealGeometryTests {
 
     // MARK: 相位
 
+    /// ⚠️ **本条曾在验一个没有已验证消费者的纯函数**（终审 C-1）：
+    /// `MaskReveal.progress(phase:)` 的唯一消费者是 `MaskRevealTransition.body`，
+    /// 而那段 `body` 此前没有任何判据 ⇒ 把它整段改成丢弃相位，本条照绿。
+    /// 现由 `MaskRevealTransitionBodyTests.bodyHandsChromeThePhaseAndTheKind` 接上
+    /// （它断言 chrome 拿到的进度**等于本函数的返回值**，而不是写死 0 / 1）。
     @Test("相位映射：identity ⇒ 完全揭示，两端 ⇒ 完全隐藏")
     func phaseMapping() {
         #expect(MaskReveal.progress(phase: .identity) == 1)
@@ -316,15 +338,58 @@ struct MaskRevealGeometryTests {
         #expect(fine != coarse, "cellSize 8 与 40 揭示的区域逐点相同 —— 参数没被用上")
     }
 
+    /// 一条 `Path` 里有多少条子路径 —— 数 `.move` 事件。
+    ///
+    /// ⚠️ 存在理由见 `dissolveClampsDegenerateCellSize` ①：要量的是 `dissolvePath`
+    /// **实际画了多少格**，而不是在测试里把生产代码的格数公式抄一遍。
+    static func subpathCount(_ path: Path) -> Int {
+        var count = 0
+        path.forEach { element in
+            if case .move = element { count += 1 }
+        }
+        return count
+    }
+
     @Test("dissolve 的退化 cellSize：不崩、不爆量、仍然是一条活转场")
     func dissolveClampsDegenerateCellSize() {
         let huge = CGRect(x: 0, y: 0, width: 1200, height: 900)
-        // ① 过小的值被抬到让格数落在上限内。
+
+        // ① 过小的值被抬到让格数落在量级闸内。
+        //
+        // ⚠️⚠️ **本条上一版喂的是「字面量进闸」而不是「闸的输出」，实测可整个绕过**
+        // （终审 I-1，变异 M-H）：上一版直接调 `effectiveCellSize(0.5, in: huge)`
+        // 再**照抄一遍生产代码的格数公式**，从未观测 `dissolvePath` 到底生成了多少
+        // 子路径 ⇒ 让 `dissolvePath` 跳过闸（`side = cellSize`），整簇 31 条**零红**，
+        // 而那时 `.dissolve(cellSize: 0.5)` 在 1200×900 上是 2400×1800 ≈ **432 万个
+        // 子路径逐帧重建**——正是 `MaskReveal.dissolveMaximumCells` 的注释里写着
+        // 「那不是『慢』，是卡死」的那个场景。
+        // ⇒ 现在量的是 `dissolvePath` 自己的输出。
+        //
+        // ⚠️ 上限取 `dissolveMaximumCells * 2` 而不是一个精确格数：`columns` / `rows`
+        // 各要向上取整，`(c+1)(r+1)` 天然会略微越过上限（实测 52×39 = 2028），
+        // 而把那条修正公式写进判据就又变成"抄一遍生产代码"。本条守的是**量级闸**
+        // ——2028 与 432 万之间有三个数量级，任何"闸没接上"的形态都落在这条线之外。
+        let atFull = Self.subpathCount(
+            MaskReveal.dissolvePath(cellSize: 0.5, progress: 1, in: huge)
+        )
+        #expect(atFull > 0, "cellSize 0.5 在 1200×900 上一个格子都没画 —— 死转场")
+        #expect(atFull <= MaskReveal.dissolveMaximumCells * 2, """
+        `.dissolve(cellSize: 0.5)` 在 1200×900 上实际生成了 \(atFull) 条子路径
+        （上限 \(MaskReveal.dissolveMaximumCells * 2)）—— 逐帧重建这么多子路径会卡死。
+        请检查 `MaskReveal.dissolvePath` 是否真的走了 `effectiveCellSize(_:in:)` 这道闸。
+        """)
+
+        // ⚠️ 互锁：`dissolvePath` 的格子必须**就是**闸算出来的那个边长。
+        // 少了它，上一条可以被"闸的输出恰好也落在量级内"这类巧合放过；
+        // 有了它，跳过闸的形态（M-H）在这里逐格判红。
         let side = MaskReveal.effectiveCellSize(0.5, in: huge)
-        let cells = Int((huge.width / side).rounded(.up)) * Int((huge.height / side).rounded(.up))
-        #expect(cells <= MaskReveal.dissolveMaximumCells + 2 * Int((huge.width / side).rounded(.up)),
-                "cellSize 0.5 在 1200×900 上要画 \(cells) 格 —— 逐帧重建这么多子路径会卡死")
-        #expect(cells > 0)
+        #expect(atFull == Self.subpathCount(
+            MaskReveal.dissolvePath(cellSize: side, progress: 1, in: huge)
+        ), """
+        `dissolvePath(cellSize: 0.5)` 与 `dissolvePath(cellSize: effectiveCellSize(0.5))`
+        画出的格数不同 —— `dissolvePath` 没有走 `effectiveCellSize(_:in:)` 这道闸。
+        """)
+
         // ② 非法值回落到默认值。
         for bad: CGFloat in [0, -5, .nan, .infinity] {
             let resolved = MaskReveal.effectiveCellSize(bad, in: Self.rect)
@@ -337,30 +402,86 @@ struct MaskRevealGeometryTests {
 
     // MARK: 恒等余量
 
-    @Test("恒等余量只在最后一段张开，且完全张开时把 bounds 外一整条对角线包住")
+    @Test("恒等余量只在最后一段张开，且张开量随进度单增")
     func haloOpensOnlyAtTheEnd() {
         #expect(MaskReveal.halo(progress: 0) == 0)
         #expect(MaskReveal.halo(progress: MaskReveal.haloOnset) == 0)
         #expect(MaskReveal.halo(progress: 1) == 1)
         #expect(MaskReveal.halo(progress: (MaskReveal.haloOnset + 1) / 2) > 0)
 
-        // 进度 1 时，bounds 外一整条对角线处的点必须仍在裁剪路径内
-        // —— 否则阴影 / 溢出子视图会被**永久**裁掉（转场结束之后才发生，最难归因）。
+        // 进度**还没到 1** 的那一段由 `haloPath` 承担（进度 1 已被 `path(for:in:)`
+        // 短路到 `openPath`，见下一条判据）。这里钉的是"最后 15% 里外框确实在张开"：
+        // 0.95 时 bounds 外半条对角线处的点已经被包住。
         let diagonal = hypot(Self.rect.width, Self.rect.height)
         for entry in Self.entryPoints {
             let path = MaskReveal.path(
-                for: MaskReveal.plan(kind: entry.kind, progress: 1, isReduced: false),
+                for: MaskReveal.plan(kind: entry.kind, progress: 0.95, isReduced: false),
                 in: Self.rect
             )
-            // ⚠️ 取 0.9 倍而不是整条对角线：整条恰好落在外框的**外边界**上，
-            // 边界点的 `contains` 取决于浮点比较方向，判据会变得看运气。
-            let far = Self.rect.insetBy(dx: -diagonal * 0.9, dy: -diagonal * 0.9)
+            let far = Self.rect.insetBy(dx: -diagonal * 0.5, dy: -diagonal * 0.5)
             for corner in MaskReveal.corners(of: far) {
                 #expect(path.contains(corner), """
-                \(entry.name) 在恒等相位裁掉了 bounds 外 \(Int(diagonal))pt 处的内容
-                —— `.transition(.\(entry.name))` 会永久吃掉被修饰视图的阴影 / 溢出子视图。
+                \(entry.name) 在进度 0.95 上仍然裁掉了 bounds 外 \(Int(diagonal * 0.5))pt 处的内容
+                —— 恒等余量没有在最后一段张开，转场收尾会看到溢出内容一次闪跳。
                 """)
             }
+        }
+    }
+
+    /// ⚠️⚠️ **承重判据（终审 I-2 补）：恒等相位的"不裁"与内容尺寸无关。**
+    ///
+    /// 上一版的余量是 `hypot(rect.width, rect.height) * halo(...)` —— 按**内容对角线**
+    /// 派生 ⇒ 「`progress == 1` 时裁剪对任何溢出内容都不再有任何作用」这句绝对表述
+    /// **只在一条对角线以内成立**。实测（临时探针）：
+    /// ```
+    /// small 4x4 @identity contains(-30pt above) = false
+    /// small 4x4 @identity contains(-4pt  above) = true
+    /// badge 60x24 @identity contains(-80pt above) = false
+    /// RM 4x4 contains(-30pt above) = false
+    /// ```
+    /// ⇒ 一个 20×20 的图标配 `.shadow(radius: 30)`，阴影在**转场结束之后**仍被永久吃掉
+    /// ——正是这段设计要消灭的那类缺陷，只是把阈值从 0 抬到了一条对角线。
+    /// 上一版的 `haloOpensOnlyAtTheEnd` 看不见它，因为它刻意只采到 **0.9 倍**对角线。
+    ///
+    /// ⚠️ 本条**逐个尺寸**采样，且采样距离与内容尺寸**无关**（取 `openReach` 的 0.9 倍）
+    /// ——只要有人把余量改回"按内容派生"，小内容那一档当场判红。
+    @Test("恒等相位与 Reduce Motion 下的裁剪对任何尺寸的溢出内容都不起作用")
+    func identityClipsNothingRegardlessOfContentSize() {
+        // ⚠️ 三种尺寸：一个正常内容、一个 badge 形状、一个**极小**内容
+        // （对角线 5.66pt —— 上一版在它上面连 30pt 的阴影都吃掉）。
+        let boxes: [(name: String, rect: CGRect)] = [
+            ("160×120", Self.rect),
+            ("60×24 badge", CGRect(x: 0, y: 0, width: 60, height: 24)),
+            ("4×4 icon", CGRect(x: 0, y: 0, width: 4, height: 4)),
+        ]
+        // ⚠️ 取 0.9 倍而不是整条 `openReach`：整条恰好落在外框的**外边界**上，
+        // 边界点的 `contains` 取决于浮点比较方向，判据会变得看运气。
+        let far = MaskReveal.openReach * 0.9
+
+        for box in boxes {
+            for entry in Self.entryPoints {
+                for (label, isReduced) in [("恒等相位", false), ("Reduce Motion", true)] {
+                    let plan = MaskReveal.plan(
+                        kind: entry.kind, progress: 1, isReduced: isReduced
+                    )
+                    let path = MaskReveal.path(for: plan, in: box.rect)
+                    for corner in MaskReveal.corners(of: box.rect.insetBy(dx: -far, dy: -far)) {
+                        #expect(path.contains(corner), """
+                        \(entry.name) 在 \(label) 下裁掉了 \(box.name) 内容 bounds 外
+                        \(Int(far))pt 处的东西 —— 余量又变回"按内容尺寸派生"了。
+                        一个 20×20 的图标配 `.shadow(radius: 30)`，阴影会在**转场结束之后**
+                        被永久吃掉，而这是本簇最难归因的那一类缺陷。
+                        """)
+                    }
+                }
+            }
+        }
+        // 互锁：`openReach` 与内容尺寸无关 ⇒ 三种尺寸拿到的余量必须一样大。
+        // （若它又变回派生量，4×4 与 160×120 的外框宽度就会差 30 倍。）
+        for box in boxes {
+            let open = MaskReveal.openPath(in: box.rect).boundingRect
+            #expect(open.width - box.rect.width == MaskReveal.openReach * 2,
+                    "\(box.name) 的全开余量是 \((open.width - box.rect.width) / 2)pt，不是 openReach")
         }
     }
 
@@ -451,22 +572,43 @@ struct MaskRevealGeometryTests {
 @MainActor
 struct MaskRevealRenderTests {
 
-    /// ⚠️ 与 `ConfettiTests.canvasWarmUp` / `ParticleTransitionTests.chromeWarmUp` 同一条
-    /// 首帧伪影：`ImageRenderer` 在进程内最早的若干次渲染上给出的光栅化与之后不同。
+    /// 形态同 `ConfettiTests.canvasWarmUp` / `ParticleTransitionTests.chromeWarmUp`：
+    /// 在跑任何位图断言之前，把每一种**将被断言的视图形态**先渲若干遍。
     ///
-    /// ⚠️⚠️ **必须把「带 chrome 的形态」也跑热，这是变异实证换来的**：上一版只暖机了
-    /// 裸内容与空白两种，`chromeRevealsMidFlight` 于是**间歇性判红**——它比较
-    /// 「插值出的中间帧」与「直接用 0.5 构造的中间帧」，两者结构相同、数值相同，
-    /// 但**进程内第一次带 chrome 的渲染**是异类，谁先跑到谁就是那个异类，
-    /// 而 Swift Testing 不保证测试顺序。实证：一个**语义上完全等价**的变异
-    /// （去掉一对不影响求值的括号，见 `dissolveOrderIsDeterministicAndWellSpread`）
-    /// 让这条判据判红 ⇒ 它当时测的是渲染栈的冷热，不是被测行为。
+    /// ## ⚠️⚠️ 病因照录，**上一版这段写错了因果**（终审 I-6，评审实测）
+    ///
+    /// 上一版写「`ImageRenderer` 在**进程内最早的若干次**渲染上给出的光栅化与之后不同」
+    /// ——那个模型会让下一个人以为"多暖几次就行"。**实测更强也更难缠**：
+    /// · 在进程级暖机**已经生效**的前提下，同一视图同一断言，**隔离**跑 5/5 正确；
+    ///   把它放进 7 条测试的同一 suite 里跑 4 次，给出**三种不同答案**
+    ///   （两次 `opacity(0)` 渲成完全不透明）；
+    /// · 把 `.opacity` 挪到 5 个不同位置逐一**隔离**测，全部正常。
+    /// ⇒ **位置无关，真正的变量是「跨测试交错」**，不是"进程内最早若干次"。
+    ///
+    /// ⚠️ 因此本暖机门是**承重**的，不是保险丝：实测绕过它（直接调
+    /// `MicroInteractionAPITests.stablePixels`）时，`clock` / `glare` 在**同一条 `#Test`
+    /// 内**三次调用都不收敛；走 `Self.pixels` 时 6/6 稳定、连跑 6 次全同，
+    /// 真实 suite 隔离 8/8、全量 10/10。
+    /// ⇒ **本文件的每一条位图断言都必须走 `Self.pixels`**，由
+    /// `MaskRevealSourceGuard.bitmapAssertionsGoThroughTheWarmUpGate` 钉住
+    /// （今天确实全部走它，但在那条判据之前没有任何东西守着这件事）。
+    ///
+    /// ⚠️⚠️ **必须把「带 chrome 的形态」也跑热**：上一版只暖机了裸内容与空白两种，
+    /// `chromeRevealsMidFlight` 于是**间歇性判红**——它比较「插值出的中间帧」与
+    /// 「直接用 0.5 构造的中间帧」，两者结构相同、数值相同，而 Swift Testing
+    /// 不保证测试顺序。实证：一个**语义上完全等价**的变异（去掉一对不影响求值的括号，
+    /// 见 `dissolveOrderIsDeterministicAndWellSpread`）让这条判据判红
+    /// ⇒ 它当时测的是渲染栈的状态，不是被测行为。
     private static let warmUp: Bool = {
         for _ in 0..<8 {
             _ = MicroInteractionAPITests.stablePixels(Self.framed(Self.overflowing()))
+            _ = MicroInteractionAPITests.stablePixels(Self.framed(Self.tinyOverflowing()))
             _ = MicroInteractionAPITests.stablePixels(Self.framed(Self.empty()))
             for entry in Self.kinds {
                 _ = MicroInteractionAPITests.stablePixels(Self.chrome(progress: 0.5, kind: entry.kind))
+                _ = MicroInteractionAPITests.stablePixels(Self.framed(
+                    Self.tinyOverflowing().modifier(MaskRevealChrome(progress: 1, kind: entry.kind))
+                ))
             }
         }
         return true
@@ -490,6 +632,17 @@ struct MaskRevealRenderTests {
     /// 同尺寸的空白对照（什么都不画）。
     static func empty() -> some View {
         Color.clear.frame(width: 60, height: 60)
+    }
+
+    /// ⚠️⚠️ **极小内容 + 大溢出**（终审 I-2 补）：4×4 的 bounds，对角线只有 5.66pt，
+    /// 而画出来的东西溢出到 bounds 外 73pt。
+    /// 上一版的恒等余量按**内容对角线**派生 ⇒ 这个形态在恒等相位仍被裁掉一大片，
+    /// 而 `overflowing()`（60×60、溢出 45pt、对角线 84.85pt）对这枚缺陷
+    /// **结构上零可见性**——溢出量恰好小于自己的对角线。
+    static func tinyOverflowing() -> some View {
+        Color.surfaceRaised
+            .frame(width: 4, height: 4)
+            .overlay { Rectangle().fill(Color.contentPrimary).frame(width: 150, height: 150) }
     }
 
     static func framed(_ view: some View) -> some View {
@@ -528,6 +681,42 @@ struct MaskRevealRenderTests {
             #expect(identity == bare, """
             `.\(entry.name)` 在恒等相位改变了画面 —— 转场停住之后被修饰视图的溢出内容
             （阴影 / 超出 bounds 的子视图）被裁剪永久吃掉了。
+            """)
+        }
+    }
+
+    /// ⚠️⚠️ **承重判据（终审 I-2 补）：极小内容 + 大溢出的恒等相位。**
+    ///
+    /// 上一条用的 `overflowing()` 是 60×60、溢出 45pt，而它自己的对角线是 84.85pt
+    /// ⇒ 上一版"按内容对角线派生"的余量恰好够用，那枚缺陷对它**结构上不可见**。
+    /// 本条把内容缩到 4×4（对角线 5.66pt）而溢出仍是 73pt —— 上一版在这里判红。
+    @Test("极小内容的恒等相位也与裸视图逐字节相同（溢出远超自身对角线）")
+    func identityIsBytewiseIdentityForTinyContentWithHugeOverflow() throws {
+        let bare = try #require(Self.pixels(Self.framed(Self.tinyOverflowing())), "基线渲染失败")
+        #expect(bare.contains(where: { $0 != 0 }), "基线位图全 0 —— 下面的相等断言恒真")
+        // 互锁：4×4 的 bounds 之外确实画着东西，否则"没被裁掉"是恒真的。
+        let notOverflowing = try #require(
+            Self.pixels(Self.framed(Color.surfaceRaised.frame(width: 4, height: 4))),
+            "对照渲染失败"
+        )
+        #expect(bare != notOverflowing, "被测内容其实没有溢出 4×4 的 bounds —— 本判据观测不到裁剪")
+
+        for entry in Self.kinds {
+            let identity = try #require(
+                Self.pixels(Self.framed(
+                    Self.tinyOverflowing().modifier(MaskRevealChrome(progress: 1, kind: entry.kind))
+                )),
+                "渲染失败：\(entry.name)"
+            )
+            // ⚠️ 先归约成 `Bool`：两个 160 KB 的 `Data` 直接进判红的 `#expect` 会让
+            // `swift-testing` 求 `CollectionDifference`（实测 98% CPU / 1.6 GB / 不收敛）,
+            // 于是"判红"变成"卡死"。完整实测见
+            // `MaskRevealTransitionBodyTests.appliedTransitionRendersThroughBody` 的文档。
+            let matches = identity == bare
+            #expect(matches, """
+            `.\(entry.name)` 在恒等相位把 4×4 内容的溢出部分裁掉了
+            —— 恒等余量又变回"按内容尺寸派生"了：一个 20×20 的图标配 `.shadow(radius: 30)`,
+            阴影会在**转场结束之后**被永久吃掉。
             """)
         }
     }
@@ -685,6 +874,212 @@ struct MaskRevealRenderTests {
     }
 }
 
+// MARK: - `MaskRevealTransition.body` 本身
+
+/// ⚠️⚠️⚠️ **本 suite 整个是终审 C-1 补的，补的是一个 31 条判据全都看不见的洞。**
+///
+/// `MaskRevealTransition.body(content:phase:)` 是六个公开静态成员通向
+/// `MaskRevealChrome` 的**唯一**路径，而它此前没有任何判据。评审把它整段改成
+/// ```swift
+/// content.modifier(MaskRevealChrome(progress: 1, kind: .iris(anchor: .center)))
+/// ```
+/// （变异 M-A：相位与 `self.kind` 双双丢弃 ⇒ 六种转场全部退化成「内容凭空出现」，
+/// `.iris` 连相位都不看）—— 本簇 31 条与全量 761 条**零红**。
+///
+/// 为什么此前所有判据都看不见：
+/// · `MaskRevealGeometryTests.entryPoints` 取的是静态成员的**存储属性** `kind`；
+/// · `MaskRevealRenderTests.chrome(progress:kind:)` **直接构造** `MaskRevealChrome`；
+/// · `MaskRevealSourceGuard.chromeIsPinnedVerbatim` 钉的是 `MaskRevealChrome` 的
+///   类型体，`MaskRevealTransition.body` 不在断言面内；
+/// · `allSixEntryPointsCompose` 只断言 `pixels(composed) != nil`
+///   —— 静态渲染下 SwiftUI 根本不求值 transition 的 `body`。
+///
+/// **连带**：`MaskReveal.progress(phase:)` 的唯一消费者就是这段 `body`，
+/// 所以 `phaseMapping` 此前在验一个没有已验证消费者的纯函数；本 suite 一并接上。
+@Suite("MaskRevealTransition.body 本身")
+@MainActor
+struct MaskRevealTransitionBodyTests {
+
+    /// `Transition.Content`（= `PlaceholderContentView<MaskRevealTransition>`）没有公开
+    /// 构造器，但它是**零尺寸**类型 ⇒ 可以从 `()` 位转换出来。
+    ///
+    /// ⚠️ 先断言尺寸真的是 0 再转换：哪天 SDK 给它加了存储，这里会明确判红，
+    /// 而不是变成一次静默的未定义行为。
+    static func placeholder() throws -> MaskRevealTransition.Content {
+        try #require(MemoryLayout<MaskRevealTransition.Content>.size == 0 ? true : nil, """
+        `PlaceholderContentView` 不再是零尺寸类型 —— 本 suite 的 `body` 直呼手法失效，
+        请改用别的方式对 `MaskRevealTransition.body(content:phase:)` 求值。
+        """)
+        return unsafeBitCast((), to: MaskRevealTransition.Content.self)
+    }
+
+    /// 从 `body` 的产物里取出它交给 `MaskRevealChrome` 的那份实参。
+    ///
+    /// `MaskRevealTransition.Body` 的具体类型是
+    /// `ModifiedContent<PlaceholderContentView<MaskRevealTransition>, MaskRevealChrome>`,
+    /// 但在本类型之外它是 opaque ⇒ 走 `Mirror` 的 `modifier` 子节点。
+    static func chromeProduced(by transition: MaskRevealTransition, phase: TransitionPhase) throws
+        -> MaskRevealChrome {
+        let produced = transition.body(content: try Self.placeholder(), phase: phase)
+        return try #require(
+            Mirror(reflecting: produced).descendant("modifier") as? MaskRevealChrome, """
+            `MaskRevealTransition.body` 的产物里没有 `MaskRevealChrome`
+            —— 实测类型是 \(type(of: produced))。
+            `body` 若不再是 `content.modifier(MaskRevealChrome(...))` 这一个形态，
+            本 suite 的两条判据都无从谈起，请连同它们一起重写。
+            """
+        )
+    }
+
+    static let phases: [(name: String, phase: TransitionPhase)] = [
+        ("willAppear", .willAppear), ("identity", .identity), ("didDisappear", .didDisappear),
+    ]
+
+    /// ⚠️⚠️⚠️ **承重判据：`body` 把调用方的相位与几何族原样交给 chrome。**
+    ///
+    /// 这是 M-A（`content.modifier(MaskRevealChrome(progress: 1, kind: .iris(anchor: .center)))`）
+    /// 的**直接**判据：`kind` 被丢弃 ⇒ 除 `iris` 外五种当场判红；相位被丢弃 ⇒
+    /// 两个端点相位当场判红。它同时是 `MaskReveal.progress(phase:)` 的**已验证消费者**。
+    ///
+    /// ⚠️ 断言的是「与 `MaskReveal.progress(phase:)` 相同」而不是写死 `0 / 1 / 0`：
+    /// 后者会把相位映射的定义抄进判据，`phaseMapping` 那条就变成自证。
+    @Test("body 把 (相位 → 进度, 自己的 kind) 原样交给 MaskRevealChrome")
+    func bodyHandsChromeThePhaseAndTheKind() throws {
+        // 六个公开入口点的**含参重载**也走一遍——两个成员按 `Host.member` 算同一条登记，
+        // 但它们是两段独立的接线。
+        let transitions: [(name: String, transition: MaskRevealTransition, kind: MaskRevealKind)] = [
+            ("iris", .iris, .iris(anchor: .center)),
+            ("iris(anchor:)", .iris(anchor: .topLeading), .iris(anchor: .topLeading)),
+            ("wipe", .wipe, .wipe(radians: MaskRevealTransition.defaultWipeAngle.radians)),
+            ("wipe(angle:)", .wipe(angle: .degrees(90)), .wipe(radians: .pi / 2)),
+            ("blinds", .blinds, .blinds(count: MaskRevealTransition.defaultBlindCount)),
+            ("blinds(count:)", .blinds(count: 3), .blinds(count: 3)),
+            ("clock", .clock, .clock(sign: 1)),
+            ("clock(direction:)", .clock(direction: .counterClockwise), .clock(sign: -1)),
+            ("glare", .glare, .glare(radians: MaskRevealTransition.defaultGlareAngle.radians)),
+            ("glare(angle:)", .glare(angle: .degrees(-20)), .glare(radians: -.pi / 9)),
+            ("dissolve", .dissolve, .dissolve(cellSize: MaskRevealTransition.defaultCellSize)),
+            ("dissolve(cellSize:)", .dissolve(cellSize: 12), .dissolve(cellSize: 12)),
+        ]
+        #expect(transitions.count == 12, "12 个公开入口点少了几个 —— 本条与登记表脱节了")
+
+        for entry in transitions {
+            for step in Self.phases {
+                let chrome = try Self.chromeProduced(by: entry.transition, phase: step.phase)
+                #expect(chrome.kind == entry.kind, """
+                `.\(entry.name)` 的 `body` 交给 `MaskRevealChrome` 的几何族是 \(chrome.kind),
+                而这个入口点选的是 \(entry.kind) —— `body` 丢掉了 `self.kind`,
+                六种转场会全部退化成同一种（而 31 条判据对此**结构上零可见性**）。
+                """)
+                #expect(chrome.progress == MaskReveal.progress(phase: step.phase), """
+                `.\(entry.name)` 在相位 \(step.name) 上交给 chrome 的进度是 \(chrome.progress),
+                而 `MaskReveal.progress(phase:)` 给的是 \(MaskReveal.progress(phase: step.phase))
+                —— `body` 丢掉了调用方的相位，转场退化成「内容凭空出现」。
+                """)
+            }
+        }
+    }
+
+    /// ⚠️⚠️ **端到端那一半**：经**公开的** `Transition.apply(content:phase:)` 渲染。
+    ///
+    /// 上一条走的是 `body` 直呼 + 反射（精确但绕过了 SwiftUI 自己那段接线）；本条把
+    /// `.transition(_:)` 真正会走的那条链跑一遍——实测 `apply` 的返回视图在渲染时
+    /// **确实**求值 `body`（`ModifiedContent<V, ApplyTransitionModifier<MaskRevealTransition>>`）。
+    /// ⇒ 两条合起来，M-A 在结构与像素两侧都判红。
+    ///
+    /// ⚠️ 判据刻意**不依赖 `.opacity` 的可见性**（姊妹 PR #289 实测本仓位图 harness 里
+    /// `opacity(0)` 与 `opacity(1)` 有时渲出逐字节相同的位图）：这里比较的是
+    /// **裁剪**造成的差别（全开 / 全关），与不透明度无关。
+    ///
+    /// ## ⚠️⚠️ 两个 `Data` **必须先归约成 `Bool` 再进 `#expect`**，这是实测换来的
+    ///
+    /// 写成 `#expect(applied == expected, …)` 时，一旦判红，`swift-testing` 会对两个
+    /// **160 KB 的 `Data`** 求集合差异（`CollectionDifference`）——两幅位图逐字节都不同
+    /// 时那是 O(N·D) 的 Myers 差分。实测（最小复现：两个 160 000 字节、处处不同的
+    /// `Data` 直接进一条判红的 `#expect`）：**98% CPU、1.6 GB 常驻、90 秒后仍未结束**。
+    /// ⇒ 本条在 M-A 下的表现会从"判红"变成"卡死"，而**卡死不是红**：跑变异的人
+    /// 只会看到进程挂住，读不出是哪一条判据在咬。
+    /// ⇒ 先 `let matches = applied == expected`、再 `#expect(matches, …)`：
+    /// `#expect` 拿到的是一个 `Bool`，没有集合可差分。
+    /// ⚠️ 这条限度对本仓**所有**位图断言都成立（本文件其余几条写的仍是
+    /// `#expect(x == y)`，它们至今没被咬到只是因为判红时两幅图差异很小）；
+    /// 本条只修自己新增的那两处，不在本 PR 里翻修既有断言。
+    @Test("经 Transition.apply 渲染确实走 body（三个真实相位逐字节对齐）")
+    func appliedTransitionRendersThroughBody() throws {
+        let content = MaskRevealRenderTests.overflowing()
+        let bare = try #require(
+            MaskRevealRenderTests.pixels(MaskRevealRenderTests.framed(content)), "基线渲染失败"
+        )
+        let blank = try #require(
+            MaskRevealRenderTests.pixels(MaskRevealRenderTests.framed(
+                Color.clear.frame(width: 60, height: 60)
+            )),
+            "基线渲染失败"
+        )
+        #expect(bare != blank, "两条基线逐字节相同 —— 下面的断言全部恒真")
+
+        let transitions: [(name: String, transition: MaskRevealTransition)] = [
+            ("iris", .iris), ("wipe", .wipe), ("blinds", .blinds),
+            ("clock", .clock), ("glare", .glare), ("dissolve", .dissolve),
+        ]
+        for entry in transitions {
+            for step in Self.phases {
+                let applied = try #require(
+                    MaskRevealRenderTests.pixels(MaskRevealRenderTests.framed(
+                        entry.transition.apply(content: content, phase: step.phase)
+                    )),
+                    "渲染失败：\(entry.name) @ \(step.name)"
+                )
+                let expected = MaskReveal.progress(phase: step.phase) == 1 ? bare : blank
+                let expectedName = MaskReveal.progress(phase: step.phase) == 1 ? "裸视图" : "空白"
+                // ⚠️ 先归约成 `Bool`，理由见本函数文档里的「两个 `Data` 必须先归约」。
+                let matches = applied == expected
+                #expect(matches, """
+                `.transition(.\(entry.name))` 在相位 \(step.name) 上渲染出的画面
+                与「\(expectedName)」不同 —— `MaskRevealTransition.body` 没有把这个相位
+                交给 `MaskRevealChrome`（丢掉相位 ⇒ 转场根本不发生／内容凭空出现）。
+                """)
+            }
+        }
+    }
+
+    /// ⚠️⚠️ **`properties` 必须是显式声明**（终审 S-2 / I-5，`#292` 统一跟踪）。
+    ///
+    /// Apple 文档逐字：`hasMotion == true` ⇒ **Reduce Motion 打开时 SwiftUI 直接把
+    /// 本转场换成 `.opacity`**（默认值就是 `true`）。实测继承值：
+    /// ```
+    /// MaskRevealTransition.hasMotion = true    ParticleTransition.hasMotion  = true
+    /// OpacityTransition.hasMotion    = false   IdentityTransition.hasMotion  = false
+    /// ```
+    /// ⇒ **框架那道闸在前**，`MaskReveal.plan(…isReduced:)` 是它为假时的兜底。
+    /// 取值理由、内层 RM 路径「保留」的裁定与代价，全部写在 `MaskRevealTransition`
+    /// 与 `MaskRevealTransition.properties` 的文档注释里。
+    ///
+    /// ⚠️ 只断言取值是不够的——`true` 恰好也是 SDK 默认值，一条纯 `#expect` 在
+    /// 「有人把整个 `properties` 删掉」这枚变异下**零红**。因此配一条源码断言：
+    /// 这个声明必须真的写在本仓代码里（它换来的是"下一个人看得见框架闸"）。
+    @Test("MaskRevealTransition 显式声明 properties，且 hasMotion 为 true")
+    func transitionDeclaresItHasMotion() throws {
+        #expect(MaskRevealTransition.properties.hasMotion, """
+        `hasMotion` 变成了 `false` —— 那是在对系统说"本转场不含运动"，
+        Reduce Motion 下 SwiftUI 将**不再**把它替换成 `.opacity`,
+        整簇的无障碍降级就只剩 `MaskReveal.plan(…isReduced:)` 这一道手写闸。
+        若这是有意的改动，请连同 `MaskRevealTransition` 的两段裁决记录一起改
+        （「两道闸，框架那道在前」与「内层 RM 路径：显式裁定为保留」）。
+        """)
+        let code = try MaskRevealSourceGuard.code("MaskRevealTransitions.swift")
+        #expect(code.contains("static let properties: TransitionProperties"), """
+        `MaskRevealTransitions.swift` 里找不到 `properties` 的显式声明 —— 上一条于是退化成
+        「SDK 默认值恰好也是 true」，删掉整个声明它照样全绿，而下一个人也就再次看不见
+        框架那道闸的存在。
+        """)
+        #expect(code.contains("TransitionProperties(hasMotion: true)"), """
+        `properties` 的实现体不再是 `TransitionProperties(hasMotion: true)`
+        —— 上一条读到的可能已经不是这个声明给的值。
+        """)
+    }
+}
+
 // MARK: - 源码契约
 
 @Suite("MaskReveal 源码契约")
@@ -694,6 +1089,54 @@ struct MaskRevealSourceGuard {
 
     static func code(_ fileName: String) throws -> String {
         MicroInteractionReduceMotionGuard.stripComments(try TypewriterTextTests.source(fileName))
+    }
+
+    /// 本判据文件**自己**的源码（`TypewriterTextTests.source(_:)` 只认
+    /// `Sources/CoreDesignEffects/`，读不到 `Tests/`）。
+    static func testSource() throws -> String {
+        try String(contentsOf: URL(fileURLWithPath: #filePath), encoding: .utf8)
+    }
+
+    /// ⚠️⚠️ **暖机门不许被绕过**（终审 I-6）。
+    ///
+    /// `MaskRevealRenderTests.warmUp` 是本文件所有位图断言的承重前提——实测绕过它
+    /// （直接调 `MicroInteractionAPITests.stablePixels`）时 `clock` / `glare`
+    /// 在**同一条 `#Test` 内**三次调用都不收敛。今天全簇确实都走 `Self.pixels`，
+    /// 但在本条之前**没有任何判据守着这件事**：将来新增一条位图断言，只要顺手直接调
+    /// 底层 harness，这道闸就被静默丢掉，而那条断言会以"间歇性判红"的形态出现
+    /// ——本仓最难归因的那一类。
+    ///
+    /// 形态照 `ProcessingSweepTests.containersDelegateToDriver`：底层调用只许出现在
+    /// **暖机块**与**闸函数**这两个区间内，区间之外一次都不许有。
+    @Test("本文件的位图断言只许走 MaskRevealRenderTests.pixels（暖机门）")
+    func bitmapAssertionsGoThroughTheWarmUpGate() throws {
+        let code = MicroInteractionReduceMotionGuard.stripComments(try Self.testSource())
+        // ⚠️ 拼出来而不是写成一个字面量：本判据扫的是**它自己所在的文件**，
+        // 写成整串的话这行自己就是第 7 次出现，`total` 永远比 `allowed` 多 1
+        //（实测：`Expectation failed: (total → 7) == (allowed → 6)`）。
+        let needle = "MicroInteractionAPITests." + "stablePixels"
+        let total = ConfettiTests.occurrences(of: needle, in: code)
+
+        let warmUp = try #require(
+            ConfettiTests.bracedRegion(after: "private static let warmUp", in: code),
+            "找不到暖机块 —— 下面的差集无从谈起"
+        )
+        let gate = try #require(
+            ConfettiTests.bracedRegion(after: "static func pixels(_ view: some View)", in: code),
+            "找不到 `MaskRevealRenderTests.pixels(_:)` 这道闸 —— 下面的差集无从谈起"
+        )
+        let allowed = ConfettiTests.occurrences(of: needle, in: warmUp)
+            + ConfettiTests.occurrences(of: needle, in: gate)
+
+        // 互锁：两个区间里确实有调用，否则本条守的是空气。
+        #expect(allowed > 0, "暖机块与闸函数里一次 `\(needle)` 都没有 —— 本条已经与实现脱节")
+        #expect(total == allowed, """
+        `\(needle)` 在本文件里出现 \(total) 次，而暖机块 + 闸函数里只占 \(allowed) 次
+        —— 多出来的 \(total - allowed) 次绕过了 `MaskRevealRenderTests.pixels(_:)` 的暖机门。
+        位图断言必须走 `Self.pixels` / `MaskRevealRenderTests.pixels`：实测直接调底层
+        harness 时 `clock` / `glare` 在同一条 `#Test` 内三次调用都不收敛，
+        失效形态是**间歇性判红**，而不是稳定的红。
+        """)
     }
 
     /// ⚠️⚠️ **这是本簇两个文件进 `approvedNoMotion` 名单的前提，不是装饰。**
@@ -754,7 +1197,16 @@ struct MaskRevealSourceGuard {
     /// 要防的是**同一族**缺陷：往裁剪 / 叠加的门控里掺进相位，让恒等那一端把某一层
     /// 摘掉。`ParticleTransition` 上那次实证过，只钉某一行的字面形状会被
     /// `&& phase != .identity`、`let count = phase == .identity ? 0 : self.count`
-    /// 这类等价形态原样绕过 ⇒ 断言面必须是整个类型。
+    /// 这类等价形态原样绕过 ⇒ 断言面必须是整个**类型体**。
+    ///
+    /// ⚠️⚠️ **射程边界照录（终审 S-3，评审实测）**：本条的断言面是
+    /// `struct MaskRevealChrome` 后面那一对 `{` … `}`——**声明行本身不在射程内**。
+    /// 实测：去掉 `MaskRevealChrome` 的 `Animatable` 一致性（改**声明行**而不是类型体）
+    /// ⇒ **本条不判红**，判红的是 `MaskRevealRenderTests.chromeRevealsMidFlight`。
+    /// 这是好事（承重设计②由**性质**判据接住，而不是靠一条形状判据），
+    /// 但别把本条的文档读成"整个类型的任何改动都会判红"：
+    /// **协议一致性列表、属性包装、`@available` 之类的声明行修饰在射程外**，
+    /// 由 `chromeRevealsMidFlight` 接管。
     ///
     /// ⚠️ 代价照录：本条是**逐字**的 ⇒ 给这个类型换行、加一个绑定、调整缩进都会判红，
     /// 必须连同期望串一起改。这是有意的。

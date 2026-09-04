@@ -26,7 +26,19 @@ import SwiftUI
 //      「用削弱判据来消化一个例外」正是它文件头点名禁止的 G-7 形态。
 //    · `ColorGrade` 资源色在 macOS `swift test` 下**全部解析为透明**（#275），
 //      拿它当遮罩基色会让 macOS 腿上的每一条遮罩断言都测不到真东西。
-//    ⇒ 三条路全堵死。而**裁剪不涉及 alpha**：`clipShape` 是纯几何布尔运算，
+//    ⚠️⚠️ **上一版这里写「三条路全堵死」，那句话是错的，照录更正**（终审 S-1）：
+//      `EffectsColorLiteralGuard` 的扫描根**有意不含** `Sources/CoreDesign`
+//      （`Tests/CoreDesignTests/EffectsColorLiteralGuard.swift` 扫的是
+//      `GuardScanRoots.newTargetRoots`，只有 Effects / Charts）⇒ 在
+//      `Sources/CoreDesign/Colors/` 加一个第 3 层不透明 token 再从 Effects 引用
+//      **不会命中该守卫**，本仓已有现成先例：本文件用的 `Color.specularHighlight`
+//      就是 `Sources/CoreDesign/Colors/FillColors.swift` 里的 `Color.white.opacity(0.45)`,
+//      而 `CLAUDE.md` 也明写「缺少需要的语义 token，应在对应文件中补充新名称」。
+//      #275 对这类字面量派生 token 同样不适用（它说的是资源色）。
+//    ⇒ **正确的记账是**：遮罩路线**可行，只是代价更高**（要为它新开一个第 3 层
+//      token，且那个 token 的"α 恒为 1"本身还得有判据守着）；**选裁剪的真正理由是
+//      下面第 2 条——可判据性**。别把本条读成"遮罩在本仓结构上不可能"。
+//    而**裁剪不涉及 alpha**：`clipShape` 是纯几何布尔运算，
 //      揭示出来的像素就是内容原样的像素，不存在"揭示到 85%"这种状态。
 //
 // 2. **裁剪的判据可以是纯函数。** `Path.contains(_:)` 让"这一点此刻揭示了没有"
@@ -48,9 +60,20 @@ import SwiftUI
 // `Badge("PRO").shadow(radius: 12).transition(.iris)` 的阴影从此不见了，
 // 而且是**转场结束之后**才不见——最难归因的那一类。
 //
-// ⇒ 本文件的解法：揭示进度越过 `haloOnset` 之后，在已经算好的裁剪路径外**并上
-// 一圈向外张开的外框**（`haloPath(progress:in:)` 的四条边），`progress == 1` 时
-// 外框张到一整条对角线宽 ⇒ 裁剪对任何溢出内容都不再有任何作用。
+// ⇒ 本文件的解法分两段：
+// · **最后 15%**（越过 `haloOnset`）：在已经算好的裁剪路径外**并上一圈向外张开的
+//   外框**（`haloPath(progress:in:)` 的四条边），张开量按内容对角线走，只增不减；
+// · **恒等相位本身**（`progress == 1`）：`path(for:in:)` 直接短路到 `openPath(in:)`,
+//   余量是与内容尺寸**无关**的 `openReach`（一百万 pt）。
+//
+// ⚠️⚠️ **第二段是终审 I-2 补的，上一版这里写的是绝对句、而它是假的**：上一版恒等
+// 相位也走 `haloPath`，余量恰好一条对角线 ⇒ 「裁剪对任何溢出内容都不再有任何作用」
+// 只在**一条对角线以内**成立。实测（4×4 内容，恒等相位）：
+// `contains(-4pt above) = true`、`contains(-30pt above) = false`
+// ⇒ 20×20 的图标配 `.shadow(radius: 30)` 的阴影**转场结束之后仍被永久吃掉**。
+// 同一限度也曾落在 Reduce Motion 上（`openPath` 的 `margin` 也是一条对角线）。
+// 现在两处共用 `openReach`，判据
+// `MaskRevealGeometryTests.identityClipsNothingRegardlessOfContentSize` 钉住实际阈值。
 //
 // ⚠️⚠️ **初版不是这么写的，把那次实测记在这里**：初版把整条裁剪路径**按中心
 // 整体放大**（一条外轮廓，本以为可以躲开"两条恰好相邻的边被抗锯齿画出发丝缝"）。
@@ -225,18 +248,40 @@ nonisolated enum MaskReveal {
     // MARK: 路径总入口
 
     /// 给定裁决结论与内容 bounds，算出这一帧的裁剪路径。
+    ///
+    /// ⚠️⚠️ **`progress >= 1` 与 `kind == nil` 两种情形都短路到 `openPath(in:)`，
+    /// 这是终审 I-2 实测换来的**：上一版这两处的余量都是**按内容对角线派生**的
+    /// （`haloPath` 的 `reach` 与 `openPath` 的 `margin`），于是「恒等相位是真的恒等」
+    /// 只在**一条对角线以内**成立。实测：一个 4×4 的内容在恒等相位上
+    /// `contains(-4pt above) = true` 而 `contains(-30pt above) = false`
+    /// ⇒ 一个 20×20 的图标配 `.shadow(radius: 30)`、或任何溢出超过自身对角线的内容，
+    /// **转场结束之后阴影仍被永久吃掉**——正是这段设计要消灭的那类缺陷，
+    /// 只是把阈值从 0 抬到了一条对角线。
+    /// ⇒ 现在这两端直接给一个与内容尺寸**无关**的余量（`openReach`）。
+    /// ⚠️ 短路只发生在**端点**，不碰任何中间进度 ⇒ `haloPath` 那条随进度张开的曲线
+    /// （以及它换来的单调性）原样保留，插值路径一个字都没动。
     static func path(for plan: MaskRevealPlan, in rect: CGRect) -> Path {
         guard rect.width > 0, rect.height > 0 else { return Path() }
-        guard let kind = plan.kind else { return Self.openPath(in: rect) }
+        guard plan.progress < 1, let kind = plan.kind else { return Self.openPath(in: rect) }
         var path = Self.kindPath(kind, progress: plan.progress, in: rect)
         path.addPath(Self.haloPath(progress: plan.progress, in: rect))
         return path
     }
 
-    /// 遮罩全开（Reduce Motion 降级 / 恒等余量的极限形态）。
+    /// 遮罩全开的余量（pt）。**常数、与内容尺寸无关**——见 `path(for:in:)` 的裁决记录。
+    ///
+    /// ⚠️ 取一个大常数而不是 `CGRect.infinite`：后者的坐标是 `±CGFLOAT_MAX/2`，
+    /// 进 `clipShape` 之后要经过一次仿射变换，量级本身就是光栅化器的退化输入。
+    /// 一百万 pt 已经比任何可能的溢出（阴影半径、超出 bounds 的子视图）大若干个数量级。
+    /// ⚠️ 因此「裁剪对溢出内容不再有作用」这句话仍然是**有界**的，只是界与内容脱钩了；
+    /// 判据 `MaskRevealGeometryTests.identityClipsNothingRegardlessOfContentSize`
+    /// 钉的正是这个实际阈值（对 160×120 / 60×24 / 4×4 三种尺寸各采到 `openReach * 0.9`,
+    /// 恒等相位与 Reduce Motion 两条路都走）。
+    static let openReach: CGFloat = 1_000_000
+
+    /// 遮罩全开（Reduce Motion 降级 / 恒等相位）。
     static func openPath(in rect: CGRect) -> Path {
-        let margin = hypot(rect.width, rect.height)
-        return Path(rect.insetBy(dx: -margin, dy: -margin))
+        Path(rect.insetBy(dx: -Self.openReach, dy: -Self.openReach))
     }
 
     static func kindPath(_ kind: MaskRevealKind, progress: Double, in rect: CGRect) -> Path {
@@ -268,7 +313,8 @@ nonisolated enum MaskReveal {
     ///
     /// ⚠️⚠️ **它今天没有任何判据守着，照录在此，别写成"承重"**（变异实证）：
     /// 上一版这里写「不写它，两条恰好相邻的边会被抗锯齿画出一条发丝缝」。
-    /// 把它改成 `0` 重跑整簇 31 条判据 —— **零红**（`batch3.log` 的 M11）。
+    /// 把它改成 `0` 重跑整簇判据 —— **零红**（`batch3.log` 的 M11；终审 I-4 后
+    /// 判据数从 31 涨到 37，用 M-C 重跑一次仍是 `37 tests … passed`）。
     /// 成因清楚：裁剪路径按非零环绕规则求的是**并集区域**，相邻子路径的公共边
     /// 落在区域**内部**、根本不是区域边界，抗锯齿无从下手。那条"发丝缝"是
     /// **分别填充**多个形状时才有的现象，裁剪没有。
@@ -362,8 +408,10 @@ nonisolated enum MaskReveal {
     static func clockPath(sign: Double, progress: Double, in rect: CGRect) -> Path {
         guard progress > 0 else { return Path() }
         let center = CGPoint(x: rect.midX, y: rect.midY)
-        // ⚠️ 半径乘一个余量：扇形的两条直边在 `progress == 1` 时重合于 12 点方向，
-        // 半径压在角上会让那一角的覆盖取决于浮点比较。
+        // ⚠️ 半径乘一个余量。**理由与 `seamOverlap` 同一份台账、同样今天没有判据守着**
+        // （终审 I-4：变异 M-C 把 `seamOverlap` 改成 0，整簇 37 条判据零红）——
+        // 它是**防御性的浮点余量**（半径恰好压在最远角上时，那一角的覆盖取决于浮点
+        // 比较方向），不是被观测到过的缺陷。证伪方法见 `seamOverlap` 的注释。
         let radius = Self.reach(from: center, in: rect) * (1 + Self.seamOverlap)
         let sweep = sign * progress * 360
         var path = Path()
