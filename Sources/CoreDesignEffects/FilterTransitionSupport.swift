@@ -21,7 +21,7 @@ import SwiftUI
 // | 转场 | 前庭（光流）风险 | 闪烁（亮度骤变）风险 | 读哪个信号 | 降级形态 |
 // |---|---|---|---|---|
 // | `blur` | 无——无位移/缩放/旋转 ⇒ 无光流 | 无——半径与不透明度都**单调**，亮度不往复 | **都不读** | **不降级**（降了等于把这条转场本身抹掉） |
-// | `filmExposure` | 无 | **有（弱）**：一次单向过曝峰值 = 大面积亮度上冲 | `\.accessibilityDimFlashingLights` | 峰值压到 `calmedBrightnessCeiling` 以下 |
+// | `filmExposure` | 无 | **有（弱）**：一次过曝峰值（0 → 峰 → 0）= 大面积亮度上冲 | `\.accessibilityDimFlashingLights` | 峰值压到 `calmedBrightnessCeiling` 以下 |
 // | `snapshot` | 无 | **有（强）**：快门白场比过曝更陡 | 同上 | 同上 |
 // | `flicker` | 无位移，但高频往复本身是「非必要的重复动画」 | **强**：WCAG 2.3.1 明确点名 | `\.accessibilityDimFlashingLights` **或** `\.accessibilityReduceMotion` | 往复整个去掉，退化为单调淡出 |
 //
@@ -49,9 +49,19 @@ import SwiftUI
 // `@Environment(\.accessibilityDimFlashingLights) private var dim`，
 // 恰恰对开启「减弱闪烁灯光」的用户恢复满幅闪烁，752/752 照绿）。
 // ⇒ 现在由 `FilterTransitionTests.accessibilityKeyPathsLiveOnlyInsideThePinnedChromes`
-// 扫**键路径本身**：全簇恰好 3 处 `\.accessibilityDimFlashingLights` + 1 处
-// `\.accessibilityReduceMotion`，且每一处都必须落在被
+// 扫**属性名本身**：全簇恰好 3 处 `accessibilityDimFlashingLights` + 1 处
+// `accessibilityReduceMotion`，且每一处都必须落在被
 // `chromeBodiesArePinnedVerbatim` 逐字钉住的那四个 chrome 类型体之内。
+//
+// ⚠️⚠️ **needle 不带 `\.` 前缀**（PR #289 第 2 轮 C-3 的更正）。上一版钉的是
+// `\.accessibilityDimFlashingLights` **整串**，并自述「`\.accessibility…` 这串不可改名，
+// 它是 SDK 的属性名」——**那句话只对 `accessibilityDimFlashingLights` 这一段成立**。
+// 前缀 `\.` 是 key path 的**隐式根**语法糖：显式根写法
+// `\EnvironmentValues.accessibilityDimFlashingLights` 与它逐字等价、编译通过、语义相同
+// ⇒ 带 `\.` 的 needle 对它一处都扫不到。评审实证（第 2 轮 C-3）：只把 `FlickerFilm`
+// 那一处 `@Environment` 换成显式根、其余照抄上面那枚变异，757/757 照绿。
+// ⇒ needle 只留真正不可改名的那一段（大小写敏感）。同理，`blurConsumesNoAccessibilitySignal`
+// 也从局部变量名 `dimFlashingLights`（小写 d）改到属性名 `accessibilityDimFlashingLights`。
 
 // MARK: - ⚠️⚠️ `TransitionProperties.hasMotion`：不写这一行，上面那张表在运行时全是假的
 
@@ -149,12 +159,34 @@ enum FilterTransitionSafety: Sendable, Equatable, CaseIterable {
     /// 上一版把它写成「落在 WCAG 2.3.1 的 0.1 阈值以下」，那句话在**两个方向上都错**：
     ///
     /// 1. **标准读错了**。2.3.1《Three Flashes or Below Threshold》里的 0.1 不是一条独立的
-    ///    幅度上限，而是「什么算一次 flash」定义里的一个**合取项**——原文要求
+    ///    幅度上限，而是「什么算一次 general flash」定义里的一个**合取项**——原文逐字：
     ///    "a pair of opposing changes in relative luminance of 10% or more of the maximum
-    ///    relative luminance, where the relative luminance of the darker image is below 0.80"，
-    ///    而构成违规还要**每秒 > 3 次**。`filmExposure` / `snapshot` 是**一次性、单向**的变化
-    ///    ⇒ 无论幅度多大都不构成 2.3.1 违规。拿 0.1 当它们的上限是张冠李戴，
-    ///    顺带还把它与另一条**独立的面积判据**（"大面积"）混在了一起。
+    ///    relative luminance (1.0) where the relative luminance of the darker image is
+    ///    below 0.80"。拿 0.1 当这两条转场的幅度上限是张冠李戴，顺带还把它与另一条
+    ///    **并列的通过条件**（面积）混在了一起。
+    ///
+    ///    ⚠️⚠️ **上一版给的理由本身也是错的，本轮再更正**（PR #289 第 2 轮 I-1）。
+    ///    上一版写「`filmExposure` / `snapshot` 是一次性、**单向**的变化 ⇒ 不满足
+    ///    『一对反向变化』⇒ 无论幅度多大都不构成违规」。规范原文（`https://www.w3.org/TR/WCAG22/`，
+    ///    本轮逐字核对）把 "a pair of opposing changes" 定义为 "an increase followed by a
+    ///    decrease, or a decrease followed by an increase"，Note 2 另有一句
+    ///    "A flash consists of two opposing transitions"。
+    ///    而这两条曲线（`peak · 4p(1−p)`、升余弦快门窗）都是 **0 → 峰 → 0**，
+    ///    正是「先升后降」⇒ 它们各自**构成一次 general flash**，不是"不满足定义"。
+    ///
+    ///    结论「**单次**使用不构成 2.3.1 违规」仍然成立，但正确理由是**频率**：
+    ///    一次转场只产生 **1** 次 flash，而阈值定义的第一条通过条件逐字是
+    ///    "there are no more than three general flashes and / or no more than three red
+    ///    flashes within any one-second period"。
+    ///    ⚠️ **这是一条有边界的结论，不是无条件豁免**：调用方在**一秒内触发 4 次以上**
+    ///    本簇转场（列表批量插入、照片墙逐格出现）就越过了 3 次/秒线；届时幅度那条
+    ///    合取项也会成立——`full` 档的峰值是 0.55 / 0.7，而下表实测 **0.08** 在中到亮的
+    ///    灰阶上已经给出 0.10–0.13 的 ΔrelLum。**批量场景请自行核对触发频率。**
+    ///    （另一条并列的通过条件是面积："the combined area of flashes occurring
+    ///    concurrently occupies no more than a total of .006 steradians within any
+    ///    10 degree visual field on the screen"——本簇作用在调用方给的那一块内容上，
+    ///    面积这一侧同样由调用方决定，形态同 `flicker` 已登记的那条面积告警。）
+    ///    ⚠️ 以上只写了在规范原文里逐字核对过的部分；未核对的不写。
     /// 2. **就算按字面比，0.08 也压不住 0.1**。`.brightness(_:)` 是对色彩分量做**加性**偏移，
     ///    而 WCAG 量的是线性化后按 0.2126 / 0.7152 / 0.0722 加权的**相对亮度**。
     ///    本轮用 `ImageRenderer` + `NSBitmapImageRep` 实测 `.brightness(0.08)` 的真实 ΔrelLum：

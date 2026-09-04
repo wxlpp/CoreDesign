@@ -41,12 +41,30 @@ public extension Transition where Self == FilmExposureTransition {
 无害的成像效果，而真正需要保护的（只开启「减弱闪烁灯光」的那批）仍然拿不到保护
 ——**张冠李戴的信号比没有信号更糟**。
 
-⚠️ **过曝构不构成 WCAG 2.3.1 违规？不构成。**（PR #289 终审 I-1 的更正）
-它是**单向、一次性**的：2.3.1 里「一次 flash」的定义要求**一对反向的**相对亮度变化，
-而构成违规还要**每秒 > 3 次** —— 一次性单向变化两条都不满足，幅度多大都一样。
-⚠️ 上一版这里写「同一条款的通用闪光阈值同时看幅度（≥ 0.1）⇒ 峰值仍在射程内」，
-那是**误述**：0.1 不是一条独立的幅度上限，而是那条定义里的一个合取项
-（还带着「较暗一侧的相对亮度 < 0.80」），且它与另一条独立的**面积**判据被混在了一起。
+⚠️ **过曝构不构成 WCAG 2.3.1 违规？单次使用不构成——但理由是频率，不是「单向」。**
+（PR #289 第 2 轮 I-1 的再更正；下面的引文均对 `https://www.w3.org/TR/WCAG22/` 原文逐字核对过）
+
+规范把 "a pair of opposing changes" 逐字定义为 "an increase followed by a decrease,
+or a decrease followed by an increase"，Note 2 另有一句 "A flash consists of two opposing
+transitions"。本转场的亮度曲线 `peak · 4p(1−p)` 是 **0 → 峰 → 0**，正是「先升后降」
+⇒ 它**就是一次 general flash**。
+
+⇒ 单次使用不构成违规的正确理由是**频率**：一次转场只放 **1** 次 flash，而阈值的第一条
+通过条件逐字是 "there are no more than three general flashes and / or no more than three
+red flashes within any one-second period"。
+
+⚠️ **这是一条有边界的结论，不是无条件豁免**：调用方在**一秒内插入/移除 4 个以上**带本
+转场的视图（列表批量插入、照片墙逐格出现）就越过了 3 次/秒线；届时幅度那条合取项
+（"10% or more of the maximum relative luminance (1.0) where the relative luminance of the
+darker image is below 0.80"）也会成立——`full` 档峰值是 **0.55**，而下表实测 0.08 在中到亮
+的灰阶上已经给出 0.10–0.13 的 ΔrelLum。**批量场景请自行核对触发频率。**
+（另一条并列的通过条件是面积："the combined area of flashes occurring concurrently
+occupies no more than a total of .006 steradians within any 10 degree visual field on the
+screen"——形态同 `flicker` 已登记的那条面积告警，同样由调用方决定。）
+
+⚠️ 前两版这里先写「幅度 ≥ 0.1 仍在射程内」、再写「单向 ⇒ 不满足『一对反向变化』，
+幅度多大都一样」，**两句都是误述**（终审 I-1 与第 2 轮 I-1）。0.1 不是一条独立的幅度
+上限，而是 general flash 定义里的一个合取项；「单向」这个前提本身不成立。
 
 ⇒ **那为什么还压制？因为用户显式打开了「减弱闪烁灯光」**——那是系统为光敏性提供的
 偏好开关，一次大面积亮冲正是它想减弱的东西。这个理由自己站得住，不需要 WCAG 背书。

@@ -201,6 +201,24 @@ nonisolated enum FlickerWave {
 ///    ——纯函数的速率上界（`FilterTransitionTests.flickerPaceStaysUnderTheFlashRateLimit`）
 ///    与 `chromeBodiesArePinnedVerbatim` 逐字钉住的那一行 `.animation(...)`。
 ///    时序本身靠 `#Preview` 人工确认；这条限度如实登记，**不假称已验证**。
+///    ⚠️ 那次人工确认**在 macOS 与 iOS 两侧都要做**：本轮用 `NSHostingView` + 逐帧
+///    wall-clock 实测「内层 `.animation` 赢过调用方 `withAnimation`、SwiftUI 不截断」，
+///    但那只是 **macOS** 一侧的证据，iOS 侧同样需人工确认，本条不代它下结论。
+/// 4. **`duration(cycles:)` 无上界 ⇒ 大 `cycles` 会给出很长的转场**（第 2 轮 S-2）。
+///    `.flicker(cycles: 1000)` ⇒ `1000 / 2.5` = **400 秒**，观感接近卡死。
+///    这是本节奏引入的**新**失效形态：钉时长之前大 `cycles` 是"闪太快"，之后变成
+///    "转场几分钟不收敛"。判据只测到 `cycles = 100`（40 秒）。
+///    ⚠️ **有意不钳位**，理由两条：
+///    (a) 钳 `duration` 会**破坏安全性质本身**——速率就是 `cycles ÷ duration`，
+///        把分母封顶等于把速率抬到 2.5 次/秒线以上，正是本节奏存在的意义要禁止的事；
+///    (b) 钳 `cycles` 得钳在闸或 chrome 那一层，那会让 `.flicker(cycles:)` 静默忽略
+///        调用方给的值，与「调高 `cycles` 只会把转场拉长」这条已公开的契约冲突，
+///        且找不到一个有原则的上限值。
+///    ⇒ 失效形态是**观感 / 可用性**，不是 a11y 安全性（速率上界在任何 `cycles` 下都成立）
+///    ⇒ 按本仓成法**登记代价**而不是加钳位，并在
+///    `FilterTransitionTests.flickerPaceStaysUnderTheFlashRateLimit` 里把
+///    `duration(cycles: 1000) == 400` 这个极端**逐字钉住**——哪天真要加钳位，
+///    那条判据会判红，把决定重新推回评审桌上。**调用方自己别传大 `cycles`。**
 /// ⚠️ 即便 SwiftUI 在调用方事务结束时提前把视图摘掉（截断本条转场），
 /// 安全性质仍然成立：截断只会**少放几次**闪烁，抬不高**速率**——
 /// 速率就是 `cycles ÷ duration` 这条比值本身，而它已经被钉死。
@@ -243,6 +261,8 @@ public extension Transition where Self == FlickerTransition {
     /// ⚠️ 传进来的值仍会被那道 a11y 闸压制到 0——调用方**绕不过**它。
     /// ⚠️ 调高 `cycles` 只会把转场**拉长**（`FlickerPace.duration(cycles:)`），
     /// **抬不高速率**——调用方同样绕不过 2.5 次/秒这条线。
+    /// ⚠️ **"拉长"没有上界**：`cycles: 1000` ⇒ 400 秒的转场，观感接近卡死。
+    /// 有意不钳位，理由与代价见 `FlickerPace` 的类型文档第 4 条。
     static func flicker(cycles: Int = FlickerTransition.defaultCycles) -> FlickerTransition {
         FlickerTransition(cycles: cycles)
     }

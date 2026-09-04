@@ -37,10 +37,17 @@ public extension Transition where Self == SnapshotTransition {
 | 前庭（光流） | **无风险**——无位移 / 旋转 / 缩放 | **有意不读** `\.accessibilityReduceMotion` |
 | 光敏（亮度） | **有（强）**——快门白场是全簇**最陡**的一次亮度上冲 | 读 `\.accessibilityDimFlashingLights` |
 
-白场被刻意做成一个**窄窗**（半宽 0.25 的升余弦），窄意味着**陡**。
-它仍然是**一次性、单向**的 ⇒ **不构成 WCAG 2.3.1 违规**：那一条要求「一对反向的相对
-亮度变化」且「每秒 > 3 次」，两条都不满足（PR #289 终审 I-1 的更正——上一版把 0.1
-写成一条独立的幅度阈值，那是误述）。
+白场被刻意做成一个**窄窗**（半宽 0.25 的升余弦），窄意味着**陡**。窗形是 **0 → 峰 → 0**
+⇒ 按 WCAG 2.3.1 的定义（"a pair of opposing changes" 逐字即 "an increase followed by a
+decrease, or a decrease followed by an increase"）**它就是一次 general flash**。
+**单次**使用不构成 2.3.1 违规，理由是**频率**：一次转场只放 1 次 flash，而阈值的第一条
+通过条件是「任意一秒内 general flash 不超过 3 次」。
+⚠️ **有边界，不是无条件豁免**：一秒内插入/移除 4 个以上带本转场的视图（列表批量插入、
+照片墙逐格出现）就越过 3 次/秒线，届时 `full` 档 **0.7** 的峰值幅度也远高于「10% 相对
+亮度」那条合取项。**批量场景请自行核对触发频率。**
+⚠️ 前两版这里先把 0.1 写成一条独立的幅度阈值、再写「单向 ⇒ 不满足『一对反向变化』」，
+**两句都是误述**（终审 I-1 与第 2 轮 I-1）；逐字论证见
+`docs/components/film-exposure-transition.md` 同一节。
 ⇒ 压制它的理由与 `filmExposure` 逐字相同：**用户显式打开了「减弱闪烁灯光」**，
 而这是全簇最陡的一下亮冲。走同一道闸、同一个上限
 （`FilterTransitionSafety.exposure(dimFlashingLights:)` ⇒ 峰值 ≤ **0.08**）。

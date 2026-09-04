@@ -392,8 +392,14 @@ struct FilterTransitionTests {
     /// ⚠️⚠️ **上一版这条判据里有一句自说自话的断言，已删**（终审 I-1）：
     /// `#expect(calmedBrightnessCeiling < 0.1, "上限没有落在 WCAG 2.3.1 通用闪光阈值以下")`
     /// ——它以「已验证达标」的名义出现在测试报告里，而它**不证明它声称的事**：
-    /// (a) 2.3.1 的 0.1 不是独立的幅度上限，而是「什么算一次 flash」定义里的合取项，
-    ///     构成违规还要每秒 > 3 次；本簇的曝光是**一次性单向**变化，不在射程内。
+    /// (a) 2.3.1 的 0.1 不是独立的幅度上限，而是「什么算一次 general flash」定义里的合取项。
+    ///     ⚠️ 上一版这里接着写「本簇的曝光是**一次性单向**变化，不在射程内」，
+    ///     那是**第 2 轮 I-1 更正掉的第二处误述**：规范把 "a pair of opposing changes"
+    ///     逐字定义为 "an increase followed by a decrease, or a decrease followed by an
+    ///     increase"，而这两条曲线都是 0 → 峰 → 0 ⇒ 各自**就是**一次 general flash。
+    ///     单次使用不构成违规的正确理由是**频率**（一次转场 1 次 flash，阈值给的是
+    ///     「任意一秒内不超过 3 次」），而那是一条**有边界**的结论——一秒内触发 4 次以上
+    ///     就越线。逐字论证见 `FilterTransitionSafety.calmedBrightnessCeiling`。
     /// (b) `.brightness(_:)` 是**加性**通道偏移，与 WCAG 的**相对亮度**不是同一个量：
     ///     实测 `.brightness(0.08)` 在 gray 0.70 / 0.85 上的 ΔrelLum 是 0.1111 / 0.1286
     ///     ——**高于** 0.1，方向与那条断言声称的相反。逐格实测见
@@ -767,20 +773,29 @@ struct FilterTransitionTests {
     }
 
     /// `blur` 的「两个信号都不读」这条裁决，正面钉一遍。
+    ///
+    /// ⚠️ **needle 用 SDK 的属性名，不用局部变量名**（PR #289 第 2 轮 C-3）。
+    /// 上一版查的是 `dimFlashingLights`（**小写 d**）——那是本簇给 `@Environment`
+    /// 变量取的名字，可以随手改掉；真正不可改名的是 `accessibilityDimFlashingLights`
+    /// （**大写 D**）。于是 `blur` 里写一句
+    /// `@Environment(\.accessibilityDimFlashingLights) private var x` 就能整条绕过去，
+    /// 而「`blur` 两个信号都不读」这条裁决从来没被扫到过。
     @Test("blur 不读任何 a11y 信号（这条裁决写在源码上，改它必须回来改判据）")
     func blurConsumesNoAccessibilitySignal() throws {
         let code = try Self.strippedSource("BlurTransition.swift")
-        #expect(!code.contains("reduceMotion"), """
+        #expect(!code.contains("accessibilityReduceMotion"), """
         `BlurTransition.swift` 读了 Reduce Motion —— 那与它的类型文档直接打架
         （「不读任何 a11y 信号」是那份文档给出的**结论**，不是遗漏）。
         要改这条裁决，先改 `FilterTransitionSupport.swift` 的判据表与
         `docs/components/blur-transition.md`，再改本判据。
         """)
-        #expect(!code.contains("dimFlashingLights"), "`BlurTransition.swift` 读了「减弱闪烁灯光」")
+        #expect(!code.contains("accessibilityDimFlashingLights"),
+                "`BlurTransition.swift` 读了「减弱闪烁灯光」")
         // ⚠️ **互锁**：另外三个文件必须真的读得到这两个名字，否则上面两条对
         // 「整个 target 都没这两个符号」同样成立。
-        #expect(try Self.strippedSource("FlickerTransition.swift").contains("reduceMotion"))
-        #expect(try Self.strippedSource("FilmExposureTransition.swift").contains("dimFlashingLights"))
+        #expect(try Self.strippedSource("FlickerTransition.swift").contains("accessibilityReduceMotion"))
+        #expect(try Self.strippedSource("FilmExposureTransition.swift")
+            .contains("accessibilityDimFlashingLights"))
     }
 
     /// ⚠️⚠️ **四个 chrome 的类型体逐字钉死。**
@@ -1030,11 +1045,11 @@ struct FilterTransitionTests {
         #expect(expected.count == 8, "期望表只剩 \(expected.count) 条 —— 第 1 层有区间没被钉住")
     }
 
-    /// ⚠️⚠️⚠️ **扫「不可改名的东西」：两个 a11y 环境键路径。**
+    /// ⚠️⚠️⚠️ **扫「不可改名的东西」：两个 a11y 环境属性名。**
     ///
     /// `safetySignalsAreOnlyConsumedByTheSharedGate` 数的是字面子串
     /// `self.dimFlashingLights` / `self.reduceMotion`，裸写检查按**小写词边界**匹配
-    /// `dimFlashingLights` —— 而环境键路径写作 `\.accessibilityDimFlashingLights`（**大写 D**）
+    /// `dimFlashingLights` —— 而 SDK 的属性名是 `accessibilityDimFlashingLights`（**大写 D**）
     /// ⇒ **把 `@Environment` 变量取任何别的名字，两侧计数都是 0、`0 == 0` 成立、无 stray**。
     /// 评审实证（终审 C-3）：
     ///
@@ -1048,12 +1063,23 @@ struct FilterTransitionTests {
     ///
     /// 语义：**恰恰对开启「减弱闪烁灯光」的用户**恢复满幅闪烁。
     /// `FlickerChrome` 被逐字钉住反而给了虚假安全感——缺陷放进**没被钉的相邻类型**即可。
-    /// ⇒ 本条改扫键路径本身（`\.accessibility…` 这串**不可改名**，它是 SDK 的属性名），
-    /// 并要求每一处都落在被 `chromeBodiesArePinnedVerbatim` 逐字钉住的四个类型体之内。
-    @Test("两个 a11y 键路径只许出现在被逐字钉住的四个 chrome 类型体内")
+    /// ⇒ 本条改扫**属性名本身**，并要求每一处都落在被 `chromeBodiesArePinnedVerbatim`
+    /// 逐字钉住的四个类型体之内。
+    ///
+    /// ⚠️⚠️ **needle 是裸属性名，不带 `\.` 前缀**（PR #289 第 2 轮 C-3 的更正）。
+    /// 上一版钉的是 `#"\.accessibilityDimFlashingLights"#`，并自述「`\.accessibility…`
+    /// 这串不可改名」——**那句话只对 `accessibilityDimFlashingLights` 这一段成立**。
+    /// 前缀 `\.` 是 key path 的**隐式根**语法糖：写成显式根
+    /// `\EnvironmentValues.accessibilityDimFlashingLights` 与它逐字等价、编译通过、
+    /// 语义完全相同 ⇒ 带 `\.` 的 needle 对它**一处都扫不到**。评审实证（第 2 轮 C-3）：
+    /// 只把 `FlickerFilm` 里那一处 `@Environment` 改成显式根、其余逐字照抄第 1 轮那枚变异，
+    /// `swift test` = 757 tests in 110 suites passed with 4 known issues。
+    /// ⇒ needle 去掉 `\.`，只留真正不可改名的那一段（**大小写敏感**）。
+    /// 计数不变：`FilmExposure` 1 + `Snapshot` 1 + `Flicker` 1 = 3 / `Flicker` 1 = 1。
+    @Test("两个 a11y 环境属性只许出现在被逐字钉住的四个 chrome 类型体内")
     func accessibilityKeyPathsLiveOnlyInsideThePinnedChromes() throws {
-        let dimKeyPath = #"\.accessibilityDimFlashingLights"#
-        let motionKeyPath = #"\.accessibilityReduceMotion"#
+        let dimKeyPath = "accessibilityDimFlashingLights"
+        let motionKeyPath = "accessibilityReduceMotion"
         // 与 `chromeBodiesArePinnedVerbatim` 的期望表同一批类型 —— 那四个体是逐字钉住的，
         // 键路径落在里面才等于"落在被钉住的形态里"。
         let pinnedChromes = [
@@ -1084,7 +1110,7 @@ struct FilterTransitionTests {
         """)
         #expect(strayMotion.isEmpty, "这些地方在四个 chrome 之外读了 `\(motionKeyPath)`：\(strayMotion)")
 
-        // ⚠️⚠️ **非空前置**：键路径一处都不出现时，上面两条恒真。
+        // ⚠️⚠️ **非空前置**：属性名一处都不出现时，上面两条恒真。
         // 3 = FilmExposureChrome 1 + SnapshotChrome 1 + FlickerChrome 1；1 = FlickerChrome。
         #expect(totalDim == 3, """
         全簇 `\(dimKeyPath)` 实测 \(totalDim) 处，裁决表说 3 处
@@ -1156,6 +1182,8 @@ struct FilterTransitionTests {
     ///（`ImageRenderer` 拍的是静态帧）。另一半由 `chromeBodiesArePinnedVerbatim`
     /// 逐字钉住的那一行 `.animation(...)` 承担——两条合起来才是完整的链，
     /// 时序本身靠 `#Preview` 人工确认，这条限度如实登记。
+    /// ⚠️ 那次人工确认**在 macOS 与 iOS 两侧都要做**：本轮的逐帧 wall-clock 实测
+    /// 只在 macOS（`NSHostingView`）上做过，iOS 侧同样需人工确认。
     @Test("flicker 自己钉死时长：任何 cycles 下的感知频率都在 WCAG 的 3 次/秒线下")
     func flickerPaceStaysUnderTheFlashRateLimit() {
         #expect(FlickerPace.maximumFlashesPerSecond < 3,
@@ -1179,6 +1207,15 @@ struct FilterTransitionTests {
         // ⚠️ **互锁**：`duration(_:)` 必须真的随 cycles 变长，否则上面的速率断言
         // 对一条"恒返回一个大常数"的实现同样成立，而那会让 cycles 调高时无声变慢。
         #expect(FlickerPace.duration(cycles: 20) > FlickerPace.duration(cycles: 3))
+        // ⚠️⚠️ **把「无上界」这条代价逐字钉住**（第 2 轮 S-2）：`duration(cycles:)` 没有
+        // 封顶 ⇒ `.flicker(cycles: 1000)` 给出 **400 秒**的转场，观感接近卡死。
+        // 这是钉时长引入的**新**失效形态（此前大 cycles 是"闪太快"）。有意不钳位——
+        // 钳分母会把速率抬到 2.5 次/秒线以上，钳 cycles 会让公开入口点静默忽略调用方
+        // 的值；理由与代价逐条写在 `FlickerPace` 的类型文档第 4 条。
+        // ⇒ 本行是**代价登记**而不是"达标断言"：哪天真加了钳位，它会判红，
+        //   把那次裁决重新推回评审桌上（连同 `FlickerPace` 那一条一起改）。
+        #expect(FlickerPace.duration(cycles: 1000) == 400,
+                "`duration(cycles: 1000)` 不再是 400 秒 —— 要么加了钳位，要么速率上界变了，两种都要回 `FlickerPace` 重判")
     }
 
     /// 本 suite 的位图判据一律走 `Self.pixels(_:)`（形态级暖机在那里）。
@@ -1192,22 +1229,26 @@ struct FilterTransitionTests {
         let stripped = MicroInteractionReduceMotionGuard.stripComments(code)
         // ⚠️ needle 与两个 marker **都必须拼出来**：写成完整字面量的话，本判据会命中
         // 它自己写下的那几个字符串 ⇒ 恒红（`noRawBitmapComparisonsInThisFile` 踩过同一个坑）。
-        let needle = "MicroInteractionAPITests" + ".stablePixels("
+        // ⚠️⚠️ **needle 不带类型名前缀**（PR #289 第 2 轮 S-1）：上一版数的是
+        // `MicroInteractionAPITests` + `.stablePixels(`，而 `typealias MIA = MicroInteractionAPITests`
+        // 之后 `MIA.stablePixels(...)` 两条断言都放行（计数仍是 2、`outside` 也不含 needle）
+        // ⇒ 暖机被静默丢掉。改成只钉调用本身这一段，任何拼写的接收者都躲不过去。
+        let bareCall = ".stablePixels" + "("
         let warmUpMarker = "private static let " + "warmUp"
         let pixelsMarker = "static func " + "pixels(_ view:"
 
-        #expect(ConfettiTests.occurrences(of: needle, in: stripped) == 2, """
-        本文件里直调底层取样的地方实测 \(ConfettiTests.occurrences(of: needle, in: stripped)) 处，
+        #expect(ConfettiTests.occurrences(of: bareCall, in: stripped) == 2, """
+        本文件里直调底层取样的地方实测 \(ConfettiTests.occurrences(of: bareCall, in: stripped)) 处，
         应当恰好 2 处（形态级暖机 1 处 + `pixels(_:)` 这道漏斗 1 处）。
         """)
         var outside = stripped
         outside = ConfettiTests.removingRegion(after: warmUpMarker, in: outside)
         outside = ConfettiTests.removingRegion(after: pixelsMarker, in: outside)
-        #expect(!outside.contains(needle), """
+        #expect(!outside.contains(bareCall), """
         暖机与 `pixels(_:)` 之外还有地方直调底层取样 —— 那条判据静默丢掉了形态级暖机。
         """)
         // ⚠️ 非空前置：文件读不到 / marker 改名时上面两条恒真。
-        #expect(stripped.contains(needle), "读不到本文件源码 —— 上面那条是恒真的")
+        #expect(stripped.contains(bareCall), "读不到本文件源码 —— 上面那条是恒真的")
         #expect(stripped.contains(warmUpMarker) && stripped.contains(pixelsMarker),
                 "两个 marker 里有已经改名的 —— `removingRegion` 会原样返回，判据形同虚设")
     }

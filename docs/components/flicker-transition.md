@@ -95,6 +95,18 @@ withAnimation { shownMore.toggle() }   // .flicker(cycles: 8) ⇒ 3.2 秒
    纯函数的速率上界（`flickerPaceStaysUnderTheFlashRateLimit`）与
    `chromeBodiesArePinnedVerbatim` 逐字钉住的那一行 `.animation(...)`。
    **时序本身靠 `#Preview` 人工确认；这条限度如实登记，不假称已验证。**
+   ⚠️ 那次人工确认**在 macOS 与 iOS 两侧都要做**：本轮用 `NSHostingView` + 逐帧
+   wall-clock 实测过「内层 `.animation` 赢过调用方 `withAnimation`、SwiftUI 不截断」，
+   但那只是 **macOS** 一侧的证据，**iOS 侧同样需人工确认**。
+4. **`FlickerPace.duration(cycles:)` 无上界**（PR #289 第 2 轮 S-2）：
+   `.flicker(cycles: 1000)` ⇒ `1000 / 2.5` = **400 秒**的转场，观感接近卡死。
+   这是钉时长引入的**新**失效形态——此前大 `cycles` 是"闪太快"，现在变成"不收敛"。
+   ⚠️ **有意不钳位**：钳分母会把速率抬到 2.5 次/秒线以上（速率就是 `cycles ÷ duration`），
+   钳 `cycles` 会让 `.flicker(cycles:)` 静默忽略调用方给的值、与「调高 `cycles` 只会把
+   转场拉长」这条已公开的契约冲突，且找不到有原则的上限值。失效形态是**观感 / 可用性**
+   而不是 a11y 安全性（速率上界在任何 `cycles` 下都成立）⇒ **登记代价**，
+   并在 `flickerPaceStaysUnderTheFlashRateLimit` 里把 `duration(cycles: 1000) == 400`
+   逐字钉住。**调用方自己别传大 `cycles`。**
 
 ⚠️ 即便 SwiftUI 在调用方事务结束时提前把视图摘掉（截断本条转场），安全性质仍然成立：
 截断只会**少放几次**闪烁，抬不高**速率**——速率就是 `cycles ÷ duration` 这条比值本身。

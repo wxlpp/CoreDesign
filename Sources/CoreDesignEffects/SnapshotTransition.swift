@@ -26,12 +26,18 @@ import SwiftUI
 ///   ⚠️⚠️ 与 `filmExposure` 同：这条「有意不读」只有在 `properties.hasMotion == false`
 ///   时才落得了地，否则框架会在 Reduce Motion 下把整条转场换成 `.opacity`（终审 C-4）。
 /// - **光敏**：快门白场是全簇**最陡**的一次亮度上冲——它被刻意做成一个窄窗
-///   （`shutterWidth = 0.25` 的升余弦），窄意味着**陡**。它仍然是**一次性、单向**的
-///   ⇒ **不构成 WCAG 2.3.1 违规**（那一条要求「一对反向变化」且「每秒 > 3 次」）。
+///   （`shutterWidth = 0.25` 的升余弦），窄意味着**陡**。窗形是 **0 → 峰 → 0**，
+///   按 WCAG 2.3.1 的定义（"an increase followed by a decrease"）**这就是一次 general flash**。
+///   ⇒ **单次**使用不构成 2.3.1 违规，理由是**频率**：一次转场只放 1 次 flash，
+///   而阈值的第一条通过条件是「任意一秒内 general flash 不超过 3 次」。
+///   ⚠️ **有边界**：一秒内触发 4 次以上本转场（列表批量插入、照片墙逐格出现）
+///   就越过 3 次/秒线，届时 `full` 档 0.7 的峰值幅度也远高于「10% 相对亮度」那条合取项。
+///   **批量场景请自行核对触发频率。**
 ///   压制它的理由与 `filmExposure` 逐字相同：**用户显式打开了「减弱闪烁灯光」**，
 ///   而这是全簇最陡的一下亮冲，幅度这一侧比 `filmExposure` 更该管。
-///   ⚠️ 上一版这里把 0.1 写成一条独立的幅度阈值，那是误述，更正见
-///   `FilterTransitionSafety.calmedBrightnessCeiling`（终审 I-1）。
+///   ⚠️ 上两版这里先把 0.1 写成一条独立的幅度阈值、再写「单向 ⇒ 不满足『一对反向变化』」，
+///   **两句都是误述**；逐字更正见 `FilterTransitionSafety.calmedBrightnessCeiling`
+///   （PR #289 终审 I-1 与第 2 轮 I-1）。
 ///
 /// ⇒ 与 `filmExposure` 走**同一道闸、同一个上限**
 ///（`FilterTransitionSafety.exposure(dimFlashingLights:)` ⇒ `calmedBrightnessCeiling`）。
