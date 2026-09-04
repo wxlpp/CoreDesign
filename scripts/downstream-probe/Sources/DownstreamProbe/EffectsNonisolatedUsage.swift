@@ -94,3 +94,18 @@ nonisolated func readTypewriterSpeedKnobs() -> [Double] {
 nonisolated func readParticleTransitionDefaultCount() -> Int {
     ParticleTransition.defaultCount
 }
+
+// MARK: - #254 的公开值类型（跨平台改造）
+//
+// ⚠️ 四件的公开面里**只有这四个常量是值类型**，其余全是 `View`（在
+// `PublicVisibility.swift`，`@MainActor`）。按文件头的分流表，它们走本文件：
+// 它们是调用方在自己模型 / 配置层会读的东西，被 `MainActor` 隔离会让下游
+// 在后台线程准备参数时用不了——**这只有本 probe 看得见**。
+nonisolated func readCrossPlatformDefaults() -> [Double] {
+    [
+        Double(DotSphere.defaultCount),
+        DotSphere.defaultRotationPeriod,
+        Double(CharSphere.defaultCount),
+        CharSphere.defaultRotationPeriod,
+    ]
+}
