@@ -66,7 +66,12 @@ locale 行为**不同**，这是上面那条"只有一种做得到"的例外附�
 
 ## 速度
 
-三档语义值（**不暴露"每字多少毫秒"这类裸数值**，与 `MicroInteractionStrength` 同一条调参纪律）：
+三档语义值（**调用方选档位，而不是传一个裸的毫秒数**，与 `MicroInteractionStrength`
+同一条调参纪律）。⚠️ 纪律管的是**调参入口**：每档的间隔由公开的
+`TypewriterSpeed.secondsPerCharacter` 给出，下表就是它的取值，调用方读得到；
+挡住的只是 `TypewriterText(..., secondsPerCharacter: 0.037)` 这种把裸数值当参数传进来
+的用法。（上一版这里写的是「不暴露……裸数值」，与那个公开属性直接矛盾
+——#253 PR #273 Copilot 第 3 轮。）
 
 | 档 | 每字间隔 | 约合 |
 |---|---|---|

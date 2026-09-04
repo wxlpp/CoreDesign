@@ -10,8 +10,16 @@ import SwiftUI
 
 // MARK: - 速度档位 / Speed
 
-/// 打字机的速度档位。**语义档位，不暴露"每字多少毫秒"这类裸数值**
+/// 打字机的速度档位。**调用方选档位，而不是传一个裸的毫秒数**
 ///（与 `MicroInteractionStrength` / `ButtonRoleStyleRole` 同一条调参纪律）。
+///
+/// ⚠️ 这条纪律管的是**调参入口**，不是"这个数字保密"：每档对应的间隔由下面**公开**的
+/// `secondsPerCharacter` 给出，调用方读得到、也应当读得到（估算总时长、写文档、
+/// 与别的时序对齐都要用它）。挡住的只是
+/// `TypewriterText(..., secondsPerCharacter: 0.037)` 这种把裸数值当参数传进来的用法
+/// ——那会让三档语义在调用方那里失去意义。
+/// ⚠️ 上一版这句写的是「**不暴露**"每字多少毫秒"这类裸数值」（#253 PR #273 Copilot
+/// 第 3 轮）：与紧接着的公开 `secondsPerCharacter` **直接矛盾**，是措辞错误。
 ///
 /// ⚠️ `nonisolated`：本包开了 `.defaultIsolation(MainActor.self)`，不标的话
 /// `TypewriterReveal`（`nonisolated`，要能在 nonisolated 上下文里被求值）读不到它
