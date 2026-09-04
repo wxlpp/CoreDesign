@@ -30,6 +30,12 @@ github: https://github.com/wxlpp/CoreDesign/issues/243
 | `colorEffect` | **17** | 真程序化背景，可 `.background { }` | AnimatedLoop · ColorPanels · DotOrbit · Dots · FractalClouds · GrainGradient · InkSmoke · LiquidChrome · Metaballs · NeuroNoise · Plasma · SimplexNoise · SmokeRing · Starfield · StarNest · Swirl · Voronoi |
 | `layerEffect` | **11** | 作用于**内容层**（箔片卡片 / 玻璃放大镜 / 半调网屏），`.background{}` 画不了 | ChromaticGlass · Foil · Glass · GlassLogo · GlassOrb · Glitter · Halftone · IntenseBling · LiquidMetal · PolishedAluminum · Water |
 
+⚠️⚠️ **本表是上游清单，不是"可落地清单"**：`Starfield` 经 #281 追溯判 **`不落地`**
+（上游 Martijn Steinrucken《Starfield Tutorial》，**CC BY-NC-SA 3.0**，与本仓 MIT 分发不兼容），
+**已从 `CoreDesignShaders` 撤回删除**。⇒ B-1 首批由 8 件变为 **7 件**，
+`Estimated Effort` 的「最好情况 28 个全落地」上限相应变为 **27**。
+逐件裁定见 `docs/shader-provenance.md`。
+
 ## 启动条件与前置（两者不同，别混）
 
 ### 启动条件 = `shipswift-foundation` 的两闸双双通过
@@ -256,5 +262,5 @@ B-4  收尾：
 ## Estimated Effort
 
 不确定——**取决于两闸**。最坏情况本 epic 不启动（成本 0，已由 A0 的 spike 与核验吸收）；
-最好情况 28 个全落地。B-1 的一次性基建（构建系统 + 3 份 metallib + 同步守卫）是固定成本，
+最好情况 **27** 个全落地（`Starfield` 已判 `不落地` 并撤回，见上文表下的说明）。B-1 的一次性基建（构建系统 + 3 份 metallib + 同步守卫）是固定成本，
 也正是 `N_B` 下限要衡量的那笔。

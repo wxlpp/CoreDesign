@@ -18,7 +18,8 @@ import Testing
 //
 // 包里有 4 个 test bundle，`swift test --build-system swiftbuild --filter
 // CoreDesignShadersTests` 会打印**四行** "Test run with …"：本 bundle 的
-// 「18 tests in 7 suites」，另外三个各一行「0 tests … passed」。
+// 「17 tests in 7 suites」（`Starfield` 随 #281 撤回后由 18 减 1），
+// 另外三个各一行「0 tests … passed」。
 // 用 `tail` 取最后一行恰好取到那个 0 ⇒ 会误判成「一条都没跑」。
 //
 // ⚠️ 上一版据此在这里写下「`--filter` 在 swiftbuild 下恒返回 0 tests，
@@ -27,7 +28,7 @@ import Testing
 //（会让 `ColorAssetGuardTests` 静默跳过，#258 踩过的坑）。
 //
 // ⚠️ 第 3 轮 I-4 的**另一半仍然成立**：`RenderProofTests` 整个文件包在
-// `#if os(iOS)` 里 ⇒ macOS 腿的 18 条里**一条渲染证明都没有**，
+// `#if os(iOS)` 里 ⇒ macOS 腿的 17 条里**一条渲染证明都没有**，
 // rim / 折射的机器守卫只在 iOS Simulator 腿上跑。
 @Suite("CoreDesignShaders metallib 加载 —— fail-closed")
 struct ShaderLibraryLoadTests {
@@ -36,7 +37,6 @@ struct ShaderLibraryLoadTests {
     /// 漏加不会有任何报错，那个 shader 的"函数名拼错 / 没编进 metallib"就无人守。
     static let entryPoints = [
         "coreDesignPlasma",
-        "coreDesignStarfield",
         "coreDesignDotGrid",
         "coreDesignFractalClouds",
         "coreDesignInkSmoke",
@@ -44,7 +44,7 @@ struct ShaderLibraryLoadTests {
         "coreDesignRefractiveGlass",
     ]
 
-    @Test("bundle 里有 metallib，且七个入口全部解析得到")
+    @Test("bundle 里有 metallib，且六个入口全部解析得到")
     func libraryLoads() throws {
         try CoreDesignShaders.assertShaderLibraryLoadable(functions: Self.entryPoints)
     }
@@ -70,12 +70,6 @@ struct SemanticStopTests {
         #expect(zip(stops, stops.dropFirst()).allSatisfy { $0.frequency < $1.frequency })
         #expect(zip(stops, stops.dropFirst()).allSatisfy { $0.octaves <= $1.octaves })
         #expect(stops.allSatisfy { $0.octaves >= 1 })
-    }
-
-    @Test("Starfield.Density 单调递增")
-    func starfield() {
-        let cells = Starfield.Density.allCases.map(\.cells)
-        #expect(zip(cells, cells.dropFirst()).allSatisfy(<))
     }
 
     @Test("DotGrid.Spacing：格数递增，半径不减")

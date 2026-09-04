@@ -23,13 +23,12 @@ struct RenderProofTests {
     /// ⚠️ 用枚举而不是 `AnyView` 作参数化实参——`AnyView` **不是 `Sendable`**，
     /// 直接当 `arguments:` 会编译失败（`conformance of 'AnyView' to 'Sendable' is unavailable`）。
     enum Background: String, CaseIterable, Sendable {
-        case plasma, starfield, dotGrid, fractalClouds, inkSmoke, liquidChrome
+        case plasma, dotGrid, fractalClouds, inkSmoke, liquidChrome
 
         @MainActor
         @ViewBuilder var view: some View {
             switch self {
             case .plasma: Plasma(tint: .blue, density: .dense)
-            case .starfield: Starfield(tint: .white, density: .dense)
             case .dotGrid: DotGrid(tint: .blue, spacing: .tight)
             case .fractalClouds: FractalClouds(tint: .blue, density: .turbulent)
             case .inkSmoke: InkSmoke(tint: .blue, density: .heavy)
@@ -38,7 +37,7 @@ struct RenderProofTests {
         }
     }
 
-    @Test("六个程序化背景各自渲染出非纯色结果", arguments: Background.allCases)
+    @Test("五个程序化背景各自渲染出非纯色结果", arguments: Background.allCases)
     func backgroundsRender(_ background: Background) throws {
         let samples = try Self.render(background.view.frame(width: 64, height: 64))
         #expect(
@@ -221,9 +220,11 @@ struct RenderProofTests {
         return out
     }
 
-    /// ⚠️ **全图网格扫描，不是几个固定采样点**：初版用 6 个固定点，`Starfield` 判红
+    /// ⚠️ **全图网格扫描，不是几个固定采样点**：初版用 6 个固定点会判红。
+    /// ⚠️ 当时的触发者是 `Starfield`（**已随 #281 撤回**，别再去 grep 这个类型）
     /// ——而那不是 shader 的问题，是**星星按设计就稀疏**（只有一部分格子有星），
-    /// 6 个点全落在空天区。稀疏效果需要足够的采样密度才谈得上"输出随位置变化"。
+    /// 6 个点全落在空天区。任何稀疏效果都需要足够的采样密度才谈得上"输出随位置变化"，
+    /// 所以这条设计**不随该件撤回而失效**。
     /// ⚠️ 修法是**加密采样**而不是放宽断言——放宽会让这条守卫对真正的"静默无渲染"失灵。
     private static func render(_ view: some View) throws -> [UInt32] {
         let (pixels, width, height) = try Self.rgbaPixels(view)
