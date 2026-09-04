@@ -12,6 +12,11 @@ import SwiftUI
 // 全部 token 直接指向系统填充色族（`systemFill` / `secondarySystemFill` /
 // `tertiarySystemFill` / `quaternarySystemFill`），UIKit / AppKit 双端均正确桥接，
 // 随系统外观自动更新。`tertiaryFill` 另被 `SurfaceColors.surfaceCanvasInset` 复用。
+//
+// ⚠️ **「全部 token 直接指向系统填充色族」这句话已经不准确**（PR #262 第 3 轮终审 I-1）：
+// `skeletonBase` / `skeletonHighlight` 进来时它就已失真，本次再加 `specularHighlight`
+// 后更假。本文件现在含**三个派生 / 定值 token**，它们不指向系统填充色族。
+// 同一处失真也在 `docs/DESIGN-FOUNDATION.md` 的 FillColors 行。
 public extension Color {
     /// 为细小形状的叠加填充颜色。
     ///
@@ -90,4 +95,30 @@ public extension Color {
     /// > 亮色下近白）。承 `InteractionColors` accent 衍生态「对系统色调制」的先例，token 可动——
     /// > 后续若视觉评审要微调，改这里的掺色因子即可，`Skeleton` 组件复用本 token、不在组件内绕开。
     static var skeletonHighlight: Color { Color.skeletonBase.mix(with: .white, by: 0.5) }
+
+    /// 扫光高光色（`.shine()` 这类掠过内容的高光带）。Specular sweep highlight.
+    ///
+    /// **固定为白**：扫光是**光源反射**，它在明暗两端都应当比底下的内容**更亮**，
+    /// 而不是"跟随外观取反"。
+    ///
+    /// ⚠️ **上一版写「与 `contentOnAccent` 族同理」——那个援引不成立**
+    ///（第 3 轮终审 I-1）：`ContentColors` 给那族白色 token 的理由是**带前提的**
+    /// ——「这些 token 的消费点均为**固定饱和色背景（非动态色）**，白字对比度可靠」。
+    /// 而 `.shine()` 的消费点是**任意内容**，正是该前提不成立的那一类。
+    /// 借的是它的**形态**，不是它的论证。
+    ///
+    /// ⚠️ **已知限度（与被修掉的那个 bug 互为镜像，不是被消灭）**：白高光遇到
+    /// **浅色 / 近白内容**会看不见。而 `.shine()` 用 `.mask(content)` 把高光裁到内容
+    /// 形状内，所以"内容本身是浅色"（浅色外观下的白字、白卡片）是常见场景而非边缘。
+    /// ⇒ 这种场景调用方应显式传 `highlight:`。
+    /// 根治方向是把高光改成**加性合成**（`.blendMode(.plusLighter)` / `.screen`），
+    /// 让"永远提亮、绝不压暗"由合成模式保证而不是由色值保证——本轮未做，留作已知问题。
+    ///
+    /// > Note（承 Issue #162 / 评审 #176 的裁决）：`skeletonHighlight` 当初正是因为
+    /// > 用了**同色叠加**（`.opacity(0.35)`）而被判「扫光读作暗带而非高光」，改为向
+    /// > `.white` 掺色。`.shine()` 的初版默认值 `Color.contentPrimary.opacity(0.35)`
+    /// > 重犯了同一形态——`contentPrimary` 是 `.label`，浅色外观下近黑 ⇒ 浅色下扫过去
+    /// > 的是一道 35% 的**黑带**。`label` 保证的是「与背景对比」，**不是**「比背景亮」。
+    /// > ⇒ 本 token 建立，`.shine()` 的默认值改指它，不在组件内绕开。
+    static var specularHighlight: Color { Color.white.opacity(0.45) }
 }

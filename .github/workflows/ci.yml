@@ -89,10 +89,21 @@ jobs:
         # 布局断言层（#if os(iOS) 的 DynamicTypeLayoutTests）已由 #95（原 #4）落地，
         # 现在本 job 真正守护它。**切勿**把 DynamicTypeLayoutTests 加进下面的
         # -skip-testing 列表，否则该层在 CI 上空转（macOS 侧本就不编它）。
+        #
+        # ⚠️ **scheme 必须是 `CoreDesign-Package`，不能是 `CoreDesign`**（#245）：
+        # 包只有**一个** product 时，Xcode 把包 scheme 合并进同名 scheme，于是
+        # `-scheme CoreDesign` 恰好能跑测试。`#245` 新增了 CoreDesignEffects /
+        # CoreDesignCharts 两个 product 之后，scheme 列表变成
+        # CoreDesign / CoreDesign-Package / CoreDesignEffects / CoreDesignCharts，
+        # 而 `-scheme CoreDesign` 会**硬红**（不是静默跳过）：
+        #   xcodebuild: error: Scheme CoreDesign is not currently configured
+        #   for the test action.
+        # 本仓实测记录见 #245 的验证留证。
+        # `-skip-testing:` 用的是 target/类型名标识符，在包 scheme 下语法不变。
         run: |
           set -o pipefail
           xcodebuild test \
-            -scheme CoreDesign \
+            -scheme CoreDesign-Package \
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
             -skip-testing:CoreDesignTests/ToastHostTests \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-first.log
