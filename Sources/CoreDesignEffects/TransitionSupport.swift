@@ -61,14 +61,14 @@ import SwiftUI
 // ⚠️ 用**有符号**的 `phase.value` 而不是 `abs(phase.value)`：后者在进出两侧塌成同一个
 // 数，`flip` / `swoosh` 这类"进来和出去朝相反方向"的转场就没法区分两端
 // ——而且 `-1 → 0 → +1` 这条链插值出来是**连续单调**的，`abs` 之后是 `1 → 0 → 1`，
-// 一个 V 形折点。判据：`TransitionTests.interpolationIsContinuousNotAnEndpointJump`。
+// 一个 V 形折点。判据：`TransitionClusterTests.interpolationIsContinuousNotAnEndpointJump`。
 //
 // ⚠️ **为什么必须自己 conform `Animatable`，而不是靠内层 `.rotation3DEffect` 等
 // modifier 自带的可动画属性**：`boing` / `skid` 的取值是相位的**非线性函数**
 // （阻尼余弦，见 `TransitionCurve.elastic`）。让 SwiftUI 直接插值最终的 scale / offset
 // 只会得到两端之间的**直线**——过冲整个消失，"弹"这件事从未发生。
 // 绑在 `phaseValue` 上则是先插值自变量、再逐帧过曲线，过冲才画得出来。
-// 判据：`TransitionTests.boingOvershootSurvivesInterpolation`（钉的是**渲染出的那一帧**，
+// 判据：`TransitionClusterTests.boingOvershootSurvivesInterpolation`（钉的是**渲染出的那一帧**，
 // 不只是纯函数取值）。
 // 六个转场**统一**走这条，不按"这个需不需要"分两套——两套必然漂移。
 
@@ -127,6 +127,13 @@ public nonisolated enum TransitionAxis3D: Sendable, Equatable, CaseIterable {
     case depth
 
     /// 斜向翻滚 —— 转轴 `(1, 1, 0)`。
+    ///
+    /// ⚠️ **有意不归一化**（`#267` 终审 S-4）：另外三个 case 是单位向量，这个长度是 √2。
+    /// `rotation3DEffect(_:axis:)` 的 `axis` 是一个**方向**，整体乘一个正标量不改变
+    /// 旋转 ⇒ `(1, 1, 0)` 与 `(√2/2, √2/2, 0)` 渲出的那一帧**逐字节相同**
+    ///（判据 `TransitionClusterTests.axisVectorLengthDoesNotChangeTheRenderedRotation`
+    /// 实测钉住）。写成可读的整数三元组是取舍，不是漏掉了归一化；
+    /// 哪天那条判据判红，才该来改这里。
     case tilted
 
     /// `rotation3DEffect(_:axis:)` 要的那个三元组。
@@ -195,6 +202,13 @@ nonisolated enum TransitionCurve {
     /// ⚠️ 三个位移类转场（`swoosh` / `skid` / 以及 `move` 的极角）共用这一份，
     /// 不各写一遍 `switch edge`——三份 `switch` 必然在某次改动里漂移，
     /// 而"方向反了"这种缺陷在静态截图上看不出来。
+    /// ⚠️⚠️ **这四个向量的取值是绝对的，判据必须逐个钉死**（`#267` 终审 I-1）：
+    /// 把它们**整体取反**，`swoosh` / `skid` / `move` 的所有**对称性**判据
+    ///（`travel(-1) == -travel(1)`、同侧两端相等）**一条都不会红**，
+    /// 而 `.swoosh(edge: .trailing)` 已经变成从左边进了。
+    /// ⇒ `TransitionClusterTests.absoluteDirectionsMatchTheDocumentedEdges`（纯函数）
+    /// 与 `absoluteDirectionsReachThePixels`（位图重心）钉绝对方向，
+    /// 并覆盖 `.top` / `.bottom` 与 `Skid.tilt` 的纵向分支。
     static func direction(of edge: Edge) -> CGSize {
         switch edge {
         case .leading: CGSize(width: -1, height: 0)

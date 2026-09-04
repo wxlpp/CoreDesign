@@ -49,11 +49,28 @@ HintBubble().transition(.move(angle: .degrees(-60), distance: 120))
 | `.move(angle:distance:)` | `PolarMoveTransition` |
 | `.move` | `PolarMoveTransition`（系统没有无参形态） |
 
-实参标签不同 ⇒ 重载解析无歧义。判据
-`TransitionClusterTests.systemMoveEdgeStillResolvesToSwiftUI` 逐字钉住这张表：
-它在测试 target 里写下 `let system: MoveTransition = .move(edge: .top)` 并断言
-`type(of:)` 的名字仍是 `MoveTransition`——哪天有人把我们的签名改成 `move(edge:)`
-就会判红。
+实参标签不同 ⇒ 重载解析无歧义。
+
+> ⚠️⚠️ **守住这张表的是 `scripts/downstream-probe`，不是库内判据。**
+>
+> 这里原先写着「`TransitionClusterTests.systemMoveEdgeStillResolvesToSwiftUI`
+> ……哪天有人把我们的签名改成 `move(edge:)` 就会判红」——**实测是假的**（#267 终审 C-4）：
+> 把那条回归注进去（新增 `static func move(edge: Edge) -> PolarMoveTransition`），
+> `swift build` 报 `Build complete!`、`TransitionClusterTests` 全过，
+> 而**同一份源码在真实外部消费者 target 上**报 `error: ambiguous use of 'move(edge:)'`。
+> 原因是那条判据写的是 `let system: MoveTransition = .move(edge: .top)`
+> ——**显式结果类型标注按返回类型消歧了**；真实调用方写的是无标注的
+> `.transition(.move(edge: .top))`。
+>
+> ⇒ 真正的守卫在 `scripts/downstream-probe/Sources/DownstreamProbe/TransitionClusterProbe.swift`
+> （跨模块，才复现得出下游的形态），两条各守一半：
+> · `systemMoveEdgeKeepsResolvingToSwiftUI` —— `-> MoveTransition` 的返回位置，
+>   守**类型名**冲突（把本类型改回 `MoveTransition` ⇒
+>   `'MoveTransition' is ambiguous for type lookup in this context`）；
+> · `systemMoveEdgeIsUnambiguousWithoutAnyAnnotation` —— 无标注的
+>   `.transition(.move(edge: .top))`，守**实参标签**冲突。
+>
+> 库内那条判据只剩「我们没把系统那个截胡」这一句，射程仅限于此。
 
 ## 几何
 

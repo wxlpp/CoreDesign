@@ -147,15 +147,39 @@ direction(of:) // Edge → 单位方向向量（三条位移转场共用一份 s
 
 ### ⚠️ 系统还有一道同向的闸，别把它当成"本簇不必降级"的理由
 
-`Transition.properties` 默认是 `TransitionProperties(hasMotion: true)`，Apple 文档逐字写着
-*"When true, the transition is replaced by opacity when Reduce Motion is enabled"*
-⇒ 系统**也**会替换掉整个转场。本簇六条**都保留该默认值**（它们确实含运动；
-谎报 `hasMotion: false` 会把系统那道闸关掉）。
+`Transition.properties` 默认是 `TransitionProperties(hasMotion: true)`
+（`swiftinterface` 逐字：`public init(hasMotion: Swift.Bool = true)`）。
+`hasMotion` 的 SDK 文档**逐字**是这三句：
+
+> Whether the transition includes motion.
+> When this behavior is included in a transition, that transition will be
+> replaced by opacity when Reduce Motion is enabled.
+> Defaults to `true`.
+
+> ⚠️ 这里原先引的是**转述**（"When true, the transition is replaced by opacity…"）
+> 却写着"逐字"，已按 SDK 原文改（#267 终审 I-3）。
+
+⇒ 系统**也**会替换掉整个转场。本簇六条**都显式声明 `hasMotion: true`**
+（它们确实含运动；谎报 `false` 会把系统那道闸关掉）。
+
+> ⚠️ 这里原先写的是「都保留该默认值」——那是一句关于**别人家默认实现**的断言：
+> 当时全仓 `grep "TransitionProperties\|hasMotion"` **零命中声明**，本仓既证不了它、
+> 也拦不住有人写下 `false`（姊妹 PR #289 终审带出）。现在六条各有一行
+> `public static var properties: TransitionProperties { .init(hasMotion: true) }`，
+> 由 `TransitionClusterTests.everyTransitionKeepsTheSystemGateOpen` 逐条钉住。
 
 ⇒ 同一件事有两道闸：系统那道在外、本仓的三元门控在内。**两道都要**——
 系统那道是 SwiftUI 的实现细节（替换发生在哪一层、对 `.combined(with:)` /
 `AnyTransition` 包装是否仍成立，都不在契约里），而本仓守卫量的是**本仓代码里**
 每一处运动有没有门控。内层门控是**冗余**的、不是**多余**的。
+
+> ⚠️⚠️ **文档漏掉的那一面**（#267 终审 I-3）：既然系统那道闸在外，
+> **Reduce Motion 开启时本簇的内层三元门控在生产中很可能根本不可达**
+> ——整个转场已被换成 opacity，`XMotion.body` 不会被求值到。
+> 两道闸的**结论一致**（都降级成一次纯淡入淡出），分歧只在"谁做的"。
+> ⇒ 内层门控的价值是**契约与可测性**（让降级这件事有机器判据、且不依赖 SwiftUI
+> 在哪一层做替换），不是"用户靠它才看到降级"。
+> 别把本簇 Reduce Motion 判据全绿读成"我们亲手把这六条降级给用户看了"。
 
 ## a11y 分工（FR-13）
 

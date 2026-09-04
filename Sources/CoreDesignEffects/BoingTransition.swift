@@ -30,7 +30,7 @@ import SwiftUI
 ///
 /// ⚠️ **不指望调用方写 `withAnimation(.bouncy)`**：那把"这个转场叫 boing"这件事
 /// 变成了调用点的责任，且换一条曲线就不弹了。判据
-/// `TransitionTests.boingOvershootSurvivesInterpolation` 钉的正是"**渲染出来的那一帧**
+/// `TransitionClusterTests.boingOvershootSurvivesInterpolation` 钉的正是"**渲染出来的那一帧**
 /// 比恒等帧更大"，它对"只靠调用方曲线"的实现判红。
 ///
 /// ## Reduce Motion
@@ -50,6 +50,9 @@ public struct BoingTransition: Transition {
     public init(strength: MicroInteractionStrength = .regular) {
         self.strength = strength
     }
+
+    /// 系统那道 Reduce Motion 闸：**必须是 `true`**。理由与判据见 `FlipTransition.properties`。
+    public static var properties: TransitionProperties { .init(hasMotion: true) }
 
     public func body(content: Content, phase: TransitionPhase) -> some View {
         content.modifier(
@@ -109,7 +112,7 @@ nonisolated enum Boing {
     /// 阻尼余弦走几个周期。1.25 ⇒ 一次明显的过冲 + 一次很小的回弹。
     ///
     /// ⚠️ 调大它会让"弹"变成"抖"；调到 < 0.5 则余弦在窗口内不换号，过冲消失
-    /// （判据 `TransitionTests.boingActuallyOvershoots` 会判红）。
+    /// （判据 `TransitionClusterTests.elasticCurvesActuallyOvershoot` 会判红）。
     static let cycles: Double = 1.25
 
     /// 强度 → 弹性振幅（也就是两端缩到 `1 - amplitude`）。

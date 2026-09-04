@@ -38,10 +38,25 @@ import SwiftUI
 ///
 /// ## ⚠️ 系统还有一道同向的闸，别把它当成本转场不必降级的理由
 ///
-/// `Transition.properties` 默认是 `TransitionProperties(hasMotion: true)`，Apple 文档
-/// 逐字写着 *"When true, the transition is replaced by opacity when Reduce Motion is
-/// enabled"* ⇒ 系统**也**会替换掉整个转场。本簇六个转场**都保留默认值**（它们确实含运动，
-/// 谎报 `hasMotion: false` 会把系统那道闸关掉）。
+/// `Transition.properties` 默认是 `TransitionProperties(hasMotion: true)`。
+/// `SwiftUICore` 的 `hasMotion`（`s:7SwiftUI20TransitionPropertiesV9hasMotionSbvp`）
+/// **逐字**是这三句：
+///
+/// > Whether the transition includes motion.
+/// > When this behavior is included in a transition, that transition will be
+/// > replaced by opacity when Reduce Motion is enabled.
+/// > Defaults to `true`.
+///
+/// ⚠️ **上一版这里引的是转述**（"When true, the transition is replaced by opacity…"）
+/// 却写着"逐字"——在一个开篇就在讲「判据宣称假事实」的文件里，"逐字"必须真的逐字
+///（`#267` 终审 I-3）。默认值 `true` 也已从 `swiftinterface` 核对：
+/// `public init(hasMotion: Swift.Bool = true)`。
+///
+/// ⇒ 系统**也**会替换掉整个转场。本簇六个转场**都显式声明 `hasMotion: true`**
+///（见下面的 `properties`；它们确实含运动，谎报 `false` 会把系统那道闸关掉）。
+/// ⚠️ 上一版这里写的是「都保留默认值」——那是一句关于**别人家默认实现**的断言，
+/// 本仓当时既没有声明、也没有任何判据能证它，更拦不住有人写下 `false`
+///（姊妹 PR `#289` 终审带出的那一条）。
 ///
 /// ⇒ 于是同一件事有两道闸：系统那道在外、本文件的三元门控在内。**两道都要**：
 /// · 系统那道是 SwiftUI 的实现细节，替换发生在哪一层、对 `.combined(with:)` /
@@ -49,6 +64,15 @@ import SwiftUI
 /// · 本仓的 `MicroInteractionReduceMotionGuard` 量的是**本文件里每一处运动有没有门控**,
 ///   它是机器能查的那一道。
 /// ⇒ 内层门控是**冗余**的、不是**多余**的，这条区别照录在此，免得下一个人把它删了。
+///
+/// ⚠️⚠️ **文档漏掉的那一面，一并记在这里**（`#267` 终审 I-3）：既然系统那道闸在外，
+/// **Reduce Motion 开启时本文件的三元门控在生产中很可能根本不可达**
+/// ——整个转场已经被换成 opacity，`FlipMotion.body` 不会被求值到。
+/// 两道闸的**结论一致**（都是"降级成一次纯淡入淡出"），所以行为上没有分歧，
+/// 分歧只在"谁做的"。
+/// ⇒ 内层门控的价值是**契约与可测性**（它让降级这件事有机器判据、且不依赖 SwiftUI
+/// 在哪一层做替换），不是"用户靠它才看到降级"。别把本仓的降级判据全绿
+/// 读成"我们亲手把 `.flip` 降级给用户看了"。
 public struct FlipTransition: Transition {
 
     /// 绕哪个轴翻。命名按"内容看起来往哪个方向转"，见 `TransitionAxis3D`。
@@ -68,6 +92,18 @@ public struct FlipTransition: Transition {
         self.axis = axis
     }
 
+    /// 系统那道 Reduce Motion 闸的开关。**必须是 `true`。**
+    ///
+    /// ⚠️⚠️ **这一句以前只活在注释里**：全仓 `grep "TransitionProperties\|hasMotion"`
+    /// 曾**零命中声明**——六条转场都在**继承** `Transition.properties` 的默认实现，
+    /// 而类型文档却写着「本簇六个转场**都保留默认值**」。
+    /// 「保留默认值」是一句关于**别人家默认实现**的断言，本仓没有任何东西能证它，
+    /// 也没有任何东西能拦住哪天有人写下 `hasMotion: false`
+    ///（那会把系统那道闸**关掉**，而本仓的降级判据**全绿**——它们量的是层 3 的三元门控）。
+    /// ⇒ 显式写出来，并由 `TransitionClusterTests.everyTransitionKeepsTheSystemGateOpen`
+    /// 逐条钉住。六条**都要**写，不按"这条需不需要"分两套。
+    public static var properties: TransitionProperties { .init(hasMotion: true) }
+
     public func body(content: Content, phase: TransitionPhase) -> some View {
         content.modifier(FlipChrome(phaseValue: TransitionCurve.value(of: phase), axis: self.axis))
     }
@@ -77,7 +113,7 @@ public struct FlipTransition: Transition {
 
 /// 唯一职责：把 `\.accessibilityReduceMotion` 降成一个普通 `Bool` 实参。
 ///
-/// ⚠️ **本层不做任何绘制**——判据 `TransitionTests.chromeOnlyFeedsReduceMotionDown`
+/// ⚠️ **本层不做任何绘制**——判据 `TransitionClusterTests.chromeOnlyRelaysReduceMotion`
 /// 逐文件数 `self.reduceMotion` 的出现次数必须恰好等于 `isReduced: self.reduceMotion`
 /// 的次数：任何"顺手在这里再判一次"的写法都会判红（形态同
 /// `MicroInteractionReduceMotionGuard.reduceMotionIsOnlyConsumedByTheSharedGate`）。

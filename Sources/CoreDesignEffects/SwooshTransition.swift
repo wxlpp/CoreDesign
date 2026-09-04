@@ -37,7 +37,7 @@ import SwiftUI
 /// （`blur(` 不是位移 / 旋转 / 缩放）⇒ 守卫对它无话可说。但它是这条转场"速度感"的
 /// 一半，Reduce Motion 下留着它就等于把"快速掠过"这个观感留给了明确要求减弱动态效果
 /// 的用户 ⇒ **本文件仍然逐表达式门控它**，并由
-/// `TransitionTests.reduceMotionLeavesExactlyTheCrossFade`（把降级那一帧与"只加
+/// `TransitionClusterTests.reduceMotionLeavesExactlyTheCrossFade`（把降级那一帧与"只加
 /// `.opacity`"的对照版逐字节比较）钉住——模糊留在里面会让那条相等断言判红。
 ///
 /// ## Reduce Motion
@@ -56,6 +56,9 @@ public struct SwooshTransition: Transition {
         self.edge = edge
         self.travel = travel
     }
+
+    /// 系统那道 Reduce Motion 闸：**必须是 `true`**。理由与判据见 `FlipTransition.properties`。
+    public static var properties: TransitionProperties { .init(hasMotion: true) }
 
     public func body(content: Content, phase: TransitionPhase) -> some View {
         content.modifier(

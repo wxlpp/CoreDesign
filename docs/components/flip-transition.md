@@ -33,7 +33,7 @@ if showsBack {
 |---|---|---|
 | `-1`（`.willAppear`） | `-90°` | 0 |
 | `0`（`.identity`） | **`0°`** | 1 |
-| `+1`（`.didDisappear`） | `+90°` | 1 → 0 |
+| `+1`（`.didDisappear`） | `+90°` | 0 |
 
 角度直接是 `phaseValue × quarterTurn`，**有符号** ⇒ 翻进来与翻出去朝相反方向转。
 取 `abs` 会让两侧塌成同一个动作倒放，卡片翻面的方向感就没了

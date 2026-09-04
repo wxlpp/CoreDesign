@@ -51,6 +51,9 @@ public struct SkidTransition: Transition {
         self.travel = travel
     }
 
+    /// 系统那道 Reduce Motion 闸：**必须是 `true`**。理由与判据见 `FlipTransition.properties`。
+    public static var properties: TransitionProperties { .init(hasMotion: true) }
+
     public func body(content: Content, phase: TransitionPhase) -> some View {
         content.modifier(
             SkidChrome(

@@ -35,9 +35,18 @@ import SwiftUI
 /// | `.move(angle:distance:)` | 本类型 |
 /// | `.move` | 本类型（系统没有无参形态） |
 ///
-/// 实参标签不同 ⇒ 重载解析无歧义。判据
-/// `TransitionTests.systemMoveEdgeStillResolvesToSwiftUI` 逐字钉住这张表——
-/// 哪天有人把签名改成 `move(edge:)` 就会判红。
+/// 实参标签不同 ⇒ 重载解析无歧义。
+///
+/// ⚠️⚠️ **守住这张表的是 `scripts/downstream-probe`，不是库内判据**（`#267` 终审 C-4）：
+/// 库内的 `TransitionClusterTests.systemMoveEdgeStillResolvesToSwiftUI` 写的是
+/// `let system: MoveTransition = .move(edge: .top)` —— **显式结果类型标注按返回类型
+/// 消歧了**。实测：给本文件加一条 `static func move(edge: Edge) -> PolarMoveTransition`，
+/// `swift build` 与那条判据**全绿**，而真实外部消费者报
+/// `error: ambiguous use of 'move(edge:)'`。
+/// ⇒ 真正的守卫是 probe 里的 `systemMoveEdgeKeepsResolvingToSwiftUI` /
+/// `systemMoveEdgeIsUnambiguousWithoutAnyAnnotation`（`TransitionClusterProbe.swift`）——
+/// 它们跑在**另一个模块**里，才复现得出下游那两种写法。库内那条只剩"我们没把
+/// 系统那个截胡"这一句，别再当成改名守卫。
 ///
 /// ## 与 `.skid` / `.swoosh` 的分界
 ///
@@ -68,6 +77,9 @@ public struct PolarMoveTransition: Transition {
         self.angle = angle
         self.distance = distance
     }
+
+    /// 系统那道 Reduce Motion 闸：**必须是 `true`**。理由与判据见 `FlipTransition.properties`。
+    public static var properties: TransitionProperties { .init(hasMotion: true) }
 
     public func body(content: Content, phase: TransitionPhase) -> some View {
         content.modifier(

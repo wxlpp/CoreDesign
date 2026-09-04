@@ -219,7 +219,7 @@ struct MicroInteractionReduceMotionGuard {
         // （`TransitionCurve`：`opacity` / `distance` / `elastic` / `direction`）。
         // ⚠️ 「文件里没有运动关键字」在这里**不是**逃逸位——六个转场文件各自都在
         // `approvedFormTwo` 名单上、每一处运动各自带门控；本文件只提供它们调用的
-        // 那几条纯函数，`TransitionTests.identityPhaseIsExactlyNeutral` 逐个钉住
+        // 那几条纯函数，`TransitionClusterTests.identityPhaseIsExactlyNeutral` 逐个钉住
         // 「恒等相位恰为恒等值」这条承重契约。
         "TransitionSupport.swift",
     ]
