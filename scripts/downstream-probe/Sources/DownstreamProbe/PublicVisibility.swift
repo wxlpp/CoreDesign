@@ -362,3 +362,32 @@ func consumeCelebrationAndProcessingEffects() -> some View {
     }
     .confetti(trigger: 1)
 }
+
+// MARK: - CoreDesignEffects：#253 的四个 API 单位
+
+// ⚠️ 三个 View 与一个 `Transition` 静态成员落在**本文件**而不是
+// `EffectsNonisolatedUsage.swift`——分流理由见那份文件的文件头：本包开了
+// `.defaultIsolation(MainActor.self)`，View 的 `init` 天然 MainActor 隔离，
+// 从 `nonisolated func` 里构造它们必然编译失败。
+// 值类型那一档（`TypewriterSpeed` / `ParticleTransition.defaultCount`）在那边。
+@MainActor
+func consumeTextAndDisplayEffects(streamed: String) -> some View {
+    VStack {
+        TypewriterText("Welcome aboard", speed: .slow)
+        TypewriterText(verbatim: streamed)
+        AnimatedMeshGradient()
+        AnimatedMeshGradient(colors: [.surfaceRaised], alternateColors: [.secondaryFill])
+        BeforeAfterSlider(labels: .shown(before: "Draft", after: "Final")) {
+            Text("before")
+        } after: {
+            Text("after")
+        }
+        BeforeAfterSlider(labels: .hidden) {
+            Text("before")
+        } after: {
+            Text("after")
+        }
+        Text("badge").transition(.particle)
+        Text("badge").transition(.particle(count: 8, colors: [.surfaceRaised]))
+    }
+}
