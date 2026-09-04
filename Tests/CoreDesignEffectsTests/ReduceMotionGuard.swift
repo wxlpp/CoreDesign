@@ -51,8 +51,17 @@ struct MicroInteractionReduceMotionGuard {
     /// · `ProcessingSweep.swift` —— 三个常驻"处理中"效果把相位钉在
     ///   `ProcessingSweep.restingPhase` 上静止呈现。它们没有 trigger，
     ///   而 `OpacityPulse` 是 trigger 驱动的一次性反馈，形态上根本对不上。
+    /// ⚠️ **`#253` 起本名单从 3 个变成 5 个**，形态 2 的定义仍是那两句（保留呈现、
+    /// 去掉运动、不叠脉冲）：
+    /// · `AnimatedMeshGradient.swift` —— 网格点钉在 `MeshDrift.restingPhase` 上**冻结**，
+    ///   整层照常绘制（AC 逐字「冻结在某一帧」）。它是一块**背景面**，
+    ///   叠透明度脉冲等于让底色一闪，形态上对不上；
+    /// · `ParticleTransition.swift` —— 不放粒子、不缩放，**只留内容自身的淡入淡出**。
+    ///   它本身就是一次淡入淡出，再叠 `OpacityPulse` 就是两次；且 `OpacityPulse`
+    ///   吃的是 `TriggerRelay` 的计数，转场根本没有那个 trigger。
     static let approvedFormTwo: Set<String> = [
         "Rise.swift", "Confetti.swift", "ProcessingSweep.swift",
+        "AnimatedMeshGradient.swift", "ParticleTransition.swift",
     ]
 
     /// 走**早退**（RM 下整个装饰层不构建）的文件。
@@ -67,6 +76,11 @@ struct MicroInteractionReduceMotionGuard {
         // `#252`：两者都在 Reduce Motion 下**换一整套呈现**（静态庆祝层 / 静止相位），
         // 而不是在原路径上逐处门控 ⇒ 走早退。
         "Confetti.swift", "ProcessingSweep.swift",
+        // `#253`：两者都在 Reduce Motion 下**换一整套呈现**，而不是逐处门控。
+        // · `AnimatedMeshGradient` 走 `switch presentation {`（与 `Confetti` 同一个
+        //   共享裁决点：先能耗闸、再 RM 闸）；
+        // · `ParticleTransition` 走 `guard !isReduced`（与 `Ping` / `Spray` / `Shine` 同形态）。
+        "AnimatedMeshGradient.swift", "ParticleTransition.swift",
     ]
 
     /// 「整段换一套呈现」的三种写法。**文件必须同时在 `approvedEarlyExit` 名单上**
@@ -113,6 +127,28 @@ struct MicroInteractionReduceMotionGuard {
         "ScanningOverlay.swift",
         "GlowSweep.swift",
         "LightSweep.swift",
+        // `#253` 新增。
+        // ⚠️ `TypewriterText.swift` —— 逐字揭示**确实不含**位移 / 旋转 / 缩放：
+        // 它只是把 `Text` 的内容从前缀换成更长的前缀（全文层 `opacity(0)` 做尺寸底稿，
+        // 布局不动）。FR-11 约束的是运动，这里没有。它的 RM 降级（直接显示完整文本）
+        // 由纯函数 `TypewriterReveal.revealedCount(total:typed:reduceMotion:)` +
+        // `TypewriterTextTests.reduceMotionIsOnlyConsumedByTheRevealGate`（调用点逐次计数）
+        // 两条判据接管——与本守卫 `reduceMotionIsOnlyConsumedByTheSharedGate` 同形态。
+        //
+        // ⚠️⚠️ `BeforeAfterSlider.swift` —— **这一条不是「它不动」**，必须读清楚：
+        // 入场摆动会让分隔线滑过去。它进本名单的理由与上面三个薄封装**同型**——
+        // 本文件里一个 `motionCalls` 关键字都不出现（揭示宽度与把手位置全部由
+        // **布局宽度**给出，见 `BeforeAfterSliderBody` 的类型文档：分隔线位置是
+        // FR-12 逐字要求保留的「用户手势驱动的空间输入」，给它加 `isReduced` 三元
+        // 在语义上是错的，真分支填什么都不对）。
+        // ⇒ 「文件里没有运动关键字」在这里**不是**逃逸位，由两条判据合起来堵：
+        // · `BeforeAfterSliderTests.sliderPositionsByLayoutNotByTransform`
+        //   —— 逐个断言本文件不含任何 `motionCalls` 关键字（本豁免的前提本身）；
+        // · `BeforeAfterSliderTests.reduceMotionIsOnlyConsumedByTheSweepGate`
+        //   —— `reduceMotion` 只许喂给 `BeforeAfterSweep.introSweep(reduceMotion:)`。
+        // 哪天有人往里加一处 `offset(`，第一条当场判红，逼人回来重新分类。
+        "TypewriterText.swift",
+        "BeforeAfterSlider.swift",
     ]
 
     static var sourceRoot: URL {
@@ -313,7 +349,17 @@ struct MicroInteractionReduceMotionGuard {
     /// `CoreDesign` 侧的常驻渲染件就既不共用那张表、也不进这个扫描根。
     /// ⇒ **B-2 落件时与 #271 一并裁决**：策略表下沉到哪一层，扫描根就跟到哪一层。
     /// 本轮只留痕，不改扫描根（现在 `CoreDesign` 里没有常驻渲染件，改了也只是空跑）。
-    static let energyGatedFiles: Set<String> = ["Confetti.swift", "ProcessingSweep.swift"]
+    /// ⚠️ **`#253` 加入 `AnimatedMeshGradient.swift`**：它是本 target 第三个
+    /// **常驻渲染件**（`TimelineView` 持续驱相位），与 `ScanningOverlay` / `Confetti` 同类。
+    /// 另外三个新件**有意不在这里**，理由逐条写在各自的类型文档里：
+    /// · `TypewriterText` —— 有限时长的一次性揭示，打完就没有调度器；
+    /// · `BeforeAfterSlider` —— 入场摆动是一次性的，其余时间是静止图 + 手势；
+    /// · `ParticleTransition` —— 转场由 SwiftUI 驱动，瞬态。
+    /// 后两者还有同一条硬理由：能耗闸的 `.none` 语义是「一个像素都不画」，
+    /// 而它们画的是**内容**，把内容隐藏不是停摆、是 bug。
+    static let energyGatedFiles: Set<String> = [
+        "Confetti.swift", "ProcessingSweep.swift", "AnimatedMeshGradient.swift",
+    ]
 
     /// ⚠️⚠️ **第 2 轮终审 I-A 的判据**（#252 PR #269）。
     ///
