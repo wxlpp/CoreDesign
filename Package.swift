@@ -54,6 +54,15 @@ let package = Package(
         .target(
             name: "CoreDesignEffects",
             dependencies: ["CoreDesign"],
+            // 本 target 的 chrome 文案要有自己的 `Bundle.module` 才能被翻译
+            // （`#253` 的 `BeforeAfterSlider` 默认标签 "Before" / "After"，公约 §4 A 类；
+            // 与 `CoreDesignCharts` 同一条裁决，见 PR #263 终审 C-5）。
+            //
+            // ⚠️ 与 `CoreDesignCharts` 那行完全同义：本包设了 `defaultLocalization: "en"`，
+            // SwiftPM **自动**把 `*.lproj` 当本地化资源处理 ⇒ 这一行是**显式声明**，
+            // 不是必需品。真正不可省的是资源文件本身与
+            // `LocalizedStringResource.effectsChrome(_:)` 里的 `bundle:` 实参。
+            resources: [.process("Resources")],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
         .target(
