@@ -265,6 +265,12 @@ public nonisolated enum EffectsRenderPolicy: Sendable, Equatable, CaseIterable {
 enum EffectsPresentation: Sendable, Equatable, CaseIterable {
 
     /// 一个像素都不画（NFR-7 停摆）。**优先级最高**——它在 Reduce Motion 之前裁决。
+    ///
+    /// ⚠️ **"一个像素"指的是本件自己画的那些**。一个把**调用方内容**也放在自己
+    /// 视图树里的效果（`OrbitingLogos` 的 logo 与中心视图），`.none` 档要摘掉的是
+    /// **装饰层与调度器**，内容层必须静态留下 —— 把调用方的内容藏掉不是停摆、是 bug
+    ///（这正是 `BeforeAfterSlider` / `ParticleTransition` 被排除在能耗闸之外的那条理由，
+    /// 逐字见 `MicroInteractionReduceMotionGuard.energyGatedFiles`）。
     case none
 
     /// 画，但钉在静止呈现上（Reduce Motion 的降级形态 2）。
@@ -272,6 +278,21 @@ enum EffectsPresentation: Sendable, Equatable, CaseIterable {
 
     /// 正常动。
     case animated
+
+    /// 常驻自转件的**第三道闸**：自转周期非法（`<= 0`）时把 `.animated` 降到 `.resting`。
+    ///
+    /// ⚠️⚠️ **它不是锦上添花，是让文档那句"`rotationPeriod <= 0` 退化为静止"变成真的**
+    ///（PR #274 终审 I-4）。此前 `period <= 0` 只让**自转相位**恒为 0，而
+    /// `SphereField.wave(at:)` / `OrbitRing.feature(at:)` 都不吃 `rotationPeriod`
+    /// ⇒ 色波仍每 10.5s 循环、logo 仍每 2.4s 弹一次，而且 `presentation` 还是
+    /// `.animated` ⇒ `TimelineView(.animation)` 照常建、display link 满帧跑
+    /// **只为产出同一批帧**，白付 NFR-1 / NFR-7 的代价。
+    /// ⚠️ 顺带修掉一处自相矛盾：`restingPhase = 0.125` 的存在理由是"0 那一帧螺旋的
+    /// 接缝正对着观察者，看起来像没做任何事"，而 `period <= 0` 恰好把调用方送到相位 0。
+    func frozenIfPeriodIsDegenerate(_ rotationPeriod: Double) -> EffectsPresentation {
+        guard self == .animated, rotationPeriod <= 0 else { return self }
+        return .resting
+    }
 }
 
 // MARK: - 能耗状态 / Energy state
