@@ -5,6 +5,7 @@
 
 import CoreDesign
 import SwiftUI
+import Synchronization
 
 /// 一次性彩纸喷发。典型用途：任务完成、连续打卡、支付成功。
 /// ⚠️ **非泛型**——理由见 `TriggerRelay`。
@@ -277,15 +278,36 @@ struct ConfettiLayer: View {
 ///
 /// ⚠️ **只在「至少填了一片彩纸」时自增**：`Canvas` 在 `count == 0` /
 /// 全透明时也会被渲染，按「渲染了几次」计数会把空画布也算成活的。
+///
+/// ⚠️⚠️ **计数走 `Atomic` 而不是 `nonisolated(unsafe) var`**（PR #294 第 2 轮 Copilot ②）。
+/// 上一版是 `nonisolated(unsafe) private static var counter` + `&+= 1`，靠的是
+/// 「`Canvas` 的绘制闭包默认 `rendersAsynchronously == false` ⇒ 只在主线程跑」这条
+/// **作者断言**。⚠️ 那条标注的作用恰恰是**让编译器闭嘴**：编译通过不证明它安全，
+/// 只证明有人替编译器签了字。谁日后给 `ConfettiCanvas` 的 `Canvas` 加上
+/// `rendersAsynchronously: true`，这里就变成发布代码里一处**无诊断**的数据竞争。
+/// 部署目标是 iOS 26+ / macOS 26+，`Synchronization` 可用 ⇒ 直接用原子量，
+/// 把「相信我」换成语言层保证。开销是 ns 级，对 ms 级的帧间隔读数没有污染
+/// （改前后各跑一次干净基线，`drawnFrames` / `mean` 同量级，见 PR #294 的验证块）。
 @_spi(CoreDesignBenchmark)
 public nonisolated enum ConfettiRenderProbe {
 
-    nonisolated(unsafe) private static var counter = 0
+    private static let counter = Atomic<Int>(0)
+    private static let lastFilled = Atomic<Int>(0)
 
     /// 至今画出过粒子的帧数。基准取**窗口前后的差值**。
-    public static var drawnFrames: Int { Self.counter }
+    public static var drawnFrames: Int { Self.counter.load(ordering: .relaxed) }
 
-    static func recordDrawnFrame() { Self.counter &+= 1 }
+    /// 最近一次「画出了粒子」的那一帧**填了多少片**。
+    ///
+    /// ⚠️ 它接的是 AC 里「**默认**粒子数不掉帧」那个词（PR #294 第 2 轮 S-4）：
+    /// `drawnFrames` 只回答「在不在画」，回答不了「画的是不是默认档位那么多片」。
+    /// 有了这个读数，`[perf]` 行里「默认粒子数」这个标签才有对应的实测数字。
+    public static var lastFilledParticles: Int { Self.lastFilled.load(ordering: .relaxed) }
+
+    static func recordDrawnFrame(filled: Int) {
+        Self.counter.wrappingAdd(1, ordering: .relaxed)
+        Self.lastFilled.store(filled, ordering: .relaxed)
+    }
 }
 
 // MARK: - 绘制层
@@ -338,7 +360,7 @@ struct ConfettiCanvas: View {
                 )
                 filled += 1
             }
-            if filled > 0 { ConfettiRenderProbe.recordDrawnFrame() }
+            if filled > 0 { ConfettiRenderProbe.recordDrawnFrame(filled: filled) }
         }
     }
 }

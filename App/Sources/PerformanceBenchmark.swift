@@ -171,7 +171,26 @@ final class FrameSampler: NSObject {
     /// 窗口内最后一次回调报的名义帧时长。⚠️ 见 `FrameStats.frameBudget`。
     private var nominalDuration: CFTimeInterval = 0
 
-    func record(warmUp: TimeInterval, duration: TimeInterval) async -> FrameStats {
+    /// 采样一个窗口，同时把**同一个窗口内**的存活增量一并算出来。
+    ///
+    /// ⚠️⚠️ **存活探针必须由采样器自己读，不能由调用方在 `record` 之前读**
+    /// （PR #294 第 2 轮 S-3）。上一版是调用方写
+    /// `let before = Probe.drawnFrames` 再 `await record(warmUp:duration:)` ——
+    /// 而 `record` **先睡 `warmUp` 才开采** ⇒ 存活读数覆盖 `warmUp + duration`，
+    /// 而 `intervals` 只覆盖 `duration`，**两把尺量的不是同一段时间**。
+    /// 实测对得上：confetti 腿 `0.3 + 3.0 = 3.3 s × 60 ≈ 198`，日志里 `drawnFrames=195`。
+    ///
+    /// ⚠️ 今天没出事**只是余量凑巧**：`0.3 s × 60 = 18 < minimumLiveness(30)`，
+    /// 所以「采样窗口全死、只有预热期在画」还过不了关。但谁把 confetti 的 `warmUp`
+    /// 调回 **1.0 s**（正是上一版的值，也是对照组腿此刻仍在用的值），
+    /// `1.0 × 60 = 60 > 30` ⇒ **一个完全死掉的采样窗口就能靠预热期的读数判绿**，
+    /// 刚修好的 C-2 就悄悄回来一半。⇒ 这里取**严格的窗口差值**：
+    /// `isRecording = true` 那一刻读一次，`isRecording = false` 那一刻再读一次。
+    func record(
+        warmUp: TimeInterval,
+        duration: TimeInterval,
+        liveness: () -> Int
+    ) async -> (stats: FrameStats, liveness: Int) {
         let link = CADisplayLink(target: self, selector: #selector(self.tick))
         // ⚠️ 不设 `preferredFrameRateRange`：本基准要量的正是「系统愿意给多少、我们跟不跟得上」，
         // 钉死一个区间等于替被测对象把结论写好。
@@ -183,15 +202,20 @@ final class FrameSampler: NSObject {
         self.last = 0
         self.nominalDuration = 0
         self.isRecording = true
+        let livenessBefore = liveness()
         try? await Task.sleep(for: .seconds(duration))
         self.isRecording = false
+        let livenessAfter = liveness()
 
         link.invalidate()
         self.link = nil
         // ⚠️ 兜底 1/60：`duration` 在极少数早期回调上可能是 0。
         // 它是**兜底**，不是默认值 —— 正常路径下这里用的是实测值，且被打印出来。
         let budget = self.nominalDuration > 0 ? self.nominalDuration : 1.0 / 60.0
-        return FrameStats(intervals: self.samples, frameBudget: budget)
+        return (
+            FrameStats(intervals: self.samples, frameBudget: budget),
+            livenessAfter - livenessBefore
+        )
     }
 
     @objc
@@ -375,6 +399,12 @@ enum PerformanceBenchmark {
         let livenessLabel: String
         /// 期望方向：`true` = 期望不掉帧；`false` = 对照组，期望**被判为**掉帧。
         let expectsSmooth: Bool
+        /// 附加读数，原样拼在判词行尾（PR #294 第 2 轮 S-4）。
+        ///
+        /// ⚠️ 它装的是**输出侧**的量：`liveness` 只回答「在不在画」，
+        /// 回答不了「画的是不是该画的那么多」——`graph-input: uniqueUndirected=600`
+        /// 与「屏幕上真画了 600 条」之间原本隔着一个在 App 侧平行实现的去重口径。
+        var detail: String = ""
 
         var passed: Bool {
             // ⚠️ 先要求「真的采到了帧」——空数组上后面的比较是恒真的，
@@ -391,6 +421,7 @@ enum PerformanceBenchmark {
         var line: String {
             "[perf] \(self.passed ? "PASS" : "FAIL") \(self.label): "
                 + self.stats.summary(liveness: self.liveness, livenessLabel: self.livenessLabel)
+                + (self.detail.isEmpty ? "" : " " + self.detail)
         }
     }
 }
@@ -437,8 +468,16 @@ struct PerformanceBenchmarkRunner: View {
         let maxFPS = UIApplication.shared.connectedScenes
             .compactMap { ($0 as? UIWindowScene)?.screen.maximumFramesPerSecond }
             .max() ?? 0
-        print("[perf] display: maximumFramesPerSecond=\(maxFPS) "
-            + "(⚠️ 未设 CADisableMinimumFrameDurationOnPhone ⇒ iPhone ProMotion 上 CADisplayLink 仍按 60 Hz 调度)")
+        // ⚠️ 括注**只在 `maxFPS > 60` 时打**（PR #294 第 2 轮 S-5）：上一版无条件打印，
+        // 于是在一台 60 Hz 的设备上也会看到一句关于 ProMotion 的告诫 —— 那句话在那里
+        // 既不成立也不可行动；而 iPad Pro 的 ProMotion 本来就不需要那个 Info.plist 键。
+        if maxFPS > 60 {
+            print("[perf] display: maximumFramesPerSecond=\(maxFPS) "
+                + "(⚠️ iPhone 上若未设 CADisableMinimumFrameDurationOnPhone，"
+                + "CADisplayLink 仍按 60 Hz 调度；iPad 不需要该键)")
+        } else {
+            print("[perf] display: maximumFramesPerSecond=\(maxFPS)")
+        }
         #if targetEnvironment(simulator)
         print("[perf] environment=SIMULATOR ⚠️ 趋势参考，不构成 NFR-1 达标证据")
         #else
@@ -465,15 +504,15 @@ struct PerformanceBenchmarkRunner: View {
 
         // ⚠️ 对照组排**第一个**跑：它红就说明这把秤是坏的，后面两条的「绿」不构成证据。
         advance(0)
-        let jankBefore = JankBenchmarkHost.evaluations
         let jank = await FrameSampler().record(
             warmUp: PerformanceBenchmark.warmUp,
-            duration: PerformanceBenchmark.duration
+            duration: PerformanceBenchmark.duration,
+            liveness: { JankBenchmarkHost.evaluations }
         )
         verdicts.append(.init(
             label: "jank(control · 每帧主线程死等 40ms)",
-            stats: jank,
-            liveness: JankBenchmarkHost.evaluations - jankBefore,
+            stats: jank.stats,
+            liveness: jank.liveness,
             livenessLabel: "bodyEvaluations",
             expectsSmooth: false
         ))
@@ -482,17 +521,18 @@ struct PerformanceBenchmarkRunner: View {
         // ⚠️ 预热只留 0.3 s（够第一次 burst 起来），不再是 1.0 s ——
         // 上一版的 1.0 s 正好把最重的第一秒排除在窗口之外。
         advance(1)
-        let confettiBefore = ConfettiRenderProbe.drawnFrames
         let confetti = await FrameSampler().record(
             warmUp: 0.3,
-            duration: PerformanceBenchmark.duration
+            duration: PerformanceBenchmark.duration,
+            liveness: { ConfettiRenderProbe.drawnFrames }
         )
         verdicts.append(.init(
             label: "confetti(default particle count · 每 \(ConfettiBenchmarkHost.reburstInterval)s 重触发)",
-            stats: confetti,
-            liveness: ConfettiRenderProbe.drawnFrames - confettiBefore,
+            stats: confetti.stats,
+            liveness: confetti.liveness,
             livenessLabel: "drawnFrames",
-            expectsSmooth: true
+            expectsSmooth: true,
+            detail: "lastFilledParticles=\(ConfettiRenderProbe.lastFilledParticles)"
         ))
 
         // NetworkGraph：**先等解算落定**再开采。
@@ -506,18 +546,22 @@ struct PerformanceBenchmarkRunner: View {
         }
         print("[perf] graph-layout: firstDrawnFrameAfter="
             + (solveWait.map { String(format: "%.2fs", $0) } ?? "TIMEOUT(30s)"))
-        let graphBefore = NetworkGraphRenderProbe.drawnFrames
         let graph = await FrameSampler().record(
             warmUp: 0.2,
-            duration: PerformanceBenchmark.duration
+            duration: PerformanceBenchmark.duration,
+            liveness: { NetworkGraphRenderProbe.drawnFrames }
         )
         verdicts.append(.init(
             label: "networkGraph(\(NetworkGraph<BenchmarkNode>.recommendedNodeLimit)n/"
                 + "\(integrity.unique)e · 逐帧重绘)",
-            stats: graph,
-            liveness: NetworkGraphRenderProbe.drawnFrames - graphBefore,
+            stats: graph.stats,
+            liveness: graph.liveness,
             livenessLabel: "drawnFrames",
-            expectsSmooth: true
+            expectsSmooth: true,
+            // ⚠️ 输入侧（`graph-input: uniqueUndirected=`）与输出侧在这里对上：
+            // 前者是宿主用 `Set<[Int]>` 算的「喂进去多少条」，后者是库内在
+            // `Path` 构造闭包里数的「那一帧真的落笔画了多少条」。
+            detail: "lastDrawnEdges=\(NetworkGraphRenderProbe.lastDrawnEdges)"
         ))
 
         for verdict in verdicts { print(verdict.line) }

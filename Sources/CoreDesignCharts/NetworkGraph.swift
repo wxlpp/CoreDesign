@@ -6,6 +6,7 @@
 import Accessibility
 import CoreDesign
 import SwiftUI
+import Synchronization
 
 /// 力导向网络图。
 ///
@@ -358,7 +359,7 @@ public struct NetworkGraph<Node: GraphNode>: View {
                         path.addLine(to: b)
                         drawn += 1
                     }
-                    if drawn > 0 { NetworkGraphRenderProbe.recordDrawnFrame() }
+                    if drawn > 0 { NetworkGraphRenderProbe.recordDrawnFrame(edges: drawn) }
                 }
                 .stroke(Color.dividerDefault, lineWidth: CoreBorderWidth.hairline)
 
@@ -603,13 +604,32 @@ extension NetworkGraph: AXChartDescriptorRepresentable {
 /// 量到的是空闲主线程。两种失效形态都靠这个读数区分：它只在**画了边的那一帧**自增。
 ///
 /// ⚠️ **`@_spi` 而不是普通 `public`**：这是仪器，不是图表的 API 面。
+///
+/// ⚠️⚠️ **计数走 `Atomic` 而不是 `nonisolated(unsafe) var`**（PR #294 第 2 轮 Copilot ①）。
+/// 上一版靠的是「`Path` 的构造闭包在 MainActor 的 body 求值里跑」这条**作者断言**，
+/// 而 `nonisolated(unsafe)` 的作用恰恰是**让编译器闭嘴** —— 编译通过不证明它安全。
+/// 部署目标 iOS 26+ / macOS 26+ 下 `Synchronization` 可用 ⇒ 换成原子量，
+/// 把「相信我」换成语言层保证；开销 ns 级，对 ms 级帧间隔读数无污染。
 @_spi(CoreDesignBenchmark)
 public nonisolated enum NetworkGraphRenderProbe {
 
-    nonisolated(unsafe) private static var counter = 0
+    private static let counter = Atomic<Int>(0)
+    private static let lastDrawn = Atomic<Int>(0)
 
     /// 至今画出过边的帧数。基准取**窗口前后的差值**。
-    public static var drawnFrames: Int { Self.counter }
+    public static var drawnFrames: Int { Self.counter.load(ordering: .relaxed) }
 
-    static func recordDrawnFrame() { Self.counter &+= 1 }
+    /// 最近一次「画了边」的那一帧**落笔画了多少条**。
+    ///
+    /// ⚠️ 它把基准的**输入侧**与**输出侧**接上（PR #294 第 2 轮 S-4）：
+    /// `graph-input: uniqueUndirected=600` 说的是「喂进去 600 条不重复的无向边」，
+    /// 那是宿主用 `Set<[Int]>` **平行实现**的一份去重口径（与库内 `UndirectedKey`
+    /// 是两份代码）；这个读数说的是「屏幕上那一帧真的画了多少条」。
+    /// 两端对上，「600 条边逐帧重绘」才是被证过的，而不是被推断的。
+    public static var lastDrawnEdges: Int { Self.lastDrawn.load(ordering: .relaxed) }
+
+    static func recordDrawnFrame(edges: Int) {
+        Self.counter.wrappingAdd(1, ordering: .relaxed)
+        Self.lastDrawn.store(edges, ordering: .relaxed)
+    }
 }
