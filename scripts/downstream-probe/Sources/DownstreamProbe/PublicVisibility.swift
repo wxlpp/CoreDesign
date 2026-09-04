@@ -1,4 +1,5 @@
 import CoreDesign
+import CoreDesignCharts
 import CoreDesignEffects
 import Foundation
 import SwiftUI
@@ -487,5 +488,86 @@ func consumeMaskRevealTransitions() -> some View {
         Text("glare(angle:)").transition(.glare(angle: .degrees(-20)))
         Text("dissolve").transition(.dissolve)
         Text("dissolve(cellSize:)").transition(.dissolve(cellSize: 12))
+    }
+}
+
+// MARK: - CoreDesignEffects：#250 的 8 个微交互 modifier
+
+// ⚠️ 8 个都是 `public extension View` 上的方法 ⇒ 落**本文件**（`@MainActor`）：
+// 本包开了 `.defaultIsolation(MainActor.self)`，modifier 函数天然 MainActor 隔离，
+// 从 `nonisolated func` 里调用必然编译失败。两个配置枚举
+// （`MicroInteractionStrength` / `SpinDirection`）在 `EffectsNonisolatedUsage.swift`。
+//
+// ⚠️ **含默认实参的形态与显式传参的形态都要覆盖**：默认实参本身引用了
+// `MicroInteractionStrength.regular` / `SpinDirection.clockwise` /
+// `Color.specularHighlight` 这些公开符号，**只写默认形态时，显式传参那条重载路径
+// 上的可见性回退抓不到**（与 `consumeFilterTransitions` 记的那条同型）。
+//
+// ⚠️ 拆成两个函数只是因为 `ViewBuilder` 一次最多接 10 个子视图。
+@MainActor
+func consumeMicroInteractionModifiersA(taps: Int) -> some View {
+    VStack {
+        Text(verbatim: "shake").shake(trigger: taps)
+        Text(verbatim: "shake+").shake(trigger: taps, strength: .pronounced)
+        Text(verbatim: "jump").jump(trigger: taps)
+        Text(verbatim: "jump+").jump(trigger: taps, strength: .subtle)
+        Text(verbatim: "spin").spin(trigger: taps)
+        Text(verbatim: "spin+").spin(trigger: taps, direction: .counterClockwise)
+        Text(verbatim: "ping").ping(trigger: taps)
+        Text(verbatim: "ping+").ping(trigger: taps, strength: .subtle, color: .accent)
+    }
+}
+
+@MainActor
+func consumeMicroInteractionModifiersB(taps: Int) -> some View {
+    VStack {
+        Text(verbatim: "spray").spray(trigger: taps, symbol: "heart.fill")
+        Text(verbatim: "spray+").spray(trigger: taps, symbol: "star.fill", strength: .pronounced, colors: [.accent])
+        Text(verbatim: "rise").rise(trigger: taps, text: "+1")
+        Text(verbatim: "rise+").rise(trigger: taps, text: "+1", strength: .subtle, color: .accent)
+        // ⚠️ `.haptic` 是对 `sensoryFeedback` 的薄封装，**没有** strength / color 参数
+        // ⇒ 只有一种形态。它的公开面就是这一行。
+        Text(verbatim: "haptic").haptic(.success, trigger: taps)
+        Text(verbatim: "shine").shine(trigger: taps)
+        Text(verbatim: "shine+").shine(trigger: taps, highlight: .specularHighlight)
+    }
+}
+
+// MARK: - CoreDesignCharts：#255 的四个图表
+
+// ⚠️ 四个图表**本身**是 `View` struct ⇒ 落本文件（`@MainActor`），
+// 数据契约（`ChartValue` / `HeatmapDay` / `GraphNode` / `GraphEdge`）与四个规模上限
+// 是**值类型 / 配置**那一档，在 `ChartsNonisolatedUsage.swift`
+// —— 分流理由见 `EffectsNonisolatedUsage.swift` 的文件头。
+//
+// ⚠️ **每个图表的 `title:` / `tint:` 缺省与显式两种形态都要覆盖**：
+// `title` 的类型是 `LocalizedStringResource?`，显式传值那条路径上若哪天
+// 换成一个 internal 的包装类型，只写缺省形态的 probe 照样绿。
+//
+// ⚠️ 本函数同时钉住「四个图表的数据入参是**泛型**」这条 AC（#255 终审 I-7）：
+// 这里传进去的是 **probe 自己的**模型类型，库里没有它们的任何影子
+// ——若哪天有人把入参绑回库自带的具体 struct，这里当场编译红。
+@MainActor
+func consumeCharts() -> some View {
+    let metrics = [
+        ChartsProbeMetric(id: 0, label: "速度", value: 82),
+        ChartsProbeMetric(id: 1, label: "力量", value: 61),
+        ChartsProbeMetric(id: 2, label: "耐力", value: 94),
+    ]
+    let days = (0..<7).map {
+        ChartsProbeDay(id: $0, date: Date(timeIntervalSince1970: Double($0) * 86_400), count: $0)
+    }
+    let nodes = (0..<4).map { ChartsProbeNode(id: "n\($0)", label: "节点 \($0)") }
+    let edges = [GraphEdge(from: "n0", to: "n1"), GraphEdge(from: "n1", to: "n2")]
+
+    return VStack {
+        RadarChart(metrics)
+        RadarChart(metrics, title: "Radar", tint: .accent)
+        RingChart(metrics, goal: 500)
+        RingChart(metrics, goal: 500, title: "Rings", tint: .accent)
+        ActivityHeatmap(days)
+        ActivityHeatmap(days, title: "Heatmap", tint: .accent, calendar: .current)
+        NetworkGraph(nodes: nodes, edges: edges)
+        NetworkGraph(nodes: nodes, edges: edges, title: "Graph", tint: .accent)
     }
 }

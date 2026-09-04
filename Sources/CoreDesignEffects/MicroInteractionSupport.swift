@@ -14,7 +14,19 @@ import SwiftUI
 ///
 /// ⚠️ 不暴露"位移像素数""旋转角度"这类裸数值——本仓的调参惯例是语义档位单一来源
 /// （对照 `ButtonRoleStyleRole`：role 调色板的唯一来源，新增 role 扩枚举而不是各自定义）。
-public enum MicroInteractionStrength: Sendable, CaseIterable {
+/// ⚠️⚠️ **`nonisolated` 是必需的、不是装饰**（`#256` probe 补齐调用点时炸出来的）：
+/// 本 target 开了 `.defaultIsolation(MainActor.self)` ⇒ 不标它，这个枚举**派生的
+/// `Equatable` 一致性**是 MainActor 隔离的，下游从 nonisolated 上下文写
+/// `strength == .regular` 会拿到**硬 error**（不是 warning，实测原文照录）：
+///
+///     error: main actor-isolated conformance of 'MicroInteractionStrength' to 'Equatable'
+///            cannot be used in nonisolated context [#IsolatedConformances]
+///
+/// 而库自身的 `swift build` / `swift test` 全跑在被隔离的 target **内部**，全绿
+/// —— 这条只有 `scripts/downstream-probe` 看得见。判据在
+/// `EffectsNonisolatedUsage.swift` 的 `readMicroInteractionStrengths()`。
+/// 与 `TransitionTravel` / `TransitionAxis3D`（#267 已标）同一形态。
+public nonisolated enum MicroInteractionStrength: Sendable, CaseIterable {
     case subtle, regular, pronounced
 
     /// 位移类效果的振幅（pt）。

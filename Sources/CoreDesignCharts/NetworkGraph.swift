@@ -6,6 +6,7 @@
 import Accessibility
 import CoreDesign
 import SwiftUI
+import Synchronization
 
 /// 力导向网络图。
 ///
@@ -21,7 +22,17 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// ⚠️ **力导向布局是每帧 O(n²)**。超过此数走"截断 + 静态环形布局"
     /// ——**不抛断言**：库代码对数据规模 `precondition` 就是让宿主 App crash（FR-20）。
     /// ⚠️ 泛型类型不支持 static **存储**属性。
-    public static var recommendedNodeLimit: Int { 150 }
+    /// ⚠️ **`nonisolated` 是有意的**（`#256`）：AD-F 的「超限固定为截断 + 降级 + 文档」
+    /// 契约要求调用方**在自己的数据层**按这个数先行分页 / 抽样，而那是后台线程上的活。
+    /// 不标它，下游从 nonisolated 上下文读会拿到
+    /// `warning: main actor-isolated static property ... can not be referenced
+    /// from a nonisolated context`，而库自身四条验证命令全绿。
+    ///
+    /// ⚠️⚠️ **但没有任何机器判据守着它 —— 实测**：`scripts/downstream-probe` 的
+    /// `readChartScaleLimits()` 只是**观测点**，把 `nonisolated` 拿掉它只多一条
+    /// warning、`swift build` 退出码仍是 0，CI 的 `downstream-probe` job 照样绿
+    /// （那一步不带 `-warnings-as-errors`）。⇒ 这一条靠人读 build 输出 + PR 评审。
+    public nonisolated static var recommendedNodeLimit: Int { 150 }
 
     private let nodes: [Node]
     private let edges: [Edge]
@@ -113,7 +124,17 @@ public struct NetworkGraph<Node: GraphNode>: View {
     /// ⚠️ 代价如实记录：n=100 / E=800 这类输入（预算够跑满迭代，
     /// `(100²/2 + 600) × 54 = 302 400 < 450 000`）也会降级
     /// ——**这是有意选择"不误导"而不是"更好看"**，不是性能所迫。
-    public static var recommendedEdgeLimit: Int { 600 }
+    /// ⚠️ **`nonisolated` 是有意的**（`#256`）：AD-F 的「超限固定为截断 + 降级 + 文档」
+    /// 契约要求调用方**在自己的数据层**按这个数先行分页 / 抽样，而那是后台线程上的活。
+    /// 不标它，下游从 nonisolated 上下文读会拿到
+    /// `warning: main actor-isolated static property ... can not be referenced
+    /// from a nonisolated context`，而库自身四条验证命令全绿。
+    ///
+    /// ⚠️⚠️ **但没有任何机器判据守着它 —— 实测**：`scripts/downstream-probe` 的
+    /// `readChartScaleLimits()` 只是**观测点**，把 `nonisolated` 拿掉它只多一条
+    /// warning、`swift build` 退出码仍是 0，CI 的 `downstream-probe` job 照样绿
+    /// （那一步不带 `-warnings-as-errors`）。⇒ 这一条靠人读 build 输出 + PR 评审。
+    public nonisolated static var recommendedEdgeLimit: Int { 600 }
 
     /// ⚠️⚠️ **去重必须在截断之前**（第 6 轮终审 C-3，**同一 bug 类的第五个轴**）。
     ///
@@ -328,11 +349,17 @@ public struct NetworkGraph<Node: GraphNode>: View {
                 // 第 5 轮）：`key` 里存的就是这一批；各自重算既是 body 求值期的重复扫描，
                 // 也让「画出来的边」与「喂给解算器的边」在理论上可能分叉。
                 Path { path in
+                    // ⚠️ 基准的存活读数（见 `NetworkGraphRenderProbe`）：数的是
+                    // **真的落笔画了边**的帧 —— 解算落定之前 `layout` 是空的，
+                    // 这个循环一条都画不出来，那时候采样等于量空屏。
+                    var drawn = 0
                     for edge in key.edges {
                         guard let a = layout[edge.from], let b = layout[edge.to] else { continue }
                         path.move(to: a)
                         path.addLine(to: b)
+                        drawn += 1
                     }
+                    if drawn > 0 { NetworkGraphRenderProbe.recordDrawnFrame(edges: drawn) }
                 }
                 .stroke(Color.dividerDefault, lineWidth: CoreBorderWidth.hairline)
 
@@ -560,4 +587,49 @@ extension NetworkGraph: AXChartDescriptorRepresentable {
     return NetworkGraph(nodes: nodes, edges: edges)
         .frame(height: 300)
         .padding()
+}
+
+// MARK: - 渲染存活读数（基准专用观测点）
+
+/// `NetworkGraph` **真的把边画出来了**的帧数。
+///
+/// ⚠️⚠️ **它存在的唯一理由是让 NFR-1 基准的 networkGraph 腿有一个「被测对象在不在画」
+/// 的读数**（`#256` PR #294 终审 C-2）。那一轮评审把宿主的 `body` 换成 `Color.clear`、
+/// 跑**未改动的**基准脚本，三条腿照样 `PERF-VERDICT: PASS` ——
+/// 「什么都不渲染」与「渲染得很流畅」在输出上**不可分辨**。
+///
+/// ⚠️ **本组件没有 `TimelineView`**（`grep -c TimelineView` = 0），布局是一次性
+/// `.task(id:)` 派到 `Task.detached`，落定后视图完全静止、逐帧零工作。⇒ 基准若在
+/// 解算落定**之前**开采，量到的是空 canvas；若在落定**之后**开采而画面静止，
+/// 量到的是空闲主线程。两种失效形态都靠这个读数区分：它只在**画了边的那一帧**自增。
+///
+/// ⚠️ **`@_spi` 而不是普通 `public`**：这是仪器，不是图表的 API 面。
+///
+/// ⚠️⚠️ **计数走 `Atomic` 而不是 `nonisolated(unsafe) var`**（PR #294 第 2 轮 Copilot ①）。
+/// 上一版靠的是「`Path` 的构造闭包在 MainActor 的 body 求值里跑」这条**作者断言**，
+/// 而 `nonisolated(unsafe)` 的作用恰恰是**让编译器闭嘴** —— 编译通过不证明它安全。
+/// 部署目标 iOS 26+ / macOS 26+ 下 `Synchronization` 可用 ⇒ 换成原子量，
+/// 把「相信我」换成语言层保证；开销 ns 级，对 ms 级帧间隔读数无污染。
+@_spi(CoreDesignBenchmark)
+public nonisolated enum NetworkGraphRenderProbe {
+
+    private static let counter = Atomic<Int>(0)
+    private static let lastDrawn = Atomic<Int>(0)
+
+    /// 至今画出过边的帧数。基准取**窗口前后的差值**。
+    public static var drawnFrames: Int { Self.counter.load(ordering: .relaxed) }
+
+    /// 最近一次「画了边」的那一帧**落笔画了多少条**。
+    ///
+    /// ⚠️ 它把基准的**输入侧**与**输出侧**接上（PR #294 第 2 轮 S-4）：
+    /// `graph-input: uniqueUndirected=600` 说的是「喂进去 600 条不重复的无向边」，
+    /// 那是宿主用 `Set<[Int]>` **平行实现**的一份去重口径（与库内 `UndirectedKey`
+    /// 是两份代码）；这个读数说的是「屏幕上那一帧真的画了多少条」。
+    /// 两端对上，「600 条边逐帧重绘」才是被证过的，而不是被推断的。
+    public static var lastDrawnEdges: Int { Self.lastDrawn.load(ordering: .relaxed) }
+
+    static func recordDrawnFrame(edges: Int) {
+        Self.counter.wrappingAdd(1, ordering: .relaxed)
+        Self.lastDrawn.store(edges, ordering: .relaxed)
+    }
 }

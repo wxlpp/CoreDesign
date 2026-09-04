@@ -5,6 +5,7 @@
 
 import CoreDesign
 import SwiftUI
+import Synchronization
 
 /// 一次性彩纸喷发。典型用途：任务完成、连续打卡、支付成功。
 /// ⚠️ **非泛型**——理由见 `TriggerRelay`。
@@ -260,6 +261,55 @@ struct ConfettiLayer: View {
     }
 }
 
+// MARK: - 渲染存活读数（基准专用观测点）
+
+/// `ConfettiCanvas` **真的画出了粒子**的帧数。
+///
+/// ⚠️⚠️ **它存在的唯一理由是让 NFR-1 基准的 confetti 腿有一个「被测对象在不在画」的
+/// 读数**（`#256` PR #294 终审 C-2）。那一轮评审把 `App` 宿主里的 `.confetti(trigger:)`
+/// 整句删掉、跑**未改动的**基准脚本，三条腿照样 `PERF-VERDICT: PASS` ——
+/// 「什么都不渲染」与「渲染得很流畅」在输出上**不可分辨**。
+/// 对照组早就有 `bodyEvaluations` 这个读数（那正是初版 `bodyEvaluations=1` 抓到
+/// 「渲染循环没转」的方式），两条 feature 腿却没有 ⇒ 补齐同形的读数。
+///
+/// ⚠️ **`@_spi` 而不是普通 `public`**：这是仪器，不是设计系统的 API 面。
+/// 只有 `@_spi(CoreDesignBenchmark) import CoreDesignEffects` 的调用方看得见它，
+/// 普通下游的补全列表里不出现。
+///
+/// ⚠️ **只在「至少填了一片彩纸」时自增**：`Canvas` 在 `count == 0` /
+/// 全透明时也会被渲染，按「渲染了几次」计数会把空画布也算成活的。
+///
+/// ⚠️⚠️ **计数走 `Atomic` 而不是 `nonisolated(unsafe) var`**（PR #294 第 2 轮 Copilot ②）。
+/// 上一版是 `nonisolated(unsafe) private static var counter` + `&+= 1`，靠的是
+/// 「`Canvas` 的绘制闭包默认 `rendersAsynchronously == false` ⇒ 只在主线程跑」这条
+/// **作者断言**。⚠️ 那条标注的作用恰恰是**让编译器闭嘴**：编译通过不证明它安全，
+/// 只证明有人替编译器签了字。谁日后给 `ConfettiCanvas` 的 `Canvas` 加上
+/// `rendersAsynchronously: true`，这里就变成发布代码里一处**无诊断**的数据竞争。
+/// 部署目标是 iOS 26+ / macOS 26+，`Synchronization` 可用 ⇒ 直接用原子量，
+/// 把「相信我」换成语言层保证。开销是 ns 级，对 ms 级的帧间隔读数没有污染
+/// （改前后各跑一次干净基线，`drawnFrames` / `mean` 同量级，见 PR #294 的验证块）。
+@_spi(CoreDesignBenchmark)
+public nonisolated enum ConfettiRenderProbe {
+
+    private static let counter = Atomic<Int>(0)
+    private static let lastFilled = Atomic<Int>(0)
+
+    /// 至今画出过粒子的帧数。基准取**窗口前后的差值**。
+    public static var drawnFrames: Int { Self.counter.load(ordering: .relaxed) }
+
+    /// 最近一次「画出了粒子」的那一帧**填了多少片**。
+    ///
+    /// ⚠️ 它接的是 AC 里「**默认**粒子数不掉帧」那个词（PR #294 第 2 轮 S-4）：
+    /// `drawnFrames` 只回答「在不在画」，回答不了「画的是不是默认档位那么多片」。
+    /// 有了这个读数，`[perf]` 行里「默认粒子数」这个标签才有对应的实测数字。
+    public static var lastFilledParticles: Int { Self.lastFilled.load(ordering: .relaxed) }
+
+    static func recordDrawnFrame(filled: Int) {
+        Self.counter.wrappingAdd(1, ordering: .relaxed)
+        Self.lastFilled.store(filled, ordering: .relaxed)
+    }
+}
+
 // MARK: - 绘制层
 
 /// 给定进度画出一帧彩纸。**不读时间**——因此可以被单测钉在任意进度上渲染。
@@ -281,6 +331,9 @@ struct ConfettiCanvas: View {
         let progress = self.progress
 
         Canvas { context, size in
+            // ⚠️ 基准的存活读数（见 `ConfettiRenderProbe`）：数的是**画出了粒子**的帧，
+            // 不是 `Canvas` 被渲染的次数。
+            var filled = 0
             for index in 0..<max(0, count) {
                 let particle = ConfettiBurst.particle(at: index, count: count)
                 let alpha = ConfettiBurst.opacity(of: particle, progress: progress)
@@ -305,7 +358,9 @@ struct ConfettiCanvas: View {
                     // 同一帧在 `.tint(.red)` 与 `.tint(.blue)` 下位图必须不同。
                     with: .style(colors.particleStyle(at: index))
                 )
+                filled += 1
             }
+            if filled > 0 { ConfettiRenderProbe.recordDrawnFrame(filled: filled) }
         }
     }
 }
