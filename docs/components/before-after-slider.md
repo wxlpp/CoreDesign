@@ -41,12 +41,30 @@ public enum BeforeAfterSliderLabels {
 同样标错。当时的两条渲染判据（`fractionReachesRendering` 只比"两个位置的位图不同"、
 `labelDomainIsAnEnumWithThreeDistinctRenderings` 只比"三档互不相同"）**对方向完全不敏感**。
 
-⇒ **两条判据分别钉住这件事的两半，缺一条都能被绕过**：
+⇒ **三条判据分别钉住这件事的三半，缺一条都能被绕过**：
 
 - **图层方向**——`BeforeAfterSliderTests.beforeIsOnTheLeadingSide`（逐像素取色：
   fraction 0.5 时左侧必须是 `before` 的色、右侧必须是 `after` 的色）
   + `endpointsRevealASingleSide`（fraction 0 / 1 两个端点各整块换成另一层，作互锁）。
-- **chip 与图层的对应**——`BeforeAfterSliderTests.beforeChipIsOnTheLeadingSide`。
+- **`.shown(before:after:)` 的 chip 顺序**——`BeforeAfterSliderTests.beforeChipIsOnTheLeadingSide`。
+- **默认档 `.standard` 的 chip 顺序**——`BeforeAfterSliderTests.standardLabelsMatchTheShownWiring`。
+
+⚠️⚠️ **上一版这里写的是「两条」，而那两条走的都是 `labels: .shown(...)`**
+（#253 PR #273 第 3 轮终审 I-2）：`.standard` 在 `labelOverlay(width:)` 里是**另一个 case、
+另一处实参**，且 `init` 的默认值就是它。终审只把那两个实参对调（`labelPair` 与绘制层
+一动不动）⇒ `swift test` **93 全绿**，而**默认配置下** "Before" chip 压在 `after` 那半
+——与 C-1 的用户可见后果逐字相同。⇒ 默认档必须单独有判据，把它钉到已被钉住的 `.shown` 路径上。
+
+形态是**差分计数的严格不等式**：`.standard` 与「顺序正确的 `.shown`」的差异像素必须
+严格少于它与「顺序反过来的 `.shown`」的差异像素（配两条互锁：两档 `.shown` 之间必须
+真的有差异，且 `.standard` 必须不等于 `.hidden`）。
+⚠️ **不是"逐字节相同"**：`.standard` 走 A 类 `LocalizedStringResource`、`.shown` 走
+B 类 `LocalizedStringKey`，两条路径解析出的字**相同**，但渲染差一层抗锯齿
+——200×100 探针上实测 **19** 个像素不等（对照：把两个文案对调差 **867** 个，
+`.standard` 与 `.hidden` 差 **1811** 个），且这 19 个像素**与测试运行顺序有关**
+（单跑 `--filter` 必红、跟在整套后面有时绿）。⇒ 逐字节相等在这里是一条会间歇性
+误报的判据，比没有更坏。严格不等式没有魔法阈值，且 `.standard` 一旦反过来，
+两个数对调即判红。
 
 ⚠️⚠️ **上一版这里只写了「逐像素取色判据钉住」，而那条走 `labels: .hidden`、
 结构上观测不到 chip**（#253 PR #273 终审 I-A）：终审只把 `labelPair` 里

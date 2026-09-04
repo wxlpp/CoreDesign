@@ -113,6 +113,17 @@ struct TypewriterTextTests {
         let code = MicroInteractionReduceMotionGuard.stripComments(try Self.source("TypewriterText.swift"))
         #expect(code.contains("accessibilityReduceMotion"),
                 "TypewriterText 没有读 Reduce Motion —— AC 的降级无从谈起")
+        // ⚠️ **已知口子，本轮只登记不堵**（#253 PR #273 第 3 轮终审 S-3）：`fed` 是
+        // **前缀匹配** ⇒ `reduceMotion: self.reduceMotion && false` 同时命中 `reads`
+        // 与 `fed`，`reads == fed` 照样成立，而喂进闸的恒为 `false`。
+        // ⚠️ 这是**存量形态、非本轮引入**：本判据与 `MicroInteractionReduceMotionGuard`
+        // 里同名的那条（`reduceMotionIsOnlyConsumedByTheSharedGate`）是同一套计数，
+        // 只在这里改会让两条判据的强度不一致。⇒ 属独立改动，登记在此免得下一个人
+        // 以为"喂进去的一定是环境值本身"。
+        // ⚠️ 今天它不是空话的原因是**另一条**判据：`planIsOnlyEverBuiltByTheGate` 钉住
+        // `TypewriterReveal.plan(` 在整个模块里只被调用一次，且纯函数判据
+        //（`reduceMotionShowsEverythingAtOnce`）钉住 `true` 那一支的行为——但**没有**
+        // 任何判据钉住"传进去的那个实参没有被 `&& false` 之类后处理过"。
         let reads = code.components(separatedBy: "self.reduceMotion").count - 1
         let fed = code.components(separatedBy: "reduceMotion: self.reduceMotion").count - 1
         #expect(fed >= 1, "TypewriterText 没有把 reduceMotion 喂给揭示闸 —— 多半是被换成了字面量")
@@ -181,35 +192,109 @@ struct TypewriterTextTests {
     /// ⚠️ **扫描面是整个 `Sources/CoreDesignEffects`，不是单个文件**：把 `recomputed(...)`
     /// 定义在**另一个文件**里是同一枚变异的等价形态，只扫 `TypewriterText.swift` 抓不到。
     /// 复用 `MicroInteractionReduceMotionGuard.swiftFiles()`（递归 + 目录缺失 fail-closed）。
+    /// ⚠️ 上一版这里还写着「跨文件那一半靠本条扫描面抓」——**功劳记错了**
+    ///（第 3 轮终审 I-3 更正）。本轮逐枚实测，跨文件其实有**两种**形态：
+    ///
+    /// | 形态 | 上一版谁判的红 |
+    /// |---|---|
+    /// | `recomputed` 放进一个**新建**源文件 | `MicroInteractionReduceMotionGuard.everyFileIsClassified`（"每个源文件都必须被分类"，fail-closed）——**不是**本条 |
+    /// | `recomputed` 追加进一个**已存在**的源文件，且把构造转包给闸自己（`reduceMotion: false`） | **没有任何判据**：实测 `672 tests ... passed` |
+    ///
+    /// ⇒ 本条扫描面扩大真正管的是「`TypewriterPlan(` 出现在闸的函数体之外」；
+    /// 第二种形态由下面的 `gateCalls == 1` 收口（实测修后判红）。
+    ///
+    /// ## ⚠️⚠️ 同名重载会把自己的函数体一起遮蔽（第 3 轮终审 I-3）
+    ///
+    /// `ConfettiTests.removingRegion(after:in:)` 挖掉的是**所有**匹配的配对区间，而上一版
+    /// 的 marker 是**短前缀** `"static func plan("` ⇒ 任何恰好也叫 `plan` 的重载
+    /// 会连同自己的函数体一起被挖走。终审实测：在 `TypewriterText.swift` **同文件**
+    /// 追加 `static func plan(total:typed:)`（不读 `reduceMotion`）+ `TypewriterPlan.recomputed`，
+    /// 让 `body` 走 `.recomputed(...)` ⇒ `93 tests passed`，
+    /// **Reduce Motion 在渲染路径上完全失效**——正是本条声称"必然判红"的那枚变异。
+    ///
+    /// ⇒ 两处收口：① marker 换成**完整签名**（重载签名不同，挖不走自己）；
+    /// ② 先数 `static func plan(` 的声明次数，**出现重载即判红**（重载本身就是这枚变异
+    /// 的载体，不必等它构造出第二个 plan）。
+    ///
+    /// ## ⚠️ 本条的两条隐性依赖（自查时构造出的绕过，已同轮堵上）
+    ///
+    /// 1. **`TypewriterPlan` 的两个字段必须是 `let`**：改成 `var` 之后
+    ///    `var p = TypewriterReveal.plan(...); p.revealed = total` **不构造第二个
+    ///    `TypewriterPlan`** ⇒ 本条恒绿，而三条逐次计数（`revealed: plan.revealed` 等）
+    ///    也照绿。⇒ 下面显式钉住这两个字段的 `let`。
+    /// 2. **`TypewriterReveal.plan(` 在整个模块里只许被调用一次**：
+    ///    `extension TypewriterPlan { func recomputed(...) -> TypewriterPlan {
+    ///    TypewriterReveal.plan(total:typed:reduceMotion: false) } }` 同样**不构造**
+    ///    `TypewriterPlan(`（它把构造转包给闸自己），而 `reads == fed` 只数
+    ///    `TypewriterText.swift` 一个文件 ⇒ 两条都绿，RM 照样失效。
+    ///
+    /// ⚠️ **仍未覆盖的**：闸的函数体**内部**被改坏（例如把 `guard !reduceMotion` 删掉）
+    /// 不归本条，归纯函数判据 `reduceMotionShowsEverythingAtOnce` 一族。
     @Test("TypewriterPlan 只许在 TypewriterReveal.plan 的函数体内被构造")
     func planIsOnlyEverBuiltByTheGate() throws {
+        // ⚠️ **完整签名**：短前缀会被同名重载连自己的函数体一起挖走（终审 I-3）。
+        let marker = "static func plan(total: Int, typed: Int, reduceMotion: Bool)"
         var offenders: [String] = []
+        var gateCalls = 0
         for url in try MicroInteractionReduceMotionGuard.swiftFiles() {
             let code = MicroInteractionReduceMotionGuard.stripComments(
                 try String(contentsOf: url, encoding: .utf8)
             )
+            gateCalls += code.components(separatedBy: "TypewriterReveal.plan(").count - 1
+
+            let declarations = code.components(separatedBy: "static func plan(").count - 1
+            if declarations > 1 {
+                offenders.append("""
+                \(url.lastPathComponent)：`plan` 声明了 \(declarations) 次（有重载）——
+                重载会把自己的函数体一起从"闸之外"的扫描面里挖掉，本判据对它零可见性。
+                """)
+                continue
+            }
             guard code.contains("TypewriterPlan(") else { continue }
-            let outside = ConfettiTests.removingRegion(after: "static func plan(", in: code)
+            let outside = ConfettiTests.removingRegion(after: marker, in: code)
             let remaining = outside.components(separatedBy: "TypewriterPlan(").count - 1
             if remaining > 0 { offenders.append("\(url.lastPathComponent)：\(remaining) 处") }
         }
         #expect(offenders.isEmpty, """
-        `TypewriterPlan` 在 `TypewriterReveal.plan` 的函数体之外被构造了：
+        `TypewriterPlan` 在 `TypewriterReveal.plan` 的函数体之外被构造了，或 `plan` 有重载：
         \(offenders.joined(separator: "\n"))
-        —— 那正是"闸的结论被后处理掉"这枚变异的形态（终审 S-A ①）：
+        —— 那正是"闸的结论被后处理掉"这枚变异的形态（终审 S-A ① / I-3）：
         `plan(...).recomputed(...)` 会让 Reduce Motion 在渲染路径上完全失效，
         而三条逐次计数判据全部照绿。
+        """)
+
+        // ⚠️ **隐性依赖 ②**：闸自己只许被调用一次。多一处
+        // `TypewriterReveal.plan(..., reduceMotion: false)` 就能把结论重算掉，
+        // 而它**不构造** `TypewriterPlan(` ⇒ 上面那条看不见。
+        #expect(gateCalls == 1, """
+        `TypewriterReveal.plan(` 在 `Sources/CoreDesignEffects` 里被调用了 \(gateCalls) 次
+        —— 只许有 `TypewriterText.body` 那一次。多出来的那次可以写成
+        `reduceMotion: false` 把闸的结论重算掉，且因为它把构造转包给闸自己，
+        上面那条"只许在闸的函数体里构造"完全看不见它。
         """)
 
         // ⚠️ **非退化前置**：闸自己必须**真的**在那个函数体里构造 plan，
         // 否则上面那条对"整个模块一处都不构造"的世界也恒真（那意味着类型被换掉了）。
         let gate = MicroInteractionReduceMotionGuard.stripComments(try Self.source("TypewriterText.swift"))
-        guard let body = ConfettiTests.bracedRegion(after: "static func plan(", in: gate) else {
+        guard let body = ConfettiTests.bracedRegion(after: marker, in: gate) else {
             Issue.record("找不到 `TypewriterReveal.plan` 的函数体 —— 上面那条判据是恒真的")
             return
         }
         #expect(body.components(separatedBy: "TypewriterPlan(").count - 1 == 2,
                 "闸的函数体里构造 `TypewriterPlan` 的次数不是 2（Reduce Motion 一次 + 常规一次）")
+
+        // ⚠️ **隐性依赖 ①**：两个字段是 `let`，否则 `var p = plan(...); p.revealed = …`
+        // 不构造第二个 `TypewriterPlan`，本判据恒绿。
+        guard let planType = ConfettiTests.bracedRegion(after: "struct TypewriterPlan", in: gate) else {
+            Issue.record("找不到 `TypewriterPlan` 的类型体 —— 下面的 `let` 断言无从谈起")
+            return
+        }
+        #expect(ParticleTransitionTests.squeezed(planType) == "{ let revealed: Int let types: Bool }", """
+        `TypewriterPlan` 不再是「两个 `let` 存储属性」（实测 \(ParticleTransitionTests.squeezed(planType))）。
+        只要有一个字段可变，`var p = TypewriterReveal.plan(...); p.revealed = total`
+        就能在**不构造第二个 `TypewriterPlan`** 的前提下把闸的结论覆盖掉
+        ⇒ 上面那条恒绿、三条逐次计数也照绿，而 Reduce Motion 在渲染路径上完全失效。
+        """)
     }
 
     /// ⚠️⚠️ **打字任务的 `id:` 必须带上 `plan.types` 与 `speed`**
@@ -230,10 +315,40 @@ struct TypewriterTextTests {
         #expect(count(".task(id:") == 1,
                 "本文件里有 \(count(".task(id:")) 个 `.task(id:)` —— 下面的逐字判据不再说明「那一个」用的是什么")
         #expect(count(".task(id: TypewriterRun(text: self.text, typing: plan.types, speed: self.speed))") == 1, """
-        打字任务的 id 不是 `TypewriterRun(text: self.text, typing: plan.typing, speed: self.speed)`。
+        打字任务的 id 不是 `TypewriterRun(text: self.text, typing: plan.types, speed: self.speed)`。
         少了 `plan.types` ⇒ 切换 Reduce Motion 时旧任务不被取消，会继续逐字写状态跑到底；
         少了 `speed` ⇒ 换速度不重启，新速度要等下次换文案才生效。
         """)
+    }
+
+    /// ⚠️⚠️ **上一条只做字面串匹配，性质那一面在这里**（#253 PR #273 第 3 轮终审 S-1）。
+    ///
+    /// 终审构造的绕过：给 `TypewriterRun` 写一个
+    ///
+    /// ```swift
+    /// static func == (lhs: Self, rhs: Self) -> Bool { lhs.text == rhs.text }
+    /// ```
+    ///
+    /// ——`.task(id:)` 里三个字段**照写**、`typingTaskRestartsOnPlanAndSpeed` **照绿**，
+    /// 而 Copilot 第 2 轮修掉的两个后果原样回来：切换 Reduce Motion 时旧任务不被取消
+    ///（会继续逐字写状态跑到底）、换 `speed` 时任务不重启（新速度要等换文案才生效）。
+    /// 本轮自查实证：加上那个 `==` 之后 `swift test` 仍是 `672 tests ... passed`。
+    ///
+    /// ⇒ 这条不看源码字面，直接问**类型自己**：三个维度是否各自都参与相等判定。
+    /// ⚠️ 第一条断言（同值必须相等）是**非退化互锁**：没有它，一个恒 `false` 的 `==`
+    /// 会让下面三条全部恒真。
+    @Test("TypewriterRun 的相等性真的看三个字段（否则 .task(id:) 形同只看 text）")
+    func typewriterRunEqualityUsesEveryField() {
+        let base = TypewriterRun(text: "a", typing: true, speed: .slow)
+
+        #expect(base == TypewriterRun(text: "a", typing: true, speed: .slow),
+                "同值都不相等 —— `==` 恒 false，下面三条恒真、什么都没证明")
+        #expect(base != TypewriterRun(text: "b", typing: true, speed: .slow),
+                "`text` 不参与相等 —— 换文案不重启打字任务")
+        #expect(base != TypewriterRun(text: "a", typing: false, speed: .slow),
+                "`typing` 不参与相等 —— 视图存活期间切换 Reduce Motion 时旧任务不被取消，会继续逐字写状态跑到底")
+        #expect(base != TypewriterRun(text: "a", typing: true, speed: .fast),
+                "`speed` 不参与相等 —— 换速度不重启，新速度要等下次换文案才生效")
     }
 
     /// 揭示是**真的**接到渲染上的：不同揭示数必须画出不同的东西。
@@ -599,7 +714,18 @@ struct BeforeAfterSliderTests {
     ///
     /// ⚠️⚠️ **本条只钉住图层方向那一半**（终审 I-A）：它走 `labels: .hidden`，
     /// 结构上观测不到 chip ⇒ 单把 `labelPair` 里两个 chip 对调（图层不动）仍然全绿。
-    /// chip 那一半在 `beforeChipIsOnTheLeadingSide`，两条合起来才闭合 C-1。
+    ///
+    /// ⚠️⚠️ **C-1 要三条才闭合，不是两条**（#253 PR #273 第 3 轮终审 I-2）：
+    /// 上一版这里写的是「chip 那一半在 `beforeChipIsOnTheLeadingSide`，两条合起来才闭合
+    /// C-1」——**当时不成立**，因为那两条走的都是 `labels: .shown(...)`，而**默认档
+    /// `.standard` 是 `labelOverlay(width:)` 里另一处独立接线**（终审只对调它那两个实参
+    /// 就 93 全绿，默认配置下 "Before" 压在 `after` 那半）。三条是：
+    ///
+    /// | 那一半 | 判据 |
+    /// |---|---|
+    /// | 绘制层方向 | 本条 + `endpointsRevealASingleSide`（互锁） |
+    /// | `.shown` 的 chip 顺序 | `beforeChipIsOnTheLeadingSide` |
+    /// | `.standard` 的 chip 顺序 | `standardLabelsMatchTheShownWiring` |
     @Test("before 画在分隔线左边、after 画在右边（init 文档的语义）")
     func beforeIsOnTheLeadingSide() throws {
         let data = try #require(
@@ -631,6 +757,10 @@ struct BeforeAfterSliderTests {
     /// 终审实测的绕过：只把 `labelPair` 里 `self.chip(before)` 与 `self.chip(after)`
     /// 对调（图层一动不动）⇒ "Before" 压在 `after` 那半、"After" 压在 `before` 那半，
     /// **与 C-1 的用户可见后果逐字相同**，而当时 `swift test` **665 全绿**。
+    ///
+    /// ⚠️ **本条只覆盖 `labels: .shown(...)` 这条路径**（第 3 轮终审 I-2）：它靠"喂宽窄
+    /// 文案"观测，而默认档 `.standard` 用的是组件自带的兜底文案、喂不进去。默认档由
+    /// `standardLabelsMatchTheShownWiring` 钉到本条上。
     ///
     /// ## 形态：宽窄文案 + 差分计数（不是"认字"）
     ///
@@ -677,6 +807,84 @@ struct BeforeAfterSliderTests {
         #expect(rightWideAfter > rightWideBefore, """
         把长文案给 `after` 时，**右**半的 chip 并没有变宽
         （右半差异像素 \(rightWideAfter) vs 反过来时 \(rightWideBefore)）。
+        """)
+    }
+
+    /// ⚠️⚠️ **C-1 的第三半：默认档 `.standard` 是另一处独立接线**（#253 PR #273 第 3 轮终审 I-2）。
+    ///
+    /// 上一版把 C-1 说成「`beforeIsOnTheLeadingSide` + `beforeChipIsOnTheLeadingSide`
+    /// **两条合起来就闭合**」——**当时不成立**。两条走的都是 `labels: .shown(before:after:)`，
+    /// 而 `.standard` 在 `labelOverlay(width:)` 里是**另一个 case、另一处实参**，
+    /// 且 `init` 的默认值就是它。
+    ///
+    /// 终审实测的绕过：只把 `.standard` 那两个实参对调
+    ///（`before: Text(defaultAfter), after: Text(defaultBefore)`，`labelPair` 与绘制层
+    /// 一动不动）⇒ `93 tests passed`，而**默认配置下** "Before" chip 压在 `after` 那半
+    /// ——与 C-1 的用户可见后果逐字相同。
+    ///
+    /// ## 形态：把默认档**钉到已被钉住的 `.shown` 路径上**（差分计数，不是逐字节相等）
+    ///
+    /// `.standard` 用的是 A 类 `LocalizedStringResource` 兜底文案，位图上认不出字，
+    /// 也无法像 `.shown` 那样喂宽窄文案。⇒ 断言的是**离哪一张更近**：
+    /// `.standard` 与「顺序正确的 `.shown`」的差异像素，必须**严格少于**它与
+    /// 「顺序反过来的 `.shown`」的差异像素。`.shown` 这条路径的左右由
+    /// `beforeChipIsOnTheLeadingSide` 钉死 ⇒ 传递到默认档。
+    ///
+    /// ⚠️⚠️ **为什么不是"逐字节相同"**（本轮自查实测，终审建议的形态用不了）：
+    /// 两条路径的文本**解析结果相同**（都是 "Before" / "After"，已 `print` 核对），
+    /// 但 `Text(LocalizedStringResource)` 与 `Text(LocalizedStringKey)` 的渲染有一层
+    /// **抗锯齿级别的差异**——实测 200×100 探针上 **19 个像素**不等
+    ///（对照：把两个文案对调是 **867** 个，`.standard` 与 `.hidden` 是 **1811** 个）。
+    /// 更糟的是它**与运行顺序有关**：单跑 `--filter` 必红，跟在整套 674 条后面有时绿
+    /// ——这种判据比没有判据更坏。⇒ 改成差分计数的**严格不等式**，没有魔法阈值：
+    /// 19 < 867 成立；一旦 `.standard` 反过来，两个数对调 ⇒ 867 < 19 不成立 ⇒ 判红。
+    ///
+    /// ⚠️ **文案不写死成字面量 `"Before"` / `"After"`**：那样改兜底文案会静默失配。
+    /// 从 `BeforeAfterSliderLabels.defaultBefore` 现解析
+    ///（`.shown` 吃 `LocalizedStringKey`、兜底文案是 `LocalizedStringResource`，
+    /// 故先 `String(localized:)` 再包成 key）。
+    ///
+    /// ⚠️ **三条非退化互锁，缺一条上面那句就是空话**：
+    /// ① 顺序反过来的 `.shown` 必须**不等于**顺序正确的那张（否则两个兜底文案被改成了
+    ///    同一个词，"离哪张更近"没有信息量）；
+    /// ② `.standard` 必须与 `.hidden` 不同（否则默认档根本没画 chip）；
+    /// ③ `.standard` 与顺序正确的 `.shown` 之间的差异必须**远小于**①的量级
+    ///    ——这一条由不等式本身承担。
+    @Test("默认档 .standard 的 chip 接线与已被钉住的 .shown 一致")
+    func standardLabelsMatchTheShownWiring() throws {
+        let before = LocalizedStringKey(String(localized: BeforeAfterSliderLabels.defaultBefore))
+        let after = LocalizedStringKey(String(localized: BeforeAfterSliderLabels.defaultAfter))
+        // ⚠️ 两层给**同色**：与 `beforeChipIsOnTheLeadingSide` 同一条理由——
+        // 这样两张图的差异只可能来自 chip，不掺绘制层方向。
+        func shot(_ labels: BeforeAfterSliderLabels) throws -> Data {
+            try #require(Self.probe(fraction: 0.5, before: .red, after: .red, labels: labels),
+                         "渲染失败，下面的计数断言会静默变绿")
+        }
+
+        let standard = try shot(.standard)
+        let inOrder = try shot(.shown(before: before, after: after))
+        let swapped = try shot(.shown(before: after, after: before))
+        let hidden = try shot(.hidden)
+
+        let full = 0..<Self.probeWidth
+        let rows = 0..<Self.probeHeight
+        func diff(_ lhs: Data, _ rhs: Data) -> Int {
+            Self.differingPixels(lhs, from: rhs, x: full, y: rows)
+        }
+
+        #expect(diff(inOrder, swapped) > 0, """
+        把两个兜底文案对调之后位图完全没变 —— 它们多半被改成了同一个词，
+        下面那条"`.standard` 离顺序正确的那张更近"于是恒真、什么都没证明。
+        """)
+        #expect(diff(standard, hidden) > 0,
+                "`.standard` 与 `.hidden` 逐字节相同 —— 默认档根本没画 chip")
+        #expect(diff(standard, inOrder) < diff(standard, swapped), """
+        默认档 `.standard` 画出来的更像 `.shown(before: defaultAfter, after: defaultBefore)`
+        ——与顺序正确那张差 \(diff(standard, inOrder)) 个像素，与顺序**反过来**那张只差
+        \(diff(standard, swapped)) 个 ⇒ `labelOverlay(width:)` 的 `case .standard:`
+        那两个实参反了。`.shown` 的左右由 `beforeChipIsOnTheLeadingSide` 钉住、
+        绘制层方向由 `beforeIsOnTheLeadingSide` 钉住 ⇒ 现在**默认配置下**
+        "Before" 压在 `after` 那半，这正是 C-1 的用户可见后果。
         """)
     }
 
@@ -1125,30 +1333,110 @@ struct ParticleTransitionTests {
     /// `ParticleTransitionChrome` ⇒ 对这个分支**零可见性**。
     ///
     /// C-A 修好之后这个 `if` 会**在恒等那一端截断动画**（插值的前提是视图一直在树上），
-    /// 且 `if` 翻转还会给子树套上默认 `.opacity` 转场。⇒ 条件里绝不能再出现 `progress`。
+    /// 且 `if` 翻转还会给子树套上默认 `.opacity` 转场。⇒ 门控里绝不能出现相位。
+    ///
+    /// ## ⚠️⚠️ 形态：**整个类型逐字钉死**，不数字面量（第 3 轮终审 I-1）
+    ///
+    /// 上一版数的是三条**字面形状**：`let drawsParticles = self.count > 0` 命中 1 次、
+    /// `body` 不含 `"progress > 0"`、含 `"ParticleBurstLayer(progress: progress"`。
+    /// 终审当场绕过——只把门控改成
+    ///
+    /// ```swift
+    /// if drawsParticles && phase != .identity {   // progress = abs(phase.value) ⇒ 等价形态
+    /// ```
+    ///
+    /// 三条断言**原样全部成立**（那行 `let` 没动、没有字符串 `progress > 0`、层的构造还在），
+    /// 实测 `93 tests passed`，而 I-B 的危害逐字回来。
+    ///
+    /// 本轮**自查时又构造出三枚**只钉 overlay 内部也拦不住的等价形态：
+    ///
+    /// | 绕过 | 为什么"钉 overlay 内部"拦不住 |
+    /// |---|---|
+    /// | `let drawsParticles = self.count > 0 && phase != .identity` | 它**包含**上一版第一条断言的整个字面串 ⇒ 计数照样是 1 |
+    /// | `let count = phase == .identity ? 0 : self.count` | 层留在树上，但它拿到的粒子数是 0 ⇒ 一颗都画不出，与摘掉整层等价 |
+    /// | 把 `count` 从存储属性改成读 `phase` 的计算属性 | 连 `body` 都不用动 |
+    ///
+    /// ⇒ 断言面取**整个 `ParticleTransitionChrome`**（归一化空白后逐字符相等）：
+    /// 存储属性、Reduce Motion 早退、四个绑定、overlay 一起钉住，
+    /// 上面三枚与终审那枚全部落在断言面内。
+    ///
+    /// ⚠️ **射程（本条不覆盖的）**：`ParticleBurst.progress(phase:)` / `contentScale` /
+    /// `contentOpacity` 三个纯函数的**取值**不在本条断言面内（它们在
+    /// `ParticleTransition.swift` 的另一个类型上），由 `phaseContract` 一族钉；
+    /// `ParticleBurstLayer` 画得出东西由 `chromeDrawsParticlesMidFlight` 钉。
+    ///
+    /// ⚠️ **代价照录**：本条是**逐字**的 ⇒ 给这个类型换行、加一个绑定、调整缩进
+    /// 都会判红，必须连同期望串一起改。这是有意的：I-B 已经被"改一处、判据照绿"
+    /// 绕过一次，宁可让这个类型的每一次改动都回到评审桌上。
     ///
     /// ⚠️ **只能是源码判据**：位图路观测不到"动画中途视图有没有被摘掉"
     ///（`ImageRenderer` 拍的是静态帧，而三个真实相位下画的本来就都是空）。
-    @Test("调用点：overlay 条件只看粒子数、不看进度（否则插值被截断）")
+    @Test("调用点：ParticleTransitionChrome 整个类型逐字钉死（任何相位门控都判红）")
     func particleLayerSurvivesTheWholeTransition() throws {
         let code = MicroInteractionReduceMotionGuard.stripComments(try Self.source("ParticleTransition.swift"))
-        func count(_ needle: String) -> Int { code.components(separatedBy: needle).count - 1 }
-
-        #expect(count("let drawsParticles = self.count > 0") == 1, """
-        overlay 的门控不是 `self.count > 0`（命中 \(count("let drawsParticles = self.count > 0")) 次）——
-        条件里一旦带上 `progress`，恒等那一端会把整层摘掉：进场的收尾、出场的起手都被截断，
-        粒子只在动画中段闪一下。
-        """)
-
-        guard let body = ConfettiTests.bracedRegion(after: "func body(content: Content) -> some View", in: code) else {
-            Issue.record("找不到 `ParticleTransitionChrome.body(content:)` —— 下面的断言无从谈起")
+        #expect(code.components(separatedBy: "struct ParticleTransitionChrome").count - 1 == 1,
+                "`ParticleTransitionChrome` 不是恰好声明一次 —— 下面取到的可能不是被测的那个")
+        guard let chrome = ConfettiTests.bracedRegion(after: "struct ParticleTransitionChrome", in: code) else {
+            Issue.record("找不到 `ParticleTransitionChrome` 的类型体 —— 下面的断言无从谈起")
             return
         }
-        #expect(!body.contains("progress > 0"), """
-        `ParticleTransitionChrome.body(content:)` 里出现了 `progress > 0` —— 这正是被移除的那个门控。
+
+        let expected = #"""
+        {
+            let phase: TransitionPhase
+            let count: Int
+            let colors: [Color]
+
+            @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+            func body(content: Content) -> some View {
+                let isReduced = self.reduceMotion
+                let phase = self.phase
+
+                guard !isReduced else {
+                    return AnyView(content.opacity(ParticleBurst.contentOpacity(phase: phase)))
+                }
+
+                let progress = ParticleBurst.progress(phase: phase)
+                let drawsParticles = self.count > 0
+                let count = self.count
+                let colors = self.colors
+
+                return AnyView(content
+                    .scaleEffect(ParticleBurst.contentScale(phase: phase))
+                    .opacity(ParticleBurst.contentOpacity(phase: phase))
+                    .overlay {
+                        if drawsParticles {
+                            ParticleBurstLayer(progress: progress, count: count, colors: colors)
+                        }
+                    })
+            }
+        }
+        """#
+
+        #expect(Self.squeezed(chrome) == Self.squeezed(expected), """
+        `ParticleTransitionChrome` 与期望形态逐字不符。
+
+        实测：\(Self.squeezed(chrome))
+
+        期望：\(Self.squeezed(expected))
+
+        ⚠️ 先看**门控里有没有掺进相位**（`&& phase != .identity`、嵌一层 `if progress > 0`、
+        三元、`switch`，或把相位项折进 `drawsParticles` / `count` / `colors` 任一绑定，
+        再或把 `count` 改成读 `phase` 的计算属性）——那会让恒等那一端把整层摘掉或让它
+        拿到 0 颗粒子：进场的收尾、出场的起手都被截断，且 `if` 翻转本身还会给子树套上
+        默认 `.opacity` 转场、把粒子峰值再乘一遍。
+        若这次是**有意**改这个类型，连同上面的期望串一起改，并在评审里说明为什么它仍然
+        满足「粒子层整段动画都在树上、且拿到的是本次相位算出的 progress / count / colors」。
         """)
-        #expect(body.contains("ParticleBurstLayer(progress: progress"),
-                "overlay 里交给粒子层的不是本次相位算出的 `progress` —— 插值链断了")
+    }
+
+    /// 归一化空白：连续空白折成单个空格、两端去空白。**逐字源码判据专用**。
+    ///
+    /// ⚠️ 归一化掉的只是排版，不是语义：Swift 里换行 / 缩进不改变这段代码做什么，
+    /// 而把它们算进比较会让判据在一次纯格式化后就判红、逼下一个人直接删掉判据。
+    static func squeezed(_ text: String) -> String {
+        text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 
     /// ⚠️ **三个真实相位下 chrome 画不出粒子，这是正确形态、不是缺陷残留**（终审 C-A）。

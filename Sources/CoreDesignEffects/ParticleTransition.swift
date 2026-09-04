@@ -115,10 +115,20 @@ struct ParticleTransitionChrome: ViewModifier {
         // 且 `if` 翻转本身会给子树套上默认 `.opacity` 转场、把粒子的峰值再乘一遍。
         // ⇒ 只留「粒子数为 0 就别建层」这半——它与相位无关，翻不动动画。
         // 判据：`ParticleTransitionTests.particleLayerSurvivesTheWholeTransition`
-        //（源码逐字钉住这个条件）+ `chromeDrawsParticlesMidFlight`（插值中间值真的画得出）。
-        // ⚠️ **代价照录**：恒等相位（转场停住后**长期**停留的那一帧）现在仍会留一个
-        // `Canvas`，它每次绘制空跑 `count` 次循环、逐颗 `alpha == 0` 早退。
-        // 这是让 SwiftUI 有东西可插值的必要开销，不是遗漏。
+        //（把**整个 `ParticleTransitionChrome`** 归一化空白后逐字符钉死——只钉这个
+        // `if` 的字面形状会被 `&& phase != .identity` 之类等价形态绕过，第 3 轮终审
+        // 实测过）+ `chromeDrawsParticlesMidFlight`（插值中间值真的画得出）。
+        //
+        // ⚠️⚠️ **代价照录**（第 3 轮终审 S-2 更正，上一版两处都记偏了）：
+        // 真正的常驻代价是**一个 `Canvas` 绘制层永久挂在树上**——自定义 `Transition` 的
+        // `body(content:phase:)` 在被修饰视图的**整个生命周期**里都生效（转场停住之后
+        // 相位是 `.identity`，修饰器并不会被摘掉）⇒ 每一个用过 `.transition(.particle)`
+        // 的视图都会长期多背一个 `Canvas`：一个额外的视图 / 布局节点，加上 `Canvas`
+        // 自己的绘制上下文。这才是这条转场的固定开销，也是上一版**漏记**的那一项。
+        // ⚠️ 上一版把代价写成「每次绘制空跑 `count` 次循环」，**高估了 CPU 那一侧**：
+        // `Canvas` 只在**失效**时才重画，恒等相位稳态下 `progress` / `count` / `colors`
+        // 都不再变化 ⇒ 那个循环并不会每帧空跑，稳态下压根不执行。
+        // ⇒ 开销是让 SwiftUI 有东西可插值的必要代价，不是遗漏；但账要按上面这样记。
         let progress = ParticleBurst.progress(phase: phase)
         let drawsParticles = self.count > 0
         let count = self.count
