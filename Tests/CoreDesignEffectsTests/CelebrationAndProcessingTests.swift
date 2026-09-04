@@ -216,12 +216,12 @@ struct EffectsEnergyRenderTests {
 
         for kind in ProcessingSweepKind.allCases {
             for phase in [ScenePhase.background, .inactive] {
-                #expect(Self.wrapped(kind, phase: phase) == baseline,
+                expectBitmapsEqual(Self.wrapped(kind, phase: phase), baseline,
                         "\(kind) 在 \(phase) 下仍然画了东西 —— NFR-7 的停摆没有落地")
             }
             // ⚠️ **互锁**：`.active` 必须画得出东西，否则上面那条相等断言是恒真的
             //（"什么都不画"与"这个效果压根没实现"在位图上不可分辨）。
-            #expect(Self.wrapped(kind, phase: .active) != baseline,
+            expectBitmapsDiffer(Self.wrapped(kind, phase: .active), baseline,
                     "\(kind) 在 .active 下也什么都没画 —— 上面的停摆断言是恒真的")
         }
     }
@@ -243,7 +243,7 @@ struct EffectsEnergyRenderTests {
             let low = pixels(kind, lowPower: true)
             #expect(full != nil && low != nil, "\(kind) 渲染失败，下面的不等断言会静默变绿")
             #expect(full?.contains(where: { $0 != 0 }) == true, "\(kind) 位图全 0")
-            #expect(full != low,
+            expectBitmapsDiffer(full, low,
                     "\(kind) 在低电量下与满电渲染完全一致 —— 注入的 \\.lowPowerModeOverride 没有影响渲染")
         }
     }
@@ -303,7 +303,7 @@ struct ProcessingSweepTests {
                 // ⚠️ 少了这条，整体渲染失败（`drawn == nil`）会让下一条静默判绿
                 //（`nil != baseline` 恒真）——#252 PR #269 第 1 轮终审 S-3。
                 #expect(drawn != nil, "\(kind) 在相位 \(phase) 上渲染失败")
-                #expect(drawn != baseline, "\(kind) 在相位 \(phase) 上什么都没画")
+                expectBitmapsDiffer(drawn, baseline, "\(kind) 在相位 \(phase) 上什么都没画")
             }
         }
     }
@@ -388,13 +388,13 @@ struct ConfettiTests {
         #expect(empty != nil, "基线渲染失败，下面的相等断言会静默变绿")
         #expect(empty?.contains(where: { $0 != 0 }) == true, "基线位图全 0 —— 相等断言恒真")
 
-        #expect(Self.pixels(Self.canvas(progress: 1)) == empty,
+        expectBitmapsEqual(Self.pixels(Self.canvas(progress: 1)), empty,
                 "progress = 1 时还有彩纸 —— burst 结束后会永久残留")
         // ⚠️ **互锁**：中途必须画得出彩纸，否则上一条是恒真的。
-        #expect(Self.pixels(Self.canvas(progress: 0.25)) != empty,
+        expectBitmapsDiffer(Self.pixels(Self.canvas(progress: 0.25)), empty,
                 "progress = 0.25 都画不出彩纸 —— 上一条相等断言是恒真的")
         // Reduce Motion 静态层用的那一帧同样必须**看得见**（降级不是 no-op）。
-        #expect(Self.pixels(Self.canvas(progress: ConfettiBurst.restingProgress)) != empty,
+        expectBitmapsDiffer(Self.pixels(Self.canvas(progress: ConfettiBurst.restingProgress)), empty,
                 "Reduce Motion 静态庆祝层是空的 —— 那就是 no-op")
     }
 
@@ -408,7 +408,7 @@ struct ConfettiTests {
         let red = Self.pixels(Self.canvas(progress: 0.3).tint(.red))
         let blue = Self.pixels(Self.canvas(progress: 0.3).tint(.blue))
         #expect(red != nil && blue != nil, "渲染失败，下面的不等断言会静默变绿")
-        #expect(red != blue,
+        expectBitmapsDiffer(red, blue,
                 "空色板时彩纸色没有跟随 .tint —— Canvas 里的 .style(.tint) 没被解析")
 
         // ⚠️ 反向 + 互锁两条一起写，两个失效方向各堵一边（变异实证见下）：
@@ -428,10 +428,10 @@ struct ConfettiTests {
         //——#252 PR #269 第 1 轮终审 S-3。
         #expect(explicitRedTint != nil && explicitBlueTint != nil,
                 "显式色板渲染失败，下面两条断言会静默变绿")
-        #expect(explicitRedTint == explicitBlueTint,
+        expectBitmapsEqual(explicitRedTint, explicitBlueTint,
                 "给了显式色板还跟着 .tint 变 —— 调用方参数没有优先，取色多半绕过了 colors")
         // 且显式色板与"回落 .tint"必须真的画出不同的东西（否则上一条可以恒真）。
-        #expect(explicitRedTint != red, "显式色板与回落 .tint 画出的东西一样 —— colors 参数没进渲染")
+        expectBitmapsDiffer(explicitRedTint, red, "显式色板与回落 .tint 画出的东西一样 —— colors 参数没进渲染")
 
         // 取色函数层（与 `.spray` 共用同一实现）的契约同样钉住。
         #expect([Color]().particleColor(at: 0) == nil, "空色板必须回落到 .tint，而不是取某个具体色")
@@ -473,26 +473,26 @@ struct ConfettiTests {
         // ① burst 进行中必须画得出彩纸。`progress:` 写死成 1 ⇒ 本条判红。
         let mid = Self.pixels(layer(.now.addingTimeInterval(-0.5)))
         #expect(mid != nil, "ConfettiLayer 渲染失败")
-        #expect(mid != empty, "burst 中途 ConfettiLayer 什么都没画 —— progress 没有接到画布")
+        expectBitmapsDiffer(mid, empty, "burst 中途 ConfettiLayer 什么都没画 —— progress 没有接到画布")
 
         // ② 终帧（burst 早已结束）必须一片不剩。这是**端到端**的，不是纯函数层。
         let terminal = Self.pixels(layer(.now.addingTimeInterval(-10)))
         #expect(terminal != nil, "ConfettiLayer 终帧渲染失败")
-        #expect(terminal == empty, "burst 结束后 ConfettiLayer 仍有残留")
+        expectBitmapsEqual(terminal, empty, "burst 结束后 ConfettiLayer 仍有残留")
 
         // ③ 空色板回落 `.tint`：同一层换 tint 必须画出不同的东西。
         let pinned = Self.pinnedBurstStart
         let red = Self.pixels(layer(pinned).tint(.red))
         let blue = Self.pixels(layer(pinned).tint(.blue))
         #expect(red != nil && blue != nil, "渲染失败，下面的不等断言会静默变绿")
-        #expect(red != blue, "ConfettiLayer 的空色板没有跟随 .tint")
+        expectBitmapsDiffer(red, blue, "ConfettiLayer 的空色板没有跟随 .tint")
 
         // ④ 显式色板必须真的进渲染（`colors:` 不是死参数），且不再跟随 `.tint`。
         let green = Self.pixels(layer(pinned, colors: [.green]).tint(.red))
         let greenAgain = Self.pixels(layer(pinned, colors: [.green]).tint(.blue))
         #expect(green != nil && greenAgain != nil, "渲染失败，下面两条断言会静默变绿")
-        #expect(green == greenAgain, "给了显式色板还跟着 .tint 变 —— 取色绕过了 colors")
-        #expect(green != red, "显式色板与回落 .tint 画出的东西一样 —— colors 没进渲染")
+        expectBitmapsEqual(green, greenAgain, "给了显式色板还跟着 .tint 变 —— 取色绕过了 colors")
+        expectBitmapsDiffer(green, red, "显式色板与回落 .tint 画出的东西一样 —— colors 没进渲染")
     }
 
     /// ⚠️⚠️ **`ConfettiCore` 本身**（`.confetti(trigger:)` 真正装上去的那个 modifier）
@@ -536,14 +536,14 @@ struct ConfettiTests {
         let resting = Self.pixels(core(nil))
         let bursting = Self.pixels(core(pinned))
         #expect(resting != nil && bursting != nil, "渲染失败，下面的断言会静默变绿")
-        #expect(bursting != resting,
+        expectBitmapsDiffer(bursting, resting,
                 "burst 进行中与静息态逐字节相同 —— .confetti 的渲染路径整条没接上")
 
         // ① NFR-7：注入 .background / .inactive ⇒ 与"没有 burst"逐字节相同（一个像素都不画）。
         for phase in [ScenePhase.background, .inactive] {
             let gated = Self.pixels(core(pinned, phase: phase))
             #expect(gated != nil, "\(phase) 下渲染失败")
-            #expect(gated == resting, "\(phase) 下彩纸层仍在画 —— NFR-7 的停摆没有落地")
+            expectBitmapsEqual(gated, resting, "\(phase) 下彩纸层仍在画 —— NFR-7 的停摆没有落地")
         }
 
         // ② 公开的 `colors:` 一路接到画布：显式色板不跟 `.tint` 变，且与回落 `.tint` 不同。
@@ -552,8 +552,8 @@ struct ConfettiTests {
         let greenOnBlue = Self.pixels(core(pinned, colors: [.green]).tint(.blue))
         #expect(tintRed != nil && greenOnRed != nil && greenOnBlue != nil,
                 "渲染失败，下面两条断言会静默变绿")
-        #expect(greenOnRed == greenOnBlue, "给了显式色板还跟着 .tint 变")
-        #expect(greenOnRed != tintRed,
+        expectBitmapsEqual(greenOnRed, greenOnBlue, "给了显式色板还跟着 .tint 变")
+        expectBitmapsDiffer(greenOnRed, tintRed,
                 "colors 参数没有从 ConfettiCore 传到画布 —— 公开的 colors: 是死参数")
     }
 
@@ -824,10 +824,10 @@ struct ConfettiTests {
         //（`eachEffectRestsClean` 的文档：层数不一致会全体等量偏差）。
         let empty = layer(active: true, policy: .paused)
         #expect(on != nil && off != nil && empty != nil, "渲染失败，下面的断言会静默变绿")
-        #expect(on != off,
+        expectBitmapsDiffer(on, off,
                 "静态庆祝层没有跟着 active 变 —— 它的触发源不是 ConfettiCore 的 burstStart")
-        #expect(on != empty, "active: true 也什么都没画 —— 上一条是恒真的")
-        #expect(off == empty, "active: false 时静态层仍在画东西")
+        expectBitmapsDiffer(on, empty, "active: true 也什么都没画 —— 上一条是恒真的")
+        expectBitmapsEqual(off, empty, "active: false 时静态层仍在画东西")
     }
 
     // ⚠️ **"没有 burst 时与裸视图逐字节相同"这条判据不在本 suite**，

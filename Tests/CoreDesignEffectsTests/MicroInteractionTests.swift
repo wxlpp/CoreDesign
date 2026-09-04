@@ -139,6 +139,35 @@ struct MicroInteractionAPITests {
     }()
 
     /// ⚠️ 进程级暖机 + 视图级暖机各一道，见 `processWarmUp`。
+    ///
+    /// ## ⚠️⚠️ 本 harness 的第三条限度：**拿到的位图不能直接进 `#expect(==)`**（Issue #293）
+    ///
+    /// 本函数返回的是一块**大 `Collection`**（200×200 的画布就是 160 000 字节）。
+    /// 把两块这样的 `Data` 直接交给 `#expect(a == b)`，swift-testing 会为渲染失败信息
+    /// 去求 `CollectionDifference`（Myers 差分）⇒ **断言判红时不判红，而是挂住**。
+    ///
+    /// 本仓端到端实测（`MaskRevealRenderTests.identityIsBytewiseIdentityEvenWithOverflow`
+    /// + 一枚「恒等相位仍在裁剪」的库变异，两幅 160 000 字节的位图）：
+    ///
+    /// | 断言形态 | 结果 |
+    /// |---|---|
+    /// | `#expect(identity == bare, …)` | **200 秒 SIGALRM**，汇总行没打印，日志 860 KB、单行 430 225 字符，6 个 kind 只报出 2 个 |
+    /// | `expectBitmapsEqual(identity, bare, …)` | **0.569 秒**判红，6 个 kind 全报，日志 6.4 KB |
+    ///
+    /// ⚠️ **失效的恰好是最该判红的那一类变异**：整层被绕过 = 整幅图都变 = 差分规模爆炸。
+    /// 而失效形态是「进程卡住、读不出是哪条判据在咬」——比静默绿更难诊断，
+    /// 因为它看起来像机器慢或死锁。既有断言至今没被咬到，只是因为迄今判红的场景里
+    /// 两幅图差异都很小（改了一个数值、挪了几个像素）。
+    ///
+    /// ⇒ **本函数的返回值一律走 `expectBitmapsEqual` / `expectBitmapsDiffer`**
+    /// （`BitmapExpectations.swift`），或本仓既有的 `let matches = a == b; #expect(matches, …)`
+    /// 成法。`BitmapExpectationGuard`（`Tests/CoreDesignTests/`）机器守着这条纪律，
+    /// 它**堵不住**的等价改写逐条列在那个文件的文件头里。
+    ///
+    /// ⚠️ 补一条本轮实测出来的**非直觉事实**：`Optional<Data>` 本身不是 `Collection`
+    /// ⇒ 两侧都是 `Data?` 时**不会挂**（同一对位图 0.039 s）。会挂的是**非可选** `Data`
+    /// ——也就是凡是走 `try #require(Self.stablePixels(...))` 拿到位图的断言。
+    /// 「可选 ⇒ 非可选」只有一次重构的距离，故纪律对两者一视同仁，别按可选性开例外。
     static func stablePixels(_ view: some View) -> Data? {
         _ = Self.processWarmUp
         _ = Self.pixels(view)
@@ -210,7 +239,7 @@ struct MicroInteractionAPITests {
         )
         // ⚠️ **非空断言先行**（本仓明文纪律）：两边都渲染失败时相等断言恒真。
         #expect(bare != nil && stacked != nil, "渲染失败，下面的相等断言会静默变绿")
-        #expect(bare == stacked, "叠加 9 个微交互后静息位图变了 —— 有效果在静息态就在画东西")
+        expectBitmapsEqual(bare, stacked, "叠加 9 个微交互后静息位图变了 —— 有效果在静息态就在画东西")
     }
 
     /// ⚠️ **逐个单独测**，不只测叠加——叠加相等时两个效果的相反偏差可能互相抵消。
@@ -273,7 +302,7 @@ struct MicroInteractionAPITests {
                 ("confetti", Self.stablePixels(content.confetti(trigger: 1))),
             ]
             for (name, pixels) in cases {
-                #expect(pixels == bare, "\(name) 在 \(contentName) 上静息就改变了位图")
+                expectBitmapsEqual(pixels, bare, "\(name) 在 \(contentName) 上静息就改变了位图")
             }
         }
         check("Text", Text("x"))
@@ -301,7 +330,7 @@ struct MicroInteractionAPITests {
         let viaKey = Self.stablePixels(Text(LocalizedStringKey(resolved)))
         // ⚠️ **非空断言先行**（本仓明文纪律）：两边都渲染失败时相等断言恒真。
         #expect(verbatim != nil && viaKey != nil, "渲染失败，下面的相等断言会静默变绿")
-        #expect(verbatim == viaKey, "Bundle.main 查不到该键时未原样回落 —— rise 文档写的绕行方式失效")
+        expectBitmapsEqual(verbatim, viaKey, "Bundle.main 查不到该键时未原样回落 —— rise 文档写的绕行方式失效")
         // 且这个 key 真能喂给 `.rise`（编译期契约，防止将来把参数换成不接受运行期串的类型）。
         let applied = Self.stablePixels(
             Text("x").rise(trigger: 1, text: LocalizedStringKey(resolved))
@@ -407,12 +436,12 @@ struct MicroInteractionAPITests {
             let detail = "Spin(\(direction)) 终帧转到 \(turns)°，取角后是 \(angle)° —— "
                 + "不是恒等，动画结束后会永久残留一个变换"
             #expect(angle == 0, "\(detail)")
-            #expect(Self.stablePixels(Text("x").rotationEffect(.degrees(angle))) == bare,
+            expectBitmapsEqual(Self.stablePixels(Text("x").rotationEffect(.degrees(angle))), bare,
                     "Spin(\(direction)) 终帧角 \(angle)° 施加后位图与裸视图不同")
         }
         // ⚠️ **互锁**：证明同一条渲染路径确实分辨得出"非恒等的角度"，
         // 否则上面那条相等断言是恒真的。
-        #expect(Self.stablePixels(Text("x").rotationEffect(.degrees(37))) != bare,
+        expectBitmapsDiffer(Self.stablePixels(Text("x").rotationEffect(.degrees(37))), bare,
                 "harness 分辨不出 37° 旋转 —— Spin 那条相等断言是恒真的")
 
         // MARK: Shine —— 终帧光带必须完全扫出遮罩之外
@@ -421,13 +450,13 @@ struct MicroInteractionAPITests {
             ShineBand.track()
         }
         let terminal = timeline.value(time: timeline.duration)
-        #expect(Self.stablePixels(Self.shinePinned(Text("x"), progress: terminal)) == bare,
+        expectBitmapsEqual(Self.stablePixels(Self.shinePinned(Text("x"), progress: terminal)), bare,
                 "Shine 终帧 progress = \(terminal) —— 光带没有完全扫出界，会永久留在内容上")
         // ⚠️ **互锁**：`progress = 0`（光带正压在内容上）必须判出差异。
         // 那正是第 4 轮那枚真 bug 的形态（`initialValue` 被固化成 0 ⇒ 常驻斜切）。
         // 这一条同时兜住「钉帧路径与 `ShineCore` 的组合漂移了」——漂移后光带画不出来，
         // 本条判红，上一条就不会静默退化成恒真。
-        #expect(Self.stablePixels(Self.shinePinned(Text("x"), progress: 0)) != bare,
+        expectBitmapsDiffer(Self.stablePixels(Self.shinePinned(Text("x"), progress: 0)), bare,
                 "钉帧路径在 progress = 0 都量不出光带 —— 上一条相等断言是恒真的")
     }
 
@@ -475,7 +504,7 @@ struct MicroInteractionAPITests {
         // 全 0 是这类退化的指纹，直接判红。
         #expect(bare?.contains(where: { $0 != 0 }) == true,
                 "位图全 0 —— CGContext 没有写进我们比较的这块缓冲，所有相等断言都是恒真的")
-        #expect(bare != probe, "harness 分辨不出 opacity 差异 —— 上一条相等断言是恒真的")
+        expectBitmapsDiffer(bare, probe, "harness 分辨不出 opacity 差异 —— 上一条相等断言是恒真的")
     }
 
     @Test("trigger 接受任意 Equatable —— 含 MainActor 隔离 conformance 的类型")
@@ -489,7 +518,7 @@ struct MicroInteractionAPITests {
         // 同上：换成可观测断言，不留恒真表达式。
         let stacked = Self.stablePixels(v)
         #expect(stacked != nil)
-        #expect(stacked == Self.stablePixels(Text("x")))
+        expectBitmapsEqual(stacked, Self.stablePixels(Text("x")))
     }
 
 }
@@ -563,7 +592,7 @@ struct MicroInteractionACContractTests {
         let bare = MicroInteractionAPITests.stablePixels(Text("x"))
         let wrapped = MicroInteractionAPITests.stablePixels(Shine { Text("x") })
         #expect(bare != nil && wrapped != nil, "渲染失败，下面的相等断言会静默变绿")
-        #expect(bare == wrapped, "Shine 容器在静息态就改变了位图")
+        expectBitmapsEqual(bare, wrapped, "Shine 容器在静息态就改变了位图")
     }
 
     /// ⚠️⚠️ **这条才是容器形态的真正风险点**：容器若自己实现一遍高光，

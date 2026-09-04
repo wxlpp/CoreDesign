@@ -138,8 +138,8 @@ struct CardVisibilityTests {
 
             #expect(cardPixel != nil, "Card 渲染失败（kind=\(kind), \(scheme)）")
             #expect(canvasPixel != nil, "画布渲染失败（\(scheme)）")
-            #expect(
-                cardPixel != canvasPixel,
+            expectBitmapsDiffer(
+                cardPixel, canvasPixel,
                 "Card(kind: \(kind)) 背景在 \(scheme) 下与画布同色 → 卡片隐形（Issue #140 塌缩回归）"
             )
         }

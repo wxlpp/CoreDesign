@@ -688,13 +688,13 @@ struct MaskRevealRenderTests {
             )),
             "对照渲染失败"
         )
-        #expect(bare != notOverflowing, "被测内容其实没有溢出 bounds —— 本判据观测不到裁剪")
+        expectBitmapsDiffer(bare, notOverflowing, "被测内容其实没有溢出 bounds —— 本判据观测不到裁剪")
 
         for entry in Self.kinds {
             let identity = try #require(
                 Self.pixels(Self.chrome(progress: 1, kind: entry.kind)), "渲染失败：\(entry.name)"
             )
-            #expect(identity == bare, """
+            expectBitmapsEqual(identity, bare, """
             `.\(entry.name)` 在恒等相位改变了画面 —— 转场停住之后被修饰视图的溢出内容
             （阴影 / 超出 bounds 的子视图）被裁剪永久吃掉了。
             """)
@@ -715,7 +715,7 @@ struct MaskRevealRenderTests {
             Self.pixels(Self.framed(Color.surfaceRaised.frame(width: 4, height: 4))),
             "对照渲染失败"
         )
-        #expect(bare != notOverflowing, "被测内容其实没有溢出 4×4 的 bounds —— 本判据观测不到裁剪")
+        expectBitmapsDiffer(bare, notOverflowing, "被测内容其实没有溢出 4×4 的 bounds —— 本判据观测不到裁剪")
 
         for entry in Self.kinds {
             let identity = try #require(
@@ -745,7 +745,7 @@ struct MaskRevealRenderTests {
             let hidden = try #require(
                 Self.pixels(Self.chrome(progress: 0, kind: entry.kind)), "渲染失败：\(entry.name)"
             )
-            #expect(hidden == blank, "`.\(entry.name)` 在进度 0 上还画着东西")
+            expectBitmapsEqual(hidden, blank, "`.\(entry.name)` 在进度 0 上还画着东西")
         }
     }
 
@@ -804,15 +804,15 @@ struct MaskRevealRenderTests {
                 Self.pixels(Self.framed(Self.overflowing().modifier(interpolated))),
                 "渲染失败：\(entry.name)"
             )
-            #expect(midFlight != bare, "`.\(entry.name)` 的中间帧与完全揭示相同 —— 它中途就已经全开")
-            #expect(midFlight != blank, "`.\(entry.name)` 的中间帧什么都不画 —— 揭示从未发生")
+            expectBitmapsDiffer(midFlight, bare, "`.\(entry.name)` 的中间帧与完全揭示相同 —— 它中途就已经全开")
+            expectBitmapsDiffer(midFlight, blank, "`.\(entry.name)` 的中间帧什么都不画 —— 揭示从未发生")
 
             // `animatableData` 必须**真的绑在 `progress` 上**，而不是某个不参与绘制的字段：
             // 插出来的那一帧必须与"直接用中间进度构造"的 chrome 逐字节相同。
             let direct = try #require(
                 Self.pixels(Self.chrome(progress: 0.5, kind: entry.kind)), "渲染失败：\(entry.name)"
             )
-            #expect(midFlight == direct, """
+            expectBitmapsEqual(midFlight, direct, """
             `.\(entry.name)` 插值出来的那一帧与 `MaskRevealChrome(progress: 0.5)` 不同
             —— `animatableData` 没有绑在 `progress` 上，插值改不动绘制。
             """)
@@ -827,7 +827,7 @@ struct MaskRevealRenderTests {
                 Self.pixels(Self.chrome(progress: 0.5, kind: entry.kind)), "渲染失败：\(entry.name)"
             )
             for (name, other) in seen {
-                #expect(frame != other, "`.\(entry.name)` 与 `.\(name)` 的中间帧逐字节相同")
+                expectBitmapsDiffer(frame, other, "`.\(entry.name)` 与 `.\(name)` 的中间帧逐字节相同")
             }
             seen[entry.name] = frame
         }
@@ -843,7 +843,7 @@ struct MaskRevealRenderTests {
                 Self.pixels(Self.framed(Self.overflowing().clipShape(MaskRevealShape(plan: reduced)))),
                 "渲染失败：\(entry.name)"
             )
-            #expect(masked == bare, "`.\(entry.name)` 在 Reduce Motion 下仍然裁掉了东西")
+            expectBitmapsEqual(masked, bare, "`.\(entry.name)` 在 Reduce Motion 下仍然裁掉了东西")
 
             // 互锁：不降级时同一进度**必须**裁掉东西，否则上一条恒真。
             let motion = MaskReveal.plan(kind: entry.kind, progress: 0.5, isReduced: false)
@@ -851,7 +851,7 @@ struct MaskRevealRenderTests {
                 Self.pixels(Self.framed(Self.overflowing().clipShape(MaskRevealShape(plan: motion)))),
                 "渲染失败：\(entry.name)"
             )
-            #expect(clipped != bare, "`.\(entry.name)` 在运动路径上也没裁掉任何东西")
+            expectBitmapsDiffer(clipped, bare, "`.\(entry.name)` 在运动路径上也没裁掉任何东西")
         }
     }
 
@@ -871,9 +871,9 @@ struct MaskRevealRenderTests {
             "基线渲染失败"
         )
         #expect(blank.contains(where: { $0 != 0 }), "基线位图全 0 —— 相等断言恒真")
-        #expect(Self.pixels(band(0)) == blank, "travel 0 的柔光带还在画东西")
-        #expect(Self.pixels(band(1)) == blank, "travel 1（恒等相位）的柔光带还在画东西 —— 永久残留")
-        #expect(Self.pixels(band(0.5)) != blank, "travel 0.5 的柔光带什么都不画 —— 上两条是恒真的")
+        expectBitmapsEqual(Self.pixels(band(0)), blank, "travel 0 的柔光带还在画东西")
+        expectBitmapsEqual(Self.pixels(band(1)), blank, "travel 1（恒等相位）的柔光带还在画东西 —— 永久残留")
+        expectBitmapsDiffer(Self.pixels(band(0.5)), blank, "travel 0.5 的柔光带什么都不画 —— 上两条是恒真的")
     }
 
     @Test("六个入口点都能用点语法接上 `.transition(_:)` 并渲染")
@@ -1032,7 +1032,7 @@ struct MaskRevealTransitionBodyTests {
             )),
             "基线渲染失败"
         )
-        #expect(bare != blank, "两条基线逐字节相同 —— 下面的断言全部恒真")
+        expectBitmapsDiffer(bare, blank, "两条基线逐字节相同 —— 下面的断言全部恒真")
 
         let transitions: [(name: String, transition: MaskRevealTransition)] = [
             ("iris", .iris), ("wipe", .wipe), ("blinds", .blinds),
