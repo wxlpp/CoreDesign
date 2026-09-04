@@ -62,7 +62,36 @@ note: 'zoom(sourceID:in:)' has been explicitly marked unavailable here
 - `PlatformSupportGuard.zoomIsFencedToIOS` —— `.zoom(` 只许出现在 `#if os(iOS)` 里，
   且 `public struct FullScreenButton` **不许**被条件编译整个吞掉
   （那样库照样编译得过，而 macOS 上这个公开类型整个消失，只有下游会红）；
-- `PlatformSupportGuard.everyPlatformFenceHasAnElse` —— 每道平台围栏两端都要有代码。
+- `PlatformSupportGuard.everyPlatformFenceHasAnElse` —— 每道平台围栏两端都要有代码；
+- `PlatformSupportGuard.sourceIDHasASingleSource` —— `sourceID` 只许有一个来源。
+
+### `sourceID` 不许跨泛型特化去取（Copilot #3930970767）
+
+目的地侧此前写的是 `FullScreenButton<EmptyView, EmptyView>.sourceID`，它依赖
+「泛型类型的静态成员是与泛型实参无关的常量计算属性」这个**隐含前提**。
+Swift 的泛型静态成员是**按具体特化分开**的：一旦 `sourceID` 变成存储属性、或它的值
+开始依赖 `Label` / `Destination`，label 侧与 destination 侧会拿到两个不同的 id
+⇒ zoom 静默退化成普通 push，**编译不报错、测试不变红、无人发现**。
+⇒ 改成 `FullScreenButtonDestination` 持有一个 `let sourceID: String`，由
+`FullScreenButton` 传入；判据钉的是 `>.sourceID` 这个形态（任何特化后的静态访问）。
+
+### ⚠️⚠️ 已知限度：zoom 转场**零运行期证据**
+
+本仓在 macOS 上开发，`.zoom` 那条分支在 macOS 单测里**结构上不可达**：
+`FullScreenTransitionPlanTests` 钉的是纯函数真值表、`zoomIsFencedToIOS` 钉的是围栏形态、
+`CrossPlatformRenderTests.fullScreenButtonRenders` 只断言折叠态卡片非空白。
+⇒ **"iOS 上 zoom 真的触发了"这件事目前只由"它能编译"背书**（PR #274 终审 S-6）。
+
+需要人工在 iOS 模拟器上确认一次，并把结论写回本节：
+
+1. 点开卡片是否**真的**几何放大成整屏（而不是普通 push）；
+2. `.matchedTransitionSource(id:in:)` 施加在 `NavigationLink` **label 构建器内部**的
+   `self.label` 上是否生效。
+   ⚠️ **这一条已按 Apple 文档核对过**：官方示例的形态逐字就是
+   `NavigationLink { Detail().navigationTransition(.zoom(sourceID:in:)) } label: { Image(...).matchedTransitionSource(id:in:) }`
+   ——修饰符加在 **label 内容上**，与本件一致。所以它不是偏离，但仍缺一次运行期确认。
+
+若 (1) 不成立，本件在 iOS 上会静默退化成普通 push，而**全套判据仍然绿**。
 
 ## Reduce Motion
 
