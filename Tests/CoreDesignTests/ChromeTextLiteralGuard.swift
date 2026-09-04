@@ -133,6 +133,20 @@ import Testing
 //    但口子 5 新补的 6 个构造器把它的暴露面放大了——`ContentUnavailableView` /
 //    `Link` / `NavigationLink` 的第一个无标签实参在现实代码里常是 id / route 而非文案。
 //    ⇒ 处置同上：走台账，不要把 `isProse` 收得更窄（收窄会把真文案一起放掉）。
+// 10. ⚠️⚠️ **A 类"默认标签"这一整族本守卫看不见**（#253 PR #273 终审 S-4，**留痕不改码**）。
+//    本守卫的射程是 `textConstructors`（构造器的首个无标签实参）与 `textModifiers`。
+//    而 A 类兜底文案的正典形态是一个**自建的 chrome 入口函数**：
+//    `BeforeAfterSliderLabels.defaultBefore = .effectsChrome("Before")` /
+//    `BeforeAfterSliderChrome.accessibilityTitle = .effectsChrome("Before and after comparison")`
+//    ——`.effectsChrome(…)` 既不是构造器、也不在 modifier 名单上 ⇒ **零可见性**。
+//    ⚠️ **这不是回归，也不是"该补进白名单"**：那两处走的正是本守卫处方第 2 条要求的
+//    `Bundle.module` 通路（`LocalizedStringResource(_:bundle:)`），把 `.effectsChrome` 加进
+//    `textConstructors` 反而会把**合规**写法判红。真正的缺口是「A 类**类型要求**无机器判据」
+//    ——公约自己把它记为 **G-4**（`docs/component-contract.md`：「A 类的类型要求当前
+//    无机器判据，靠评审」）。
+//    ⇒ 今天唯一覆盖它的是**运行期**判据
+//    `BeforeAfterSliderTests.defaultLabelsResolveThroughModuleBundle`（哨兵键证明查表命中）。
+//    **写在这里是为了不让日后有人把「本守卫绿」误当成「A 类默认标签被查过」。**
 @Suite("新 target 禁 chrome 文案裸字面量")
 struct ChromeTextLiteralGuard {
 
@@ -260,7 +274,9 @@ struct ChromeTextLiteralGuard {
            String Catalog——`Package.swift` 的 `resources:` **与**
            `Sources/<target>/Resources/` 目录**必须同轮一起加**
            （`GuardScanRootsGuard.moduleBundleOwnership` 钉住这条一致性；
-           ⚠️ 新 target 今天**没有**资源包，写 `bundle: .module` 编译不过）；
+           ⚠️ 括注更新（#253 PR #273 终审 S-3）：`CoreDesignCharts` 与 `CoreDesignEffects`
+           **今天都已经有资源包了** —— 上一版这里写「新 target 今天**没有**资源包，
+           写 `bundle: .module` 编译不过」，处方本身没错，括注已失真）；
         3. 那串东西根本不是自然语言（数字 / 符号 / 用户数据）时用 `Text(verbatim:)`，
            它会被清点并打印出来。
         """)

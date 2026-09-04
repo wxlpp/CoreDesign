@@ -131,9 +131,15 @@ struct MicroInteractionReduceMotionGuard {
         // ⚠️ `TypewriterText.swift` —— 逐字揭示**确实不含**位移 / 旋转 / 缩放：
         // 它只是把 `Text` 的内容从前缀换成更长的前缀（全文层 `opacity(0)` 做尺寸底稿，
         // 布局不动）。FR-11 约束的是运动，这里没有。它的 RM 降级（直接显示完整文本）
-        // 由纯函数 `TypewriterReveal.revealedCount(total:typed:reduceMotion:)` +
+        // 由纯函数 `TypewriterReveal.plan(total:typed:reduceMotion:)` +
         // `TypewriterTextTests.reduceMotionIsOnlyConsumedByTheRevealGate`（调用点逐次计数）
-        // 两条判据接管——与本守卫 `reduceMotionIsOnlyConsumedByTheSharedGate` 同形态。
+        // + `TypewriterTextTests.planIsTheOnlyThingBodyHandsDown`（闸的两个**出口**）
+        // 三条判据接管——与本守卫 `reduceMotionIsOnlyConsumedByTheSharedGate` 同形态。
+        // ⚠️ **上一版这里写的是 `revealedCount(total:typed:reduceMotion:)`，那个符号已不存在**
+        //（#253 PR #273 终审 S-1）：它正是被本 PR 的 M2 那次修复改名成 `plan(...)` 的
+        // ⇒ 一条豁免的理由指向了一个 grep 不到的符号。豁免理由必须指向活着的符号。
+        // ⚠️ 上一版只列两条判据，也漏了「闸的输出」那一半——终审 I-1 实测：把
+        // `revealed: plan.revealed` 改成 `revealed: total`，打字机效果整个消失而 7/7 全绿。
         //
         // ⚠️⚠️ `BeforeAfterSlider.swift` —— **这一条不是「它不动」**，必须读清楚：
         // 入场摆动会让分隔线滑过去。它进本名单的理由与上面三个薄封装**同型**——

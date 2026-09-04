@@ -34,11 +34,29 @@ import Testing
 @MainActor
 struct TypewriterTextTests {
 
+    /// ⚠️ **复用 `MicroInteractionReduceMotionGuard.sourceRoot`，不重抄仓库根的推导**
+    ///（PR #273 Copilot inline）：上一版在这里又写了一遍三次 `deletingLastPathComponent`
+    /// + `"Sources/CoreDesignEffects/"`，与那份守卫的扫描根**各自演化**——挪目录时
+    /// 只有一处会跟着改，而另一处静默指向不存在的路径（`String(contentsOf:)` 抛错、
+    /// 判据以"读不到文件"而不是"违规"的形态红，很难归因）。
     static func source(_ fileName: String) throws -> String {
-        let url = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            .appendingPathComponent("Sources/CoreDesignEffects/\(fileName)")
+        let url = MicroInteractionReduceMotionGuard.sourceRoot.appendingPathComponent(fileName)
         return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    /// `ImageRenderer` 的**布局尺寸**（跨平台）。
+    ///
+    /// ⚠️ 与位图不同：位图字节数在被测视图外面套了 `.frame(...)` 之后**恒定**，
+    /// 用它比"布局有没有跳"是结构性恒真（终审 I-2）。要观测布局必须量尺寸，
+    /// 且被测视图**不能**被外层 `.frame` 钉死。
+    static func renderedSize(_ view: some View) -> CGSize {
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 1
+        #if canImport(UIKit)
+        return renderer.uiImage?.size ?? .zero
+        #else
+        return renderer.nsImage?.size ?? .zero
+        #endif
     }
 
     /// ⚠️⚠️ **承重判据**：AC「Reduce Motion ⇒ 直接显示完整文本」。
@@ -110,8 +128,41 @@ struct TypewriterTextTests {
         #expect(strays.isEmpty, "裸写的 reduceMotion（去掉 `self.` 就能绕过上面的字面计数）：\n\(strays.joined(separator: "\n"))")
     }
 
+    /// ⚠️⚠️ **调用点：`body` 交给绘制层与状态机的必须是 `plan` 的两个字段**（终审 I-1）。
+    ///
+    /// `reduceMotionIsOnlyConsumedByTheRevealGate` 只堵住闸的**输入**（`reduceMotion` 确实
+    /// 被喂进 `plan`），**两个输出洞都开着**。终审逐枚实测：
+    ///
+    /// | 变异 | 后果 | 当时的测试 |
+    /// |---|---|---|
+    /// | `revealed: plan.revealed` → `revealed: total` | 瞬间显示全文，打字机效果整个消失 | 7/7 **绿** |
+    /// | `types: plan.types` → `types: false` | 状态机不再逐字推进 | 15/15 **绿** |
+    ///
+    /// ⇒ 与 `reads == fed` 同一形态，逐次计数把两个出口也钉住：`plan` 必须是 `body`
+    /// 能交给 `TypewriterBody` / `type(total:types:)` 的**唯一**东西。
+    @Test("调用点：body 只把 plan.revealed / plan.types 交给绘制层与状态机")
+    func planIsTheOnlyThingBodyHandsDown() throws {
+        let code = MicroInteractionReduceMotionGuard.stripComments(try Self.source("TypewriterText.swift"))
+        func count(_ needle: String) -> Int { code.components(separatedBy: needle).count - 1 }
+
+        #expect(count("TypewriterBody(") == 1,
+                "TypewriterText.swift 里构造了 \(count("TypewriterBody(")) 次 TypewriterBody —— 下面的逐次计数不再说明「唯一那次」用的是什么")
+        #expect(count("revealed: plan.revealed") == 1, """
+        绘制层拿到的不是 `plan.revealed`（命中 \(count("revealed: plan.revealed")) 次）——
+        改成 `revealed: total` 会让组件瞬间显示全文、打字机效果整个消失，
+        而闸的**输入**判据（reads == fed）仍然全绿。
+        """)
+
+        #expect(count("await self.type(") == 1,
+                "打字状态机被调用了 \(count("await self.type(")) 次 —— 逐次计数不再说明唯一那次喂的是什么")
+        #expect(count("types: plan.types") == 1, """
+        状态机拿到的不是 `plan.types`（命中 \(count("types: plan.types")) 次）——
+        改成 `types: false` 会让逐字推进整个停掉，而闸的输入判据仍然全绿。
+        """)
+    }
+
     /// 揭示是**真的**接到渲染上的：不同揭示数必须画出不同的东西。
-    @Test("揭示数真的接到渲染：0 字与全文的位图不同，且布局尺寸不变")
+    @Test("揭示数真的接到渲染：0 字与全文的位图不同")
     func revealedCountReachesRendering() {
         let full = "Hello typewriter"
         func body(_ revealed: Int) -> Data? {
@@ -125,8 +176,38 @@ struct TypewriterTextTests {
         let all = body(TypewriterReveal.characterCount(of: full))
         #expect(none != nil && all != nil, "渲染失败，下面的不等断言会静默变绿")
         #expect(none != all, "0 字与全文渲染完全相同 —— revealed 根本没接到 Text 上")
-        #expect(none?.count == all?.count,
-                "两者位图字节数不同 —— 说明揭示过程会改变布局尺寸（打字时行宽会跳）")
+        // ⚠️ **上一版这里还有一条「两者位图字节数必须相同」，它结构性恒真**（终审 I-2）：
+        // `pixels` 返回 `w*h*4` 的裸 RGBA 缓冲，而被测视图被外层 `.frame(220×40)` 钉死
+        // ⇒ 两个字节数**永远**相等，`body` 干什么都一样。终审实证：把整个幽灵层机制
+        // 换成裸 `Text(verbatim: shown)`，本 suite 7/7 仍绿。
+        // ⇒ 布局那一半移交下面的 `ghostSizingKeepsLayoutStable`（量的是**尺寸**、且不套 frame）。
+    }
+
+    /// ⚠️⚠️ **「打字不跳字」的真判据**（终审 I-2 换掉了上一条恒真的字节数比较）。
+    ///
+    /// 被测视图**不套外层 `.frame`**，比的是 `ImageRenderer` 的布局尺寸：
+    /// 幽灵层（全文 `opacity(0)` 做尺寸底稿）在时，前缀长短不改变布局；
+    /// 删掉幽灵层就只剩前缀本身的尺寸 ⇒ 判红。互锁那条把"恒真"堵死。
+    @Test("幽灵层做尺寸底稿：打到第 1 个字与全文的布局尺寸相同")
+    func ghostSizingKeepsLayoutStable() {
+        let full = "Hello typewriter, a long enough line that a prefix is visibly narrower"
+        func size(_ revealed: Int) -> CGSize {
+            Self.renderedSize(TypewriterBody(text: full, revealed: revealed))
+        }
+        let one = size(1)
+        let all = size(TypewriterReveal.characterCount(of: full))
+        #expect(all.width > 0 && all.height > 0, "渲染失败，下面的相等断言会静默变绿")
+        #expect(one == all, """
+        打到第 1 个字与全文的布局尺寸不同（\(one) vs \(all))——
+        幽灵层尺寸底稿没有生效，打字过程中行宽 / 行数会跳，并把下方布局推来推去。
+        """)
+
+        // ⚠️ **互锁**：同一条件下裸 `Text` 的前缀与全文尺寸**必须**不同，
+        // 否则上面那条相等断言是恒真的（这正是它替换掉的那条犯的错）。
+        let barePrefix = Self.renderedSize(Text(verbatim: TypewriterReveal.prefix(of: full, count: 1)))
+        let bareFull = Self.renderedSize(Text(verbatim: full))
+        #expect(barePrefix != bareFull,
+                "裸 Text 的前缀与全文尺寸相同（\(barePrefix)）—— 上面那条相等断言是恒真的")
     }
 
     @Test("公开入口：LocalizedStringResource 与 verbatim 两条都在，且可渲染")
@@ -148,23 +229,40 @@ struct AnimatedMeshGradientTests {
         try TypewriterTextTests.source(fileName)
     }
 
+    /// 判据里用到的两组色板。**暖机与被测项必须用同一份**——见 `meshWarmUp`。
+    static let palette: [Color] =
+        Array(repeating: Color.surfaceRaised, count: 4) + Array(repeating: Color.contentPrimary, count: 5)
+    static let basePalette: [Color] = Array(repeating: Color.surfaceRaised, count: MeshDrift.colorSlots)
+    static let altPalette: [Color] = Array(repeating: Color.contentPrimary, count: MeshDrift.colorSlots)
+
     /// ⚠️ **`MeshGradient` 有自己的一层进程级首帧伪影**（与 `ConfettiTests.canvasWarmUp`
     /// 同源：本仓实测过「同一个视图渲两次、第一次是异类」）。先把这条渲染路径跑热。
+    ///
+    /// ⚠️⚠️ **必须把 `MeshGradient(colors:)` 那条分支也跑热**（#253 PR #273 终审 C-2）：
+    /// 上一版只暖了 `.tint` / mask 那条（`colors: []`），而显式色板走的是**另一条**
+    /// 渲染路径、有**自己的**首帧伪影 ⇒ `stablePixels` 那一次丢弃渲染不够，
+    /// `emptyPaletteFollowsCallerTint` 里冷渲的 `paletteRed` 与暖渲的 `paletteBlue` 不等
+    /// ⇒ 单独跑该用例终审实测 **15 / 15 全失败**，全量 `swift test` 也红。
+    /// ⚠️ 它同时是 `alternatePaletteReachesRendering` 判别力的前提：伪影在时那条
+    /// `single != dual` 可能因为「一个冷渲一个暖渲」而**因错误的原因通过**。
+    /// ⇒ 三条渲染路径（`.tint` mask / 单色板 / 双色板混合）各跑热一遍。
     private static let meshWarmUp: Bool = {
-        let probe = AnimatedMeshBody(phase: MeshDrift.restingPhase, colors: [], alternateColors: [])
-            .frame(width: 160, height: 120)
-            .background(Color.surfaceRaised)
-            .environment(\.scenePhaseOverride, .active)
-        for _ in 0..<8 { _ = MicroInteractionAPITests.stablePixels(probe) }
+        @MainActor func warm(_ view: some View) {
+            for _ in 0..<8 { _ = MicroInteractionAPITests.stablePixels(view) }
+        }
+        warm(Self.rawBody(colors: [], alternateColors: []))
+        warm(Self.rawBody(colors: Self.palette, alternateColors: []))
+        warm(Self.rawBody(colors: Self.basePalette, alternateColors: []))
+        warm(Self.rawBody(colors: [], alternateColors: Self.altPalette))
+        warm(Self.rawBody(
+            phase: MeshDrift.blendPeakPhase, colors: Self.basePalette, alternateColors: Self.altPalette
+        ))
         return true
     }()
 
-    static func pixels(_ view: some View) -> Data? {
-        _ = Self.meshWarmUp
-        return MicroInteractionAPITests.stablePixels(view)
-    }
-
-    static func body(
+    /// 与 `body(...)` 同一棵视图树，但**不经过 `pixels`**——`meshWarmUp` 自己要用它，
+    /// 而 `pixels` 会先求值 `meshWarmUp`（递归）。
+    static func rawBody(
         phase: CGFloat = MeshDrift.restingPhase,
         colors: [Color] = [],
         alternateColors: [Color] = [],
@@ -177,6 +275,20 @@ struct AnimatedMeshGradientTests {
             .environment(\.lowPowerModeOverride, lowPower)
     }
 
+    static func pixels(_ view: some View) -> Data? {
+        _ = Self.meshWarmUp
+        return MicroInteractionAPITests.stablePixels(view)
+    }
+
+    static func body(
+        phase: CGFloat = MeshDrift.restingPhase,
+        colors: [Color] = [],
+        alternateColors: [Color] = [],
+        lowPower: Bool? = nil
+    ) -> some View {
+        Self.rawBody(phase: phase, colors: colors, alternateColors: alternateColors, lowPower: lowPower)
+    }
+
     /// ⚠️⚠️ **承重判据**：AC「不自带调色板，9 色 × 2 组全部由调用方传入或取 `.tint`」。
     @Test("空色板 ⇒ 取调用方 .tint；给了色板 ⇒ 不再跟随 .tint")
     func emptyPaletteFollowsCallerTint() {
@@ -187,23 +299,44 @@ struct AnimatedMeshGradientTests {
         #expect(red != blue, "空色板下换 .tint 位图不变 —— 说明取色没有走 .tint（多半是写死了 Color.accent）")
 
         // 反面：显式色板必须**压过** `.tint`，否则"调用方传入"这条路是假的。
-        let palette = Array(repeating: Color.surfaceRaised, count: 4) + Array(repeating: Color.contentPrimary, count: 5)
-        let paletteRed = Self.pixels(Self.body(colors: palette).tint(.red))
-        let paletteBlue = Self.pixels(Self.body(colors: palette).tint(.blue))
+        // ⚠️ 色板取 `Self.palette`（与 `meshWarmUp` 暖的是同一份）——终审 C-2：
+        // `MeshGradient(colors:)` 那条分支不暖机时，这两次渲染一冷一暖必然不等。
+        let paletteRed = Self.pixels(Self.body(colors: Self.palette).tint(.red))
+        let paletteBlue = Self.pixels(Self.body(colors: Self.palette).tint(.blue))
         #expect(paletteRed != nil, "渲染失败")
         #expect(paletteRed == paletteBlue, "给了色板还跟着 .tint 变 —— 调用方参数没有生效")
     }
 
+    /// ⚠️ **终审 C-2 的连带项**：伪影存在时这条 `single != dual` **可能因为错误的原因通过**
+    ///（`single` 冷渲、`dual` 暖渲）。`meshWarmUp` 把两条路径都跑热之后它才承重
+    /// ——变异实证见 PR #273 的评论（把 `blended` 改成永远忽略 `alternate` ⇒ 判红）。
     @Test("两组色板真的都接到渲染上：只换 alternateColors 位图必须变")
     func alternatePaletteReachesRendering() {
-        let base = Array(repeating: Color.surfaceRaised, count: 9)
-        let alt = Array(repeating: Color.contentPrimary, count: 9)
         // 相位取在两组之间混合最深处，否则混合系数为 0 时两者天然相同。
         let phase = MeshDrift.blendPeakPhase
-        let single = Self.pixels(Self.body(phase: phase, colors: base))
-        let dual = Self.pixels(Self.body(phase: phase, colors: base, alternateColors: alt))
+        let single = Self.pixels(Self.body(phase: phase, colors: Self.basePalette))
+        let dual = Self.pixels(
+            Self.body(phase: phase, colors: Self.basePalette, alternateColors: Self.altPalette)
+        )
         #expect(single != nil && dual != nil, "渲染失败")
+        #expect(single?.contains(where: { $0 != 0 }) == true, "位图全 0 —— 不等断言恒真")
         #expect(single != dual, "第二组色板对渲染无影响 —— alternateColors 是死参数")
+    }
+
+    /// ⚠️ **登记 S-2 那个不对称组合**：`colors` 空 + `alternateColors` 非空 ⇒
+    /// **静态使用备用色板、不回落 `.tint`**。类型文档与 `docs/components/animated-mesh-gradient.md`
+    /// 上一版都无条件写着「`colors` 为空 ⇒ 回落 `.tint`」，与此不符 ⇒ 本判据把真实行为钉住，
+    /// 免得下一个人照文档改成 `nil` 而没有任何东西判红。
+    @Test("只给 alternateColors ⇒ 用那一组色板，不跟随 .tint（已登记的不对称组合）")
+    func alternateOnlyPaletteDoesNotFollowTint() {
+        #expect(MeshDrift.blended(base: [], alternate: Self.altPalette, phase: 0.3) != nil,
+                "只给 alternateColors 时回落到了 .tint 形态 —— 与已登记的行为不符")
+        #expect(MeshDrift.blended(base: [], alternate: [], phase: 0.3) == nil,
+                "两组都空时没有回落 .tint —— 上面那条不再说明任何事")
+        let red = Self.pixels(Self.body(alternateColors: Self.altPalette).tint(.red))
+        let blue = Self.pixels(Self.body(alternateColors: Self.altPalette).tint(.blue))
+        #expect(red != nil && blue != nil, "渲染失败，下面的相等断言会静默变绿")
+        #expect(red == blue, "只给 alternateColors 时仍跟着 .tint 变 —— 与已登记的行为不符")
     }
 
     /// 色板长度契约：不足 9 补齐、超过 9 截断——否则 `MeshGradient` 会因
@@ -342,6 +475,93 @@ struct BeforeAfterSliderTests {
         MicroInteractionAPITests.stablePixels(view)
     }
 
+    // MARK: - 逐像素取色（"哪边是哪个"的唯一可观测形态）
+
+    /// 探针画布尺寸。**两侧各留 `probeInset`**，避开正中的把手与分隔线。
+    static let probeWidth = 200
+    static let probeHeight = 100
+    static let probeInset = 20
+
+    /// 从 `MicroInteractionAPITests.pixels` 的**裸 RGBA8** 缓冲里取一个像素。
+    ///
+    /// ⚠️ 那个缓冲是 `width * height * 4`、`premultipliedLast`（RGBA），逐行无 padding
+    /// （`bytesPerRow = w * 4`）⇒ 下标可以直接算。宽度由字节数反推并核对，
+    /// 免得 `ImageRenderer` 给出的不是请求的尺寸时静默读错位置。
+    static func rgba(_ data: Data, at x: Int, y: Int) -> (r: Int, g: Int, b: Int, a: Int)? {
+        let width = data.count / (Self.probeHeight * 4)
+        guard width == Self.probeWidth, x >= 0, x < width, y >= 0, y < Self.probeHeight else { return nil }
+        let i = (y * width + x) * 4
+        return (Int(data[i]), Int(data[i + 1]), Int(data[i + 2]), Int(data[i + 3]))
+    }
+
+    static func probe(fraction: CGFloat, before: Color, after: Color) -> Data? {
+        Self.pixels(
+            BeforeAfterSliderBody(
+                fraction: fraction, labels: .hidden, before: before, after: after
+            )
+            .frame(width: CGFloat(Self.probeWidth), height: CGFloat(Self.probeHeight))
+        )
+    }
+
+    /// ⚠️⚠️ **承重判据（#253 PR #273 终审 C-1）：分隔线**左边是 `before`、右边是 `after`。
+    ///
+    /// 唯一的语义权威是 `BeforeAfterSlider.init` 的文档（「`before`：分隔线**左侧**露出的
+    /// 内容」），`labelPair` 的 chip 顺序也是照它来的。上一版的绘制层把 `after` 叠在上面、
+    /// mask 到 leading ⇒ **左右整个反了**，而 chip 顺序没跟着反 ⇒ 默认 `.standard` 标签
+    /// 把两半**都**标错，`.shown(before:after:)` 对所有调用方同样标错。
+    /// 终审的像素探针实证（`before: .red` / `after: .blue`，fraction 0.5）：
+    /// `left=(39, 124, 225) right=(255, 56, 60)` —— 左半是蓝（`after`）。
+    ///
+    /// ⚠️ **没有这条判据，同一个反转可以静默重新引入**：当时全套测试全绿——
+    /// `fractionReachesRendering` 只比"两个位置的位图不同"，
+    /// `labelDomainIsAnEnumWithThreeDistinctRenderings` 只比"三档互不相同"，
+    /// 两条都对"哪边是哪个"完全不敏感。
+    @Test("before 画在分隔线左边、after 画在右边（init 文档的语义）")
+    func beforeIsOnTheLeadingSide() throws {
+        let data = try #require(
+            Self.probe(fraction: 0.5, before: .red, after: .blue),
+            "渲染失败，下面的断言会静默变绿"
+        )
+        let y = Self.probeHeight / 2
+        let left = try #require(Self.rgba(data, at: Self.probeInset, y: y),
+                                "取不到左侧像素 —— 渲染尺寸与请求尺寸不符")
+        let right = try #require(Self.rgba(data, at: Self.probeWidth - Self.probeInset, y: y),
+                                 "取不到右侧像素")
+
+        #expect(left.r > left.b, """
+        分隔线**左**侧画的不是 `before`（探针给它 .red，实测 rgba=\(left)）——
+        `init` 文档逐字写着「before：分隔线左侧露出的内容」，而 `labelPair` 的
+        "Before" chip 也压在左半上 ⇒ 现在标签把两半都标错了。
+        """)
+        #expect(right.b > right.r, """
+        分隔线**右**侧画的不是 `after`（探针给它 .blue，实测 rgba=\(right)）。
+        """)
+    }
+
+    /// 上一条的**互锁**：两个端点位置必须整块换成另一边，否则"左右"是一句没被观测的话。
+    ///
+    /// ⚠️ **采样点必须避开把手**：`leadingInset` 把 44pt 的命中区推到分隔线两侧，
+    /// fraction=0 时它占 `[0, 44]`、fraction=1 时占 `[width-44, width]`，
+    /// 而把手是不透明的 `contentOnAccent` ⇒ 落在里面会取到把手的颜色（实测灰 156）
+    /// 而不是被测的两层。⇒ 端点判据取 `probeMidLeft` / `probeMidRight`（60 / 140），
+    /// 两个端点形态下都在把手之外。
+    static let probeMidLeft = 60
+    static let probeMidRight = 140
+
+    @Test("端点位置：fraction=0 整块是 after，fraction=1 整块是 before")
+    func endpointsRevealASingleSide() throws {
+        let y = Self.probeHeight / 2
+        let allAfter = try #require(Self.probe(fraction: 0, before: .red, after: .blue), "渲染失败")
+        let allBefore = try #require(Self.probe(fraction: 1, before: .red, after: .blue), "渲染失败")
+
+        for x in [Self.probeMidLeft, Self.probeMidRight] {
+            let a = try #require(Self.rgba(allAfter, at: x, y: y))
+            #expect(a.b > a.r, "fraction=0 时 x=\(x) 处不是 after(.blue)：rgba=\(a)")
+            let b = try #require(Self.rgba(allBefore, at: x, y: y))
+            #expect(b.r > b.b, "fraction=1 时 x=\(x) 处不是 before(.red)：rgba=\(b)")
+        }
+    }
+
     /// ⚠️⚠️ **承重判据**：AC「Reduce Motion ⇒ 停止自动摆动，但**保留拖拽**」。
     @Test("Reduce Motion ⇒ 没有入场摆动；关闭时才有")
     func introSweepIsGatedByReduceMotion() {
@@ -446,6 +666,52 @@ struct BeforeAfterSliderTests {
                 "本 target 的 Bundle.module 查表没有命中 —— chrome 文案永远无法由本包提供翻译")
         #expect(String(localized: BeforeAfterSliderLabels.defaultBefore) == "Before")
         #expect(String(localized: BeforeAfterSliderLabels.defaultAfter) == "After")
+    }
+
+    /// ⚠️⚠️ **入场摆动不得覆盖用户的拖拽**（#253 PR #273 终审 I-6）。
+    ///
+    /// `playIntroSweep` 的回程发生在 `sweepDuration × 2 ≈ 1.1s` 之后，而
+    /// `DragGesture.onChanged` 写的是**同一个** `fraction`。上一版两者无协调 ⇒ 用户在
+    /// 0.55s 的外扫段抓住把手拖到别处，回程一触发就被 `withAnimation` 拽回 0.5。
+    /// 对一个"就是要你马上抓"的组件，这个窗口非常现实。
+    ///
+    /// ⚠️ 与本 suite 其余 Reduce Motion 判据同形态：**纯函数 + 调用点源码**两条链。
+    /// 位图路结构上不可达（`.task` 在 macOS 的 `ImageRenderer` 下根本不跑，
+    /// 而"1.1s 之后有没有被拽回"是一个时序事实，静态帧拍不到）。
+    @Test("入场摆动的回程被 hasInteracted 门控（纯函数）")
+    func settleIsGatedByInteraction() {
+        #expect(BeforeAfterSweep.settlesAfterSweep(hasInteracted: true) == false,
+                "用户已经拖过了，回程还要执行 —— 显式输入会被一个提示动画拽回正中")
+        // ⚠️ **互锁**：没碰过时回程必须执行，否则上面那条对「永远返回 false」的实现也恒真
+        //（而那就是把入场摆动砍成"只出不回"）。
+        #expect(BeforeAfterSweep.settlesAfterSweep(hasInteracted: false) == true,
+                "没人碰过也不回程 —— 上面那条断言是恒真的")
+    }
+
+    @Test("调用点：onChanged 置位 hasInteracted，回程先过 settlesAfterSweep 闸")
+    func introSweepYieldsToTheDrag() throws {
+        let code = MicroInteractionReduceMotionGuard.stripComments(try Self.source("BeforeAfterSlider.swift"))
+        func count(_ needle: String) -> Int { code.components(separatedBy: needle).count - 1 }
+
+        #expect(count("self.hasInteracted = true") == 1, """
+        拖拽没有置位 `hasInteracted`（命中 \(count("self.hasInteracted = true")) 次）——
+        入场摆动的回程会把用户拖到的位置拽回 0.5。
+        """)
+        #expect(count("settlesAfterSweep(hasInteracted: self.hasInteracted)") == 1, """
+        回程没有过 `BeforeAfterSweep.settlesAfterSweep` 闸
+        （命中 \(count("settlesAfterSweep(hasInteracted: self.hasInteracted)")) 次）。
+        """)
+
+        // ⚠️ **顺序也是承重的**：闸必须在回程那次 `withAnimation` 之**前**。
+        // 挖掉闸函数自己的函数体，剩下的就是调用点（同本 suite 其余源码判据的成法）。
+        let callSites = ConfettiTests.removingRegion(after: "static func settlesAfterSweep(", in: code)
+        #expect(callSites != code, "没能挖掉闸函数的函数体 —— 下面的顺序断言会被闸本身干扰")
+        let gate = try #require(callSites.range(of: "settlesAfterSweep(hasInteracted: self.hasInteracted)"),
+                                "调用点上找不到闸")
+        let settle = try #require(callSites.range(of: "self.fraction = sweep.settle"),
+                                  "找不到回程那次赋值 —— 入场摆动没有回程了？")
+        #expect(gate.lowerBound < settle.lowerBound,
+                "`settlesAfterSweep` 闸写在回程赋值之后 —— 挡不住任何东西")
     }
 
     /// AC：触控目标测试**在本 target 内同形态实现**，不进 `CoreDesignTests.TouchTargetTests`。
