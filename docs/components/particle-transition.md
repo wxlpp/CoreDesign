@@ -59,16 +59,62 @@ public extension Transition where Self == ParticleTransition {
 
 ## 相位契约
 
+`TransitionPhase` 是 **3 case frozen enum** ⇒ `body(content:phase:)` 只可能拿到这三个值，
+`ParticleBurst.progress` 的**可达取值只有 `{0, 1}`**：
+
 | 相位 | 进度 | 内容不透明度 | 内容缩放 | 粒子 |
 |---|---|---|---|---|
-| `.willAppear`（`value == -1`） | 1 | 0 | 0.88 | 满 |
+| `.willAppear`（`value == -1`） | 1 | 0 | 0.88 | **一颗都不画**（见下） |
 | `.identity`（`value == 0`） | **0** | 1 | **1** | **一颗都不画** |
-| `.didDisappear`（`value == 1`） | 1 | 0 | 1.12 | 满 |
+| `.didDisappear`（`value == 1`） | 1 | 0 | 1.12 | **一颗都不画**（见下） |
 
-⚠️ **`.identity` 必须恒为恒等**：那是转场结束后停住的那一帧，也是用户实际长期看到的
-那一帧（`ShineBand.terminalProgress` / `ConfettiBurst.opacity` 都记着同一条教训）。
-判据 `ParticleTransitionTests.identityFrameDrawsNothing` 带互锁：中途（progress 0.4）
-必须画得出粒子，否则那条相等断言是恒真的。
+⚠️ **粒子只出现在两个端点之间的插值上**，三个真实相位一颗都不画——这是**正确形态**，
+不是缺陷：`progress == 0` 是转场停住后长期停留的那一帧（画一颗都是永久残留）；
+`progress == 1` 是"完全进入前 / 完全离开后"，内容不透明度也恰为 0
+（`lifetime` 上界 `0.9975 < 1` ⇒ 粒子 alpha 在这一端同样恒为 0），
+那一端留着可见粒子就是一次 pop。
+
+⚠️ **上一版这张表在两个端点写的是「满」，而那是假的**（#253 PR #273 终审 C-A）：
+当时的 `ParticleBurstLayer` 是普通 `View`——不 conform `Animatable`、无 `TimelineView`
+⇒ **中间进度根本到不了**（SwiftUI 只插值可动画属性，不插值 `Canvas` 的绘制内容），
+而两个端点的 alpha 恒为 0 ⇒ **粒子层是死代码**：三个相位下直接渲
+`ParticleTransitionChrome`，与「无粒子层版本」**逐字节相同**。用户实际只看到内容自身的
+`scaleEffect` + `opacity`，「一圈粒子飞散」从未发生过。
+
+## 粒子靠什么动起来：`Animatable`
+
+`ParticleBurstLayer` 现在 conform `Animatable`，`animatableData` 就是 `progress`
+⇒ SwiftUI 在一次动画事务里把它从端点 A 插到端点 B，并**逐帧重求 `body`**，
+`Canvas` 每帧拿到一个新的中间进度。
+
+⚠️ **不用 `TimelineView`（`Confetti` 的成法）**：`Confetti` 有明确的 `burstStart: Date`
+可以锚定一段自驱窗口，而 `Transition` **拿不到任何时间源**——它只被喂三个离散相位，
+既不知道调用方的 `withAnimation` 用了多长、什么曲线，也没有"何时开始"这个事实。
+自建时间线会与 SwiftUI 自己的转场时钟**两套时序**，且恒等相位会留一个常驻 display link。
+`.keyframeAnimator` 同理（也要自己声明时长）。`animatableData` 是唯一"跟着 SwiftUI 时钟走"的选项。
+
+⚠️ **代价照录**：overlay 的门控因此只能是 `self.count > 0`，**不能**再带 `progress > 0`
+——插值的前提是那个视图整段动画都在树上；带上 `progress` 会在恒等那一端把整层摘掉
+（进场的收尾、出场的起手都被截断），且 `if` 翻转会给子树套上默认 `.opacity` 转场。
+⇒ 恒等相位现在仍会留一个 `Canvas`，它每次绘制空跑 `count` 次循环、逐颗 `alpha == 0` 早退。
+
+### 判据
+
+- `ParticleTransitionTests.chromeDrawsParticlesMidFlight`（**承重**）——把 SwiftUI 的
+  插值步骤原样跑一遍（取两端 `animatableData`、`interpolate(towards:amount:)`、写回），
+  结果必须画得出粒子，且必须与直接用中间进度构造的层**逐字节相同**。
+  走存在类型 `any View & Animatable` ⇒ 撤掉 `Animatable` 一致性是**运行时判红**。
+- `ParticleTransitionTests.particleLayerSurvivesTheWholeTransition`——源码钉住
+  overlay 门控恰为 `self.count > 0`，且 `body(content:)` 里不出现 `progress > 0`。
+- `ParticleTransitionTests.chromeAtRealPhasesDrawsNothing`——三个真实相位下 chrome
+  与「粒子数为 0」版逐字节相同（把 `identityFrameDrawsNothing` 从绘制层抬到 chrome 本体；
+  上一版那条从不经过 chrome，对 `if drawsParticles` 分支**零可见性**）。
+- `ParticleTransitionTests.identityFrameDrawsNothing`——绘制层那一层，带"中途必须画得出"的互锁。
+
+⚠️⚠️ **仍未被机器守住的一格**：「SwiftUI 的转场机制**确实**会拾取这个 `animatableData`
+并逐帧重求 `body`」是一个**运行期动画事实**，`ImageRenderer` 拍静态帧、结构上观测不到。
+判据钉到的是「插值这一步的输入输出正确」+「视图整段在树上」，两者合起来是修复的必要条件，
+**不是充分条件**。真正的确认只能靠 `App/` 预览宿主肉眼看。⇒ 登记为已知限度。
 
 粒子位置全部由 `index` 派生的**确定性伪随机**给出，不用 `random`——否则每次重绘粒子都会跳，
 且测试无法复现（`Spray` / `Confetti` 已就同一件事立过规矩）。

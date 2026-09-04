@@ -100,14 +100,27 @@ struct ParticleTransitionChrome: ViewModifier {
             return AnyView(content.opacity(ParticleBurst.contentOpacity(phase: phase)))
         }
 
-        // ⚠️ **恒等相位（`progress == 0`）与空粒子数直接跳过整层**（PR #273 Copilot inline）：
-        // `.identity` 是转场停住后**长期**停留的那一帧，而 `ParticleBurst.opacity` 在
-        // `progress == 0` 上恒为 0 ⇒ 上一版仍会建一个 `Canvas`、在里面空跑 `count` 次
-        // 循环只为逐颗 `alpha == 0` 早退。⇒ 在建层之前就判掉。
-        // ⚠️ 这**不改变**任何一帧的像素（`identityFrameDrawsNothing` 仍然逐字节相等），
-        // 只是把常驻态的空转去掉。
+        // ⚠️⚠️ **这个条件里绝不能再出现 `progress`**（#253 PR #273 终审 C-A / I-B）。
+        //
+        // 上一版写的是 `progress > 0 && self.count > 0`（PR #273 Copilot inline 的
+        // 「恒等相位跳过整层」）。它当时"无害"的**唯一**原因是粒子本来就画不出来：
+        // `TransitionPhase` 是 3 case frozen enum ⇒ `progress` 的可达取值只有 `{0, 1}`，
+        // 而两端的粒子 alpha 都恒为 0 ⇒ 整个粒子层是死代码（终审逐字节实证：三个相位
+        // 下与「无粒子层版本」完全相同）。
+        //
+        // 修好之后（`ParticleBurstLayer` 现在是 `Animatable`，见下），中间进度由
+        // **SwiftUI 插值** `animatableData` 得到——而插值的前提是**这个视图在整段动画里
+        // 一直在树上**。一旦条件里带上 `progress > 0`，恒等那一端会把整层摘掉：
+        // 进场（progress 1 → 0）的收尾、出场（0 → 1）的起手都被截断，
+        // 且 `if` 翻转本身会给子树套上默认 `.opacity` 转场、把粒子的峰值再乘一遍。
+        // ⇒ 只留「粒子数为 0 就别建层」这半——它与相位无关，翻不动动画。
+        // 判据：`ParticleTransitionTests.particleLayerSurvivesTheWholeTransition`
+        //（源码逐字钉住这个条件）+ `chromeDrawsParticlesMidFlight`（插值中间值真的画得出）。
+        // ⚠️ **代价照录**：恒等相位（转场停住后**长期**停留的那一帧）现在仍会留一个
+        // `Canvas`，它每次绘制空跑 `count` 次循环、逐颗 `alpha == 0` 早退。
+        // 这是让 SwiftUI 有东西可插值的必要开销，不是遗漏。
         let progress = ParticleBurst.progress(phase: phase)
-        let drawsParticles = progress > 0 && self.count > 0
+        let drawsParticles = self.count > 0
         let count = self.count
         let colors = self.colors
 
@@ -128,11 +141,53 @@ struct ParticleTransitionChrome: ViewModifier {
 ///
 /// ⚠️ 用 `Canvas` 而不是 `ZStack` + N 个 `Circle`：默认 18 颗、逐颗建视图会让每一帧
 /// 都重走布局（NFR-1）。`Confetti` 已就同一件事立过规矩。
-struct ParticleBurstLayer: View {
+///
+/// ## ⚠️⚠️ 为什么必须 `Animatable`（#253 PR #273 终审 C-A）
+///
+/// **上一版在任何真实相位上都画不出一颗粒子**，四步实证：
+///
+/// 1. `TransitionPhase` 是 **3 case frozen enum**（`willAppear` / `identity` /
+///    `didDisappear`，`value` 分别是 `-1` / `0` / `1`）⇒ `body(content:phase:)`
+///    只可能拿到这三个值；
+/// 2. ⇒ `ParticleBurst.progress` 的**可达取值只有 `{0.0, 1.0}`**；
+/// 3. 这两个值上所有粒子 alpha **恒为 0**（`progress == 0` 被 `guard progress > 0` 挡；
+///    `progress == 1` 被 `guard progress < particle.lifetime` 挡——`lifetime` 上界
+///    `0.75 + 0.99 × 0.25 = 0.9975 < 1`）；
+/// 4. ⇒ 三个相位下直接渲 `ParticleTransitionChrome`，与「无粒子层版本」**逐字节相同**。
+///
+/// **`ParticleBurstLayer` 是普通 `View`、不 conform `Animatable`、也没有 `TimelineView`**
+/// ⇒ 没有任何中间相位来救场：SwiftUI 只插值**可动画属性**，不插值 `Canvas` 的绘制内容。
+/// 用户实际只看到内容自身的 `scaleEffect` + `opacity`，「一圈粒子飞散」从未发生。
+///
+/// ⇒ 现在把 `progress` 声明为 `animatableData`：SwiftUI 在一次动画事务里会把它从
+/// 端点 A 插值到端点 B 并**逐帧重求 `body`**，`Canvas` 于是每帧拿到一个新的中间进度。
+///
+/// ⚠️ **为什么不用 `TimelineView`（`Confetti` 的成法）**：`Confetti` 有一个明确的
+/// `burstStart: Date` 可以锚定一段自驱窗口，而 `Transition` **拿不到任何时间源**——
+/// 它只被喂三个离散相位，既不知道调用方的 `withAnimation` 用了多长、什么曲线，
+/// 也没有"何时开始"这个事实。自建一条时间线会与 SwiftUI 自己的转场时钟**两套时序**
+/// （时长 / 曲线 / 打断行为全部对不上），且它在恒等相位会留一个常驻 display link。
+/// ⚠️ **也不用 `.keyframeAnimator`**：同一条理由——它要自己声明时长，而转场的时长
+/// 在调用方的 `withAnimation` 里。`animatableData` 是唯一"跟着 SwiftUI 的时钟走"的选项。
+///
+/// ⚠️ **端点画不出粒子是正确的、不是残留缺陷**：`progress == 0` 是恒等相位（转场停住后
+/// 长期停留的那一帧，画一颗都是永久残留）；`progress == 1` 是"完全进入前 / 完全离开后"
+/// 那一帧，内容不透明度也恰为 0——那一端还留着可见粒子就是一次 pop。
+/// ⇒ 判据不能写成「某个真实相位必须画出粒子」（那对任何正确实现都判红），
+/// 只能钉**插值中间值**，见 `ParticleTransitionTests.chromeDrawsParticlesMidFlight`。
+struct ParticleBurstLayer: View, Animatable {
 
-    let progress: Double
+    var progress: Double
     let count: Int
     let colors: [Color]
+
+    /// ⚠️⚠️ **本转场唯一能让粒子真的动起来的东西**（终审 C-A）。
+    /// SwiftUI 在动画事务里做的正是：取两端的 `animatableData`、按 t 插值、写回视图。
+    /// 判据 `ParticleTransitionTests.chromeDrawsParticlesMidFlight` 逐字复刻这一步。
+    var animatableData: Double {
+        get { self.progress }
+        set { self.progress = newValue }
+    }
 
     var body: some View {
         // ⚠️ **先取成局部 `let` 再进闭包**：本包开了 `.defaultIsolation(MainActor.self)`，
@@ -206,6 +261,11 @@ nonisolated enum ParticleBurst {
     /// ⚠️ **`.identity` 必须恒为 0**：那是转场结束后停住的那一帧，也是用户实际长期
     /// 看到的那一帧（`ShineBand.terminalProgress` / `ConfettiBurst.opacity` 都记着
     /// 同一条教训）。它为 0 ⇒ 所有粒子的不透明度为 0 ⇒ 一颗都不画。
+    ///
+    /// ⚠️⚠️ **本函数的可达取值只有 `{0, 1}`**：`TransitionPhase` 是 3 case frozen enum，
+    /// `value` 只可能是 `-1` / `0` / `1`。中间进度**全部来自 SwiftUI 对
+    /// `ParticleBurstLayer.animatableData` 的插值**——不是本函数给的（终审 C-A）。
+    /// ⇒ 任何"喂一个 0.4 进去"的判据都**走不到真实相位上**，只能算在插值那条链上。
     static func progress(phase: TransitionPhase) -> Double {
         abs(phase.value)
     }
@@ -256,6 +316,9 @@ nonisolated enum ParticleBurst {
     /// 第 `index` 颗粒子在 `progress` 时刻的不透明度。
     ///
     /// ⚠️ **`progress == 0` 时必须恒为 0**：那是 `.identity`，转场停住的那一帧。
+    /// ⚠️ **`progress == 1` 时同样恒为 0**（`lifetime` 上界 `0.9975 < 1`）：那是
+    /// "完全进入前 / 完全离开后"，内容不透明度也恰为 0 ⇒ 那一端留着可见粒子就是一次 pop。
+    /// ⇒ **两端都不画是这条曲线的正确形态**，画得出粒子的只有中间进度（终审 C-A）。
     static func opacity(of particle: ParticleBurstDot, progress: Double) -> Double {
         guard progress > 0, progress < particle.lifetime else { return 0 }
         let fadeStart = particle.lifetime * 0.35

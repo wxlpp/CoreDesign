@@ -803,6 +803,181 @@ struct ParticleTransitionTests {
                 "progress = 0.4 都画不出粒子 —— 上一条相等断言是恒真的")
     }
 
+    /// 三个**真实相位**下渲染 `ParticleTransitionChrome` 本体（不是绕过它直接渲绘制层）。
+    static func chrome(phase: TransitionPhase, count: Int = 24) -> some View {
+        Color.surfaceRaised
+            .frame(width: 160, height: 160)
+            .modifier(ParticleTransitionChrome(phase: phase, count: count, colors: []))
+            .frame(width: 200, height: 200)
+            .background(Color.contentPrimary)
+    }
+
+    private static let chromeWarmUp: Bool = {
+        for _ in 0..<8 {
+            _ = MicroInteractionAPITests.stablePixels(Self.chrome(phase: .willAppear))
+            _ = MicroInteractionAPITests.stablePixels(Self.chrome(phase: .willAppear, count: 0))
+        }
+        return true
+    }()
+
+    static func chromePixels(phase: TransitionPhase, count: Int = 24) -> Data? {
+        _ = Self.chromeWarmUp
+        return MicroInteractionAPITests.stablePixels(Self.chrome(phase: phase, count: count))
+    }
+
+    /// SwiftUI 在一次动画事务里对 `Animatable` 视图做的**正是这三步**：
+    /// 取两端的 `animatableData`、按 `amount` 插值、写回视图。本函数逐字复刻它。
+    ///
+    /// ⚠️ **走存在类型 `any View & Animatable` 而不是直接写具体类型**：
+    /// 去掉 `ParticleBurstLayer` 的 `Animatable` 一致性时，判据是**运行时判红**
+    /// （`as?` 返回 nil ⇒ 本函数返回 nil ⇒ `#require` 抛出），而不是"整个测试 target
+    /// 编译不过"——后者在变异实证里读不出是哪一条判据在咬。
+    static func interpolatedLayer(from: Double, to: Double, amount: Double) -> AnyView? {
+        let lhs: Any = ParticleBurstLayer(progress: from, count: 24, colors: [])
+        let rhs: Any = ParticleBurstLayer(progress: to, count: 24, colors: [])
+        guard let start = lhs as? (any View & Animatable),
+              let end = rhs as? (any Animatable) else { return nil }
+        return Self.blend(start, towards: end, amount: amount)
+    }
+
+    private static func blend<A: View & Animatable>(
+        _ start: A, towards end: any Animatable, amount: Double
+    ) -> AnyView? {
+        guard let target = end.animatableData as? A.AnimatableData else { return nil }
+        var out = start
+        var data = start.animatableData
+        data.interpolate(towards: target, amount: amount)
+        out.animatableData = data
+        return AnyView(out)
+    }
+
+    /// ⚠️⚠️⚠️ **承重判据（#253 PR #273 终审 C-A）：粒子在动画中间真的画得出来。**
+    ///
+    /// ## 缺陷形态
+    ///
+    /// 上一版的粒子层在**任何真实相位**上都画不出一颗粒子，四步实证：
+    ///
+    /// 1. `TransitionPhase` 是 **3 case frozen enum**（`willAppear` / `identity` /
+    ///    `didDisappear`）⇒ `body(content:phase:)` 只可能拿到这三个值；
+    /// 2. 打表实测 `value = -1 / 0 / 1` ⇒ `ParticleBurst.progress` 的**可达取值只有
+    ///    `{0.0, 1.0}`**；
+    /// 3. 这两个值上所有粒子 alpha **恒为 0**（实测 `maxAlpha = 0.0`）；
+    /// 4. 三个相位下直接渲 `ParticleTransitionChrome`，与「无粒子层版本」**逐字节相同**。
+    ///
+    /// 而 `ParticleBurstLayer` 当时是普通 `View`——不 conform `Animatable`、无
+    /// `TimelineView` ⇒ **没有中间相位来救场**：SwiftUI 只插值可动画属性，
+    /// 不插值 `Canvas` 的绘制内容。「一圈粒子飞散」从未发生过。
+    ///
+    /// ## 为什么判据不能写成「某个真实相位必须画出粒子」
+    ///
+    /// 那对**任何正确实现**都会判红：`progress == 0` 是恒等相位（画一颗都是永久残留），
+    /// `progress == 1` 是"完全进入前 / 完全离开后"（内容不透明度也恰为 0，
+    /// 那一端留可见粒子就是一次 pop）⇒ **两端都不画是正确形态**。
+    /// ⇒ 承重的是**插值中间值**这条链，本判据钉它：把 SwiftUI 的插值步骤原样跑一遍，
+    /// 结果必须画得出粒子、且必须等于直接用中间进度构造的层。
+    @Test("粒子层可被 SwiftUI 插值：动画中间值真的画得出粒子")
+    func chromeDrawsParticlesMidFlight() throws {
+        let empty = try #require(
+            Self.pixels(Color.clear.frame(width: 160, height: 160).background(Color.surfaceRaised)),
+            "基线渲染失败"
+        )
+        #expect(empty.contains(where: { $0 != 0 }) == true, "基线位图全 0 —— 下面的不等断言恒真")
+
+        // 端点取**真实相位**给出的两个值，而不是随手写的字面量。
+        let from = ParticleBurst.progress(phase: .willAppear)   // 1
+        let to = ParticleBurst.progress(phase: .identity)       // 0
+        let amount = 0.6                                        // ⇒ 中间进度 0.4
+
+        let interpolated = try #require(Self.interpolatedLayer(from: from, to: to, amount: amount), """
+        `ParticleBurstLayer` 不是 `Animatable`（或它的 `animatableData` 不是 `Double`）——
+        SwiftUI 于是只在三个离散相位上求值它，而那三个值上一颗粒子都画不出来
+        ⇒ 「一圈粒子飞散」根本不会发生（终审 C-A）。
+        """)
+        let midFlight = try #require(
+            Self.pixels(AnyView(interpolated).frame(width: 160, height: 160).background(Color.surfaceRaised)),
+            "渲染失败"
+        )
+        #expect(midFlight != empty, """
+        把两个真实相位的 `animatableData` 插到中间（\(from) → \(to) @ \(amount)）之后，
+        粒子层仍然什么都不画 —— 这条转场的粒子在用户面前永远不会出现。
+        """)
+
+        // `animatableData` 必须**真的绑在 `progress` 上**，而不是某个不参与绘制的字段：
+        // 插出来的那一帧必须与"直接用中间进度构造"的层逐字节相同。
+        let direct = try #require(
+            Self.pixels(Self.burst(progress: from + (to - from) * amount)), "渲染失败"
+        )
+        #expect(midFlight == direct, """
+        插值出来的那一帧与 `ParticleBurstLayer(progress: \(from + (to - from) * amount))`
+        不同 —— `animatableData` 没有绑在 `progress` 上，插值改不动绘制。
+        """)
+    }
+
+    /// ⚠️⚠️ **C-A 的另一半（终审 I-B）：粒子层必须整段动画都在树上。**
+    ///
+    /// 上一版的 overlay 条件是 `progress > 0 && self.count > 0`（PR #273 Copilot inline
+    /// 的「恒等相位跳过整层」）。它当时"无害"的**唯一**原因是粒子本来就画不出来
+    /// ——注释却写成「这不改变任何一帧的像素（`identityFrameDrawsNothing` 仍逐字节相等）」，
+    /// 而那条判据测的是 `ParticleBurstLayer` **自己**、从不经过
+    /// `ParticleTransitionChrome` ⇒ 对这个分支**零可见性**。
+    ///
+    /// C-A 修好之后这个 `if` 会**在恒等那一端截断动画**（插值的前提是视图一直在树上），
+    /// 且 `if` 翻转还会给子树套上默认 `.opacity` 转场。⇒ 条件里绝不能再出现 `progress`。
+    ///
+    /// ⚠️ **只能是源码判据**：位图路观测不到"动画中途视图有没有被摘掉"
+    ///（`ImageRenderer` 拍的是静态帧，而三个真实相位下画的本来就都是空）。
+    @Test("调用点：overlay 条件只看粒子数、不看进度（否则插值被截断）")
+    func particleLayerSurvivesTheWholeTransition() throws {
+        let code = MicroInteractionReduceMotionGuard.stripComments(try Self.source("ParticleTransition.swift"))
+        func count(_ needle: String) -> Int { code.components(separatedBy: needle).count - 1 }
+
+        #expect(count("let drawsParticles = self.count > 0") == 1, """
+        overlay 的门控不是 `self.count > 0`（命中 \(count("let drawsParticles = self.count > 0")) 次）——
+        条件里一旦带上 `progress`，恒等那一端会把整层摘掉：进场的收尾、出场的起手都被截断，
+        粒子只在动画中段闪一下。
+        """)
+
+        guard let body = ConfettiTests.bracedRegion(after: "func body(content: Content) -> some View", in: code) else {
+            Issue.record("找不到 `ParticleTransitionChrome.body(content:)` —— 下面的断言无从谈起")
+            return
+        }
+        #expect(!body.contains("progress > 0"), """
+        `ParticleTransitionChrome.body(content:)` 里出现了 `progress > 0` —— 这正是被移除的那个门控。
+        """)
+        #expect(body.contains("ParticleBurstLayer(progress: progress"),
+                "overlay 里交给粒子层的不是本次相位算出的 `progress` —— 插值链断了")
+    }
+
+    /// ⚠️ **三个真实相位下 chrome 画不出粒子，这是正确形态、不是缺陷残留**（终审 C-A）。
+    ///
+    /// 本条把 `identityFrameDrawsNothing` 从绘制层**抬到 `ParticleTransitionChrome` 本体**
+    /// ——那条测的是 `ParticleBurstLayer` 自己，对 chrome 的 `if drawsParticles`
+    /// 分支零可见性（终审 I-B 逐字）。这里直接渲 chrome，并与「粒子数为 0」那一版比。
+    ///
+    /// ⚠️ **本条不是 C-A 的承重判据**（它今天和缺陷在时同样是绿的）：
+    /// 承重的是 `chromeDrawsParticlesMidFlight`。留它是为了钉住「恒等相位不留残留」
+    /// 与「`count == 0` 那一半确实什么都不改变」这两件事在 chrome 层被观测过。
+    @Test("三个真实相位下 chrome 与「粒子数为 0」版逐字节相同（两端本就不画）")
+    func chromeAtRealPhasesDrawsNothing() throws {
+        for (name, phase) in [("willAppear", TransitionPhase.willAppear),
+                              ("identity", .identity),
+                              ("didDisappear", .didDisappear)] {
+            let withParticles = try #require(Self.chromePixels(phase: phase), "渲染失败：\(name)")
+            let without = try #require(Self.chromePixels(phase: phase, count: 0), "渲染失败：\(name)/count=0")
+            #expect(withParticles.contains(where: { $0 != 0 }) == true, "位图全 0 —— 相等断言恒真")
+            #expect(withParticles == without, """
+            相位 \(name) 下 chrome 与「粒子数为 0」版不同 —— 该相位的 progress 是
+            \(ParticleBurst.progress(phase: phase))，两端的粒子 alpha 都应恒为 0。
+            恒等相位画出粒子 = 转场结束后永久残留；端点画出粒子 = 一次 pop。
+            """)
+        }
+        // ⚠️ **互锁**：中间进度必须画得出粒子，否则上面三条相等断言只是在说
+        // "粒子层永远什么都不画"（那正是 C-A 的缺陷形态）。
+        #expect(Self.pixels(Self.burst(progress: 0.4))
+                != Self.pixels(Color.clear.frame(width: 160, height: 160).background(Color.surfaceRaised)),
+                "中间进度也画不出粒子 —— 上面三条相等断言是恒真的")
+    }
+
     /// AC / FR-8：空色板 ⇒ 取调用方 `.tint`，不自带色板。
     @Test("空色板 ⇒ 粒子色跟随调用方 .tint；给了色板则不跟随")
     func particlesFollowCallerTint() {
