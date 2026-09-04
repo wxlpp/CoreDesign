@@ -130,3 +130,38 @@ nonisolated func readFilterTransitionDefaults() -> (Double, Double, Double, Int)
         FlickerTransition.defaultCycles
     )
 }
+
+// MARK: - #268 的公开值类型（mask reveal 转场簇）
+//
+// ⚠️⚠️ **这四个常量是本 probe 在 #268 上唯一看得见、而库自身四条验证命令结构上
+// 看不见的东西**（#268 终审 I-3）：本包开了 `.defaultIsolation(MainActor.self)`,
+// 而 `CoreDesignEffects` 也开了 —— 不给它们标 `nonisolated` 时，从**本文件这样的
+// `nonisolated` 上下文**读一个默认值会拿到：
+//
+//     warning: main actor-isolated static property 'defaultWipeAngle'
+//              can not be referenced from a nonisolated context
+//
+// 而库自身的 `swift build` / `swift test` 全跑在被隔离的 target **内部**，全绿。
+// ⇒ 本函数是那条 warning 的**观测点**，⚠️ **不是判据**：上一版这里写「本函数就是
+// 那条警告的常驻判据（`swift build` 要求零新警告）」——**那句话是错的，照录更正**
+// （#291 第 2 轮 Imp-1）。CI 的 `downstream-probe` job（`.github/workflows/ci.yml`）
+// 跑的是 `cd scripts/downstream-probe && swift build`，**不带**
+// `-Xswiftc -warnings-as-errors`（全仓 `ci.yml` 里一处都没有）⇒ **新增 warning
+// 不会让它变红**。最直接的反证：本包**今天就带着 5 条既存 warning 而 CI 是绿的**
+// （#290）。⇒ 谁把上面这些 `nonisolated` 拿掉，probe 多一条 warning、CI 照样绿；
+// 今天这件事只能靠人读 build 输出。
+//
+// ⚠️ 把它做实的动作是给那一步加 `-Xswiftc -warnings-as-errors`，但**今天做不了**：
+// 那 5 条既存 warning 会让 CI 立刻变红，而它们属 #290、不在 #268 范围
+// ⇒ **那是 #290 的收尾判据**；在它落地之前，本函数只是观测点。
+//
+// ⚠️ 六种转场的十二个入口点是**转场形态**，在 `PublicVisibility.swift`
+// （`@MainActor func consumeMaskRevealTransitions()`）——分流理由见本文件头的表。
+nonisolated func readMaskRevealTransitionDefaults() -> (Int, CGFloat, Double, Double) {
+    (
+        MaskRevealTransition.defaultBlindCount,
+        MaskRevealTransition.defaultCellSize,
+        MaskRevealTransition.defaultWipeAngle.radians,
+        MaskRevealTransition.defaultGlareAngle.radians
+    )
+}

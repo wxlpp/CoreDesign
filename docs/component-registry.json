@@ -1104,6 +1104,42 @@
       "host": "Transition",
       "member": "flicker",
       "notes": "视图像接触不良的灯管那样忽明忽暗地出现/消失。含参重载 .flicker(cycles:) 与无参按 Host.member 去重算同一条。不透明度曲线在两个可达相位上分别是 1 与 0，每一次明暗全靠 SwiftUI 对 animatableData 的插值 ⇒ 绘制层必须 Animatable。全簇唯一同时读两个 a11y 信号的：accessibilityDimFlashingLights 是 WCAG 2.3.1 点名的正确信号，accessibilityReduceMotion 也读是因为往复本身属「重复的非必要动画」，两者取或（各自独立的系统开关）；压制后 cycles 归 0、退化为单调淡出，转场仍然发生。频率由本转场自己钉死：FlickerChrome 用 .animation(_:value:) 把时长钉在 FlickerPace.duration(cycles:) = max(0.35, cycles / 2.5) 上，感知频率恒 ≤ 2.5 次/秒（WCAG 2.3.1 的 3 次/秒线下留余量），与调用方 withAnimation 的时长无关；默认 3 次 ⇒ 1.2 秒。代价：调用方对本转场的时长失去控制；时序本身在 macOS 单测里不可观测（判据只覆盖速率比值与那一行 .animation 的逐字形状），靠 #Preview 人工确认，且 macOS 与 iOS 两侧都要做——本轮的逐帧 wall-clock 实测只在 macOS 上做过；duration(cycles:) 无上界，.flicker(cycles: 1000) 给出 400 秒的转场（观感接近卡死），有意不钳位（钳分母会把速率抬过 2.5 次/秒线，钳 cycles 会让入口点静默忽略调用方的值），该极端由 flickerPaceStaysUnderTheFlashRateLimit 逐字钉住。properties 取 hasMotion: false 是显式裁决——留 true 会让那道手写 a11y 闸在 Reduce Motion 路径上变成死代码。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "iris",
+      "notes": "圆形光圈从 anchor（默认中心）向外张开，半径自动取到最远角故任何 anchor 都能铺满内容。走 clipShape 纯几何裁剪而非 alpha 遮罩：本仓没有现成的保证 α=1 的可用颜色（contentPrimary 实测 α≈0.8471，black/white 被 EffectsColorLiteralGuard 判红，ColorGrade 在 macOS 单测下全透明），遮罩少一档不透明度不会报错只会静默变淡——但⚠️遮罩路线并非不可行，只是代价更高（在 Sources/CoreDesign/Colors/ 新开一个第 3 层不透明 token 不会命中该守卫，已有 specularHighlight 先例），⇒ 选裁剪的真正理由是可判据性（Path.contains 是不经渲染栈、两端平台一致的纯函数，alpha 遮罩只能靠位图比对）。完整记账见 MaskReveal.swift 文件头与 docs/components/mask-reveal-transitions.md。含参重载 .iris(anchor:) 与无参 .iris 按 Host.member 去重算同一条。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "wipe",
+      "notes": "一条直边沿指定角度扫过（默认 0° 左→右），边始终垂直于该方向。与 .glare 共用同一条半平面数学，差别是默认角度与有无柔光带——两个公开名字算两条登记。Reduce Motion 下遮罩全开、内容不透明度跟着进度走，退化成纯淡入淡出而非 no-op。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "blinds",
+      "notes": "若干条横向百叶各自从自己的中线向上下张开，默认 8 条。count 传 0 或负数会被钳到 1，否则整条转场退化成什么都不揭示的死转场。相邻百叶在完全揭示时互相压住 2%（MaskReveal.seamOverlap）——⚠️ 该常量今天没有任何判据守着，把它改成 0 重跑整簇 37 条判据零红；它是防御性的浮点余量，不是被观测到过的缺陷（上一版这里写的理由「避免抗锯齿在恒等相位画出发丝缝」已被实测证伪并在源码里逐字撤回，见 MaskReveal.seamOverlap 的注释）。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "clock",
+      "notes": "扇形扫针从 12 点方向扫一圈，方向由 SpinDirection 决定而不是 clockwise: Bool（J-1 禁未豁免 Bool 参数）。半径取到内容最远角并留 2% 余量（MaskReveal.seamOverlap）——⚠️ 与 blinds 同一份台账：该余量今天没有判据守着，把它改成 0 重跑整簇 37 条判据零红，它是防御性的浮点余量而非被观测到过的缺陷。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "glare",
+      "notes": "斜掠的直边扫过（默认 35°），揭示边上骑一条 Color.specularHighlight 的柔光带。柔光带是纯装饰叠加层而非遮罩的一部分（accessibilityHidden(true) + allowsHitTesting(false)），不透明度包络两端恒为 0——恒等相位不留任何永久高光。"
+    },
+    {
+      "target": "CoreDesignEffects",
+      "host": "Transition",
+      "member": "dissolve",
+      "notes": "网格逐格按确定性伪随机次序浮现，默认格边长 24pt。过小的 cellSize 会被自动放大到让格数落在 MaskReveal.dissolveMaximumCells 以内，否则全屏内容配 0.5pt 会是百万级子路径逐帧重建；0/负数/非有限值回落到默认值。"
     }
   ]
 }

@@ -454,3 +454,38 @@ func consumeFilterTransitions() -> some View {
         Text(verbatim: "flicker+").transition(.flicker(cycles: 4))
     }
 }
+
+// MARK: - CoreDesignEffects：#268 的六个 API 单位（mask reveal 转场簇）
+
+// ⚠️ 六种转场各有「无参 `var`」与「含参 `func`」两个静态成员（登记表按 `Host.member`
+// 去重算六条，见 `docs/component-registry.json`）——**十二个都在这里点名**，
+// 因为「无参那个能编译」不蕴含「含参那个也能」：两段是各自独立的接线，
+// 而含参重载的默认实参还引用了 `MaskRevealTransition.default*` 四个常量，
+// 那四个常量漏 `public` 时**只有含参形态会红**。
+//
+// ⚠️ 它们落在**本文件**（`@MainActor`）而不是 `EffectsNonisolatedUsage.swift`：
+// 按那份文件头的分流表，`Transition` 的静态成员是**转场形态**，
+// `.transition(_:)` 本身是 `View` 上的 modifier ⇒ 天然 MainActor 隔离。
+// 四个默认值常量是**值类型**，在那边（`readMaskRevealTransitionDefaults()`）。
+//
+// ⚠️⚠️ **本函数同时是「`MaskRevealTransition` 没有 public init 不算破 `CLAUDE.md`」
+// 的常驻证据**（#268 终审）：那条惯例针对的是**调用方要构造的组件**；转场只经这十二个
+// 静态成员消费，而这里逐个证明了「不给 public init 也够用」。
+// 少了本函数，那条裁决就只有一次性的临时验证撑着。
+@MainActor
+func consumeMaskRevealTransitions() -> some View {
+    VStack {
+        Text("iris").transition(.iris)
+        Text("iris(anchor:)").transition(.iris(anchor: .topLeading))
+        Text("wipe").transition(.wipe)
+        Text("wipe(angle:)").transition(.wipe(angle: .degrees(90)))
+        Text("blinds").transition(.blinds)
+        Text("blinds(count:)").transition(.blinds(count: 5))
+        Text("clock").transition(.clock)
+        Text("clock(direction:)").transition(.clock(direction: .counterClockwise))
+        Text("glare").transition(.glare)
+        Text("glare(angle:)").transition(.glare(angle: .degrees(-20)))
+        Text("dissolve").transition(.dissolve)
+        Text("dissolve(cellSize:)").transition(.dissolve(cellSize: 12))
+    }
+}
