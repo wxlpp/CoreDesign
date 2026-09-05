@@ -75,7 +75,11 @@ public extension Color {
     // 取色决策：骨架屏占位与 shimmer 高亮**不新增 colorset**，一律从 `systemFill` 族派生
     // ——底色直接取 `.fill`（系统填充，含透明度、随外观/对比度自动更新），高光由底色经
     // `.opacity()` 调制出更透明的扫光带（承 accent 衍生态「对系统色调制、不取固定色阶」先例）。
-    // 由此免掉新增 colorset 才需要的 `swift package clean` 与 `ColorAssetGuardTests` 登记两环。
+    // 由此免掉新增 colorset 才需要的 `ColorAssetGuardTests` 登记一环。
+    // ⚠️ **更正传播（`#275`）**：本句原先还写着「免掉 `swift package clean`」——
+    // 那个前提已被 `#275` 实测推翻（新增 colorset 目录后裸跑 `swift build` 就会
+    // `Copying Resources.xcassets`，clean 不是必需的），故删去。不新增 colorset
+    // 仍然有价值，但价值在登记面与 macOS 腿的取色可解析性，不在 clean。
     // `Skeleton` 的 shimmer modifier 应复用这两个 token，不要各自重新取色。
 
     /// 骨架屏占位底色。Skeleton placeholder base fill.
