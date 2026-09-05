@@ -457,6 +457,35 @@
 **为什么默认这一侧**：少给扩展点是**可逆的**（后续按需补，不破坏 API）；
 多给扩展点**不可逆**（public 协议一旦发布，删它是破坏性变更）。
 
+#### ⚠️ `pendingStep2`：**「还没判」**，不是判定法的第七个出口（`#270` / PR #297 终审 I-1 引入）
+
+> `decidedBy` 的第七个合法取值是 **`pendingStep2`**。它**不描述任何出口**，
+> 它描述的是「**步骤 2 的候选枚举与来源核验尚未完成**」这件事本身。
+>
+> **为什么需要它**：步骤 2 的停止规则写着「不满足停止规则 ⇒ 枚举视为未完成，
+> **不得据以走任一出口**，补足后重判」，而步骤 3 门槛的兜底句
+> （「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」）**以「重跑发生过」为前置**。
+> ⇒ 一次枚举都没做时，**两条路都走不通**：既不能落 `tiebreaker`（那是一个
+> 合约不支持的**出处声称**，而且与真正走完步骤 2 的 `tiebreaker` 条目**在数据上无法区分**），
+> 也不该硬凑一个 `semantic`（那会逼人现场编造扩展点，是**不可逆**的那一侧）。
+> ⇒ 第三条路：**如实记「没判」**，条目按**可逆的一侧**（`kind: prescriptive`、
+> 不给扩展点）**缓办**登记，落点留给一个具名的承接 issue。
+>
+> **约束**（缺一条这个取值就会退化成一张免罪符）：
+> 1. `kind` 必须是 `prescriptive`、`needsExtensionPoint` 必须是 `false`
+>    ——缓办只能站在可逆的那一侧；
+> 2. `notes` 必须写明**为什么枚举未完成**，以及**承接 issue 号**；
+> 3. 守卫侧必须有一张**双侧等式**的台账
+>    （`ComponentRegistryGuard.knownPendingStep2Enumeration`）——
+>    少一条标记与多一条标记都判红。散文留不住缓办，本仓已为同一种失效付过一次代价
+>    （见 `ComponentRegistryGuard` 顶端「注释里这份对账不会自己保鲜」那段）；
+> 4. ⚠️ **不得预判重判结论**：诚实重枚举可能落**任一**出口，包括 `semantic`
+>    ——那意味着要开扩展点。承接 issue 必须把这一点写在明处。
+>
+> ⚠️ **本取值是缓办通道，不是新的默认值**：新增组件的默认路径仍是走完判定法。
+> 它的存在只是为了让「跳过了步骤 2」这件事**在机器可读的数据里留下痕迹**，
+> 而不是躲在 `tiebreaker` 后面。
+
 ⚠️ **这条 tiebreaker 是必需的，不是保险措施**：没有它，全量分类会在遇到真正的
 边界组件时来回改判定法而**永不终止**。判定法的目的是**产出结论**，不是产出真理。
 
@@ -891,6 +920,34 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 ⚠️ **裁决：新增 B 类参数用 `LocalizedStringKey`**，与本仓既有 `SectionHeader` 一致、
 `Bundle.main` 解析语义不变，**不是** `LocalizedStringResource`。
 
+⚠️⚠️ **上面这条裁决有一条成文例外，射程如下**（`wxlpp/CoreDesign#253` 引入，PR #273 终审 I-5 定射程；
+**裁决措辞本身不动**，本段只登记例外）：**仅当组件必须对解析后的字符串做索引 / 切片时**，
+该 B 类文案参数可改用 `LocalizedStringResource`。依据：SwiftUI **没有**把
+`LocalizedStringKey` 解析成 `String` 的公开 API（它只能整体交给 `Text`），
+而 `LocalizedStringResource` 有（`String(localized:)`）⇒ 这不是"两种都行、选了另一种"，
+是只有一种做得到。FR-7 自身写的是「`LocalizedStringResource` / `LocalizedStringKey`」
+**二选一**，故两者都合规。
+今天唯一的落点是 `CoreDesignEffects.TypewriterText`（打字机要按**字素簇**切前缀）。
+
+⚠️ **射程是谓词，不是白名单、也不是"任何需要逐字符处理的文本参数"**：
+写成「就这一个组件」不可维护（下一个同形态组件要从头重打这一仗），
+写成「任何逐字符处理」又太松（会招来裸 `String` 参数）。
+⇒ 判据是「**必须对解析后的字符串做索引 / 切片**」——做不到就不能援引本例外。
+
+⚠️ **代价照录，援引本例外的组件必须一并登记**：
+① `.rise(text:)` 用 LSK、`TypewriterText` 用 LSR ⇒ 本仓 B 类文案参数**不再是同一种类型**；
+② `String(localized:)` 按 resource 自己的 locale 解析，**不看 SwiftUI 的 `\.locale` 环境**
+⇒ 援引本例外的组件若在 `init` 里急切解析，`.environment(\.locale, …)` 对它**无效**
+（`TypewriterText` 已在类型文档与 `docs/components/typewriter-text.md` 里登记这条）。
+⚠️ **本例外无机器判据**——⇒ 靠评审 + 本段。
+⚠️ **引用精确到类**（#253 PR #273 终审 S-B）：**A 类**见缺口 **G-4**（《已知判据缺口》一节，
+其标题逐字是「A 类的类型要求有规定、无判据」）；**B 类**的类型今天**同样无机器判据**
+——FR-4 的扫描器只清点 public init 的文本参数并核对 `category`，
+**不查那个参数用的是 `LocalizedStringKey` 还是 `LocalizedStringResource`**
+⇒ B 类那一半由**本段登记**，G-4 本行不覆盖它。
+（上一版写「A / B 类**类型**本就无机器判别，公约自己把它记为缺口 G-4」——结论对，
+但 G-4 本行不含 B 类，引用与被引用行不符。）
+
 ⚠️ **B 类改造有隐藏破坏性**：现有 B 类 API 有成文的 `Bundle.main` 解析语义
 （`SectionHeader.swift`）。把**存量**改成 `LocalizedStringResource` 会**改变 bundle
 解析行为**——属破坏性变更，必须进 `docs/BREAKING-CHANGES.md`，节奏归 #42；
@@ -908,8 +965,13 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 （`String` **或** `StringProtocol`）时，分类由类型直接判定，**不落 A/B/C 的人工三分**。
 出处 `oh-my-story` 仓的 `.claude/epics/component-contract/38.md` 的 Acceptance Criteria 里 `textParams` 那条 bullet；守卫侧见
 `Tests/CoreDesignTests/ComponentRegistryGuard.swift` 的 `validCategories`。
-现状 2 条在用（`Descriptions.header`、`SpinningModifier.text`），**均在 CoreDesign 侧**；
-StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
+⚠️ **不写现状条数**（`#270` 改）：上一版写「现状 2 条在用（`Descriptions.header`、
+`SpinningModifier.text`）」，而 `#270` 扩扫描根后四个图表的 `title` 一次加了 4 条 ⇒ 变 6 条，
+那个数字在写下几个月后就成了化石 —— 与本节下方「不写裸分母是为了不再重蹈『31』的覆辙」
+是同一条纪律，只是上一版没把它用到自己这句上。
+**权威计数在守卫里**：`ComponentTextParamGuard.byTypeCategoryHasNoBareStringTwin` 的
+`byTypeCount` 断言，改登记表时它会红、逼人过目。
+`by-type` 现全部在 CoreDesign 侧；StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 
 ⚠️ **「无孪生重载」是本节的实际筛子**：第 4 节点名的四件
 （`SectionHeader` / `InsetGroupedSection(header:footer:)` / `ProgressIndicator(text:)` /
@@ -1267,10 +1329,20 @@ J-1 主判据 `BoolExemptionGuard.j1NoUnexemptedBoolParameters` 用 Swift Testin
   `Tests/CoreDesignTests/ComponentRegistryGuard.swift`）设计上就把 `View` 与
   `ViewModifier` 归为同一类「组件」一并采集。
 
-⚠️⚠️ **本裁决已被 AD-4 按 target 划了作用域**（#244，见本附录末尾）：
+⚠️⚠️ ~~**本裁决已被 AD-4 按 target 划了作用域**（#244，见本附录末尾）：
 `CoreDesignEffects` / `CoreDesignShaders` 的 public 类型**不进** `component-registry.json`
-（走轻公约），`CoreDesignCharts` 照常进。读到这里就停的人会拿到一个**已被推翻**的答案
+（走轻公约），`CoreDesignCharts` 照常进。~~ 读到这里就停的人会拿到一个**已被推翻**的答案
 ——而 AD-4 存在的全部理由，正是「实现层盲区不该被读成公约层许可」。
+
+⚠️⚠️ **上面这段横幅本身已随 AD-4 第 6 轮撤回**（#246 / PR #265 终审 I-7，
+见本附录末尾《AD-4 裁决》：终稿裁定「**AD-2 原样适用**」——三个 target 全走路线 b，
+轻公约与选 a 的全部产物撤回；该裁决的《第 6 版》段落更把本横幅逐字点名为
+「三处反向指令仍活在树上」之一）。⇒ **`CoreDesignEffects` / `CoreDesignShaders` 的
+public 类型与 `CoreDesignCharts` 一样，照常进 `component-registry.json`。**
+⚠️ 这不是文字洁癖：`#246` 交付的 `ExtensionEntryPointGuard` 在 `schemaProblems(for:)`
+里**硬断言**入口点条目的 `target != GuardScanRoots.primaryTargetName`
+（即新 target 的公开入口点**必须**登记进这份文件），
+与上面那段「Effects 不进」**直接冲突**——公约说「不进」，守卫要求「必须进」。
 
 ⇒ **裁决**：登记单位是「有 public 类型的 API 表面」，不是「是不是 `ViewModifier`」。
 public 的 `ViewModifier` 类型**照常登记进 `component-registry.json`，判定法同样适用**
@@ -1466,15 +1538,57 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
 
 ##### 下游连锁一 · Charts 走 b 会触发整条 J-2 链
 
-`step1/2 ⇒ semantic`（`ComponentRegistryGuard.swift:456-457`）⇒ **硬断言**
-`needsExtensionPoint`（`:518-519`）⇒ 进 J-2 定义域 ⇒
-`ComponentExtensionPointGuard.swift:76` 的 `inspected.count == 11` **变 15 ⇒ 红**；
-`:98` 的 `missing.isEmpty` 要求**同批交出真实扩展点**，而 `:108-110` 逐字禁止
-「为了让它变绿把新条目塞回 `knownMissingExtensionPoints`」。
+`step1/2 ⇒ semantic`（`ComponentRegistryGuard.registrySchemaIsValid` 里
+`decidedBy ⇒ kind` 那张映射表）⇒ **硬断言** `needsExtensionPoint`（同一个测试里
+`kind == "semantic" ⇒ needsExtensionPoint` 那条）⇒ 进 J-2 定义域 ⇒
+`ComponentExtensionPointGuard.semanticComponentsHaveExtensionPoint` 的
+`inspected.count == 11` 变红；`missing.isEmpty` 要求**同批交出真实扩展点**，
+而同一处逐字禁止「为了让它变绿把新条目塞回 `knownMissingExtensionPoints`」。
 
 ⚠️ **被顶动的不止 `== 47` 与 `== 31`**，还有 `ComponentTextParamGuard` 的
 `covered.count == 30`、`localizedByType.count == 11`、`carrying.count == 9`，
 以及 `unmappedOwners` / `functionSideBareText` 两个**固定集合**。
+
+⚠️⚠️ **`#270` 落地实测：上面这段预判对了一半，另一半没发生，逐条如实记录。**
+
+`#270` 把扫描根扩成 `GuardScanRoots.allRoots` 之后，实际被顶动的与实际没被顶动的：
+
+| 断言 | 预判 | 实际 | 为什么 |
+|---|---|---|---|
+| `coredesign` 条目数 `== 47` | 会变 | **47 → 62** | Effects 11 + Charts 4 = 15 条新条目 |
+| `ComponentExtensionPointGuard` 的 `inspected.count == 11` | 变 15 ⇒ 红 | **不变，仍是 11** | 15 条全部 `prescriptive`（9 条 `tiebreaker` + 6 条 `pendingStep2`）⇒ 不进 J-2 定义域 |
+| `knownMissingExtensionPoints` | 要同批交扩展点 | **不变，仍是空集** | 同上：J-2 定义域没变，一条新缺口都没产生 |
+| `registryTextParams == 31` | 会变 | **31 → 36** | `TypewriterText.text`（C）+ 四个图表的 `title`（by-type） |
+| `covered.count == 30` | 会变 | **30 → 31** | 只有 `TypewriterText.init#text` 产出 covered 键；by-type 走 `.localizedText` 分支不产键 |
+| `localizedByType.count == 11` | 会变 | **11 → 17** | 四个图表的 `title` + `TypewriterText.init#text` + `View.rise#text` |
+| `carrying.count == 9` | 会变 | **9 → 10** | `CharSphere.init#characters`（`[String]`，按 FR-7 是调用方数据） |
+| `unmappedOwners` 固定集合 | 会变 | **不变，仍是 2 条** | `TypewriterText.init#text` 登记后由「域外」变成「已覆盖」 |
+| `functionSideBareText` 固定集合 | 会变 | **2 → 3 条** | 新增 `View.spray#symbol`（SF Symbol 标识符，`func` 侧留痕桶） |
+| `by-type` 条目数 `== 2` | 未预判 | **2 → 6** | 四个图表的 `title` |
+| `NativeProtocolPurityGuard` 的作用域文件名 | 未预判 | 裸文件名 → `CoreDesign/…/ProgressIndicator.swift` | 三根之下裸文件名会让两个 target 的同名文件塌成同一个作用域 |
+
+⚠️ **「J-2 那三条没被顶动」不是绕过判据，是落点决定的**：15 条全部 `kind: prescriptive`
+⇒ 不给扩展点 ⇒ 不进 J-2 定义域。但**它们不是同一回事**，`decidedBy` 分两类：
+
+- **9 条 `tiebreaker`**（`AnimatedMeshGradient` / `CharSphere` / `DotSphere` /
+  `FullScreenButton` / `GlowSweep` / `LightSweep` / `ScanningOverlay` / `Shine` /
+  `TypewriterText`）——候选命中皮肤变体条款或作用域条款 ⇒ 举得犹豫 ⇒ 正当落步骤 4。
+- **6 条 `pendingStep2`**（`ActivityHeatmap` / `BeforeAfterSlider` / `NetworkGraph` /
+  `OrbitingLogos` / `RadarChart` / `RingChart`）——候选按三分法**确实**属排布差异、
+  本该计入 ≥2，而 `#270` **没做**步骤 2 停止规则要求的候选来源核验。
+
+⚠️⚠️ **上一版把后一类也记成 `tiebreaker`，PR #297 终审 I-1 判它是「合约不支持的出处声称」，
+本段整体改写**（逐字原写：「15 条全部落**步骤 4（tiebreaker）**……
+10 条是『举得犹豫』，5 条是『按兜底句落步骤 4』」）。理由是合约字面：兜底句
+**以「重跑发生过」为前置**，而这些条目一次枚举都没做；且合约另有一条直接点名
+「败在 (A)（诚实枚举后**其实举得出** ≥2 个候选）⇒ **不是 `tiebreaker`**」。
+⇒ 改记 `decidedBy: pendingStep2`（定义见上方「⚠️ `pendingStep2`」小节）：
+**如实说「没判」**，条目仍缓办在可逆的一侧，落点留给承接 issue **`#299`**。
+⚠️ **6 条而不是 5 条**：`OrbitingLogos` 由终审 I-3 从前一类挪入——它的 `notes` 曾把
+「换轨道形状」判成「同一槽内的画法变化 ⇒ 装饰」，而**排布**的定义是「子视图之间的
+空间关系改变」，把 logo 从圆轨道改成椭圆 / 螺旋改变的正是它们**彼此之间**的落点。
+⚠️ 这也正是本裁决自己写的那句「两侧的后悔成本至今没有对称测量过」的现场兑现：
+`#270` 选了**可逆**的那一侧，并把不可逆的那一侧留成了一个有具名入口的待办。
 
 ⚠️ **「若落形态 C（不给扩展点）须在 notes 写明理由」这条出路对 `semantic` 条目
 机械上不可能** —— schema 硬断言 + J-2 定义域都不允许。
@@ -1499,7 +1613,25 @@ task 250 的 8 个 `public extension View` 方法 + task 251 的 16 个转场 =
 `## 组件索引` 到 `## 生成预览图 / Generating Snapshots` **之间**的行，
 而 `registryEntriesAreCoveredByReadme`（`:641-646`）断言**每个非 excluded 的
 `coredesign` 条目都被该范围内的某一行覆盖**。
-⇒ 三个 target 全走 b ⇒ 三组索引行**必须都在 `## 组件索引` 之内**。
+⇒ 三个 target 全走 b ⇒ 三组索引行**必须都被 `readmeIndexRows` 的解析范围覆盖**。
+
+⚠️⚠️ **`#270` 落地实测：本条的措辞（「必须都在 `## 组件索引` 之内」）比它的论据更强，已改写。**
+论据是「解析范围止于 `## 生成预览图`」这条**工程事实**，而不是「必须同一个 `##` 标题」
+这条规范要求 —— 本条自己下一句就写着「每行仍须带模块名……那是**可读性要求**」。
+`#270` 的处置是把 `readmeIndexRows` 的解析范围改成**两段**
+（`## 组件索引 → ## 生成预览图` 与 `## 动效与图表索引 → ## NFR-1 帧率基准`），
+保留 `#256` 按 `import` 分组的分节。规范目的（每个非 excluded 的 `coredesign` 条目
+都被某条索引行覆盖）不变，且定义域由**一节**扩到**两节** ⇒ **是收紧不是放松**：
+新进来的那一节里，**多数行是入口点而不是类型**，它们由此第一次与
+`component-registry.json` 的 `entryPoints` 数组对上账。
+⚠️⚠️ **上一版写「定义域由 37 行涨到 77 行；新进来的 40 行里有 26 行是入口点」——
+PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.tableFirstCells`
+的真实口径，第 1 节 **38** 行、第 2 节 **35** 行、合计 **73** 行；
+`40` / `26` 混淆了**行**与**单位**（`iris / wipe / blinds / clock / glare / dissolve`
+是 **1 行 / 6 单位**），`37` 则继承自守卫里一段**已归档**的单节时代人工核对、早已陈旧。
+⚠️ 改写后**有意不写现状条数** —— 与本文件第 4 节「⚠️ **不写现状条数**……那个数字在
+写下几个月后就成了化石」是同一条纪律，上一版没把它用到自己这句上。
+**权威计数在判据里**：`ComponentRegistryGuard.readmeIndexSectionsAllParse` 的逐节下界。
 
 ⚠️ **第 1–5 版裁的是「Effects/Shaders 另起小节」——那会让判据判红**，
 而该判据文档自己为 Charts 算过一遍、翻 b 后没有重跑。
@@ -1511,15 +1643,36 @@ task 250 的 8 个 `public extension View` 方法 + task 251 的 16 个转场 =
 ⚠️ **第 4–5 版曾在此立过一条禁令**（「把 Effects/Shaders 加进这一个根**为本裁决所
 禁止**」）——**随结论收敛为 AD-2 原样，该禁令一并撤回**。保留的是工程事实：
 
-- `ComponentRegistryGuard.coreDesignSources`（`:366`）是**单个 `URL`**，不是列表
-  ⇒ 落地要 `URL` → `[URL]`，连带改 `scanTypes(root:)` 与 `scanComponentJudgeInputs(root:)`。
+- ~~`ComponentRegistryGuard.coreDesignSources` 是**单个 `URL`**，不是列表
+  ⇒ 落地要 `URL` → `[URL]`，连带改 `scanTypes(root:)` 与 `scanComponentJudgeInputs(root:)`。~~
+  ⚠️ **`#270` 已落地**：该属性改名为 `componentScanRoots`，直接返回
+  **`GuardScanRoots.allRoots`**（不另列一份根名，两套根必然漂）；
+  `scanTypes(roots:)` 与 `scanComponentJudgeInputs(roots:)` 是新的多根入口，
+  单根重载保留给逐根实现与前后对照用。
 - **消费者共 9 个文件**：`ComponentTextParamGuard` / `ComponentExtensionPointGuard` /
   `ComponentHostAliasGuard` / `NativeProtocolPurityGuard` / `ComponentJudgeMutationTests` /
   `BoolExemptionGuard` / `StyleConsumptionGuard` / `ToastPublicEntryForwardingGuard` /
   `ComponentJudgeScannerTests`。
 - `ComponentJudgeMutationTests:17-24` 把**单棵树**拷进临时目录、变异路径是相对的
   ⇒ 两个根意味着副本布局要重构，否则 `copiedTreeReproducesBaseline` 会红。
-- ⚠️ **扩根到 Effects 今天扫到 0 个类型**：`PublicTypeCollector`（`:846-880`）只认
+- ⚠️ ~~**扩根到 Effects 今天扫到 0 个类型**：`PublicTypeCollector` 只认
   `public struct : View/ViewModifier`，而 `Sources/CoreDesignEffects/` 目前只有一个
-  `public enum` 命名空间 ⇒ **必绿、零覆盖**。这与「闸门在空数组上真空为真」是同一形态，
-  实施时须一并防。
+  `public enum` 命名空间 ⇒ **必绿、零覆盖**。~~
+  **该判断已过期**：`#247`–`#255` 落件之后，`#270` 实测 Effects **11 个**、
+  Charts **4 个** `public struct: View`。「新根静默产出空集」这条假绿由
+  `ComponentRegistryGuard.scannerFindsComponentTypes` 的**逐根非空断言**接住
+  （每个根各自 `components` 非空，不只看合并集合的下界）。
+- ⚠️ **跨 target 同名会在合并的 `Set` 里静默塌成一条** ⇒ 一条登记就能同时喂饱双向差集的
+  两个方向。`#270` 把「今天三根之间零同名」钉成判据（写在
+  `ComponentRegistryGuard.scannerFindsComponentTypes` 里）。
+  ⚠️ **上一版只查 `components` 一个桶，PR #297 终审 S-1 指出 `scanTypes(roots:)` 合并的是
+  `components` / `styleImpls` / `entryPoints` 三个**——后两个同样是判据的依据
+  （`styleImpls` 判 README 行归宿、`entryPoints` 判入口点行归宿），已改为三个桶一并查。
+- ⚠️ **给 `#279`（`CoreDesignShaders` 进根列表）的交接**：`#270` 定下的形态是
+  「`componentScanRoots` = `GuardScanRoots.allRoots`」⇒ `#279` **只需把
+  `CoreDesignShaders` 加进 `GuardScanRoots.targetNames`**，登记表扫描根自动跟随，
+  本文件与 `ComponentRegistryGuard` 都不必再改。`#279` 要在 `#270` 的新值之上叠加的计数是：
+  `coredesign` 条目数 **62**、`registryTextParams` **36**、`covered` **31**、
+  `localizedByType` **17**、`carrying` **10**、`by-type` **6**、
+  `functionSideBareText` **3 条固定集合**、`unmappedOwners` **2 条固定集合**、
+  J-2 `inspected.count` **11**（`#270` 的 15 条全落 prescriptive，未进 J-2 定义域）。

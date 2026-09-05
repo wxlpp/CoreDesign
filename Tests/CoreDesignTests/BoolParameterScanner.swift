@@ -568,6 +568,11 @@ struct BoolParamHit: Hashable, Comparable, Sendable {
     let parameter: String
     let file: String
     let line: Int
+    /// 命中所在的 target（`#246` 多根化）。合成输入入口默认落在主 target 上。
+    var target: String = GuardScanRoots.primaryTargetName
+
+    /// 不含 target 前缀的基键。
+    var baseKey: String { "\(self.owner).\(self.decl)#\(self.parameter)" }
 
     /// 豁免清单的键。
     ///
@@ -577,7 +582,11 @@ struct BoolParamHit: Hashable, Comparable, Sendable {
     ///   ——它们是**同一个 API 概念的两个入口**，合成一条豁免才读得懂；
     /// · 反过来，键里带上完整标签表会让任何无关的签名调整（加一个参数）把现有豁免
     ///   判成「过期条目」，把判据变成噪音源。
-    var key: String { "\(self.owner).\(self.decl)#\(self.parameter)" }
+    ///
+    /// ⚠️ **`#246` 多根化后带 target 前缀**（主 target 为裸形，见
+    /// `GuardScanRoots.qualifiedKey(target:base:)` 的文档）：没有它，两个 target 里
+    /// 同名类型的同名参数会**塌成同一个键**，一条豁免静默覆盖两处。
+    var key: String { GuardScanRoots.qualifiedKey(target: self.target, base: self.baseKey) }
 
     static func < (lhs: Self, rhs: Self) -> Bool {
         lhs.key == rhs.key ? lhs.line < rhs.line : lhs.key < rhs.key
@@ -617,7 +626,10 @@ func compareBoolHitsToExemptions(
 
 /// ⚠️ **必须先断言路径存在**：`FileManager.enumerator(at:)` 对不存在的路径
 /// **静默产出空序列** ⇒「零命中 ⇒ 零违规 ⇒ 绿」会静默通过（#38 同款纪律）。
-func scanBoolParams(root: URL) throws -> BoolScanResult {
+///
+/// ⚠️ **`target` 不是装饰参数**（`#246`）：它进 `BoolParamHit.target`，
+/// 决定豁免键要不要带前缀。传错 target = 键落错命名空间 = 豁免对不上。
+func scanBoolParams(root: URL, target: String = GuardScanRoots.primaryTargetName) throws -> BoolScanResult {
     guard FileManager.default.fileExists(atPath: root.path) else {
         Issue.record("源码路径不存在：\(root.path) —— 判据无法工作，这不是「零违规」")
         return BoolScanResult()
@@ -633,10 +645,35 @@ func scanBoolParams(root: URL) throws -> BoolScanResult {
         let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
         // ⚠️ **解析保真检查**：parser major 与工具链不配套时会静默产出 error node
         // ⇒ 声明被漏采，而扫描器照样「成功」返回一个偏小的集合。
+        // ⚠️ **诊断与 `SourceLocationConverter` 都走仓库根相对路径，不是
+        // `lastPathComponent`**（PR #265 第 3 轮 Copilot A-2）：本函数自 `#246` 起被
+        // `scanBoolParams(roots:)` 逐 target 调用，`CoreDesign/Foo.swift` 与
+        // `CoreDesignEffects/Foo.swift` 的裸文件名一模一样 ⇒ 失败位置指不出是哪个 target
+        // （`BoolParamHit.file` 进的正是 `print` 出来的那份「键 ← 文件:行」清单）。
+        // ⚠️ `BoolParamHit.file` **不进豁免键**（键是 `owner.decl#param` 加 target 前缀，
+        // 见 `BoolParamHit.key`），所以换成相对路径不动任何既有计数。
+        let rel = GuardScanRoots.relativePath(url)
         if tree.hasError {
-            Issue.record("解析出错：\(url.lastPathComponent) —— swift-syntax major 可能与工具链不配套")
+            Issue.record("解析出错：\(rel) —— swift-syntax major 可能与工具链不配套")
         }
-        let partial = collectBoolParams(tree: tree, fileName: url.lastPathComponent)
+        let partial = collectBoolParams(tree: tree, fileName: rel, target: target)
+        result.hits += partial.hits
+        result.carrying += partial.carrying
+        result.publicBoolProperties += partial.publicBoolProperties
+        result.publicBoolTypeAliases += partial.publicBoolTypeAliases
+    }
+    return result
+}
+
+/// **多根**扫描入口（`#246`）。逐根调上面的单根版本并合并。
+///
+/// ⚠️ **先断言根列表非空且每个根都存在**：少一个根 = 那个 target 的 Bool 参数
+/// 对 J-1 完全不可见，而判据照样绿——「零命中 ⇒ 零违规」正是本仓反复栽的坑。
+func scanBoolParams(roots: [(target: String, url: URL)]) throws -> BoolScanResult {
+    GuardScanRoots.assertRootsExist(roots)
+    var result = BoolScanResult()
+    for root in roots {
+        let partial = try scanBoolParams(root: root.url, target: root.target)
         result.hits += partial.hits
         result.carrying += partial.carrying
         result.publicBoolProperties += partial.publicBoolProperties
@@ -646,13 +683,16 @@ func scanBoolParams(root: URL) throws -> BoolScanResult {
 }
 
 /// 合成输入入口——`BoolParameterScannerTests.swift` 用它逐类证伪边界形态，不碰磁盘。
-func scanBoolParams(source: String, fileName: String = "Synthetic.swift") -> BoolScanResult {
-    collectBoolParams(tree: SwiftParser.Parser.parse(source: source), fileName: fileName)
+func scanBoolParams(
+    source: String, fileName: String = "Synthetic.swift",
+    target: String = GuardScanRoots.primaryTargetName
+) -> BoolScanResult {
+    collectBoolParams(tree: SwiftParser.Parser.parse(source: source), fileName: fileName, target: target)
 }
 
-private func collectBoolParams(tree: SourceFileSyntax, fileName: String) -> BoolScanResult {
+private func collectBoolParams(tree: SourceFileSyntax, fileName: String, target: String) -> BoolScanResult {
     let converter = SourceLocationConverter(fileName: fileName, tree: tree)
-    let collector = PublicBoolParamCollector(fileName: fileName, converter: converter)
+    let collector = PublicBoolParamCollector(fileName: fileName, converter: converter, target: target)
     collector.walk(tree)
     var result = BoolScanResult()
     result.hits = collector.hits
@@ -736,6 +776,8 @@ private nonisolated final class PublicBoolParamCollector: SyntaxVisitor {
 
     private let fileName: String
     private let converter: SourceLocationConverter
+    /// 命中所在的 target（`#246` 多根化）——原样传给每个 `BoolParamHit`。
+    private let target: String
 
     private struct Frame {
         let name: String
@@ -748,9 +790,10 @@ private nonisolated final class PublicBoolParamCollector: SyntaxVisitor {
     }
     private var frames: [Frame] = []
 
-    init(fileName: String, converter: SourceLocationConverter) {
+    init(fileName: String, converter: SourceLocationConverter, target: String) {
         self.fileName = fileName
         self.converter = converter
+        self.target = target
         super.init(viewMode: .sourceAccurate)
     }
 
@@ -959,7 +1002,7 @@ private nonisolated final class PublicBoolParamCollector: SyntaxVisitor {
                 let name = (parameter.secondName ?? parameter.firstName)?.text ?? "_\(index)"
                 let hit = BoolParamHit(
                     owner: self.owner, decl: element.name.text, parameter: name,
-                    file: self.fileName, line: line
+                    file: self.fileName, line: line, target: self.target
                 )
                 switch classifyBoolParameterType(parameter.type.trimmedDescription) {
                 case .plainBool: self.hits.append(hit)
@@ -1013,7 +1056,8 @@ private nonisolated final class PublicBoolParamCollector: SyntaxVisitor {
             // 完全匿名的 `_: Bool` ⇒ 键里就是 `_`（**不跳过**，跳过等于给它开洞）。
             let name = (parameter.secondName ?? parameter.firstName).text
             let hit = BoolParamHit(
-                owner: self.owner, decl: decl, parameter: name, file: self.fileName, line: line
+                owner: self.owner, decl: decl, parameter: name,
+                file: self.fileName, line: line, target: self.target
             )
             switch classifyBoolParameterType(parameter.type.trimmedDescription) {
             case .plainBool: self.hits.append(hit)

@@ -65,10 +65,20 @@ CI 的 SwiftPM 腿**显式 `--skip CoreDesignShadersTests`** 并另起一步用 
 **静默跳过**（swiftbuild 调 actool 把 `.xcassets` 编成 `Assets.car`，而那个 suite 的
 启用条件是「`Resources.xcassets/` 以目录形式存在」）。
 
-⚠️ **四条源码守卫当前只扫 `Sources/CoreDesign`**（`ComponentRegistryGuard.swift:366`、
-`BoolExemptionGuard.swift:43`、`AccessibilityStringLiteralGuard.swift:189` 等的扫描根都是
-硬编码的）——**新 target 目前不受 Bool 纪律 / a11y 字面量 / 登记表守卫覆盖**，
-多根化归 `#246`。在那之前不要假设新 target 已被这些守卫守着。
+⚠️ **源码守卫的扫描根有两份，不要混为一谈**（`#246` 立的表、`#270` 把登记表并了进来）：
+
+| 根列表 | 谁在用 | 覆盖 |
+|---|---|---|
+| `GuardScanRoots.allRoots`（`Tests/CoreDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep、**组件登记表**（`ComponentRegistryGuard.componentScanRoots` 直接返回它）与 J-2 / J-3 / FR-4 那一串判据 | `targetNames` 里的全部 target |
+| `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 CoreDesign 现状 |
+
+⚠️ 新增 library target 时**必须**把它加进 `GuardScanRoots.targetNames`——该表与
+`Package.swift` 声明的 library target 做双向差集，忘了扩根会当场判红（这是刻意的
+fail-closed：对一个不在列表里的 target，全部 grep 判据都无命中即绿）。
+⚠️ **本合并提交本身正踩着这条判据**：`Package.swift` 已有 `CoreDesignShaders`，
+而 `targetNames` 还没有 ⇒ `libraryTargetsAreCoveredByScanRoots` 当场红，
+由 `#279` 在紧接的提交里收口。
+⚠️ 台账键对新 target 带 `<Target>/` 前缀，主 target 保持裸形（`Owner.decl#param`）。
 
 ### 按钮样式模式
 

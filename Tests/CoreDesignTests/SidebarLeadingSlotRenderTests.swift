@@ -165,7 +165,7 @@ struct SidebarLeadingSlotRenderTests {
             SidebarUtilityRow(systemImage: "trash", title: "Settings", presentation: .iconLeading) {}
         )
         #expect(a != nil && b != nil, "渲染失败 —— 本平台无法量测，不得当作通过")
-        #expect(a != b, "换了 systemImage 但渲染逐字节相同 ⇒ 组件忽略了该入参（或 leading 根本没画字形）")
+        expectBitmapsDiffer(a, b, "换了 systemImage 但渲染逐字节相同 ⇒ 组件忽略了该入参（或 leading 根本没画字形）")
 
         // ⚠️ 本条**同时**挡住「leading 画的是空白但仍占位」那一类（`Color.clear` / `.hidden()` /
         // `Text("")`）—— 实测那些变异下两次渲染同样逐字节相同，本断言照红。
@@ -230,8 +230,8 @@ struct SidebarLeadingSlotRenderTests {
         let trash = self.pixels(self.row(.textOnly, systemImage: "trash"))
 
         #expect(blank != nil, "渲染失败 —— 本平台无法量测，不得当作通过")
-        #expect(blank == gear, ".textOnly 仍受 systemImage 影响：\"\" 与 gearshape 位图不同")
-        #expect(blank == trash, ".textOnly 仍受 systemImage 影响：\"\" 与 trash 位图不同")
+        expectBitmapsEqual(blank, gear, ".textOnly 仍受 systemImage 影响：\"\" 与 gearshape 位图不同")
+        expectBitmapsEqual(blank, trash, ".textOnly 仍受 systemImage 影响：\"\" 与 trash 位图不同")
     }
 
     @Test("候选 2 的组合：行尾字形真的占了位，且不影响 leading 侧差值")

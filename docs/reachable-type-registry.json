@@ -106,6 +106,17 @@
     ]
   },
   {
+    "type": "ChartValue",
+    "repo": "coredesign",
+    "textParams": [
+      {
+        "name": "label",
+        "category": "C",
+        "notes": "图表数据点的显示名，由调用方模型提供。FR-7 边界：调用方传入的数据文案是**内容**不是 UI 文案 ⇒ 不强制 LocalizedStringResource（图表自带的空态提示与默认轴标题才走本地化类型）"
+      }
+    ]
+  },
+  {
     "type": "CodexContextPickerState",
     "repo": "storyui",
     "textParams": [
@@ -239,6 +250,33 @@
         "name": "label",
         "category": "C",
         "notes": "表单字段标签——同上，Codex 模板可由用户自定义 ⇒ 该参数实际会承载用户内容"
+      }
+    ]
+  },
+  {
+    "type": "GraphEdge",
+    "repo": "coredesign",
+    "textParams": [
+      {
+        "name": "from",
+        "category": "C",
+        "notes": "边的起点**节点 ID**（泛型 ID，常见实例化为 String）。标识符，非文案，不迁移；指向不存在节点的边被静默忽略"
+      },
+      {
+        "name": "to",
+        "category": "C",
+        "notes": "边的终点**节点 ID**（泛型 ID，常见实例化为 String）。标识符，非文案，不迁移；同 from"
+      }
+    ]
+  },
+  {
+    "type": "GraphNode",
+    "repo": "coredesign",
+    "textParams": [
+      {
+        "name": "label",
+        "category": "C",
+        "notes": "网络图节点的显示名，来自调用方模型（人名 / 服务名 / 文件名等运行期数据）⇒ 同 ChartValue.label，判 C 不迁移"
       }
     ]
   },
