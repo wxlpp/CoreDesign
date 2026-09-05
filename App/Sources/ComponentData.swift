@@ -5,6 +5,7 @@ import CoreDesign
 // `project.yml` 那侧的三条 `product:` 与这两行是**一对**，改一边必须改另一边。
 import CoreDesignCharts
 import CoreDesignEffects
+import CoreDesignShaders
 
 // MARK: - ComponentCategory
 
@@ -21,6 +22,9 @@ enum ComponentCategory: String, CaseIterable, Identifiable {
     case effect = "Effect"
     /// `CoreDesignCharts` 的 4 个图表。
     case chart = "Chart"
+    /// `CoreDesignShaders` 的 9 个 API 单位（6 个自带内容的 `View` + 3 个只重采样
+    /// 调用方内容层的 modifier）。
+    case shader = "Shader"
 
     var id: String { self.rawValue }
 }
@@ -187,7 +191,7 @@ extension ComponentMeta {
         ComponentMeta(id: "spinning-nonblocking", name: "Spinning · 非阻塞", description: "topBar 顶条 / inline 行内：不铺遮罩、不禁用交互", category: .feedback) {
             SpinningNonBlockingPreview()
         },
-    ] + Self.shipSwiftEntries
+    ] + Self.shipSwiftEntries + Self.shaderEntries
 }
 
 // MARK: - `shipswift-effects` epic 的 40 个 API 单位（#256 串行合并）
@@ -1330,5 +1334,118 @@ private struct NetworkGraphDemo: View {
 
     var body: some View {
         NetworkGraph(nodes: Self.nodes, edges: Self.edges).frame(height: 260)
+    }
+}
+
+// MARK: - `shipswift-shaders` epic 的 9 个 API 单位（#284 的「预览宿主」切片）
+//
+// ⚠️ **本节是 B-4 在画廊里的分节**：`shipSwiftEntries` 那一节的注释明令
+// 「追加自己的分节，不要重排本节」——所以这里另起一个 `static let`，
+// 不往上面那个数组里塞。拆开的第二条理由与那一节相同：追加进 `all` 的字面量
+// 会让整个 `all` 的类型检查退化。
+//
+// ⚠️ 与 `shipSwiftEntries` 同样**有意不补** `App/Sources/Previews.swift` 的宿主
+// `#Preview`：这 9 件里 6 件是逐帧演进的 `TimelineView` 动效，静止帧收进
+// `docs/snapshots` 只是噪声；规则与判据见 `SnapshotArtifactGuard`。
+extension ComponentMeta {
+
+    @MainActor static let shaderEntries: [ComponentMeta] = [
+        // MARK: 自带内容的 6 个 View（#278 / #280）
+        ComponentMeta(id: "shader-plasma", name: "Plasma", description: "等离子体背景；density 三档 × ShaderMotion 四档，tint 取调用方色", category: .shader) {
+            ShaderStage { Plasma(density: .regular, motion: .regular) }
+        },
+        ComponentMeta(id: "shader-fractal-clouds", name: "FractalClouds", description: "分形噪声云层；density = soft / regular / turbulent", category: .shader) {
+            ShaderStage { FractalClouds(density: .regular, motion: .calm) }
+        },
+        ComponentMeta(id: "shader-ink-smoke", name: "InkSmoke", description: "水墨扩散；density = faint / regular / heavy", category: .shader) {
+            ShaderStage { InkSmoke(density: .regular, motion: .calm) }
+        },
+        ComponentMeta(id: "shader-liquid-chrome", name: "LiquidChrome", description: "液态金属条带；density = wide / regular / fine", category: .shader) {
+            ShaderStage { LiquidChrome(density: .regular, motion: .regular) }
+        },
+        ComponentMeta(id: "shader-dot-grid", name: "DotGrid", description: "点阵背景；spacing = loose / regular / tight，motion .still 时完全静止", category: .shader) {
+            ShaderStage { DotGrid(spacing: .regular, motion: .calm) }
+        },
+        ComponentMeta(id: "shader-glass-symbol", name: "GlassSymbol", description: "SF Symbol + 渐变背衬的折射玻璃；自带内容，故是 View 而非 modifier", category: .shader) {
+            GlassSymbolDemo()
+        },
+
+        // MARK: 只重采样内容层的 3 个 modifier（#278 / #283）
+        ComponentMeta(id: "shader-refractive-glass", name: ".refractiveGlass(...)", description: "折射玻璃罩：strength 三档，rim 描边默认取 .accent", category: .shader) {
+            ShaderModifierDemo(labels: RefractiveGlassStrength.allCases.map { String(describing: $0) }) { content, index in
+                content.refractiveGlass(strength: RefractiveGlassStrength.allCases[index])
+            }
+        },
+        ComponentMeta(id: "shader-glass-orb", name: ".glassOrb(...)", description: "跟手放大镜球：拖动移动焦点，size 三档 × magnification 三档", category: .shader) {
+            ShaderModifierDemo(labels: GlassOrbSize.allCases.map { String(describing: $0) }) { content, index in
+                content.glassOrb(size: GlassOrbSize.allCases[index], magnification: .strong)
+            }
+        },
+        ComponentMeta(id: "shader-halftone", name: ".halftone(...)", description: "半调网屏：dot = fine / regular / coarse，ink / paper 可换色", category: .shader) {
+            ShaderModifierDemo(labels: HalftoneDot.allCases.map { String(describing: $0) }) { content, index in
+                content.halftone(dot: HalftoneDot.allCases[index], ink: .accent)
+            }
+        },
+    ]
+}
+
+// MARK: - Shader 画廊宿主
+
+/// 自带内容的 shader 是背景层，给一个固定高度的舞台即可。
+private struct ShaderStage<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        self.content
+            .frame(height: 220)
+            .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
+    }
+}
+
+/// modifier 族不产生内容，必须给一层被作用的内容。三档并排，便于对比。
+private struct ShaderModifierDemo<Effected: View>: View {
+    let labels: [String]
+    @ViewBuilder let effect: (AnyView, Int) -> Effected
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.md) {
+            ForEach(Array(self.labels.enumerated()), id: \.offset) { index, label in
+                self.effect(AnyView(Self.subject), index)
+                    .frame(height: 110)
+                    .overlay(alignment: .topLeading) {
+                        Text(label)
+                            .font(CoreTypography.Token.caption.font.monospaced())
+                            .foregroundStyle(Color.contentPrimary)
+                            .padding(CoreSpacing.xs)
+                    }
+            }
+        }
+    }
+
+    private static var subject: some View {
+        ZStack {
+            LinearGradient(
+                colors: [.accent, .accentSubtleBackground],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Text(verbatim: "CoreDesign").font(.largeTitle.bold())
+        }
+    }
+}
+
+private struct GlassSymbolDemo: View {
+    var body: some View {
+        HStack(spacing: CoreSpacing.lg) {
+            ForEach(Array(RefractiveGlassStrength.allCases.enumerated()), id: \.offset) { _, strength in
+                VStack(spacing: CoreSpacing.xs) {
+                    GlassSymbol("sparkles", strength: strength)
+                        .frame(width: 88, height: 88)
+                    Text(String(describing: strength))
+                        .font(CoreTypography.Token.caption.font.monospaced())
+                        .foregroundStyle(Color.contentSubtle)
+                }
+            }
+        }
     }
 }
