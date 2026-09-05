@@ -17,7 +17,9 @@ import Testing
 // **在写下的当天就已经指到空行和一个 `}`**，且没有任何判据会为此判红。
 // 与下面 `relativePath(_:)` 文档里那条同样的纪律（活引用一律用符号名）。
 //
-// ⚠️ **上句原写「本文件不含 `ComponentRegistryGuard.coreDesignSources`」，`#270` 已作废**：
+// ⚠️ **上句原写「本文件不含 `ComponentRegistryGuard` 的 `coreDesignSources`」，`#270` 已作废**
+//（⚠️ 该历史符号名在这里**拆开写**：它今天已不存在，连点写成限定名会被
+//  `JudgementReferenceGuard` 判成悬空引用——那条判据不区分活引用与撤回痕迹）：
 // 登记表守卫的根曾停在单根，理由是「扩根会顶动 AD-4《下游连锁一》那串断言，归 `#255` 处置」
 // ——而 `#255` 落地时没做 ⇒ 两个新 target 的 public 类型对登记表**结构上不可见**，
 // 少登记一条不会有任何判据红。`#270` 把它接过来收口：
@@ -596,6 +598,56 @@ nonisolated enum GuardScanRoots {
 
     private static func isIdentifierCharacter(_ character: Character) -> Bool {
         character.isLetter || character.isNumber || character == "_"
+    }
+
+    // MARK: - 测试根与文档根（`#287`：判据引用守卫的扫描面也要有单一来源）
+
+    /// `Tests/` —— 全部 test target 源码的公共父目录。
+    static var testsRoot: URL { Self.repoRoot.appendingPathComponent("Tests") }
+
+    /// `Tests/` 下的每个子目录 = 一个 test target 的源码根。
+    ///
+    /// ⚠️ **不做任何白名单**：新增 test target 只要按 SwiftPM 约定落在 `Tests/<名字>/`
+    /// 就自动进扫描范围；`BitmapExpectationGuard.scanRootsMatchTheManifest` 与
+    /// `JudgementReferenceGuard.scanFaceMatchesTheManifest` 各自与 `Package.swift`
+    /// 里的非 library target 做**双向**差集，堵住「新 target 静默逃出守卫」。
+    ///
+    /// ⚠️ `#287` 之前这份实现住在 `BitmapExpectationGuard` 里。第二条守卫要用同一份根时，
+    /// 复制一份必然漂——本文件既然是「根列表的单一来源」，测试根就该在这里，
+    /// 而不是在某一条守卫的私有实现里。
+    static func testRootDirectories() throws -> [URL] {
+        try FileManager.default
+            .contentsOfDirectory(at: Self.testsRoot, includingPropertiesForKeys: [.isDirectoryKey])
+            .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    /// `docs/` —— 组件文档与 `component-registry.json` 的根。
+    static var docsRoot: URL { Self.repoRoot.appendingPathComponent("docs") }
+
+    /// `docs/` 下指定扩展名的全部文件（递归）。
+    ///
+    /// ⚠️ 与 `swiftFiles(in:)` 同一条 fail-closed 纪律：路径不存在 / 枚举失败时
+    /// `Issue.record` 并返回空，而不是静默产出空序列。
+    static func docFiles(
+        extensions: Set<String> = ["md", "json"],
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) -> [URL] {
+        guard FileManager.default.fileExists(atPath: Self.docsRoot.path) else {
+            Issue.record("文档根不存在：\(Self.docsRoot.path) —— 判据无法工作，这不是「零违规」",
+                         sourceLocation: sourceLocation)
+            return []
+        }
+        guard let walker = FileManager.default.enumerator(
+            at: Self.docsRoot, includingPropertiesForKeys: nil
+        ) else {
+            Issue.record("无法枚举文档目录：\(Self.docsRoot.path)（权限或 IO 异常）—— 判据无法工作",
+                         sourceLocation: sourceLocation)
+            return []
+        }
+        var out: [URL] = []
+        for case let url as URL in walker where extensions.contains(url.pathExtension) { out.append(url) }
+        return out.sorted { $0.path < $1.path }
     }
 }
 

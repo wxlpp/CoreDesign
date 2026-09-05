@@ -442,7 +442,7 @@ nonisolated enum MaskReveal {
     /// 上一版这里独立写了一个字面量 `24`，而 `.dissolve()` 的默认实参取的是那个
     /// `public` 常量 ⇒ 只改一处，「默认值」与「`.nan` / `<= 0` 的回落值」就会**静默分叉**
     /// （两条路都不报错，只是同一个 `.dissolve()` 在两个入口给出两种格子）。
-    /// 判据：`MaskRevealTransitionTests.dissolveDegenerateCellSize` 的 ② 段直接断言
+    /// 判据：`MaskRevealGeometryTests.dissolveClampsDegenerateCellSize` 的 ② 段直接断言
     /// 回落值 `== MaskRevealTransition.defaultCellSize`。
     static let dissolveDefaultCellSize: CGFloat = MaskRevealTransition.defaultCellSize
 

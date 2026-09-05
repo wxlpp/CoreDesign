@@ -8,7 +8,7 @@ import Testing
 //   1. `SpinningModifier` 自身的存储契约（isActive / text 透传），与
 //      `FloatingGlassModifierTests` 同款、跨平台可跑。
 //   2. `isActive` 切换不改变底层内容渲染尺寸——遮罩是 overlay，不应影响 frame。
-//      仿照 `BasicContainerTests.CardVisibilityTests` 的 ImageRenderer 量测手法，
+//      仿照 `CardVisibilityTests`（`BasicContainerTests.swift`）的 ImageRenderer 量测手法，
 //      只在 iOS 腿跑（macOS 无 WindowServer 会塌缩系统色/材质）。
 
 @Suite("SpinningModifier 存储契约")

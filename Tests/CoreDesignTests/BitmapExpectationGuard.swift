@@ -197,20 +197,18 @@ struct BitmapExpectationGuard {
 
     // MARK: - 扫描根（fail-closed）
 
-    nonisolated static var testsRoot: URL {
-        GuardScanRoots.repoRoot.appendingPathComponent("Tests")
-    }
+    nonisolated static var testsRoot: URL { GuardScanRoots.testsRoot }
 
     /// `Tests/` 下的每个子目录 = 一个 test target 的源码根。
     ///
     /// ⚠️ **不做任何白名单**：新增 test target 只要按 SwiftPM 约定落在 `Tests/<名字>/`
     /// 就自动进扫描范围。`scanRootsMatchTheManifest` 用 `Package.swift` 与本表做**双向**
     /// 差集，堵住「新 target 静默逃出本判据」。
+    ///
+    /// ⚠️ `#287` 起实现搬去 `GuardScanRoots.testRootDirectories()`（第二条守卫要用同一份根，
+    /// 复制一份必然漂）。这里保留转发，本文件其余引用点不必改。
     nonisolated static func testRootDirectories() throws -> [URL] {
-        try FileManager.default
-            .contentsOfDirectory(at: Self.testsRoot, includingPropertiesForKeys: [.isDirectoryKey])
-            .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        try GuardScanRoots.testRootDirectories()
     }
 
     nonisolated static func testSourceFiles() throws -> [URL] {

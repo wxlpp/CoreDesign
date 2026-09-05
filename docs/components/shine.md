@@ -117,7 +117,7 @@ Reduce Motion 下**不画光带**，降级为一次透明度脉冲
 `-travel`，而首次求值时 `GeometryReader` 的 `proxy.size` 还是 `.zero` ⇒ 初值固化成
 **0** ⇒ **光带永久停在内容正上方**（实测 `PRO` 胶囊左缘常驻斜切、`star.fill` 整体被洗淡）。
 修法是把 `initialValue` 换成**无量纲常量 −1**，`travel` 只在闭包内相乘。
-判据是 `MicroInteractionTests.terminalFrameIsIdentity`（对真轨道求值 + 位图比对，
+判据是 `MicroInteractionAPITests.terminalFrameIsIdentity`（对真轨道求值 + 位图比对，
 另有 `progress = 0` 的反向互锁）。
 
 ## 使用示例 / Usage
