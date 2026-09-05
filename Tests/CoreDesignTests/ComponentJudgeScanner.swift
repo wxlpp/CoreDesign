@@ -318,6 +318,16 @@ struct ComponentJudgeScanResult: Sendable {
     /// 类型名（含被 extension 扩展的类型名）→ 声明它的文件名集合。J-3 用它定「组件作用域」。
     var typeDeclFiles: [String: Set<String>] = [:]
 
+    /// 四个桶全空 —— 扫描器的三条失败路径（路径不存在 / 无法枚举 / 解析出错）产出的
+    /// 正是这个形状。⚠️ **判「失败」的信号是全空，不是「`textParams` 空」**
+    /// （PR #195 第 2 轮 review）：只看 `textParams` 会把「扫描成功、恰好零文本参数」
+    /// 也判成失败。`ComponentJudgeSources.scan()` 的缓存准入与
+    /// `scanComponentJudgeInputs(roots:)` 的逐根断言共用本属性，免得两处各写一份而漂。
+    var isEmpty: Bool {
+        self.textParams.isEmpty && self.styleProtocols.isEmpty
+            && self.conformances.isEmpty && self.typeDeclFiles.isEmpty
+    }
+
     var bareTextKeys: Set<String> { Set(self.textParams.filter { $0.kind == .bareText }.map(\.key)) }
     var localizedTextKeys: Set<String> { Set(self.textParams.filter { $0.kind == .localizedText }.map(\.key)) }
     var carryingKeys: Set<String> { Set(self.textParams.filter { $0.kind == .textCarrying }.map(\.key)) }
@@ -350,12 +360,35 @@ struct ComponentJudgeScanResult: Sendable {
 /// 判成缺失；反过来若把新条目全判 `prescriptive` 逃开 J-2，J-3（原生协议纯度）与 FR-4
 /// （文本参数分类）**照样**看不见它们的源码 —— 那正是本 issue 要收的那个口。
 ///
-/// ⚠️ **列表级 fail-closed 先行**：`GuardScanRoots.assertRootsExist` 管「列表非空 + 每根存在」，
-/// 逐根的 `scanComponentJudgeInputs(root:)` 里另有一条**逐根**断言。两者都要。
-func scanComponentJudgeInputs(roots: [(target: String, url: URL)]) throws -> ComponentJudgeScanResult {
+/// ⚠️ **三层 fail-closed，缺一层就留一条缝**：
+/// ① `GuardScanRoots.assertRootsExist` —— 列表非空 + 每根目录存在；
+/// ② `scanComponentJudgeInputs(root:)` 内部 —— 该根的路径存在 / 可枚举；
+/// ③ **逐根产出非空**（PR #297 终审 S-3 补上的一层）。
+///
+/// ⚠️ **③ 是本轮补的，此前只有 ①②**：它的姊妹
+/// `ComponentRegistryGuard.scannerFindsComponentTypes` 早就明写着「多根扫描最容易的
+/// 假绿正是『新根静默产出空集』，故每个根各自也要有非空断言」，而同一族、同一批扩根的
+/// 本函数**没有**这条 —— 同风险、同文件族、待遇不对称。
+/// 「目录存在、里面也有 `.swift`，但整根一个声明都没采到」（解析器对新 target 的语法
+/// 形态整体失效、拷贝出错、`.swift` 全在被跳过的子目录里）会让合并结果只少掉一部分，
+/// 而下游的 `bareTextKeys.count > 20` 这类**合计**下界靠主 target 一家就能满足。
+func scanComponentJudgeInputs(
+    roots: [(target: String, url: URL)],
+    sourceLocation: Testing.SourceLocation = #_sourceLocation
+) throws -> ComponentJudgeScanResult {
     GuardScanRoots.assertRootsExist(roots)
     var result = ComponentJudgeScanResult()
-    for root in roots { result.merge(try scanComponentJudgeInputs(root: root.url)) }
+    for root in roots {
+        let one = try scanComponentJudgeInputs(root: root.url)
+        if one.isEmpty {
+            Issue.record("""
+            扫描根 \(root.target)（\(root.url.path)）四个桶全空 —— 判据无法工作，这不是「零违规」。
+            多根扫描最容易的假绿就是新根静默产出空集：合并之后主 target 的量把合计下界撑满，
+            而这一根的源码**完全不受 J-2 / J-3 / FR-4 覆盖**。
+            """, sourceLocation: sourceLocation)
+        }
+        result.merge(one)
+    }
     return result
 }
 

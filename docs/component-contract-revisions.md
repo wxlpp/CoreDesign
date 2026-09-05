@@ -2079,3 +2079,42 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
 - **落点**：G-8 行（**行内改句，不新增行**）。
 - **验证**：`swift test` **454** tests / 68 suites 通过（2 条 known issue 与本改动无关）；
   G- 表 8 行各 6 管道符；全文表块零异常（`contractTablesHaveNoSplitRows` 覆盖）。
+
+### R-47｜`decidedBy` 新增第七个取值 `pendingStep2`（`#270` / PR #297 终审 I-1）
+
+- **来源试点**：`#270`（组件登记表扫描根由单根扩成三根，补登 15 条新 target 的 public 类型），
+  PR #297 终审 I-1 / I-3。
+- **撞上公约哪一条**：第 1 节步骤 2 的**停止规则**与步骤 3 门槛的**兜底句**。
+  6 条条目（`ActivityHeatmap` / `BeforeAfterSlider` / `NetworkGraph` / `OrbitingLogos` /
+  `RadarChart` / `RingChart`）的候选枚举与来源核验**一次都没做**，却援引兜底句落了
+  `decidedBy: tiebreaker`；而兜底句**以「重跑发生过」为前置**，停止规则又明写
+  「枚举视为未完成 ⇒ **不得据以走任一出口**」。⇒ `decidedBy` 的六个取值里**没有一个
+  能描述「还没判」**，与 `exclusion` 当年的病型同构。缺陷记录见
+  `docs/contract-defects.md` 的 `D-270-1` / `D-270-2`。
+- **改动前（逐字）**：Tiebreaker 小节的 schema 说明只列
+  「（**`step1`** / `step2` / `step3` / `tiebreaker`），或 `precedent`……，或 `exclusion`……」；
+  AD-4《下游连锁一》写「15 条全部落**步骤 4（tiebreaker）**……10 条是『举得犹豫』，
+  5 条（`BeforeAfterSlider` + 四个图表）是『按兜底句落步骤 4』」。
+- **改动后（逐字）**：Tiebreaker 小节下新增标题为
+  「#### ⚠️ `pendingStep2`：**「还没判」**，不是判定法的第七个出口」的小节，
+  含语义 + **四条约束**（① `kind` 必须 `prescriptive` 且不给扩展点；② `notes` 写明成因与
+  承接 issue 号；③ 守卫侧必须有**双侧等式**台账；④ **不得预判**重判结论）；
+  AD-4《下游连锁一》那段改写成「9 条 `tiebreaker` + 6 条 `pendingStep2`」的分列，
+  并按只增不删的成法复述了被推翻的原句。
+- **落点**：`docs/component-contract.md`（Tiebreaker 小节新增子节 + AD-4《下游连锁一》
+  段落改写 + 那张「顶动了什么」表里 `inspected.count` 行的说明列）。
+- **连带改动**：
+  · `docs/component-registry.json` —— 6 条 `decidedBy: tiebreaker` → `pendingStep2`，
+    `notes` 各追加改判段（`kind` / `needsExtensionPoint` **不变**）；
+  · `Tests/CoreDesignTests/ComponentRegistryGuard.swift` —— `validDecidedBy` /
+    `expectedKindForDecidedBy` 各加一条（M1 同步断言会强制），新增
+    `knownPendingStep2Enumeration` 双侧等式台账 + 承接 issue 号断言 + 变红自证判据
+    `pendingStep2LedgerIsLoadBearing`；
+  · `docs/contract-defects.md` —— 新增 `## #270` 节与 `D-270-1` / `D-270-2`；
+  · `docs/components/{activity-heatmap,before-after-slider,network-graph,orbiting-logos,
+    radar-chart,ring-chart}.md` —— 登记段同步；
+  · 承接 issue **`wxlpp/CoreDesign#299`**（补做步骤 2 枚举并按公约重判）。
+- **验证**：三方同步义务由 `ComponentContractStructureGuard.contractMentionsEveryGuardAllowedValue`
+  机器强制（公约文本必须出现 `` `pendingStep2` ``），`registrySchemaIsValid` 的 M1 同步断言
+  强制 `validDecidedBy` ⟷ `expectedKindForDecidedBy` 同向；双侧等式的两个方向由
+  `pendingStep2LedgerIsLoadBearing` 用合成条目常驻证伪。回归输出见 PR #297 的收尾 commit。

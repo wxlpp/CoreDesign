@@ -457,6 +457,35 @@
 **为什么默认这一侧**：少给扩展点是**可逆的**（后续按需补，不破坏 API）；
 多给扩展点**不可逆**（public 协议一旦发布，删它是破坏性变更）。
 
+#### ⚠️ `pendingStep2`：**「还没判」**，不是判定法的第七个出口（`#270` / PR #297 终审 I-1 引入）
+
+> `decidedBy` 的第七个合法取值是 **`pendingStep2`**。它**不描述任何出口**，
+> 它描述的是「**步骤 2 的候选枚举与来源核验尚未完成**」这件事本身。
+>
+> **为什么需要它**：步骤 2 的停止规则写着「不满足停止规则 ⇒ 枚举视为未完成，
+> **不得据以走任一出口**，补足后重判」，而步骤 3 门槛的兜底句
+> （「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」）**以「重跑发生过」为前置**。
+> ⇒ 一次枚举都没做时，**两条路都走不通**：既不能落 `tiebreaker`（那是一个
+> 合约不支持的**出处声称**，而且与真正走完步骤 2 的 `tiebreaker` 条目**在数据上无法区分**），
+> 也不该硬凑一个 `semantic`（那会逼人现场编造扩展点，是**不可逆**的那一侧）。
+> ⇒ 第三条路：**如实记「没判」**，条目按**可逆的一侧**（`kind: prescriptive`、
+> 不给扩展点）**缓办**登记，落点留给一个具名的承接 issue。
+>
+> **约束**（缺一条这个取值就会退化成一张免罪符）：
+> 1. `kind` 必须是 `prescriptive`、`needsExtensionPoint` 必须是 `false`
+>    ——缓办只能站在可逆的那一侧；
+> 2. `notes` 必须写明**为什么枚举未完成**，以及**承接 issue 号**；
+> 3. 守卫侧必须有一张**双侧等式**的台账
+>    （`ComponentRegistryGuard.knownPendingStep2Enumeration`）——
+>    少一条标记与多一条标记都判红。散文留不住缓办，本仓已为同一种失效付过一次代价
+>    （见 `ComponentRegistryGuard` 顶端「注释里这份对账不会自己保鲜」那段）；
+> 4. ⚠️ **不得预判重判结论**：诚实重枚举可能落**任一**出口，包括 `semantic`
+>    ——那意味着要开扩展点。承接 issue 必须把这一点写在明处。
+>
+> ⚠️ **本取值是缓办通道，不是新的默认值**：新增组件的默认路径仍是走完判定法。
+> 它的存在只是为了让「跳过了步骤 2」这件事**在机器可读的数据里留下痕迹**，
+> 而不是躲在 `tiebreaker` 后面。
+
 ⚠️ **这条 tiebreaker 是必需的，不是保险措施**：没有它，全量分类会在遇到真正的
 边界组件时来回改判定法而**永不终止**。判定法的目的是**产出结论**，不是产出真理。
 
@@ -1527,7 +1556,7 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
 | 断言 | 预判 | 实际 | 为什么 |
 |---|---|---|---|
 | `coredesign` 条目数 `== 47` | 会变 | **47 → 62** | Effects 11 + Charts 4 = 15 条新条目 |
-| `ComponentExtensionPointGuard` 的 `inspected.count == 11` | 变 15 ⇒ 红 | **不变，仍是 11** | 15 条全部落 `tiebreaker` ⇒ `prescriptive` ⇒ 不进 J-2 定义域 |
+| `ComponentExtensionPointGuard` 的 `inspected.count == 11` | 变 15 ⇒ 红 | **不变，仍是 11** | 15 条全部 `prescriptive`（9 条 `tiebreaker` + 6 条 `pendingStep2`）⇒ 不进 J-2 定义域 |
 | `knownMissingExtensionPoints` | 要同批交扩展点 | **不变，仍是空集** | 同上：J-2 定义域没变，一条新缺口都没产生 |
 | `registryTextParams == 31` | 会变 | **31 → 36** | `TypewriterText.text`（C）+ 四个图表的 `title`（by-type） |
 | `covered.count == 30` | 会变 | **30 → 31** | 只有 `TypewriterText.init#text` 产出 covered 键；by-type 走 `.localizedText` 分支不产键 |
@@ -1538,13 +1567,26 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
 | `by-type` 条目数 `== 2` | 未预判 | **2 → 6** | 四个图表的 `title` |
 | `NativeProtocolPurityGuard` 的作用域文件名 | 未预判 | 裸文件名 → `CoreDesign/…/ProgressIndicator.swift` | 三根之下裸文件名会让两个 target 的同名文件塌成同一个作用域 |
 
-⚠️ **「J-2 那三条没被顶动」不是绕过判据，是判定法的落点决定的**：15 条全部落**步骤 4
-（tiebreaker）⇒ 规定性 ⇒ 不给扩展点**，逐条理由写在各自的 `notes` 里，分两类——
-10 条是「候选命中皮肤变体条款或作用域条款 ⇒ 举得犹豫」，
-5 条（`BeforeAfterSlider` + 四个图表）是「候选按三分法**确实**属排布差异、本该计入 ≥2，
-但**步骤 2 的停止规则未满足**（没做候选来源核验）⇒ 枚举视为未完成 ⇒ 按步骤 3 门槛的
-**兜底句**落步骤 4」。后者**在 `notes` 里点名写着它们是最可能被改判为 `semantic` 的那批**，
-改判入口是补一份合格的候选枚举，不是改判据。
+⚠️ **「J-2 那三条没被顶动」不是绕过判据，是落点决定的**：15 条全部 `kind: prescriptive`
+⇒ 不给扩展点 ⇒ 不进 J-2 定义域。但**它们不是同一回事**，`decidedBy` 分两类：
+
+- **9 条 `tiebreaker`**（`AnimatedMeshGradient` / `CharSphere` / `DotSphere` /
+  `FullScreenButton` / `GlowSweep` / `LightSweep` / `ScanningOverlay` / `Shine` /
+  `TypewriterText`）——候选命中皮肤变体条款或作用域条款 ⇒ 举得犹豫 ⇒ 正当落步骤 4。
+- **6 条 `pendingStep2`**（`ActivityHeatmap` / `BeforeAfterSlider` / `NetworkGraph` /
+  `OrbitingLogos` / `RadarChart` / `RingChart`）——候选按三分法**确实**属排布差异、
+  本该计入 ≥2，而 `#270` **没做**步骤 2 停止规则要求的候选来源核验。
+
+⚠️⚠️ **上一版把后一类也记成 `tiebreaker`，PR #297 终审 I-1 判它是「合约不支持的出处声称」，
+本段整体改写**（逐字原写：「15 条全部落**步骤 4（tiebreaker）**……
+10 条是『举得犹豫』，5 条是『按兜底句落步骤 4』」）。理由是合约字面：兜底句
+**以「重跑发生过」为前置**，而这些条目一次枚举都没做；且合约另有一条直接点名
+「败在 (A)（诚实枚举后**其实举得出** ≥2 个候选）⇒ **不是 `tiebreaker`**」。
+⇒ 改记 `decidedBy: pendingStep2`（定义见上方「⚠️ `pendingStep2`」小节）：
+**如实说「没判」**，条目仍缓办在可逆的一侧，落点留给承接 issue **`#299`**。
+⚠️ **6 条而不是 5 条**：`OrbitingLogos` 由终审 I-3 从前一类挪入——它的 `notes` 曾把
+「换轨道形状」判成「同一槽内的画法变化 ⇒ 装饰」，而**排布**的定义是「子视图之间的
+空间关系改变」，把 logo 从圆轨道改成椭圆 / 螺旋改变的正是它们**彼此之间**的落点。
 ⚠️ 这也正是本裁决自己写的那句「两侧的后悔成本至今没有对称测量过」的现场兑现：
 `#270` 选了**可逆**的那一侧，并把不可逆的那一侧留成了一个有具名入口的待办。
 
@@ -1579,9 +1621,17 @@ task 250 的 8 个 `public extension View` 方法 + task 251 的 16 个转场 =
 `#270` 的处置是把 `readmeIndexRows` 的解析范围改成**两段**
 （`## 组件索引 → ## 生成预览图` 与 `## 动效与图表索引 → ## NFR-1 帧率基准`），
 保留 `#256` 按 `import` 分组的分节。规范目的（每个非 excluded 的 `coredesign` 条目
-都被某条索引行覆盖）不变，且定义域由 37 行涨到 77 行 ⇒ **是收紧不是放松**：
-新进来的 40 行里有 26 行是**入口点**而不是类型，它们由此第一次与
+都被某条索引行覆盖）不变，且定义域由**一节**扩到**两节** ⇒ **是收紧不是放松**：
+新进来的那一节里，**多数行是入口点而不是类型**，它们由此第一次与
 `component-registry.json` 的 `entryPoints` 数组对上账。
+⚠️⚠️ **上一版写「定义域由 37 行涨到 77 行；新进来的 40 行里有 26 行是入口点」——
+PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.tableFirstCells`
+的真实口径，第 1 节 **38** 行、第 2 节 **35** 行、合计 **73** 行；
+`40` / `26` 混淆了**行**与**单位**（`iris / wipe / blinds / clock / glare / dissolve`
+是 **1 行 / 6 单位**），`37` 则继承自守卫里一段**已归档**的单节时代人工核对、早已陈旧。
+⚠️ 改写后**有意不写现状条数** —— 与本文件第 4 节「⚠️ **不写现状条数**……那个数字在
+写下几个月后就成了化石」是同一条纪律，上一版没把它用到自己这句上。
+**权威计数在判据里**：`ComponentRegistryGuard.readmeIndexSectionsAllParse` 的逐节下界。
 
 ⚠️ **第 1–5 版裁的是「Effects/Shaders 另起小节」——那会让判据判红**，
 而该判据文档自己为 Charts 算过一遍、翻 b 后没有重跑。
@@ -1612,10 +1662,12 @@ task 250 的 8 个 `public extension View` 方法 + task 251 的 16 个转场 =
   Charts **4 个** `public struct: View`。「新根静默产出空集」这条假绿由
   `ComponentRegistryGuard.scannerFindsComponentTypes` 的**逐根非空断言**接住
   （每个根各自 `components` 非空，不只看合并集合的下界）。
-- ⚠️ **跨 target 同名会在 `ScanResult.components` 这个 `Set` 里静默塌成一条**
-  （`Entry` 没有 target 字段，登记表按名字对账）⇒ 一条登记就能同时喂饱双向差集的
-  两个方向。`#270` 加了 `componentTypeNamesAreUniqueAcrossTargets`（并进
-  `scannerFindsComponentTypes`）把「今天三根之间零同名」钉成判据。
+- ⚠️ **跨 target 同名会在合并的 `Set` 里静默塌成一条** ⇒ 一条登记就能同时喂饱双向差集的
+  两个方向。`#270` 把「今天三根之间零同名」钉成判据（写在
+  `ComponentRegistryGuard.scannerFindsComponentTypes` 里）。
+  ⚠️ **上一版只查 `components` 一个桶，PR #297 终审 S-1 指出 `scanTypes(roots:)` 合并的是
+  `components` / `styleImpls` / `entryPoints` 三个**——后两个同样是判据的依据
+  （`styleImpls` 判 README 行归宿、`entryPoints` 判入口点行归宿），已改为三个桶一并查。
 - ⚠️ **给 `#279`（`CoreDesignShaders` 进根列表）的交接**：`#270` 定下的形态是
   「`componentScanRoots` = `GuardScanRoots.allRoots`」⇒ `#279` **只需把
   `CoreDesignShaders` 加进 `GuardScanRoots.targetNames`**，登记表扫描根自动跟随，

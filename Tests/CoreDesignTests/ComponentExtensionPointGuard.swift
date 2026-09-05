@@ -22,10 +22,10 @@ enum ComponentJudgeSources {
         // 失败路径返回的是全空的 `ComponentJudgeScanResult()`，所以两种写法对**失败情形完全等价**；
         // 但只看 `textParams` 会把「扫描成功、恰好零文本参数」（例如 FR-4 定义域调整）也判成失败，
         // 于是缓存永远不写入、每个 suite 反复全盘解析源码。取全空作信号，两头都对。
-        let allBucketsEmpty =
-            result.textParams.isEmpty && result.styleProtocols.isEmpty
-            && result.conformances.isEmpty && result.typeDeclFiles.isEmpty
-        if !allBucketsEmpty { Self.cached = result }
+        // ⚠️ 判据本体已抽成 `ComponentJudgeScanResult.isEmpty`（PR #297 终审 S-3）——
+        // `scanComponentJudgeInputs(roots:)` 的**逐根**非空断言用的是同一份定义，
+        // 两处各写一份必然漂。
+        if !result.isEmpty { Self.cached = result }
         return result
     }
 }

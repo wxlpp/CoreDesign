@@ -63,7 +63,7 @@ struct ComponentRegistryGuard {
         let component: String
         let repo: String                    // coredesign | storyui
         let kind: String                    // semantic | prescriptive | excluded
-        let decidedBy: String               // step1|step2|step3|tiebreaker|precedent|exclusion
+        let decidedBy: String               // step1|step2|step3|tiebreaker|precedent|exclusion|pendingStep2
         let nativeProtocol: String?         // Apple 原生协议名
         let customStyleProtocol: String?    // 自有协议名
         // ⚠️ 形态 D（`docs/component-contract.md` §2「样式扩展点：四选一」，由 `D-59-1` 裁定）。
@@ -79,6 +79,18 @@ struct ComponentRegistryGuard {
         let needsExtensionPoint: Bool
         let textParams: [TextParam]
         let notes: String
+
+        /// 只换 `decidedBy` 的副本 —— 只服务 `pendingStep2LedgerIsLoadBearing` 的两个变异，
+        /// **不要**拿它去改真实登记表（登记表的唯一来源是 `docs/component-registry.json`）。
+        func withDecidedBy(_ value: String) -> Entry {
+            Entry(
+                component: self.component, repo: self.repo, kind: self.kind, decidedBy: value,
+                nativeProtocol: self.nativeProtocol, customStyleProtocol: self.customStyleProtocol,
+                styleSlot: self.styleSlot, styleEnum: self.styleEnum,
+                needsExtensionPoint: self.needsExtensionPoint,
+                textParams: self.textParams, notes: self.notes
+            )
+        }
     }
     struct TextParam: Codable { let name: String; let category: String }  // A|B|C|by-type
 
@@ -86,6 +98,20 @@ struct ComponentRegistryGuard {
     static let validDecidedBy: Set<String> = [
         "step1", "step2", "step3", "tiebreaker", "precedent",
         "exclusion",   // ⚠️ 弃用条款先于步骤 1–4，AC 的五个取值没有一个对应它
+        // ⚠️ **`pendingStep2` 不是判定法的第七个出口，是「还没判」这件事本身**
+        // （PR #297 终审 I-1）：公约步骤 2 的停止规则写着「不满足停止规则 ⇒ 枚举视为
+        // 未完成，**不得据以走任一出口**，补足后重判」。`#270` 有 6 条条目的候选枚举
+        // 与来源核验**一次都没做**，却援引步骤 3 门槛的兜底句（「重跑至多一次；**重跑后**
+        // (A) 仍不成立 ⇒ 落步骤 4」）落了 `tiebreaker` —— 那句**以「重跑发生过」为前置**，
+        // 一次都没做时它不成立；公约另有一条直接点名「败在 (A)（诚实枚举后其实举得出
+        // ≥2 个非皮肤候选）⇒ **不是 tiebreaker**」。
+        // ⇒ 与其在机器读的数据文件里写一个**合约不支持的出处声称**（且与另外 9 条正当的
+        // `tiebreaker` 判定**无法区分**），不如另起一个取值如实说「没判」：条目按**可逆的
+        // 那一侧**（`prescriptive` / 不给扩展点）缓办登记，落点留给 `#299` 补做枚举后重判。
+        // ⚠️ 新增本取值同时触发公约「判定法枚举的三方同步义务」⇒ 已回写
+        // `docs/component-contract.md`（`contractMentionsEveryGuardAllowedValue` 会核）、
+        // 记入 `docs/contract-defects.md`（`D-270-1`）、台账 `docs/component-contract-revisions.md`（`R-47`）。
+        "pendingStep2",
     ]
     static let validCategories: Set<String> = ["A", "B", "C", "by-type"]
     static let validRepos: Set<String> = ["coredesign", "storyui"]
@@ -105,7 +131,54 @@ struct ComponentRegistryGuard {
         "step3": "prescriptive",
         "tiebreaker": "prescriptive",
         "precedent": "semantic",
+        // ⚠️ 缓办也必须落在**可逆的那一侧**：公约自陈「少给扩展点可逆 / 多给不可逆」
+        // （public 协议一旦发布，删它是破坏性变更）⇒ `pendingStep2` ⇒ `prescriptive`。
+        // 这不是「判成了规定性」，是「在补足枚举之前先站到能撤回的那一边」。
+        "pendingStep2": "prescriptive",
     ]
+
+    // MARK: - 缓办台账：步骤 2 枚举未完成的条目（PR #297 终审 I-2）
+
+    /// 承接 issue 号。**写成常量并被下面的断言引用**，而不是只出现在散文里 ——
+    /// 散文里的指针没有任何东西核对它是否还在。
+    static let pendingStep2FollowUpIssue = "#299"
+
+    /// `decidedBy == "pendingStep2"` 的条目名单。
+    ///
+    /// ## ⚠️ 为什么这张表必须存在（散文留不住这次缓办）
+    ///
+    /// `#270` 有 6 条条目跳过了公约步骤 2 的候选枚举与来源核验。初版的处置是**只在
+    /// `notes` 里写明**——而本文件顶端那段注释已经为同一种失效付过一次代价，逐字：
+    /// 「注释里这份对账**不会自己保鲜**……继续只写注释等于把已经证伪的机制原样再用一次。」
+    /// 同一论证逐字适用于这 6 段 `notes`：
+    /// · 它们与另外 9 条正当的 `tiebreaker` 判定在数据上**曾经完全同形**（同 `kind`、同
+    ///   `decidedBy`）⇒ 永远不会有东西判红，删掉标记没人知道，新增一条也没人知道；
+    /// · `docs/contract-defects.md` 与承接 issue 都是**人**要去读的，不是机器要读的。
+    ///
+    /// ⇒ 落成**双侧等式**（形态照搬 `ComponentTextParamGuard.knownUnmappedOwnerParams` /
+    /// `knownFunctionSideBareText`）：**缩小要删标记、增大要过评审**。
+    /// 变红时的正确处置是**补做枚举并按公约重判**（`#299`），不是改这张表让它变绿。
+    ///
+    /// ⚠️ **6 条而不是 5 条**：`OrbitingLogos` 是 PR #297 终审 I-3 从「干净的 10 条」里
+    /// 挪进来的 —— 它的 `notes` 曾把「换轨道形状」判成「同一槽内的画法变化 ⇒ 装饰」，
+    /// 而公约的**排布**定义是「子视图之间的空间关系改变」；把 logo 从圆轨道改成椭圆 / 螺旋
+    /// 改变的正是它们**彼此之间**的落点 ⇒ 命中排布、本该计入 ≥2。⇒ 与另外 5 条同因。
+    ///
+    /// ⚠️ **空集时本表退化为「不许再有 pendingStep2 条目」，语义更强不是更弱** ——
+    /// `#299` 收口后 6 条全部离开本取值，届时把这张表清空即可。
+    static let knownPendingStep2Enumeration: Set<String> = [
+        "ActivityHeatmap", "BeforeAfterSlider", "NetworkGraph",
+        "OrbitingLogos", "RadarChart", "RingChart",
+    ]
+
+    /// 纯函数：登记表里 `decidedBy == "pendingStep2"` 的条目名集合。
+    ///
+    /// ⚠️ 抽成纯函数是为了让「删一条标记 ⇒ 判红 / 加一条未登记的 ⇒ 判红」这两个方向
+    /// 能在 **CI 里常驻**证伪，而不是靠一次性手工改文件的 transcript
+    /// （与 `compareRegistryToScan` 抽出来的理由同型，见本文件顶端）。
+    static func pendingStep2Components(in entries: [Entry]) -> Set<String> {
+        Set(entries.filter { $0.decidedBy == "pendingStep2" }.map(\.component))
+    }
 
     /// ⚠️ 已知扫描器盲区白名单（终审 C1 第 3/4 点）：这些登记表条目有真实的 public
     /// API 表面，但不是 `public struct: View/ViewModifier`，`PublicTypeCollector`
@@ -309,6 +382,12 @@ struct ComponentRegistryGuard {
         entryPointMembers: Set<String>
     ) -> Bool {
         if registered.contains(name) { return true }
+        // ⚠️ **墓碑分支必须排在入口点桶之前**（PR #297 终审 P-1）：`#270` 初版把入口点桶
+        // 插在这一行**上面**，于是「名字恰好与某个入口点成员相同的墓碑行」会先被入口点桶
+        // 认掉、绕过 `knownReadmeTombstones` 的核对 —— 墓碑清单对它形同虚设。
+        // 今天无碰撞（墓碑是 `Typography` / `EmptyState`，入口点成员全是小写成员名），
+        // 但「今天不可达」不是把顺序写错的理由，调换零成本。
+        if isTombstone { return Self.knownReadmeTombstones.contains(name) }
         // ⚠️ **入口点桶（`#270` 新增）**：`## 动效与图表索引` 进入定义域后，那一节里
         // **一半的行不是类型而是入口点**（`shake` / `blur` / `iris` …）——它们按 AD-4
         // 《下游连锁二》登记在 `component-registry.json` 的 `entryPoints` 数组里，
@@ -321,7 +400,6 @@ struct ComponentRegistryGuard {
         // 钉住「不许有过期条目、也不许有本来就能直接匹配的多余条目」。
         if entryPointMembers.contains(name) { return true }
         if let member = Self.knownReadmeEntryPointRows[name] { return entryPointMembers.contains(member) }
-        if isTombstone { return Self.knownReadmeTombstones.contains(name) }
         if Self.knownExcludedReadmeRows.contains(name) { return true }
         if let required = Self.knownStyleAnnotationRows[name] {
             // 该行背后的 style 实现必须全部还在源码里——删光 `Components/Style/` 就该红。
@@ -386,9 +464,18 @@ struct ComponentRegistryGuard {
     /// （调用方要知道 `import CoreDesignEffects` 还是 `CoreDesign`）。
     /// ⇒ 保留 `#256` 的分节，把**判据的定义域**扩到两节。
     ///
-    /// ⚠️ **这是收紧不是放松**：定义域从 37 行涨到 77 行，每一条新进来的行都必须
+    /// ⚠️ **这是收紧不是放松**：定义域从**一节**扩到**两节**，第二节的每一行都必须
     /// 在 `resolveReadmeCandidate` 的桶里找到归宿（入口点行由此第一次与
     /// `component-registry.json` 的 `entryPoints` 数组对上账），任何一行落空即红。
+    /// ⚠️ **不写现状条数**（PR #297 终审 S-4）：上一版写「定义域从 37 行涨到 77 行」，
+    /// 而按 `tableFirstCells` 的真实口径实测是第 1 节 38 行 + 第 2 节 35 行 = 73 行
+    /// —— `37` 继承自本文件顶端那段**已归档**的一次性人工核对（那是单节时代的值、
+    /// 现已陈旧），`77` 则由一个把**行**与**单位**混为一谈的加法得出
+    /// （`iris / wipe / blinds / clock / glare / dissolve` 是 **1 行 / 6 单位**）。
+    /// 这正是本 PR 自己往 `docs/component-contract.md` 加的那条纪律要禁的形态：
+    /// 「⚠️ **不写现状条数**……那个数字在写下几个月后就成了化石」。
+    /// **权威计数在判据里**：`readmeIndexSectionsAllParse` 的逐节下界会在解析失效时判红，
+    /// 精确数由它的失败消息给出。
     static let readmeIndexSections: [(start: String, end: String)] = [
         (start: "## 组件索引", end: "## 生成预览图"),
         (start: "## 动效与图表索引", end: "## NFR-1 帧率基准"),
@@ -411,7 +498,7 @@ struct ComponentRegistryGuard {
     /// README 正文里就有**行内**提到这些标题的地方（本轮改写的 `#256` 落点说明里逐字写着
     /// 「解析范围 `## 组件索引 → ## 生成预览图` 与 `## 动效与图表索引 → ## NFR-1 帧率基准`」）。
     /// 裸子串搜索会把**第二节内部**那句行内提及当成该节的终止标题 ⇒ 整节被截成几行，
-    /// 40 行索引静默掉出定义域，而 `rows.count > 20` 这类合计下界**照样成立**
+    /// 第二节整节静默掉出定义域，而 `rows.count > 20` 这类合计下界**照样成立**
     /// ——正是「解析器失效 ⇒ 空输入 ⇒ 恒绿」那一族。
     /// ⇒ 行内提及一律以 `` ` `` 包裹、位于行中，锚 `\n` 即可与真标题区分。
     /// 这一条同时由 `readmeIndexSectionsAllParse` 的**逐节**下界断言接住。
@@ -504,11 +591,14 @@ struct ComponentRegistryGuard {
     ///    （它只覆写 `visit(_:StructDeclSyntax)` 并只读**声明处**的继承子句）。
     ///    这是本类**早于 `#270` 就登记在案的第三 / 第四个盲区**，扩根**没有**缩小它。
     ///    **没人接住**（`ReachableTypeRegistryGuard` 守的是另一件事）。
-    /// 4. **两个 target 里放同名类型** ⇒ `#270` 新增的
-    ///    `componentTypeNamesAreUniqueAcrossTargets` 接住 `components` 这一路。
-    ///    ⚠️ **但它只查 `components`**：`styleImpls` 跨 target 同名**仍会静默塌成一条**
-    ///    （`knownStyleAnnotationRows` 拿它当 README 行的归宿依据）。今天两个新 target
-    ///    的 `styleImpls` 都是空集 ⇒ 不可达；第一个新 target 落 style 实现时要补。
+    /// 4. **两个 target 里放同名类型 / 同名 style 实现 / 同名入口点** ⇒ 由
+    ///    `scannerFindsComponentTypes` 里的跨 target 同名检查接住。
+    ///    ⚠️ **上句原写「它只查 `components`；`styleImpls` 跨 target 同名仍会静默塌成一条」
+    ///    ——PR #297 终审 S-1 指出还漏了第三个桶 `entryPoints`，本轮已把三个桶一并查**：
+    ///    `scanTypes(roots:)` 合并的是 `components` / `styleImpls` / `entryPoints` 三个
+    ///    `Set`，`entryPoints` 是 README 入口点桶与 `knownReadmeEntryPointRows` 的依据
+    ///    （`View.shine` 在两个 target 各声明一次就会塌）。三个桶今天都零同名，
+    ///    判据把「今天为零」钉住，第一条同名出现时当场红。**已接住。**
     /// 5. **给 README 加第三个索引小节** ⇒ 该节的行不进 `readmeIndexRows` 的定义域。
     ///    ⚠️ 这一条**方向是安全的**：新组件仍会被「扫描器 ↔ 登记表」双向差集抓成缺失，
     ///    补登记后又会被 `registryEntriesAreCoveredByReadme` 要求某条**已知小节**里的行覆盖
@@ -526,6 +616,22 @@ struct ComponentRegistryGuard {
     ///    永远不必交出扩展点。⚠️ 这**不是漏洞，是公约写死的默认值**（「少给扩展点是可逆的」），
     ///    `#270` 自己的 15 条走的就是这条路。它的约束是**社会性的**（notes 要写明两可理由、
     ///    评审可以质疑），不是机器性的 —— 本行把这一点写在明处，免得后人以为机器在管。
+    /// 9. **`Sources/<targetName>` 这条路径推断本身**（PR #297 终审 S-2 补入）：
+    ///    `GuardScanRoots.sourcesURL(of:)` 按 **target 名**推根，而 `DeclaredTarget`
+    ///    只记 `name` / `isLibrary` / `hasResources`、**不记 `path:`**。
+    ///    若某天有 library target 写成 `.target(name: "Foo", path: "Sources/Bar")`，
+    ///    同时仓库里还留着一棵陈旧的 `Sources/Foo/`，则五族守卫会去扫**错的树**，
+    ///    而 `assertRootsExist`（目录存在）与 `libraryTargetsAreCoveredByScanRoots`
+    ///    （名字双向差集）**双双满足** ⇒ **静默 fail-open**。
+    ///    ⚠️ 这与上面第 1 条**不是同一条**：那里 target 是**缺席**的（差集能抓），
+    ///    这里 target **在场且名字匹配**，差集抓不到。
+    ///    ⚠️ 它是 `#246` 就存在的既存形态，但 `#270` 把爆炸半径从「四类字面量守卫」
+    ///    扩到了**组件登记表**（扫错树 ⇒ 双向差集对着错的类型集算），故记进这份由
+    ///    `#270` 写下的清单。
+    ///    ⇒ **今天不可达**（`Package.swift` 无任何 `path:`），且已由
+    ///    `GuardScanRoots.declaredTargets` 的 `path:` 探测**改成 fail-closed**：
+    ///    manifest 里一旦出现 `path:`，解析器当场 `Issue.record` 逼人处置，
+    ///    不再是「悄悄扫错树」。**已接住（以判红的方式，不是以支持 `path:` 的方式）。**
     static var componentScanRoots: [(target: String, url: URL)] { GuardScanRoots.allRoots }
     static var registryURL: URL { repoRoot.appendingPathComponent("docs/component-registry.json") }
 
@@ -641,10 +747,26 @@ struct ComponentRegistryGuard {
     /// **谁来自哪个 target 这个信息在合并里丢失** —— 而它正是
     /// `componentTypeNamesAreUniqueAcrossTargets` 需要的那一份。
     static func scanTypesByTarget(
-        roots: [(target: String, url: URL)]
+        roots: [(target: String, url: URL)],
+        sourceLocation: Testing.SourceLocation = #_sourceLocation
     ) throws -> [(target: String, scan: ScanResult)] {
         GuardScanRoots.assertRootsExist(roots)
-        return try roots.map { ($0.target, try Self.scanTypes(root: $0.url)) }
+        let out = try roots.map { ($0.target, try Self.scanTypes(root: $0.url)) }
+        // ⚠️ **逐根非空断言放在共享入口，不是只放在某一条判据里**（PR #297 终审 S-3）：
+        // 「新根静默产出空集」是多根扫描最容易的假绿，而合并集合的下界
+        // （`components.count > 15` 之类）在主 target 一家就够数时**照样成立**。
+        // 此前这条断言只写在 `scannerFindsComponentTypes` 里 ⇒ 其余经 `componentScan()`
+        // 取数的判据（`registryCoversCoreDesignTypes`、`BoolExemptionGuard` 的
+        // `scan.components.count > 15`）各自都不自足，只能靠「同 suite 另一条会红」。
+        // 放到这里之后，**每个消费者**都自带这道 fail-closed。
+        // ⚠️ 下界写「非空」而不是精确数：它挡的是「整根空掉」，不是「少一个类型」。
+        for (target, scan) in out where scan.components.isEmpty {
+            Issue.record(
+                "扫描根 \(target) 一个 public 组件类型都没采到 —— 多根扫描最常见的假绿就是新根静默产出空集，这不是「零违规」",
+                sourceLocation: sourceLocation
+            )
+        }
+        return out
     }
 
     /// ⚠️ **必须先断言路径存在**：`FileManager.enumerator(at:)` 对不存在的路径
@@ -746,6 +868,28 @@ struct ComponentRegistryGuard {
         #expect(Set(Self.expectedKindForDecidedBy.keys).union(["exclusion"]) == Self.validDecidedBy,
                 "\(m1SyncMessage)")
 
+        // ⚠️ **缓办台账的双侧等式**（PR #297 终审 I-2）：`pendingStep2` 是「步骤 2 枚举
+        // 未完成」的显式标记，不是判定法的出口。两个方向都要红：
+        // · 集合**缩小** ⇒ 有人把标记删了（把缓办悄悄说成已判）；
+        // · 集合**增大** ⇒ 又多了一条跳过枚举的条目，须过评审并挂进承接 issue。
+        // ⚠️ 正确处置是补做枚举并按公约重判（`\(Self.pendingStep2FollowUpIssue)`），
+        // **不是**改 `knownPendingStep2Enumeration` 让它变绿。
+        let pendingStep2 = Self.pendingStep2Components(in: entries)
+        #expect(pendingStep2 == Self.knownPendingStep2Enumeration, """
+        `decidedBy: pendingStep2` 的条目集合变了：实际 \(pendingStep2.sorted())，        已知 \(Self.knownPendingStep2Enumeration.sorted())。
+        `pendingStep2` 的含义是「公约步骤 2 的候选枚举与来源核验尚未完成，本条不声称任何出口，        按可逆的一侧（prescriptive / 不给扩展点）缓办登记」——它是**台账**，不是判定结论。
+        · 变小：若某条真的补完了枚举，落点应改成 step1/step2/step3/tiebreaker 之一，        并同步从本表移除；若只是把标记删掉，那是把缓办伪装成已判。
+        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进承接 issue \(Self.pendingStep2FollowUpIssue)。
+        """)
+
+        // ⚠️ **承接指针要承重**：只在散文里写一句「已开 issue」，issue 号错了 / 条目换了
+        // 都没人知道。每条缓办条目的 notes 必须写着承接 issue 号。
+        for e in entries where e.decidedBy == "pendingStep2" {
+            #expect(e.notes.contains(Self.pendingStep2FollowUpIssue), """
+            \(e.component) 是 pendingStep2 条目，但 notes 里没有承接 issue 号 \(Self.pendingStep2FollowUpIssue)             —— 缓办没有落点等于永久缓办
+            """)
+        }
+
         for e in entries {
             #expect(Self.validKinds.contains(e.kind), "\(e.component) kind=\(e.kind) 不在允许域")
             #expect(Self.validDecidedBy.contains(e.decidedBy), "\(e.component) decidedBy=\(e.decidedBy) 不在允许域")
@@ -798,6 +942,41 @@ struct ComponentRegistryGuard {
         }
     }
 
+    /// ⚠️ **本条是 `knownPendingStep2Enumeration` 的变红自证**（PR #297 终审 I-2 的验证要求）：
+    /// 上面那条双侧等式在**提交态恒真**（数据自洽时判据自然沉默）⇒ 「把等式换成
+    /// `isSubset(of:)`」这类放松改写在提交态测不出来。这里用**合成条目**把两个方向都跑一遍，
+    /// 与 `ComponentTextParamGuard.proseDataJudgeCatchesRealIncidents` 是同一条纪律：
+    /// **判据在真实数据上零命中时，必须另有 fixture 证明它还活着。**
+    @Test("`pendingStep2` 台账承重：删一条标记判红、加一条未登记的标记也判红")
+    func pendingStep2LedgerIsLoadBearing() throws {
+        let entries = try Self.loadRegistry()
+        let known = Self.knownPendingStep2Enumeration
+
+        // ⚠️ 非空前置：台账空了下面两个方向都会在空集上恒真。
+        #expect(!known.isEmpty, "`knownPendingStep2Enumeration` 为空 —— 本条会在空集上恒真")
+        #expect(Self.pendingStep2Components(in: entries) == known, "基线不成立，下面两个变异证明不了任何事")
+
+        // ---- 方向 ① 删一条标记（把某条改回 tiebreaker）⇒ 集合缩小 ⇒ 判红 ----
+        let victim = try #require(known.sorted().first)
+        let markerRemoved = entries.map { e -> Entry in
+            e.component == victim ? e.withDecidedBy("tiebreaker") : e
+        }
+        #expect(Self.pendingStep2Components(in: markerRemoved) != known, """
+        把 \(victim) 的 pendingStep2 标记改回 tiebreaker 之后集合竟然没变 —— \
+        双侧等式的「缩小」方向失效，缓办可以被静默说成已判
+        """)
+
+        // ---- 方向 ② 加一条未登记的标记 ⇒ 集合增大 ⇒ 判红 ----
+        let intruder = try #require(entries.first { $0.decidedBy == "tiebreaker" && !known.contains($0.component) })
+        let markerAdded = entries.map { e -> Entry in
+            e.component == intruder.component ? e.withDecidedBy("pendingStep2") : e
+        }
+        #expect(Self.pendingStep2Components(in: markerAdded) != known, """
+        把 \(intruder.component) 改成 pendingStep2 之后集合竟然没变 —— \
+        双侧等式的「增大」方向失效，新的跳过枚举条目可以不过评审就落盘
+        """)
+    }
+
     @Test("扫描器真的扫到了三个 target 的类型，且类型名跨 target 不重名")
     func scannerFindsComponentTypes() throws {
         let r = try Self.componentScan()
@@ -823,6 +1002,10 @@ struct ComponentRegistryGuard {
         for (target, scan) in byTarget {
             print("· \(target)：组件 \(scan.components.count) 个 \(scan.components.sorted())"
                   + "；Style 实现 \(scan.styleImpls.count) 个；入口点 \(scan.entryPoints.count) 个")
+            // ⚠️ **同款断言现已下沉到 `scanTypesByTarget` 这个共享入口**（PR #297 终审 S-3）,
+            // 让每个经 `componentScan()` 取数的判据各自自足；这里保留一条**同址**的断言，
+            // 是为了让本判据的失败消息就在本判据里（与 `assertRootsExist` 的
+            // 「列表级 + 逐根级两者都要」同一条纪律）。
             #expect(!scan.components.isEmpty,
                     "扫描根 \(target) 一个组件类型都没采到 —— 多根扫描最常见的假绿就是新根静默产出空集")
         }
@@ -834,24 +1017,46 @@ struct ComponentRegistryGuard {
         // ⚠️ **不改 `Entry` 的 schema 给它加 target 字段**：那会顶动九个消费者与
         // 一整套按名字建的索引（`byComponent` / `ownerAliases` / `readmeRowCoverage` …），
         // 收益是「将来某天可能出现的同名」，成本是现在就要改一圈 —— 先钉住，撞上再改。
-        var seenIn: [String: String] = [:]
-        var collisions: [String] = []
-        for (target, scan) in byTarget {
-            for name in scan.components.sorted() {
-                if let previous = seenIn[name] {
-                    collisions.append("\(name)（\(previous) 与 \(target)）")
-                } else {
-                    seenIn[name] = target
+        // ⚠️ **三个桶全查，不只是 `components`**（PR #297 终审 S-1）：`scanTypes(roots:)`
+        // 合并的是 `components` / `styleImpls` / `entryPoints` **三个** `Set`，
+        // 而初版只查了第一个 —— 另外两个的跨 target 同名同样静默塌成一条：
+        // · `styleImpls` 是 `knownStyleAnnotationRows` 判 README 行归宿的依据；
+        // · `entryPoints` 是 README 入口点桶与 `knownReadmeEntryPointRows` 的依据
+        //   （`View.shine` 若在 CoreDesign 与 CoreDesignEffects 各声明一次就会塌）。
+        // 三者今天都零同名（`styleImpls` 只有主 target 有，`entryPoints` 三根互不重名），
+        // 本条把「今天为零」一并钉成判据 —— 写它的人自称枚举了「我能想到的等价改写」，
+        // 那份清单里漏了这一条，靠加断言而不是靠记得住来补。
+        func collisions(in bucket: (ScanResult) -> Set<String>) -> [String] {
+            var seenIn: [String: String] = [:]
+            var out: [String] = []
+            for (target, scan) in byTarget {
+                for name in bucket(scan).sorted() {
+                    if let previous = seenIn[name] {
+                        out.append("\(name)（\(previous) 与 \(target)）")
+                    } else {
+                        seenIn[name] = target
+                    }
                 }
             }
+            return out
         }
-        #expect(collisions.isEmpty, """
-        这些 public 组件类型名在两个 target 里同时出现：\(collisions)。
-        登记表按**名字**对账（`Entry` 无 target 字段）⇒ 同名会在 `ScanResult.components`
-        这个 Set 里塌成一条，一条登记就能同时满足双向差集的两个方向，「少登记一条」不会红。
-        处置：给其中一个改名，或给 `Entry` 加 target 字段并把按名字建的索引全部改成按
-        (target, name) 建 —— **不要**为了让本条变绿把它删掉。
-        """)
+        let buckets: [(name: String, get: (ScanResult) -> Set<String>, why: String)] = [
+            ("components", { $0.components },
+             "登记表按**名字**对账（`Entry` 无 target 字段）⇒ 一条登记就能同时满足双向差集的两个方向，「少登记一条」不会红"),
+            ("styleImpls", { $0.styleImpls },
+             "`knownStyleAnnotationRows` 用它判 README 行的归宿 ⇒ 一个 target 里的 style 实现能替另一个 target 的同名行放行"),
+            ("entryPoints", { $0.entryPoints },
+             "README 的入口点桶与 `knownReadmeEntryPointRows` 都按 `Host.member` 比对 ⇒ 一个 target 的入口点能替另一个 target 的同名行放行"),
+        ]
+        for bucket in buckets {
+            let found = collisions(in: bucket.get)
+            #expect(found.isEmpty, """
+            `ScanResult.\(bucket.name)` 里这些名字在两个 target 里同时出现：\(found)。
+            合并成一个 Set 之后它们会**塌成一条**，而 \(bucket.why)。
+            处置：给其中一个改名，或把对应的索引改成按 (target, name) 建 ——
+            **不要**为了让本条变绿把它删掉。
+            """)
+        }
     }
 
     @Test("CoreDesign 侧：登记表覆盖全部组件类型，且无幽灵条目")
@@ -1059,7 +1264,9 @@ struct ComponentRegistryGuard {
             contentsOf: Self.repoRoot.appendingPathComponent("docs/README.md"), encoding: .utf8
         )
         // ⚠️ **逐节断言，不是只看合计**：合计行数在「第二节整个解析不到」时**照样 > 20**
-        // （主索引一节就有 37 行）⇒ 只看合计等于没守住新扩的那一半。
+        // ——主索引一节的行数就远超那个下界 ⇒ 只看合计等于没守住新扩的那一半。
+        // ⚠️ 此处**有意不写现状条数**（PR #297 终审 S-4）：上一版写「主索引一节就有 37 行」，
+        // 实测是 38；那个 37 继承自本文件顶端**已归档**的单节时代核对，写下即化石。
         // 改了 README 的小节标题、或把某节整个搬走时，本条给出的诊断是「哪一节没解析到」，
         // 而不是让人从 `registryEntriesAreCoveredByReadme` 的一屏缺失条目里倒推。
         for section in Self.readmeIndexSections {

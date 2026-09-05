@@ -202,9 +202,20 @@ OrbitingLogos(brands) { brand in
 ## ⚠️ 登记
 
 ⚠️ **`#270` 已收口，本节整段改写**（上句原写「不进 `components`（扫描根仍是单根）」）：
-扫描根已扩成三个 target，`public struct OrbitingLogos` **已按判定法登记进**
-`docs/component-registry.json` 的 `components`（`prescriptive` / `tiebreaker` /
-不给扩展点），判定理由见该条目 `notes`。
+扫描根已扩成三个 target，`public struct OrbitingLogos` **已登记进**
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: pendingStep2` / `needsExtensionPoint: false`。
+⚠️ **`decidedBy` 不是 `tiebreaker`**（PR #297 终审 I-1，本节已改写）：`#270` 初版填的是
+`tiebreaker`，而公约步骤 3 门槛的兜底句**以「重跑发生过」为前置**、步骤 2 的停止规则又写着
+「枚举视为未完成 ⇒ **不得据以走任一出口**」——本条的候选枚举与来源核验**一次都没做**。
+⇒ 改记 `pendingStep2`：**如实说「还没判」**，条目缓办在**可逆的那一侧**
+（规定性 / 不给扩展点），落点留给承接 issue **`#299`**。
+⚠️ 公约明令**不得预判**重判结论 —— 补足枚举后可能落**任一**出口，含 `semantic`（要开扩展点）。
+⚠️ **本条的候选分箱也一并改了**（PR #297 终审 I-3）：`notes` 原把「换轨道形状」判成
+「同一槽内的画法变化 ⇒ **装饰**」，而公约的**排布**定义是「**子视图之间的空间关系改变**」——
+把 logo 从圆轨道改成椭圆 / 螺旋，改变的正是它们**彼此之间**的落点 ⇒ 命中排布、本该计入 ≥2。
+「换环数」另擦到补充规则 2（槽的计数变化也算槽差异）。⇒ 本条与四个图表 /
+`BeforeAfterSlider` 同组，不是「干净的 tiebreaker」。缺陷留痕见 `docs/contract-defects.md` `D-270-2`。
 ⚠️ 上面那条已登记的形状缺陷（`rotationPeriod` 一个旋钮管两件事）**不受此影响**：
 它的处置是另开一个「动到什么程度」的**行为**档位枚举，不是样式扩展点。
 本件仍没有扩展成员 ⇒ `entryPoints` 零改动。

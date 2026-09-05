@@ -61,6 +61,15 @@ nonisolated enum GuardScanRoots {
     /// 都明写「不回溯改造 CoreDesign 现状」。
     static var newTargetNames: [String] { Self.targetNames.filter { $0 != Self.primaryTargetName } }
 
+    /// ⚠️ **本函数按 target 名推根，这个假设本身是一条 fail-open 路径**（PR #297 终审 S-2）：
+    /// `DeclaredTarget` 只记 `name` / `isLibrary` / `hasResources`，**不记 `path:`**。
+    /// 若某天有 library target 写成 `.target(name: "Foo", path: "Sources/Bar")`，
+    /// 而仓库里还留着一棵陈旧的 `Sources/Foo/`，则五族守卫会扫**错的树**，
+    /// 而 `assertRootsExist`（目录存在）与 `libraryTargetsAreCoveredByScanRoots`
+    /// （名字双向差集）**双双满足** ⇒ 静默 fail-open。
+    /// ⇒ 处置不是「支持 `path:`」，而是把它**变成判红**：`declaredTargets` 一旦在
+    /// library target 块里看到 `path:` 就 `Issue.record`（见该函数里的 `currentHasPath`）。
+    /// 要真的支持 `path:`，得同时改 `DeclaredTarget` 的 schema 与本函数，那是独立一块工程。
     static func sourcesURL(of target: String) -> URL {
         Self.repoRoot.appendingPathComponent("Sources/\(target)")
     }
@@ -286,11 +295,27 @@ nonisolated enum GuardScanRoots {
         var currentName: String?
         var currentIsLibrary = false
         var currentHasResources = false
+        var currentHasPath = false
         var awaitingName = false
 
         func flush() {
             guard open else { return }
             if let name = currentName {
+                // ⚠️ **`path:` 是 fail-open 的入口，必须当场判红**（PR #297 终审 S-2）：
+                // `sourcesURL(of:)` 按 **target 名**推根（`Sources/<name>`），
+                // `.target(name: "Foo", path: "Sources/Bar")` 会让五族守卫扫错树，
+                // 而「目录存在」与「名字双向差集」两道现有判据**双双满足** ⇒ 无人接住。
+                // ⇒ 在解析器里堵死：出现 `path:` 就报，不让它悄悄生效。
+                if currentIsLibrary && currentHasPath {
+                    Issue.record("""
+                    Package.swift:\(openedAtLine) 的 library target `\(name)` 写了 `path:` ——
+                    `GuardScanRoots.sourcesURL(of:)` 按 target **名**推根（`Sources/<name>`），
+                    重定向之后守卫会扫**错的树**，而 `assertRootsExist` 与
+                    `libraryTargetsAreCoveredByScanRoots` 都照样满足 ⇒ 静默 fail-open。
+                    处置：把源码放回 `Sources/\(name)/`，或同时扩 `DeclaredTarget` 的 schema
+                    与 `sourcesURL(of:)` 让根列表读得到 `path:`。**不要**直接删本断言。
+                    """, sourceLocation: sourceLocation)
+                }
                 out.append(.init(name: name, isLibrary: currentIsLibrary, hasResources: currentHasResources))
             } else {
                 Issue.record("""
@@ -305,6 +330,7 @@ nonisolated enum GuardScanRoots {
             currentName = nil
             currentIsLibrary = false
             currentHasResources = false
+            currentHasPath = false
             awaitingName = false
         }
 
@@ -335,6 +361,8 @@ nonisolated enum GuardScanRoots {
             }
             // ⚠️ 一行写完的 `.target(name: "X", resources: [...])` 也要认 ⇒ 不能要求行首。
             if code.contains("resources:") { currentHasResources = true }
+            // ⚠️ 与上一行同一条口径（一行写完的 target 也要认 ⇒ 不要求行首）。
+            if code.contains("path:") { currentHasPath = true }
             depth += Self.parenDelta(of: code)
             if depth <= 0 { flush() }
         }
@@ -818,6 +846,33 @@ struct GuardScanRootsGuard {
         """)
         #expect(known.contains(GuardScanRoots.primaryTargetName),
                 "主 target `\(GuardScanRoots.primaryTargetName)` 不在根列表里 —— 台账键的默认前缀失去依据")
+    }
+
+    /// PR #297 终审 S-2：`Sources/<targetName>` 这条路径推断是一条**静默 fail-open**
+    /// 路径 —— `.target(name: "Foo", path: "Sources/Bar")` + 陈旧的 `Sources/Foo/`
+    /// 会让五族守卫扫错树，而「目录存在」与「名字双向差集」两道现有判据双双满足。
+    /// ⇒ 解析器里已改成判红。本条是那条判红的**变红自证**（合成 manifest，不碰磁盘）。
+    @Test("manifest 解析器：library target 写 `path:` ⇒ 当场判红（终审 S-2 的 fail-open 入口）")
+    func manifestParserFlagsExplicitTargetPath() {
+        // ① 正例：写了 `path:` 的 library target 必须报 issue。
+        withKnownIssue("合成 manifest 故意写 path: —— 本块若不记录 issue 说明 fail-open 入口又开了") {
+            _ = GuardScanRoots.declaredTargets(manifestText: """
+            targets: [
+                .target(name: "Foo", path: "Sources/Bar"),
+            ]
+            """)
+        }
+
+        // ② 反例（承重）：不写 `path:` 就不许报 —— 否则上面那条会被一条恒报的断言喂饱。
+        //    ⚠️ 真实 `Package.swift` 侧由 `libraryTargetsAreCoveredByScanRoots` 覆盖
+        //    （它每次都解析真 manifest，若解析器乱报 issue 那条会红）。
+        let clean = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(name: "Foo", resources: [.process("Resources")]),
+            .testTarget(name: "FooTests", dependencies: ["Foo"]),
+        ]
+        """)
+        #expect(clean.map(\.name) == ["Foo", "FooTests"], "无 path: 的合成 manifest 解析结果变了")
     }
 
     @Test("`Sources/CoreDesignShaders/` 尚不存在，因此**不得**进根列表（防 fail-open）")

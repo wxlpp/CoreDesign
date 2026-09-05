@@ -4,7 +4,7 @@
       "component": "ActivityHeatmap",
       "repo": "coredesign",
       "kind": "prescriptive",
-      "decidedBy": "tiebreaker",
+      "decidedBy": "pendingStep2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
@@ -16,7 +16,7 @@
           "category": "by-type"
         }
       ],
-      "notes": "`#255` 落地的贡献热力图（`CoreDesignCharts`）：按周成列、按星期成行的日格网格。步骤 1：Apple 无对应原生样式协议。步骤 2：候选（日历月视图 / 折线时间序列）属**排布**差异、本该计入 ≥2，但 `#270` 未做公约停止规则要求的候选来源核验 ⇒ 枚举视为未完成 ⇒ 按兜底句落步骤 4。`calendar: Calendar = .current` 是可注入的行为依赖（为可测性）而不是外观面；文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
+      "notes": "`#255` 落地的贡献热力图（`CoreDesignCharts`）：按周成列、按星期成行的日格网格。步骤 1：Apple 无对应原生样式协议。步骤 2：候选（日历月视图 / 折线时间序列）属**排布**差异、本该计入 ≥2，但 `#270` 未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。`calendar: Calendar = .current` 是可注入的行为依赖（为可测性）而不是外观面；文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
     },
     {
       "component": "AgentMessageList",
@@ -129,14 +129,14 @@
       "component": "BeforeAfterSlider",
       "repo": "coredesign",
       "kind": "prescriptive",
-      "decidedBy": "tiebreaker",
+      "decidedBy": "pendingStep2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
       "styleEnum": null,
       "needsExtensionPoint": false,
       "textParams": [],
-      "notes": "`#253` 落地的前后对比滑块（`CoreDesignEffects`）：拖动分隔线，左右分别露出 `before` / `after` 两层。步骤 1：Apple 无对应原生样式协议。⚠️ **本条与同批其余条目的理由不同，且是这批里最可能被改判为 semantic 的一条**：它的候选形态（竖向分隔、并排对照）按公约三分法属**排布**差异（换轴 / 重叠↔并排），本该计入 ≥2，而**不是**皮肤变体。落 tiebreaker 的理由是**枚举本身未完成**：公约步骤 2 的停止规则要求每个计入 ≥2 的候选给出可核验来源（设计体系名 + 具体形态，或产品名 + 场景），或写明已穷尽并列出查过的 Apple HIG / Material / Fluent / Ant 与一个贴近产品；`#270` 是「扫描根收口」的 task，未做这份来源核验 ⇒ 按公约「不满足停止规则 ⇒ 枚举视为未完成，不得据以走任一出口」与步骤 3 门槛的兜底句（重跑后 (A) 仍不成立 ⇒ 落步骤 4）落 tiebreaker。公开的 `BeforeAfterSliderLabels`（hidden/standard/shown）是**标签内容**取值域、不是外观配置枚举，故 `styleEnum` 留空；其 `shown` 关联值携带的 `LocalizedStringKey` 不是 init 参数，不进本条目的参数表。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
+      "notes": "`#253` 落地的前后对比滑块（`CoreDesignEffects`）：拖动分隔线，左右分别露出 `before` / `after` 两层。步骤 1：Apple 无对应原生样式协议。⚠️ **本条与同批其余条目的理由不同，且是这批里最可能被改判为 semantic 的一条**：它的候选形态（竖向分隔、并排对照）按公约三分法属**排布**差异（换轴 / 重叠↔并排），本该计入 ≥2，而**不是**皮肤变体。落 tiebreaker 的理由是**枚举本身未完成**：公约步骤 2 的停止规则要求每个计入 ≥2 的候选给出可核验来源（设计体系名 + 具体形态，或产品名 + 场景），或写明已穷尽并列出查过的 Apple HIG / Material / Fluent / Ant 与一个贴近产品；`#270` 是「扫描根收口」的 task，未做这份来源核验 ⇒ 按公约「不满足停止规则 ⇒ **枚举视为未完成**，不得据以走任一出口」，本条因此不落任何出口（见文末）。公开的 `BeforeAfterSliderLabels`（hidden/standard/shown）是**标签内容**取值域、不是外观配置枚举，故 `styleEnum` 留空；其 `shown` 关联值携带的 `LocalizedStringKey` 不是 init 参数，不进本条目的参数表。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
     },
     {
       "component": "BottomInputBar",
@@ -503,7 +503,7 @@
       "component": "NetworkGraph",
       "repo": "coredesign",
       "kind": "prescriptive",
-      "decidedBy": "tiebreaker",
+      "decidedBy": "pendingStep2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
@@ -515,20 +515,20 @@
           "category": "by-type"
         }
       ],
-      "notes": "`#255` 落地的力导向网络图（`CoreDesignCharts`）：节点位置由斥力与弹簧解出。步骤 1：Apple 无对应原生样式协议。步骤 2：候选（邻接矩阵 / 分层树布局）属**排布**差异、本该计入 ≥2，但 `#270` 未做公约停止规则要求的候选来源核验 ⇒ 枚举视为未完成 ⇒ 按兜底句落步骤 4。超限时从力导向降级为静态环形并**显示提示横幅**，是四个图表里唯一提示的一个，理由是它的截断会改变布局算法、用户看到的是一张不一样的图，见 `docs/components/network-graph.md`。文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
+      "notes": "`#255` 落地的力导向网络图（`CoreDesignCharts`）：节点位置由斥力与弹簧解出。步骤 1：Apple 无对应原生样式协议。步骤 2：候选（邻接矩阵 / 分层树布局）属**排布**差异、本该计入 ≥2，但 `#270` 未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。超限时从力导向降级为静态环形并**显示提示横幅**，是四个图表里唯一提示的一个，理由是它的截断会改变布局算法、用户看到的是一张不一样的图，见 `docs/components/network-graph.md`。文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
     },
     {
       "component": "OrbitingLogos",
       "repo": "coredesign",
       "kind": "prescriptive",
-      "decidedBy": "tiebreaker",
+      "decidedBy": "pendingStep2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
       "styleEnum": null,
       "needsExtensionPoint": false,
       "textParams": [],
-      "notes": "`#254` 落地的环绕轨道视图（`CoreDesignEffects`）：调用方的 logo 沿同心点环公转，中心是调用方的槽。步骤 1：Apple 无对应原生样式协议。步骤 2：`logo:` 与 `center:` 两个 `@ViewBuilder` 槽已经把「换内容」这一维交给调用方；剩下的候选（换环数 / 换点密度 / 换轨道形状）是同一套同心排布换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫。已登记的形状缺陷（`rotationPeriod` 一个旋钮同时管住停自转与停轮播）处置是另开一个「这件动到什么程度」的**行为**档位枚举，不是样式扩展点，见 `docs/components/orbiting-logos.md`。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
+      "notes": "`#254` 落地的环绕轨道视图（`CoreDesignEffects`）：调用方的 logo 沿同心点环公转，中心是调用方的槽。步骤 1：Apple 无对应原生样式协议。步骤 2：`logo:` 与 `center:` 两个 `@ViewBuilder` 槽已经把「换内容」这一维交给调用方；⚠️ **上句原写「剩下的候选（换环数 / 换点密度 / 换轨道形状）是同一套同心排布换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫」——PR #297 终审 I-3 证伪该分箱**：公约把**排布**定义为「**子视图之间的空间关系改变**（换轴 / 重叠↔并排 / 分居两侧 / 网格↔线性）」，而**装饰**是「**同一槽内的画法变化** + 纯装饰层」；把 logo 从圆轨道改成椭圆 / 螺旋，改变的是**它们彼此之间**的落点 ⇒ 命中排布、不是同一槽内。「换环数」另擦到补充规则 2（槽的计数变化也算槽差异），而补充规则 4 写着「一个候选只要含有任一『槽』或『排布』差异，即整体计入非皮肤」。⇒ 这些候选**本该计入 ≥2**，本条与四个图表 / `BeforeAfterSlider` 同组，不是「干净的 tiebreaker」。但 `#270` 同样未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，不得据以走任一出口（见文末）。已登记的形状缺陷（`rotationPeriod` 一个旋钮同时管住停自转与停轮播）处置是另开一个「这件动到什么程度」的**行为**档位枚举，不是样式扩展点，见 `docs/components/orbiting-logos.md`。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
     },
     {
       "component": "OutlineTree",
@@ -583,7 +583,7 @@
       "component": "RadarChart",
       "repo": "coredesign",
       "kind": "prescriptive",
-      "decidedBy": "tiebreaker",
+      "decidedBy": "pendingStep2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
@@ -595,7 +595,7 @@
           "category": "by-type"
         }
       ],
-      "notes": "`#255` 落地的雷达图（`CoreDesignCharts`）：多维评分在极坐标上连成一个轮廓多边形。步骤 1：Apple 无对应原生样式协议（Swift Charts 没有极坐标多轴 mark，这正是本 target 存在的理由）。步骤 2：候选（并排条形 / 平行坐标）按三分法确实属**排布**差异、本该计入 ≥2，但公约停止规则要求每个候选给出可核验来源，或写明已穷尽并列出查过的 Apple HIG / Material / Fluent / Ant 与一个贴近产品；`#270` 是扫描根收口 task，未做这份核验 ⇒ 枚举视为未完成 ⇒ 按步骤 3 门槛的兜底句落步骤 4。步骤 3 另一侧同样不成立：写得出的只有「换成条形就读成分类比较」这类结论复述，公约明令消极描述与结论复述不算 (B)。`tint: Color` 是取值参数不是扩展点；文本参数 `title` 类型为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
+      "notes": "`#255` 落地的雷达图（`CoreDesignCharts`）：多维评分在极坐标上连成一个轮廓多边形。步骤 1：Apple 无对应原生样式协议（Swift Charts 没有极坐标多轴 mark，这正是本 target 存在的理由）。步骤 2：候选（并排条形 / 平行坐标）按三分法确实属**排布**差异、本该计入 ≥2，但公约停止规则要求每个候选给出可核验来源，或写明已穷尽并列出查过的 Apple HIG / Material / Fluent / Ant 与一个贴近产品；`#270` 是扫描根收口 task，未做这份核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。步骤 3 另一侧同样不成立：写得出的只有「换成条形就读成分类比较」这类结论复述，公约明令消极描述与结论复述不算 (B)。`tint: Color` 是取值参数不是扩展点；文本参数 `title` 类型为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
     },
     {
       "component": "RadioGroup",
@@ -639,7 +639,7 @@
       "component": "RingChart",
       "repo": "coredesign",
       "kind": "prescriptive",
-      "decidedBy": "tiebreaker",
+      "decidedBy": "pendingStep2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
@@ -651,7 +651,7 @@
           "category": "by-type"
         }
       ],
-      "notes": "`#255` 落地的活动环（`CoreDesignCharts`）：多个同心进度环，每环一个指标对 `goal` 的完成度。步骤 1：Apple 无对应原生样式协议（Swift Charts 无同心环 mark）。步骤 2：候选（堆叠条 / 并排进度条）属**排布**差异、本该计入 ≥2，但与 `RadarChart` 同因——`#270` 未做公约停止规则要求的候选来源核验 ⇒ 枚举视为未完成 ⇒ 按兜底句落步骤 4。`tint` 逐环按固定衰减取色是内部实现、不对外开；文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。超出 `recommendedRingLimit` 的截断不提示，是与 `NetworkGraph` 对照后的显式定案。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
+      "notes": "`#255` 落地的活动环（`CoreDesignCharts`）：多个同心进度环，每环一个指标对 `goal` 的完成度。步骤 1：Apple 无对应原生样式协议（Swift Charts 无同心环 mark）。步骤 2：候选（堆叠条 / 并排进度条）属**排布**差异、本该计入 ≥2，但与 `RadarChart` 同因——`#270` 未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。`tint` 逐环按固定衰减取色是内部实现、不对外开；文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。超出 `recommendedRingLimit` 的截断不提示，是与 `NetworkGraph` 对照后的显式定案。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
     },
     {
       "component": "RunMetricsBar",
