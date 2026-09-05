@@ -176,6 +176,16 @@ struct SphereSurfaceBody: View {
         // 每个点的实际不透明度是 `0.8471 × alpha(depth:)`，近侧的点**从来不是**
         // `maximumAlpha` 那个常量选来的"实"，而且与显式色板那条路差了 15%
         //（后者走 `tone.opacity(alpha)`，满量程）。位图判据全是 `a != b` ⇒ 抓不到。
+        // ⚠️⚠️ **补一条平台限定，上一版没有**（Issue #276 收尾时 iOS 腿实测）：
+        // 0.8471 是 **macOS / AppKit `labelColor`** 的值；**iOS / UIKit 的 `label`
+        // 实测 α = 1.0**（明暗两端）⇒ 那枚偏差**只在 macOS 腿上可观测**。
+        // 登记在 `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`。
+        // ⚠️ 这不削弱"必须改"的结论：注释写的是**无条件**的"恒不透明"。
+        // ⚠️ 另：`Color.white` 那条括注现在也已过时——`#276` 在
+        // `Sources/CoreDesign/Colors/MaskColors.swift` 加了遮罩基色 token
+        // `Color.maskOpaque`（**不在四层色彩之内**，契约 α = 1），
+        // Effects 现在有可用的不透明遮罩基色；
+        // 本处仍走 `.tint` 直接上色，因为它顺带省掉一层离屏合成。
         // ⇒ 直接用 `.tint` 给 `Canvas` 上色（`Color.white` 被 `EffectsColorLiteralGuard` 禁），
         // 顺带去掉一层离屏合成。判据：`CrossPlatformRenderTests.tintPathMatchesSinglePalette`。
         self.canvas(total: total)

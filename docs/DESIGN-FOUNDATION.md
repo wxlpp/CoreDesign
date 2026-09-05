@@ -59,6 +59,9 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 - `BorderColors`：`separator` / `opaqueSeparator` 两族。`borderFocus` / `borderSelected` **在 `0.2.0` 就已指向 `accent`**（各自独立的固定蓝 colorset 是更早的 Issue #93 删的，不是本次改造）；本次它们的指向不变，但因 `accent` 改指宿主 `AccentColor`，实际取值随之变化。 `borderSubtle` 取 `separator.opacity(0.28)` 而非直接等于 `opaqueSeparator`，是为了保持 `subtle(0.28) < muted(0.42) < default(1.0) < strong` 的既有强弱梯度，避免与字面顺序倒挂。
 - `FillColors`：`systemFill` 族四档（`systemFill` / `secondarySystemFill` / `tertiarySystemFill` / `quaternarySystemFill`），本就是系统色，未改动。
 
+⚠️ **`MaskColors` 不属于本节（`#276` 新增，一个 token）**：`Color.maskOpaque` 是给 `.mask { … }` 用的**不透明基色**，唯一契约是 **α = 1**。它**不是一个颜色决定**——`mask` 只吃 alpha 通道，RGB 不参与合成（实测 `.mask { Color.black }` 与 `.mask { Color.white }` 逐字节相同），取白是任意的。
+之所以必须单列一个 token：Effects 层此前拿 `Color.primary` 当遮罩基色，而 `label` 族**不是满不透明的**——macOS/AppKit `labelColor` 实测 α = 0.8471（iOS/UIKit `label` 实测 1.0），`mask` 每处因此在 macOS 上额外乘 0.847。判据 `MaskOpaqueTokenTests` 在明暗两端守着 α = 1；新增 `.mask` 点位由 `MaskSiteRegistryGuard` 强制登记。
+
 **macOS 降级**：AppKit 没有 grouped background 系列。`systemGroupedBackground` 现降级到 `windowBackgroundColor`（此前误降级到与 `secondarySystemGroupedBackground` 相同的 `controlBackgroundColor`，导致 macOS 上画布与 raised 层同色、raised 层完全隐形——已在本次修正，`SystemBackgroundColorsMacOSTests` 守卫二者在浅色/深色下均可辨）。`secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground` 保持 `controlBackgroundColor`。
 
 ### accent 衍生族（Task #120 交接，本节是承诺落盘的取值理由）

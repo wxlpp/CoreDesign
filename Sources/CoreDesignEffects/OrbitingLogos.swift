@@ -370,8 +370,18 @@ where Data.Element: Identifiable {
     ///（它映射到 `label` / `labelColor`）。`mask` 吃 alpha ⇒ `.tint` 那条路上每个点的
     /// 实际不透明度是 `0.8471 × alpha(angle:)`，与显式色板那条路（`tone.opacity(alpha)`，
     /// 满量程）差 15%，而所有位图判据都是 `a != b` ⇒ 抓不到。
-    /// ⇒ 直接用 `.tint` 给 `Canvas` 上色（`Color.white` 被 `EffectsColorLiteralGuard` 禁），
-    /// 顺带去掉一层离屏合成。判据：`CrossPlatformRenderTests.tintPathMatchesSinglePalette`。
+    /// ⚠️⚠️ **补一条平台限定，上一版没有**（Issue #276 收尾时 iOS 腿实测）：
+    /// 0.8471 是 **macOS / AppKit `labelColor`** 的值；**iOS / UIKit 的 `label`
+    /// 实测 α = 1.0**（明暗两端）⇒ 那枚偏差**只在 macOS 腿上可观测**，
+    /// 本条判据也只会在 macOS 腿上因回退而判红。登记在
+    /// `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`。
+    /// ⚠️ 这不削弱"必须改"的结论——注释写的是**无条件**的"恒不透明"，
+    /// 而依赖一个未文档化、平台相关的 α 本身就是缺陷；本包是双平台库。
+    /// ⇒ 直接用 `.tint` 给 `Canvas` 上色（`Color.white` 被 `EffectsColorLiteralGuard` 禁；
+    /// ⚠️ 该括注在 `#276` 之后已过时——现在有 `Colors/MaskColors.swift` 的遮罩基色
+    /// token `Color.maskOpaque`（**不在四层色彩之内**），
+    /// 只是本处仍选直接上色，因为它顺带省掉一层离屏合成）。
+    /// 判据：`CrossPlatformRenderTests.tintPathMatchesSinglePalette`。
     ///
     /// ⚠️ **返回 `Color?` 而不是 `AnyShapeStyle`**（终审 S-a）：`nil` ⇒ 走 `.tint` 那条路，
     /// 由调用点用**循环外解析一次**的 shading + `context.opacity` 上色；不透明度的**量程

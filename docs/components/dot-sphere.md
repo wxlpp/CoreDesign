@@ -73,6 +73,12 @@ Color.white    light a=1.0000 | dark a=1.0000
 `0.28…1.0` 实际成了 `0.237…0.847`），比显式色板那条路（`tone.opacity(alpha)`，满量程）
 **暗 15%**，而所有位图判据都是 `a != b` ⇒ 一条都抓不到。
 
+⚠️⚠️ **补一条平台限定，上一版没有**（#276 收尾时 iOS 腿实测）：上表的 0.8471 是
+**macOS / AppKit `labelColor`** 的值；**iOS / UIKit 的 `label` 明暗两端实测 α = 1.0**
+⇒ 那枚偏差**只在 macOS 腿上可观测**，`tintPathMatchesSinglePalette` 也只会在 macOS 腿上
+因回退而判红。这不削弱结论——被判假的那句注释写的是**无条件**的"恒不透明"。
+登记在 `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`。
+
 ⇒ 现在两条路都直接给 `Canvas` 上色（`.tint` / 色板色），不再有遮罩，也少一层离屏合成。
 `Color.white` 走不通是因为 `EffectsColorLiteralGuard` 把它列在色相表里——那大概正是
 当初选 `Color.primary` 的原因，但记下的理由是错的、结果也是错的。

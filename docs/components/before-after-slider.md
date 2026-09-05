@@ -41,6 +41,67 @@ public enum BeforeAfterSliderLabels {
 同样标错。当时的两条渲染判据（`fractionReachesRendering` 只比"两个位置的位图不同"、
 `labelDomainIsAnEnumWithThreeDistinctRenderings` 只比"三档互不相同"）**对方向完全不敏感**。
 
+## 揭示是**裁剪**，不是 alpha 遮罩（#276）
+
+`before` 那一层走 `.clipShape(BeforeAfterRevealClip(width: reveal))`——纯几何裁剪，
+**不经过 alpha 通道**。
+
+⚠️⚠️ **上一版走的是 `.mask(alignment: .leading) { Color.primary.frame(width: reveal) }`,
+注释宣称「`mask` 吃的是 alpha 通道，`.primary` 恒为不透明 ⇒ 与写死 `.white` 等效，
+但它是语义色」——实测为假，照录更正**：`Color.primary` 映射到 `label` / `labelColor`,
+**macOS 26** 明暗两端实测均为 **α = 0.8471**。这里是一张**完整揭示遮罩**、而且**没有
+`.opacity()`** ⇒ 露出的「之前」那半在 macOS 上一直是以 84.7% 合成在「之后」那半上，
+也就是 macOS 腿上**可见的 ghosting**（对比越强的两张图越明显）。
+
+⚠️ **平台差异照录**（#276 正文没写，本轮 iOS 腿实测）：**iOS 26 上 `label` 实测
+α = 1.0** ⇒ **iOS 腿上没有这枚 ghosting**，#276 写的「已发布组件里可见」在 iOS 上不成立。
+修它的理由因此不是"iOS 上坏了"，而是依赖一个未文档化、平台相关的 α 本身就是缺陷，
+且本包是双平台库。登记在 `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`。
+
+macOS 实测（红叠蓝、完全揭示、取中心像素）：
+
+| 写法 | 中心像素 |
+|---|---|
+| 不遮（应有的样子） | `rgba=(255, 56, 60, 255)` |
+| `mask(Color.primary)` | `rgba=(216, 68, 90, 255)` ← 底下的蓝透上来了 |
+| `clipShape` | `rgba=(255, 56, 60, 255)` ← 与不遮逐字节相同 |
+
+⇒ 本处**不换遮罩基色、直接不用遮罩**（`mask-reveal-transitions.md` 已就同一件事立过
+裁断：裁剪不涉及 alpha，不存在"揭示到 85%"这种状态），顺带去掉一层离屏合成。
+需要**空间上变化**的 alpha 场那一族（`AnimatedMeshGradient` / `ProcessingSweep`）
+裁剪替代不了，那里走 `Colors/MaskColors.swift` 的遮罩基色 token `Color.maskOpaque`
+（**不在四层色彩之内**）。
+
+### ⚠️ 换成裁剪带来的**用户可见行为变化**：边缘从整像素吸附变成亚像素混合
+
+这是 #276 里**唯一**一处用户可见的行为变化，别只在源码注释里找（#276 终审 I4 —— 上一轮
+这条只落在 `BeforeAfterSlider.swift` 的注释里，本文档漏了）。
+
+上面那张表只覆盖**完全揭示**。非整数揭示宽度上两种写法**不同**，macOS 26 实测
+（红叠蓝、40 × 20 × scale 1，读回走本仓 canonical 路径，取第 20 列、纵向中点那个像素；
+对照列用的是 α = 1 的**等价**遮罩 `Rectangle().frame(width:)`，不是逐字的旧写法）：
+
+| `width` | `clipShape` | 等价遮罩 | 逐字节相同 |
+|---|---|---|---|
+| 20.0 | `(0,136,255,255)` | `(0,136,255,255)` | true |
+| 20.5 | `(128,96,158,255)` | `(255,56,60,255)` | false |
+| 20.3 | `(55,119,213,255)` | `(0,136,255,255)` | false |
+
+⇒ `clipShape` 给出**亚像素混合**，旧遮罩把宽度**吸附到整像素**（20.3 → 不揭示该列、
+20.5 → 整列揭示）。**这条差别在生产路径上总是生效**：`reveal = fraction × width`，
+拖拽中它几乎恒为分数。观感上大概率是改进（拖动更平滑、不再逐像素跳），但它**未被任何
+判据检查**，故照录。⚠️ 上面的 RGB 绝对值依赖位图读回时的色彩空间转换，**别当契约**；
+承重的只有那一列的三个布尔值。完整论证与"混合比 ≠ 覆盖率"的实测见
+`BeforeAfterSlider.swift` 的 `BeforeAfterRevealClip` 文档注释。
+
+判据：`BeforeAfterSliderTests.endpointRenderIsIndependentOfTheHiddenLayer`
+——`fraction = 1` 时换掉 `after` 的颜色，位图一个字节都不许变。
+⚠️ 它钉的是**端点**（`fraction = 1`），上面那条亚像素差异**不在它射程内**。
+⚠️ #276 原文建议的「`fraction = 1` 的位图与只渲染 `before` 逐字节相同」**做不到**：
+绘制层在任何 fraction 上都还画着把手，"只渲染 before"里没有它 ⇒ 那条会因错误的原因永远判红。
+⚠️ 既有的 `endpointsRevealASingleSide` 抓不到这一枚：它只比"红分量 > 蓝分量"，
+一个 15% 的蓝色混合照样满足。
+
 ⇒ **三条判据分别钉住这件事的三半，缺一条都能被绕过**：
 
 - **图层方向**——`BeforeAfterSliderTests.beforeIsOnTheLeadingSide`（逐像素取色：
@@ -144,7 +205,7 @@ B 类 `LocalizedStringKey`，两条路径解析出的字**相同**，但渲染�
 Reduce Motion 下保留 ⇒ 「给这个 `offset` 加一个 `isReduced` 三元」在语义上是错的：
 真分支该填什么都不对。
 
-布局定位（`Color.clear.frame(width:)` 把把手推到位、`mask` 的矩形按宽度裁）不是为了绕开
+布局定位（`Color.clear.frame(width:)` 把把手推到位、揭示按宽度裁）不是为了绕开
 那条判据——它本来就是这类"按比例分割"的常规写法，且顺带让本文件里一个 `motionCalls`
 关键字都不出现。⇒ 本文件登记在 `MicroInteractionReduceMotionGuard.approvedNoMotion` 上。
 

@@ -83,8 +83,10 @@ OrbitingLogos(brands) { brand in
   （同一个色相的明暗，不凭空造色相）。
 
 ⚠️ **两条路都直接给 `Canvas` 上色，不再走 `Rectangle().fill(.tint).mask { … }`**
-（PR #274 终审 C-2）：旧写法用 `Color.primary` 当遮罩色，而 `.primary` 实测 `a = 0.8471`
-（不是注释宣称的"恒不透明"）⇒ `.tint` 那条路比显式色板那条路暗 15%。
+（PR #274 终审 C-2）：旧写法用 `Color.primary` 当遮罩色，而 `.primary` 在 **macOS** 上
+实测 `a = 0.8471`（不是注释宣称的无条件"恒不透明"）⇒ `.tint` 那条路比显式色板那条路暗 15%。
+⚠️ **平台限定，上一版没有**（#276 收尾时 iOS 腿实测）：iOS / UIKit 的 `label`
+实测 α = 1.0 ⇒ 这枚偏差**只在 macOS 腿上可观测**。
 逐条实测数字见 [`dot-sphere.md`](dot-sphere.md) 的《取色》一节。
 
 判据：`CrossPlatformRenderTests.orbitFollowsTheCallerTint`

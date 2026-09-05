@@ -196,6 +196,91 @@ nonisolated enum BeforeAfterSweep {
     static func clamp01(_ value: CGFloat) -> CGFloat { min(1, max(0, value)) }
 }
 
+// MARK: - 揭示裁剪（**裁剪**，不是 alpha 遮罩）
+
+/// 把内容裁到 leading 侧 `width` 宽的那一段。
+///
+/// ⚠️⚠️ **为什么是 `clipShape` 而不是 `.mask { … }`**（Issue #276）：
+/// 上一版走的是 `.mask(alignment: .leading) { Color.primary.frame(width: reveal) }`，
+/// 注释宣称「`mask` 吃的是 alpha 通道，`.primary` 恒为不透明 ⇒ 与写死 `.white` 等效，
+/// 但它是语义色」。**实测为假，照录更正**：`Color.primary` 映射到 `label` /
+/// `labelColor`，**macOS 26** 明暗两端实测 **α = 0.8471**。这里是一张**完整揭示遮罩**、
+/// 而且没有 `.opacity()` ⇒ 露出的「之前」那半在 macOS 上一直是以 84.7% 合成在
+/// 「之后」那半上，也就是 macOS 腿上**可见的 ghosting**（对比越强的两张图越明显）。
+/// ⚠️ **iOS 26 上 `label` 实测 α = 1.0 ⇒ iOS 腿上没有这枚 ghosting**
+/// ——#276 正文写的「已发布组件里可见」在 iOS 上不成立，本轮 iOS 腿实测更正
+/// （`MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`）。
+/// 修它的理由因此不是"iOS 上坏了"，而是依赖一个未文档化、平台相关的 α 本身就是缺陷。
+/// macOS 26 实测（红叠蓝、完全揭示、取中心像素）：
+///
+///     无遮罩              rgba=(255, 56, 60, 255)
+///     mask(Color.primary) rgba=(216, 68, 90, 255)   ← 蓝透上来了
+///     clipShape           rgba=(255, 56, 60, 255)   ← 与无遮罩逐字节相同
+///
+/// ⇒ **本处不换遮罩基色、直接不用遮罩**：`MaskReveal.swift` 的文件头已经把这条裁断
+/// 写死了——「裁剪不涉及 alpha，揭示出来的像素就是内容原样的像素，不存在
+///『揭示到 85%』这种状态」。同时顺带去掉一层离屏合成（与 PR #274 在
+/// `SphereSurface` / `OrbitingLogos` 上的成法同向）。
+/// ⚠️ 需要**空间上变化**的 alpha 场那一族（`AnimatedMeshGradient` 的网格、
+/// `ProcessingSweep` 的两条扫光渐变）裁剪替代不了，那里走 `Color.maskOpaque`。
+///
+/// ## ⚠️ 换成裁剪之后**边缘的抗锯齿行为变了**，这一条本 PR 之前没记账
+///
+///（#276 终审 F7 提出，本轮在本仓 macOS 腿上**重新量过、两遍一致**）：上面那张表只证明了
+///「**完全揭示**时与不遮逐字节相同」，它**没有**覆盖非整数揭示宽度。实测（macOS 26，
+/// 红叠蓝、40 × 20 × scale 1，读回走本仓 canonical 路径 = `ImageRenderer(scale: 1)` →
+/// `CGContext(deviceRGB, premultipliedLast)`，取第 20 列、纵向中点那一个像素）：
+///
+///     width=20.0  clip[20]=(0,136,255,255)    mask[20]=(0,136,255,255)   逐字节相同 = true
+///     width=20.5  clip[20]=(128,96,158,255)   mask[20]=(255,56,60,255)   逐字节相同 = false
+///     width=20.3  clip[20]=(55,119,213,255)   mask[20]=(0,136,255,255)   逐字节相同 = false
+///
+/// ⚠️ 对照列的「遮罩」**不是逐字的旧写法**（#276 终审 S3 更正）：这里用的是 α = 1 的
+/// **等价**遮罩写法 `.mask(alignment: .leading) { Rectangle().frame(width:) }`。逐字的
+/// 旧写法是 `Color.primary.frame(width: reveal)`（见上文，macOS 上 α = 0.8471），
+/// 拿它作对照那一列不可能是纯红 —— 本实验要隔离的是**几何**差异，故把 α 这一维钉成 1。
+///
+/// ⇒ `clipShape` 给出**亚像素混合**（边界那一列在红蓝之间插值），
+/// 旧遮罩则把宽度**吸附到整像素**（20.3 → 不揭示该列、20.5 → 整列揭示）。
+/// ⚠️ 混合比**不等于**覆盖率，别照覆盖率反推：20.5 那列恰是红蓝 50/50
+///（红 =(255,56,60)、蓝 =(0,136,255) ⇒ 中点 (128,96,158)，逐通道吻合），
+/// 而 width=20.3 那列三个通道反解出的混合比是 0.216 / 0.213 / 0.215，**不是** 0.3
+///（成因未查，本注释不对成因作任何断言）。
+/// ⚠️ **这条差别在生产路径上总是生效**：`reveal = fraction × width`，拖拽中它几乎
+/// 恒为分数。观感上大概率是改进（拖动更平滑，不再逐像素跳），但它是一处
+/// **未被判据检查、此前也未被记录**的行为变化，故照录在此。
+/// ⚠️ 上面的 RGB 绝对值依赖位图读回时的色彩空间转换，**别把它们当契约**；
+/// 承重的只有那一列的三个 `逐字节相同` 布尔值（整数宽度相同 / 分数宽度不同）。
+/// ⚠️⚠️ **改这段前先复跑，别照抄**：上一版写在这里的一组数（把红记成 `(255,81,76)`、
+/// 蓝记成 `(0,157,255)`）本轮在同一台机、同一棵树上复现不出来 —— 本轮独立重量两遍
+/// 得到的都是上表那组，#276 终审另用两套 harness × 四种色彩空间也全部量到上表那组。
+/// 而且那组数与**本文件上文**那张「完全揭示」表、`MaskColors.swift` 的两处
+/// `(255, 56, 60, 255)` **自相矛盾**（#276 终审 C1）。
+///
+/// 判据：`BeforeAfterSliderTests.endpointRenderIsIndependentOfTheHiddenLayer`
+/// —— ⚠️ 它钉的是**端点**（`fraction = 1`），上面这条亚像素差异**不在它射程内**。
+struct BeforeAfterRevealClip: Shape {
+
+    /// 揭示宽度（点）。超出 / 低于 `rect` 的部分被钳住 ⇒ 不会画出负宽矩形。
+    var width: CGFloat
+
+    /// ⚠️ 让 `reveal` 可动画：拖拽中 `fraction` 是连续变化的，
+    /// 没有它这一层在动画里会跳变（`.mask` 那一版靠 `frame` 的隐式动画拿到了这一条）。
+    var animatableData: CGFloat {
+        get { self.width }
+        set { self.width = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        Path(CGRect(
+            x: rect.minX,
+            y: rect.minY,
+            width: min(max(0, self.width), rect.width),
+            height: rect.height
+        ))
+    }
+}
+
 // MARK: - 把手
 
 /// 分隔线 + 圆钮。**命中区靠 `frame` + `contentShape` 撑到 `handleHitSize`。**
@@ -279,13 +364,9 @@ struct BeforeAfterSliderBody<Before: View, After: View>: View {
                 self.before
                     .frame(width: width, height: proxy.size.height)
                     .clipped()
-                    // ⚠️ 遮罩用 `Color.primary` 而不是白色：`mask` 吃的是 alpha 通道，
-                    // `.primary` 恒为不透明 ⇒ 与写死 `.white` 等效，但它是语义色、
-                    // 不触碰 `EffectsColorLiteralGuard` 的色相清单
-                    //（`ProcessingSweep.glowRing` 记着同一条）。
-                    .mask(alignment: .leading) {
-                        Color.primary.frame(width: reveal)
-                    }
+                    // ⚠️ **裁剪，不是 alpha 遮罩**——理由与实测逐字记在
+                    // `BeforeAfterRevealClip` 上（Issue #276）。
+                    .clipShape(BeforeAfterRevealClip(width: reveal))
 
                 self.labelOverlay(width: width)
 

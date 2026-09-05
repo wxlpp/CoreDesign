@@ -174,12 +174,12 @@ struct ProcessingSweepBody: View {
                 style: .continuous
             )
             .strokeBorder(.tint, lineWidth: ProcessingSweep.ringLineWidth)
-            // ⚠️ 遮罩里用 `.primary` 而不是白色：`mask` 吃的是 alpha 通道，
-            // `.primary` 恒为不透明 ⇒ 与写死 `.white` 等效，但它是语义色、
-            // 不触碰 `EffectsColorLiteralGuard` 的色相清单。
+            // ⚠️ 色标走 `ProcessingSweep.ringMaskStops`（那里逐字记着"基色必须 α = 1"
+            // 与它的实测账）。**不要把色标写回这里**——本文件的纪律是判据要能对
+            // 这条真轨道求值，而不是在测试里重抄一遍常量。
             .mask {
                 AngularGradient(
-                    gradient: Gradient(colors: [.clear, .clear, .primary, .clear]),
+                    gradient: Gradient(colors: ProcessingSweep.ringMaskStops),
                     center: .center
                 )
                 .rotationEffect(ProcessingSweep.ringAngle(phase: self.phase))
@@ -197,9 +197,10 @@ struct ProcessingSweepBody: View {
             Rectangle()
                 .fill(.tint)
                 .frame(width: travel * ProcessingSweep.bandWidthRatio, height: travel)
+                // ⚠️ 色标同样走 `ProcessingSweep.bandMaskStops`，理由见 `ringMaskStops`。
                 .mask {
                     LinearGradient(
-                        gradient: Gradient(colors: [.clear, .primary, .clear]),
+                        gradient: Gradient(colors: ProcessingSweep.bandMaskStops),
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -276,6 +277,23 @@ nonisolated enum ProcessingSweep {
     static let ringLineWidth: CGFloat = CoreBorderWidth.thick
     static let ringBlur: CGFloat = 5
 
+    /// 辉光弧的**角向遮罩色标**（`.clear` → `.clear` → 满 → `.clear`）。
+    ///
+    /// ⚠️⚠️ **基色必须 α = 1**，否则整条辉光的峰值就不是 `.tint` 本身而是它的一个
+    /// 打折版本，而这件事在渲染上**不会报错、只会偏淡**。
+    ///
+    /// ⚠️⚠️ **上一版这里写的是 `.primary`，注释宣称「`.primary` 恒为不透明 ⇒ 与写死
+    /// `.white` 等效，但它是语义色」——实测为假，照录更正**（Issue #276）：
+    /// `.primary` 映射到 `label` / `labelColor`，**macOS 26** 明暗两端实测 **α = 0.8471**
+    /// ⇒ 辉光在 macOS 上的峰值一直是 `0.847 × .tint`（`glowRing` 没有自己的 opacity
+    /// 常量，它本该是满的）。⚠️ **iOS 26 上 `label` 实测 α = 1.0** ⇒ 偏差只在 macOS 腿上
+    /// （`MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`）。
+    /// ⚠️ **本处不在 Issue #276 点名的两处之内**——那两处是
+    /// `AnimatedMeshGradient` 与 `BeforeAfterSlider`；讽刺的是它们的注释都援引
+    ///「`ProcessingSweep.glowRing` 用的是同一个手法」当先例，而这一处才是抄来抄去的源头。
+    /// 判据：`ProcessingSweepTests.maskStopsAreFullyOpaqueAtTheirPeak`。
+    static let ringMaskStops: [Color] = [.clear, .clear, .maskOpaque, .clear]
+
     /// 辉光弧的转角：整圈匀速。
     static func ringAngle(phase: CGFloat) -> Angle {
         .degrees(Double(phase) * 360)
@@ -292,6 +310,14 @@ nonisolated enum ProcessingSweep {
     static let bandTilt: Angle = .degrees(20)
     static let bandOpacity: Double = 0.55
     static let bandBlur: CGFloat = 6
+
+    /// 表面光带的**线性遮罩色标**（`.clear` → 满 → `.clear`）。
+    ///
+    /// ⚠️ 与 `ringMaskStops` 同一条纪律与同一段更正（Issue #276）：这里的峰值
+    /// 应当把光带的不透明度完全交给 `bandOpacity` 那个常量，遮罩本身不许再打折。
+    /// 上一版用 `.primary` ⇒ macOS 上实际峰值是 `0.847 × bandOpacity` = 0.466
+    /// 而不是 0.55（iOS 上 `label` α = 1，那一腿没有偏差）。
+    static let bandMaskStops: [Color] = [.clear, .maskOpaque, .clear]
 
     /// 光带中心的横坐标。**恒落在 `[0, width]` 内** ⇒ 任何相位都有可见像素。
     static func bandCenterX(phase: CGFloat, width: CGFloat) -> CGFloat {
