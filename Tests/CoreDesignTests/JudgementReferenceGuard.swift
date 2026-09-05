@@ -120,13 +120,26 @@ import Testing
 // - **Markdown 围栏代码块按散文扫**（`#287` 第 2 轮终审 I-2 (c)）：```` ```swift ```` 块里的
 //   `X.y` 与散文里的一视同仁。这是**未来的假阳性发生器**——`docs/superpowers/plans/`
 //   的 17 个 `.md` 已经含 Swift 片段。⚠️ **今天不咬人**：把扫描面扩到仓库根 `.md` 之后
-//   跑 J1，命中恰好是 I-2 (a) 那两条真违规，**零条来自围栏**。
+//   跑 J1，命中恰好是 **I-1** 那两条真违规（`CLAUDE.md` / `AGENTS.md` 各一条同文的
+//   `ComponentRegistryGuard` 单根声称），**零条来自围栏**。
+//   ⚠️ 上一版此处写的是「I-2 (a)」——那是紧邻的 `.claude/**` 缺口，按其自述是 5+1 条
+//   且**根本没被扫**，扩面一条都命中不到。⇒ 一条**指错的引用**，出现在讲「引用不能
+//   指错」的文件里（`#287` 第 2 轮终审 S-1）。
 //   **有意不做围栏剥离**：剥离本身要在这里再实现一个 Markdown 解析器
 //   （围栏有 ``` / ~~~ 两种、可任意加长、可缩进），而它一旦有 bug 就是**静默放行**
 //   ——把真引用当成围栏内容跳过，比今天这个已知的假阳性方向危险得多。
 //   ⇒ 等第一条真假阳性出现时再处置，届时优先考虑「围栏内只降级为警告」而不是整块跳过。
 // - **成员的可见性 / 静态性不核**：`private` 成员被外部文档引用照样放行。
 //   本判据要答的问题是「这个名字指得到东西吗」，不是「这个名字在那个上下文里可访问吗」。
+// - **扫描面按文件系统枚举，不按 git 索引**（`#287` 第 2 轮终审 S-4）：一个**从未
+//   `git add`** 的文件只要落在扫描面里就照样被扫。实测：往仓库根扔一个未跟踪的
+//   `.md` 草稿（里面写着两条悬空引用）⇒ J1 当场判红两条。
+//   ⚠️ 这不是新**种类**（`docFiles()` / `swiftFiles(in:)` 一直是文件系统枚举），
+//   但**仓库根是散文件最容易落地的一层**——随手的笔记、下载来的 README、agent 的临时
+//   产物都往这儿掉，而 `docs/` 与 `Sources/` 不会。⇒ 本地看到「J1 红在一个你没提交过
+//   的文件上」时，先看是不是这条，删掉草稿即绿。
+//   **有意不改成读索引**：判据要守的是**工作树里的现行文本**——只认索引意味着
+//   「改完还没 `git add` 的那一版不受约束」，那正是判据最该管住的时刻。
 //
 // ## ⚠️ 写作纪律：本判据不区分「活引用」与「历史提及」
 //
@@ -390,17 +403,57 @@ struct JudgementReferenceGuard {
         return String(parts[1])
     }
 
-    /// 一次判定的产物：违规清单 + **规则 A 真的走到过几次**。
+    /// 引用所在的**扫描面** —— 成员核对计数的桶键。
     ///
-    /// ⚠️ `memberCheckedCount` 不是统计口味，是 J1 的**非空前置**（`#287` 第 2 轮终审 S-5）：
-    /// 四条既有 `#require` 只钉住「文件枚举 / 文档枚举 / 引用条数 / 符号表大小」非空，
-    /// 没有任何一条证明**规则 A 的成员核对分支在真实语料上被进入过**。将来任何一次
-    /// 重构（作用域切分改动、`primaryMembers` 归并口径变化）让规则 A 在真实语料上不可达时，
-    /// J1 照绿——只有 J3-a 的合成 fixture 会红，而那证明不了真实语料。
+    /// ⚠️ 这个枚举是**全**的（`other` 兜底、无 `nil` 出口），于是
+    /// `memberCheckedCount == memberCheckedByFace.values` 之和**结构性成立**：
+    /// 任何一条走到规则 A 的引用都必然落进某个桶，按面下界不会因为「归错桶 ⇒ 该桶恒为 0
+    /// ⇒ 判据永远红」或「漏计 ⇒ 某面恒真」而失真。
+    nonisolated enum ScanFace: String, Hashable, Sendable, CaseIterable {
+        case sources = "Sources/**"
+        case tests = "Tests/**"
+        case docs = "docs/**"
+        case rootDocuments = "<仓库根>/*.md"
+        case other = "(扫描面之外)"
+
+        /// 路径按 `GuardScanRoots.relativePath(_:)` 的口径（相对仓库根、无前导 `/`）。
+        /// ⚠️ 仓库根那一层的判别是「**不含斜杠**」，不是列举那四个文件名
+        /// ——列举等于把 `rootDocFiles()` 的枚举结果抄一份，两处会各自漂移。
+        nonisolated static func of(_ file: String) -> ScanFace {
+            if file.hasPrefix("Sources/") { return .sources }
+            if file.hasPrefix("Tests/") { return .tests }
+            if file.hasPrefix("docs/") { return .docs }
+            if !file.contains("/") { return .rootDocuments }
+            return .other
+        }
+    }
+
+    /// 一次判定的产物：违规清单 + **规则 A 在每个扫描面上各真的走到过几次**。
+    ///
+    /// ⚠️ 成员核对计数不是统计口味，是 J1 的**非空前置**：J1 那几条既有 `#require` 只钉住
+    /// 「文件枚举 / 文档枚举 / 引用条数 / 符号表大小」非空，再加上「某个 URL 在枚举列表里」
+    /// ——**没有任何一条证明规则 A 的成员核对分支在真实语料上被进入过**。将来任何一次重构
+    /// （作用域切分改动、`primaryMembers` 归并口径变化、抽取端对某一层直接返回空）让规则 A
+    /// 在真实语料上不可达时，J1 照绿——只有 J3-a 的合成 fixture 会红，而那证明不了真实语料。
+    ///
+    /// ⚠️ **按面分桶而不是一个总数**（`#287` 第 2 轮终审 I-1 / I-2）：总数下界只拦得住
+    /// 「语料整个塌掉」，拦不住「**某一面**被静默掐掉」——两条实测见 J1 里那段注释。
     nonisolated struct Analysis: Sendable {
         var violations: [Violation] = []
-        /// 走到规则 A 成员核对的引用条数（不论最终是否判红）。
-        var memberCheckedCount = 0
+        /// 走到规则 A 成员核对的引用条数，按扫描面分桶（不论最终是否判红）。
+        var memberCheckedByFace: [ScanFace: Int] = [:]
+
+        /// 全部面之和。
+        var memberCheckedCount: Int { self.memberCheckedByFace.values.reduce(0, +) }
+
+        func memberChecked(on face: ScanFace) -> Int { self.memberCheckedByFace[face] ?? 0 }
+
+        /// 各面当下值，给失败信息用。
+        var faceBreakdown: String {
+            ScanFace.allCases
+                .map { "\($0.rawValue)=\(self.memberChecked(on: $0))" }
+                .joined(separator: "、")
+        }
     }
 
     /// - Parameters:
@@ -448,7 +501,7 @@ struct JudgementReferenceGuard {
         }
 
         var out: [Violation] = []
-        var memberChecked = 0
+        var memberChecked: [ScanFace: Int] = [:]
         for reference in references {
             if Self.excludedMemberNames.contains(reference.member) { continue }
             if moduleNames.contains(reference.type) { continue }
@@ -463,7 +516,7 @@ struct JudgementReferenceGuard {
             // 一并判红只会逼人关掉判据。
             if scopedTestOnly(scope).primaryMembers[reference.type] != nil {
                 guard knowable.contains(reference.type) else { continue }
-                memberChecked += 1
+                memberChecked[ScanFace.of(reference.file), default: 0] += 1
                 if !visible.members(of: reference.type).contains(reference.member) {
                     out.append(Violation(
                         file: reference.file, line: reference.line,
@@ -488,7 +541,7 @@ struct JudgementReferenceGuard {
             violations: out.sorted {
                 ($0.file, $0.line, $0.type, $0.member) < ($1.file, $1.line, $1.type, $1.member)
             },
-            memberCheckedCount: memberChecked
+            memberCheckedByFace: memberChecked
         )
     }
 
@@ -515,6 +568,17 @@ struct JudgementReferenceGuard {
         (GuardScanRoots.docFiles() + GuardScanRoots.rootDocFiles()).sorted { $0.path < $1.path }
     }
 
+    /// 仓库根那一层里**必须**在扫描面内的 `.md` —— J1 与 J2 共用同一张表。
+    ///
+    /// ⚠️ **一张表而不是两处各写一份**（`#287` 第 2 轮终审 S-2）：上一版 J1 钉两个
+    /// （`CLAUDE.md` / `AGENTS.md`）、J2 钉三个（多一个 `README.md`），
+    /// `ACKNOWLEDGEMENTS.md` **两处都没钉**，而两处名单为何不同也没写过理由
+    /// ⇒ 将来给 `rootDocFiles()` 加一个「跳过第三方文本」之类的过滤，两条断言都不会响。
+    /// 现在四个全钉、只有一份名单：删掉其中任何一个都得动这一行。
+    nonisolated static let pinnedRootDocuments: [String] = [
+        "ACKNOWLEDGEMENTS.md", "AGENTS.md", "CLAUDE.md", "README.md",
+    ]
+
     // MARK: - J1：全仓扫描
 
     @Test("J1：源码 / 测试 / 文档里的判据引用必须指得到真实符号")
@@ -532,9 +596,10 @@ struct JudgementReferenceGuard {
         try #require(docURLs.contains { $0.lastPathComponent == "component-registry.json" }, """
         `docs/component-registry.json` 不在扫描面里 —— `#287` 的追加验收逐字要求它在。
         """)
-        for guide in ["CLAUDE.md", "AGENTS.md"] {
+        for guide in Self.pinnedRootDocuments {
             try #require(docURLs.contains { $0.lastPathComponent == guide }, """
-            `\(guide)` 不在扫描面里 —— 这条纪律就写在那份文件里，它必须先管住自己
+            `\(guide)` 不在扫描面里 —— 仓库根那一层是**现行**指引的所在地，
+            「判据引用必须指得到真实符号」这条纪律就写在其中两份里，它必须先管住自己
             （`#287` 第 2 轮终审 I-1：那一层当时活着两条真悬空引用，正是从这个缺口漏出去的）。
             """)
         }
@@ -573,15 +638,41 @@ struct JudgementReferenceGuard {
             sourceSymbols: sourceSymbols,
             moduleNames: Set(try GuardScanRoots.declaredTargets().map(\.name))
         )
-        // ⚠️ **规则 A 必须在真实语料上真的被走到**（`#287` 第 2 轮终审 S-5）：上面四条
-        // `#require` 都只钉住输入非空，没有一条证明成员核对分支可达。将来任何一次重构
-        // 让规则 A 在**真实语料**上不可达时，J1 照绿——只有 J3-a 的合成 fixture 会红。
-        // 实测当下值 **452**（把门槛临时抬到 999999 读出来的；另一个方向的实测是把成员
-        // 核对改成恒判红 ⇒ J1 报 444 处、涉 44+ 个类型）。门槛取 **200** 是留足余量的
-        // **下界**，不是当下值的快照——这个数会随文档增长而涨，钉死它只会制造无谓的红。
+        // ⚠️ **规则 A 必须在真实语料的每一面上都真的被走到**（`#287` 第 2 轮终审 I-1 / I-2）。
+        // 上面那几条 `#require` 只钉住两件事：输入非空、某个 URL 在枚举列表里。
+        // **没有一条钉住「从这一层真的抽出过引用、真的核对过」** ⇒ 两条实测的静默失效路径：
+        //
+        // · **变异 F2**：让 `references(inText:file:startingAtLine:)` 对四个根 `.md`
+        //   直接返回 `[]`（枚举照旧、抽取归零）⇒ 上一版**六个测试全绿**。扩进来的那一面
+        //   被整个掐掉而全套件不响——这正是本 PR 的 I-3 刚修掉的形态（断言在防的机制
+        //   不是它真正防住的机制），在紧邻的改动上复发了一次。
+        // · **变异 G**：成员核对只保留 `Tests/` 面（`docs/` + `Sources/` + 根 `.md` 三面全灭）
+        //   ⇒ 聚合值 **201**，上一版门槛 `> 200` **照绿**，判红的只有 J3-a 的合成 fixture
+        //   ——而合成 fixture 恰恰证明不了真实语料。⇒ 聚合下界只拦得住「掉到 200 以下」
+        //   ≈ 丢掉 55% 以上语料 ≈ 完全归零，拦不住最现实的「某一面不可达」。
+        //
+        // ⇒ 下界**按面切分**。今天实测（把聚合门槛临时抬到 999999 读出来的）：
+        // `Sources/**` 98、`Tests/**` 202、`docs/**` 145、`<仓库根>/*.md` 8、
+        // `(扫描面之外)` 0，合 **453**——五个桶可加，因为 `ScanFace` 的归类是全的（无 `nil` 出口）。
+        // ⚠️ 这段注释本身也在 `Tests/**` 面上：它里面的引用会被算进去，所以这几个数会
+        // 随本文件的散文一起微动。⇒ 更不该拿它们当断言。
+        // ⚠️ 每面取 `> 0` 而**不是**这五个数的快照：这些数会随语料
+        // 增长而漂移，钉死只会制造无谓的红；而要检出的形态恰恰是「某一面整个不可达」，
+        // `> 0` 正好卡在那条线上，且不随语料漂移。
+        for face in [ScanFace.sources, .tests, .docs, .rootDocuments] {
+            try #require(analysis.memberChecked(on: face) > 0, """
+            扫描面 `\(face.rawValue)` 上**零**条引用走到了规则 A 的成员核对
+            —— 这一面要么没被枚举、要么没被抽取、要么没被核对。三者都是**静默失效**：
+            J1 在这一面上的绿来自「没核」，不是「核过了都对」。
+            各面当下值：\(analysis.faceBreakdown)
+            """)
+        }
+        // 聚合下界一并留着，但**如实登记它的射程**：它只拦得住「四面同时大幅萎缩」这一档
+        // ——上面变异 G 的 201 就是从它下面走过去的。真正的守卫是上面那四条按面下界。
         try #require(analysis.memberCheckedCount > 200, """
-        只有 \(analysis.memberCheckedCount) 条引用走到了规则 A 的成员核对 —— 规则 A 在真实语料上
-        近乎不可达，J1 的绿来自「没核」而不是「核过了都对」。
+        全部扫描面合计只有 \(analysis.memberCheckedCount) 条引用走到了规则 A 的成员核对
+        —— 语料整个塌了，J1 的绿来自「没核」而不是「核过了都对」。
+        各面当下值：\(analysis.faceBreakdown)
         """)
         let violations = analysis.violations
         #expect(violations.isEmpty, """
@@ -632,9 +723,10 @@ struct JudgementReferenceGuard {
 
         // 仓库根那一层的指引文件同样 fail-closed：它们是这条纪律的**载体**。
         let rootDocs = Set(GuardScanRoots.rootDocFiles().map(\.lastPathComponent))
-        #expect(rootDocs.isSuperset(of: ["CLAUDE.md", "AGENTS.md", "README.md"]), """
+        #expect(rootDocs.isSuperset(of: Self.pinnedRootDocuments), """
         仓库根 `.md` 只枚举到 \(rootDocs.sorted()) —— 指引文件不在扫描面里，
         「判据引用必须指得到真实符号」这条纪律就管不住写着它的那份文件。
+        必须在面内的是 \(Self.pinnedRootDocuments)（J1 与 J2 共用这张表）。
         """)
     }
 

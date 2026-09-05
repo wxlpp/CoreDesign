@@ -662,6 +662,18 @@ nonisolated enum GuardScanRoots {
     /// 按「撤回痕迹拆开写」的纪律回改它们等于篡改归档，理由写在
     /// `JudgementReferenceGuard` 文件头的「找到但堵不住的路径」一节。
     ///
+    /// ⚠️ **扩展名写死成 `md`，与 `docFiles(extensions:)` 的可配置形态不对称——这是刻意的**
+    /// （`#287` 第 2 轮终审 S-5）：`docs/` 那棵树里 `.json` 是**语料**
+    /// （`component-registry.json` 的 `notes` 写着判据引用，`#287` 的验收逐字要求扫它），
+    /// 而仓库根这一层的非 `.md` 全是**构建配置**（`Package.swift` / `Package.resolved` /
+    /// `.gitignore` / `LICENSE`）——里面没有散文，扫进来只会平添噪声。
+    /// ⇒ 两个同族函数口径不同是因为两片语料的性质不同，不是漏了一个参数。
+    /// 真要扩到别的扩展名时，把这段理由一并改掉。
+    ///
+    /// ⚠️ 与 `docFiles()` / `swiftFiles(in:)` 一样**按文件系统枚举、不按 git 索引**：
+    /// 未跟踪的散文件照样进面。仓库根是散文件最容易落地的一层 ⇒ 已登记在
+    /// `JudgementReferenceGuard` 文件头的「找到但堵不住的路径」一节。
+    ///
     /// 与 `swiftFiles(in:)` / `docFiles()` 同一条 fail-closed 纪律。
     static func rootDocFiles(
         sourceLocation: SourceLocation = #_sourceLocation
