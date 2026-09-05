@@ -259,9 +259,13 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 2. **月轨图（month track graph）** —— 产品 + 场景：Obsidian 社区插件 Contribution Graph，
    作者自陈可生成 GitHub 式贡献图 / 月轨图 / 日历轨图三种。⚠️ 这条来源的分量在于它是
    **同一个组件给出三种排布**，不是三个不同组件。⇒ **排布**。
-3. **折线 / 柱状时间序列** —— GitLab Pajamas 的 Charts 页把 line / column chart 列为
-   「按时间推移」的取值形态。三分法：网格 → 线性，命中排布定义逐字点名的「网格↔线性」
-   ⇒ **排布**。
+3. **折线 / 柱状时间序列** —— GitLab Pajamas 的 Charts 页把 column / bar / line / sparkline
+   并列为「跨类别或跨时间比较取值」时的可选形态（同页逐字：“A comparison of values across
+   categories or across time, consider a column, bar, line or sparkline chart.”）。三分法：
+   网格 → 线性，命中排布定义逐字点名的「网格↔线性」⇒ **排布**。
+   ⚠️ **`#315` 终审 I-4 更正**：上一版引的是同页讲**堆叠 / 分组**的那句（“It may sometimes be
+   necessary to stack values in a column…”），与「line vs column」无关，是**引错句**；
+   结论不变，换引上面那句（2026-09-05 重新取页核对）。
 
 **作用域条款**：最接近的 `Timeline` 承担的是纵向事件流（节点列 + 连线 + 内容），不是按
 日历格排布的密度图 ⇒ 条件 ③ 落空。⇒ 三个候选均未被排除。
@@ -274,4 +278,15 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 `ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
 这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
 
-⚠️ **公约缺口 `D-299-1`（Swift Charts 不在登记表里、作用域条款援引不了）同样适用于本条。**
+⚠️ **公约缺口 `D-299-1`（宿主平台框架承担的候选，作用域条款援引不了）；`#315` 终审 C-2
+要求逐条重判，本条的结论是「只对候选 3 适用」**：**候选 3（折线 / 柱状时间序列）命中** ——
+承担者是 Swift Charts 的 `LineMark` / `BarMark`。**候选 1（日历月视图）与候选 2（月轨图）
+不命中** —— `ActivityHeatmap.swift:12-13` 的类型文档逐字写着「⚠️ Swift Charts 画不出来：
+`RectangleMark` 能画格子，但**按周分列 + 按星期几分行 + 日期对齐**是一套布局，不是一个
+mark」，这两个候选换的正是那套布局，Swift Charts 对它同样没有现成能力。
+⇒ **即使将来条件 ① 被扩宽、候选 3 因此被排除，本条仍剩 2 ≥ 2、落点不翻转。**
+本轮按公约字面走，`D-299-1` **未被用来改本条落点**，缺口另走修订回路。
+⚠️ **上面这句只管 `D-299-1`，不是全称句**（`#315` 终审 C-1）：同批新开的 `D-299-2` **是**
+`OrbitingLogos` 落点的决定性依据，本轮**确实**被用来定了那一条的落点，见
+`docs/components/orbiting-logos.md` 与 `docs/contract-defects.md` 的 `D-299-2`。
+

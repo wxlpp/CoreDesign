@@ -322,4 +322,16 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 `ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
 这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
 
-⚠️ **公约缺口 `D-299-1`（Swift Charts 不在登记表里、作用域条款援引不了）同样适用于本条。**
+⚠️⚠️ **本条不适用 `D-299-1`（`#315` 终审 C-2 更正）**：上一版这里原样抄了给三个图表用的
+那句「同样适用于本条」，而它**被本仓自己的源码逐字证伪** —— 本条的三个候选是 **dagre / 环形 /
+网格三种图布局**，`NetworkGraph.swift:12-13` 的类型文档逐字写着「⚠️ Swift Charts **画不出来**：
+它没有图布局的概念——节点位置要由**斥力 + 弹簧**迭代解出，不是把数据映射到坐标轴」，`CLAUDE.md`
+也把本件列为「Swift Charts **原生画不出来**的四类图表」之一；Swift Charts 没有任何 node-link
+mark ⇒ **这三个候选没有任何框架级承担者**，`D-299-1` 那条「候选的真实承担者是宿主平台框架」的
+前提在本条上根本不成立 ⇒ 本条的落点在这一侧**没有翻转风险**。
+⚠️ 成因如实记：那段样板被逐条抄了五遍而没有逐条重判 —— 见 `docs/contract-defects.md` 的
+`D-299-1`。
+⚠️ **上面这句只管 `D-299-1`，不是全称句**（`#315` 终审 C-1）：同批新开的 `D-299-2` **是**
+`OrbitingLogos` 落点的决定性依据，本轮**确实**被用来定了那一条的落点，见
+`docs/components/orbiting-logos.md` 与 `docs/contract-defects.md` 的 `D-299-2`。
+

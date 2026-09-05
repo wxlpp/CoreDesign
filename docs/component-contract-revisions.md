@@ -2138,8 +2138,18 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
   | `RingChart` | 线性进度条 / 分段进度条（Ant Design `Progress` 的 `type` 与 `steps`）/ 堆叠条（Pajamas） | 排布 / 槽 / 槽 | 3 | **出口 1** `step2` |
   | `ActivityHeatmap` | 日历月视图（Apple Activity App History 页）/ 月轨图（Obsidian Contribution Graph）/ 折线时间序列（Pajamas） | 排布 ×3 | 3 | **出口 1** `step2` |
   | `NetworkGraph` | 分层（dagre）/ 环形 / 网格（AntV G6 布局总览的 20 个具名布局） | 排布 ×3 | 3 | **出口 1** `step2` |
-  | `BeforeAfterSlider` | 上下分隔 / 左右并排 / 上下并排（Adobe Lightroom Classic 的 Before & After 四态） | 排布 ×3 | 3 | **出口 1** `step2` |
+  | `BeforeAfterSlider` | 左右并排 / 上下并排（Adobe Lightroom Classic 的 Before & After） | 排布 ×2 | 2 | **出口 1** `step2` |
   | `OrbitingLogos` | 多轨道分布（Magic UI）/ marquee / logo 网格 / 椭圆螺旋轨道 | 排布（仅第 1 条计入） | 1 | **步骤 4** `tiebreaker` |
+
+- **⚠️⚠️ `#315` 终审后的逐条更正**（本条台账写于 `#299` 本轮、尚未合并 ⇒ 上表**直接改**，
+  更正理由记于此表；`#270` 及更早的记录仍按「只增不改」处置）：
+
+  | 行 | 原写 | 现写 | 出处 |
+  |---|---|---|---|
+  | `BeforeAfterSlider` | 候选含「上下分隔」、计入 **3**、称 Lightroom「四态」 | 划掉「上下分隔」、计入 **2**（落点不变，2 ≥ 2） | `#315` I-1：被引的 jkost 页只命名 left/right、top/bottom、split screen **3 种**，页面**没有**把 split 与 top/bottom 组合成第四态；试补的 Adobe 官方页 2026-09-05 三次取页全部超时，按纪律不得引用 |
+  | `ActivityHeatmap` | 候选 3 引「stack values in a column…」 | 换引同页 “A comparison of values across categories or across time, consider a column, bar, line or sparkline chart.” | `#315` I-4：原引句讲的是堆叠/分组，与 line vs column 无关；结论不变 |
+  | `RadarChart` | 反向证据「同一页把两者侧重分开写」 | 那两句**只在平行坐标图页**，坐标系总览页 0 命中；坐标系名页面上是小写 `radar`/`parallel`/`radial`；自述句首字母是大写 `Analyze` | `#315` I-8 |
+  | `OrbitingLogos` | 计入 **1** ⇒ 步骤 4 | **已知过期项**：候选 4（椭圆轨道）的来源 2026-09-05 复核可取到正文 ⇒ 按公约字面应计入 **2 ≥ 2 ⇒ 出口 1**。**本轮落盘字段仍按步骤 4 不动**（可逆一侧），翻转移交 `#312` | `#315` S-3 复核，见 `docs/contract-defects.md` 的 `## #299` 节《`#315` 终审后复核》段 |
 
 - **⚠️ 一条被推翻的上游暗示，如实记录**：PR #297 终审 I-3 把 `OrbitingLogos` 从「干净的
   10 条」挪进缓办台账时写着它「与四个图表 / `BeforeAfterSlider` **同组**」。本轮实核：
@@ -2179,12 +2189,38 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
   · 承接 issue **`#312`**（为 5 条落出口 1 的条目补齐样式扩展点）。
 - **⚠️ 本轮新开两条缺陷，均落在「候选作用域」这一块**（见 `docs/contract-defects.md`
   的 `## #299` 节）：`D-299-1`（作用域条款的条件 ① 要求兄弟组件在登记表里，
-  于是排除不了由 **Swift Charts 这类宿主平台框架**承担的候选形态 —— 而
-  `CoreDesignCharts` 存在的理由恰恰是「Swift Charts 画不出来的四类图表」）；
+  于是排除不了由**宿主平台框架**承担的候选形态 —— 而 `CoreDesignCharts` 存在的理由
+  恰恰是「Swift Charts 画不出来的四类图表」）；
   `D-299-2`（「候选须是本组件的另一个**版本**」这条读法只活在步骤 2 的问句里，
-  没有成文判据）。⚠️ **两条都没有被用来改落点** —— 本轮一律按公约字面走，
-  缺陷另走修订回路。
+  没有成文判据）。
+  ⚠️⚠️ **`#315` 终审 C-1 更正**：上一版这里写的是「**两条都没有被用来改落点** —— 本轮一律
+  按公约字面走，缺陷另走修订回路」，那是一句**假的全称否认**。如实的两分说法是：
+  · **`D-299-1` 未被用来改落点** —— 四个图表按公约字面走完判定法，缺口另走修订回路；
+  · **`D-299-2` 被用来改了落点，而且是决定性的** —— `OrbitingLogos` 的候选 2（Magic UI
+    `Marquee`）与候选 3（Tailwind Plus Logo Clouds）**唯一**的不计入理由就是这条未成文读法；
+    剔除它，两条按三分法都是**排布** ⇒ 计入数 1 → 3 ≥ 2 ⇒ 出口 1 ⇒ `semantic` +
+    `needsExtensionPoint`。**这不是边角，是整条落点。**
+  · 而且「按公约字面走」这句本身也不准：步骤 2 的「…的**版本**吗」是**问句**，紧接其后的
+    才是**操作化门槛**（「能当场举出 ≥2 个业界真实存在的**替代形态**」）；选问句而不选门槛
+    **是一次口径选择**。⇒ 本轮的处置是「**不改落点、按可逆一侧（`prescriptive` / 不给扩展点）
+    落地、如实标注这是一次口径选择**」，见 `D-299-2` 的自陈与 `#312`。
+  ⚠️⚠️ **`#315` 终审 C-2 更正**：`D-299-1` 的那段说明**被逐字抄进了四份 `notes` 与四份类型
+  文档而没有逐条重判**，抄到 `NetworkGraph` 上时是**假的**（它的三个候选是图布局，
+  Swift Charts 没有 node-link mark，`NetworkGraph.swift:12-13` 逐字写着「Swift Charts
+  画不出来：它没有图布局的概念」）。现已逐条重判并补一张承担者表（见 `D-299-1`）：
+  `RadarChart` / `ActivityHeatmap` 各只 1 个候选命中，扣掉仍 ≥2 ⇒ 落点不翻；
+  **`RingChart` 有 2 个候选命中，扣掉只剩 1 < 2 ⇒ 落点会从出口 1 翻回步骤 4**；
+  `NetworkGraph` / `BeforeAfterSlider` **不适用**。⇒ `#312` 因此多一条**排序约束**：
+  `D-299-1` 的修订回路走完前不得走形态 B（已写进 `#312` 正文）。
+  ⚠️⚠️ **`#315` 修复轮复核出的一条到期项**：`OrbitingLogos` 候选 4（椭圆轨道）的负面核验
+  已过期 —— Animata 那页 2026-09-05 实测 HTTP 200、取得到正文（原记 403）⇒ 按公约字面本条
+  计入数应为 2 ≥ 2 ⇒ 出口 1。**落盘字段本轮仍按步骤 4 不动**（可逆一侧），裁定移交 `#312`，
+  逐条依据见 `docs/contract-defects.md` 的《`#315` 终审后复核》段。
 - **验证**：`knownPendingStep2Enumeration` 的双侧等式在本轮由**变异实证**证明仍承重
   （多写一条 / 少写一条各判红一次，输出见 PR 正文）；J-2 侧由
   `inspected.count == 16` + 块外固定集合 canary + 「已知缺口条目必须仍是 semantic +
   要扩展点 + 协议字段皆 null」的承重核对三条共同守住。
+  ⚠️ **`#315` 终审 I-5 补第四条**：`extensionPointFollowUpIssue = "#312"` + 一条聚合断言，
+  要求红名单里每条的 `notes` 都写着承接 issue 号（此前这一条只活在注释与失败文案里，
+  而 `pendingStep2` 侧的同类判据在本轮收口后已空转）。双向变异实证：把 `NetworkGraph.notes`
+  里的 `#312` 改成 `#999` ⇒ 判红并逐条点名；还原 ⇒ 判绿。输出见 PR 正文。

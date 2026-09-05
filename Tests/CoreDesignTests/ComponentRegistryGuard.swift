@@ -141,7 +141,15 @@ struct ComponentRegistryGuard {
 
     /// 承接 issue 号。**写成常量并被下面的断言引用**，而不是只出现在散文里 ——
     /// 散文里的指针没有任何东西核对它是否还在。
-    static let pendingStep2FollowUpIssue = "#299"
+    ///
+    /// ⚠️ **`#315` 终审 I-6：由 `"#299"` 改为 `nil`。** 理由：`#299` 随 PR #315 关闭，
+    /// 而本轮 `knownPendingStep2Enumeration` 已收缩为**空集** ⇒ 下面那条逐条断言当前
+    /// **空转**。留着旧号的失效形态很具体：下一个人再挂一条 `pendingStep2` 时，
+    /// 判据会在**判红的失败文案里**指导他往 notes 写 `#299` —— 一个已经关闭的 issue。
+    /// ⇒ 改成 `nil`，并要求**再次启用时当轮显式指定一个尚未关闭的承接 issue 号**；
+    /// 仍是 `nil` 却出现了 `pendingStep2` 条目 ⇒ 下面的 `guard` 当场 `Issue.record` 判红
+    /// （fail-closed，不会静默放过）。
+    static let pendingStep2FollowUpIssue: String? = nil
 
     /// `decidedBy == "pendingStep2"` 的条目名单。
     ///
@@ -884,21 +892,31 @@ struct ComponentRegistryGuard {
         // 未完成」的显式标记，不是判定法的出口。两个方向都要红：
         // · 集合**缩小** ⇒ 有人把标记删了（把缓办悄悄说成已判）；
         // · 集合**增大** ⇒ 又多了一条跳过枚举的条目，须过评审并挂进承接 issue。
-        // ⚠️ 正确处置是补做枚举并按公约重判（`\(Self.pendingStep2FollowUpIssue)`），
+        // ⚠️ 正确处置是补做枚举并按公约重判（承接 issue 见 `pendingStep2FollowUpIssue`，
+        // `#315` 终审 I-6 后该常量为 `nil`，再次启用时须当轮显式指定），
         // **不是**改 `knownPendingStep2Enumeration` 让它变绿。
         let pendingStep2 = Self.pendingStep2Components(in: entries)
         #expect(pendingStep2 == Self.knownPendingStep2Enumeration, """
         `decidedBy: pendingStep2` 的条目集合变了：实际 \(pendingStep2.sorted())，        已知 \(Self.knownPendingStep2Enumeration.sorted())。
         `pendingStep2` 的含义是「公约步骤 2 的候选枚举与来源核验尚未完成，本条不声称任何出口，        按可逆的一侧（prescriptive / 不给扩展点）缓办登记」——它是**台账**，不是判定结论。
         · 变小：若某条真的补完了枚举，落点应改成 step1/step2/step3/tiebreaker 之一，        并同步从本表移除；若只是把标记删掉，那是把缓办伪装成已判。
-        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进承接 issue \(Self.pendingStep2FollowUpIssue)。
+        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进一个**尚未关闭**的承接 issue        （`pendingStep2FollowUpIssue`，`#315` 终审 I-6 后为 nil，须当轮显式指定；`#299` 已关闭，不得复用）。
         """)
 
         // ⚠️ **承接指针要承重**：只在散文里写一句「已开 issue」，issue 号错了 / 条目换了
         // 都没人知道。每条缓办条目的 notes 必须写着承接 issue 号。
         for e in entries where e.decidedBy == "pendingStep2" {
-            #expect(e.notes.contains(Self.pendingStep2FollowUpIssue), """
-            \(e.component) 是 pendingStep2 条目，但 notes 里没有承接 issue 号 \(Self.pendingStep2FollowUpIssue)             —— 缓办没有落点等于永久缓办
+            // ⚠️ `#315` 终审 I-6：常量现为 `nil`（`#299` 已关闭）。仍是 `nil` 却出现了
+            // `pendingStep2` 条目 ⇒ 当场判红，逼人先指定一个尚未关闭的承接 issue，
+            // 而不是让判据在失败文案里指着一个关掉的号码。
+            guard let followUp = Self.pendingStep2FollowUpIssue else {
+                Issue.record("""
+                出现了 pendingStep2 条目 \(e.component)，但 pendingStep2FollowUpIssue 仍是 nil。                缓办必须挂在一个**尚未关闭**的承接 issue 上 —— 请先把该常量改成本轮的 issue 号                （⚠️ `#299` 已随 PR #315 关闭，不得复用），再挂条目。
+                """)
+                continue
+            }
+            #expect(e.notes.contains(followUp), """
+            \(e.component) 是 pendingStep2 条目，但 notes 里没有承接 issue 号 \(followUp)             —— 缓办没有落点等于永久缓办
             """)
         }
 

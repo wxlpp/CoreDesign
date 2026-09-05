@@ -91,6 +91,18 @@ struct ComponentExtensionPointGuard {
         "ActivityHeatmap", "BeforeAfterSlider", "NetworkGraph", "RadarChart", "RingChart",
     ]
 
+    /// J-2 侧的承接 issue 号。**写成常量并被下面的断言引用**，而不是只出现在散文里。
+    ///
+    /// ⚠️ **`#315` 终审 I-5**：红名单的成文语义逐字是「**有承接 issue 的**已知缺口」，
+    /// 而在此之前这句只活在本文件的注释与失败文案里 —— **没有任何断言**要求
+    /// `knownMissingExtensionPoints` 的成员真的在 `notes` 里写着承接 issue 号。
+    /// 对照组：`pendingStep2` 侧**有**这条判据（`ComponentRegistryGuard` 里
+    /// `for e in entries where e.decidedBy == "pendingStep2" { #expect(e.notes.contains(...)) }`），
+    /// 但那个集合本轮已收口为空 ⇒ 那条判据当前**空转**。⇒ 把同一条照抄到 J-2 侧，
+    /// 让「名字进表但没有承接点」（也就是把红名单当消音器用）当场判红。
+    /// ⚠️ 5 条 `notes` 实测都写了 `#312`，但在本条之前**没有东西挡下一个人不写**。
+    static let extensionPointFollowUpIssue = "#312"
+
     @Test("J-2：语义组件必须有样式扩展点（原生协议采纳 或 自有协议定义+使用）")
     func semanticComponentsHaveExtensionPoint() throws {
         let entries = try ComponentRegistryGuard.loadRegistry()
@@ -129,8 +141,8 @@ struct ComponentExtensionPointGuard {
         // 新违规会被静默吞掉，只有块外的 canary 会红。
         // ⚠️ **`#299` 按上面那段注释自己的指令重建了 `withKnownIssue` 块**
         // （逐字：「将来若又出现已知缺口，**照原样重建 `withKnownIssue` 块（只包住下面这一句）**，
-        // 别改成宽松断言」）。⚠️ **只包住下面这一句** —— #39 Task 8 变异实测过：块里多包一句，
-        // 新违规会被静默吞掉，只有块外的 canary 会红。
+        // 别改成宽松断言」）—— 「只包住一句」的理由与变异证据见上一段，此处不再复述
+        // （`#315` 终审 S-7：上一版把那两句逐字重复了一遍）。
         // ⚠️ `#312` 把 5 条扩展点补齐后，块内不再有 issue 记录 ⇒ Swift Testing 主动判红，
         // **逼人回来删掉这个块**。这就是它优于「预置 expected 集合然后 `#expect(==)`」的地方。
         withKnownIssue("5 条待补的扩展点，移交 #312（#299 重判落出口 1，实现未跟上）") {
@@ -163,6 +175,26 @@ struct ComponentExtensionPointGuard {
                     "\(component) 已经填上了协议字段但源码没跟上，或反之 —— 请重新核对，不要留在已知缺口里")
         }
 
+        // ⚠️ **承接指针要承重**（`#315` 终审 I-5，形态照抄 `ComponentRegistryGuard` 的
+        // `pendingStep2` 侧那条 `notes.contains(pendingStep2FollowUpIssue)`）：红名单的成文
+        // 语义逐字是「**有承接 issue 的**已知缺口」，而在此之前这句只活在注释与失败文案里，
+        // **没有任何断言**核对它 ⇒「名字进表、没有承接点」就是一条纯消音器，判据照绿。
+        // ⚠️ **写成聚合断言而不是循环内逐条 `#expect`**：实测（`#315` 修复轮）循环体里的
+        // `#expect` 判红时，Swift Testing 的 console reporter **不打印那一条的 issue 行**
+        // ——只有 `issues (including N known issue)` 的计数会变，人看不到是哪一条、为什么。
+        // 聚合成一条顶层断言后失败文案正常打印，且一次列全所有缺号的条目。
+        let missingFollowUp = Self.knownMissingExtensionPoints
+            .filter { component in
+                guard let entry = entries.first(where: { $0.component == component }) else { return false }
+                return !entry.notes.contains(Self.extensionPointFollowUpIssue)
+            }
+            .sorted()
+        #expect(missingFollowUp.isEmpty, """
+        这些条目在 knownMissingExtensionPoints 里，但 notes 没写承接 issue 号 \(Self.extensionPointFollowUpIssue)：\
+        \(missingFollowUp)。缺口没有落点等于永久缺口，也正是「把新条目塞回红名单让判据闭嘴」的形态。\
+        正确处置是补扩展点（然后从本集合删名字），或在 notes 里写明承接 issue。
+        """)
+
         // ⚠️ **两个协议字段互斥棘轮 —— 堵掉 `judgeExtensionPoints` 的分支序静默口**。
         // 该函数是 `if let custom … else if let native …`，custom 在前 ⇒ 两字段同时非空时
         // native 侧被静默略过、判据照绿。实测今日零此形态；这条断言把「今日为零」变成机器
@@ -188,8 +220,12 @@ struct ComponentExtensionPointGuard {
         for (component, reason) in result.satisfied.sorted(by: { $0.key < $1.key }) {
             print("J-2 ✓ \(component)：\(reason)")
         }
+        // ⚠️ `#315` 终审 S-8：空集分支原写「`#65` 是最后一条」，`#299` 之后已过期
+        // （现在的最后一条是移交 `#312` 的那 5 条）⇒ 改成不带具体 issue 号的说法。
         print("J-2 已知缺口 \(result.missing)"
-              + (result.missing.isEmpty ? "（**空集** —— 扩展点缺口已全部收口，`#65` 是最后一条）" : "（待补扩展点，须有承接 issue）"))
+              + (result.missing.isEmpty
+                 ? "（**空集** —— 扩展点缺口已全部收口）"
+                 : "（待补扩展点，承接 issue \(Self.extensionPointFollowUpIssue)）"))
         print("⚠️ J-2 跳过 storyui \(result.skippedRepos["storyui"] ?? 0) 条：CI 只 checkout 本仓，跨仓核对移交 #43。")
     }
 

@@ -1592,6 +1592,12 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
 **兑现了**，只是晚了一个 issue：`#270` 因落点全是 `prescriptive` 而没触发，`#299`
 补完枚举后触发。第 6 条 `OrbitingLogos` 落**步骤 4**，仍不进定义域。
 
+⚠️⚠️ **本段是 `#270` 当时的记录，`#299` 后已过期，见上方注记**（`#315` 终审 I-7 补）：
+下面的「15 条全部 `kind: prescriptive`」现已**不成立** —— 其中 5 条（`ActivityHeatmap` /
+`BeforeAfterSlider` / `NetworkGraph` / `RadarChart` / `RingChart`）已改判 `kind: semantic`
+并进了 J-2 定义域；「6 条 `pendingStep2`」现为**空集**（`knownPendingStep2Enumeration` 已收缩）。
+本段按「只增不改」保留原文，只在段首标注过期。
+
 ⚠️ **「J-2 那三条没被顶动」不是绕过判据，是落点决定的**：15 条全部 `kind: prescriptive`
 ⇒ 不给扩展点 ⇒ 不进 J-2 定义域。但**它们不是同一回事**，`decidedBy` 分两类：
 
