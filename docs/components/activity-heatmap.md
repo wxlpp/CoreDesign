@@ -242,3 +242,66 @@ struct ContributionsCard: View {
 `calendar:` 是可注入的行为依赖不是外观面。
 文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
 逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。
+
+### ⚠️ `#299` 重判：`pendingStep2` → `step2`（出口 1，语义组件）（本节只增不改，上文保留为成因记录）
+
+⚠️ **上一段是 `#270` / PR #297 当时的记录，不改写。现状**：`#299` 已按公约补做步骤 2 的
+候选枚举与来源核验并重判，本条登记表字段现为
+`kind: semantic` / `decidedBy: step2` / `needsExtensionPoint: true`。
+
+**本轮走停止规则的「至少 3 个具名业界候选」这一支**，逐条给可核验来源（完整逐字理由与
+URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）：
+
+1. **日历月视图** —— 产品 + 场景：Apple 自家 Activity / Fitness App 的 History 页把
+   **每日活动读数**排成月历（三个活动圆环取代传统的日历事件）。三分法：现状是
+   「按周成列 × 按星期成行」的连续长条网格，候选按月分块、每块 7 列 ⇒ 日格**彼此之间**
+   的空间关系改变 ⇒ **排布**。
+2. **月轨图（month track graph）** —— 产品 + 场景：Obsidian 社区插件 Contribution Graph，
+   作者自陈可生成 GitHub 式贡献图 / 月轨图 / 日历轨图三种。⚠️ 这条来源的分量在于它是
+   **同一个组件给出三种排布**，不是三个不同组件。⇒ **排布**。
+3. **折线 / 柱状时间序列** —— GitLab Pajamas 的 Charts 页把 column / bar / line / sparkline
+   并列为「跨类别或跨时间比较取值」时的可选形态（同页逐字：“A comparison of values across
+   categories or across time, consider a column, bar, line or sparkline chart.”）。三分法：
+   网格 → 线性，命中排布定义逐字点名的「网格↔线性」⇒ **排布**。
+   ⚠️ **`#315` 终审 I-4 更正**：上一版引的是同页讲**堆叠 / 分组**的那句（“It may sometimes be
+   necessary to stack values in a column…”），与「line vs column」无关，是**引错句**；
+   结论不变，换引上面那句（2026-09-05 重新取页核对）。
+
+**作用域条款**：最接近的 `Timeline` 承担的是纵向事件流（节点列 + 连线 + 内容），不是按
+日历格排布的密度图 ⇒ 条件 ③ 落空。⇒ 三个候选均未被排除。
+
+
+⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
+「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
+
+⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
+`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
+这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+
+⚠️ **公约缺口 `D-299-1`（宿主平台框架承担的候选，作用域条款援引不了）；`#315` 终审 C-2
+要求逐条重判，本条的结论是「只对候选 3 适用」**：**候选 3（折线 / 柱状时间序列）命中** ——
+承担者是 Swift Charts 的 `LineMark` / `BarMark`。**候选 1（日历月视图）与候选 2（月轨图）
+按 Swift Charts 口径不命中** —— `ActivityHeatmap.swift:12-13` 的类型文档逐字写着
+「⚠️ Swift Charts 画不出来：`RectangleMark` 能画格子，但**按周分列 + 按星期几分行 + 日期对齐**
+是一套布局，不是一个 mark」，这两个候选换的正是那套布局。
+⇒ **按 Swift Charts 口径：即使将来条件 ① 被扩宽、候选 3 因此被排除，本条仍剩 2 ≥ 2、落点不翻转。**
+
+⚠️⚠️ **`#315` 第 2 轮终审 F-2：上面这句只在 Swift Charts 这个窄口径下成立，不是全口径结论。**
+`D-299-1` 本轮**自己**把谓词从「Swift Charts」放宽成了「**宿主平台框架**」（`RingChart` 候选 1
+援引的就是 SwiftUI 的 `ProgressView(value:)`），但本条的「不命中」论证**只查了 Swift Charts**
+⇒ **用放宽后的谓词判、却只拿收窄的证据证**。按「宿主平台框架的具名 API」的**全口径尚未逐条核**。
+⚠️ **已找到一个具名的实体反例，作为后续核查的起点**（本轮不据以改落点）：**候选 1（日历月视图）**
+—— UIKit 的 `UICalendarView`，
+`.../iPhoneOS26.4.sdk/System/Library/Frameworks/UIKit.framework/Headers/UICalendarView.h:17-18`
+逐字 `UIKIT_EXTERN API_AVAILABLE(ios(16.0)) API_UNAVAILABLE(watchos, tvos) NS_SWIFT_UI_ACTOR` /
+`@interface UICalendarView : UIView`；同头 `:61` 有 `#pragma mark - Decorations`、`:86` 的
+delegate 方法 `calendarView:decorationForDateComponents:` 做**每日**装饰，
+`UICalendarViewDecoration.h:24` 逐字 “Creates a default decoration with a circle image.”
+—— 正是候选 1 那个「月历网格 + 每日标记」的形态；SwiftUI 侧另有 `MultiDatePicker`。
+⇒ 若该反例成立，本条计入数 3 → 1 < 2，**也会翻**。逐条核查移交 `#312`。
+
+本轮按公约字面走，`D-299-1` **未被用来改本条落点**，缺口另走修订回路。
+⚠️ **上面这句只管 `D-299-1`，不是全称句**（`#315` 终审 C-1）：同批新开的 `D-299-2` **是**
+`OrbitingLogos` 落点的决定性依据，本轮**确实**被用来定了那一条的落点，见
+`docs/components/orbiting-logos.md` 与 `docs/contract-defects.md` 的 `D-299-2`。
+

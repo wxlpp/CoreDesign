@@ -227,3 +227,57 @@ struct MoveSummary: View {
 候选（堆叠条 / 并排进度条）属排布差异、本该计入 ≥2，与 `RadarChart` 同因。
 文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
 逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。
+
+### ⚠️ `#299` 重判：`pendingStep2` → `step2`（出口 1，语义组件）（本节只增不改，上文保留为成因记录）
+
+⚠️ **上一段是 `#270` / PR #297 当时的记录，不改写。现状**：`#299` 已按公约补做步骤 2 的
+候选枚举与来源核验并重判，本条登记表字段现为
+`kind: semantic` / `decidedBy: step2` / `needsExtensionPoint: true`。
+
+**本轮走停止规则的「至少 3 个具名业界候选」这一支**，逐条给可核验来源（完整逐字理由与
+URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）：
+
+1. **并排线性进度条** —— 设计体系 Ant Design 的 `Progress` 组件：**同一个组件、同一份
+   语义**，`type` 属性的取值域含 line / circle / dashboard。三分法：同心环（角度编码）→
+   并排线性条（长度编码），既换轴又把「重叠 / 同心」换成「并排」⇒ **排布**。
+2. **分段进度条** —— 同一组件的 `steps` 属性（页面 demo 清单里有 “Progress bar with steps”
+   与 “Circular progress bar with steps”）。三分法：一条连续环塌成 N 段离散段 ⇒
+   命中补充规则 2 的槽计数变化 ⇒ **槽**。
+3. **堆叠条** —— GitLab Pajamas 的 Charts 页（grouped and stacked column）。三分法：
+   N 个同心环塌成 1 条堆叠柱 ⇒ **槽**。
+
+**查过但按三分法判为装饰、不计入**：Ant Design `Progress` 的 `type="dashboard"`（开口仪表盘）
+—— 与 `circle` 同在极坐标、同一个槽内，差别只是扫过角与缺口 ⇒ **装饰**。
+列出它是为了让本次枚举可被抽查：三分法确实在做区分，不是一律放行。
+
+**作用域条款**：`ProgressIndicator` 写死 `.progressViewStyle(.circular)`、且是**不确定**
+进度（无完成度语义）⇒ 对「线性进度条」条件 ③ 落空；`ProgressBar` 弃用不分类。
+⇒ 三个候选均未被排除。
+
+
+⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
+「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
+
+⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
+`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
+这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+
+⚠️ **公约缺口 `D-299-1`（宿主平台框架承担的候选，作用域条款援引不了）；`#315` 终审 C-2
+要求逐条重判，本条是四个图表里**至少**会被它翻转的一条**（⚠️ `#315` 第 2 轮终审 F-2：
+上一版写的是「**唯一**一条」，那句声称的范围超出了证据 —— `RadarChart` / `ActivityHeatmap`
+的「不命中」只按 Swift Charts 口径核过，全口径下已找到具名反例，见各自文档与
+`docs/contract-defects.md` 的 `D-299-1`）：**候选 1（并排线性进度条）命中** ——
+框架级承担者是 SwiftUI 自家的 `ProgressView(value:)`（linear style）；**候选 3（堆叠条）命中**
+—— 承担者是 Swift Charts 的 `BarMark` 堆叠。**候选 2（分段进度条）不命中** —— Swift Charts
+没有「分段进度」这个概念，只能用 N 个 `BarMark` 手拼；`RingChart.swift:12-13` 的类型文档也逐字
+写着「`SectorMark` 是饼图/环形图（按占比切分**一个**环），活动环是**多个独立环各自表示完成度**
+——不是同一个概念」。
+⇒ ⚠️⚠️ **若将来条件 ① 被扩宽，本条计入数会从 3 掉到 ≤1 < 2、落点从出口 1 翻回步骤 4** ——
+这正是 `D-299-1`《代价如实记录》那段说的「四个图表的落点可能要重判」，本条是四条里**已确证会翻**
+的一条（⚠️ 不是「唯一」会翻的一条，见上），也是 `#312` 应优先选形态 D（槽 / 枚举可演进）
+而不是形态 B（public 协议不可撤）的直接理由。
+本轮按公约字面走，`D-299-1` **未被用来改本条落点**，缺口另走修订回路。
+⚠️ **上面这句只管 `D-299-1`，不是全称句**（`#315` 终审 C-1）：同批新开的 `D-299-2` **是**
+`OrbitingLogos` 落点的决定性依据，本轮**确实**被用来定了那一条的落点，见
+`docs/components/orbiting-logos.md` 与 `docs/contract-defects.md` 的 `D-299-2`。
+

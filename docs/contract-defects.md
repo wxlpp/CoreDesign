@@ -2390,6 +2390,34 @@ J-2 前后对比**（`ComponentExtensionPointGuard` 逐条打印判绿理由，�
 「什么情况下允许缓办」。现状是社会性约束（要过评审、要挂承接 issue），不是机器性的
 ——与绕过路径清单第 8 条（「把新条目登记成 `tiebreaker` / `prescriptive`」）同型。
 
+**⚠️ `#299` 处置段（只增不删，上文一字不改）**：承接 issue `#299` 已逐条补做步骤 2 的
+候选枚举与来源核验并按公约重判，6 条**全部离开** `pendingStep2`，落点**不是一边倒**：
+
+| 条目 | 重判落点 | `kind` | 非皮肤且未被排除的候选数 |
+|---|---|---|---|
+| `RadarChart` | **出口 1**（`step2`） | `semantic` | 3 |
+| `RingChart` | **出口 1**（`step2`） | `semantic` | 3 |
+| `ActivityHeatmap` | **出口 1**（`step2`） | `semantic` | 3 |
+| `NetworkGraph` | **出口 1**（`step2`） | `semantic` | 3 |
+| `BeforeAfterSlider` | **出口 1**（`step2`） | `semantic` | 3 |
+| `OrbitingLogos` | **步骤 4**（`tiebreaker`） | `prescriptive` | 1 |
+
+⇒ 本缺陷所指的那个「借一个不属于自己的出口值」的困境**在这 6 条上已经清空**：
+`knownPendingStep2Enumeration` 收缩为**空集**，双侧等式随之退化为「不许再有 `pendingStep2`
+条目」（语义更强不是更弱）。⚠️ **`pendingStep2` 这个取值本身不撤销** —— 它挡的是**将来**
+再出现同型困境时又去借 `tiebreaker`，`validDecidedBy` 与公约小节均保留。
+
+⚠️ **本轮暴露的代价，如实记录**：5 条落出口 1 ⇒ 硬断言 `needsExtensionPoint` ⇒ 进 J-2
+定义域，而扩展点**尚未落地** ⇒ 按 `Toast` 与 #59 的同款成法进
+`ComponentExtensionPointGuard.knownMissingExtensionPoints`（该集合刚由 `#65` 收成空集，
+本轮又变回 5 条），实现移交 **`#312`**。公约 AD-4《下游连锁一》**预判过**这条链
+（`step1/2 ⇒ semantic ⇒ 硬断言 ⇒ J-2 定义域 ⇒ `inspected.count` 变红`），`#270` 当时
+因 15 条全落 `prescriptive` 而没触发，`#299` 触发了 —— 那段预判现由本轮**实测证实**。
+
+⚠️ **本轮另开两条缺陷**（都落在「候选作用域」这一块，见本文件末尾的 `## #299` 节）：
+`D-299-1`（作用域条款排除不了由 Swift Charts 这类**宿主平台框架**承担的候选）与
+`D-299-2`（「候选须是本组件的另一个**版本**」这条读法没有成文判据）。
+
 ### D-270-2：`OrbitingLogos` 的候选被分箱成「装饰」，与三分法自身的定义矛盾（PR #297 终审 I-3，本轮已改）
 
 `OrbitingLogos.notes` 原写「剩下的候选（换环数 / 换点密度 / **换轨道形状**）是同一套
@@ -2408,3 +2436,242 @@ J-2 前后对比**（`ComponentExtensionPointGuard` 逐条打印判绿理由，�
 公约修订**，只作留痕。⚠️ 终审同时压力测试过 `TypewriterText`（尾随光标可论证承载状态
 语义 ⇒ 可算槽），但**即便如此也只有一个候选、不足 ≥2** ⇒ 它的 `tiebreaker` 落点成立，
 不在本条范围内。
+
+**⚠️ `#299` 处置段（只增不删，上文一字不改）**：本条对三分法的裁断（换轨道形状改的是
+logo **彼此之间**的落点 ⇒ **排布**，不是装饰）**没有被推翻**；`#299` 推翻的是它的**下游**
+——那个候选**过不了来源义务**。逐条核验的结果：
+
+- Magic UI 的 orbit 组件 props 表只有 `radius` 一个几何量、`path` 只控制轨道线
+  **显不显示**，**没有任何非圆形路径取值**；
+- 四家基线设计体系（Apple HIG / Material Design / Fluent / Ant Design）检索后
+  **均无**「环绕轨道 logo」这一组件；
+- 搜索结果里出现的两个疑似来源页（Animata 的 Orbiting Items 3D、Framer Marketplace 的
+  OrbitMotion）**都取不到正文**（HTTP 403 / 只回导航壳）⇒ 未读到页面上的实际措辞，
+  按「只写真的查过的来源」这条纪律**不得引用**。
+
+⇒ 「换轨道形状」**不计入 ≥2**，卡点在**来源**不在**分箱**。
+本条另一句「『换环数』另擦到补充规则 2」同样被实核否证：那四圈同心点环是**纯装饰层**
+（按补充规则 1 不援引其 `accessibilityHidden(true)` 自陈，而看它承不承载语义 —— 它不映射
+任何调用方数据，且**低电量档下每环点数直接减半**，一个随电池状态改变数量的层不可能承载
+内容语义），而补充规则 2 的对象是**槽**，装饰层的计数变化不适用。
+
+⇒ `OrbitingLogos` 过得了来源义务的非皮肤候选只剩 **1** 个（多轨道分布，Magic UI 实证）
+< 2 ⇒ 举得犹豫 ⇒ **落步骤 4**，`decidedBy: tiebreaker`，`kind` / `needsExtensionPoint`
+与缓办期一致。⇒ 本条**不是**「与四个图表同组」的那一类，PR #297 终审 I-3 把它挪进缓办
+台账这个动作**是对的**（枚举确实没做），但它当时对落点的暗示（「与四个图表 /
+`BeforeAfterSlider` 同组」）**被本轮的实测证伪**。
+
+## #299
+
+> ⚠️ 按本文件头「零缺陷也要写『零缺陷』」的规矩：`#299` 的**枚举与重判**那一半得出的是
+> **5 条出口 1 + 1 条步骤 4**（详见下方 D-270-1 / D-270-2 的处置段），而枚举过程本身
+> 暴露出**两条**新缺陷，都落在判定法的**候选作用域**这一块。
+
+### D-299-1：作用域条款排除不了「由**宿主平台框架**承担的候选形态」
+
+**撞上公约哪一条**：第 1 节「候选形态的作用域」小节的三条件，其条件 ①
+逐字要求「被点名的兄弟组件必须真实存在于 `docs/component-registry.json`」。
+
+`#299` 给 `RadarChart` / `RingChart` / `ActivityHeatmap` 枚举出的候选里，**有一部分**在
+Apple 平台上的**真实承担者是宿主平台框架**（Swift Charts 的 `BarMark` / `LineMark`，或
+SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个具名组件」、也不在登记表里
+⇒ 条件 ① **结构性地不可能成立**，作用域条款**无法援引**。
+
+⚠️⚠️ **`#315` 终审 C-2：本条原先写成「四个图表的候选**大部分**由 Swift Charts 承担」，
+并被逐字抄进四份 `notes` 与四份类型文档 —— 抄到 `NetworkGraph` 上时是**假的**，
+被本仓自己的源码逐字证伪。现补一张逐条重判表，并从上面的候选清单里删掉
+「分层布局 / 环形布局 / 网格布局」三项（那三项是 `NetworkGraph` 的，Swift Charts 承担不了）。**
+
+| 条目 | 命中 `D-299-1` 的候选 | 「不命中」的候选（**只按 Swift Charts 口径**核过） | 条件 ① 若扩宽 |
+|---|---|---|---|
+| `RadarChart` | 候选 3 笛卡尔并排条形（`BarMark`） | 候选 1 平行坐标、候选 2 径向柱状 —— `RadarChart.swift:12`：「Swift Charts 画不出来：它没有极坐标多轴的 mark」 | **按 Swift Charts 口径** 3 → 2，仍 ≥2、不翻；**全口径未核完**（见表下） |
+| `RingChart` | 候选 1 并排线性进度条（SwiftUI `ProgressView(value:)`）、候选 3 堆叠条（`BarMark` 堆叠） | 候选 2 分段进度条 —— Swift Charts 无「分段进度」概念，只能用 N 个 `BarMark` 手拼 | 3 → **≤1 < 2，落点会从出口 1 翻回步骤 4**（⚠️ `#315` 第 3 轮终审 S-2：本行的「候选 2 不命中」同样**只按 Swift Charts 口径**核过，与第 3 列同一条限制 ⇒ 精确值写作 `≤1`；全口径下任何进一步收窄只会把 1 再往下压，**结论不变**） |
+| `ActivityHeatmap` | 候选 3 折线 / 柱状时间序列（`LineMark` / `BarMark`） | 候选 1 日历月视图、候选 2 月轨图 —— `ActivityHeatmap.swift:12-13`：「`RectangleMark` 能画格子，但按周分列 + 按星期几分行 + 日期对齐是一套布局，不是一个 mark」 | **按 Swift Charts 口径** 3 → 2，仍 ≥2、不翻；**全口径未核完**（见表下） |
+| `NetworkGraph` | **无 —— 本条不适用 `D-299-1`** | 三个候选全是图布局；`NetworkGraph.swift:13`：「Swift Charts **画不出来**：它没有图布局的概念」，且 Swift Charts 无任何 node-link mark | 不受影响 |
+| `BeforeAfterSlider` | **无 —— 本条不适用**（原判定即已写明） | 前后对比滑块在 Apple 平台上没有任何框架级承担者 | 不受影响 |
+
+⚠️ **上表引 `NetworkGraph` 那处的行号更正**（`#315` 第 4 轮终审 S-d，但**更正的方向与它给的不同**）：
+上一版写 `NetworkGraph.swift:12-13`，终审说「其实只落在第 12 行」——**两个都不对**，
+实测该文件第 12 行是空的 `///`、被引的那句整句落在**第 13 行**（第 14 行是它的后半
+「不是把数据映射到坐标轴」）。成因：`NetworkGraph.swift` 比同族三个图表文件多一行
+`import Synchronization`，整块类型文档**下移一行** —— 同族的 `RadarChart.swift:12`、
+`ActivityHeatmap.swift:12-13`、`RingChart.swift:12-13` 实测无误，只有本件偏了。
+⇒ 引整句的两处（`docs/components/network-graph.md` 与 registry `notes`）改成 `:13-14`，
+只引前半句的两处（本表与 `docs/component-contract-revisions.md` 的 `R-48` 段）改成 `:13`。
+⚠️ 这是**同一个族的第三次犯**（`#315` C-3 的 `:154`/`:167`、本条的 `:12-13` 与终审的 `:12`）；
+散文里的行号引用在本仓没有机器判据兜底，收口形态见 `#316`。
+
+⚠️⚠️ **`#315` 第 2 轮终审 F-2：上表第 3 列的口径比本条的谓词窄，如实标注。**
+本条这一轮**自己**把谓词从「Swift Charts」放宽成了「**宿主平台框架**」（`RingChart` 候选 1
+援引的正是 SwiftUI 的 `ProgressView(value:)`，不是 Swift Charts），但 `RadarChart` /
+`ActivityHeatmap` 的「不命中」论证**只查了 Swift Charts** —— 逐字依据就是那两处类型文档里的
+「Swift Charts 画不出来」。⇒ **用放宽后的谓词判、却只拿收窄的证据证**。
+⚠️ 这正是本轮 `#315` 终审 P-1 那个问题（样板同构复用、不逐条重判）**在修它的提交里复发**。
+⚠️ **P-1 的结构性收口移交 `#316`**（`#315` 第 3 轮终审 I-4）：把这批判定说明的唯一真源定在
+本文件的 `D-299-1` / `D-299-2`，3 份 registry `notes` + 3 份 `docs/components/*.md` 的对应段
+换成一行指针，并装一条「一处事实一个落点」的 fail-closed 机器判据。**本轮不做**，
+且本轮**不再往任何副本里追加段落**。
+
+⇒ **本轮的处置是把结论降级到证据能支撑的范围，落点不动**：
+- 上表第 4 列的「不翻」一律读作「**按 Swift Charts 口径不翻**」；
+- 「`RingChart` 是**唯一**会翻的一条」降级为「**至少** `RingChart` 会翻」。
+
+⚠️ **已经找到两个具名的实体反例**（在装好的 `iPhoneOS26.4.sdk` 里实核，非推测），
+作为后续逐条核查的**起点**（尚未走完判定、本轮不据以改落点）：
+
+| 条目 / 候选 | 具名 API | 本轮核到的逐字依据 |
+|---|---|---|
+| `ActivityHeatmap` 候选 1（日历月视图） | UIKit `UICalendarView` + `UICalendarViewDecoration` | `.../iPhoneOS26.4.sdk/System/Library/Frameworks/UIKit.framework/Headers/UICalendarView.h:17-18` 逐字 `UIKIT_EXTERN API_AVAILABLE(ios(16.0)) API_UNAVAILABLE(watchos, tvos) NS_SWIFT_UI_ACTOR` / `@interface UICalendarView : UIView`；同头 `:61` `#pragma mark - Decorations`、`:86` 的 delegate 方法 `calendarView:decorationForDateComponents:` 做**每日**装饰，`UICalendarViewDecoration.h:24` 逐字 “Creates a default decoration with a circle image.”。SwiftUI 侧另有 `MultiDatePicker` |
+| `RadarChart` 候选 2（径向柱状） | Swift Charts `SectorMark(angle:innerRadius:outerRadius:)` | `.../Charts.framework/Modules/Charts.swiftmodule/arm64e-apple-ios.swiftinterface:2338` 逐字 `nonisolated public init(angle: Charts.PlottableValue<some Plottable>, innerRadius: Charts.MarkDimension = .automatic, outerRadius: Charts.MarkDimension = .automatic, angularInset: CoreFoundation.CGFloat? = nil)` ⇒ `outerRadius` 是**逐 mark 可变**的 `MarkDimension`（同文件 `:2361-2362` 的 `SectorPlot` 更给出 `MarkDimensions<DataElement>` 的逐元素形态）⇒ 每类一个 sector、半径编码取值 = 径向柱状图 |
+
+⚠️ **这两条与排除 `RingChart` 候选 2 时用的标准不同类**：那里的理由是「只能用 N 个
+`BarMark` 手拼、不是现成能力」，而这两条是**单一具名 API 直接用**。
+⚠️ 若两条都成立，`RadarChart` / `ActivityHeatmap` 的计入数各自 3 → 1 < 2 ⇒ **也会翻**。
+⇒ 逐条核查移交 `#312`（该 issue 的排序约束因此更紧，不是更松）。
+
+⚠️ **成因，如实记**：那段「本条候选的真实承担者是 Swift Charts」的样板被**逐条抄了五遍
+而没有逐条重判**，`NetworkGraph` 就是抄错的那一份；`BeforeAfterSlider` 那份反倒写对了
+（明写「本条不适用」）⇒ 缺的不是判断力，是「样板落到每一条上都要重判一次」这个动作。
+⇒ 这也是 `#315` 终审 P-1 提的那条建议（样板只写一份、`notes` 留指针）的直接论据。
+
+⚠️ **这不是一个理论问题**：`CoreDesignCharts` 这个 target 的存在理由逐字就是
+「Swift Charts **原生画不出来**的四类图表」（`CLAUDE.md`）⇒ 对「我想要并排条形」这个诉求，
+本设计系统给出的正确答案很可能就是「**用 Swift Charts**」，而不是给 `RadarChart` 开一个
+把它变成条形图的扩展点。⇒ 作用域条款想表达的那条「换用那个承担者，别给本组件加扩展点」
+的判断在这里**是成立的，但没有条款可以承载它**。
+
+**本轮处置**：**不改落点**。`#299` 按公约**字面**走完判定法（三个候选均未被排除 ⇒
+非皮肤候选数 3 ≥ 2 ⇒ 出口 1），**没有**拿一条未成文的规则去翻转结论 —— 那正是
+「事后补写的效力边界」小节禁止的形态。缺陷登记于此，是否把作用域条款的条件 ①
+扩成「本设计系统的具名组件**或宿主平台框架的具名 API**」，另走修订回路。
+
+⚠️ **代价如实记录**：不扩这一条的直接后果就是本轮那 5 条 `semantic` 判定
+（含 `#312` 那批扩展点）—— 若将来条件 ① 被扩宽，**至少 `RingChart` 的落点会真的翻**
+（计入数 3 → **≤1** < 2 ⇒ 从出口 1 翻回步骤 4，见上表；`≤` 的理由见上表 `RingChart` 行）；`RadarChart` / `ActivityHeatmap`
+**按 Swift Charts 口径**计入数掉到 2、仍 ≥2 不翻，但**按「宿主平台框架的具名 API」全口径
+尚未逐条核**（见上表下方 F-2 段的两个具名反例：`UICalendarView` / `SectorMark(outerRadius:)`）
+⇒ 这两条**不能**声称不翻；`NetworkGraph` / `BeforeAfterSlider` 不受影响。
+而扩展点一旦以 public 协议形态发布就**撤不回来**。⇒ 这是 `#312` 应当**优先选形态 D**
+（槽 / 枚举可演进）而不是形态 B（public 协议不可撤）的一条独立理由，
+且 **`#312` 在 `D-299-1` 的修订回路走完之前不得走形态 B**（排序约束，已写进 `#312` 正文）。
+
+### D-299-2：「候选须是本组件的另一个**版本**」这条读法只活在问句里，没有成文判据
+
+**撞上公约哪一条**：第 1 节步骤 2 的问句「调用方会合理地想要一个**看起来完全不同、
+但含义相同**的**版本**吗？」与它的操作化门槛「能当场举出 ≥2 个业界真实存在的**替代形态**」。
+
+`#299` 在 `OrbitingLogos` 上撞到这条：Magic UI 同时发布 `OrbitingCircles` 与 `Marquee`
+**两个各自独立的组件**，Tailwind Plus 的 Logo Clouds 是营销页里**另一类区块** —— 三者
+展示的都是「一组品牌 logo」，但业界把它们做成**不同的组件**，不是同一组件的三种外观。
+判定时必须回答「这算不算本组件的一个**版本**」，而公约里能承载这个回答的条款只有
+**作用域条款**，那条又只认**本登记表内**的兄弟组件（`Carousel` 对 marquee 的条件 ③ 落空、
+登记表里根本没有 logo 网格）⇒ 判据用不上，只能落回问句本身的字面。
+
+⚠️ **两侧都用了同一把尺子，这一点必须留痕以便抽查**：
+- 判**计入**的一侧：`RadarChart` 的并排条形 / 平行坐标 —— AntV G2 的模型是
+  **同一套 mark 换一个坐标系**，`RingChart` 的线性条 —— Ant Design `Progress` 的
+  **同一个组件换一个 `type`**，`NetworkGraph` 的三种布局 —— AntV G6 的
+  **同一个图组件换一个 layout**，`BeforeAfterSlider` 的三种排布 —— Lightroom
+  **同一个 Before & After 视图换一个模式**。四条全部是「同一组件的可切换外观」的实证。
+- 判**不计入**的一侧：`OrbitingLogos` 的 marquee 与 logo 网格 —— 业界把它们做成**别的组件**。
+
+**本轮处置**：如实按问句字面判，并登记本缺陷。是否把这条读法写成成文判据
+（例如「候选须有『业界在**同一个组件 / 同一个功能**内提供该形态』的实证，否则按
+『那是另一个组件』不计入」），另走修订回路。⚠️ 若将来成文且取反向口径，
+`OrbitingLogos` 的落点会从步骤 4 变成出口 1。本轮不翻。
+⚠️⚠️ **`#315` 第 2 轮终审 C 更正**：上一版把翻过去称作「**不可逆的一侧**」，那是错的 ——
+翻转本身只动 registry 三字段 + J-2 红名单 + `inspected.count` + `withKnownIssue` 文案，
+**不发布任何 public API**、全部可撤；不可逆的那一步（发 public 协议）在 `#312`（已有排序
+约束）。⇒ 本轮不翻的理由**不是**可逆性，而是**下游连锁应当单独过一次评审**（主理由）与
+**到期性**，逐条见下方《`#315` 终审后复核》段。
+
+⚠️⚠️ **`#315` 终审 C-1：本条**是** `OrbitingLogos` 落点的决定性依据，不是旁注。**
+PR #315 的 `R-48` 段末、PR 正文、四份图表 `notes` 都写过「两条新缺陷**都没有**被用来改落点
+／本轮按公约字面走（不拿未成文的规则改落点）」—— 那句**对 `D-299-1` 成立，对 `D-299-2`
+不成立**，已在四处逐一改成两分的说法。事实是：
+- `OrbitingLogos` 的候选 2（Magic UI `Marquee`）与候选 3（Tailwind Plus Logo Clouds）
+  **唯一**的不计入理由就是本条这个未成文读法；
+- 剔除它，两条按三分法都是**排布**（环形↔线性 / 环形↔网格）⇒ 计入数
+  **2（候选 1 + 候选 4）→ 4 ≥ 2** ⇒ 出口 1 ⇒ `semantic` + `needsExtensionPoint`。
+  **这不是边角，是整条落点。**
+
+  ⚠️ **`#315` 第 2 轮终审 F-4：基数统一为 2。** 「1 → 3」里的 1 是**复核之前**的计入数；
+  同一批文档的《`#315` 终审后复核》段已把基数改成 **2**（候选 1 多轨道分布 + 候选 4 椭圆轨道）。
+  两条路径同时成立时应是 **2 + 2 = 4**。结论（≥2 ⇒ 出口 1）不受影响，但两处基数不得再打架。
+
+⚠️ **而且「按公约字面走」这句本身也需要更正**：公约步骤 2 里「…的**版本**吗」是**问句**，
+紧接其后的才是**操作化门槛**（「能当场举出 **≥2 个业界真实存在的替代形态**」），
+而「替代形态」并不等于「同一组件的版本」；作用域条款只排除**本登记表内**的兄弟组件，
+`Marquee` 与 Logo Clouds 都不在其中。⇒ 按操作化门槛的字面，两条**不该**被排除。
+选问句而不选操作化门槛，**是一次口径选择**，不是「无选择地照抄字面」。本轮如实标注，
+落点不动、**本轮不翻**，理由见下方《`#315` 终审后复核》段的重排版本（主理由：**下游连锁应
+单独过一次评审**；可逆性已降级、不再作依据），翻转移交 `#312`。
+
+### ⚠️ `#315` 终审后复核：`OrbitingLogos` 候选 4 的负面核验已过期（不是新缺陷，是一条来源更正）
+
+`#315` 终审 S-3 指出：`OrbitingLogos` 候选 4「椭圆 / 螺旋轨道」不计入的**唯一**依据是两条
+**负面**核验（「两个疑似来源页都取不到正文」），而那两条既没记 URL 也没记状态码与日期
+⇒ 无法复核。补记时把两条**重新跑了一遍**（2026-09-05），结果不是纯粹的补登记：
+
+| 页面 | 上一版记的 | 2026-09-05 实测 |
+|---|---|---|
+| <https://animata.design/docs/list/orbiting-items-3-d> | HTTP 403、取不到正文 | **HTTP 200、取得到完整正文** ⇒ 上一版的负面声称**已过期** |
+| <https://www.framer.com/marketplace/components/orbit-motion/> | 只回导航壳 | HTTP **200**，正文仅 111 字符导航壳 ⇒ 结论不变，但状态码是 200 不是失败 |
+
+**Animata 页面读到的逐字措辞**：组件自述 “List component with orbiting items. The items
+orbit around the center of an element in 3D Ellipse.”；props 含 `radiusX`（“The radius of
+the ellipse on X-axis in percentage, relative to the container.”）、`radiusY`（“The radius
+of the ellipse on Y-axis in percentage, relative to the container.”）、`tiltAngle`
+（“The angle at which ellipse is tilted to x-axis.”）。
+
+⇒ **后果**：候选 4 现在**过得了来源义务**；而且它是「**同一个组件**、两个 props 决定轨道是圆
+还是椭圆」（`radiusX == radiusY` 即圆）⇒ 连 `D-299-2` 那把「须是本组件的另一种长相」的尺子
+也过得了。⇒ **按公约字面，`OrbitingLogos` 的计入数应为 2（候选 1 多轨道分布 + 候选 4 椭圆轨道）
+≥ 2 ⇒ 落出口 1 ⇒ `semantic` + `needsExtensionPoint`**，而不是本 PR 落盘的步骤 4。
+
+**本轮处置：不翻转落点，如实登记，翻转移交 `#312`。** 理由逐条。
+⚠️⚠️ **`#315` 第 2 轮终审 C：理由的重心已按终审的实核重排。** 上一版把「可逆性」摆在最前
+当主理由，实核下来它是**最弱**的一条，而且有一个前提**直接是错的**（见 ③）。
+
+- **① 下游连锁应当单独过一次评审（这是主理由）**：翻转会顶动 J-2 的 `inspected.count`
+  （实测 16 → 17）、`knownMissingExtensionPoints`（实测 5 条 → 6 条）、`withKnownIssue`
+  的文案（逐字「5 条待补的扩展点」）、`R-48` 的判定表与 `#312` 的范围 —— 这一整条链
+  应当单独过一次评审，不应挟在一次「修终审反馈」的提交里悄悄落地。
+  ⚠️ 上一版这里还写着「这条证据还没有任何人独立看过它」——**该句已到期**
+  （`#315` 第 4 轮终审 S-c）：终审本轮**独立取页复核**了
+  <https://animata.design/docs/list/orbiting-items-3-d>，确认 HTTP 200 / 364334 字节，
+  并逐字命中上表记的 `3D Ellipse` / `radiusX` / `radiusY` / `tiltAngle` 与
+  “The radius of the ellipse on X-axis in percentage, relative to the container.”
+  ⇒ **证据侧已不再是单方自证**，本条主理由只剩「下游连锁那条链要单独过评审」这一半，
+  `#312` 先裁出口的**到期性因此更强**，不因本轮不翻而变缓。
+- **② 这是一条到期项，不是「缺陷登记后慢慢等」**：`D-299-1` 推迟的是一条**未成文的规则**，
+  本条推迟的是**公约现行字面在现有证据下已经给出的落点**。⇒ `#312` 必须**先裁**
+  `OrbitingLogos` 到底落哪个出口，**再**决定扩展点形态（该排序约束已写进 `#312` 正文）。
+- **③ 可逆性 —— ⚠️ 已降级，且上一版的前提不成立，如实更正**：上一版逐字写「翻到出口 1
+  最终要发布 public 扩展点，**撤不回来**」，据此把「翻过去」称作不可逆的一侧。**这句是错的**：
+  本轮若翻转，落盘的只是 registry 的三个字段（`decidedBy` / `kind` / `needsExtensionPoint`）
+  + 红名单 + `inspected.count` + `withKnownIssue` 文案 —— **不发布任何 public API**，全部可撤。
+  真正不可逆的那一步（发 public 协议）在 `#312`，而 `#312` 已经有排序约束挡着。
+  ⇒ 可逆性论证证明的是「**别急着发扩展点**」，**不是**「别急着翻落点」；上一版把这两件事
+  并成了一件。本条留在此处只作留痕，**不再作为推迟的依据**。
+- ⚠️ **一条同族的措辞更正**：把「证据在两小时内从 403 变 200」当作「世界在变、先别动」的
+  理由同样偏了 —— 该页是静态的组件文档，终审隔一天再取仍是 HTTP 200 ⇒ **变的是取页能不能
+  成功（反爬 / 限流），不是证据本身**。把一次取页失败记成世界的变化，正是本 PR 在修的那个族。
+- ⚠️ **本轮落盘的判定表因此带一个已知的过期项**：`R-48` 的 `OrbitingLogos` 行（计入 1、
+  步骤 4）在本段的证据下已不成立，该行**保留原样并在表后注记**。
+  ⚠️ **依据不是「只增不改」**（`#315` 第 3 轮终审 I-5 更正：那条成法在此**不适用** ——
+  `docs/component-contract-revisions.md` 的 `R-48` 段自陈「本条台账写于 `#299` 本轮、
+  尚未合并 ⇒ **上表直接改**；`#270` 及更早的记录仍按只增不改」，且同表 `BeforeAfterSlider`
+  行本轮就被**直接改过**（计入 3 → 2））。**真正的依据是**：该行的「计入数」与「落点」
+  被公约的推导链**绑死**（计入 ≥2 ⇒ 出口 1），**只改计入数会让该行自相矛盾**
+  （写着计入 2、落点却仍是步骤 4），而改落点已超出本轮范围（下游连锁见 ①）
+  ⇒ **整行冻结**，过期项在表后注记 + 翻转移交 `#312`。
+  ⚠️ **一条被否证的措辞，如实更正**（`#315` 第 4 轮终审 C-a）：上一版这里写的
+  「该行记的是落盘字段 ⇒ 表随落盘」**被它自己引的例子证伪**，不要再用 ——
+  `R-48` 判定表的表头是 5 列（`条目 / 具名候选 / 三分法 / 计入数 / 落点`），
+  其中**只有「落点」**对应落盘字段（`decidedBy`），「计入数」在
+  `docs/component-registry.json` 里**没有对应字段**（它是枚举结果，不是登记项）；
+  而同表本轮直接改过的三行改的**全是非落盘列**（`BeforeAfterSlider` 计入 3 → 2、
+  `ActivityHeatmap` 换引文、`RadarChart` 换反向证据）⇒ 「表随落盘」若成立，
+  那三行就不该动。
+

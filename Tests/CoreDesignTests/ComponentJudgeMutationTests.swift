@@ -164,7 +164,15 @@ struct ComponentJudgeMutationTests {
         // ⚠️ 期望是**空集**：`Toast` 由 `wxlpp/oh-my-story#65` 以形态 D2 补齐后，
         // J-2 的扩展点缺口全部收口。基线为空集使下面的变异断言**语义更强**——
         // 变异引入的违规不再需要从「已有缺口」里择出来。
-        #expect(judgeExtensionPoints(entries: entries, scan: copied).missing.isEmpty)
+        // ⚠️ **上句是 `#65` 当时的记录，不改写。现状（`#299`）：基线不再是空集**——
+        // 5 条重判落出口 1、扩展点实现移交 `#312`，登记在
+        // `ComponentExtensionPointGuard.knownMissingExtensionPoints` 里。
+        // ⇒ 基线改为**与那张红名单逐字相等**，而不是写死 `isEmpty`：
+        // 写死空集会让本条在红名单非空期间**永远红**，写死 5 个名字则会在 `#312` 补齐后
+        // 忘记同步。取红名单本身作期望，两个方向都由 J-2 自己的棘轮断言守着。
+        #expect(Set(judgeExtensionPoints(entries: entries, scan: copied).missing)
+                == ComponentExtensionPointGuard.knownMissingExtensionPoints,
+                "副本的 J-2 缺口与真实红名单不一致 —— 拷贝有问题，或红名单没同步")
         #expect(judgeNativeProtocolPurity(entries: entries, scan: copied).violations.isEmpty)
         #expect(Set(judgeTextParamCoverage(
             entries: entries, scan: copied, ownerAliases: ComponentTextParamGuard.ownerAliases
@@ -181,7 +189,19 @@ struct ComponentJudgeMutationTests {
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)))
-        #expect(result.missing == ["Banner"],
+        // ⚠️ **期望 = 已知红名单 ∪ {Banner}**（`#299` 由 `== ["Banner"]` 改）：本条要证的是
+        // 「变异**新引入**了 Banner 这一条」，不是「全库恰好只有 Banner 一条缺口」。
+        // 写死 `["Banner"]` 会把判据与红名单的长度耦合起来，`#312` 补齐后又得改回去。
+        //
+        // ⚠️ **`#315` 终审 S-6 登记的代价（明知而取）**：期望值与被测对象现在**同源** ——
+        // 都取 `ComponentExtensionPointGuard.knownMissingExtensionPoints`。⇒ 若那张红名单本身
+        // 写错了（多写 / 少写一个名字），**本条变异判据不会红**，它只证「变异新引入了 Banner」。
+        // 挡红名单本身写错的是**另外两条**：J-2 自己的块外 canary
+        // （`Set(result.missing) == knownMissingExtensionPoints`，拿真实扫描结果对账）与
+        // 「已知缺口条目必须仍是 semantic + 要扩展点 + 协议字段皆 null + notes 写着承接 issue」
+        // 那个承重核对循环。⇒ 分工是清楚的，此处只登记这条耦合，不改写法：
+        // 换成写死名字会在 `#312` 补齐后静默过期，那是更糟的一侧。
+        #expect(Set(result.missing) == ComponentExtensionPointGuard.knownMissingExtensionPoints.union(["Banner"]),
                 "登记表说 Banner 的扩展点是 BannerStyle，源码里没有这个协议声明了 ⇒ 必须判红")
         #expect(result.diagnostics.contains { $0.contains("Banner：") && $0.contains("无该协议声明") })
     }
@@ -200,7 +220,8 @@ struct ComponentJudgeMutationTests {
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)))
-        #expect(result.missing == ["Banner"])
+        // ⚠️ 同上（`#299`）：期望 = 已知红名单 ∪ {Banner}。
+        #expect(Set(result.missing) == ComponentExtensionPointGuard.knownMissingExtensionPoints.union(["Banner"]))
         #expect(result.diagnostics.contains { $0.contains("Banner：") && $0.contains("无实现类型") },
                 "只查协议声明、不查实现的话，把两个 style 实现删光判据照绿 —— AC 原文是『定义 + 使用』")
     }

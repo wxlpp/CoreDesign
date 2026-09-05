@@ -242,36 +242,50 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   jq 取到的是 `null`。照 `[]` 写判据会永远判红。
 - **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
   `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
-- **checkout 落在 `/tmp` 这类符号链接下时，多条源码守卫会集体假红**（`#311`）：
-  `#filePath` 是**编译期**记下的那串路径（`xcodebuild` 腿上就是 `/tmp/…`，不解析符号
-  链接），而 `FileManager.enumerator(at:)` 是**运行期**枚举、**会**解析根里的符号链接
-  ⇒ 同一次运行里两端分叉成 `/tmp/…` 与 `/private/tmp/…`。据此推出的台账键被污染成
-  `/privateSources/…` 这类畸形串，多条判据当场红，而 `JudgementReferenceGuard` 的诊断
-  说的是「各面候选引用数全 0、绝大多数文件落在扫描面之外」——**读的人会去查扫描面配置，
-  不会想到是 checkout 位置**。
-  ⚠️ **只在 `xcodebuild` 腿现形**：`swift test` 腿上 SwiftPM 先把包根解析成
-  `/private/tmp/…` 再交给编译器，两端同为 `/private/…` 不分叉 ⇒ 这条坑上
+- **checkout 落在 `/tmp` 这类符号链接下时，多条源码守卫会集体假红**（`#311`）：`#filePath` 是
+  **编译期**路径（`xcodebuild` 腿上不解析符号链接），`FileManager.enumerator(at:)` 是**运行期**
+  枚举、**会**解析根里的符号链接 ⇒ 两端分叉，台账键被污染成 `/privateSources/…` 这类畸形串。
+  ⚠️ 诊断会说「各面候选引用数全 0」——**读的人会去查扫描面配置，想不到是 checkout 位置**。
+  ⚠️ **只在 `xcodebuild` 腿现形**（`swift test` 腿两端同为 `/private/…` 不分叉）⇒ 这条坑上
   macOS `swift test` 全绿是**假绿**。
-  ⇒ 处置：根内相对路径一律走 `GuardScanRoots.relativePath(_:)` /
-  `GuardScanRoots.relativePath(_:from:)`（按**路径分量**比较 + `/private` 归一），
-  **不得**自己写 `url.path.replacingOccurrences(of: root.path + "/", with: "")`
-  ——`replacingOccurrences` 不是前缀操作，前缀对不上时它会在**串中间**挖掉一段。
-  ⚠️ 另有一条**与 checkout 位置无关**的同源分叉，但它**只在 macOS 腿上**（且**与 runner
-  无关**——这一味来自「macOS 上 `/var` 是 `/private/var` 的符号链接」这条 OS 事实，不是
-  构建系统给出来的路径，所以 `swift test` 与 `xcodebuild` 走的是同一条；⚠️ 本仓 CI
-  没有 macOS `xcodebuild` 腿，这半句是**从机制推出的，不是实测**）：
-  `NSTemporaryDirectory()` 在 macOS 给的是 `/var/folders/…`，
-  而 `/var` 同样是 `/private/var` 的符号链接 ⇒ 凡是把源码树拷进临时目录再扫的判据，
-  在 macOS 上**不论 checkout 落在哪里**都吃这一条。
-  ⚠️ **iOS Simulator 腿的 `NSTemporaryDirectory()` 不在 `/private` 之下，这一味在那条腿上
-  不出现**：它落在 `…/Library/Developer/CoreSimulator/Devices/<id>/data/tmp/`，逐分量查过
-  没有符号链接祖先、`realpath` 与原串相同（`#313` 终审实测；第 3 轮用 iOS 腿实跑的判据
-  输出复核过——那条串整条**不含** `/private`）。⇒ 拿 `/private` 写死的复现 fixture 在 iOS 腿上
-  **构造不出分叉**，后果分两种、取决于它有没有前提自证：**没有**前提自证的（只断言「相对
-  路径干净」）会静默退化成「两端一致 ⇒ 恒绿」；**带**前提自证的会当场红——本仓早一版判据
-  自证那一句写的是 `file.path.hasPrefix("/private/")`，iOS 腿上就红在它（实测）。两种后果
-  都要不得；要两条腿都成立，fixture 必须自己建一条符号链接
-  （见 `Tests/CoreDesignTests/GuardScanRoots.swift` 的 `SymlinkedScanRootFixture`）。
+  ⇒ 根内相对路径一律走 `GuardScanRoots.relativePath(_:)` / `relativePath(_:from:)`（按**路径
+  分量**比较 + `/private` 归一），**不得**自写 `url.path.replacingOccurrences(of: root.path + "/")`
+  ——它不是前缀操作，前缀对不上时会在**串中间**挖掉一段。
+  ⚠️ 另有一条**与 checkout 位置无关**的同源分叉：`NSTemporaryDirectory()` 在 macOS 落在
+  `/var/folders/…` 而 `/var` 是 `/private/var` 的符号链接 ⇒ 拷贝源码树再扫的判据都吃这一条；
+  **iOS Simulator 腿不在 `/private` 之下**（`…/CoreSimulator/Devices/<id>/data/tmp/`），
+  所以拿 `/private` 写死的 fixture 在 iOS 腿上构造不出分叉、会静默恒绿 ⇒ fixture 必须自建符号链接。
+- **`xcodebuild` 的 console 行数不可作承重判据**（`#299`）：出现过「同一条命令第 2 遍只落 2 条
+  `Test run with` 行」，成因未查明、6 次复现尝试未再现 ⇒ 无论成因如何，「行数对了就算跑全了」
+  这个推断不成立。**权威值取 result bundle**：
+
+    ```bash
+    xcodebuild test -scheme CoreDesign-Package \
+      -destination 'platform=iOS Simulator,id=<UDID>' \
+      -resultBundlePath <path>.xcresult
+    xcrun xcresulttool get test-results summary --path <path>.xcresult
+    ```
+
+    ⚠️ **取顶层 `passedTests`，不是 `devicesAndConfigurations[].passedTests`** —— 后者按
+    dynamic parameters 展开计（实测顶层 928、per-device 966 = 928 − 9 + 47），照后者读会
+    误判成基线漂移。
+- **公开 `static` 成员的 MainActor 隔离棘轮只在 CI 上跑**（`#307`）：本包三个 target
+  都开了 `.defaultIsolation(MainActor.self)`，新加的公开 `static` 成员**默认**被卷进
+  MainActor，下游在非主 actor 语境取用会报错或被迫 `await`。判据是
+  `scripts/mainactor-static-ratchet.sh`（`swift package dump-symbol-graph` → 筛
+  `@MainActor` 的公开 static 型成员 → 与 `docs/mainactor-static-exemptions.txt`
+  做双向差集），挂在 `ci.yml` 的 `swiftpm` job 里 `swift test` 之后那一步
+  ——**本地 `swift test` 全绿不代表这条过了**，改公开 static 后请手动跑一次
+  （本机热 `.build` 上**实测约 4 s**，写出约 265 MB JSON；这里曾写「约 100s」，
+  是失真的数，`#314` 终审实测推翻）。看着这一步不被静默拆掉的是无条件树内判据
+  `Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift`。
+  ⚠️ **只有第三方模块的扩展块成员不在射程内**：脚本扫「各 target 的主 symbols 文件」
+  **加**「本包内跨 target 的 `<Target>@<本包另一个 target>.symbols.json`」，只放过
+  `@SwiftUI` / `@SwiftUICore` 那一类（有意的取舍，逐字代价登记在那个脚本的
+  《范围定案与代价》一节）。⚠️ 那块盲区的形态要写准：**不是**「往
+  `public extension Color` 加常量忘了写 `nonisolated`」——实测那样加出来的成员
+  **根本不带 `@MainActor`**（`defaultIsolation` 不作用于外来模块类型的扩展）；
+  真实形态是**显式**写 `@MainActor`，或扩展一个自身就是 `@MainActor` 的第三方类型。
 
 ### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
 
@@ -289,6 +303,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    实测 `-only-testing:CoreDesignTests/NoSuchSuiteTests` → `** TEST SUCCEEDED **`、`EXIT=0`、
    日志里**连一行 `Test run with …` 都没有**。⇒ `ci.yml` 里那几行 skip 标识符写错了不会报错，
    只会静默失效（这也是那里反复强调「用类型名不用显示名」的原因）。
+   ⚠️ **回指本节之前那条「`xcodebuild` 的 console 输出会漏行」**：本条的判据是 `Test run with` 行数，
+   而那条说明该行数**不稳** ⇒ 只能用来判「零 / 非零」，核具体条数必须取 `.xcresult`。
 4. **`-destination` 的 simulator id 过期 ⇒ 零测试、退出码 0** —— **历史报告，本仓复现不出来；
    四种可构造变体实测全是硬红。别把这一条当既定事实传播。**
    ⚠️ 上一版这里写的复现障碍（「要复现需要一台『存在但不合格』的设备，本机凑不出」）
@@ -309,6 +325,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    ⚠️ 那份 `Ineligible` 清单**列的不是那台不合格的 simulator**——实测它列的是本机没装的
    tvOS / visionOS / watchOS **平台 placeholder**；不合格的 iOS 18.x 设备连候选都不进。
    ⇒ 只看到 `Ineligible` 就下「静默零测试」的结论会判错；判据是那一行 `error:` 与退出码。
+   ⚠️ **回指本节之前那条「`xcodebuild` 的 console 输出会漏行」**：上表第 4 列就是 `Test run with` 行数，
+   该行数**不稳**、不足以承重；本条的结论落在 `EXIT=70` 与那一行 `error:` 上，不靠行数。
    ⚠️ 本条保留在列表里，只作**历史登记**（记不清源自何处的一次报告），
    本仓至今**没有任何一次实测支持它**。要么它属于别的 Xcode 版本 / CI 环境，
    要么原报告本身就是误读。谁将来真复现出退出码 0，请连原始日志一起补在这里。
@@ -318,6 +336,15 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    实测（`main`，三个 test target）：`swift test --build-system swiftbuild --filter <类型名>`
    打印 3 行汇总，其中一行是真实条数、末行是 `0 tests`，`EXIT=0`。
    ⇒ 核对条数**必须扫全文**（`grep -qE 'Test run with [1-9][0-9]* tests?'`），不能取末行。
+   ⚠️ **同族风险，不是回指**（`#315` 第 4 轮终审 I-a 更正上一版）：上面那条「console 输出会漏行」
+   是在 **`xcodebuild`** 上实测出来的，本条讲的是 **`swift test --build-system swiftbuild`**
+   —— **跨了工具边界**，`swift test` 侧本仓**没有实测过**行数是否也丢。⇒ 保守处置：那道
+   `grep -qE` 的网只当「一条都没跑」的兜底用，**不要**把 console 行数当权威条数。
+   ⚠️ 权威条数**不要写「取 `.xcresult`」**（上一版就是这么写的）：`.xcresult` 是 `xcodebuild`
+   的产物，`swift test --help` 实测**没有任何产出 `.xcresult` 的选项** ⇒ 读者在 SwiftPM 腿上
+   照那句话**无处可取**。SwiftPM 侧要权威条数走 `swift test --xunit-output <path>`
+   （实测 `--help` 里有：“Path where the xUnit xml file should be generated.”），
+   或把**每个 target 那一行汇总相加**。
 
 ⚠️ **`#302` 把第 5 条记成了「`--build-system swiftbuild --filter` 静默跑零个测试」——
 复现不出来**（本次在 `main` 与 `epic/shipswift-shaders` 各测一遍）：后者上
