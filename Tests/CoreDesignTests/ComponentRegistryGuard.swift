@@ -794,7 +794,7 @@ struct ComponentRegistryGuard {
             // （`#270`）：`GuardScanRoots.relativePath` 的文档逐字写着「它们哪天扩到多根，
             // 必须同轮改成 `relativePath`」—— `#270` 正是那一天。裸文件名在三根之下会指错文件。
             //
-            // ⚠️ **但根取的是**被扫的那个 `root`**、外面再补一段根目录名，不是仓库根**
+            // ⚠️ **但根取的是被扫的那个 `root`、外面再补一段根目录名，不是仓库根**
             //（`#313` 第 2 轮终审 I-3；`#270` 落地时这里写的是单参 `relativePath(_:)`）：
             // 本函数也被 `ComponentJudgeMutationTests.multiRootCatchesUnregisteredTypeInNewTarget`
             // 喂**副本树的根**（`NSTemporaryDirectory()` 之下）。用仓库根相对路径的话，`url`

@@ -261,8 +261,9 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   而 `/var` 同样是 `/private/var` 的符号链接 ⇒ 凡是把源码树拷进临时目录再扫的判据，
   在 macOS 上**不论 checkout 落在哪里**都吃这一条。
   ⚠️ **iOS Simulator 腿的 `NSTemporaryDirectory()` 不在 `/private` 之下，这一味在那条腿上
-  不出现**：它落在 `…/CoreSimulator/Devices/<id>/data/tmp/`，逐分量查过没有符号链接祖先、
-  `realpath` 与原串相同（`#313` 终审实测）。⇒ 拿 `/private` 写死的复现 fixture 在 iOS 腿上
+  不出现**：它落在 `…/Library/Developer/CoreSimulator/Devices/<id>/data/tmp/`，逐分量查过
+  没有符号链接祖先、`realpath` 与原串相同（`#313` 终审实测；第 3 轮用 iOS 腿实跑的判据
+  输出复核过——那条串整条**不含** `/private`）。⇒ 拿 `/private` 写死的复现 fixture 在 iOS 腿上
   会静默退化成「两端一致、构造不出分叉 ⇒ 恒绿」；要两条腿都成立，fixture 必须自己建一条
   符号链接（见 `Tests/CoreDesignTests/GuardScanRoots.swift` 的 `SymlinkedScanRootFixture`）。
 
