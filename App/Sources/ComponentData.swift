@@ -2,9 +2,10 @@ import SwiftUI
 import CoreDesign
 // ⚠️ **多 product 之后必须逐条 import**（#245 的失效形态：`App/project.yml` 只写
 // `- package: CoreDesign` 时预览宿主编译得过、但画廊里的新组件 import 不到）。
-// `project.yml` 那侧的三条 `product:` 与这两行是**一对**，改一边必须改另一边。
+// `project.yml` 那侧的四条 `product:` 与这三行是**一对**，改一边必须改另一边。
 import CoreDesignCharts
 import CoreDesignEffects
+import CoreDesignShaders
 
 // MARK: - ComponentCategory
 
@@ -21,6 +22,9 @@ enum ComponentCategory: String, CaseIterable, Identifiable {
     case effect = "Effect"
     /// `CoreDesignCharts` 的 4 个图表。
     case chart = "Chart"
+    /// `CoreDesignShaders` 的 9 个 API 单位（6 个自带内容的 `View` + 3 个只重采样
+    /// 调用方内容层的 modifier）。
+    case shader = "Shader"
 
     var id: String { self.rawValue }
 }
@@ -187,7 +191,7 @@ extension ComponentMeta {
         ComponentMeta(id: "spinning-nonblocking", name: "Spinning · 非阻塞", description: "topBar 顶条 / inline 行内：不铺遮罩、不禁用交互", category: .feedback) {
             SpinningNonBlockingPreview()
         },
-    ] + Self.shipSwiftEntries
+    ] + Self.shipSwiftEntries + Self.shaderEntries
 }
 
 // MARK: - `shipswift-effects` epic 的 40 个 API 单位（#256 串行合并）
@@ -1330,5 +1334,132 @@ private struct NetworkGraphDemo: View {
 
     var body: some View {
         NetworkGraph(nodes: Self.nodes, edges: Self.edges).frame(height: 260)
+    }
+}
+
+// MARK: - `shipswift-shaders` epic 的 9 个 API 单位（#284 的「预览宿主」切片）
+//
+// 另起分节而不并进 `shipSwiftEntries`，两条理由与那一节相同（见其注释）。
+// 同样**有意不补** `App/Sources/Previews.swift` 的宿主 `#Preview`，判据见
+// `SnapshotArtifactGuard`。
+extension ComponentMeta {
+
+    @MainActor static let shaderEntries: [ComponentMeta] = [
+        // MARK: 自带内容的 6 个 View（#278 / #280）
+        ComponentMeta(id: "shader-plasma", name: "Plasma", description: "等离子体背景；density 三档 × ShaderMotion 四档，tint 取调用方色", category: .shader) {
+            ShaderStage { Plasma(density: .regular, motion: .regular) }
+        },
+        ComponentMeta(id: "shader-fractal-clouds", name: "FractalClouds", description: "分形噪声云层；density = soft / regular / turbulent", category: .shader) {
+            ShaderStage { FractalClouds(density: .regular, motion: .calm) }
+        },
+        ComponentMeta(id: "shader-ink-smoke", name: "InkSmoke", description: "水墨扩散；density = faint / regular / heavy", category: .shader) {
+            ShaderStage { InkSmoke(density: .regular, motion: .calm) }
+        },
+        ComponentMeta(id: "shader-liquid-chrome", name: "LiquidChrome", description: "液态金属条带；density = wide / regular / fine", category: .shader) {
+            ShaderStage { LiquidChrome(density: .regular, motion: .regular) }
+        },
+        ComponentMeta(id: "shader-dot-grid", name: "DotGrid", description: "点阵背景；spacing = loose / regular / tight，motion .still 时完全静止", category: .shader) {
+            ShaderStage { DotGrid(spacing: .regular, motion: .calm) }
+        },
+        ComponentMeta(id: "shader-glass-symbol", name: "GlassSymbol", description: "SF Symbol + 渐变背衬的折射玻璃；自带内容，故是 View 而非 modifier", category: .shader) {
+            GlassSymbolDemo()
+        },
+
+        // MARK: 只重采样内容层的 3 个 modifier（#278 / #283）
+        ComponentMeta(id: "shader-refractive-glass", name: ".refractiveGlass(...)", description: "折射玻璃罩：strength 三档，rim 描边默认取 .accent", category: .shader) {
+            ShaderModifierDemo(labels: RefractiveGlassStrength.allCases.map { String(describing: $0) }) { content, index in
+                content.refractiveGlass(strength: RefractiveGlassStrength.allCases[index])
+            }
+        },
+        ComponentMeta(id: "shader-glass-orb", name: ".glassOrb(...)", description: "放大镜球：焦点默认居中、按住可移动；size 三档 × magnification 三档", category: .shader) {
+            ShaderModifierDemo(labels: GlassOrbSize.allCases.map { String(describing: $0) }) { content, index in
+                content.glassOrb(size: GlassOrbSize.allCases[index], magnification: .strong)
+            }
+        },
+        ComponentMeta(id: "shader-halftone", name: ".halftone(...)", description: "半调网屏：dot = fine / regular / coarse，ink / paper 可换色", category: .shader) {
+            ShaderModifierDemo(labels: HalftoneDot.allCases.map { String(describing: $0) }, subject: .grayscale) { content, index in
+                content.halftone(dot: HalftoneDot.allCases[index])
+            }
+        },
+    ]
+}
+
+// MARK: - Shader 画廊宿主
+
+/// 自带内容的 shader 是背景层，给一个固定高度的舞台即可。
+private struct ShaderStage<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        self.content
+            .frame(height: 220)
+            .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
+    }
+}
+
+/// modifier 族不产生内容，必须给一层被作用的内容。三档并排，便于对比。
+private struct ShaderModifierDemo<Effected: View>: View {
+    let labels: [String]
+    /// `.halftone` 靠亮度阈值成像，要灰阶主体；另两条靠几何，用品牌色渐变更好看。
+    var subject: ShaderDemoSubject = .brand
+    @ViewBuilder let effect: (AnyView, Int) -> Effected
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.md) {
+            ForEach(Array(self.labels.enumerated()), id: \.offset) { index, label in
+                self.effect(AnyView(self.subject.view), index)
+                    // 行高须 ≥ `GlassOrbSize.large` 的直径 144pt，否则最大一档被自身的
+                    // clip 削平（`GlassOrb.swift` 的 radius：24 / 44 / 72）。
+                    .frame(height: 160)
+                    // ⚠️ 别删：不 clip 时 `.glassOrb` 三行溢出 frame、连成一片（实测）。
+                    .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
+                    .overlay(alignment: .topLeading) {
+                        // ⚠️ 标签压在被 shader 作用的内容上，必须自带底：不加底时
+                        // halftone 亮色腿是黑字压黑网点、三档标签全不可见（实测）。
+                        Text(label)
+                            .font(CoreTypography.Token.caption.font.monospaced())
+                            .foregroundStyle(Color.contentPrimary)
+                            .padding(.horizontal, CoreSpacing.xs)
+                            .padding(.vertical, CoreSpacing.xxs)
+                            .background(Color.surfaceRaised, in: Capsule())
+                            .padding(CoreSpacing.xs)
+                    }
+            }
+        }
+    }
+
+}
+
+/// 被 shader 作用的内容层。
+private enum ShaderDemoSubject {
+    case brand
+    case grayscale
+
+    @ViewBuilder var view: some View {
+        ZStack {
+            switch self {
+            case .brand:
+                LinearGradient(colors: [.accent, .accentSubtleBackground], startPoint: .topLeading, endPoint: .bottomTrailing)
+            case .grayscale:
+                LinearGradient(colors: [.contentPrimary, .surfaceCanvas], startPoint: .leading, endPoint: .trailing)
+            }
+            Text(verbatim: "CoreDesign").font(.largeTitle.bold())
+        }
+    }
+}
+
+private struct GlassSymbolDemo: View {
+    var body: some View {
+        HStack(spacing: CoreSpacing.lg) {
+            ForEach(Array(RefractiveGlassStrength.allCases.enumerated()), id: \.offset) { _, strength in
+                VStack(spacing: CoreSpacing.xs) {
+                    GlassSymbol("sparkles", strength: strength)
+                        .frame(width: 88, height: 88)
+                    Text(String(describing: strength))
+                        .font(CoreTypography.Token.caption.font.monospaced())
+                        .foregroundStyle(Color.contentSubtle)
+                }
+            }
+        }
     }
 }
