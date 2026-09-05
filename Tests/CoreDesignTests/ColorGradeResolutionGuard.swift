@@ -3,17 +3,28 @@ import SwiftUI
 import Testing
 @testable import CoreDesign
 
-// MARK: - 第 1 层资源色的「解析得出来吗」守卫 / Layer-1 asset color resolvability (Issue #275)
+// MARK: - asset catalog 取色的「解析得出来吗」守卫 / Asset-catalog color resolvability (Issue #275)
 //
-// ## 它守什么
+// ## 术语先约定：这里说的是「走 asset catalog 查找的 198 个常量」
 //
-// 第 1 层（`Colors/ColorGrade.swift` 的 170 个色阶、`Colors/StatusColors.swift` 的 24 个
-// status token、`Tokens/CoreElevation.swift` 的 4 个 shadow token，合计 **198 个
-// `Color("…", bundle: .module)` 常量**）是**唯一**要走 asset catalog 查找的一层；
-// 第 2/3 层走系统语义色 API，不碰 catalog。而 asset catalog 在本仓有**两种产物形态**，
-// 由构建路径决定，两者对 `Color.resolve(in:)` 的后果完全相反：
+// ⚠️ **有意不用「第 1 层」这个词**：`CLAUDE.md`《分层色彩系统》里的 layer 1 = 仅
+// `ColorGrade` 的 170 个色阶（`StatusColors` 被列在 layer 3，`CoreElevation` 的阴影
+// 根本不在色彩分层里），与本文件要圈的集合**外延不同**。本文件圈的是**构建产物意义上**
+// 的一个集合——所有以 `Color("…", bundle: .module)` 形式、必须命中 asset catalog 才能取到
+// 值的常量，磁盘上一一对应 `Sources/CoreDesign/Resources/Resources.xcassets/**/*.colorset`：
 //
-// | 构建路径 | bundle 里的形态 | 第 1 层 `resolve(in:)` |
+// | 来源 | 个数 | 磁盘目录 |
+// |---|---|---|
+// | `Colors/ColorGrade.swift` 色阶 | 170 | 17 色相 × `<hue>-0` … `<hue>-9`，**每档一个独立 colorset 目录** |
+// | `Colors/StatusColors.swift` status token | 24 | `status/` |
+// | `Tokens/CoreElevation.swift` shadow token | 4 | `shadow/` |
+// | 合计 | **198** | 实测 `find … -name '*.colorset' \| wc -l` = 198 |
+//
+// 其余各层走系统语义色 API（`UIColor`/`NSColor` 桥接、`Color.accentColor`、`Color.mix`），
+// 不碰 catalog。而 asset catalog 在本仓有**两种产物形态**，由构建路径决定，
+// 两者对 `Color.resolve(in:)` 的后果完全相反：
+//
+// | 构建路径 | bundle 里的形态 | 这 198 个常量的 `resolve(in:)` |
 // |---|---|---|
 // | `swift build` / `swift test`（SwiftPM native，macOS CLI） | `Resources.xcassets/` **目录原样拷贝** | **全部 `(0,0,0,0)`** |
 // | `xcodebuild`（iOS Simulator 腿） | `Assets.car` | 真实取值 |
@@ -23,10 +34,15 @@ import Testing
 // `.process("Resources")` 对 `.xcassets` 就是一次目录拷贝；而
 // `NSColor(named:bundle:)`（`Color(_:bundle:)` 在 AppKit 下最终落到的东西）
 // **只认编译后的 catalog**，读不到目录形态 ⇒ 每一次查找都 miss、返回 clear。
+// ⚠️ 这个机理**不是本 issue 首次查明**：`ColorAssetGuardTests` 的
+// `rawXcassetsAvailable` 文档注释（「xcodebuild 会调 `actool` 把整个 xcassets 编译成单个
+// `Assets.car`」）与 `CoreDesignEffectsTests/CrossPlatformTests.swift` 的
+// `branchWarmUp` 注释（`#274` 实测「`swift test` 进程里资源色解析成完全透明」）
+// 早已各记了一半。本文件做的是把两半合并、量化到 token 级、并装上机器判据。
 //
 // ## 为什么必须是一条判据
 //
-// 失效形态是**静默的、且方向向绿**：位图 / `resolve` 判据里一旦出现第 1 层 token，
+// 失效形态是**静默的、且方向向绿**：位图 / `resolve` 判据里一旦出现这批 token，
 // 「两张图不同」会因为其中一张根本没画出来而通过，「α > 0.15」这类阈值判据则会
 // 因为恒 0 而红得莫名其妙。前者尤其危险——它给出的是一条**永远为真**的判据，
 // 而 `swift test` 全绿，没有任何东西提示作者他刚写下的是空转。
@@ -37,36 +53,74 @@ import Testing
 // - 只有目录形态 ⇒ 断言抽样 token **恒为全透明**（反向钉子：把本仓 macOS 腿的盲区
 //   钉在这里。SwiftPM 哪天开始调 `actool`、或有人把这条腿切到 `swiftbuild`，
 //   这条会立刻变红，逼人回来重读本节与 `CLAUDE.md`《验证边界与常见坑》）。
-// - 两种形态都探不到 ⇒ `catalogFormIsDetectable` 判红。**这条不带 `.enabled(if:)`**，
-//   否则 bundle 整个坏掉时上面两条会双双**跳过**，而跳过在退出码上与通过无异。
-//   （`ResourceBundleCanaryTests.assetCatalogIsPresentInSomeForm` 守的是同一件事的
-//   另一半——它只问「至少有一种形态」，不问解析结果。两条互不替代。）
+// - 两条分叉判据各带 `.enabled(if:)`，而跳过在退出码上与通过无异 ⇒ 需要**无条件**判据兜底。
+//   本文件有两条：`catalogFormIsDetectable`（兜双 skip）与
+//   `sampleBasisHasExpectedCardinality`（兜抽样面被清空 / 缩水）。
 //
-// ## 抽样面
+// ### ⚠️ 更正：`catalogFormIsDetectable` 与既有 canary 的真实关系
 //
-// 17 色相各取中间档（10 个色阶同源同 colorset 目录，逐档全查只是把 170 次 miss
-// 重复一遍，不增加信号）+ 24 个 status token 全量 + 3 档非零 shadow。
-// ⚠️ **`shadow-none` 有意不在抽样里**：它的 colorset 两种外观下 α 都是 `0.000`
-//（占位档，`radius = 0` 时 SwiftUI 不绘制），是**设计上的全透明**，
-// 放进正向判据会让它在 iOS 腿上恒红。
+// 本文件初版称它与 `ResourceBundleCanaryTests.assetCatalogIsPresentInSomeForm`
+// 「一个只问形态、一个问解析结果，两条互不替代」——**那是假的**，照录更正：
+// 两条问的是**同一件事**，谓词代数上恒等
+// （`hasCar ∨ (¬hasCar ∧ hasXcassets)` ≡ `hasCar ∨ hasXcassets`），
+// 本文件这条**也**不问解析结果。终审实测：改私有探测让本条判红时，
+// `assetCatalogIsPresentInSomeForm` 照绿 ⇒ 当时是同 target 内同一事实的两份独立实现。
+//
+// 处置（判断与理由）：**断言保留、实现去重**。
+// - 保留：兜双 skip 的网必须与被它守的两条 `.enabled(if:)` **同文件**。既有 canary 的存在
+//   理由是 `#119` 的 colorset 目录守卫，与本文件无关；它将来按自己的理由被改或被删时，
+//   没有任何东西会提示改动者本文件在指望它。跨文件的隐式兜底就是下一次静默失守。
+// - 去重：`assetCatalogIsCompiled` / `assetCatalogIsRawDirectoryOnly` 两个探测已改为
+//   **internal**，`ResourceBundleCanaryTests` 直接消费它们 ⇒ 「什么叫 car 形态 / 目录形态」
+//   全 target 只有一份实现，重复的只剩断言本身。
+//
+// ## 抽样面：44 个（共 198 个中），以及它**没**覆盖到的
+//
+// - 色阶 **17 / 170**：17 色相各取 grade 5 一档。
+//   ⚠️ **更正**：初版给的理由是「10 个色阶同源同 colorset 目录」——**事实错误**。
+//   磁盘上是 `brand/brand-0.colorset` … `brand-9.colorset`，**10 个独立目录**，各有自己的
+//   `Contents.json`。逐档全查会真的多查 153 次，不是「把同一次 miss 重复一遍」。
+//   仍只抽一档，理由改为：本判据要抓的回归是**形态级**的（catalog 编没编、bundle 烂没烂），
+//   它对同一 hue 的 10 档一荣俱荣；逐档的**存在性**另有专管的判据（见下）。
+// - status **24 / 24**、shadow **3 / 4**。
+//   ⚠️ **`shadow-none` 有意不在抽样里**：它的 colorset 两种外观下 α 都是 `0.000`
+//   （占位档，`radius = 0` 时 SwiftUI 不绘制），是**设计上的全透明**，
+//   放进正向判据会让它在 iOS 腿上恒红。
+// - ⚠️ **覆盖缺口，如实登记**：未抽样的 153 个色阶如果 colorset 目录被改名 / 删除，
+//   **编译腿（`xcodebuild` / `swiftbuild`）上不会判红**——那条腿只跑本文件抽样的 44 个。
+//   抓它的是 `ColorAssetGuardTests.hueRampColorsetsPresent`（逐目录 `fileExists`），
+//   而那个 suite 恰恰**只在 macOS native 腿上启用**（编译腿的产物里没有 `Resources.xcassets/`
+//   目录可查）。⇒ 两条腿各兜一半，CI 整体兜得住目录改名；单看任一条腿都有缺口。
+//   实测（把 `brand/brand-3.colorset` 改名，只跑本文件 + `ColorAssetGuardTests` +
+//   `ResourceBundleCanaryTests` 三个 suite）：`swift test --build-system swiftbuild`
+//   ⇒ `8 tests … passed`、`EXIT=0`；`swift test`（native）⇒ 同样 8 条里
+//   `ColorAssetGuardTests.hueRampColorsetsPresent` 判红、`EXIT=1`。
 
 /// 资源 bundle 里是否存在给定名字的条目。
-private nonisolated func resourceBundleHas(_ name: String) -> Bool {
+nonisolated func resourceBundleHas(_ name: String) -> Bool {
     guard let root = Bundle.module.resourceURL else { return false }
     return FileManager.default.fileExists(atPath: root.appendingPathComponent(name).path)
 }
 
 /// `actool` 跑过：bundle 里是编译产物 `Assets.car`。
-private nonisolated var compiledAssetCatalogAvailable: Bool {
+///
+/// ⚠️ internal 而非 private：`ColorAssetGuardTests.swift` 的
+/// `ResourceBundleCanaryTests` 复用它，避免「什么叫 car 形态」出现第二份实现。
+nonisolated var assetCatalogIsCompiled: Bool {
     resourceBundleHas("Assets.car")
 }
 
 /// `actool` 没跑：bundle 里只有原样拷贝的 `Resources.xcassets/` 目录。
-private nonisolated var rawXcassetsOnly: Bool {
-    !compiledAssetCatalogAvailable && resourceBundleHas("Resources.xcassets")
+///
+/// ⚠️ 与 `ColorAssetGuardTests.swift` 里的 `rawXcassetsAvailable` **语义不同**，
+/// 别混：后者只问「目录在不在」（`hasXcassets`），本条还要求**没有** `Assets.car`
+/// （`¬hasCar ∧ hasXcassets`）。两者在 macOS native 腿上同为 true，在编译腿上
+/// 一 false 一 false——但如果哪天两种形态同时出现，两者就会分道扬镳。
+nonisolated var assetCatalogIsRawDirectoryOnly: Bool {
+    !assetCatalogIsCompiled && resourceBundleHas("Resources.xcassets")
 }
 
-@Suite("第 1 层资源色解析")
+@Suite("asset catalog 取色的解析可用性")
 struct ColorGradeResolutionGuard {
 
     private nonisolated static func env(_ scheme: ColorScheme) -> EnvironmentValues {
@@ -75,13 +129,16 @@ struct ColorGradeResolutionGuard {
         return e
     }
 
-    /// 抽样的第 1 层 token。名字随取值一起带上，失败信息才指得出是哪一个。
+    // MARK: - 抽样面
+    //
+    // 三组分开声明，`sampleBasisHasExpectedCardinality` 逐组各钉一个数——
+    // 只钉总数的话，一组缩水可以被另一组增长掩盖。
+
+    /// 17 色相各取 grade 5 一档。
     ///
-    /// ⚠️ 有意**不加** `nonisolated`：`CoreElevation.spec(for:)` 在本包的
-    /// `defaultIsolation` 下是 MainActor 隔离的，从 nonisolated 上下文取它是编译错误。
-    /// 三条 `@Test` 本身也是 MainActor 隔离的，取用这里不需要跨隔离。
-    private static var samples: [(String, Color)] {
-        var out: [(String, Color)] = [
+    /// ⚠️ 有意**不加** `nonisolated`：与下面 `shadowSamples` 同源的隔离约束，见那里。
+    private static var hueSamples: [(String, Color)] {
+        [
             ("brand5", .brand5), ("amber5", .amber5), ("blue5", .blue5),
             ("cyan5", .cyan5), ("green5", .green5), ("grey5", .grey5),
             ("indigo5", .indigo5), ("lightBlue5", .lightBlue5),
@@ -89,7 +146,12 @@ struct ColorGradeResolutionGuard {
             ("orange5", .orange5), ("pink5", .pink5), ("purple5", .purple5),
             ("red5", .red5), ("teal5", .teal5), ("violet5", .violet5),
             ("yellow5", .yellow5),
-            // status：五个语义家族 × 各自档位（done 无 border 档）。
+        ]
+    }
+
+    /// status：五个语义家族 × 各自档位（done 无 border 档），24 个全量。
+    private static var statusSamples: [(String, Color)] {
+        [
             ("statusAccentForeground", .statusAccentForeground),
             ("statusAccentEmphasis", .statusAccentEmphasis),
             ("statusAccentMuted", .statusAccentMuted),
@@ -115,11 +177,65 @@ struct ColorGradeResolutionGuard {
             ("statusDoneMuted", .statusDoneMuted),
             ("statusDoneSubtle", .statusDoneSubtle),
         ]
-        // shadow：唯一的公开取用口是 `CoreElevation.spec(for:)`（colorset 引用本身是 private）。
-        for level in [CoreElevation.Level.small, .medium, .large] {
-            out.append(("CoreElevation.spec(for: .\(level)).color", CoreElevation.spec(for: level).color))
+    }
+
+    /// shadow：3 档非零（`shadow-none` 排除，理由见文件头）。
+    ///
+    /// 唯一的公开取用口是 `CoreElevation.spec(for:)`（colorset 引用本身是 private）。
+    ///
+    /// ⚠️ 有意**不加** `nonisolated`：`CoreElevation.spec(for:)` 在本包的
+    /// `defaultIsolation` 下是 MainActor 隔离的，从 nonisolated 上下文取它是编译错误。
+    /// 四条 `@Test` 本身也是 MainActor 隔离的，取用这里不需要跨隔离。
+    private static var shadowSamples: [(String, Color)] {
+        [CoreElevation.Level.small, .medium, .large].map { level in
+            ("CoreElevation.spec(for: .\(level)).color", CoreElevation.spec(for: level).color)
         }
-        return out
+    }
+
+    /// 抽样的 catalog 取色 token。名字随取值一起带上，失败信息才指得出是哪一个。
+    private static var samples: [(String, Color)] {
+        hueSamples + statusSamples + shadowSamples
+    }
+
+    /// **无条件**：抽样面不许被清空或缩水。
+    ///
+    /// ⚠️ 这条是本文件自己的「防空转判据」——本文件通篇在防别人写出空转判据，
+    /// 而它自己一度没装这个下限：`samples` 返回 `[]` 时，下面两条分叉判据的
+    /// `for` 循环一次都不进，**两条腿都给出 `EXIT=0` 全绿**（终审实测）。
+    /// 三组各钉一个数，而不是只钉总数 44——只钉总数的话，一组被重构清空可以被
+    /// 另一组增长掩盖。改动抽样面时**必须**同步这里，并说明为什么。
+    @Test("抽样面必须覆盖三组、且基数与登记相符")
+    func sampleBasisHasExpectedCardinality() {
+        // 一、三组各钉一个数。
+        #expect(
+            Self.hueSamples.count == 17,
+            "色相抽样应为 17（17 色相各一档），实为 \(Self.hueSamples.count)"
+        )
+        #expect(
+            Self.statusSamples.count == 24,
+            "status 抽样应为 24（全量），实为 \(Self.statusSamples.count)"
+        )
+        #expect(
+            Self.shadowSamples.count == 3,
+            "shadow 抽样应为 3（4 档去掉设计上全透明的 shadow-none），实为 \(Self.shadowSamples.count)"
+        )
+        // 二、合计钉一个数，且**按名字去重后**再数——防「拿重复项凑数」。
+        let names = Set(Self.samples.map(\.0))
+        #expect(
+            names.count == 44,
+            "抽样合计（按名字去重）应为 44（共 198 个 catalog 取色常量中），实为 \(names.count)"
+        )
+        // 三、三组必须**真的**进了 `samples`。只钉组基数不够：`samples` 的组装表达式
+        //     被改掉时，三组各自的 `count` 照样对得上，缺口仍然是静默的。
+        for (group, entries) in [
+            ("色相", Self.hueSamples), ("status", Self.statusSamples), ("shadow", Self.shadowSamples),
+        ] {
+            let missing = entries.map(\.0).filter { !names.contains($0) }
+            #expect(
+                missing.isEmpty,
+                "\(group) 组有 \(missing.count) 个没进 samples：\(missing.joined(separator: ", "))"
+            )
+        }
     }
 
     /// **无条件**：两种 catalog 形态必须至少能探到一种。
@@ -127,13 +243,18 @@ struct ColorGradeResolutionGuard {
     /// 下面两条判据各自带 `.enabled(if:)`，而 Swift Testing 的跳过在退出码上等同于通过
     /// ——bundle 整个坏掉（`resourceURL` 为 nil / 资源没被打进去 / 目录被改名）时，
     /// 两条会双双跳过、整跑照绿。这条不带条件的判据是那种情形唯一的红点。
+    ///
+    /// ⚠️ 它与 `ResourceBundleCanaryTests.assetCatalogIsPresentInSomeForm` 的谓词
+    /// **代数上恒等**（不是互补）。为什么仍然各留一条、以及实现层面怎么去的重，
+    /// 见文件头《更正：`catalogFormIsDetectable` 与既有 canary 的真实关系》。
     @Test("bundle 必须呈现 Assets.car 或原样 xcassets 之一")
     func catalogFormIsDetectable() {
         #expect(
-            compiledAssetCatalogAvailable || rawXcassetsOnly,
+            assetCatalogIsCompiled || assetCatalogIsRawDirectoryOnly,
             """
             资源 bundle 里既没有 Assets.car 也没有 Resources.xcassets/——\
-            第 1 层的 198 个 token 会静默 fallback，而本文件另外两条判据会双双跳过。\
+            那 198 个走 catalog 查找的 token 会静默 fallback，\
+            而本文件的两条分叉判据会双双跳过。\
             resourceURL = \(Bundle.module.resourceURL?.path ?? "nil")
             """
         )
@@ -142,20 +263,20 @@ struct ColorGradeResolutionGuard {
     /// 正向判据：`actool` 跑过的路径（iOS Simulator 腿 / `--build-system swiftbuild`）上，
     /// 抽样 token 必须解析出非零 α。
     @Test(
-        "编译后的 asset catalog 上，第 1 层资源色必须解析为非全透明",
+        "编译后的 asset catalog 上，抽样的 catalog 取色必须解析为非全透明",
         .enabled(
-            if: compiledAssetCatalogAvailable,
+            if: assetCatalogIsCompiled,
             """
             跳过：本次构建的 bundle 里没有 Assets.car（`actool` 没跑）。\
             SwiftPM native 构建（`swift build` / `swift test`）就是这种情形——\
-            第 1 层色**必然**解析为 (0,0,0,0)，正向断言在这条腿上无意义。\
+            catalog 取色**必然**解析为 (0,0,0,0)，正向断言在这条腿上无意义。\
             要覆盖这一条，跑 iOS Simulator 腿（xcodebuild -scheme CoreDesign-Package）\
             或 `swift test --build-system swiftbuild`。此时改由同文件的\
-            `layerOneIsFullyTransparentOnRawXcassets` 钉住反向事实。
+            `catalogColorsAreFullyTransparentOnRawXcassets` 钉住反向事实。
             """
         )
     )
-    func layerOneResolvesOpaqueOnCompiledCatalog() {
+    func catalogColorsResolveOpaqueOnCompiledCatalog() {
         for scheme in [ColorScheme.light, .dark] {
             let e = Self.env(scheme)
             for (name, color) in Self.samples {
@@ -175,17 +296,17 @@ struct ColorGradeResolutionGuard {
     /// 这条会红，读者被迫回到本文件顶部那张表和 `CLAUDE.md`《验证边界与常见坑》
     /// 重新判断「颜色断言在 macOS 腿抓不到」还成不成立。
     @Test(
-        "原样拷贝的 xcassets 上，第 1 层资源色恒为全透明（钉住 macOS 腿的盲区）",
+        "原样拷贝的 xcassets 上，抽样的 catalog 取色恒为全透明（钉住 macOS 腿的盲区）",
         .enabled(
-            if: rawXcassetsOnly,
+            if: assetCatalogIsRawDirectoryOnly,
             """
             跳过：本次构建的 bundle 里有 Assets.car，`actool` 跑过 \
-            ⇒ 第 1 层色能正常解析，反向钉子不适用。此时由同文件的 \
-            `layerOneResolvesOpaqueOnCompiledCatalog` 正向覆盖。
+            ⇒ catalog 取色能正常解析，反向钉子不适用。此时由同文件的 \
+            `catalogColorsResolveOpaqueOnCompiledCatalog` 正向覆盖。
             """
         )
     )
-    func layerOneIsFullyTransparentOnRawXcassets() {
+    func catalogColorsAreFullyTransparentOnRawXcassets() {
         for scheme in [ColorScheme.light, .dark] {
             let e = Self.env(scheme)
             for (name, color) in Self.samples {

@@ -125,10 +125,21 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   `xcshareddata/xcschemes/CoreDesignPreview.xcscheme`。完整警告与恢复步骤见
   `App/project.yml` 顶部注释；验证要覆盖 `name=` 字段与文件内注释两种形态的目录名
   残留，只查一种会漏。
-- **第 1 层资源色在 macOS `swift test` 下全部解析为透明——颜色断言在这条腿上抓不到**
-  （`#275`。⚠️ 本条**推翻**了这里原来那句「新增 / 修改 colorset 后必须
-  `swift package clean` 再构建/测试；增量构建不会拷贝新加的目录」——成因与补救都不对，
-  逐条见下）。asset catalog 在本仓有**两种产物形态**，由构建路径决定：
+- **走 asset catalog 查找的那 198 个颜色常量，在 macOS `swift test` 下全部解析为透明
+  ——颜色断言在这条腿上抓不到**（`#275`。⚠️ 本条**推翻**了这里原来那句「新增 / 修改
+  colorset 后必须 `swift package clean` 再构建/测试；增量构建不会拷贝新加的目录」
+  ——成因与补救都不对，逐条见下）。
+  - ⚠️ **术语，别与《分层色彩系统》的「第 1 层」混用**：本条说的「走 asset catalog 查找的
+    198 个常量」是**构建产物意义上**的集合——所有 `Color("…", bundle: .module)` 形式、
+    磁盘上一一对应 `Resources.xcassets/**/*.colorset` 的常量（实测 `find … -name
+    '*.colorset' | wc -l` = 198）。上面《分层色彩系统》里的 layer 1 = **仅** `ColorGrade`
+    的 170 个色阶（`StatusColors` 列在 layer 3，`CoreElevation` 的阴影根本不在色彩分层里）
+    ⇒ 两者**外延不同**。本条一律用前者。
+  - ⚠️ **机理不是本轮首次查明**：`ColorAssetGuardTests` 的注释早就写对了「xcodebuild 会调
+    `actool` 把整个 xcassets 编译成单个 `Assets.car`」，而「`swift test` 进程里资源色解析成
+    完全透明」在 `#274` 就已实测并写进 `CoreDesignEffectsTests/CrossPlatformTests.swift`。
+    `#275` 做的是**再发现 + 把两半合并 + 量化到 token 级 + 装机器判据**，不是首次发现。
+  asset catalog 在本仓有**两种产物形态**，由构建路径决定：
   - `swift build` / `swift test`（SwiftPM native，即日常 macOS 腿）：**不调 `actool`**，
     `.process("Resources")` 对 `.xcassets` 就是一次**目录原样拷贝**。产物里是
     `Info.plist` / `Resources.xcassets/` / `en.lproj/`，**没有 `Assets.car`**。
@@ -136,7 +147,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     catalog** ⇒ 每一次查找都 miss、返回 clear。
   - `xcodebuild`（iOS Simulator 腿）与 `swift test --build-system swiftbuild`：跑 `actool`，
     产物里是 `Assets.car`，同一批 token 取值正常。
-  ⇒ 在 macOS 腿上，第 1 层的 **198 个** `Color("…", bundle: .module)` 常量
+  ⇒ 在 macOS 腿上，这 **198 个** `Color("…", bundle: .module)` 常量
   （`Colors/ColorGrade.swift` 170 个色阶 + `Colors/StatusColors.swift` 24 个 status token
   + `Tokens/CoreElevation.swift` 4 个 shadow token）**以及原样转手它们的别名**
   （`InteractionColors` 的 `secondaryAccent` / `neutralAccent` 两族共 8 个、
@@ -144,7 +155,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   两条腿的实测对照（同一份探针、同一个 commit）：`statusDangerForeground` 在 macOS 腿是
   `a=0.0`、在 iOS 腿是 `r=0.812 g=0.133 b=0.180 a=1.0`；同一次运行里
   `accent` / `contentPrimary` / `surfaceRaised` 这些系统语义色**两条腿都正常**。
-  - ⇒ **硬规则：第 1 层及其别名绝不可进 macOS 腿的位图 / `resolve(in:)` 断言。**
+  - ⇒ **硬规则：这 198 个常量及其别名绝不可进 macOS 腿的位图 / `resolve(in:)` 断言。**
     失效方向**向绿**：`a != b` 会因为其中一张根本没画出来而通过——判到的是「这个色没渲染」，
     不是「取色跟着调用方走」。阈值型断言（`α > x`）则会恒红得莫名其妙。
   - ⚠️ **`swift package clean` 对这一条毫无作用**：它是构建计划的结构性事实，
@@ -152,15 +163,42 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     colorset 目录后裸跑 `swift build`，日志就是 `[1/2] Copying Resources.xcassets`、
     新目录当场进 bundle，删除同理（Swift 6.3 / Xcode 26.4）。
     clean 仍然是缓存出问题时的通用手段，但**不是**这条盲区的补救。
-  - 机器判据：`ColorGradeResolutionGuard`（`Tests/CoreDesignTests/`）按 bundle 形态分叉——
-    有 `Assets.car` 就正向断言抽样 token 非全透明；只有目录形态就反向钉死「恒为全透明」，
-    并把正向那条**显式 skip 且打印原因**（跳过在退出码上等同于通过，所以理由必须写在日志里）；
-    两种形态都探不到时由一条**无条件**判据判红。
-  - 今天全仓**唯一**把第 1 层 token 喂进 `resolve(in:)` 的判据是
+  - 机器判据：`ColorGradeResolutionGuard`（`Tests/CoreDesignTests/`）**四条**——
+    两条按 bundle 形态**分叉**（有 `Assets.car` 就正向断言抽样 token 非全透明；只有目录形态
+    就反向钉死「恒为全透明」，不适用的那条**显式 skip 且打印原因**，因为跳过在退出码上等同于
+    通过）；两条**无条件**：`catalogFormIsDetectable`（两种形态都探不到就判红，兜住上面双 skip）
+    与 `sampleBasisHasExpectedCardinality`（抽样面被清空 / 缩水就判红）。
+    ⚠️ 后者是补的，且补的正是本文件自己犯的病：`samples` 一旦返回 `[]`，两条分叉判据的循环
+    一次都不进，**两条腿都给 `EXIT=0` 全绿**（实测）。它按**三组各钉一个数**，
+    只钉总数会让一组缩水被另一组增长掩盖。
+  - **抽样面：44 个（共 198 个中）**——色阶 **17 / 170**（17 色相各取 grade 5 一档；
+    ⚠️ 磁盘上是 `brand/brand-0.colorset` … `brand-9.colorset` **10 个独立目录**，
+    「同源同目录」的说法是错的）、status **24 / 24**、shadow **3 / 4**
+    （`shadow-none` 两种外观下 α 都是 `0.000`，是设计上的全透明，进正向判据会恒红）。
+    ⚠️ **如实登记覆盖缺口**：未抽样的 153 个色阶若 colorset 目录被改名 / 删除，
+    **编译腿（`xcodebuild` / `swiftbuild`）上不判红**；抓它的
+    `ColorAssetGuardTests.hueRampColorsetsPresent` 逐目录查 `fileExists`，而那个 suite
+    **只在 macOS native 腿启用**（编译腿产物里根本没有 `Resources.xcassets/` 目录可查）。
+    ⇒ 两条腿各兜一半，CI 合起来兜得住目录改名；**单看任一条腿都有缺口**。
+  - 今天全仓**唯一**把这批 token 喂进 `resolve(in:)` 的判据是
     `SurfaceContrastTests.statusSubtleFillsAreDistinguishableInDark`（5 个 `status*Subtle`），
     它整个 suite 在 `#if os(iOS)` 里 ⇒ 只在 catalog 已编译的那条腿上跑，**没有空转**。
-    `StatusColorsTests` 与 `TimelineTests` 断言的是 **asset 名**（经 `assetName`）而非解析值，
-    免疫；`ColorAssetGuardTests` 查的是**文件系统里的目录是否存在**，也不解析颜色。
+    其余判据免疫的机制有**四类，机制各不相同**，本次覆盖到的就是这四类：
+    1. `StatusColorsTests` / `TimelineTests`：断言的是 **asset 名**（经 `assetName`），不解析；
+    2. `ColorAssetGuardTests`：查的是**文件系统里的目录是否存在**，不解析颜色；
+    3. `ColorGradeResolutionGuard` 自己：解析，但**按形态分叉**，在 macOS 腿上断言的正是
+       「恒为全透明」这一侧；
+    4. `ButtonRoleStyleRoleTests.everyRoleHasThreeDistinctTones`（住在
+       `ButtonStyleDefaultTests.swift` 里）：它在 macOS 腿上**确实摸到了**这批
+       常量的别名（`ButtonRoleStyleRole` 的 secondary / tertiary / warning / danger 三态取自
+       `secondaryAccent` / `neutralAccent` / `warning*` / `danger*`），它**安全**，
+       但理由与前三类都不同——**它比的是 `Color` 值本身的结构相等，不是解析结果**。
+       实测探针：`ButtonRoleStyleRole.secondary` 的 `color == activeColor` 为 **`false`**
+       （所以判据有效），而三态 `resolve(in:)` 全是 **`#00000000`**、彼此**相等**。
+       ⚠️ **这是今天唯一「安全，但一旦被改写成比解析值就立刻不安全」的机制**：谁把那三条
+       `!=` 换成比 `resolve(in:)`，secondary / tertiary / warning / danger 四个 role 会
+       **恒红**，而 primary 因为走 `Color.accentColor`（实测解析出 `#0091FFFF`）照绿
+       ——同一条判据在同一次运行里一半恒红一半正常，是最难读的失效形态。
 
 - **多 product 之后，CI 的 iOS 腿必须用 `-scheme CoreDesign-Package`**：包只有一个
   product 时 Xcode 把包 scheme 合并进同名 scheme，于是 `-scheme CoreDesign` 恰好能跑测试；
@@ -191,15 +229,29 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    实测 `-only-testing:CoreDesignTests/NoSuchSuiteTests` → `** TEST SUCCEEDED **`、`EXIT=0`、
    日志里**连一行 `Test run with …` 都没有**。⇒ `ci.yml` 里那几行 skip 标识符写错了不会报错，
    只会静默失效（这也是那里反复强调「用类型名不用显示名」的原因）。
-4. **`-destination` 的 simulator id 过期** ⇒ `Ineligible destinations`、零测试、退出码 0。
-   ⚠️ **这一条是历史报告，本次没有复现出退出码 0 的那一半**（要复现需要一台「存在但不合格」
-   的设备，本机凑不出）——如实登记，别当成本轮实测。
-   ⚠️ **本次实测到的是它容易被认错的孪生体：「id 压根不存在」是硬红**——
-   `id=00000000-0000-0000-0000-000000000000` 给出
-   `xcodebuild: error: Unable to find a device matching the provided destination specifier`、
-   `EXIT=70`，**同时也**打印一份 `Ineligible destinations` 清单（那份清单列的是本机没装的
-   tvOS / visionOS / watchOS 平台，属附带信息）。⇒ 两者靠那一行 `error:` 与退出码区分，
-   只看到 `Ineligible` 就下「静默零测试」的结论会判错。
+4. **`-destination` 的 simulator id 过期 ⇒ 零测试、退出码 0** —— **历史报告，本仓复现不出来；
+   四种可构造变体实测全是硬红。别把这一条当既定事实传播。**
+   ⚠️ 上一版这里写的复现障碍（「要复现需要一台『存在但不合格』的设备，本机凑不出」）
+   **是错的**：本机装了 iOS 18.0 / 18.1 / 18.2 / 18.4 四个 runtime、共 44 台设备，
+   对 iOS 26+ 的包**全部不合格**，正是所需器材。实测（`rtk proxy xcodebuild test
+   -scheme CoreDesign-Package -destination …`，Xcode 26.4）：
+
+   | `-destination` | 情形 | EXIT | `Test run with` 行数 |
+   |---|---|---|---|
+   | `id=4D99708C-…`（iPhone 16 Pro / iOS 18.4） | 设备**存在但不合格** | **70** | 0 |
+   | `platform=iOS Simulator,name=iPhone 16 Pro,OS=18.4` | 同上，按名字寻址 | **70** | 0 |
+   | `platform=iOS Simulator,name=iPhone 16 Pro,OS=17.0` | runtime **未安装** | **70** | 0 |
+   | `id=00000000-0000-0000-0000-000000000000` | id **压根不存在** | **70** | 0 |
+
+   ⇒ **没有一种给出退出码 0。**四者都伴随 `xcodebuild: error: Unable to find a
+   destination/device matching the provided destination specifier` 与一份
+   `Ineligible destinations` 清单。
+   ⚠️ 那份 `Ineligible` 清单**列的不是那台不合格的 simulator**——实测它列的是本机没装的
+   tvOS / visionOS / watchOS **平台 placeholder**；不合格的 iOS 18.x 设备连候选都不进。
+   ⇒ 只看到 `Ineligible` 就下「静默零测试」的结论会判错；判据是那一行 `error:` 与退出码。
+   ⚠️ 本条保留在列表里，只作**历史登记**（记不清源自何处的一次报告），
+   本仓至今**没有任何一次实测支持它**。要么它属于别的 Xcode 版本 / CI 环境，
+   要么原报告本身就是误读。谁将来真复现出退出码 0，请连原始日志一起补在这里。
 5. **`--build-system swiftbuild` 下，`swift test` 给每个 test target 各打印一行
    `Test run with …` 汇总，而末行常常是 `0 tests`**（排在后面的 target 没有匹配项）。
    ⇒ `tail -1` 或肉眼扫结尾，会把一次**真实的运行**读成「零测试」。
@@ -213,6 +265,10 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 （4 行汇总里的一行），只是末行为 `0 tests`；它同时举的 `--filter RenderProofTests` 确实零条，
 但那是上面第 2 条（那个文件整包在 `#if os(iOS)` 里），在 native 构建下同样零条，与 swiftbuild 无关。
 ⇒ 第 5 条是**读日志的方式**问题，不是 `--filter` 语义问题。
+
+⚠️ **编号与 `#302` issue 正文对不上，别按编号互引**：issue 里说的「第 4 种」「第 3 种」
+分别对应本节的**第 5 条**与**第 4 条**（本节按「实测发生在哪一层」重排过）。
+互相引用时用形态的描述，不要用序号。
 
 ⚠️ **那道 fail-closed 的 grep 网只在 `epic/shipswift-shaders` 上**（`ci.yml` 的
 「Test (swiftbuild) — CoreDesignShaders」步骤末尾），`main` 的 `ci.yml` 里既没有它、

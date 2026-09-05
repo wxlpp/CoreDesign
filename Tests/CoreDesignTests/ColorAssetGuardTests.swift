@@ -11,8 +11,17 @@ import Foundation
 // (`BlossomAssetTests`, together with its `xcassetsURL()` / `colorsetExists(_:_:)`
 // helpers) when it removed the Blossom trait. This file rebuilds that guard,
 // generalized to the current (non-Blossom) asset surface, ahead of the Tokens/
-// churn in this task (CLAUDE.md: 增量构建不会拷贝新加的 colorset 目录，资源缺失是
-// 静默失败).
+// churn in this task.
+//
+// ⚠️ **更正传播（`#275`）**：本段原本引用 `CLAUDE.md` 的「增量构建不会拷贝新加的
+// colorset 目录，资源缺失是静默失败」——那句已被 `#275` **实测推翻并从 `CLAUDE.md`
+// 删除**（新增 colorset 目录后裸跑 `swift build`，日志就是 `[1/2] Copying
+// Resources.xcassets`，新目录当场进 bundle；`swift package clean` 对此毫无作用）。
+// 本文件仍然成立，但理由换成正确的那个：macOS SwiftPM 不调 `actool`，`.xcassets`
+// 以**目录**形态进 bundle ⇒ `Color(named:bundle:)` 查找**必然 miss 并静默 fallback
+// 成 clear**，所以「colorset 目录少了一个」这类回归只有 `FileManager` 逐目录查得到，
+// 解析型断言在这条腿上抓不到（量化与判据见
+// `ColorGradeResolutionGuard.catalogColorsAreFullyTransparentOnRawXcassets`）。
 
 private nonisolated func xcassetsURL() -> URL? {
     Bundle.module.resourceURL?.appendingPathComponent("Resources.xcassets")
@@ -34,6 +43,11 @@ private nonisolated func colorsetExists(_ group: String, _ name: String) -> Bool
 /// 老的 `BlossomAssetTests` 当年是靠 CI 里一行 `-skip-testing` 规避的；那行随
 /// Issue #118 删除该测试时一并消失。改由测试自身判断适用性——CI 配置是会漂移的
 /// 外部状态，而这里能把原因和判据放在一起。
+///
+/// ⚠️ **别与 `ColorGradeResolutionGuard.swift` 的 `assetCatalogIsRawDirectoryOnly`
+/// 混为一谈**（同 target、名字近似、语义不同）：本条只问「目录在不在」
+/// （`hasXcassets`）；那条还要求**没有** `Assets.car`（`¬hasCar ∧ hasXcassets`）。
+/// 本条要的是「逐目录断言有没有意义」，那条要的是「解析结果该断言哪一侧」。
 private nonisolated var rawXcassetsAvailable: Bool {
     guard let base = xcassetsURL() else { return false }
     return FileManager.default.fileExists(atPath: base.path)
@@ -49,6 +63,14 @@ private nonisolated var rawXcassetsAvailable: Bool {
 /// 本 canary 断言两种形态**至少存在其一**：目录形式的 `Resources.xcassets/`（SwiftPM，
 /// 不调 actool）或编译产物 `Assets.car`（xcodebuild 调 actool）。两者皆无 = bundle 坏了，
 /// 必须响。它同时覆盖「SwiftPM 将来改为调用 actool」这种工具链漂移。
+///
+/// ⚠️ **与 `ColorGradeResolutionGuard.catalogFormIsDetectable` 断言的是同一件事**
+/// （`#275` 终审查明：两者谓词代数上恒等，不是互补）。两条都留着是有意的——那条要与它
+/// 守的两个 `.enabled(if:)` 同文件，本条是 `#119` colorset 守卫自己的适用性兜底，
+/// 两者会因各自的理由被独立修改。但**探测实现只留一份**：下面直接消费
+/// `assetCatalogIsCompiled` / `assetCatalogIsRawDirectoryOnly`
+/// （定义在 `ColorGradeResolutionGuard.swift`，为此从 private 改成 internal），
+/// 不再自己拼一遍路径。
 @Suite("资源 bundle canary")
 struct ResourceBundleCanaryTests {
     @Test("bundle 里必须能找到 xcassets——目录形式或编译后的 Assets.car")
@@ -57,12 +79,9 @@ struct ResourceBundleCanaryTests {
             Issue.record("Bundle.module.resourceURL 为 nil——资源根本没被打进 bundle")
             return
         }
-        let fm = FileManager.default
-        let rawDir = resourceURL.appendingPathComponent("Resources.xcassets").path
-        let compiled = resourceURL.appendingPathComponent("Assets.car").path
         #expect(
-            fm.fileExists(atPath: rawDir) || fm.fileExists(atPath: compiled),
-            "bundle 里既无 Resources.xcassets/ 目录也无 Assets.car——所有颜色都会静默 fallback"
+            assetCatalogIsCompiled || assetCatalogIsRawDirectoryOnly,
+            "bundle 里既无 Resources.xcassets/ 目录也无 Assets.car——所有颜色都会静默 fallback。resourceURL = \(resourceURL.path)"
         )
     }
 }

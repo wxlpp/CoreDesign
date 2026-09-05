@@ -645,7 +645,11 @@ struct RingChartTruncationTests {
 /// ⚠️ **没有这条断言，本地化通路就是不可验证的**（第 2 轮终审 I-2）。
 /// 查表 miss 时 Foundation **原样返回 key、不报错** ⇒ 现有的
 /// `#expect(d.title?.isEmpty == false)` 在 `resources:` 被删、`.lproj` 没拷进 bundle、
-/// 或 `.atURL` 写错时**全部保持绿**。CLAUDE.md 已点名「资源缺失是静默失败」。
+/// 或 `.atURL` 写错时**全部保持绿**。
+/// ⚠️ **更正传播（`#275`）**：本段原先引 `CLAUDE.md`「资源缺失是静默失败」为据，
+/// 那句已随 `#275` 从 `CLAUDE.md` 删除（它当时挂在一个被推翻的成因上）。
+/// 本条判据的理由**不依赖**那句：Foundation 查表 miss 时原样返回 key 是它自己的语义，
+/// 与 asset catalog 那条通路无关。
 /// ⇒ 用一个**译文与 key 不同**的哨兵条目，才能区分「命中」与「静默回退」。
 @Suite("Bundle.module 本地化通路")
 @MainActor
