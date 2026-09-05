@@ -207,8 +207,20 @@ nonisolated func readOrbitingLogosDefaultRotationPeriod() -> Double {
 // ⚠️ 它们此前的 MainActor 隔离**不来自 `defaultIsolation` 直接命中**，而是从
 // SwiftUI 的 `Transition` 协议遵从**推断**而来 ⇒ 编译器把诊断降级成 warning
 // （与 `#254` / `#253` 那 5 条同一档；`SettingsRowMetrics` 那一组是 error）。
-// 标 `nonisolated` 后见证与协议要求（`static var properties { get }`，nonisolated）
-// 严格对齐，不再依赖 preconcurrency 降级。
+// 标 `nonisolated` 后见证不再依赖 preconcurrency 降级。
+//
+// ⚠️ **上一版这里写「见证与协议要求（`static var properties { get }`，nonisolated）
+// 严格对齐」——实测为假，照录更正**（PR #304 终审 F-3）：协议要求本身**不是**
+// `nonisolated`。SDK 逐字（`SwiftUICore.swiftinterface`）：
+//
+//     @preconcurrency @_Concurrency.MainActor public protocol Transition {
+//       @_Concurrency.MainActor @preconcurrency static var properties: TransitionProperties { get }
+//     }
+//
+// ⇒ 要求是 `@MainActor @preconcurrency`。把见证标 `nonisolated` 是**合法的放宽**
+// （见证可以比要求更不受限，反之不行），不是「严格对齐」。它买到的东西是：
+// 下游读这些 `properties` 时不再落进 `@preconcurrency` 的降级诊断——而降级本身
+// 正是上面两行说的那件事，`@preconcurrency` 干的。
 //
 // ⚠️ 12 条**逐条**登记、不抽样：`TransitionPropertiesGuard` 守的是"有没有声明"，
 // 守不到"声明能不能从 nonisolated 读"——那是本 probe 这一侧。

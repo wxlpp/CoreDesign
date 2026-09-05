@@ -113,11 +113,31 @@ nonisolated func useSettingsRowMetrics() -> [CGFloat] {
 // ⚠️ **`SidebarTextStyle` 与 `BottomInputBarDefaults` 有意不在本文件**，理由与
 // `CoreElevation.spec(for:)` 那条逐字同源，只是上游不同（#290 实测）：
 // · `SidebarTextStyle.primary/secondary/tertiary` 的初始化表达式是
-//   `Color.contentPrimary` / `.contentMuted` / `.contentSubtle`——第 3 层语义色是
-//   `public extension Color` 上的**计算** `static var`，在 `defaultIsolation` 下
-//   是 MainActor 隔离的（`static let` 才会按 SE-0434 隐式 `nonisolated`）。
-//   给这个 enum 标 `nonisolated` ⇒ `error: main actor-isolated default value in a
-//   nonisolated context`。要解开得先让整个色彩层 `nonisolated`，那是另一件事。
+//   `Color.contentPrimary` / `.contentMuted` / `.contentSubtle`，而**这些表达式在
+//   模块内求值**——`CoreDesign` 自己开了 `.defaultIsolation(MainActor.self)`，于是
+//   模块内的色彩层整体是 MainActor 隔离的 ⇒ 一个 `nonisolated` 的静态存储属性
+//   用不了它。给这个 enum 标 `nonisolated` ⇒ `error: main actor-isolated default
+//   value in a nonisolated context`。要解开得先让整个色彩层 `nonisolated`，
+//   那是另一件事。
+//
+//   ⚠️ **上一版这里写「第 3 层语义色是**计算** `static var` 所以隔离，`static let`
+//   才会按 SE-0434 隐式 `nonisolated`」——实测为假，照录更正**（PR #304 终审 F-2）：
+//   · **判别式不是 `static let` vs 计算 `static var`**。`Color.success` 是
+//     `public static let`（`Sources/CoreDesign/Colors/FunctionalColor.swift`），
+//     往 `Sources/CoreDesign/` 塞一个 `nonisolated func { Color.success }` 同样
+//     当场 `error: main actor-isolated static property 'success' can not be
+//     referenced from a nonisolated context`——与计算属性 `Color.contentPrimary`
+//     在同一次构建里给出**一模一样**的诊断。两者一视同仁。
+//   · **SE-0434 被误引**。提案原文讲的是「global-actor-isolated **value type** 里
+//     `Sendable` 类型的**实例存储属性**，在**定义它的模块内**被当作 `nonisolated`」
+//     ——与 `static` 成员无关，射程也只到模块内。
+//   · **而从下游看这句话是反的**：本文件 `useFunctionalColors()` 与
+//     `PublicVisibility.swift` 的对照面就是活证据——本包（独立消费包）干净重建
+//     零 warning 零 error，其中 `nonisolated func useFunctionalColors()` 直接读
+//     `.success` / `.info` / `.warning` / `.danger`。⇒ 第 3/4 层色彩 token
+//     **跨模块反而是 nonisolated 可达的**，MainActor 只在**模块内**成立。
+//     本条「不可修」成立的理由因此只有一条：`SidebarTextStyle` 的初值表达式
+//     求值发生在**模块内**。
 // · `BottomInputBarDefaults.placeholder` 走 `String(localized:bundle: .module)`,
 //   而 `Bundle.module` 的访问器由 SwiftPM 生成在本 target 内、随 `defaultIsolation`
 //   成为 MainActor 隔离 ⇒ `error: main actor-isolated static property 'module'

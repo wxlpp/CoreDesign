@@ -132,6 +132,20 @@ jobs:
     # ⚠️ 「加了标志」不等于「它真的会响」：`selftest-warnings-as-errors.sh` 塞一个
     # 必然产生 warning 的临时文件进 probe，断言这条命令**判红**、删掉后**判绿**
     # ——那是本仓 AD-E 对新守卫的一贯要求（能触发红的 fixture）。
+    #
+    # ⚠️ 而「selftest 绿」也不等于「CI 跑的是这条命令」——selftest 自己硬编码这个
+    # 标志。把下面那步改回裸 `swift build`，selftest 照样绿、整道闸静默消失。
+    # 钉住它的是**树内**判据 `Tests/CoreDesignTests/DownstreamProbeGateGuard.swift`
+    # （读本文件，断言下面这条 `run:` 逐字含该标志）⇒ 随 `swift test` 在每个事件上跑。
+    #
+    # ⚠️⚠️ **副作用：这个标志顺带给了库自身一道零警告闸**（PR #304 终审 S-2）。
+    # `-Xswiftc` 会传给**依赖图里所有** Swift 编译，而 probe 的依赖图包含
+    # `CoreDesign` / `CoreDesignEffects` / `CoreDesignCharts` 三个 target 的源码。
+    # ⇒ 从此 `Sources/` 里**任何一条** warning 都会让**这个 job** 变红，而同一个 PR 的
+    # `swift build` job 是绿的（那条不带标志）。方向是 fail-closed（好事），
+    # 但失效形态会认错人：工具链升级引入一条 deprecation 时，**红点出现在
+    # 「Downstream API probe」这个名字完全对不上的 job 里**。
+    # 先看这一段，再去翻日志里那条 `Sources/...: error: ... deprecated`。
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4

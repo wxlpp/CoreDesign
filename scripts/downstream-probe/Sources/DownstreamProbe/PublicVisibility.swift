@@ -123,10 +123,20 @@ func consumeCircularGlassTierAccessor() -> some View {
 // App 宿主、既有 probe 都护不住（无一从外部包引用它）。这里从外部包消费全部 6 个
 // 成员，pin 住可见性。
 //
-// 必须 @MainActor：`.defaultIsolation(MainActor.self)` 下两个计算属性
-// （iconAlignedDividerInset / textAlignedDividerInset）是 MainActor 隔离的，四个
-// static let 跨模块也非 nonisolated 可达（SE-0434 只放开模块内）——与上面
-// ButtonRoleStyleRole 调色板同款「可见但非 nonisolated 可达」。
+// ⚠️ **上一版这里写「必须 @MainActor：`.defaultIsolation(MainActor.self)` 下两个
+// 计算属性（iconAlignedDividerInset / textAlignedDividerInset）是 MainActor 隔离的，
+// 四个 static let 跨模块也非 nonisolated 可达（SE-0434 只放开模块内）」——`#290`
+// 把 `SettingsRowMetrics` 改成 `public nonisolated enum` 之后，这段话的**每一个
+// 分句都已为假**，照录更正**（PR #304 终审 F-5）：6 个成员（含那两个计算属性）
+// 现在跨模块 `nonisolated` 可达，反证就在同一个包里——`NonisolatedUsage.swift` 的
+// `nonisolated func useSettingsRowMetrics()` 逐条读这 6 个成员并干净编译。
+// （顺带：SE-0434 那半句本身也是误引，射程见 `NonisolatedUsage.swift` 里
+// `SidebarTextStyle` 那条更正。）
+//
+// ⇒ 这里的 `@MainActor` **不再是「必须」，而是「无害」**：它作为**可见性 pin** 仍
+// 有价值（本函数的全部交付物就是「从外部包消费这 6 个成员」，`public` 被收回时会
+// 炸），只是理由不再是隔离。隔离那一侧的覆盖已经由 `useSettingsRowMetrics()` 拿走，
+// 且**更强**——它连 `nonisolated` 掉了都会红。两处有意并存、不重叠。
 @MainActor
 func consumeSettingsRowMetrics() -> [CGFloat] {
     [
