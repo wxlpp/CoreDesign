@@ -629,14 +629,15 @@ struct CrossPlatformRenderTests {
             let a = Self.pixels(Self.staged(Self.sphereBody(mark: mark).tint(Color.accent)))
             let b = Self.pixels(Self.staged(Self.sphereBody(mark: mark).tint(Color.contentSecondary)))
             #expect(a != nil && b != nil, "渲染失败，下面的相等断言会恒真")
-            #expect(a != b, "\(mark) 空色板下换 .tint 位图没变 —— 取色没走调用方")
-            #expect(a != Self.blank, "空色板下什么都没画")
+            expectBitmapsDiffer(a, b, "\(mark) 空色板下换 .tint 位图没变 —— 取色没走调用方")
+            expectBitmapsDiffer(a, Self.blank, "空色板下什么都没画")
 
             let palette = [Color.borderSubtle]
             let c = Self.pixels(Self.staged(Self.sphereBody(mark: mark, colors: palette).tint(Color.accent)))
             let d = Self.pixels(Self.staged(Self.sphereBody(mark: mark, colors: palette).tint(Color.contentSecondary)))
-            #expect(c != nil && c != Self.blank)
-            #expect(c == d, "\(mark) 给了色板还跟着 .tint 变 —— 调用方的色板被忽略了")
+            #expect(c != nil, "渲染失败 —— 不得当作通过")
+            expectBitmapsDiffer(c, Self.blank)
+            expectBitmapsEqual(c, d, "\(mark) 给了色板还跟着 .tint 变 —— 调用方的色板被忽略了")
         }
     }
 
@@ -645,11 +646,12 @@ struct CrossPlatformRenderTests {
         let a = Self.pixels(Self.staged(Self.orbitBody().tint(Color.accent)))
         let b = Self.pixels(Self.staged(Self.orbitBody().tint(Color.contentSecondary)))
         #expect(a != nil && b != nil)
-        #expect(a != b, "空色板下换 .tint 位图没变 —— 环上的点没走调用方取色")
+        expectBitmapsDiffer(a, b, "空色板下换 .tint 位图没变 —— 环上的点没走调用方取色")
         let c = Self.pixels(Self.staged(Self.orbitBody(colors: [.borderSubtle]).tint(Color.accent)))
         let d = Self.pixels(Self.staged(Self.orbitBody(colors: [.borderSubtle]).tint(Color.contentSecondary)))
-        #expect(c != nil && c != Self.blank)
-        #expect(c == d, "给了色板还跟着 .tint 变")
+        #expect(c != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(c, Self.blank)
+        expectBitmapsEqual(c, d, "给了色板还跟着 .tint 变")
     }
 
     /// ⚠️⚠️ **承重**（PR #274 终审 C-2）：`.tint` 那条路与显式单色色板那条路
@@ -679,8 +681,9 @@ struct CrossPlatformRenderTests {
         for mark in [SphereMark.dots(diameter: 4), .glyphs(["道", "德"], fontSize: 14)] {
             let tinted = Self.pixels(Self.staged(Self.sphereBody(mark: mark).tint(tone)))
             let explicit = Self.pixels(Self.staged(Self.sphereBody(mark: mark, colors: [tone]).tint(tone)))
-            #expect(tinted != nil && tinted != Self.blank, "\(mark) 什么都没画 —— 下面的相等断言会恒真")
-            #expect(tinted == explicit, """
+            #expect(tinted != nil, "渲染失败 —— 不得当作通过")
+            expectBitmapsDiffer(tinted, Self.blank, "\(mark) 什么都没画 —— 下面的相等断言会恒真")
+            expectBitmapsEqual(tinted, explicit, """
             \(mark)：空色板走 `.tint` 与显式单色色板渲出了**不同**的图。
             两条路的量程本该逐字相同 —— 差异来自 `.tint` 那条路上多吃的一层 alpha
             （`Rectangle().fill(.tint).mask { … }` + `Color.primary` 哨兵，`.primary` 实测 a=0.8471）。
@@ -688,8 +691,9 @@ struct CrossPlatformRenderTests {
         }
         let tintedOrbit = Self.pixels(Self.staged(Self.orbitBody().tint(tone)))
         let explicitOrbit = Self.pixels(Self.staged(Self.orbitBody(colors: [tone]).tint(tone)))
-        #expect(tintedOrbit != nil && tintedOrbit != Self.blank)
-        #expect(tintedOrbit == explicitOrbit, """
+        #expect(tintedOrbit != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(tintedOrbit, Self.blank)
+        expectBitmapsEqual(tintedOrbit, explicitOrbit, """
         轨道环：空色板走 `.tint` 与显式单色色板渲出了不同的图 —— 同一枚遮罩偏差。
         """)
     }
@@ -709,21 +713,24 @@ struct CrossPlatformRenderTests {
         let tint = Color.borderSubtle
         let dotA = Self.pixels(Self.staged(DotSphere(count: 240, colors: [.accent], rotationPeriod: 0).tint(tint)))
         let dotB = Self.pixels(Self.staged(DotSphere(count: 240, colors: [.contentSecondary], rotationPeriod: 0).tint(tint)))
-        #expect(dotA != nil && dotA != Self.blank, "DotSphere 什么都没画 —— 下面的不等断言会失去意义")
-        #expect(dotA != dotB, "DotSphere 换色板位图没变 —— `colors: self.colors` 没交到 SphereSurface")
+        #expect(dotA != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(dotA, Self.blank, "DotSphere 什么都没画 —— 下面的不等断言会失去意义")
+        expectBitmapsDiffer(dotA, dotB, "DotSphere 换色板位图没变 —— `colors: self.colors` 没交到 SphereSurface")
         // ⚠️ 互锁：同一份输入必须渲成同一张图，否则上面的"不等"可能只是挂钟在动。
         let dotAgain = Self.pixels(Self.staged(DotSphere(count: 240, colors: [.accent], rotationPeriod: 0).tint(tint)))
-        #expect(dotA == dotAgain, "同一份输入渲出两张不同的图 —— 判据与挂钟有关，不可信")
+        expectBitmapsEqual(dotA, dotAgain, "同一份输入渲出两张不同的图 —— 判据与挂钟有关，不可信")
 
         let charA = Self.pixels(Self.staged(CharSphere(["道", "德"], count: 160, colors: [.accent], rotationPeriod: 0).tint(tint)))
         let charB = Self.pixels(Self.staged(CharSphere(["道", "德"], count: 160, colors: [.contentSecondary], rotationPeriod: 0).tint(tint)))
-        #expect(charA != nil && charA != Self.blank)
-        #expect(charA != charB, "CharSphere 换色板位图没变 —— `colors: self.colors` 没交到 SphereSurface")
+        #expect(charA != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(charA, Self.blank)
+        expectBitmapsDiffer(charA, charB, "CharSphere 换色板位图没变 —— `colors: self.colors` 没交到 SphereSurface")
 
         let orbitA = Self.pixels(Self.staged(Self.orbitContainer(colors: [.accent], rotationPeriod: 0).tint(tint)))
         let orbitB = Self.pixels(Self.staged(Self.orbitContainer(colors: [.contentSecondary], rotationPeriod: 0).tint(tint)))
-        #expect(orbitA != nil && orbitA != Self.blank)
-        #expect(orbitA != orbitB, "OrbitingLogos 换色板位图没变 —— `colors: self.colors` 没交到绘制层")
+        #expect(orbitA != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(orbitA, Self.blank)
+        expectBitmapsDiffer(orbitA, orbitB, "OrbitingLogos 换色板位图没变 —— `colors: self.colors` 没交到绘制层")
     }
 
     /// ⚠️⚠️ **一条判据同时钉住三件事**（终审 I-4 + I-2）：
@@ -739,8 +746,9 @@ struct CrossPlatformRenderTests {
         let tint = Color.accent
         let dot = Self.pixels(Self.staged(DotSphere(count: 240, rotationPeriod: 0).tint(tint)))
         let dotReference = Self.pixels(Self.staged(Self.sphereBody(mark: .dots(diameter: 3), count: 240).tint(tint)))
-        #expect(dot != nil && dot != Self.blank, "周期为 0 渲成了空白 —— 那是停摆不是静止")
-        #expect(dot == dotReference, """
+        #expect(dot != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(dot, Self.blank, "周期为 0 渲成了空白 —— 那是停摆不是静止")
+        expectBitmapsEqual(dot, dotReference, """
         `DotSphere(rotationPeriod: 0)` 渲出的不是钉死的静止帧。
         要么它还在走 `.animated`（`TimelineView` 照建、每帧同一张图，白付 NFR-1/NFR-7），
         要么 `count` / `mark` / `rotationPeriod` 里有一条没交到 `SphereSurface`。
@@ -750,13 +758,15 @@ struct CrossPlatformRenderTests {
         let charReference = Self.pixels(Self.staged(
             Self.sphereBody(mark: .glyphs(["道", "德"], fontSize: 11), count: 160).tint(tint)
         ))
-        #expect(char != nil && char != Self.blank)
-        #expect(char == charReference, "`CharSphere(rotationPeriod: 0)` 渲出的不是钉死的静止帧")
+        #expect(char != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(char, Self.blank)
+        expectBitmapsEqual(char, charReference, "`CharSphere(rotationPeriod: 0)` 渲出的不是钉死的静止帧")
 
         let orbit = Self.pixels(Self.staged(Self.orbitContainer(rotationPeriod: 0).tint(tint)))
         let orbitReference = Self.pixels(Self.staged(Self.orbitBody().tint(tint)))
-        #expect(orbit != nil && orbit != Self.blank)
-        #expect(orbit == orbitReference, "`OrbitingLogos(rotationPeriod: 0)` 渲出的不是钉死的静止帧")
+        #expect(orbit != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(orbit, Self.blank)
+        expectBitmapsEqual(orbit, orbitReference, "`OrbitingLogos(rotationPeriod: 0)` 渲出的不是钉死的静止帧")
     }
 
     /// ⚠️⚠️ **承重**（终审 S-3）：低电量下每环点数减半（23 → 12），logo 必须**跟着**
@@ -770,8 +780,9 @@ struct CrossPlatformRenderTests {
     func logoSeatsFollowTheThinnedRing() {
         let full = Self.pixels(Self.staged(Self.orbitBody(colors: [.clear])))
         let low = Self.pixels(Self.staged(Self.orbitBody(colors: [.clear]), lowPower: true))
-        #expect(full != nil && full != Self.blank, "环画成 .clear 之后连 logo 都没了 —— 判据在比两张空白图")
-        #expect(full != low, """
+        #expect(full != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(full, Self.blank, "环画成 .clear 之后连 logo 都没了 —— 判据在比两张空白图")
+        expectBitmapsDiffer(full, low, """
         低电量下 logo 的位置一点没变 —— 座位数还钉在标称的 23，而这一档每环只画 12 个点
         ⇒ logo 会悬在环点之间。
         """)
@@ -790,12 +801,13 @@ struct CrossPlatformRenderTests {
         for phase in [ScenePhase.background, .inactive] {
             let dot = Self.pixels(Self.staged(DotSphere(), phase: phase))
             let char = Self.pixels(Self.staged(CharSphere(["道"]), phase: phase))
-            #expect(dot == Self.blank, "DotSphere 在 \(phase) 下还在画")
-            #expect(char == Self.blank, "CharSphere 在 \(phase) 下还在画")
+            expectBitmapsEqual(dot, Self.blank, "DotSphere 在 \(phase) 下还在画")
+            expectBitmapsEqual(char, Self.blank, "CharSphere 在 \(phase) 下还在画")
         }
         // ⚠️ **互锁**：`.active` 下必须画得出东西，否则上面两条对"永远不画"的实现也恒真。
         let active = Self.pixels(Self.staged(DotSphere()))
-        #expect(active != nil && active != Self.blank, "活跃态下什么都没画 —— 上面的停摆判据是空真")
+        #expect(active != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(active, Self.blank, "活跃态下什么都没画 —— 上面的停摆判据是空真")
     }
 
     /// ⚠️⚠️ **承重**（PR #274 终审 C-1）：`OrbitingLogos` 的 `.none` 档**不许**返回
@@ -819,15 +831,16 @@ struct CrossPlatformRenderTests {
     @Test("后台与非活跃：OrbitingLogos 摘掉装饰，但调用方的内容必须留下")
     func pausedKeepsCallerContentInOrbitingLogos() {
         let contentOnly = Self.pixels(Self.staged(Self.orbitBody(layers: .contentOnly)))
-        #expect(contentOnly != nil && contentOnly != Self.blank,
-                "内容层自己就画不出东西 —— 下面的相等断言会恒真")
+        #expect(contentOnly != nil, "内容层渲染失败 —— 下面的相等断言会恒真")
+        expectBitmapsDiffer(contentOnly, Self.blank,
+                            "内容层自己就画不出东西 —— 下面的相等断言会恒真")
         for phase in [ScenePhase.background, .inactive] {
             let orbit = Self.pixels(Self.staged(Self.orbitContainer(), phase: phase))
-            #expect(orbit != Self.blank, """
+            expectBitmapsDiffer(orbit, Self.blank, """
             OrbitingLogos 在 \(phase) 下变成了空白 —— 调用方的 logo 与中心视图被能耗闸
             一起删掉了。`.inactive` 在 macOS 上就是"窗口没聚焦"，窗口完全可见。
             """)
-            #expect(orbit == contentOnly, """
+            expectBitmapsEqual(orbit, contentOnly, """
             OrbitingLogos 在 \(phase) 下渲出的不是"只有内容"那一帧
             —— 要么装饰层还在建，要么内容层被改了。
             """)
@@ -857,13 +870,13 @@ struct CrossPlatformRenderTests {
         let full = Self.pixels(Self.staged(Self.sphereBody(mark: .dots(diameter: 4), count: 400)))
         let low = Self.pixels(Self.staged(Self.sphereBody(mark: .dots(diameter: 4), count: 400), lowPower: true))
         #expect(full != nil && low != nil)
-        #expect(full != low, "低电量下点数没变 —— particleScale 这个旋钮没接上")
-        #expect(low != Self.blank, "低电量下一个点都不画 —— 那是停摆不是降级")
+        expectBitmapsDiffer(full, low, "低电量下点数没变 —— particleScale 这个旋钮没接上")
+        expectBitmapsDiffer(low, Self.blank, "低电量下一个点都不画 —— 那是停摆不是降级")
 
         let fullOrbit = Self.pixels(Self.staged(Self.orbitBody()))
         let lowOrbit = Self.pixels(Self.staged(Self.orbitBody(), lowPower: true))
-        #expect(fullOrbit != lowOrbit, "低电量下环上点数没变")
-        #expect(lowOrbit != Self.blank)
+        expectBitmapsDiffer(fullOrbit, lowOrbit, "低电量下环上点数没变")
+        expectBitmapsDiffer(lowOrbit, Self.blank)
     }
 
     // MARK: Reduce Motion 的静止形态
@@ -874,8 +887,9 @@ struct CrossPlatformRenderTests {
     func restingPhaseStillDraws() {
         let resting = Self.pixels(Self.staged(Self.sphereBody(mark: .dots(diameter: 4))))
         let moved = Self.pixels(Self.staged(Self.sphereBody(mark: .dots(diameter: 4), turns: 0.37)))
-        #expect(resting != nil && resting != Self.blank, "静止形态是空白 —— 那是 no-op 不是降级")
-        #expect(resting != moved, "两个不同相位渲成了同一张图 —— 自转根本没接上")
+        #expect(resting != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(resting, Self.blank, "静止形态是空白 —— 那是 no-op 不是降级")
+        expectBitmapsDiffer(resting, moved, "两个不同相位渲成了同一张图 —— 自转根本没接上")
     }
 
     /// pop 的两端归 1、中段放大，位图层面也要看得见。
@@ -884,25 +898,25 @@ struct CrossPlatformRenderTests {
         let rest = Self.pixels(Self.staged(Self.orbitBody(feature: (index: 0, progress: 0))))
         let peak = Self.pixels(Self.staged(Self.orbitBody(feature: (index: 0, progress: 0.5))))
         #expect(rest != nil && peak != nil)
-        #expect(rest != peak, "pop 峰值与静止渲成了同一张图 —— 放大与挤压都没发生")
+        expectBitmapsDiffer(rest, peak, "pop 峰值与静止渲成了同一张图 —— 放大与挤压都没发生")
     }
 
     // MARK: 退化输入
 
     @Test("退化输入：点数为 0 / 负 / 超限、字表为空、条目为空都不崩")
     func degenerateInputsDoNotCrash() {
-        #expect(Self.pixels(Self.staged(DotSphere(count: 0))) == Self.blank, "0 个点却画了东西")
-        #expect(Self.pixels(Self.staged(DotSphere(count: -12))) == Self.blank)
+        expectBitmapsEqual(Self.pixels(Self.staged(DotSphere(count: 0))), Self.blank, "0 个点却画了东西")
+        expectBitmapsEqual(Self.pixels(Self.staged(DotSphere(count: -12))), Self.blank)
         #expect(Self.pixels(Self.staged(DotSphere(count: 99_999))) != nil, "超限点数应当截断而不是崩")
-        #expect(Self.pixels(Self.staged(DotSphere(rotationPeriod: 0))) != Self.blank, "周期为 0 应当静止而不是空白")
-        #expect(Self.pixels(Self.staged(CharSphere([]))) == Self.blank, "空字表却画了东西")
-        #expect(Self.pixels(Self.staged(CharSphere(["道"], count: 0))) == Self.blank)
+        expectBitmapsDiffer(Self.pixels(Self.staged(DotSphere(rotationPeriod: 0))), Self.blank, "周期为 0 应当静止而不是空白")
+        expectBitmapsEqual(Self.pixels(Self.staged(CharSphere([]))), Self.blank, "空字表却画了东西")
+        expectBitmapsEqual(Self.pixels(Self.staged(CharSphere(["道"], count: 0))), Self.blank)
         let empty = OrbitingLogos([OrbitingLogosPreviewItem]()) { _ in
             Circle().frame(width: 8, height: 8)
         } center: {
             EmptyView()
         }
-        #expect(Self.pixels(Self.staged(empty)) != Self.blank, "没有 logo 时环也该照画")
+        expectBitmapsDiffer(Self.pixels(Self.staged(empty)), Self.blank, "没有 logo 时环也该照画")
     }
 
     // MARK: FullScreenButton
@@ -920,7 +934,7 @@ struct CrossPlatformRenderTests {
         }
         let rendered = Self.pixels(Self.staged(view))
         #expect(rendered != nil, "渲染失败")
-        #expect(rendered != Self.blank, "什么都没画 —— macOS 上这一件应当照常可用")
+        expectBitmapsDiffer(rendered, Self.blank, "什么都没画 —— macOS 上这一件应当照常可用")
     }
 
     // MARK: 三档呈现的接线（位图路结构上到不了的那一半）
@@ -1124,8 +1138,9 @@ struct CrossPlatformRenderTests {
         // ② 停摆档（`.contentOnly`，环一个点都不画）下，换能耗档位仍必须改变 logo 的落位。
         let normal = Self.pixels(Self.staged(Self.orbitBody(layers: .contentOnly)))
         let low = Self.pixels(Self.staged(Self.orbitBody(layers: .contentOnly), lowPower: true))
-        #expect(normal != nil && normal != Self.blank, "内容层什么都没画 —— 下面的不等断言会失去意义")
-        #expect(normal != low, """
+        #expect(normal != nil, "渲染失败 —— 不得当作通过")
+        expectBitmapsDiffer(normal, Self.blank, "内容层什么都没画 —— 下面的不等断言会失去意义")
+        expectBitmapsDiffer(normal, low, """
         `.contentOnly` 档下换低电量位图没变 —— 座位数又回落到标称的 23 了。
         后果：低电量下窗口一失焦（`.active` ⇒ `.inactive`，窗口**完全可见**），
         调用方的 logo 会整体挪位（实测最大 11.7°，320pt 容器上约 28pt）。

@@ -203,7 +203,7 @@ struct ToastPresentationRenderTests {
         let banner = self.overlayPixels(.fullWidthBanner, edge: .top)
         #expect(capsule != nil, "渲染失败 —— 不得当作通过")
         #expect(banner != nil, "渲染失败")
-        #expect(capsule != banner, "banner 与 capsule 位图相同 —— 形态分支没生效")
+        expectBitmapsDiffer(capsule, banner, "banner 与 capsule 位图相同 —— 形态分支没生效")
     }
 
     @Test("A5b 承重：容器形状真的不同（banner 是矩形，capsule 有圆角）")
@@ -248,7 +248,7 @@ struct ToastPresentationRenderTests {
         let top = self.overlayPixels(.centeredHUD, edge: .top)
         let bottom = self.overlayPixels(.centeredHUD, edge: .bottom)
         #expect(top != nil, "渲染失败 —— 不得当作通过（否则本条会因两张空图而恒真）")
-        #expect(top == bottom,
+        expectBitmapsEqual(top, bottom,
                 ".centeredHUD 下 edge 仍在影响渲染 —— 「edge 静默无效」的定案在像素层面为假")
     }
 
@@ -260,7 +260,7 @@ struct ToastPresentationRenderTests {
         let top = self.overlayPixels(.floatingCapsule, edge: .top)
         let bottom = self.overlayPixels(.floatingCapsule, edge: .bottom)
         #expect(top != nil, "渲染失败 —— 不得当作通过")
-        #expect(top != bottom,
+        expectBitmapsDiffer(top, bottom,
                 ".floatingCapsule 下换 edge 位图相同 —— 说明 edge 根本没进渲染，A10 的相等就没有意义了")
     }
 
