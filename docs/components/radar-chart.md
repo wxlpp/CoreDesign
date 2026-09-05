@@ -211,3 +211,73 @@ struct PlayerCard: View {
 候选（并排条形 / 平行坐标）按三分法**确实**属排布差异、本该计入 ≥2。
 文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
 逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。
+
+### ⚠️ `#299` 重判：`pendingStep2` → `step2`（出口 1，语义组件）（本节只增不改，上文保留为成因记录）
+
+⚠️ **上一段是 `#270` / PR #297 当时的记录，不改写。现状**：`#299` 已按公约补做步骤 2 的
+候选枚举与来源核验并重判，本条登记表字段现为
+`kind: semantic` / `decidedBy: step2` / `needsExtensionPoint: true`。
+
+**本轮走停止规则的「至少 3 个具名业界候选」这一支**，逐条给可核验来源（完整逐字理由与
+URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）：
+
+1. **平行坐标** —— Ant Design 的可视化体系 AntV G2 的坐标系总览页把 `Radar` 与
+   `Parallel` 并列为**同一套 mark 之上可互换的坐标系**。三分法：放射轴 → 平行轴，
+   命中排布定义逐字点名的「换轴」⇒ **排布**。
+   ⚠️ **反向证据如实记录**：**平行坐标图页**（`.../en/charts/parallel`）把两者侧重分开写
+   （平行坐标 “suitable for comparing different records”，雷达图
+   “suitable for showing multi-dimensional characteristics of a single record”），
+   而本组件的 init 只收一组 `[Value]`。该差别是**用途侧重**而非含义不同，故仍计入，但留痕供抽查。
+   ⚠️ **`#315` 终审 I-8 ② 归属更正**：这两句**不在坐标系总览页上**（2026-09-05 复核，总览页
+   0 命中），上一版把它们写成「同一页」是**归属指错页**。同轮另两处引文更正：坐标系名在页面上是
+   **小写**的 `radar` / `parallel` / `radial`；平行坐标图页那句自述的首字母是**大写**的 `Analyze`。
+2. **径向柱状图** —— 同一份坐标系总览页的 `radial`。三分法：现状把各轴端点连成**一条**
+   闭合折线，候选换成**每维一根独立的条** ⇒ 槽计数 1 → N，命中补充规则 2 ⇒ **槽**。
+   ⚠️ **`#315` 终审 S-1 登记（只登记、不改判）**：这个分箱**勉强** —— 「一条闭合折线塌成 N 根
+   独立的条」同样可以读成**排布**。两种读法都计入，落点不受影响，故不改分箱、只留痕。
+3. **笛卡尔并排条形** —— GitLab 的设计体系 Pajamas 的 Charts 页。三分法：极坐标 →
+   笛卡尔，**换轴** ⇒ **排布**。
+
+**查过但不计入**：Significance 杂志 “Off the ‘radar’? Here are some alternatives” 提出的
+lollipop / radial column / radial lollipop / stellar 四形态 —— 形态真实、原文已读到，
+但公约的来源模板只认「设计体系名 + 具体形态」或「产品名 + 场景」，杂志文章两者都不是。
+
+**作用域条款**：`ProgressIndicator` 写死 `.progressViewStyle(.circular)` 且是不确定进度
+⇒ 条件 ③ 落空；`ProgressBar` 是弃用条款下的 `kind: excluded` 条目。⇒ 三个候选均未被排除。
+
+
+⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
+「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
+
+⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
+`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
+这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+
+⚠️ **一处公约缺口，已登记 `D-299-1`；`#315` 终审 C-2 要求逐条重判，本条的结论是
+「只对候选 3 适用」**：**候选 3（笛卡尔并排条形）命中** —— 它在 Apple 平台上的真实承担者是
+Swift Charts 的 `BarMark`，不在登记表里 ⇒ 作用域条款的条件 ① 结构性不成立、无法援引。
+**候选 1（平行坐标）与候选 2（径向柱状）按 Swift Charts 口径不命中** —— `RadarChart.swift:12`
+的类型文档逐字写着「⚠️ Swift Charts 画不出来：它没有极坐标多轴的 mark」，Swift Charts 既没有
+平行坐标 mark 也没有极坐标变换。
+⇒ **按 Swift Charts 口径：即使将来条件 ① 被扩宽、候选 3 因此被排除，本条仍剩 2 ≥ 2、落点不翻转。**
+
+⚠️⚠️ **`#315` 第 2 轮终审 F-2：上面这句只在 Swift Charts 这个窄口径下成立，不是全口径结论。**
+`D-299-1` 本轮**自己**把谓词从「Swift Charts」放宽成了「**宿主平台框架**」（`RingChart` 候选 1
+援引的就是 SwiftUI 的 `ProgressView(value:)`），但本条的「不命中」论证**只查了 Swift Charts**
+⇒ **用放宽后的谓词判、却只拿收窄的证据证**。按「宿主平台框架的具名 API」的**全口径尚未逐条核**。
+⚠️ **已找到一个具名的实体反例，作为后续核查的起点**（本轮不据以改落点）：**候选 2（径向柱状）**
+—— Swift Charts 的 `SectorMark(angle:innerRadius:outerRadius:)`，
+`.../iPhoneOS26.4.sdk/System/Library/Frameworks/Charts.framework/Modules/Charts.swiftmodule/arm64e-apple-ios.swiftinterface:2338`
+逐字 `nonisolated public init(angle: Charts.PlottableValue<some Plottable>, innerRadius:
+Charts.MarkDimension = .automatic, outerRadius: Charts.MarkDimension = .automatic,
+angularInset: CoreFoundation.CGFloat? = nil)` ⇒ `outerRadius` 是**逐 mark 可变**的
+`MarkDimension`（`:2361-2362` 的 `SectorPlot` 更给出 `MarkDimensions<DataElement>` 的逐元素形态）
+⇒ 每类一个 sector、半径编码取值 = 径向柱状图。⚠️ 这与排除 `RingChart` 候选 2 时用的
+「只能用 N 个 `BarMark` 手拼」**不同类** —— 这是**单一具名 mark 直接用**。
+⇒ 若该反例成立，本条计入数 3 → 1 < 2，**也会翻**。逐条核查移交 `#312`。
+
+本轮按公约字面走，`D-299-1` **未被用来改本条落点**，缺口另走修订回路。
+⚠️ **上面这句只管 `D-299-1`，不是全称句**（`#315` 终审 C-1）：同批新开的 `D-299-2` **是**
+`OrbitingLogos` 落点的决定性依据，本轮**确实**被用来定了那一条的落点，见
+`docs/components/orbiting-logos.md` 与 `docs/contract-defects.md` 的 `D-299-2`。
+

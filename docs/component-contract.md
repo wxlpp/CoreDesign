@@ -321,6 +321,11 @@
 > ⚠️ **再一次更新（`wxlpp/oh-my-story#65`）**：`Toast` 亦已以形态 D2 补齐
 > （`ToastPresentation`，接在 `View.toastHost(edge:presentation:)` 上），**J-2 红名单
 > 现为空集** —— epic 的扩展点缺口全部收口，详见 `D-65-1`；
+> ⚠️ **再一次更新（`#299`）：红名单已不再是空集，现为 5 条**（`ActivityHeatmap` /
+> `BeforeAfterSlider` / `NetworkGraph` / `RadarChart` / `RingChart`）——`#299` 对 `#270`
+> 留下的 6 条 `pendingStep2` 条目补做步骤 2 的枚举与来源核验后，5 条落**出口 1**、
+> 1 条（`OrbitingLogos`）落**步骤 4**；判定法结论已产出、扩展点实现未跟上，移交 `#312`。
+> 上句「全部收口」是 `#65` 当时的记录，按只增不改的成法保留；
 > > #60 已 closed。⇒ `step3` 条目数 **33 → 28**（移出的：`SidebarStatusFooter` /
 > `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）。
 > ⚠️ **重判后仍无一条被确认合格**——本段开头那句全称断言在新集合上**重新核过**，仍为真。
@@ -1033,6 +1038,17 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 > ⚠️ 将来若再出现已知缺口，**照原样重建 `withKnownIssue` 块（只包住主判据那一句）**，
 > 别改成宽松断言 —— `#39` Task 8 变异实测过：块里多包一句，新违规会被静默吞掉。
 > 详见 `docs/contract-defects.md` 的 `D-65-1`。
+>
+> ⚠️⚠️ **上面这段又成了「当时的记录」（`#299`），不改写。现状：定义域 16 条、11 条满足、
+> `knownMissingExtensionPoints` 5 条、`withKnownIssue` 块已按上句的指令原样重建**
+> （只包住主判据那一句）。成因：`#299` 对 `#270` 留下的 6 条 `pendingStep2` 条目补做了
+> 步骤 2 的候选枚举与来源核验，`RadarChart` / `RingChart` / `ActivityHeatmap` /
+> `NetworkGraph` / `BeforeAfterSlider` 五条落**出口 1** ⇒ `kind: semantic` ⇒ 硬断言
+> `needsExtensionPoint` ⇒ 进 J-2 定义域，而扩展点实现未跟上 ⇒ 移交 `#312`。
+> 第 6 条 `OrbitingLogos` 落**步骤 4**（`tiebreaker`），不进定义域。
+> ⚠️ **这一次正是那句「将来若再出现已知缺口」的兑现** —— 它写下时是前瞻句，`#299` 把它
+> 变成了实测：块重建了、`inspected.count` 由 `== 11` 改 `== 16`、块外 canary 的固定集合
+> 由空集改 5 条。逐条见 `docs/contract-defects.md` 的 `D-270-1` `#299` 处置段。
 | **J-3** 标注 `nativeProtocol` 的组件作用域内不得有自有样式协议 | `Tests/CoreDesignTests/NativeProtocolPurityGuard.swift` | `nativeProtocol != nil && repo == coredesign`，实测 **1** 条（`ProgressIndicator`） | 零违规。⚠️ 1 条输入的判据靠非空断言挡不住「探针退化成恒空」⇒ 另设**绿色正对照**（把探针反向施加到 `Banner` / `SegmentedControl`，必须命中）。判据**消费**该探针而不内联重写，正对照的红因此能推到判据的探测能力上（规则层 `j3JudgeConsumesTheProbe` 钉住这条结构约束） |
 | **FR-4** public init 的裸文本参数必须有分类条目 | `Tests/CoreDesignTests/ComponentTextParamGuard.swift`；⚠️ **StoryUI 侧另有实现**：`oh-my-story` 的 `TextParamGuard` / `TextParamScan`（`#67`） | 宿主可解析到 `repo == coredesign` 登记表条目的 public `init`，实测覆盖 29 条。⚠️ **StoryUI 侧的定义域是「结构可达性传递闭包」，不是本行的字面定义域**（`#67` 的定义性扩展）：种子 = 25 个 `repo == "storyui"` 登记组件，沿 public init 参数类型走、剥壳后**跟进本包声明的类型**，到不动点。**理由**：StoryUI 的组件 init 形如 `ChapterCard.init(state: ChapterCardState)`，字面定义域**结构性地漏掉它几乎全部的文案面**。⚠️ **不是按名字后缀（`*State`）画线** —— 那违反本公约 J-3 的「识别是**结构性的**，不是名字匹配」，且 `CodexCard.init(state: CodexEntryState)` 而 `CodexEntryState.init(entry:type:)` **零文本参数** ⇒ 名字后缀口径对**整个 Codex 家族覆盖为 0**。⚠️ 本仓（CoreDesign）侧**未改**定义域 | 4 条已知违规（三条 Sidebar row 的 `systemImage` + `SidebarUtilityRow.trailingSystemImage`）——与 `LabelIcon.systemName` 同类的 SF Symbol 标识符，但 `notes` 未点名 ⇒ 缺陷已报回 #38 |
 
@@ -1567,6 +1583,21 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
 | `by-type` 条目数 `== 2` | 未预判 | **2 → 6** | 四个图表的 `title` |
 | `NativeProtocolPurityGuard` 的作用域文件名 | 未预判 | 裸文件名 → `CoreDesign/…/ProgressIndicator.swift` | 三根之下裸文件名会让两个 target 的同名文件塌成同一个作用域 |
 
+⚠️⚠️ **`#299` 实测：上表「J-2 那两行不变」这个结论已经过期，本段的原始预判反而是对的。**
+上表是 `#270` 当时的实测，**不改写**。`#299` 对 6 条 `pendingStep2` 条目补做步骤 2 的
+枚举与来源核验后，5 条落**出口 1** ⇒ `kind: semantic` ⇒ 硬断言 `needsExtensionPoint`
+⇒ 进 J-2 定义域 ⇒ `inspected.count` **11 → 16**、`knownMissingExtensionPoints`
+**空集 → 5 条**（`ActivityHeatmap` / `BeforeAfterSlider` / `NetworkGraph` / `RadarChart` /
+`RingChart`，实现移交 `#312`）。⇒ 本段上方那条「Charts 走 b 会触发整条 J-2 链」的预判
+**兑现了**，只是晚了一个 issue：`#270` 因落点全是 `prescriptive` 而没触发，`#299`
+补完枚举后触发。第 6 条 `OrbitingLogos` 落**步骤 4**，仍不进定义域。
+
+⚠️⚠️ **本段是 `#270` 当时的记录，`#299` 后已过期，见上方注记**（`#315` 终审 I-7 补）：
+下面的「15 条全部 `kind: prescriptive`」现已**不成立** —— 其中 5 条（`ActivityHeatmap` /
+`BeforeAfterSlider` / `NetworkGraph` / `RadarChart` / `RingChart`）已改判 `kind: semantic`
+并进了 J-2 定义域；「6 条 `pendingStep2`」现为**空集**（`knownPendingStep2Enumeration` 已收缩）。
+本段按「只增不改」保留原文，只在段首标注过期。
+
 ⚠️ **「J-2 那三条没被顶动」不是绕过判据，是落点决定的**：15 条全部 `kind: prescriptive`
 ⇒ 不给扩展点 ⇒ 不进 J-2 定义域。但**它们不是同一回事**，`decidedBy` 分两类：
 
@@ -1677,3 +1708,6 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
   `localizedByType` **17**、`carrying` **10**、`by-type` **6**、
   `functionSideBareText` **3 条固定集合**、`unmappedOwners` **2 条固定集合**、
   J-2 `inspected.count` **11**（`#270` 的 15 条全落 prescriptive，未进 J-2 定义域）。
+  ⚠️ **上一行的 J-2 计数已被 `#299` 改掉：现为 16**（五条重判落 `step2` ⇒ `semantic` ⇒
+  进定义域），`knownMissingExtensionPoints` 现为 **5 条**。其余八个计数 `#299` **一个都没动**
+  （只改 `decidedBy` / `kind` / `needsExtensionPoint` / `notes`，不增删条目、不动文本参数）。

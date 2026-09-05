@@ -141,7 +141,17 @@ struct ComponentRegistryGuard {
 
     /// 承接 issue 号。**写成常量并被下面的断言引用**，而不是只出现在散文里 ——
     /// 散文里的指针没有任何东西核对它是否还在。
-    static let pendingStep2FollowUpIssue = "#299"
+    ///
+    /// ⚠️ **`#315` 终审 I-6：由 `"#299"` 改为 `nil`。** 理由：`#299` **将随** PR #315 关闭
+    /// （⚠️ `#315` 第 2 轮终审 F-5：上一版四处都写成「已关闭」，实测 `#299` 当时 state=OPEN
+    /// —— 把一件计划中的事写成了既成事实），
+    /// 而本轮 `knownPendingStep2Enumeration` 已收缩为**空集** ⇒ 下面那条逐条断言当前
+    /// **空转**。留着旧号的失效形态很具体：下一个人再挂一条 `pendingStep2` 时，
+    /// 判据会在**判红的失败文案里**指导他往 notes 写 `#299` —— 一个已经关闭的 issue。
+    /// ⇒ 改成 `nil`，并要求**再次启用时当轮显式指定一个尚未关闭的承接 issue 号**；
+    /// 仍是 `nil` 却出现了 `pendingStep2` 条目 ⇒ 下面的 `guard` 当场 `Issue.record` 判红
+    /// （fail-closed，不会静默放过）。
+    static let pendingStep2FollowUpIssue: String? = nil
 
     /// `decidedBy == "pendingStep2"` 的条目名单。
     ///
@@ -166,10 +176,22 @@ struct ComponentRegistryGuard {
     ///
     /// ⚠️ **空集时本表退化为「不许再有 pendingStep2 条目」，语义更强不是更弱** ——
     /// `#299` 收口后 6 条全部离开本取值，届时把这张表清空即可。
-    static let knownPendingStep2Enumeration: Set<String> = [
-        "ActivityHeatmap", "BeforeAfterSlider", "NetworkGraph",
-        "OrbitingLogos", "RadarChart", "RingChart",
-    ]
+    ///
+    /// ⚠️ **现状：空集**（`#299` 已收口）。上面那几段是 `#270` / PR #297 当时的成因记录，
+    /// **不改写**（改写等于篡改记录）。`#299` 对 6 条逐条补做了公约步骤 2 的候选枚举与
+    /// 来源核验并按公约重判，落点**不是一边倒**：
+    /// · `RadarChart` / `RingChart` / `ActivityHeatmap` / `NetworkGraph` /
+    ///   `BeforeAfterSlider` **5 条落出口 1**（`decidedBy: step2` / `kind: semantic` /
+    ///   `needsExtensionPoint: true`）—— 非皮肤且未被作用域排除的候选各 3 个，逐条来源
+    ///   写在登记表 `notes` 里；扩展点实现移交 `#312`，红名单登记见
+    ///   `ComponentExtensionPointGuard.knownMissingExtensionPoints`；
+    /// · `OrbitingLogos` **落步骤 4**（`decidedBy: tiebreaker`，`kind` /
+    ///   `needsExtensionPoint` 与缓办期一致）—— PR #297 终审 I-3 所依据的「椭圆 / 螺旋轨道」
+    ///   候选**查不到可核验来源**（Magic UI 的 orbit 组件只有半径一个几何量、四家基线
+    ///   设计体系无对应组件、两个疑似来源页取不到正文），「换环数」改的是**纯装饰**的点环
+    ///   而非槽 ⇒ 过得了来源义务的候选只剩 1 个 < 2 ⇒ 举得犹豫。
+    /// ⚠️ **这不是「把标记删掉」**：每一条都换成了判定法的真实出口，逐字理由在各自的 `notes` 里。
+    static let knownPendingStep2Enumeration: Set<String> = []
 
     /// 纯函数：登记表里 `decidedBy == "pendingStep2"` 的条目名集合。
     ///
@@ -872,21 +894,31 @@ struct ComponentRegistryGuard {
         // 未完成」的显式标记，不是判定法的出口。两个方向都要红：
         // · 集合**缩小** ⇒ 有人把标记删了（把缓办悄悄说成已判）；
         // · 集合**增大** ⇒ 又多了一条跳过枚举的条目，须过评审并挂进承接 issue。
-        // ⚠️ 正确处置是补做枚举并按公约重判（`\(Self.pendingStep2FollowUpIssue)`），
+        // ⚠️ 正确处置是补做枚举并按公约重判（承接 issue 见 `pendingStep2FollowUpIssue`，
+        // `#315` 终审 I-6 后该常量为 `nil`，再次启用时须当轮显式指定），
         // **不是**改 `knownPendingStep2Enumeration` 让它变绿。
         let pendingStep2 = Self.pendingStep2Components(in: entries)
         #expect(pendingStep2 == Self.knownPendingStep2Enumeration, """
         `decidedBy: pendingStep2` 的条目集合变了：实际 \(pendingStep2.sorted())，        已知 \(Self.knownPendingStep2Enumeration.sorted())。
         `pendingStep2` 的含义是「公约步骤 2 的候选枚举与来源核验尚未完成，本条不声称任何出口，        按可逆的一侧（prescriptive / 不给扩展点）缓办登记」——它是**台账**，不是判定结论。
         · 变小：若某条真的补完了枚举，落点应改成 step1/step2/step3/tiebreaker 之一，        并同步从本表移除；若只是把标记删掉，那是把缓办伪装成已判。
-        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进承接 issue \(Self.pendingStep2FollowUpIssue)。
+        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进一个**尚未关闭**的承接 issue        （`pendingStep2FollowUpIssue`，`#315` 终审 I-6 后为 nil，须当轮显式指定；`#299` 将随 PR #315 关闭，不得复用）。
         """)
 
         // ⚠️ **承接指针要承重**：只在散文里写一句「已开 issue」，issue 号错了 / 条目换了
         // 都没人知道。每条缓办条目的 notes 必须写着承接 issue 号。
         for e in entries where e.decidedBy == "pendingStep2" {
-            #expect(e.notes.contains(Self.pendingStep2FollowUpIssue), """
-            \(e.component) 是 pendingStep2 条目，但 notes 里没有承接 issue 号 \(Self.pendingStep2FollowUpIssue)             —— 缓办没有落点等于永久缓办
+            // ⚠️ `#315` 终审 I-6：常量现为 `nil`（`#299` 将随 PR #315 关闭）。仍是 `nil` 却出现了
+            // `pendingStep2` 条目 ⇒ 当场判红，逼人先指定一个尚未关闭的承接 issue，
+            // 而不是让判据在失败文案里指着一个关掉的号码。
+            guard let followUp = Self.pendingStep2FollowUpIssue else {
+                Issue.record("""
+                出现了 pendingStep2 条目 \(e.component)，但 pendingStep2FollowUpIssue 仍是 nil。                缓办必须挂在一个**尚未关闭**的承接 issue 上 —— 请先把该常量改成本轮的 issue 号                （⚠️ `#299` 将随 PR #315 关闭，不得复用），再挂条目。
+                """)
+                continue
+            }
+            #expect(e.notes.contains(followUp), """
+            \(e.component) 是 pendingStep2 条目，但 notes 里没有承接 issue 号 \(followUp)             —— 缓办没有落点等于永久缓办
             """)
         }
 
@@ -947,26 +979,42 @@ struct ComponentRegistryGuard {
     /// `isSubset(of:)`」这类放松改写在提交态测不出来。这里用**合成条目**把两个方向都跑一遍，
     /// 与 `ComponentTextParamGuard.proseDataJudgeCatchesRealIncidents` 是同一条纪律：
     /// **判据在真实数据上零命中时，必须另有 fixture 证明它还活着。**
+    /// ⚠️ **`#299` 收口后台账变成空集，本条随之改成「合成夹具 + 真实数据 canary」两段**：
+    /// 原写法的方向 ① 从**真实**台账里取一条来删，台账一空 `#require(known.sorted().first)`
+    /// 就取不到值；原写法开头那条 `#expect(!known.isEmpty)` 更是会**直接判红**。
+    /// ⚠️ **不能因此把方向 ① 删掉** —— 那正是「缓办被静默说成已判」这一侧的唯一证伪手段，
+    /// 而它在**将来又出现缓办条目时**必须还活着。⇒ 方向 ① 改用**与真实数据无关的合成条目**跑，
+    /// 真实数据只负责跑「基线 + 方向 ②」（这两个在空集上仍然承重：空集加一条就不等了）。
+    /// ⚠️ 这与 `ComponentTextParamGuard.proseDataJudgeCatchesRealIncidents` 是同一条纪律：
+    /// **判据在真实数据上零命中时，必须另有 fixture 证明它还活着。**
     @Test("`pendingStep2` 台账承重：删一条标记判红、加一条未登记的标记也判红")
     func pendingStep2LedgerIsLoadBearing() throws {
         let entries = try Self.loadRegistry()
         let known = Self.knownPendingStep2Enumeration
 
-        // ⚠️ 非空前置：台账空了下面两个方向都会在空集上恒真。
-        #expect(!known.isEmpty, "`knownPendingStep2Enumeration` 为空 —— 本条会在空集上恒真")
-        #expect(Self.pendingStep2Components(in: entries) == known, "基线不成立，下面两个变异证明不了任何事")
+        // ---- 基线（真实数据）：现状必须与台账逐字相等 ----
+        #expect(Self.pendingStep2Components(in: entries) == known, "基线不成立，下面的变异证明不了任何事")
 
-        // ---- 方向 ① 删一条标记（把某条改回 tiebreaker）⇒ 集合缩小 ⇒ 判红 ----
-        let victim = try #require(known.sorted().first)
-        let markerRemoved = entries.map { e -> Entry in
-            e.component == victim ? e.withDecidedBy("tiebreaker") : e
+        // ---- 方向 ① 删一条标记 ⇒ 集合缩小 ⇒ 判红（合成夹具，不依赖真实台账非空） ----
+        // ⚠️ 名字刻意取成登记表里不存在的，避免哪天被误当成真实条目。
+        let fixtureKnown: Set<String> = ["FixturePendingA", "FixturePendingB"]
+        let fixtureEntries = [
+            Self.pendingStep2Fixture(component: "FixturePendingA", decidedBy: "pendingStep2"),
+            Self.pendingStep2Fixture(component: "FixturePendingB", decidedBy: "pendingStep2"),
+            Self.pendingStep2Fixture(component: "FixtureSettledC", decidedBy: "tiebreaker"),
+        ]
+        #expect(Self.pendingStep2Components(in: fixtureEntries) == fixtureKnown,
+                "合成夹具自身的基线就不成立 —— 纯函数 pendingStep2Components 已失效")
+
+        let markerRemoved = fixtureEntries.map { e -> Entry in
+            e.component == "FixturePendingA" ? e.withDecidedBy("tiebreaker") : e
         }
-        #expect(Self.pendingStep2Components(in: markerRemoved) != known, """
-        把 \(victim) 的 pendingStep2 标记改回 tiebreaker 之后集合竟然没变 —— \
+        #expect(Self.pendingStep2Components(in: markerRemoved) != fixtureKnown, """
+        把 FixturePendingA 的 pendingStep2 标记改回 tiebreaker 之后集合竟然没变 —— \
         双侧等式的「缩小」方向失效，缓办可以被静默说成已判
         """)
 
-        // ---- 方向 ② 加一条未登记的标记 ⇒ 集合增大 ⇒ 判红 ----
+        // ---- 方向 ② 加一条未登记的标记 ⇒ 集合增大 ⇒ 判红（真实数据，空集上照样承重） ----
         let intruder = try #require(entries.first { $0.decidedBy == "tiebreaker" && !known.contains($0.component) })
         let markerAdded = entries.map { e -> Entry in
             e.component == intruder.component ? e.withDecidedBy("pendingStep2") : e
@@ -975,6 +1023,17 @@ struct ComponentRegistryGuard {
         把 \(intruder.component) 改成 pendingStep2 之后集合竟然没变 —— \
         双侧等式的「增大」方向失效，新的跳过枚举条目可以不过评审就落盘
         """)
+    }
+
+    /// 只服务上面那条判据的方向 ①。⚠️ **不要**拿它去伪造真实登记表条目：
+    /// 登记表的唯一来源永远是 `docs/component-registry.json`。
+    static func pendingStep2Fixture(component: String, decidedBy: String) -> Entry {
+        Entry(
+            component: component, repo: "coredesign", kind: "prescriptive", decidedBy: decidedBy,
+            nativeProtocol: nil, customStyleProtocol: nil, styleSlot: nil, styleEnum: nil,
+            needsExtensionPoint: false, textParams: [],
+            notes: "合成夹具，不是真实条目"
+        )
     }
 
     @Test("扫描器真的扫到了三个 target 的类型，且类型名跨 target 不重名")
