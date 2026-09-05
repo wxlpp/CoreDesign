@@ -154,7 +154,12 @@ nonisolated enum GuardScanRoots {
     ///   ——行号今天全对，下一次任何人在这四个文件里插一行就全错，而没有任何判据会红。
     ///   ——⚠️ **上句原写「扫描根是这**一个**根，跨 target 同名不可能发生 ⇒ 有意保持原样。
     ///   它们哪天扩到多根，必须同轮改成 `relativePath`」——`#270` 就是那一天，已兑现**：
-    ///   · `ComponentRegistryGuard.scanTypes(root:)` 的解析出错诊断 → 改走 `relativePath`；
+    ///   · `ComponentRegistryGuard.scanTypes(root:)` 的解析出错诊断 → 改走 `relativePath`
+    ///     ——⚠️ `#313` 第 2 轮终审 I-3 起改成 `relativePath(_:from:)` + 根目录名前缀：
+    ///     该函数也被 `ComponentJudgeMutationTests` 喂**副本树的根**，用仓库根相对路径的话
+    ///     `url` 结构性地不在 `repoRoot` 之下 ⇒ 会踩响本函数的兜底、打出一条方向相反的
+    ///     诊断（真实原因是一个已知且合法的副本根）。改成相对**被扫的那个根**之后，
+    ///     `url` 恒在 `root` 之下，两种根上诊断串的形态也一致；
     ///   · `StyleConsumptionGuard.swiftSources()` 的键 → 改走 `relativePath`；
     ///   · `ToastPublicEntryForwardingGuard.aliasEntriesForwardEveryParameter()` → 多根扫描，
     ///     命中以 `URL` 传递，不再经裸文件名；
@@ -164,8 +169,13 @@ nonisolated enum GuardScanRoots {
     ///     用仓库根相对路径的话副本侧会退化成绝对路径、等值断言不再成立。
     ///     ⚠️ `#311` 起那一处**也走本函数**，只是传的 `root` 是扫描根而不是仓库根
     ///     （见 `relativePath(_:from:)`）——同一条符号链接归一逻辑必须两处共用。
-    static func relativePath(_ url: URL) -> String {
-        Self.relativePath(url, from: Self.repoRoot)
+    /// ⚠️ **转发 `sourceLocation`**（`#313` 第 2 轮终审 I-3）：不转发的话，从本重载落进
+    /// `relativePath(_:from:)` 的兜底时，`Issue.record` 的位置一律指向本文件这一行，
+    /// 而不是真正的调用点 —— 那正是 `#311` 那类「诊断指错方向」的同一条病。
+    static func relativePath(
+        _ url: URL, sourceLocation: SourceLocation = #_sourceLocation
+    ) -> String {
+        Self.relativePath(url, from: Self.repoRoot, sourceLocation: sourceLocation)
     }
 
     /// 把 `url` 表达成相对 `root` 的路径；`url` 不在 `root` 之下时**原样返回绝对路径**。
@@ -200,23 +210,29 @@ nonisolated enum GuardScanRoots {
     ///   **真实存在**的路径去掉 `/private` 前缀。实测（同一串，只改文件存不存在）：
     ///   文件存在 ⇒ `/private/tmp/X/S/A.swift` 归一成 `/tmp/X/S/A.swift`；
     ///   删掉文件后同一串 ⇒ 原样返回 `/private/tmp/X/S/A.swift`。
-    ///   本仓**当前 checkout 布局**下的真实输入全部在这一趟命中——⚠️ 但那不是普遍成立的，
-    ///   见下面「两趟各守一味分叉」；
+    ///   本仓**当前 checkout 布局**下的真实输入全部在这一趟命中；
     /// · 不中才归一后重试（见 `canonicalComponents(_:)`）。
     ///
-    /// ⚠️ **两趟各守一味分叉，别以为哪一趟是冗余的**（`#313` 终审 F-1 起的这一段）：
-    /// · **`/private` 味**（`#311` 实际踩到的那种，`/tmp` → `/private/tmp`）——
-    ///   **快路径自己就归一掉了**，因为 `standardizedFileURL` 对**存在**的路径去 `/private`。
-    ///   实测（`/tmp` 下真实 fixture 树、未解析的根 + 枚举出的文件）：串替换版给
-    ///   `/privateSources/CoreDesign/Colors/A.swift`；本实现、「慢路径去掉 `private` 抹除」、
-    ///   「**只留快路径**」三者**同为** `Sources/CoreDesign/Colors/A.swift`
-    ///   ⇒ 只看这一味的话，慢路径确实不执行。
-    /// · **普通符号链接味**（扫描根的**祖先分量**是符号链接，例如 checkout 落在
-    ///   `~/work` → `/Volumes/Data/work` 之下）——**快路径给 `nil`**
-    ///  （`standardizedFileURL` 不解析普通符号链接，实测），**只有慢路径能归正**。
-    ///   `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 拿真实 fixture
-    ///   钉的正是这一格：把慢路径删掉 ⇒ 它当场红。
-    ///   ⚠️ **⇒「慢路径是不执行的代码、删了只有合成判据会红」是错的**，别照那个结论动手。
+    /// ⚠️ **承重的是慢路径；快路径是命中率 / IO 优化，今天零判据覆盖**
+    ///（`#313` 第 2 轮终审 C-2；这一段推翻了它自己的第 1 版「两趟各守一味分叉、
+    /// 别以为哪一趟是冗余的」——那句话把钟摆从第 1 轮的「慢路径是死代码」推过了头）：
+    /// · **两味分叉都由慢路径独自兜住**：`canonicalComponents(_:)` 既做
+    ///   `resolvingSymlinksInPath()`（普通符号链接味），又显式抹掉领头的 `private` 分量
+    ///   （`/private` 味）⇒ 快路径能归一的形态，慢路径同样能归一。
+    /// · **快路径删掉不会有任何判据变红**（本轮实测）：把 `standardizedComponents` 那一趟
+    ///   整段删掉、只留慢路径 ⇒ 全量 `swift test` 得
+    ///   `898 tests in 128 suites passed … with 6 known issues`，与同一 checkout 的基线
+    ///   **逐字相同**（同一变异在本轮改动落地**之前**跑过一次，那时两侧同为 897，
+    ///   结论一致）。合成形态一 / 二（路径**不存在**，快路径归一不掉）走的也是慢路径。
+    /// · 快路径**唯一**能改变结论的场景是「被扫的文件**自身**是指向根外的符号链接」——
+    ///   那时快路径判它在根内、慢路径解析后判它在根外。而本 checkout 的 `Sources/` /
+    ///   `Tests/` / `docs/` 之下**零符号链接**、仓库根的各祖先分量也**零符号链接**（实测）
+    ///   ⇒ 这个场景在本仓不存在，也就没有判据钉得住快路径。
+    /// ⚠️ **⇒ 不要把快路径当成不可动的承重件**；但更不要照 `#313` 第 1 轮那句
+    /// 「慢路径是不执行的死代码」动手，**方向正相反**：
+    /// `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 与
+    /// `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
+    /// 两条**真实 fixture** 判据钉的都是慢路径，把慢路径那一趟删掉 ⇒ 两条一起红（本轮实测）。
     ///
     /// ⚠️ **慢路径里只靠 `resolvingSymlinksInPath()` 不够**，还要显式抹掉领头的
     /// `private` 分量：该 API 同样只在路径**真实存在**时才会去掉 `/private` 前缀。
@@ -272,10 +288,12 @@ nonisolated enum GuardScanRoots {
     }
 
     /// ⚠️ **本函数会做 IO**：`standardizedFileURL` 读文件系统，对**存在**的路径去掉
-    /// `/private` 前缀（实测见 `relativePath(_:from:)` 的文档）。正因如此，`/private`
-    /// 那一味分叉在这一趟就已经归一完毕。
+    /// `/private` 前缀（实测见 `relativePath(_:from:)` 的文档）。
     /// ⚠️ 但它**不解析普通符号链接**（实测：`<tmp>/link -> <tmp>/real` 之下的路径
     /// 原样返回）⇒ 那一味只能靠 `canonicalComponents(_:)`。
+    /// ⚠️ **本函数所在的那一趟（快路径）不承重**：它能归一的形态慢路径同样能归一，
+    /// 删掉它全量零红（实测，见 `relativePath(_:from:)` 的文档）。留着是为了省一次
+    /// `resolvingSymlinksInPath()` 的 IO，不是为了守住某一味分叉。
     private static func standardizedComponents(_ url: URL) -> [String] {
         url.standardizedFileURL.pathComponents
     }
@@ -1333,7 +1351,14 @@ struct GuardScanRootsGuard {
     /// 恒绿的只有「拿**仓库自己的**路径写判据」这一种——仓库在 `/Users/…` 下时
     /// `#filePath` 与枚举结果不分叉，怎么断言都绿。
     /// **判据自己在临时目录里造一棵 fixture 树的写法并不恒绿**：它在任何 checkout 位置
-    /// 都能复现分叉（实测：在 `/Users` checkout 里跑，串替换版照样吐 `/privateSources/…`）。
+    /// 都能复现分叉。⚠️ **本句原先引的是早一版 `/tmp` fixture 的测量串
+    /// （`/privateSources/…`），与最终落地的 fixture 对不上**（`#313` 第 2 轮终审 S-3）：
+    /// 落地的 `SymlinkedScanRootFixture` 走 `NSTemporaryDirectory()` + 自建符号链接，
+    /// 根前缀**整段**都对不上 ⇒ 串替换版吐的是一整条**绝对路径**，而不是被挖掉中段的畸形串：
+    /// · macOS 腿实测：
+    ///   `CoreDesign//private/var/folders/…/real/CoreDesign/Shape/Cd311KeyProbe.swift`；
+    /// · iOS Simulator 腿（临时目录不带 `/private`，见该 fixture 的文档）：
+    ///   `CoreDesign//Users/…/CoreSimulator/…/real/CoreDesign/Shape/Cd311KeyProbe.swift`。
     /// 那条路已经走通并落地成两条**真实 fixture** 判据，与本条分工如下：
     /// · `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor`（`#313` C-4）
     ///   ——钉住整套修法所依赖的那条 Foundation 行为：`FileManager.enumerator(at:)`
@@ -1439,16 +1464,108 @@ struct GuardScanRootsGuard {
         )
 
         // 形态八：兜底那一支**默认必须记一条 issue**（`#313` 终审 C-5）。
-        // ⚠️ 与本文件里 `manifestParserRecordsNonLiteralTargetName` 那几块同一条纪律：
-        // `withKnownIssue` 在这里**是一颗牙不是消音器**——块内一条 issue 都没记录时
-        // 它会判「预期的已知问题没有发生」而红 ⇒ 这一条真的钉住了「记录发生了」。
-        // 把 `Issue.record` 那一支删掉（退回静默 `return url.path`）⇒ 本块当场红。
+        // ⚠️ 与本文件里
+        // `GuardScanRootsGuard.manifestParserHandlesBlockCommentsAndMultilineStrings` /
+        // `GuardScanRootsGuard.manifestParserHandlesNestedCommentsAndTrickyNames` /
+        // `GuardScanRootsGuard.manifestParserFlagsExplicitTargetPath` 那几块同一条纪律
+        //（`#313` 第 2 轮终审 C-3：本句原先引的 `manifestParserRecordsNonLiteralTargetName`
+        // 全仓只存在于这条注释自己，是一条悬空引用——它逃过 `JudgementReferenceGuard`
+        // 正因为没写类型前缀，而那是该守卫**自己登记在案**的缺口。活引用一律写全限定名）。
+        //
+        // ⚠️ **`withKnownIssue` 一半是牙、一半是消音器**（`#313` 第 2 轮终审 I-1 纠正了本句
+        // 原先的绝对化措辞「是一颗牙不是消音器」）：
+        // · **牙的那一半**——块内**一条 issue 都没有**时它会判「预期的已知问题没有发生」
+        //   而红 ⇒ 把 `Issue.record` 那一支删掉（退回静默 `return url.path`）⇒ 本块当场红；
+        // · **消音器的那一半**——块内**任何额外的 issue** 都会被它一并吞掉。实测（本轮，
+        //   单独跑 `GuardScanRootsGuard.relativePathIgnoresPrivatePrefixMismatch` 这一条）：
+        //   块内多加一句 `#expect(1 == 2)` ⇒ 本条仍报 `passed`，只是 known issue 由 1 变成 2。
+        // ⇒ **本块只许放一条语句**（下面那一句），任何断言都必须写在块外。
+        //   本仓刚在 `#299` 上处理过「红名单当消音器」，别在这里复发一次。
         withKnownIssue("兜底会记录：这里故意传一个不在根下的 url，期望恰好记下一条") {
+            // ⚠️ 本块只许放这一条语句 —— 见上面「消音器的那一半」。
             _ = GuardScanRoots.relativePath(
                 URL(fileURLWithPath: "/elsewhere/Foo.swift"),
                 from: URL(fileURLWithPath: "/tmp/repo")
             )
         }
+    }
+
+    // MARK: - `expectingContainment` 的 fail-open 旋钮必须被钉住（`#313` 第 2 轮终审 I-4）
+
+    /// ⚠️ **`relativePath(_:from:)` 的 `expectingContainment` 形参是唯一能关掉 C-5 那颗牙的开关**：
+    /// 兜底那一支默认 `Issue.record`，传 `false` 就退回静默 fail-open。今天四处命中全在
+    /// `GuardScanRootsGuard.relativePathIgnoresPrivatePrefixMismatch` 里那几种「本来就该落
+    /// 兜底」的合成形态上，但在本条之前**没有任何判据钉住它只许出现在那里** ⇒ 后人在一条
+    /// **真实扫描路径**上加一个，就把整条兜底静默拔掉，而不会有任何红。本仓对豁免名单 /
+    /// 红名单一贯配 grep 判据 + 双向差集，这里同办。
+    ///
+    /// ⚠️ **两个方向都钉**：
+    /// · 出现在别的函数里 ⇒ 红（这是本条要堵的 fail-open）；
+    /// · **一处都扫不到也红**——形参改名或判据被删之后，本条会退化成「零命中 ⇒ 零违规 ⇒ 绿」，
+    ///   那正是本仓反复付出代价的假绿形态。
+    ///
+    /// ⚠️ **扫描面是 `Tests/` 而不是 `GuardScanRoots.allRoots`**：这个形参只存在于判据侧，
+    /// 三个 `Sources` 根里根本没有它，拿 `allRoots` 扫会恒零命中。
+    /// ⚠️ **只看非注释行**：本条自己的文档里就写着这个串，连注释一起扫会自证违规。
+    /// ⚠️ **已知限度，如实登记不假装堵死**：只认写在**同一行**的形态（现存四处都是）；
+    /// 有人把实参名与 `false` 拆到两行仍可逃逸。
+    @Test("`expectingContainment` 的 fail-open 旋钮只许出现在 relativePath 自己的判据里（#311）")
+    func containmentOptOutIsConfinedToItsOwnJudgement() throws {
+        // ⚠️ 拼出来而不是写成字面量 —— 写成字面量的话本行自己就是一处命中。
+        let optOut = "expectingContainment:" + " false"
+        // ⚠️ 这里**只能**写裸名：它要与源码里 `func <名字>(` 的声明逐字比对。
+        // 判据名出现在**文档**里时一律写 `GuardScanRootsGuard.` 全限定形态（`#313` 第 2 轮终审 C-3）。
+        let allowedOwner = "relativePathIgnoresPrivatePrefixMismatch"
+
+        let files = GuardScanRoots.swiftFiles(
+            in: GuardScanRoots.repoRoot.appendingPathComponent("Tests")
+        )
+        // ⚠️ 非空下界：`Tests/` 扫空时下面两条断言一条也不成立，而「零命中」会被读成「守住了」。
+        #expect(files.count > 20, "只扫到 \(files.count) 个测试源文件 —— 扫描失效，「零命中」不可信")
+
+        var hits = 0
+        var offenders: [String] = []
+        for url in files {
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+                Issue.record("读不到 \(GuardScanRoots.relativePath(url)) —— 判据无法工作，这不是「零违规」")
+                continue
+            }
+            var owner = "<文件顶层>"
+            let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+            for (index, line) in lines.enumerated() {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard !trimmed.hasPrefix("//") else { continue }
+                if let name = Self.declaredFunctionName(on: trimmed) { owner = name }
+                guard trimmed.contains(optOut) else { continue }
+                hits += 1
+                if owner != allowedOwner {
+                    offenders.append("\(GuardScanRoots.relativePath(url)):\(index + 1)（在 `\(owner)` 内）")
+                }
+            }
+        }
+
+        #expect(hits >= 4, """
+        一处 `\(optOut)` 都没扫到 —— 现存应有 4 处，全在 `\(allowedOwner)` 的合成形态里。
+        零命中意味着本条已经退化成恒绿（形参改名？判据被删？），而不是「没人用这个旋钮」。
+        处置：确认 `GuardScanRoots.relativePath(_:from:)` 的兜底开关还在，并同步本条的串。
+        """)
+        #expect(offenders.isEmpty, """
+        `\(optOut)` 出现在了 `\(allowedOwner)` 之外：
+        \(offenders.joined(separator: "\n"))
+        —— 它把 `relativePath(_:from:)` 的兜底 `Issue.record` 整条关掉、退回静默
+        fail-open（`#311` 那类路径分叉会重新变成「台账键被污染但没人红」）。
+        真实扫描路径上的 `url` 全部由枚举 `root` 得到，结构上不可能不在 `root` 之下
+        ⇒ 那里不需要这个旋钮；需要它只说明那条路径的根用错了。
+        """)
+    }
+
+    /// 从一行源码里取出 `func` 声明的名字（取不到返回 `nil`）——供上面那条判据定位「命中落在谁体内」。
+    static func declaredFunctionName(on line: String) -> String? {
+        guard let keyword = line.range(of: "func ") else { return nil }
+        let rest = line[keyword.upperBound...]
+        guard let stop = rest.firstIndex(where: { $0 == "(" || $0 == "<" }) else { return nil }
+        let name = rest[rest.startIndex..<stop].trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? nil : name
     }
 
     // MARK: - 枚举器会解析扫描根祖先里的符号链接（`#311` 修法的地基 / `#313` 终审 C-4）
@@ -1460,7 +1577,9 @@ struct GuardScanRootsGuard {
     /// **纯合成**形态会全绿（它们根本不碰枚举器），而真实扫描在符号链接 checkout 下会
     /// 重新静默失效 ⇒ 必须有一条**真实 fixture** 判据盯着这条前提本身。
     ///
-    /// ⚠️ **本条同时是慢路径（`canonicalComponents`）的唯一真实用例**：
+    /// ⚠️ **本条与 `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
+    /// 是慢路径（`canonicalComponents`）仅有的两条真实 fixture 用例**
+    ///（`#313` 第 2 轮终审 S-2 纠正了本句原先的「唯一真实用例」——把慢路径删掉时两条都红）：
     /// `/private` 那一味分叉（`/tmp` → `/private/tmp`）快路径自己就归一掉了
     ///（`standardizedFileURL` 会做，见 `GuardScanRoots.relativePath(_:from:)` 的文档）；
     /// 而**祖先分量是普通符号链接**时快路径给 `nil`，只有慢路径能归正（实测）。
@@ -1482,6 +1601,11 @@ struct GuardScanRootsGuard {
 
         // ① 枚举器**确实**解析了根祖先里的符号链接——这正是 `#311` 分叉的来源。
         //    ⚠️ 这一条是**前提自证**：它绿了，下面那条才算真的在分叉上做的断言。
+        //    ⚠️ **但它在 macOS 腿上不是干净的判别器**（`#313` 第 2 轮终审 S-4）：macOS 上
+        //    枚举结果与根**同时**差了 `/private` 与 `link`→`real` 两处，任一处都足以让
+        //    前缀对不上 ⇒ 它绿了也分不清是哪一处造成的；只有 iOS Simulator 腿上
+        //    （临时目录不带 `/private`）它单独指向符号链接那一处。
+        //    真正钉住「枚举产出走的是解析后的实体目录」的是紧随其后的 `hasSuffix` 那一条。
         #expect(
             !file.path.hasPrefix(fixture.root.path),
             """
@@ -1546,18 +1670,27 @@ nonisolated struct SymlinkedScanRootFixture {
         let fileManager = FileManager.default
         let base = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("cd311-symlinked-root-\(UUID().uuidString)")
-        let real = base.appendingPathComponent(Self.realDirectoryName).appendingPathComponent(rootName)
-        for (relativePath, contents) in files {
-            let destination = real.appendingPathComponent(relativePath)
-            try fileManager.createDirectory(
-                at: destination.deletingLastPathComponent(), withIntermediateDirectories: true
+        // ⚠️ **中途抛错要自己收拾**（`#313` 第 2 轮终审 S-5）：调用方的
+        // `defer { fixture.destroy() }` 要等本函数**返回之后**才挂上，建链失败时
+        // 前面已经建好的目录树没人回收 ⇒ 临时目录里留下孤儿树。
+        do {
+            let real = base.appendingPathComponent(Self.realDirectoryName)
+                .appendingPathComponent(rootName)
+            for (relativePath, contents) in files {
+                let destination = real.appendingPathComponent(relativePath)
+                try fileManager.createDirectory(
+                    at: destination.deletingLastPathComponent(), withIntermediateDirectories: true
+                )
+                try Data(contents.utf8).write(to: destination)
+            }
+            try fileManager.createSymbolicLink(
+                at: base.appendingPathComponent(Self.linkDirectoryName),
+                withDestinationURL: base.appendingPathComponent(Self.realDirectoryName)
             )
-            try Data(contents.utf8).write(to: destination)
+        } catch {
+            try? fileManager.removeItem(at: base)
+            throw error
         }
-        try fileManager.createSymbolicLink(
-            at: base.appendingPathComponent(Self.linkDirectoryName),
-            withDestinationURL: base.appendingPathComponent(Self.realDirectoryName)
-        )
         return Self(
             base: base,
             root: base.appendingPathComponent(Self.linkDirectoryName).appendingPathComponent(rootName)

@@ -416,6 +416,29 @@ struct ComponentJudgeScannerPathKeyTests {
         )
         defer { fixture.destroy() }
 
+        // ① **前提自证**：枚举结果确实与传进去的根**分叉了**（`#313` 第 2 轮终审 I-2）。
+        //    没有这一条，本条的有效性就悄悄挂在「`FileManager.enumerator` 会解析祖先符号
+        //    链接」这条 Foundation 行为上：哪天它不再解析 ⇒ 两端一致 ⇒ 串替换版**也能**
+        //    替换成功 ⇒ 本条在串替换版下**也绿**，退化成本仓反复登记的
+        //    「零命中 ⇒ 零违规 ⇒ 绿」。今天这条前提由
+        //    `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 单独钉着，
+        //    但本条不该把它当**事实**默认下来，自己也证一次。
+        let walker = try #require(
+            FileManager.default.enumerator(at: fixture.root, includingPropertiesForKeys: nil),
+            "无法枚举 fixture 根 —— 判据无法工作，这不是「零违规」"
+        )
+        var enumerated: [URL] = []
+        for case let url as URL in walker where url.pathExtension == "swift" { enumerated.append(url) }
+        let probe = try #require(enumerated.first, "fixture 里的 .swift 没被枚举出来")
+        #expect(
+            !probe.path.hasPrefix(fixture.root.path),
+            """
+            枚举得到的 \(probe.path) 仍落在传进去的根 \(fixture.root.path) 之下
+            —— 分叉没有构造出来，本条会在串替换版下也绿（两端一致 ⇒ 替换成功），失去全部判别力。
+            """
+        )
+
+        // ② 分叉确实存在的前提下，台账键的根内相对路径段仍必须干净。
         let scan = try scanComponentJudgeInputs(root: fixture.root)
         let expected = GuardScanRoots.primaryTargetName + "/Shape/Cd311KeyProbe.swift"
         #expect(

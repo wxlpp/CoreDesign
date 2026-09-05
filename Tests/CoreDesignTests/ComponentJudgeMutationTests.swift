@@ -136,6 +136,27 @@ struct ComponentJudgeMutationTests {
 
         #expect(copied.bareTextKeys == real.bareTextKeys, "副本与真实源码的裸文本参数集合不一致 —— 拷贝有问题")
         #expect(copied.styleProtocolNames == real.styleProtocolNames)
+        // ⚠️ **也比 `file` 串**（`#313` 第 2 轮终审 S-1）：上面两条比的都是**符号键**
+        //（裸文本参数键 / style 协议名），扫描器产出的**文件键**在本条之前零判据覆盖
+        // —— 而 `#311` 的**第 2 味**分叉恰恰只污染文件键：`copySources()` 把树拷进
+        // `NSTemporaryDirectory()`，macOS 上那是 `/var/folders/…`，而 `/var` 是
+        // `/private/var` 的符号链接 ⇒ 根不解析、枚举解析，两端分叉。
+        // ⚠️ **这一味与 checkout 落在哪里无关**（第 1 味要 checkout 本身落在符号链接下才现形）
+        // ⇒ 本条在 macOS `swift test` 腿上就能杀掉它，覆盖面比第 1 味更广。
+        // ⚠️ 等值是**构造性**的、不是巧合：副本子目录名与真实根同名（见 `copySources()` 的
+        // 文档），键又是 `<根目录名>/<根内相对路径>` ⇒ 两侧本应**逐字相同**。
+        // 实测（本轮，把 `scanComponentJudgeInputs(root:)` 里那一处单独回退成串替换）：
+        // 本条当场红，副本侧退化成 `CoreDesign//privateComponents/Timeline/Timeline.swift`、
+        // `CoreDesignEffects//privateSkidTransition.swift` 这类**串中间被挖掉一段**的畸形键，
+        // 真实侧仍是 `CoreDesign/Components/Timeline/Timeline.swift`。
+        // ⚠️ **本条与 `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
+        // 的红法不同，别互相套用**：这里 `root.path` 整段**确实**出现在文件路径中间
+        //（只差领头的 `/private`）⇒ 被挖掉中段；那条 fixture 的根走 `link`、枚举走 `real`
+        // ⇒ 根前缀整段对不上、替换不发生 ⇒ 吐的是一整条绝对路径。
+        #expect(copied.typeDeclFiles == real.typeDeclFiles, """
+        副本与真实源码的**类型声明文件键**不一致 —— 要么拷贝出了问题，要么根内相对路径的
+        推导又被路径分叉污染了（`#311`）。上面两条比的是符号键，看不见这一味。
+        """)
         // ⚠️ 期望是**空集**：`Toast` 由 `wxlpp/oh-my-story#65` 以形态 D2 补齐后，
         // J-2 的扩展点缺口全部收口。基线为空集使下面的变异断言**语义更强**——
         // 变异引入的违规不再需要从「已有缺口」里择出来。

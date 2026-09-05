@@ -790,11 +790,24 @@ struct ComponentRegistryGuard {
             let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
             // ⚠️ **解析保真检查**：parser major 与工具链不配套时会静默产出 error node
             // ⇒ 类型被漏采，而扫描器照样「成功」返回一个偏小的集合。
-            // ⚠️ **诊断走 `GuardScanRoots.relativePath(_:)` 而不是 `lastPathComponent`**
+            // ⚠️ **诊断走 `GuardScanRoots.relativePath` 而不是 `lastPathComponent`**
             // （`#270`）：`GuardScanRoots.relativePath` 的文档逐字写着「它们哪天扩到多根，
-            // 必须同轮改成 `relativePath`」—— 本轮正是那一天。裸文件名在三根之下会指错文件。
+            // 必须同轮改成 `relativePath`」—— `#270` 正是那一天。裸文件名在三根之下会指错文件。
+            //
+            // ⚠️ **但根取的是**被扫的那个 `root`**、外面再补一段根目录名，不是仓库根**
+            //（`#313` 第 2 轮终审 I-3；`#270` 落地时这里写的是单参 `relativePath(_:)`）：
+            // 本函数也被 `ComponentJudgeMutationTests.multiRootCatchesUnregisteredTypeInNewTarget`
+            // 喂**副本树的根**（`NSTemporaryDirectory()` 之下）。用仓库根相对路径的话，`url`
+            // **结构性地**不在 `repoRoot` 之下 ⇒ 这条 parse-error 分支一旦触发，就会顺带踩响
+            // `GuardScanRoots.relativePath(_:from:)` 的兜底、额外记一条「结构上不该发生……
+            // 又冒出了一类路径分叉」——而真实原因只是一个**已知且合法**的副本根，诊断方向指反了。
+            // 附带修掉的第二件事：单参重载在 `#313` 之前无法转发 `sourceLocation`
+            // ⇒ 从它落进兜底时 `Issue.record` 的位置一律指向 `GuardScanRoots.swift` 那一行。
+            // ⚠️ 前缀取 `root.lastPathComponent`，与 `scanComponentJudgeInputs(root:)` 的台账键
+            // 同一形态（`<根目录名>/<根内相对路径>`）⇒ 真实根与副本根上诊断串的形状一致。
             if tree.hasError {
-                Issue.record("解析出错：\(GuardScanRoots.relativePath(url)) —— swift-syntax major 可能与工具链不配套")
+                let site = root.lastPathComponent + "/" + GuardScanRoots.relativePath(url, from: root)
+                Issue.record("解析出错：\(site) —— swift-syntax major 可能与工具链不配套")
             }
             let c = PublicTypeCollector()
             c.walk(tree)
