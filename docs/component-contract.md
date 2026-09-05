@@ -1705,10 +1705,36 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
   ⚠️ 补充规则 3（组件与周围内容的空间关系改变也算排布）已逐条考虑并判**不适用**：
   这五件自身不决定尺寸，「全幅底 ↔ 行内一小块」由调用方的 `.frame` / `.ignoresSafeArea` 决定，
   那条轴今天已完全在调用方手里。
-- **1 条 `pendingStep2`**（`GlassSymbol`）—— 它**有真实的槽**（符号本体 + 渐变背衬），
-  自陈用例含「成就徽章」，业界该形态确有「加等级环 / 加绶带文字」这类槽差异候选、本该计入 ≥2，
+- **1 条 `pendingStep2`**（`GlassSymbol`）—— 与那五个背景件的区别**不在今天的 body**：
+  `GlassSymbol.swift` 的 `body` 是**一个** `Image(systemName:)` 加若干 modifier，
+  **没有任何 `@ViewBuilder` 槽**，四个入参是 `String` / `Color` / 枚举 / `Text?`
+  （⚠️ 本段上一版逐字写「它**有真实的槽**（符号本体 + 渐变背衬）」——**与源码不符**，
+  PR #301 终审 S-5 更正；那种写法会让后来人一查源码发现字面为假、顺手把它「改正」成
+  `tiebreaker`，而那正是本台账要防的漂移）。站得住的区分是**候选形态**：
+  它自陈用例含「成就徽章」，该形态在业界确有「加等级环 / 加绶带文字」这类
+  **会引入承载内容的子视图**的候选（按三分法属槽差异，本该计入 ≥2）；
+  而那五个背景件的候选无论如何都引入不了子视图（`colorEffect` 套在一个 `Color` 上）。
+  ⇒ 差别是「候选**会**引入真实的槽」，不是「今天**有**槽」。
   而 `#279` 是扫描根收口 task、**没做**停止规则要求的候选枚举与来源核验 ⇒ 与 `#270` 那 6 条同因，
   同挂承接 issue **`#299`**，`knownPendingStep2Enumeration` 由 6 条变 7 条。
+
+⚠️ **「6 条组件 + 1 条入口点」不等于「公开面数完了」**（PR #301 终审 S-3 补记）：
+`CoreDesignShaders` 里还有一个**没有任何登记表归宿**的 public API ——
+`CoreDesignShaders.assertShaderLibraryLoadable(functions:)`
+（`Sources/CoreDesignShaders/CoreDesignShaders.swift`）。它两个桶都进不去，逐条说明：
+- 不是 `public struct: View` ⇒ `PublicTypeCollector` 结构上不采 ⇒ **不进 `components`**；
+- 它所在的 `extension CoreDesignShaders` 既不是 `public extension`、host 也不在
+  `ExtensionEntryPointGuard.entryPointHostTypes`（实测 = `["View", "Transition", "AnyTransition"]`）
+  ⇒ **不进 `entryPoints`**。
+它唯一被机器看见的部分是**参数**：`functions:` 让 `carrying` 从 10 变 11（见上表）；
+**函数本身没有**。⇒ 射程限制本身是既存的（`#246` 立表时就只覆盖这两种形态，`#265` 复核过），
+`#279` 没有扩大它；但 `CoreDesignShaders` 是**第一个**带这种形态 public API 的新 target，
+故在这里如实记一笔，免得后人把上面那两个数读成「本 target 的公开面已全部有归宿」。
+⚠️ 同族的还有本次实测的 9 个 public enum（8 个 `public nonisolated enum`：
+`DotGrid.Spacing` / `FractalClouds.Density` / `InkSmoke.Density` / `LiquidChrome.Density` /
+`Plasma.Density` / `ShaderMotion` / `RefractiveGlassStrength` / `ShaderLibraryError`，
+加命名空间本身 `public enum CoreDesignShaders`）与它的 `public static let moduleName` ——
+结构上都不是 components / entryPoints，与 Effects / Charts 既有口径一致，不另记条目。
 
 ⚠️ **README 索引落点**：`#279` 在 `## 动效与图表索引` 这一节下新开
 `### Shader 背景与效果 / Shaders（import CoreDesignShaders）` 子表（7 行 = 6 个类型 + 1 个入口点），

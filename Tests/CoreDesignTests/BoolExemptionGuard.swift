@@ -733,9 +733,12 @@ struct BoolExemptionGuard {
                 "主 target 的显式前缀不会红 —— 上面那条判据在现存 32 个裸形键上从不执行")
         // ② 前缀指向一个不存在的 target。
         // ⚠️ **`#279` 把这里写死的 `"CoreDesignShaders"` 换成了 `nonexistentFixtureTargetName`**：
-        // 那个名字在 `#279` 当天变成了**合法** target 名 ⇒ 本条从「反例」退化成「正例」、
-        // 静默变绿。反例名必须由一条判据保证它真的不存在
-        // （`GuardScanRootsGuard.nonexistentFixtureTargetIsReallyAbsent`）。
+        // 那个名字在 `#279` 当天变成了**合法** target 名 ⇒ 本条的「反例」变成了正例。
+        // ⚠️ 失效形态是**当场判红**（本行下面那条 `#expect` 立刻不成立），**不是静默变绿**
+        // ——PR #301 终审 I-2 实测更正，别把它记进「静默变绿」那张地图。红本身是好事；
+        // 危险的是**红了之后的处置**：随手删断言、或换一个当时恰好不存在的新名字了事。
+        // ⇒ 反例名集中在一处，并由一条判据保证它真的不存在
+        // （`GuardScanRootsGuard.nonexistentFixtureTargetIsReallyAbsent`）—— 钉的是**性质**不是形状。
         #expect(!Self.qualificationProblems(
             ofKey: "\(GuardScanRoots.nonexistentFixtureTargetName)/Foo.init#flag"
         ).isEmpty, "不存在的 target 前缀不会红")

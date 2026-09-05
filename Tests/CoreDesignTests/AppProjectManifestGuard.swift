@@ -46,6 +46,25 @@ import Testing
 // `XCSwiftPackageProductDependency` 对象。
 // ⇒ 顺带堵住**孤儿形态**（对象在 section 里存在、却没有任何 target 引用它）——
 // 那正是 K2 失败信息推荐的「照着既有条目手工补齐」最容易产出的东西。
+//
+// ⚠️⚠️ **残余绕过路径：K2 看不见 Frameworks 构建阶段**（PR #301 终审 S-2 实测登记，**未堵**）。
+// K2 只比对 `PBXNativeTarget.packageProductDependencies` 与 `project.yml`，
+// **不看** `PBXBuildFile` / `PBXFrameworksBuildPhase`。而 xcodegen 生成的 pbxproj 里，
+// 一个 product 依赖实际是**两处**引用：
+//   ① `packageProductDependencies = ( EBA0…5633 /* CoreDesignShaders */, )`（K2 看这处）
+//   ② `08FD…06D5 /* CoreDesignShaders in Frameworks */ = { isa = PBXBuildFile;
+//      productRef = EBA0…5633 };` 且该 `08FD…06D5` 出现在本 target 的
+//      `PBXFrameworksBuildPhase` 的 `files = ( … )` 里（K2 **不看**这处）
+// ⇒ **只补 ① 不补 ②** 是 K1/K2 都判不出来的形态：评审把 `08FD9FD72EBF1F75D4B406D5`
+// 的两处引用删掉后实测 `4 tests in 1 suite passed`（全绿）。
+// ⚠️ `#279` 正是本仓**第一次真的手工补 pbxproj**（K2 失败信息自己推荐的补法），
+// 「只补一半」因此不是假想形态。
+// ⚠️ **未测定少了 ② 是否真的会断链接**：删掉后增量 `xcodebuild` 仍 `BUILD SUCCEEDED`，
+// 但那一轮可能根本没重链 —— 本条**不声称**「会断链接」，只声称「两份引用不一致而无人过问」。
+// ⇒ 要堵的话，形态是「`packageProductDependencies` 里每个 productRef 都必须经某条
+// `PBXBuildFile` 出现在本 target 某个 `PBXFrameworksBuildPhase` 的 `files` 里」；
+// 那需要一个新的 pbxproj 子解析器 + 它自己的合成输入变红自证（K3/K4 的形态），
+// 是独立一块工程，`#301` 的 REVISE 范围内不做，如实记在这里。
 @Suite("#256 预览宿主 manifest 与 pbxproj 的一致性")
 struct AppProjectManifestGuard {
 

@@ -223,14 +223,29 @@ struct ShadersScanRootGuard {
         #expect(before.missing.isEmpty, """
         不含 Shaders 根时的缺失集合本应为空（`#279` 之前的判据看不见 Sources/CoreDesignShaders），实际 \(before.missing.sorted())。
         """)
-        // ⚠️ 反过来也要成立：`#279` 之后登记的 6 条 Shaders 条目，在**不含**该根时会变成幽灵。
-        // 这是同一件事的另一面 —— 它证明那 6 条条目的射程确实来自新加的根，而不是别处。
-        let shadersEntries: Set<String> = [
-            "DotGrid", "FractalClouds", "GlassSymbol", "InkSmoke", "LiquidChrome", "Plasma",
-        ]
+        // ⚠️ 反过来也要成立：Shaders 树上**当下真实存在**的登记条目，在**不含**该根时会变成幽灵。
+        // 这是同一件事的另一面 —— 它证明那些条目的射程确实来自新加的根，而不是别处。
+        //
+        // ⚠️ **集合由扫描派生，不硬列名字**（PR #301 终审 S-4）：上一版逐字硬列了
+        // `DotGrid` / `FractalClouds` / `GlassSymbol` / `InkSmoke` / `LiquidChrome` / `Plasma` 六个名字。
+        // 那份清单对**删除**是 fail-closed（删掉一件 ⇒ 它不再是幽灵 ⇒ `isSubset` 不成立 ⇒ 红），
+        // 但对**新增**是 fail-open：第 7 件 shader 组件登记之后，清单不更新照样全绿
+        // ⇒ 那一件「射程确实来自新根」无人证明。改为从同一棵副本树上扫出来
+        // （去掉本条自己埋的探针），与 ① 和 `perTargetProblems` 两处刚做过的动作同款。
+        let shadersEntries = try ComponentRegistryGuard.scanTypes(root: shadersCopy.url)
+            .components
+            .subtracting([probe])
+        // ⚠️ 非空前置：扫空了 ⇒ 下面的 `isSubset` 在空集上恒真 ⇒ 静默变绿。
+        #expect(shadersEntries.count >= 6, """
+        从 Shaders 副本树上只扫出 \(shadersEntries.count) 个组件类型（已去掉本条自己埋的探针；
+        上面 `after.missing == [probe]` 已保证其余每一个都在登记表里）：实际 \(shadersEntries.sorted()) ——
+        `#279` 收口时实测是 6 个，低于此数说明扫描失效，下面那条「它们都是幽灵」在空集上恒真。
+        ⚠️ 这里写下界而不是等号：新增 shader 组件时本条自动跟随，删件才需要人来复核。
+        """)
         #expect(shadersEntries.isSubset(of: before.ghosts), """
-        不含 Shaders 根时，`#279` 登记的 6 条 Shaders 条目本应全部变成幽灵条目，实际幽灵集合 \(before.ghosts.sorted())
-        —— 若它们不在里面，说明它们是被**别的根**扫到的，那 6 条登记的归属就写错了。
+        不含 Shaders 根时，Shaders 树上的这些已登记条目本应全部变成幽灵条目：\(shadersEntries.sorted())，
+        实际幽灵集合 \(before.ghosts.sorted())
+        —— 若有条目不在里面，说明它是被**别的根**扫到的，那条登记的归属就写错了。
         """)
 
         // ---- 补登记 ⇒ 转绿 ----

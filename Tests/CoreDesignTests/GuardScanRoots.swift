@@ -63,8 +63,15 @@ nonisolated enum GuardScanRoots {
     /// ⚠️ **`#279` 抽出来的**：两处「前缀指向一个不存在的 target ⇒ 判红」的变红自证
     /// （`BoolExemptionGuard.qualificationValidatorActuallyFires` ②、
     /// `ExtensionEntryPointGuard.schemaValidatorActuallyFires` ②）此前**逐字写着
-    /// `"CoreDesignShaders"`** —— 那个名字在 `#279` 把 target 接进来的当天变成了
-    /// **合法**名字，两条自证于是从「证明判据会开火」静默退化成「反例其实是正例」。
+    /// `"CoreDesignShaders"`** —— 那个名字在 `#279` 把 target 接进来的当天变成了**合法**名字，
+    /// 两条自证的「反例」于是变成了正例。
+    /// ⚠️ **失效形态是「当场判红」，不是「静默变绿」**（PR #301 终审 I-2 更正；本文档上一版
+    /// 逐字写着「静默退化」）：把常量改回 `"CoreDesignShaders"` 实测，两条自证**立刻红**
+    /// （`BoolExemptionGuard.swift:739`、`ExtensionEntryPointGuard.swift:137`）——
+    /// 它们断言的是「这个反例**会**产生 problem」，反例一旦合法就产不出 problem。
+    /// 真正的风险因此是**红了之后的处置**：随手把断言删掉、或换一个当时恰好不存在的新名字，
+    /// 下一个人还会踩同一个坑。⇒ 名字集中一处，并由
+    /// `nonexistentFixtureTargetIsReallyAbsent` 钉住「它真的不存在」这条**性质**。
     /// ⚠️ 本仓的教训是「守卫钉形状而非性质」：写死一个当时恰好不存在的名字，钉的是形状。
     /// 这里钉性质 —— 名字集中一处，并由 `nonexistentFixtureTargetIsReallyAbsent`
     /// 断言它真的不在 `targetNames` 里、磁盘上也没有那棵树。
@@ -408,12 +415,13 @@ nonisolated enum GuardScanRoots {
     /// 取出一行代码里 `.process("…")` / `.copy("…")` 的字符串实参（`#279`）。
     ///
     /// ⚠️ **只认字面量实参**：`.process(someVar)` 取不到路径，会被静默略过 ——
-    /// 那与 `quotedName` 对非字面量 `name:` 的处置不同（后者判红）。这里不判红的理由是
-    /// `moduleBundleOwnership` 另有一条**双向**判据兜底：磁盘上出现的 `Resources/` 目录
-    /// 必须在声明里找得到，声明里的每条路径也必须在磁盘上找得到；
-    /// 变量形态会让「声明侧」少一条 ⇒ 磁盘侧那半句当场红。
-    /// ⚠️ 但反过来「变量形态 + 磁盘上什么都没多」是**测不出来**的（残余绕过路径，
-    /// 已如实记在 `moduleBundleOwnership` 的文档里）。
+    /// 那与 `quotedName` 对非字面量 `name:` 的处置不同（后者判红）。这里本身不判红的理由是
+    /// `moduleBundleOwnership` 的 ① 会替它红：`hasResources` 由 `resources:` 这个**标签**
+    /// 决定、与本函数无关，故变量形态一出现就是「声明侧为真、路径侧为空」
+    /// ⇒ `declared == !paths.isEmpty` 当场不成立。
+    /// ⚠️ **上一版这里写「反过来『变量形态 + 磁盘上什么都没多』测不出来」—— 实测为假**
+    /// （PR #301 终审 S-1）：①与磁盘无关，两侧都空照样红。残余的是**误取**形态
+    /// （拼接实参被截成前半截字面量），已如实记在 `moduleBundleOwnership` 的文档里。
     static func resourceRuleArguments(in code: String) -> [String] {
         var out: [String] = []
         for marker in [".process(", ".copy("] {
@@ -1085,12 +1093,21 @@ struct GuardScanRootsGuard {
     /// （磁盘上出现 `Resources/` 目录却没进声明 ⇒ 判红）。**比原判据严**：
     /// 原判据只看一个固定目录名在不在，声明里写错的文件名它一个都抓不到。
     ///
-    /// ⚠️ **已知的残余绕过路径**（`resourceRuleArguments` 只认字面量实参）：
-    /// 把 `.process("Resources")` 改写成 `.process(resourcesPath)`（一个 `let` 常量）
-    /// ⇒ 路径侧收到空数组，`hasResources` 仍为 `true`。此时若磁盘上 `Resources/`
-    /// 目录还在，下面「磁盘目录必须被声明覆盖」那半句会红；但若同一轮把目录也删了，
-    /// 两侧都归于空 ⇒ **本条不判红**。这条缝没有堵，如实记在这里。
-    /// 兜底的是 SwiftPM 自己：声明指向不存在的路径会直接构建失败。
+    /// ⚠️ **非字面量实参这条路 ①（下面那条等式）已经堵上了**（PR #301 终审 S-1 更正）：
+    /// 上一版这里写「把 `.process("Resources")` 改写成 `.process(resourcesPath)` ⇒ 若同一轮
+    /// 把目录也删了，两侧都归于空 ⇒ 本条不判红」—— **那条缝并不存在**。`hasResources`
+    /// 走的是 `code.contains("resources:")`（见 `declaredTargets`），只要 `resources:`
+    /// 这个标签还在，它就是 `true`；而变量形态让路径侧收到空数组
+    /// ⇒ ① `#expect(declared == !paths.isEmpty)` 变成 `true == false` ⇒ **判红**，
+    /// 与磁盘上还剩什么无关。真正测不出来的只剩「把整条 `resources:` 声明**连同**磁盘资源
+    /// 一起删干净」，而那不是绕过、那是正常删除（`.module` 也随之真的不存在了）。
+    ///
+    /// ⚠️ **真正的残余形态是「误取」而不是「取不到」**：`resourceRuleArguments` 从
+    /// `.process(` 后的第一对引号里截字符串 ⇒ 拼接实参 `.process("Resources" + suffix)`
+    /// 会被取成 `"Resources"` 这半截。它在磁盘上存在 ⇒ ② 对着**错的路径**判绿。
+    /// （插值形态 `.process("\(name)/Resources")` 反而 fail-closed：取到的字面量在磁盘上
+    /// 不存在 ⇒ ② 当场红。）这条缝没有堵，如实记在这里；
+    /// 兜底的仍是 SwiftPM 自己：声明指向不存在的路径会直接构建失败。
     @Test("`.module` 归属：manifest 的 `resources:` 逐条路径与磁盘同进同退")
     func moduleBundleOwnership() throws {
         #expect(GuardScanRoots.ownsResourceBundle("CoreDesign"),
@@ -1147,10 +1164,30 @@ struct GuardScanRootsGuard {
             }
         }
         // ⚠️ **扫描非真空**：一条路径都没核对时，②「逐条存在」在空集上恒真。
-        #expect(checkedPaths >= 2, """
-        只核对了 \(checkedPaths) 条资源路径 —— 现状是 `CoreDesign` 的 `Resources` 与
-        `CoreDesignShaders` 的 `CoreDesignShaders.metal` 两条，低于此数说明解析器漏了声明，
-        「逐条都在」是在空集上恒真。
+        //
+        // ⚠️ **下界锚在 `targetNames.count`，不是写死现状条数**（PR #301 终审 I-1）：
+        // 上一版写 `>= 2`，出处句自称「现状是 `CoreDesign` 的 `Resources` 与
+        // `CoreDesignShaders` 的 `CoreDesignShaders.metal` 两条」—— **实测为假**，
+        // 是 **4** 条：`Package.swift` 里**四个** library target 各声明一条
+        // （`CoreDesign` / `CoreDesignEffects` / `CoreDesignCharts` 各一条
+        // `.process("Resources")`，`CoreDesignShaders` 一条 `.process("CoreDesignShaders.metal")`）。
+        // ⚠️ 下界设成实测值的一半是「定义域被悄悄截断而合计下界照样成立」的同一族假绿：
+        // `resourceRuleArguments` 若哪天漏掉 Effects + Charts 两条，`checkedPaths` 掉到 2、
+        // 旧下界照样满足，②「逐条都在」于是在**缩小一半**的定义域上继续恒绿。
+        // ⚠️ 锚点必须落在**解析器之外**：任何由 `declaredTargets()` 派生的下界都被
+        // ① 蕴含（①对每个 `hasResources` 的 target 已要求 `paths` 非空），循环一旦整体空转
+        // 就一起失效。`targetNames` 是手写常量，与解析器无关 ⇒ 它是这里唯一独立的锚。
+        // ⚠️ 它**不等于**「每个 target 都必须有资源」这条不变量 —— 今天四个 target 恰好
+        // 人人各声明一条，本下界才与 `targetNames.count` 重合。将来若新增一个**不声明**
+        // 资源的 library target，本条会红；那时的处置是**连同这段出处一起重判**
+        // （例如改锚到「声明了 `resources:` 的 target 数」并另找一个独立的空转防线），
+        // **不是**随手把下界调小。
+        #expect(checkedPaths >= GuardScanRoots.targetNames.count, """
+        只核对了 \(checkedPaths) 条资源路径，少于根列表里的 \(GuardScanRoots.targetNames.count) 个 target ——
+        本次实测四个 library target 各声明一条 `resources:`（CoreDesign / CoreDesignEffects /
+        CoreDesignCharts 的 `Resources` 目录，CoreDesignShaders 的 `CoreDesignShaders.metal`）⇒ 恰好 4 条。
+        低于此数说明 `resourceRuleArguments` 漏了声明，②「逐条都在」是在**被截断的定义域**上恒真。
+        ⚠️ 若确实新增了不声明资源的 target，见本断言上方注释：要重判出处，不是调小下界。
         """)
     }
 
@@ -1158,7 +1195,7 @@ struct GuardScanRootsGuard {
     /// 在提交态恒绿（数据自洽时判据自然沉默）⇒ 「把提取器改成永远返回空数组」这类
     /// 退化在提交态测不出来 —— 那会让①的等式两侧同时变假（`hasResources` 也跟着？不会，
     /// `hasResources` 走的是另一条 `contains("resources:")`）⇒ ①会红；但②与
-    /// 「checkedPaths >= 2」这两条的活性仍需合成输入证明。
+    /// 「`checkedPaths >= targetNames.count`」这两条的活性仍需合成输入证明。
     @Test("资源路径提取器真的会开火（合成输入变红自证）")
     func resourceRuleArgumentExtraction() {
         #expect(GuardScanRoots.resourceRuleArguments(in: #".process("Resources")"#) == ["Resources"])
