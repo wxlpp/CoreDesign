@@ -101,8 +101,17 @@ func consumeGlassModifierTwoArgForm() -> some View {
 
 // `ButtonRoleStyleRole.resolvedColor` 是 #96 新增的 public 方法，现为三个
 // ButtonStyle 三态取色的唯一来源。`readRolePalette` 只覆盖了三个调色板属性。
-// 与 `readRolePalette` 同样必须 `@MainActor`——`defaultIsolation(MainActor.self)`
-// 下这个方法也是 MainActor 隔离的（它读三个隔离的调色板属性）。
+// 与 `readRolePalette` 同样**必须** `@MainActor`——本次复核实测再确认一次：改成
+// `nonisolated` 当场 `error: call to main actor-isolated instance method
+// 'resolvedColor(isEnabled:isPressed:)' in a synchronous nonisolated context`，
+// 同一次构建里 `color` / `activeColor` / `disabledColor` 另判三条同形态的红。
+//
+// ⚠️ **但理由不是 `defaultIsolation(MainActor.self)`——上一版这半句实测为假，照录
+// 更正**（PR #304 第 2 轮终审 I-3 顺带复核）：`ButtonRoleStyleRole` 自己是
+// `public nonisolated enum`，这四个成员的隔离来自它们各自**显式**标的 `@MainActor`
+// （`Sources/CoreDesign/Components/Button/ButtonRoleStyleRole.swift:18/34/50/75`）。
+// 「显式标注 vs 只由 `defaultIsolation` 推断」正是下面 `consumeSkeletonColorTokens`
+// 那条更正里的判别式的第一项——两处不能混为一谈。
 @MainActor
 func consumeResolvedColor(_ role: ButtonRoleStyleRole) -> Color {
     role.resolvedColor(isEnabled: true, isPressed: false)
@@ -118,36 +127,19 @@ func consumeCircularGlassTierAccessor() -> some View {
 
 // MARK: - SettingsRowMetrics 公开常量（0.6.0，item 2）
 //
-// SettingsRowMetrics 从 internal 改 public，让下游把自定义行对齐到 SettingsRow
-// 网格。这是该次变更的**全部交付物**——若被改回 internal，库内 @testable 测试、
-// App 宿主、既有 probe 都护不住（无一从外部包引用它）。这里从外部包消费全部 6 个
-// 成员，pin 住可见性。
+// ⚠️ **这里原有的 `@MainActor func consumeSettingsRowMetrics()` 已删除，别加回来**
+// （PR #304 第 2 轮终审 I-4）。删的理由是它**完全冗余**，不是「用不上了」：
+// 它与 `NonisolatedUsage.swift:useSettingsRowMetrics()` 读的是**逐字相同、顺序相同**
+// 的同 6 个成员（`iconSquareSize` / `iconTitleGap` / `horizontalPadding` /
+// `iconCornerRadius` / `iconAlignedDividerInset` / `textAlignedDividerInset`），
+// 且两者同在 `DownstreamProbe` 这**一个**外部 target 里 ⇒ 可见性覆盖 **100% 重叠**：
+// `public` 被收回时先炸的就是那一条，这一条提供不了任何增量；而隔离那一侧它还**更弱**
+// （`SettingsRowMetrics` 被改回 MainActor 隔离时，`@MainActor` 版本不会红）。
+// ⇒ 严格被支配。
 //
-// ⚠️ **上一版这里写「必须 @MainActor：`.defaultIsolation(MainActor.self)` 下两个
-// 计算属性（iconAlignedDividerInset / textAlignedDividerInset）是 MainActor 隔离的，
-// 四个 static let 跨模块也非 nonisolated 可达（SE-0434 只放开模块内）」——`#290`
-// 把 `SettingsRowMetrics` 改成 `public nonisolated enum` 之后，这段话的**每一个
-// 分句都已为假**，照录更正**（PR #304 终审 F-5）：6 个成员（含那两个计算属性）
-// 现在跨模块 `nonisolated` 可达，反证就在同一个包里——`NonisolatedUsage.swift` 的
-// `nonisolated func useSettingsRowMetrics()` 逐条读这 6 个成员并干净编译。
-// （顺带：SE-0434 那半句本身也是误引，射程见 `NonisolatedUsage.swift` 里
-// `SidebarTextStyle` 那条更正。）
-//
-// ⇒ 这里的 `@MainActor` **不再是「必须」，而是「无害」**：它作为**可见性 pin** 仍
-// 有价值（本函数的全部交付物就是「从外部包消费这 6 个成员」，`public` 被收回时会
-// 炸），只是理由不再是隔离。隔离那一侧的覆盖已经由 `useSettingsRowMetrics()` 拿走，
-// 且**更强**——它连 `nonisolated` 掉了都会红。两处有意并存、不重叠。
-@MainActor
-func consumeSettingsRowMetrics() -> [CGFloat] {
-    [
-        SettingsRowMetrics.iconSquareSize,
-        SettingsRowMetrics.iconTitleGap,
-        SettingsRowMetrics.horizontalPadding,
-        SettingsRowMetrics.iconCornerRadius,
-        SettingsRowMetrics.iconAlignedDividerInset,
-        SettingsRowMetrics.textAlignedDividerInset,
-    ]
-}
+// ⚠️ 上一版这段注释里那句「两处有意并存、不重叠」与「作为可见性 pin 仍有价值」
+// **实测为假**（同上），照录于此。该 pin 的交付物说明与它头上的 F-5 更正记录
+// 已并入 `NonisolatedUsage.swift` 的 `useSettingsRowMetrics()`。
 
 // MARK: - Skeleton 取色 token（semi-mobile-components Phase 0 / Issue #161）
 //
@@ -155,8 +147,39 @@ func consumeSettingsRowMetrics() -> [CGFloat] {
 // Skeleton（Issue #162）的 shimmer modifier 复用。库内 @testable 测试只能证明
 // 「能编译」（internal 也可达），真正的公开可见性护栏在这里——从外部包消费它们，
 // 若日后漏写/收回 `public`，四条 SwiftPM 命令仍绿而此处会炸。
-// 必须 @MainActor：CoreDesign 开了 `.defaultIsolation(MainActor.self)`，这两个
-// 静态计算属性跨模块非 nonisolated 可达（同 ButtonRoleStyleRole 调色板）。
+//
+// ⚠️ **上一版这里写「必须 @MainActor：CoreDesign 开了 `.defaultIsolation(MainActor.self)`，
+// 这两个静态计算属性跨模块非 nonisolated 可达（同 ButtonRoleStyleRole 调色板）」
+// ——实测为假，照录更正**（PR #304 第 2 轮终审 I-3）：
+// · 把 `nonisolated func { [Color.skeletonBase, Color.skeletonHighlight] }` 放进本 target
+//   （即跨模块读），`swift build -Xswiftc -warnings-as-errors` **零诊断，Build complete**。
+// · 「同 `ButtonRoleStyleRole` 调色板」这个类比是**反的**：同一次构建里那几条
+//   （`color` / `activeColor` / `disabledColor` / `resolvedColor`）**全部判红**。
+//   两组行为相反，不能互相引证。
+//
+// ⚠️ **真正的判别式**（本次跑了 6 个 cell 的 2×2 合成实测 + 3 个模块内对照，
+// 原始输出见 PR #304 第 2 轮验证块）：一个 CoreDesign 公开成员从**外部包的
+// nonisolated 上下文**可达，当且仅当它 **① 没有显式隔离标注**（隔离只可能来自
+// `defaultIsolation`）**且 ② 声明在一个本模块之外的类型的扩展上**（这里是
+// `SwiftUI.Color`）。本次覆盖的 4 类 cell：
+//   · 外部类型扩展 + 无标注（真实 `skeletonBase`；合成 `zzUnannotatedColorStatic`）⇒ **绿**
+//   · 外部类型扩展 + 显式 `@MainActor`（合成 `zzAnnotatedColorStatic`）⇒ **红**
+//   · CoreDesign 自有类型 + 无标注（合成的 static 与实例计算属性各一）⇒ **红**
+//   · CoreDesign 自有类型 + 显式 `@MainActor`（合成一条；真实的
+//     `ButtonRoleStyleRole` 调色板四条）⇒ **红**
+// ⇒ 判别式**不是**「计算属性 vs 存储属性」，**也不是**「static vs 实例成员」。
+//
+// ⚠️ 而且这条可达性**只对下游成立**：同一批成员从 CoreDesign **模块内**的
+// nonisolated 上下文读仍是硬 error——合成对照里 `zzUnannotatedColorStatic` /
+// `skeletonBase` / `success` 三条在模块内同时判红。这与 `NonisolatedUsage.swift`
+// 里 F-2 那条更正（「第 3/4 层色彩 token 跨模块反而 nonisolated 可达，MainActor
+// 只在模块内成立」）是**同一个事实的两个方向**，本轮之前两处互相矛盾，现已消解。
+//
+// ⇒ 这里的 `@MainActor` **不是「必须」，只是无害**。保留它只因为本函数的交付物是
+// 「从外部包消费这两个 token」的可见性 pin，与隔离无关；下面紧邻的
+// `consumeSpecularHighlightToken()` 就是同类 token 的**无标注**版本（本包没有开
+// `defaultIsolation`，未标注的顶层 func 本身就是 nonisolated 上下文）——它一直是绿的，
+// 正是上述判别式第一类 cell 的一条既有活证据。
 @MainActor
 func consumeSkeletonColorTokens() -> [Color] {
     [Color.skeletonBase, Color.skeletonHighlight]

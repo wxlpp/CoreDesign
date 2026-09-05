@@ -138,6 +138,12 @@ jobs:
     # 钉住它的是**树内**判据 `Tests/CoreDesignTests/DownstreamProbeGateGuard.swift`
     # （读本文件，断言下面这条 `run:` 逐字含该标志）⇒ 随 `swift test` 在每个事件上跑。
     #
+    # ⚠️ 那条判据还会拦两种「标志还在、但红点传不到 job 结论」的改法（PR #304 第 2 轮
+    # 终审 I-2）：给下面任一条 `run:` 追加 ` || true`，或给这个 job 里任何一步加
+    # `continue-on-error:`。真要加，先改判据并说明理由——别以为它只看那个标志。
+    # 另：`run:` 里 `cd scripts/downstream-probe && swift build` 这一串是**逐字**匹配的，
+    # 改写成语义等价的多行/折叠标量会判红（fail-closed，但报错信息像 bug）。
+    #
     # ⚠️⚠️ **副作用：这个标志顺带给了库自身一道零警告闸**（PR #304 终审 S-2）。
     # `-Xswiftc` 会传给**依赖图里所有** Swift 编译，而 probe 的依赖图包含
     # `CoreDesign` / `CoreDesignEffects` / `CoreDesignCharts` 三个 target 的源码。

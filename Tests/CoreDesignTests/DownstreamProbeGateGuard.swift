@@ -30,7 +30,30 @@ import Testing
 //
 // ## 射程与已知缺口（不要读成比实际更强）
 //
-// ⚠️ 它只钉「**这个标志出现在那一条 `run:` 里**」。它**不**保证：
+// ⚠️ 上一版这里把「job 被删 / workflow 文件被改名」写进了「它看不见」那一侧——
+// **实测为假，照录更正**（PR #304 第 2 轮终审 I-2）：两者都判红，形态见下。
+//
+// **本轮在真实 `ci.yml`（与真实 selftest 脚本）上逐条变异实测过的 7 种改法，
+// 它都守得到**（每条附判红形态，原始输出见 PR #304 第 2 轮的验证块）：
+// · 标志被删 ⇒ `probe 构建命令缺少 -Xswiftc -warnings-as-errors：…`
+// · 构建那条 `run:` 整个不见 ⇒ ``\`downstream-probe\` 里找不到含 …… 的 `run:` ``
+// · selftest 那一步不见 ⇒ ``\`downstream-probe\` 里找不到跑 …… 的 `run:` ``
+// · **job 被整块删掉** ⇒ `解析失效：workflow 里找不到 \`jobs:\` 下的 \`downstream-probe:\` 块`
+//   （`jobBlock` 返回 `nil` 时**不**当作「零命中 ⇒ 零违规」）
+// · **workflow 文件被改名 / 删除** ⇒ `String(contentsOf:)` 抛错，测试以
+//   `Caught error: Error Domain=NSCocoaErrorDomain Code=260 …` 判红
+// · 那条 `run:` 末尾被追加 ` || true` ⇒ `probe 构建命令的退出码被 \` || true\` 吞掉：…`
+// · 该 step 被加上 `continue-on-error: true` ⇒ `job 里出现 \`continue-on-error\`…`
+//
+// ⚠️ 后两条不是理论洁癖：**标志在场 ≠ 失败会传导到 job 结论**。只查标志时，
+// 这两种改法都让判据全绿而闸已死——与「改回裸 `swift build`」等效，只是更隐蔽。
+//
+// ⚠️ 它**不**保证：
+// · **CI 真的跑了这个 job** —— `if:` 被加到 job 或某个 step 上，本判据看不见。
+//   （这是「job 没跑」这一类里**唯一**仍然敞着的口；上面两条已经堵住。）
+// · **别的中和退出码的写法** —— 本次只堵了 ` || true` 与 `continue-on-error` 两种；
+//   `|| :`、`|| exit 0`、步骤里先 `set +e`、把命令包进一个自己吞错的脚本，
+//   本判据都仍然看不见。**已知缺口**。
 // · probe 里某个 `nonisolated func` 被整个删掉会判红 ——
 //   `readTransitionPropertiesHasMotion()` / `useSettingsRowMetrics()` 删掉，
 //   没有任何判据会红（`scripts/api-surface-diff.sh` 的头注释自己就写了
@@ -40,7 +63,6 @@ import Testing
 //   卷进 MainActor，而 probe 不引用它就没有任何东西判红。**已知缺口**，连同一个
 //   可行的 symbol-graph 机器判据（含「扫描范围决定豁免表是 5 条还是 51 条」这个
 //   必须先定案的分叉）登记在 **#307**。
-// · CI 真的跑了这个 job（`if:` 被加上、job 被删、workflow 文件被改名，本判据都看不见）。
 //
 // ⚠️ 判据**只解析文本、不跑 CI**——因此它和 `AppProjectManifestGuard` 一样，
 // 是那类「CI 里唯一看得见自己」的判据：它随 `swift test` 在**每个事件**上跑。
@@ -54,10 +76,25 @@ struct DownstreamProbeGateGuard {
     nonisolated static let requiredFlag = "-Xswiftc -warnings-as-errors"
 
     /// probe 构建那条 `run:` 的识别特征（不含标志本身）。
+    ///
+    /// ⚠️ **它是整串逐字匹配，不是「`cd` 到那个目录并 `swift build`」的语义匹配**
+    /// （PR #304 第 2 轮终审 S-2）。把那条 `run:` 改写成语义等价但**字面不同**的形态
+    /// ——例如块标量里 `cd scripts/downstream-probe` 与 `swift build …` 分成两行、
+    /// 或用折叠标量 `>-` 让这一串跨了折行——本判据会报
+    /// 「找不到含 `\(probeBuildMarker)` 的 `run:`」而**判红**。
+    /// 方向是 fail-closed（不会假绿），但重构的人会撞上一条**看起来像 bug 的红**：
+    /// 那不是 bug，是本常量的已知代价。要改写那条 `run:`，同时改这里。
     nonisolated static let probeBuildMarker = "cd scripts/downstream-probe && swift build"
 
     /// selftest 那一步的识别特征。
     nonisolated static let selftestMarker = "selftest-warnings-as-errors.sh"
+
+    /// `selftest-warnings-as-errors.sh` 里**真实**跑构建的命令条数（步骤 1 判红、步骤 3 判绿）。
+    ///
+    /// ⚠️ 这个数字是判据的关键：只断言「标志在脚本里出现过」会被脚本头部的**注释**
+    /// 满足（该脚本第 9 行的用法说明里就逐字写着这条命令）⇒ 把两条真命令的标志
+    /// 全删掉，断言照样绿。见 `selftestUsesTheSameFlag` 的注释。
+    nonisolated static let selftestBuildCommandCount = 2
 
     nonisolated static var workflowURL: URL {
         GuardScanRoots.repoRoot.appendingPathComponent(".github/workflows/ci.yml")
@@ -123,6 +160,8 @@ struct DownstreamProbeGateGuard {
     /// 同时认两种写法：行内 `run: cmd`，与块标量 `run: |` +（更深缩进的）后续行。
     /// 块标量的多行会被拼成一条以 `\n` 相连的字符串——判据用 `contains` 匹配，
     /// 因此拆成多行写也仍然抓得到。
+    ///
+    /// ⚠️ 块标量里的**空行与 `#` 注释行不进结果**：它们只参与判块边界。理由见循环内注释。
     nonisolated static func runCommands(inJobBlock block: String) -> [String] {
         let lines = block.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         var commands: [String] = []
@@ -147,6 +186,13 @@ struct DownstreamProbeGateGuard {
                 while cursor < lines.count {
                     let next = lines[cursor]
                     if !Self.isSkippable(next), Self.indentation(of: next) <= baseIndent { break }
+                    // ⚠️ 空行与 `#` 注释行只用来**判块边界**，**不进 `collected`**
+                    // （PR #304 第 2 轮终审 I-2/S-1）。上一版把它们一并拼进命令串 ⇒
+                    // 下面的 `contains(requiredFlag)` 能被**注释里的标志**满足：把那条
+                    // `run:` 改成块标量、标志只留在 `#` 注释里、实际命令裸 `swift build`，
+                    // 判据全绿而闸已死。本仓 `ci.yml` 正是重注释风格（这个 job 自己就有
+                    // 二十多行注释），不是理论风险。
+                    if Self.isSkippable(next) { cursor += 1; continue }
                     collected.append(next.trimmingCharacters(in: .whitespaces))
                     cursor += 1
                 }
@@ -158,6 +204,18 @@ struct DownstreamProbeGateGuard {
             }
         }
         return commands
+    }
+
+    /// selftest 脚本里**真正会执行**的、带那个标志的构建命令行。
+    ///
+    /// ⚠️ 整行以 `#` 开头的行被丢掉。**不**做行内 `#` 处理——bash 里 `#` 只有在词首
+    /// 才是注释，而本仓这个脚本没有行尾注释；真要处理得先做一遍 shell 词法分析，
+    /// 那超出「纯文本判据」的定位。**已知缺口**：把标志藏进一条行尾注释仍能骗过它。
+    nonisolated static func flaggedBuildLines(inScript script: String) -> [String] {
+        script.split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("#") }
+            .filter { $0.contains("swift build \(Self.requiredFlag)") }
     }
 
     /// 判据本体：对一份 workflow 文本给出违规清单（空 = 通过）。
@@ -181,6 +239,22 @@ struct DownstreamProbeGateGuard {
         if !commands.contains(where: { $0.contains(Self.selftestMarker) }) {
             problems.append("`\(Self.jobName)` 里找不到跑 `\(Self.selftestMarker)` 的 `run:`")
         }
+
+        // ⚠️ **标志在场 ≠ 失败会传导**（PR #304 第 2 轮终审 I-2）。下面两条各堵一种
+        // 「闸还在、但红点到不了 job 结论」的改法；它们比「改回裸 `swift build`」更隐蔽，
+        // 因为标志仍然逐字躺在那条 `run:` 里。**只堵这两种**，别的中和写法见判据头。
+        for command in commands where command.contains("|| true") {
+            problems.append("`\(Self.jobName)` 的某条 `run:` 退出码被 `|| true` 吞掉：\(command)")
+        }
+        let effectiveBlockLines = block
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+            .filter { !Self.isSkippable($0) } // 注释里提一嘴 `continue-on-error` 不该判红
+        if effectiveBlockLines.contains(where: { $0.contains("continue-on-error") }) {
+            problems.append(
+                "`\(Self.jobName)` job 里出现 `continue-on-error` —— 这道闸判红也不会让 job 判红"
+            )
+        }
         return problems
     }
 
@@ -203,12 +277,31 @@ struct DownstreamProbeGateGuard {
         )
     }
 
-    @Test("selftest 脚本与 CI 用的是同一个标志")
+    @Test("selftest 脚本的两条真实构建命令与 CI 用的是同一个标志")
     func selftestUsesTheSameFlag() throws {
+        // ⚠️ **上一版这里写 `script.contains("swift build \(requiredFlag)")`，实测为假，
+        // 照录更正**（PR #304 第 2 轮终审 I-1）：把脚本里**两条真实构建命令**（`:56`
+        // 与 `:76`）的标志全部删掉，这条断言**照样绿**——满足它的是脚本第 9 行那条
+        // **用法说明注释**里逐字写着的同一条命令。⇒ 它当时证的其实是「这个字符串在
+        // 这个文件里出现过（含注释）」。
+        //
+        // ⚠️⚠️ 这正是本判据自己在别处修的同款失效，也是判据头那段「selftest 自己硬编码
+        // 这个标志 ⇒ 它证的是**这条命令**会响」的**镜像**：那段话成立的前提是脚本里真的
+        // 有那条命令，而不是有那行注释。⇒ 改为**按行判定、只看非注释行**，并要求至少
+        // 两行命中（对应脚本内两条真命令）。
         let script = try String(contentsOf: Self.selftestURL, encoding: .utf8)
+        let flagged = Self.flaggedBuildLines(inScript: script)
         #expect(
-            script.contains("swift build \(Self.requiredFlag)"),
-            "selftest 脚本里的构建命令与 CI 的不再是同一条——它证的东西会跟着跑偏"
+            flagged.count >= Self.selftestBuildCommandCount,
+            """
+            `\(Self.selftestMarker)` 里带 `\(Self.requiredFlag)` 的**非注释**构建命令
+            只剩 \(flagged.count) 条，少于预期的 \(Self.selftestBuildCommandCount) 条：
+            \(flagged.isEmpty ? "（一条都没有）" : flagged.joined(separator: "\n"))
+
+            这个脚本的全部价值是「用与 CI **逐字相同**的命令证明这道闸会响」。它自己的
+            构建命令一旦与 CI 的分叉，它证的东西就跟着跑偏——而判据头那段推理
+            （selftest 证「这条命令会响」、本判据证「CI 跑的是这条命令」）会缺掉前一半。
+            """
         )
     }
 
@@ -259,5 +352,80 @@ struct DownstreamProbeGateGuard {
               - run: scripts/downstream-probe/selftest-warnings-as-errors.sh
         """
         #expect(Self.violations(inWorkflow: yaml).isEmpty)
+    }
+
+    @Test("合成输入：块标量里标志只剩在注释里也判红")
+    func syntheticBlockScalarWithFlagOnlyInCommentIsRejected() {
+        // ⚠️ 这条 fixture 钉住 `runCommands` 那个解析缺陷的修复（S-1）：注释行曾被拼进
+        // 命令串，于是 `contains(requiredFlag)` 被**注释**满足 ⇒ 全绿而闸已死。
+        let yaml = """
+        jobs:
+          downstream-probe:
+            steps:
+              - name: Build downstream probe
+                run: |
+                  # 这一步等价于 swift build -Xswiftc -warnings-as-errors
+                  cd scripts/downstream-probe && swift build
+              - run: scripts/downstream-probe/selftest-warnings-as-errors.sh
+        """
+        let problems = Self.violations(inWorkflow: yaml)
+        #expect(problems.count == 1)
+        #expect(problems.first?.contains(Self.requiredFlag) == true)
+    }
+
+    @Test("合成输入：`|| true` 与 continue-on-error 把闸变成装饰也判红")
+    func syntheticNeutralizedGateIsRejected() {
+        let swallowed = """
+        jobs:
+          downstream-probe:
+            steps:
+              - run: cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors || true
+              - run: scripts/downstream-probe/selftest-warnings-as-errors.sh
+        """
+        let swallowedProblems = Self.violations(inWorkflow: swallowed)
+        #expect(swallowedProblems.count == 1)
+        #expect(swallowedProblems.first?.contains("|| true") == true)
+
+        let continued = """
+        jobs:
+          downstream-probe:
+            steps:
+              - name: Build downstream probe
+                continue-on-error: true
+                run: cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors
+              - run: scripts/downstream-probe/selftest-warnings-as-errors.sh
+        """
+        let continuedProblems = Self.violations(inWorkflow: continued)
+        #expect(continuedProblems.count == 1)
+        #expect(continuedProblems.first?.contains("continue-on-error") == true)
+    }
+
+    @Test("合成输入：selftest 里标志只剩在注释里也判红")
+    func syntheticScriptWithFlagOnlyInCommentsIsRejected() {
+        // 上一版断言（整文件 `contains`）对**这份**输入是绿的——它就是 I-1 那条实测的
+        // 最小化形态：两条真命令裸 `swift build`，标志只活在头部用法说明里。
+        let script = """
+        #!/usr/bin/env bash
+        #
+        # CI 的 downstream-probe 步骤跑的是
+        #
+        #     cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors
+        #
+        output="$(cd "$PROBE_DIR" && swift build 2>&1)"
+        (cd "$PROBE_DIR" && swift build)
+        """
+        #expect(script.contains("swift build \(Self.requiredFlag)")) // 旧断言：绿
+        #expect(Self.flaggedBuildLines(inScript: script).isEmpty) // 新判据：零命中 ⇒ 红
+    }
+
+    @Test("合成输入：两条真命令都带标志才算数")
+    func syntheticScriptWithTwoRealCommandsIsAccepted() {
+        let script = """
+        #!/usr/bin/env bash
+        # 说明里也提一次 swift build -Xswiftc -warnings-as-errors
+        output="$(cd "$PROBE_DIR" && swift build -Xswiftc -warnings-as-errors 2>&1)"
+        (cd "$PROBE_DIR" && swift build -Xswiftc -warnings-as-errors)
+        """
+        #expect(Self.flaggedBuildLines(inScript: script).count == Self.selftestBuildCommandCount)
     }
 }

@@ -99,6 +99,27 @@ nonisolated func useCoreShape() -> some Shape {
 // 卷进 MainActor），只是严重度不同——那 5 条长在 `View` / `Transition` 上，
 // 隔离由 SwiftUI 协议遵从推断而来，编译器降级成 warning；这一组的隔离直接
 // 来自 `defaultIsolation`，是 error。⇒ 修法相同：`public nonisolated enum`。
+//
+// ⚠️ **本函数现在是 probe 侧对 `SettingsRowMetrics` 的唯一覆盖**（PR #304 第 2 轮
+// 终审 I-4）：`PublicVisibility.swift` 里那个 `@MainActor consumeSettingsRowMetrics()`
+// 读的是**逐字相同、顺序相同**的同 6 个成员、同在 `DownstreamProbe` 这**一个**外部
+// target 里 ⇒ 可见性覆盖 100% 重叠，而隔离那一侧它比本函数**弱**（`nonisolated` 被
+// 拿掉时它不会红）。严格被本函数支配 ⇒ 已删除。本函数因此同时承担两件事：
+// **pin 住 `public` 可见性**，与**pin 住 `nonisolated` 可达性**。
+//
+// ⚠️ 前一件不是冗余的：`SettingsRowMetrics` 从 internal 改 public（`0.6.0` item 2）
+// 的**全部交付物**就是「下游能读这 6 个成员」，而若它被改回 internal，库内
+// `@testable` 测试、`App/` 预览宿主、其余既有 probe 文件**没有一个**会红
+// （无一从外部包引用它）——只有本函数会。
+//
+// ⚠️ 连同删掉的还有它头上那段 F-5 更正记录，照录于此以免有人重新推导出旧结论：
+// **上一版那里写「必须 @MainActor：`.defaultIsolation(MainActor.self)` 下两个计算属性
+// （`iconAlignedDividerInset` / `textAlignedDividerInset`）是 MainActor 隔离的，四个
+// `static let` 跨模块也非 nonisolated 可达（SE-0434 只放开模块内）」——`#290` 把
+// `SettingsRowMetrics` 改成 `public nonisolated enum` 之后，这段话的每一个分句都已为
+// 假**（PR #304 第 1 轮终审 F-5）。反证就是本函数：6 个成员（含那两个计算属性）跨模块
+// `nonisolated` 逐条读、干净编译。SE-0434 那半句本身也是误引，射程见下方
+// `SidebarTextStyle` 那条更正。
 nonisolated func useSettingsRowMetrics() -> [CGFloat] {
     [
         SettingsRowMetrics.iconSquareSize,
