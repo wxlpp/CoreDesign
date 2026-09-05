@@ -1059,7 +1059,8 @@ struct BoolExemptionGuard {
 /// 该类型的声明」这句话的正向核对。⚠️ **不是「顶层」采集器**：五个 `visit` 都返回
 /// `.visitChildren`，会继续递归进类型内部，嵌套类型同样被采到——对「这个名字在本仓
 /// 是否被声明过一次」这个问题而言这是期望行为，不是失控的副作用。
-/// ⚠️ 与 `ComponentRegistryGuard.PublicTypeCollector` 是两个不同的采集器：那个只收
+/// ⚠️ 与 `PublicTypeCollector`（`ComponentRegistryGuard.swift` 的文件顶层类型，
+/// 不是那个 suite 的成员）是两个不同的采集器：那个只收
 /// public 且符合 `View`/`ViewModifier`/style 协议的 struct（为登记表核对服务），
 /// 这个收全部访问级别、全部声明关键字、任意嵌套层级（为上面更宽的问题服务）。
 private nonisolated final class DeclaredTypeNameCollector: SyntaxVisitor {

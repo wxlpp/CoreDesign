@@ -6,8 +6,11 @@ import Testing
 /// 三条判据（J-2 / J-3 / FR-4）共用的源码扫描缓存。
 ///
 /// 本仓 `Package.swift` 设了 `.defaultIsolation(MainActor.self)`，测试**串行**执行
-/// ⇒ 这个可变静态量不需要额外同步（照 #38 `ComponentRegistryGuard.cachedCoreDesignScan`
-/// 的成法）。
+/// ⇒ 这个可变静态量不需要额外同步（照 #38 `ComponentRegistryGuard` 的缓存成法；
+/// 那个**属性**在 #38 时叫 `cachedCoreDesignScan`、它支撑的**函数**叫 `coreDesignScan`，
+/// `#270` 之后现名分别是 `cachedComponentScan` 与 `componentScan`
+/// ——⚠️ 四个都是历史 / 现名的**裸符号名，刻意不连点写成限定名**：
+/// `JudgementReferenceGuard` 不区分活引用与撤回痕迹，连点写会被判成悬空引用）。
 ///
 /// ⚠️ **只缓存「成功且非空」的结果**：`scanComponentJudgeInputs` 的失败路径（路径不存在 /
 /// 无法枚举）返回空结果。若把空结果也缓存下来，第一条判据吃到失败、后两条却拿着缓存里的

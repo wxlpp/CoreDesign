@@ -69,7 +69,7 @@ keyframe 值，不回 `initialValue`**，而 `rotationEffect(.degrees(360))` **�
 ⇒ 任何 `Text(...).spin()` 在第一次转完之后字形边缘会永久带上约 9% 的重采样软化。
 取模后终态是 `rotationEffect(0)`（实测恒等），而 360° ≡ 0° 视觉无跳变。
 
-判据是 `MicroInteractionTests.terminalFrameIsIdentity`：用 `KeyframeTimeline` 对
+判据是 `MicroInteractionAPITests.terminalFrameIsIdentity`：用 `KeyframeTimeline` 对
 **生产代码里那条真轨道**求 `value(time: duration)`，再喂给**真取角函数**，
 最后把结果角度渲染出来与裸视图逐字节比。
 

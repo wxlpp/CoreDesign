@@ -63,7 +63,8 @@ struct RatingStyleTests {
     // 采纳），见 `Rating.body` 上方注释。这条补齐机器判据：用 spy style 记录
     // `makeBody` 是否真的被调用、收到的 configuration 是否与 `Rating` 的真实构造参数
     // 一致，经 `ImageRenderer` 触发一次真实的 SwiftUI body 求值——不是「看起来应该会
-    // 调用」的推断。手法与 `CoreControlStyleTintTests.averageColor` 同源（`ImageRenderer`
+    // 调用」的推断。手法与 `CoreControlStyleTintTests.swift` 里的 `averageColor`
+    // （文件私有自由函数，不是那个 suite 的成员）同源（`ImageRenderer`
     // 是本仓验证「样式真的接入」的既有惯例）。
 
     /// 记录 `makeBody` 调用次数与最近一次收到的 configuration。class + `@MainActor`——

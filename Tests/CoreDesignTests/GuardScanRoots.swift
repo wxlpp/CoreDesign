@@ -17,7 +17,9 @@ import Testing
 // **在写下的当天就已经指到空行和一个 `}`**，且没有任何判据会为此判红。
 // 与下面 `relativePath(_:)` 文档里那条同样的纪律（活引用一律用符号名）。
 //
-// ⚠️ **上句原写「本文件不含 `ComponentRegistryGuard.coreDesignSources`」，`#270` 已作废**：
+// ⚠️ **上句原写「本文件不含 `ComponentRegistryGuard` 的 `coreDesignSources`」，`#270` 已作废**
+//（⚠️ 该历史符号名在这里**拆开写**：它今天已不存在，连点写成限定名会被
+//  `JudgementReferenceGuard` 判成悬空引用——那条判据不区分活引用与撤回痕迹）：
 // 登记表守卫的根曾停在单根，理由是「扩根会顶动 AD-4《下游连锁一》那串断言，归 `#255` 处置」
 // ——而 `#255` 落地时没做 ⇒ 两个新 target 的 public 类型对登记表**结构上不可见**，
 // 少登记一条不会有任何判据红。`#270` 把它接过来收口：
@@ -253,7 +255,7 @@ nonisolated enum GuardScanRoots {
     /// ——注释里提到 `.testTarget` 的地方不少，按子串匹配会误判。
     ///
     /// ⚠️ **解析不出 name 的块会 `Issue.record`，不静默丢弃**（PR #265 终审 S-4，
-    /// 第 4 轮终审 I-4 把它真正接上）：`.target(name: shadersName,` 这类非字面量 name
+    /// PR #265 第 4 轮终审 I-4 把它真正接上）：`.target(name: shadersName,` 这类非字面量 name
     /// 会让 `quotedName` 返回 `nil`，据此把整个块丢掉并报一条可读的失败 ⇒ 该 target
     /// 不会悄悄不进 `targetNames` 的双向差集、也不会悄悄不进 `.module` 归属表，
     /// 而两者都是 fail-open 方向的漏。
@@ -353,7 +355,7 @@ nonisolated enum GuardScanRoots {
             } else if !open {
                 continue
             } else if awaitingName, let name = Self.quotedName(in: code, atDepth: 0) {
-                // ⚠️ **按深度 0 取**（第 5 轮终审 S-b）：这一行是块内单独一行的 `name: "X",`，
+                // ⚠️ **按深度 0 取**（PR #265 第 5 轮终审 S-b）：这一行是块内单独一行的 `name: "X",`，
                 // `name:` 就在最外层。此前用 `code.hasPrefix("name:")` 前缀匹配，
                 // `name : "X"`（合法 Swift）匹配不上 ⇒ 整块被丢弃并报「name 可能不是字面量」。
                 currentName = name
@@ -597,6 +599,120 @@ nonisolated enum GuardScanRoots {
     private static func isIdentifierCharacter(_ character: Character) -> Bool {
         character.isLetter || character.isNumber || character == "_"
     }
+
+    // MARK: - 测试根与文档根（`#287`：判据引用守卫的扫描面也要有单一来源）
+
+    /// `Tests/` —— 全部 test target 源码的公共父目录。
+    static var testsRoot: URL { Self.repoRoot.appendingPathComponent("Tests") }
+
+    /// `Tests/` 下的每个子目录 = 一个 test target 的源码根。
+    ///
+    /// ⚠️ **不做任何白名单**：新增 test target 只要按 SwiftPM 约定落在 `Tests/<名字>/`
+    /// 就自动进扫描范围；`BitmapExpectationGuard.scanRootsMatchTheManifest` 与
+    /// `JudgementReferenceGuard.scanFaceMatchesTheManifest` 各自与 `Package.swift`
+    /// 里的非 library target 做**双向**差集，堵住「新 target 静默逃出守卫」。
+    ///
+    /// ⚠️ `#287` 之前这份实现住在 `BitmapExpectationGuard` 里。第二条守卫要用同一份根时，
+    /// 复制一份必然漂——本文件既然是「根列表的单一来源」，测试根就该在这里，
+    /// 而不是在某一条守卫的私有实现里。
+    static func testRootDirectories() throws -> [URL] {
+        try FileManager.default
+            .contentsOfDirectory(at: Self.testsRoot, includingPropertiesForKeys: [.isDirectoryKey])
+            .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    /// `docs/` —— 组件文档与 `component-registry.json` 的根。
+    static var docsRoot: URL { Self.repoRoot.appendingPathComponent("docs") }
+
+    /// `docs/` 下指定扩展名的全部文件（递归）。
+    ///
+    /// ⚠️ 与 `swiftFiles(in:)` 同一条 fail-closed 纪律：路径不存在 / 枚举失败时
+    /// `Issue.record` 并返回空，而不是静默产出空序列。
+    static func docFiles(
+        extensions: Set<String> = ["md", "json"],
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) -> [URL] {
+        guard FileManager.default.fileExists(atPath: Self.docsRoot.path) else {
+            Issue.record("文档根不存在：\(Self.docsRoot.path) —— 判据无法工作，这不是「零违规」",
+                         sourceLocation: sourceLocation)
+            return []
+        }
+        guard let walker = FileManager.default.enumerator(
+            at: Self.docsRoot, includingPropertiesForKeys: nil
+        ) else {
+            Issue.record("无法枚举文档目录：\(Self.docsRoot.path)（权限或 IO 异常）—— 判据无法工作",
+                         sourceLocation: sourceLocation)
+            return []
+        }
+        var out: [URL] = []
+        for case let url as URL in walker where extensions.contains(url.pathExtension) { out.append(url) }
+        return out.sorted { $0.path < $1.path }
+    }
+
+    /// 仓库**根目录**下的 `.md`（不递归）—— `CLAUDE.md` / `AGENTS.md` / `README.md` /
+    /// `ACKNOWLEDGEMENTS.md` 这一层。
+    ///
+    /// ⚠️ `#287` 第 1 轮终审：指引文件本身就住在这一层，而 `docFiles()` 只看 `docs/`
+    /// ⇒ 「判据引用必须指得到真实符号」这条纪律**对写着这条纪律的那份文件本身不生效**。
+    /// 实测代价不是零：那一层当时活着两条真悬空引用（`CLAUDE.md` 与 `AGENTS.md` 各一条
+    /// 同文的 `ComponentRegistryGuard` 单根声称，`#270` 之后已失真）。
+    ///
+    /// ⚠️ **不递归**是刻意的：`.claude/`（epic / PRD 归档，173 个 `.md`）是历史文档，
+    /// 按「撤回痕迹拆开写」的纪律回改它们等于篡改归档，理由写在
+    /// `JudgementReferenceGuard` 文件头的「找到但堵不住的路径」一节。
+    ///
+    /// ⚠️ **扩展名写死成 `md`，与 `docFiles(extensions:)` 的可配置形态不对称——这是刻意的**
+    /// （`#287` 第 2 轮终审 S-5）：`docs/` 那棵树里 `.json` 是**语料**
+    /// （`component-registry.json` 的 `notes` 写着判据引用，`#287` 的验收逐字要求扫它），
+    /// 而仓库根这一层的非 `.md` 今天恰好四份，要么是**构建配置**（`Package.swift` /
+    /// `Package.resolved` / `.gitignore`）、要么是**法律文本**（`LICENSE`）——都不含
+    /// 判据引用，扫进来只会平添噪声。（⚠️ 上一版把 `LICENSE` 一并归进「构建配置」，
+    /// 归错了类：`#287` 第 3 轮终审 S-c。四份是**今天**的枚举，这一层随时可能多出别的
+    /// 非 `.md` 文件，届时这句话要重新核。⚠️ 并且「四份」只在**普通 clone** 里成立：
+    /// 在 git worktree 里 `.git` 是一个**文件**而不是目录 ⇒ 那里是五份
+    ///（`#287` 第 4 轮终审 S2）。对本函数无影响——过滤条件是 `pathExtension != "md"`，
+    /// 与是不是目录无关；登记在此以免下一个读者按「四份」去核而对不上。）
+    /// ⇒ 两个同族函数口径不同是因为两片语料的性质不同，不是漏了一个参数。
+    /// 真要扩到别的扩展名时，把这段理由一并改掉。
+    ///
+    /// ⚠️ 与 `docFiles()` / `swiftFiles(in:)` 一样**按文件系统枚举、不按 git 索引**：
+    /// 未跟踪的散文件照样进面。仓库根是散文件最容易落地的一层 ⇒ 已登记在
+    /// `JudgementReferenceGuard` 文件头的「找到但堵不住的路径」一节。
+    ///
+    /// 与 `swiftFiles(in:)` / `docFiles()` 同一条 fail-closed 纪律。
+    ///
+    /// ⚠️ **`in root:` 这个参数只为一件事存在：让上面那条「按文件系统枚举」的声称
+    /// 本身可判据化**（`#287` 第 3 轮终审 I-E）。上一版把这条性质写成了承重注释，却
+    /// 没有任何判据钉住它——`JudgementReferenceGuard` 的 `pinnedRootDocuments` 是
+    /// **超集**检查，对「枚举退化成恰好那四份已知指引」的**白名单式收窄**天然无感
+    ///（实测变异 `DRIFT-whitelist`：改成白名单 + 往根放一份含两条真悬空引用的未跟踪
+    /// `.md` ⇒ 六个测试全绿）。⇒ `rootDocFilesEnumeratesTheWholeLayer` 在**临时目录**
+    /// 里放文件来钉它：临时目录里的文件天然未跟踪，且不污染仓库根。
+    /// 生产调用点一律走默认实参，不传 `root`。
+    ///
+    /// ⚠️ **但这条 fixture 的射程到本函数为止**（`#287` 第 4 轮终审 F1）：注入 `root`
+    /// 只能证明**这个函数**枚举整层，证明不了「本函数的产出真的进了文档扫描面」。
+    /// 实测变异 `CALLSITE-whitelist`——把同一张白名单从这里挪到**调用点**
+    ///（`JudgementReferenceGuard` 的 `docScanFace`）——`rootDocFilesEnumeratesTheWholeLayer`
+    /// 与 `pinnedRootDocuments` 那条超集检查**都照绿**（19/19），而往仓库根放的一份含两条
+    /// 真悬空引用的未跟踪 `.md` 真的逃了出去。上面那句「生产调用点一律走默认实参」
+    /// 在该变异下**照样成立** ⇒ 它桥不到「所以 fixture 覆盖了生产路径」。
+    /// ⇒ 缺的那一半在 J2 里补（`escaped.isEmpty`：整层的每一份都在 `docScanFace()` 的
+    /// 产出里），两条**组合**起来才等于「整层 ⊆ 扫描面」。
+    static func rootDocFiles(
+        in root: URL = GuardScanRoots.repoRoot,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) -> [URL] {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: nil
+        ) else {
+            Issue.record("无法枚举仓库根：\(root.path)（权限或 IO 异常）—— 判据无法工作",
+                         sourceLocation: sourceLocation)
+            return []
+        }
+        return entries.filter { $0.pathExtension == "md" }.sorted { $0.path < $1.path }
+    }
 }
 
 // MARK: - 扫描根自身的守卫
@@ -614,6 +730,55 @@ struct GuardScanRootsGuard {
             #expect(!GuardScanRoots.swiftFiles(in: root.url).isEmpty,
                     "\(root.target) 的根 \(root.url.path) 下一个 .swift 都没有 —— 扫描器会在空输入上恒绿")
         }
+    }
+
+    /// `#287` 第 3 轮终审 I-E：把「按文件系统枚举整层、未跟踪文件照样进面」从一句
+    /// 承重注释变成一条判据。
+    ///
+    /// ⚠️ **要钉的是「整层」，不是「那四份已知指引」**：`JudgementReferenceGuard` 的
+    /// `pinnedRootDocuments` 只做**超集**检查，把 `rootDocFiles(in:)` 换成一张
+    /// 「只扫已知四份」的白名单时它照样满足，而随手落在仓库根的未跟踪 `.md`
+    /// 就此静默逃出扫描面（实测变异 `DRIFT-whitelist` 下六个测试全绿）。
+    /// ⇒ 这里刻意用一个**不在**那张表里的名字（`draft-notes.md`）当主探针。
+    ///
+    /// ⚠️ **本 fixture 钉的是这个函数的枚举行为，不是「扫描面的性质」**
+    ///（`#287` 第 4 轮终审 F1）：把同一张白名单挪到**调用点**
+    ///（`JudgementReferenceGuard` 的 `docScanFace`）时本 fixture **照绿**，未跟踪的根
+    /// `.md` 照样逃出扫描面。缺的那一半由 J2 里的 `escaped.isEmpty` 补上
+    ///（「整层的每一份都在 `docScanFace()` 的产出里」）⇒ 只跑本 fixture 断言不了扫描面完整，
+    /// 两条要一起读。
+    ///
+    /// ⚠️ 在**临时目录**里做而不是往仓库根扔文件：既天然满足「未跟踪」，
+    /// 又不会污染仓库根（根 `.md` 现在在扫描面内，残留文件会直接把 J1 判红）。
+    @Test("`rootDocFiles(in:)` 枚举整层的 `.md`，包括未跟踪的、不在具名表里的（`#287` 第 3 轮终审 I-E）")
+    func rootDocFilesEnumeratesTheWholeLayer() throws {
+        let sandbox = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("GuardScanRoots-rootDocFiles-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: sandbox, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandbox) }
+
+        for name in ["draft-notes.md", "README.md", "LICENSE", "Package.swift", "notes.txt"] {
+            try "占位".write(to: sandbox.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+        // ⚠️ **子目录里再放一份 `.md`，把「不递归」也钉住**（`#287` 第 4 轮终审 F6）：
+        // 上一版把 `contentsOfDirectory` 换成递归的 `enumerator` 时本 fixture **照绿**
+        //（全套件下是别处那条 `other` 桶下界把它抓住的——那是捡到的，不是这里设计的）。
+        // 期望值不变 ⇒ 递归化会让 `nested.md` 多出来，当场判红。
+        let nested = sandbox.appendingPathComponent("nested", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        try "占位".write(to: nested.appendingPathComponent("nested.md"), atomically: true, encoding: .utf8)
+
+        let found = GuardScanRoots.rootDocFiles(in: sandbox).map(\.lastPathComponent)
+        #expect(found == ["README.md", "draft-notes.md"], """
+        `rootDocFiles(in:)` 枚举到 \(found) —— 期望恰为整层的两份 `.md`（按路径排序）。
+        · 少了 `draft-notes.md` ⇒ 枚举退化成了某种**白名单**：随手落在仓库根的未跟踪
+          `.md` 就此静默逃出扫描面，而 J1 / J2 的具名表是超集检查、不会响。
+        · 多出 `LICENSE` / `Package.swift` / `notes.txt` ⇒ 扩展名过滤失效，
+          非散文文件会被当成语料扫。
+        · 多出 `nested.md` ⇒ 枚举变成了**递归**：仓库根下的 `.claude/**`（173 个归档
+          `.md`）会整片涌进扫描面，而那一片是**有意不扫**的，理由见
+          `JudgementReferenceGuard` 文件头的《找到但堵不住的路径》一节。
+        """)
     }
 
     @Test("manifest 解析器：三种畸形写法不再把 `resources:` 归给错的 target（终审 S-d）")
@@ -686,7 +851,7 @@ struct GuardScanRootsGuard {
     ///
     /// ⚠️ 四条探针里前两条与 S-d 的形态②**同级别**（幽灵 target / 丢 target），
     /// 只是换了个入口复现——S-d 换实现时新开的盲区，此前没登记在任何口子里。
-    @Test("manifest 解析器：块注释与多行字符串不再吃掉 / 伪造 target（第 4 轮终审 I-3）")
+    @Test("manifest 解析器：块注释与多行字符串不再吃掉 / 伪造 target（PR #265 第 4 轮终审 I-3）")
     func manifestParserHandlesBlockCommentsAndMultilineStrings() {
         // ① 块注释里含**未配对**的括号 ⇒ 首版 `depth` 永远回不到 0 ⇒ 其后的 target 全丢。
         // ⚠️ 注释必须落在**块内**才复现：块外的行走 `else if !open { continue }`，
@@ -738,7 +903,7 @@ struct GuardScanRootsGuard {
         #expect(multiline.map(\.name) == ["Doc", "Next"],
                 "多行字符串体被当成代码 —— 后面的 target 丢失或多出幽灵条目")
 
-        // ④ 非字面量 `name:` 同行还有别的字面量时**不得静默改名**（第 4 轮终审 I-4）。
+        // ④ 非字面量 `name:` 同行还有别的字面量时**不得静默改名**（PR #265 第 4 轮终审 I-4）。
         //    期望：产出零个 target + 一条 `Issue.record`。
         //    ⚠️ `withKnownIssue` 在这里**是一颗牙不是消音器**：块内一条 issue 都没记录时
         //    它自己会判红 ⇒ 「解析不出 name 必须报出来」这条被机器钉住，而不是靠读文档。
@@ -763,7 +928,7 @@ struct GuardScanRootsGuard {
     ///
     /// ⚠️ 三条都与 I-3 / I-4 同级别——产出一个 manifest 里根本不存在的 target 名，
     /// 双向差集照样判红，但读者拿着那个名字无处可查。
-    @Test("manifest 解析器：嵌套块注释 / 插值 name / 同行多个 `name:`（第 5 轮终审 S-a / S-b）")
+    @Test("manifest 解析器：嵌套块注释 / 插值 name / 同行多个 `name:`（PR #265 第 5 轮终审 S-a / S-b）")
     func manifestParserHandlesNestedCommentsAndTrickyNames() {
         // ① **Swift 的块注释可嵌套**（`/* /* */ */` 合法）。首版遇**第一个** `*/` 就出注释
         //    ⇒ 注释尾部的内容重新被当成代码 ⇒ `90da0b1` 声称堵掉的那条「幽灵 target」
