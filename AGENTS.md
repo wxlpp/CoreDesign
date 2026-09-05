@@ -250,8 +250,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   - 终审在核 iOS 腿时撞到过这个形态：同一条命令的第 2 遍 `EXIT=0` + `** TEST SUCCEEDED **`，
     但 console 里只落下 **2** 条 `Test run with …` 行（第 1 遍是 3 条）——**不是少跑了一个
     test target**，是 xcodebuild 的输出捕获竞态。
-  - ⚠️ **它是间歇性的，别当成稳定可复现的形态**：修复轮在同一个 commit 上连跑两遍，
-    两遍**都是 3 行**，没能复现。⇒ 正因为间歇，「行数对了就算跑全了」这个推断本身不成立。
+  - ⚠️ **它是间歇性的，别当成稳定可复现的形态**：修复轮连跑三遍，
+    三遍**都是 3 行**，没能复现。⇒ 正因为间歇，「行数对了就算跑全了」这个推断本身不成立。
   - ⇒ **权威值取 result bundle**，console 行数只作粗筛：
 
     ```
@@ -261,7 +261,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     xcrun xcresulttool get test-results summary --path <path>.xcresult
     ```
 
-    本轮两遍运行的 `.xcresult` **完全相同**：`result=Passed`、`failedTests=0`、
+    本轮三遍运行的 `.xcresult` **完全相同**：`result=Passed`、`failedTests=0`、
     `expectedFailures=5`、`skippedTests=4`、`passedTests=928`（928 + 5 + 4 = **937** ✓，
     与 console 三行汇总 74 + 244 + 619 一致）。
   - ⚠️ 通过与否、跑了几条、跳过几条，一律以 `.xcresult` 为准；`EXIT` 与
