@@ -87,6 +87,24 @@ nonisolated func useFunctionalColors() -> [Color] {
 // `swift build` 硬红（29 处 / 1 处）。但那份覆盖是**偶然的**——它取决于那 3 个用点
 // 继续存在，而本 PR 自己刚把第 4 个用点（`BeforeAfterSlider`）改成了 `clipShape`。
 // ⇒ 这里把覆盖钉成**结构性**的，不再依赖生产代码的用点数量。
+//
+// ⚠️ **上一版只写到这里为止，等于"结构性保险"是句没有实证的自述**（#276 终审 C 节）。
+// 照本仓「变异实证」惯例补上：先把上面那 3 个 Effects 用点**临时**换成 `Color.white`
+//（抹掉偶然覆盖），再对 `maskOpaque` 各施加一次变异，`swift build` 原文如下 ——
+// 两次都**只有这一行判红**，全包 error 计数各为 1、别处零 error
+//（⚠️ `107` 是**复跑当时** `.maskOpaque` 那一行的位置，逐字照录的编译器原文；
+// 在本文件里插删行会让它漂 ⇒ **别把它当行号引用**，承重的是"只有这一行"这件事）：
+//
+//     # 变异 a：`public extension Color` → `extension Color`
+//     NonisolatedUsage.swift:107:6: error: 'maskOpaque' is inaccessible due to
+//                                  'internal' protection level
+//
+//     # 变异 b：给 `maskOpaque` 标 `@MainActor`
+//     NonisolatedUsage.swift:107:6: error: main actor-isolated static property
+//                                  'maskOpaque' can not be referenced from a
+//                                  nonisolated context
+//
+// ⇒ 这 3 行**独立承重**，且注释开头那句"一句话同时覆盖两半"的**两半都承**。
 nonisolated func useMaskOpaque() -> Color {
     .maskOpaque
 }

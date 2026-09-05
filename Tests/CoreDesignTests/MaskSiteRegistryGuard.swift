@@ -62,9 +62,34 @@ import Testing
 // 因此永远不会被触发——而它恰好就是 `#276` 本身的失效形态（一处 α < 1 的遮罩静默
 // 进树）。实测（终审 M10）：在已登记的 `ProcessingSweep.swift#glowRing` 里再插一处
 // `.mask { Color.primary.opacity(0.5) }` ⇒ 全绿、台账零改动。
-// ⇒ 现在 `maskSitesMatchTheRegistry` 里多一条 `dupes` 断言：同键多处当场判红，
-// 处置仍是**把键细化**（例如带上同一声明内的出现序号），不是给台账加一条了事。
-// 今天四个点位各在自己的声明里（该断言即为实证）。
+// ⇒ 现在 `maskSitesMatchTheRegistry` 里多一条 `dupes` 断言：同键多处当场判红。
+// 今天四个点位各在自己的键上（该断言即为实证）。
+//
+// ⚠️ **键碰撞有两种成因，处置不同**（#276 终审 I2 更正——上一版这里与 `dupes` 的失败
+// 文案都只写了第一种，并把第二种也指向"加出现序号"，那个处置对第二种是假的）：
+// · **同一声明内的第二处 `.mask`** ⇒ 细化键（带上同一声明内的出现序号）；
+// · **同文件里两个不同声明重名** ⇒ `enclosingName` 只取最内层具名声明、**不带类型
+//   路径** ⇒ 一个文件里多个类型各有 `var body` 就会撞键。实证（终审 I2）：
+//   `AnimatedMeshGradient.swift` 今天就有 3 个 `var body`（分属三个类型），
+//   只要在其中一个里加一处 `.mask` 就与另一个已登记的 `#body` 撞键，`dupes`
+//   报「共 2 处」。判红是对的，但**出现序号修不好它**，正确处置是给键加类型限定。
+//
+// ## 已知射程缺口（登记，不装作没有）
+//
+// · **探测器认"任何名为 `mask` 的成员调用"**，不区分它是不是 SwiftUI 的遮罩
+//   （#276 终审 S1 实测：在 `glowRing` 里放一个与遮罩无关的 `CGFloat.mask(_:)` 调用
+//   ⇒ `dupes` 当场判红）。上一版这枚过匹配只是"多登记一条"的无害噪声，`dupes` 把它
+//   升成硬红。今天树上概率为 0（无此 API 在用），故只登记、不加白名单——加白名单要
+//   么按名字放行（等于开洞）、要么做类型推断（本守卫明说自己是形状级闸）。
+// · **反引号转义的标识符**（`` value.`mask` { … } ``）未验证是否被扫到（未构造变异，
+//   仅代码推断；#276 终审 S4）。真出现时最坏形态是漏扫一处点位。
+// · **`registeredSites` 是字典字面量 ⇒ 台账里写重键不是本守卫诊断的**（#276 终审 S2）：
+//   编译期只有一条 warning，而 `ci.yml` 只给 `downstream-probe` 那条腿加了
+//   `-Xswiftc -warnings-as-errors`，`swift test` 那条腿没有 ⇒ CI 上的表现是**运行期**
+//   `Fatal error: Dictionary literal contains duplicate keys` / `signal code 5`，
+//   整个 macOS test bundle 一起没。fail-closed、不是假绿，但形态很凶。
+//   ⚠️ 想改成 `[(String, String)]` + 显式唯一性断言的话，注意本类型今天被
+//   `registeredSites.keys` / `registeredSites[key]` 两处按字典用，改法不是一行。
 @Suite("新 target 的 .mask 点位台账")
 struct MaskSiteRegistryGuard {
 
@@ -154,13 +179,19 @@ struct MaskSiteRegistryGuard {
         // 空、`vanished` 空）⇒ 全绿、台账零改动，而那正是 `#276` 的失效形态。
         let dupes = Dictionary(grouping: found, by: \.key).filter { $0.value.count > 1 }
         #expect(dupes.isEmpty, """
-        同一个声明里出现了**多处** `.mask`，它们的键相同 ⇒ 台账只要有一条就把它们全放行：
+        同一个**键**上出现了多处 `.mask` ⇒ 台账只要有一条就把它们全放行：
         \(dupes
             .map { "\($0.key)：第 \($0.value.map(\.line).sorted().map(String.init).joined(separator: " / ")) 行，共 \($0.value.count) 处" }
             .sorted().joined(separator: "\n"))
-        处置是**把键细化**（例如带上同一声明内的出现序号），**不是**给台账加一条了事
-        —— 加一条只会让第二处遮罩连"被人读到"这一步都省掉，而"被人读到"是本守卫
-        唯一在做的事（它不查 alpha，见文件头）。
+        ⚠️ 键 = 相对路径 + `#` + **最近的具名声明**（只取最内层名字、**不带类型路径**）
+        ⇒ 碰撞有两种成因，处置不同，先看上面的行号分清是哪一种：
+        · **同一个声明里出现了第二处 `.mask`**（两个行号落在同一个 `func` / `var` 体内）
+          ⇒ 处置是**把键细化**，例如带上同一声明内的出现序号；
+        · **同文件里两个不同声明重名**（两个行号分属不同声明；典型是一个文件里多个类型
+          各有 `var body`）⇒ 出现序号**修不好**它，处置是**给键加类型限定**
+          （把外层类型名拼进键里）。
+        两种都**不是**"给台账加一条了事" —— 加一条只会让第二处遮罩连"被人读到"这一步
+        都省掉，而"被人读到"是本守卫唯一在做的事（它不查 alpha，见文件头）。
         """)
 
         let foundKeys = Set(found.map(\.key))
@@ -172,8 +203,11 @@ struct MaskSiteRegistryGuard {
         \(unregistered.map { "\($0.key)（第 \($0.line) 行）" }.sorted().joined(separator: "\n"))
 
         `.mask` 吃的是 **alpha 通道** ⇒ 遮罩基色但凡不是满不透明，被遮的内容就整体变淡，
-        而且**不会报错**（Issue #276：四处遮罩用 `Color.primary`，实测 α = 0.8471，
-        整体暗 15%，全套位图判据一条都没抓到）。
+        而且**不会报错**（Issue #276：四处遮罩用 `Color.primary`，**macOS 26** 上实测
+        α = 0.8471 ⇒ 整体暗 15%，全套位图判据一条都没抓到）。
+        ⚠️ 这个 α 是**平台相关**的，本守卫两条腿都跑，别把上面那个数当成你这条腿上的值：
+        **iOS 26** 上 `label` 实测 α = 1.0 ⇒ iOS 腿上看不出问题
+        （`MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent` 在两端各解析一次）。
         处置二选一：
         · 基色走 `Color.maskOpaque`（契约 α = 1），并**为这一处补一条性质判据**
           （量程 / 峰值 / 端点无关性，看它是哪一类），然后登记到

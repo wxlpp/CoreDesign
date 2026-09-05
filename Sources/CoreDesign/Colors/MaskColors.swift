@@ -50,11 +50,24 @@ import SwiftUI
 // ## 为什么落在 `CoreDesign` 而不是 `CoreDesignEffects`
 //
 // `EffectsColorLiteralGuard` 的 `hueNames` 含 `white` / `black`、`numericColorLabels`
-// 含 `white` ⇒ **颜色**写法里能写死 α = 1 的三种（`Color.black` / `Color.white` /
-// `Color(white: 1)`）在新 target 里全被判红，而该守卫**至今没有例外台账**
+// 含 `white` ⇒ **至少**这三种写死 α = 1 的写法（`Color.black` / `Color.white` /
+// `Color(white: 1)`）在新 target 里都被判红，而该守卫**至今没有例外台账**
 //（「用削弱判据来消化一个例外」正是它文件头点名禁止的形态）。
 //
-// ⚠️⚠️ **上一句刻意限定在「颜色写法」上，别把它读成全称句**（#276 终审 F3 实测反例）：
+// ⚠️⚠️ **上一句是「至少这三种」，不是「所有 α=1 写法」，别把它读成全称句**
+//（#276 终审 I3 实测反例——上一版把它收窄成"**颜色**写法里的三种"，那仍是可证伪的
+// 全称句）：本守卫**按实参标签 / 成员名判**，`numericColorLabels` 今天恰是
+// `["red", "white", "hue"]`（`EffectsColorLiteralGuard.swift`）⇒ 标签不在表里的
+// 等价写法一律穿过去。本轮实测：把
+//
+//     static let f3ProbeOpaque: Color = Color(cgColor: CGColor(gray: 1, alpha: 1))
+//
+// 放进 `ProcessingSweep.swift`（`Color(cgColor:)` 的标签是 `cgColor`、
+// `CGColor(gray:alpha:)` 的是 `gray` / `alpha`，一个都不在表里）⇒
+// `swift test --filter CoreDesignTests.EffectsColorLiteralGuard`
+// **5 tests / 1 suite 全绿**。
+//
+// ⚠️ 另一条同族反例（#276 终审 F3）：
 // **未填色的 `Shape`** 放进遮罩同样是 α = 1，而且它**不含任何颜色字面量**
 // ⇒ `EffectsColorLiteralGuard` 碰不到它。本轮 macOS 实测（红叠蓝、40 × 20 取全图字节）：
 //
@@ -65,7 +78,10 @@ import SwiftUI
 // `star(at:)` 就是 `.mask(alignment: .leading) { Rectangle().frame(...) }`。
 // ⇒ 本 token 的必要性**只对色标那一族成立**：`ProcessingSweep` 的 `Gradient(colors:)`
 // 与 `AnimatedMeshGradient` 的 `MeshGradient` 要的是 `[Color]`，未填色的 `Shape`
-// 塞不进去，那一族除本 token 外确实无路可走。结论（token 必要）不变，理由收窄。
+// 塞不进去。⚠️ 措辞照 I3 同样收紧：那一族不是"**无路可走**"，而是"没有**不绕开守卫**
+// 的写法"——上面那条 `Color(cgColor: CGColor(gray: 1, alpha: 1))` 类型上塞得进
+// `[Color]`，但它能过闸只是因为标签不在 `numericColorLabels` 里，那是绕开判据、
+// 不是解法。结论（token 必要）不变，理由收窄。
 // 而该守卫的扫描根**有意不含** `Sources/CoreDesign`，`CLAUDE.md`《分层色彩系统》也
 // 明写「缺少需要的语义 token，应在对应文件中补充新名称」——`Color.specularHighlight`
 //（`FillColors.swift`，同样是 `Color.white` 派生）是现成先例。

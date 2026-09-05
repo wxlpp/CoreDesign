@@ -380,8 +380,8 @@ where Data.Element: Identifiable {
     /// ⇒ 直接用 `.tint` 给 `Canvas` 上色（`Color.white` 被 `EffectsColorLiteralGuard` 禁；
     /// ⚠️ 该括注在 `#276` 之后已过时——现在有 `Colors/MaskColors.swift` 的遮罩基色
     /// token `Color.maskOpaque`（**不在四层色彩之内**），
-    /// 只是本处仍选直接上色，因为它顺带省掉一层离屏合成），
-    /// 顺带去掉一层离屏合成。判据：`CrossPlatformRenderTests.tintPathMatchesSinglePalette`。
+    /// 只是本处仍选直接上色，因为它顺带省掉一层离屏合成）。
+    /// 判据：`CrossPlatformRenderTests.tintPathMatchesSinglePalette`。
     ///
     /// ⚠️ **返回 `Color?` 而不是 `AnyShapeStyle`**（终审 S-a）：`nil` ⇒ 走 `.tint` 那条路，
     /// 由调用点用**循环外解析一次**的 shading + `context.opacity` 上色；不透明度的**量程
