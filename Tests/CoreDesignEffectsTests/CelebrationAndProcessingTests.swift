@@ -328,6 +328,52 @@ struct ProcessingSweepTests {
         }
     }
 
+    /// ⚠️⚠️ **承重（Issue #276）：遮罩色标的峰值必须是满不透明。**
+    ///
+    /// `glowRing` / `lightBand` 都是「`Rectangle().fill(.tint)` + 一条 alpha 渐变遮罩」。
+    /// `mask` 吃的是 alpha ⇒ 色标的峰值就是这一层能达到的**最大**不透明度。
+    ///
+    /// 上一版两条色标写的都是 `.primary`，注释宣称「`.primary` 恒为不透明 ⇒ 与写死
+    /// `.white` 等效，但它是语义色」。**实测为假**：`.primary` 映射到 `label` /
+    /// `labelColor`，**macOS 26** 明暗两端 α = 0.8471
+    /// （⚠️ **iOS 26 上实测 α = 1.0** ⇒ 偏差只在 macOS 腿上，见
+    /// `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`）⇒
+    /// · `glowRing` 没有自己的 opacity 常量、本该是满的，实际峰值一直是 `0.847 × .tint`；
+    /// · `lightBand` 的实际峰值是 `0.847 × bandOpacity` = 0.466 而不是常量声称的 0.55。
+    ///
+    /// ⚠️ **#276 正文只点了 `AnimatedMeshGradient` 与 `BeforeAfterSlider` 两处，
+    /// 漏了本处**——而那两处的注释都援引「`ProcessingSweep.glowRing` 用的是同一个手法」
+    /// 当先例，本处才是抄来抄去的源头。
+    ///
+    /// ⚠️ 判据钉的是**性质**（"峰值 α == 1、两端 α == 0"），不是"写没写 `.primary`"：
+    /// 换成 `.contentPrimary`（同样是 `label`、同样 0.8471）照样判红。
+    @Test("遮罩色标：峰值 α 必须是 1，两端必须是 0（明暗两端各验一次）")
+    func maskStopsAreFullyOpaqueAtTheirPeak() {
+        let stops: [(name: String, colors: [Color])] = [
+            ("ringMaskStops", ProcessingSweep.ringMaskStops),
+            ("bandMaskStops", ProcessingSweep.bandMaskStops),
+        ]
+        for (schemeName, scheme) in [("light", ColorScheme.light), ("dark", ColorScheme.dark)] {
+            var env = EnvironmentValues()
+            env.colorScheme = scheme
+            for (name, colors) in stops {
+                #expect(colors.count >= 3, "\(name) 只有 \(colors.count) 个色标 —— 下面的断言会失去意义")
+                let alphas = colors.map { Double($0.resolve(in: env).opacity) }
+                let peak = alphas.max() ?? -1
+                #expect(peak == 1, """
+                \(schemeName)：`ProcessingSweep.\(name)` 的峰值 α = \(peak)，不是 1
+                （逐个色标：\(alphas)）。`mask` 吃的正是 alpha ⇒ 这一层能达到的最大
+                不透明度被基色打了折，整条扫光比它的 opacity 常量声称的更淡（Issue #276）。
+                基色必须走 `Color.maskOpaque`（契约 α = 1），不得换成任何 `label` 族语义色。
+                """)
+                #expect(alphas.first == 0 && alphas.last == 0, """
+                \(schemeName)：`ProcessingSweep.\(name)` 的两端不是全透明（\(alphas)）
+                —— 扫光会在边界上出现硬边。
+                """)
+            }
+        }
+    }
+
     /// AC 逐字列的是 `ScanningOverlay { }` / `GlowSweep { }` / `LightSweep { }`
     /// ——**容器视图形态**（大写、尾随闭包），不是 modifier。
     @Test("三个容器形态存在且可用尾随闭包构造")

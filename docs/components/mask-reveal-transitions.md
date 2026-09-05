@@ -94,6 +94,9 @@ content.transition(.dissolve(cellSize: 12))
    - `Color.primary` / `Color.contentPrimary` 映射到系统 `label`，macOS 浅色外观下
      实测 **α ≈ 0.8471**（issue #276）。拿它当遮罩，"完全揭示"那一端只揭示到 85%，
      而且**不会报错**——转场看起来能用，只是内容永远偏淡一档。
+     ⚠️ **平台限定**（#276 收尾时 iOS 腿实测）：**iOS / UIKit 的 `label` 明暗两端
+     实测 α = 1.0** ⇒「只揭示到 85%」只在 macOS 腿上成立。结论不变：一个平台相关、
+     未文档化的 α 不能当"保证 α = 1 的颜色"用。
    - `Color.black` / `Color.white` / `Color(white: 1)` 会被 `EffectsColorLiteralGuard`
      判红，而该守卫至今没有例外台账。
    - `ColorGrade` 资源色在 macOS `swift test` 下全部解析为透明（issue #275）。
@@ -108,6 +111,13 @@ content.transition(.dissolve(cellSize: 12))
    对这类字面量派生 token 同样不适用（它说的是资源色）。
    ⇒ **正确的记账是：遮罩路线可行，只是代价更高**（要新开一个第 3 层 token，
    且"α 恒为 1"这件事本身还得有判据守着）；**选裁剪的真正理由是下面第 2 条。**
+
+   ⚠️⚠️ **那个"更高的代价"现在已经付过了，本条第一句因此要重读**（#276）：
+   `Color.maskOpaque`（`Sources/CoreDesign/Colors/MaskColors.swift`）已经存在，
+   契约就是 α = 1，由 `MaskOpaqueTokenTests` 在明暗两端守着。⇒ 本仓**现在有**一个
+   "保证 α = 1"的可用颜色，上面那句「本仓没有」只对 #276 之前的树成立。
+   本簇**仍然选裁剪**，但理由只剩下面第 2 条与"硬边是可接受代价"，
+   不再包括"没有可用的不透明色"。
 
 2. **裁剪的判据可以是纯函数。** `Path.contains(_:)` 让"这一点此刻揭示了没有"成为
    一个不经过渲染栈、两端平台一致、可穷举采样的布尔值。

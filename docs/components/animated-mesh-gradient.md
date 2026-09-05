@@ -41,9 +41,24 @@ public struct AnimatedMeshGradient: View {
 判据：`AnimatedMeshGradientTests.alternateOnlyPaletteDoesNotFollowTint`。
 
 ⚠️ **`.tint` 那一档跑的是透明度而不是色相**：`Rectangle().fill(.tint)` 被一张由
-`Color.primary.opacity(…)` 组成的网格**遮罩**（`mask` 吃 alpha 通道，`.primary` 恒不透明
-——与写死白色等效但它是语义色，`ProcessingSweep.glowRing` 用的是同一个手法）。
+`Color.maskOpaque.opacity(…)` 组成的网格**遮罩**（`mask` 吃 alpha 通道；
+`ProcessingSweep` 的两条扫光渐变用的是同一个手法）。
 ⇒ 没有色板时本组件**不凭空造色相**，只把调用方那一个色相铺成有层次的面。
+
+⚠️⚠️ **上一版这里写「由 `Color.primary.opacity(…)` 组成……`.primary` 恒不透明——与写死
+白色等效但它是语义色」——实测为假，照录更正**（#276）：`Color.primary` 映射到
+`label` / `labelColor`，**macOS 26** 明暗两端实测均为 **α = 0.8471**。`mask` 吃的正是
+alpha ⇒ 这一档在 macOS 上的实际量程曾是 `0.847 × [0.18, 0.95]` = `[0.153, 0.805]`，比
+`MeshDrift.minimumAlpha` / `maximumAlpha` 声称的**整体暗 15%**。
+
+⚠️ **平台差异照录**（#276 正文没写，本轮 iOS 腿实测）：**iOS 26 上 `label` 实测
+α = 1.0** ⇒ 这枚偏差**只在 macOS 腿上可观测**，旧代码在 iOS 上量程是对的。
+登记在 `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`。
+
+而且「它是语义色」这条好处在两个平台上都是空的——语义色的价值在 RGB 随外观走，
+而 `mask` 只读 alpha（实测 `.mask { Color.black }` 与 `.mask { Color.white }` 逐字节相同）。
+现在基色取第 3 层 token `Color.maskOpaque`（契约就是 α = 1，由
+`MaskOpaqueTokenTests` 守着）。判据：`AnimatedMeshGradientAlphaRangeTests.tintAlphaMaskSpansItsDeclaredRange`。
 
 ⚠️ **为什么不给一个"好看的默认色板"**：那是品牌决定，不是设计系统该替调用方做的。
 `.spray` / `.confetti` 已就同一件事立过规矩。

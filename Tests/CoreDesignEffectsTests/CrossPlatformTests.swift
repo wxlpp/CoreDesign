@@ -670,6 +670,13 @@ struct CrossPlatformRenderTests {
     ///（`tone.opacity(alpha)`，满量程）**暗 15%**。
     /// 全部既有位图判据都是 `a != b` / `!= blank` ⇒ **一条都抓不到这枚偏差**。
     ///
+    /// ⚠️⚠️ **补一条平台限定，上一版没有**（Issue #276 收尾时 iOS 腿实测）：
+    /// 0.8471 是 **macOS / AppKit `labelColor`** 的值；**iOS / UIKit 的 `label`
+    /// 明暗两端实测 α = 1.0** ⇒ 上面那枚偏差**只在 macOS 腿上可观测**，
+    /// 本条也只会在 macOS 腿上因回退到 `Color.primary` 遮罩而判红。
+    /// 登记在 `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`。
+    /// ⚠️ 这不削弱 C-2 的结论：被判假的那句注释写的是**无条件**的"恒不透明"。
+    ///
     /// ⇒ 本条把两条路摆在一起比。单色色板下 `SphereField.tone` 因 `base == next`
     /// 提前返回 `base`（与进度、与色波无关），`OrbitRing` 那边 `slot` 恒为 0
     /// ⇒ 两边都该是"同一个颜色 × 同一条 alpha 曲线"。只要谁再吃掉一层 alpha 就判红。

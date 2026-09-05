@@ -196,6 +196,57 @@ nonisolated enum BeforeAfterSweep {
     static func clamp01(_ value: CGFloat) -> CGFloat { min(1, max(0, value)) }
 }
 
+// MARK: - 揭示裁剪（**裁剪**，不是 alpha 遮罩）
+
+/// 把内容裁到 leading 侧 `width` 宽的那一段。
+///
+/// ⚠️⚠️ **为什么是 `clipShape` 而不是 `.mask { … }`**（Issue #276）：
+/// 上一版走的是 `.mask(alignment: .leading) { Color.primary.frame(width: reveal) }`，
+/// 注释宣称「`mask` 吃的是 alpha 通道，`.primary` 恒为不透明 ⇒ 与写死 `.white` 等效，
+/// 但它是语义色」。**实测为假，照录更正**：`Color.primary` 映射到 `label` /
+/// `labelColor`，**macOS 26** 明暗两端实测 **α = 0.8471**。这里是一张**完整揭示遮罩**、
+/// 而且没有 `.opacity()` ⇒ 露出的「之前」那半在 macOS 上一直是以 84.7% 合成在
+/// 「之后」那半上，也就是 macOS 腿上**可见的 ghosting**（对比越强的两张图越明显）。
+/// ⚠️ **iOS 26 上 `label` 实测 α = 1.0 ⇒ iOS 腿上没有这枚 ghosting**
+/// ——#276 正文写的「已发布组件里可见」在 iOS 上不成立，本轮 iOS 腿实测更正
+/// （`MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`）。
+/// 修它的理由因此不是"iOS 上坏了"，而是依赖一个未文档化、平台相关的 α 本身就是缺陷。
+/// macOS 26 实测（红叠蓝、完全揭示、取中心像素）：
+///
+///     无遮罩              rgba=(255, 56, 60, 255)
+///     mask(Color.primary) rgba=(216, 68, 90, 255)   ← 蓝透上来了
+///     clipShape           rgba=(255, 56, 60, 255)   ← 与无遮罩逐字节相同
+///
+/// ⇒ **本处不换遮罩基色、直接不用遮罩**：`MaskReveal.swift` 的文件头已经把这条裁断
+/// 写死了——「裁剪不涉及 alpha，揭示出来的像素就是内容原样的像素，不存在
+///『揭示到 85%』这种状态」。同时顺带去掉一层离屏合成（与 PR #274 在
+/// `SphereSurface` / `OrbitingLogos` 上的成法同向）。
+/// ⚠️ 需要**空间上变化**的 alpha 场那一族（`AnimatedMeshGradient` 的网格、
+/// `ProcessingSweep` 的两条扫光渐变）裁剪替代不了，那里走 `Color.maskOpaque`。
+///
+/// 判据：`BeforeAfterSliderTests.endpointRenderIsIndependentOfTheHiddenLayer`。
+struct BeforeAfterRevealClip: Shape {
+
+    /// 揭示宽度（点）。超出 / 低于 `rect` 的部分被钳住 ⇒ 不会画出负宽矩形。
+    var width: CGFloat
+
+    /// ⚠️ 让 `reveal` 可动画：拖拽中 `fraction` 是连续变化的，
+    /// 没有它这一层在动画里会跳变（`.mask` 那一版靠 `frame` 的隐式动画拿到了这一条）。
+    var animatableData: CGFloat {
+        get { self.width }
+        set { self.width = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        Path(CGRect(
+            x: rect.minX,
+            y: rect.minY,
+            width: min(max(0, self.width), rect.width),
+            height: rect.height
+        ))
+    }
+}
+
 // MARK: - 把手
 
 /// 分隔线 + 圆钮。**命中区靠 `frame` + `contentShape` 撑到 `handleHitSize`。**
@@ -279,13 +330,9 @@ struct BeforeAfterSliderBody<Before: View, After: View>: View {
                 self.before
                     .frame(width: width, height: proxy.size.height)
                     .clipped()
-                    // ⚠️ 遮罩用 `Color.primary` 而不是白色：`mask` 吃的是 alpha 通道，
-                    // `.primary` 恒为不透明 ⇒ 与写死 `.white` 等效，但它是语义色、
-                    // 不触碰 `EffectsColorLiteralGuard` 的色相清单
-                    //（`ProcessingSweep.glowRing` 记着同一条）。
-                    .mask(alignment: .leading) {
-                        Color.primary.frame(width: reveal)
-                    }
+                    // ⚠️ **裁剪，不是 alpha 遮罩**——理由与实测逐字记在
+                    // `BeforeAfterRevealClip` 上（Issue #276）。
+                    .clipShape(BeforeAfterRevealClip(width: reveal))
 
                 self.labelOverlay(width: width)
 

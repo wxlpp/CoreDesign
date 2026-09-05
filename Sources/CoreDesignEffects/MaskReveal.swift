@@ -20,6 +20,11 @@ import SwiftUI
 //      `label`，macOS 浅色外观下实测 α ≈ 0.8471（本 epic 已为此开 issue #276）。
 //      拿它当遮罩，"完全揭示"那一端只揭示到 85%，而且**没有任何报错**：
 //      转场看起来"能用"，只是内容永远偏淡一档。
+//      ⚠️ **补一条平台限定**（#276 收尾时 iOS 腿实测）：0.8471 只是 macOS / AppKit
+//      `labelColor` 的值；**iOS / UIKit 的 `label` 明暗两端实测 α = 1.0**
+//      ⇒ 这条"只揭示到 85%"**只在 macOS 腿上成立**。本条的结论不变——一个
+//      平台相关、未文档化的 α 不能当"保证 α = 1 的颜色"用。
+//      登记在 `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`。
 //    · `Color.black` / `Color.white` / `Color(white: 1)` 是**唯二**能写死 α = 1 的写法，
 //      而两者都被 `EffectsColorLiteralGuard` 判红（`hueNames` 含 `black` / `white`，
 //      `numericColorLabels` 含 `white`），且该守卫**至今没有例外台账**——
@@ -38,6 +43,12 @@ import SwiftUI
 //    ⇒ **正确的记账是**：遮罩路线**可行，只是代价更高**（要为它新开一个第 3 层
 //      token，且那个 token 的"α 恒为 1"本身还得有判据守着）；**选裁剪的真正理由是
 //      下面第 2 条——可判据性**。别把本条读成"遮罩在本仓结构上不可能"。
+//    ⚠️⚠️ **那个"更高的代价"现在已经付过了，本条第一句因此需要重读**（Issue #276）：
+//      `Color.maskOpaque`（`Sources/CoreDesign/Colors/MaskColors.swift`）已经存在，
+//      契约就是 α = 1，由 `MaskOpaqueTokenTests` 在明暗两端守着。⇒ 本仓**现在有**
+//      一个"保证 α = 1"的可用颜色，上面那句「本仓没有」只对 #276 之前的树成立。
+//      本簇**仍然选裁剪**，但理由只剩下面第 2 条（可判据性）与"硬边是可接受代价"，
+//      不再包括"没有可用的不透明色"。
 //    而**裁剪不涉及 alpha**：`clipShape` 是纯几何布尔运算，
 //      揭示出来的像素就是内容原样的像素，不存在"揭示到 85%"这种状态。
 //

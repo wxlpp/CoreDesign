@@ -640,6 +640,78 @@ struct AnimatedMeshGradientTests {
 
 // MARK: - BeforeAfterSlider
 
+// MARK: - AnimatedMeshGradient 的 alpha 量程（Issue #276）
+
+@Suite("AnimatedMeshGradient `.tint` 档的 alpha 量程")
+struct AnimatedMeshGradientAlphaRangeTests {
+
+    /// ⚠️⚠️ **承重（Issue #276）：`.tint` 档遮罩的实际量程必须与两个常量一致。**
+    ///
+    /// `MeshDrift.tintAlphaMask(phase:)` 造的是一张 **alpha 网格**，`mask` 吃的正是
+    /// alpha ⇒ 基色但凡不是满不透明，`minimumAlpha` / `maximumAlpha` 就不再是实际量程。
+    ///
+    /// 上一版基色写的是 `Color.primary`，注释宣称「`.primary` 恒为不透明 ⇒ 与写死
+    /// `.white` 等效，但它是语义色」。**实测为假**：`.primary` 映射到 `label` /
+    /// `labelColor`，**macOS 26** 明暗两端 α = 0.8471 ⇒ 实际量程是 `0.847 × [0.18, 0.95]`
+    /// = `[0.153, 0.805]`，比声称的**整体暗 15%**。
+    /// ⚠️ **iOS 26 上 `label` 实测 α = 1.0**（`MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`）
+    /// ⇒ 旧代码在 iOS 腿上量程是对的。本条钉的是"量程与常量一致"这个性质本身，
+    /// 因此回退到 `.primary` 只会让它在 **macOS 腿**上判红——那是正确行为
+    /// （iOS 上确实没有偏差），不是覆盖缺口。
+    /// 既有的 `emptyPaletteFollowsCallerTint` / `alternatePaletteReachesRendering`
+    /// 全是「a != b」/「!= blank」形态 ⇒ 一条都抓不到。
+    ///
+    /// ## 形态：性质，不是文本匹配
+    ///
+    /// 本条**不 grep `.primary`**——那样钉的是"上一版长什么样"，换成 `.contentPrimary`
+    /// （同样是 `label`、同样 0.8471）照样全绿。这里在**真函数**上扫一圈相位、
+    /// 解析出真 alpha，要求两个端点**都被摸到**且没有一个样本越界。
+    ///
+    /// ⚠️ 容差取 `1/255`（渲染栈的 8 位量化，`Color.primary` 的 0.8471 = 216/255 就是
+    /// 这么来的）；而两条路的差距是 0.145，远大于容差 ⇒ 不存在"容差把偏差吃掉"。
+    @Test("tintAlphaMask 的实际 alpha 量程必须等于 minimumAlpha…maximumAlpha")
+    func tintAlphaMaskSpansItsDeclaredRange() {
+        let tolerance = 1.0 / 255
+        for (schemeName, scheme) in [("light", ColorScheme.light), ("dark", ColorScheme.dark)] {
+            var env = EnvironmentValues()
+            env.colorScheme = scheme
+            var samples: [Double] = []
+            // 相位扫一整圈：`unit` 走遍 [0, 1] ⇒ 两个端点都该被摸到。
+            for step in 0...360 {
+                let phase = CGFloat(step) / 360
+                let colors = MeshDrift.tintAlphaMask(phase: phase)
+                #expect(colors.count == MeshDrift.colorSlots,
+                        "色位数是 \(colors.count)，不是 \(MeshDrift.colorSlots) —— 下面的量程断言会失去意义")
+                samples += colors.map { Double($0.resolve(in: env).opacity) }
+            }
+            let low = samples.min() ?? -1
+            let high = samples.max() ?? -1
+            #expect(abs(low - MeshDrift.minimumAlpha) <= tolerance, """
+            \(schemeName)：实际最小 alpha = \(low)，而 `MeshDrift.minimumAlpha` 声称 \(MeshDrift.minimumAlpha)。
+            `mask` 吃的是 alpha ⇒ 遮罩基色不是满不透明时，这两个常量就不再是实际量程
+            （Issue #276：`Color.primary` 实测 α = 0.8471 ⇒ 整体暗 15%）。
+            基色必须走 `Color.maskOpaque`（契约 α = 1）。
+            """)
+            #expect(abs(high - MeshDrift.maximumAlpha) <= tolerance, """
+            \(schemeName)：实际最大 alpha = \(high)，而 `MeshDrift.maximumAlpha` 声称 \(MeshDrift.maximumAlpha)。
+            同上 —— 这正是 Issue #276 的实质损害：常量声称的量程与渲染出来的量程差一个 0.847。
+            """)
+            let outOfRange = samples.filter {
+                $0 < MeshDrift.minimumAlpha - tolerance || $0 > MeshDrift.maximumAlpha + tolerance
+            }
+            // ⚠️ 断言的是**计数**而不是数组本身：判红时越界样本可达数千个，
+            // 把数组交给 `#expect` 会让失败信息变成一行几万字符的转储
+            //（`BitmapExpectations.swift` 记着同一族教训：诊断爆炸比静默绿更难读）。
+            let outOfRangeCount = outOfRange.count
+            #expect(outOfRangeCount == 0, """
+            \(schemeName)：\(outOfRangeCount) / \(samples.count) 个样本落在
+            [\(MeshDrift.minimumAlpha), \(MeshDrift.maximumAlpha)] 之外
+            （前 5 个：\(outOfRange.prefix(5).map { String(format: "%.4f", $0) })）。
+            """)
+        }
+    }
+}
+
 @Suite("BeforeAfterSlider 的摆动、拖拽与触控目标契约")
 @MainActor
 struct BeforeAfterSliderTests {
@@ -956,6 +1028,68 @@ struct BeforeAfterSliderTests {
             let b = try #require(Self.rgba(allBefore, at: x, y: y))
             #expect(b.r > b.b, "fraction=1 时 x=\(x) 处不是 before(.red)：rgba=\(b)")
         }
+    }
+
+    /// ⚠️⚠️ **承重（Issue #276）：端点上被盖住的那一层必须"一个像素都透不上来"。**
+    ///
+    /// 上一版揭示走的是 `.mask(alignment: .leading) { Color.primary.frame(width: reveal) }`,
+    /// 注释宣称「`mask` 吃的是 alpha 通道，`.primary` 恒为不透明 ⇒ 与写死 `.white` 等效，
+    /// 但它是语义色」。**实测为假**：`.primary` 映射到 `label` / `labelColor`，
+    /// **macOS 26** 明暗两端 α = 0.8471。这里是一张**完整揭示遮罩**、而且**没有
+    /// `.opacity()`** ⇒ 露出的「之前」那半在 macOS 上一直是以 84.7% 合成在「之后」
+    /// 那半上，也就是 macOS 腿上**可见的 ghosting**。
+    /// ⚠️ **iOS 26 上 `label` 实测 α = 1.0 ⇒ iOS 腿上没有这枚 ghosting**
+    /// （`MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`）——#276 正文写的
+    /// 「已发布组件里可见」在 iOS 上不成立，本轮 iOS 腿实测更正。
+    /// ⇒ 本条在 iOS 腿上对"回退到 `.primary`"这枚变异**不敏感**（那一腿确实没有偏差），
+    /// 但它对"任何让被盖层透上来的写法"都敏感，性质本身两端平台一致。
+    ///
+    /// ## 为什么不是 issue 建议的那条判据
+    ///
+    /// #276 建议「`fraction = 1` 的位图与**只渲染 `before`** 逐字节相同」。
+    /// ⚠️ **那条做不到**：绘制层在任何 fraction 上都还画着 `BeforeAfterSliderHandle`
+    /// （fraction = 1 时把手贴在右边缘），"只渲染 before"里没有它 ⇒ 两图必然不同，
+    /// 那条判据会因为**错误的原因**永远判红。
+    ///
+    /// ⇒ 改成等价而可判的形式：**端点上，整张图必须与被盖住那一层的内容无关**。
+    /// `fraction = 1` 时换掉 `after` 的颜色，一个字节都不许变（把手、标签在两次渲染里
+    /// 逐字相同 ⇒ 差异只可能来自透上来的 `after`）。
+    /// 上一版这里会差 15% 的合成 ⇒ 判红。
+    ///
+    /// ⚠️ **反向那一半（`fraction = 0` 换 `before`）同样断言**：它在上一版就已经成立
+    /// （遮罩宽度为 0 ⇒ 什么都不画），留着是为了钉住"揭示是双向裁剪"这条性质，
+    /// 而不是只钉住被修的那一头。
+    /// ⚠️ 互锁：另加一条"换 `after` 在 `fraction = 0.5` 上**必须**改变位图"——
+    /// 没有它，上面两条在"渲染塌成空图"时会双双恒真。
+    ///
+    /// ⚠️ 既有的 `endpointsRevealASingleSide` 抓不到这一枚：它只比 `b.r > b.b`，
+    /// 一个 15% 的蓝色混合照样满足。
+    @Test("端点上被盖住的那一层完全不参与合成（换它的颜色，位图一个字节都不变）")
+    func endpointRenderIsIndependentOfTheHiddenLayer() {
+        let fullyBefore = Self.probe(fraction: 1, before: .surfaceRaised, after: .accent)
+        let fullyBeforeOtherAfter = Self.probe(fraction: 1, before: .surfaceRaised, after: .contentPrimary)
+        expectBitmapsEqual(fullyBefore, fullyBeforeOtherAfter, """
+        `fraction = 1`（完全揭示 `before`）时换掉 `after` 的颜色，位图变了 ——
+        说明 `after` 那一层**透上来了**：揭示遮罩不是满不透明的
+        （Issue #276：`Color.primary` 实测 α = 0.8471 ⇒ 露出的那半以 84.7% 合成，
+        对比越强的两张图 ghosting 越明显）。揭示应当走**裁剪**（`BeforeAfterRevealClip`），
+        裁剪不涉及 alpha，不存在"揭示到 85%"这种状态。
+        """)
+
+        let fullyAfter = Self.probe(fraction: 0, before: .surfaceRaised, after: .accent)
+        let fullyAfterOtherBefore = Self.probe(fraction: 0, before: .contentPrimary, after: .accent)
+        expectBitmapsEqual(fullyAfter, fullyAfterOtherBefore, """
+        `fraction = 0`（完全揭示 `after`）时换掉 `before` 的颜色，位图变了 ——
+        `before` 那一层在完全不该出现的位置上仍有像素。
+        """)
+
+        // ⚠️ 互锁：中间位置上换 `after` **必须**改变位图，否则上面两条恒真。
+        let halfA = Self.probe(fraction: 0.5, before: .surfaceRaised, after: .accent)
+        let halfB = Self.probe(fraction: 0.5, before: .surfaceRaised, after: .contentPrimary)
+        expectBitmapsDiffer(halfA, halfB, """
+        `fraction = 0.5` 上换掉 `after` 的颜色位图没变 —— 那说明本用例此刻根本分辨不出
+        `after` 的贡献（探针色塌缩 / 渲染失败），上面两条相等断言因此是恒真的。
+        """)
     }
 
     /// ⚠️⚠️ **承重判据**：AC「Reduce Motion ⇒ 停止自动摆动，但**保留拖拽**」。

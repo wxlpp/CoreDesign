@@ -37,6 +37,8 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 新增组件时优先使用第 3、4 层名称。如果缺少需要的语义 token，应在对应文件中补充新名称，而不是把第 1 层色相硬编码进组件。
 
+⚠️ **遮罩基色不在这四层之内**：`Color.maskOpaque`（`Colors/MaskColors.swift`，`#276`）是给 `.mask { … }` 用的**不透明基色**，唯一契约是 **α = 1**——`mask` 只吃 alpha，RGB 通道**不参与合成**（实测黑遮罩与白遮罩逐字节相同），所以它不是一个"颜色决定"。⚠️ **不要拿 `.primary` / `.contentPrimary` 当遮罩基色**：它们映射到 `label`，**macOS 实测 α = 0.8471、iOS 实测 1.0**，会让「完全揭示」在 macOS 上只揭示到 85%，而且不报错。纯几何的揭示优先走 `clipShape`（不涉及 alpha，`BeforeAfterRevealClip` 是先例）；新加 `.mask` 点位必须登记到 `MaskSiteRegistryGuard.registeredSites`。
+
 ### 多 target 结构
 
 本包不再是单 target。`Package.swift` 现有三个 library product：

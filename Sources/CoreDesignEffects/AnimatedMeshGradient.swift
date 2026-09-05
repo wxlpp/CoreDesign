@@ -30,10 +30,22 @@ import SwiftUI
 /// - `colors` **非空** ⇒ 按 9 个色位循环补齐 / 截断后直接进 `MeshGradient`；
 /// - `colors` **为空** ⇒ 回落到调用方的 **`.tint`**（与 `.spray` / `.confetti` 同一纪律）。
 ///   ⚠️ 这一档下网格里跑的是**透明度**而不是色相：`Rectangle().fill(.tint)` 被一张
-///   由 `Color.primary.opacity(…)` 组成的网格**遮罩**——`mask` 吃的是 alpha 通道，
-///   `.primary` 恒不透明，与写死白色等效但它是语义色（`ProcessingSweep.glowRing` 用的
-///   是同一个手法）。⇒ 没有色板时本组件**不凭空造色相**，只把调用方那一个色相
-///   铺成有层次的面。
+///   由 `Color.maskOpaque.opacity(…)` 组成的网格**遮罩**——`mask` 吃的是 alpha 通道
+///   （`ProcessingSweep` 的两条扫光渐变用的是同一个手法）。⇒ 没有色板时本组件
+///   **不凭空造色相**，只把调用方那一个色相铺成有层次的面。
+///
+///   ⚠️⚠️ **上一版这里写「由 `Color.primary.opacity(…)` 组成……`.primary` 恒不透明，
+///   与写死白色等效但它是语义色」——实测为假，照录更正**（Issue #276）：
+///   `Color.primary` 映射到 `label` / `labelColor`，**macOS 26** 明暗两端实测均为
+///   **α = 0.8471**。`mask` 吃的正是 alpha ⇒ 这一档在 macOS 上的实际量程曾是
+///   `0.847 × [0.18, 0.95]` = `[0.153, 0.805]`，比 `MeshDrift.minimumAlpha` /
+///   `maximumAlpha` 声称的**整体暗 15%**。
+///   ⚠️ **iOS 26 上 `label` 实测 α = 1.0 ⇒ 这枚偏差只在 macOS 腿上可观测**
+///   （#276 正文没写这一条，本轮 iOS 腿实测；登记在
+///   `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`）。
+///   而且「它是语义色」这条好处在**两个**平台上都是空的——语义色的价值在 RGB
+///   随外观走，mask 却只读 alpha。⇒ 现在用 `Color.maskOpaque`（第 3 层 token，
+///   契约就是 α = 1，有判据守着）。
 /// - `alternateColors` **非空** ⇒ 两组色板之间来回混合（`Color.mix(with:by:)`），
 ///   这就是 AC 里「9 色 × 2 组」的第二组。为空 ⇒ 只有网格点在漂，颜色不变。
 ///
@@ -308,9 +320,22 @@ nonisolated enum MeshDrift {
 
     /// `.tint` 形态下每个色位的 alpha 遮罩色。
     ///
-    /// ⚠️ 用 `Color.primary` 而不是白色：`mask` 吃的是 alpha 通道，`.primary` 恒为不透明
-    /// ⇒ 与写死 `.white` 等效，但它是语义色、不触碰 `EffectsColorLiteralGuard` 的色相清单
-    ///（`ProcessingSweep.glowRing` 记着同一条）。
+    /// ⚠️ 基色取 `Color.maskOpaque`（第 3 层 token，契约是 **α = 1**）：`mask` 吃的是
+    /// alpha 通道，基色只要**不是**满不透明，`minimumAlpha` / `maximumAlpha` 这两个
+    /// 常量就不再是实际量程。
+    ///
+    /// ⚠️⚠️ **上一版这里用 `Color.primary`，注释写「`.primary` 恒为不透明 ⇒ 与写死
+    /// `.white` 等效，但它是语义色」——实测为假，照录更正**（Issue #276）：
+    /// `.primary` 映射到 `label` / `labelColor`，**macOS 26** 明暗两端实测 **α = 0.8471**
+    /// ⇒ 本函数当时给出的实际 alpha 是 `0.8471 × alpha`，量程 `[0.153, 0.805]`
+    /// 而不是声称的 `[0.18, 0.95]`。既有的位图判据全是 `a != b` / `!= blank`
+    /// ⇒ 一条都抓不到这枚偏差（与 PR #274 在 `SphereSurface` / `OrbitingLogos`
+    /// 上修掉的是同一枚）。
+    /// ⚠️ **iOS 26 上 `label` 实测 α = 1.0**（`MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`）
+    /// ⇒ 旧代码在 iOS 腿上量程是对的，偏差只在 macOS 腿上。下面这条判据也因此
+    /// **只会在 macOS 腿上因回退到 `.primary` 而判红**——它钉的是"量程与常量一致"这个
+    /// 性质本身，在哪个平台上不成立就在哪个平台上红，这是正确行为而不是覆盖缺口。
+    /// 判据：`AnimatedMeshGradientAlphaRangeTests.tintAlphaMaskSpansItsDeclaredRange`。
     static func tintAlphaMask(phase: CGFloat) -> [Color] {
         let a = Double(phase) * 2 * .pi
         return (0..<Self.colorSlots).map { index in
@@ -318,7 +343,7 @@ nonisolated enum MeshDrift {
             let offset = Double(index) * (2 * .pi / Double(Self.colorSlots))
             let unit = 0.5 + 0.5 * sin(a + offset)
             let alpha = Self.minimumAlpha + (Self.maximumAlpha - Self.minimumAlpha) * unit
-            return Color.primary.opacity(alpha)
+            return Color.maskOpaque.opacity(alpha)
         }
     }
 
