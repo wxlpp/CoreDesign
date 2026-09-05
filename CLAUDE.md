@@ -242,6 +242,18 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   jq 取到的是 `null`。照 `[]` 写判据会永远判红。
 - **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
   `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
+- **公开 `static` 成员的 MainActor 隔离棘轮只在 CI 上跑**（`#307`）：本包三个 target
+  都开了 `.defaultIsolation(MainActor.self)`，新加的公开 `static` 成员**默认**被卷进
+  MainActor，下游在非主 actor 语境取用会报错或被迫 `await`。判据是
+  `scripts/mainactor-static-ratchet.sh`（`swift package dump-symbol-graph` → 筛
+  `@MainActor` 的公开 static 型成员 → 与 `docs/mainactor-static-exemptions.txt`
+  做双向差集），挂在 `ci.yml` 的 `swiftpm` job 里 `swift test` 之后那一步
+  ——**本地 `swift test` 全绿不代表这条过了**，改公开 static 后请手动跑一次
+  （本机热 `.build` 上约 100s）。看着这一步不被静默拆掉的是无条件树内判据
+  `Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift`。
+  ⚠️ **它只扫各 target 的主 symbols 文件**：写在 `extension Color` / `extension Transition`
+  这类**外来类型**上的公开 static 成员**不在射程内**（有意的取舍，逐字代价登记在那个
+  脚本的《范围定案与代价》一节）。
 
 ### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
 

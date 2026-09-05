@@ -1,0 +1,35 @@
+# 公开 static 成员的 MainActor 隔离豁免表（#307）
+#
+# 本文件是 `scripts/mainactor-static-ratchet.sh` 的**唯一**期望集合：脚本从
+# symbol graph 里筛出「公开 / open 的 static 型成员，且声明片段里带 `@MainActor`」，
+# 与本表做**双向差集**——多一条、少一条都判红。
+#
+# ⇒ 新加一个 `public static let` 到本包自己声明的类型上时：
+#   · 它默认被 `.defaultIsolation(MainActor.self)` 卷进 MainActor ⇒ 脚本判红；
+#   · 处置是**给它加 `nonisolated`**（或给 enclosing type 加），而不是往本表里补一行。
+#   · 确实修不掉（初始化表达式本身是 MainActor 隔离的）才登记进本表，
+#     并在下面写清「为什么修不掉」。
+#
+# 格式：每行 `<Target>:<pathComponents 用 . 连接>`；`#` 起头与空行忽略。
+# ⚠️ 顺序无关（脚本按集合比对），但请按 target / 类型分组，方便 review 读 diff。
+#
+# ⚠️ **扫描范围只有各 target 的主 symbols 文件**（`<Target>.symbols.json`），
+#   `<Target>@<外来模块>.symbols.json`（扩展块成员，即声明在 SwiftUI 自家类型上的
+#   `extension Color` / `extension Transition` / `extension ButtonStyle` 成员）
+#   **不在射程内**——代价逐字登记在脚本头注释《范围定案与代价》一节，先读那节再改这里。
+
+# --- CoreDesign ---
+# 初始化表达式是第 3 层语义色（`Color.contentPrimary` 等 `public extension Color` 上的
+# **计算** static var，不适用 SE-0434 的 `static let` 隐式 nonisolated）⇒ 标 `nonisolated`
+# 会 `error: main actor-isolated default value in a nonisolated context`（#290 实测）。
+# 要解开得先让整个色彩层 nonisolated，那是另一件事。
+CoreDesign:SidebarTextStyle.primary
+CoreDesign:SidebarTextStyle.secondary
+CoreDesign:SidebarTextStyle.tertiary
+
+# 走 `String(localized:bundle: .module)`，而 `Bundle.module` 访问器由 SwiftPM 生成在本
+# target 内、随 `defaultIsolation` 成为 MainActor 隔离（#290 实测）。
+CoreDesign:BottomInputBarDefaults.placeholder
+
+# 同根：函数体取 `Color("shadow-…", bundle: .module)`，`Bundle.module` 同上。
+CoreDesign:CoreElevation.spec(for:)

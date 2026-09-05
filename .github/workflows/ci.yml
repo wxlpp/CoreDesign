@@ -61,6 +61,25 @@ jobs:
             run_tests 2>&1 | tee second.log
           }
 
+      - name: MainActor static ratchet
+        # ⚠️⚠️ 这一步不是「再多跑一个 lint」，它是 `#290` 那份**一次性人工枚举**唯一的
+        # 自动化替代品（#307）：本包三个 target 都开了 `.defaultIsolation(MainActor.self)`，
+        # 新加的公开 `static` 成员**默认**被卷进 MainActor，下游在非主 actor 语境取用会
+        # 报错或被迫 `await`。`downstream-probe` job 只钉住**它自己引用到的**符号
+        # ——新类型上的新成员它一个都看不见。本步从 symbol graph 取编译器算出来的隔离，
+        # 与 `docs/mainactor-static-exemptions.txt` 做**双向差集**（多一条少一条都判红）。
+        #
+        # ⚠️ 放在 `swift test` 之后是为了复用**热 `.build`**：`dump-symbol-graph` 本身
+        # 要重新跑一遍 symbol graph 提取（本机热树上实测约 100s）。放进独立 job 会多起
+        # 一台 macOS runner（按 10× 计费，见本文件顶部 push 触发器那段的同一考量）。
+        #
+        # ⚠️ 这条 `run:` 被**树内**判据 `Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift`
+        # **逐字**钉住，并且它会拒绝这一步 / 这个 job 上出现 `if:` / `continue-on-error:`。
+        # 要改写这一行（加参数、加 `| tee`、改成多行块标量），先改那条判据并说明理由。
+        # 脚本自己的射程与代价（**只扫主 symbols 文件、扩展块成员是盲区**）写在
+        # `scripts/mainactor-static-ratchet.sh` 的《范围定案与代价》一节。
+        run: bash scripts/mainactor-static-ratchet.sh
+
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4
