@@ -67,10 +67,18 @@ private nonisolated var rawXcassetsAvailable: Bool {
 /// ⚠️ **与 `ColorGradeResolutionGuard.catalogFormIsDetectable` 断言的是同一件事**
 /// （`#275` 终审查明：两者谓词代数上恒等，不是互补）。两条都留着是有意的——那条要与它
 /// 守的两个 `.enabled(if:)` 同文件，本条是 `#119` colorset 守卫自己的适用性兜底，
-/// 两者会因各自的理由被独立修改。但**探测实现只留一份**：下面直接消费
-/// `assetCatalogIsCompiled` / `assetCatalogIsRawDirectoryOnly`
-/// （定义在 `ColorGradeResolutionGuard.swift`，为此从 private 改成 internal），
-/// 不再自己拼一遍路径。
+/// 两者会因各自的理由被独立修改。
+///
+/// ⚠️ **探测实现也有意各留一份，别去重**（`#275` 第 2 轮终审实测推翻了上一版的去重）：
+/// 上一版把 `ColorGradeResolutionGuard.swift` 的两个探测从 private 改成 internal、
+/// 本条直接消费它们。变异 **X3c**（`swift build --build-tests` 后从产物 bundle 里
+/// `rm -rf Resources.xcassets`，再把那边的目录形态谓词放宽一行）实测：本条会跟着一起
+/// **变绿**，`catalogFormIsDetectable` 与整个 `ColorAssetGuardTests` 同时静默，
+/// `8 tests … passed`、`EXIT=0`（当时三个 suite 合计 8 条，现为 9 条）；
+/// 回退成下面这份自己的 `fileExists` 后，同一变异下
+/// 本条**判红**、`EXIT=1`。
+/// ⇒ 去重会让两条断言同真同假，第二条的边际检出力降为 0。
+/// **这份重复是有意的：两条断言的价值就在实现独立。**
 @Suite("资源 bundle canary")
 struct ResourceBundleCanaryTests {
     @Test("bundle 里必须能找到 xcassets——目录形式或编译后的 Assets.car")
@@ -79,8 +87,13 @@ struct ResourceBundleCanaryTests {
             Issue.record("Bundle.module.resourceURL 为 nil——资源根本没被打进 bundle")
             return
         }
+        // ⚠️ 这里**有意**自己拼路径查 `fileExists`，不复用 `ColorGradeResolutionGuard.swift`
+        //    的同名探测——理由见上方文档注释里的 X3c 实测。
+        let fm = FileManager.default
+        let rawDir = resourceURL.appendingPathComponent("Resources.xcassets").path
+        let compiled = resourceURL.appendingPathComponent("Assets.car").path
         #expect(
-            assetCatalogIsCompiled || assetCatalogIsRawDirectoryOnly,
+            fm.fileExists(atPath: rawDir) || fm.fileExists(atPath: compiled),
             "bundle 里既无 Resources.xcassets/ 目录也无 Assets.car——所有颜色都会静默 fallback。resourceURL = \(resourceURL.path)"
         )
     }

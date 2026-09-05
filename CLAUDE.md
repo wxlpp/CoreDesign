@@ -162,15 +162,38 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     从零构建一模一样。原句里「增量构建不会拷贝新加的目录」今天也**不成立**——实测新增一个
     colorset 目录后裸跑 `swift build`，日志就是 `[1/2] Copying Resources.xcassets`、
     新目录当场进 bundle，删除同理（Swift 6.3 / Xcode 26.4）。
-    clean 仍然是缓存出问题时的通用手段，但**不是**这条盲区的补救。
-  - 机器判据：`ColorGradeResolutionGuard`（`Tests/CoreDesignTests/`）**四条**——
-    两条按 bundle 形态**分叉**（有 `Assets.car` 就正向断言抽样 token 非全透明；只有目录形态
-    就反向钉死「恒为全透明」，不适用的那条**显式 skip 且打印原因**，因为跳过在退出码上等同于
-    通过）；两条**无条件**：`catalogFormIsDetectable`（两种形态都探不到就判红，兜住上面双 skip）
-    与 `sampleBasisHasExpectedCardinality`（抽样面被清空 / 缩水就判红）。
-    ⚠️ 后者是补的，且补的正是本文件自己犯的病：`samples` 一旦返回 `[]`，两条分叉判据的循环
-    一次都不进，**两条腿都给 `EXIT=0` 全绿**（实测）。它按**三组各钉一个数**，
+    ⚠️ **「删除同理」只在 `.xcassets` 内部（colorset 粒度）成立**，
+    删掉 / 改名**一整个顶层 resource item** 时不成立：实测把
+    `Sources/CoreDesign/Resources/Resources.xcassets` 整个改名成 `Renamed.xcassets`
+    后裸跑 `swift test`，产物 bundle 里**新旧两个目录同时存在**、
+    本次跑的三个 suite（`ColorGradeResolutionGuard` / `ResourceBundleCanaryTests` /
+    `ColorAssetGuardTests`）共 9 条全绿 `EXIT=0`；改回来之后 `Renamed.xcassets`
+    仍作为孤儿留在 bundle 里。⇒ SwiftPM 增量构建**不清理已消失的顶层 resource item**，
+    **那一格 `clean` 确实是补救**。
+    clean 仍然是缓存出问题时的通用手段，但**不是**上面那条结构性盲区的补救
+    ——⚠️ 别把本条读成「clean 对资源验证一律无用」：分两格看。
+  - 机器判据：`ColorGradeResolutionGuard`（`Tests/CoreDesignTests/`）**五条**——
+    两条按 bundle 形态**分叉**：有 `Assets.car` 时由
+    `ColorGradeResolutionGuard.catalogColorsResolveOpaqueOnCompiledCatalog` 正向断言抽样
+    token 非全透明；只有目录形态时由
+    `ColorGradeResolutionGuard.catalogColorsAreFullyTransparentOnRawXcassets` 反向钉死
+    「恒为全透明」。不适用的那条**显式 skip 且打印原因**，因为跳过在退出码上等同于通过。
+    另有三条**无条件**：`ColorGradeResolutionGuard.catalogFormIsDetectable`
+    （两种形态都探不到就判红，兜住上面双 skip）、
+    `ColorGradeResolutionGuard.sampleBasisHasExpectedCardinality`（抽样面被清空 / 缩水就判红）
+    与 `ColorGradeResolutionGuard.sampleLabelsMatchTheirColors`（label 与取值不同源就判红）。
+    ⚠️ **这里写限定名不是排版洁癖**：`JudgementReferenceGuard` 的规则 A 只认
+    `类型.成员` 形态，裸判据名它不核 ⇒ 上面这个「五条」的清单本身曾是散文——
+    删掉其中一条不会有任何东西变红（**正是本节在讲的那个病的元层**）。写成限定名之后
+    改名 / 删除至少会被规则 A 接住。⚠️ 但**数字「五」仍是散文**，仍要人工同步。
+    ⚠️ 后两条都是补的，且补的正是这个文件自己犯过的病：
+    · `sampleBasisHasExpectedCardinality`——`samples` 一旦返回 `[]`，两条分叉判据的循环
+    一次都不进，**两条腿都给 `EXIT=0` 全绿**（实测）；它按**三组各钉一个数**，
     只钉总数会让一组缩水被另一组增长掩盖。
+    · `sampleLabelsMatchTheirColors`——把 `("brand5", .brand5)` 写成 `("brand5", .amber5)`
+    时**两条腿全绿 `EXIT=0`**（实测）：上一条只核名字集合的基数与归属，不核名字与取值
+    **同源**，后果是失败信息**指错 token**。它用 `TestSupport.swift` 里既有的共享内省辅助
+    抠出 `Color` 内部的 asset 名，与 label 推出的名字对表；抠不出来时**判红而不是跳过**。
   - **抽样面：44 个（共 198 个中）**——色阶 **17 / 170**（17 色相各取 grade 5 一档；
     ⚠️ 磁盘上是 `brand/brand-0.colorset` … `brand-9.colorset` **10 个独立目录**，
     「同源同目录」的说法是错的）、status **24 / 24**、shadow **3 / 4**
@@ -197,8 +220,13 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
        （所以判据有效），而三态 `resolve(in:)` 全是 **`#00000000`**、彼此**相等**。
        ⚠️ **这是今天唯一「安全，但一旦被改写成比解析值就立刻不安全」的机制**：谁把那三条
        `!=` 换成比 `resolve(in:)`，secondary / tertiary / warning / danger 四个 role 会
-       **恒红**，而 primary 因为走 `Color.accentColor`（实测解析出 `#0091FFFF`）照绿
-       ——同一条判据在同一次运行里一半恒红一半正常，是最难读的失效形态。
+       **恒红**（三态解析后全是 `#00000000`、彼此相等），而 primary 走 `Color.accentColor`
+       ——那不是 catalog 取色，三态解析后**仍互异**，所以照绿。
+       ⇒ 同一条判据在同一次运行里一半恒红一半正常，是最难读的失效形态。
+       ⚠️ **有意不钉 primary 的具体取值**：`Color.accentColor` 在 macOS 上取的是
+       **用户 System Settings 里的强调色**，换机器 / 换设置这个数就变，且明暗两档不同
+       （本机注记、仅供复现对照，不是判据：light `#0088FFFF` / dark `#0091FFFF`）。
+       照绿的**理由**是「三态解析后仍互异」，不是某个具体色值。
 
 - **多 product 之后，CI 的 iOS 腿必须用 `-scheme CoreDesign-Package`**：包只有一个
   product 时 Xcode 把包 scheme 合并进同名 scheme，于是 `-scheme CoreDesign` 恰好能跑测试；

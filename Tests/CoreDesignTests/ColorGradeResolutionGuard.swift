@@ -54,8 +54,9 @@ import Testing
 //   钉在这里。SwiftPM 哪天开始调 `actool`、或有人把这条腿切到 `swiftbuild`，
 //   这条会立刻变红，逼人回来重读本节与 `CLAUDE.md`《验证边界与常见坑》）。
 // - 两条分叉判据各带 `.enabled(if:)`，而跳过在退出码上与通过无异 ⇒ 需要**无条件**判据兜底。
-//   本文件有两条：`catalogFormIsDetectable`（兜双 skip）与
-//   `sampleBasisHasExpectedCardinality`（兜抽样面被清空 / 缩水）。
+//   本文件有三条：`catalogFormIsDetectable`（兜双 skip）、
+//   `sampleBasisHasExpectedCardinality`（兜抽样面被清空 / 缩水）与
+//   `sampleLabelsMatchTheirColors`（兜 label 与取值不同源）。
 //
 // ### ⚠️ 更正：`catalogFormIsDetectable` 与既有 canary 的真实关系
 //
@@ -66,13 +67,24 @@ import Testing
 // 本文件这条**也**不问解析结果。终审实测：改私有探测让本条判红时，
 // `assetCatalogIsPresentInSomeForm` 照绿 ⇒ 当时是同 target 内同一事实的两份独立实现。
 //
-// 处置（判断与理由）：**断言保留、实现去重**。
-// - 保留：兜双 skip 的网必须与被它守的两条 `.enabled(if:)` **同文件**。既有 canary 的存在
-//   理由是 `#119` 的 colorset 目录守卫，与本文件无关；它将来按自己的理由被改或被删时，
+// 处置（判断与理由）：**断言保留，实现也保留两份——两者都是有意的**。
+// - 断言保留：兜双 skip 的网必须与被它守的两条 `.enabled(if:)` **同文件**。既有 canary 的
+//   存在理由是 `#119` 的 colorset 目录守卫，与本文件无关；它将来按自己的理由被改或被删时，
 //   没有任何东西会提示改动者本文件在指望它。跨文件的隐式兜底就是下一次静默失守。
-// - 去重：`assetCatalogIsCompiled` / `assetCatalogIsRawDirectoryOnly` 两个探测已改为
-//   **internal**，`ResourceBundleCanaryTests` 直接消费它们 ⇒ 「什么叫 car 形态 / 目录形态」
-//   全 target 只有一份实现，重复的只剩断言本身。
+// - ⚠️ **实现一度被去重（改 internal 给 canary 直接消费），第 2 轮终审实测推翻、已回退**
+//   ——照录撤回痕迹，别再去重。变异 **X3c**：`swift build --build-tests` 后从产物 bundle 里
+//   `rm -rf Resources.xcassets`，并把 `assetCatalogIsRawDirectoryOnly` 放宽一行
+//   （`|| resourceBundleHas("Info.plist")`），再 `swift test --skip-build`。
+//   · 去重**后**：`catalogFormIsDetectable`、canary 的
+//     `assetCatalogIsPresentInSomeForm`、以及整个 `ColorAssetGuardTests`
+//     **三处同时静默**（后者被跳过），`8 tests … passed`、`EXIT=0`
+//     （当时三个 suite 合计 8 条；本文件加上 `sampleLabelsMatchTheirColors` 后是 9 条）。
+//   · 去重**前 / 回退后**：canary 查自己的 `fileExists`，同一变异下它**判红**、`EXIT=1`。
+//   ⇒ 去重把两条断言的失效从「独立」变成「完全相关」，第二条的边际检出力降为 **0**
+//   ——那正是本文件通篇在防的空转判据。**这份重复是有意的：两条断言的价值就在实现独立。**
+//   ⚠️ 顺带更正一句上一版的措辞：`ColorAssetGuardTests.swift` canary 文档注释里
+//   「两者会因各自的理由被独立修改」，在去重期间只对**断言**成立、对**被断言的谓词**不成立；
+//   回退后两侧都成立。谁再想去重，先把 X3c 重跑一遍。
 //
 // ## 抽样面：44 个（共 198 个中），以及它**没**覆盖到的
 //
@@ -97,16 +109,21 @@ import Testing
 //   `ColorAssetGuardTests.hueRampColorsetsPresent` 判红、`EXIT=1`。
 
 /// 资源 bundle 里是否存在给定名字的条目。
-nonisolated func resourceBundleHas(_ name: String) -> Bool {
+///
+/// ⚠️ **`private` 是有意的**：`ColorAssetGuardTests.swift` 的 canary 另有一份自己的
+/// `fileExists`，那份重复不是浪费——理由与 X3c 实测见文件头《更正》一节。
+private nonisolated func resourceBundleHas(_ name: String) -> Bool {
     guard let root = Bundle.module.resourceURL else { return false }
     return FileManager.default.fileExists(atPath: root.appendingPathComponent(name).path)
 }
 
 /// `actool` 跑过：bundle 里是编译产物 `Assets.car`。
 ///
-/// ⚠️ internal 而非 private：`ColorAssetGuardTests.swift` 的
-/// `ResourceBundleCanaryTests` 复用它，避免「什么叫 car 形态」出现第二份实现。
-nonisolated var assetCatalogIsCompiled: Bool {
+/// ⚠️ **`private` 是有意的，别为了「只留一份实现」再改成 internal**：
+/// `ColorAssetGuardTests.swift` 的 `ResourceBundleCanaryTests` 自己查 `fileExists`，
+/// **这份重复是有意的——两条断言的价值就在实现独立**（去重后两条会同真同假，
+/// 第二条的边际检出力归零；X3c 实测见文件头《更正》一节）。
+private nonisolated var assetCatalogIsCompiled: Bool {
     resourceBundleHas("Assets.car")
 }
 
@@ -116,7 +133,13 @@ nonisolated var assetCatalogIsCompiled: Bool {
 /// 别混：后者只问「目录在不在」（`hasXcassets`），本条还要求**没有** `Assets.car`
 /// （`¬hasCar ∧ hasXcassets`）。两者在 macOS native 腿上同为 true，在编译腿上
 /// 一 false 一 false——但如果哪天两种形态同时出现，两者就会分道扬镳。
-nonisolated var assetCatalogIsRawDirectoryOnly: Bool {
+///
+/// ⚠️ **`private` 是有意的，别为了「只留一份实现」再改成 internal**：
+/// `ColorAssetGuardTests.swift` 的 `ResourceBundleCanaryTests` 自己查 `fileExists`，
+/// **这份重复是有意的——两条断言的价值就在实现独立**。把本条放宽一行就能同时静默
+/// `catalogFormIsDetectable`、那条 canary 与整个 `ColorAssetGuardTests` 三处
+/// （X3c 实测，见文件头《更正》一节）。
+private nonisolated var assetCatalogIsRawDirectoryOnly: Bool {
     !assetCatalogIsCompiled && resourceBundleHas("Resources.xcassets")
 }
 
@@ -234,6 +257,95 @@ struct ColorGradeResolutionGuard {
             #expect(
                 missing.isEmpty,
                 "\(group) 组有 \(missing.count) 个没进 samples：\(missing.joined(separator: ", "))"
+            )
+        }
+    }
+
+    // MARK: - label ↔ 取值 的同源核对
+
+    /// `camelCase` → `kebab-case`，数字前也断一刀。
+    ///
+    /// `brand5` → `brand-5`、`lightBlue5` → `light-blue-5`——正是磁盘上 colorset 的命名。
+    private static func kebabCased(_ label: String) -> String {
+        var out = ""
+        for ch in label {
+            if ch.isUppercase {
+                out += "-" + ch.lowercased()
+            } else if ch.isNumber {
+                out += "-" + String(ch)
+            } else {
+                out.append(ch)
+            }
+        }
+        return out
+    }
+
+    /// `statusSamples` 的 label → asset 名。
+    ///
+    /// 与色相组的差别只有一处：`StatusColors` 的 `…Foreground` 在磁盘上叫 `…-fg`
+    /// （见 `Colors/StatusColors.swift` 与 `ColorAssetGuardTests.statusColorsetsPresent`）。
+    private static func statusAssetName(_ label: String) -> String {
+        let kebab = Self.kebabCased(label)
+        guard kebab.hasSuffix("-foreground") else { return kebab }
+        return kebab.replacingOccurrences(of: "-foreground", with: "-fg")
+    }
+
+    /// `shadowSamples` 的 label（`CoreElevation.spec(for: .medium).color`）→ asset 名
+    /// （`shadow-medium`）。抠的是 label 里那个档位名。
+    private static func shadowAssetName(_ label: String) -> String? {
+        guard let head = label.range(of: "for: ."),
+              let tail = label[head.upperBound...].firstIndex(of: ")")
+        else { return nil }
+        return "shadow-" + label[head.upperBound..<tail]
+    }
+
+    /// 三组各按自己的转换推出「label 该指向哪个 asset」，拼成一张对表。
+    private static var labelToAssetName: [(label: String, expected: String, color: Color)] {
+        Self.hueSamples.map { ($0.0, Self.kebabCased($0.0), $0.1) }
+            + Self.statusSamples.map { ($0.0, Self.statusAssetName($0.0), $0.1) }
+            + Self.shadowSamples.map {
+                ($0.0, Self.shadowAssetName($0.0) ?? "<label 里抠不出档位名>", $0.1)
+            }
+    }
+
+    /// **无条件**：抽样的 label 必须与它的取值**同源**。
+    ///
+    /// ⚠️ 这条补的是 `sampleBasisHasExpectedCardinality` 够不着的一格：那条只核名字集合的
+    /// **基数与归属**，不核「label 说的是不是这个 color」。终审变异 **M7** 实测——把
+    /// `("brand5", .brand5)` 改成 `("brand5", .amber5)`——**两条腿全绿 `EXIT=0`**。
+    /// 后果不是正确性问题（两个都是真 token，正/反向断言照样成立），而是**失败信息指错
+    /// token**：读者按报错去查 `brand-5`，坏的却是别的 asset。
+    ///
+    /// 做法：用 `TestSupport.swift` 里既有的共享内省辅助把 `Color` 内部的 asset 名抠出来
+    /// （形如 `NamedColor(name: "brand-5", bundle: …)`；⚠️ 那是 **SwiftUI 内部描述格式**，
+    /// 不是公开契约，该文件已把这条脆弱点登记在案），与 label 按三组各自的转换推出的名字
+    /// 对表。⚠️ **这里有意复用那份辅助、不另写一份**——它是**辅助**不是断言，没有
+    /// 「两条判据实现独立」的价值可言（与本文件头《更正》一节讲的 canary 情形正相反）。
+    /// ⚠️ 内省抠不出名字时本条**判红**（`Issue.record`）而不是跳过：判据一旦失去依据，
+    /// 必须有人回来重读，不能静默退化成空转。
+    @Test("抽样的 label 必须与取值同源")
+    func sampleLabelsMatchTheirColors() {
+        let table = Self.labelToAssetName
+        // 非退化前置：对表面必须就是那 44 个抽样，不能被清空。
+        #expect(table.count == 44, "对表面应覆盖全部 44 个抽样，实为 \(table.count)")
+        for entry in table {
+            guard let actual = assetName(of: entry.color) else {
+                Issue.record(
+                    """
+                    \(entry.label)：`String(describing:)` 里抠不出 asset 名——\
+                    `NamedColor(name: "…")` 这个 description 形状被 SDK 换掉了。\
+                    本条判据已失去内省依据，**先回来重读 `assetName(of:)` 的注释**再动它，\
+                    别让它静默退化成空转。实际 description = \(String(describing: entry.color))
+                    """
+                )
+                continue
+            }
+            #expect(
+                actual == entry.expected,
+                """
+                \(entry.label) 的取值实际指向 asset `\(actual)`，而 label 推出的是 \
+                `\(entry.expected)`——名字与取值不同源，这条抽样的失败信息会指错 token。
+                """
             )
         }
     }
