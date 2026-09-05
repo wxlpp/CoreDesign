@@ -1062,32 +1062,39 @@ struct MaskRevealTransitionBodyTests {
     /// ⚠️⚠️ **`properties` 必须是显式声明**（终审 S-2 / I-5，`#292` 统一跟踪）。
     ///
     /// Apple 文档逐字：`hasMotion == true` ⇒ **Reduce Motion 打开时 SwiftUI 直接把
-    /// 本转场换成 `.opacity`**（默认值就是 `true`）。实测继承值：
+    /// 本转场换成 `.opacity`**（默认值就是 `true`）。`#268` 落地时实测的继承值：
     /// ```
     /// MaskRevealTransition.properties.hasMotion == true
     /// ParticleTransition.properties.hasMotion   == true
     /// OpacityTransition.properties.hasMotion    == false
     /// IdentityTransition.properties.hasMotion   == false
     /// ```
+    /// ⚠️ 上表前两行是**当时**的继承值，今天两者都已是**显式声明**
+    /// （`ParticleTransition` 在 `#292` 补上，取值仍是 `true`）；
+    /// 后两行是 SwiftUI 自家类型，仍为实测继承值。
     /// ⇒ **框架那道闸在前**，`MaskReveal.plan(…isReduced:)` 是它为假时的兜底。
     /// 取值理由、内层 RM 路径「保留」的裁定与代价，全部写在 `MaskRevealTransition`
     /// 与 `MaskRevealTransition.properties` 的文档注释里。
     ///
     /// ⚠️ 只断言取值是不够的——`true` 恰好也是 SDK 默认值，一条纯 `#expect` 在
-    /// 「有人把整个 `properties` 删掉」这枚变异下**零红**。因此配一条源码断言：
-    /// 这个声明必须真的写在本仓代码里（它换来的是"下一个人看得见框架闸"）。
+    /// 「有人把整个 `properties` 删掉」这枚变异下**零红**。
     ///
-    /// ⚠️⚠️ **下面那条源码断言逐字钉的是「本簇自己那一种写法」，射程要读清楚**
-    /// （#291 第 2 轮 Sug-1）：三簇今天各写各的，语义完全相同——
+    /// ⚠️⚠️ **「是显式声明而不是继承 SDK 默认值」这一半已整体移交**（`#292` 终审 P-1）：
+    /// 接手的是 `TransitionPropertiesGuard`（`CoreDesignTests`，SwiftSyntax 按**结构**
+    /// 判「这个类型有没有声明 `properties`」，对**全仓 12 条**一视同仁）。
+    /// ⇒ 本条上一版那句 `code.contains("static let properties: TransitionProperties")`
+    /// **已删**：它逐字钉的是本簇那一种写法（三簇各写各的，语义完全相同——
     /// ```
     /// #268（本簇）  public static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
     /// #267（簇 B）  public static var properties: TransitionProperties { .init(hasMotion: true) }
     /// #266（滤镜簇）public static let properties = TransitionProperties(hasMotion: false)
     /// ```
-    /// ⇒ **`#292` 统一声明形态的那次改动会让本条判红，而那不是真缺陷**：届时请连同
-    /// 下面的期望串 `"static let properties: TransitionProperties"` 一起改成新形态，
-    /// 别把它读成"有人偷偷删了声明"。逐字钉是本仓惯例（换来的是"删掉声明必红"），
-    /// 代价就是这一次统一形态的返工，照录在此。
+    /// ），在结构守卫落地之后它被**完全支配**：净效果只剩"给将来任何一次重排版留一枚假红"。
+    /// ⚠️ 顺带更正一句旧文案：上一版这里写「`#292` 统一声明形态的那次改动会让本条判红」
+    /// ——**`#292` 定案不统一**，理由见那条守卫的文件头
+    /// 《`#292` 有意**不统一**三种声明形态》一节。
+    /// ⚠️ 留下的那条源码断言（`TransitionProperties(hasMotion: true)` 出现过）钉的是
+    /// **本簇取值的字面来源**，与上面那条运行时 `#expect` 各守一半，不与结构守卫重叠。
     @Test("MaskRevealTransition 显式声明 properties，且 hasMotion 为 true")
     func transitionDeclaresItHasMotion() throws {
         #expect(MaskRevealTransition.properties.hasMotion, """
@@ -1098,11 +1105,6 @@ struct MaskRevealTransitionBodyTests {
         （「两道闸，框架那道在前」与「内层 RM 路径：显式裁定为保留」）。
         """)
         let code = try MaskRevealSourceGuard.code("MaskRevealTransitions.swift")
-        #expect(code.contains("static let properties: TransitionProperties"), """
-        `MaskRevealTransitions.swift` 里找不到 `properties` 的显式声明 —— 上一条于是退化成
-        「SDK 默认值恰好也是 true」，删掉整个声明它照样全绿，而下一个人也就再次看不见
-        框架那道闸的存在。
-        """)
         #expect(code.contains("TransitionProperties(hasMotion: true)"), """
         `properties` 的实现体不再是 `TransitionProperties(hasMotion: true)`
         —— 上一条读到的可能已经不是这个声明给的值。

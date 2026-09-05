@@ -150,8 +150,12 @@ public struct MaskRevealTransition: Transition {
     /// 判据：`MaskRevealTransitionBodyTests.transitionDeclaresItHasMotion`
     /// （运行时取值 + 源码钉住这是**显式声明**而不是继承 SDK 默认）。
     ///
-    /// ⚠️ 追踪：`#292` 统一跟踪本仓 `Transition` 的 `properties` 声明面
-    /// （含 `ParticleTransition`，**本 PR 有意不动它**）。
+    /// ⚠️ 追踪：`#292` 已收口本仓 `Transition` 的 `properties` 声明面——12 条实现全部
+    /// 显式声明（最后一条 `ParticleTransition` 在 `#292` 补上），
+    /// 由 `TransitionPropertiesGuard`（`CoreDesignTests`，SwiftSyntax 结构判定）
+    /// 与 `TransitionPropertiesRoster`（12 条运行时取值）两条守卫接管。
+    /// ⚠️ `#292` **有意不统一**三簇的声明形态（理由见那条守卫的文件头），
+    /// 故下面这一行与本簇原样保留。
     public static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
 
     /// ⚠️⚠️ **本函数是六个公开静态成员通向 `MaskRevealChrome` 的唯一路径，

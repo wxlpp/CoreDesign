@@ -279,13 +279,16 @@ struct MicroInteractionReduceMotionGuard {
         //   —— 降级的**结论**本身：遮罩全开 + 内容不透明度跟着进度走（不是 no-op），
         //   六种逐个求值，并配一条"运动路径上不透明度恒为 1"的互锁。
         //
-        // ⚠️⚠️ **上面后两条的射程要读清楚，别高估它**（终审 I-5，实测继承值）：
+        // ⚠️⚠️ **上面后两条的射程要读清楚，别高估它**（终审 I-5，`#268` 当时的实测继承值）：
         // ```
         // MaskRevealTransition.properties.hasMotion == true
         // ParticleTransition.properties.hasMotion   == true
         // OpacityTransition.properties.hasMotion    == false
         // IdentityTransition.properties.hasMotion   == false
         // ```
+        // ⚠️ 前两行今天已是**显式声明**而不是继承值（`ParticleTransition` 在 `#292` 补上，
+        // 取值仍是 `true`）；全仓 12 条的声明面由 `TransitionPropertiesGuard`
+        // （`CoreDesignTests`）与 `TransitionPropertiesRoster` 接管。
         // `MaskRevealTransition` 现在**显式声明** `hasMotion == true`，而 Apple 文档逐字：
         // 「*that transition will be replaced by opacity when Reduce Motion is enabled*」
         // ⇒ **真正的第一道闸是 SwiftUI**，它先触发且**永远不让 `plan` 看到
