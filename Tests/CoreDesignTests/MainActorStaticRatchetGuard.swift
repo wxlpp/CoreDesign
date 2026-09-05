@@ -142,9 +142,19 @@ import Testing
 //      **③ 最可能被无辜触发**，改那一行前先看 `expectedRunCommand`。
 //   ④ 给那个 step 加一个**合法但不在 `allowedStepKeys` 里**的键（`id:` / `timeout-minutes:` …）
 //      ——正面清单的必然代价，处置是把它加进 `allowedStepKeys` 并说明理由。
-//   ⑤ 把 step 写成裸 `-` 单独一行 + 底下一串子键（合法 YAML）——`directChildKeys` 按
-//      「短横的列 + 1 + 短横后空格数」推直接子键的列，裸 `-` 后面没有空格 ⇒ 推出来的列
-//      与真实子键的列对不上 ⇒ 判红。fail-closed，写在这里以免下次被当成 bug 追。
+//   ⑤ 把 step 写成裸 `-` 单独一行 + 底下一串子键（合法 YAML）——**只在它是这个 job 里
+//      唯一的 step 时才判红，且走的不是 `directChildKeys`**。⚠️ 这一条原来两半都写错了
+//      （PR #314 第 3 轮终审 C-4，本轮逐形态复测）：
+//      · **机制**：`stepBlocks` 认新条目要求 `trimmed.hasPrefix("- ")`，裸 `-` 的
+//        trimmed 是 `"-"` ⇒ 切不出 step 块 ⇒ `owning` 为空 ⇒ 判红的是
+//        `violations(inWorkflow:)` 里那条**「解析失效：切不出含它的 step 块」**分支，
+//        `directChildKeys` 在这个形态下根本不会被调用（原来写「推出来的列对不上」是假的）。
+//      · **结论**：只有「裸 `-` 是唯一 step」时才红。**前面只要还有一个正常 step**
+//        （真 `ci.yml` 的 `swiftpm` job 正是这个形态——它第一步是
+//        `- uses: actions/checkout@v4`），裸 `-` 那一段会被**吞进上一个 step**，
+//        直接子键那一列照样取得到 `run:` ⇒ **判绿**（原来写「判红」是错的）。
+//      安全面不受影响：同形下的中和写法（` || true` / 偷塞 `if:` / 折行续行）实测仍全部
+//      判红。两种形态各有实测，见 `MainActorStaticRatchetGuard.syntheticWorkflowWithBareDashStepIsRejected`。
 //
 // ## 本文件的判据（限定名，供 `JudgementReferenceGuard` 规则 A 接住改名 / 删除）
 //
@@ -174,10 +184,10 @@ import Testing
 // · `MainActorStaticRatchetGuard.syntheticWorkflowWithBlockScalarRunIsRejected`
 // · `MainActorStaticRatchetGuard.syntheticWorkflowWithoutJobIsRejected`
 // · `MainActorStaticRatchetGuard.syntheticScriptMissingAnyLiteralIsRejected`
-// · `MainActorStaticRatchetGuard.syntheticScriptWithDuplicatedLiteralIsRejected`
+// · `MainActorStaticRatchetGuard.syntheticScriptWithRelocatedLiteralIsRejected`
 // · `MainActorStaticRatchetGuard.syntheticWorkflowWithInheritedShellDefaultsAreRejected`
 // · `MainActorStaticRatchetGuard.syntheticWorkflowWithFoldedPlainScalarRunIsRejected`
-// · `MainActorStaticRatchetGuard.syntheticWorkflowWithMisIndentedStepIsRejected`
+// · `MainActorStaticRatchetGuard.syntheticWorkflowWithBareDashStepIsRejected`
 // · `MainActorStaticRatchetGuard.judgementRosterMatchesTheHeaderTable`
 //
 // ⚠️ 加 / 删一条 `@Test` 时同步这张表与 `MainActorStaticRatchetGuard.judgementCount`，
@@ -274,9 +284,12 @@ struct MainActorStaticRatchetGuard {
             dump 那条命令**整条**，含**显式**写死的可见性门槛。删掉门槛 ⇒ 退回 SwiftPM
             的默认值，而 `PUBLIC_LEVELS` 那条筛的非空性完全建立在那个默认值上（今天默认
             恰好是 `public`，脚本照样 exit 0）——那正是「一条判据的前提没被钉住」的形态。
-            ⚠️ **钉整条而不是只钉 `--minimum-access-level public` 那个 flag**：flag 在脚本里
-            出现两次（真 flag + 上面那段注释），`contains` 会被注释那份满足 ⇒ 删掉真 flag
-            两侧全绿（PR #314 第 2 轮终审 C-1 实测）。整条只在真命令那一行出现
+            ⚠️ **钉整条而不是只钉 `--minimum-access-level public` 那个 flag**：那个 flag
+            在 `7c8c07e` 上出现**两次**（真 flag + 脚本头注释里的一份逐字副本），
+            `contains` 会被注释那份满足 ⇒ 删掉真 flag 两侧全绿（PR #314 第 2 轮终审 C-1 实测）。
+            ⚠️ **`98f551b` 已把注释那份改写成不再逐字重复**，所以今天全文计数已是 1 次
+            （实测：`7c8c07e` full=2 / `98f551b` 起 full=1）——**别把这条理由读成现在时**。
+            钉整条的理由不受影响，因为整条只在真命令那一行出现
             """#
         ),
         (
@@ -330,9 +343,11 @@ struct MainActorStaticRatchetGuard {
             #"EXEMPTIONS="$REPO_ROOT/docs/mainactor-static-exemptions.txt""#,
             #"""
             脚本读的豁免表路径，钉**整条赋值**。改指别处 ⇒ 本文件钉的表与脚本比的表分了家。
-            ⚠️ **钉整条而不是只钉 `docs/mainactor-static-exemptions.txt` 那个路径**：路径在
-            脚本里出现三次（真赋值 + 头注释 + stderr 文案）⇒「把赋值改指别处、并在那里
-            放一份同名副本」这条**完整失效链**当时两侧全绿（PR #314 第 2 轮终审 C-1 实测）
+            ⚠️ **钉整条而不是只钉 `docs/mainactor-static-exemptions.txt` 那个路径**：那个路径
+            在脚本里出现**三次**（真赋值 + 头注释 + stderr 文案；实测 `7c8c07e` 与 `98f551b`
+            都是 full=3、非注释行 2 次）⇒「把赋值改指别处、并在那里放一份同名副本」
+            这条**完整失效链**当时两侧全绿（PR #314 第 2 轮终审 C-1 实测）。
+            ⚠️ 这一条与上面那条 dump 命令不同，**它的计数今天仍是现在时**
             """#
         ),
     ]
@@ -349,10 +364,26 @@ struct MainActorStaticRatchetGuard {
     /// 写在顶层会被**每个 job 继承**，效果与写在 job 上逐字相同，而 `jobBlock` 只切出
     /// 那个 job 的块 ⇒ 顶层那份必须单查一遍。另外三个键在 workflow 顶层不是合法键，
     /// 复用这张表不引入假红。
-    nonisolated static let blockedJobKeys: [(key: String, reason: String)] = [
-        ("if", "这个 job 可能在某些事件上压根不跑"),
-        ("needs", "上游 job 被跳过时这个 job 会跟着不跑（`bool-ratchet` 就带着 `if:`）"),
-        ("continue-on-error", "这道闸判红也不会让 job 判红"),
+    ///
+    /// ⚠️ **两级各带一份 `reason`**（PR #314 第 3 轮终审 S-1）：原来顶层命中直接打印
+    /// job 级那份措辞，于是 workflow 顶层的 `if:` 会报出「**这个 job** 可能在某些事件上
+    /// 压根不跑」——主语指错了一层。`topLevelReason` 就是那一层的措辞。
+    nonisolated static let blockedJobKeys: [(key: String, reason: String, topLevelReason: String)] = [
+        (
+            "if",
+            "这个 job 可能在某些事件上压根不跑",
+            "workflow 顶层没有 `if:` 这个合法键 —— 出现它说明这份 workflow 的形态不是判据假定的那样，fail-closed 判红"
+        ),
+        (
+            "needs",
+            "上游 job 被跳过时这个 job 会跟着不跑（`bool-ratchet` 就带着 `if:`）",
+            "workflow 顶层没有 `needs:` 这个合法键 —— 同上，fail-closed 判红"
+        ),
+        (
+            "continue-on-error",
+            "这道闸判红也不会让 job 判红",
+            "workflow 顶层没有 `continue-on-error:` 这个合法键 —— 同上，fail-closed 判红"
+        ),
         (
             "defaults",
             #"""
@@ -361,6 +392,12 @@ struct MainActorStaticRatchetGuard {
             `bash -c "exit 0" <脚本路径>`，脚本一行都不跑（PR #314 第 2 轮终审 C-2 实测：
             job 级与 workflow 级两种写法当时都判绿，而**同一个 `shell:` 写在 step 上就判红**）。
             这个 job 今天不需要 `defaults:` ⇒ 拦掉它零假红成本
+            """#,
+            #"""
+            写在顶层的 `defaults:` 会被**每个 job 继承** ⇒ `swiftpm` job 同样吃到
+            `run.shell`，这一步以退出码 0 空转（GitHub 的自定义 shell 模板是
+            `<command> […options] {0}`）。这份 workflow 今天顶层不需要 `defaults:`
+            ⇒ 拦掉它零假红成本
             """#
         ),
     ]
@@ -475,6 +512,16 @@ struct MainActorStaticRatchetGuard {
             .trimmingCharacters(in: .whitespaces)
     }
 
+    /// 这个标量值是不是 YAML 的**块标量指示符**（`|` / `>` 加上可选的缩进指示与 chomping
+    /// 指示，两者顺序不限：`|` `>` `|-` `>+` `|2` `>2` `|-2` `|2-` …）。
+    ///
+    /// ⚠️ 写成规则而不是写死一张六项的表：写死那张表漏掉带**显式缩进指示**的那一族
+    /// （PR #314 第 3 轮终审 S-3）。
+    nonisolated static func isBlockScalarIndicator(_ value: String) -> Bool {
+        guard let first = value.first, first == "|" || first == ">" else { return false }
+        return value.dropFirst().allSatisfy { $0.isNumber || $0 == "-" || $0 == "+" }
+    }
+
     /// 把一个 job 块切成一串 step 块（每块含 `- ` 那一行与它底下更深缩进的行）。
     ///
     /// ⚠️ 注释行**并入所属 step**（与 `jobBlock` 的边界规则一致），因此 step 里的
@@ -577,17 +624,24 @@ struct MainActorStaticRatchetGuard {
     /// **能整条走过去**（含 marker 的那一行逐字相等，`exit 0` 不含 marker 被滤掉）。
     /// 本条直接看 `run` 这个**键的值**：块标量下它是 `"|"`，与期望不等 ⇒ 判红。
     ///
-    /// ⚠️⚠️ **两条路径的关系是不对称的，如实登记**（PR #314 第 2 轮终审 I-1）：
-    /// 上面那句只在**一个方向**为真。反方向——「有没有输入是只有逐字循环能红的」——
-    /// 在**合法 YAML 里造不出来**：块标量、行尾尾巴、`echo` 冒充这三种形态，
-    /// 本条都先红了。终审实测：删掉 `violations(inWorkflow:)` 里那段逐字循环，
-    /// 本 suite 当时 14 条全绿；删掉本条的调用，只有块标量那条 fixture 红。
-    /// ⇒ 对 fixture 6/7/8 两条路径**互为冗余**。
-    /// 逐字循环的独立价值只剩一格，本轮给它补了专属 fixture
-    /// （`syntheticWorkflowWithMisIndentedStepIsRejected`）：**`stepBlocks` 分块失效**时
-    /// ——兄弟 `- ` 不同列，被吞进上一个 step——本条与 `disallowedStepKeys` 都看不见那行
-    /// 长了尾巴的命令，而逐字循环仍逐字比得到。那是它作为**第二条独立解析路径**的价值，
-    /// 不是「再比一遍命令」。
+    /// ⚠️⚠️ **两条路径的关系是不对称的，如实登记**（PR #314 第 2 轮终审 I-1，
+    /// 第 3 轮终审 C-3 把结论进一步收窄）：上面那句只在**一个方向**为真。反方向
+    /// ——「有没有输入是**只有**逐字循环能红的」——**在合法 YAML 上今天造不出来**：
+    /// 块标量、行尾尾巴、`echo` 冒充这三种形态，本条都先红了。终审实测：删掉
+    /// `violations(inWorkflow:)` 里那段逐字循环，本 suite 当时 14 条全绿；删掉本条的调用，
+    /// 只有块标量那条 fixture 红。⇒ 对 fixture 6/7/8 两条路径**互为冗余**。
+    ///
+    /// ⚠️ **上一轮给它补的那个「专属 fixture」不算数，已撤**：那份合成输入
+    /// （第一个 step 的 `- ` 在第 6 列、兄弟 `- ` 在第 7 列）**根本不是合法 YAML**
+    /// ——同一块序列的条目必须同列，`yaml.safe_load` 实测报
+    /// `ParserError: expected <block end>, but found '<block sequence start>'`
+    /// ⇒ GitHub 会当场按语法错误拒收，整个 workflow 不会跑 ⇒ **那不是攻击者能走通的
+    /// 路径**，拿它论证本条的价值不成立（PR #314 第 3 轮终审 C-3）。
+    /// ⇒ **如实登记现状**：在合法 YAML 上，逐字循环今天仍与本条 +「解析失效」分支
+    /// **互为冗余，没有专属 fixture**。留着它的理由只剩「第二条独立解析路径」的防御纵深
+    /// ——那是一条**没有实证的**理由，别把它写成承重。
+    /// ⚠️ 与之相邻的「解析失效：切不出含它的 step 块」那条分支现在有 fixture 了
+    /// （`syntheticWorkflowWithBareDashStepIsRejected`，走**合法 YAML** 的裸 `-` 形态）。
     nonisolated static func runLineIsInlineScalar(inStep step: String) -> [String] {
         let runValues = Self.directChildKeys(inStep: step)
             .filter { $0.key == "run" }
@@ -623,6 +677,11 @@ struct MainActorStaticRatchetGuard {
     ///
     /// ⚠️ 块标量（`run: |` / `>` / `|-` …）底下的正文**有意不在这里报**：那一族由
     /// `runLineIsInlineScalar` 报，报错文案更准，两条不要混。
+    /// ⚠️ 认块标量走 `isBlockScalarIndicator(_:)` 而不是一张写死的表：原来那张表只列了
+    /// `| > |- >- |+ >+` **六种**，漏掉带**显式缩进指示**的 `|2` / `>2` / `|-2` / `|2-`
+    /// 一族（合法 YAML），于是那一族会由本函数而非 `runLineIsInlineScalar` 报
+    /// ——与上一句自己立的分工相左（PR #314 第 3 轮终审 S-3）。
+    /// ⚠️ 如实登记：两条都会判红，所以这是**注释与实现对不上**，不是安全洞。
     nonisolated static func runScalarContinuationLines(inStep step: String) -> [String] {
         let lines = step.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         guard let firstIndex = lines.firstIndex(where: { !Self.isSkippable($0) }) else { return [] }
@@ -633,7 +692,6 @@ struct MainActorStaticRatchetGuard {
         let gap = afterIndent.dropFirst().prefix { $0 == " " }.count
         let childIndent = dashIndent + 1 + gap
 
-        let blockIndicators: Set<String> = ["|", ">", "|-", ">-", "|+", ">+"]
         let head = String(afterIndent.dropFirst(1 + gap))
         var currentKey = Self.keyName(ofLine: head)
         var currentValue = Self.valuePart(ofLine: head)
@@ -653,7 +711,7 @@ struct MainActorStaticRatchetGuard {
             }
             guard currentKey == "run",
                   let value = currentValue,
-                  !blockIndicators.contains(value)
+                  !Self.isBlockScalarIndicator(value)
             else { continue }
             hits.append(
                 """
@@ -679,7 +737,7 @@ struct MainActorStaticRatchetGuard {
         for line in lines where !Self.isSkippable(line) && Self.indentation(of: line) == 0 {
             guard let key = Self.keyName(ofLine: line) else { continue }
             for entry in Self.blockedJobKeys where key == entry.key {
-                hits.append("`\(entry.key):`：\(entry.reason)")
+                hits.append("`\(entry.key):`：\(entry.topLevelReason)")
             }
         }
         return hits
@@ -772,34 +830,68 @@ struct MainActorStaticRatchetGuard {
 
     /// 脚本文本 → 违规清单（空 = 通过）。
     ///
-    /// ⚠️ 判的是**出现次数恰为 1**，不是 `contains`（PR #314 第 2 轮终审 C-1）。
+    /// ⚠️ 判的是**在非注释行上出现的次数恰为 1**，不是 `contains`，也不是在全文上计数。
     /// 起因是一条实测出来的**完整失效链**：`--minimum-access-level public` 与
     /// `docs/mainactor-static-exemptions.txt` 这两条 pin 当时在脚本里各出现 ≥2 次，
     /// 多出来的那份在**注释 / stderr 文案**里 ⇒ 删掉真 flag（保留注释那份）、或把
     /// 豁免表赋值改指 `docs/OTHER-TABLE.txt` **并放一份同名副本**，脚本 exit 0、
-    /// 本 suite 也全绿——两侧都不知道彼此比的已经不是同一张表了。
+    /// 本 suite 也全绿——两侧都不知道彼此比的已经不是同一张表了（PR #314 第 2 轮终审 C-1）。
     ///
-    /// ⚠️⚠️ **为什么 fixture 没抓到，这一条要记住**：
+    /// ⚠️⚠️ **上一轮的 `!= 1` 只堵了这条链的一半，第 3 轮终审 C-1 实测**：全文计数只禁
+    /// 「**增加**副本」，不禁「**搬家**」——把真代码那一份删掉、同时在注释里补一份逐字副本，
+    /// 计数仍是 1 ⇒ 两侧照样双绿（终审两条实测变异 S1 / S2 都是 `[GREEN]`，
+    /// 脚本侧同样 `exit=0` 并打印 `✅ 棘轮：…`）。
+    /// ⇒ 本轮改成**只在非注释行上计数**（`isSkippable` 现成，bash 与 python 的注释都以
+    /// `#` 起头）：搬家之后非注释行上的命中变成 0 ⇒ 判红。
+    ///
+    /// ⚠️⚠️ **别把它读成「彻底堵上」**：把副本塞进一条**非注释语句**（例如 `echo` 的字符串
+    /// 里）仍能把计数保持在 1 ⇒ 仍是绿的。这一步把门槛从「多写一行注释」抬到
+    /// 「伪造一条非注释语句」，**不是密不透风**。
+    ///
+    /// ⚠️ 顺带消掉的假红（PR #314 第 3 轮终审 I-1）：全文计数下，给脚本追加一行**完全合法**
+    /// 的说明注释、其中逐字提到某条 pin ⇒ 那条 pin 当场判红。改成非注释行计数之后，
+    /// **11 条 pin 都可以在注释里被逐字提及**了（改法零迁移成本：本轮实测 11 条 pin 剥掉
+    /// `#` 注释行之后各仍为 1 次）。
+    ///
+    /// ⚠️⚠️ **为什么最早那版 fixture 没抓到，这一条要记住**：
     /// `syntheticScriptMissingAnyLiteralIsRejected` 用 `replacingOccurrences` 删掉
     /// 字面量的**全部**出现（连注释那份一起删）⇒ **fixture 判红、真实变异判绿**。
-    /// **一个比真实攻击面更强的 fixture，恰恰掩盖了洞。** 造 fixture 时，
-    /// 变异必须**恰好等于**攻击者能做的那一步，强一分就成了伪证。
-    ///
-    /// ⇒ 两条一起改：那两条 pin 换成脚本里**唯一**的更长片段（治当下），
-    /// 计数改成「恰为 1」（治将来任何一条 pin 被注释稀释）。
+    /// **一个比真实攻击面更强的 fixture，恰恰掩盖了洞。**
+    /// 而第 2 轮补的那条 fixture 又走到了另一侧——它演的是「保留真的那份、再加一份注释
+    /// 副本」，那一步**功能上什么也没改变**，攻击者不会这么做 ⇒ 它证的不是要证的东西
+    /// （第 3 轮终审 C-2，已改成搬家形态，见
+    /// `MainActorStaticRatchetGuard.syntheticScriptWithRelocatedLiteralIsRejected`）。
+    /// ⇒ 造 fixture 时，变异必须**恰好等于**攻击者能做的那一步：强一分是伪证，
+    /// 弱一分（做一件攻击者不会做的事）同样是伪证。
     nonisolated static func violations(inScript script: String) -> [String] {
-        Self.requiredScriptLiterals.compactMap { entry in
-            let hits = Self.occurrences(of: entry.literal, in: script)
+        let executable = Self.nonCommentText(ofScript: script)
+        return Self.requiredScriptLiterals.compactMap { entry in
+            let hits = Self.occurrences(of: entry.literal, in: executable)
             guard hits != 1 else { return nil }
             return """
-                脚本里这条逐字片段出现了 \(hits) 次，必须**恰好 1 次**：
+                脚本的**非注释行**里，这条逐字片段出现了 \(hits) 次，必须**恰好 1 次**：
                 \(entry.literal)
                 这一条为什么必须在：\(entry.reason)
-                ⚠️ 0 次 = 判据被删；≥2 次 = 这条 pin 被**注释 / 报错文案里的同名副本**稀释了
-                ——删掉真的那一份，`contains` 仍被副本满足 ⇒ 脚本与本文件双绿。
-                要在注释里提这条片段，请改写措辞使其不逐字重复，或把 pin 换成更长的唯一片段。
+                ⚠️ 0 次 = 判据被删（**含**「删掉真的那一份、只在注释里留一份逐字副本」这种搬家）；
+                ≥2 次 = 真代码里出现了第二份，两份里删掉哪一份都不会有人看见。
+                ⚠️ 注释行不计数 ⇒ 在注释里逐字提这条片段是**允许**的。
+                ⚠️ 但这不是密不透风：把副本塞进一条非注释语句（`echo` 的字符串之类）
+                仍能把计数保持在 1。它抬高的是门槛，不是关死了门。
                 """
         }
+    }
+
+    /// 脚本文本里**非注释、非空**的那些行（保持原有换行结构）。
+    ///
+    /// ⚠️ bash 段与 python 段的注释都以 `#` 起头 ⇒ 同一条 `isSkippable` 两段通吃。
+    /// ⚠️ 它**不解析字符串字面量**：写在 `echo "…"` / python 字符串里的 `#` 不会被误当注释，
+    /// 但反过来，写在字符串里的 pin 副本**会**被计进去——这正是上面登记的那个残留缺口。
+    nonisolated static func nonCommentText(ofScript script: String) -> String {
+        script
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map(String.init)
+            .filter { !Self.isSkippable($0) }
+            .joined(separator: "\n")
     }
 
     // MARK: - 判据（全部**无条件**，没有任何 `.enabled(if:)`）
@@ -1072,9 +1164,9 @@ struct MainActorStaticRatchetGuard {
         // ⚠️ 这条 fixture 曾经**比真实攻击面更强**，因此掩盖了 C-1 那个洞：
         // `replacingOccurrences` 删掉字面量的**全部**出现，包括注释里那份副本；
         // 而攻击者只需要删掉**真的那一份**，注释那份留着就能满足 `contains`。
-        // ⇒ fixture 判红、真实变异判绿。现在 `violations(inScript:)` 改判「恰为 1 次」，
-        // 这条 fixture 覆盖 0 次那一侧，`syntheticScriptWithDuplicatedLiteralIsRejected`
-        // 覆盖 ≥2 次那一侧。
+        // ⇒ fixture 判红、真实变异判绿。现在 `violations(inScript:)` 改判「非注释行上
+        // 恰为 1 次」，这条 fixture 覆盖 0 次那一侧里最粗的那种（整个删掉），
+        // `syntheticScriptWithRelocatedLiteralIsRejected` 覆盖真实攻击面那一种（搬家）。
         let script = try String(contentsOf: Self.scriptURL, encoding: .utf8)
         #expect(Self.violations(inScript: script).isEmpty, "正对照：真脚本必须判绿")
         for entry in Self.requiredScriptLiterals {
@@ -1086,16 +1178,29 @@ struct MainActorStaticRatchetGuard {
         }
     }
 
-    @Test("合成输入：某条筛条件字面量被注释里的副本稀释 ⇒ 判红")
-    func syntheticScriptWithDuplicatedLiteralIsRejected() throws {
+    @Test("合成输入：某条筛条件字面量被「搬进注释」⇒ 判红")
+    func syntheticScriptWithRelocatedLiteralIsRejected() throws {
+        // ⚠️ **变异必须恰好等于攻击者会做的那一步**（PR #314 第 3 轮终审 C-2）：
+        // 这条 fixture 上一轮演的是 `script + "\n# 注释里抄一份：" + literal`
+        // ——**保留**真的那份、**再加**一份注释副本。那一步功能上什么也没改变，
+        // 攻击者不会这么做；他做的是**搬家**：把真代码那一份删掉、在注释里补一份逐字副本，
+        // 于是全文计数仍是 1 ⇒ 当时脚本侧 `exit=0`、树内也全绿。
+        // ⇒ 现在演的就是搬家：先删掉那条 pin 的全部出现（今天 11 条 pin 各只在
+        // **一条非注释行**上出现，实测 full=1 / noncomment=1，所以删掉的就是真的那一份），
+        // 再把逐字副本放进一行注释。
+        // ⚠️ 它**不恒真**：把 `violations(inScript:)` 的计数从 `nonCommentText(ofScript:)`
+        // 改回在全文上做，**只有本条**会红（搬家后全文计数=1 ⇒ 绿 ⇒ 本条失败），
+        // `syntheticScriptMissingAnyLiteralIsRejected` 与 `scriptPinsTheFilterPredicate`
+        // 都照常通过 —— 实测见 PR 正文。
         let script = try String(contentsOf: Self.scriptURL, encoding: .utf8)
         for entry in Self.requiredScriptLiterals {
-            let mutated = script + "\n# 注释里抄一份：" + entry.literal + "\n"
+            let relocated = script.replacingOccurrences(of: entry.literal, with: "")
+                + "\n# 搬进注释的那一份：" + entry.literal + "\n"
             #expect(
-                !Self.violations(inScript: mutated).isEmpty,
+                !Self.violations(inScript: relocated).isEmpty,
                 """
-                把 `\(entry.literal)` 在注释里再抄一份之后判据仍绿
-                ——这条 pin 可以被副本稀释：删掉真的那一份两侧都不会红。
+                把 `\(entry.literal)` 从真代码里删掉、只在注释里留一份逐字副本之后判据仍绿
+                ——这条 pin 挡不住「搬家」：脚本侧的判据已经没了，两侧却都不会红。
                 """
             )
         }
@@ -1142,7 +1247,7 @@ struct MainActorStaticRatchetGuard {
         // ⚠️ 这不是块标量：`run:` 的值仍逐字等于期望命令，YAML 却把下一行折进同一个标量
         // （`yaml.safe_load` 实测折叠结果是 `<命令> || true`）。加 `runScalarContinuationLines`
         // 之前，三条判据全绿——头注释那句「要加兄弟行必须先改成块标量」因此是假的。
-        let yaml = [
+        let base = [
             "name: CI",
             "on:",
             "  push:",
@@ -1153,22 +1258,34 @@ struct MainActorStaticRatchetGuard {
             "    steps:",
             "      - name: MainActor static ratchet",
             "        run: \(Self.expectedRunCommand)",
-            "          || true",
-        ].joined(separator: "\n")
+        ]
+        // ⚠️ 正对照（PR #314 第 3 轮终审 S-2 补）：少了它，将来 `violations(inWorkflow:)`
+        // 万一对**什么输入都报**，这条 fixture 仍会「通过」而不再证明任何事。
+        // 它与下面那份脏输入**只差最后那一行续行**。
+        #expect(
+            Self.violations(inWorkflow: base.joined(separator: "\n")).isEmpty,
+            "正对照：只差那一行续行的干净输入必须判绿"
+        )
+        let yaml = (base + ["          || true"]).joined(separator: "\n")
         #expect(!Self.violations(inWorkflow: yaml).isEmpty)
     }
 
-    @Test("合成输入：`stepBlocks` 分块失效时，只有逐字命令循环还能红")
-    func syntheticWorkflowWithMisIndentedStepIsRejected() {
-        // ⚠️ 这份合成输入是 `expectedRunCommand` 那条逐字循环的**专属** fixture
-        // （PR #314 第 2 轮终审 I-1：在此之前它一条专属 fixture 都没有，
-        // 三条本该覆盖它的 fixture 全被 `runLineIsInlineScalar` 顺手满足了）。
-        // 形态：兄弟 `- ` 与第一个 step **不同列** ⇒ `stepBlocks` 把它整个吞进上一个
-        // step，于是那行长了尾巴的命令既不在直接子键那一列（`disallowedStepKeys` 看不见）、
-        // 也不是 `run:` 的值（`runLineIsInlineScalar` 看不见）、更不是它的续行
-        // （`runScalarContinuationLines` 看不见，`currentKey` 已被浅缩进那行清空）。
-        // 只有走 `runCommands` + `commandLines` 的那条**独立解析路径**逐字比得到。
-        let yaml = [
+    @Test("合成输入：裸 `-` 单独一行的 step —— 唯一 step 时判红（解析失效），前面有正常 step 时判绿")
+    func syntheticWorkflowWithBareDashStepIsRejected() {
+        // ⚠️ 这条替掉的是上一轮那份 `…MisIndentedStepIsRejected`（PR #314 第 3 轮终审
+        // C-3 / C-4 / I-3 一并处置）。撤掉它的理由：那份合成输入**根本不是合法 YAML**
+        // （第一个 step 的 `- ` 在第 6 列、兄弟 `- ` 在第 7 列 ⇒ `yaml.safe_load` 报
+        // `ParserError`），GitHub 会当场按语法错误拒收 ⇒ 它不是攻击者能走通的路径，
+        // 拿它论证「逐字循环是第二条独立解析路径」不成立。
+        //
+        // 换上来的是**合法 YAML** 的裸 `-` 形态，它是「解析失效：切不出含它的 step 块」
+        // 那条分支的天然 fixture —— 那条分支从 `7c8c07e` 就在，**在此之前零 fixture**
+        // （把 `if candidates.isEmpty == false, owning.isEmpty {` 改恒假 ⇒ 整个 suite 全绿：
+        // 终审实测，本轮在 `98f551b` 上复测确认「19 条全绿」；同一变异在本条 fixture
+        // 落地后**只有本条**判红）。
+        //
+        // ⚠️ 两种输入的结论**不同**，两条都钉住（这正是已登记假红 ⑤ 原来写错的地方）：
+        let bareDashOnly = [
             "name: CI",
             "on:",
             "  push:",
@@ -1177,21 +1294,75 @@ struct MainActorStaticRatchetGuard {
             "    name: SwiftPM",
             "    runs-on: macos-26",
             "    steps:",
-            "      - name: MainActor static ratchet",
+            "      -",
+            "        name: MainActor static ratchet",
             "        run: \(Self.expectedRunCommand)",
-            "       - name: Sneaky",
-            "         run: |",
-            "           \(Self.expectedRunCommand) || true",
         ].joined(separator: "\n")
-        let problems = Self.violations(inWorkflow: yaml)
-        #expect(!problems.isEmpty)
+        let bareDashProblems = Self.violations(inWorkflow: bareDashOnly)
+        // 一、裸 `-` 是**唯一** step ⇒ `stepBlocks` 认新条目要求 `trimmed.hasPrefix("- ")`，
+        //    裸 `-` 的 trimmed 是 `"-"` ⇒ 一个 step 块都切不出来 ⇒ 走解析失效分支。
+        #expect(!bareDashProblems.isEmpty)
         #expect(
-            problems.allSatisfy { $0.contains("不是逐字的期望命令") },
+            bareDashProblems.contains(where: { $0.contains("切不出含它的 step 块") }),
             """
-            这条 fixture 的价值就在于**只有**逐字循环能红；一旦别的判据也开始报，
-            它就不再证明逐字循环非空转了。实际报出来的是：\(problems)
+            期望走的是「解析失效：切不出含它的 step 块」那条分支
+            （不是 `directChildKeys` 推错列——那是已登记假红 ⑤ 原来写错的机制）。
+            实际报出来的是：\(bareDashProblems)
             """
         )
+
+        // 二、**前面有一个正常 step** 时（与真 `ci.yml` 的 `swiftpm` job 同形，
+        //    它第一步是 `- uses: actions/checkout@v4`），裸 `-` 那一段被**吞进上一个 step**
+        //    ⇒ `run:` 仍在直接子键那一列 ⇒ **判绿**。⚠️ 这一格原来登记成「判红」，是错的。
+        let bareDashAfterNormalStep = [
+            "name: CI",
+            "on:",
+            "  push:",
+            "jobs:",
+            "  swiftpm:",
+            "    name: SwiftPM",
+            "    runs-on: macos-26",
+            "    steps:",
+            "      - uses: actions/checkout@v4",
+            "      -",
+            "        name: MainActor static ratchet",
+            "        run: \(Self.expectedRunCommand)",
+        ].joined(separator: "\n")
+        #expect(
+            Self.violations(inWorkflow: bareDashAfterNormalStep).isEmpty,
+            """
+            裸 `-` 前面还有一个正常 step 时应当判绿（它被吞进上一个 step）。
+            实际报出来的是：\(Self.violations(inWorkflow: bareDashAfterNormalStep))
+            """
+        )
+
+        // 三、**这条假绿不是安全洞**：同一形态（裸 `-` 被吞进上一个 step）下的三种中和
+        //    写法仍全部判红。所以 ⑤ 的更正是**纯文档更正**。
+        let prefix = [
+            "name: CI",
+            "on:",
+            "  push:",
+            "jobs:",
+            "  swiftpm:",
+            "    name: SwiftPM",
+            "    runs-on: macos-26",
+            "    steps:",
+            "      - uses: actions/checkout@v4",
+            "      -",
+            "        name: MainActor static ratchet",
+        ]
+        let neutralizations: [(String, [String])] = [
+            ("命令长出 `|| true` 尾巴", ["        run: \(Self.expectedRunCommand) || true"]),
+            ("偷塞 `if:`", ["        if: false", "        run: \(Self.expectedRunCommand)"]),
+            ("折行续行挂 `|| true`", ["        run: \(Self.expectedRunCommand)", "          || true"]),
+        ]
+        for (label, tail) in neutralizations {
+            let yaml = (prefix + tail).joined(separator: "\n")
+            #expect(
+                !Self.violations(inWorkflow: yaml).isEmpty,
+                "被吞进上一个 step 之后，中和写法「\(label)」仍必须判红"
+            )
+        }
     }
 
     @Test("本 suite 的判据条数 = 头注释那张限定名表的行数 = 钉住的那个数")
@@ -1203,7 +1374,13 @@ struct MainActorStaticRatchetGuard {
         // ⚠️ needle 拼出来而不是写成一整个字面量：整串写死会在本文件里多出一份
         // `<类型名>.<成员>` 形态的文本，白白喂给 `JudgementReferenceGuard` 的引用抽取。
         let rosterNeedle = "// · `" + "MainActorStaticRatchetGuard" + "."
-        let declared = lines.filter { $0.hasPrefix("    @Test(") }.count
+        // ⚠️ 数的是 `    @Test`（**不带**左括号）：Swift Testing 完全支持**裸 `@Test`**
+        // （无括号、无显示名）。原来数 `    @Test(` 时实测（PR #314 第 3 轮终审 I-2 的 M7）：
+        // 加一条裸 `@Test` 而不动表 ⇒ 实跑 20 条、`declared` 仍数 19 ⇒ **判绿**。
+        // ⚠️ 后果不是「多了一条没登记」，而是**一旦有一条判据写成裸形，`judgementCount`
+        // 就不再描述现实**，此后把它连同表里那一行一起删掉，三个数仍自洽 ⇒ 静默删除
+        // ——恰是这条判据要接住的那一格。
+        let declared = lines.filter { $0.hasPrefix("    @Test") }.count
         let listed = lines.filter { $0.hasPrefix(rosterNeedle) }.count
         #expect(
             declared == Self.judgementCount,
