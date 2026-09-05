@@ -2482,13 +2482,37 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 被本仓自己的源码逐字证伪。现补一张逐条重判表，并从上面的候选清单里删掉
 「分层布局 / 环形布局 / 网格布局」三项（那三项是 `NetworkGraph` 的，Swift Charts 承担不了）。**
 
-| 条目 | 命中 `D-299-1` 的候选 | 不命中的候选（及依据） | 条件 ① 若扩宽 |
+| 条目 | 命中 `D-299-1` 的候选 | 「不命中」的候选（**只按 Swift Charts 口径**核过） | 条件 ① 若扩宽 |
 |---|---|---|---|
-| `RadarChart` | 候选 3 笛卡尔并排条形（`BarMark`） | 候选 1 平行坐标、候选 2 径向柱状 —— `RadarChart.swift:12`：「Swift Charts 画不出来：它没有极坐标多轴的 mark」 | 3 → 2，**仍 ≥2，落点不翻** |
+| `RadarChart` | 候选 3 笛卡尔并排条形（`BarMark`） | 候选 1 平行坐标、候选 2 径向柱状 —— `RadarChart.swift:12`：「Swift Charts 画不出来：它没有极坐标多轴的 mark」 | **按 Swift Charts 口径** 3 → 2，仍 ≥2、不翻；**全口径未核完**（见表下） |
 | `RingChart` | 候选 1 并排线性进度条（SwiftUI `ProgressView(value:)`）、候选 3 堆叠条（`BarMark` 堆叠） | 候选 2 分段进度条 —— Swift Charts 无「分段进度」概念，只能用 N 个 `BarMark` 手拼 | 3 → **1 < 2，落点会从出口 1 翻回步骤 4** |
-| `ActivityHeatmap` | 候选 3 折线 / 柱状时间序列（`LineMark` / `BarMark`） | 候选 1 日历月视图、候选 2 月轨图 —— `ActivityHeatmap.swift:12-13`：「`RectangleMark` 能画格子，但按周分列 + 按星期几分行 + 日期对齐是一套布局，不是一个 mark」 | 3 → 2，**仍 ≥2，落点不翻** |
+| `ActivityHeatmap` | 候选 3 折线 / 柱状时间序列（`LineMark` / `BarMark`） | 候选 1 日历月视图、候选 2 月轨图 —— `ActivityHeatmap.swift:12-13`：「`RectangleMark` 能画格子，但按周分列 + 按星期几分行 + 日期对齐是一套布局，不是一个 mark」 | **按 Swift Charts 口径** 3 → 2，仍 ≥2、不翻；**全口径未核完**（见表下） |
 | `NetworkGraph` | **无 —— 本条不适用 `D-299-1`** | 三个候选全是图布局；`NetworkGraph.swift:12-13`：「Swift Charts **画不出来**：它没有图布局的概念」，且 Swift Charts 无任何 node-link mark | 不受影响 |
 | `BeforeAfterSlider` | **无 —— 本条不适用**（原判定即已写明） | 前后对比滑块在 Apple 平台上没有任何框架级承担者 | 不受影响 |
+
+⚠️⚠️ **`#315` 第 2 轮终审 F-2：上表第 3 列的口径比本条的谓词窄，如实标注。**
+本条这一轮**自己**把谓词从「Swift Charts」放宽成了「**宿主平台框架**」（`RingChart` 候选 1
+援引的正是 SwiftUI 的 `ProgressView(value:)`，不是 Swift Charts），但 `RadarChart` /
+`ActivityHeatmap` 的「不命中」论证**只查了 Swift Charts** —— 逐字依据就是那两处类型文档里的
+「Swift Charts 画不出来」。⇒ **用放宽后的谓词判、却只拿收窄的证据证**。
+⚠️ 这正是本轮 `#315` 终审 P-1 那个问题（样板同构复用、不逐条重判）**在修它的提交里复发**。
+
+⇒ **本轮的处置是把结论降级到证据能支撑的范围，落点不动**：
+- 上表第 4 列的「不翻」一律读作「**按 Swift Charts 口径不翻**」；
+- 「`RingChart` 是**唯一**会翻的一条」降级为「**至少** `RingChart` 会翻」。
+
+⚠️ **已经找到两个具名的实体反例**（在装好的 `iPhoneOS26.4.sdk` 里实核，非推测），
+作为后续逐条核查的**起点**（尚未走完判定、本轮不据以改落点）：
+
+| 条目 / 候选 | 具名 API | 本轮核到的逐字依据 |
+|---|---|---|
+| `ActivityHeatmap` 候选 1（日历月视图） | UIKit `UICalendarView` + `UICalendarViewDecoration` | `.../iPhoneOS26.4.sdk/System/Library/Frameworks/UIKit.framework/Headers/UICalendarView.h:17-18` 逐字 `UIKIT_EXTERN API_AVAILABLE(ios(16.0)) API_UNAVAILABLE(watchos, tvos) NS_SWIFT_UI_ACTOR` / `@interface UICalendarView : UIView`；同头 `:61` `#pragma mark - Decorations`、`:86` 的 delegate 方法 `calendarView:decorationForDateComponents:` 做**每日**装饰，`UICalendarViewDecoration.h:24` 逐字 “Creates a default decoration with a circle image.”。SwiftUI 侧另有 `MultiDatePicker` |
+| `RadarChart` 候选 2（径向柱状） | Swift Charts `SectorMark(angle:innerRadius:outerRadius:)` | `.../Charts.framework/Modules/Charts.swiftmodule/arm64e-apple-ios.swiftinterface:2338` 逐字 `nonisolated public init(angle: Charts.PlottableValue<some Plottable>, innerRadius: Charts.MarkDimension = .automatic, outerRadius: Charts.MarkDimension = .automatic, angularInset: CoreFoundation.CGFloat? = nil)` ⇒ `outerRadius` 是**逐 mark 可变**的 `MarkDimension`（同文件 `:2361-2362` 的 `SectorPlot` 更给出 `MarkDimensions<DataElement>` 的逐元素形态）⇒ 每类一个 sector、半径编码取值 = 径向柱状图 |
+
+⚠️ **这两条与排除 `RingChart` 候选 2 时用的标准不同类**：那里的理由是「只能用 N 个
+`BarMark` 手拼、不是现成能力」，而这两条是**单一具名 API 直接用**。
+⚠️ 若两条都成立，`RadarChart` / `ActivityHeatmap` 的计入数各自 3 → 1 < 2 ⇒ **也会翻**。
+⇒ 逐条核查移交 `#312`（该 issue 的排序约束因此更紧，不是更松）。
 
 ⚠️ **成因，如实记**：那段「本条候选的真实承担者是 Swift Charts」的样板被**逐条抄了五遍
 而没有逐条重判**，`NetworkGraph` 就是抄错的那一份；`BeforeAfterSlider` 那份反倒写对了
@@ -2507,9 +2531,11 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 扩成「本设计系统的具名组件**或宿主平台框架的具名 API**」，另走修订回路。
 
 ⚠️ **代价如实记录**：不扩这一条的直接后果就是本轮那 5 条 `semantic` 判定
-（含 `#312` 那批扩展点）—— 若将来条件 ① 被扩宽，**`RingChart` 的落点会真的翻**
-（计入数 3 → 1 < 2 ⇒ 从出口 1 翻回步骤 4，见上表），`RadarChart` / `ActivityHeatmap`
-的计入数会掉到 2、仍 ≥2 不翻，`NetworkGraph` / `BeforeAfterSlider` 不受影响。
+（含 `#312` 那批扩展点）—— 若将来条件 ① 被扩宽，**至少 `RingChart` 的落点会真的翻**
+（计入数 3 → 1 < 2 ⇒ 从出口 1 翻回步骤 4，见上表）；`RadarChart` / `ActivityHeatmap`
+**按 Swift Charts 口径**计入数掉到 2、仍 ≥2 不翻，但**按「宿主平台框架的具名 API」全口径
+尚未逐条核**（见上表下方 F-2 段的两个具名反例：`UICalendarView` / `SectorMark(outerRadius:)`）
+⇒ 这两条**不能**声称不翻；`NetworkGraph` / `BeforeAfterSlider` 不受影响。
 而扩展点一旦以 public 协议形态发布就**撤不回来**。⇒ 这是 `#312` 应当**优先选形态 D**
 （槽 / 枚举可演进）而不是形态 B（public 协议不可撤）的一条独立理由，
 且 **`#312` 在 `D-299-1` 的修订回路走完之前不得走形态 B**（排序约束，已写进 `#312` 正文）。
@@ -2537,7 +2563,12 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 **本轮处置**：如实按问句字面判，并登记本缺陷。是否把这条读法写成成文判据
 （例如「候选须有『业界在**同一个组件 / 同一个功能**内提供该形态』的实证，否则按
 『那是另一个组件』不计入」），另走修订回路。⚠️ 若将来成文且取反向口径，
-`OrbitingLogos` 的落点会从步骤 4 变成出口 1，**那是不可逆的一侧** ⇒ 本轮站在可逆一侧。
+`OrbitingLogos` 的落点会从步骤 4 变成出口 1。本轮不翻。
+⚠️⚠️ **`#315` 第 2 轮终审 C 更正**：上一版把翻过去称作「**不可逆的一侧**」，那是错的 ——
+翻转本身只动 registry 三字段 + J-2 红名单 + `inspected.count` + `withKnownIssue` 文案，
+**不发布任何 public API**、全部可撤；不可逆的那一步（发 public 协议）在 `#312`（已有排序
+约束）。⇒ 本轮不翻的理由**不是**可逆性，而是**下游连锁应当单独过一次评审**（主理由）与
+**到期性**，逐条见下方《`#315` 终审后复核》段。
 
 ⚠️⚠️ **`#315` 终审 C-1：本条**是** `OrbitingLogos` 落点的决定性依据，不是旁注。**
 PR #315 的 `R-48` 段末、PR 正文、四份图表 `notes` 都写过「两条新缺陷**都没有**被用来改落点
@@ -2545,8 +2576,13 @@ PR #315 的 `R-48` 段末、PR 正文、四份图表 `notes` 都写过「两条�
 不成立**，已在四处逐一改成两分的说法。事实是：
 - `OrbitingLogos` 的候选 2（Magic UI `Marquee`）与候选 3（Tailwind Plus Logo Clouds）
   **唯一**的不计入理由就是本条这个未成文读法；
-- 剔除它，两条按三分法都是**排布**（环形↔线性 / 环形↔网格）⇒ 计入数 1 → 3 ≥ 2 ⇒
-  出口 1 ⇒ `semantic` + `needsExtensionPoint`。**这不是边角，是整条落点。**
+- 剔除它，两条按三分法都是**排布**（环形↔线性 / 环形↔网格）⇒ 计入数
+  **2（候选 1 + 候选 4）→ 4 ≥ 2** ⇒ 出口 1 ⇒ `semantic` + `needsExtensionPoint`。
+  **这不是边角，是整条落点。**
+
+  ⚠️ **`#315` 第 2 轮终审 F-4：基数统一为 2。** 「1 → 3」里的 1 是**复核之前**的计入数；
+  同一批文档的《`#315` 终审后复核》段已把基数改成 **2**（候选 1 多轨道分布 + 候选 4 椭圆轨道）。
+  两条路径同时成立时应是 **2 + 2 = 4**。结论（≥2 ⇒ 出口 1）不受影响，但两处基数不得再打架。
 
 ⚠️ **而且「按公约字面走」这句本身也需要更正**：公约步骤 2 里「…的**版本**吗」是**问句**，
 紧接其后的才是**操作化门槛**（「能当场举出 **≥2 个业界真实存在的替代形态**」），
@@ -2577,16 +2613,28 @@ of the ellipse on Y-axis in percentage, relative to the container.”）、`tilt
 也过得了。⇒ **按公约字面，`OrbitingLogos` 的计入数应为 2（候选 1 多轨道分布 + 候选 4 椭圆轨道）
 ≥ 2 ⇒ 落出口 1 ⇒ `semantic` + `needsExtensionPoint`**，而不是本 PR 落盘的步骤 4。
 
-**本轮处置：不翻转落点，如实登记，翻转移交 `#312`。** 理由逐条：
-- **可逆性**：现状 `prescriptive` / 不给扩展点是**可撤**的一侧；翻到出口 1 最终要发布 public
-  扩展点，**撤不回来**。公约自陈「少给扩展点可逆 / 多给不可逆」。
-- **未过评审**：这条证据是 `#315` 终审**之后**由修复方复核出来的，翻转会顶动 J-2 的
-  `inspected.count`（16 → 17）、`knownMissingExtensionPoints`（5 → 6）、`withKnownIssue`
-  文案、`R-48` 的判定表与 `#312` 的范围 —— 这一整条下游连锁应当单独过一次评审，
-  不应挟在一次「修终审反馈」的提交里悄悄落地。
-- ⚠️ **这条理由比 `D-299-1` 的那条弱，如实说明**：`D-299-1` 推迟的是一条**未成文的规则**，
-  本条推迟的是**公约现行字面在现有证据下已经给出的落点**。⇒ 本条不是「缺陷登记后慢慢等」，
-  是**一条到期项**：`#312` 必须先裁 `OrbitingLogos` 到底落哪个出口，再决定扩展点形态。
+**本轮处置：不翻转落点，如实登记，翻转移交 `#312`。** 理由逐条。
+⚠️⚠️ **`#315` 第 2 轮终审 C：理由的重心已按终审的实核重排。** 上一版把「可逆性」摆在最前
+当主理由，实核下来它是**最弱**的一条，而且有一个前提**直接是错的**（见 ③）。
+
+- **① 下游连锁应当单独过一次评审（这是主理由）**：翻转会顶动 J-2 的 `inspected.count`
+  （实测 16 → 17）、`knownMissingExtensionPoints`（实测 5 条 → 6 条）、`withKnownIssue`
+  的文案（逐字「5 条待补的扩展点」）、`R-48` 的判定表与 `#312` 的范围 —— 这一整条链
+  应当单独过一次评审，不应挟在一次「修终审反馈」的提交里悄悄落地。而且这条证据是
+  `#315` 终审**之后**由修复方自己复核出来的，还没有任何人独立看过它。
+- **② 这是一条到期项，不是「缺陷登记后慢慢等」**：`D-299-1` 推迟的是一条**未成文的规则**，
+  本条推迟的是**公约现行字面在现有证据下已经给出的落点**。⇒ `#312` 必须**先裁**
+  `OrbitingLogos` 到底落哪个出口，**再**决定扩展点形态（该排序约束已写进 `#312` 正文）。
+- **③ 可逆性 —— ⚠️ 已降级，且上一版的前提不成立，如实更正**：上一版逐字写「翻到出口 1
+  最终要发布 public 扩展点，**撤不回来**」，据此把「翻过去」称作不可逆的一侧。**这句是错的**：
+  本轮若翻转，落盘的只是 registry 的三个字段（`decidedBy` / `kind` / `needsExtensionPoint`）
+  + 红名单 + `inspected.count` + `withKnownIssue` 文案 —— **不发布任何 public API**，全部可撤。
+  真正不可逆的那一步（发 public 协议）在 `#312`，而 `#312` 已经有排序约束挡着。
+  ⇒ 可逆性论证证明的是「**别急着发扩展点**」，**不是**「别急着翻落点」；上一版把这两件事
+  并成了一件。本条留在此处只作留痕，**不再作为推迟的依据**。
+- ⚠️ **一条同族的措辞更正**：把「证据在两小时内从 403 变 200」当作「世界在变、先别动」的
+  理由同样偏了 —— 该页是静态的组件文档，终审隔一天再取仍是 HTTP 200 ⇒ **变的是取页能不能
+  成功（反爬 / 限流），不是证据本身**。把一次取页失败记成世界的变化，正是本 PR 在修的那个族。
 - ⚠️ **本轮落盘的判定表因此带一个已知的过期项**：`R-48` 的 `OrbitingLogos` 行（计入 1、
   步骤 4）在本段的证据下已不成立，该行**保留原样并在表后注记**（按本仓「只增不改」的成法）。
 

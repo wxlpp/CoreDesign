@@ -142,7 +142,9 @@ struct ComponentRegistryGuard {
     /// 承接 issue 号。**写成常量并被下面的断言引用**，而不是只出现在散文里 ——
     /// 散文里的指针没有任何东西核对它是否还在。
     ///
-    /// ⚠️ **`#315` 终审 I-6：由 `"#299"` 改为 `nil`。** 理由：`#299` 随 PR #315 关闭，
+    /// ⚠️ **`#315` 终审 I-6：由 `"#299"` 改为 `nil`。** 理由：`#299` **将随** PR #315 关闭
+    /// （⚠️ `#315` 第 2 轮终审 F-5：上一版四处都写成「已关闭」，实测 `#299` 当时 state=OPEN
+    /// —— 把一件计划中的事写成了既成事实），
     /// 而本轮 `knownPendingStep2Enumeration` 已收缩为**空集** ⇒ 下面那条逐条断言当前
     /// **空转**。留着旧号的失效形态很具体：下一个人再挂一条 `pendingStep2` 时，
     /// 判据会在**判红的失败文案里**指导他往 notes 写 `#299` —— 一个已经关闭的 issue。
@@ -900,18 +902,18 @@ struct ComponentRegistryGuard {
         `decidedBy: pendingStep2` 的条目集合变了：实际 \(pendingStep2.sorted())，        已知 \(Self.knownPendingStep2Enumeration.sorted())。
         `pendingStep2` 的含义是「公约步骤 2 的候选枚举与来源核验尚未完成，本条不声称任何出口，        按可逆的一侧（prescriptive / 不给扩展点）缓办登记」——它是**台账**，不是判定结论。
         · 变小：若某条真的补完了枚举，落点应改成 step1/step2/step3/tiebreaker 之一，        并同步从本表移除；若只是把标记删掉，那是把缓办伪装成已判。
-        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进一个**尚未关闭**的承接 issue        （`pendingStep2FollowUpIssue`，`#315` 终审 I-6 后为 nil，须当轮显式指定；`#299` 已关闭，不得复用）。
+        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进一个**尚未关闭**的承接 issue        （`pendingStep2FollowUpIssue`，`#315` 终审 I-6 后为 nil，须当轮显式指定；`#299` 将随 PR #315 关闭，不得复用）。
         """)
 
         // ⚠️ **承接指针要承重**：只在散文里写一句「已开 issue」，issue 号错了 / 条目换了
         // 都没人知道。每条缓办条目的 notes 必须写着承接 issue 号。
         for e in entries where e.decidedBy == "pendingStep2" {
-            // ⚠️ `#315` 终审 I-6：常量现为 `nil`（`#299` 已关闭）。仍是 `nil` 却出现了
+            // ⚠️ `#315` 终审 I-6：常量现为 `nil`（`#299` 将随 PR #315 关闭）。仍是 `nil` 却出现了
             // `pendingStep2` 条目 ⇒ 当场判红，逼人先指定一个尚未关闭的承接 issue，
             // 而不是让判据在失败文案里指着一个关掉的号码。
             guard let followUp = Self.pendingStep2FollowUpIssue else {
                 Issue.record("""
-                出现了 pendingStep2 条目 \(e.component)，但 pendingStep2FollowUpIssue 仍是 nil。                缓办必须挂在一个**尚未关闭**的承接 issue 上 —— 请先把该常量改成本轮的 issue 号                （⚠️ `#299` 已随 PR #315 关闭，不得复用），再挂条目。
+                出现了 pendingStep2 条目 \(e.component)，但 pendingStep2FollowUpIssue 仍是 nil。                缓办必须挂在一个**尚未关闭**的承接 issue 上 —— 请先把该常量改成本轮的 issue 号                （⚠️ `#299` 将随 PR #315 关闭，不得复用），再挂条目。
                 """)
                 continue
             }

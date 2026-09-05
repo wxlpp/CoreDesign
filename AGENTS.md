@@ -244,6 +244,28 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   jq 取到的是 `null`。照 `[]` 写判据会永远判红。
 - **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
   `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
+- **`xcodebuild` 的 console 输出会漏行 ——「数 `Test run with` 行」这个检查本身不稳，
+  权威值取 `.xcresult`**（`#299` / PR #315 第 2 轮终审）。下一条那节「必须核对到底跑了几条」
+  的纪律**不能靠数 console 行来兑现**：
+  - 终审在核 iOS 腿时撞到过这个形态：同一条命令的第 2 遍 `EXIT=0` + `** TEST SUCCEEDED **`，
+    但 console 里只落下 **2** 条 `Test run with …` 行（第 1 遍是 3 条）——**不是少跑了一个
+    test target**，是 xcodebuild 的输出捕获竞态。
+  - ⚠️ **它是间歇性的，别当成稳定可复现的形态**：修复轮在同一个 commit 上连跑两遍，
+    两遍**都是 3 行**，没能复现。⇒ 正因为间歇，「行数对了就算跑全了」这个推断本身不成立。
+  - ⇒ **权威值取 result bundle**，console 行数只作粗筛：
+
+    ```
+    xcodebuild test -scheme CoreDesign-Package \
+      -destination 'platform=iOS Simulator,id=<UDID>' \
+      -resultBundlePath <path>.xcresult
+    xcrun xcresulttool get test-results summary --path <path>.xcresult
+    ```
+
+    本轮两遍运行的 `.xcresult` **完全相同**：`result=Passed`、`failedTests=0`、
+    `expectedFailures=5`、`skippedTests=4`、`passedTests=928`（928 + 5 + 4 = **937** ✓，
+    与 console 三行汇总 74 + 244 + 619 一致）。
+  - ⚠️ 通过与否、跑了几条、跳过几条，一律以 `.xcresult` 为准；`EXIT` 与
+    `** TEST SUCCEEDED **` 连同 console 行数都只是**粗筛**。
 
 ### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
 

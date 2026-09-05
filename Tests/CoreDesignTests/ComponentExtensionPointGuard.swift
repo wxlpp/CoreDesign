@@ -101,6 +101,15 @@ struct ComponentExtensionPointGuard {
     /// 但那个集合本轮已收口为空 ⇒ 那条判据当前**空转**。⇒ 把同一条照抄到 J-2 侧，
     /// 让「名字进表但没有承接点」（也就是把红名单当消音器用）当场判红。
     /// ⚠️ 5 条 `notes` 实测都写了 `#312`，但在本条之前**没有东西挡下一个人不写**。
+    ///
+    /// ⚠️⚠️ **`#315` 第 2 轮终审 F-3：本常量重新引入了 I-6 刚移除掉的那个缺陷族。**
+    /// 下面那条聚合断言只核「`notes` 里有没有这个号」，**没有任何判据核对 `#312` 是否仍 OPEN**
+    /// —— 若 `#312` 在 5 条扩展点落地前被关闭，判据**照绿**，并继续指着一个关掉的号
+    /// （`pendingStep2FollowUpIssue` 那一侧正是因为这个才在 I-6 被改成 `nil`）。
+    /// ⇒ **关闭 `#312` 之前必须满足下列之一**（已登记进 `#312` 正文的同名小节）：
+    /// · `knownMissingExtensionPoints` 已收缩为空集 ⇒ 本常量与下面那条断言一并删除；
+    /// · 红名单仍非空 ⇒ **先**把本常量改指一个尚未关闭的新承接 issue、并同步 5 条 `notes`，
+    ///   **再**关闭 `#312`。
     static let extensionPointFollowUpIssue = "#312"
 
     @Test("J-2：语义组件必须有样式扩展点（原生协议采纳 或 自有协议定义+使用）")
@@ -179,12 +188,39 @@ struct ComponentExtensionPointGuard {
         // `pendingStep2` 侧那条 `notes.contains(pendingStep2FollowUpIssue)`）：红名单的成文
         // 语义逐字是「**有承接 issue 的**已知缺口」，而在此之前这句只活在注释与失败文案里，
         // **没有任何断言**核对它 ⇒「名字进表、没有承接点」就是一条纯消音器，判据照绿。
-        // ⚠️ **写成聚合断言而不是循环内逐条 `#expect`**：实测（`#315` 修复轮）循环体里的
-        // `#expect` 判红时，Swift Testing 的 console reporter **不打印那一条的 issue 行**
-        // ——只有 `issues (including N known issue)` 的计数会变，人看不到是哪一条、为什么。
-        // 聚合成一条顶层断言后失败文案正常打印，且一次列全所有缺号的条目。
+        // ⚠️ **写成聚合断言而不是循环内逐条 `#expect`**。
+        // ⚠️⚠️ **`#315` 第 2 轮终审 F-1：上一版把成因写错了，而且写成了一条永久规则。**
+        // 上一版逐字是「循环体里的 `#expect` 判红时 console reporter 不打印那一条的 issue
+        // 行」——**「循环体」不是成因**，而本仓循环体内的 `#expect` / `#require` 有**四百多处**、
+        // 分布在**五十多个**测试文件里（`TransitionClusterTests` / `MaskRevealTests` /
+        // `FilterTransitionTests` / `CrossPlatformTests` / `ComponentRegistryGuard` 是大户），
+        // 照那条规则去改是纯负收益，还会漏掉真正的坑。
+        //
+        // **真因是「不要把大字符串塞进 `#expect` 的展开」。** 本轮在**同一个循环、同一位置**
+        // 做隔离变异实证（每侧各连跑 3 / 4 次，结果稳定分开）：
+        // · 小展开 `#expect(component == "NOPE_TINY_EXPANSION")` —— 记录 5 条真 issue，
+        //   **5 条 issue 行全部打印**（3 次一致）；
+        // · 巨串展开 `#expect(entry.notes.contains("NOPE_HUGE_EXPANSION"))`（`notes` 实测
+        //   2.5–4.2 KB）—— 同样记录 5 条真 issue（汇总行 4 次都是
+        //   `6 issues (including 1 known issue)`），但**只打印 3–4 条**、丢哪几条**逐次变动**
+        //   （4 次实测 3 / 4 / 3 / 3）。
+        // ⇒ 丢行是**静默**的，只有计数可靠；人看不到是哪一条、为什么。
+        //
+        // ⚠️ **同族先例**：`FilterTransitionTests` 的 `noRawBitmapComparisonsInThisFile`
+        // 早就把「不得把 `Data` 直接塞进 `#expect`，否则一次失败产出几百 KB」立成了机器判据。
+        // **本次这个形态更危险**：那条的后果是**产出几百 KB**（吵，但线索还在），
+        // 本条的后果是**一行都不产出**（或少产出几行且不告诉你少了哪几条）。
+        // 聚合成一条顶层断言后，展开只剩一个**小数组**，失败文案正常打印，且一次列全所有缺号的条目。
         let missingFollowUp = Self.knownMissingExtensionPoints
             .filter { component in
+                // ⚠️ **本分支是 fail-open**（`#315` 第 2 轮终审 F-6）：条目在登记表里找不到时
+                // 返回 `false` ⇒ 该名字不算「缺承接 issue」⇒ 本条断言对它静默放行。
+                // **这不是漏洞，因为有两条判据兜着它**，缺一不可：
+                // · `:154` 的块外 canary（`Set(result.missing) == knownMissingExtensionPoints`）
+                //   —— 红名单里的名字若不在 `missing` 里，那里当场判红；
+                // · `:167` 起的承重核对循环 —— 同一个 `entries.first(where:)` 查不到时走
+                //   `Issue.record` 判红（fail-closed），不是 `return false`。
+                // ⚠️ 将来若有人改动那两条，**必须回头把这里改成 fail-closed**，否则本条会静默失守。
                 guard let entry = entries.first(where: { $0.component == component }) else { return false }
                 return !entry.notes.contains(Self.extensionPointFollowUpIssue)
             }
