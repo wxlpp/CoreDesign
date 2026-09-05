@@ -1371,7 +1371,7 @@ extension ComponentMeta {
                 content.refractiveGlass(strength: RefractiveGlassStrength.allCases[index])
             }
         },
-        ComponentMeta(id: "shader-glass-orb", name: ".glassOrb(...)", description: "放大镜球：size 三档 × magnification 三档；焦点默认居中，可拖动（画廊页在 ScrollView 内，手势竞争未验证）", category: .shader) {
+        ComponentMeta(id: "shader-glass-orb", name: ".glassOrb(...)", description: "放大镜球：焦点默认居中、按住可移动；size 三档 × magnification 三档", category: .shader) {
             ShaderModifierDemo(labels: GlassOrbSize.allCases.map { String(describing: $0) }) { content, index in
                 content.glassOrb(size: GlassOrbSize.allCases[index], magnification: .strong)
             }
@@ -1409,13 +1409,17 @@ private struct ShaderModifierDemo<Effected: View>: View {
             ForEach(Array(self.labels.enumerated()), id: \.offset) { index, label in
                 self.effect(AnyView(self.subject.view), index)
                     .frame(height: 110)
-                    // ⚠️ `layerEffect` 的绘制区按 `maxSampleOffset` 外扩，会溢出 `frame`：
-                    // 不 clip 时三行连成一片、行距被填满（`.glassOrb` 实测最明显）。
+                    // ⚠️ 别删：不 clip 时 `.glassOrb` 三行溢出 frame、连成一片（实测）。
                     .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
                     .overlay(alignment: .topLeading) {
+                        // ⚠️ 标签压在被 shader 作用的内容上，必须自带底：不加底时
+                        // halftone 亮色腿是黑字压黑网点、三档标签全不可见（实测）。
                         Text(label)
                             .font(CoreTypography.Token.caption.font.monospaced())
                             .foregroundStyle(Color.contentPrimary)
+                            .padding(.horizontal, CoreSpacing.xs)
+                            .padding(.vertical, CoreSpacing.xxs)
+                            .background(Color.surfaceRaised, in: Capsule())
                             .padding(CoreSpacing.xs)
                     }
             }
@@ -1429,7 +1433,7 @@ private enum ShaderDemoSubject {
     case brand
     case grayscale
 
-    @MainActor @ViewBuilder var view: some View {
+    @ViewBuilder var view: some View {
         ZStack {
             switch self {
             case .brand:

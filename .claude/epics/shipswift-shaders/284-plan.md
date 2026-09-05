@@ -25,7 +25,7 @@ created: 2026-09-06
 - 画廊列表行是纯文本（`ComponentRow` 只渲染 name + id），`preview()` 只在
   `ComponentDetail` 渲染。⚠️ 但 `ComponentDetail` **同屏渲染两份**（Light + Dark
   各一份，`ComponentDetail.swift:47` 与 `:70`）并包在 `ScrollView` 里
-  ⇒ modifier 族每页有 2×3 = 6 条 `layerEffect` 通道，不是本计划初稿写的「不同屏」。
+  ⇒ modifier 族每页有 2×3 = 6 条 `layerEffect` 通道。
 
 # 步骤
 
@@ -45,8 +45,14 @@ created: 2026-09-06
 | 包编译 | `swift build` |
 | 树内判据 | `swift test --skip CoreDesignShadersTests`（CI native 腿的真实调用）。`GuardScanRoots.allRoots` 只映射 `Sources/<target>` ⇒ `App/` 不在任何守卫扫描面 |
 | 真机架构 | `xcodebuild -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` |
-| **metallib 能在 App 语境加载** | 装 Simulator 跑起来，逐个点开 9 条截图 |
+| **metallib 能在 App 语境加载** | 装 Simulator，用 `SIMCTL_CHILD_PREVIEW_COMPONENT_ID` 直达渲染，light / dark 各 9 张 |
 
 ⚠️ 最后一条是本次的**承重验证**：`ShaderLibrary.bundle(.module)` 在库自己的测试里能解析，
 不等于在预览宿主 App 里能解析——资源 bundle 的嵌入路径不同。构建绿 + 运行时黑屏
 是这条的典型失效形态，只有真跑起来看渲染图才排得掉。
+
+# 已知缺口（本切片不认领）
+
+- `ComponentDetail` 的**真实导航路径**未走过：同屏两份的性能、`.glassOrb` 的
+  `DragGesture` 与 `ScrollView` 滚动手势的竞争，都没验证（`simctl` 没有廉价的点击手段）。
+- `scripts/run-preview.sh` 那条路径未跑，`#284`《预览宿主与快照》第 2 项由收尾时认领。
