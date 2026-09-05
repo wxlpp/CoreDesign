@@ -23,7 +23,9 @@ created: 2026-09-06
 - `docs/component-registry.json` 里 9 个**全部已登记**（6 components + 3 entryPoints，
   #279 / #283 做的）⇒ 本次不动登记表。
 - 画廊列表行是纯文本（`ComponentRow` 只渲染 name + id），`preview()` 只在
-  `ComponentDetail` 渲染 ⇒ 9 个动态 shader 不同屏，无性能问题。
+  `ComponentDetail` 渲染。⚠️ 但 `ComponentDetail` **同屏渲染两份**（Light + Dark
+  各一份，`ComponentDetail.swift:47` 与 `:70`）并包在 `ScrollView` 里
+  ⇒ modifier 族每页有 2×3 = 6 条 `layerEffect` 通道，不是本计划初稿写的「不同屏」。
 
 # 步骤
 
@@ -41,7 +43,7 @@ created: 2026-09-06
 | 判据 | 命令 |
 |---|---|
 | 包编译 | `swift build` |
-| 树内判据 | `swift test`（守卫扫描根含 `App/`? 需实测确认） |
+| 树内判据 | `swift test --skip CoreDesignShadersTests`（CI native 腿的真实调用）。`GuardScanRoots.allRoots` 只映射 `Sources/<target>` ⇒ `App/` 不在任何守卫扫描面 |
 | 真机架构 | `xcodebuild -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` |
 | **metallib 能在 App 语境加载** | 装 Simulator 跑起来，逐个点开 9 条截图 |
 

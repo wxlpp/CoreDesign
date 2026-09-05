@@ -2,7 +2,7 @@ import SwiftUI
 import CoreDesign
 // ⚠️ **多 product 之后必须逐条 import**（#245 的失效形态：`App/project.yml` 只写
 // `- package: CoreDesign` 时预览宿主编译得过、但画廊里的新组件 import 不到）。
-// `project.yml` 那侧的三条 `product:` 与这两行是**一对**，改一边必须改另一边。
+// `project.yml` 那侧的四条 `product:` 与这三行是**一对**，改一边必须改另一边。
 import CoreDesignCharts
 import CoreDesignEffects
 import CoreDesignShaders
@@ -1339,14 +1339,9 @@ private struct NetworkGraphDemo: View {
 
 // MARK: - `shipswift-shaders` epic 的 9 个 API 单位（#284 的「预览宿主」切片）
 //
-// ⚠️ **本节是 B-4 在画廊里的分节**：`shipSwiftEntries` 那一节的注释明令
-// 「追加自己的分节，不要重排本节」——所以这里另起一个 `static let`，
-// 不往上面那个数组里塞。拆开的第二条理由与那一节相同：追加进 `all` 的字面量
-// 会让整个 `all` 的类型检查退化。
-//
-// ⚠️ 与 `shipSwiftEntries` 同样**有意不补** `App/Sources/Previews.swift` 的宿主
-// `#Preview`：这 9 件里 6 件是逐帧演进的 `TimelineView` 动效，静止帧收进
-// `docs/snapshots` 只是噪声；规则与判据见 `SnapshotArtifactGuard`。
+// 另起分节而不并进 `shipSwiftEntries`，两条理由与那一节相同（见其注释）。
+// 同样**有意不补** `App/Sources/Previews.swift` 的宿主 `#Preview`，判据见
+// `SnapshotArtifactGuard`。
 extension ComponentMeta {
 
     @MainActor static let shaderEntries: [ComponentMeta] = [
@@ -1376,14 +1371,14 @@ extension ComponentMeta {
                 content.refractiveGlass(strength: RefractiveGlassStrength.allCases[index])
             }
         },
-        ComponentMeta(id: "shader-glass-orb", name: ".glassOrb(...)", description: "跟手放大镜球：拖动移动焦点，size 三档 × magnification 三档", category: .shader) {
+        ComponentMeta(id: "shader-glass-orb", name: ".glassOrb(...)", description: "放大镜球：size 三档 × magnification 三档；焦点默认居中，可拖动（画廊页在 ScrollView 内，手势竞争未验证）", category: .shader) {
             ShaderModifierDemo(labels: GlassOrbSize.allCases.map { String(describing: $0) }) { content, index in
                 content.glassOrb(size: GlassOrbSize.allCases[index], magnification: .strong)
             }
         },
         ComponentMeta(id: "shader-halftone", name: ".halftone(...)", description: "半调网屏：dot = fine / regular / coarse，ink / paper 可换色", category: .shader) {
-            ShaderModifierDemo(labels: HalftoneDot.allCases.map { String(describing: $0) }) { content, index in
-                content.halftone(dot: HalftoneDot.allCases[index], ink: .accent)
+            ShaderModifierDemo(labels: HalftoneDot.allCases.map { String(describing: $0) }, subject: .grayscale) { content, index in
+                content.halftone(dot: HalftoneDot.allCases[index])
             }
         },
     ]
@@ -1405,13 +1400,18 @@ private struct ShaderStage<Content: View>: View {
 /// modifier 族不产生内容，必须给一层被作用的内容。三档并排，便于对比。
 private struct ShaderModifierDemo<Effected: View>: View {
     let labels: [String]
+    /// `.halftone` 靠亮度阈值成像，要灰阶主体；另两条靠几何，用品牌色渐变更好看。
+    var subject: ShaderDemoSubject = .brand
     @ViewBuilder let effect: (AnyView, Int) -> Effected
 
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
             ForEach(Array(self.labels.enumerated()), id: \.offset) { index, label in
-                self.effect(AnyView(Self.subject), index)
+                self.effect(AnyView(self.subject.view), index)
                     .frame(height: 110)
+                    // ⚠️ `layerEffect` 的绘制区按 `maxSampleOffset` 外扩，会溢出 `frame`：
+                    // 不 clip 时三行连成一片、行距被填满（`.glassOrb` 实测最明显）。
+                    .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
                     .overlay(alignment: .topLeading) {
                         Text(label)
                             .font(CoreTypography.Token.caption.font.monospaced())
@@ -1422,13 +1422,21 @@ private struct ShaderModifierDemo<Effected: View>: View {
         }
     }
 
-    private static var subject: some View {
+}
+
+/// 被 shader 作用的内容层。
+private enum ShaderDemoSubject {
+    case brand
+    case grayscale
+
+    @MainActor @ViewBuilder var view: some View {
         ZStack {
-            LinearGradient(
-                colors: [.accent, .accentSubtleBackground],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            switch self {
+            case .brand:
+                LinearGradient(colors: [.accent, .accentSubtleBackground], startPoint: .topLeading, endPoint: .bottomTrailing)
+            case .grayscale:
+                LinearGradient(colors: [.contentPrimary, .surfaceCanvas], startPoint: .leading, endPoint: .trailing)
+            }
             Text(verbatim: "CoreDesign").font(.largeTitle.bold())
         }
     }
