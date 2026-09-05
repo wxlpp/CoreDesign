@@ -117,9 +117,16 @@ struct HalftoneStopTests {
         }
     }
 
-    /// 单色网屏的 45° 惯例。⚠️ 钉的是**值**：它是印刷业的通行取值，
-    /// 改动它属于设计变更，应当被一条判据拦下来问一句。
-    @Test("单色网屏角度是 45°")
+    /// 单色网屏的 45° 惯例。
+    ///
+    /// ⚠️⚠️ **本条只是一个变更探测器，别把它读成"45° 起了作用"**（#303 终审 S-4）：
+    /// 它断言 `HalftoneModifier.screenAngle == .pi / 4`，而 `screenAngle` **就定义成 `.pi / 4`**
+    /// ⇒ 结构上它只能在有人**改掉那个值**时判红，证不了那个值到没到 shader、
+    /// 到了之后有没有旋转网格。渲染层面的覆盖在
+    /// `RenderProofTests.halftoneScreenAngleReachesTheShader`（0 rad 与 π/4 必须不同，
+    /// 且公开 API 的位图必须与裸调 π/4 逐字节相同）。
+    /// ⇒ **保留本条**：它挡的是"改动 45° 这个设计取值时没人被问一句"，与那条互补。
+    @Test("单色网屏角度是 45°（⚠️ 纯变更探测器，渲染证明在 RenderProofTests）")
     func screenAngleIsFortyFiveDegrees() {
         #expect(HalftoneModifier.screenAngle == Float.pi / 4)
     }

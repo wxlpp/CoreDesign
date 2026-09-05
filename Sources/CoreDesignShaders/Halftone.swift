@@ -56,7 +56,12 @@ struct HalftoneModifier: ViewModifier {
         let angle = Self.screenAngle
         let ink = self.ink
         let paper = self.paper
-        // 取样点是**本格格心**，与当前像素的距离上界为 `cell / √2`；取整格作余量。
+        // 取样点是**本格格心**：格空间里距离 ≤ √2/2，旋转保长 ⇒ 用户空间逐轴 ≤ 0.707 · cell。
+        // 声明整格 `cell` ⇒ **1.41× 余量**。
+        // ⚠️ **这条余量绑在"正交网格 + 格心取样"这个形态上，不是一劳永逸的**（终审 S-2）：
+        // 换六边形网格、或加上游那种 `u_gridNoise` 的 ±0.5 格抖动，上界会到约 1.21 · cell
+        // ⇒ **越界**，而 `maxSampleOffset` 越界不报错、只是采样被静默截断。
+        // 对称的另一条在 `GlassOrbModifier` 里（那一条已由"向 1.0 插值"的形式本身保证）。
         let maxOffset = self.dot.cell
 
         return content.visualEffect { view, proxy in
@@ -122,8 +127,16 @@ public extension View {
     ///
     /// - **不吃时间**：半调是对内容层的**空间**重排，没有时间输入
     ///   ⇒ 按 FR-12 无需 Reduce Motion 降级（没有可冻结的东西）。
-    /// - **Reduce Transparency**：本 modifier 不产生任何半透明材质
-    ///   （输出只在 `ink` 与 `paper` 两色之间插值）⇒ 无对应降级。
+    /// - **Reduce Transparency**：本 modifier **不模拟任何半透明材质**
+    ///   —— 半调是对内容层的**空间重排**（点的大小编码明暗），不是玻璃 / 毛玻璃那类
+    ///   "让你看见后面有东西"的材质暗示 ⇒ 该偏好在本件上没有对应的失效面，无降级。
+    ///   ⚠️⚠️ **理由只能挂在这一条上，不能挂在"不产生半透明像素"上**（#303 终审 I-1）：
+    ///   上一版逐字写着「本 modifier 不产生任何半透明材质（输出只在 `ink` 与 `paper`
+    ///   两色之间插值）」，而那句**已被实测证伪** —— 默认 `paper: .clear` 是预乘全零，
+    ///   `mix(paper, ink, coverage)` 的 alpha **就是** `coverage`，而 `coverage` 经
+    ///   `cd::edgeWidth` 抗锯齿是**连续量**：对不透明纯黑内容施 `.halftone(dot: .coarse)`，
+    ///   64×64 共 4096 像素实测 **opaque 2974 / clear 606 / partial 516**
+    ///   ⇒ 12.6% 半透明 + 14.8% 全透明。**输出确实带 alpha 梯度**，只是那不是"材质"。
     /// - **a11y**：本 modifier **不隐藏任何东西**，理由同 `View.glassOrb(size:magnification:)`。
     ///
     /// - Parameters:

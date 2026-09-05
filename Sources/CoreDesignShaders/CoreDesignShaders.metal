@@ -203,6 +203,15 @@ inline float edgeWidth(float x) {
     return max(fwidth(x), 1e-4);
 }
 
+/// 内容层里**最后一个有效像素的中心**坐标。
+///
+/// ⚠️ **不是 `size`**：`size` 是层的尺寸，坐标恰为 `size` 已经在最后一个像素**之外**
+/// —— `layer.sample` 在那里可能返回透明，而调用方夹坐标的动机恰恰是躲开透明。
+/// ⚠️ `max(..., 0)` 兜住退化尺寸（`size` 为 0 时上下界都是 0，`clamp` 仍良定义）。
+inline float2 lastPixel(float2 size) {
+    return max(size - 0.5, float2(0.0));
+}
+
 } // namespace cd
 
 // MARK: - Plasma
@@ -511,14 +520,26 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
 /// ⇒ 档位按 `ACKNOWLEDGEMENTS.md` 的《归属分档》记 **较大段落移植**，
 /// MIT 通知全文已转载在 `ACKNOWLEDGEMENTS.md` 的《Inferno》一节。
 ///
-/// ⚠️ **我们做了两处修改，逐条列出（不列 = 默认原样，那是本仓栽过的坑）**：
+/// ⚠️ **我们做了三处修改，逐条列出（不列 = 默认原样，那是本仓栽过的坑）**：
 /// ① **坐标空间**：上游在 UV（0…1）空间里算，并用 `dx² + dy²/aspect` 近似圆；
 ///    本函数直接在**点空间**里算 `dot(delta, delta)`，圆是真圆，
 ///    `radius` 是**点**而不是"归一化距离的平方"。参数含义因此不同，别照抄上游的调参建议。
 /// ② **`softness`**：上游把 `smoothstep` 的那半档写死；本函数把它乘上一个 0…1 的系数，
 ///    供 Swift 侧在 Reduce Transparency 下取 0 —— 那时放大倍率在整个圆内是常数、
-///    边界是硬边，观感从"玻璃珠"退化成"均匀放大镜"（材质暗示消失，放大功能保留）。
+///    边界是硬边，观感从"玻璃珠"退化成"硬边镜片"（材质暗示消失，放大功能保留）。
 ///    ⚠️ 这一条是**本仓的增补**，不是上游的东西。
+/// ③ ⚠️⚠️ **衰减项从 `+= smoothstep(…) / 2` 改成「向 1.0 插值」**
+///    `+= (1 - totalZoom) * smoothstep(…)`。**这一条最重要，上一版漏了它**（#303 终审 C-1）。
+///    上游那个 `/2` 与它自己 `zoomFactor` 的默认值 **2** 是**配套**的：
+///    `1/2 + 1/2 = 1`，边界恰好回到 1。本函数**同时**改了坐标空间**并且**自选了
+///    1.6 / 2.4 / 4.0 三个倍率档（`GlassOrbMagnification.factor`），**没有一档是 2**
+///    ⇒ 照抄那个常数，边界处的 `totalZoom` 分别落在 **1.125 / 0.917 / 0.750**：
+///    gentle 档 > 1（近边一圈**反向缩小**），另两档仍在放大 ⇒ 三档各留一道
+///    约 **4.5 / 6 / 15 px** 源位移的接缝（200×200 灰阶渐变上实测）。
+///    ⇒ 「越靠边放得越少、边界处回到 1」这句注释在照抄版下是**假的**。
+///    插值形式让它对**任何**倍率都成立，代价是与上游那一行不再逐字相同。
+///    判据：`RenderProofTests.glassOrbSofteningClosesTheSeam`（三档参数化，
+///    带 `softness == 0` 的反向对照）。
 ///
 /// ⚠️ **零硬编码色**（FR-8）：本函数一个颜色都不产生，只重采样内容层。
 /// ⚠️ **不吃时间**：放大位置由手势（空间输入）驱动，不是动画。
@@ -546,13 +567,19 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
     if (distanceSquared < radiusSquared) {
         // 缩小采样步长 ⇒ 同样的屏幕面积里塞进更少的内容 ⇒ 放大。
         totalZoom /= max(magnification, 1e-3);
-        // 把距离**加回**一部分：越靠边放得越少，边界处回到 1，于是没有硬边。
+        // 把 `totalZoom` **向 1.0 插值**：越靠边放得越少，边界处（`smoothstep == 1`）
+        // **恰好**回到 1，于是与圆外严丝合缝、没有硬边。
+        // ⚠️⚠️ **这里不是上游的 `+= smoothstep(...) / 2`**（见文档注释的修改标注 ③）：
+        // 那个 `0.5` 只在 `zoomFactor == 2` 时让边界回到 1，而本仓的三档是 1.6 / 2.4 / 4.0，
+        // **没有一档是 2**，照抄会在三档上各留一道接缝（gentle 档甚至反向缩小）。
         // ⚠️ `softness == 0` 时这一项整个消失 ⇒ 圆内是常数放大 + 硬边（Reduce Transparency 档）。
-        totalZoom += smoothstep(0.0, radiusSquared, distanceSquared) * 0.5 * saturate(softness);
+        totalZoom += (1.0 - totalZoom) * smoothstep(0.0, radiusSquared, distanceSquared) * saturate(softness);
     }
 
     // ⚠️ 采样点夹回层内：`layer.sample` 越界返回透明，放大镜贴边时会咬出一圈空洞。
-    float2 sampled = clamp(delta * totalZoom + focus, float2(0.0), max(size, float2(1.0)));
+    // ⚠️ 上界是 `size - 0.5` 而不是 `size`：坐标恰为 `size` 已落在**最后一个有效像素之外**
+    // （像素中心在 `size - 0.5`），夹到那里仍可能取到透明 —— 那正是本行想堵的失效形态。
+    float2 sampled = clamp(delta * totalZoom + focus, float2(0.0), cd::lastPixel(size));
     return layer.sample(sampled);
 }
 
@@ -648,7 +675,7 @@ inline float layerLuminance(half4 premultiplied) {
 
     // 格心 → 回到用户空间，作为该格的取样点。
     float2 samplePoint = unscreen * ((cellIndex + 0.5) * cellSize);
-    samplePoint = clamp(samplePoint, float2(0.0), max(size, float2(1.0)));
+    samplePoint = clamp(samplePoint, float2(0.0), cd::lastPixel(size));
 
     float luminance = cd::layerLuminance(layer.sample(samplePoint));
 

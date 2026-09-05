@@ -75,8 +75,16 @@ struct GlassOrbModifier: ViewModifier {
                         .float(magnification),
                         .float(softness)
                     ),
-                    // 圆内 `|delta| < radius` 且 `|totalZoom - 1| ≤ 1`
-                    // ⇒ 位移上界就是 `radius`；圆外 `totalZoom == 1`，位移为 0。
+                    // 位移 `= |delta| · (1 - totalZoom)`。衰减项写成「向 1.0 插值」之后
+                    // （#303 终审 C-1 的修法），`totalZoom` **结构上**落在
+                    // `[1 / magnification, 1]` ⇒ 位移 `≤ radius · (1 - 1/magnification) < radius`；
+                    // 圆外 `totalZoom == 1`，位移为 0。
+                    // ⚠️ **这条上界原先只是巧合**（终审 S-2）：照抄上游的 `+= smoothstep(…) * 0.5`
+                    // 时，那个硬编码的 `0.5` 一旦被调到 > 1.0，位移就会越过本行声明的
+                    // `maxSampleOffset` —— 而**没有任何判据守它**。插值形式把常数整个去掉了，
+                    // 上界从此由形式本身保证，不再依赖任何一个可被随手调大的数字。
+                    // ⚠️ 对称的另一条在 `HalftoneModifier` 里（格心距离 ≤ 0.707 · cell，
+                    // 而声明 `cell` ⇒ 1.41× 余量），那一条**仍然依赖档位取值**，见该处注释。
                     maxSampleOffset: CGSize(width: maxOffset, height: maxOffset)
                 )
             }
@@ -106,15 +114,29 @@ struct GlassOrbModifier: ViewModifier {
     /// Reduce Transparency 下的柔化系数。
     ///
     /// ⚠️⚠️ **这里与 SC 原文的措辞有一处偏离，写在明处**：SC 写「`GlassOrb` 降级为**不透明**形态」，
-    /// 而 `coreDesignGlassOrb` **全程不产生半透明像素**（它只把内容层重采样，alpha 原样透传）
+    /// 而 `coreDesignGlassOrb` **全程不产生半透明像素**（它只把内容层重采样，alpha 原样透传，
+    /// 唯一的返回是 `layer.sample(sampled)`，不合成任何 alpha）
     /// ⇒ 「变得不透明」在本件上没有对应的失效面，照字面兑现会变成一条恒真的空判据。
     ///
     /// 本件对该偏好的实际兑现是**取消变焦柔化**：`softness == 0` 时圆内放大倍率是常数、
-    /// 边界是硬边 —— 观感从"一颗玻璃珠"（材质暗示）退化成"一枚均匀放大镜"（无材质暗示），
-    /// 而**放大功能完整保留**。
+    /// 边界是硬边 —— 观感从"一颗玻璃珠"（连续折射，材质暗示）退化成"一枚硬边镜片"
+    /// （圆内均匀放大、圆外原样，两者在边界上直接撞在一起），而**放大功能完整保留**。
+    ///
+    /// ⚠️⚠️ **这条论证在 #303 第一版上是站不住的，现在才站得住**（终审 I-2）：当时
+    /// `coreDesignGlassOrb` 的衰减项照抄了上游的 `+= smoothstep(…) * 0.5`，而那个常数只在
+    /// `magnification == 2.0` 时让边界回到 1 —— 本仓三档是 1.6 / 2.4 / 4.0，**一档都不是 2**
+    /// ⇒ `softness == 1` 时三档本来就各带一道接缝，**根本不存在"一颗玻璃珠"这个起点**，
+    /// 「玻璃珠 → 硬边镜片」是一句描述了不存在之事的话。衰减项已按终审 C-1 改成
+    /// 「向 1.0 插值」，柔化档现在**真的**无缝（判据：`RenderProofTests.glassOrbSofteningClosesTheSeam`
+    /// 的三档参数化断言），这条降级才有了真实的行为差异；
+    /// 同一条判据的 `softness == 0` 那一半，正是本降级的**行为判据**
+    /// —— 没有它，下面这个函数的值级断言只说明"算出了 0"，说明不了"0 在画面上意味着什么"。
+    ///
     /// ⚠️ 之所以不照 `GlassSymbol` 那样直接 `isEnabled: false` 整个关掉：那里关掉的是**装饰**，
     /// 这里关掉的会是**功能**（放大镜是用来看清内容的）。
-    /// ⚠️ **这条判断需要评审拍板**，PR 正文已点名。
+    /// ⚠️ **这条判断仍需评审 / 用户拍板**（它是对 SC 文本的偏离，不是对它的兑现），
+    /// PR 正文已点名；SC 侧的更正痕见
+    /// `.claude/epics/shipswift-shaders/epic.md` 与 `283.md` 的对应条目。
     nonisolated static func softness(reduceTransparency: Bool) -> Float {
         reduceTransparency ? 0 : 1
     }
@@ -175,6 +197,14 @@ public extension View {
     ///
     /// - 手势：`DragGesture(minimumDistance: 0)`，按下即定位，**抬手后停在原处**。
     ///   未发生手势时落在视图正中。
+    /// - ⚠️⚠️ **使用边界：该手势挂在**整个内容**上，且 `minimumDistance: 0`
+    ///   ⇒ 它**无条件吞掉本视图上的拖拽**（终审 S-1）。具体后果：
+    ///   · 放进 `ScrollView` / `List` 里，本视图所在区域**划不动**；
+    ///   · 叠在按钮、滑块、可拖拽卡片一类可交互内容上，那些手势**收不到**事件。
+    ///   ⇒ 本 modifier 的适用面是**静态展示内容**（图片、文本、渐变），
+    ///   不是可滚动容器里的行，也不是交互控件的外壳。
+    ///   这不是可配置项：放大镜的定位方式就是"按住哪里镜就去哪里"（见
+    ///   `GlassOrbStopTests.touchTargetFloor` 对该形态已知边界的记录）。
     /// - **Reduce Motion**：本 modifier **没有时间输入**（放大由几何与手势驱动），
     ///   按 FR-12 属"冻结时间、保留空间"里空间的那一半 ⇒ 手势跟随**不受**该偏好影响。
     /// - **Reduce Transparency**：取消变焦柔化，退化成均匀放大镜（功能保留），

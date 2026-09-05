@@ -507,6 +507,20 @@ B-4  收尾：
 - [ ] Reduce Transparency 下降级为不透明形态 —— ⚠️ 原文点名 `Glass` / `GlassOrb` /
       `ChromaticGlass` 三个，实际：`Glass` 已由 #261 以 `RefractiveGlass` 落地（归 #284 复核）·
       `ChromaticGlass` 判 `待追溯`**不落地** · **只有 `GlassOrb` 归 #283**
+      - ⚠️⚠️ **本条对 `GlassOrb` 的措辞已在 #283 / PR #303 上偏离，更正痕留在此处**：
+        `coreDesignGlassOrb` **全程不产生半透明像素**（唯一返回是 `layer.sample(...)`，
+        alpha 原样透传、不合成）⇒「变得不透明」在本件上**没有对应的失效面**，
+        照字面兑现会是一条恒真的空判据。**实际兑现改为「取消变焦柔化」**：
+        `softness == 0` 时圆内是常数放大 + 硬边，观感由"玻璃珠"退化成"硬边镜片"，
+        **放大功能完整保留**（不照 `GlassSymbol` 整个关掉，是因为那里关的是装饰、这里关的是功能）。
+        行为判据：`RenderProofTests.glassOrbSofteningClosesTheSeam` 的 `softness == 0` 那一半。
+      - ⚠️ **该替代物在 PR #303 第一版上是站不住的**（终审 I-2）：当时衰减项照抄上游的
+        `+= smoothstep(…) * 0.5`，那个常数只在 `magnification == 2.0` 时让边界回到 1，
+        而本仓三档是 1.6 / 2.4 / 4.0 ⇒ `softness == 1` 时三档本就各带接缝，
+        **"一颗玻璃珠"这个起点不存在**。衰减项已按终审 C-1 改成"向 1.0 插值"后该论证才成立。
+      - ⚠️ **该偏离尚待用户拍板**（把一个关于*材质透明度*的偏好映射到*变焦几何*上，
+        两者没有语义关系；另一条可选处置是按 FR-13 的手法记成"该 SC 在本件上**无对象**"、
+        不发明替代物）。PR #303 正文已点名。
 - [ ] **`docs/README.md` 索引**已挂 —— ⚠️ 「判据随 AD-4 走向而不同（a / b 两路线）」这段
       **已失效**：AD-4 经六轮终审收敛为「**AD-2 原样适用**」，三个 target 全走
       `component-registry.json`，没有「a vs b」这个待决问题 ⇒ 判据就是 #279 交付的差集守卫
@@ -554,6 +568,9 @@ B-4  收尾：
 - [ ] Reduce Motion 下 `colorEffect` 冻结在某一帧；`layerEffect` 冻结时间输入但保留
       手势/倾斜的空间输入（放大镜跟手是交互不是动效）
 - [ ] Reduce Transparency 下 Glass / GlassOrb / ChromaticGlass 降级为不透明形态
+      —— ⚠️ **`GlassOrb` 这一条的措辞已在 #283 / PR #303 上偏离并更正**（该 shader 不产生
+      半透明像素，「不透明」无对应失效面）：实际兑现是**取消变焦柔化**（玻璃珠 → 硬边镜片），
+      **尚待用户拍板**。逐条论证见本文件上方 SC 清单里的同名条目。
 - [ ] **NFR-7 后台 / 低电量**（评审 C-3，初版遗漏）：17 个 `colorEffect` 的后台与低电量
       行为经**注入伪值测试**可证（复用 A-3 落在 `CoreDesignEffects` 的可注入 environment 键）
 - [ ] **NFR-1 性能基准闸**：17 个 `colorEffect` 各过基准脚本，**脚本断言而非人工抽测**，

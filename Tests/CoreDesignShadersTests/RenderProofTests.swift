@@ -225,8 +225,8 @@ struct RenderProofTests {
     /// （`ProceduralBackground.elapsed` 是同一条）。
     @Test("glassOrb 的 focus 与 softness 都真的被 shader 吃进去了")
     func glassOrbConsumesFocusAndSoftness() throws {
-        let atCentre = try Self.render(Self.rawOrb(focus: CGPoint(x: 32, y: 32), softness: 1))
-        let atCorner = try Self.render(Self.rawOrb(focus: CGPoint(x: 8, y: 8), softness: 1))
+        let atCentre = try Self.render(Self.smallOrb(focus: CGPoint(x: 32, y: 32), softness: 1))
+        let atCorner = try Self.render(Self.smallOrb(focus: CGPoint(x: 8, y: 8), softness: 1))
         let focusMatters = atCentre != atCorner
         #expect(focusMatters, """
         换一个放大中心，位图一个像素都没变 ⇒ shader 没有吃 `focus`。\
@@ -234,8 +234,8 @@ struct RenderProofTests {
         （同为 `float2` 时换序照样编译、照样不渲染）。
         """)
 
-        let soft = try Self.render(Self.rawOrb(focus: CGPoint(x: 32, y: 32), softness: 1))
-        let hard = try Self.render(Self.rawOrb(focus: CGPoint(x: 32, y: 32), softness: 0))
+        let soft = try Self.render(Self.smallOrb(focus: CGPoint(x: 32, y: 32), softness: 1))
+        let hard = try Self.render(Self.smallOrb(focus: CGPoint(x: 32, y: 32), softness: 0))
         let softnessMatters = soft != hard
         #expect(softnessMatters, """
         `softness` 从 1 改成 0，位图一个像素都没变 ⇒ Reduce Transparency 那条降级\
@@ -291,36 +291,269 @@ struct RenderProofTests {
         #expect(whiteInk == 0, "纯白内容上落了 \(whiteInk) 的墨 —— 白处应当一点都不落")
     }
 
+    /// ⚠️⚠️ **本条守的是「柔化真的消除了硬边」，不是「柔化到达了 shader」。**
+    ///
+    /// 两者差一整个失效面，而本 PR 的第一版只有后者
+    /// （`glassOrbConsumesFocusAndSoftness` 证明 `softness` 从 1 改成 0 位图会变）：
+    /// **变异实测** —— 把 `coreDesignGlassOrb` 里的衰减项写成上游 Inferno 的
+    /// `+= smoothstep(...) * 0.5`（那个 `0.5` 与它自己 `zoomFactor: 2` 的默认值配套，
+    /// 而本仓的三档是 1.6 / 2.4 / 4.0，**没有一档是 2**）之后，
+    /// 三档在边界处各留一道 4.5 / 6 / 15 px 的源位移接缝
+    /// （gentle 档甚至**反向缩小**），而**当时全套 35 条判据一条都没红**。
+    ///
+    /// ⇒ 判据形态：沿**过焦点的水平射线**读边界内外相邻像素。
+    /// · `softness == 1`（默认）：边界内侧必须与**未变形的原图**几乎逐像素重合，
+    ///   且跨边界的灰阶跳变不得比原图自身在同一位置的跳变大多少 —— 那才叫"没有硬边"。
+    /// · `softness == 0`（Reduce Transparency 档）：**反过来断言接缝存在**
+    ///   —— 那一档要的正是"硬边镜片"。⚠️ 这一半同时是 Reduce Transparency 降级的
+    ///   **行为判据**：没有它，`softness(reduceTransparency:)` 的值级断言只说明
+    ///   "算出了 0"，说明不了"0 在画面上意味着什么"。
+    ///
+    /// ⚠️ 用 `.regular` 档（半径 44）+ 200×200 画布是刻意的：焦点默认落在正中 (100, 100)
+    /// ⇒ 边界恰好在 **x = 144**，内外两侧都留足了背景。
+    @Test("glassOrb：softness == 1 时边界无缝、softness == 0 时边界是硬边",
+          arguments: GlassOrbMagnification.allCases)
+    func glassOrbSofteningClosesTheSeam(_ magnification: GlassOrbMagnification) throws {
+        // 数组下标 0 → x = 140；边界内侧最后一像素 x = 143 是下标 3，外侧第一像素 x = 144 是下标 4。
+        let xs = 140...148
+        let plain = try Self.greyRow(Self.seamProbe, y: 100, xs: xs)
+
+        // ① 默认（softness == 1）走**公开 API**：`.regular` 档半径就是 44，
+        //    手势未发生 ⇒ 焦点是画布正中，与下面裸调 shader 的那一组参数完全同构。
+        let softened = try Self.greyRow(
+            Self.seamProbe.glassOrb(size: .regular, magnification: magnification),
+            y: 100, xs: xs
+        )
+        #expect(plain.count == softened.count)
+
+        // 边界内侧紧邻的三像素：柔化档在这里必须已经衰减回"原样透过"。
+        let innerDrift = (1...3).map { abs(softened[$0] - plain[$0]) }.max() ?? 0
+        #expect(innerDrift <= 3, """
+        \(magnification) 档在边界内侧仍偏离原图 \(innerDrift) 个灰阶（本底斜率约 1.3 灰阶/px）\
+        ⇒ 变焦没有在边界处衰减回 1，圆的内外接不上。
+        实测行 x=140…148：原图 \(plain) / 加镜 \(softened)。
+        ⚠️ 先查 `coreDesignGlassOrb` 的衰减项是不是被写回了上游的 `+= smoothstep(...) * 0.5`\
+        —— 那个常数只在 `magnification == 2.0` 时成立，本仓一档都不是 2。
+        """)
+
+        // 跨边界的跳变：必须与原图自身在同一位置的跳变相当。
+        let seam = abs(softened[4] - softened[3])
+        let baseline = abs(plain[4] - plain[3])
+        #expect(abs(seam - baseline) <= 2, """
+        \(magnification) 档跨边界跳变 \(seam) 灰阶，而原图同处只跳 \(baseline) 灰阶 ⇒ 出现硬边。
+        实测行 x=140…148：原图 \(plain) / 加镜 \(softened)。
+        """)
+
+        // ② 反恒真对照 + Reduce Transparency 档的行为判据：softness == 0 时接缝**必须存在**。
+        let hard = try Self.greyRow(
+            Self.rawOrb(
+                Self.seamProbe,
+                focus: CGPoint(x: 100, y: 100),
+                radius: GlassOrbSize.regular.radius,
+                magnification: magnification.factor,
+                softness: 0
+            ),
+            y: 100, xs: xs
+        )
+        let hardDrift = (1...3).map { abs(hard[$0] - plain[$0]) }.max() ?? 0
+        #expect(hardDrift >= 10, """
+        `softness == 0` 时边界内侧只偏离原图 \(hardDrift) 个灰阶 ⇒ "取消柔化"在画面上什么都没发生，\
+        上面那条"无缝"断言因此可能是恒真的（例如放大整个没生效）。
+        实测行 x=140…148：原图 \(plain) / 硬边档 \(hard)。
+        """)
+    }
+
+    /// ⚠️⚠️ **`halftone` 的三个 `float` 实参此前零渲染证明。**
+    ///
+    /// **变异实测**：把 `Halftone.swift` 里的 `.float(cell)` 与 `.float(angle)` **互换**
+    /// ⇒ `cellSize = max(π/4, 1) = 1`（网格塌成 1pt）、`angle = 4 / 8 / 16 rad`
+    /// （45° 网屏角完全消失）⇒ 效果被摧毁，而**当时全套 35 条判据一条都没红**。
+    /// 原因：`halftoneInksDarkAndSparesLight` 的四条断言（含 `paperWasApplied` 对照）
+    /// **在任何格宽 / 角度下都成立**，而 `HalftoneStopTests` 三条全是纯值级断言，
+    /// 结构上看不见"值有没有到 shader"。
+    ///
+    /// ⇒ 本条与 `glassOrbMagnificationReachesTheShader` **同形**：同一条公开 API、只换档位。
+    /// ⚠️ 判据取**最长墨条**而不是落墨面积占比——后者 `≈ π · (dotScale · (1 - lum))²`
+    /// **与 `cell` 无关**，把格宽打成常数时它一点都不动（那正是上面那枚变异逃掉的路径）。
+    @Test("halftone 的格宽档位经公开 API 真的到达了 shader")
+    func halftoneCellSizeReachesTheShader() throws {
+        let runs = try HalftoneDot.allCases.map { dot in
+            try Self.maxInkRun(Self.midGrey.halftone(dot: dot, ink: .black, paper: .white))
+        }
+        #expect(runs.count == 3, "档位数变了（实际 \(runs.count)）—— 下面的关系断言要跟着复核")
+        #expect(zip(runs, runs.dropFirst()).allSatisfy { $0 < $1 }, """
+        三档的最长墨条不再随格宽递增：\(runs) ⇒ `cell` 没有到达 shader，或位次与
+        `coreDesignHalftone` 的形参对不上（`cell` / `angle` / `dotScale` 同为 `float`，换序照样编译）。
+        """)
+
+        // 几何：中性灰下 `.coarse` 的墨点直径 = 2 · 0.64 · (1 - 0.5) · 16 ≈ 10.2pt。
+        // ⚠️ 阈值取 8 而不是"大于 `.fine`"：单调性挡不住"三档一起塌成 1pt 网格"那种变异
+        // （实测那时三档是 2 / 4 / 3 —— 单调性确实红了，但只是巧合地红，
+        //  换一组档位就可能仍然递增）。这一条钉的是**绝对尺度**。
+        let coarse = runs.last ?? 0
+        #expect(coarse >= 8, """
+        `.coarse`（格宽 16pt）的最长墨条只有 \(coarse)px，几何上应当约 10px ⇒ 网格塌了。
+        三档实测：\(runs)。
+        """)
+    }
+
+    /// ⚠️ **网屏角在渲染层面此前完全无覆盖**：`ContentEffectStopTests.screenAngleIsFortyFiveDegrees`
+    /// 断言 `HalftoneModifier.screenAngle == .pi / 4`，而 `screenAngle` **就定义成 `.pi / 4`**
+    /// ⇒ 它是纯变更探测器，证不了 45° 起了作用。
+    ///
+    /// ⇒ 本条两半：
+    /// · **角度真的进了 shader**：同一组几何参数下 0 rad 与 π/4 的位图必须不同；
+    /// · **modifier 传下去的就是 π/4**：公开 API 的位图必须与裸调 π/4 **逐字节相同**。
+    /// ⚠️ 后一半是上面那枚"互换 `cell` 与 `angle`"变异的直接判据。
+    /// ⚠️ 裸调那一侧的角度写**字面量** `.pi / 4` 而不是 `HalftoneModifier.screenAngle`
+    /// —— 引用后者会让两侧一起漂移，判据对"角度被改掉"失明。
+    @Test("halftone 的 45° 网屏角真的被 modifier 传了下去")
+    func halftoneScreenAngleReachesTheShader() throws {
+        let cell = HalftoneDot.coarse.cell
+        let dotScale = HalftoneDot.coarse.dotScale
+
+        let viaPublicAPI = try Self.renderDense(
+            Self.midGrey.halftone(dot: .coarse, ink: .black, paper: .white)
+        )
+        let atFortyFive = try Self.renderDense(
+            Self.rawHalftone(Self.midGrey, cell: cell, angle: .pi / 4, dotScale: dotScale)
+        )
+        let atZero = try Self.renderDense(
+            Self.rawHalftone(Self.midGrey, cell: cell, angle: 0, dotScale: dotScale)
+        )
+        #expect(viaPublicAPI.count == atFortyFive.count)
+        #expect(viaPublicAPI.count == atZero.count)
+
+        let angleMatters = atFortyFive != atZero
+        #expect(angleMatters, """
+        0 rad 与 π/4 渲出**逐字节相同**的结果 ⇒ `angle` 实参没有到达 shader，
+        下面那条"modifier 传的就是 π/4"因此是恒真的。
+        """)
+
+        let modifierPassesFortyFive = viaPublicAPI == atFortyFive
+        #expect(modifierPassesFortyFive, """
+        `View.halftone(dot: .coarse)` 的位图与"格宽 16 / 角度 π/4 / 点半径 0.64"的裸调**不一致**
+        ⇒ `HalftoneModifier` 传下去的三个 `float` 里至少有一个不是它声称的那个值。
+        先查 `.float(cell)` / `.float(angle)` / `.float(dotScale)` 的**位次**
+        （三个同为 `float`，换序照样编译、照样不报错）。
+        """)
+    }
+
     // MARK: - Helpers
 
-    /// 直接以给定的 `focus` / `softness` 调 `coreDesignGlassOrb`，绕开 `@State` 手势。
+    /// 直接以给定的 `focus` / `radius` / `magnification` / `softness` 调 `coreDesignGlassOrb`，
+    /// 绕开 `@State` 手势与只读的 a11y 环境。
     ///
     /// ⚠️ 与 `timeActuallyAdvances` 里直接调 `library.coreDesignPlasma` 是同一手法：
     /// 公开 API 那条路上，这两个输入一个来自私有 `@State`、一个来自只读的 a11y 环境，
     /// **都注入不了**；不绕过去的话这两条契约就是零覆盖。
     @MainActor
-    private static func rawOrb(focus: CGPoint, softness: Float) -> some View {
+    private static func rawOrb(
+        _ content: some View,
+        focus: CGPoint,
+        radius: CGFloat,
+        magnification: Float,
+        softness: Float
+    ) -> some View {
         let library = ShaderLibrary.bundle(.module)
-        return LinearGradient(
-            colors: [.blue, .white],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .frame(width: 64, height: 64)
-        .visualEffect { view, proxy in
+        return content.visualEffect { view, proxy in
             view.layerEffect(
                 library.coreDesignGlassOrb(
                     .float2(proxy.size),
                     .float2(focus),
-                    .float(GlassOrbSize.small.radius),
-                    .float(GlassOrbMagnification.strong.factor),
+                    .float(radius),
+                    .float(magnification),
                     .float(softness)
                 ),
-                maxSampleOffset: CGSize(
-                    width: GlassOrbSize.small.radius, height: GlassOrbSize.small.radius
-                )
+                maxSampleOffset: CGSize(width: radius, height: radius)
             )
         }
+    }
+
+    /// 直接以给定的 `cell` / `angle` / `dotScale` 调 `coreDesignHalftone`。
+    ///
+    /// ⚠️ **`angle` 在公开面上不可调**（`HalftoneModifier.screenAngle` 是 `static let`）
+    /// ⇒ 「网屏角真的进了 shader」这条只能这样绕过去证。
+    @MainActor
+    private static func rawHalftone(
+        _ content: some View,
+        cell: CGFloat,
+        angle: Float,
+        dotScale: Float
+    ) -> some View {
+        let library = ShaderLibrary.bundle(.module)
+        return content.visualEffect { view, proxy in
+            view.layerEffect(
+                library.coreDesignHalftone(
+                    .float2(proxy.size),
+                    .float(Float(cell)),
+                    .float(angle),
+                    .float(dotScale),
+                    .color(.black),
+                    .color(.white)
+                ),
+                maxSampleOffset: CGSize(width: cell, height: cell)
+            )
+        }
+    }
+
+    /// 200×200 的黑→白**水平**线性渐变。⚠️ 选它是因为像素值直接**编码「采样到的源 x」**
+    /// （实测本底斜率约 1.3 灰阶/px）⇒ 「采样点被搬了多远」可以逐像素读出来，
+    /// 而 `.blue → .white` 那种对角渐变读不出方向。
+    @MainActor
+    private static var seamProbe: some View {
+        LinearGradient(colors: [.black, .white], startPoint: .leading, endPoint: .trailing)
+            .frame(width: 200, height: 200)
+    }
+
+    /// 中性灰。⚠️ 半调的点半径 `= dotScale · (1 - luminance)`，取 0.5 让三档的点都**恰好半开**
+    /// —— 纯黑会让点互相咬住、纯白一个点都不落，两端都量不出「格子有多大」。
+    @MainActor
+    private static var midGrey: some View {
+        Color(white: 0.5).frame(width: 64, height: 64)
+    }
+
+    /// 取一条扫描线上指定 x 区间的**红通道**值（灰度内容上三通道等值）。
+    private static func greyRow(_ view: some View, y: Int, xs: ClosedRange<Int>) throws -> [Int] {
+        let (pixels, width, _) = try Self.rgbaPixels(view)
+        return xs.map { Int(pixels[(y * width + $0) * 4]) }
+    }
+
+    /// 全图**水平**方向上最长的一段连续落墨像素。
+    ///
+    /// ⚠️ 这是「格子有多大」的直接量度：中性灰下每格落一个直径
+    /// `2 · dotScale · (1 - lum) · cell` 点的墨点，⇒ 最长墨条 ≈ 该直径。
+    /// ⚠️ **不能用落墨面积占比代替**：面积占比 `≈ π · (dotScale · (1 - lum))²`
+    /// 只含 `dotScale`、**与 `cell` 无关** ⇒ 把 `cell` 打成常数时它一点都不动。
+    private static func maxInkRun(_ view: some View) throws -> Int {
+        let (pixels, width, height) = try Self.rgbaPixels(view)
+        var longest = 0
+        for y in 0..<height {
+            var run = 0
+            for x in 0..<width {
+                if pixels[(y * width + x) * 4] < 128 {
+                    run += 1
+                    longest = max(longest, run)
+                } else {
+                    run = 0
+                }
+            }
+        }
+        return longest
+    }
+
+    /// `glassOrbConsumesFocusAndSoftness` 用的那一组固定参数（64×64 对角渐变、
+    /// `.small` 半径、`.strong` 倍率）。⚠️ 数值与本条改写前逐字一致。
+    @MainActor
+    private static func smallOrb(focus: CGPoint, softness: Float) -> some View {
+        Self.rawOrb(
+            LinearGradient(colors: [.blue, .white], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .frame(width: 64, height: 64),
+            focus: focus,
+            radius: GlassOrbSize.small.radius,
+            magnification: GlassOrbMagnification.strong.factor,
+            softness: softness
+        )
     }
 
     /// 「落墨」的像素占比：红通道 < 128 即算落了墨。
