@@ -242,3 +242,36 @@ struct ContributionsCard: View {
 `calendar:` 是可注入的行为依赖不是外观面。
 文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
 逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。
+
+### ⚠️ `#299` 重判：`pendingStep2` → `step2`（出口 1，语义组件）（本节只增不改，上文保留为成因记录）
+
+⚠️ **上一段是 `#270` / PR #297 当时的记录，不改写。现状**：`#299` 已按公约补做步骤 2 的
+候选枚举与来源核验并重判，本条登记表字段现为
+`kind: semantic` / `decidedBy: step2` / `needsExtensionPoint: true`。
+
+**本轮走停止规则的「至少 3 个具名业界候选」这一支**，逐条给可核验来源（完整逐字理由与
+URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）：
+
+1. **日历月视图** —— 产品 + 场景：Apple 自家 Activity / Fitness App 的 History 页把
+   **每日活动读数**排成月历（三个活动圆环取代传统的日历事件）。三分法：现状是
+   「按周成列 × 按星期成行」的连续长条网格，候选按月分块、每块 7 列 ⇒ 日格**彼此之间**
+   的空间关系改变 ⇒ **排布**。
+2. **月轨图（month track graph）** —— 产品 + 场景：Obsidian 社区插件 Contribution Graph，
+   作者自陈可生成 GitHub 式贡献图 / 月轨图 / 日历轨图三种。⚠️ 这条来源的分量在于它是
+   **同一个组件给出三种排布**，不是三个不同组件。⇒ **排布**。
+3. **折线 / 柱状时间序列** —— GitLab Pajamas 的 Charts 页把 line / column chart 列为
+   「按时间推移」的取值形态。三分法：网格 → 线性，命中排布定义逐字点名的「网格↔线性」
+   ⇒ **排布**。
+
+**作用域条款**：最接近的 `Timeline` 承担的是纵向事件流（节点列 + 连线 + 内容），不是按
+日历格排布的密度图 ⇒ 条件 ③ 落空。⇒ 三个候选均未被排除。
+
+
+⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
+「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
+
+⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
+`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
+这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+
+⚠️ **公约缺口 `D-299-1`（Swift Charts 不在登记表里、作用域条款援引不了）同样适用于本条。**

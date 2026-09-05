@@ -2118,3 +2118,73 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
   机器强制（公约文本必须出现 `` `pendingStep2` ``），`registrySchemaIsValid` 的 M1 同步断言
   强制 `validDecidedBy` ⟷ `expectedKindForDecidedBy` 同向；双侧等式的两个方向由
   `pendingStep2LedgerIsLoadBearing` 用合成条目常驻证伪。回归输出见 PR #297 的收尾 commit。
+
+### R-48｜`#299`：6 条 `pendingStep2` 条目补做步骤 2 枚举后按公约重判（5 条 → 出口 1，1 条 → 步骤 4）
+
+- **来源试点**：`#299`（`R-47` 指定的承接 issue）。
+- **撞上公约哪一条**：第 1 节步骤 2 的**停止规则与来源义务**、皮肤变体条款的
+  **槽 / 排布 / 装饰三分法**（含补充规则 1 / 2 / 4）、**候选形态的作用域**三条件、
+  步骤 3 门槛的「**(A) 不成立 ⇒ 重跑步骤 2**」，以及 Tiebreaker 小节下的
+  「⚠️ `pendingStep2`」小节。
+- **本条不是公约条文的修订，是一次按现行条文执行的判定 + 由此产生的三处现状回写。**
+  ⚠️ 按「事后补写的效力边界」：`pendingStep2` 的成文语义就是「**还没判**、不声称任何出口」
+  ⇒ 本轮是**首次判定**，不是对已落盘落点的翻转，故不适用「只能补强、不得翻转」那条；
+  但落点变动仍按本台账逐条留痕（即本条）。
+- **判定结果（逐条）**：
+
+  | 条目 | 具名候选（逐条来源见登记表 `notes`） | 三分法 | 计入数 | 落点 |
+  |---|---|---|---|---|
+  | `RadarChart` | 平行坐标 / 径向柱状（AntV G2 坐标系总览）/ 笛卡尔并排条形（GitLab Pajamas） | 排布 / 槽 / 排布 | 3 | **出口 1** `step2` |
+  | `RingChart` | 线性进度条 / 分段进度条（Ant Design `Progress` 的 `type` 与 `steps`）/ 堆叠条（Pajamas） | 排布 / 槽 / 槽 | 3 | **出口 1** `step2` |
+  | `ActivityHeatmap` | 日历月视图（Apple Activity App History 页）/ 月轨图（Obsidian Contribution Graph）/ 折线时间序列（Pajamas） | 排布 ×3 | 3 | **出口 1** `step2` |
+  | `NetworkGraph` | 分层（dagre）/ 环形 / 网格（AntV G6 布局总览的 20 个具名布局） | 排布 ×3 | 3 | **出口 1** `step2` |
+  | `BeforeAfterSlider` | 上下分隔 / 左右并排 / 上下并排（Adobe Lightroom Classic 的 Before & After 四态） | 排布 ×3 | 3 | **出口 1** `step2` |
+  | `OrbitingLogos` | 多轨道分布（Magic UI）/ marquee / logo 网格 / 椭圆螺旋轨道 | 排布（仅第 1 条计入） | 1 | **步骤 4** `tiebreaker` |
+
+- **⚠️ 一条被推翻的上游暗示，如实记录**：PR #297 终审 I-3 把 `OrbitingLogos` 从「干净的
+  10 条」挪进缓办台账时写着它「与四个图表 / `BeforeAfterSlider` **同组**」。本轮实核：
+  I-3 的**三分法归类没错**（椭圆 / 螺旋改的确实是 logo 彼此之间的落点 ⇒ 排布），
+  但那个候选**过不了来源义务** —— Magic UI 的 orbit 组件只有半径一个几何量、四家基线
+  设计体系无对应组件、两个疑似来源页取不到正文 ⇒ 卡点在**来源**不在**分箱**。
+  「换环数」那半句同样被否证：那四圈同心点环按补充规则 1 是**纯装饰层**（不映射任何调用方
+  数据，且低电量档下每环点数直接减半），而补充规则 2 的对象是**槽**。⇒ 落点**不同组**。
+- **改动前（逐字）**：公约 §1 实测状态段「**J-2 红名单现为空集** —— epic 的扩展点缺口全部
+  收口」；第 4 节判据表下方「⇒ **J-2 现状：定义域 11 条、全部满足、
+  `knownMissingExtensionPoints` 为空集**」；AD-4《下游连锁一》实测表「`inspected.count == 11`
+  … **不变，仍是 11**」「`knownMissingExtensionPoints` … **不变，仍是空集**」；
+  给 `#279` 的交接计数「J-2 `inspected.count` **11**」。
+- **改动后（逐字）**：四处**均按只增不改的成法在原文下方追加现状注记**（原句一字不动），
+  现状为「定义域 **16** 条、11 条满足、`knownMissingExtensionPoints` **5 条**、
+  `withKnownIssue` 块**已按第 4 节自己那句『将来若再出现已知缺口，照原样重建』的指令原样重建**」。
+  ⚠️ AD-4 的实测表**表格行本身不改**（表块有机器判据守着），改动落在表后的注解段。
+- **落点**：`docs/component-contract.md`（上述四处现状注记）。
+- **连带改动**：
+  · `docs/component-registry.json` —— 6 条的 `decidedBy` / `kind` /
+    `needsExtensionPoint` / `notes`（5 条 → `step2` / `semantic` / `true`，
+    `OrbitingLogos` → `tiebreaker` / `prescriptive` / `false`）；
+  · `Tests/CoreDesignTests/ComponentRegistryGuard.swift` ——
+    `knownPendingStep2Enumeration` 收缩为**空集**；`pendingStep2LedgerIsLoadBearing`
+    改成「合成夹具跑方向 ①（删标记）+ 真实数据跑基线与方向 ②（加标记）」两段
+    ——⚠️ 原写法开头那条 `#expect(!known.isEmpty)` 与方向 ① 的
+    `#require(known.sorted().first)` 在空台账上会直接判红 / 取不到值，
+    **但方向 ① 不能因此删掉**（那是「缓办被静默说成已判」这一侧的唯一证伪手段）；
+  · `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift` ——
+    `knownMissingExtensionPoints` 由空集增补为 5 条（承接 `#312`）、
+    `inspected.count == 11` → `== 16`、主判据重新包进 `withKnownIssue`（只包一句）、
+    块外 canary 文案同步；
+  · `docs/contract-defects.md` —— `D-270-1` / `D-270-2` 各追加 `#299` 处置段（只增不删），
+    新增 `## #299` 节与 `D-299-1` / `D-299-2`；
+  · `docs/components/{radar-chart,ring-chart,activity-heatmap,network-graph,
+    before-after-slider,orbiting-logos}.md` —— 各追加一节重判记录；
+  · 承接 issue **`#312`**（为 5 条落出口 1 的条目补齐样式扩展点）。
+- **⚠️ 本轮新开两条缺陷，均落在「候选作用域」这一块**（见 `docs/contract-defects.md`
+  的 `## #299` 节）：`D-299-1`（作用域条款的条件 ① 要求兄弟组件在登记表里，
+  于是排除不了由 **Swift Charts 这类宿主平台框架**承担的候选形态 —— 而
+  `CoreDesignCharts` 存在的理由恰恰是「Swift Charts 画不出来的四类图表」）；
+  `D-299-2`（「候选须是本组件的另一个**版本**」这条读法只活在步骤 2 的问句里，
+  没有成文判据）。⚠️ **两条都没有被用来改落点** —— 本轮一律按公约字面走，
+  缺陷另走修订回路。
+- **验证**：`knownPendingStep2Enumeration` 的双侧等式在本轮由**变异实证**证明仍承重
+  （多写一条 / 少写一条各判红一次，输出见 PR 正文）；J-2 侧由
+  `inspected.count == 16` + 块外固定集合 canary + 「已知缺口条目必须仍是 semantic +
+  要扩展点 + 协议字段皆 null」的承重核对三条共同守住。

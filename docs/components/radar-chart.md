@@ -211,3 +211,42 @@ struct PlayerCard: View {
 候选（并排条形 / 平行坐标）按三分法**确实**属排布差异、本该计入 ≥2。
 文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
 逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。
+
+### ⚠️ `#299` 重判：`pendingStep2` → `step2`（出口 1，语义组件）（本节只增不改，上文保留为成因记录）
+
+⚠️ **上一段是 `#270` / PR #297 当时的记录，不改写。现状**：`#299` 已按公约补做步骤 2 的
+候选枚举与来源核验并重判，本条登记表字段现为
+`kind: semantic` / `decidedBy: step2` / `needsExtensionPoint: true`。
+
+**本轮走停止规则的「至少 3 个具名业界候选」这一支**，逐条给可核验来源（完整逐字理由与
+URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）：
+
+1. **平行坐标** —— Ant Design 的可视化体系 AntV G2 的坐标系总览页把 `Radar` 与
+   `Parallel` 并列为**同一套 mark 之上可互换的坐标系**。三分法：放射轴 → 平行轴，
+   命中排布定义逐字点名的「换轴」⇒ **排布**。
+   ⚠️ **反向证据如实记录**：同一份文档把两者侧重分开写（平行坐标用于比较**多条**记录，
+   雷达图用于**单条**记录的多维特征），而本组件的 init 只收一组 `[Value]`。该差别是
+   **用途侧重**而非含义不同，故仍计入，但留痕供抽查。
+2. **径向柱状图** —— 同一份坐标系总览页的 `Radial`。三分法：现状把各轴端点连成**一条**
+   闭合折线，候选换成**每维一根独立的条** ⇒ 槽计数 1 → N，命中补充规则 2 ⇒ **槽**。
+3. **笛卡尔并排条形** —— GitLab 的设计体系 Pajamas 的 Charts 页。三分法：极坐标 →
+   笛卡尔，**换轴** ⇒ **排布**。
+
+**查过但不计入**：Significance 杂志 “Off the ‘radar’? Here are some alternatives” 提出的
+lollipop / radial column / radial lollipop / stellar 四形态 —— 形态真实、原文已读到，
+但公约的来源模板只认「设计体系名 + 具体形态」或「产品名 + 场景」，杂志文章两者都不是。
+
+**作用域条款**：`ProgressIndicator` 写死 `.progressViewStyle(.circular)` 且是不确定进度
+⇒ 条件 ③ 落空；`ProgressBar` 是弃用条款下的 `kind: excluded` 条目。⇒ 三个候选均未被排除。
+
+
+⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
+「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
+
+⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
+`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
+这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+
+⚠️ **一处公约缺口，已登记 `D-299-1`**：这三个候选在业界的真实承担者是 Apple 自家的
+Swift Charts，而作用域条款只认**本登记表内**的兄弟组件 ⇒ 无法援引。本轮按公约字面走，
+缺口另走修订回路。

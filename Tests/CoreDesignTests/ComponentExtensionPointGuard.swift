@@ -66,7 +66,30 @@ struct ComponentExtensionPointGuard {
     /// ⚠️ 空集时下面的棘轮断言 `Set(result.missing) == knownMissingExtensionPoints`
     /// 退化为「`missing` 必须为空」—— **语义更强、不是更弱**：此后任何新增的语义组件
     /// 若没有扩展点，会直接判红，不再有「已知缺口」这个缓冲。
-    static let knownMissingExtensionPoints: Set<String> = []
+    ///
+    /// ⚠️ **`#299` 增补 5 条，集合由空集变回非空**（上面两段是 `#65` 当时的记录，不改写）。
+    /// 成因与 `#59` 那次**完全同构**，逐条对齐：
+    /// · `#299` 对 `#270` 留下的 6 条 `decidedBy: pendingStep2` 条目补做了公约步骤 2 的
+    ///   候选枚举与来源核验，其中 **5 条落出口 1**（`RadarChart` / `RingChart` /
+    ///   `ActivityHeatmap` / `NetworkGraph` / `BeforeAfterSlider`），按公约如实改
+    ///   `decidedBy: step2` / `kind: semantic` / `needsExtensionPoint: true`；
+    /// · 判定法结论**已产出**，扩展点**实现未跟上** —— 与 `Toast` 当年一字不差；
+    /// · 扩展点实现移交 **`#312`**（形态 A/B/D 四选一的设计须在那边单独走一次，
+    ///   `D-59-1` 裁定后优先考虑形态 D：槽 / 枚举可演进，public 协议不可撤）。
+    ///
+    /// ⚠️⚠️ **这不是「为了让判据变绿把新条目塞回红名单」**（下方 canary 的失败文案逐字
+    /// 禁止那件事）。两者的区别是**可核验的**，不是措辞之争：
+    /// · 消音器 = 名字进表、**没有承接 issue**、判定理由停留在「反正判据红了」；
+    /// · 本次 = 每一条的 `notes` 里写着**逐条枚举出的候选 + 可点开的来源 URL + 三分法归类
+    ///   + 作用域三条件的逐条核验**，落点是公约的出口 1，承接 issue 是 `#312`。
+    /// 红名单自身的成文语义就是「**有承接 issue 的**已知缺口」——本次正是它设计要装的东西。
+    ///
+    /// ⚠️ **第 6 条 `OrbitingLogos` 没进来**：它本轮落**步骤 4**（`tiebreaker`，`kind`
+    /// 仍 `prescriptive`）⇒ 不进 J-2 定义域。⇒ 这批的落点**不是一边倒**，也就不是
+    /// 「一律判成 semantic 好把问题推走」。
+    static let knownMissingExtensionPoints: Set<String> = [
+        "ActivityHeatmap", "BeforeAfterSlider", "NetworkGraph", "RadarChart", "RingChart",
+    ]
 
     @Test("J-2：语义组件必须有样式扩展点（原生协议采纳 或 自有协议定义+使用）")
     func semanticComponentsHaveExtensionPoint() throws {
@@ -76,8 +99,14 @@ struct ComponentExtensionPointGuard {
 
         // ⚠️ **非空断言先行**（AC 原文点名）：若登记表里一个 semantic 组件都没有，
         // 「零输入 ⇒ 零违规 ⇒ 绿」会静默通过。判据必须能识别并报告这种异常。
-        #expect(result.inspected.count == 11,
-                "J-2 定义域实测 11 条（AvatarGroup/Banner/ProgressIndicator/Rating/RatingDisplay/SegmentedControl/SidebarUtilityRow/SpinningModifier/Steps/Timeline/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
+        // ⚠️ **`#299` 由 11 改 16**：`RadarChart` / `RingChart` / `ActivityHeatmap` /
+        // `NetworkGraph` / `BeforeAfterSlider` 五条重判落出口 1 ⇒ `kind: semantic` ⇒
+        // 进 J-2 定义域。⚠️ 这正是公约 AD-4《下游连锁一》**预判过**的那条链
+        // （`step1/2 ⇒ semantic ⇒ 硬断言 needsExtensionPoint ⇒ 进 J-2 定义域 ⇒
+        // `inspected.count` 变红`）—— `#270` 当时因 15 条全落 prescriptive 而没触发，
+        // `#299` 触发了。
+        #expect(result.inspected.count == 16,
+                "J-2 定义域实测 16 条（ActivityHeatmap/AvatarGroup/Banner/BeforeAfterSlider/NetworkGraph/ProgressIndicator/RadarChart/Rating/RatingDisplay/RingChart/SegmentedControl/SidebarUtilityRow/SpinningModifier/Steps/Timeline/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
         #expect(!result.satisfied.isEmpty,
                 "没有任何语义组件被判为『扩展点存在』—— 扫描器失效时也会长这样，这不是零违规")
         // ⚠️ 扫描器承重自检：三条「已满足」的通路各自真的走通了，而不是集合恰好为空。
@@ -98,14 +127,22 @@ struct ComponentExtensionPointGuard {
         // 仍然绿着，没人会回头看。⚠️ 将来若又出现已知缺口，**照原样重建 `withKnownIssue`
         // 块（只包住下面这一句）**，别改成宽松断言 —— #39 Task 8 变异实测过：块里多包一句，
         // 新违规会被静默吞掉，只有块外的 canary 会红。
-        #expect(result.missing.isEmpty, "这些语义组件缺样式扩展点：\n\(result.diagnostics.joined(separator: "\n"))")
+        // ⚠️ **`#299` 按上面那段注释自己的指令重建了 `withKnownIssue` 块**
+        // （逐字：「将来若又出现已知缺口，**照原样重建 `withKnownIssue` 块（只包住下面这一句）**，
+        // 别改成宽松断言」）。⚠️ **只包住下面这一句** —— #39 Task 8 变异实测过：块里多包一句，
+        // 新违规会被静默吞掉，只有块外的 canary 会红。
+        // ⚠️ `#312` 把 5 条扩展点补齐后，块内不再有 issue 记录 ⇒ Swift Testing 主动判红，
+        // **逼人回来删掉这个块**。这就是它优于「预置 expected 集合然后 `#expect(==)`」的地方。
+        withKnownIssue("5 条待补的扩展点，移交 #312（#299 重判落出口 1，实现未跟上）") {
+            #expect(result.missing.isEmpty, "这些语义组件缺样式扩展点：\n\(result.diagnostics.joined(separator: "\n"))")
+        }
 
         // ⚠️ **块外 canary：新违规不能被上面的 knownIssue 吞掉**。
         // 这条与上面那条不是重复——上面那条负责「已知缺口到期」，这条负责「集合不许变大」。
         #expect(Set(result.missing) == Self.knownMissingExtensionPoints,
                 """
                 J-2 违规集合变了：实际 \(result.missing.sorted())，已知 \(Self.knownMissingExtensionPoints.sorted())。\
-                ⚠️ 已知集合现为**空集**（`#65` 收口了最后一条），故本条等价于「不许出现任何缺口」。\
+                ⚠️ 已知集合现为 5 条（`#299` 重判落出口 1、实现移交 `#312`）；`#65` 收口后它曾是空集。\
                 红了意味着新增了缺扩展点的语义组件 ⇒ 要么补扩展点，要么在公约 §2 走一次判定\
                 （允许得出形态 C「承认差异存在、本轮不开扩展点」，须在 notes 写明理由）。\
                 ⚠️ **不要**为了让它变绿而把新条目塞回 knownMissingExtensionPoints —— 那个集合的\

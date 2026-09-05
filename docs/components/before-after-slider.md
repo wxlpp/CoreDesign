@@ -286,3 +286,39 @@ struct RetouchComparison: View {
 ——本条是这批里最可能被改判为 `semantic` 的一条。
 `BeforeAfterSliderLabels` 是**标签内容**取值域不是外观配置枚举，故 `styleEnum` 留空。
 逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。
+
+### ⚠️ `#299` 重判：`pendingStep2` → `step2`（出口 1，语义组件）（本节只增不改，上文保留为成因记录）
+
+⚠️ **上一段是 `#270` / PR #297 当时的记录，不改写。现状**：`#299` 已按公约补做步骤 2 的
+候选枚举与来源核验并重判，本条登记表字段现为
+`kind: semantic` / `decidedBy: step2` / `needsExtensionPoint: true`。
+
+**本轮走停止规则的「至少 3 个具名业界候选」这一支**，逐条给可核验来源（完整逐字理由与
+URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）：
+
+本条的来源是**一个产品在同一个功能里同时提供多种排布**：Adobe Lightroom Classic 的
+Before & After 视图（`Y` = left/right、`Option/Alt + Y` = top/bottom、`Shift + Y` = split screen）。
+
+1. **上下分隔（横向分隔线、上下拖动）** —— Lightroom 的 top/bottom split。三分法：
+   **换轴** ⇒ **排布**。
+2. **左右并排两幅完整图** —— Lightroom 的 left/right。三分法：现状是两层**叠在同一块画布上**
+   由分隔线裁切，候选换成两幅各自完整的图并排 ⇒ 「重叠 ↔ 并排」⇒ **排布**。
+3. **上下并排两幅完整图** —— Lightroom 的 top/bottom。三分法：同上，且主轴由横改纵 ⇒ **排布**。
+
+**作用域条款**：`Carousel` 承担的是横向**分页**容器 + 位置指示，不承担「同一画面被分隔线
+裁成两半的对照」⇒ 条件 ③ 落空。⇒ 三个候选均未被排除。
+
+⚠️ `#270` 的原 `notes` 已写着本条「是这批里最可能被改判为 `semantic` 的一条」，
+本轮补齐来源后该预判成真。
+
+
+⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
+「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
+
+⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
+`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
+这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+
+⚠️ **本条不适用 `D-299-1`**（那条缺口是四个图表专有的）：前后对比滑块在 Apple 平台上
+没有任何框架级承担者。`BeforeAfterSliderLabels` 仍是**标签内容**取值域、不是外观配置枚举，
+`styleEnum` 仍留空。

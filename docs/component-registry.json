@@ -3,20 +3,20 @@
     {
       "component": "ActivityHeatmap",
       "repo": "coredesign",
-      "kind": "prescriptive",
-      "decidedBy": "pendingStep2",
+      "kind": "semantic",
+      "decidedBy": "step2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
       "styleEnum": null,
-      "needsExtensionPoint": false,
+      "needsExtensionPoint": true,
       "textParams": [
         {
           "name": "title",
           "category": "by-type"
         }
       ],
-      "notes": "`#255` 落地的贡献热力图（`CoreDesignCharts`）：按周成列、按星期成行的日格网格。步骤 1：Apple 无对应原生样式协议。步骤 2：候选（日历月视图 / 折线时间序列）属**排布**差异、本该计入 ≥2，但 `#270` 未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。`calendar: Calendar = .current` 是可注入的行为依赖（为可测性）而不是外观面；文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+      "notes": "`#255` 落地的贡献热力图（`CoreDesignCharts`）：按周成列、按星期成行的日格网格。步骤 1：Apple 无对应原生样式协议。⚠️ **`#299` 按公约补做了步骤 2 的候选枚举与来源核验并据以重判**（`#270` 一次枚举都没做，PR #297 因此把本条缓办记为 `pendingStep2`）。走「至少 3 个具名业界候选」这一支：**候选 1 日历月视图** —— 产品 + 场景：Apple 自家 Activity / Fitness App 的 History 页把**每日活动读数**排成月历，读到的措辞逐字：“In the History tab of your Activity app, you'll see a calendar view with three Activity circles — Move, Exercise, and Stand — in place of traditional calendar events.”（https://www.imore.com/how-view-your-past-activity-rings-and-workouts-activity-iphone ）。三分法：现状是「按周成列 × 按星期成行」的连续长条网格，候选按月分块、每块 7 列 ⇒ 日格**彼此之间**的空间关系改变（换轴 + 分块）⇒ **排布** ⇒ 计入。**候选 2 月轨图（month track graph）** —— 产品 + 场景：Obsidian 社区插件 Contribution Graph，作者自陈逐字 “could generate interactive GitHub-style contribution graphs, month track graphs, and calendar track graphs”（https://forum.obsidian.md/t/contribution-graph-generate-heatmap-charts-to-track-your-activity/73317 ）—— ⚠️ 这条来源的分量在于它是**同一个组件给出三种排布**，而不是三个不同组件。三分法：**排布** ⇒ 计入。**候选 3 折线 / 柱状时间序列** —— 设计体系 GitLab Pajamas，Charts 页把 line chart 与 column chart 列为「按时间推移」的取值形态（同页逐字：“…for example when there are two dimensions of data (one nested within another) moving across time.”，https://design.gitlab.com/data-visualization/charts/ ）。三分法：网格 → 线性，正是排布定义逐字点名的「网格↔线性」⇒ **排布** ⇒ 计入。**作用域条款逐条核**：登记表里没有任何条目承担「日历月视图」「月轨图」「时间序列折线」——最接近的 `Timeline` 承担的是纵向事件流（节点列 + 连线 + 内容），不是按日历格排布的密度图 ⇒ 条件 ③ 落空。⇒ 三个候选**均未被排除**。⇒ **非皮肤且未被排除的候选数 = 3 ≥ 2**，(A) 不成立、成因② ⇒ 重跑步骤 2 一次 ⇒ 落**出口 1**：`decidedBy: step2` / `kind: semantic` / `needsExtensionPoint: true`；未到达步骤 3，(B) 门槛不适用。⚠️ **扩展点尚未落地，按成法移交**：本条按 `Toast`（`wxlpp/oh-my-story#65`）与 #59 → `wxlpp/oh-my-story#60` 的同款成法登记进 `ComponentExtensionPointGuard.knownMissingExtensionPoints`，扩展点实现移交 **`#312`**。⚠️ 这**不是**「为了让判据变绿把新条目塞回红名单」——该集合的成文语义逐字就是「**有承接 issue 的**已知缺口」，`#312` 就是那个承接点；判定法结论已产出、实现未跟上，与 `Toast` 完全同构。⚠️ **一处公约缺口，已登记 `D-299-1`**：作用域条款只排除「由**本设计系统的另一个具名组件**承担」的候选（三条件之一是「必须真实存在于 `docs/component-registry.json`」），而本条候选在业界的真实承担者是 **Apple 自家的 Swift Charts**，它不在登记表里 ⇒ 条件 ① 结构性不成立、无法援引。而 `CoreDesignCharts` 的存在理由恰恰写着「Swift Charts 画不出来的四类图表」⇒ 「想要那种观感」的正确答案很可能是「用 Swift Charts」而不是给本组件开扩展点。⚠️ 本轮**按公约字面走**（不拿未成文的规则改落点），缺口另走修订回路。`calendar: Calendar = .current` 是可注入的行为依赖（为可测性）而不是外观面；文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。"
     },
     {
       "component": "AgentMessageList",
@@ -128,15 +128,15 @@
     {
       "component": "BeforeAfterSlider",
       "repo": "coredesign",
-      "kind": "prescriptive",
-      "decidedBy": "pendingStep2",
+      "kind": "semantic",
+      "decidedBy": "step2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
       "styleEnum": null,
-      "needsExtensionPoint": false,
+      "needsExtensionPoint": true,
       "textParams": [],
-      "notes": "`#253` 落地的前后对比滑块（`CoreDesignEffects`）：拖动分隔线，左右分别露出 `before` / `after` 两层。步骤 1：Apple 无对应原生样式协议。⚠️ **本条与同批其余条目的理由不同，且是这批里最可能被改判为 semantic 的一条**：它的候选形态（竖向分隔、并排对照）按公约三分法属**排布**差异（换轴 / 重叠↔并排），本该计入 ≥2，而**不是**皮肤变体。落 tiebreaker 的理由是**枚举本身未完成**：公约步骤 2 的停止规则要求每个计入 ≥2 的候选给出可核验来源（设计体系名 + 具体形态，或产品名 + 场景），或写明已穷尽并列出查过的 Apple HIG / Material / Fluent / Ant 与一个贴近产品；`#270` 是「扫描根收口」的 task，未做这份来源核验 ⇒ 按公约「不满足停止规则 ⇒ **枚举视为未完成**，不得据以走任一出口」，本条因此不落任何出口（见文末）。公开的 `BeforeAfterSliderLabels`（hidden/standard/shown）是**标签内容**取值域、不是外观配置枚举，故 `styleEnum` 留空；其 `shown` 关联值携带的 `LocalizedStringKey` 不是 init 参数，不进本条目的参数表。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+      "notes": "`#253` 落地的前后对比滑块（`CoreDesignEffects`）：拖动分隔线，左右分别露出 `before` / `after` 两层。步骤 1：Apple 无对应原生样式协议。⚠️ **`#299` 按公约补做了步骤 2 的候选枚举与来源核验并据以重判**（`#270` 一次枚举都没做，PR #297 因此把本条缓办记为 `pendingStep2`）。本条的来源是**一个产品在同一个功能里同时提供多种排布**：Adobe Lightroom Classic 的 Before & After 视图。读到的措辞（Adobe 首席布道师 Julieanne Kost 的博客，https://jkost.com/blog/2024/08/the-history-panel-and-before-after-view-in-lightroom-classic.html ）逐字：“Y” 显示 “the default Before & After (left/right) view”；“Option + Y (Mac) | Alt + Y (Win) displays Before & After in top/bottom view”；“Shift + Y displays Before & After in split screen view”。**候选 1 上下分隔（横向分隔线、上下拖动）** —— Lightroom 的 top/bottom split 形态。三分法：**换轴** ⇒ **排布** ⇒ 计入。**候选 2 左右并排两幅完整图** —— Lightroom 的 left/right 形态。三分法：现状是两层**叠在同一块画布上**、由分隔线裁切（`BeforeAfterSlider.swift` 的遮罩裁切实现），候选把它换成两幅各自完整的图并排 ⇒ 「重叠 ↔ 并排」⇒ **排布** ⇒ 计入。**候选 3 上下并排两幅完整图** —— Lightroom 的 top/bottom 形态。三分法：同上，且主轴由横改纵 ⇒ **排布** ⇒ 计入。**作用域条款逐条核**：`Carousel` 承担的是横向**分页**容器 + 位置指示（其条目 notes 自陈候选是「点状 / 数字 / 箭头」三种分页指示器），不承担「同一画面被分隔线裁成两半的对照」⇒ 条件 ③ 落空；登记表里没有其它条目承担并排对照。⇒ 三个候选**均未被排除**。⇒ **非皮肤且未被排除的候选数 = 3 ≥ 2**，(A) 不成立、成因② ⇒ 重跑步骤 2 一次 ⇒ 落**出口 1**：`decidedBy: step2` / `kind: semantic` / `needsExtensionPoint: true`；未到达步骤 3，(B) 门槛不适用。⚠️ `#270` 的原 notes 已经写着本条「是这批里最可能被改判为 semantic 的一条」，本轮补齐来源后该预判成真。⚠️ **扩展点尚未落地，按成法移交**：本条按 `Toast`（`wxlpp/oh-my-story#65`）与 #59 → `wxlpp/oh-my-story#60` 的同款成法登记进 `ComponentExtensionPointGuard.knownMissingExtensionPoints`，扩展点实现移交 **`#312`**。⚠️ 这**不是**「为了让判据变绿把新条目塞回红名单」——该集合的成文语义逐字就是「**有承接 issue 的**已知缺口」，`#312` 就是那个承接点；判定法结论已产出、实现未跟上，与 `Toast` 完全同构。⚠️ **本条不适用 `D-299-1` 那条 Swift Charts 缺口**（那是四个图表专有的）：前后对比滑块在 Apple 平台上没有任何框架级承担者。公开的 `BeforeAfterSliderLabels`（hidden/standard/shown）是**标签内容**取值域、不是外观配置枚举，故 `styleEnum` 仍留空；其 `shown` 关联值携带的 `LocalizedStringKey` 不是 init 参数，不进本条目的参数表。"
     },
     {
       "component": "BottomInputBar",
@@ -502,33 +502,33 @@
     {
       "component": "NetworkGraph",
       "repo": "coredesign",
-      "kind": "prescriptive",
-      "decidedBy": "pendingStep2",
+      "kind": "semantic",
+      "decidedBy": "step2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
       "styleEnum": null,
-      "needsExtensionPoint": false,
+      "needsExtensionPoint": true,
       "textParams": [
         {
           "name": "title",
           "category": "by-type"
         }
       ],
-      "notes": "`#255` 落地的力导向网络图（`CoreDesignCharts`）：节点位置由斥力与弹簧解出。步骤 1：Apple 无对应原生样式协议。步骤 2：候选（邻接矩阵 / 分层树布局）属**排布**差异、本该计入 ≥2，但 `#270` 未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。超限时从力导向降级为静态环形并**显示提示横幅**，是四个图表里唯一提示的一个，理由是它的截断会改变布局算法、用户看到的是一张不一样的图，见 `docs/components/network-graph.md`。文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+      "notes": "`#255` 落地的力导向网络图（`CoreDesignCharts`）：节点位置由斥力与弹簧解出。步骤 1：Apple 无对应原生样式协议。⚠️ **`#299` 按公约补做了步骤 2 的候选枚举与来源核验并据以重判**（`#270` 一次枚举都没做，PR #297 因此把本条缓办记为 `pendingStep2`）。本条的来源是这批里最硬的一份：设计体系 Ant Design 的图可视化体系 AntV G6，**布局总览页把同一份图数据的布局列为可替换项**，逐条读到的名称与说明包括 `ForceLayout`（“Force-directed layout”，即现状）/ `DagreLayout`（“dagre layout”）/ `CircularLayout`（“Circular layout”）/ `GridLayout`（“Grid layout”）/ `ConcentricLayout`（“Concentric layout”）/ `RadialLayout`（“Radial layout”）/ `MDSLayout`（“High-dimensional data dimensionality reduction layout”）等 20 个（https://g6.antv.antgroup.com/en/manual/layout/overview ）。**候选 1 分层（dagre）布局** / **候选 2 环形布局** / **候选 3 网格布局** —— 三者改变的都是节点**彼此之间**的落点 ⇒ 按三分法均属**排布** ⇒ 各自计入。⚠️ **本条另有一条源码内自证**：现状代码在节点数超过 `recommendedNodeLimit` 时**已经降级为静态环形布局**（类型文档与 `docs/components/network-graph.md` 均有记载）⇒ 候选 2 的形态在本组件内**已经实现过**，「只有一种合理长相」这句在本条上被自己的源码直接证伪。**查过但来源模板不符、不计入的**：邻接矩阵 —— InfoVis 文献（如 Okoe / Jianu 的 “Node-Link or Adjacency Matrices: Old Question, New Insights”）把它与 node-link 图并列为同一份网络的两种表示，读到的表述是「adjacency matrices have been shown more effective than node-link diagrams for identifying connectivity… for large and dense networks」。形态真实，但学术论文既非设计体系也非产品 ⇒ 不作为计入来源，仅列旁证。**作用域条款逐条核**：`OutlineTree`（storyui）承担的是卷—章—节三层大纲的**缩进列表**（其条目自陈「展开/折叠、选中、拖拽重排」），不是 node-link 图的分层布局 ⇒ 条件 ③ 落空；登记表里没有其它条目承担环形 / 网格布局。⇒ 三个候选**均未被排除**。⇒ **非皮肤且未被排除的候选数 = 3 ≥ 2**，(A) 不成立、成因② ⇒ 重跑步骤 2 一次 ⇒ 落**出口 1**：`decidedBy: step2` / `kind: semantic` / `needsExtensionPoint: true`；未到达步骤 3，(B) 门槛不适用。⚠️ **扩展点尚未落地，按成法移交**：本条按 `Toast`（`wxlpp/oh-my-story#65`）与 #59 → `wxlpp/oh-my-story#60` 的同款成法登记进 `ComponentExtensionPointGuard.knownMissingExtensionPoints`，扩展点实现移交 **`#312`**。⚠️ 这**不是**「为了让判据变绿把新条目塞回红名单」——该集合的成文语义逐字就是「**有承接 issue 的**已知缺口」，`#312` 就是那个承接点；判定法结论已产出、实现未跟上，与 `Toast` 完全同构。⚠️ **一处公约缺口，已登记 `D-299-1`**：作用域条款只排除「由**本设计系统的另一个具名组件**承担」的候选（三条件之一是「必须真实存在于 `docs/component-registry.json`」），而本条候选在业界的真实承担者是 **Apple 自家的 Swift Charts**，它不在登记表里 ⇒ 条件 ① 结构性不成立、无法援引。而 `CoreDesignCharts` 的存在理由恰恰写着「Swift Charts 画不出来的四类图表」⇒ 「想要那种观感」的正确答案很可能是「用 Swift Charts」而不是给本组件开扩展点。⚠️ 本轮**按公约字面走**（不拿未成文的规则改落点），缺口另走修订回路。超限时从力导向降级为静态环形并**显示提示横幅**，是四个图表里唯一提示的一个，理由是它的截断会改变布局算法、用户看到的是一张不一样的图，见 `docs/components/network-graph.md`。文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。"
     },
     {
       "component": "OrbitingLogos",
       "repo": "coredesign",
       "kind": "prescriptive",
-      "decidedBy": "pendingStep2",
+      "decidedBy": "tiebreaker",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
       "styleEnum": null,
       "needsExtensionPoint": false,
       "textParams": [],
-      "notes": "`#254` 落地的环绕轨道视图（`CoreDesignEffects`）：调用方的 logo 沿同心点环公转，中心是调用方的槽。步骤 1：Apple 无对应原生样式协议。步骤 2：`logo:` 与 `center:` 两个 `@ViewBuilder` 槽已经把「换内容」这一维交给调用方；⚠️ **上句原写「剩下的候选（换环数 / 换点密度 / 换轨道形状）是同一套同心排布换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫」——PR #297 终审 I-3 证伪该分箱**：公约把**排布**定义为「**子视图之间的空间关系改变**（换轴 / 重叠↔并排 / 分居两侧 / 网格↔线性）」，而**装饰**是「**同一槽内的画法变化** + 纯装饰层」；把 logo 从圆轨道改成椭圆 / 螺旋，改变的是**它们彼此之间**的落点 ⇒ 命中排布、不是同一槽内。「换环数」另擦到补充规则 2（槽的计数变化也算槽差异），而补充规则 4 写着「一个候选只要含有任一『槽』或『排布』差异，即整体计入非皮肤」。⇒ 这些候选**本该计入 ≥2**，本条与四个图表 / `BeforeAfterSlider` 同组，不是「干净的 tiebreaker」。但 `#270` 同样未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，不得据以走任一出口（见文末）。已登记的形状缺陷（`rotationPeriod` 一个旋钮同时管住停自转与停轮播）处置是另开一个「这件动到什么程度」的**行为**档位枚举，不是样式扩展点，见 `docs/components/orbiting-logos.md`。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+      "notes": "`#254` 落地的环绕轨道视图（`CoreDesignEffects`）：调用方的 logo 沿同心点环公转，中心是调用方的槽。步骤 1：Apple 无对应原生样式协议。⚠️ **`#299` 按公约补做了步骤 2 的候选枚举与来源核验并据以重判**（`#270` 一次枚举都没做，PR #297 因此把本条缓办记为 `pendingStep2`）。走「至少 3 个具名业界候选」这一支，本轮具名候选 4 个，逐条给来源或**如实标注查不到**：**候选 1 多轨道分布（logo 分居不同半径的多条轨道）** —— 组件库 Magic UI 的 `OrbitingCircles`，组件自述 “A collection of circles which move in orbit along a circular path”，props 表有 `radius`（默认 160，“The radius of the orbit in pixels”），且**示例把多个 `OrbitingCircles` 实例以不同 `radius`（160 / 100）嵌套**成同心多轨（https://magicui.design/docs/components/orbiting-circles ）。现状本件把**全部** logo 均匀放在**最外一条**环上（类型文档逐字：「调用方的 logo 均匀落在最外环上随之巡游」）⇒ 候选改变的是 logo **彼此之间**的落点 ⇒ **排布** ⇒ **计入**。**候选 2 线性无限滚动带（logo marquee）** —— Magic UI 的 `Marquee`，自述 “An infinite scrolling component that can be used to display text, images, or videos.”（https://magicui.design/docs/components/marquee ）。⚠️ **不计入**：Magic UI 把 `OrbitingCircles` 与 `Marquee` 作为**两个各自独立发布的组件**，不是同一组件的两种外观；步骤 2 问的是「调用方会合理地想要一个看起来完全不同、但含义相同的**版本**吗」——「换用另一个组件」不是本组件的一个版本。（同款读法在登记表里有先例：`OutlineTree` 的 notes 逐字写「不是同一组件的换皮……换个视觉即是换个组件」。⚠️ 该条是 storyui 侧的 `step3` 条目、落点另有 `#54` 的未落盘裁定，此处只引它的**读法**，不引它的落点。）**候选 3 静态 logo 网格（logo cloud）** —— 设计体系 Tailwind Plus（Tailwind UI）的 Logo Clouds 区块，页面自述 “build trust and highlight prominent customers and partners. These examples are designed and built by the Tailwind CSS team, and include a variety of different styles and layouts.”，例子清单含 “Simple with heading” / “Simple with call-to-action” / “Simple left-aligned” / “Split with logos on right” / “Simple” / “Grid” 六种（https://tailwindcss.com/plus/ui-blocks/marketing/sections/logo-clouds ）。⚠️ **不计入**：同候选 2 的理由，它是营销页里**另一类区块**；且它**完全没有运动**，而本件在 `CoreDesignEffects`（表达性视觉动效层），巡游本身就是它的含义 ⇒ 去掉运动后不是「同一含义的另一种长相」。**候选 4 椭圆 / 螺旋轨道** —— ⚠️ **查不到可核验来源，不计入**。这正是 PR #297 终审 I-3 把本条从「干净的 10 条」挪进缓办台账所依据的那个候选，本轮逐一核验的结果：Magic UI `OrbitingCircles` 的 props 表只有 `radius` 一个几何量、`path` 只控制轨道线**显不显示**（“If true, a path is displayed for the orbit”），**没有任何非圆形路径取值**；四家基线设计体系（Apple HIG / Material Design / Fluent / Ant Design）检索后**均无**「环绕轨道 logo」这一组件；搜索结果里出现的 Animata “Orbiting Items 3D” 与 Framer Marketplace 的 OrbitMotion **两个页面都取不到正文**（前者 HTTP 403、后者只回导航壳）⇒ **未读到页面上的实际措辞，按纪律不得引用**。⇒ **I-3 的三分法归类本身没错**（椭圆 / 螺旋改的确实是 logo 彼此之间的落点 ⇒ 排布），**但它归类的那个候选过不了来源义务** —— 卡点在**来源**，不在**分箱**。**「换环数」另核，同样是对 I-3 的实核否证**：本件的四圈同心点环是**纯装饰层**。按补充规则 1「判『装饰』时须写明依据，源码或 a11y 的自陈不足以定性」，此处**不援引**它的 `accessibilityHidden(true)` 自陈，而看它承不承载语义：点环不映射任何调用方数据，取色只按环上角度在 `.tint` 上做明暗波，且**低电量档下每环点数直接减半**（类型文档《后台 / 低电量》表逐字）—— 一个随电池状态改变数量的层不可能承载内容语义 ⇒ **装饰**。补充规则 2 的对象是**槽**（定义为「承载内容的子视图位置」），装饰层的计数变化不适用 ⇒ **不计入**。**作用域条款**：候选 1 无兄弟承担者（`Carousel` 是横向分页容器 + 位置指示，条件 ③ 落空）⇒ 未被排除。⇒ **过得了来源义务、且确实是「本组件的另一种长相」的非皮肤候选数 = 1 < 2** ⇒ 命中步骤 2 的出口 3「举得犹豫 ⇒ 视为答不上来」⇒ **落步骤 4**：`decidedBy: tiebreaker` / `kind: prescriptive` / **不给扩展点**。**两可的理由（公约要求写明）**：轨道的**条数**是业界真实可变的（Magic UI 有实证），但轨道的**形状**举不出可核验来源、而「去掉运动改成网格 / 跑马灯」在业界是**另一个组件**而非本组件的版本—— 一侧有一个硬候选、另一侧全部落空，够不到 ≥2 又不是干净的「举不出」，正是公约所说的「举得犹豫」。⚠️ **本条按公约按可逆的一侧落地**：`kind` / `needsExtensionPoint` 与缓办期一致（`prescriptive` / `false`），本轮**没有**新增任何 public API。⚠️ **一处判定口径的留痕，已登记 `D-299-2`**：「候选须是**本组件的另一种长相**、而不是业界的另一个组件」这条读法是对步骤 2 问句里「同一含义的另一个**版本**」的操作化，公约正文**没有成文写**它（成文的只有作用域条款，而那条只认**本登记表内**的兄弟组件）。本条与四个图表两侧都按同一把尺子用了它，缺陷另走修订回路。已登记的形状缺陷（`rotationPeriod` 一个旋钮同时管住停自转与停轮播）处置仍是另开一个「这件动到什么程度」的**行为**档位枚举，不是样式扩展点，见 `docs/components/orbiting-logos.md`。"
     },
     {
       "component": "OutlineTree",
@@ -582,20 +582,20 @@
     {
       "component": "RadarChart",
       "repo": "coredesign",
-      "kind": "prescriptive",
-      "decidedBy": "pendingStep2",
+      "kind": "semantic",
+      "decidedBy": "step2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
       "styleEnum": null,
-      "needsExtensionPoint": false,
+      "needsExtensionPoint": true,
       "textParams": [
         {
           "name": "title",
           "category": "by-type"
         }
       ],
-      "notes": "`#255` 落地的雷达图（`CoreDesignCharts`）：多维评分在极坐标上连成一个轮廓多边形。步骤 1：Apple 无对应原生样式协议（Swift Charts 没有极坐标多轴 mark，这正是本 target 存在的理由）。步骤 2：候选（并排条形 / 平行坐标）按三分法确实属**排布**差异、本该计入 ≥2，但公约停止规则要求每个候选给出可核验来源，或写明已穷尽并列出查过的 Apple HIG / Material / Fluent / Ant 与一个贴近产品；`#270` 是扫描根收口 task，未做这份核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。步骤 3 另一侧同样不成立：写得出的只有「换成条形就读成分类比较」这类结论复述，公约明令消极描述与结论复述不算 (B)。`tint: Color` 是取值参数不是扩展点；文本参数 `title` 类型为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+      "notes": "`#255` 落地的雷达图（`CoreDesignCharts`）：多维评分在极坐标上连成一个轮廓多边形。步骤 1：Apple 无对应原生样式协议（Swift Charts 没有极坐标多轴 mark，这正是本 target 存在的理由）。⚠️ **`#299` 按公约补做了步骤 2 的候选枚举与来源核验并据以重判**（`#270` 一次枚举都没做，PR #297 因此把本条缓办记为 `pendingStep2`）。本轮走停止规则的「至少 3 个具名业界候选」这一支，逐条给可核验来源：**候选 1 平行坐标** —— 设计体系 Ant Design 的可视化体系 AntV G2，坐标系总览页把 `Radar`（页面逐字：“Radar coordinate system, combining features of parallel and polar coordinates for radar charts”）与 `Parallel`（“Parallel coordinate system, mapping multiple data dimensions to parallel axis”）并列为**同一套 mark 之上可互换的坐标系**（https://g2.antv.antgroup.com/en/manual/core/coordinate/overview ）；平行坐标图页自述用途为 “analyze relationships between multiple variables, identify data patterns and clusters”（https://g2.antv.antgroup.com/en/charts/parallel ）。三分法：放射轴 → 平行轴，正是排布定义逐字点名的「换轴」⇒ **排布** ⇒ 计入。⚠️ **反向证据如实记录**：同一页把两者侧重分开写——平行坐标 “suitable for comparing different records”，雷达图则用于 “multi-dimensional characteristics of a single record”；而本仓 `RadarChart` 的 public init 只收**一组** `[Value]` ⇒ 落在后者。该差别是**用途侧重**而非含义不同（同一组维度读数的同一份数据），故仍计入，但这条反向证据留此供抽查。**候选 2 径向柱状图** —— 同一份 AntV G2 坐标系总览页逐字：`Radial` 是 “A special polar coordinate system obtained by transposing polar coordinates, commonly used for radial bar charts”。三分法：现状把各轴端点连成**一条闭合折线**围出单个轮廓多边形（`RadarChart.swift` 的私有 web 绘制），候选换成**每维一根独立的条** ⇒ 槽的计数由 1 变 N，命中补充规则 2「槽的计数变化也算槽差异」⇒ **槽** ⇒ 计入。**候选 3 笛卡尔并排条形** —— 设计体系 GitLab Pajamas，Charts 页逐字：“Bar charts are a variation of column charts, where the columns are horizontal rather than vertical. It can be used for the same purposes as column charts, which is to compare values across categories.”（https://design.gitlab.com/data-visualization/charts/ ）。三分法：极坐标 → 笛卡尔，**换轴** ⇒ **排布** ⇒ 计入。**查过但不计入的**：Significance（英国皇家统计学会刊物）的 “Off the ‘radar’? Here are some alternatives” 一文提出 lollipop chart（“Consisting of thinner bars each topped with a bubble…”）/ radial column chart（“This graph is like a bar chart with a zero value in the middle of the grid”）/ radial lollipop chart / stellar chart 四种形态（https://significancemagazine.com/off-the-radar-here-are-some-alternatives/ ）—— 形态真实、原文措辞已读到，但公约的来源模板只认「设计体系名 + 具体形态」或「产品名 + 场景」，一篇杂志文章两者都不是 ⇒ **不作为计入 ≥2 的来源**，仅列为旁证。另核：GitLab Pajamas 的 Charts 页**没有**雷达图与平行坐标（该页只列 heatmap / grouped and stacked column / bar 等）。**作用域条款逐条核**：登记表里没有任何条目承担「并排条形」「平行坐标」「径向条」——`ProgressIndicator` 的 body 写死 `.progressViewStyle(.circular)` 且是**不确定**进度（无 value 入参）⇒ 条件 ③ 落空；`ProgressBar` 是弃用条款下的 `kind: excluded` 条目、不分类。⇒ 三个候选**均未被排除**。⇒ **非皮肤且未被排除的候选数 = 3 ≥ 2**，(A) 不成立、成因②（原答案是「没写候选」，而诚实枚举其实举得出）⇒ 按步骤 3 门槛「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点 ⇒ `decidedBy: step2` / `kind: semantic` / `needsExtensionPoint: true`；未到达步骤 3，(B) 门槛不适用（备查：`#270` 原 notes 写的「换成条形就读成分类比较」本就被公约判为结论复述）。⚠️ **扩展点尚未落地，按成法移交**：本条按 `Toast`（`wxlpp/oh-my-story#65`）与 #59 → `wxlpp/oh-my-story#60` 的同款成法登记进 `ComponentExtensionPointGuard.knownMissingExtensionPoints`，扩展点实现移交 **`#312`**。⚠️ 这**不是**「为了让判据变绿把新条目塞回红名单」——该集合的成文语义逐字就是「**有承接 issue 的**已知缺口」，`#312` 就是那个承接点；判定法结论已产出、实现未跟上，与 `Toast` 完全同构。⚠️ **一处公约缺口，已登记 `D-299-1`**：作用域条款只排除「由**本设计系统的另一个具名组件**承担」的候选（三条件之一是「必须真实存在于 `docs/component-registry.json`」），而本条候选在业界的真实承担者是 **Apple 自家的 Swift Charts**，它不在登记表里 ⇒ 条件 ① 结构性不成立、无法援引。而 `CoreDesignCharts` 的存在理由恰恰写着「Swift Charts 画不出来的四类图表」⇒ 「想要那种观感」的正确答案很可能是「用 Swift Charts」而不是给本组件开扩展点。⚠️ 本轮**按公约字面走**（不拿未成文的规则改落点），缺口另走修订回路。`tint: Color` 是取值参数不是扩展点；文本参数 `title` 类型为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。"
     },
     {
       "component": "RadioGroup",
@@ -638,20 +638,20 @@
     {
       "component": "RingChart",
       "repo": "coredesign",
-      "kind": "prescriptive",
-      "decidedBy": "pendingStep2",
+      "kind": "semantic",
+      "decidedBy": "step2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
       "styleSlot": null,
       "styleEnum": null,
-      "needsExtensionPoint": false,
+      "needsExtensionPoint": true,
       "textParams": [
         {
           "name": "title",
           "category": "by-type"
         }
       ],
-      "notes": "`#255` 落地的活动环（`CoreDesignCharts`）：多个同心进度环，每环一个指标对 `goal` 的完成度。步骤 1：Apple 无对应原生样式协议（Swift Charts 无同心环 mark）。步骤 2：候选（堆叠条 / 并排进度条）属**排布**差异、本该计入 ≥2，但与 `RadarChart` 同因——`#270` 未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。`tint` 逐环按固定衰减取色是内部实现、不对外开；文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。超出 `recommendedRingLimit` 的截断不提示，是与 `NetworkGraph` 对照后的显式定案。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+      "notes": "`#255` 落地的活动环（`CoreDesignCharts`）：多个同心进度环，每环一个指标对 `goal` 的完成度。步骤 1：Apple 无对应原生样式协议（Swift Charts 无同心环 mark）。⚠️ **`#299` 按公约补做了步骤 2 的候选枚举与来源核验并据以重判**（`#270` 一次枚举都没做，PR #297 因此把本条缓办记为 `pendingStep2`）。走「至少 3 个具名业界候选」这一支：**候选 1 并排线性进度条** —— 设计体系 Ant Design 的 `Progress` 组件，页面自述用途 “Display the current progress of the operation.”，`type` 属性逐字：“To set the type, options: line circle dashboard”（https://ant.design/components/progress ）—— **同一个组件、同一份语义，line 与 circle 是可互换的两种外观**。三分法：同心环（角度编码）→ 并排线性条（长度编码），既换轴又把「重叠/同心」换成「并排」⇒ **排布** ⇒ 计入。**候选 2 分段进度条** —— 同页 `steps` 属性，line 侧逐字 “The total step count”，circle/dashboard 侧逐字 “The total step count. When passing an object, count refers to the number of steps, and gap refers to the distance between them.”；页面 demo 清单里另有 “Progress bar with steps” 与 “Circular progress bar with steps”。三分法：一条连续环塌成 N 段离散段 ⇒ 命中补充规则 2 的槽计数变化 ⇒ **槽** ⇒ 计入。**候选 3 堆叠条** —— 设计体系 GitLab Pajamas，Charts 页逐字：“It may sometimes be necessary to stack values in a column or to have groups of columns within your chart, for example when there are two dimensions of data (one nested within another) moving across time.”（https://design.gitlab.com/data-visualization/charts/ ）。三分法：N 个同心环塌成 1 条堆叠柱，槽计数 N → 1 ⇒ **槽** ⇒ 计入。**查过但按三分法判为装饰、不计入的**：Ant Design `Progress` 的 `type=\"dashboard\"`（开口仪表盘）—— 与 `circle` 同在极坐标、同一个槽内，差别只是扫过角与缺口 ⇒ **装饰** ⇒ 不计入。列出它是为了让本次枚举可被抽查：三分法在本条上**确实**做了区分，不是一律放行。**作用域条款逐条核**：`ProgressIndicator` 的 body 写死 `.progressViewStyle(.circular)`、且是**不确定**进度（无 value 入参、无完成度语义）⇒ 对「线性进度条」这一形态条件 ③ 落空（与 `Steps` 条目当年的同款核验结论同向）；`ProgressBar` 是弃用条款下的 `kind: excluded` 条目、不分类。⇒ 三个候选**均未被排除**。⇒ **非皮肤且未被排除的候选数 = 3 ≥ 2**，(A) 不成立、成因② ⇒ 重跑步骤 2 一次 ⇒ 落**出口 1**：`decidedBy: step2` / `kind: semantic` / `needsExtensionPoint: true`；未到达步骤 3，(B) 门槛不适用。⚠️ **扩展点尚未落地，按成法移交**：本条按 `Toast`（`wxlpp/oh-my-story#65`）与 #59 → `wxlpp/oh-my-story#60` 的同款成法登记进 `ComponentExtensionPointGuard.knownMissingExtensionPoints`，扩展点实现移交 **`#312`**。⚠️ 这**不是**「为了让判据变绿把新条目塞回红名单」——该集合的成文语义逐字就是「**有承接 issue 的**已知缺口」，`#312` 就是那个承接点；判定法结论已产出、实现未跟上，与 `Toast` 完全同构。⚠️ **一处公约缺口，已登记 `D-299-1`**：作用域条款只排除「由**本设计系统的另一个具名组件**承担」的候选（三条件之一是「必须真实存在于 `docs/component-registry.json`」），而本条候选在业界的真实承担者是 **Apple 自家的 Swift Charts**，它不在登记表里 ⇒ 条件 ① 结构性不成立、无法援引。而 `CoreDesignCharts` 的存在理由恰恰写着「Swift Charts 画不出来的四类图表」⇒ 「想要那种观感」的正确答案很可能是「用 Swift Charts」而不是给本组件开扩展点。⚠️ 本轮**按公约字面走**（不拿未成文的规则改落点），缺口另走修订回路。`tint` 逐环按固定衰减取色是内部实现、不对外开；文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。超出 `recommendedRingLimit` 的截断不提示，是与 `NetworkGraph` 对照后的显式定案。"
     },
     {
       "component": "RunMetricsBar",
