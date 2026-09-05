@@ -195,18 +195,50 @@ nonisolated enum GuardScanRoots {
     ///    读到的人会去查扫描面配置，不会想到是 checkout 位置。
     ///
     /// ⇒ 现在按**路径分量**比较，且分两步：
-    /// · 先拿未归一的分量试一次（绝大多数情形命中，零 IO）；
-    /// · 不中才归一后重试——`resolvingSymlinksInPath()` 打通「同一个文件的两种写法」。
+    /// · 先拿 `standardizedFileURL` 的分量试一次（见 `standardizedComponents(_:)`）。
+    ///   ⚠️ **这一趟不是零 IO**：`standardizedFileURL` **本身会读文件系统**，并对
+    ///   **真实存在**的路径去掉 `/private` 前缀。实测（同一串，只改文件存不存在）：
+    ///   文件存在 ⇒ `/private/tmp/X/S/A.swift` 归一成 `/tmp/X/S/A.swift`；
+    ///   删掉文件后同一串 ⇒ 原样返回 `/private/tmp/X/S/A.swift`。
+    ///   **本仓的真实输入全部在这一趟命中**；
+    /// · 不中才归一后重试（见 `canonicalComponents(_:)`）。
     ///
-    /// ⚠️ **只靠 `resolvingSymlinksInPath()` 不够**，还要显式抹掉领头的 `private` 分量：
-    /// 该 API 只在路径**真实存在**时才会去掉 `/private` 前缀。实测（本机 Swift 6.3）：
+    /// ⚠️ **两趟各守一味分叉，别以为哪一趟是冗余的**（`#313` 终审 F-1 起的这一段）：
+    /// · **`/private` 味**（`#311` 实际踩到的那种，`/tmp` → `/private/tmp`）——
+    ///   **快路径自己就归一掉了**，因为 `standardizedFileURL` 对**存在**的路径去 `/private`。
+    ///   实测（`/tmp` 下真实 fixture 树、未解析的根 + 枚举出的文件）：串替换版给
+    ///   `/privateSources/CoreDesign/Colors/A.swift`；本实现、「慢路径去掉 `private` 抹除」、
+    ///   「**只留快路径**」三者**同为** `Sources/CoreDesign/Colors/A.swift`
+    ///   ⇒ 只看这一味的话，慢路径确实不执行。
+    /// · **普通符号链接味**（扫描根的**祖先分量**是符号链接，例如 checkout 落在
+    ///   `~/work` → `/Volumes/Data/work` 之下）——**快路径给 `nil`**
+    ///  （`standardizedFileURL` 不解析普通符号链接，实测），**只有慢路径能归正**。
+    ///   `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 拿真实 fixture
+    ///   钉的正是这一格：把慢路径删掉 ⇒ 它当场红。
+    ///   ⚠️ **⇒「慢路径是不执行的代码、删了只有合成判据会红」是错的**，别照那个结论动手。
+    ///
+    /// ⚠️ **慢路径里只靠 `resolvingSymlinksInPath()` 不够**，还要显式抹掉领头的
+    /// `private` 分量：该 API 同样只在路径**真实存在**时才会去掉 `/private` 前缀。
+    /// 实测（本机 Swift 6.3）：
     /// `/private/tmp/cd311-repro` 存在 ⇒ 归一成 `/tmp/cd311-repro`；
     /// 而 `/private/tmp/cd311-repro/Sources/CoreDesign/NOPE.swift`（不存在）**原样返回**，
     /// 对应的 `/tmp/…/NOPE.swift` 也原样返回 ⇒ 两端仍分叉。
     /// 判据要能用合成路径构造这个形态，就不能把正确性建在「文件恰好存在」上。
-    static func relativePath(_ url: URL, from root: URL) -> String {
+    ///
+    /// ⚠️ **兜底那一支默认会 `Issue.record`**（`expectingContainment`，`#313` 终审 C-5）：
+    /// 全部**真实**调用点的 `url` 都是枚举 `root` 得到的 ⇒ 结构上不可能不在 `root` 之下。
+    /// 真落进兜底就意味着又冒出了一类新的路径分叉，后果与 `#311` 一样
+    ///（台账键退化成绝对路径 ⇒ 假红 + 诊断指错方向），但**更安静**——不再有 `/private`
+    /// 这种显眼特征可供 grep。⇒ 默认把它变成一条可读的失败，而不是静默 fail-open。
+    /// 判据里那几种「本来就该落兜底」的形态传 `expectingContainment: false`。
+    static func relativePath(
+        _ url: URL,
+        from root: URL,
+        expectingContainment: Bool = true,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) -> String {
         if let relative = Self.relative(
-            Self.componentsOf(url), under: Self.componentsOf(root)
+            Self.standardizedComponents(url), under: Self.standardizedComponents(root)
         ) {
             return relative
         }
@@ -214,6 +246,17 @@ nonisolated enum GuardScanRoots {
             Self.canonicalComponents(url), under: Self.canonicalComponents(root)
         ) {
             return relative
+        }
+        if expectingContainment {
+            Issue.record(
+                """
+                路径推导落进兜底：\(url.path)
+                不在扫描根 \(root.path) 之下 —— 真实调用点的 url 全部由枚举该根得到，
+                结构上不该发生。出现它意味着又冒出了一类路径分叉（`#311` 那次是 `/private`），
+                后果同样是台账键被污染（假红 + 诊断指向扫描面配置），但没有显眼特征可查。
+                """,
+                sourceLocation: sourceLocation
+            )
         }
         return url.path
     }
@@ -227,7 +270,12 @@ nonisolated enum GuardScanRoots {
         return file.dropFirst(root.count).joined(separator: "/")
     }
 
-    private static func componentsOf(_ url: URL) -> [String] {
+    /// ⚠️ **本函数会做 IO**：`standardizedFileURL` 读文件系统，对**存在**的路径去掉
+    /// `/private` 前缀（实测见 `relativePath(_:from:)` 的文档）。正因如此，`/private`
+    /// 那一味分叉在这一趟就已经归一完毕。
+    /// ⚠️ 但它**不解析普通符号链接**（实测：`<tmp>/link -> <tmp>/real` 之下的路径
+    /// 原样返回）⇒ 那一味只能靠 `canonicalComponents(_:)`。
+    private static func standardizedComponents(_ url: URL) -> [String] {
         url.standardizedFileURL.pathComponents
     }
 
@@ -1278,26 +1326,49 @@ struct GuardScanRootsGuard {
 
     // MARK: - `relativePath` 对符号链接前缀的免疫（`#311`）
 
-    /// ⚠️ **这条判据用的是合成路径，不是磁盘上的真实文件**，理由有二：
-    /// 1. 要复现的分叉（`#filePath` 不解析 `/private`、`FileManager` 枚举解析）只在
-    ///    checkout **落在 `/tmp` 这类符号链接下**时才出现。仓库在 `/Users/…` 时它不出现
-    ///    ⇒ 拿真实路径写的判据在正常 checkout 下会**恒绿**，是典型的假绿；
-    /// 2. 合成路径同时钉住了 `resolvingSymlinksInPath()` 对**不存在的路径**不去 `/private`
-    ///    前缀那一格（见 `GuardScanRoots.relativePath(_:from:)` 的文档），
-    ///    那正是这条修法里最容易被「简化」掉的一步。
+    /// ⚠️ **这条判据用的是合成路径，不是磁盘上的真实文件**，理由如下。
     ///
-    /// **变异实证（`#311` 落地时跑过双向）**：把 `relativePath(_:from:)` 的实现回退成
-    /// `url.path.replacingOccurrences(of: root.path + "/", with: "")`
-    /// ⇒ 本条当场判红，**五种形态里红了三种**，且三种红法各不相同（实测原文）：
+    /// ⚠️ **理由不是「真实路径必然恒绿」**（`#313` 终审 F-2 纠正了本段的原写法）：
+    /// 恒绿的只有「拿**仓库自己的**路径写判据」这一种——仓库在 `/Users/…` 下时
+    /// `#filePath` 与枚举结果不分叉，怎么断言都绿。
+    /// **判据自己在临时目录里造一棵 fixture 树的写法并不恒绿**：它在任何 checkout 位置
+    /// 都能复现分叉（实测：在 `/Users` checkout 里跑，串替换版照样吐 `/privateSources/…`）。
+    /// 那条路已经走通并落地成两条**真实 fixture** 判据，与本条分工如下：
+    /// · `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor`（`#313` C-4）
+    ///   ——钉住整套修法所依赖的那条 Foundation 行为：`FileManager.enumerator(at:)`
+    ///   **会**解析根**祖先分量**里的符号链接（根自己的末段是符号链接时反而一条都不产出，
+    ///   见 `SymlinkedScanRootFixture` 的文档）；
+    /// · `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
+    ///   （`#313` C-1）——钉住 `scanComponentJudgeInputs(root:)` 的台账键，
+    ///   那一处此前**零判据覆盖**。
+    ///
+    /// ⇒ 本条留着，是因为它钉的是**真实文件造不出来的**那一格：
+    /// `resolvingSymlinksInPath()` 对**不存在的路径**不去 `/private` 前缀
+    ///（见 `GuardScanRoots.relativePath(_:from:)` 的文档）——文件一旦真的存在，
+    /// 快路径的 `standardizedFileURL` 自己就把 `/private` 归一掉了，这一格永远走不到。
+    ///
+    /// **变异实证（双向；`#313` 终审后按八种形态重跑）**：把 `relativePath(_:from:)` 的
+    /// 主体整体回退成 `url.path.replacingOccurrences(of: root.path + "/", with: "")`
+    /// ⇒ 本条当场判红，**八种形态里红了四种**，红法各不相同（实测原文）：
     /// · 形态一 → `"/privateSources/CoreDesignEffects/Shine.swift"`（串中间被挖掉一段）；
     /// · 形态二 → `"/tmp/repo/Sources/CoreDesign/Components/Banner/Banner.swift"`
     ///   （串里没有可替换的段 ⇒ 整条绝对路径被原样当成相对路径）；
-    /// · 形态四 → `"/elsewhereSources/CoreDesign/Foo.swift"`（同形态一的挖串）。
+    /// · 形态四 → `"/elsewhereSources/CoreDesign/Foo.swift"`（同形态一的挖串）；
+    /// · 形态八 → `Known issue was not recorded`（替换版根本没有兜底那一支，自然不记录）。
+    /// 同一次变异下**两条真实 fixture 判据也一起红**（上面列的那两条），
+    /// 且它们的红法与合成形态不同：给出的是一整条 `/private/var/folders/…/real/…` 绝对路径。
     /// ⚠️ **两种红法都会落进 `JudgementReferenceGuard` 的「扫描面之外」**（面的归属靠
     /// `Sources/` / `Tests/` / `docs/` 前缀判定，上面两种串都不以它们开头）
     /// ——`#309` 与 `#311` 复现里那条「各面候选引用数全 0、扫描面之外 4637 / 4857」
     /// 因此**指不出**是哪一种，别照着那行数字反推成因。
-    /// 形态三与形态五在替换版下**本来就绿**，留着是为了钉住修法没把它们改坏。
+    /// 形态三 / 五 / 六 / 七在替换版下**本来就绿**，但四者的分量并不相同
+    ///（`#313` 终审 C-8，逐条变异实测）：
+    /// · **形态五承重**——唯一杀死「`relative(_:under:)` 的 `>` 写成 `>=`」那个变异的形态；
+    /// · **形态六承重**——杀死「分量比较退化成串前缀比较」（`#313` C-2 补，补之前静默存活）；
+    /// · **形态七承重**——杀死「`canonicalComponents` 的 `count >= 3` 放松成 `>= 2`」
+    ///   （`#313` C-3 补，补之前静默存活）；
+    /// · **形态三不承重**——实测整轮变异里它一个都没杀掉，是纯文档性的 happy path 示范，
+    ///   价值在「读的人一眼看到正常 checkout 长什么样」，不在判别力。
     @Test("`relativePath` 对 /private 前缀不一致免疫，且不做串中间的替换（#311）")
     func relativePathIgnoresPrivatePrefixMismatch() {
         // 形态一：根未解析（`#filePath` 侧）、文件已解析（`FileManager` 枚举侧）
@@ -1333,15 +1404,166 @@ struct GuardScanRootsGuard {
         #expect(
             GuardScanRoots.relativePath(
                 URL(fileURLWithPath: "/elsewhere/tmp/repo/Sources/CoreDesign/Foo.swift"),
-                from: URL(fileURLWithPath: "/tmp/repo")
+                from: URL(fileURLWithPath: "/tmp/repo"), expectingContainment: false
             ) == "/elsewhere/tmp/repo/Sources/CoreDesign/Foo.swift"
         )
 
         // 形态五：`url == root` ⇒ 没有「根内相对路径」，原样返回（与替换版行为一致）。
         #expect(
             GuardScanRoots.relativePath(
-                URL(fileURLWithPath: "/tmp/repo"), from: URL(fileURLWithPath: "/tmp/repo")
+                URL(fileURLWithPath: "/tmp/repo"), from: URL(fileURLWithPath: "/tmp/repo"),
+                expectingContainment: false
             ) == "/tmp/repo"
         )
+
+        // 形态六：**分量比较 vs 串比较**（`#313` 终审 C-2）。根名是文件路径某一段的
+        // **前缀**（`Repo` vs `RepoX`）⇒ 分量比较判「不在根内」、原样返回绝对路径；
+        // 把 `relative(_:under:)` 退化成串前缀比较则会切在分量中间、吐出 `S/Foo.swift`。
+        // ⚠️ 这一格正是 `relative(_:under:)` 存在的**全部理由**，此前无判据覆盖。
+        #expect(
+            GuardScanRoots.relativePath(
+                URL(fileURLWithPath: "/Users/e/RepoX/S/Foo.swift"),
+                from: URL(fileURLWithPath: "/Users/e/Repo"), expectingContainment: false
+            ) == "/Users/e/RepoX/S/Foo.swift"
+        )
+
+        // 形态七：`canonicalComponents` 的 `count >= 3` 下界（`#313` 终审 C-3）。
+        // 根就是 `/private` 本身：抹掉领头分量会把它变成 `["/"]`，于是**任何**绝对路径
+        // 都成了「根内路径」。放松成 `count >= 2` ⇒ 这里会得到 `Users/somebody/y.swift`。
+        #expect(
+            GuardScanRoots.relativePath(
+                URL(fileURLWithPath: "/Users/somebody/y.swift"),
+                from: URL(fileURLWithPath: "/private"), expectingContainment: false
+            ) == "/Users/somebody/y.swift"
+        )
+
+        // 形态八：兜底那一支**默认必须记一条 issue**（`#313` 终审 C-5）。
+        // ⚠️ 与本文件里 `manifestParserRecordsNonLiteralTargetName` 那几块同一条纪律：
+        // `withKnownIssue` 在这里**是一颗牙不是消音器**——块内一条 issue 都没记录时
+        // 它会判「预期的已知问题没有发生」而红 ⇒ 这一条真的钉住了「记录发生了」。
+        // 把 `Issue.record` 那一支删掉（退回静默 `return url.path`）⇒ 本块当场红。
+        withKnownIssue("兜底会记录：这里故意传一个不在根下的 url，期望恰好记下一条") {
+            _ = GuardScanRoots.relativePath(
+                URL(fileURLWithPath: "/elsewhere/Foo.swift"),
+                from: URL(fileURLWithPath: "/tmp/repo")
+            )
+        }
+    }
+
+    // MARK: - 枚举器会解析扫描根祖先里的符号链接（`#311` 修法的地基 / `#313` 终审 C-4）
+
+    /// ⚠️ **整套 `#311` 修法建立在一条 Foundation 行为上，而此前没有任何判据钉住它**：
+    /// `FileManager.enumerator(at:)` **会**解析根路径**祖先分量**里的符号链接——传进去一个
+    /// 未解析的根，吐出来的却是解析后的路径。`#311` 的分叉就是这么来的。
+    /// 哪天 Foundation 改掉这个行为，`relativePathIgnoresPrivatePrefixMismatch` 那八条
+    /// **纯合成**形态会全绿（它们根本不碰枚举器），而真实扫描在符号链接 checkout 下会
+    /// 重新静默失效 ⇒ 必须有一条**真实 fixture** 判据盯着这条前提本身。
+    ///
+    /// ⚠️ **本条同时是慢路径（`canonicalComponents`）的唯一真实用例**：
+    /// `/private` 那一味分叉（`/tmp` → `/private/tmp`）快路径自己就归一掉了
+    ///（`standardizedFileURL` 会做，见 `GuardScanRoots.relativePath(_:from:)` 的文档）；
+    /// 而**祖先分量是普通符号链接**时快路径给 `nil`，只有慢路径能归正（实测）。
+    /// ⇒ 「把慢路径删了也没人红」是**错的**，本条会红。
+    @Test("`FileManager.enumerator` 会解析根祖先里的符号链接，`relativePath` 必须归一回去（#311）")
+    func enumeratorResolvesSymlinksInScanRootAncestor() throws {
+        let fixture = try SymlinkedScanRootFixture.make(
+            rootName: "Root", files: ["Sub/A.swift": "// fixture\n"]
+        )
+        defer { fixture.destroy() }
+
+        let walker = try #require(
+            FileManager.default.enumerator(at: fixture.root, includingPropertiesForKeys: nil),
+            "无法枚举 fixture 根 —— 判据无法工作，这不是「零违规」"
+        )
+        var swiftFiles: [URL] = []
+        for case let url as URL in walker where url.pathExtension == "swift" { swiftFiles.append(url) }
+        let file = try #require(swiftFiles.first, "fixture 里的 .swift 没被枚举出来")
+
+        // ① 枚举器**确实**解析了根祖先里的符号链接——这正是 `#311` 分叉的来源。
+        //    ⚠️ 这一条是**前提自证**：它绿了，下面那条才算真的在分叉上做的断言。
+        #expect(
+            !file.path.hasPrefix(fixture.root.path),
+            """
+            枚举器不再解析根祖先里的符号链接（根 \(fixture.root.path)，枚举得 \(file.path)）
+            —— `#311` 修法据以成立的前提变了，`relativePath(_:from:)` 的归一逻辑需要重新评估。
+            """
+        )
+        #expect(
+            file.path.hasSuffix("/\(SymlinkedScanRootFixture.realDirectoryName)/Root/Sub/A.swift"),
+            "枚举产出没走解析后的实体目录：\(file.path)"
+        )
+
+        // ② 分叉确实存在的前提下，根内相对路径仍必须干净。
+        //    串替换版在这里把整条绝对路径原样当成相对路径。
+        #expect(
+            GuardScanRoots.relativePath(file, from: fixture.root) == "Sub/A.swift",
+            "根内相对路径没被归一：\(GuardScanRoots.relativePath(file, from: fixture.root))"
+        )
+    }
+
+}
+
+// MARK: - `#311` 复现用的符号链接扫描根 fixture（`#313` 终审 C-1 / C-4 共用）
+
+/// 造一棵**根的祖先分量是符号链接**的源码树，用来复现 `#311` 的路径分叉。
+///
+/// ⚠️ **不直接依赖 `/private`**（`#313` 终审后改的）：`/tmp` → `/private/tmp`、
+/// `/var` → `/private/var` 这两条只在 macOS 上成立。iOS Simulator 的
+/// `NSTemporaryDirectory()` 落在 `…/CoreSimulator/Devices/<id>/data/tmp/`，
+/// **不带 `/private`**（实测：`xcodebuild` iOS 腿上原版判据当场红在
+/// `file.path.hasPrefix("/private/")` 那一句）⇒ 拿 `/private` 写的 fixture 在 iOS 腿上
+/// 会静默退化成「两端一致、构造不出分叉 ⇒ 恒绿」。自己造一条符号链接，两条腿都成立。
+///
+/// ⚠️ **符号链接必须落在根的祖先分量上，不能是根自己的末段**（实测）：
+/// 给 `FileManager.enumerator(at:)` 传一个**末段就是符号链接**的目录时它**一条都不产出**
+///（同一路径上 `contentsOfDirectory(atPath:)` 照常返回内容）——那是「零命中 ⇒ 零违规 ⇒ 绿」
+/// 的经典假绿形态。祖先分量是符号链接时才会照常枚举，并把路径按**解析后**的形态吐出来。
+///
+/// 布局：
+///
+///     <tmp>/<uuid>/real/<rootName>/<相对路径…>
+///     <tmp>/<uuid>/link -> <tmp>/<uuid>/real
+///     根 = <tmp>/<uuid>/link/<rootName>          （末段是真目录）
+///     枚举产出 = <tmp>/<uuid>/real/<rootName>/…  （macOS 上还会多带 `/private` 前缀）
+nonisolated struct SymlinkedScanRootFixture {
+
+    /// 实体目录名——判据要断言「枚举产出走的是解析后的那一支」，需要这个名字。
+    static let realDirectoryName = "real"
+    /// 符号链接名。
+    static let linkDirectoryName = "link"
+
+    /// 整棵 fixture 的容器，`destroy()` 删的就是它。
+    let base: URL
+    /// 交给扫描器的**未解析**根（祖先里带符号链接）。
+    let root: URL
+
+    /// - Parameters:
+    ///   - rootName: 扫描根的目录名。`scanComponentJudgeInputs(root:)` 的台账键前缀取的
+    ///     就是它（`root.lastPathComponent`），判据要能控制它才能写出期望值。
+    ///   - files: 根内相对路径 → 文件内容。
+    static func make(rootName: String, files: [String: String]) throws -> Self {
+        let fileManager = FileManager.default
+        let base = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("cd311-symlinked-root-\(UUID().uuidString)")
+        let real = base.appendingPathComponent(Self.realDirectoryName).appendingPathComponent(rootName)
+        for (relativePath, contents) in files {
+            let destination = real.appendingPathComponent(relativePath)
+            try fileManager.createDirectory(
+                at: destination.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+            try Data(contents.utf8).write(to: destination)
+        }
+        try fileManager.createSymbolicLink(
+            at: base.appendingPathComponent(Self.linkDirectoryName),
+            withDestinationURL: base.appendingPathComponent(Self.realDirectoryName)
+        )
+        return Self(
+            base: base,
+            root: base.appendingPathComponent(Self.linkDirectoryName).appendingPathComponent(rootName)
+        )
+    }
+
+    func destroy() {
+        try? FileManager.default.removeItem(at: self.base)
     }
 }

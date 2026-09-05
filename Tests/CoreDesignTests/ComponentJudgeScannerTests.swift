@@ -390,3 +390,42 @@ struct ViewModifierStyleEnumWiringTests {
         #expect(hosts == ["Widget"], "init 通路的宿主不该变（应为类型名）：\(hosts)")
     }
 }
+
+// MARK: - 扫描器台账键对符号链接分叉的免疫（`#311` / `#313` 终审 C-1）
+
+/// ⚠️ `scanComponentJudgeInputs(root:)` 里那一处
+/// `GuardScanRoots.relativePath(_:from:)` 在 `#313` 终审前**零判据覆盖**：
+/// 只把它单独回退成 `url.path.replacingOccurrences(of: root.path + "/", with: "")`，
+/// `/Users` checkout 下 `swift test` **全绿**（实测）。唯一沾边的间接守卫
+/// `NativeProtocolPurityGuard.nativeProtocolComponentsAreFreeOfCustomStyleProtocols`
+/// 走的是**真实扫描根** ⇒ 正常 checkout 下它恒绿，指望不上。
+///
+/// ⇒ 本 suite 以 `SymlinkedScanRootFixture` 造的**真实**源码树为输入：根的祖先分量是
+/// 符号链接，而 `FileManager.enumerator(at:)` 会解析它 ⇒ **在任何机器、任何 checkout
+/// 位置、macOS 与 iOS 两条腿上都能复现分叉**，与仓库放哪儿无关。
+/// ⚠️ 早一版这里靠 `NSTemporaryDirectory()` 自带的 `/var` → `/private/var` 符号链接，
+/// 那在 iOS Simulator 上不成立（实测），是一条会静默恒绿的写法——理由见该 fixture 的文档。
+@Suite("扫描器台账键对符号链接分叉的免疫")
+struct ComponentJudgeScannerPathKeyTests {
+
+    @Test("台账键的根内相对路径段不被符号链接分叉污染（#311）")
+    func componentJudgeKeysAreImmuneToSymlinkDivergence() throws {
+        let fixture = try SymlinkedScanRootFixture.make(
+            rootName: GuardScanRoots.primaryTargetName,
+            files: ["Shape/Cd311KeyProbe.swift": "public struct Cd311KeyProbe {}\n"]
+        )
+        defer { fixture.destroy() }
+
+        let scan = try scanComponentJudgeInputs(root: fixture.root)
+        let expected = GuardScanRoots.primaryTargetName + "/Shape/Cd311KeyProbe.swift"
+        #expect(
+            scan.typeDeclFiles["Cd311KeyProbe"] == [expected],
+            """
+            台账键被污染：\(scan.typeDeclFiles["Cd311KeyProbe"] ?? [])，期望 [\(expected)]。
+            串替换版在这里给的是一整条绝对路径（前缀对不上就不替换），
+            `/private` 那一味分叉下则给 `<根目录名>//privateShape/…`
+            —— J-3 的组件作用域靠这串做集合相交，污染后作用域整片对不上。
+            """
+        )
+    }
+}

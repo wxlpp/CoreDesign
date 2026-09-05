@@ -406,11 +406,27 @@ func scanComponentJudgeInputs(
 /// `copiedTreeReproducesBaseline` 的「副本 == 真实源码」就不再成立。根目录名两边一致。
 /// ⚠️ **根内相对路径那一段必须走 `GuardScanRoots.relativePath(_:from:)`，不得自己拼串**
 ///（`#311`）：这里原来是 `url.path.replacingOccurrences(of: root.path + "/", with: "")`，
-/// 与 `GuardScanRoots.relativePath` 同一份缺陷 —— `#filePath` 与 `FileManager` 枚举对
-/// `/private` 前缀不一致时，`replacingOccurrences` 会在串中间挖掉一段，键被污染成
-/// `"CoreDesign//privateComponents/ProgressIndicator/ProgressIndicator.swift"`（实测）。
-/// 这一处**同样吃 `NSTemporaryDirectory()`**（`ComponentJudgeMutationTests` 的副本树落在
-/// `/var/folders/…`，而 `/var` 也是 `/private/var` 的符号链接）⇒ 两个来源都要归一。
+/// 与 `GuardScanRoots.relativePath` 同一份缺陷 —— 根与枚举结果对 `/private` 前缀不一致时，
+/// `replacingOccurrences` 会在串中间挖掉一段，键被污染。
+///
+/// ⚠️ **分叉有两个彼此独立的来源，别写成一段**（`#313` 终审 C-7 拆开；原文把第 1 条的
+/// 实测串接在第 2 条的理由后面，因果错位）：
+/// 1. **真实扫描根**——checkout 落在 `/tmp` 这类符号链接下时，`#filePath` 推出的根不解析
+///    `/private`、`FileManager` 枚举解析。`#311` 复现里由
+///    `NativeProtocolPurityGuard.nativeProtocolComponentsAreFreeOfCustomStyleProtocols`
+///    打印出的 `"CoreDesign//privateComponents/ProgressIndicator/ProgressIndicator.swift"`
+///    （实测）来自**这一条**——它**只在**符号链接 checkout 下出现。
+/// 2. **`NSTemporaryDirectory()` 副本根**——`ComponentJudgeMutationTests` 的副本树落在
+///    `/var/folders/…`，而 `/var` 同样是 `/private/var` 的符号链接。⚠️ 这一条
+///    **与 checkout 位置无关、在任何机器上都会发生**（覆盖面比第 1 条更广）：
+///    实测修法前该组 125 条键**全部**形如 `"CoreDesign//privateShape/StarShape.swift"`。
+///    ⚠️ 但它**行为中性**：那串只被 `ComponentJudgeRules` 的**同一次扫描内**集合相交与
+///    诊断消费，污染在相交的两侧一致；而 `copiedTreeReproducesBaseline` 比的是
+///    `bareTextKeys` / `styleProtocolNames` 这类**符号键**，根本不比文件串
+///    ⇒ 修法前后判据结论不变，改它是为了诊断可读与「不留第二份缺陷实现」。
+///    ⇒ 判据 `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
+///    钉的正是这一条（`#313` 终审 C-1：本处此前**零判据覆盖**）。
+/// ⇒ 两个来源都要归一。
 func scanComponentJudgeInputs(root: URL) throws -> ComponentJudgeScanResult {
     guard FileManager.default.fileExists(atPath: root.path) else {
         Issue.record("源码路径不存在：\(root.path) —— 判据无法工作，这不是「零违规」")

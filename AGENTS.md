@@ -244,6 +244,23 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   jq 取到的是 `null`。照 `[]` 写判据会永远判红。
 - **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
   `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
+- **checkout 落在 `/tmp` 这类符号链接下时，多条源码守卫会集体假红**（`#311`）：
+  `#filePath` 是**编译期**记下的那串路径（`xcodebuild` 腿上就是 `/tmp/…`，不解析符号
+  链接），而 `FileManager.enumerator(at:)` 是**运行期**枚举、**会**解析根里的符号链接
+  ⇒ 同一次运行里两端分叉成 `/tmp/…` 与 `/private/tmp/…`。据此推出的台账键被污染成
+  `/privateSources/…` 这类畸形串，多条判据当场红，而 `JudgementReferenceGuard` 的诊断
+  说的是「各面候选引用数全 0、绝大多数文件落在扫描面之外」——**读的人会去查扫描面配置，
+  不会想到是 checkout 位置**。
+  ⚠️ **只在 `xcodebuild` 腿现形**：`swift test` 腿上 SwiftPM 先把包根解析成
+  `/private/tmp/…` 再交给编译器，两端同为 `/private/…` 不分叉 ⇒ 这条坑上
+  macOS `swift test` 全绿是**假绿**。
+  ⇒ 处置：根内相对路径一律走 `GuardScanRoots.relativePath(_:)` /
+  `GuardScanRoots.relativePath(_:from:)`（按**路径分量**比较 + `/private` 归一），
+  **不得**自己写 `url.path.replacingOccurrences(of: root.path + "/", with: "")`
+  ——`replacingOccurrences` 不是前缀操作，前缀对不上时它会在**串中间**挖掉一段。
+  ⚠️ 另有一条**与 checkout 位置无关**的同源分叉：`NSTemporaryDirectory()` 给的是
+  `/var/folders/…`，而 `/var` 同样是 `/private/var` 的符号链接 ⇒ 凡是把源码树拷进临时
+  目录再扫的判据，在**任何机器上**都吃这一条。
 
 ### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
 
