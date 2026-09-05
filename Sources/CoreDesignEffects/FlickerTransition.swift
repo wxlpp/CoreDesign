@@ -77,7 +77,7 @@ public struct FlickerTransition: Transition {
     /// 取 `false` ⇒ 手写闸是唯一保护，文档、判据与屏幕上发生的事三者一致。
     /// 两条路的完整权衡见 `FilterTransitionSupport.swift` 的
     /// 《`TransitionProperties.hasMotion`》一节。
-    public static let properties = TransitionProperties(hasMotion: false)
+    public nonisolated static let properties = TransitionProperties(hasMotion: false)
 
     public init(cycles: Int = FlickerTransition.defaultCycles) {
         self.cycles = cycles

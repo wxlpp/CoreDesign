@@ -185,7 +185,7 @@ direction(of:) // Edge → 单位方向向量（三条位移转场共用一份 s
 > ⚠️ 这里原先写的是「都保留该默认值」——那是一句关于**别人家默认实现**的断言：
 > 当时全仓 `grep "TransitionProperties\|hasMotion"` **零命中声明**，本仓既证不了它、
 > 也拦不住有人写下 `false`（姊妹 PR #289 终审带出）。现在六条各有一行
-> `public static var properties: TransitionProperties { .init(hasMotion: true) }`，
+> `public nonisolated static var properties: TransitionProperties { .init(hasMotion: true) }`，
 > 由 `TransitionClusterTests.everyTransitionKeepsTheSystemGateOpen` 逐条钉住。
 
 ⇒ 同一件事有两道闸：系统那道在外、本仓的三元门控在内。**两道都要**——

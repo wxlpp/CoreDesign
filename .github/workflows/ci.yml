@@ -121,11 +121,24 @@ jobs:
     # 库的其余验证全都跑在启用了 defaultIsolation 的 target **内部**，
     # 结构上看不见「下游从 nonisolated 上下文能否使用公开 API」。
     # 这个 job 是唯一的下游视角，防的是公开 API 隔离契约的静默回归。
+    #
+    # ⚠️⚠️ `-Xswiftc -warnings-as-errors` **不是可省的严格度装饰**（#290）：
+    # 隔离契约的破法**大多数是 warning 而不是 error**——公开常量长在 `View` /
+    # `Transition` 上时，MainActor 隔离由 SwiftUI 的协议遵从推断而来，编译器
+    # 把「从 nonisolated 上下文读它」降级成 warning。⇒ 不带这个标志，这个 job
+    # 对**整整一类**隔离回归是空的。最直接的反证是它自己的历史：本包一度带着
+    # 5 条这样的 warning，而这个 job 一直是绿的（#290 的起因）。
+    #
+    # ⚠️ 「加了标志」不等于「它真的会响」：`selftest-warnings-as-errors.sh` 塞一个
+    # 必然产生 warning 的临时文件进 probe，断言这条命令**判红**、删掉后**判绿**
+    # ——那是本仓 AD-E 对新守卫的一贯要求（能触发红的 fixture）。
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - name: Build downstream probe
-        run: cd scripts/downstream-probe && swift build
+        run: cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors
+      - name: Self-test the warnings-as-errors gate
+        run: scripts/downstream-probe/selftest-warnings-as-errors.sh
 
   bool-ratchet:
     name: Bool exemption ratchet

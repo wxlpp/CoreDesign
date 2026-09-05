@@ -102,7 +102,7 @@ public struct FlipTransition: Transition {
     ///（那会把系统那道闸**关掉**，而本仓的降级判据**全绿**——它们量的是层 3 的三元门控）。
     /// ⇒ 显式写出来，并由 `TransitionClusterTests.everyTransitionKeepsTheSystemGateOpen`
     /// 逐条钉住。六条**都要**写，不按"这条需不需要"分两套。
-    public static var properties: TransitionProperties { .init(hasMotion: true) }
+    public nonisolated static var properties: TransitionProperties { .init(hasMotion: true) }
 
     public func body(content: Content, phase: TransitionPhase) -> some View {
         content.modifier(FlipChrome(phaseValue: TransitionCurve.value(of: phase), axis: self.axis))

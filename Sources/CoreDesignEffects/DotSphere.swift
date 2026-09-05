@@ -55,10 +55,10 @@ public struct DotSphere: View {
     ///
     /// ⚠️ `public` 且住在本类型上（同 `ParticleTransition.defaultCount` 的理由）：
     /// 它被 `public init` 当默认实参用，而 Swift 不允许默认实参引用 internal 符号。
-    public static let defaultCount: Int = 800
+    public nonisolated static let defaultCount: Int = 800
 
     /// 默认自转周期（秒 / 圈）。
-    public static let defaultRotationPeriod: Double = SphereField.rotationPeriod
+    public nonisolated static let defaultRotationPeriod: Double = SphereField.rotationPeriod
 
     private let count: Int
     private let colors: [Color]

@@ -15,8 +15,8 @@ import CoreDesignEffects
 
 ```swift
 public struct CharSphere: View {
-    public static let defaultCount: Int              // 240
-    public static let defaultRotationPeriod: Double  // 24（秒 / 圈）
+    public nonisolated static let defaultCount: Int              // 240
+    public nonisolated static let defaultRotationPeriod: Double  // 24（秒 / 圈）
     public init(_ characters: [String],
                 count: Int = CharSphere.defaultCount,
                 colors: [Color] = [],

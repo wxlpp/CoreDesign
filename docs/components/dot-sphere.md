@@ -15,8 +15,8 @@ import CoreDesignEffects
 
 ```swift
 public struct DotSphere: View {
-    public static let defaultCount: Int              // 800
-    public static let defaultRotationPeriod: Double  // 24（秒 / 圈）
+    public nonisolated static let defaultCount: Int              // 800
+    public nonisolated static let defaultRotationPeriod: Double  // 24（秒 / 圈）
     public init(count: Int = DotSphere.defaultCount,
                 colors: [Color] = [],
                 rotationPeriod: Double = DotSphere.defaultRotationPeriod)

@@ -16,7 +16,7 @@ import CoreDesignEffects
 public struct SnapshotTransition: Transition {
     public let intensity: Double
     public nonisolated static let defaultIntensity: Double   // 0.7
-    public static let properties: TransitionProperties       // hasMotion: false
+    public nonisolated static let properties: TransitionProperties       // hasMotion: false
     public init(intensity: Double = SnapshotTransition.defaultIntensity)
     public func body(content: Content, phase: TransitionPhase) -> some View
 }
@@ -69,7 +69,7 @@ SDK 原文：
 
 ⇒ 不显式声明的话，只开启「减弱动态效果」的用户**照样**丢掉这条成像效果
 ——只是丢在框架那一层，本文件一个字都看不见，而上表却写着"有意不读"。
-本类型因此写了 `public static let properties = TransitionProperties(hasMotion: false)`，
+本类型因此写了 `public nonisolated static let properties = TransitionProperties(hasMotion: false)`，
 判据 `everyTransitionOptsOutOfTheFrameworkMotionSubstitution` 直接断言那个**性质**
 （PR #289 终审 C-4）。
 

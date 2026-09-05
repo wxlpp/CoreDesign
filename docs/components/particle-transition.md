@@ -18,8 +18,8 @@ import CoreDesignEffects
 public struct ParticleTransition: Transition {
     public let count: Int
     public let colors: [Color]
-    public static let defaultCount: Int          // 18
-    public static let properties: TransitionProperties  // hasMotion: true
+    public nonisolated static let defaultCount: Int          // 18
+    public nonisolated static let properties: TransitionProperties  // hasMotion: true
     public init(count: Int = ParticleTransition.defaultCount, colors: [Color] = [])
     public func body(content: Content, phase: TransitionPhase) -> some View
 }

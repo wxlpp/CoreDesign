@@ -156,7 +156,7 @@ public struct MaskRevealTransition: Transition {
     /// 与 `TransitionPropertiesRoster`（12 条运行时取值）两条守卫接管。
     /// ⚠️ `#292` **有意不统一**三簇的声明形态（理由见那条守卫的文件头），
     /// 故下面这一行与本簇原样保留。
-    public static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
+    public nonisolated static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
 
     /// ⚠️⚠️ **本函数是六个公开静态成员通向 `MaskRevealChrome` 的唯一路径，
     /// 而它曾经完全没有判据**（终审 C-1，变异 M-A 实证）：把本函数整段改成

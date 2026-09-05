@@ -14,7 +14,7 @@ import SwiftUI
 /// **`public`**：让调用方把自定义行/内容对齐到 `SettingsRow` 的网格（图标列宽、
 /// 分隔线 inset），而不必抄魔数——这正是 SC#10「不写 CoreDesign 之外样式代码」
 /// 复刻设置页对自定义行的支撑。
-public enum SettingsRowMetrics {
+public nonisolated enum SettingsRowMetrics {
     /// iOS 设置那种圆角色块的边长。iOS 系统约 29pt,这里取 30 便于对齐。
     public static let iconSquareSize: CGFloat = 30
     /// 图标方块 ↔ 标题的水平间距。

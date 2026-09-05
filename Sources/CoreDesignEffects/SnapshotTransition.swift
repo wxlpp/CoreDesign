@@ -67,7 +67,7 @@ public struct SnapshotTransition: Transition {
     /// ⚠️⚠️ 理由逐字同 `FilmExposureTransition.properties`（终审 C-4）：协议默认值
     /// `hasMotion == true` 会让框架在 Reduce Motion 下把整条转场替换成 opacity。
     /// 判据：`FilterTransitionTests.everyTransitionOptsOutOfTheFrameworkMotionSubstitution`。
-    public static let properties = TransitionProperties(hasMotion: false)
+    public nonisolated static let properties = TransitionProperties(hasMotion: false)
 
     public init(intensity: Double = SnapshotTransition.defaultIntensity) {
         self.intensity = intensity

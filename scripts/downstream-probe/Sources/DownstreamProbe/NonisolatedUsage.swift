@@ -83,3 +83,42 @@ nonisolated func useFunctionalColors() -> [Color] {
 nonisolated func useCoreShape() -> some Shape {
     CoreShape.rounded(CoreRadius.medium)
 }
+
+// `SettingsRowMetrics` 是**布局常量命名空间**（图标列宽、分隔线 inset），
+// 它的存在理由逐字写在类型文档里：「让调用方把自定义行/内容对齐到 `SettingsRow`
+// 的网格，而不必抄魔数」——那正是调用方在**自己**的布局计算里读它，而布局计算
+// 不必然发生在主 actor 上。
+//
+// ⚠️ 它此前是 `public enum`（本包 `.defaultIsolation(MainActor.self)` ⇒ MainActor
+// 隔离），从本文件这样的 `nonisolated` 上下文读它是**硬 error**、不是 warning：
+//
+//     error: main actor-isolated static property 'iconSquareSize'
+//            can not be referenced from a nonisolated context
+//
+// 与 `#290` 那 5 条同一形态、同一根因（默认值 / 布局常量被 `defaultIsolation`
+// 卷进 MainActor），只是严重度不同——那 5 条长在 `View` / `Transition` 上，
+// 隔离由 SwiftUI 协议遵从推断而来，编译器降级成 warning；这一组的隔离直接
+// 来自 `defaultIsolation`，是 error。⇒ 修法相同：`public nonisolated enum`。
+nonisolated func useSettingsRowMetrics() -> [CGFloat] {
+    [
+        SettingsRowMetrics.iconSquareSize,
+        SettingsRowMetrics.iconTitleGap,
+        SettingsRowMetrics.horizontalPadding,
+        SettingsRowMetrics.iconCornerRadius,
+        SettingsRowMetrics.iconAlignedDividerInset,
+        SettingsRowMetrics.textAlignedDividerInset,
+    ]
+}
+
+// ⚠️ **`SidebarTextStyle` 与 `BottomInputBarDefaults` 有意不在本文件**，理由与
+// `CoreElevation.spec(for:)` 那条逐字同源，只是上游不同（#290 实测）：
+// · `SidebarTextStyle.primary/secondary/tertiary` 的初始化表达式是
+//   `Color.contentPrimary` / `.contentMuted` / `.contentSubtle`——第 3 层语义色是
+//   `public extension Color` 上的**计算** `static var`，在 `defaultIsolation` 下
+//   是 MainActor 隔离的（`static let` 才会按 SE-0434 隐式 `nonisolated`）。
+//   给这个 enum 标 `nonisolated` ⇒ `error: main actor-isolated default value in a
+//   nonisolated context`。要解开得先让整个色彩层 `nonisolated`，那是另一件事。
+// · `BottomInputBarDefaults.placeholder` 走 `String(localized:bundle: .module)`,
+//   而 `Bundle.module` 的访问器由 SwiftPM 生成在本 target 内、随 `defaultIsolation`
+//   成为 MainActor 隔离 ⇒ `error: main actor-isolated static property 'module'
+//   can not be referenced from a nonisolated context`。同 `CoreElevation` 家族。

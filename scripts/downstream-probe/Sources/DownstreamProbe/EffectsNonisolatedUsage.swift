@@ -142,18 +142,19 @@ nonisolated func readFilterTransitionDefaults() -> (Double, Double, Double, Int)
 //              can not be referenced from a nonisolated context
 //
 // 而库自身的 `swift build` / `swift test` 全跑在被隔离的 target **内部**，全绿。
-// ⇒ 本函数是那条 warning 的**观测点**，⚠️ **不是判据**：上一版这里写「本函数就是
-// 那条警告的常驻判据（`swift build` 要求零新警告）」——**那句话是错的，照录更正**
-// （#291 第 2 轮 Imp-1）。CI 的 `downstream-probe` job（`.github/workflows/ci.yml`）
-// 跑的是 `cd scripts/downstream-probe && swift build`，**不带**
-// `-Xswiftc -warnings-as-errors`（全仓 `ci.yml` 里一处都没有）⇒ **新增 warning
-// 不会让它变红**。最直接的反证：本包**今天就带着 5 条既存 warning 而 CI 是绿的**
-// （#290）。⇒ 谁把上面这些 `nonisolated` 拿掉，probe 多一条 warning、CI 照样绿；
-// 今天这件事只能靠人读 build 输出。
+// ⇒ 本函数是那条 warning 的**常驻判据**。⚠️ **这句话曾一度为假，历程照录**：
+// 更早的一版写「本函数就是那条警告的常驻判据（`swift build` 要求零新警告）」，
+// 经 #291 第 2 轮 Imp-1 查实为假后**降级**成「观测点，不是判据」——因为当时
+// CI 的 `downstream-probe` job 跑的是不带 `-Xswiftc -warnings-as-errors` 的
+// `swift build`，最直接的反证就是本包**当时带着 5 条既存 warning 而 CI 是绿的**
+// （#290）。
 //
-// ⚠️ 把它做实的动作是给那一步加 `-Xswiftc -warnings-as-errors`，但**今天做不了**：
-// 那 5 条既存 warning 会让 CI 立刻变红，而它们属 #290、不在 #268 范围
-// ⇒ **那是 #290 的收尾判据**；在它落地之前，本函数只是观测点。
+// ⇒ **#290 把那 5 条消掉、并给 `.github/workflows/ci.yml` 的 probe 那步加上了
+// `-Xswiftc -warnings-as-errors`**，这句话才重新为真：今天谁把上面这些
+// `nonisolated` 拿掉，probe 多一条 warning ⇒ 那一步**判红**。
+// 加严真的会响这件事本身也有 fixture 守着，见
+// `scripts/downstream-probe/selftest-warnings-as-errors.sh`（AD-E：新守卫必须
+// 带一个能触发红的 fixture，否则不知道它真的会响）。
 //
 // ⚠️ 六种转场的十二个入口点是**转场形态**，在 `PublicVisibility.swift`
 // （`@MainActor func consumeMaskRevealTransitions()`）——分流理由见本文件头的表。
@@ -187,4 +188,43 @@ nonisolated func readMicroInteractionStrengths() -> [Bool] {
 
 nonisolated func readSpinDirections() -> [Bool] {
     SpinDirection.allCases.map { $0 == .clockwise }
+}
+
+// MARK: - #290 补齐的默认值常量（全仓扫描的其余命中）
+
+// ⚠️ `OrbitingLogos.defaultRotationPeriod` 与上面 `#254` 那四个同族，只是**长在
+// 泛型 View 上** ⇒ 读它必须写出三个具体的泛型实参（同 `ChartsNonisolatedUsage.swift`
+// 里 `NetworkGraph<ChartsProbeNode>.recommendedNodeLimit` 那条注释记的形态）。
+// 若哪天它被挪到一个非泛型的命名空间上，这行会红，那是**预期的**。
+nonisolated func readOrbitingLogosDefaultRotationPeriod() -> Double {
+    OrbitingLogos<[CrossPlatformProbeItem], Text, Text>.defaultRotationPeriod
+}
+
+// ⚠️ 12 条转场的 `properties` 也是**值类型那一档**：`TransitionProperties` 是纯值，
+// 而 `hasMotion` 正是调用方在自己的降级判断里会读的东西（"这条转场含运动吗，
+// 我要不要在 Reduce Motion 下换一条"）——那个判断不该被逼上主线程。
+//
+// ⚠️ 它们此前的 MainActor 隔离**不来自 `defaultIsolation` 直接命中**，而是从
+// SwiftUI 的 `Transition` 协议遵从**推断**而来 ⇒ 编译器把诊断降级成 warning
+// （与 `#254` / `#253` 那 5 条同一档；`SettingsRowMetrics` 那一组是 error）。
+// 标 `nonisolated` 后见证与协议要求（`static var properties { get }`，nonisolated）
+// 严格对齐，不再依赖 preconcurrency 降级。
+//
+// ⚠️ 12 条**逐条**登记、不抽样：`TransitionPropertiesGuard` 守的是"有没有声明"，
+// 守不到"声明能不能从 nonisolated 读"——那是本 probe 这一侧。
+nonisolated func readTransitionPropertiesHasMotion() -> [Bool] {
+    [
+        BlurTransition.properties.hasMotion,
+        BoingTransition.properties.hasMotion,
+        FilmExposureTransition.properties.hasMotion,
+        FlickerTransition.properties.hasMotion,
+        FlipTransition.properties.hasMotion,
+        MaskRevealTransition.properties.hasMotion,
+        ParticleTransition.properties.hasMotion,
+        PolarMoveTransition.properties.hasMotion,
+        Rotate3DTransition.properties.hasMotion,
+        SkidTransition.properties.hasMotion,
+        SnapshotTransition.properties.hasMotion,
+        SwooshTransition.properties.hasMotion,
+    ]
 }
