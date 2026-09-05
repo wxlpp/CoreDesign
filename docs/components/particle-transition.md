@@ -139,11 +139,18 @@ public extension Transition where Self == ParticleTransition {
 
 | 闸 | 谁 | 何时生效 |
 |---|---|---|
-| **第一道（真正生效的那道）** | SwiftUI，看 `ParticleTransition.properties.hasMotion` | 本类型声明 `hasMotion == true` ⇒ **RM 打开时框架直接把整条转场换成 `.opacity`**，`ParticleTransition.body` 根本不被调用 |
+| **第一道（文档语义上先触发的那道）** | SwiftUI，看 `ParticleTransition.properties.hasMotion` | 本类型声明 `hasMotion == true` ⇒ 按文档语义 **RM 打开时框架把整条转场换成 `.opacity`**，于是**预期** `ParticleTransition.body` 不被求值（**未实测**，见下） |
 | 第二道（兜底） | `ParticleTransitionChrome` 的 `guard !isReduced` | 只在框架**没有**替换时才轮得到 |
 
-⇒ 经 `.transition(.particle)` 这条正常路径，`ParticleTransitionChrome` 的
-`reduceMotion` **永远读不到 `true`**。
+⇒ 按该语义**预期**：经 `.transition(.particle)` 这条正常路径，
+`ParticleTransitionChrome` 的 `reduceMotion` 读不到 `true`。
+
+⚠️⚠️ **这是从文档语义推出的预期，不是实测结论**：Apple 原文只承诺
+「that transition **will be replaced by opacity**」，**没有**承诺被替换掉的那条转场的
+`body` 不被求值；框架替换的**时机与范围**同样没有文档承诺（下一节逐字记着）；
+而本仓**没有任何判据**求值过这句话（全仓没有"RM 打开后观察转场实际行为"的判据，
+`TransitionPropertiesRoster` 量的是 `properties` 这个静态值，不是运行时行为）。
+⇒ 承重的结论只有一条：**内层那道 `guard` 不再是可以指望的裁决点**。
 
 ### `hasMotion` 取 `true`：裁定、后果与代价
 

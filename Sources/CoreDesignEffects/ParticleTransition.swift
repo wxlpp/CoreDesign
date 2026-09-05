@@ -45,11 +45,20 @@ import SwiftUI
 ///
 /// | 闸 | 谁 | 何时生效 |
 /// |---|---|---|
-/// | **第一道（真正生效的那道）** | SwiftUI，看 `properties.hasMotion` | 本类型声明 `hasMotion == true` ⇒ **RM 打开时框架直接把整条转场换成 `.opacity`**，本类型的 `body` 根本不被调用 |
+/// | **第一道（文档语义上先触发的那道）** | SwiftUI，看 `properties.hasMotion` | 本类型声明 `hasMotion == true` ⇒ 按文档语义 **RM 打开时框架把整条转场换成 `.opacity`**，于是**预期**本类型的 `body` 不被求值（**未实测**，见下） |
 /// | 第二道（兜底） | `ParticleTransitionChrome` 的 `guard !isReduced` | 只在框架**没有**替换时才轮得到 |
 ///
-/// ⇒ 经 `.transition(.particle)` 这条正常路径，`ParticleTransitionChrome` 的
-/// `reduceMotion` **永远读不到 `true`**。
+/// ⇒ 按该语义**预期**：经 `.transition(.particle)` 这条正常路径，
+/// `ParticleTransitionChrome` 的 `reduceMotion` 读不到 `true`。
+///
+/// ⚠️⚠️ **这是从文档语义推出的预期，不是实测结论，别把它当成已验证的事实**：
+/// · Apple 原文只承诺「that transition **will be replaced by opacity**」，
+///   **没有**承诺被替换掉的那条转场的 `body` 不被求值；
+/// · 框架替换的**时机与范围**同样没有文档承诺（下一节逐字记着这一条）；
+/// · 本仓**没有任何判据**求值过这句话——全仓没有"RM 打开后观察转场实际行为"的判据，
+///   `TransitionPropertiesRoster` 量的是 `properties` 这个静态值，不是运行时行为。
+/// ⇒ 承重的结论只有一条：**内层那道 `guard` 不再是可以指望的裁决点**。
+/// "内层永远不被求值"是**推论**，按推论办事（保留内层闸）而不是按它下断言。
 ///
 /// ## ⚠️ 内层 RM 路径：**显式裁定为保留**，理由与代价照录
 ///
@@ -96,9 +105,16 @@ public struct ParticleTransition: Transition {
     ///
     /// **为什么取 `true`**（本条是 `#292` 对本类型的独立裁定，不是照抄别的簇）：
     /// 1. **它是事实。** 本转场未降级的形态里，一圈粒子真的沿半径飞出去
-    ///    （`ParticleBurst.offset(…)` ⇒ `.offset(x:y:)`），内容本身还在 `scaleEffect` 上
-    ///    缩放——**几何位置在动**，不是纯成像滤镜。`properties` 是 `static`、拿不到环境，
-    ///    它能描述的只有**未降级形态**，而那个形态确实含运动。
+    ///    （`ParticleBurst.location(of:progress:in:)` 的 `travel = reach * spread * progress`
+    ///    把每颗粒子的圆心沿半径外移，`Canvas` 逐帧按新圆心画 `Path(ellipseIn:)`），
+    ///    内容本身还在 `.scaleEffect(ParticleBurst.contentScale(phase:))` 上缩放
+    ///    ——**几何位置在动**，不是纯成像滤镜。
+    ///    ⚠️ 粒子的位移**不经任何 `.offset` modifier**：它是 `Canvas` 里的绘制坐标。
+    ///    那个函数**有意**叫 `location` 而不是 `position`（避开
+    ///    `MicroInteractionReduceMotionGuard.motionCalls` 的关键字窗口），理由写在
+    ///    `ParticleBurst.location(of:progress:in:)` 的文档注释里——引用它时照用这个名字。
+    ///    `properties` 是 `static`、拿不到环境，它能描述的只有**未降级形态**，
+    ///    而那个形态确实含运动。
     ///    取 `false` 是对系统撒谎，且 `TransitionProperties` 的文档明写这些属性
     ///    「决定转场如何与**包括辅助功能在内**的系统特性交互」——今天只有 RM 一项，
     ///    骗过这一项等于把将来所有基于它的适配一并关掉。

@@ -64,26 +64,82 @@ import Testing
 //    所以实际上由编译器兜住。
 // 4. **`typealias` 别名**：`typealias T2 = Transition` 之后 `struct X: T2` 采不到。
 //    没有语义解析就堵不住这条；本仓没有这种写法，登记在此。
-// 5. **`everyTransitionHasARuntimeExpectation` 只查"存在一条提到该类型的断言"**，
-//    查不了那条断言断的是不是对的值、更查不了它有没有真的跑到。取值的正确性归
-//    `TransitionPropertiesRoster`（12 条运行时 `#expect`），本守卫只保证**没有漏网的类型**。
+// 5. **`everyTransitionHasARuntimeExpectation` 只查"有一条**断言**读了该类型的
+//    `properties.hasMotion`"**，查不了那条断言断的是不是对的值、更查不了它有没有真的
+//    跑到。取值的正确性归 `TransitionPropertiesRoster`（12 条运行时 `#expect`），
+//    本守卫只保证**没有漏网的类型**。
+//    ⚠️ 上一版这条是**纯文本** `corpus.contains(…)`，注释 / doc comment / 字符串一律算数
+//    ——实证过：删掉整个 `TransitionPropertiesRosterTests.swift`（花名册功能整个不工作），
+//    本条靠 `MaskRevealTests.swift` 与 `ReduceMotionGuard.swift` 里的**两行注释**保持绿。
+//    终审 I-2 起改成 AST 判定（`#expect`/`#require` 宏展开 + `.properties.hasMotion`
+//    成员访问链），`runtimeExpectationScannerIsStructuralNotTextual` 逐形态钉住。
+// 6. **精化协议**（`protocol P: Transition {}` + `struct X: P {}`）：终审 I-3 之后**已堵**
+//    ——协议也进射程，先在协议名上求「等价于 `Transition`」的传递闭包再判 conformer
+//    （`refiningProtocolConformerIsCaught` 钉住）。⚠️ 但只对**本仓自己声明的**协议成立：
+//    经一个**外部模块**（SwiftUI / 别的包）里精化 `Transition` 的协议 conform，仍然采不到
+//    ——那需要语义解析。本仓没有这种写法，登记在此。
+// 7. **`#if` 里的 `properties` 算"声明了"，不判条件真假**（终审 S-1）：`#if os(Android)`
+//    里的声明也会被算数。这一侧是 fail-open 的；反方向（把 `#if` 里的真声明误判成漏声明）
+//    是终审 S-1 实证过的**假红**，已修。
+// 8. **`everyTransitionHasARuntimeExpectation` 的语料根写死在 `Tests/CoreDesignEffectsTests`**
+//    （`scanAllRoots()` 却覆盖三个 `Sources` 根）。`swift package describe` 实测该 test target
+//    只依赖 `CoreDesignEffects` ⇒ 将来 `CoreDesignCharts` / `CoreDesign` 里落一条 `Transition`，
+//    本条会红而**在原地修不了**（那个 target import 不到 Charts），只能连判据一起重构成
+//    "按 target 归属挑语料根"。方向是 fail-closed（红而不是绿），不紧急，登记在此。
 @Suite("Transition 必须显式声明 properties（#292）")
 struct TransitionPropertiesGuard {
 
     // MARK: - 扫描结果
 
     struct Scan: Equatable {
-        /// 继承子句里出现 `Transition` 的类型名。
-        var conformers: Set<String> = []
-        /// 声明了 `static`/`class` 的 `properties` 变量的类型名（含 extension 里声明的）。
+        /// 每个**名字**的继承子句里出现过的名字（跨声明 / 跨 extension / 跨文件聚合）。
+        ///
+        /// ⚠️ 存的是**原始继承关系**而不是「是不是 conformer」的结论：`Transition` 可以经
+        /// 一层**精化协议**（`protocol P: Transition {}` + `struct X: P {}`）间接被 conform，
+        /// 而那个协议完全可能声明在另一个文件里 ⇒ 结论只能在**全仓合并之后**算
+        ///（`conformers` 是计算属性，`+` 只做并集）。
+        var inherits: [String: Set<String>] = [:]
+        /// 被 `protocol` 关键字声明的名字。它们**自己**不是 conformer，
+        /// 但它们可以把 `Transition` 传递给别人。
+        var protocolNames: Set<String> = []
+        /// 声明了 `static`/`class` 的 `properties` 变量的名字（含 extension 里声明的）。
         var declaresProperties: Set<String> = []
 
+        /// 直接或经**精化协议**间接 conform `Transition` 的**具体类型**名。
+        ///
+        /// ⚠️ 两步：①先在协议名上求「等价于 `Transition`」的**传递闭包**
+        ///（`protocol A: Transition`、`protocol B: A`、… 全部算数）；
+        /// ②继承子句里出现过闭包中任一名字的**非协议**名即 conformer。
+        var conformers: Set<String> {
+            var transitionLike: Set<String> = ["Transition"]
+            var changed = true
+            while changed {
+                changed = false
+                for name in self.protocolNames where !transitionLike.contains(name) {
+                    if !(self.inherits[name] ?? []).isDisjoint(with: transitionLike) {
+                        transitionLike.insert(name)
+                        changed = true
+                    }
+                }
+            }
+            return Set(self.inherits.filter { name, parents in
+                !self.protocolNames.contains(name) && !parents.isDisjoint(with: transitionLike)
+            }.keys)
+        }
+
         /// conform 了却没声明 ⇒ 继承 SDK 默认值 `hasMotion == true`。
+        ///
+        /// ⚠️ **协议扩展里的默认实现不算**：`extension P { static var properties … }` 记在
+        /// `P` 名下，而 `P` 不在 `conformers` 里 ⇒ 用精化协议把取值藏进默认实现的
+        /// `struct X: P {}` 仍然是 offender（`refiningProtocolConformerIsCaught` 钉住）。
         var offenders: Set<String> { self.conformers.subtracting(self.declaresProperties) }
 
         static func + (lhs: Scan, rhs: Scan) -> Scan {
-            Scan(conformers: lhs.conformers.union(rhs.conformers),
-                 declaresProperties: lhs.declaresProperties.union(rhs.declaresProperties))
+            var inherits = lhs.inherits
+            for (name, parents) in rhs.inherits { inherits[name, default: []].formUnion(parents) }
+            return Scan(inherits: inherits,
+                        protocolNames: lhs.protocolNames.union(rhs.protocolNames),
+                        declaresProperties: lhs.declaresProperties.union(rhs.declaresProperties))
         }
     }
 
@@ -113,7 +169,7 @@ struct TransitionPropertiesGuard {
         let tree = SwiftParser.Parser.parse(source: source)
         let collector = TransitionConformanceCollector()
         collector.walk(tree)
-        return Scan(conformers: collector.conformers, declaresProperties: collector.declaresProperties)
+        return collector.scan
     }
 
     static func scan(root: URL) throws -> Scan {
@@ -129,8 +185,7 @@ struct TransitionPropertiesGuard {
             }
             let collector = TransitionConformanceCollector()
             collector.walk(tree)
-            out = out + Scan(conformers: collector.conformers,
-                             declaresProperties: collector.declaresProperties)
+            out = out + collector.scan
         }
         return out
     }
@@ -145,6 +200,40 @@ struct TransitionPropertiesGuard {
             out = out + (try Self.scan(root: root.url))
         }
         return out
+    }
+
+    // MARK: - 运行时判据扫描器（同样是结构判定，不是文本匹配）
+
+    /// 语料里**写在 `#expect` / `#require` 里**的 `<类型>.properties.hasMotion` 读取，
+    /// 返回那些 `<类型>` 的名字。
+    ///
+    /// ## ⚠️⚠️ 为什么这里也必须按结构判（终审 I-2）
+    ///
+    /// 上一版是 `corpus.contains("\(name).properties.hasMotion")` ——**纯文本**：
+    /// 注释、doc comment、字符串字面量一律算数。实证过的失效形态：
+    /// 把整个 `TransitionPropertiesRosterTests.swift` 删掉（= 花名册功能整个不工作），
+    /// 本条判据**照样绿**——因为 `MaskRevealTests.swift` 与 `ReduceMotionGuard.swift`
+    /// 各有一行**注释**恰好写着 `ParticleTransition.properties.hasMotion == true`。
+    /// 那正是本文件头声讨、并用 fixture ⑧ 给**声明扫描器**钉住的同一种失效形态，
+    /// 而它当时在自己这条判据上没做。
+    ///
+    /// ⇒ 现在两步都按 AST：①祖先里必须有一个 `#expect` / `#require` 宏展开；
+    /// ②里面必须有一条 `<something>.properties.hasMotion` 的成员访问链。
+    /// 注释与字符串字面量在 AST 里分别是 trivia 与 `StringLiteralExprSyntax` 的片段，
+    /// 两者都到不了 `MemberAccessExprSyntax` ⇒ 天然不算数
+    ///（`runtimeExpectationScannerIsStructuralNotTextual` 逐形态钉住）。
+    ///
+    /// ⚠️ 射程：**只认宏里的读取**。写在普通语句里的 `let x = Foo.properties.hasMotion`
+    /// 不算——那不是断言，把值改掉它也不会红。
+    static func assertedTypes(tree: SourceFileSyntax) -> Set<String> {
+        let collector = RuntimeExpectationCollector()
+        collector.walk(tree)
+        return collector.asserted
+    }
+
+    /// fixture 入口：直接喂字符串。
+    static func assertedTypes(source: String) -> Set<String> {
+        Self.assertedTypes(tree: SwiftParser.Parser.parse(source: source))
     }
 
     // MARK: - 判据
@@ -193,20 +282,32 @@ struct TransitionPropertiesGuard {
         let files = GuardScanRoots.swiftFiles(in: testsRoot)
         // ⚠️ **fail-closed**：目录读不到 / 没有文件时必须判红，不能"零文件 ⇒ 零违规 ⇒ 绿"。
         #expect(!files.isEmpty, "\(testsRoot.path) 下没有任何 .swift 文件 —— 本条判据无法工作")
-        var corpus = ""
-        for url in files { corpus += try String(contentsOf: url, encoding: .utf8) }
+        var asserted: Set<String> = []
+        for url in files {
+            let source = try String(contentsOf: url, encoding: .utf8)
+            let tree = SwiftParser.Parser.parse(source: source)
+            if tree.hasError {
+                Issue.record("解析出错：\(GuardScanRoots.relativePath(url)) —— swift-syntax major 可能与工具链不配套")
+            }
+            asserted.formUnion(Self.assertedTypes(tree: tree))
+        }
 
-        let missing = scanned.filter { !corpus.contains("\($0).properties.hasMotion") }
+        // ⚠️ 非真空：采到 0 个会让下面的差集在"花名册整份消失"那枚变异下恒绿。
+        #expect(asserted.count >= 12, """
+        只在 `Tests/CoreDesignEffectsTests/` 里采到 \(asserted.count) 个
+        `#expect`/`#require` 里的 `<类型>.properties.hasMotion` 读取（应 ≥ 12）—— 疑似失效。
+        采到的是：\(asserted.sorted())
+        """)
+
+        let missing = scanned.subtracting(asserted)
         #expect(missing.isEmpty, """
         这些 `Transition` 在 `Tests/CoreDesignEffectsTests/` 里找不到任何
-        `<类型名>.properties.hasMotion` 形态的运行时判据：\(missing.sorted())
+        **写在 `#expect` / `#require` 里**的 `<类型名>.properties.hasMotion` 读取：\(missing.sorted())
         ⇒ 它们的 `hasMotion` 取值今天没有任何东西钉着，把值改掉不会有判据红。
         处置：在 `TransitionPropertiesRosterTests.swift` 的花名册里补一条。
-        ⚠️ 本条只查「存在一条提到该类型的断言」，查不了那条断言断的是不是对的值。
+        ⚠️ 本条查的是「有一条**断言**读了这个类型的 `properties.hasMotion`」，
+        查不了那条断言断的是不是对的值，也查不了它有没有真的跑到。
         """)
-        // 互锁：这条判据必须真的能红——一个不存在的类型名必须落进 `missing` 那一侧。
-        #expect(!corpus.contains("NoSuchTransitionXYZ.properties.hasMotion"),
-                "语料里居然有占位类型名 —— 上面的 `contains` 判别不作数")
     }
 
     @Test("登记表里每条 Transition 入口点的 notes 都记了框架那道闸")
@@ -331,6 +432,130 @@ struct TransitionPropertiesGuard {
         """).offenders.isEmpty, "`class var` 见证没被认出来")
     }
 
+    @Test("精化协议不是逃逸位：经 `protocol P: Transition` 间接 conform 的类型照样采得到")
+    func refiningProtocolConformerIsCaught() {
+        // ⚠️ 终审 I-3 实证过的探针：能编译、`public`、`hasMotion` 被协议扩展默认实现
+        // 悄悄设成 `false`，而上一版扫描器（只比继承子句尾名是否恰为 `Transition`，
+        // 且 `ProtocolDeclSyntax` 根本不在 visitor 的重载里）**六条判据全绿**。
+        let indirect = Self.scan(source: """
+        public protocol RefiningTransition: Transition {}
+        public extension RefiningTransition {
+            static var properties: TransitionProperties { .init(hasMotion: false) }
+        }
+        public struct ReviewProbeTransition: RefiningTransition {
+            public func body(content: Content, phase: TransitionPhase) -> some View { content }
+        }
+        """)
+        #expect(indirect.conformers == ["ReviewProbeTransition"], """
+        经精化协议间接 conform 的类型没被采到（或协议自己被误采成了 conformer）：
+        \(indirect.conformers.sorted())
+        """)
+        #expect(indirect.offenders == ["ReviewProbeTransition"], """
+        协议扩展里的默认实现被当成了该类型自己的显式声明 —— 那正是这条路径最危险的地方：
+        取值被藏进协议扩展，**没有任何地方写下它**。
+        """)
+
+        // 多跳传递闭包（`protocol B: A`，`A: Transition`）同样算数。
+        let twoHops = Self.scan(source: """
+        protocol A: Transition {}
+        protocol B: A {}
+        struct Deep: B {}
+        """)
+        #expect(twoHops.conformers == ["Deep"], "两跳精化没走到：\(twoHops.conformers.sorted())")
+
+        // ⚠️ 跨文件：协议与实现分居两个文件时，结论只能在合并之后算。
+        let split = Self.scan(source: "protocol Refining: Transition {}")
+            + Self.scan(source: "struct Elsewhere: Refining {}")
+        #expect(split.conformers == ["Elsewhere"], "跨文件的精化协议没被聚合")
+
+        // 反向：不沾 `Transition` 的协议不传染。
+        #expect(Self.scan(source: """
+        protocol Unrelated: Equatable {}
+        struct Innocent: Unrelated {}
+        """).conformers.isEmpty, "无关协议把类型误采进来了")
+    }
+
+    @Test("`#if` 包住的 properties 算数（终审 S-1：条件编译不是「没声明」）")
+    func conditionallyCompiledDeclarationCounts() {
+        // ⚠️ `#if` 在 AST 里是 `IfConfigDeclSyntax`，平铺遍历 `members.members` 会跳过它
+        // ⇒ 上一版把这份输入判成 offender（假红）。本仓 `#if canImport(UIKit)/AppKit`
+        // 用得很多，迟早撞上。
+        let gated = Self.scan(source: """
+        public struct GatedTransition: Transition {
+            #if canImport(SwiftUI)
+            public static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
+            #endif
+            public func body(content: Content, phase: TransitionPhase) -> some View { content }
+        }
+        """)
+        #expect(gated.conformers == ["GatedTransition"])
+        #expect(gated.offenders.isEmpty, "`#if` 里的声明没被认出来 —— 条件编译被误判成漏声明")
+
+        // `#else` 分支里的声明同样算数。
+        #expect(Self.scan(source: """
+        struct EitherWay: Transition {
+            #if canImport(UIKit)
+            static let properties = TransitionProperties(hasMotion: true)
+            #else
+            static let properties = TransitionProperties(hasMotion: false)
+            #endif
+        }
+        """).offenders.isEmpty, "`#else` 分支里的声明没被认出来")
+
+        // 反向：`#if` 里**只有注释**照样是漏声明（结构判定不因嵌套而退化成文本匹配）。
+        #expect(Self.scan(source: """
+        struct StillSilent: Transition {
+            #if canImport(SwiftUI)
+            // static let properties = TransitionProperties(hasMotion: true)
+            #endif
+        }
+        """).offenders == ["StillSilent"], "`#if` 里的注释被当成了真声明")
+    }
+
+    @Test("运行时判据扫描器同样按结构判：注释 / 字符串 / 非断言读取一律不算数")
+    func runtimeExpectationScannerIsStructuralNotTextual() {
+        // ① 真断言（两种真实写法：裸 Bool 与 `== false`）。
+        #expect(Self.assertedTypes(source: """
+        #expect(FlipTransition.properties.hasMotion, "note")
+        #expect(BlurTransition.properties.hasMotion == false, "note")
+        """) == ["FlipTransition", "BlurTransition"])
+
+        // ② `#require` 也算。
+        #expect(Self.assertedTypes(source: "_ = try #require(FooTransition.properties.hasMotion)")
+                == ["FooTransition"])
+
+        // ③ `Self.Probe.properties.hasMotion` 这种链取**最后一段**作类型名。
+        #expect(Self.assertedTypes(source: "#expect(Self.DefaultPropertiesProbe.properties.hasMotion)")
+                == ["DefaultPropertiesProbe"])
+
+        // ④ ⚠️⚠️ **行注释**不算数 —— 终审 I-2 逐字实证的那两行就是这个形态。
+        #expect(Self.assertedTypes(source: """
+        // ParticleTransition.properties.hasMotion   == true
+        """).isEmpty, "行注释被当成了断言")
+
+        // ⑤ ⚠️⚠️ **doc comment** 不算数（另一行实证形态）。
+        #expect(Self.assertedTypes(source: """
+        /// ParticleTransition.properties.hasMotion   == true
+        func f() {}
+        """).isEmpty, "doc comment 被当成了断言")
+
+        // ⑥ **字符串字面量**不算数（失败消息里照抄一遍不该顶一条判据）。
+        #expect(Self.assertedTypes(source: """
+        #expect(somethingElse, "ParticleTransition.properties.hasMotion 变了")
+        """).isEmpty, "字符串字面量里的类型名被当成了断言")
+
+        // ⑦ **不在宏里**的读取不算数：它不会因为取值变了而红。
+        #expect(Self.assertedTypes(source: "let x = ParticleTransition.properties.hasMotion").isEmpty,
+                "普通语句里的读取被当成了断言")
+
+        // ⑧ 反向非真空：上面几条"不算数"必须不是因为扫描器整个是瞎的。
+        #expect(Self.assertedTypes(source: "#expect(ParticleTransition.properties.hasMotion)")
+                == ["ParticleTransition"], "真断言都采不到 —— 上面 5 条否定判据不作数")
+
+        // ⑨ 只读到 `properties`、没读 `hasMotion` 不算数。
+        #expect(Self.assertedTypes(source: "#expect(ParticleTransition.properties.isSomethingElse)").isEmpty)
+    }
+
     @Test("扫描器在真实源码上非真空：花名册里的类型必须逐个被采到")
     func scannerFiresOnRealSource() throws {
         let scan = try Self.scanAllRoots()
@@ -354,10 +579,20 @@ struct TransitionPropertiesGuard {
 /// 这种拆开写法会被误判成违规。
 private nonisolated final class TransitionConformanceCollector: SyntaxVisitor {
 
-    var conformers: Set<String> = []
-    var declaresProperties: Set<String> = []
+    var scan = TransitionPropertiesGuard.Scan()
 
     init() { super.init(viewMode: .sourceAccurate) }
+
+    /// ⚠️ **协议也要采**（终审 I-3）：`protocol P: Transition {}` + `struct X: P {}` 是一条
+    /// 能编译、`public`、且可以把 `properties` 的取值藏进 `extension P` 默认实现的
+    /// **完全隐形**的绕过路径。只比继承子句尾名是否恰为 `Transition` 就采不到 `X`。
+    override func visit(_ node: ProtocolDeclSyntax) -> SyntaxVisitorContinueKind {
+        self.record(name: node.name.text,
+                    inheritance: node.inheritanceClause,
+                    members: node.memberBlock,
+                    isProtocol: true)
+        return .visitChildren
+    }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
         self.record(name: node.name.text, inheritance: node.inheritanceClause, members: node.memberBlock)
@@ -387,21 +622,26 @@ private nonisolated final class TransitionConformanceCollector: SyntaxVisitor {
         return .visitChildren
     }
 
-    private func record(name: String, inheritance: InheritanceClauseSyntax?, members: MemberBlockSyntax) {
-        if Self.inherits(from: "Transition", inheritance) { self.conformers.insert(name) }
-        if Self.declaresStaticProperties(members) { self.declaresProperties.insert(name) }
+    private func record(name: String,
+                        inheritance: InheritanceClauseSyntax?,
+                        members: MemberBlockSyntax,
+                        isProtocol: Bool = false) {
+        // ⚠️ 无论有没有继承子句都要**建一个条目**：`inherits` 的键集就是"我见过的名字"，
+        // 空集合的条目在 `conformers` 里天然落选（`isDisjoint(with:)` 恒真）。
+        var parents = self.scan.inherits[name] ?? []
+        if let inheritance {
+            // ⚠️ 比的是**标识符**而不是子串：`AnyTransition` / `TransitionPhase` 不会被误采
+            //（fixture ⑩ 钉住）。`SwiftUI.Transition` 这种模块限定形态取最后一段（fixture ⑥）。
+            for item in inheritance.inheritedTypes {
+                if let parent = Self.trailingName(of: item.type) { parents.insert(parent) }
+            }
+        }
+        self.scan.inherits[name] = parents
+        if isProtocol { self.scan.protocolNames.insert(name) }
+        if Self.declaresStaticProperties(members) { self.scan.declaresProperties.insert(name) }
     }
 
     // MARK: - 结构判别
-
-    /// 继承子句里有没有**名字恰为** `protocolName` 的条目。
-    ///
-    /// ⚠️ 比的是**标识符**而不是子串：`AnyTransition` / `TransitionPhase` 不会被误采
-    ///（fixture ⑩ 钉住）。`SwiftUI.Transition` 这种模块限定形态取最后一段（fixture ⑥）。
-    static func inherits(from protocolName: String, _ clause: InheritanceClauseSyntax?) -> Bool {
-        guard let clause else { return false }
-        return clause.inheritedTypes.contains { Self.trailingName(of: $0.type) == protocolName }
-    }
 
     /// `Foo` ⇒ `Foo`；`SwiftUI.Transition` ⇒ `Transition`；其余形态（元组 / 函数类型…）⇒ `nil`。
     static func trailingName(of type: TypeSyntax) -> String? {
@@ -415,7 +655,25 @@ private nonisolated final class TransitionConformanceCollector: SyntaxVisitor {
     /// ⚠️ `let` 与 `var` 都算（三种真实写法里两种是 `let`），计算属性与存储属性也都算
     /// ——协议要求写的是 `static var properties { get }`，`static let` 是合法见证。
     static func declaresStaticProperties(_ members: MemberBlockSyntax) -> Bool {
-        for member in members.members {
+        Self.declaresStaticProperties(members.members)
+    }
+
+    /// ⚠️ **必须递归进 `#if`**（终审 S-1）：`#if canImport(SwiftUI) … #endif` 在 AST 里是
+    /// `IfConfigDeclSyntax`，它的成员**不是** `members.members` 的元素 ⇒ 平铺遍历会
+    /// 直接跳过，把一个包在条件编译里的 `properties` 误判成"没声明"。方向虽然是
+    /// fail-closed（假红不是假绿），但本仓 `#if canImport(UIKit)/AppKit` 用得很多
+    ///（见 `CLAUDE.md`「系统色桥接」一节），迟早会撞上。
+    /// ⚠️ **任意一个分支里有就算数**（不判条件真假）：这一侧是 fail-open 的
+    ///——`#if os(Android)` 里的声明也会被算成"声明了"。登记在文件头射程一节。
+    static func declaresStaticProperties(_ items: MemberBlockItemListSyntax) -> Bool {
+        for member in items {
+            if let ifConfig = member.decl.as(IfConfigDeclSyntax.self) {
+                for clause in ifConfig.clauses {
+                    if case .decls(let nested)? = clause.elements,
+                       Self.declaresStaticProperties(nested) { return true }
+                }
+                continue
+            }
             guard let variable = member.decl.as(VariableDeclSyntax.self) else { continue }
             let isTypeLevel = variable.modifiers.contains {
                 $0.name.tokenKind == .keyword(.static) || $0.name.tokenKind == .keyword(.class)
@@ -428,5 +686,56 @@ private nonisolated final class TransitionConformanceCollector: SyntaxVisitor {
             }
         }
         return false
+    }
+}
+
+// MARK: - 运行时判据采集器 / Runtime-expectation collector
+
+/// 采集「写在 `#expect` / `#require` 里的 `<类型>.properties.hasMotion` 读取」。
+///
+/// ⚠️ 两层都必须是**语法节点**（终审 I-2）：
+/// · 外层 `MacroExpansionExprSyntax` 且宏名是 `expect` / `require` ⇒ 这是一条**断言**；
+/// · 内层 `MemberAccessExprSyntax` 链 `<base>.properties.hasMotion` ⇒ 真的读到了那个值。
+/// 注释是 trivia、失败消息是 `StringLiteralExprSyntax` 的片段，两者都产生不了
+/// `MemberAccessExprSyntax` ⇒ 上一版靠两行注释保持绿的那枚变异现在必红。
+private nonisolated final class RuntimeExpectationCollector: SyntaxVisitor {
+
+    var asserted: Set<String> = []
+
+    init() { super.init(viewMode: .sourceAccurate) }
+
+    override func visit(_ node: MacroExpansionExprSyntax) -> SyntaxVisitorContinueKind {
+        let macro = node.macroName.text
+        guard macro == "expect" || macro == "require" else { return .visitChildren }
+        let inner = HasMotionReadCollector()
+        inner.walk(node)
+        self.asserted.formUnion(inner.names)
+        return .visitChildren
+    }
+}
+
+/// 在一棵子树里找 `<base>.properties.hasMotion`，返回 `<base>` 的尾名。
+private nonisolated final class HasMotionReadCollector: SyntaxVisitor {
+
+    var names: Set<String> = []
+
+    init() { super.init(viewMode: .sourceAccurate) }
+
+    override func visit(_ node: MemberAccessExprSyntax) -> SyntaxVisitorContinueKind {
+        guard node.declName.baseName.text == "hasMotion",
+              let properties = node.base?.as(MemberAccessExprSyntax.self),
+              properties.declName.baseName.text == "properties",
+              let owner = properties.base,
+              let name = Self.trailingName(of: owner)
+        else { return .visitChildren }
+        self.names.insert(name)
+        return .visitChildren
+    }
+
+    /// `Foo` ⇒ `Foo`；`Self.Probe` ⇒ `Probe`；其余形态（下标 / 调用 / 字面量…）⇒ `nil`。
+    static func trailingName(of expr: ExprSyntax) -> String? {
+        if let reference = expr.as(DeclReferenceExprSyntax.self) { return reference.baseName.text }
+        if let member = expr.as(MemberAccessExprSyntax.self) { return member.declName.baseName.text }
+        return nil
     }
 }
