@@ -153,15 +153,18 @@ struct ToastPublicEntryForwardingGuard {
     /// `Skeleton.swift` 里。今天别名表只有 `Toast` 一条、恰好同名，但泛化的意义正是
     /// **给未来的条目用** —— 靠一个七成成立的约定，第二条别名进来时就会静默失效。
     /// ⇒ 直接扫全仓找 `func <modifierName>(` 的声明所在文件。
+    /// ⚠️ `#270` 起扫 `ComponentRegistryGuard.componentScanRoots`（三个 target）：
+    /// 别名表的键是**登记表条目名**，而登记表 `#270` 起收 Effects / Charts 的条目
+    /// ⇒ 将来一条别名条目的 modifier 若住在新 target 里，只扫主 target 会让
+    /// `sourceFiles(declaring:)` 返回空数组、下面那条「找不到时判红」把它读成
+    /// 「别名表指向了不存在的入口」——**红得理由不对**。扩根后两种情形不再混淆。
     private func sourceFiles(declaring functionName: String) -> [URL] {
-        let root = ComponentRegistryGuard.coreDesignSources
-        guard let enumerator = FileManager.default.enumerator(
-            at: root, includingPropertiesForKeys: nil
-        ) else { return [] }
         var hits: [URL] = []
-        for case let url as URL in enumerator where url.pathExtension == "swift" {
-            guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
-            if text.contains("func \(functionName)(") { hits.append(url) }
+        for root in ComponentRegistryGuard.componentScanRoots {
+            for url in GuardScanRoots.swiftFiles(in: root.url) {
+                guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
+                if text.contains("func \(functionName)(") { hits.append(url) }
+            }
         }
         return hits
     }

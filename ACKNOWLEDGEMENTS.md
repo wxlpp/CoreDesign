@@ -85,6 +85,49 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+### 逐单位归档：`shipswift-effects` 的 40 个 API 单位（`#242`，由 `#256` 补录）
+
+**全部 40 个单位归入「参考算法思路」档**，不涉及「较大段落移植」。
+
+⚠️ **这条分档的依据与它的边界，逐条写清楚（不要读成比实际更强）：**
+
+- **依据 ①（规范）**：epic 的 **AD-A**「上游是配方，不是可消费代码」——ShipSwift 源码
+  全部 `internal`、硬编码色、零 accessibility、零 `controlSize` / Dynamic Type 适配、
+  零测试 ⇒ **只借算法**（力导向布局、confetti 物理、16 个 mask reveal 的 `Shape` 数学、
+  `KeyframeAnimator` 相位序列），API 层与色彩层全部重写。
+- **依据 ②（可核实的痕迹）**：各落件 task 在源码里逐处记下了**与上游的有意分歧**，
+  这些记录本身就是「重写而非拷贝」的证据。可核对的样本（非穷举）：
+  · `SphereField.swift` —— 色板插值改走 `Color.mix(.perceptual)`（Oklab 系），
+    上游是 `UIColor.getRed` + 分量 lerp（等价 `.device`）；半透明色板下**结果不同**，
+    逐条记在 `docs/components/dot-sphere.md`《与上游的有意分歧》。
+  · `SphereField.swift` —— 字形分配改为**确定性散列**，上游是 `Int.random`。
+  · `OrbitRing.swift` —— 上游靠 `SKPhysicsBody` 撞开邻居，本仓是解析位移场；
+    上游点上写死绿色渐变，本仓走 `.tint` / 语义 token。
+  · `MaskReveal.swift` —— 上游用羽化遮罩，本仓走 `clipShape`；**代价（硬边缘）已照录**。
+  · `CharSphere.swift` —— 上游默认字表是《道德经》第一章，本仓**不自带任何字表**。
+  · `BeforeAfterSlider.swift` —— 上游签名 `showLabels: Bool`，本仓改语义枚举（FR-6 点名）。
+  · `NetworkGraph.swift` —— 丢弃上游 4973 行 demo 数据（`SWNetworkGraphData.swift`），
+    只落布局与渲染。
+- ⚠️ **边界（必须说明）**：`#256` **没有**把本仓实现与上游源码做逐行 diff——本仓树里
+  没有 ShipSwift 的源码副本，无法在 CI 或本地做机器比对。⇒ 这条分档建立在
+  **上面两条依据 + PR 评审**之上，**不是**一次自动化核验的结论。
+  若将来引入上游快照做机器比对，本节应改写为带比对结果的形态。
+- ⚠️ **本节不覆盖 shader**：`docs/shader-provenance.md` 已证 ShipSwift 的 MIT 声明
+  **不覆盖它内含的 Apache-2.0 衍生物**。那一面归 `shipswift-shaders`，逐项以
+  provenance 表为准，与本节无关。
+
+| 组 | 单位 | 档 |
+|---|---|---|
+| 微交互（8） | shake / jump / spin / ping / spray / rise / haptic / shine | 参考算法思路 |
+| 转场（16） | blur / flip / rotate3D / swoosh / boing / skid / move / iris / wipe / blinds / clock / flicker / filmExposure / snapshot / glare / dissolve | 参考算法思路 |
+| 庆祝与处理中（4） | Confetti / ScanningOverlay / GlowSweep / LightSweep | 参考算法思路 |
+| 文本与展示（4） | TypewriterText / AnimatedMeshGradient / BeforeAfterSlider / ParticleTransition | 参考算法思路 |
+| 跨平台改造（4） | OrbitingLogos / DotSphere / CharSphere / FullScreenButton | 参考算法思路 |
+| 图表（4） | RadarChart / RingChart / ActivityHeatmap / NetworkGraph | 参考算法思路 |
+
+⚠️ `.haptic(_:trigger:)` 是对 **SwiftUI 自带** `sensoryFeedback` 的薄封装，
+其实现与上游无关；列在表里是为了「40 个单位一个不落」，它的归属实际是「自研封装」。
+
 ---
 
 ## Inferno — Warping Loupe（待 `GlassOrb` 落地时启用）

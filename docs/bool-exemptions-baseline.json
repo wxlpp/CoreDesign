@@ -1,7 +1,25 @@
 {
-  "maxEntries": 32,
-  "sourceSites": 35,
+  "maxEntries": 33,
+  "sourceSites": 36,
+  "perTarget": {
+    "CoreDesign": {
+      "exemptions": 32,
+      "sourceSites": 35
+    },
+    "CoreDesignEffects": {
+      "exemptions": 0,
+      "sourceSites": 0
+    },
+    "CoreDesignCharts": {
+      "exemptions": 0,
+      "sourceSites": 0
+    },
+    "CoreDesignShaders": {
+      "exemptions": 1,
+      "sourceSites": 1
+    }
+  },
   "raisedBy": "wxlpp",
-  "raisedOn": "2026-09-03",
-  "rationale": "#221 把 `struct BottomInputBar` 提为 public（走终审 C1 裁决自己给出的第二条出路：给它一个可登记的 public 类型表面），随之出现**第二张 public 参数面**——此前只有 modifier 侧 `View.bottomInputBar#*`，现在 struct 侧 `BottomInputBar.init#*` 同样暴露。守卫按 `Owner.init#param` 计键、不做跨面去重，故 5 个 Bool（wandEnabled / sendEnabled / showMenuButton / isRunning / autoFocus）各需一条 struct 侧条目：27 → 32，源码位置 30 → 35。⚠️ **这是棘轮上调，不是下调**——本仓惯例是每轮把它压小（34→27），本次因扩大公开面而抬高 5 条，必须写明代价：这 5 条与 modifier 侧的同名条目是**同一批 Bool 的两个入口**，治理动作应当一次覆盖两面。整个 bottomInputBar 的七个 Bool 合并成配置值类型这件事仍未做，归属不变（epic component-contract 收尾时另开任务），本次只是让它在两个入口上都登记在册、不静默逃逸。⚠️ 另需注意：`View.bottomInputBar#autoShowSuggestions` 条目的 reason 此前以「struct 无 public 修饰符、排除出登记表」为前提，该前提已被本轮推翻，条目文本同轮更正。sourceSites 的跨历史闸仍未实现（scripts/bool-exemptions-ratchet.sh 只读 maxEntries），移交 #43 的状态不变。"
+  "raisedOn": "2026-09-05",
+  "rationale": "⚠️ **本次抬高整整一条都落在 `CoreDesignShaders` 上，与 `CoreDesign` / `CoreDesignEffects` / `CoreDesignCharts` 三个 target 的计数无关**（逐 target 分账见 `perTarget`：主 target 仍是 32/35，两个动效 / 图表 target 仍是 0/0，新增的 `CoreDesignShaders` 是 1/1）。成因：`#279` 把 `CoreDesignShaders` 加进 `GuardScanRoots.targetNames`，该 target 的源码第一次进入 J-1 扫描射程，唯一一个 public `Bool` 参数 `View.refractiveGlass(corner:strength:rim:isEnabled:)` 的 `isEnabled` 随之现形 ⇒ 清单 32 → 33、源码位置 35 → 36。⚠️ **这不是新写了一个 Bool，是一个既有 Bool 第一次被看见** —— 它在 `#261` 落地时就存在，只是那时 `Sources/CoreDesignShaders/` 不在任何扫描根里（`#246` 刻意不收它，理由是目录当时还不存在，对不存在的路径做扫描无命中即绿正是要防的 fail-open）。把它登记在册正是本次扩根要达成的效果。该 Bool 的「为什么删不掉」写在清单条目的 reason 里：它原样透传给 SwiftUI 的 `layerEffect(isEnabled:)`，删掉之后调用方只能用 `if` 分支，而那会切换 View 身份。⚠️ `sourceSites` 的跨历史闸仍未实现（`scripts/bool-exemptions-ratchet.sh` 只读 `maxEntries`），该状态不因本次变更而改变。"
 }

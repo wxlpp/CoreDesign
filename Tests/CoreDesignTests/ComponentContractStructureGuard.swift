@@ -80,9 +80,13 @@ struct ComponentContractStructureGuard {
         // 缺陷定义明文含「判据漏判」⇒ 这些同样要回写公约，实现层另行移交。
         "### ⚠️ 已知判据缺口：本公约有规定、机器判据够不到的地方",
         // #244 AD-4：三个新 target 的登记表作用域。没有它，公约对
-        // `CoreDesignEffects` / `CoreDesignCharts` / `CoreDesignShaders` 零裁定，
-        // 而 `ComponentRegistryGuard.swift` 的扫描根硬编码 `Sources/CoreDesign`
+        // `CoreDesignEffects` / `CoreDesignCharts` / `CoreDesignShaders` 零裁定
         // ⇒ 实现层盲区会被后人读成公约层许可（G-7 记在案的逃生门）。
+        // ⚠️ **上一句原写「而 `ComponentRegistryGuard.swift` 的扫描根硬编码
+        // `Sources/CoreDesign`」——该前提已作废**（`#279` 更正）：`#270` 把它改成
+        // `componentScanRoots` = `GuardScanRoots.allRoots`，`#279` 又把
+        // `CoreDesignShaders` 加进了根列表 ⇒ 三个新 target 现在**都在**登记表射程内。
+        // 裁决本身（AD-2 原样适用）不因此改变，改变的只是它当初成立的那条实现层理由。
         "#### AD-4 裁决：三个新 target 的登记表作用域 —— **裁定：AD-2 原样适用**",
         "##### 为什么裁「AD-2 原样适用」而不是「什么都不裁」",
         "##### 撤回记录：五版各错在哪（照录，不删）",
@@ -90,6 +94,10 @@ struct ComponentContractStructureGuard {
         "##### 下游连锁二 · `transition` / `modifier` 走扩展成员扫描器（**与路线无关**）",
         "##### 下游连锁三 · README 索引落点：**三个 target 全部进主索引**",
         "##### 下游连锁四 · 扫描根的实施形态（工程事实，**不是禁令**）",
+        // ⚠️ `#279` 新增：Shaders 进根之后哪些计数被顶动的**实测**记录。
+        // 钉住标题是为了让「把这段实测悄悄删掉换回一句预判」当场判红 —— 与连锁一
+        // 那张 `#270` 实测表同一条纪律（预判与实测必须并存，不许用后者覆盖前者）。
+        "##### 下游连锁五 · `#279` 实测：Shaders 进根之后哪些计数被顶动",
     ]
 
     static var contractURL: URL {

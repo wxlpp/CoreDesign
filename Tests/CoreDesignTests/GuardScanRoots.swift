@@ -1,0 +1,1237 @@
+import Foundation
+import Testing
+
+// MARK: - 多 target 扫描根的单一来源 / Single source of truth for the multi-target scan roots
+//
+// 本仓从 `#244`/`#245` 起有三个 library target（`CoreDesign` / `CoreDesignEffects` /
+// `CoreDesignCharts`），`#261` 又加了第四个（`CoreDesignShaders`，`#279` 接进本表）；
+// 而在 `#246` 之前，**四条源码守卫的扫描根全部是硬编码的单根**
+// `Sources/CoreDesign`——各自在自己的文件里拼 `repoRoot + "Sources/CoreDesign"`
+// （`BoolExemptionGuard.scanRoots` 与 `AccessibilityStringLiteralGuard` 的扫描循环
+// 已在 `#246` 改指 `GuardScanRoots.allRoots`；`ComponentRegistryGuard` 的根
+// **`#270` 才跟上**，见下）⇒ 新 target 里写什么都不受纪律约束。本文件把「根列表」抽成
+// **一份**数据，由 Bool / a11y / 字面量 / 扩展成员 / **组件登记表**五类守卫共用。
+//
+// ⚠️ **此处刻意只引符号名、不引行号**（PR #265 第 5 轮终审 I-4）：上面括号里的三处
+// 描述的是 `#246` **之前**的历史状态，行号注定随文件漂移——本文件头初版写下的
+// `BoolExemptionGuard.swift:43` / `AccessibilityStringLiteralGuard.swift:189`
+// **在写下的当天就已经指到空行和一个 `}`**，且没有任何判据会为此判红。
+// 与下面 `relativePath(_:)` 文档里那条同样的纪律（活引用一律用符号名）。
+//
+// ⚠️ **上句原写「本文件不含 `ComponentRegistryGuard.coreDesignSources`」，`#270` 已作废**：
+// 登记表守卫的根曾停在单根，理由是「扩根会顶动 AD-4《下游连锁一》那串断言，归 `#255` 处置」
+// ——而 `#255` 落地时没做 ⇒ 两个新 target 的 public 类型对登记表**结构上不可见**，
+// 少登记一条不会有任何判据红。`#270` 把它接过来收口：
+// `ComponentRegistryGuard.componentScanRoots` 现在**直接返回 `Self.allRoots`**，
+// 不另列一份根名（两套根必然漂，这是 `#270` AC 逐字写死的）。
+// ⇒ 本文件现在是**全部五类守卫**的唯一根来源，`libraryTargetsAreCoveredByScanRoots`
+// 与 `Package.swift` 的双向差集因此也同时守住了登记表的射程。
+//
+// ## 防假绿的两条纪律（`#246` AC「防假绿」节）
+//
+// 1. **根列表只含当下已存在的 target，且每个根必须真的存在**（fail-closed）——
+//    `FileManager.enumerator(at:)` 对不存在的路径**静默产出空序列**，
+//    「零文件 ⇒ 零违规 ⇒ 绿」是本仓反复栽过的坑。
+//    ⚠️ **`#246` 写下这条时 `Sources/CoreDesignShaders/` 尚不存在，故当时刻意不进本表**；
+//    `#261` 把 target 落到磁盘上之后，两条分支一整合
+//    `libraryTargetsAreCoveredByScanRoots` 当场判红（这正是设计意图），
+//    `#279` 接了这笔账：根已加入，`shadersRootIsListedAlongsideItsDirectory`
+//    随之改成「两侧都为真」。
+// 2. **根列表必须与 `Package.swift` 同步**——`libraryTargetsAreCoveredByScanRoots`
+//    直接解析 manifest 里声明的 library target，与本表做**双向**差集。
+//    ⇒ 将来任何人新增一个 library target 而忘了扩根，这条判据当场红；
+//    「新 target 静默逃出全部守卫」这条通路被机器堵死，不靠人记得。
+nonisolated enum GuardScanRoots {
+
+    /// ⚠️ 用 `#filePath` 推导，worktree 与主仓两种布局下都稳（上三级到仓库根）。
+    static var repoRoot: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    }
+
+    /// 主 target。它同时是豁免台账键的**默认前缀**（见 `qualifiedKey(target:base:)`）。
+    static let primaryTargetName = "CoreDesign"
+
+    /// 当下**已存在**的全部 library target，顺序同 `Package.swift`。
+    ///
+    /// ⚠️ 加一个名字之前先确认 `Sources/<名字>/` 真的存在——`assertRootsExist()`
+    /// 会当场判红，但那是第二道防线，不是第一道。
+    static let targetNames: [String] = ["CoreDesign", "CoreDesignEffects", "CoreDesignCharts", "CoreDesignShaders"]
+
+    /// 合成 fixture 专用的**保证不存在**的 target 名。
+    ///
+    /// ⚠️ **`#279` 抽出来的**：两处「前缀指向一个不存在的 target ⇒ 判红」的变红自证
+    /// （`BoolExemptionGuard.qualificationValidatorActuallyFires` ②、
+    /// `ExtensionEntryPointGuard.schemaValidatorActuallyFires` ②）此前**逐字写着
+    /// `"CoreDesignShaders"`** —— 那个名字在 `#279` 把 target 接进来的当天变成了**合法**名字，
+    /// 两条自证的「反例」于是变成了正例。
+    /// ⚠️ **失效形态是「当场判红」，不是「静默变绿」**（PR #301 终审 I-2 更正；本文档上一版
+    /// 逐字写着「静默退化」）：把常量改回 `"CoreDesignShaders"` 实测，两条自证**立刻红**
+    /// （`BoolExemptionGuard.swift:739`、`ExtensionEntryPointGuard.swift:137`）——
+    /// 它们断言的是「这个反例**会**产生 problem」，反例一旦合法就产不出 problem。
+    /// 真正的风险因此是**红了之后的处置**：随手把断言删掉、或换一个当时恰好不存在的新名字，
+    /// 下一个人还会踩同一个坑。⇒ 名字集中一处，并由
+    /// `nonexistentFixtureTargetIsReallyAbsent` 钉住「它真的不存在」这条**性质**。
+    /// ⚠️ 本仓的教训是「守卫钉形状而非性质」：写死一个当时恰好不存在的名字，钉的是形状。
+    /// 这里钉性质 —— 名字集中一处，并由 `nonexistentFixtureTargetIsReallyAbsent`
+    /// 断言它真的不在 `targetNames` 里、磁盘上也没有那棵树。
+    static let nonexistentFixtureTargetName = "CoreDesignNoSuchTargetFixture"
+
+    /// 新 target（除主 target 之外的全部）。
+    ///
+    /// 三条新守卫（`EffectsColorLiteralGuard` / `ChromeTextLiteralGuard` /
+    /// `ExtensionEntryPointGuard`）的射程**只有这里**——公约 FR-7 与 `#246` 任务书
+    /// 都明写「不回溯改造 CoreDesign 现状」。
+    static var newTargetNames: [String] { Self.targetNames.filter { $0 != Self.primaryTargetName } }
+
+    /// ⚠️ **本函数按 target 名推根，这个假设本身是一条 fail-open 路径**（PR #297 终审 S-2）：
+    /// `DeclaredTarget` 只记 `name` / `isLibrary` / `hasResources`，**不记 `path:`**。
+    /// 若某天有 library target 写成 `.target(name: "Foo", path: "Sources/Bar")`，
+    /// 而仓库里还留着一棵陈旧的 `Sources/Foo/`，则五族守卫会扫**错的树**，
+    /// 而 `assertRootsExist`（目录存在）与 `libraryTargetsAreCoveredByScanRoots`
+    /// （名字双向差集）**双双满足** ⇒ 静默 fail-open。
+    /// ⇒ 处置不是「支持 `path:`」，而是把它**变成判红**：`declaredTargets` 一旦在
+    /// library target 块里看到 `path:` 就 `Issue.record`（见该函数里的 `currentHasPath`）。
+    /// 要真的支持 `path:`，得同时改 `DeclaredTarget` 的 schema 与本函数，那是独立一块工程。
+    static func sourcesURL(of target: String) -> URL {
+        Self.repoRoot.appendingPathComponent("Sources/\(target)")
+    }
+
+    /// 全部根（含主 target）——Bool 纪律与 a11y 字面量守卫用这一份。
+    static var allRoots: [(target: String, url: URL)] {
+        Self.targetNames.map { ($0, Self.sourcesURL(of: $0)) }
+    }
+
+    /// 新 target 的根——三条新守卫用这一份。
+    static var newTargetRoots: [(target: String, url: URL)] {
+        Self.newTargetNames.map { ($0, Self.sourcesURL(of: $0)) }
+    }
+
+    // MARK: - fail-closed：根必须真的存在
+
+    /// 断言每个根目录都真的存在。**任何跨根扫描前都要先调它**。
+    ///
+    /// ⚠️ 单条守卫内部的 `scanXxx(root:)` 各自也有一条同款断言（那是**逐根**的），
+    /// 这里是**列表级**的：列表非空 + 每项存在。两者都要，缺一个都留下一条
+    /// 「扫描器在空输入上必绿」的缝。
+    @discardableResult
+    static func assertRootsExist(
+        _ roots: [(target: String, url: URL)],
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) -> Bool {
+        var ok = true
+        if roots.isEmpty {
+            Issue.record("扫描根列表为空 —— 后续扫描会在空输入上恒绿，这不是「零违规」", sourceLocation: sourceLocation)
+            ok = false
+        }
+        for root in roots where !FileManager.default.fileExists(atPath: root.url.path) {
+            Issue.record(
+                "扫描根不存在：\(root.url.path)（target \(root.target)）—— 判据无法工作，这不是「零违规」",
+                sourceLocation: sourceLocation
+            )
+            ok = false
+        }
+        return ok
+    }
+
+    /// 枚举一个根下的全部 `.swift` 文件。路径不存在 / 无法枚举都会 `Issue.record` 并返回空数组
+    /// ——与本仓其余扫描器同一条纪律：**失败要变成可读的测试失败，不是静默的空集**。
+    static func swiftFiles(
+        in root: URL, sourceLocation: SourceLocation = #_sourceLocation
+    ) -> [URL] {
+        guard FileManager.default.fileExists(atPath: root.path) else {
+            Issue.record("源码路径不存在：\(root.path) —— 判据无法工作，这不是「零违规」", sourceLocation: sourceLocation)
+            return []
+        }
+        guard let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
+            Issue.record("无法枚举源码目录：\(root.path)（权限或 IO 异常）—— 判据无法工作", sourceLocation: sourceLocation)
+            return []
+        }
+        var out: [URL] = []
+        for case let url as URL in walker where url.pathExtension == "swift" { out.append(url) }
+        return out
+    }
+
+    /// 仓库根相对路径，用于报错信息（`Sources/CoreDesignEffects/Foo.swift`）。
+    ///
+    /// ⚠️ **多根扫描的诊断一律走这里，不得用 `url.lastPathComponent`**
+    /// （PR #265 第 3 轮 Copilot A-1 / A-2）：`CoreDesign/Foo.swift` 与
+    /// `CoreDesignEffects/Foo.swift` 的裸文件名一模一样，失败位置会指错文件。
+    /// 传给 `SourceLocationConverter(fileName:)` 的也必须是它——那个名字会进
+    /// `Violation.file` / `BoolParamHit.file`，最终出现在给人读的清单里。
+    ///
+    /// **本轮已逐条排查过的全部 `lastPathComponent` 用点**（免得后人重扫一遍）：
+    /// · `BoolExemptionGuard.declaredTypeNames()`、`scanBoolParams(root:target:)`
+    ///   ——**多根**，本轮已改；
+    /// · `EffectsColorLiteralGuard.scan(root:)` / `ChromeTextLiteralGuard.scan(root:)` /
+    ///   `AccessibilityStringLiteralGuard.noBareAccessibilityLiterals` /
+    ///   `ExtensionEntryPointGuard` ——多根，本来就走 `relativePath`；
+    /// · `ComponentRegistryGuard.scanTypes(root:)`、`scanComponentJudgeInputs(root:)`
+    ///   （解析出错诊断 + `collectComponentJudgeInputs(tree:fileName:)` 的 `fileName` 实参）、
+    ///   `StyleConsumptionGuard.swiftSources()`、
+    ///   `ToastPublicEntryForwardingGuard.aliasEntriesForwardEveryParameter()`
+    ///   ——⚠️ **这里逐条引的是符号名不是行号**（PR #265 第 5 轮终审 S-e）：本 PR 的
+    ///   `4ce5366` / `0455e9f` 刚把行号引用统一改成符号名，本清单写回行号是反向漂移
+    ///   ——行号今天全对，下一次任何人在这四个文件里插一行就全错，而没有任何判据会红。
+    ///   ——⚠️ **上句原写「扫描根是这**一个**根，跨 target 同名不可能发生 ⇒ 有意保持原样。
+    ///   它们哪天扩到多根，必须同轮改成 `relativePath`」——`#270` 就是那一天，已兑现**：
+    ///   · `ComponentRegistryGuard.scanTypes(root:)` 的解析出错诊断 → 改走 `relativePath`；
+    ///   · `StyleConsumptionGuard.swiftSources()` 的键 → 改走 `relativePath`；
+    ///   · `ToastPublicEntryForwardingGuard.aliasEntriesForwardEveryParameter()` → 多根扫描，
+    ///     命中以 `URL` 传递，不再经裸文件名；
+    ///   · `scanComponentJudgeInputs(root:)` 的 `fileName` → 改成 **`<根目录名>/<根内相对路径>`**
+    ///     而**不是** `relativePath`。那一处是唯一的例外，理由写在该函数的文档里：
+    ///     它的 `file` 串被 `ComponentJudgeMutationTests` 拿来比对「临时副本 vs 真实源码」，
+    ///     用仓库根相对路径的话副本侧会退化成绝对路径、等值断言不再成立。
+    static func relativePath(_ url: URL) -> String {
+        url.path.replacingOccurrences(of: Self.repoRoot.path + "/", with: "")
+    }
+
+    // MARK: - 台账键的 target 前缀（`#246` AC「台账键加 target 前缀」）
+
+    /// 台账键 = `<target 前缀>` + 扫描器产出的基键。
+    ///
+    /// ⚠️ **主 target 的前缀是空串，这是刻意的**：`docs/bool-exemptions.json` 现存 32 条
+    /// 全部是 `Owner.decl#param` 裸形，而 `#246` 的 FR-10 要求「既有 CoreDesign 判据
+    /// **字面**不变」。给 32 条既有条目集体加前缀既不增加任何判别力（它们本来就全是
+    /// CoreDesign 的），又会同时改动 `contractNamedKeys` 这个**判据体系之外的参照物**
+    /// ——那正是 FR-10 不许动的东西。
+    /// ⇒ 前缀只对**新 target** 生效：`CoreDesignEffects/Owner.decl#param`。
+    ///
+    /// ⚠️ **它是承重的，不是装饰**：没有它，`CoreDesign` 与 `CoreDesignEffects` 里
+    /// 两个同名类型的同名 Bool 参数会**塌成同一个键**，一条豁免静默覆盖两个 target
+    /// ——`BoolScanResult.keys` 是 `Set`，塌掉的那一条在差集里看不见。
+    /// 「裸形只属于主 target」这条规矩由 `exemptionKeysAreCanonicallyQualified` 钉死。
+    static func qualifiedKey(target: String, base: String) -> String {
+        target == Self.primaryTargetName ? base : "\(target)/\(base)"
+    }
+
+    /// 从台账键里取回 target 名（裸形 ⇒ 主 target）。
+    static func target(ofKey key: String) -> String {
+        guard let slash = key.firstIndex(of: "/") else { return Self.primaryTargetName }
+        return String(key[key.startIndex..<slash])
+    }
+
+    /// 去掉 target 前缀后的基键。
+    static func baseKey(_ key: String) -> String {
+        guard let slash = key.firstIndex(of: "/") else { return key }
+        return String(key[key.index(after: slash)...])
+    }
+
+    // MARK: - 每个 target 各自的 `.module`（`#246` AC「按 target 分辨各自的 .module」）
+
+    /// 该 target 是否拥有**自己的** `Bundle.module`（即 `Package.swift` 给它声明了 `resources:`）。
+    ///
+    /// ⚠️ **这是 a11y 守卫多根化后最容易假绿的一处**：`bundle: .module` 在
+    /// `Sources/CoreDesignEffects/` 里解析到的是 **CoreDesignEffects 自己的** bundle，
+    /// 不是 CoreDesign 的 String Catalog。而 `CoreDesignEffects` / `CoreDesignCharts`
+    /// **没有 `resources:` 声明** ⇒ SwiftPM 根本不给它们合成 `Bundle.module`。
+    /// ⇒ 在这两个 target 里写 `bundle: .module` 既不能编译、也不会去到任何 catalog，
+    /// 但**旧的文本判据只看 span 里有没有 `bundle: .module` 这串字符**，
+    /// 于是它会被当成「已本地化」放行。本函数把「谁真的有 `.module`」变成可查的事实。
+    ///
+    /// ⚠️ **判据是 `Package.swift` 的 `resources:`，不是 `Sources/<target>/Resources/` 目录**
+    /// （PR #265 终审 I-4）：首版只 `fileExists` 查目录，与本行文档逐字不符——而
+    /// **合成 `Bundle.module` 的是 manifest 的 `resources:` 声明，不是目录**。
+    /// 光建目录不声明，SwiftPM 只会报 unhandled resource 警告、`.module` 依然不存在；
+    /// 那时旧实现返回 `true`，等于把「假绿」从 a11y 守卫搬进了本函数。
+    /// 目录与声明是否同步，由 `GuardScanRootsGuard.moduleBundleOwnership` 单独钉住。
+    static func ownsResourceBundle(_ target: String) -> Bool {
+        Self.resourceOwningTargets().contains(target)
+    }
+
+    /// `Package.swift` 里带 `resources:` 声明的 target 名集合。
+    ///
+    /// ⚠️ **有意不缓存**：`GuardScanRoots` 是 `nonisolated enum`（本 package 的
+    /// `.defaultIsolation(MainActor.self)` 对它不生效），可变静态量在 Swift 6 严格并发下
+    /// 直接判错；而 manifest 只有 ~90 行、解析一次以 µs 计，缓存不值得为它开一个
+    /// 并发安全的口子。⚠️ 解析失败时返回空集并 `Issue.record`——**空集不能被当成
+    /// 「没人有资源包」静默消费**，故失败必须以可读的测试失败现形。
+    static func resourceOwningTargets(sourceLocation: SourceLocation = #_sourceLocation) -> Set<String> {
+        guard let targets = try? Self.declaredTargets(sourceLocation: sourceLocation) else {
+            Issue.record("读不到 / 解析不了 Package.swift —— `.module` 归属无法判定", sourceLocation: sourceLocation)
+            return []
+        }
+        return Set(targets.filter(\.hasResources).map(\.name))
+    }
+
+    // MARK: - `Package.swift` 的 library target 清单
+
+    static var packageManifestURL: URL { Self.repoRoot.appendingPathComponent("Package.swift") }
+
+    /// `Package.swift` 里解析出来的一个 target 声明。
+    nonisolated struct DeclaredTarget: Hashable, Sendable {
+        let name: String
+        /// 是否由 `.target(` 声明。`.testTarget` / `.executableTarget` / `.macro` /
+        /// `.binaryTarget` / `.plugin` / `.systemLibrary` 都**不是** library target。
+        let isLibrary: Bool
+        /// 该 target 块里写了 `resources:` —— `Bundle.module` 只对它们存在。
+        let hasResources: Bool
+        /// 该 target 块里 `.process("…")` / `.copy("…")` 逐条写出的资源路径
+        /// （相对 `Sources/<name>/`）。
+        ///
+        /// ⚠️ **`#279` 新增**：此前只记一个 `hasResources: Bool`，而
+        /// `moduleBundleOwnership` 据此断言「有 `resources:` ⇔ `Sources/<t>/Resources/` 目录在」。
+        /// 那条等式把「资源声明」写死成了**一种**形态（目录名恰为 `Resources`）——
+        /// `CoreDesignShaders` 声明的是**单个文件** `.process("CoreDesignShaders.metal")`，
+        /// 于是它一进根列表，那条判据就红在一个**并不存在的问题**上。
+        /// ⇒ 改成逐条核对声明出来的路径**真的在磁盘上**（见 `moduleBundleOwnership`），
+        /// 既覆盖目录形态也覆盖文件形态，且比原判据更严（原判据只看一个固定目录名）。
+        let resourcePaths: [String]
+    }
+
+    /// 解析 `Package.swift` 里声明的**全部** target（含 name / 种类 / 有无 `resources:`）。
+    ///
+    /// ⚠️ 逐行状态机而非正则：manifest 里 `.target(` 与 `name:` 通常分行写。
+    /// 注释（行首 / 行尾 `//` 与跨行 `/* */`）与多行字符串体由 `code(of:state:)` 剥掉
+    /// ——注释里提到 `.testTarget` 的地方不少，按子串匹配会误判。
+    ///
+    /// ⚠️ **解析不出 name 的块会 `Issue.record`，不静默丢弃**（PR #265 终审 S-4，
+    /// 第 4 轮终审 I-4 把它真正接上）：`.target(name: shadersName,` 这类非字面量 name
+    /// 会让 `quotedName` 返回 `nil`，据此把整个块丢掉并报一条可读的失败 ⇒ 该 target
+    /// 不会悄悄不进 `targetNames` 的双向差集、也不会悄悄不进 `.module` 归属表，
+    /// 而两者都是 fail-open 方向的漏。
+    /// （更精确的做法是 `swift package describe --type json`，但那会给测试引入
+    /// 子进程依赖——本仓的守卫至今没有先例，故不引。）
+    static func declaredTargets(sourceLocation: SourceLocation = #_sourceLocation) throws -> [DeclaredTarget] {
+        Self.declaredTargets(
+            manifestText: try String(contentsOf: Self.packageManifestURL, encoding: .utf8),
+            sourceLocation: sourceLocation
+        )
+    }
+
+    /// 合成输入入口——`GuardScanRootsGuard.manifestParserHandlesAwkwardShapes` 用它证伪
+    /// 三种畸形写法，不碰磁盘。
+    ///
+    /// ⚠️ **括号深度是承重的**（PR #265 第 3 轮终审 S-d）：首版靠「下一个 `.target(` 起始行」
+    /// 隐式关块 + 行首前缀匹配，三种真实存在的写法会把 `resources:` 记到**错的 target** 上：
+    /// ① `.target(name: "X", resources: [...])` 写成一行 ⇒ `resources:` 不在行首 ⇒ 漏记；
+    /// ② `dependencies:` 数组里嵌套的 `.target(name: "CoreDesign")`（地道 SwiftPM 写法）
+    ///    被当成一个**新块**：它提前 flush 外层块、偷走外层还没读到的 `resources:`，
+    ///    并注入一个幽灵 library target；
+    /// ③ `targets:` 数组闭合之后出现的 `resources:` 会被记到最后一个块上。
+    /// 三种都是 fail-closed（判红，不会假绿），但诊断会把读者指向一个不存在的 target
+    /// ——「守卫红了却指错地方」与守卫没红同样浪费一次排查。
+    /// ⇒ 用括号深度界定块的起止：块内的 `.target(` 不再开新块，块外的 `resources:` 不再归属。
+    static func declaredTargets(
+        manifestText text: String, sourceLocation: SourceLocation = #_sourceLocation
+    ) -> [DeclaredTarget] {
+        /// 每种 target 构造器的前缀，与「它算不算 library target」。
+        let starters: [(prefix: String, isLibrary: Bool)] = [
+            (".target(", true),
+            (".testTarget(", false), (".executableTarget(", false), (".macro(", false),
+            (".binaryTarget(", false), (".plugin(", false), (".systemLibrary(", false),
+        ]
+        var out: [DeclaredTarget] = []
+        var open = false
+        var depth = 0
+        var openedAtLine = 0
+        var currentName: String?
+        var currentIsLibrary = false
+        var currentHasResources = false
+        var currentResourcePaths: [String] = []
+        var currentHasPath = false
+        var awaitingName = false
+
+        func flush() {
+            guard open else { return }
+            if let name = currentName {
+                // ⚠️ **`path:` 是 fail-open 的入口，必须当场判红**（PR #297 终审 S-2）：
+                // `sourcesURL(of:)` 按 **target 名**推根（`Sources/<name>`），
+                // `.target(name: "Foo", path: "Sources/Bar")` 会让五族守卫扫错树，
+                // 而「目录存在」与「名字双向差集」两道现有判据**双双满足** ⇒ 无人接住。
+                // ⇒ 在解析器里堵死：出现 `path:` 就报，不让它悄悄生效。
+                if currentIsLibrary && currentHasPath {
+                    Issue.record("""
+                    Package.swift:\(openedAtLine) 的 library target `\(name)` 写了 `path:` ——
+                    `GuardScanRoots.sourcesURL(of:)` 按 target **名**推根（`Sources/<name>`），
+                    重定向之后守卫会扫**错的树**，而 `assertRootsExist` 与
+                    `libraryTargetsAreCoveredByScanRoots` 都照样满足 ⇒ 静默 fail-open。
+                    处置：把源码放回 `Sources/\(name)/`，或同时扩 `DeclaredTarget` 的 schema
+                    与 `sourcesURL(of:)` 让根列表读得到 `path:`。**不要**直接删本断言。
+                    """, sourceLocation: sourceLocation)
+                }
+                out.append(.init(
+                    name: name, isLibrary: currentIsLibrary,
+                    hasResources: currentHasResources, resourcePaths: currentResourcePaths
+                ))
+            } else {
+                Issue.record("""
+                Package.swift:\(openedAtLine) 的 target 块解析不出 name（name 可能不是字符串字面量）
+                —— 静默丢弃它意味着该 target 既不进 `GuardScanRoots.targetNames` 的双向差集、
+                也不进 `.module` 归属表，两者都是 fail-open 方向的漏。
+                处置：把 name 写成字面量，或扩展本解析器。
+                """, sourceLocation: sourceLocation)
+            }
+            open = false
+            depth = 0
+            currentName = nil
+            currentIsLibrary = false
+            currentHasResources = false
+            currentResourcePaths = []
+            currentHasPath = false
+            awaitingName = false
+        }
+
+        // ⚠️ **词法状态跨行保持**（PR #265 第 4 轮终审 I-3）：块注释 `/* */` 与多行字符串
+        // `"""` 都能跨行，逐行独立地剥注释解不了它们（详见 `code(of:state:)`）。
+        var lex = ManifestLexState()
+
+        for (index, raw) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            // 行首整行注释、行尾 `//`、跨行 `/* */`、多行字符串体全部在 `code(of:state:)`
+            // 里剥掉（**按引号状态剥**，否则 `"https://…"` 里的 `//` 会把半行代码连同
+            // 它的右括号一起吃掉，括号深度就再也回不到 0）。
+            let code = Self.code(of: line, state: &lex)
+            // ⚠️ **块内不再开新块**：`dependencies: [.target(name: "CoreDesign")]` 是地道写法。
+            if !open, let starter = starters.first(where: { code.hasPrefix($0.prefix) }) {
+                open = true
+                openedAtLine = index + 1
+                currentIsLibrary = starter.isLibrary
+                if let name = Self.quotedName(in: code) { currentName = name } else { awaitingName = true }
+            } else if !open {
+                continue
+            } else if awaitingName, let name = Self.quotedName(in: code, atDepth: 0) {
+                // ⚠️ **按深度 0 取**（第 5 轮终审 S-b）：这一行是块内单独一行的 `name: "X",`，
+                // `name:` 就在最外层。此前用 `code.hasPrefix("name:")` 前缀匹配，
+                // `name : "X"`（合法 Swift）匹配不上 ⇒ 整块被丢弃并报「name 可能不是字面量」。
+                currentName = name
+                awaitingName = false
+            }
+            // ⚠️ 一行写完的 `.target(name: "X", resources: [...])` 也要认 ⇒ 不能要求行首。
+            if code.contains("resources:") { currentHasResources = true }
+            // ⚠️ 逐条收 `.process("…")` / `.copy("…")` 的实参（`#279`）。**只在块内收**
+            // ——`open` 为真时才走到这里，故不会把 manifest 别处的同名调用记到本块上。
+            currentResourcePaths.append(contentsOf: Self.resourceRuleArguments(in: code))
+            // ⚠️ 与上一行同一条口径（一行写完的 target 也要认 ⇒ 不要求行首）。
+            if code.contains("path:") { currentHasPath = true }
+            depth += Self.parenDelta(of: code)
+            if depth <= 0 { flush() }
+        }
+        flush()
+        return out
+    }
+
+    /// 取出一行代码里 `.process("…")` / `.copy("…")` 的字符串实参（`#279`）。
+    ///
+    /// ⚠️ **只认字面量实参**：`.process(someVar)` 取不到路径，会被静默略过 ——
+    /// 那与 `quotedName` 对非字面量 `name:` 的处置不同（后者判红）。这里本身不判红的理由是
+    /// `moduleBundleOwnership` 的 ① 会替它红：`hasResources` 由 `resources:` 这个**标签**
+    /// 决定、与本函数无关，故变量形态一出现就是「声明侧为真、路径侧为空」
+    /// ⇒ `declared == !paths.isEmpty` 当场不成立。
+    /// ⚠️ **上一版这里写「反过来『变量形态 + 磁盘上什么都没多』测不出来」—— 实测为假**
+    /// （PR #301 终审 S-1）：①与磁盘无关，两侧都空照样红。残余的是**误取**形态
+    /// （拼接实参被截成前半截字面量），已如实记在 `moduleBundleOwnership` 的文档里。
+    static func resourceRuleArguments(in code: String) -> [String] {
+        var out: [String] = []
+        for marker in [".process(", ".copy("] {
+            var searchFrom = code.startIndex
+            while let start = code.range(of: marker, range: searchFrom ..< code.endIndex) {
+                searchFrom = start.upperBound
+                let rest = code[start.upperBound...]
+                guard let openQuote = rest.firstIndex(of: "\"") else { continue }
+                // 实参必须紧跟在括号后（允许空白），否则不是字面量形态。
+                guard rest[rest.startIndex ..< openQuote].allSatisfy({ $0 == " " }) else { continue }
+                let after = rest.index(after: openQuote)
+                guard let closeQuote = rest[after...].firstIndex(of: "\"") else { continue }
+                out.append(String(rest[after ..< closeQuote]))
+            }
+        }
+        return out
+    }
+
+    /// 逐行扫 manifest 时**跨行保持**的词法状态。
+    ///
+    /// ⚠️ 只有块注释与多行字符串需要跨行——单行字符串字面量在 Swift 里不能跨行，
+    /// 行尾 `//` 注释到行尾自然结束。
+    nonisolated struct ManifestLexState: Hashable, Sendable {
+        /// ⚠️ **是深度不是布尔**（PR #265 第 5 轮终审 S-a）：**Swift 的块注释可嵌套**
+        /// （`/* 老写法： /* 更老的写法 */ .target(name: "Ghost") */` 整段都是注释）。
+        /// 布尔版遇**第一个** `*/` 就出注释 ⇒ 其后的内容重新被当成代码 ⇒
+        /// `90da0b1` 声称堵掉的「注释掉的 target 变成幽灵 library target」换个入口原样复现，
+        /// 且 `Issue.record` 一条都没有。
+        var blockCommentDepth = 0
+        var inMultilineString = false
+    }
+
+    /// 剥掉这一行里的**全部非代码文本**，返回剩下的代码。
+    ///
+    /// 处理四种：① 行尾 / 整行 `//` 注释；② 跨行块注释 `/* … */`；
+    /// ③ 多行字符串 `"""…"""`；④ 单行字符串字面量（其内容**保留**，`firstQuoted` /
+    /// `quotedName` 要从里面取 name；括号由 `parenDelta` 自己按引号状态排除）。
+    ///
+    /// ⚠️ **块注释与多行字符串是 PR #265 第 4 轮终审 I-3 补的**：首版只认 `//`
+    /// （行首 `hasPrefix("//")` + `code(of:)` 里的行尾剥离），块注释与 `"""` 的内容
+    /// 因此被当成代码，实测两种真实后果——
+    /// · 块注释里含**未配对的括号**（`/* 见 Package.swift 的 .target( 用法 */` 只有左括号）
+    ///   ⇒ `depth` 永远回不到 0 ⇒ 当前块吃掉其后**所有** target，后面的 target 整个丢失；
+    /// · 块注释里含 `.target(`（注释掉的一段 manifest）⇒ 被当成一个真块解析
+    ///   ⇒ **注释掉的 target 变成幽灵 library target**（还可能带上 `resources:`）。
+    /// 第二条与首版靠「下一个 `.target(` 起始行隐式关块」时的 ② 号病同形，
+    /// 只是换了个入口复现——本函数是那条入口的堵法。
+    ///
+    /// ⚠️ **块注释按深度计数，因为 Swift 的块注释可嵌套**（PR #265 第 5 轮终审 S-a）：
+    /// 布尔版遇第一个 `*/` 就出注释，于是嵌套注释的**尾部**重新被当成代码
+    /// ——上面第二条「幽灵 target」换个入口原样复现（实测
+    /// `/* 老写法： /* 更老的写法 */ .target(name: "Ghost", …), */` 产出 `Ghost`，零 `Issue.record`）。
+    /// 多行字符串同理：`"""` 是**奇数个**引号，逐行重置的 `inString` 会被它带偏，
+    /// 字符串体里的 `.target(` / 括号会被当成代码。
+    ///
+    /// ⚠️ 失败方向仍是 fail-closed（丢块 ⇒ 双向差集判红），但诊断会把读者指向
+    /// 一个不存在的 target——「守卫红了却指错地方」与守卫没红同样浪费一次排查。
+    static func code(of line: String, state: inout ManifestLexState) -> String {
+        var out = ""
+        let chars = Array(line)
+        var index = 0
+        var inString = false
+        while index < chars.count {
+            let character = chars[index]
+            if state.blockCommentDepth > 0 {
+                // ⚠️ 嵌套：注释里再开一层 `/*` 要加深，`*/` 只关掉最内那一层。
+                if character == "/", index + 1 < chars.count, chars[index + 1] == "*" {
+                    state.blockCommentDepth += 1
+                    index += 2
+                } else if character == "*", index + 1 < chars.count, chars[index + 1] == "/" {
+                    state.blockCommentDepth -= 1
+                    index += 2
+                } else {
+                    index += 1
+                }
+                continue
+            }
+            if state.inMultilineString {
+                if character == "\"", index + 2 < chars.count,
+                   chars[index + 1] == "\"", chars[index + 2] == "\"" {
+                    state.inMultilineString = false
+                    index += 3
+                } else {
+                    index += 1
+                }
+                continue
+            }
+            if inString {
+                // 转义：连同被转义的那个字符一起原样带走（`\"` 不能关闭字符串）。
+                if character == "\\", index + 1 < chars.count {
+                    out.append(character)
+                    out.append(chars[index + 1])
+                    index += 2
+                    continue
+                }
+                out.append(character)
+                if character == "\"" { inString = false }
+                index += 1
+                continue
+            }
+            if character == "\"" {
+                if index + 2 < chars.count, chars[index + 1] == "\"", chars[index + 2] == "\"" {
+                    state.inMultilineString = true
+                    index += 3
+                    continue
+                }
+                inString = true
+                out.append(character)
+                index += 1
+                continue
+            }
+            if character == "/", index + 1 < chars.count, chars[index + 1] == "/" { break }
+            if character == "/", index + 1 < chars.count, chars[index + 1] == "*" {
+                state.blockCommentDepth += 1
+                index += 2
+                continue
+            }
+            out.append(character)
+            index += 1
+        }
+        return out.trimmingCharacters(in: .whitespaces)
+    }
+
+    /// 无状态的便捷重载——单行输入（不跨行的注释 / 字符串）用它。
+    static func code(of line: String) -> String {
+        var state = ManifestLexState()
+        return Self.code(of: line, state: &state)
+    }
+
+    /// 一行代码的括号净增量（字符串字面量里的括号不计）。
+    static func parenDelta(of code: String) -> Int {
+        var inString = false
+        var escaped = false
+        var delta = 0
+        for character in code {
+            if escaped { escaped = false; continue }
+            if character == "\\", inString { escaped = true; continue }
+            if character == "\"" { inString.toggle(); continue }
+            guard !inString else { continue }
+            if character == "(" { delta += 1 }
+            if character == ")" { delta -= 1 }
+        }
+        return delta
+    }
+
+    /// 解析 `Package.swift` 里声明的 **library** target 名（不含 `.testTarget` 等）。
+    static func declaredLibraryTargets() throws -> [String] {
+        try Self.declaredTargets().filter(\.isLibrary).map(\.name)
+    }
+
+    /// 取 `name:` 标签**紧随其后**的字符串字面量。取不到（name 不是字面量 / 是插值）返回 `nil`。
+    ///
+    /// `wantedDepth` 是 `name:` 相对**本段代码起点**的括号深度：调用点若传的是
+    /// `.target(name: "X", …)` 这一整行则为 `1`（`.target(` 之后），若传的是
+    /// 单独一行的 `name: "X",` 则为 `0`。
+    ///
+    /// ⚠️ **不能取整行的第一个引号串**（PR #265 第 4 轮终审 I-4）：首版是
+    /// `firstQuoted(in: code)`，于是 `.target(name: shadersName, path: "Sources/Shaders")`
+    /// 会产出一个**名叫 `"Sources/Shaders"` 的幽灵 library target**，且
+    /// `Issue.record` 一条都不发——本文件的文档却写着「非字面量 name 会让 `firstQuoted`
+    /// 返回 `nil` ⇒ 走 `awaitingName` ⇒ 丢块并 `Issue.record`」，两者不符。
+    /// 方向仍是 fail-closed（差集判红），但**静默改名比丢弃更难排查**：读者会拿着
+    /// 一个从没在 manifest 里出现过的 target 名去找。
+    /// ⇒ 只认紧跟 `name:` 的字面量；取不到就落回 `awaitingName` / `Issue.record`。
+    ///
+    /// ⚠️⚠️ **上一版仍留着三条静默路径**（PR #265 第 5 轮终审 S-b），本版一并堵掉：
+    /// · **插值字面量**——`.target(name: "\(prefix)Alpha")` 产出一个名叫
+    ///   `\(prefix)Alpha` 的 target 且零 `Issue.record`，与 I-4 要治的「静默改名」同类；
+    /// · **`range(of: "name:")` 取整行第一个**——`.target(dependencies:
+    ///   [.product(name: "Inner", package: "p")], name: "Alpha")` 产出一个名叫 **`Inner`**
+    ///   的 target（多行写法不中招，只有单行 deps-在前会撞上）⇒ 改成按**括号深度**定位；
+    /// · **`name :`（冒号前空格）是合法 Swift**——此前整块被丢弃并报「name 可能不是
+    ///   字符串字面量」，**诊断误导**（那行的 name 明明就是字面量）⇒ 容忍标签与冒号之间的空白。
+    ///
+    /// ⚠️ 标签必须落在**标识符边界**上：`packageName:` / `names:` 不得被当成 `name:`。
+    static func quotedName(in code: String, atDepth wantedDepth: Int = 1) -> String? {
+        let chars = Array(code)
+        var index = 0
+        var depth = 0
+        var inString = false
+        while index < chars.count {
+            let character = chars[index]
+            if inString {
+                if character == "\\", index + 1 < chars.count { index += 2; continue }
+                if character == "\"" { inString = false }
+                index += 1
+                continue
+            }
+            if character == "\"" { inString = true; index += 1; continue }
+            if character == "(" { depth += 1; index += 1; continue }
+            if character == ")" { depth -= 1; index += 1; continue }
+            guard depth == wantedDepth, let valueStart = Self.nameLabelEnd(chars, at: index) else {
+                index += 1
+                continue
+            }
+            // 标签命中但值不是字符串字面量（`name: shadersName`）⇒ 继续找同深度的下一个，
+            // 找不到就返回 `nil` ⇒ 调用方落回 `awaitingName` / `Issue.record`。
+            if let name = Self.stringLiteralBody(chars, at: valueStart) { return name }
+            index += 1
+        }
+        return nil
+    }
+
+    /// `chars[index...]` 是否正是标签 `name`（允许 `name :` 的空白），是则返回值的起始下标。
+    private static func nameLabelEnd(_ chars: [Character], at index: Int) -> Int? {
+        let label = Array("name")
+        guard index + label.count <= chars.count,
+              Array(chars[index..<(index + label.count)]) == label
+        else { return nil }
+        // 标识符边界：前后都不能再接标识符字符（挡掉 `packageName:` / `names:`）。
+        if index > 0, Self.isIdentifierCharacter(chars[index - 1]) { return nil }
+        var cursor = index + label.count
+        if cursor < chars.count, Self.isIdentifierCharacter(chars[cursor]) { return nil }
+        while cursor < chars.count, chars[cursor] == " " || chars[cursor] == "\t" { cursor += 1 }
+        guard cursor < chars.count, chars[cursor] == ":" else { return nil }
+        cursor += 1
+        while cursor < chars.count, chars[cursor] == " " || chars[cursor] == "\t" { cursor += 1 }
+        return cursor
+    }
+
+    /// 从 `index` 读一个字符串字面量的内容；不是字面量、或**含插值**则返回 `nil`。
+    private static func stringLiteralBody(_ chars: [Character], at index: Int) -> String? {
+        guard index < chars.count, chars[index] == "\"" else { return nil }
+        var body = ""
+        var cursor = index + 1
+        while cursor < chars.count {
+            let character = chars[cursor]
+            if character == "\\", cursor + 1 < chars.count {
+                // ⚠️ 插值不是名字：`"\(prefix)Alpha"` 必须走 `Issue.record`，不得静默产出。
+                if chars[cursor + 1] == "(" { return nil }
+                body.append(character)
+                body.append(chars[cursor + 1])
+                cursor += 2
+                continue
+            }
+            if character == "\"" { return body }
+            body.append(character)
+            cursor += 1
+        }
+        return nil
+    }
+
+    private static func isIdentifierCharacter(_ character: Character) -> Bool {
+        character.isLetter || character.isNumber || character == "_"
+    }
+}
+
+// MARK: - 扫描根自身的守卫
+
+@Suite("多 target 扫描根")
+struct GuardScanRootsGuard {
+
+    @Test("根列表非空，且每个根目录真的存在（fail-closed）")
+    func rootsExist() {
+        #expect(!GuardScanRoots.targetNames.isEmpty, "根列表为空 —— 全部跨根守卫会在空输入上恒绿")
+        #expect(!GuardScanRoots.newTargetNames.isEmpty, "新 target 列表为空 —— 三条新守卫会在空输入上恒绿")
+        #expect(GuardScanRoots.assertRootsExist(GuardScanRoots.allRoots))
+        // ⚠️ 每个根都必须真的有 `.swift` 文件——「目录存在但空」同样让扫描器恒绿。
+        for root in GuardScanRoots.allRoots {
+            #expect(!GuardScanRoots.swiftFiles(in: root.url).isEmpty,
+                    "\(root.target) 的根 \(root.url.path) 下一个 .swift 都没有 —— 扫描器会在空输入上恒绿")
+        }
+    }
+
+    @Test("manifest 解析器：三种畸形写法不再把 `resources:` 归给错的 target（终审 S-d）")
+    func manifestParserHandlesAwkwardShapes() {
+        // ① 一行写完的 target ⇒ `resources:` 不在行首，首版漏记。
+        let inline = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(name: "Alpha", resources: [.process("Resources")]),
+            .target(name: "Beta"),
+        ]
+        """)
+        #expect(inline.map(\.name) == ["Alpha", "Beta"])
+        #expect(inline.first(where: { $0.name == "Alpha" })?.hasResources == true,
+                "一行写完的 `resources:` 漏记 —— `.module` 归属表会说 Alpha 没有资源包")
+        #expect(inline.first(where: { $0.name == "Beta" })?.hasResources == false)
+
+        // ② `dependencies:` 里嵌套的 `.target(name:)`：首版把它当新块 ⇒ 提前 flush 外层、
+        //    偷走外层的 `resources:`、并注入一个幽灵 library target `CoreDesign`。
+        let nested = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(
+                name: "Effects",
+                dependencies: [
+                    .target(name: "CoreDesign"),
+                ],
+                resources: [.process("Resources")]
+            ),
+        ]
+        """)
+        #expect(nested.map(\.name) == ["Effects"],
+                "嵌套的 `.target(name:)` 被当成了一个独立 target —— 幽灵条目会顶动根列表的双向差集")
+        #expect(nested.first?.hasResources == true,
+                "外层 target 的 `resources:` 被嵌套块偷走了")
+
+        // ③ `targets:` 数组闭合之后的 `resources:` 不再归给最后一个块。
+        let trailing = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(name: "Gamma"),
+        ]
+        // 下面这行不属于任何 target 块
+        resources: [.process("Resources")]
+        """)
+        #expect(trailing.map(\.name) == ["Gamma"])
+        #expect(trailing.first?.hasResources == false,
+                "块外的 `resources:` 被记到了最后一个 target 上")
+
+        // ④ 字符串里的 `//` 不能被当成注释剥掉——剥掉会连右括号一起吃，块永远关不上。
+        let url = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(
+                name: "Delta",
+                dependencies: ["https://example.com/not-a-comment"]
+            ),
+            .target(name: "Epsilon"),
+        ]
+        """)
+        #expect(url.map(\.name) == ["Delta", "Epsilon"])
+
+        // ⑤ 种类判别不变：`.testTarget` 不是 library target。
+        let kinds = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(name: "Lib"),
+            .testTarget(name: "LibTests", dependencies: ["Lib"]),
+        ]
+        """)
+        #expect(kinds.filter(\.isLibrary).map(\.name) == ["Lib"])
+    }
+
+    /// PR #265 **第 4 轮**终审 I-3：块注释 / 多行字符串此前完全不被处理。
+    ///
+    /// ⚠️ 四条探针里前两条与 S-d 的形态②**同级别**（幽灵 target / 丢 target），
+    /// 只是换了个入口复现——S-d 换实现时新开的盲区，此前没登记在任何口子里。
+    @Test("manifest 解析器：块注释与多行字符串不再吃掉 / 伪造 target（第 4 轮终审 I-3）")
+    func manifestParserHandlesBlockCommentsAndMultilineStrings() {
+        // ① 块注释里含**未配对**的括号 ⇒ 首版 `depth` 永远回不到 0 ⇒ 其后的 target 全丢。
+        // ⚠️ 注释必须落在**块内**才复现：块外的行走 `else if !open { continue }`，
+        // `parenDelta` 根本不参与——这一点实测过，别把 fixture 写在 `targets: [` 与
+        // 第一个 `.target(` 之间然后以为它证伪了什么。
+        let unbalanced = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(
+                name: "Alpha"
+                /* 历史备注：早期这里写的是 .target( 形态，见 #244 */
+            ),
+            .target(name: "Beta"),
+        ]
+        """)
+        #expect(unbalanced.map(\.name) == ["Alpha", "Beta"],
+                "块注释里的未配对括号把后面的 target 吃掉了 —— 丢失的 target 完全不受守卫覆盖")
+
+        // ② 块注释里含 `.target(` ⇒ 首版把**注释掉的** target 解析成幽灵 library target，
+        //    还会连它的 `resources:` 一起记上（`.module` 归属表因此凭空多一条）。
+        let commentedOut = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            /*
+            .target(
+                name: "Ghost",
+                resources: [.process("Resources")]
+            ),
+            */
+            .target(name: "Real"),
+        ]
+        """)
+        #expect(commentedOut.map(\.name) == ["Real"],
+                "注释掉的 target 变成了幽灵条目 —— 双向差集会红在一个 manifest 里根本不存在的名字上")
+        #expect(commentedOut.first?.hasResources == false,
+                "注释里的 `resources:` 被记到了真 target 上 —— `.module` 归属判据会说 Real 有资源包")
+
+        // ③ 多行字符串体同样不能当代码读：`"""` 是**奇数个**引号，逐行重置的引号状态
+        //    会被它带偏，字符串里的括号 / `.target(` 会吃掉后面的 target。
+        let multiline = GuardScanRoots.declaredTargets(manifestText: #"""
+        targets: [
+            .target(
+                name: "Doc",
+                swiftSettings: [.define("""
+                一段说明：这里故意写 .target( 和一个左括号 (
+                """)]
+            ),
+            .target(name: "Next"),
+        ]
+        """#)
+        #expect(multiline.map(\.name) == ["Doc", "Next"],
+                "多行字符串体被当成代码 —— 后面的 target 丢失或多出幽灵条目")
+
+        // ④ 非字面量 `name:` 同行还有别的字面量时**不得静默改名**（第 4 轮终审 I-4）。
+        //    期望：产出零个 target + 一条 `Issue.record`。
+        //    ⚠️ `withKnownIssue` 在这里**是一颗牙不是消音器**：块内一条 issue 都没记录时
+        //    它自己会判红 ⇒ 「解析不出 name 必须报出来」这条被机器钉住，而不是靠读文档。
+        //    （代价：本次 `swift test` 的 known issue 计数 2 → 3，那一条就是它。）
+        var renamed: [GuardScanRoots.DeclaredTarget] = []
+        withKnownIssue("非字面量 name 必须 Issue.record，不得静默改名") {
+            renamed = GuardScanRoots.declaredTargets(manifestText: """
+            targets: [
+                .target(name: shadersName, path: "Sources/Shaders"),
+            ]
+            """)
+        }
+        #expect(renamed.isEmpty, """
+        `.target(name: shadersName, path: "Sources/Shaders")` 被解析成了 \(renamed.map(\.name))
+        —— 首版取「整行第一个引号串」，于是产出一个名叫 "Sources/Shaders" 的幽灵 library target
+        且零 `Issue.record`。方向仍 fail-closed，但**静默改名比丢弃更难排查**：
+        读者会拿着一个从没在 manifest 里出现过的名字去找。
+        """)
+    }
+
+    /// PR #265 **第 5 轮**终审 S-a / S-b：三条**静默**路径（不 `Issue.record`、方向却错）。
+    ///
+    /// ⚠️ 三条都与 I-3 / I-4 同级别——产出一个 manifest 里根本不存在的 target 名，
+    /// 双向差集照样判红，但读者拿着那个名字无处可查。
+    @Test("manifest 解析器：嵌套块注释 / 插值 name / 同行多个 `name:`（第 5 轮终审 S-a / S-b）")
+    func manifestParserHandlesNestedCommentsAndTrickyNames() {
+        // ① **Swift 的块注释可嵌套**（`/* /* */ */` 合法）。首版遇**第一个** `*/` 就出注释
+        //    ⇒ 注释尾部的内容重新被当成代码 ⇒ `90da0b1` 声称堵掉的那条「幽灵 target」
+        //    换个入口原样复现，且 `Issue.record` 一条都没有。
+        let nested = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            /* 老写法：
+               /* 更老的写法 */
+               .target(name: "Ghost", resources: [.process("R")]),
+            */
+            .target(name: "Alpha"),
+            .target(name: "Beta"),
+        ]
+        """)
+        #expect(nested.map(\.name) == ["Alpha", "Beta"],
+                "嵌套块注释里被注释掉的 target 变成了幽灵条目 —— 双向差集会红在一个不存在的名字上")
+        #expect(nested.allSatisfy { !$0.hasResources },
+                "嵌套注释里的 `resources:` 被记到了真 target 上 —— `.module` 归属表凭空多一条")
+
+        // ② **插值字面量的 name 不得静默产出**：`"\(prefix)Alpha"` 是一段代码不是一个名字。
+        //    期望零 target + 一条 `Issue.record`（与 I-4 的非字面量 name 同一条纪律：
+        //    丢弃 + 报出来，好过静默改名）。
+        //    ⚠️ 本次 `swift test` 的 known issue 计数因此再 +1，那一条就是它。
+        var interpolated: [GuardScanRoots.DeclaredTarget] = []
+        withKnownIssue("插值 name 必须 Issue.record，不得静默产出一个含插值的 target 名") {
+            interpolated = GuardScanRoots.declaredTargets(manifestText: ##"""
+            targets: [
+                .target(name: "\(prefix)Alpha"),
+            ]
+            """##)
+        }
+        #expect(interpolated.isEmpty, """
+        插值 name 被静默产出成了 \(interpolated.map(\.name))
+        —— 那个名字在 manifest 里根本不存在，读者查不到它。
+        """)
+
+        // ③ `name:` 必须取**本块自己的**那一个：单行写法里 `dependencies:` 在前时，
+        //    「整行第一个 `name:`」会取到 `.product(name: "Inner", …)` 的那个
+        //    ⇒ 产出一个名叫 `Inner` 的 target，且零 `Issue.record`。
+        //    （多行写法不中招——那正是它此前没被发现的原因。）
+        let depsFirst = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(dependencies: [.product(name: "Inner", package: "p")], name: "Alpha"),
+        ]
+        """)
+        #expect(depsFirst.map(\.name) == ["Alpha"],
+                "同行的内层 `name:` 被当成了 target 名 —— 静默改名，双向差集会红在 `Inner` 上")
+
+        // ④ `name :`（冒号前空格）是**合法 Swift**。此前整块被丢弃并报
+        //    「name 可能不是字符串字面量」——诊断把读者指向一个根本不存在的问题。
+        let spaced = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(name : "Alpha"),
+        ]
+        """)
+        #expect(spaced.map(\.name) == ["Alpha"],
+                "`name :` 被判成非字面量 —— 诊断误导：那行的 name 明明就是字符串字面量")
+    }
+
+    @Test("根列表与 Package.swift 的 library target 双向吻合 —— 新增 target 忘了扩根即红")
+    func libraryTargetsAreCoveredByScanRoots() throws {
+        let declared = try GuardScanRoots.declaredLibraryTargets()
+        // ⚠️ 非空前置：manifest 解析失效 ⇒ 空集 ⇒ 下面两条差集全空 ⇒ 静默变绿。
+        #expect(declared.count >= 3, "从 Package.swift 只解析到 \(declared.count) 个 library target —— 解析器可能失效，不是「target 变少了」")
+
+        let declaredSet = Set(declared)
+        let known = Set(GuardScanRoots.targetNames)
+        let unguarded = declaredSet.subtracting(known).sorted()
+        #expect(unguarded.isEmpty, """
+        这些 library target 在 Package.swift 里声明了，却不在 `GuardScanRoots.targetNames` 里：\(unguarded)
+        —— 它们的源码**不受** Bool 纪律 / a11y 字面量 / 色相字面量 / chrome 文案任何一条守卫覆盖。
+        这正是 `#246` 要堵的「新 target 变成垃圾抽屉」。处置：把名字加进 `targetNames`，
+        并确认三条新守卫在它上面真的跑得起来（`Sources/<名字>/` 必须已存在）。
+        ⚠️ 不要反过来把 target 从 manifest 里藏起来。
+        """)
+        let ghosts = known.subtracting(declaredSet).sorted()
+        #expect(ghosts.isEmpty, """
+        `GuardScanRoots.targetNames` 里这些名字在 Package.swift 里已经没有对应的 library target：\(ghosts)
+        —— 幽灵根会让「每个根断言目录存在」那条判据红在一个已经不该存在的路径上。
+        """)
+        #expect(known.contains(GuardScanRoots.primaryTargetName),
+                "主 target `\(GuardScanRoots.primaryTargetName)` 不在根列表里 —— 台账键的默认前缀失去依据")
+    }
+
+    /// PR #297 终审 S-2：`Sources/<targetName>` 这条路径推断是一条**静默 fail-open**
+    /// 路径 —— `.target(name: "Foo", path: "Sources/Bar")` + 陈旧的 `Sources/Foo/`
+    /// 会让五族守卫扫错树，而「目录存在」与「名字双向差集」两道现有判据双双满足。
+    /// ⇒ 解析器里已改成判红。本条是那条判红的**变红自证**（合成 manifest，不碰磁盘）。
+    @Test("manifest 解析器：library target 写 `path:` ⇒ 当场判红（终审 S-2 的 fail-open 入口）")
+    func manifestParserFlagsExplicitTargetPath() {
+        // ① 正例：写了 `path:` 的 library target 必须报 issue。
+        withKnownIssue("合成 manifest 故意写 path: —— 本块若不记录 issue 说明 fail-open 入口又开了") {
+            _ = GuardScanRoots.declaredTargets(manifestText: """
+            targets: [
+                .target(name: "Foo", path: "Sources/Bar"),
+            ]
+            """)
+        }
+
+        // ② 反例（承重）：不写 `path:` 就不许报 —— 否则上面那条会被一条恒报的断言喂饱。
+        //    ⚠️ 真实 `Package.swift` 侧由 `libraryTargetsAreCoveredByScanRoots` 覆盖
+        //    （它每次都解析真 manifest，若解析器乱报 issue 那条会红）。
+        let clean = GuardScanRoots.declaredTargets(manifestText: """
+        targets: [
+            .target(name: "Foo", resources: [.process("Resources")]),
+            .testTarget(name: "FooTests", dependencies: ["Foo"]),
+        ]
+        """)
+        #expect(clean.map(\.name) == ["Foo", "FooTests"], "无 path: 的合成 manifest 解析结果变了")
+    }
+
+    /// ⚠️ **`#279` 已把 `CoreDesignShaders` 接进根列表**，本条的名字与消息随之改写。
+    /// 判据本身**一个字都没放松**：两侧仍是同一条等式 `exists == listed`，
+    /// 只是等式的两边现在都为 `true`（`#279` 之前都为 `false`）。
+    /// ⇒ 谁把根从 `targetNames` 里删掉、或把 `Sources/CoreDesignShaders/` 删掉而不改列表，
+    /// 这条照样当场红。
+    ///
+    /// ⚠️ **本条只对 Shaders 一个 target 逐字成立**，不是全表的通用判据 ——
+    /// 全表那条是 `libraryTargetsAreCoveredByScanRoots`（与 `Package.swift` 双向差集）。
+    /// 保留本条的理由：那条只看 **manifest 里声明了什么**，看不到**磁盘上有没有那棵树**；
+    /// 「manifest 删了 Shaders product、`Sources/CoreDesignShaders/` 却还留着」这种形态，
+    /// 双向差集是绿的，而本条会红。
+    @Test("`Sources/CoreDesignShaders/` 与根列表同进同退（`#279` 起两侧都为真）")
+    func shadersRootIsListedAlongsideItsDirectory() {
+        // ⚠️ 本条钉的是 `#246` AC 里那句话：对一个**不存在**的目录做扫描 / grep，
+        // 无命中即绿——那是 fail-open，不是「零违规」。`#246` 落地时目录尚不存在，
+        // 故等式两侧都是 `false`；`#279` 把 target 接进来后两侧都是 `true`。
+        let shaders = GuardScanRoots.sourcesURL(of: "CoreDesignShaders")
+        let exists = FileManager.default.fileExists(atPath: shaders.path)
+        let listed = GuardScanRoots.targetNames.contains("CoreDesignShaders")
+        #expect(exists == listed, """
+        `Sources/CoreDesignShaders/` 存在=\(exists)，而根列表里有它=\(listed) —— 两者必须一致：
+        · 目录不存在却进了列表 ⇒ 「每个根断言目录存在」会红（fail-closed，符合预期）；
+        · 目录存在却没进列表 ⇒ 该 target 的源码**完全不受守卫覆盖**，且所有 grep 判据
+          在它上面无命中即绿（fail-open）。处置：把 `CoreDesignShaders` 加进
+          `GuardScanRoots.targetNames`（`#279` 已做）。
+        """)
+        // ⚠️ **`#279` 起加的承重半句**：上面那条等式在「两侧都为 false」时同样成立
+        // ——即「有人把 target 从 manifest、根列表、磁盘上一起删干净」也绿。
+        // 那不是本仓当下的现状，而现状必须有判据钉着，否则本条退化成一句恒真的对称式。
+        #expect(exists, "`Sources/CoreDesignShaders/` 不见了 —— 上面那条对称等式会在「两侧都为 false」时静默变绿")
+        #expect(listed, "`CoreDesignShaders` 不在 `GuardScanRoots.targetNames` 里 —— 同上")
+    }
+
+    // MARK: - NFR-4：零 `@unchecked Sendable`
+
+    /// 纯函数入口，供合成输入的变红自证使用（见 `uncheckedSendableDetectorActuallyFires`）。
+    static func uncheckedSendableLines(in source: String) -> [Int] {
+        source.split(separator: "\n", omittingEmptySubsequences: false).enumerated()
+            .filter { $0.element.contains("@unchecked Sendable") }
+            .map { $0.offset + 1 }
+    }
+
+    @Test("NFR-4：全部已存在 target 的源码里零 `@unchecked Sendable`")
+    func noUncheckedSendable() {
+        // ⚠️ **根列表与其余四条守卫同源**（`GuardScanRoots.allRoots`），
+        // 只含已存在的 target。对不存在的 `Sources/CoreDesignShaders/` 做 grep
+        // **无命中即绿**，正是 `#246` 点名要防的 fail-open。
+        #expect(GuardScanRoots.assertRootsExist(GuardScanRoots.allRoots))
+
+        var offenders: [String] = []
+        var scannedFiles = 0
+        for root in GuardScanRoots.allRoots {
+            let files = GuardScanRoots.swiftFiles(in: root.url)
+            // ⚠️ 逐根非空：某个 target 下一个文件都没有时，「零命中」是假绿。
+            #expect(!files.isEmpty, "\(root.target) 下没有任何 .swift 文件 —— NFR-4 的 grep 在它上面恒绿")
+            scannedFiles += files.count
+            for url in files {
+                guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+                    Issue.record("读不到 \(GuardScanRoots.relativePath(url)) —— 判据无法工作")
+                    continue
+                }
+                for line in Self.uncheckedSendableLines(in: text) {
+                    offenders.append("\(GuardScanRoots.relativePath(url)):\(line)")
+                }
+            }
+        }
+        #expect(scannedFiles > 50, "只扫到 \(scannedFiles) 个源文件 —— 扫描失效，「零命中」不可信")
+        #expect(offenders.isEmpty, """
+        NFR-4：这些位置用了 `@unchecked Sendable`：
+        \(offenders.joined(separator: "\n"))
+        —— 它把并发正确性从编译器手里拿走、换成一句口头承诺。处置：改成真正的 `Sendable`
+        （值语义 / `let` / actor 隔离），或把类型收成非 public 的实现细节。
+        """)
+    }
+
+    @Test("NFR-4 的探测器真的会开火（合成输入变红自证）")
+    func uncheckedSendableDetectorActuallyFires() {
+        // ⚠️ **没有这条，上面那条在 0 个命中上必绿，而「必绿」与「守住了」不可分辨**。
+        // 三个新 target 今天各只有一个骨架文件，正是 `#246` AC 点名的
+        // 「新守卫在 0 个文件上必绿」形态。
+        let violating = """
+        import Foundation
+        final class Box: @unchecked Sendable {
+            var value = 0
+        }
+        """
+        #expect(Self.uncheckedSendableLines(in: violating) == [2],
+                "探测器对最直白的违规都不开火 —— 上面那条「零命中」毫无意义")
+        let clean = """
+        struct Box: Sendable { let value = 0 }
+        """
+        #expect(Self.uncheckedSendableLines(in: clean).isEmpty, "探测器误报：干净的 Sendable 也被标记")
+    }
+
+    // MARK: - 台账键的 target 前缀
+
+    /// ⚠️ **`#279`**：两处变红自证共用 `nonexistentFixtureTargetName` 当反例，
+    /// 它必须真的不在根列表里，否则那两条自证会静默退化成「反例其实是正例」
+    /// （那正是 `#279` 之前 `"CoreDesignShaders"` 被写死时发生的事）。
+    @Test("合成 fixture 用的「不存在的 target 名」真的不存在")
+    func nonexistentFixtureTargetIsReallyAbsent() {
+        let name = GuardScanRoots.nonexistentFixtureTargetName
+        #expect(!GuardScanRoots.targetNames.contains(name),
+                "`nonexistentFixtureTargetName`（\(name)）竟然在 `targetNames` 里 —— 以它为反例的两条变红自证会退化成正例、静默变绿。处置：换一个真的不存在的名字，**不要**删这条断言")
+        #expect(!FileManager.default.fileExists(atPath: GuardScanRoots.sourcesURL(of: name).path),
+                "磁盘上竟然有 `Sources/\(name)/` —— 同上")
+    }
+
+    @Test("台账键前缀：主 target 走裸形，新 target 必须带前缀")
+    func qualifiedKeyShape() {
+        #expect(GuardScanRoots.qualifiedKey(target: "CoreDesign", base: "Badge.init#outlined")
+                == "Badge.init#outlined")
+        #expect(GuardScanRoots.qualifiedKey(target: "CoreDesignEffects", base: "Badge.init#outlined")
+                == "CoreDesignEffects/Badge.init#outlined")
+        // 往返：前缀能被完整取回。
+        for target in GuardScanRoots.targetNames {
+            let key = GuardScanRoots.qualifiedKey(target: target, base: "Foo.init#flag")
+            #expect(GuardScanRoots.target(ofKey: key) == target, "键「\(key)」取不回 target \(target)")
+            #expect(GuardScanRoots.baseKey(key) == "Foo.init#flag")
+        }
+        // ⚠️ 承重性：同名类型在两个 target 里**不塌成同一个键**。
+        #expect(GuardScanRoots.qualifiedKey(target: "CoreDesign", base: "Foo.init#flag")
+                != GuardScanRoots.qualifiedKey(target: "CoreDesignCharts", base: "Foo.init#flag"))
+    }
+
+    /// `.module` 归属的**唯一**权威判据，a11y 守卫不再自己重复断言一遍
+    /// （PR #265 终审 I-4 / P-1）。
+    ///
+    /// ⚠️ **本条不禁止新 target 拥有资源包**——首版在「新 target 有了 Resources」时
+    /// `Issue.record`，那是**硬测试失败**，尽管消息自称「只是提醒，不是禁令」。
+    /// 而 `ChromeTextLiteralGuard` 规定的补救措施逐字就是「给该 target 声明它自己的
+    /// String Catalog（`Package.swift` 的 `resources:` + `Sources/<target>/Resources/`）」
+    /// ⇒ 照守卫说的做 ⇒ 测试红。**守卫不许禁止自己开出的处方。**
+    /// ⇒ 现状只 `print`，真正的断言换成一条**不自相矛盾**的一致性判据：
+    /// manifest 的 `resources:` 与磁盘上的资源必须同进同退。
+    /// 只建目录不声明 ⇒ SwiftPM 只报 unhandled resource 警告、`.module` 根本不存在，
+    /// 而写 `bundle: .module` 的文本判据会把它当「已本地化」放行（正是要防的假绿）；
+    /// 只声明不建 ⇒ SwiftPM 直接构建失败。
+    ///
+    /// ⚠️ **`#279` 把「磁盘那一侧」从固定目录名换成了逐条路径**：原判据写死
+    /// 「`resources:` ⇔ `Sources/<target>/Resources/` 目录存在」，而 SwiftPM 的
+    /// `resources:` 完全可以逐个文件写 —— `CoreDesignShaders` 声明的正是单个文件
+    /// `.process("CoreDesignShaders.metal")`。它一进根列表，原判据就红在一个
+    /// **并不存在**的问题上（「有声明没目录」，可 metallib 的源就在那儿）。
+    /// ⇒ 现在逐条核对**声明出来的每一条路径都真的在磁盘上**，并保留反方向的那半句
+    /// （磁盘上出现 `Resources/` 目录却没进声明 ⇒ 判红）。**比原判据严**：
+    /// 原判据只看一个固定目录名在不在，声明里写错的文件名它一个都抓不到。
+    ///
+    /// ⚠️ **非字面量实参这条路 ①（下面那条等式）已经堵上了**（PR #301 终审 S-1 更正）：
+    /// 上一版这里写「把 `.process("Resources")` 改写成 `.process(resourcesPath)` ⇒ 若同一轮
+    /// 把目录也删了，两侧都归于空 ⇒ 本条不判红」—— **那条缝并不存在**。`hasResources`
+    /// 走的是 `code.contains("resources:")`（见 `declaredTargets`），只要 `resources:`
+    /// 这个标签还在，它就是 `true`；而变量形态让路径侧收到空数组
+    /// ⇒ ① `#expect(declared == !paths.isEmpty)` 变成 `true == false` ⇒ **判红**，
+    /// 与磁盘上还剩什么无关。真正测不出来的只剩「把整条 `resources:` 声明**连同**磁盘资源
+    /// 一起删干净」，而那不是绕过、那是正常删除（`.module` 也随之真的不存在了）。
+    ///
+    /// ⚠️ **真正的残余形态是「误取」而不是「取不到」**：`resourceRuleArguments` 从
+    /// `.process(` 后的第一对引号里截字符串 ⇒ 拼接实参 `.process("Resources" + suffix)`
+    /// 会被取成 `"Resources"` 这半截。它在磁盘上存在 ⇒ ② 对着**错的路径**判绿。
+    /// （插值形态 `.process("\(name)/Resources")` 反而 fail-closed：取到的字面量在磁盘上
+    /// 不存在 ⇒ ② 当场红。）这条缝没有堵，如实记在这里；
+    /// 兜底的仍是 SwiftPM 自己：声明指向不存在的路径会直接构建失败。
+    @Test("`.module` 归属：manifest 的 `resources:` 逐条路径与磁盘同进同退")
+    func moduleBundleOwnership() throws {
+        #expect(GuardScanRoots.ownsResourceBundle("CoreDesign"),
+                "Package.swift 里 CoreDesign 的 `resources:` 声明不见了 —— a11y 守卫的 `bundle: .module` 放行条失去依据")
+
+        let declaredTargets = try GuardScanRoots.declaredTargets()
+        // ⚠️ 非空前置：解析器失效 ⇒ 空表 ⇒ 下面整个循环空转 ⇒ 静默变绿。
+        #expect(declaredTargets.count >= GuardScanRoots.targetNames.count,
+                "manifest 只解析出 \(declaredTargets.count) 个 target —— 解析器可能失效，下面的逐条核对会空转")
+
+        var checkedPaths = 0
+        for target in GuardScanRoots.targetNames {
+            let declared = GuardScanRoots.ownsResourceBundle(target)
+            let root = GuardScanRoots.sourcesURL(of: target)
+            let paths = declaredTargets.first { $0.name == target }?.resourcePaths ?? []
+
+            // ① `hasResources` 与「逐条路径」必须同步 —— 解析器两半自洽。
+            #expect(declared == !paths.isEmpty, """
+            \(target)：`hasResources`=\(declared) 而解析到的资源路径是 \(paths) —— 两者必须同步。
+            出现分歧说明 `resources:` 用了 `resourceRuleArguments` 认不出的形态
+            （非字面量实参、或 `.process` / `.copy` 之外的规则），此时「谁有 `.module`」
+            与「声明了哪些路径」会各说各话。
+            """)
+
+            // ② 声明侧 ⇒ 磁盘：每条路径都必须真的存在。
+            for path in paths {
+                let url = root.appendingPathComponent(path)
+                checkedPaths += 1
+                #expect(FileManager.default.fileExists(atPath: url.path), """
+                \(target)：Package.swift 声明了资源 `\(path)`，而 `Sources/\(target)/\(path)` 不存在
+                —— SwiftPM 会直接构建失败；本条只是把它在测试里先说清楚。
+                """)
+            }
+
+            // ③ 磁盘 ⇒ 声明：`Resources/` 目录存在就必须被某条声明覆盖。
+            //    ⚠️ 这半句是原判据里承重的那一半（防「只建目录不声明」的假绿），逐字保留。
+            var isDirectory: ObjCBool = false
+            let dirExists = FileManager.default.fileExists(
+                atPath: root.appendingPathComponent("Resources").path, isDirectory: &isDirectory
+            ) && isDirectory.boolValue
+            if dirExists {
+                #expect(paths.contains("Resources"), """
+                \(target)：磁盘上有 `Sources/\(target)/Resources/`，而 Package.swift 的
+                `resources:` 里没有对应的 `.process("Resources")` / `.copy("Resources")`（实际是 \(paths)）
+                —— SwiftPM 只报 unhandled resource 警告、**不合成 `Bundle.module`**，
+                但写 `bundle: .module` 的文本判据会把它当「已本地化」放行（假绿）。
+                """)
+            }
+
+            if declared, target != GuardScanRoots.primaryTargetName {
+                // ⚠️ 提醒，不是禁令（见本函数文档）：新 target 有了自己的 String Catalog 之后，
+                // `bundle: .module` 在它里面才开始有意义，a11y 守卫的按 target 放行逻辑值得复核。
+                print("【.module 归属】\(target) 现在拥有资源声明 \(paths) —— 请复核 `AccessibilityStringLiteralGuard` 的按 target 放行逻辑。")
+            }
+        }
+        // ⚠️ **扫描非真空**：一条路径都没核对时，②「逐条存在」在空集上恒真。
+        //
+        // ⚠️ **下界锚在 `targetNames.count`，不是写死现状条数**（PR #301 终审 I-1）：
+        // 上一版写 `>= 2`，出处句自称「现状是 `CoreDesign` 的 `Resources` 与
+        // `CoreDesignShaders` 的 `CoreDesignShaders.metal` 两条」—— **实测为假**，
+        // 是 **4** 条：`Package.swift` 里**四个** library target 各声明一条
+        // （`CoreDesign` / `CoreDesignEffects` / `CoreDesignCharts` 各一条
+        // `.process("Resources")`，`CoreDesignShaders` 一条 `.process("CoreDesignShaders.metal")`）。
+        // ⚠️ 下界设成实测值的一半是「定义域被悄悄截断而合计下界照样成立」的同一族假绿：
+        // `resourceRuleArguments` 若哪天漏掉 Effects + Charts 两条，`checkedPaths` 掉到 2、
+        // 旧下界照样满足，②「逐条都在」于是在**缩小一半**的定义域上继续恒绿。
+        // ⚠️ 锚点必须落在**解析器之外**：任何由 `declaredTargets()` 派生的下界都被
+        // ① 蕴含（①对每个 `hasResources` 的 target 已要求 `paths` 非空），循环一旦整体空转
+        // 就一起失效。`targetNames` 是手写常量，与解析器无关 ⇒ 它是这里唯一独立的锚。
+        // ⚠️ 它**不等于**「每个 target 都必须有资源」这条不变量 —— 今天四个 target 恰好
+        // 人人各声明一条，本下界才与 `targetNames.count` 重合。将来若新增一个**不声明**
+        // 资源的 library target，本条会红；那时的处置是**连同这段出处一起重判**
+        // （例如改锚到「声明了 `resources:` 的 target 数」并另找一个独立的空转防线），
+        // **不是**随手把下界调小。
+        #expect(checkedPaths >= GuardScanRoots.targetNames.count, """
+        只核对了 \(checkedPaths) 条资源路径，少于根列表里的 \(GuardScanRoots.targetNames.count) 个 target ——
+        本次实测四个 library target 各声明一条 `resources:`（CoreDesign / CoreDesignEffects /
+        CoreDesignCharts 的 `Resources` 目录，CoreDesignShaders 的 `CoreDesignShaders.metal`）⇒ 恰好 4 条。
+        低于此数说明 `resourceRuleArguments` 漏了声明，②「逐条都在」是在**被截断的定义域**上恒真。
+        ⚠️ 若确实新增了不声明资源的 target，见本断言上方注释：要重判出处，不是调小下界。
+        """)
+    }
+
+    /// ⚠️ **`resourceRuleArguments` 的变红自证**（`#279`）：`moduleBundleOwnership`
+    /// 在提交态恒绿（数据自洽时判据自然沉默）⇒ 「把提取器改成永远返回空数组」这类
+    /// 退化在提交态测不出来 —— 那会让①的等式两侧同时变假（`hasResources` 也跟着？不会，
+    /// `hasResources` 走的是另一条 `contains("resources:")`）⇒ ①会红；但②与
+    /// 「`checkedPaths >= targetNames.count`」这两条的活性仍需合成输入证明。
+    @Test("资源路径提取器真的会开火（合成输入变红自证）")
+    func resourceRuleArgumentExtraction() {
+        #expect(GuardScanRoots.resourceRuleArguments(in: #".process("Resources")"#) == ["Resources"])
+        #expect(GuardScanRoots.resourceRuleArguments(in: #".copy("a.metal")"#) == ["a.metal"])
+        // 一行写完的多条声明。⚠️ 顺序按 `.process` 全部在前、`.copy` 其次（实现使然），
+        // 消费方 `moduleBundleOwnership` 只做 `contains` 与逐条存在性，不依赖顺序。
+        #expect(Set(GuardScanRoots.resourceRuleArguments(
+            in: #"resources: [.process("Resources"), .copy("x.metal")]"#
+        )) == ["Resources", "x.metal"])
+        // 非字面量实参：取不到（已知缝，见 `moduleBundleOwnership` 文档）。
+        #expect(GuardScanRoots.resourceRuleArguments(in: ".process(pathVar)").isEmpty)
+        // 不是资源规则的调用不许误收。
+        #expect(GuardScanRoots.resourceRuleArguments(in: #".product(name: "Foo", package: "p")"#).isEmpty)
+    }
+
+    // MARK: - manifest 解析器自身的变红自证（PR #265 终审 S-4）
+
+    @Test("manifest 解析器：现状快照 + 非字面量 name 不被静默丢弃")
+    func manifestParserSnapshot() throws {
+        let targets = try GuardScanRoots.declaredTargets()
+        let libraries = Set(targets.filter(\.isLibrary).map(\.name))
+        #expect(libraries == Set(GuardScanRoots.targetNames),
+                "manifest 解析出的 library target \(libraries.sorted()) 与根列表不符")
+        // 三个 test target 必须被认出来、且**不算** library。
+        let nonLibraries = Set(targets.filter { !$0.isLibrary }.map(\.name))
+        #expect(nonLibraries.contains("CoreDesignTests"), "`.testTarget(` 没被解析出来 —— 解析器可能失效")
+        #expect(!libraries.contains("CoreDesignTests"), "test target 被误判成 library target")
+        // `resources:` 归属：解析器**真的**从 manifest 里读出了 `resources:`。
+        //
+        // ⚠️ **不写成 `== ["CoreDesign"]`**：那会把「新 target 声明自己的 String Catalog」
+        // 判红，而那正是 `ChromeTextLiteralGuard` 开出的处方——守卫不许禁止自己开出的处方
+        // （终审 I-4 的同一条病，别在这里复发一次）。承重的只有「主 target 有」这半句：
+        // a11y 守卫的 `.clean` 放行条依赖它。
+        #expect(GuardScanRoots.resourceOwningTargets().contains("CoreDesign"),
+                "解析器没从 Package.swift 读出 CoreDesign 的 `resources:` —— `.module` 归属判据失效")
+        #expect(!targets.filter(\.hasResources).isEmpty,
+                "解析器一条 `resources:` 都没读出来 —— 「谁有资源包」会退化成恒 false")
+    }
+}

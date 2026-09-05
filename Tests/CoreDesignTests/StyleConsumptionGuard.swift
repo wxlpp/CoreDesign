@@ -161,17 +161,25 @@ struct StyleConsumptionGuard {
         }
     }
 
-    /// 全仓 `.swift` 源文件（文件名 → 内容）。
+    /// 全仓 `.swift` 源文件（**仓库根相对路径** → 内容）。
+    ///
+    /// ⚠️ `#270` 起走 `ComponentRegistryGuard.componentScanRoots`（三个 target），
+    /// 与登记表同根：本守卫是按**登记表条目**的 `customStyleProtocol` 找源码的，
+    /// 登记表收了 Effects / Charts 的条目而这里只扫主 target 的话，
+    /// 新条目一旦填上 `customStyleProtocol`，「找不到声明」会被读成「没有 makeBody 调用」
+    /// ——**红得理由不对**，而且是永远修不好的红。
+    /// ⚠️ 键从 `lastPathComponent` 改成 `GuardScanRoots.relativePath(_:)`：三根之下
+    /// 裸文件名会撞车（`CoreDesign/Foo.swift` vs `CoreDesignEffects/Foo.swift`），
+    /// 失败消息会指错文件。
     private static func swiftSources() throws -> [(String, String)] {
-        let root = ComponentRegistryGuard.coreDesignSources
-        guard let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil) else {
-            Issue.record("无法枚举源码目录：\(root.path) —— 判据无法工作")
-            return []
-        }
+        let roots = ComponentRegistryGuard.componentScanRoots
+        GuardScanRoots.assertRootsExist(roots)
         var out: [(String, String)] = []
-        for case let url as URL in walker where url.pathExtension == "swift" {
-            if let text = try? String(contentsOf: url, encoding: .utf8) {
-                out.append((url.lastPathComponent, text))
+        for root in roots {
+            for url in GuardScanRoots.swiftFiles(in: root.url) {
+                if let text = try? String(contentsOf: url, encoding: .utf8) {
+                    out.append((GuardScanRoots.relativePath(url), text))
+                }
             }
         }
         return out

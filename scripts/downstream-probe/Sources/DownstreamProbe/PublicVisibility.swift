@@ -1,4 +1,6 @@
 import CoreDesign
+import CoreDesignCharts
+import CoreDesignEffects
 import Foundation
 import SwiftUI
 
@@ -148,6 +150,15 @@ func consumeSettingsRowMetrics() -> [CGFloat] {
 @MainActor
 func consumeSkeletonColorTokens() -> [Color] {
     [Color.skeletonBase, Color.skeletonHighlight]
+}
+
+/// ⚠️ **新增公开 token 必须在这里被消费**（PR #262 第 3 轮终审 I-2）：本文件
+/// `:154-159` 自己写着「下游对新符号**零引用**时，probe 对它们**恒绿**」。
+/// `specularHighlight` 落地时漏了这一步 ⇒ 验证清单里的「probe 通过」
+/// 对本次唯一新增的公开面**不构成任何证据**。`skeletonBase` / `skeletonHighlight`
+/// 当初是两处都补的（probe + 库内可引用性测试），本 token 补齐。
+func consumeSpecularHighlightToken() -> Color {
+    Color.specularHighlight
 }
 
 // MARK: - semi-mobile-components epic 全部新增公开面（Phase 3 / #173）
@@ -326,4 +337,237 @@ func consumeProgressIndicatorLocalizedText() -> some View {
 @MainActor
 func consumeProgressIndicatorVerbatimText(_ status: String) -> some View {
     ProgressIndicator(text: status)
+}
+
+// MARK: - NFR-7 的两个可注入能耗环境键：**不在本文件**（Issue #252）
+//
+// `\.lowPowerModeOverride` / `\.scenePhaseOverride` 已从 `CoreDesignEffects` 下沉到
+// `CoreDesign`（PR #269 终审 S-2 的已裁决处置），它们的跨模块证明随之搬到**另一个
+// target**：`CoreDesignOnlyProbe`（只接 `CoreDesign` 一个 product）。
+//
+// ⚠️ **不能留在本 target**，哪怕单开一个"只写 `import CoreDesign`"的文件——
+// 变异实证现场抓到的：Swift 对**扩展成员**的名字查找是**逐模块**而不是逐文件的，
+// 本文件顶上这句 `import CoreDesignEffects` 会让 Effects 挂在 `EnvironmentValues`
+// 上的成员在同 target 的**其它文件里也可见**。⇒ 那样的"证明"在"键搬回 Effects"
+// 这枚变异下照样全绿，是摆设。理由全文见 `CoreDesignOnlyProbe` 的文件头与
+// `Package.swift` 里那个 target 的注释。
+
+// MARK: - CoreDesignEffects：#252 的四个 API 单位
+
+@MainActor
+func consumeCelebrationAndProcessingEffects() -> some View {
+    VStack {
+        ScanningOverlay { Text("scanning") }
+        GlowSweep { Text("glow") }
+        LightSweep { Text("light") }
+    }
+    .confetti(trigger: 1)
+}
+
+// MARK: - CoreDesignEffects：#253 的四个 API 单位
+
+// ⚠️ 三个 View 与一个 `Transition` 静态成员落在**本文件**而不是
+// `EffectsNonisolatedUsage.swift`——分流理由见那份文件的文件头：本包开了
+// `.defaultIsolation(MainActor.self)`，View 的 `init` 天然 MainActor 隔离，
+// 从 `nonisolated func` 里构造它们必然编译失败。
+// 值类型那一档（`TypewriterSpeed` / `ParticleTransition.defaultCount`）在那边。
+@MainActor
+func consumeTextAndDisplayEffects(streamed: String) -> some View {
+    VStack {
+        TypewriterText("Welcome aboard", speed: .slow)
+        TypewriterText(verbatim: streamed)
+        AnimatedMeshGradient()
+        AnimatedMeshGradient(colors: [.surfaceRaised], alternateColors: [.secondaryFill])
+        BeforeAfterSlider(labels: .shown(before: "Draft", after: "Final")) {
+            Text("before")
+        } after: {
+            Text("after")
+        }
+        BeforeAfterSlider(labels: .hidden) {
+            Text("before")
+        } after: {
+            Text("after")
+        }
+        Text("badge").transition(.particle)
+        Text("badge").transition(.particle(count: 8, colors: [.surfaceRaised]))
+    }
+}
+
+// MARK: - CoreDesignEffects：#254 的四个 API 单位（跨平台改造）
+
+// ⚠️ 四件都是 `View` struct ⇒ 全部落在**本文件**（`@MainActor`），
+// `EffectsNonisolatedUsage.swift` 那边只放值类型 —— 分流理由见那份文件的文件头。
+//
+// ⚠️⚠️ **本函数同时是"macOS 支持没被降低"的跨模块证据**：
+// probe 是一个独立 SwiftPM 包，`swift build` 在 macOS 上编译它。若哪天有人把
+// `FullScreenButton` 整个塞进 `#if os(iOS)`（"让库编译得过"的那种改法），
+// 本仓的 `swift build` 仍然全绿，而**这里会当场编译红**——那正是下游 macOS App
+// 会遇到的形态。`PlatformSupportGuard.zoomIsFencedToIOS` 从源码那一侧守同一件事。
+@MainActor
+func consumeCrossPlatformEffects(brands: [CrossPlatformProbeItem]) -> some View {
+    VStack {
+        DotSphere()
+        DotSphere(count: 200, colors: [.surfaceRaised], rotationPeriod: 8)
+        CharSphere(["道", "德"])
+        CharSphere(["S", "h"], count: 120, colors: [.secondaryFill], rotationPeriod: 6)
+        OrbitingLogos(brands) { item in
+            Text(verbatim: item.name)
+        } center: {
+            Text(verbatim: "core")
+        }
+        NavigationStack {
+            FullScreenButton {
+                Text(verbatim: "expanded")
+            } label: {
+                Text(verbatim: "card")
+            }
+        }
+    }
+}
+
+/// probe 侧的示例数据类型：`OrbitingLogos` 的入参是**泛型集合 + `Identifiable`**，
+/// 不绑定具体模型 ⇒ 下游用自己的模型也接得上，这一条只有跨模块调用点看得见。
+struct CrossPlatformProbeItem: Identifiable {
+    let id: Int
+    let name: String
+}
+
+// MARK: - CoreDesignEffects：#266 的四种滤镜类转场
+
+// ⚠️ 四个 `Transition` 静态成员都要**经点语法**触达（`.transition(.blur)`），
+// 不能写 `Transition.blur`——该静态成员定义在
+// `extension Transition where Self == BlurTransition` 上，经协议元类型访问会报
+// `static member 'blur' cannot be used on protocol metatype '(any Transition).Type'`
+// （同本文件 `consumeCircularGlassAccessor` 记的那条）。
+// ⚠️ 含参与无参两条重载**都**要覆盖：它们按 `Host.member` 去重算同一条转场，
+// 但**可见性是各自独立的**——只覆盖一条，另一条漏了 `public` 时 probe 照样绿。
+// 四个默认值常量（值类型那一档）在 `EffectsNonisolatedUsage.swift`。
+@MainActor
+func consumeFilterTransitions() -> some View {
+    VStack {
+        Text(verbatim: "blur").transition(.blur)
+        Text(verbatim: "blur+").transition(.blur(radius: 8))
+        Text(verbatim: "exposure").transition(.filmExposure)
+        Text(verbatim: "exposure+").transition(.filmExposure(intensity: 0.4))
+        Text(verbatim: "snapshot").transition(.snapshot)
+        Text(verbatim: "snapshot+").transition(.snapshot(intensity: 0.5))
+        Text(verbatim: "flicker").transition(.flicker)
+        Text(verbatim: "flicker+").transition(.flicker(cycles: 4))
+    }
+}
+
+// MARK: - CoreDesignEffects：#268 的六个 API 单位（mask reveal 转场簇）
+
+// ⚠️ 六种转场各有「无参 `var`」与「含参 `func`」两个静态成员（登记表按 `Host.member`
+// 去重算六条，见 `docs/component-registry.json`）——**十二个都在这里点名**，
+// 因为「无参那个能编译」不蕴含「含参那个也能」：两段是各自独立的接线，
+// 而含参重载的默认实参还引用了 `MaskRevealTransition.default*` 四个常量，
+// 那四个常量漏 `public` 时**只有含参形态会红**。
+//
+// ⚠️ 它们落在**本文件**（`@MainActor`）而不是 `EffectsNonisolatedUsage.swift`：
+// 按那份文件头的分流表，`Transition` 的静态成员是**转场形态**，
+// `.transition(_:)` 本身是 `View` 上的 modifier ⇒ 天然 MainActor 隔离。
+// 四个默认值常量是**值类型**，在那边（`readMaskRevealTransitionDefaults()`）。
+//
+// ⚠️⚠️ **本函数同时是「`MaskRevealTransition` 没有 public init 不算破 `CLAUDE.md`」
+// 的常驻证据**（#268 终审）：那条惯例针对的是**调用方要构造的组件**；转场只经这十二个
+// 静态成员消费，而这里逐个证明了「不给 public init 也够用」。
+// 少了本函数，那条裁决就只有一次性的临时验证撑着。
+@MainActor
+func consumeMaskRevealTransitions() -> some View {
+    VStack {
+        Text("iris").transition(.iris)
+        Text("iris(anchor:)").transition(.iris(anchor: .topLeading))
+        Text("wipe").transition(.wipe)
+        Text("wipe(angle:)").transition(.wipe(angle: .degrees(90)))
+        Text("blinds").transition(.blinds)
+        Text("blinds(count:)").transition(.blinds(count: 5))
+        Text("clock").transition(.clock)
+        Text("clock(direction:)").transition(.clock(direction: .counterClockwise))
+        Text("glare").transition(.glare)
+        Text("glare(angle:)").transition(.glare(angle: .degrees(-20)))
+        Text("dissolve").transition(.dissolve)
+        Text("dissolve(cellSize:)").transition(.dissolve(cellSize: 12))
+    }
+}
+
+// MARK: - CoreDesignEffects：#250 的 8 个微交互 modifier
+
+// ⚠️ 8 个都是 `public extension View` 上的方法 ⇒ 落**本文件**（`@MainActor`）：
+// 本包开了 `.defaultIsolation(MainActor.self)`，modifier 函数天然 MainActor 隔离，
+// 从 `nonisolated func` 里调用必然编译失败。两个配置枚举
+// （`MicroInteractionStrength` / `SpinDirection`）在 `EffectsNonisolatedUsage.swift`。
+//
+// ⚠️ **含默认实参的形态与显式传参的形态都要覆盖**：默认实参本身引用了
+// `MicroInteractionStrength.regular` / `SpinDirection.clockwise` /
+// `Color.specularHighlight` 这些公开符号，**只写默认形态时，显式传参那条重载路径
+// 上的可见性回退抓不到**（与 `consumeFilterTransitions` 记的那条同型）。
+//
+// ⚠️ 拆成两个函数只是因为 `ViewBuilder` 一次最多接 10 个子视图。
+@MainActor
+func consumeMicroInteractionModifiersA(taps: Int) -> some View {
+    VStack {
+        Text(verbatim: "shake").shake(trigger: taps)
+        Text(verbatim: "shake+").shake(trigger: taps, strength: .pronounced)
+        Text(verbatim: "jump").jump(trigger: taps)
+        Text(verbatim: "jump+").jump(trigger: taps, strength: .subtle)
+        Text(verbatim: "spin").spin(trigger: taps)
+        Text(verbatim: "spin+").spin(trigger: taps, direction: .counterClockwise)
+        Text(verbatim: "ping").ping(trigger: taps)
+        Text(verbatim: "ping+").ping(trigger: taps, strength: .subtle, color: .accent)
+    }
+}
+
+@MainActor
+func consumeMicroInteractionModifiersB(taps: Int) -> some View {
+    VStack {
+        Text(verbatim: "spray").spray(trigger: taps, symbol: "heart.fill")
+        Text(verbatim: "spray+").spray(trigger: taps, symbol: "star.fill", strength: .pronounced, colors: [.accent])
+        Text(verbatim: "rise").rise(trigger: taps, text: "+1")
+        Text(verbatim: "rise+").rise(trigger: taps, text: "+1", strength: .subtle, color: .accent)
+        // ⚠️ `.haptic` 是对 `sensoryFeedback` 的薄封装，**没有** strength / color 参数
+        // ⇒ 只有一种形态。它的公开面就是这一行。
+        Text(verbatim: "haptic").haptic(.success, trigger: taps)
+        Text(verbatim: "shine").shine(trigger: taps)
+        Text(verbatim: "shine+").shine(trigger: taps, highlight: .specularHighlight)
+    }
+}
+
+// MARK: - CoreDesignCharts：#255 的四个图表
+
+// ⚠️ 四个图表**本身**是 `View` struct ⇒ 落本文件（`@MainActor`），
+// 数据契约（`ChartValue` / `HeatmapDay` / `GraphNode` / `GraphEdge`）与四个规模上限
+// 是**值类型 / 配置**那一档，在 `ChartsNonisolatedUsage.swift`
+// —— 分流理由见 `EffectsNonisolatedUsage.swift` 的文件头。
+//
+// ⚠️ **每个图表的 `title:` / `tint:` 缺省与显式两种形态都要覆盖**：
+// `title` 的类型是 `LocalizedStringResource?`，显式传值那条路径上若哪天
+// 换成一个 internal 的包装类型，只写缺省形态的 probe 照样绿。
+//
+// ⚠️ 本函数同时钉住「四个图表的数据入参是**泛型**」这条 AC（#255 终审 I-7）：
+// 这里传进去的是 **probe 自己的**模型类型，库里没有它们的任何影子
+// ——若哪天有人把入参绑回库自带的具体 struct，这里当场编译红。
+@MainActor
+func consumeCharts() -> some View {
+    let metrics = [
+        ChartsProbeMetric(id: 0, label: "速度", value: 82),
+        ChartsProbeMetric(id: 1, label: "力量", value: 61),
+        ChartsProbeMetric(id: 2, label: "耐力", value: 94),
+    ]
+    let days = (0..<7).map {
+        ChartsProbeDay(id: $0, date: Date(timeIntervalSince1970: Double($0) * 86_400), count: $0)
+    }
+    let nodes = (0..<4).map { ChartsProbeNode(id: "n\($0)", label: "节点 \($0)") }
+    let edges = [GraphEdge(from: "n0", to: "n1"), GraphEdge(from: "n1", to: "n2")]
+
+    return VStack {
+        RadarChart(metrics)
+        RadarChart(metrics, title: "Radar", tint: .accent)
+        RingChart(metrics, goal: 500)
+        RingChart(metrics, goal: 500, title: "Rings", tint: .accent)
+        ActivityHeatmap(days)
+        ActivityHeatmap(days, title: "Heatmap", tint: .accent, calendar: .current)
+        NetworkGraph(nodes: nodes, edges: edges)
+        NetworkGraph(nodes: nodes, edges: edges, title: "Graph", tint: .accent)
+    }
 }
