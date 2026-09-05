@@ -110,8 +110,8 @@ func consumeGlassModifierTwoArgForm() -> some View {
 // 更正**（PR #304 第 2 轮终审 I-3 顺带复核）：`ButtonRoleStyleRole` 自己是
 // `public nonisolated enum`，这四个成员的隔离来自它们各自**显式**标的 `@MainActor`
 // （`Sources/CoreDesign/Components/Button/ButtonRoleStyleRole.swift:18/34/50/75`）。
-// 「显式标注 vs 只由 `defaultIsolation` 推断」正是下面 `consumeSkeletonColorTokens`
-// 那条更正里的判别式的第一项——两处不能混为一谈。
+// 「**成员级**显式 `@MainActor` 压过**类型级** `nonisolated`」正是下面
+// `consumeSkeletonColorTokens` 那条更正里来源 (i) 的边界条件——两处不能混为一谈。
 @MainActor
 func consumeResolvedColor(_ role: ButtonRoleStyleRole) -> Color {
     role.resolvedColor(isEnabled: true, isPressed: false)
@@ -157,29 +157,57 @@ func consumeCircularGlassTierAccessor() -> some View {
 //   （`color` / `activeColor` / `disabledColor` / `resolvedColor`）**全部判红**。
 //   两组行为相反，不能互相引证。
 //
-// ⚠️ **真正的判别式**（本次跑了 6 个 cell 的 2×2 合成实测 + 3 个模块内对照，
-// 原始输出见 PR #304 第 2 轮验证块）：一个 CoreDesign 公开成员从**外部包的
-// nonisolated 上下文**可达，当且仅当它 **① 没有显式隔离标注**（隔离只可能来自
-// `defaultIsolation`）**且 ② 声明在一个本模块之外的类型的扩展上**（这里是
-// `SwiftUI.Color`）。本次覆盖的 4 类 cell：
-//   · 外部类型扩展 + 无标注（真实 `skeletonBase`；合成 `zzUnannotatedColorStatic`）⇒ **绿**
-//   · 外部类型扩展 + 显式 `@MainActor`（合成 `zzAnnotatedColorStatic`）⇒ **红**
-//   · CoreDesign 自有类型 + 无标注（合成的 static 与实例计算属性各一）⇒ **红**
-//   · CoreDesign 自有类型 + 显式 `@MainActor`（合成一条；真实的
-//     `ButtonRoleStyleRole` 调色板四条）⇒ **红**
-// ⇒ 判别式**不是**「计算属性 vs 存储属性」，**也不是**「static vs 实例成员」。
+// ⚠️ **判别式（不再写「当且仅当」——上一版那句实测为假，照录更正）**
+// （PR #304 第 3 轮终审 C-1。终审搭了 **11 个跨模块 cell + 9 个模块内对照**；本轮落件时
+// 又独立复跑了其中 4 个跨模块 cell（外部类型扩展无标注 / 自有 enum 无标注 /
+// 自有类型的 extension 无标注 / 自有 `public nonisolated enum`）与 2 个模块内对照。
+// 这是一份**枚举**，不是穷举证明。）
 //
-// ⚠️ 而且这条可达性**只对下游成立**：同一批成员从 CoreDesign **模块内**的
-// nonisolated 上下文读仍是硬 error——合成对照里 `zzUnannotatedColorStatic` /
-// `skeletonBase` / `success` 三条在模块内同时判红。这与 `NonisolatedUsage.swift`
-// 里 F-2 那条更正（「第 3/4 层色彩 token 跨模块反而 nonisolated 可达，MainActor
-// 只在模块内成立」）是**同一个事实的两个方向**，本轮之前两处互相矛盾，现已消解。
+// 上一版写的是：「可达 **当且仅当** ① 没有显式隔离标注 **且** ② 声明在一个本模块之外的
+// 类型的扩展上」。**① 与 ② 都为假**，两个反例就在本仓树里：
+// · 反证 ①：`SettingsRowMetrics`（`Sources/CoreDesign/Components/SettingsRow/SettingsRow.swift:17`）
+//   是 `public nonisolated enum` —— 它**有**显式标注、而且**不是**任何扩展 —— 而
+//   `NonisolatedUsage.swift:useSettingsRowMetrics()` 跨模块把它 6 个成员逐条读、干净编译。
+// · 反证 ②（「extension 这个词选错了」）：本模块**自有类型的 extension** 上的无标注 static
+//   计算属性，跨模块判**红**（`error: main actor-isolated static property 'extValue' can not
+//   be referenced from a nonisolated context`），而同样自有、只是**不在** extension 上的
+//   `SettingsRowMetrics` 判**绿** ⇒ 起作用的不是「是不是 extension」，
+//   而是**被扩展的类型来自哪个模块**。
+//
+// ⇒ 本次观察到的规律：从**外部包的 nonisolated 上下文**可达 ⇔ 该成员**对外呈现为
+// nonisolated**。观察到两条来源：
+//
+//   **(i)** 成员自己显式 `nonisolated`，或其**所属类型**显式 `nonisolated` 且成员没有再
+//   标 `@MainActor`（**成员级标注压过类型级**——`ButtonRoleStyleRole` 正是活例：enum 本体
+//   是 `public nonisolated`，但四个调色板成员各自显式 `@MainActor` ⇒ 判红，见上面 `:104` 那条）。
+//   这条**模块内外都成立**：`SettingsRowMetrics.iconAlignedDividerInset` 从 CoreDesign
+//   **模块内**的 `nonisolated func` 读，同样干净编译。
+//
+//   **(ii)** 成员声明在**另一个模块声明的、本身 nonisolated 的类型**的扩展上
+//   （`SwiftUI.Color`、`CoreGraphics.CGFloat`），**且未显式标 `@MainActor`**。
+//   `defaultIsolation` 在模块内仍把它推成 MainActor —— 同一个 `Color.specularHighlight`
+//   从 CoreDesign **模块内**的 `nonisolated func` 读会硬报
+//   `error: main actor-isolated static property 'specularHighlight' can not be referenced
+//   from a nonisolated context` —— 但**这份推断没有被序列化进 swiftmodule 接口**，
+//   于是下游看到的是 nonisolated。这条**只对下游成立**。
+//
+// 显式 `@MainActor` 一律红；自有类型（**含其 extension**）无显式 `nonisolated` 一律红，
+// 且**模块内外一致**。
+// ⇒ static/实例、计算/存储、property/func **都不是**判别项。
+//
+// ⚠️ 因此上一版那句「**而且这条可达性只对下游成立**」也必须收窄：它对来源 (ii) 成立，
+// 对来源 (i) **不成立**（`SettingsRowMetrics` 模块内同样读得到）。来源 (ii) 与
+// `NonisolatedUsage.swift` 里 F-2 那条更正（「第 3/4 层色彩 token 跨模块反而 nonisolated
+// 可达，MainActor 只在模块内成立」）是**同一个事实的两个方向**。
+//
+// ⚠️ 这一类的**空间是开放的**：以上只是本次跑到的 cell 里读得出的规律，不排除还有第三条
+// 来源（`@preconcurrency` 导入、`@_spi` 等形态本次**没有测**）。别把它当成完备判别式用。
 //
 // ⇒ 这里的 `@MainActor` **不是「必须」，只是无害**。保留它只因为本函数的交付物是
 // 「从外部包消费这两个 token」的可见性 pin，与隔离无关；下面紧邻的
 // `consumeSpecularHighlightToken()` 就是同类 token 的**无标注**版本（本包没有开
 // `defaultIsolation`，未标注的顶层 func 本身就是 nonisolated 上下文）——它一直是绿的，
-// 正是上述判别式第一类 cell 的一条既有活证据。
+// 正是来源 (ii) 的一条既有活证据。
 @MainActor
 func consumeSkeletonColorTokens() -> [Color] {
     [Color.skeletonBase, Color.skeletonHighlight]

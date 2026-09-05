@@ -138,11 +138,22 @@ jobs:
     # 钉住它的是**树内**判据 `Tests/CoreDesignTests/DownstreamProbeGateGuard.swift`
     # （读本文件，断言下面这条 `run:` 逐字含该标志）⇒ 随 `swift test` 在每个事件上跑。
     #
-    # ⚠️ 那条判据还会拦两种「标志还在、但红点传不到 job 结论」的改法（PR #304 第 2 轮
-    # 终审 I-2）：给下面任一条 `run:` 追加 ` || true`，或给这个 job 里任何一步加
-    # `continue-on-error:`。真要加，先改判据并说明理由——别以为它只看那个标志。
-    # 另：`run:` 里 `cd scripts/downstream-probe && swift build` 这一串是**逐字**匹配的，
-    # 改写成语义等价的多行/折叠标量会判红（fail-closed，但报错信息像 bug）。
+    # ⚠️ 那条判据还会拦一批「标志还在、但红点传不到 job 结论 / 这个 job 压根没跑」的
+    # 改法（PR #304 第 2 轮终审 I-2、第 3 轮 C-2/I-C）。**别把下面这串读成穷举清单**，
+    # 判据自己的头注释里写着哪些仍然敞着（`on:` 收窄、`paths-ignore:`、假的 `runs-on:`）：
+    #   · 下面那条构建 `run:` 必须**逐字**等于
+    #     `cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors`
+    #     ——后面接**任何**尾巴都判红（` || true` / ` ||true`（少一个空格也算）/
+    #     `|| :` / `|| exit 0` / `|| echo skipped` / `; true` / 换行接 `true` / `2>/dev/null` …）。
+    #     ⚠️ 这条也意味着给它加合法后缀（`--verbose`、`| tee build.log`）同样判红。
+    #   · 这个 job 块里出现 `continue-on-error:` / `if:` / `needs:` / `shell:` 任意一个，判红。
+    #     （`needs:` 不是理论洁癖：`needs: bool-ratchet` 会让本 job 在**每一次 push 事件**
+    #     上被跳过，因为 `bool-ratchet` 自己带着 `if: github.event_name == 'pull_request'`。）
+    #   · 块标量里用 `echo "<整条命令>"` 冒充真命令、把命令塞进 `uses:` 步骤的 `with:` 下面，
+    #     判据都不认（它先剥引号、丢 `echo`/`printf` 行、只认步骤自己的 `run:` 键）。
+    # 真要加，先改判据并说明理由——别以为它只看那个标志。
+    # 另：`run:` 里那一串是**逐字**匹配的，改写成语义等价的多行 / 折叠标量会判红
+    #（fail-closed，但报错信息像 bug）；唯一被放行的等价写法是 shell 反斜杠续行。
     #
     # ⚠️⚠️ **副作用：这个标志顺带给了库自身一道零警告闸**（PR #304 终审 S-2）。
     # `-Xswiftc` 会传给**依赖图里所有** Swift 编译，而 probe 的依赖图包含
