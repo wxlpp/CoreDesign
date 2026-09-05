@@ -18,7 +18,7 @@ import CoreDesignEffects
 public struct BlurTransition: Transition {
     public let radius: CGFloat
     public nonisolated static let defaultRadius: CGFloat   // 12
-    public static let properties: TransitionProperties     // hasMotion: false
+    public nonisolated static let properties: TransitionProperties     // hasMotion: false
     public init(radius: CGFloat = BlurTransition.defaultRadius)
     public func body(content: Content, phase: TransitionPhase) -> some View
 }
@@ -55,7 +55,7 @@ SDK 对该位的原文：
 
 ⇒ 不显式声明的话，**框架已经在 Reduce Motion 下把本转场整个换成了 `.opacity`**
 ——正是上表「降级的代价：等于删掉它」那一行说绝不能发生的事。
-本类型因此写了 `public static let properties = TransitionProperties(hasMotion: false)`，
+本类型因此写了 `public nonisolated static let properties = TransitionProperties(hasMotion: false)`，
 由 `everyTransitionOptsOutOfTheFrameworkMotionSubstitution` 直接断言那个**性质**
 （并用一个不覆写 `properties` 的探针类型互锁，证明默认值真的是 `true`）。
 ⚠️ 这一条是 PR #289 终审 C-4 的处置：`blurConsumesNoAccessibilitySignal` 钉的是

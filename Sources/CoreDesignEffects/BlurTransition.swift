@@ -71,7 +71,7 @@ public struct BlurTransition: Transition {
     /// 「Reduce Motion 开启时把这条转场替换成 opacity」⇒ 框架会替本转场做掉
     /// 它自己声明绝不能发生的那件事。判据：
     /// `FilterTransitionTests.everyTransitionOptsOutOfTheFrameworkMotionSubstitution`。
-    public static let properties = TransitionProperties(hasMotion: false)
+    public nonisolated static let properties = TransitionProperties(hasMotion: false)
 
     public init(radius: CGFloat = BlurTransition.defaultRadius) {
         self.radius = radius

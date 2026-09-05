@@ -83,3 +83,83 @@ nonisolated func useFunctionalColors() -> [Color] {
 nonisolated func useCoreShape() -> some Shape {
     CoreShape.rounded(CoreRadius.medium)
 }
+
+// `SettingsRowMetrics` 是**布局常量命名空间**（图标列宽、分隔线 inset），
+// 它的存在理由逐字写在类型文档里：「让调用方把自定义行/内容对齐到 `SettingsRow`
+// 的网格，而不必抄魔数」——那正是调用方在**自己**的布局计算里读它，而布局计算
+// 不必然发生在主 actor 上。
+//
+// ⚠️ 它此前是 `public enum`（本包 `.defaultIsolation(MainActor.self)` ⇒ MainActor
+// 隔离），从本文件这样的 `nonisolated` 上下文读它是**硬 error**、不是 warning：
+//
+//     error: main actor-isolated static property 'iconSquareSize'
+//            can not be referenced from a nonisolated context
+//
+// 与 `#290` 那 5 条同一形态、同一根因（默认值 / 布局常量被 `defaultIsolation`
+// 卷进 MainActor），只是严重度不同——那 5 条长在 `View` / `Transition` 上，
+// 隔离由 SwiftUI 协议遵从推断而来，编译器降级成 warning；这一组的隔离直接
+// 来自 `defaultIsolation`，是 error。⇒ 修法相同：`public nonisolated enum`。
+//
+// ⚠️ **本函数现在是 probe 侧对 `SettingsRowMetrics` 的唯一覆盖**（PR #304 第 2 轮
+// 终审 I-4）：`PublicVisibility.swift` 里那个 `@MainActor consumeSettingsRowMetrics()`
+// 读的是**逐字相同、顺序相同**的同 6 个成员、同在 `DownstreamProbe` 这**一个**外部
+// target 里 ⇒ 可见性覆盖 100% 重叠，而隔离那一侧它比本函数**弱**（`nonisolated` 被
+// 拿掉时它不会红）。严格被本函数支配 ⇒ 已删除。本函数因此同时承担两件事：
+// **pin 住 `public` 可见性**，与**pin 住 `nonisolated` 可达性**。
+//
+// ⚠️ 前一件不是冗余的：`SettingsRowMetrics` 从 internal 改 public（`0.6.0` item 2）
+// 的**全部交付物**就是「下游能读这 6 个成员」，而若它被改回 internal，库内
+// `@testable` 测试、`App/` 预览宿主、其余既有 probe 文件**没有一个**会红
+// （无一从外部包引用它）——只有本函数会。
+//
+// ⚠️ 连同删掉的还有它头上那段 F-5 更正记录，照录于此以免有人重新推导出旧结论：
+// **上一版那里写「必须 @MainActor：`.defaultIsolation(MainActor.self)` 下两个计算属性
+// （`iconAlignedDividerInset` / `textAlignedDividerInset`）是 MainActor 隔离的，四个
+// `static let` 跨模块也非 nonisolated 可达（SE-0434 只放开模块内）」——`#290` 把
+// `SettingsRowMetrics` 改成 `public nonisolated enum` 之后，这段话的每一个分句都已为
+// 假**（PR #304 第 1 轮终审 F-5）。反证就是本函数：6 个成员（含那两个计算属性）跨模块
+// `nonisolated` 逐条读、干净编译。SE-0434 那半句本身也是误引，射程见下方
+// `SidebarTextStyle` 那条更正。
+nonisolated func useSettingsRowMetrics() -> [CGFloat] {
+    [
+        SettingsRowMetrics.iconSquareSize,
+        SettingsRowMetrics.iconTitleGap,
+        SettingsRowMetrics.horizontalPadding,
+        SettingsRowMetrics.iconCornerRadius,
+        SettingsRowMetrics.iconAlignedDividerInset,
+        SettingsRowMetrics.textAlignedDividerInset,
+    ]
+}
+
+// ⚠️ **`SidebarTextStyle` 与 `BottomInputBarDefaults` 有意不在本文件**，理由与
+// `CoreElevation.spec(for:)` 那条逐字同源，只是上游不同（#290 实测）：
+// · `SidebarTextStyle.primary/secondary/tertiary` 的初始化表达式是
+//   `Color.contentPrimary` / `.contentMuted` / `.contentSubtle`，而**这些表达式在
+//   模块内求值**——`CoreDesign` 自己开了 `.defaultIsolation(MainActor.self)`，于是
+//   模块内的色彩层整体是 MainActor 隔离的 ⇒ 一个 `nonisolated` 的静态存储属性
+//   用不了它。给这个 enum 标 `nonisolated` ⇒ `error: main actor-isolated default
+//   value in a nonisolated context`。要解开得先让整个色彩层 `nonisolated`，
+//   那是另一件事。
+//
+//   ⚠️ **上一版这里写「第 3 层语义色是**计算** `static var` 所以隔离，`static let`
+//   才会按 SE-0434 隐式 `nonisolated`」——实测为假，照录更正**（PR #304 终审 F-2）：
+//   · **判别式不是 `static let` vs 计算 `static var`**。`Color.success` 是
+//     `public static let`（`Sources/CoreDesign/Colors/FunctionalColor.swift`），
+//     往 `Sources/CoreDesign/` 塞一个 `nonisolated func { Color.success }` 同样
+//     当场 `error: main actor-isolated static property 'success' can not be
+//     referenced from a nonisolated context`——与计算属性 `Color.contentPrimary`
+//     在同一次构建里给出**一模一样**的诊断。两者一视同仁。
+//   · **SE-0434 被误引**。提案原文讲的是「global-actor-isolated **value type** 里
+//     `Sendable` 类型的**实例存储属性**，在**定义它的模块内**被当作 `nonisolated`」
+//     ——与 `static` 成员无关，射程也只到模块内。
+//   · **而从下游看这句话是反的**：本文件 `useFunctionalColors()` 与
+//     `PublicVisibility.swift` 的对照面就是活证据——本包（独立消费包）干净重建
+//     零 warning 零 error，其中 `nonisolated func useFunctionalColors()` 直接读
+//     `.success` / `.info` / `.warning` / `.danger`。⇒ 第 3/4 层色彩 token
+//     **跨模块反而是 nonisolated 可达的**，MainActor 只在**模块内**成立。
+//     本条「不可修」成立的理由因此只有一条：`SidebarTextStyle` 的初值表达式
+//     求值发生在**模块内**。
+// · `BottomInputBarDefaults.placeholder` 走 `String(localized:bundle: .module)`,
+//   而 `Bundle.module` 的访问器由 SwiftPM 生成在本 target 内、随 `defaultIsolation`
+//   成为 MainActor 隔离 ⇒ `error: main actor-isolated static property 'module'
+//   can not be referenced from a nonisolated context`。同 `CoreElevation` 家族。

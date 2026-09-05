@@ -39,10 +39,10 @@ import SwiftUI
 public struct CharSphere: View {
 
     /// 默认字数（球面上的点位数，不是字表长度）。
-    public static let defaultCount: Int = 240
+    public nonisolated static let defaultCount: Int = 240
 
     /// 默认自转周期（秒 / 圈）。
-    public static let defaultRotationPeriod: Double = SphereField.rotationPeriod
+    public nonisolated static let defaultRotationPeriod: Double = SphereField.rotationPeriod
 
     private let characters: [String]
     private let count: Int

@@ -24,6 +24,36 @@ iOS 设置页 / 偏好面板的行 / iOS Settings-style preference row.
 | systemName | String | - | SF Symbol 名 |
 | background | Color | - | 色块背景色（图标本身固定白色，如同 iOS 设置） |
 
+### SettingsRowMetrics
+
+`SettingsRow` 与 `InsetGroupedSection` **共享**的布局常量命名空间——图标列宽、
+分隔线 inset 从这里推导，调用方把自定义行对齐到同一网格时读它（逐值见下方
+「视觉 Token」一节）。
+
+```swift
+public nonisolated enum SettingsRowMetrics {
+    public static let iconSquareSize: CGFloat            // 30
+    public static let iconTitleGap: CGFloat              // CoreSpacing.md
+    public static let horizontalPadding: CGFloat         // CoreSpacing.lg
+    public static let iconCornerRadius: CGFloat          // CoreRadius.small
+    public static var iconAlignedDividerInset: CGFloat   // 越过图标列
+    public static var textAlignedDividerInset: CGFloat   // 对齐内容 leading
+}
+```
+
+⚠️ **`nonisolated` 在这个 enum 上是承重的、不是装饰**（#290）：本包开了
+`.defaultIsolation(MainActor.self)`，不标它就是 MainActor 隔离的，而调用方读这些
+常量的地方（自己的布局计算）不必然在主 actor 上 ⇒ 会拿到**硬 error**
+
+```
+error: main actor-isolated static property 'iconSquareSize'
+       can not be referenced from a nonisolated context
+```
+
+而库自身的 `swift build` / `swift test` 全跑在被隔离的 target 内部，看不见这条。
+常驻判据是 `scripts/downstream-probe`（`useSettingsRowMetrics()`），CI 的
+`downstream-probe` job 带 `-Xswiftc -warnings-as-errors`。
+
 ### SettingsRowChevron
 
 无参数。渲染尾部 disclosure chevron（`chevron.forward`，自动镜像 RTL），`Color.contentTertiary`，供 accessory 组合。

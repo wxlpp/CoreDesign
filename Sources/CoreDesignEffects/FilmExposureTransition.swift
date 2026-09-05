@@ -79,7 +79,7 @@ public struct FilmExposureTransition: Transition {
     ///（终审 C-4）：协议默认值 `hasMotion == true` 的语义是「Reduce Motion 开启时
     /// 把这条转场替换成 opacity」。判据：
     /// `FilterTransitionTests.everyTransitionOptsOutOfTheFrameworkMotionSubstitution`。
-    public static let properties = TransitionProperties(hasMotion: false)
+    public nonisolated static let properties = TransitionProperties(hasMotion: false)
 
     public init(intensity: Double = FilmExposureTransition.defaultIntensity) {
         self.intensity = intensity

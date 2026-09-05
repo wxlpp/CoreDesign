@@ -78,7 +78,7 @@ public struct OrbitingLogos<Data: RandomAccessCollection, Logo: View, Center: Vi
 where Data.Element: Identifiable {
 
     /// 默认自转周期（秒 / 圈）。
-    public static var defaultRotationPeriod: Double { OrbitRing.rotationPeriod }
+    public nonisolated static var defaultRotationPeriod: Double { OrbitRing.rotationPeriod }
 
     private let items: Data
     private let colors: [Color]
