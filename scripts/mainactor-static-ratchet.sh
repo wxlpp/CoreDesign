@@ -28,9 +28,13 @@
 #   **50432 个符号的 `accessLevel` 无一例外全是 `public`**（470 个公开 static 型成员
 #   自然也全是）。⇒ 这条筛在今天不拦任何东西，它的非空性完全取决于 dump 的门槛。
 #   为了不把那个门槛留给一个脚本里没钉住的 SwiftPM 默认值，下面那条 dump 命令
-#   **显式**写了 `--minimum-access-level public`（该字面量已进
-#   `MainActorStaticRatchetGuard.requiredScriptLiterals`）。写 `open` 进筛条件是为了
-#   将来加 open class、或有人把门槛调低时不静默漏掉，不是因为它现在拦住了什么。
+#   **显式**写了那个可见性门槛。写 `open` 进筛条件是为了将来加 open class、
+#   或有人把门槛调低时不静默漏掉，不是因为它现在拦住了什么。
+#   ⚠️ `MainActorStaticRatchetGuard.requiredScriptLiterals` 钉的是**整条 dump 命令**
+#   （以及豁免表那条**整条赋值**），不是其中的 flag / 路径片段：那两个片段在本文件里
+#   分别出现两次 / 三次（真的那份 + 注释 / stderr 文案），只钉片段的话，删掉真的那份、
+#   留着注释那份，`contains` 照样满足 ⇒ 脚本与树内判据双绿（PR #314 第 2 轮终审 C-1
+#   实测的完整失效链）。⇒ **在本文件里提这两条时，不要逐字重复它们钉的那一整条。**
 #
 # ## ⚠️ 范围定案与代价（必须先读这一节再改判据或豁免表）
 #
@@ -119,8 +123,13 @@
 # `swift package dump-symbol-graph` 是一次完整的 SwiftPM 调用。开销**实测**（本机，
 # 每次先 `rm -rf .build/arm64-apple-macosx/symbolgraph`，紧接在完整 `swift build` +
 # `swift test` 之后，即 CI 次序）：热 `.build` 上**约 4 s**（六次连测
-# 6.2 / 4.2 / 4.5 / 4.1 / 4.2 / 4.3 s，第一次偏高是内层增量构建还没完全热），
-# 写出约 265 MB JSON。
+# 6.2 / 4.2 / 4.5 / 4.1 / 4.2 / 4.3 s，第一次偏高是内层增量构建还没完全热；
+# 本轮复测 3.84 / 3.90 s），写出约 265 MB JSON。
+#
+# ⚠️ **「约 4 s」锚定的是 dump 那一段，不是整步**（PR #314 第 2 轮终审 S-2）：
+# 本轮实测整步墙钟 **9.25 / 8.28 / 8.27 s** —— dump 约 3.9 s + python 解析约 4.4 s
+# （410 个候选符号要从约 265 MB JSON 里筛出来）。结论不受影响（8 s 量级同样不值得
+# 为它单开一条通路），但别把那句运行时 `echo` 读成整步 4 s。
 #
 # ⇒ **「会给每一次本地 `swift test` 加开销」不是理由**：4 s 量级的东西不值得为它
 # 单开一条通路（这一条曾按「约 100s」写，是**失真的数**，PR #314 终审实测推翻）。
@@ -156,6 +165,13 @@
 #   在「本包内确实没有跨 target 扩展」时**本来就不存在**（今天正是如此，零个）
 #   ⇒ 那一族按「在就扫、不在就跳过」处理，不能照主文件的规矩判红。
 #
+# ⚠️ **`population` 的口径含跨 target 文件，如实登记**（PR #314 第 2 轮终审 S-4）：
+#   下面那道防空转网数的候选面，把 `<Target>@<本包另一个 target>.symbols.json` 的命中
+#   也算了进去。今天那一族**零个文件** ⇒ 无影响。将来真有了包内跨 target 扩展，
+#   某个 target 的主文件筛条件失效时，候选面可能被跨 target 文件的命中**撑到非零**，
+#   从而稀释这道网。届时把 `population` 拆成「主文件 / 跨 target」两个计数，
+#   只用主文件那份判空转。
+#
 # ⚠️ **另一条小前提，如实登记**：下面那道「防空转网」断言**每个** library target 都
 #   至少有一个公开 static 型成员。将来若新增一个只有类型 / 只有 modifier、一个公开
 #   static 都没有的 library target，本脚本会**假红**。方向是 fail-closed（不会静默变绿），
@@ -183,7 +199,7 @@ if [ "$#" -eq 1 ]; then
   SYMBOLGRAPH_DIR="$1"
   echo "▶ 复用已有 symbol graph：$SYMBOLGRAPH_DIR"
 else
-  echo "▶ swift package dump-symbol-graph（热 .build 上实测约 4s）"
+  echo "▶ swift package dump-symbol-graph（热 .build 上 dump 约 4s；整步含解析约 8.5s）"
   DUMP_LOG="$(mktemp -t mainactor-ratchet-dump)"
   # ⚠️ 不用 `| tee`：pipefail + 上游 SIGPIPE 会把失败洗成别的码（本仓 ci.yml 栽过一次）。
   if ! swift package dump-symbol-graph --minimum-access-level public > "$DUMP_LOG" 2>&1; then

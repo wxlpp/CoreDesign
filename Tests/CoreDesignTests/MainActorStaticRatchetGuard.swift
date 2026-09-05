@@ -78,15 +78,21 @@ import Testing
 //
 // · **本文件不验证「脚本跑出来是对的」** —— 它只验证脚本的**筛条件字面量**在场。
 //   ⚠️ 例子要举准（PR #314 终审实测纠正了原来那个）：
-//   · **能逃逸**：在 python 正文的**开头**插一行 `sys.exit(0)`、其余原样 ⇒ 脚本
-//     exit 0，本文件**全绿**（字面量一条不少，只是不再被执行）。
+//   · **能逃逸**：在 python 正文的 `import json, os, sys` **那一行之后**插一行
+//     `sys.exit(0)`、其余原样 ⇒ 脚本 exit 0，本文件**全绿**（字面量一条不少，
+//     只是不再被执行）。
+//     ⚠️ 位置要写准，别写「正文的开头」：插在**字面开头**（`import` 之前）实测是
+//     `NameError: name 'sys' is not defined` ⇒ **exit 1**——照那句去复现的人会得到
+//     相反结果，正是下一条要警告的形态（PR #314 第 2 轮终审 I-3）。
 //   · **能逃逸**：在 `set -euo pipefail` 之后加 `trap 'exit 0' ERR` ⇒ 脚本 exit 0，
 //     本文件**全绿**；实测它能中和一次真实违规（豁免表多一行坏条目照样 exit 0）。
 //   · **不能逃逸（原来举错的那个）**：把 python 段**整段**换成
 //     `python3 -c 'import sys; sys.exit(0)'` ⇒ 脚本 exit 0，但 11 条 pin 里有 **9 条
-//     （全部写在 python 段里的那些）当场缺席**，本文件判红（另 2 条
-//     `--minimum-access-level public` 与豁免表路径写在 bash 段里，不受影响）。
+//     （全部写在 python 段里的那些）当场缺席**，本文件判红（另 2 条——dump 那条命令
+//     与豁免表赋值——写在 bash 段里，不受影响）。
 //     照那句去复现的人会得到相反结果，误以为缺口已经堵上。
+//     ⚠️ 那 2 条 bash 段的 pin 本身曾各被**注释里的同名副本**稀释到失效，
+//     处置见 `MainActorStaticRatchetGuard.violations(inScript:)` 的注释。
 //   ⇒ 与 `DownstreamProbeGateGuard` 头注释「selftest 脚本自己的断言逻辑无人看守」是
 //   **同一条缺口**，同样**未修、只登记**。兜住它的不是判据，是脚本在 CI 上每次真的
 //   跑一遍：它判红过（见 PR #307 的变异实证）。
@@ -94,10 +100,15 @@ import Testing
 // · **兄弟行不设防（已收窄，未消除）** —— 与 `DownstreamProbeGateGuard` 第 6 类同款：
 //   那条 `run:` 逐字保留、在它旁边加一行 `exit 0` / `trap 'exit 0' ERR`，
 //   本文件全绿而这一步什么也没做。
-//   ⚠️ **收窄的那一半**：`ci.yml` 里那条 `run:` 是**行内标量**，要加兄弟行**必须先**
-//   把它改写成 `run: |` 块标量——而 `runLineIsInlineScalar` 那条正面判据现在当场判红。
-//   这是**正面判据**（钉「值必须逐字等于 `expectedRunCommand`」），不是按拼法追
-//   `^exit 0` / `trap .*ERR`；后者正是 `#304` 第 4 轮终审明确不建议的路线。
+//   ⚠️ **收窄的那一半**：`ci.yml` 里那条 `run:` 是**行内标量**，要在它旁边加东西
+//   得先改写它的标量形态——**两种**改写现在都当场判红：`run: |` 块标量走
+//   `runLineIsInlineScalar`（值变成 `|`），**跨行折叠的普通标量**
+//   （`run: <命令>` + 一行更深缩进的 `|| true`，YAML 折叠后逐字等于 `<命令> || true`）
+//   走 `runScalarContinuationLines`。后者是本轮实测发现的**第三种**形态：加它之前
+//   三条判据全绿，而头注释原来那句「要加兄弟行**必须先**改成块标量」因此是**假的**。
+//   两条都是**正面判据**（钉「值必须逐字等于 `expectedRunCommand`」「`run:` 底下不许有
+//   续行」），不是按拼法追 `^exit 0` / `trap .*ERR`；后者正是 `#304` 第 4 轮终审
+//   明确不建议的路线。
 //   ⚠️ **没有消除的那一半，如实登记**：`run:` 之外的兄弟形态仍敞着——同一个 job 里
 //   **另起一个 step** 抢先 `exit 0`、或在**别的 step** 里改坏环境，本文件都看不见。
 //
@@ -105,24 +116,49 @@ import Testing
 //   「Upload test logs」step 带着 `if: always()`（合法且必要），所以不能像
 //   `DownstreamProbeGateGuard` 那样对整个 job 块做 `contains("if:")`。本文件改成
 //   **按缩进定位**：job 的直接子键、以及**含那条 `run:` 的那个 step** 两处各查一遍。
-//   ⇒ **别的 step 上的 `if:` 不判红**（也不该判红）。而 workflow 级 `on:` 收窄 /
-//   `paths-ignore:` / 假的 `runs-on:` 与 `DownstreamProbeGateGuard` 登记的一样**仍敞着**。
+//   ⇒ **别的 step 上的 `if:` 不判红**（也不该判红）。
+//   ⚠️ **`defaults:` 这一格是 PR #314 第 2 轮终审 C-2 补的**，它当时是清单里唯一漏掉的
+//   中和键：`defaults: run: shell: bash -c "exit 0" {0}` 写在 **job 级或 workflow 级**
+//   都会让这一步以退出码 0 空转（GitHub 的自定义 shell 模板是 `<command> […] {0}`），
+//   而 `blockedJobKeys` 当时只有 `if` / `needs` / `continue-on-error` ⇒ 两种写法实测全绿。
+//   刺眼的是**同一个 `shell:` 写在 step 上当时就判红**（`allowedStepKeys` 正面清单，
+//   `stepKeyDangerNotes` 还专门写了它的危害）——闸认得这个威胁，只是把它挡在 step 层。
+//   现在 `defaults` 进了 `blockedJobKeys`，且**workflow 顶层单查一遍**
+//   （`blockedTopLevelKeys(inWorkflow:)`——顶层那份 `jobBlock` 一个字都看不见）。
+//   ⇒ 而 workflow 级 `on:` 收窄 / `paths-ignore:` / 假的 `runs-on:` 与
+//   `DownstreamProbeGateGuard` 登记的一样**仍敞着**。
 //
 // · **已知会假红的合法改写**（都 fail-closed，登记以免下次被当成 bug 追）：
 //   ① 把 `steps:` 底下的 `- ` 缩到与 `steps:` **同列**（合法 YAML，但 `stepBlocks`
 //      按「缩进大于 `steps:`」切块，会切不出 step）；
-//   ② 给脚本路径加引号（`bash "scripts/mainactor-static-ratchet.sh"`）——
-//      `expectedRunCommand` 是逐字正面清单；
+//   ② 给脚本路径加引号（`bash "scripts/mainactor-static-ratchet.sh"`）。
+//      ⚠️ **机制不是**「`expectedRunCommand` 是逐字正面清单」（原来这么写，是错的）：
+//      共用解析器的 `DownstreamProbeGateGuard.strippingQuotedSegments(_:)` 会把整个
+//      引号段**抹掉**，marker 随之消失 ⇒ `candidates` 为空 ⇒ 报的是「找不到跑那个脚本的
+//      `run:`」+「不是行内标量」，**不是**「不是逐字的期望命令」。有实际代价：
+//      本文件明确设计了「两种失效形态的报错不会混」，而这条**合法**改写恰好触发误导的那一条
+//      （对照 ③：行尾注释报的确实是「不是逐字的期望命令」，与登记相符）。
 //   ③ 在那条 `run:` 行尾加 ` # 注释`——YAML 语义上值没变，本文件按整行逐字比 ⇒ 判红。
 //      **③ 最可能被无辜触发**，改那一行前先看 `expectedRunCommand`。
 //   ④ 给那个 step 加一个**合法但不在 `allowedStepKeys` 里**的键（`id:` / `timeout-minutes:` …）
 //      ——正面清单的必然代价，处置是把它加进 `allowedStepKeys` 并说明理由。
+//   ⑤ 把 step 写成裸 `-` 单独一行 + 底下一串子键（合法 YAML）——`directChildKeys` 按
+//      「短横的列 + 1 + 短横后空格数」推直接子键的列，裸 `-` 后面没有空格 ⇒ 推出来的列
+//      与真实子键的列对不上 ⇒ 判红。fail-closed，写在这里以免下次被当成 bug 追。
 //
 // ## 本文件的判据（限定名，供 `JudgementReferenceGuard` 规则 A 接住改名 / 删除）
 //
 // 删掉本文件里任何一条 `@Test` 本身**不会有别的东西判红**（没有 `Type.成员` 形式的
 // 引用可供规则 A 接住）——这与 `ColorGradeResolutionGuard` 那边「写成限定名之后改名 /
-// 删除至少会被规则 A 接住」的做法不一致。下面这张表就是补上的那一层：
+// 删除至少会被规则 A 接住」的做法不一致。下面这张表补的就是那一层。
+//
+// ⚠️ **这张表接住的是「改名」与「单边删除」，不是全部**（措辞按 PR #314 第 2 轮终审 I-2
+// 收窄）：只改 `@Test` 的名字而不动表 ⇒ 规则 A 判红并点名；只删表里那一行而不动
+// `@Test` ⇒ 同样红。但**协同删除**（把某条 `@Test` 与表里那一行一起删）当时是**静默**的
+// ——终审实测删掉 `workflowRunsTheRatchet` 与它那一行，本 suite 与 `JudgementReferenceGuard`
+// 双绿，`ci.yml` 那道闸就此无人可见地消失。接住协同删除的是
+// `MainActorStaticRatchetGuard.judgementCount` 那个**数**（本轮补，与另外四张表的基数
+// 断言同一形态）。
 //
 // · `MainActorStaticRatchetGuard.exemptionTableMatchesRegisteredTable`
 // · `MainActorStaticRatchetGuard.scriptPinsTheFilterPredicate`
@@ -138,10 +174,19 @@ import Testing
 // · `MainActorStaticRatchetGuard.syntheticWorkflowWithBlockScalarRunIsRejected`
 // · `MainActorStaticRatchetGuard.syntheticWorkflowWithoutJobIsRejected`
 // · `MainActorStaticRatchetGuard.syntheticScriptMissingAnyLiteralIsRejected`
+// · `MainActorStaticRatchetGuard.syntheticScriptWithDuplicatedLiteralIsRejected`
+// · `MainActorStaticRatchetGuard.syntheticWorkflowWithInheritedShellDefaultsAreRejected`
+// · `MainActorStaticRatchetGuard.syntheticWorkflowWithFoldedPlainScalarRunIsRejected`
+// · `MainActorStaticRatchetGuard.syntheticWorkflowWithMisIndentedStepIsRejected`
+// · `MainActorStaticRatchetGuard.judgementRosterMatchesTheHeaderTable`
 //
-// ⚠️ 加 / 删一条 `@Test` 时同步这张表，并同步下面那几条**基数断言**
-// （`requiredScriptLiterals` / `registeredExemptions` / `blockedJobKeys` /
-// `allowedStepKeys` 的 `count`）——基数断言是 PR #314 终审补的，理由见它们各自的注释。
+// ⚠️ 加 / 删一条 `@Test` 时同步这张表与 `MainActorStaticRatchetGuard.judgementCount`，
+// 并同步下面那几条**基数断言**（`MainActorStaticRatchetGuard.requiredScriptLiterals` /
+// `MainActorStaticRatchetGuard.registeredExemptions` /
+// `MainActorStaticRatchetGuard.blockedJobKeys` /
+// `MainActorStaticRatchetGuard.allowedStepKeys` 的 `count`）——基数断言是 PR #314 终审
+// 补的，理由见它们各自的注释。⚠️ 这几个名字**必须写成限定名**：写成裸反引号
+// （原来那样）规则 A 接不住它们，改名 / 删除就没有东西判红了（第 2 轮终审 S-1）。
 
 @Suite("#307 公开 static 的 MainActor 隔离棘轮不得被静默拆掉")
 struct MainActorStaticRatchetGuard {
@@ -153,6 +198,21 @@ struct MainActorStaticRatchetGuard {
 
     /// 豁免表（仓库相对路径）。脚本与本文件的**唯一**共同数据源。
     nonisolated static let exemptionsRelativePath = "docs/mainactor-static-exemptions.txt"
+
+    /// 本 suite 里 `@Test` 的条数，同时也是头注释那张限定名表的行数。
+    ///
+    /// ⚠️ 这个数是 PR #314 第 2 轮终审 I-2 补的，接的是规则 A **接不住**的那一格：
+    /// **协同删除**（把某条 `@Test` 与表里那一行一起删）。与 `requiredScriptLiterals` /
+    /// `registeredExemptions` / `blockedJobKeys` / `allowedStepKeys` 的基数断言同一形态。
+    /// ⚠️ 与那四条一样，**删掉这条断言本身没有东西判红**——基数是这一族的末端，
+    /// 兜住它的是「改它必须与另外两处同轮改」这件事会被 review 看见。
+    nonisolated static let judgementCount = 19
+
+    /// 本文件自身（`judgementRosterMatchesTheHeaderTable` 要读它数 `@Test`）。
+    nonisolated static var ownSourceURL: URL {
+        GuardScanRoots.repoRoot
+            .appendingPathComponent("Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift")
+    }
 
     /// 承载那一步的 job 名。
     ///
@@ -209,11 +269,14 @@ struct MainActorStaticRatchetGuard {
             """#
         ),
         (
-            "--minimum-access-level public",
+            #"swift package dump-symbol-graph --minimum-access-level public > "$DUMP_LOG""#,
             #"""
-            把 dump 的可见性门槛**显式**写死。删掉它 ⇒ 门槛退回 SwiftPM 的默认值，
-            而 `PUBLIC_LEVELS` 那条筛的非空性完全建立在那个默认值上（今天默认恰好是
-            `public`，脚本照样 exit 0）——那正是「一条判据的前提没被钉住」的形态
+            dump 那条命令**整条**，含**显式**写死的可见性门槛。删掉门槛 ⇒ 退回 SwiftPM
+            的默认值，而 `PUBLIC_LEVELS` 那条筛的非空性完全建立在那个默认值上（今天默认
+            恰好是 `public`，脚本照样 exit 0）——那正是「一条判据的前提没被钉住」的形态。
+            ⚠️ **钉整条而不是只钉 `--minimum-access-level public` 那个 flag**：flag 在脚本里
+            出现两次（真 flag + 上面那段注释），`contains` 会被注释那份满足 ⇒ 删掉真 flag
+            两侧全绿（PR #314 第 2 轮终审 C-1 实测）。整条只在真命令那一行出现
             """#
         ),
         (
@@ -264,8 +327,13 @@ struct MainActorStaticRatchetGuard {
             """#
         ),
         (
-            "docs/mainactor-static-exemptions.txt",
-            "脚本读的豁免表路径。改指别处 ⇒ 本文件钉的表与脚本比的表分了家"
+            #"EXEMPTIONS="$REPO_ROOT/docs/mainactor-static-exemptions.txt""#,
+            #"""
+            脚本读的豁免表路径，钉**整条赋值**。改指别处 ⇒ 本文件钉的表与脚本比的表分了家。
+            ⚠️ **钉整条而不是只钉 `docs/mainactor-static-exemptions.txt` 那个路径**：路径在
+            脚本里出现三次（真赋值 + 头注释 + stderr 文案）⇒「把赋值改指别处、并在那里
+            放一份同名副本」这条**完整失效链**当时两侧全绿（PR #314 第 2 轮终审 C-1 实测）
+            """#
         ),
     ]
 
@@ -275,10 +343,26 @@ struct MainActorStaticRatchetGuard {
     /// `hasPrefix("if:")`。原来那种写法被六种同义 YAML 拼法整个绕开
     /// （`"if": false` / `if : false` / `continue-on-error : true` /
     /// job 级 `"if": false` / `needs : simulator` …，PR #314 终审逐条实测判绿）。
+    ///
+    /// ⚠️ 这张表**用在两处**：`blockedJobLevelKeys(inJobBlock:)` 查 job 的直接子键，
+    /// `blockedTopLevelKeys(inWorkflow:)` 查 **workflow 顶层**的直接子键。`defaults:`
+    /// 写在顶层会被**每个 job 继承**，效果与写在 job 上逐字相同，而 `jobBlock` 只切出
+    /// 那个 job 的块 ⇒ 顶层那份必须单查一遍。另外三个键在 workflow 顶层不是合法键，
+    /// 复用这张表不引入假红。
     nonisolated static let blockedJobKeys: [(key: String, reason: String)] = [
         ("if", "这个 job 可能在某些事件上压根不跑"),
         ("needs", "上游 job 被跳过时这个 job 会跟着不跑（`bool-ratchet` 就带着 `if:`）"),
         ("continue-on-error", "这道闸判红也不会让 job 判红"),
+        (
+            "defaults",
+            #"""
+            `run.shell` 可被改写成 `bash -c "exit 0" {0}`，这一步会以退出码 0 空转
+            ——GitHub 的自定义 shell 模板是 `<command> […options] {0}`，于是整步变成
+            `bash -c "exit 0" <脚本路径>`，脚本一行都不跑（PR #314 第 2 轮终审 C-2 实测：
+            job 级与 workflow 级两种写法当时都判绿，而**同一个 `shell:` 写在 step 上就判红**）。
+            这个 job 今天不需要 `defaults:` ⇒ 拦掉它零假红成本
+            """#
+        ),
     ]
 
     /// **含那条 `run:` 的那个 step** 的直接子键**允许清单**（正面清单，fail-closed）。
@@ -322,6 +406,18 @@ struct MainActorStaticRatchetGuard {
 
     nonisolated static func indentation(of line: String) -> Int {
         line.prefix { $0 == " " }.count
+    }
+
+    /// `literal` 在 `text` 里**非重叠**出现的次数。
+    nonisolated static func occurrences(of literal: String, in text: String) -> Int {
+        guard !literal.isEmpty else { return 0 }
+        var count = 0
+        var cursor = text.startIndex
+        while let found = text.range(of: literal, range: cursor..<text.endIndex) {
+            count += 1
+            cursor = found.upperBound
+        }
+        return count
     }
 
     nonisolated static func isSkippable(_ line: String) -> Bool {
@@ -480,7 +576,18 @@ struct MainActorStaticRatchetGuard {
     /// ```
     /// **能整条走过去**（含 marker 的那一行逐字相等，`exit 0` 不含 marker 被滤掉）。
     /// 本条直接看 `run` 这个**键的值**：块标量下它是 `"|"`，与期望不等 ⇒ 判红。
-    /// ⇒ 「要加兄弟行必须先改成块标量」这个前提，从此有东西钉着。
+    ///
+    /// ⚠️⚠️ **两条路径的关系是不对称的，如实登记**（PR #314 第 2 轮终审 I-1）：
+    /// 上面那句只在**一个方向**为真。反方向——「有没有输入是只有逐字循环能红的」——
+    /// 在**合法 YAML 里造不出来**：块标量、行尾尾巴、`echo` 冒充这三种形态，
+    /// 本条都先红了。终审实测：删掉 `violations(inWorkflow:)` 里那段逐字循环，
+    /// 本 suite 当时 14 条全绿；删掉本条的调用，只有块标量那条 fixture 红。
+    /// ⇒ 对 fixture 6/7/8 两条路径**互为冗余**。
+    /// 逐字循环的独立价值只剩一格，本轮给它补了专属 fixture
+    /// （`syntheticWorkflowWithMisIndentedStepIsRejected`）：**`stepBlocks` 分块失效**时
+    /// ——兄弟 `- ` 不同列，被吞进上一个 step——本条与 `disallowedStepKeys` 都看不见那行
+    /// 长了尾巴的命令，而逐字循环仍逐字比得到。那是它作为**第二条独立解析路径**的价值，
+    /// 不是「再比一遍命令」。
     nonisolated static func runLineIsInlineScalar(inStep step: String) -> [String] {
         let runValues = Self.directChildKeys(inStep: step)
             .filter { $0.key == "run" }
@@ -498,6 +605,84 @@ struct MainActorStaticRatchetGuard {
             这一步的 `run:` 请保持单行；确实要改，先改 `expectedRunCommand` 并说明理由。
             """
         }
+    }
+
+    /// 那个 step 里、**挂在 `run:` 这个直接子键底下**的更深缩进行（块标量除外）。
+    ///
+    /// ⚠️ 这条堵的是 `runLineIsInlineScalar` 之外的**第三种**改写（本轮实测发现，
+    /// 不在终审清单里）：YAML 的**普通标量可以跨行**，
+    /// ```
+    /// run: bash scripts/mainactor-static-ratchet.sh
+    ///   || true
+    /// ```
+    /// 经解析器折叠后**逐字等于** `bash scripts/mainactor-static-ratchet.sh || true`
+    /// （`yaml.safe_load` 实测），退出码当场被中和。而它当时三条判据全绿：
+    /// `run:` 的值仍逐字等于期望命令（`runLineIsInlineScalar` 绿）、续行缩得比直接子键
+    /// 更深（`disallowedStepKeys` 绿）、`runCommands` 不会把它拼进命令（逐字循环绿）。
+    /// ⇒ 头注释原来那句「要加兄弟行**必须先**改成块标量」因此是**假的**，这条补上。
+    ///
+    /// ⚠️ 块标量（`run: |` / `>` / `|-` …）底下的正文**有意不在这里报**：那一族由
+    /// `runLineIsInlineScalar` 报，报错文案更准，两条不要混。
+    nonisolated static func runScalarContinuationLines(inStep step: String) -> [String] {
+        let lines = step.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        guard let firstIndex = lines.firstIndex(where: { !Self.isSkippable($0) }) else { return [] }
+        let first = lines[firstIndex]
+        let dashIndent = Self.indentation(of: first)
+        let afterIndent = first.dropFirst(dashIndent)
+        guard afterIndent.hasPrefix("-") else { return [] }
+        let gap = afterIndent.dropFirst().prefix { $0 == " " }.count
+        let childIndent = dashIndent + 1 + gap
+
+        let blockIndicators: Set<String> = ["|", ">", "|-", ">-", "|+", ">+"]
+        let head = String(afterIndent.dropFirst(1 + gap))
+        var currentKey = Self.keyName(ofLine: head)
+        var currentValue = Self.valuePart(ofLine: head)
+        var hits: [String] = []
+        for line in lines[(firstIndex + 1)...] where !Self.isSkippable(line) {
+            let indent = Self.indentation(of: line)
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if indent == childIndent {
+                currentKey = Self.keyName(ofLine: trimmed)
+                currentValue = Self.valuePart(ofLine: trimmed)
+                continue
+            }
+            if indent < childIndent {
+                currentKey = nil
+                currentValue = nil
+                continue
+            }
+            guard currentKey == "run",
+                  let value = currentValue,
+                  !blockIndicators.contains(value)
+            else { continue }
+            hits.append(
+                """
+                跑棘轮的那个 step 的 `run:` 底下还有更深缩进的续行：`\(trimmed)`
+                ⚠️ YAML 的**普通标量可以跨行**：`run: <命令>` 底下加一行 `|| true`，
+                解析器折叠之后就是 `<命令> || true`，退出码当场被中和，而按「`run:` 的值
+                逐字」与「命令行逐字」比对的两条判据都看不见它。
+                这一步的 `run:` 请保持**单行单标量**；确实要改，先改 `expectedRunCommand`。
+                """
+            )
+        }
+        return hits
+    }
+
+    /// workflow **顶层**（缩进 0）的直接子键里出现的、被禁的键。
+    ///
+    /// ⚠️ 顶层要单查一遍的理由：`defaults: run: shell:` 写在 workflow 级会被**每个 job
+    /// 继承**，效果与写在 job 上逐字相同，而 `DownstreamProbeGateGuard.jobBlock(inWorkflow:job:)`
+    /// 只切出那个 job 的块 ⇒ 顶层那一份它一个字都看不见（PR #314 第 2 轮终审 C-2）。
+    nonisolated static func blockedTopLevelKeys(inWorkflow yaml: String) -> [String] {
+        var hits: [String] = []
+        let lines = yaml.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        for line in lines where !Self.isSkippable(line) && Self.indentation(of: line) == 0 {
+            guard let key = Self.keyName(ofLine: line) else { continue }
+            for entry in Self.blockedJobKeys where key == entry.key {
+                hits.append("`\(entry.key):`：\(entry.reason)")
+            }
+        }
+        return hits
     }
 
     /// job 的**直接子键**里出现的、被禁的键。
@@ -526,11 +711,14 @@ struct MainActorStaticRatchetGuard {
     /// 那份**有意保留**的 canary 重复——那边重复的是断言，这边复用的是解析器）。
     /// ⚠️ 代价一并登记：那几个函数将来因 `#290` 那条闸的理由被改时，本判据会跟着变。
     nonisolated static func violations(inWorkflow yaml: String) -> [String] {
+        var problems: [String] = Self.blockedTopLevelKeys(inWorkflow: yaml).map {
+            "workflow **顶层**的直接子键里出现 \($0)"
+        }
         guard let block = DownstreamProbeGateGuard.jobBlock(inWorkflow: yaml, job: Self.jobName)
         else {
-            return ["解析失效：workflow 里找不到 `jobs:` 下的 `\(Self.jobName):` 块"]
+            problems.append("解析失效：workflow 里找不到 `jobs:` 下的 `\(Self.jobName):` 块")
+            return problems
         }
-        var problems: [String] = []
 
         let commands = DownstreamProbeGateGuard.runCommands(inJobBlock: block)
         let realLines = commands.flatMap { DownstreamProbeGateGuard.commandLines(inRunCommand: $0) }
@@ -577,21 +765,41 @@ struct MainActorStaticRatchetGuard {
                 "跑棘轮的那个 step 上出现 \($0)"
             })
             problems.append(contentsOf: Self.runLineIsInlineScalar(inStep: step))
+            problems.append(contentsOf: Self.runScalarContinuationLines(inStep: step))
         }
         return problems
     }
 
     /// 脚本文本 → 违规清单（空 = 通过）。
+    ///
+    /// ⚠️ 判的是**出现次数恰为 1**，不是 `contains`（PR #314 第 2 轮终审 C-1）。
+    /// 起因是一条实测出来的**完整失效链**：`--minimum-access-level public` 与
+    /// `docs/mainactor-static-exemptions.txt` 这两条 pin 当时在脚本里各出现 ≥2 次，
+    /// 多出来的那份在**注释 / stderr 文案**里 ⇒ 删掉真 flag（保留注释那份）、或把
+    /// 豁免表赋值改指 `docs/OTHER-TABLE.txt` **并放一份同名副本**，脚本 exit 0、
+    /// 本 suite 也全绿——两侧都不知道彼此比的已经不是同一张表了。
+    ///
+    /// ⚠️⚠️ **为什么 fixture 没抓到，这一条要记住**：
+    /// `syntheticScriptMissingAnyLiteralIsRejected` 用 `replacingOccurrences` 删掉
+    /// 字面量的**全部**出现（连注释那份一起删）⇒ **fixture 判红、真实变异判绿**。
+    /// **一个比真实攻击面更强的 fixture，恰恰掩盖了洞。** 造 fixture 时，
+    /// 变异必须**恰好等于**攻击者能做的那一步，强一分就成了伪证。
+    ///
+    /// ⇒ 两条一起改：那两条 pin 换成脚本里**唯一**的更长片段（治当下），
+    /// 计数改成「恰为 1」（治将来任何一条 pin 被注释稀释）。
     nonisolated static func violations(inScript script: String) -> [String] {
-        Self.requiredScriptLiterals
-            .filter { !script.contains($0.literal) }
-            .map {
+        Self.requiredScriptLiterals.compactMap { entry in
+            let hits = Self.occurrences(of: entry.literal, in: script)
+            guard hits != 1 else { return nil }
+            return """
+                脚本里这条逐字片段出现了 \(hits) 次，必须**恰好 1 次**：
+                \(entry.literal)
+                这一条为什么必须在：\(entry.reason)
+                ⚠️ 0 次 = 判据被删；≥2 次 = 这条 pin 被**注释 / 报错文案里的同名副本**稀释了
+                ——删掉真的那一份，`contains` 仍被副本满足 ⇒ 脚本与本文件双绿。
+                要在注释里提这条片段，请改写措辞使其不逐字重复，或把 pin 换成更长的唯一片段。
                 """
-                脚本里找不到逐字片段：
-                \($0.literal)
-                这一条为什么必须在：\($0.reason)
-                """
-            }
+        }
     }
 
     // MARK: - 判据（全部**无条件**，没有任何 `.enabled(if:)`）
@@ -599,9 +807,11 @@ struct MainActorStaticRatchetGuard {
     @Test("豁免表与树内登记逐条相符（双向差集）")
     func exemptionTableMatchesRegisteredTable() throws {
         // ⚠️ 基数断言（同 `scriptPinsTheFilterPredicate` 那段的理由）：双向差集在
-        // `registeredExemptions` 被清空时**不会**空转（表非空 ⇒ `extra` 非空 ⇒ 红），
-        // 但「悄悄少一条 / 多一条」靠的是这个数被人看见。豁免表是**破例清单**，
-        // 它的长度本身就是要 review 的东西。
+        // `registeredExemptions` 被清空时**不会**空转（表非空 ⇒ `extra` 非空 ⇒ 红）。
+        // ⚠️ 它的承重比原来写的小，措辞按 PR #314 第 2 轮终审 S-5 收窄：**「协同缩表」
+        // 也不靠它**——实测把树内登记与豁免表同时减一条，CI 上脚本 exit 1 并报
+        // `CoreDesign:CoreElevation.spec(for:)` unregistered。留着它的理由只剩一条，
+        // 但它独立成立：豁免表是**破例清单**，长度本身就是要 review 看见的东西。
         #expect(
             Self.registeredExemptions.count == 5,
             """
@@ -707,9 +917,13 @@ struct MainActorStaticRatchetGuard {
         // ⚠️ 基数断言（同上）：这两张表被清空时，`blockedJobLevelKeys` 与
         // `disallowedStepKeys` 的循环会退化——前者零次迭代即零违规（空真），
         // 后者会变成「什么键都不许」（假红）。两侧都要靠这个数被人看见。
+        // ⚠️ 两条的承重不一样，措辞按 PR #314 第 2 轮终审 S-1 / S-5 收窄：
+        // `allowedStepKeys.count` 是**唯一**承重的那条（往清单里加键是放松判据，
+        // 没有别的东西会红）；`blockedJobKeys.count` 则**冗余**——把它清空，
+        // `syntheticWorkflowWithJobLevelConditionIsRejected` 等合成判据当场红。
         #expect(
-            Self.blockedJobKeys.count == 3,
-            "`blockedJobKeys` 的条数变了（期望 3，实际 \(Self.blockedJobKeys.count)）——清空它 ⇒ job 级中和键全部放行"
+            Self.blockedJobKeys.count == 4,
+            "`blockedJobKeys` 的条数变了（期望 4，实际 \(Self.blockedJobKeys.count)）——减一条 ⇒ 那个中和键从此在 job / workflow 两级都放行"
         )
         #expect(
             Self.allowedStepKeys.count == 6,
@@ -855,6 +1069,12 @@ struct MainActorStaticRatchetGuard {
 
     @Test("合成输入：脚本少了任意一条筛条件字面量 ⇒ 判红")
     func syntheticScriptMissingAnyLiteralIsRejected() throws {
+        // ⚠️ 这条 fixture 曾经**比真实攻击面更强**，因此掩盖了 C-1 那个洞：
+        // `replacingOccurrences` 删掉字面量的**全部**出现，包括注释里那份副本；
+        // 而攻击者只需要删掉**真的那一份**，注释那份留着就能满足 `contains`。
+        // ⇒ fixture 判红、真实变异判绿。现在 `violations(inScript:)` 改判「恰为 1 次」，
+        // 这条 fixture 覆盖 0 次那一侧，`syntheticScriptWithDuplicatedLiteralIsRejected`
+        // 覆盖 ≥2 次那一侧。
         let script = try String(contentsOf: Self.scriptURL, encoding: .utf8)
         #expect(Self.violations(inScript: script).isEmpty, "正对照：真脚本必须判绿")
         for entry in Self.requiredScriptLiterals {
@@ -864,5 +1084,134 @@ struct MainActorStaticRatchetGuard {
                 "删掉 `\(entry.literal)` 之后判据仍绿——这一条是空转的"
             )
         }
+    }
+
+    @Test("合成输入：某条筛条件字面量被注释里的副本稀释 ⇒ 判红")
+    func syntheticScriptWithDuplicatedLiteralIsRejected() throws {
+        let script = try String(contentsOf: Self.scriptURL, encoding: .utf8)
+        for entry in Self.requiredScriptLiterals {
+            let mutated = script + "\n# 注释里抄一份：" + entry.literal + "\n"
+            #expect(
+                !Self.violations(inScript: mutated).isEmpty,
+                """
+                把 `\(entry.literal)` 在注释里再抄一份之后判据仍绿
+                ——这条 pin 可以被副本稀释：删掉真的那一份两侧都不会红。
+                """
+            )
+        }
+    }
+
+    @Test("合成输入：job 级 / workflow 级 `defaults: run: shell:` ⇒ 判红")
+    func syntheticWorkflowWithInheritedShellDefaultsAreRejected() {
+        // ⚠️ GitHub 的自定义 shell 模板是 `<command> […options] {0}`，于是
+        // `shell: bash -c "exit 0" {0}` 把这一步整个换成 `bash -c "exit 0" <脚本路径>`：
+        // 退出码 0、脚本一行都不跑。PR #314 第 2 轮终审 C-2 实测：加 `defaults` 之前，
+        // job 级与 workflow 级两种写法本 suite 都**全绿**，而**同一个 `shell:` 写在 step 上
+        // 当时就判红**——闸认得这个威胁，只是把它挡在 step 层。
+        let clean = Self.syntheticWorkflow(runLine: Self.expectedRunCommand)
+        #expect(Self.violations(inWorkflow: clean).isEmpty, "正对照：干净的合成输入必须判绿")
+
+        let jobLevel = clean.replacingOccurrences(
+            of: "    runs-on: macos-26",
+            with: [
+                "    defaults:",
+                "      run:",
+                #"        shell: bash -c "exit 0" {0}"#,
+                "    runs-on: macos-26",
+            ].joined(separator: "\n")
+        )
+        #expect(!Self.violations(inWorkflow: jobLevel).isEmpty, "job 级 `defaults:` 应判红")
+
+        let workflowLevel = clean.replacingOccurrences(
+            of: "jobs:",
+            with: [
+                "defaults:",
+                "  run:",
+                #"    shell: bash -c "exit 0" {0}"#,
+                "jobs:",
+            ].joined(separator: "\n")
+        )
+        #expect(
+            !Self.violations(inWorkflow: workflowLevel).isEmpty,
+            "workflow 级 `defaults:` 应判红（它会被每个 job 继承，`jobBlock` 看不见它）"
+        )
+    }
+
+    @Test("合成输入：`run:` 折成跨行普通标量、续行挂 `|| true` ⇒ 判红")
+    func syntheticWorkflowWithFoldedPlainScalarRunIsRejected() {
+        // ⚠️ 这不是块标量：`run:` 的值仍逐字等于期望命令，YAML 却把下一行折进同一个标量
+        // （`yaml.safe_load` 实测折叠结果是 `<命令> || true`）。加 `runScalarContinuationLines`
+        // 之前，三条判据全绿——头注释那句「要加兄弟行必须先改成块标量」因此是假的。
+        let yaml = [
+            "name: CI",
+            "on:",
+            "  push:",
+            "jobs:",
+            "  swiftpm:",
+            "    name: SwiftPM",
+            "    runs-on: macos-26",
+            "    steps:",
+            "      - name: MainActor static ratchet",
+            "        run: \(Self.expectedRunCommand)",
+            "          || true",
+        ].joined(separator: "\n")
+        #expect(!Self.violations(inWorkflow: yaml).isEmpty)
+    }
+
+    @Test("合成输入：`stepBlocks` 分块失效时，只有逐字命令循环还能红")
+    func syntheticWorkflowWithMisIndentedStepIsRejected() {
+        // ⚠️ 这份合成输入是 `expectedRunCommand` 那条逐字循环的**专属** fixture
+        // （PR #314 第 2 轮终审 I-1：在此之前它一条专属 fixture 都没有，
+        // 三条本该覆盖它的 fixture 全被 `runLineIsInlineScalar` 顺手满足了）。
+        // 形态：兄弟 `- ` 与第一个 step **不同列** ⇒ `stepBlocks` 把它整个吞进上一个
+        // step，于是那行长了尾巴的命令既不在直接子键那一列（`disallowedStepKeys` 看不见）、
+        // 也不是 `run:` 的值（`runLineIsInlineScalar` 看不见）、更不是它的续行
+        // （`runScalarContinuationLines` 看不见，`currentKey` 已被浅缩进那行清空）。
+        // 只有走 `runCommands` + `commandLines` 的那条**独立解析路径**逐字比得到。
+        let yaml = [
+            "name: CI",
+            "on:",
+            "  push:",
+            "jobs:",
+            "  swiftpm:",
+            "    name: SwiftPM",
+            "    runs-on: macos-26",
+            "    steps:",
+            "      - name: MainActor static ratchet",
+            "        run: \(Self.expectedRunCommand)",
+            "       - name: Sneaky",
+            "         run: |",
+            "           \(Self.expectedRunCommand) || true",
+        ].joined(separator: "\n")
+        let problems = Self.violations(inWorkflow: yaml)
+        #expect(!problems.isEmpty)
+        #expect(
+            problems.allSatisfy { $0.contains("不是逐字的期望命令") },
+            """
+            这条 fixture 的价值就在于**只有**逐字循环能红；一旦别的判据也开始报，
+            它就不再证明逐字循环非空转了。实际报出来的是：\(problems)
+            """
+        )
+    }
+
+    @Test("本 suite 的判据条数 = 头注释那张限定名表的行数 = 钉住的那个数")
+    func judgementRosterMatchesTheHeaderTable() throws {
+        // ⚠️ 接的是 `JudgementReferenceGuard` 规则 A **接不住**的那一格：协同删除
+        // （把某条 `@Test` 与头注释表里那一行一起删）。规则 A 只接住单边改名 / 单边删除。
+        let source = try String(contentsOf: Self.ownSourceURL, encoding: .utf8)
+        let lines = source.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        // ⚠️ needle 拼出来而不是写成一整个字面量：整串写死会在本文件里多出一份
+        // `<类型名>.<成员>` 形态的文本，白白喂给 `JudgementReferenceGuard` 的引用抽取。
+        let rosterNeedle = "// · `" + "MainActorStaticRatchetGuard" + "."
+        let declared = lines.filter { $0.hasPrefix("    @Test(") }.count
+        let listed = lines.filter { $0.hasPrefix(rosterNeedle) }.count
+        #expect(
+            declared == Self.judgementCount,
+            "本文件里 `@Test` 有 \(declared) 条，`judgementCount` 钉的是 \(Self.judgementCount) 条"
+        )
+        #expect(
+            listed == Self.judgementCount,
+            "头注释那张限定名表有 \(listed) 行，`judgementCount` 钉的是 \(Self.judgementCount) 条"
+        )
     }
 }

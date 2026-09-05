@@ -80,7 +80,9 @@ jobs:
         # （`name` / `run` / `env` / `working-directory` / `uses` / `with`），清单外的键
         # 一律判红——`if:` / `continue-on-error:` / `shell:` 连同它们的同义拼法
         # （`"if": false` / `if : false` …）都在其中。job 的直接子键上则不许出现
-        # `if` / `needs` / `continue-on-error`（比对前先归一化键名）。
+        # `if` / `needs` / `continue-on-error` / `defaults`（比对前先归一化键名），
+        # 且 `defaults` 在 **workflow 顶层**同样判红：写在顶层会被每个 job 继承，
+        # `defaults.run.shell` 一改成 `bash -c "exit 0" {0}` 这一步就以退出码 0 空转。
         # ⚠️ 这条 `run:` 还必须是**行内标量**：改成 `run: |` 块标量当场判红
         # （`MainActorStaticRatchetGuard.runLineIsInlineScalar`）。理由是 `#304` 第 4 轮
         # 终审登记的「兄弟行不设防」——要在这条命令旁边塞一行 `exit 0` / `trap 'exit 0' ERR`，
