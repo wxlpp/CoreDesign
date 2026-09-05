@@ -197,14 +197,17 @@ struct ComponentExtensionPointGuard {
         // 照那条规则去改是纯负收益，还会漏掉真正的坑。
         //
         // **真因是「不要把大字符串塞进 `#expect` 的展开」。** 本轮在**同一个循环、同一位置**
-        // 做隔离变异实证（每侧各连跑 3 / 4 次，结果稳定分开）：
+        // 做隔离变异实证（两侧各连跑多轮、跨两批独立取样，结果稳定分开）：
         // · 小展开 `#expect(component == "NOPE_TINY_EXPANSION")` —— 记录 5 条真 issue，
-        //   **5 条 issue 行全部打印**（3 次一致）；
-        // · 巨串展开 `#expect(entry.notes.contains("NOPE_HUGE_EXPANSION"))`（`notes` 实测
-        //   2.5–4.2 KB）—— 同样记录 5 条真 issue（汇总行 4 次都是
-        //   `6 issues (including 1 known issue)`），但**只打印 3–4 条**、丢哪几条**逐次变动**
-        //   （4 次实测 3 / 4 / 3 / 3）。
-        // ⇒ 丢行是**静默**的，只有计数可靠；人看不到是哪一条、为什么。
+        //   **5 条 issue 行全部打印**（两批取样的每一遍都是 5，无一例外）；
+        // · 巨串展开 `#expect(entry.notes.contains("NOPE_HUGE_EXPANSION"))`（`notes` 是**数 KB
+        //   量级**的长字符串）—— 同样记录 5 条真 issue（汇总行**每次**都是
+        //   `6 issues (including 1 known issue)`），但 issue 行会被**静默丢掉，丢多少不稳定**。
+        //   ⚠️⚠️ **这里不写具体区间**（`#315` 第 3 轮终审 C-2：上一版写「只打印 3–4 条
+        //   （4 次实测 3 / 4 / 3 / 3）」，被后续两批各连跑 6 遍的取样直接证伪 —— 两批都出现过
+        //   **0 条**，即一行都不打印）。**丢行数量不是一个可复现的常量**，任何「只打印 N–M 条」
+        //   的写法都会被下一次取样推翻；这条注释的上一段正是在批评「用一次观测代替规律」。
+        // ⇒ 丢行是**静默**的，只有**汇总计数**可靠；人看不到是哪一条、为什么。
         //
         // ⚠️ **同族先例**：`FilterTransitionTests` 的 `noRawBitmapComparisonsInThisFile`
         // 早就把「不得把 `Data` 直接塞进 `#expect`，否则一次失败产出几百 KB」立成了机器判据。
@@ -215,12 +218,18 @@ struct ComponentExtensionPointGuard {
             .filter { component in
                 // ⚠️ **本分支是 fail-open**（`#315` 第 2 轮终审 F-6）：条目在登记表里找不到时
                 // 返回 `false` ⇒ 该名字不算「缺承接 issue」⇒ 本条断言对它静默放行。
-                // **这不是漏洞，因为有两条判据兜着它**，缺一不可：
-                // · `:154` 的块外 canary（`Set(result.missing) == knownMissingExtensionPoints`）
+                // **这不是漏洞，因为有两条判据兜着它**——⚠️ 是**冗余**不是合取：
+                // **两条各自单独就能接住**（`#315` 第 3 轮终审 S-1 更正了上一版的「缺一不可」）：
+                // · 上方的**块外 canary**（`Set(result.missing) == knownMissingExtensionPoints`）
                 //   —— 红名单里的名字若不在 `missing` 里，那里当场判红；
-                // · `:167` 起的承重核对循环 —— 同一个 `entries.first(where:)` 查不到时走
-                //   `Issue.record` 判红（fail-closed），不是 `return false`。
-                // ⚠️ 将来若有人改动那两条，**必须回头把这里改成 fail-closed**，否则本条会静默失守。
+                // · 紧接其后的**承重核对循环**（`for component in Self.knownMissingExtensionPoints`）
+                //   —— 同一个 `entries.first(where:)` 查不到时走 `Issue.record` 判红
+                //   （fail-closed），不是 `return false`。
+                // ⚠️ **这里有意不写行号**（`#315` 第 3 轮终审 C-3：上一版写的 `:154` / `:167` 在
+                // **同一个 commit** 里被上方新插入的 9 行注释顶掉，两处恰好各差 9 行、双双落到无关行上；
+                // 而 `JudgementReferenceGuard` 只认「类型.成员」形式的引用，**裸行号没有任何机器判据
+                // 兜底**）。⇒ 引用块内的判据一律用**名字与相对位置**描述，不用行号。
+                // ⚠️ 将来若那**两条同时**被改动，**必须回头把这里改成 fail-closed**，否则本条会静默失守。
                 guard let entry = entries.first(where: { $0.component == component }) else { return false }
                 return !entry.notes.contains(Self.extensionPointFollowUpIssue)
             }

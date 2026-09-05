@@ -246,18 +246,27 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   权威值取 `.xcresult`**（`#299` / PR #315 第 2 轮终审）。下一条那节「必须核对到底跑了几条」
   的纪律**不能靠数 console 行来兑现**：
   - 终审在核 iOS 腿时撞到过这个形态：同一条命令的第 2 遍 `EXIT=0` + `** TEST SUCCEEDED **`，
-    但 console 里只落下 **2** 条 `Test run with …` 行（第 1 遍是 3 条）——**不是少跑了一个
-    test target**，是 xcodebuild 的输出捕获竞态。
-  - ⚠️ **它是间歇性的，别当成稳定可复现的形态**：修复轮连跑三遍，
-    三遍**都是 3 行**，没能复现。⇒ 正因为间歇，「行数对了就算跑全了」这个推断本身不成立。
+    但 console 里只落下 **2** 条 `Test run with …` 行（第 1 遍是 3 条）。
+    ⚠️ **成因未查明**：那次观测**没有留下 `.xcresult`**，因此「不是少跑了一个 test target」
+    与「xcodebuild 的输出捕获竞态」**都推不出来**——前者是个无法从 console 行数得出的否定，
+    后者是个未经验证的机制假设。（`#315` 第 3 轮终审 I-2 更正：上一版把这两句写成了事实。）
+  - ⚠️ **两次独立的复现尝试各连跑 3 遍、累计 6 遍，一次都没再现** ⇒ 它不是稳定可复现的形态。
+    ⇒ 无论成因是什么，处置一样：**console 行数不可作承重判据**，
+    「行数对了就算跑全了」这个推断本身不成立。
   - ⇒ **权威值取 result bundle**，console 行数只作粗筛：
 
-    ```
+    ```bash
     xcodebuild test -scheme CoreDesign-Package \
       -destination 'platform=iOS Simulator,id=<UDID>' \
       -resultBundlePath <path>.xcresult
     xcrun xcresulttool get test-results summary --path <path>.xcresult
     ```
+
+    ⚠️ **取 JSON 的顶层 `passedTests`，不是 `devicesAndConfigurations[].passedTests`** ——
+    后者按 dynamic parameters（`arguments:` 参数化用例）**展开**计，两个数会对不上：
+    实测顶层 `928`，`devicesAndConfigurations[0]` 为 **966**（= 928 − 9 + 47：9 条参数化
+    函数展开成 47 条实例），同一份 JSON 的 `statistics` 字段会逐字说明这一点。
+    照 `devicesAndConfigurations[].passedTests` 读会把它误判成基线漂移。
 
     本轮三遍运行的 `.xcresult` **完全相同**：`result=Passed`、`failedTests=0`、
     `expectedFailures=5`、`skippedTests=4`、`passedTests=928`（928 + 5 + 4 = **937** ✓，
@@ -281,6 +290,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    实测 `-only-testing:CoreDesignTests/NoSuchSuiteTests` → `** TEST SUCCEEDED **`、`EXIT=0`、
    日志里**连一行 `Test run with …` 都没有**。⇒ `ci.yml` 里那几行 skip 标识符写错了不会报错，
    只会静默失效（这也是那里反复强调「用类型名不用显示名」的原因）。
+   ⚠️ **回指本节之前那条「`xcodebuild` 的 console 输出会漏行」**：本条的判据是 `Test run with` 行数，
+   而那条说明该行数**不稳** ⇒ 只能用来判「零 / 非零」，核具体条数必须取 `.xcresult`。
 4. **`-destination` 的 simulator id 过期 ⇒ 零测试、退出码 0** —— **历史报告，本仓复现不出来；
    四种可构造变体实测全是硬红。别把这一条当既定事实传播。**
    ⚠️ 上一版这里写的复现障碍（「要复现需要一台『存在但不合格』的设备，本机凑不出」）
@@ -301,6 +312,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    ⚠️ 那份 `Ineligible` 清单**列的不是那台不合格的 simulator**——实测它列的是本机没装的
    tvOS / visionOS / watchOS **平台 placeholder**；不合格的 iOS 18.x 设备连候选都不进。
    ⇒ 只看到 `Ineligible` 就下「静默零测试」的结论会判错；判据是那一行 `error:` 与退出码。
+   ⚠️ **回指本节之前那条「`xcodebuild` 的 console 输出会漏行」**：上表第 4 列就是 `Test run with` 行数，
+   该行数**不稳**、不足以承重；本条的结论落在 `EXIT=70` 与那一行 `error:` 上，不靠行数。
    ⚠️ 本条保留在列表里，只作**历史登记**（记不清源自何处的一次报告），
    本仓至今**没有任何一次实测支持它**。要么它属于别的 Xcode 版本 / CI 环境，
    要么原报告本身就是误读。谁将来真复现出退出码 0，请连原始日志一起补在这里。
@@ -310,6 +323,9 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    实测（`main`，三个 test target）：`swift test --build-system swiftbuild --filter <类型名>`
    打印 3 行汇总，其中一行是真实条数、末行是 `0 tests`，`EXIT=0`。
    ⇒ 核对条数**必须扫全文**（`grep -qE 'Test run with [1-9][0-9]* tests?'`），不能取末行。
+   ⚠️ **回指本节之前那条「`xcodebuild` 的 console 输出会漏行」**：本条整条以「数 `Test run with` 行」为手段，
+   而那条正是对这个手段的否证 ⇒ 那道 `grep -qE` 的网只兜得住「一条都没跑」，
+   **不能**用来核对到底跑了几条；条数取 `.xcresult`。
 
 ⚠️ **`#302` 把第 5 条记成了「`--build-system swiftbuild --filter` 静默跑零个测试」——
 复现不出来**（本次在 `main` 与 `epic/shipswift-shaders` 各测一遍）：后者上
