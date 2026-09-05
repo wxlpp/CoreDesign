@@ -158,10 +158,11 @@ func consumeCircularGlassTierAccessor() -> some View {
 //   两组行为相反，不能互相引证。
 //
 // ⚠️ **判别式（不再写「当且仅当」——上一版那句实测为假，照录更正）**
-// （PR #304 第 3 轮终审 C-1。终审搭了 **11 个跨模块 cell + 9 个模块内对照**；本轮落件时
-// 又独立复跑了其中 4 个跨模块 cell（外部类型扩展无标注 / 自有 enum 无标注 /
-// 自有类型的 extension 无标注 / 自有 `public nonisolated enum`）与 2 个模块内对照。
-// 这是一份**枚举**，不是穷举证明。）
+// （PR #304 第 3 轮终审 C-1 搭了 **11 个跨模块 cell + 9 个模块内对照**，第 4 轮 C-1' 扩到
+// **14 个跨模块 cell + 4 个模块内对照**；本轮落件时独立复跑了其中 5 组
+// （无标注自有 enum 的 case / 同一个 enum 的 static / `public nonisolated enum` 本体内的
+// static / 同一个 enum 的 `public extension` 上的 static / `public actor` 上的 static），
+// 跨模块与模块内**各跑一次**。这是一份**枚举**，不是穷举证明。）
 //
 // 上一版写的是：「可达 **当且仅当** ① 没有显式隔离标注 **且** ② 声明在一个本模块之外的
 // 类型的扩展上」。**① 与 ② 都为假**，两个反例就在本仓树里：
@@ -177,11 +178,23 @@ func consumeCircularGlassTierAccessor() -> some View {
 // ⇒ 本次观察到的规律：从**外部包的 nonisolated 上下文**可达 ⇔ 该成员**对外呈现为
 // nonisolated**。观察到两条来源：
 //
-//   **(i)** 成员自己显式 `nonisolated`，或其**所属类型**显式 `nonisolated` 且成员没有再
-//   标 `@MainActor`（**成员级标注压过类型级**——`ButtonRoleStyleRole` 正是活例：enum 本体
-//   是 `public nonisolated`，但四个调色板成员各自显式 `@MainActor` ⇒ 判红，见上面 `:104` 那条）。
-//   这条**模块内外都成立**：`SettingsRowMetrics.iconAlignedDividerInset` 从 CoreDesign
-//   **模块内**的 `nonisolated func` 读，同样干净编译。
+//   **(i)** 成员自己显式 `nonisolated`，或其**所属类型**显式 `nonisolated`、**且该成员声明
+//   在类型本体内**、且成员没有再标 `@MainActor`（**成员级标注压过类型级**——
+//   `ButtonRoleStyleRole` 正是活例：enum 本体是 `public nonisolated`，但四个调色板成员
+//   各自显式 `@MainActor` ⇒ 判红，见上面 `:104` 那条）。
+//   这条对**声明在类型本体内**的成员**模块内外都成立**：
+//   `SettingsRowMetrics.iconAlignedDividerInset` 从 CoreDesign **模块内**的
+//   `nonisolated func` 读，同样干净编译。
+//   ⚠️ **成员声明在 `extension` 上时，这条退化成下面的来源 (ii)**（下游绿、模块内红）
+//   ——**类型级 `nonisolated` 不穿透到 extension**，extension 上的成员在模块内仍被
+//   `defaultIsolation` 推成 MainActor。本轮（PR #304 第 4 轮终审 C-1'）在一个
+//   `public nonisolated enum` 上加 `public extension … { static var fromExtension: Int { 5 } }`
+//   （**没有**再标 `@MainActor`）实测：模块内
+//   `Sources/CoreDesign/ZZInModule.swift:7:66: error: main actor-isolated static property
+//   'fromExtension' can not be referenced from a nonisolated context`，
+//   而同一份声明从本 probe 的 nonisolated 顶层 func 读 **Build complete**；
+//   同一个 enum **本体内**的 static 则模块内外**双绿**。
+//   ⇒ 上一版这里写的「这条模块内外都成立」是**全称句、为假**，照录更正。
 //
 //   **(ii)** 成员声明在**另一个模块声明的、本身 nonisolated 的类型**的扩展上
 //   （`SwiftUI.Color`、`CoreGraphics.CGFloat`），**且未显式标 `@MainActor`**。
@@ -191,9 +204,30 @@ func consumeCircularGlassTierAccessor() -> some View {
 //   from a nonisolated context` —— 但**这份推断没有被序列化进 swiftmodule 接口**，
 //   于是下游看到的是 nonisolated。这条**只对下游成立**。
 //
-// 显式 `@MainActor` 一律红；自有类型（**含其 extension**）无显式 `nonisolated` 一律红，
-// 且**模块内外一致**。
-// ⇒ static/实例、计算/存储、property/func **都不是**判别项。
+// 显式 `@MainActor` 一律红。
+//
+// ⚠️ 上一版接着写的「自有类型（含其 extension）无显式 `nonisolated` **一律红**，且模块内外
+// 一致」是**全称句、为假**，照录更正（PR #304 第 4 轮终审 C-1'）。收窄成：**本次跑到的
+// 自有类型 cell 里都红**——struct / enum / final class / 泛型 struct / 协议见证 /
+// `Sendable` struct（第 3 轮的 11 cell）加本轮的「无标注 `public enum` 的 static」；
+// **`actor` 是本次找到的例外**：`public actor ZZActor { public static let actorStatic: Int = 7 }`
+// ——自有类型、全文**没有一个** `nonisolated` ——模块内与下游**双绿**（本轮复跑确认，
+// 下游那次 `Build complete!`，模块内那次 `nonisolated func` 读它零诊断）。
+// ⇒ 这一条**空间是开放的**，别当全称句用；`actor` 这一族要单独看，
+// 而 `@globalActor` 自定义全局 actor、`@preconcurrency` 导入、`@_spi` 本次**都没有测**。
+//
+// ⚠️ **同一个 enum 里 case 与 static 行为不同**（本轮同一次构建里跑出的两条 cell）：
+// 无标注的 `public enum ZZPlainEnum` 上，`case alpha` 跨模块与模块内**双绿**，而
+// `public static let staticValue` 跨模块与模块内**双红**
+// （`error: main actor-isolated static property 'staticValue' can not be referenced from a
+// nonisolated context`，两侧同一句）。⇒ 「enum 的成员」不能一概而论。
+//
+// ⇒ static/实例、计算/存储、property/func **都不是**判别项（但 **case 是**——见上一段）。
+//
+// ⚠️ **这一段是 #307 那条 symbol-graph 机器判据的设计输入，别照抄上一版**：按上一版的
+// 判别式，`public actor` 上的 static 会被划进「需要豁免 / 需要 pin」那一侧而**实际根本
+// 不需要**，`public nonisolated` 类型的 extension 上的成员则会被划错方向。
+// 定「扫描范围决定豁免表是 5 条还是 51 条」那个分叉之前，先按本段的收窄版本重新划线。
 //
 // ⚠️ 因此上一版那句「**而且这条可达性只对下游成立**」也必须收窄：它对来源 (ii) 成立，
 // 对来源 (i) **不成立**（`SettingsRowMetrics` 模块内同样读得到）。来源 (ii) 与

@@ -71,11 +71,19 @@ import Testing
 //
 // **B. 标志还在、但退出码被中和**（`expectedProbeBuildCommand` 与 `exitCodeNeutralizers`
 // 两条各自独立地拦，任一被绕开另一条仍在）
+// ⚠️ B 组拦的是「**那一行**长出尾巴」。**同一个 `run:` 块里的兄弟行**把这条命令架空
+// ——不属于 B 组，也不属于下面的 C 组（C 组全是「这个 job 压根不跑」）——是**第 6 类**，
+// **完全没堵**，登记在下面「它不保证」的第 3 条。
 // · ` || true` / ` ||true`（**少一个空格**）/ `||` + 换行 + `true`（块标量软换行）
 // · ` || :` / ` || exit 0` / ` ; true` / ` ;:` / 步骤里先 `set +e`
 // · ` || echo skipped` —— `echo` 成功 ⇒ step 退出码 0；这一族**按拼法追不完**
 //   （` || printf …` / ` || (exit 0)` / ` 2>/dev/null` / ` ||:` 只在合成 fixture 上覆盖），
 //   靠的是「整条命令逐字相同」这条正面清单，不是再往正则表里加几条
+//   ⚠️ **但那条正面清单只长在构建那一步**（`expectedProbeBuildCommand`）：**selftest 那步
+//   没有**。把它改成 `scripts/downstream-probe/selftest-warnings-as-errors.sh || echo skipped`
+//   （真实 `ci.yml`，本轮实测 `23 tests passed`）⇒ **闸外静默失效，已登记进 #307**
+//   （PR #304 第 4 轮终审 R-7 ①）。**未修**：给它也配一条正面清单要先定 selftest 那步的
+//   逐字文本，超出本轮范围。
 // · 该 step 被加上 `continue-on-error: true` ⇒ `job 里出现 \`continue-on-error:\`…`
 // · 该 step 被加上 `shell: bash {0}`（丢掉默认的 `-e -o pipefail`）⇒ `job 里出现 \`shell:\`…`
 //
@@ -118,17 +126,40 @@ import Testing
 //   ⑤ `runs-on:` 指向一个不存在的 runner label——**仍敞着**。
 //   ③④⑤ 三种本轮**在真实 `ci.yml` 上各跑了一次 `swift test`，都是 `19 tests passed`**
 //   ⇒ 确为缺口，不是推测（PR #304 第 3 轮终审 C-2）。
-// · **别的中和退出码的写法** —— 现在有两道：`expectedProbeBuildCommand`（构建那条命令
-//   **整条逐字**，任何尾巴判红）与 `exitCodeNeutralizers`（6 条正则，覆盖**别的** step）
-//   加 `continue-on-error:` / `shell:` 两个键。仍然看不见的：**把命令包进一个自己吞错的
-//   脚本**（`run: ./ci-build.sh`，脚本里 `swift build …; exit 0`）、在**别的 step** 里
-//   `trap 'exit 0' ERR`、`|| { echo …; }` 之类长在非构建行上的形态。
-//   **已知缺口，空间同样开放**——这一族的通用对策只能是「构建那条命令逐字锁死」，
-//   而它对**别的** step 无能为力。
+// · **别的中和退出码的写法 / 那条命令根本没被执行**（**第 6 类**：job 跑了、step 跑了、
+//   **那条命令没跑**——上面 C 组登记的 5 种全是「这个 job 压根不跑」，与这一类不同）。
+//   现在有两道：`expectedProbeBuildCommand`（构建那条命令**整条逐字**，任何尾巴判红）
+//   与 `exitCodeNeutralizers`（6 条正则，覆盖**别的** step）加 `continue-on-error:` /
+//   `shell:` 两个键。
+//   ⚠️ 但正面清单锁的是**那一行**；**同一个 `run:` 块里的兄弟行**与**别的 step** 一样
+//   **完全不设防**。本轮（PR #304 第 4 轮终审 C-2'）在**真实 `ci.yml`** 上只改构建那步的
+//   `run:`（**逐字命令原样保留**、缩进不变），下面 6 种各跑一次 `swift test`，**全绿**
+//   （测时套件是 19 条；本轮补完四条新 fixture 后复测 ① 与 ③ 仍是 `23 tests passed`）：
+//     ① `exit 0` ⏎ `<逐字命令>`
+//     ② `if false; then` ⏎ `  <逐字命令>` ⏎ `fi`
+//     ③ `trap 'exit 0' ERR` ⏎ `<逐字命令>`
+//     ④ `swift() { exit 0; }` ⏎ `<逐字命令>`（函数覆写，命令跑了但什么也没构建）
+//     ⑤ `eval "exit 0"` ⏎ `<逐字命令>`
+//     ⑥ `cat <<'EOF' > /dev/null` ⏎ `<逐字命令>` ⏎ `EOF` ⏎ `exit 0`（heredoc 诱饵）
+//   同族还有：把命令包进一个自己吞错的脚本（`run: ./ci-build.sh`，脚本里
+//   `swift build …; exit 0`）、在**别的 step** 里 `trap 'exit 0' ERR`、`|| { echo …; }`。
+//   **空间开放**，上面 6 种只是本轮实测到的、不是穷举。
+//   ⚠️ 反讽处：本判据在**脚本侧**专门做了 heredoc 剥离（`strippingHeredocBodies`）堵这一族，
+//   **YAML 侧却没有**。
+//   ⚠️ **有意只登记、不加正则**（PR #304 第 4 轮终审明确不建议）：给 `^exit 0` /
+//   `trap .*ERR` / `if false` 各加一条正则，正是本 PR 自己否定的「按拼法打补丁」路线
+//   ——那张表追不上兄弟行的空间。**登记比加正则诚实。**
 // · **judge 只读 `ci.yml` 这一个文件** —— 把 `downstream-probe` job 整体搬到另一个
 //   workflow 文件（合法重构）会让 `jobBlock` 返回 `nil` ⇒ 以「解析失效」判红。
 //   方向是 fail-closed，但那是一条**假红**，与 `probeBuildMarker` 逐字匹配的代价同类。
 //   要搬，同时改 `workflowURL`。
+// · **selftest 脚本自己的断言逻辑无人看守**（`#290` 那条「谁看着看门人」链条的下一环）：
+//   本判据钉的是「脚本里那两条**构建命令**逐字如常量」，**不看脚本怎么判成败**。本轮在
+//   真实脚本上各跑一次 `swift test`，两种都 `23 tests passed`（PR #304 第 4 轮终审 R-7 ②③）：
+//   ① 把 `:63` 的 `exit 1`（步骤 1 期望判红却拿到 0 时的那条）改成 `exit 0` ⇒ 脚本永远成功；
+//   ② 在 `set -euo pipefail` 之后加一行 `trap "exit 0" ERR` ⇒ 任何失败都被吞掉。
+//   **已知缺口，未修，已登记进 #307**（与下面那条「probe 里某个 `nonisolated func`
+//   被删无人红」同处）。
 // · probe 里某个 `nonisolated func` 被整个删掉会判红 ——
 //   `readTransitionPropertiesHasMotion()` / `useSettingsRowMetrics()` 删掉，
 //   没有任何判据会红（`scripts/api-surface-diff.sh` 的头注释自己就写了
@@ -193,7 +224,15 @@ struct DownstreamProbeGateGuard {
     /// （真命令自己就活在引号里），于是只剩「把这两行本身钉死」这一条既简单又不会被
     /// 散文满足的判法。代价与 `probeBuildMarker` 同类：**合法改写这两行会判红**
     /// （双空格 `swift  build`、`swift build -c debug -Xswiftc …` 中间插旗、
-    /// `swift build $FLAGS`、反斜杠续行）。要改，同时改这里。
+    /// `swift build $FLAGS`、反斜杠续行、**把脚本里的 `PROBE_DIR` 变量改名**）。
+    /// 要改，同时改这里。
+    ///
+    /// ⚠️ **变量改名这一种的失效形态会认错人**（PR #304 第 4 轮终审 R-5，本轮登记）：
+    /// 把脚本里的 `PROBE_DIR` 全局改名成 `PROBE_ROOT`（纯合法重构）会让
+    /// `flaggedBuildLines` 的**第 4 层筛**（`$PROBE_DIR` 同行共现）一条都留不下，于是
+    /// 第一条文案是「带 `-Xswiftc -warnings-as-errors` 的**真实**构建命令有 0 条，而不是
+    /// 预期的 2 条：（一条都没有）」——**读起来像「标志被删了」**，实际标志一个没少。
+    /// 正确指引在第二条（逐字集合比对）里。计数那条文案已就此补了一句提示。
     nonisolated static let selftestBuildCommands = [
         #"output="$(cd "$PROBE_DIR" && swift build -Xswiftc -warnings-as-errors 2>&1)""#,
         #"(cd "$PROBE_DIR" && swift build -Xswiftc -warnings-as-errors)"#,
@@ -201,10 +240,14 @@ struct DownstreamProbeGateGuard {
 
     /// `selftest-warnings-as-errors.sh` 里**真实**跑构建的命令条数（步骤 1 判红、步骤 3 判绿）。
     ///
-    /// ⚠️ 这个数字是判据的关键，而且必须是 **`==` 而不是 `>=`**（PR #304 第 3 轮终审 I-B）：
-    /// 只断言「标志在脚本里出现过」会被脚本头部的**注释**满足（该脚本第 9 行的用法说明里
-    /// 就逐字写着这条命令）；只断言 `>= 2` 则会被**灌水**满足——把一条真命令的标志删掉、
-    /// 再加一行含整条命令的 `echo`，计数照样是 2。见 `selftestUsesTheSameFlag` 的注释。
+    /// ⚠️ **上一版这里写「这个数字是判据的关键，而且必须是 `==` 而不是 `>=`」——已过时，
+    /// 照录更正**（PR #304 第 4 轮终审 R-3）：把这条断言改回 `>=`（变异 G15）之后套件全绿
+    /// ——本轮补完四条新 fixture 之后**再跑一次仍是 `23 tests passed`**
+    /// ⇒ 它本身没有 fixture 覆盖，不是关键。
+    /// 第 3 轮那条 `>=` 会被灌水满足的论证仍然成立（把一条真命令的标志删掉、再加一行含整条
+    /// 命令的 `echo`，计数照样是 2），只是**真正解决灌水的是第 3 轮同时加的那条逐字集合比对**
+    /// （`Set(flagged) == Set(selftestBuildCommands)`，见 `violations(inScript:)`）。
+    /// ⇒ `==` 保留为**冗余的一道**（成本为零、方向 fail-closed），不要再把它读成主承重件。
     nonisolated static var selftestBuildCommandCount: Int { Self.selftestBuildCommands.count }
 
     /// 「这一行是散文 / 空操作而不是真命令」的首词表。
@@ -284,6 +327,17 @@ struct DownstreamProbeGateGuard {
     /// 归一化第 3 步：剥掉一行里被单/双引号包住的片段（连引号一起）。
     ///
     /// ⚠️ **只用于 YAML 侧**。脚本侧的真命令自己就活在 `"$(…)"` 里，剥了就没了。
+    ///
+    /// ⚠️ **它会造成两种假红，且文案回显的是「剥引号后的串」——在 `ci.yml` 里 grep 不到。
+    /// 撞上时先看这一段，别急着去搜那串**（PR #304 第 4 轮终审 R-6）：
+    /// · YAML 侧给标志加引号（`swift build -Xswiftc "-warnings-as-errors"`，bash 语义等价）
+    ///   ⇒ 剥完只剩 `cd scripts/downstream-probe && swift build -Xswiftc`，判据说**缺少标志**，
+    ///   而文件里标志明明在。
+    /// · 那条 `run:` 带了含**单撇号**的行尾注释（`… # don't drop this`）⇒ 未配对的 `'`
+    ///   把从它开始到**本行末尾**的内容一起吞掉，回显同样是个文件里搜不到的残串。
+    /// ⚠️ **好消息：剥引号是逐行做的**（`commandLines` 先按 `\n` 切再逐行剥），未配对引号
+    /// **只吞到本行末尾、不跨行污染**；而正面清单要求剥完之后**逐字全等**
+    /// ⇒ 引号**不会造成假绿**，只会造成假红。方向 fail-closed，是本轮设计有意的取舍。
     nonisolated static func strippingQuotedSegments(_ line: String) -> String {
         var out = ""
         var open: Character?
@@ -513,8 +567,15 @@ struct DownstreamProbeGateGuard {
            !buildLines.contains(Self.expectedProbeBuildCommand) {
             problems.append(
                 """
-                probe 构建那条 `run:` 不是逐字的 `\(Self.expectedProbeBuildCommand)`，\
-                多出来的部分可能中和退出码：\(buildLines.joined(separator: " / "))
+                probe 构建那条 `run:` 不是逐字的 `\(Self.expectedProbeBuildCommand)`：\
+                \(buildLines.joined(separator: " / "))
+
+                这是一条**正面清单**：多出来的部分**不一定**中和退出码（`-c release` /
+                `--verbose` 这类合法标志同样判红），但按拼法追尾巴追不完，所以整条锁死。
+                · 确实想改这条命令 ⇒ 同步改 `\(Self.jobName)` 判据里的
+                  `expectedProbeBuildCommand`（它由 `probeBuildMarker` + `requiredFlag` 拼出）。
+                · 回显的串搜不到 ⇒ 多半是归一化第 3 步剥掉了引号，
+                  见 `strippingQuotedSegments` 的文档注释。
                 """
             )
         }
@@ -547,6 +608,49 @@ struct DownstreamProbeGateGuard {
         }) {
             problems.append(
                 "`\(Self.jobName)` job 里出现 `\(blocked.key)` —— \(blocked.reason)"
+            )
+        }
+        return problems
+    }
+
+    /// 脚本侧判据本体：对一份 selftest 脚本文本给出违规清单（空 = 通过）。
+    ///
+    /// ⚠️ **抽成纯函数是 PR #304 第 4 轮终审 R-1 的落件**：上一版把两条 `#expect` 直接写在
+    /// `selftestUsesTheSameFlag` 里，其中**逐字集合比对**那条的**唯一证人是真实脚本**
+    /// ——把它短路成恒真（变异 G14）之后套件实测 **19 tests passed** ⇒ 谁删掉它都不会有东西
+    /// 判红，违反本仓 AD-E（每条断言都要有能触发红的 fixture）。
+    /// ⚠️ `syntheticScriptWithTrailingCommentFlagIsRejected` 测的是 `flaggedBuildLines` 这个
+    /// 纯函数，**不是**这条断言，顶不上。⇒ 抽成纯函数，由
+    /// `syntheticScriptDivergingFromPinnedCommandsIsRejected`（钉集合比对）与
+    /// `syntheticScriptWithFlagOutsideProbeDirIsAccepted`（钉第 4 层筛）
+    /// 从**同一条路径**的合成输入钉住。
+    nonisolated static func violations(inScript script: String) -> [String] {
+        let flagged = Self.flaggedBuildLines(inScript: script)
+        var problems: [String] = []
+        if flagged.count != Self.selftestBuildCommandCount {
+            problems.append(
+                """
+                `\(Self.selftestMarker)` 里带 `\(Self.requiredFlag)` 的**真实**构建命令
+                有 \(flagged.count) 条，而不是预期的 \(Self.selftestBuildCommandCount) 条：
+                \(flagged.isEmpty ? "（一条都没有）" : flagged.joined(separator: "\n"))
+
+                ⚠️ 「一条都没有」**不等于「标志被删了」**（PR #304 第 4 轮终审 R-5）：
+                `flaggedBuildLines` 的第 4 层筛按 `$PROBE_DIR` **同行共现**，把脚本里那个
+                变量改名（纯合法重构）会得到**逐字相同**的这句话，而标志一个没少。
+                先确认标志是否真的还在，再看下面那条逐字集合比对给的指引。
+                """
+            )
+        }
+        if Set(flagged) != Set(Self.selftestBuildCommands) {
+            problems.append(
+                """
+                `\(Self.selftestMarker)` 的两条构建命令与 `selftestBuildCommands` 逐字钉住的
+                文本对不上：
+                实际：\(flagged.joined(separator: "\n"))
+                期望：\(Self.selftestBuildCommands.joined(separator: "\n"))
+
+                逐字钉住是有意的（脚本侧不能剥引号，见文件头）。合法改写这两行请同时改常量。
+                """
             )
         }
         return problems
@@ -585,32 +689,27 @@ struct DownstreamProbeGateGuard {
         // -warnings-as-errors 没有起作用"`）。⇒ 现在是四层：heredoc / `#` / 散文首词 /
         // 与 `$PROBE_DIR` 同行共现，**计数用 `==`**，并**逐字钉住**那两行本身。
         let script = try String(contentsOf: Self.selftestURL, encoding: .utf8)
-        let flagged = Self.flaggedBuildLines(inScript: script)
+        let problems = Self.violations(inScript: script)
         #expect(
-            flagged.count == Self.selftestBuildCommandCount,
+            problems.isEmpty,
             """
-            `\(Self.selftestMarker)` 里带 `\(Self.requiredFlag)` 的**真实**构建命令
-            有 \(flagged.count) 条，而不是预期的 \(Self.selftestBuildCommandCount) 条：
-            \(flagged.isEmpty ? "（一条都没有）" : flagged.joined(separator: "\n"))
+            \(problems.joined(separator: "\n\n"))
 
             这个脚本的价值是「用**带同一个标志**的构建命令证明这道闸会响」。
-            ⚠️ 注意判据**不比对两侧的命令文本**（PR #304 第 3 轮终审 S-i）：CI 那条是
+            ⚠️ 注意本判据**不比对两侧的命令文本**（PR #304 第 3 轮终审 S-i）：CI 那条是
             `cd scripts/downstream-probe && …`、脚本这两条是 `cd "$PROBE_DIR" && …`，
             本来就不逐字相同。两侧各自被钉住的是**同一个标志**，不是同一串命令
-            ——CI 改成 `… -c release` 而脚本仍 debug，这里不会红。
+            ——CI 改成 `… -c release` 而脚本仍 debug，**这一条**不会红。
+            ⚠️ 但**兄弟判据 `workflowKeepsWarningsAsErrors` 会红**（PR #304 第 4 轮终审 R-8）：
+            第 3 轮新加的 `expectedProbeBuildCommand` 是**逐字正面清单**，`-c release` 属于
+            「多出来的部分」⇒ 那边判红。⇒ 「CI 换 release、脚本不换」整体上仍会被拦住，
+            只是拦它的不是这一条。
             """
         )
-        #expect(
-            Set(flagged) == Set(Self.selftestBuildCommands),
-            """
-            `\(Self.selftestMarker)` 的两条构建命令与 `selftestBuildCommands` 逐字钉住的
-            文本对不上：
-            实际：\(flagged.joined(separator: "\n"))
-            期望：\(Self.selftestBuildCommands.joined(separator: "\n"))
-
-            逐字钉住是有意的（脚本侧不能剥引号，见文件头）。合法改写这两行请同时改常量。
-            """
-        )
+        // ⚠️ 下面这个循环遍历的是**常量本身**，不读任何文件——它是一条**棘轮**
+        // （防有人改 `selftestBuildCommands` 时把标志一起改掉），**不是**被 fixture 驱动的
+        // 判据：把它整个删掉（变异 G20）套件全绿。**非承重，登记在此**
+        //（PR #304 第 4 轮终审「另外两条非承重但要知道」之二）。
         for command in Self.selftestBuildCommands {
             #expect(command.contains("swift build \(Self.requiredFlag)"))
         }
@@ -700,6 +799,28 @@ struct DownstreamProbeGateGuard {
         #expect(problems.first?.contains(Self.requiredFlag) == true)
     }
 
+    @Test("合成输入：注释里提到旧写法不该判红（`isSkippable` 跳 `#` 的正对照）")
+    func syntheticBlockScalarCommentMentioningOldCommandStaysGreen() {
+        // ⚠️ **这条是 PR #304 第 4 轮终审 R-2 的落件，但落法与终审的建议不同——照录理由。**
+        // 终审说：把上面那条 fixture 的注释行改成含整条 marker，「变异 G16（`isSkippable`
+        // 不再跳 `#`）立刻被杀」。**本轮实测为假**：G16 + 那份改法一起跑，`swift test`
+        // 仍是 `19 tests passed`。原因是那条 fixture 的真命令本来就裸 `swift build` ⇒
+        // 注释行即使被当成命令，它自己含标志、不进 `missingFlag`，`problems.count` 照样是 1。
+        // ⇒ 要杀 G16 得反过来：真命令**合规**（整体应判绿），注释里提一句**旧的裸命令**
+        // ——G16 之下那条注释会被当成「缺标志的构建命令」而判红，本 fixture 当场失败。
+        let yaml = """
+        jobs:
+          downstream-probe:
+            steps:
+              - name: Build downstream probe
+                run: |
+                  # 旧写法（加标志之前）：cd scripts/downstream-probe && swift build
+                  cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors
+              - run: scripts/downstream-probe/selftest-warnings-as-errors.sh
+        """
+        #expect(Self.violations(inWorkflow: yaml).isEmpty)
+    }
+
     @Test("合成输入：块标量里用 echo 散文冒充命令也判红（I-A）")
     func syntheticBlockScalarWithEchoProseIsRejected() {
         // ⚠️ 第 2 轮只堵了 `#` 这一种拼法；这份输入在第 3 轮终审的实测里是 **0 violations**。
@@ -731,6 +852,25 @@ struct DownstreamProbeGateGuard {
         let problems = Self.violations(inWorkflow: yaml)
         #expect(problems.count == 1)
         #expect(problems.first?.contains(Self.probeBuildMarker) == true)
+    }
+
+    @Test("合成输入：selftest 路径被引号包成一个变量赋值也判红（归一化第 3 步的证人）")
+    func syntheticQuotedSelftestAssignmentIsRejected() {
+        // ⚠️ PR #304 第 4 轮终审 R-4：归一化第 3 步 `strippingQuotedSegments` 此前**承重但
+        // 零覆盖**——把它改成恒等（变异 G6）套件实测 `19 tests passed`。既有两条 `echo`
+        // fixture 全是被**第 4 步散文首词筛**判红的，与剥不剥引号无关。
+        // 这份输入把 selftest 那步换成一个**变量赋值**（脚本从不执行，路径整串活在引号里）：
+        // 剥引号 ON ⇒ 只剩 `SELFTEST=`，找不到 selftest 那步 ⇒ 判红；OFF ⇒ 全绿。
+        let yaml = """
+        jobs:
+          downstream-probe:
+            steps:
+              - run: cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors
+              - run: SELFTEST="scripts/downstream-probe/selftest-warnings-as-errors.sh"
+        """
+        let problems = Self.violations(inWorkflow: yaml)
+        #expect(problems.count == 1)
+        #expect(problems.first?.contains(Self.selftestMarker) == true)
     }
 
     @Test("合成输入：`with:` 底下装饰性的 run: 不算命令（I-A 同族）")
@@ -936,6 +1076,9 @@ struct DownstreamProbeGateGuard {
         output="$(cd "$PROBE_DIR" && swift build 2>&1)"
         (cd "$PROBE_DIR" && swift build)
         """
+        // ⚠️ 下面这条 `#expect` 是**恒真**的：它断言的是同一函数里几行之上那个字面量自己的
+        // 内容，与判据实现无关（**有意的演示**——展示「旧断言在这份输入上是绿的」）。
+        // **非承重，登记在此**（PR #304 第 4 轮终审「另外两条非承重但要知道」之一）。
         #expect(script.contains("swift build \(Self.requiredFlag)")) // 旧断言：绿
         #expect(Self.flaggedBuildLines(inScript: script).isEmpty) // 新判据：零命中 ⇒ 红
     }
@@ -981,6 +1124,38 @@ struct DownstreamProbeGateGuard {
         (cd "$PROBE_DIR" && swift build)
         """
         #expect(Self.flaggedBuildLines(inScript: heredoc).isEmpty)
+    }
+
+    @Test("合成输入：脚本两条命令数目对但文本对不上也判红（逐字集合比对的证人）")
+    func syntheticScriptDivergingFromPinnedCommandsIsRejected() {
+        // ⚠️ PR #304 第 4 轮终审 R-1：`Set(flagged) == Set(selftestBuildCommands)` 此前
+        // **唯一的证人是真实脚本**——把它短路成恒真（变异 G14）套件实测 `19 tests passed`。
+        // 这份输入让**计数那条通过**（两行都过得了四层筛）、只有逐字比对能开火，
+        // 于是它专钉那一条。
+        let script = """
+        #!/usr/bin/env bash
+        output="$(cd "$PROBE_DIR" && swift build -Xswiftc -warnings-as-errors --verbose 2>&1)"
+        (cd "$PROBE_DIR" && swift build -Xswiftc -warnings-as-errors)
+        """
+        #expect(Self.flaggedBuildLines(inScript: script).count == Self.selftestBuildCommandCount)
+        let problems = Self.violations(inScript: script)
+        #expect(problems.count == 1)
+        #expect(problems.first?.contains("逐字钉住") == true)
+    }
+
+    @Test("合成输入：不含 $PROBE_DIR 的行不算真命令（第 4 层筛的证人）")
+    func syntheticScriptWithFlagOutsideProbeDirIsAccepted() {
+        // ⚠️ PR #304 第 4 轮终审 R-5：四层筛的第 4 层（与 `$PROBE_DIR` **同行共现**）此前
+        // **承重但零覆盖**——把它删掉（变异 G12）套件实测 `19 tests passed`。
+        // 这份输入在两条真命令之外多一行**含标志但不含 `$PROBE_DIR`** 的赋值：
+        // 第 4 层筛在 ⇒ 判绿；筛掉了 ⇒ 计数与逐字比对两条一起开火。
+        let script = """
+        #!/usr/bin/env bash
+        output="$(cd "$PROBE_DIR" && swift build -Xswiftc -warnings-as-errors 2>&1)"
+        (cd "$PROBE_DIR" && swift build -Xswiftc -warnings-as-errors)
+        HINT="修法：swift build -Xswiftc -warnings-as-errors"
+        """
+        #expect(Self.violations(inScript: script).isEmpty)
     }
 
     @Test("合成输入：脚本里把标志藏进行尾注释，逐字比对仍抓得到（本轮自查新拼法 3）")
