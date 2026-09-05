@@ -8,8 +8,11 @@ CoreDesign 的部分实现衍生自第三方开源项目。按各自许可的要
 > 本文件是**对外的许可声明**。前者判为可落地的行，**在其真正落地时**必须在本文件
 > 有对应条目。
 >
-> ⚠️ **本文件目前只有骨架**（#249 建）。**逐组件 / 逐 shader 的条目由各自落地的 task
-> 追加**——闸②虽已通过，仍不得署名尚未落地的东西。
+> ⚠️ **本文件由 #249 建为骨架，逐条由各自落地的 task 填实**——闸②虽已通过，
+> 仍不得署名尚未落地的东西。
+> **已生效的 shader 条目（`#283`）**：《Inferno — Warping Loupe》（`View.glassOrb`）与
+> 《paper-design/shaders》（`View.halftone`，**只对 `Halftone` 一件生效**）。
+> 仍为**占位**的：《Star Nest》，以及 paper 那一档里尚未落地的另外 7 个。
 
 ## 归属分档
 
@@ -130,19 +133,124 @@ SOFTWARE.
 
 ---
 
-## Inferno — Warping Loupe（待 `GlassOrb` 落地时启用）
+## Inferno — Warping Loupe（`View.glassOrb`，**已落地** · `#283`）
 
-> ⚠️ 占位。`CoreDesignShaders` 的 `GlassOrb` 落地时（`shipswift-shaders` B-3）填入，
-> 并转载 Inferno 的完整 MIT 正文。
+⚠️ **本节 `#283` 由占位改为生效**：`View.glassOrb(size:magnification:)` 已落地在
+`Sources/CoreDesignShaders/GlassOrb.swift` + `CoreDesignShaders.metal` 的
+`coreDesignGlassOrb`。
 
-裁定依据（`docs/shader-provenance.md`《统一裁定表》的 `GlassOrb` 行，论证见同文
-《A. 有上游标注的 7 个》的 `GlassOrb` 行）：**已追到兼容许可 · MIT，链条闭合**。
-Inferno 的 LICENSE 附逐 shader 移植来源清单（**6 组**：Circle/Circle Wave/Diamond/
-Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie），
-**"Warping Loupe" 不在其中** ⇒ **推论**为 Inferno 原创，由其 MIT 覆盖。
+- **上游**：[Inferno](https://github.com/twostraws/Inferno) 的
+  `Sources/Inferno/Shaders/Transformation/WarpingLoupe.metal`（Paul Hudson 等）
+- **许可**：**MIT**
+- **档位**：**较大段落移植** —— ⚠️ 落地后定案（上一版写的是「预期档位」）。
+  保留的是它的算法结构与表达：`totalZoom = 1` → 区域内 `totalZoom /= zoomFactor`
+  → `totalZoom += smoothstep(…) / 2` → `newPosition = delta * totalZoom + center`
+  → `layer.sample(newPosition)`。
+- **我们的修改**（逐条列在 `coreDesignGlassOrb` 的文档注释里，此处摘要）：
+  ① 坐标空间由 UV（并用 `dx² + dy²/aspect` 近似圆）改为**点空间**的真圆，
+     `radius` 的含义因此与上游的 `maxDistance` 不同；
+  ② 新增 `softness` 系数（0…1），供 Reduce Transparency 下取 0，
+     那时圆内是常数放大 + 硬边。
 
-- 上游：[Inferno](https://github.com/twostraws/Inferno) by Paul Hudson — MIT
-- 预期档位：**较大段落移植**（折射数学预计保留自原实现）⚠️ 代码尚未落地，**档位待落地时定案**
+### 许可全文（MIT）
+
+⚠️ **逐字转载**（`raw.githubusercontent.com/twostraws/Inferno/main/LICENSE`，
+含其自带的移植来源清单——**一并转载，不裁剪**）：
+
+```
+MIT License
+
+Copyright (c) 2023 Paul Hudson and other authors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+
+Many shaders were ported to Metal from elsewhere then had comments added, and
+some were subsequently extended to add extra functionality. The original authors
+and sources and linked below. All licenses are MIT. Any mistakes or performance
+problems introduced in the porting process are entirely my fault.
+
+
+Circle, Circle Wave, Diamond, Diamond Wave
+---
+Based on: https://gl-transitions.com/editor/PolkaDotsCurtain
+Original author: bobylito,
+Metal port and enhancements: Paul Hudson
+License: MIT
+
+
+Crosswarp
+---
+Based on: https://gl-transitions.com/editor/crosswarp
+Original author: Eke Péter
+Metal port: Paul Hudson
+License: MIT
+
+
+Radial
+---
+Based on: https://gl-transitions.com/editor/Radial
+Original author: Xaychru / gre
+Metal port: Paul Hudson
+License: MIT
+
+
+Swirl
+---
+Based on: https://gl-transitions.com/editor/Swirl
+Author: Sergey Kosarevsky / gre
+Metal port: Paul Hudson
+License: MIT
+
+
+Wind
+---
+Based on: https://gl-transitions.com/editor/wind
+Original author: gre
+Metal port: Paul Hudson
+License: MIT
+
+Genie
+---
+Based on: https://www.shadertoy.com/view/flyfRt
+Original author: altaha-ansari
+Metal port: twodayslate
+License: MIT
+```
+
+### ⚠️ 一条必须写在明处的残余风险
+
+`docs/shader-provenance.md`《#280 的落地前核验》③ 把「"Warping Loupe" 不在 Inferno 的
+移植清单内 ⇒ 推论为其原创」这条推论的**前提下调**了：Inferno 的 LICENSE 清单（**6 组**）
+与 README 清单（**7 条**，多一个 `Shimmer`）**互不一致**，且两份清单**从未声称穷尽**
+——LICENSE 逐字 "**Many** shaders were ported"，README 逐字 "**Some**"
+⇒ **清单不能当穷尽名单用**，"不在清单上"能推出的东西相应变少。
+
+支持不掉档的三条（同为一手）：① Inferno 以 MIT 对**整仓**授权；
+② `warpingLoupe` 函数体**零魔数**（全部字面量是 `0.0h` / `1.0h` / `2.0h`）⇒ 无指纹可追，
+也无处藏抄袭；③ 其文档自述 "This works identically to the simple loupe shader…"
+⇒ 派生自 Inferno **自有**的 `SimpleLoupe`。
+
+⇒ 若 "Warping Loupe" 其实是一个**未登记的、来自非 MIT 来源**的移植，Inferno 对它就是
+无权再许可，我们跟着错。**这不是再查一轮能消除的风险**（追不到就是追不到），
+是**接受并记录**的；本节即那份记录，`#283` 的 PR 正文亦已点名待用户确认。
 
 ---
 
@@ -157,28 +265,323 @@ Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie）
 
 ---
 
-## paper-design/shaders（Apache-2.0，待相应 shader 落地时启用）
+## paper-design/shaders（Apache-2.0）—— `View.halftone`，**部分落地** · `#283`
 
-> ⚠️ 占位。`docs/shader-provenance.md` 裁定为 **`已追到兼容许可 · Apache-2.0` 的 9 个**
-> shader（Voronoi / Swirl / SimplexNoise / Water / ColorPanels / DotOrbit / SmokeRing /
-> Metaballs / Halftone）落地时填入。
->
-> ⚠️ **`NeuroNoise` 与 `GrainGradient` 不在本名单内**：两者同样追到 paper，但裁定是
-> **`待追溯`**——前者的上游是一条无许可声明的推文、paper 的再许可断言无法独立核实；
-> 后者参数仅部分匹配、匹配未确认。⇒ 追完一轮改判为 Apache-2.0 之前，
-> **不得随本节署名落地**（上一版把 `NeuroNoise` 写进名单、且写作「10 个」，
-> 与 provenance 表的 Apache-2.0 档 = 9 打架，PR #259 review round-2 指出）。
+⚠️ **本节 `#283` 由占位改为生效，但只对 `Halftone` 生效。**
+`docs/shader-provenance.md` 判为 `已追到兼容许可 · Apache-2.0` 的共 **8** 个
+（Voronoi / Swirl / SimplexNoise / ColorPanels / DotOrbit / SmokeRing / Metaballs / Halftone），
+**本仓今天只落地了 `Halftone` 一个**；其余 7 个尚未落地 ⇒ 按本文件开头那条
+「不得署名尚未落地的东西」，本节的**逐件条目**只有 `Halftone` 一行。
+⚠️ 上一版把 `Water` 写进名单——**#280 已把它由 Apache-2.0 改判 `待追溯`**
+（其 `getCausticNoise()` 与 `neuro-noise.ts` 是同一算法、同源于同一条无许可推文，
+而 paper 这次连来源都没标），本版一并删掉。`NeuroNoise` / `GrainGradient` 同样不在名单内。
 
-- 上游：[paper-design/shaders](https://github.com/paper-design/shaders) — **Apache-2.0**
-- 档位：**较大段落移植**
-- ⚠️ **Apache-2.0 的义务比 MIT 多，三条缺一不可**：
-  1. 转载 **LICENSE 全文**；
-  2. 转载其 **`NOTICE`**：`Powered by Paper Shaders: https://shaders.paper.design`（§4(d)）；
-  3. **标注修改**（§4(b)）——我们改了参数化与色彩层。
-- ⚠️ **paper 之上还有一层**，落地前须直读确认：`voronoi.ts` 指向 iq 的 Shadertoy
-  `ldl3W8`（该 shader 许可**变过**：旧拷贝头 CC BY-NC-SA 3.0、新拷贝头 MIT）；
-  `neuro-noise.ts` 指向一条**无许可声明的推文**——**这正是 `NeuroNoise` 被排除在上面
-  9 个名单之外的原因**（provenance 表《汇总与闸②判定》第 5 轮终审 I4）。
+- **上游**：[paper-design/shaders](https://github.com/paper-design/shaders) — **Apache-2.0**
+- **已落地的件**：`View.halftone(dot:ink:paper:)`
+  ← `packages/shaders/src/shaders/halftone-dots.ts`
+- **档位**：**较大段落移植**
+
+### Apache-2.0 §4 的四条义务，逐条兑现
+
+1. **转载 LICENSE 全文** —— 见下方《许可全文（Apache-2.0）》；
+2. **转载 `NOTICE`** —— ⚠️ 一手核，paper 的 `NOTICE` **全文就是这两行**：
+
+   ```
+   Powered by Paper Shaders:
+   https://shaders.paper.design
+   ```
+
+3. **标注修改**（§4(b)）—— 我们改了参数化与色彩层，**且只移植了其中一部分**。
+   逐条差异写在 `Sources/CoreDesignShaders/CoreDesignShaders.metal` 的
+   `coreDesignHalftone` 文档注释里；摘要：只移植 `classic` 一种点形（`gooey` / `holes` /
+   `soft`、六边形网格、`inverted`、对比度 sigmoid、三档颗粒**均未移植**）；
+   只移植 `halftone-dots.ts`（**`halftone-cmyk.ts` 未移植**）；新增网屏角度参数化；
+   两色输出改由 Swift 侧传入（FR-8：`.metal` 零硬编码色）。
+4. **`.metal` 文件头注明对应 `.ts` 路径** —— 见 `coreDesignHalftone` 的 Provenance 段。
+
+### ⚠️⚠️ 第 5 条：paper **之外**的第三方 MIT 通知义务（paper 一个字都没给）
+
+**Apache-2.0 不能替代第三方的 MIT 通知义务。** `docs/shader-provenance.md`《落地义务》
+第 5 条点名 `Halftone` 涉及两位权利人 —— 其 hash 一族追到 **Dave Hoskins**（常量 `19.19`；
+旁证：BigWings 在 `bigwings-luminescence.glsl:230` 把同一式子标为
+`// 3 out, 1 in... DAVE HOSKINS`）与 **Inigo Quilez**（`0.3183099` = 1/π 的签名式）。
+两者**都是 MIT**（与本仓兼容，不影响可落地），但 "The above copyright notice … shall be
+included in all copies" **必须由我们自己转载**。
+
+⚠️ **一条如实说明**：本次移植的 `coreDesignHalftone` **没有复制那两份 hash**
+——它一个 hash 都不调用（上游用 hash 的是 grain 与 CMYK 的格心抖动，两者都没移植）。
+通知**仍然照给**：义务跟着 `Halftone` 这个档位走，宁可多给，成本为零。
+**不要**把这句读成"其实不欠"——它记录的是覆盖面，不是撤回。
+
+#### Inigo Quilez — MIT
+
+```
+// The MIT License
+// Copyright © 2013 Inigo Quilez
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+出处：Shadertoy `ldl3W8` 源码头 · 站点级声明
+`https://iquilezles.org/articles/`（逐字「all technical code snippets you'll find are
+under the MIT license」）。
+
+#### David Hoskins — MIT
+
+```
+// Copyright (c)2014 David Hoskins.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+出处：Shadertoy `4djSRW`（"Hash without Sine"）源码头。
+
+### ⚠️ 一条"不要写"的义务
+
+`colorBandingFix` 里的 `12.9898 / 78.233 / 43758.5453123` 是无从指认著作权人的通行
+sin-fract hash ⇒ 署名指向**算法本身**，**不得**引 The Book of Shaders
+（本仓已实查其 LICENSE 为 `All rights reserved`，见本文件下方专节）。
+⚠️ 该常量组**没有**出现在本仓任何代码里，此条是预防性留痕。
+
+### 许可全文（Apache-2.0）
+
+⚠️ **逐字转载**（`raw.githubusercontent.com/paper-design/shaders/main/LICENSE`）：
+
+```
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+```
 
 ---
 

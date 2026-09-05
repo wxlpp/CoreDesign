@@ -1712,6 +1712,71 @@ LiquidMetal）在本表里无一可落地，全部是 `待追溯`** ⇒ 分母�
 （⚠️ 上一版写「三个 Swift 文件共四处」，两个数都错——而本表的立身之本正是「逐常量 grep 比五轴便宜一个数量级」，这一段却是没 grep 就写下的，第 2 轮终审 I-b），而本文件的《共享原语的逐项出处》是 #261 写出来的。⇒ **#261 不得先于本 PR 合入**
 （该前置已写在 #261 的描述顶部）。
 
+## ⚠️ #283 的落地记录（B-3：`GlassOrb` + `Halftone` 两件）
+
+⚠️ **成员是 2 个不是 3 个。** `283.md` 的任务书写的是 `GlassOrb` / `Water` / `Halftone`，
+而 **`Water` 已由 #280 从 Apache-2.0 档改判 `待追溯`**（其 `getCausticNoise()` 与
+`neuro-noise.ts` 的 `neuroShape()` 是同一算法、同源于同一条**无许可声明的推文**，
+而 paper 这次连来源都没标）⇒ 它**不在可落地名单里**，本 task 未落地它。
+本记录的名单是**开工时从本文件《统一裁定表》与《汇总与闸②判定》逐行复核出来的**，
+不是照抄任务书。⚠️ 连带作废：`283.md` 里那条「`Water` 的 `colorEffect`/`layerEffect`
+归类须在开工时确认」——对象已不在名单内。
+
+### 逐件落地形态与档位
+
+| 件 | 落地入口 | 上游 | 许可地位 | 复制程度 |
+|---|---|---|---|---|
+| `GlassOrb` | `View.glassOrb(size:magnification:)` · `coreDesignGlassOrb` | Inferno `Sources/Inferno/Shaders/Transformation/WarpingLoupe.metal` | **已追到兼容许可 · MIT** | **较大段落移植**（落地后定案；本表上一版记的是"预期档位"）|
+| `Halftone` | `View.halftone(dot:ink:paper:)` · `coreDesignHalftone` | paper `packages/shaders/src/shaders/halftone-dots.ts` | **已追到兼容许可 · Apache-2.0 + MIT（双层）** | **较大段落移植** |
+
+两件**都不作任何原创声称**。署名落在 `ACKNOWLEDGEMENTS.md` 的
+《Inferno — Warping Loupe》与《paper-design/shaders》两节（两节 `#283` 由占位改为生效）。
+
+### ⚠️ `Halftone` 的 `u_noiseTexture`：处置与代价（本表《⑤-bis》点名要求先定的那条）
+
+《⑤-bis》第 6 轮终审新发现的第 5 件是「`Halftone` 也依赖 `u_noiseTexture`」——
+但那条依赖**属于 `halftone-cmyk.ts`**（`:80` 声明 `uniform sampler2D u_noiseTexture`、
+`:98` 本地定义 `randomRG()`、`:171` 真的调用），**不属于 `halftone-dots.ts`**
+（后者 import 的是**程序化**的 `proceduralHash21`）。
+
+⇒ **本次的处置是：只移植 `halftone-dots.ts` 这一个入口，把 CMYK 那一半整个划出范围。**
+那条纹理依赖因此**结构上不进本仓**——既不需要随包发一张预计算噪声纹理
+（省掉包体积与 `resources:` 声明，`moduleBundleOwnership` 那套判据无新对象），
+也不需要"换程序化 hash"（没有 hash 可换：`coreDesignHalftone` **一个 hash 都不调用**）。
+
+**代价，如实列出**：
+- **CMYK 四色分色那一档没有落地**，连同 `gooey` / `holes` / `soft` 三种点形、
+  六边形网格、`inverted`、对比度 sigmoid、三档颗粒（`grainMixer` / `grainOverlay` / `grainSize`）。
+  它们不是"不能做"，是本 task 没做。
+- ⚠️ **该决定把选择推给了后续 task**：真要落 CMYK 时，那条选择题原样还在。
+  **本表的建议是"换程序化 hash"**（本仓已有 `cd::hash21` / `cd::hash22`，
+  许可已在《共享原语的逐项出处》清偿），代价是格心抖动的观感与 paper 的纹理采样
+  （周期 100 的 tile）不同——那是**设计决策**，不是等价替换。
+
+### ⚠️ 第三方 MIT 通知：给了，且写明了覆盖面
+
+本表《落地义务》第 5 条要求 `Halftone` 转载 **iq** 与 **Dave Hoskins** 两份 MIT 通知
+（paper 的 `NOTICE` 对这两位只字未提）。两份已逐字转载在 `ACKNOWLEDGEMENTS.md`。
+⚠️ **同时如实记下覆盖面**：本次移植**没有复制那两份 hash**（用 hash 的是 grain 与 CMYK
+格心抖动，两者都没移植）⇒ 通知是**宁可多给**，不是"其实不欠"的撤回。
+
+### ⚠️ `GlassOrb` 的残余风险：接受并记录，**待用户确认**
+
+《#280 的落地前核验》③ 把「不在 Inferno 移植清单内 ⇒ 推论为其原创」的**前提下调**了
+（两份清单互不一致、且从未声称穷尽——LICENSE 逐字 "**Many** shaders were ported"、
+README 逐字 "**Some**"）。本 task **照常落地**，并在 `ACKNOWLEDGEMENTS.md`、
+`GlassOrb.swift`、`coreDesignGlassOrb` 与登记表条目**四处**写明该风险。
+⚠️ **该风险的"接受"尚未经用户确认**，`#283` 的 PR 正文已点名。
+落地过程中**未发现任何指向别的上游的新证据**（一手复读了 `WarpingLoupe.metal` 全文：
+函数体零魔数，与《#280 的落地前核验》③ 的记载一致）。
+
+### 本表因本次落地要记住的一条
+
+⚠️ **「任务书里的成员名单」与「裁定表」冲突时以裁定表为准，且必须开工时复核。**
+`283.md` 写着 3 件，裁定表只支持 2 件；照任务书做会把一个 `待追溯` 件发出去。
+这与本表既有的「两处冲突时以本表为准」是同一条规则，但那条规则此前只写给
+**本文件内部**的论证段落，没写给**下游任务书**。此处补记。
+
 ## ⚠️ #261 合入前必须同步改口径的代码注释（第 2 轮终审 C-6）
 
 `shaders-plasma:Sources/CoreDesignShaders/CoreDesignShaders.metal` 的 `fbm` 注释

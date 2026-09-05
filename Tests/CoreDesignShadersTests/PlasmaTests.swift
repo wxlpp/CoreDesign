@@ -18,7 +18,9 @@ import Testing
 //
 // 包里有 4 个 test bundle，`swift test --build-system swiftbuild --filter
 // CoreDesignShadersTests` 会打印**四行** "Test run with …"：本 bundle 的
-// 「17 tests in 7 suites」（`Starfield` 随 #281 撤回后由 18 减 1），
+// 「27 tests in 9 suites」（`Starfield` 随 #281 撤回后由 18 减 1 得 17；
+// `#283` 的 `GlassOrb` / `Halftone` 两件各带一个 suite（9 条）+ 入口清单里
+// 多一条「无时间形参」，合计 +10 条），
 // 另外三个各一行「0 tests … passed」。
 // 用 `tail` 取最后一行恰好取到那个 0 ⇒ 会误判成「一条都没跑」。
 //
@@ -42,9 +44,13 @@ struct ShaderLibraryLoadTests {
         "coreDesignInkSmoke",
         "coreDesignLiquidChrome",
         "coreDesignRefractiveGlass",
+        // ⚠️ `#283` 落地的两个内容层效果。**新增 shader 必须同时加进本表**——
+        // 漏加不会有任何报错，那个 shader 的「函数名拼错 / 没编进 metallib」就无人守。
+        "coreDesignGlassOrb",
+        "coreDesignHalftone",
     ]
 
-    @Test("bundle 里有 metallib，且六个入口全部解析得到")
+    @Test("bundle 里有 metallib，且八个入口全部解析得到")
     func libraryLoads() throws {
         try CoreDesignShaders.assertShaderLibraryLoadable(functions: Self.entryPoints)
     }

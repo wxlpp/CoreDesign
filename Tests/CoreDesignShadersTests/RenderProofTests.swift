@@ -171,7 +171,185 @@ struct RenderProofTests {
         #expect(minAlpha >= 250, "不透明内容被 rim 打出透明环：min alpha = \(minAlpha)")
     }
 
+    // MARK: - #283：两个内容层效果的渲染证明
+
+    /// ⚠️ **本组断言一律先把比较归约成 `Bool` 再进 `#expect`**（#293 的纪律）：
+    /// 大 `Collection` 直接写进 `#expect(a == b)` 时，判红不是判红而是**挂住**
+    /// （swift-testing 会去求 `CollectionDifference`，本仓实测 200 秒 SIGALRM）。
+    /// ⚠️⚠️ **对照组不是"不加 glassOrb"，这是本条最重要的一句。**
+    ///
+    /// 我的第一版写的是「加 vs 不加 `.glassOrb()`，位图必须不同」。**变异实测：它是假判据**
+    /// —— 把 `coreDesignGlassOrb` 的函数体整个换成 `return layer.sample(position);`
+    /// （整层被绕过）之后，那一版**照样绿**。原因是 `layerEffect` 本身会强制光栅化，
+    /// 「加了 layerEffect」与「没加」的位图**本来就不同**，跟 shader 做了什么无关。
+    /// ⇒ 那正是本仓反复栽的「判定通过而东西不工作」。
+    ///
+    /// ⇒ 改成**同一条公开 API、只换一个档位**：两侧都经过 `.glassOrb(...)`、都光栅化，
+    /// 差异只能来自"倍率实参真的到了 shader"。同一枚变异下本条**当场判红**（实证见 PR 正文）。
+    @Test("glassOrb 的倍率档位经公开 API 真的到达了 shader")
+    func glassOrbMagnificationReachesTheShader() throws {
+        let content = LinearGradient(
+            colors: [.blue, .white],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .frame(width: 64, height: 64)
+
+        // `.large` 档半径 72pt > 画布 ⇒ 整幅都在镜内，两档的差异铺满全图。
+        let strong = try Self.render(content.glassOrb(size: .large, magnification: .strong))
+        let gentle = try Self.render(content.glassOrb(size: .large, magnification: .gentle))
+
+        #expect(strong.count == gentle.count)
+        let magnificationMatters = strong != gentle
+        #expect(magnificationMatters, """
+        `.strong` 与 `.gentle` 两档渲出**逐字节相同**的结果 ⇒ 倍率实参没有到达 shader。
+        先查 `.float(...)` 的实参位次是否与 `coreDesignGlassOrb` 的形参对得上
+        （同为 `float` 时换序照样编译、照样不渲染），再查 `GlassOrbMagnification.factor`。
+        """)
+    }
+
+    /// ⚠️⚠️ **两个「策略函数不是摆设」的证明，缺一不可。**
+    ///
+    /// `GlassOrbModifier` 的两个 `static` 纯函数（`focusPoint` / `softness`）各有一条
+    /// 值级断言（在 `ContentEffectStopTests` 里），但**值算对了不等于 shader 真的用了它**
+    /// ——`.float2(...)` / `.float(...)` 的实参位次一旦与 `[[stitchable]]` 形参错位，
+    /// SwiftUI **不报错、只是不渲染**（本文件顶部注释里的那个失败面）。
+    /// ⇒ 这里直接调 shader，把两个输入各自单独变一次，位图必须跟着变。
+    ///
+    /// ⚠️ **为什么不用 `.environment(\.accessibilityReduceMotion, …)` 走公开 API 那条路**
+    /// （初版就是那么写的）：`accessibilityReduceMotion` / `accessibilityReduceTransparency`
+    /// 在 `EnvironmentValues` 上**只有 getter**，`.environment(_:_:)` 要 `WritableKeyPath`
+    /// ⇒ **编译不过**（实测 `error: cannot convert value of type 'any KeyPath<EnvironmentValues, Bool>
+    /// & Sendable' to expected argument type 'WritableKeyPath<…>'`）。
+    /// 本仓对 a11y 偏好的既有覆盖手法也正是「把判定抽成纯函数 + 单独证明 shader 吃了那个值」
+    /// （`ProceduralBackground.elapsed` 是同一条）。
+    @Test("glassOrb 的 focus 与 softness 都真的被 shader 吃进去了")
+    func glassOrbConsumesFocusAndSoftness() throws {
+        let atCentre = try Self.render(Self.rawOrb(focus: CGPoint(x: 32, y: 32), softness: 1))
+        let atCorner = try Self.render(Self.rawOrb(focus: CGPoint(x: 8, y: 8), softness: 1))
+        let focusMatters = atCentre != atCorner
+        #expect(focusMatters, """
+        换一个放大中心，位图一个像素都没变 ⇒ shader 没有吃 `focus`。\
+        先查 `.float2(...)` 的实参位次是否与 `coreDesignGlassOrb` 的形参对得上\
+        （同为 `float2` 时换序照样编译、照样不渲染）。
+        """)
+
+        let soft = try Self.render(Self.rawOrb(focus: CGPoint(x: 32, y: 32), softness: 1))
+        let hard = try Self.render(Self.rawOrb(focus: CGPoint(x: 32, y: 32), softness: 0))
+        let softnessMatters = soft != hard
+        #expect(softnessMatters, """
+        `softness` 从 1 改成 0，位图一个像素都没变 ⇒ Reduce Transparency 那条降级\
+        （玻璃珠 → 均匀放大镜）在渲染上**什么都没发生**，\
+        `GlassOrbModifier.softness(reduceTransparency:)` 的值级断言因此证明不了任何事。
+        """)
+    }
+
+    /// ⚠️ **钉住「亮度 → 点半径」的方向，两条各挡一侧**：
+    /// · 纯白必须**一个点都不落**（曾经的失效形态：`radius == 0` 时
+    ///   `smoothstep(-aa, +aa, 0)` 在格心那一像素仍返回 0 ⇒ 覆盖度 1
+    ///   ⇒ **白底上每格一个 1px 墨点**。抗锯齿把不存在的点画了出来）；
+    /// · 纯黑必须**落满点**。
+    /// 方向反过来（`mix(0, dotScale, lum)`）时两条同时判红。
+    @Test("halftone：白处留白、黑处落墨")
+    func halftoneInksDarkAndSparesLight() throws {
+        let canvas = CGSize(width: 64, height: 64)
+
+        let white = Color.white.frame(width: canvas.width, height: canvas.height)
+        let black = Color.black.frame(width: canvas.width, height: canvas.height)
+
+        // 对照：把纸色换成一个显然不同的颜色，证明 shader **真的在跑**。
+        // 没有这一条，「白底上一种颜色」与「shader 静默没执行」不可分辨。
+        let tinted = try Self.renderDense(white.halftone(dot: .coarse, ink: .black, paper: .green))
+        let tintedTones = Set(tinted)
+        #expect(tintedTones.count == 1, "纸色没有铺满：出现了 \(tintedTones.count) 种颜色")
+        let paperWasApplied = tintedTones.first != Set(try Self.renderDense(white)).first
+        #expect(paperWasApplied, "对照组与白底不可分辨 ⇒ halftone 可能根本没执行，下面两条都证明不了事")
+
+        let printedWhite = Set(try Self.renderDense(white.halftone(dot: .coarse, ink: .black, paper: .white)))
+        #expect(printedWhite.count == 1, """
+        纯白内容上出现了 \(printedWhite.count) 种颜色 —— 半径为 0 的点被抗锯齿画了出来，\
+        白底每格一个 1px 墨点。
+        """)
+
+        // ⚠️⚠️ **黑那一侧不能只问"有没有出现第二种颜色"** —— 变异实测（把
+        // `mix(max(dotScale,0), 0, luminance)` 反写成 `mix(0, max(dotScale,0), luminance)`）
+        // 时那种写法**照样绿**：`ImageRenderer` 在 64×64 色块的**边界**会渲出抗锯齿的
+        // 半透明像素，它们的亮度不是 0，方向反过来之后正好在那一圈落点 ⇒ 「出现了第二种颜色」
+        // 由边界像素平凡满足，与画面主体是否落墨无关。
+        // ⇒ 改问**落墨面积占比**：黑底必须大面积落墨，白底必须一点都没有。
+        let blackInk = Self.darkFraction(try Self.renderDense(
+            black.halftone(dot: .coarse, ink: .black, paper: .white)
+        ))
+        #expect(blackInk > 0.25, """
+        纯黑内容的落墨面积只有 \(blackInk) —— 亮度到点半径的映射方向反了\
+        （黑处应当落满点）。
+        """)
+
+        let whiteInk = Self.darkFraction(try Self.renderDense(
+            white.halftone(dot: .coarse, ink: .black, paper: .white)
+        ))
+        #expect(whiteInk == 0, "纯白内容上落了 \(whiteInk) 的墨 —— 白处应当一点都不落")
+    }
+
     // MARK: - Helpers
+
+    /// 直接以给定的 `focus` / `softness` 调 `coreDesignGlassOrb`，绕开 `@State` 手势。
+    ///
+    /// ⚠️ 与 `timeActuallyAdvances` 里直接调 `library.coreDesignPlasma` 是同一手法：
+    /// 公开 API 那条路上，这两个输入一个来自私有 `@State`、一个来自只读的 a11y 环境，
+    /// **都注入不了**；不绕过去的话这两条契约就是零覆盖。
+    @MainActor
+    private static func rawOrb(focus: CGPoint, softness: Float) -> some View {
+        let library = ShaderLibrary.bundle(.module)
+        return LinearGradient(
+            colors: [.blue, .white],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .frame(width: 64, height: 64)
+        .visualEffect { view, proxy in
+            view.layerEffect(
+                library.coreDesignGlassOrb(
+                    .float2(proxy.size),
+                    .float2(focus),
+                    .float(GlassOrbSize.small.radius),
+                    .float(GlassOrbMagnification.strong.factor),
+                    .float(softness)
+                ),
+                maxSampleOffset: CGSize(
+                    width: GlassOrbSize.small.radius, height: GlassOrbSize.small.radius
+                )
+            )
+        }
+    }
+
+    /// 「落墨」的像素占比：红通道 < 128 即算落了墨。
+    ///
+    /// ⚠️ 取红通道而不是三通道平均是有意的——本判据只用在**灰度**内容上
+    /// （黑 / 白 + 黑墨白纸），三个通道等值，取一个就够；换成彩色内容时本函数不适用。
+    private static func darkFraction(_ packedRGB: [UInt32]) -> Double {
+        guard !packedRGB.isEmpty else { return 0 }
+        let dark = packedRGB.filter { (($0 >> 16) & 0xFF) < 128 }.count
+        return Double(dark) / Double(packedRGB.count)
+    }
+
+    /// **逐像素**全扫描。⚠️ 与 `render(_:)`（每 4 像素取一个）分开是必需的：
+    /// `#283` 要挡的失效形态是「每格中心一个 **1px** 墨点」，
+    /// 隔 4 像素取样会整片错过它 —— 那正是本仓「判据看不见被测对象」那一族。
+    private static func renderDense(_ view: some View) throws -> [UInt32] {
+        let (bytes, width, height) = try Self.rgbaPixels(view)
+        var out: [UInt32] = []
+        out.reserveCapacity(width * height)
+        for y in 0..<height {
+            for x in 0..<width {
+                let o = (y * width + x) * 4
+                out.append(
+                    (UInt32(bytes[o]) << 16) | (UInt32(bytes[o + 1]) << 8) | UInt32(bytes[o + 2])
+                )
+            }
+        }
+        return out
+    }
 
     /// 渲染并**锁定像素格式**后的位图：8-bit RGBA、premultipliedLast、device RGB、
     /// `bytesPerRow == width * 4`。

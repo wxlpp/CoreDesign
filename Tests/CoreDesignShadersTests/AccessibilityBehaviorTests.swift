@@ -168,6 +168,56 @@ struct ShaderEntryPointGuard {
                 "清单里有、.metal 里没有（改名或删除后忘了同步）：\(listed.subtracting(declared).sorted())")
     }
 
+    /// 抓一个入口的**形参名列表**。
+    ///
+    /// ⚠️ 形参名而不是类型：`time` 与 `frequency` 都是 `float`，按类型分不出来。
+    static func parameterNames(of entryPoint: String) throws -> [String] {
+        let text = try String(contentsOf: Self.metalSource, encoding: .utf8)
+        // ⚠️ 与 `declaredEntryPoints()` 同款的跨行匹配，且同样容忍 `[[ stitchable ]]` 带空格。
+        let pattern = #"\[\[\s*stitchable\s*\]\]\s+\w+\s+"# + entryPoint + #"\s*\(([^)]*)\)"#
+        let regex = try NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
+        let range = NSRange(text.startIndex..., in: text)
+        guard let m = regex.firstMatch(in: text, range: range),
+              let r = Range(m.range(at: 1), in: text) else { return [] }
+        return String(text[r])
+            .split(separator: ",")
+            .compactMap { $0.split(whereSeparator: { !$0.isLetter && !$0.isNumber && $0 != "_" }).last }
+            .map(String.init)
+    }
+
+    /// ⚠️⚠️ **FR-12 在 `#283` 那一批上只兑现了一半，这条把那一半钉成机器判据。**
+    ///
+    /// FR-12 说「`layerEffect` 类冻结**时间**输入、保留手势 / 倾斜的**空间**输入」。
+    /// `#283` 的两件（`coreDesignGlassOrb` / `coreDesignHalftone`）**根本没有时间输入**
+    /// ⇒ 「冻结时间」那半条在它们身上是空的，本 task 不作声称；
+    /// 能声称的是「空间输入不被 a11y 偏好改写」，由 `ContentEffectStopTests.focusFollowsGesture`
+    /// 与 `RenderProofTests.glassOrbConsumesFocusAndSoftness` 覆盖。
+    ///
+    /// ⚠️ 本条守的是**那个前提本身**：有人哪天给这两个入口加了 `time` 形参，
+    /// 上面那句「没有可冻结的东西」就变成假话，而**没有任何别的判据会发现**。
+    ///
+    /// ⚠️ **带反恒真对照**：同一台解析器必须在 `coreDesignPlasma` 上**抓得到** `time`。
+    /// 抓不到 ⇒ 正则失配 ⇒ 上半条在空列表上恒真。
+    @Test("两个内容层效果没有时间形参（对照：Plasma 必须抓得到 time）")
+    func contentLayerEffectsHaveNoTimeInput() throws {
+        let animated = try Self.parameterNames(of: "coreDesignPlasma")
+        #expect(animated.contains("time"), """
+        在 `coreDesignPlasma` 上都抓不到 `time` 形参 —— 形参解析失配，\
+        下面那条「没有时间输入」是在空列表上恒真。实际抓到：\(animated)
+        """)
+
+        for entryPoint in ["coreDesignGlassOrb", "coreDesignHalftone"] {
+            let names = try Self.parameterNames(of: entryPoint)
+            #expect(!names.isEmpty, "\(entryPoint) 的形参列表抓成了空 —— 解析失配")
+            #expect(!names.contains("time"), """
+            \(entryPoint) 出现了 `time` 形参 —— 它从"纯空间效果"变成了动画效果，\
+            FR-12 的「冻结时间输入」那半条从此对它**适用**，而本批的文档与测试都写着它不适用。\
+            要么撤销这个形参，要么补齐 Reduce Motion 的冻结路径并改掉那些文档。\
+            实际形参：\(names)
+            """)
+        }
+    }
+
     /// 命名约定单独成一条——**不再把它混进抓取正则**（混进去会让"命名不符"表现为
     /// "根本不存在"，两种问题给同一条误导性消息）。
     @Test("入口函数名统一 coreDesign 前缀")

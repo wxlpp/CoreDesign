@@ -100,8 +100,8 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 
 `CoreDesignEffects`（36 个）与 `CoreDesignCharts`（4 个）的 API 单位，由
 `shipswift-effects` epic（#242）落地，逐单位说明见各自的 `components/*.md`；
-**外加 `CoreDesignShaders` 的 7 个单位**（`#261` 落地、`#279` 接进登记表），
-见本节最后一张表。⚠️ 那 7 个的 `components/*.md` 尚未落地（归 `#282` / `#283`）。
+**外加 `CoreDesignShaders` 的 9 个单位**（`#261` 落地 7 个、`#279` 接进登记表，`#283` 再加 `glassOrb` / `halftone` 两个），
+见本节最后一张表。⚠️ 那 9 个的 `components/*.md` 尚未落地（`#283` 未补：本 target 至今没有任何 `components/*.md`，逐件文档是一次独立的批量工作，不在本 task 范围）。
 ⚠️ 上面三个括号里的数字**没有任何判据守着**（本段落在 `readmeIndexRows` 的解析范围之外，
 解析范围从下面第一张表开始）—— 权威计数在 `ComponentRegistryGuard` 的断言里。
 
@@ -222,6 +222,8 @@ provenance 对账表，而不是不存在的文档链接。⚠️ **本组一律
 | DotGrid | `DotGrid(tint:spacing:motion:)` | 规则点阵，可选同心波呼吸（`Sources/CoreDesignShaders/DotGrid.swift`） |
 | GlassSymbol | `GlassSymbol(_:tint:strength:accessibilityLabel:)` | 渲染成折射玻璃的 SF Symbol（`Sources/CoreDesignShaders/GlassSymbol.swift`） |
 | refractiveGlass | `View.refractiveGlass(corner:strength:rim:isEnabled:)` | 把内容渲染成折射玻璃；⚠️ 与系统 `.glassEffect()` 是两回事（`Sources/CoreDesignShaders/RefractiveGlass.swift`） |
+| glassOrb | `View.glassOrb(size:magnification:)` | 跟手的玻璃珠放大镜，圆内随距离衰减地放大；⚠️ 移植自 Inferno 的 `WarpingLoupe.metal`（MIT，须署名）（`Sources/CoreDesignShaders/GlassOrb.swift`） |
+| halftone | `View.halftone(dot:ink:paper:)` | 半调网屏，按 45° 网格用点的大小表示明暗；⚠️ 移植自 paper `halftone-dots.ts`（Apache-2.0，须署名 + 修改标注）（`Sources/CoreDesignShaders/Halftone.swift`） |
 
 ## NFR-1 帧率基准 / Frame-rate benchmark
 
