@@ -86,6 +86,34 @@ import Testing
 // - **把位图搬去非 test target**（`Sources/`）里比较：本判据的扫描根只有 `Tests/`。
 // - **跨文件的局部 `let`**：函数名跨文件收集，但**局部绑定**只在本文件内解析
 //   （局部绑定本来就不跨文件可见，故这不是漏，写在这里是为了说清射程）。
+// - **闭包参数带类型标注**：`let check: (Data, Data) -> Void = { a, b in #expect(a == b) }`
+//   ——`a` / `b` 的类型写在闭包的**类型标注**里，`bitmapBindingsInScope` 只解析
+//   `FunctionDeclSyntax` 的形参。（实测 SILENT；今天本仓不存在这种写法。）
+// - **跨类型的存储属性**：`#expect(a.bytes == b.bytes)`，其中 `a` / `b` 是别的类型的实例，
+//   而那个类型有一个 `let bytes: Data`。头是 `bytes`，判据不知道它是位图。
+//   ⚠️ 这是**最近的一条现成路径**：`TransitionClusterTests.swift` 里就有
+//   `struct Frame { let bytes: Data }` 和它自己的 `==` 重载。（实测 SILENT。）
+//   ⚠️ 顺带实测：`Self.blank == Self.blank` **会**判红（`blank` 在成员表里），
+//   `Helper.blank == Helper.blank`（另一个类型的同名成员）**不会** —— 现状安全，形态存在。
+// - **跨类型访问的计算属性**：`BigFunctionCollector` 只 visit `FunctionDeclSyntax`，
+//   `var pixels: Data { … }` 这类计算属性不进跨文件表。（实测 SILENT。）
+// - **把两侧各包一层再比**：`#expect(Array(a.prefix(n)) == Array(b.prefix(n)))` 的头是
+//   `Array`，判据不认它承载位图；而两侧仍是大 `Collection` ⇒ 照挂不误。（实测 SILENT。）
+//
+// ⚠️ **`guard let` / `if let` 曾经也在这张表里，但它不属于这一类** —— 上面每一条都是
+// 语法层原理上解不出类型，而可选绑定只是 `OptionalBindingConditionSyntax` 没被处理，
+// 是**实现遗漏**。#298 评审指出：`guard let x = Self.pixels(v)` 与
+// `try #require(Self.pixels(v))` 是同一惯用法的两种拼法，产出的都是**非可选 `Data`**
+// ——正是本文件开头点名会挂死的那一类。已补齐（`collectOptionalBindings`），
+// J3 的「`guard let` 解包后的非可选位图」「`if let` 解包后的非可选位图」两条 fixture 钉住。
+//
+// ## ⚠️ 射程边界：`App/Tests/` 不在本判据的射程内
+//
+// `App/Tests/SnapshotTests.swift` 属于 `App/CoreDesignPreview.xcodeproj`（xcodegen
+// 生成的预览宿主）里的**真实 XCTest target**。它既不在 J1 / J5 的扫描根 `Tests/` 之下，
+// 也就不受本判据与 XCTest 禁令的约束。今天无害（该文件只有一个空 class，且 CI 不构建
+// `App/`），但**它不是"扫过了发现零违规"，而是根本没扫**——将来若在那里写位图断言，
+// 要么把 `App/Tests/` 加进扫描根，要么明确接受它在射程外。
 //
 // 反过来，**下面这些不是漏洞，是安全出口**，别再去堵：
 //
@@ -143,6 +171,19 @@ struct BitmapExpectationGuard {
         "base64EncodedString", "hexString", "hexEncodedString", "sha256", "fingerprint",
     ]
 
+    /// 类型文本里是否**作为一个完整标识符**出现了 `Data` / `UInt8`。
+    ///
+    /// ⚠️⚠️ 这里曾是 `text.contains("Data") || text.contains("UInt8")`——SwiftSyntax
+    /// 守卫里残留的**文本匹配**（#298 评审 S-4）。今天本仓无害（`Tests/` 与 `Sources/`
+    /// 里都不存在名字含 `Data` / `UInt8` 的具名类型），但一旦引入 `ChartData` /
+    /// `Metadata` / `DataPoint`，`let x: Metadata` 就会被当成位图而误判红。
+    /// 按非标识符字符切分后逐段等值比对：`[String: Data]` / `Data?` / `Slice<Data>` /
+    /// `Array<Swift.UInt8>` 照常命中，`Metadata` 不再命中。
+    nonisolated static func mentionsBigElementType(_ text: String) -> Bool {
+        let tokens = text.split { !$0.isLetter && !$0.isNumber && $0 != "_" }
+        return tokens.contains("Data") || tokens.contains("UInt8")
+    }
+
     nonisolated static func normalizedTypeText(_ text: String) -> String {
         var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         while t.hasSuffix("?") || t.hasSuffix("!") { t.removeLast() }
@@ -191,8 +232,11 @@ struct BitmapExpectationGuard {
     nonisolated static func violations(in files: [(name: String, source: String)]) -> [Violation] {
         let trees = files.map { (name: $0.name, tree: SwiftParser.Parser.parse(source: $0.source)) }
 
-        // 第 0 遍：大类型拼法（含 typealias 与包装类型）。两轮定点迭代——
-        // `typealias A = Data` + `struct S { var a: A }` + `typealias T = S` 要能连起来。
+        // 第 0 遍：大类型拼法。三轮定点迭代 —— `typealias A = Data` +
+        // `typealias B = A` + `typealias C = [B]` 这种链式别名要能连起来
+        // （别名各自声明在不同文件里时，一轮收不完）。
+        // ⚠️ **不含「含大类型存储属性的包装类型」**：`Frame { let bytes: Data }`
+        // 是被认可的安全形态，见 `BigTypeCollector` 的文档。
         var bigTypes = Self.baseBigTypeSpellings
         var declaredTypeNames: Set<String> = []
         for _ in 0..<3 {
@@ -402,6 +446,37 @@ struct BitmapExpectationGuard {
             func t() { #expect(Producer.pixels(0) == Producer.pixels(1)) }
         }
         """),
+        // ⚠️ 下面两条钉住 #298 评审 I-1：`guard let` / `if let` 解包出来的是
+        // **非可选 `Data`**，正是文件头点名会挂死的那一类，而判据初版整条放过。
+        ("`guard let` 解包后的非可选位图", """
+        struct T {
+            static func shot(_ v: Int) -> Data? { nil }
+            func t() {
+                guard let a = T.shot(0), let b = T.shot(1) else { return }
+                #expect(a == b, "…")
+            }
+        }
+        """),
+        ("`if let` 解包后的非可选位图（绑定写在条件里）", """
+        struct T {
+            static func shot(_ v: Int) -> Data? { nil }
+            func t() {
+                if let a = T.shot(0), let b = T.shot(1) {
+                    #expect(a == b)
+                }
+            }
+        }
+        """),
+        // ⚠️ 钉住 #298 评审 I-2：子树里出现 `.size` 不该豁免整条比较。
+        ("标量成员只出现在实参里（`.size` 不是这条比较的头）", """
+        struct T {
+            static func pixels(_ v: Int, size: CGSize) -> Data? { nil }
+            func t() {
+                let canvas = CGRect.zero
+                #expect(T.pixels(0, size: canvas.size) == T.pixels(1, size: canvas.size))
+            }
+        }
+        """),
     ]
 
     /// 跨文件 fixture 的另一半——单独一个"文件"。
@@ -413,6 +488,30 @@ struct BitmapExpectationGuard {
 
     /// ⚠️ **必须与上面成对**：只有"会开火"没有"该放行时放行"，判据可以退化成恒真
     /// （全部判红）而这一批不会发现。
+    ///
+    /// ⚠️⚠️ **这一批钉住的不是同一条过宽路径**（#298 评审 I-3 的实测更正——本节此前
+    /// 笼统写成「防判据恒真」，把 10 条都算在分类器头上，与实测不符）。
+    /// 把 `ComparisonFinder.isBitmapOperand` 首行改成 `if true { return true }`
+    /// （即分类器恒真）后，本批**只有 5 条**变红：
+    ///
+    /// · `a?.count == b?.count`（标量归约）
+    /// · 包装进非 `Collection` 值类型（`Frame`）
+    /// · `particleColor(at:) == .red`（按头判定，不是全名扫描）
+    /// · `one == all`（同名局部量在另一个函数里是 `CGSize` —— 作用域）
+    /// · `Metadata` 具名类型（类型判定按标识符切分，不是子串匹配）
+    ///
+    /// 另外 5 条静默的原因**与分类器无关**，它们钉的是另外两条独立的过宽路径：
+    ///
+    /// · `#expect(a != nil && b != nil)` —— 被**字面量豁免**（`NilLiteralExprSyntax`）
+    ///   挡在分类器之前；
+    /// · `let matches = a == b` / `expectBitmapsEqual(a, b)` / `elementsEqual` ——
+    ///   根本没有 `==` 落在 `#expect` 的第一个实参里，钉的是「只看 `#expect` 内部」；
+    /// · `name == "x"` / `3 == 3` —— 字符串 / 整数**字面量豁免**。
+    ///
+    /// ⚠️ 字面量豁免自己是有**互锁**的，不是无人看守：把 `isLiteral` 改成恒真
+    /// （`true || expr.is(NilLiteralExprSyntax.self) …`）后**实测** J3 的 15 条
+    /// **全部**变红（即 15 条 fixture 全部不再被判红）——放宽字面量豁免会立刻被 J3 抓住。
+    /// ⇒ 这两批互相钉住对方，不是同一条路径的复读。
     nonisolated static let silentFixtures: [(name: String, source: String)] = [
         ("`!= nil` 是可选性检查，不是位图比较", """
         struct T {
@@ -501,9 +600,22 @@ struct BitmapExpectationGuard {
             }
         }
         """),
+        // ⚠️ 钉住 #298 评审 S-4：类型判定曾用 `text.contains("Data")` 子串匹配，
+        // 于是任何名字里含 `Data` 的具名类型（`Metadata` / `ChartData` / `DataPoint`）
+        // 都会被当成位图。改成按标识符切分后逐个等值比对。
+        ("名字里含 Data 的具名类型不是位图", """
+        struct Metadata: Equatable { let tag: Int }
+        struct T {
+            func t() {
+                let a: Metadata = .init(tag: 0)
+                let b: Metadata = .init(tag: 1)
+                #expect(a == b)
+            }
+        }
+        """),
     ]
 
-    @Test("J3：判据自证会开火 —— 12 种等价改写逐个打红")
+    @Test("J3：判据自证会开火 —— 15 种等价改写逐个打红")
     func judgeFiresOnEveryEquivalentRewrite() {
         for fixture in Self.firingFixtures {
             let files: [(name: String, source: String)] =
@@ -519,7 +631,7 @@ struct BitmapExpectationGuard {
         }
     }
 
-    @Test("J3b：判据不是恒真 —— 9 种合规写法逐个放行")
+    @Test("J3b：判据不是恒真 —— 10 种合规写法逐个放行")
     func judgeStaysSilentOnSanctionedForms() {
         for fixture in Self.silentFixtures {
             let hits = Self.violations(inSource: fixture.source)
@@ -535,25 +647,36 @@ struct BitmapExpectationGuard {
 
     // MARK: - J4：两份 `BitmapExpectations.swift` 拷贝必须同步
 
-    @Test("J4：两个 test target 里的 BitmapExpectations.swift 逐字节相同")
+    @Test("J4：每个带 BitmapExpectations.swift 的 test target 里，拷贝逐字节相同")
     func copiesAreInSync() throws {
         // ⚠️ 两个 test target 按 `Package.swift` 的 AD-D 刻意互不依赖，
         // 归约入口只能各放一份拷贝。没有这条判据，改了一份忘了另一份不会有任何提示。
-        let paths = ["CoreDesignTests", "CoreDesignEffectsTests"].map {
-            Self.testsRoot.appendingPathComponent("\($0)/BitmapExpectations.swift")
-        }
-        var texts: [String] = []
-        for path in paths {
-            try #require(FileManager.default.fileExists(atPath: path.path), """
-            找不到 \(GuardScanRoots.relativePath(path)) —— 归约入口缺失，
-            J1 会因为「没人用它」而在一批已经改回裸 `==` 的断言上继续绿。
-            """)
-            texts.append(try String(contentsOf: path, encoding: .utf8))
-        }
-        #expect(texts[0] == texts[1], """
-        两份 `BitmapExpectations.swift` 已经漂移：
-        \(paths.map { GuardScanRoots.relativePath($0) }.joined(separator: "\n"))
-        改动其中一份时必须同步另一份。
+        //
+        // ⚠️⚠️ **不写死是哪几个 target**（#298 评审 S-2）：本条曾把
+        // `["CoreDesignTests", "CoreDesignEffectsTests"]` 硬编码在这里，而 J1 的扫描根
+        // 是从 `Tests/` 目录枚举出来的、**不做任何白名单**——`CoreDesignChartsTests`
+        // 今天没有拷贝，但它确实在 J1 的射程里。⇒ 一旦有人在 Charts 测试里写位图断言，
+        // J1 会判红并开出「用 `expectBitmapsEqual`」的处方，照做就要落下**第三份**拷贝，
+        // 而写死名单的本条看不见它，漂移毫无提示。这里改成从扫描根推导，与 `:163-167`
+        // 对 J1 扫描根的自陈是同一条纪律。
+        let candidates = try Self.testRootDirectories()
+            .map { $0.appendingPathComponent("BitmapExpectations.swift") }
+        let present = candidates.filter { FileManager.default.fileExists(atPath: $0.path) }
+
+        try #require(present.count >= 2, """
+        `Tests/` 的 \(candidates.count) 个 target 根里只找到 \(present.count) 份
+        `BitmapExpectations.swift` —— 归约入口缺失，
+        J1 会因为「没人用它」而在一批已经改回裸 `==` 的断言上继续绿。
+        找过的位置：
+        \(candidates.map { GuardScanRoots.relativePath($0) }.joined(separator: "\n"))
+        """)
+
+        let texts = try present.map { try String(contentsOf: $0, encoding: .utf8) }
+        let drifted = zip(present, texts).filter { $0.1 != texts[0] }.map { GuardScanRoots.relativePath($0.0) }
+        #expect(drifted.isEmpty, """
+        以下 `BitmapExpectations.swift` 与 \(GuardScanRoots.relativePath(present[0])) 不同：
+        \(drifted.joined(separator: "\n"))
+        改动其中一份时必须同步所有拷贝（共 \(present.count) 份）。
         """)
     }
 
@@ -590,7 +713,13 @@ struct BitmapExpectationGuard {
 
 // MARK: - 语法遍历器
 
-/// 收集「其实是大 `Collection` 的类型名」：`typealias` 别名 + 含大类型存储属性的包装类型。
+/// 收集「其实是大 `Collection` 的类型名」：**只有 `typealias` 别名**
+/// （`typealias Bitmap = Data` ⇒ `Bitmap` 也算大类型），外加语料里声明过的具名类型清单。
+///
+/// ⚠️ 本类**刻意不把「含大类型存储属性的包装类型」算作大类型**——
+/// `TransitionClusterTests.Frame`（`struct Frame: Equatable { let bytes: Data }`）
+/// 是本仓认可的第三种安全形态（实测 0.037 s 判红），把它算进来会让十几处合规比较误判红。
+/// （本注释此前写成「+ 含大类型存储属性的包装类型」，与实现不符，#298 评审时更正。）
 private nonisolated final class BigTypeCollector: SyntaxVisitor {
     private let known: Set<String>
     private(set) var discovered: Set<String> = []
@@ -610,7 +739,7 @@ private nonisolated final class BigTypeCollector: SyntaxVisitor {
         // `[String: Data]` / `[Data]` 这类容器：里面装着位图，下标出来的还是位图。
         return BitmapExpectationGuard.baseBigTypeSpellings.contains { spelling in
             spelling.count > 4 && text.contains(spelling)
-        } || text.contains("Data") || text.contains("UInt8")
+        } || BitmapExpectationGuard.mentionsBigElementType(text)
     }
 
     override func visit(_ node: TypeAliasDeclSyntax) -> SyntaxVisitorContinueKind {
@@ -809,13 +938,28 @@ private nonisolated final class ComparisonFinder: SyntaxVisitor {
     /// 同理 `probe.animatable(v) == v` 的头是 `animatable`，不是 `probe`。
     private func isBitmapOperand(_ expr: ExprSyntax, at site: Syntax) -> Bool {
         if Self.isLiteral(expr) { return false }
-        // 归约成标量之后就不是位图了。
-        if Self.mentionsScalarReducer(Syntax(expr)) { return false }
 
-        if let head = Self.headName(of: expr) { return self.isBitmapName(head, at: site) }
+        if let head = Self.headName(of: expr) {
+            // ⚠️⚠️ **标量归约也按「头」判**（#298 评审 I-2）。这里曾是
+            // `mentionsScalarReducer(整棵子树)` —— 与上面那条「按头判定」的纪律**自相矛盾**，
+            // 而且矛盾的方向是 **fail-open**（该判红的放过），比它想避免的那种误判更糟：
+            //
+            //     let canvas = CGRect.zero
+            //     #expect(T.pixels(0, size: canvas.size) == T.pixels(1, size: canvas.size))
+            //
+            // 子树里出现了 `.size` ⇒ 整条比较被豁免，而两侧仍然是 160 000 字节的 `Data`
+            // ⇒ 照挂不误。改成只看最外层那一步之后它判红；而
+            // `a?.count == b?.count`（J3b fixture）的**头就是 `count`** ⇒ 仍然放行。
+            if BitmapExpectationGuard.scalarReducingMembers.contains(head) { return false }
+            return self.isBitmapName(head, at: site)
+        }
 
-        // 头取不出来（数组字面量、闭包调用、`try #require(...)` 之类）⇒ 退回全名扫描。
+        // 头取不出来（数组字面量、元组、闭包调用之类）⇒ 退回全名扫描。
         // ⚠️ 退回路径**故意更宽**：宁可多问一句，也不放过一处会挂死的断言。
+        // ⚠️ 全子树的标量豁免**只留在这条退回路径上**，与它配套：全名扫描会把
+        // `#expect((a.count, b.count) == (1, 2))` 里的 `a` / `b` 一起收进来，
+        // 没有配套的宽豁免就会误判红。头能取出来时不走这里，故那条 fail-open 已经堵住。
+        if Self.mentionsScalarReducer(Syntax(expr)) { return false }
         let names = Self.referencedBaseNames(in: Syntax(expr))
         return names.contains { self.isBitmapName($0, at: site) }
     }
@@ -929,6 +1073,16 @@ private nonisolated final class ComparisonFinder: SyntaxVisitor {
                     out.insert(parameter.secondName?.text ?? parameter.firstName.text)
                 }
             }
+            // ⚠️ `if let a = …, let b = … { #expect(a == b) }`：绑定写在**条件里**，
+            // 断言点在 `if` 体内 ⇒ 只有沿父链走到 `IfExprSyntax` / `WhileStmtSyntax`
+            // 才看得见它们。（`guard let` 的绑定在语句块里，由上面的 `CodeBlockItemListSyntax`
+            // 分支经 `collectBindings` 收。）
+            if let ifExpr = node.as(IfExprSyntax.self) {
+                self.collectOptionalBindings(from: ifExpr.conditions, into: &out)
+            }
+            if let whileStmt = node.as(WhileStmtSyntax.self) {
+                self.collectOptionalBindings(from: whileStmt.conditions, into: &out)
+            }
             childPosition = node.position
             cursor = node.parent
         }
@@ -936,6 +1090,20 @@ private nonisolated final class ComparisonFinder: SyntaxVisitor {
     }
 
     private func collectBindings(from item: Syntax, into out: inout Set<String>) {
+        // ⚠️⚠️ **`guard let` 也是一种绑定**（#298 评审 I-1）。这里曾只认
+        // `VariableDeclSyntax` ⇒ 下面这条整条从判据下走过去（实测 SILENT）：
+        //
+        //     guard let a = T.shot(0), let b = T.shot(1) else { return }
+        //     #expect(a == b)          // ← 不报
+        //
+        // 而 `guard let x = Self.pixels(v)` 与 `try #require(Self.pixels(v))` 是
+        // **同一惯用法的两种拼法**，产出的都是**非可选 `Data`**——正是本文件开头点名
+        // 「会挂死的那一类」。⇒ 判据曾恰好放过自己文档里说最危险的那种写法。
+        // 这不是原理性堵不住（那些登记在文件头），是纯粹的实现遗漏。
+        if let guardStmt = item.as(GuardStmtSyntax.self) {
+            self.collectOptionalBindings(from: guardStmt.conditions, into: &out)
+            return
+        }
         guard let variable = item.as(VariableDeclSyntax.self) else { return }
         for binding in variable.bindings {
             guard let name = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text
@@ -949,25 +1117,53 @@ private nonisolated final class ComparisonFinder: SyntaxVisitor {
                 continue
             }
             guard let value = binding.initializer?.value else { continue }
-            // ⚠️ 与操作数同一条纪律：**按初始化表达式的「头」判定**。
-            // `let moved = try #require(probe.render(v, false), …)` 的头是 `render`
-            // （返回一个非 `Collection` 的 `Frame`），不是里面出现过的 `probe`。
-            // 靠全名扫描会把它当位图，于是 `TransitionClusterTests` 里十几处
-            // 合规的 `Frame` 比较被误判红。
-            if let head = Self.headName(of: value) {
-                if self.bigFunctionNames.contains(head)
-                    || (!self.knownNonBitmapNames.contains(head)
-                        && BitmapExpectationGuard.looksLikeBitmapName(head)) {
-                    out.insert(name)
-                }
+            if self.initializerLooksLikeBitmap(value) { out.insert(name) }
+        }
+    }
+
+    /// `guard let` / `if let` / `while let` 条件里的可选绑定。
+    ///
+    /// ⚠️ 与 `collectBindings` 共用**同一套**「按初始化表达式的头判定」逻辑
+    /// （`initializerLooksLikeBitmap`）——两条路各写一份是本仓栽过的那类漂移。
+    ///
+    /// ⚠️ `guard let a`（简写形态，没有 `=`）不在这里收：它重新绑定的是**外层同名量**，
+    /// 那一处早已由 `collectBindings` 或本函数按顺序收过；这里再猜一次只会两头不一致。
+    private func collectOptionalBindings(
+        from conditions: ConditionElementListSyntax, into out: inout Set<String>
+    ) {
+        for condition in conditions {
+            guard let binding = condition.condition.as(OptionalBindingConditionSyntax.self),
+                  let name = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text
+            else { continue }
+            if self.isBigType(binding.typeAnnotation?.type) {
+                out.insert(name)
                 continue
             }
-            let names = Self.referencedBaseNames(in: Syntax(value))
-            if names.contains(where: { self.bigFunctionNames.contains($0) })
-                || names.contains(where: BitmapExpectationGuard.looksLikeBitmapName) {
+            if BitmapExpectationGuard.looksLikeBitmapName(name) {
                 out.insert(name)
+                continue
             }
+            guard let value = binding.initializer?.value else { continue }
+            if self.initializerLooksLikeBitmap(value) { out.insert(name) }
         }
+    }
+
+    /// 初始化表达式是不是产出位图。
+    ///
+    /// ⚠️ 与操作数同一条纪律：**按初始化表达式的「头」判定**。
+    /// `let moved = try #require(probe.render(v, false), …)` 的头是 `render`
+    /// （返回一个非 `Collection` 的 `Frame`），不是里面出现过的 `probe`。
+    /// 靠全名扫描会把它当位图，于是 `TransitionClusterTests` 里十几处
+    /// 合规的 `Frame` 比较被误判红。
+    private func initializerLooksLikeBitmap(_ value: ExprSyntax) -> Bool {
+        if let head = Self.headName(of: value) {
+            return self.bigFunctionNames.contains(head)
+                || (!self.knownNonBitmapNames.contains(head)
+                    && BitmapExpectationGuard.looksLikeBitmapName(head))
+        }
+        let names = Self.referencedBaseNames(in: Syntax(value))
+        return names.contains(where: { self.bigFunctionNames.contains($0) })
+            || names.contains(where: BitmapExpectationGuard.looksLikeBitmapName)
     }
 
     private func isBigType(_ type: TypeSyntax?) -> Bool {
@@ -975,7 +1171,7 @@ private nonisolated final class ComparisonFinder: SyntaxVisitor {
         let text = BitmapExpectationGuard.normalizedTypeText(type.trimmedDescription)
         if self.bigTypes.contains(text) { return true }
         // 容器：`[String: Data]` 下标出来的还是位图。
-        return text.contains("Data") || text.contains("UInt8")
+        return BitmapExpectationGuard.mentionsBigElementType(text)
     }
 }
 
@@ -984,10 +1180,29 @@ private nonisolated final class XCTAssertFinder: SyntaxVisitor {
     private(set) var hits: Set<String> = []
 
     override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
-        if let callee = node.calledExpression.as(DeclReferenceExprSyntax.self)?.baseName.text,
-           callee.hasPrefix("XCTAssert") || callee == "XCTFail" || callee == "XCTUnwrap" {
+        // ⚠️ **限定名不影响判定**（#298 评审 S-3）：callee 写成 `X.XCTAssertEqual(a, b)` 时
+        // 是 `MemberAccessExprSyntax`，只认 `DeclReferenceExprSyntax` 会整条漏掉。
+        // `ComparisonFinder.referencedBaseNames` 在同一文件里**专门处理掉了**这一族，
+        // 两个 finder 的严谨度不该不一致 —— 而这一条的失败方向是 fail-open。
+        //
+        // ⚠️ **更正评审给的那个例子**：`XCTest.XCTAssertEqual(a, b)` 这一写法本身
+        // **编译不过** —— `XCTest` 这个**类**遮蔽了同名 module，实测报
+        // `error: type 'XCTest' has no member 'XCTAssertEqual'`。
+        // ⇒ 它不是今天真实存在的逃逸口子。本改动仍然做，理由是**形态**存在
+        // （任何 `<某命名空间>.XCTAssertEqual(…)` 都是这个 callee 形状）、代价是几行、
+        // 方向是 fail-closed，且它消除了同文件里两个 finder 之间无理由的严谨度差。
+        // 实测：合成 `enum N { static func XCTAssertEqual(_:_:) }` + `N.XCTAssertEqual(1, 1)`
+        // ⇒ 改前静默、改后判红。
+        guard let callee = Self.calleeBaseName(of: node.calledExpression) else { return .visitChildren }
+        if callee.hasPrefix("XCTAssert") || callee == "XCTFail" || callee == "XCTUnwrap" {
             self.hits.insert(callee)
         }
         return .visitChildren
+    }
+
+    private static func calleeBaseName(of expr: ExprSyntax) -> String? {
+        if let ref = expr.as(DeclReferenceExprSyntax.self) { return ref.baseName.text }
+        if let member = expr.as(MemberAccessExprSyntax.self) { return member.declName.baseName.text }
+        return nil
     }
 }

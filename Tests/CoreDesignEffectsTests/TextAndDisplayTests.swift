@@ -1464,8 +1464,10 @@ struct ParticleTransitionTests {
         }
         // ⚠️ **互锁**：中间进度必须画得出粒子，否则上面三条相等断言只是在说
         // "粒子层永远什么都不画"（那正是 C-A 的缺陷形态）。
-        expectBitmapsDiffer(Self.pixels(Self.burst(progress: 0.4)), Self.pixels(Color.clear.frame(width: 160, height: 160).background(Color.surfaceRaised)),
-                "中间进度也画不出粒子 —— 上面三条相等断言是恒真的")
+        expectBitmapsDiffer(
+            Self.pixels(Self.burst(progress: 0.4)),
+            Self.pixels(Color.clear.frame(width: 160, height: 160).background(Color.surfaceRaised)),
+            "中间进度也画不出粒子 —— 上面三条相等断言是恒真的")
     }
 
     /// AC / FR-8：空色板 ⇒ 取调用方 `.tint`，不自带色板。
@@ -1477,8 +1479,10 @@ struct ParticleTransitionTests {
         expectBitmapsDiffer(red, blue, "空色板下换 .tint 位图不变 —— 取色没有走 .tint")
 
         let palette: [Color] = [.surfaceRaised, .contentPrimary]
-        expectBitmapsEqual(Self.pixels(Self.burst(progress: 0.4, colors: palette).tint(.red)), Self.pixels(Self.burst(progress: 0.4, colors: palette).tint(.blue)),
-                "给了色板还跟着 .tint 变 —— 调用方参数没有生效")
+        expectBitmapsEqual(
+            Self.pixels(Self.burst(progress: 0.4, colors: palette).tint(.red)),
+            Self.pixels(Self.burst(progress: 0.4, colors: palette).tint(.blue)),
+            "给了色板还跟着 .tint 变 —— 调用方参数没有生效")
     }
 
     /// ⚠️⚠️ **Reduce Motion 降级不是 no-op**（#250 第 1 轮因此被打回）：
