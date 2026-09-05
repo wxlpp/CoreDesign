@@ -653,7 +653,7 @@ nonisolated enum GuardScanRoots {
     /// 仓库**根目录**下的 `.md`（不递归）—— `CLAUDE.md` / `AGENTS.md` / `README.md` /
     /// `ACKNOWLEDGEMENTS.md` 这一层。
     ///
-    /// ⚠️ `#287` 第 2 轮终审：指引文件本身就住在这一层，而 `docFiles()` 只看 `docs/`
+    /// ⚠️ `#287` 第 1 轮终审：指引文件本身就住在这一层，而 `docFiles()` 只看 `docs/`
     /// ⇒ 「判据引用必须指得到真实符号」这条纪律**对写着这条纪律的那份文件本身不生效**。
     /// 实测代价不是零：那一层当时活着两条真悬空引用（`CLAUDE.md` 与 `AGENTS.md` 各一条
     /// 同文的 `ComponentRegistryGuard` 单根声称，`#270` 之后已失真）。
@@ -665,8 +665,11 @@ nonisolated enum GuardScanRoots {
     /// ⚠️ **扩展名写死成 `md`，与 `docFiles(extensions:)` 的可配置形态不对称——这是刻意的**
     /// （`#287` 第 2 轮终审 S-5）：`docs/` 那棵树里 `.json` 是**语料**
     /// （`component-registry.json` 的 `notes` 写着判据引用，`#287` 的验收逐字要求扫它），
-    /// 而仓库根这一层的非 `.md` 全是**构建配置**（`Package.swift` / `Package.resolved` /
-    /// `.gitignore` / `LICENSE`）——里面没有散文，扫进来只会平添噪声。
+    /// 而仓库根这一层的非 `.md` 今天恰好四份，要么是**构建配置**（`Package.swift` /
+    /// `Package.resolved` / `.gitignore`）、要么是**法律文本**（`LICENSE`）——都不含
+    /// 判据引用，扫进来只会平添噪声。（⚠️ 上一版把 `LICENSE` 一并归进「构建配置」，
+    /// 归错了类：`#287` 第 3 轮终审 S-c。四份是**今天**的枚举，这一层随时可能多出别的
+    /// 非 `.md` 文件，届时这句话要重新核。）
     /// ⇒ 两个同族函数口径不同是因为两片语料的性质不同，不是漏了一个参数。
     /// 真要扩到别的扩展名时，把这段理由一并改掉。
     ///
@@ -675,13 +678,23 @@ nonisolated enum GuardScanRoots {
     /// `JudgementReferenceGuard` 文件头的「找到但堵不住的路径」一节。
     ///
     /// 与 `swiftFiles(in:)` / `docFiles()` 同一条 fail-closed 纪律。
+    ///
+    /// ⚠️ **`in root:` 这个参数只为一件事存在：让上面那条「按文件系统枚举」的声称
+    /// 本身可判据化**（`#287` 第 3 轮终审 I-E）。上一版把这条性质写成了承重注释，却
+    /// 没有任何判据钉住它——`JudgementReferenceGuard` 的 `pinnedRootDocuments` 是
+    /// **超集**检查，对「枚举退化成恰好那四份已知指引」的**白名单式收窄**天然无感
+    ///（实测变异 `DRIFT-whitelist`：改成白名单 + 往根放一份含两条真悬空引用的未跟踪
+    /// `.md` ⇒ 六个测试全绿）。⇒ `rootDocFilesEnumeratesTheWholeLayer` 在**临时目录**
+    /// 里放文件来钉它：临时目录里的文件天然未跟踪，且不污染仓库根。
+    /// 生产调用点一律走默认实参，不传 `root`。
     static func rootDocFiles(
+        in root: URL = GuardScanRoots.repoRoot,
         sourceLocation: SourceLocation = #_sourceLocation
     ) -> [URL] {
         guard let entries = try? FileManager.default.contentsOfDirectory(
-            at: Self.repoRoot, includingPropertiesForKeys: nil
+            at: root, includingPropertiesForKeys: nil
         ) else {
-            Issue.record("无法枚举仓库根：\(Self.repoRoot.path)（权限或 IO 异常）—— 判据无法工作",
+            Issue.record("无法枚举仓库根：\(root.path)（权限或 IO 异常）—— 判据无法工作",
                          sourceLocation: sourceLocation)
             return []
         }
@@ -704,6 +717,38 @@ struct GuardScanRootsGuard {
             #expect(!GuardScanRoots.swiftFiles(in: root.url).isEmpty,
                     "\(root.target) 的根 \(root.url.path) 下一个 .swift 都没有 —— 扫描器会在空输入上恒绿")
         }
+    }
+
+    /// `#287` 第 3 轮终审 I-E：把「按文件系统枚举整层、未跟踪文件照样进面」从一句
+    /// 承重注释变成一条判据。
+    ///
+    /// ⚠️ **要钉的是「整层」，不是「那四份已知指引」**：`JudgementReferenceGuard` 的
+    /// `pinnedRootDocuments` 只做**超集**检查，把 `rootDocFiles(in:)` 换成一张
+    /// 「只扫已知四份」的白名单时它照样满足，而随手落在仓库根的未跟踪 `.md`
+    /// 就此静默逃出扫描面（实测变异 `DRIFT-whitelist` 下六个测试全绿）。
+    /// ⇒ 这里刻意用一个**不在**那张表里的名字（`draft-notes.md`）当主探针。
+    ///
+    /// ⚠️ 在**临时目录**里做而不是往仓库根扔文件：既天然满足「未跟踪」，
+    /// 又不会污染仓库根（根 `.md` 现在在扫描面内，残留文件会直接把 J1 判红）。
+    @Test("`rootDocFiles(in:)` 枚举整层的 `.md`，包括未跟踪的、不在具名表里的（`#287` 第 3 轮终审 I-E）")
+    func rootDocFilesEnumeratesTheWholeLayer() throws {
+        let sandbox = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("GuardScanRoots-rootDocFiles-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: sandbox, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: sandbox) }
+
+        for name in ["draft-notes.md", "README.md", "LICENSE", "Package.swift", "notes.txt"] {
+            try "占位".write(to: sandbox.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+
+        let found = GuardScanRoots.rootDocFiles(in: sandbox).map(\.lastPathComponent)
+        #expect(found == ["README.md", "draft-notes.md"], """
+        `rootDocFiles(in:)` 枚举到 \(found) —— 期望恰为整层的两份 `.md`（按路径排序）。
+        · 少了 `draft-notes.md` ⇒ 枚举退化成了某种**白名单**：随手落在仓库根的未跟踪
+          `.md` 就此静默逃出扫描面，而 J1 / J2 的具名表是超集检查、不会响。
+        · 多出 `LICENSE` / `Package.swift` / `notes.txt` ⇒ 扩展名过滤失效，
+          非散文文件会被当成语料扫。
+        """)
     }
 
     @Test("manifest 解析器：三种畸形写法不再把 `resources:` 归给错的 target（终审 S-d）")
