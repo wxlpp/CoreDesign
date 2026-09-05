@@ -2,8 +2,8 @@
 name: shipswift-shaders
 status: in-progress
 created: 2026-09-02T23:42:57Z
-updated: 2026-09-05T02:30:00Z
-progress: 57%
+updated: 2026-09-05T04:30:00Z
+progress: 71%
 prd: .claude/prds/shipswift-harvest.md
 github: https://github.com/wxlpp/CoreDesign/issues/243
 ---
