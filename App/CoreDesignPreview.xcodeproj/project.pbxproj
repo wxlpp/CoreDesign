@@ -10,6 +10,7 @@
 		08FD9FD72EBF1F75D4B406D2 /* CoreDesign in Frameworks */ = {isa = PBXBuildFile; productRef = EBA00C473491FA57B29E5630 /* CoreDesign */; };
 		08FD9FD72EBF1F75D4B406D3 /* CoreDesignEffects in Frameworks */ = {isa = PBXBuildFile; productRef = EBA00C473491FA57B29E5631 /* CoreDesignEffects */; };
 		08FD9FD72EBF1F75D4B406D4 /* CoreDesignCharts in Frameworks */ = {isa = PBXBuildFile; productRef = EBA00C473491FA57B29E5632 /* CoreDesignCharts */; };
+		08FD9FD72EBF1F75D4B406D5 /* CoreDesignShaders in Frameworks */ = {isa = PBXBuildFile; productRef = EBA00C473491FA57B29E5633 /* CoreDesignShaders */; };
 		27EB033D8AD7A9B5099297D5 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68F69BA38AFE90DFB4E401E0 /* ContentView.swift */; };
 		3E5099C8C6F956B421A96BBC /* Previews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B59D812CBA2BDD39DDD346DF /* Previews.swift */; };
 		6B076051E4E7C45A0255CC10 /* SnapshottingTests in Frameworks */ = {isa = PBXBuildFile; productRef = B3CAFA69E662260D31144800 /* SnapshottingTests */; };
@@ -59,6 +60,7 @@
 				08FD9FD72EBF1F75D4B406D2 /* CoreDesign in Frameworks */,
 				08FD9FD72EBF1F75D4B406D3 /* CoreDesignEffects in Frameworks */,
 				08FD9FD72EBF1F75D4B406D4 /* CoreDesignCharts in Frameworks */,
+				08FD9FD72EBF1F75D4B406D5 /* CoreDesignShaders in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -152,6 +154,7 @@
 				EBA00C473491FA57B29E5630 /* CoreDesign */,
 				EBA00C473491FA57B29E5631 /* CoreDesignEffects */,
 				EBA00C473491FA57B29E5632 /* CoreDesignCharts */,
+				EBA00C473491FA57B29E5633 /* CoreDesignShaders */,
 			);
 			productName = CoreDesignPreview;
 			productReference = F7DAB2075D696E1C1D349E93 /* CoreDesignPreview.app */;
@@ -487,6 +490,10 @@
 		EBA00C473491FA57B29E5632 /* CoreDesignCharts */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = CoreDesignCharts;
+		};
+		EBA00C473491FA57B29E5633 /* CoreDesignShaders */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CoreDesignShaders;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

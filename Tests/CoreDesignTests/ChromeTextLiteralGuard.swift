@@ -17,7 +17,8 @@ import Testing
 //
 // ## 射程：**只有新 target**，且**不回溯改造 CoreDesign 现状**
 //
-// `GuardScanRoots.newTargetRoots`。主 target 现有 198 处 `Text("…")`——公约自己写着
+// `GuardScanRoots.newTargetRoots`（`#279` 起含 `CoreDesignShaders`）。
+// 主 target 现有 198 处 `Text("…")`——公约自己写着
 // 「连 CoreDesign 自己都没守住 A 类」，回溯治理不是本 task 的题目。
 // ⚠️ 但主 target 仍被当**靶场**用（`detectorFiresOnRealSource`）：新 target 今天命中必然
 // 为 0，「零违规」与「探测器坏了」在这种输入上不可分辨。

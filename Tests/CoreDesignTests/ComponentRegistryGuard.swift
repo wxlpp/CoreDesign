@@ -166,8 +166,15 @@ struct ComponentRegistryGuard {
     ///
     /// ⚠️ **空集时本表退化为「不许再有 pendingStep2 条目」，语义更强不是更弱** ——
     /// `#299` 收口后 6 条全部离开本取值，届时把这张表清空即可。
+    /// ⚠️ **`#279` 加进第 7 条 `GlassSymbol`**（`CoreDesignShaders`）：同 target 的另外五个
+    /// （`DotGrid` / `FractalClouds` / `InkSmoke` / `LiquidChrome` / `Plasma`）是
+    /// `ProceduralBackground` 单层全幅装饰、**零个承载内容的子视图** ⇒ 三分法的槽与排布两个轴
+    /// 结构上为空 ⇒ 候选只能落装饰 ⇒ 正当落步骤 4（`tiebreaker`）；而 `GlassSymbol` **有真实的槽**
+    /// （符号本体 + 渐变背衬），它自陈的「成就徽章」用例在业界确有「加等级环 / 加绶带文字」这类
+    /// 槽差异候选、本该计入 ≥2，而 `#279` 是扫描根收口 task、**没做**停止规则要求的来源核验
+    /// ⇒ 与 `#270` 那 6 条同因，同挂承接 issue。
     static let knownPendingStep2Enumeration: Set<String> = [
-        "ActivityHeatmap", "BeforeAfterSlider", "NetworkGraph",
+        "ActivityHeatmap", "BeforeAfterSlider", "GlassSymbol", "NetworkGraph",
         "OrbitingLogos", "RadarChart", "RingChart",
     ]
 
@@ -837,8 +844,18 @@ struct ComponentRegistryGuard {
         // BeforeAfterSlider / OrbitingLogos / DotSphere / CharSphere / FullScreenButton）
         // 同样是 `public struct: View`、同样对本登记表结构上不可见，只是没被 issue 正文数进去。
         // ⇒ 本轮收口的是**扫描器实测到的 15 个**，不是 issue 正文的 8 个。
-        #expect(entries.filter { $0.repo == "coredesign" }.count == 62,
-                "CoreDesign 侧条目数不是 62（#270 扩扫描根到三个 target，Effects 11 + Charts 4 共 15 条按判定法补录后由 47 变为 62）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        // ⚠️ **62 → 68 的出处（`#279`）**：扫描根再加 `Sources/CoreDesignShaders`
+        // （`GuardScanRoots.targetNames` 收进第四个 target）后，`PublicTypeCollector` 在该根
+        // 采到 **6** 个 `public struct: View` ⇒ 6 条新条目。**这 6 个数不是估的**，
+        // 是本轮 `scannerFindsComponentTypes` 那条逐 target print 打出来的实测名单
+        // （`DotGrid` / `FractalClouds` / `GlassSymbol` / `InkSmoke` / `LiquidChrome` / `Plasma`）。
+        // ⚠️ **`#279` 正文点名的是 8 个**（含 `Starfield` 与 `RefractiveGlass`）——那份名单已过期：
+        // `Starfield` 随 `#281` 整件删除（上游 CC BY-NC-SA 3.0 与 MIT 分发不兼容），
+        // 而 `RefractiveGlass` 从来不是 `public struct: View`（它是 internal 的
+        // `RefractiveGlassModifier` + `public extension View` 上的 `refractiveGlass`），
+        // 结构上不进 `components`、进的是 `entryPoints`。⇒ 实测 6 条，不是正文的 8 条。
+        #expect(entries.filter { $0.repo == "coredesign" }.count == 68,
+                "CoreDesign 侧条目数不是 68（#270 由 47 变 62；#279 扩扫描根到 CoreDesignShaders，6 条按判定法补录后由 62 变为 68）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 

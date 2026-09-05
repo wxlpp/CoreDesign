@@ -131,7 +131,11 @@ struct ExtensionEntryPointGuard {
         #expect(!problems(.init(target: "CoreDesignEffects", host: "NotAHost", member: "confetti",
                                 notes: good.notes)).isEmpty, "非法 host 不会红")
         // ② target 不存在。
-        #expect(!problems(.init(target: "CoreDesignShaders", host: "View", member: "confetti",
+        // ⚠️ **`#279` 把这里写死的 `"CoreDesignShaders"` 换成了 `nonexistentFixtureTargetName`**：
+        // 那个名字在 `#279` 当天变成了**合法** target 名 ⇒ 本条从「反例」退化成「正例」、
+        // 静默变绿（`schemaProblems` 只在 target 不在 `targetNames` 里时才报这一条）。
+        #expect(!problems(.init(target: GuardScanRoots.nonexistentFixtureTargetName,
+                                host: "View", member: "confetti",
                                 notes: good.notes)).isEmpty, "不存在的 target 不会红")
         // ③ 主 target（射程之外）。
         #expect(!problems(.init(target: "CoreDesign", host: "View", member: "bordered",

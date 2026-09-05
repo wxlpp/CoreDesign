@@ -1668,11 +1668,53 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
   ⚠️ **上一版只查 `components` 一个桶，PR #297 终审 S-1 指出 `scanTypes(roots:)` 合并的是
   `components` / `styleImpls` / `entryPoints` 三个**——后两个同样是判据的依据
   （`styleImpls` 判 README 行归宿、`entryPoints` 判入口点行归宿），已改为三个桶一并查。
-- ⚠️ **给 `#279`（`CoreDesignShaders` 进根列表）的交接**：`#270` 定下的形态是
-  「`componentScanRoots` = `GuardScanRoots.allRoots`」⇒ `#279` **只需把
-  `CoreDesignShaders` 加进 `GuardScanRoots.targetNames`**，登记表扫描根自动跟随，
-  本文件与 `ComponentRegistryGuard` 都不必再改。`#279` 要在 `#270` 的新值之上叠加的计数是：
-  `coredesign` 条目数 **62**、`registryTextParams` **36**、`covered` **31**、
-  `localizedByType` **17**、`carrying` **10**、`by-type` **6**、
-  `functionSideBareText` **3 条固定集合**、`unmappedOwners` **2 条固定集合**、
-  J-2 `inspected.count` **11**（`#270` 的 15 条全落 prescriptive，未进 J-2 定义域）。
+- ⚠️ ~~**给 `#279`（`CoreDesignShaders` 进根列表）的交接**~~ —— **`#279` 已落地**，
+  交接改为实测记录（原文：`#270` 定下的形态是「`componentScanRoots` = `GuardScanRoots.allRoots`」
+  ⇒ `#279` 只需把 `CoreDesignShaders` 加进 `GuardScanRoots.targetNames`，登记表扫描根自动跟随，
+  本文件与 `ComponentRegistryGuard` 都不必再改）。**那句预判成立**：`#279` 的代码改动里
+  `ComponentRegistryGuard.componentScanRoots` 一个字未动，登记表射程随 `targetNames` 自动扩到第四根。
+
+##### 下游连锁五 · `#279` 实测：Shaders 进根之后哪些计数被顶动
+
+⚠️ **`#279` 正文点名「8 个 shader 类型」，实测进 `components` 的是 6 个** —— 逐条如实记：
+`Starfield` 随 `#281` 整件删除（上游 CC BY-NC-SA 3.0 与 MIT 分发不兼容）；
+`RefractiveGlass` **从来不是 `public struct: View`**（它是 internal 的 `RefractiveGlassModifier`
+加 `public extension View` 上的 `refractiveGlass`）⇒ 结构上不进 `components`、进的是 `entryPoints`。
+⇒ 6 条组件条目 + 1 条入口点条目。
+
+| 断言 | `#270` 定的值 | `#279` 实测 | 为什么 |
+|---|---|---|---|
+| `coredesign` 条目数 | 62 | **62 → 68** | Shaders 根采到 6 个 `public struct: View`（`DotGrid` / `FractalClouds` / `GlassSymbol` / `InkSmoke` / `LiquidChrome` / `Plasma`） |
+| `registryTextParams` | 36 | **不变，仍是 36** | 6 条的 public init 无文本型参数；`GlassSymbol.systemName` 是 SF Symbol 标识符，走 notes 授权豁免而不是 `textParams`（与 `LabelIcon.systemName` 同一裁决） |
+| `covered` | 31 | **不变，仍是 31** | 同上：没有新的 textParams 条目 ⇒ 没有新的 covered 键 |
+| `localizedByType` | 17 | **不变，仍是 17** | Shaders 侧零 LSK/LSR 参数 |
+| `carrying` | 10 | **10 → 11** | 新增 `CoreDesignShaders.assertShaderLibraryLoadable#functions`（`[String]`，metallib 加载检查的 `[[stitchable]]` 函数名） |
+| `by-type` 条目数 | 6 | **不变，仍是 6** | 同 `registryTextParams` |
+| `functionSideBareText` 固定集合 | 3 条 | **不变，仍是 3 条** | `View.refractiveGlass` 的四个参数里没有文本型（`CGFloat` / 语义枚举 / `Color` / `Bool`） |
+| `unmappedOwners` 固定集合 | 2 条 | **不变，仍是 2 条** | `GlassSymbol.init#systemName` 一度是第 3 条（`#279` 中途实测），登记 `GlassSymbol` 之后由「域外」变成「已裁决豁免」 |
+| `exemptedByRegistryNotes` 固定集合 | 1 条 | **1 → 2 条** | 新增 `GlassSymbol.init#systemName`，与既有的 `LabelIcon.init#systemName` 同一通道 |
+| J-2 `inspected.count` | 11 | **不变，仍是 11** | 6 条全部 `kind: prescriptive` ⇒ 不给扩展点 ⇒ 不进 J-2 定义域 |
+| `docs/bool-exemptions.json` 条目数 / `sourceSites` | 32 / 35 | **33 / 36** | `View.refractiveGlass#isEnabled` 第一次进入 J-1 射程（它在 `#261` 就存在，只是那时 Shaders 不在任何扫描根里）；`perTarget` 新增一条 `CoreDesignShaders: 1/1` |
+| `GuardScanRootsGuard.moduleBundleOwnership` 的判据形态 | 「`resources:` ⇔ `Sources/<t>/Resources/` 目录」 | **改成逐条路径与磁盘同进同退** | `CoreDesignShaders` 声明的是**单个文件** `.process("CoreDesignShaders.metal")`，原判据把资源声明写死成了「目录名恰为 `Resources`」这一种形态，会红在一个并不存在的问题上。新形态覆盖目录与文件两种，且比原判据严（原判据抓不到声明里写错的文件名） |
+
+⚠️ **`decidedBy` 的分账（与 `#270` 同一条纪律）**：6 条里
+- **5 条 `tiebreaker`**（`DotGrid` / `FractalClouds` / `InkSmoke` / `LiquidChrome` / `Plasma`）——
+  它们都是 `ProceduralBackground` 的**单层全幅装饰**，`colorEffect` 套在一个 `Color` 上、
+  **零个承载内容的子视图** ⇒ 三分法的「槽」与「排布」两个轴在它们上面**结构上为空**，
+  任何候选形态只能落**装饰** ⇒ 不计入 ≥2 ⇒ 正当落步骤 4。
+  ⚠️ 补充规则 3（组件与周围内容的空间关系改变也算排布）已逐条考虑并判**不适用**：
+  这五件自身不决定尺寸，「全幅底 ↔ 行内一小块」由调用方的 `.frame` / `.ignoresSafeArea` 决定，
+  那条轴今天已完全在调用方手里。
+- **1 条 `pendingStep2`**（`GlassSymbol`）—— 它**有真实的槽**（符号本体 + 渐变背衬），
+  自陈用例含「成就徽章」，业界该形态确有「加等级环 / 加绶带文字」这类槽差异候选、本该计入 ≥2，
+  而 `#279` 是扫描根收口 task、**没做**停止规则要求的候选枚举与来源核验 ⇒ 与 `#270` 那 6 条同因，
+  同挂承接 issue **`#299`**，`knownPendingStep2Enumeration` 由 6 条变 7 条。
+
+⚠️ **README 索引落点**：`#279` 在 `## 动效与图表索引` 这一节下新开
+`### Shader 背景与效果 / Shaders（import CoreDesignShaders）` 子表（7 行 = 6 个类型 + 1 个入口点），
+沿用《下游连锁三》按 `import` 分组的可读性口径；该子表落在 `readmeIndexRows` 已有的第 2 段解析范围
+（`## 动效与图表索引 → ## NFR-1 帧率基准`）内，`readmeIndexSectionsAllParse` 与
+`registryEntriesAreCoveredByReadme` 两个方向因此都覆盖到它。
+⚠️ **逐单位 `components/*.md` 尚未落地**（归 `#282` / `#283`），子表的第三列指向源码与
+`shader-provenance.md`，不是不存在的文档链接 —— 本仓没有「README 里的 md 链接必须存在」这条判据，
+这一点如实写在这里，免得读者以为它被机器守着。

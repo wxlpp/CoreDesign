@@ -309,7 +309,12 @@ struct ComponentTextParamGuard {
                 "登记表里这些 textParams 在源码里找不到对应参数（改名？改类型？删了？）：\(result.ghostRegistryParams)")
 
         // ⚠️ **三个豁免/域外桶都要固定集合断言 —— 不许有静默桶**。
-        #expect(Set(result.exemptedByRegistryNotes) == ["LabelIcon.init#systemName"],
+        // ⚠️ **`#279` 起是两条**：`GlassSymbol.init#systemName`（`CoreDesignShaders`）与
+        // `LabelIcon.init#systemName` 是**同一类**参数（SF Symbol 标识符，公约 §4「点名收编：
+        // 编译期符号名」），走的也是同一条通道 —— 登记表 notes 里同句点名了参数名与 `textParams`。
+        // ⚠️ 处置刻意**不是**把它塞进 `textParams`：那会把符号标识符错记成界面文案，
+        // 正是 `knownUnregisteredSymbolParams` 那段文档逐字禁止的做法。
+        #expect(Set(result.exemptedByRegistryNotes) == ["GlassSymbol.init#systemName", "LabelIcon.init#systemName"],
                 """
                 notes 授权豁免集合变了：实际 \(result.exemptedByRegistryNotes)。这条通道是 FR-4 唯一的语义豁免入口，\
                 授权者是登记表 notes 而不是判据作者，集合变化必须有人过目
@@ -360,9 +365,14 @@ struct ComponentTextParamGuard {
         // 按 FR-7 它是**调用方的数据内容**而不是本件的界面文案（`docs/components/char-sphere.md`
         // 逐字：「调用方传入的数据文案是内容不是 UI 文案，不强制本地化类型」），
         // 扫描器把它归入 text-carrying 桶 ⇒ 不进 FR-4 主判据，与该文档的裁决同向。
-        #expect(result.carrying.count == 10,
+        // ⚠️ **10 → 11 的出处（`#279`）**：新增 `CoreDesignShaders.assertShaderLibraryLoadable#functions`
+        // （`[String]`）。它是 metallib **加载检查**的入参 —— 传的是 `[[stitchable]]` 函数名，
+        // 是编译期符号名而不是界面文案，与 `LabelIcon.systemName` 同族。扫描器按类型把它归进
+        // text-carrying 桶 ⇒ 不进 FR-4 主判据，与该分类同向。
+        #expect(result.carrying.count == 11,
                 """
-                text-carrying 键实测 10 条（`#270` 扩扫描根后新增 CharSphere.init#characters，由 9 变为 10），\
+                text-carrying 键实测 11 条（`#279` 扩扫描根到 CoreDesignShaders 后新增 \
+                CoreDesignShaders.assertShaderLibraryLoadable#functions，由 10 变为 11），\
                 实际 \(result.carrying.count)：\(result.carrying)。\
                 本桶（Binding<String> / 回调等）不进主判据，但它是**文案经此进入组件**的通道，\
                 静默增长等于 FR-4 的定义域在无人过目的情况下缩小

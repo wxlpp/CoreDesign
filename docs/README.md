@@ -2,10 +2,15 @@
 
 iOS 26+ / macOS 26+ SwiftUI 设计系统，含 35 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。
 
-自 `#245` 起本包有**三个 product**：主 target `CoreDesign`（下面的组件索引）、
-表达性视觉层 `CoreDesignEffects`、图表层 `CoreDesignCharts`。
-后两者的 40 个 API 单位索引在文末的
+自 `#245` 起本包有多个 product：主 target `CoreDesign`（下面的组件索引）、
+表达性视觉层 `CoreDesignEffects`、图表层 `CoreDesignCharts`，
+`#261` 又加了 Metal shader 层 `CoreDesignShaders`（`#279` 接进登记表）。
+后三者的 API 单位索引在文末的
 [动效与图表索引 / Effects & Charts Index](#动效与图表索引--effects--charts-index)。
+⚠️ **此处有意不写 product 个数与单位总数**：`#245` 写下的「三个 product / 40 个单位」
+在 `#261` 落地当天就成了化石，而**没有任何判据会为这句话判红**（本段落在
+`readmeIndexRows` 的两段解析范围之外）。权威计数在 `Package.swift` 与
+`ComponentRegistryGuard` 的断言里。
 
 > 新增或改造组件前先读 [`component-contract.md`](component-contract.md)——
 > 判定法、样式扩展点、配置开关的替代路径。
@@ -93,8 +98,12 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 
 ## 动效与图表索引 / Effects & Charts Index
 
-`CoreDesignEffects`（36 个）与 `CoreDesignCharts`（4 个）的 API 单位。由
-`shipswift-effects` epic（#242）落地，逐单位说明见各自的 `components/*.md`。
+`CoreDesignEffects`（36 个）与 `CoreDesignCharts`（4 个）的 API 单位，由
+`shipswift-effects` epic（#242）落地，逐单位说明见各自的 `components/*.md`；
+**外加 `CoreDesignShaders` 的 7 个单位**（`#261` 落地、`#279` 接进登记表），
+见本节最后一张表。⚠️ 那 7 个的 `components/*.md` 尚未落地（归 `#282` / `#283`）。
+⚠️ 上面三个括号里的数字**没有任何判据守着**（本段落在 `readmeIndexRows` 的解析范围之外，
+解析范围从下面第一张表开始）—— 权威计数在 `ComponentRegistryGuard` 的断言里。
 
 > ⚠️ **落点说明（`#256` 原文 → `#270` 改写）**：`#256` 当时写的是「本节刻意不在
 > 『## 组件索引』之内，因为这 40 个单位不是登记条目，写进去会让
@@ -194,6 +203,25 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 | RingChart | `RingChart(_:goal:title:tint:)` | [ring-chart.md](components/ring-chart.md) |
 | ActivityHeatmap | `ActivityHeatmap(_:title:tint:calendar:)` | [activity-heatmap.md](components/activity-heatmap.md) |
 | NetworkGraph | `NetworkGraph(nodes:edges:title:tint:)` | [network-graph.md](components/network-graph.md) |
+
+### Shader 背景与效果 / Shaders（`import CoreDesignShaders`）
+
+⚠️ **本组 7 个单位由 `#261` 落地、`#279` 接进登记表**。`Starfield` 已随 `#281` 撤回
+（上游 CC BY-NC-SA 3.0 与本仓 MIT 分发不兼容），整件删除 ⇒ 现存 7 个而不是 8 个。
+⚠️ **逐单位 `components/*.md` 尚未落地**（归 `#282` / `#283`），本表的「说明」列因此指向源码与
+provenance 对账表，而不是不存在的文档链接。⚠️ **本组一律不作原创声称**，逐件裁定见
+[`shader-provenance.md`](shader-provenance.md)。
+⚠️ 本 target 含 `.metal` 源，**原生 `swift build` 不编译它** —— 构建约束见仓根 `CLAUDE.md`。
+
+| 单位 | 入口 | 说明 |
+|---|---|---|
+| Plasma | `Plasma(tint:density:motion:)` | 程序化等离子背景（`Sources/CoreDesignShaders/Plasma.swift`） |
+| FractalClouds | `FractalClouds(tint:density:motion:)` | 分形云层，FBM + 域扭曲（`Sources/CoreDesignShaders/FractalClouds.swift`） |
+| InkSmoke | `InkSmoke(tint:density:motion:)` | 墨烟，两级域扭曲 + 陡对比（`Sources/CoreDesignShaders/InkSmoke.swift`） |
+| LiquidChrome | `LiquidChrome(tint:density:motion:)` | 液态铬带（`Sources/CoreDesignShaders/LiquidChrome.swift`） |
+| DotGrid | `DotGrid(tint:spacing:motion:)` | 规则点阵，可选同心波呼吸（`Sources/CoreDesignShaders/DotGrid.swift`） |
+| GlassSymbol | `GlassSymbol(_:tint:strength:accessibilityLabel:)` | 渲染成折射玻璃的 SF Symbol（`Sources/CoreDesignShaders/GlassSymbol.swift`） |
+| refractiveGlass | `View.refractiveGlass(corner:strength:rim:isEnabled:)` | 把内容渲染成折射玻璃；⚠️ 与系统 `.glassEffect()` 是两回事（`Sources/CoreDesignShaders/RefractiveGlass.swift`） |
 
 ## NFR-1 帧率基准 / Frame-rate benchmark
 

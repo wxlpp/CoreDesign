@@ -732,8 +732,13 @@ struct BoolExemptionGuard {
         #expect(!Self.qualificationProblems(ofKey: "CoreDesign/Foo.init#flag").isEmpty,
                 "主 target 的显式前缀不会红 —— 上面那条判据在现存 32 个裸形键上从不执行")
         // ② 前缀指向一个不存在的 target。
-        #expect(!Self.qualificationProblems(ofKey: "CoreDesignShaders/Foo.init#flag").isEmpty,
-                "不存在的 target 前缀不会红")
+        // ⚠️ **`#279` 把这里写死的 `"CoreDesignShaders"` 换成了 `nonexistentFixtureTargetName`**：
+        // 那个名字在 `#279` 当天变成了**合法** target 名 ⇒ 本条从「反例」退化成「正例」、
+        // 静默变绿。反例名必须由一条判据保证它真的不存在
+        // （`GuardScanRootsGuard.nonexistentFixtureTargetIsReallyAbsent`）。
+        #expect(!Self.qualificationProblems(
+            ofKey: "\(GuardScanRoots.nonexistentFixtureTargetName)/Foo.init#flag"
+        ).isEmpty, "不存在的 target 前缀不会红")
         // ③ 反向：合法形态不误报。
         #expect(Self.qualificationProblems(ofKey: "CoreDesignEffects/Foo.init#flag").isEmpty,
                 "合法的新 target 前缀被误报")
@@ -906,11 +911,16 @@ struct BoolExemptionGuard {
             BoolParamHit(owner: owner, decl: "init", parameter: "flag",
                          file: "X.swift", line: 1, target: target)
         }
-        let baseline: [String: Baseline.TargetCounts] = [
-            "CoreDesign": .init(exemptions: 2, sourceSites: 2),
-            "CoreDesignEffects": .init(exemptions: 0, sourceSites: 0),
-            "CoreDesignCharts": .init(exemptions: 0, sourceSites: 0),
-        ]
+        // ⚠️ **`#279` 起由 `GuardScanRoots.targetNames` 派生，不再逐字列 target**：
+        // 原写法硬列三个名字，`#279` 加进第四个 target 的当天，`perTargetProblems` 的
+        // 「键集合必须吻合」那一条会对**本 fixture 的每一次调用**开火 ⇒ 下面几条
+        // 「反向：对得上就该干净」的 `isEmpty` 断言全部变红，而它们与本条要证的
+        // 跨 target 对冲毫无关系。派生之后新增 target 不再顶动本 fixture。
+        var baseline: [String: Baseline.TargetCounts] = [:]
+        for name in GuardScanRoots.targetNames {
+            baseline[name] = .init(exemptions: 0, sourceSites: 0)
+        }
+        baseline[GuardScanRoots.primaryTargetName] = .init(exemptions: 2, sourceSites: 2)
         // 合计不变（2 条豁免 / 2 处位置），但一条从主 target 挪到了 Effects。
         let hedged = Self.perTargetProblems(
             perTarget: baseline,
@@ -931,7 +941,7 @@ struct BoolExemptionGuard {
         #expect(!Self.perTargetProblems(perTarget: nil, exemptionKeys: [], hits: []).isEmpty,
                 "缺 perTarget 字段不会红 —— 跨 target 对冲会重新变成盲区")
         #expect(!Self.perTargetProblems(
-            perTarget: ["CoreDesign": .init(exemptions: 0, sourceSites: 0)],
+            perTarget: [GuardScanRoots.primaryTargetName: .init(exemptions: 0, sourceSites: 0)],
             exemptionKeys: [], hits: []
         ).isEmpty, "perTarget 少列一个 target 不会红 —— 那个 target 就有了免审额度")
 

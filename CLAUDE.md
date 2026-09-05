@@ -50,7 +50,8 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 （`CoreDesign` 的 `target_dependencies` 必须恒为 `[]`），两条 `swift package describe`
 判据守着它，见下方《验证边界与常见坑》。
 
-⚠️ **新 target 各有独立的 test target**（`CoreDesignEffectsTests` / `CoreDesignChartsTests`），
+⚠️ **新 target 各有独立的 test target**（`CoreDesignEffectsTests` / `CoreDesignChartsTests` /
+`CoreDesignShadersTests`），
 **不并进 `CoreDesignTests`**——并进去需要 `@testable import`，会让 `CoreDesignTests` 的
 依赖图包含新 target，破坏上面那条隔离判据。
 
@@ -65,19 +66,26 @@ CI 的 SwiftPM 腿**显式 `--skip CoreDesignShadersTests`** 并另起一步用 
 **静默跳过**（swiftbuild 调 actool 把 `.xcassets` 编成 `Assets.car`，而那个 suite 的
 启用条件是「`Resources.xcassets/` 以目录形式存在」）。
 
-⚠️ **源码守卫的扫描根有两份，不要混为一谈**（`#246` 立的表、`#270` 把登记表并了进来）：
+⚠️ **源码守卫的扫描根有两份，不要混为一谈**（`#246` 立的表、`#270` 把登记表并了进来、
+`#279` 把 `CoreDesignShaders` 接了进去）：
 
 | 根列表 | 谁在用 | 覆盖 |
 |---|---|---|
-| `GuardScanRoots.allRoots`（`Tests/CoreDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep、**组件登记表**（`ComponentRegistryGuard.componentScanRoots` 直接返回它）与 J-2 / J-3 / FR-4 那一串判据 | `targetNames` 里的全部 target |
-| `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 CoreDesign 现状 |
+| `GuardScanRoots.allRoots`（`Tests/CoreDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep、**组件登记表**（`ComponentRegistryGuard.componentScanRoots` 直接返回它）与 J-2 / J-3 / FR-4 那一串判据 | `targetNames` 里的全部 target（现为四个） |
+| `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target（Effects / Charts / Shaders），有意不回溯改造 CoreDesign 现状 |
 
 ⚠️ 新增 library target 时**必须**把它加进 `GuardScanRoots.targetNames`——该表与
 `Package.swift` 声明的 library target 做双向差集，忘了扩根会当场判红（这是刻意的
 fail-closed：对一个不在列表里的 target，全部 grep 判据都无命中即绿）。
-⚠️ **本合并提交本身正踩着这条判据**：`Package.swift` 已有 `CoreDesignShaders`，
-而 `targetNames` 还没有 ⇒ `libraryTargetsAreCoveredByScanRoots` 当场红，
-由 `#279` 在紧接的提交里收口。
+⚠️ **同轮还有三处要跟着改，不然会红在别处**：① `docs/bool-exemptions-baseline.json` 的
+`perTarget` 必须为新 target 补一条（哪怕是 `0/0`，键集合与 `targetNames` 做等式）；
+② 该 target 的公开类型要按公约判定法登记进 `docs/component-registry.json`，
+`public extension` 成员登记进同一份文件的 `entryPoints`；
+③ `docs/README.md` 要有能覆盖这些条目的索引行（解析范围是
+`## 组件索引 → ## 生成预览图` 与 `## 动效与图表索引 → ## NFR-1 帧率基准` 两段）。
+⚠️ `App/project.yml` 也要加 `product:` 条目，**并同步 `App/CoreDesignPreview.xcodeproj/project.pbxproj`**
+（`AppProjectManifestGuard` 的 K1/K2 两条判据逐条对账；⚠️ **不要在 worktree 里跑
+`xcodegen generate`**，照着既有条目手工补齐或在主仓生成）。
 ⚠️ 台账键对新 target 带 `<Target>/` 前缀，主 target 保持裸形（`Owner.decl#param`）。
 
 ### 按钮样式模式

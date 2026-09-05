@@ -1202,6 +1202,84 @@
       "needsExtensionPoint": false,
       "textParams": [],
       "notes": "写作状态栏：字数 / 目标进度（ProgressView(.core)）/ 保存三态。步骤 1 无（组件本身是复合视图，非单一系统控件的样式扩展）。步骤 2/3：字数文案 + 进度条 + 保存态是这块状态栏的全部定义，换一种呈现无实际意义 ⇒ 步骤 3 规定性。展示文本由 WritingStatusBarState 派生（wordCountText/saveText 均为 internal 纯函数），组件 init 本身无裸 String 参数。"
+    },
+    {
+      "component": "DotGrid",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#261` 落地的 `public struct DotGrid: View`（`CoreDesignShaders`）：规则点阵背景，可选同心波呼吸；点边缘走 `fwidth` 屏幕空间抗锯齿。`#279` 把 `CoreDesignShaders` 加进 `GuardScanRoots.targetNames` 之后，由 `PublicTypeCollector` 第一次采到，按判定法补登记。弃用条款 / 祖父条款均不适用（未弃用、未发布过样式协议）。步骤 1：Apple 无对应原生样式协议 —— 写不出「本组件可改写为『系统控件 + 该协议的自定义 style』且不丢功能」这句声明：SwiftUI 没有任何系统控件产出程序化着色的全幅背景，`Shader` / `visualEffect` 是绘制入口而不是样式协议（无公开 `makeBody` 定制点）。步骤 2：本类型的视图结构是**单层全幅装饰** —— `ProceduralBackground` 把一个 `Color` 套上 `colorEffect`，**零个承载内容的子视图** ⇒ 公约三分法里「槽」（增删承载内容的子视图位置）与「排布」（子视图之间的空间关系改变）这两个轴在它上面**结构上为空**，任何候选形态（换一种噪声画法 / 换一套调色 / 换成静态渐变）都只能落**装饰**（同一槽内的画法变化 + 纯装饰层）⇒ 不计入 ≥2 ⇒ 属公约明写的「举得犹豫」。⚠️ 「纯装饰层」按公约补充规则 1 须写明依据，不得只引 `accessibilityHidden`：本类型**不承载任何状态 / 内容语义** —— 它没有数据入参，三个参数（`tint` / `density`|`spacing` / `motion`）全是外观取值，渲染结果与调用方的任何状态无关。⚠️ 公约补充规则 3（组件与周围内容的空间关系改变也算排布）已逐条考虑并判**不适用**：本类型自身不决定自己的尺寸，「全幅底 ↔ 行内一小块」由调用方的 `.frame` / `.ignoresSafeArea` 决定，这条轴**今天已完全在调用方手里**，不需要任何扩展点去表达。⇒ 落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧**可逆**（后续按需补，不破坏 API），多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）。⚠️ 本条**没有**援引步骤 3 的兜底句（那句以「重跑发生过」为前置），也**不**属于 `pendingStep2` 那一类 —— 后者的成因是「候选按三分法确实计入 ≥2、只是来源核验没做」，而本条的候选是被三分法**排除在 ≥2 之外**的，两者不是同一回事。textParams：public init 无文本型参数（三个参数分别是 `Color` 与两个语义枚举）。⚠️ provenance：本件裁定 `待追溯（低指纹）`，见 `docs/shader-provenance.md`；本条不作任何原创声称。"
+    },
+    {
+      "component": "FractalClouds",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#261` 落地的 `public struct FractalClouds: View`（`CoreDesignShaders`）：分形云层背景，FBM + 单级域扭曲。`#279` 把 `CoreDesignShaders` 加进 `GuardScanRoots.targetNames` 之后，由 `PublicTypeCollector` 第一次采到，按判定法补登记。弃用条款 / 祖父条款均不适用（未弃用、未发布过样式协议）。步骤 1：Apple 无对应原生样式协议 —— 写不出「本组件可改写为『系统控件 + 该协议的自定义 style』且不丢功能」这句声明：SwiftUI 没有任何系统控件产出程序化着色的全幅背景，`Shader` / `visualEffect` 是绘制入口而不是样式协议（无公开 `makeBody` 定制点）。步骤 2：本类型的视图结构是**单层全幅装饰** —— `ProceduralBackground` 把一个 `Color` 套上 `colorEffect`，**零个承载内容的子视图** ⇒ 公约三分法里「槽」（增删承载内容的子视图位置）与「排布」（子视图之间的空间关系改变）这两个轴在它上面**结构上为空**，任何候选形态（换一种噪声画法 / 换一套调色 / 换成静态渐变）都只能落**装饰**（同一槽内的画法变化 + 纯装饰层）⇒ 不计入 ≥2 ⇒ 属公约明写的「举得犹豫」。⚠️ 「纯装饰层」按公约补充规则 1 须写明依据，不得只引 `accessibilityHidden`：本类型**不承载任何状态 / 内容语义** —— 它没有数据入参，三个参数（`tint` / `density`|`spacing` / `motion`）全是外观取值，渲染结果与调用方的任何状态无关。⚠️ 公约补充规则 3（组件与周围内容的空间关系改变也算排布）已逐条考虑并判**不适用**：本类型自身不决定自己的尺寸，「全幅底 ↔ 行内一小块」由调用方的 `.frame` / `.ignoresSafeArea` 决定，这条轴**今天已完全在调用方手里**，不需要任何扩展点去表达。⇒ 落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧**可逆**（后续按需补，不破坏 API），多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）。⚠️ 本条**没有**援引步骤 3 的兜底句（那句以「重跑发生过」为前置），也**不**属于 `pendingStep2` 那一类 —— 后者的成因是「候选按三分法确实计入 ≥2、只是来源核验没做」，而本条的候选是被三分法**排除在 ≥2 之外**的，两者不是同一回事。textParams：public init 无文本型参数（三个参数分别是 `Color` 与两个语义枚举）。⚠️ provenance：整数 hash 追到 Thomas Wang / Nathan Reed，格点素数追到 Teschner et al. 2003，域扭曲结构属 iq（站点级 MIT）一族；本体自身裁定 `待追溯（低指纹）`，承接 issue #281。本条不作任何原创声称。"
+    },
+    {
+      "component": "InkSmoke",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#261` 落地的 `public struct InkSmoke: View`（`CoreDesignShaders`）：墨烟背景，两级域扭曲 + 陡对比，读起来是丝缕而非团块。`#279` 把 `CoreDesignShaders` 加进 `GuardScanRoots.targetNames` 之后，由 `PublicTypeCollector` 第一次采到，按判定法补登记。弃用条款 / 祖父条款均不适用（未弃用、未发布过样式协议）。步骤 1：Apple 无对应原生样式协议 —— 写不出「本组件可改写为『系统控件 + 该协议的自定义 style』且不丢功能」这句声明：SwiftUI 没有任何系统控件产出程序化着色的全幅背景，`Shader` / `visualEffect` 是绘制入口而不是样式协议（无公开 `makeBody` 定制点）。步骤 2：本类型的视图结构是**单层全幅装饰** —— `ProceduralBackground` 把一个 `Color` 套上 `colorEffect`，**零个承载内容的子视图** ⇒ 公约三分法里「槽」（增删承载内容的子视图位置）与「排布」（子视图之间的空间关系改变）这两个轴在它上面**结构上为空**，任何候选形态（换一种噪声画法 / 换一套调色 / 换成静态渐变）都只能落**装饰**（同一槽内的画法变化 + 纯装饰层）⇒ 不计入 ≥2 ⇒ 属公约明写的「举得犹豫」。⚠️ 「纯装饰层」按公约补充规则 1 须写明依据，不得只引 `accessibilityHidden`：本类型**不承载任何状态 / 内容语义** —— 它没有数据入参，三个参数（`tint` / `density`|`spacing` / `motion`）全是外观取值，渲染结果与调用方的任何状态无关。⚠️ 公约补充规则 3（组件与周围内容的空间关系改变也算排布）已逐条考虑并判**不适用**：本类型自身不决定自己的尺寸，「全幅底 ↔ 行内一小块」由调用方的 `.frame` / `.ignoresSafeArea` 决定，这条轴**今天已完全在调用方手里**，不需要任何扩展点去表达。⇒ 落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧**可逆**（后续按需补，不破坏 API），多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）。⚠️ 本条**没有**援引步骤 3 的兜底句（那句以「重跑发生过」为前置），也**不**属于 `pendingStep2` 那一类 —— 后者的成因是「候选按三分法确实计入 ≥2、只是来源核验没做」，而本条的候选是被三分法**排除在 ≥2 之外**的，两者不是同一回事。textParams：public init 无文本型参数（三个参数分别是 `Color` 与两个语义枚举）。⚠️ provenance：域扭曲级联派生自 Inigo Quilez《Domain Warping》（站点级 MIT，须具名署名，`ACKNOWLEDGEMENTS.md` 已转载）；本条不作任何原创声称。"
+    },
+    {
+      "component": "LiquidChrome",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#261` 落地的 `public struct LiquidChrome: View`（`CoreDesignShaders`）：液态铬背景：域扭曲后的坐标喂给正弦带，形成窄亮高光带 + 宽暗过渡。`#279` 把 `CoreDesignShaders` 加进 `GuardScanRoots.targetNames` 之后，由 `PublicTypeCollector` 第一次采到，按判定法补登记。弃用条款 / 祖父条款均不适用（未弃用、未发布过样式协议）。步骤 1：Apple 无对应原生样式协议 —— 写不出「本组件可改写为『系统控件 + 该协议的自定义 style』且不丢功能」这句声明：SwiftUI 没有任何系统控件产出程序化着色的全幅背景，`Shader` / `visualEffect` 是绘制入口而不是样式协议（无公开 `makeBody` 定制点）。步骤 2：本类型的视图结构是**单层全幅装饰** —— `ProceduralBackground` 把一个 `Color` 套上 `colorEffect`，**零个承载内容的子视图** ⇒ 公约三分法里「槽」（增删承载内容的子视图位置）与「排布」（子视图之间的空间关系改变）这两个轴在它上面**结构上为空**，任何候选形态（换一种噪声画法 / 换一套调色 / 换成静态渐变）都只能落**装饰**（同一槽内的画法变化 + 纯装饰层）⇒ 不计入 ≥2 ⇒ 属公约明写的「举得犹豫」。⚠️ 「纯装饰层」按公约补充规则 1 须写明依据，不得只引 `accessibilityHidden`：本类型**不承载任何状态 / 内容语义** —— 它没有数据入参，三个参数（`tint` / `density`|`spacing` / `motion`）全是外观取值，渲染结果与调用方的任何状态无关。⚠️ 公约补充规则 3（组件与周围内容的空间关系改变也算排布）已逐条考虑并判**不适用**：本类型自身不决定自己的尺寸，「全幅底 ↔ 行内一小块」由调用方的 `.frame` / `.ignoresSafeArea` 决定，这条轴**今天已完全在调用方手里**，不需要任何扩展点去表达。⇒ 落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧**可逆**（后续按需补，不破坏 API），多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）。⚠️ 本条**没有**援引步骤 3 的兜底句（那句以「重跑发生过」为前置），也**不**属于 `pendingStep2` 那一类 —— 后者的成因是「候选按三分法确实计入 ≥2、只是来源核验没做」，而本条的候选是被三分法**排除在 ≥2 之外**的，两者不是同一回事。textParams：public init 无文本型参数（三个参数分别是 `Color` 与两个语义枚举）。⚠️ provenance：#281 追了两轮仍未指认到上游，裁定 `待追溯（低指纹）`、不阻断；「追不到」不等于「原创」，本条不作任何原创声称。"
+    },
+    {
+      "component": "Plasma",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#261` 落地的 `public struct Plasma: View`（`CoreDesignShaders`）：程序化等离子背景，四相正弦叠加。`#279` 把 `CoreDesignShaders` 加进 `GuardScanRoots.targetNames` 之后，由 `PublicTypeCollector` 第一次采到，按判定法补登记。弃用条款 / 祖父条款均不适用（未弃用、未发布过样式协议）。步骤 1：Apple 无对应原生样式协议 —— 写不出「本组件可改写为『系统控件 + 该协议的自定义 style』且不丢功能」这句声明：SwiftUI 没有任何系统控件产出程序化着色的全幅背景，`Shader` / `visualEffect` 是绘制入口而不是样式协议（无公开 `makeBody` 定制点）。步骤 2：本类型的视图结构是**单层全幅装饰** —— `ProceduralBackground` 把一个 `Color` 套上 `colorEffect`，**零个承载内容的子视图** ⇒ 公约三分法里「槽」（增删承载内容的子视图位置）与「排布」（子视图之间的空间关系改变）这两个轴在它上面**结构上为空**，任何候选形态（换一种噪声画法 / 换一套调色 / 换成静态渐变）都只能落**装饰**（同一槽内的画法变化 + 纯装饰层）⇒ 不计入 ≥2 ⇒ 属公约明写的「举得犹豫」。⚠️ 「纯装饰层」按公约补充规则 1 须写明依据，不得只引 `accessibilityHidden`：本类型**不承载任何状态 / 内容语义** —— 它没有数据入参，三个参数（`tint` / `density`|`spacing` / `motion`）全是外观取值，渲染结果与调用方的任何状态无关。⚠️ 公约补充规则 3（组件与周围内容的空间关系改变也算排布）已逐条考虑并判**不适用**：本类型自身不决定自己的尺寸，「全幅底 ↔ 行内一小块」由调用方的 `.frame` / `.ignoresSafeArea` 决定，这条轴**今天已完全在调用方手里**，不需要任何扩展点去表达。⇒ 落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧**可逆**（后续按需补，不破坏 API），多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）。⚠️ 本条**没有**援引步骤 3 的兜底句（那句以「重跑发生过」为前置），也**不**属于 `pendingStep2` 那一类 —— 后者的成因是「候选按三分法确实计入 ≥2、只是来源核验没做」，而本条的候选是被三分法**排除在 ≥2 之外**的，两者不是同一回事。textParams：public init 无文本型参数（三个参数分别是 `Color` 与两个语义枚举）。⚠️ provenance：四项与 Lode Vandevenne《Plasma》教程逐项对应，教程代码为 BSD-2-Clause（与本仓 MIT 兼容，须保留版权通知 + 两条条件 + 免责声明全文，`ACKNOWLEDGEMENTS.md` 已转载）；本条不作任何原创声称。"
+    },
+    {
+      "component": "GlassSymbol",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "pendingStep2",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#261` 落地的 `public struct GlassSymbol: View`（`CoreDesignShaders`）：把 SF Symbol 铺成由 `tint` 推导的渐变背衬，再施加 `View.refractiveGlass(...)` 的折射；Reduce Transparency 下经 `layerEffect` 的 `isEnabled` 关掉折射（不是 `if` 分支，故不切换 View 身份）。`#279` 把 `CoreDesignShaders` 加进 `GuardScanRoots.targetNames` 之后由 `PublicTypeCollector` 第一次采到。弃用条款 / 祖父条款均不适用（未弃用、未发布过样式协议）。步骤 1：Apple 无对应原生样式协议（渲染成折射玻璃的符号没有系统控件可改写）。步骤 2：与同 target 的五个 `ProceduralBackground` 背景**不同** —— 那五个零子视图、三分法的槽与排布两个轴结构上为空，本类型却**有真实的槽**（符号本体 + 渐变背衬 + 可选 a11y 标签），而它自陈的用例含「成就徽章」，该形态在业界确有「加等级环 / 加绶带文字」这类**增删承载内容的子视图位置**的候选（按公约三分法属**槽**差异，本该计入 ≥2）。但 `#279` 是扫描根收口 task，**没做**公约步骤 2 停止规则要求的候选枚举与来源核验（≥3 个具名业界候选，或写明已穷尽并列出查过的 Apple HIG / Material / Fluent / Ant 四家基线加一个贴近产品）⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」。⚠️ **本条因此不声称判定法的任何出口**：公约步骤 3 门槛的兜底句以「重跑发生过」为前置，而本条一次枚举都没做；公约另有一条直接点名「败在 (A)（诚实枚举后其实举得出 ≥2 个非皮肤候选）⇒ **不是 tiebreaker**」，上文自陈的正是这种成因。⇒ 记 `decidedBy: pendingStep2`：**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点—— 公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **#299**（与 `#270` 留下的 6 条同一个承接口）；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。⚠️ `systemName` 是 SF Symbol 标识符不是展示文案，不计入 textParams（与 `LabelIcon.systemName` 同一条裁决，公约 §4「点名收编：编译期符号名」）。⚠️ `accessibilityLabel` 的类型是 `Text?`，不在扫描器的 `bareTextTypeNames` / `localizedTextTypeNames` 口径里，本条同样不为它登记 textParams —— 它是 a11y 出口而不是展示文案入口，默认 `nil` 即按 FR-13 当纯装饰。"
     }
   ],
   "entryPoints": [
@@ -1360,6 +1438,12 @@
       "host": "Transition",
       "member": "dissolve",
       "notes": "网格逐格按确定性伪随机次序浮现，默认格边长 24pt。过小的 cellSize 会被自动放大到让格数落在 MaskReveal.dissolveMaximumCells 以内，否则全屏内容配 0.5pt 会是百万级子路径逐帧重建；0/负数/非有限值回落到默认值。"
+    },
+    {
+      "target": "CoreDesignShaders",
+      "host": "View",
+      "member": "refractiveGlass",
+      "notes": "把本视图渲染成一片折射玻璃：圆角矩形区域内做透镜位移 + 边缘高光，走 `layerEffect`。⚠️ 与 Apple 的 `.glassEffect()`（iOS 26 Liquid Glass 系统材质）是两回事，命名刻意避开 `glass` 单独成词；需要系统材质就用 `.glassEffect()`，本 modifier 只在需要可控折射强度 / 色散时用。强度走语义枚举 `RefractiveGlassStrength`，不暴露「位移像素数 + 色散系数」两个裸旋钮。`isEnabled` 是 `layerEffect` 自带的开关而不是 `if` 分支 —— 后者同样产出 `_ConditionalContent`、翻转时切换 View 身份；该 Bool 走 J-1 豁免台账（`docs/bool-exemptions.json` 的 `CoreDesignShaders/View.refractiveGlass#isEnabled`），不进本登记表。本 modifier 不吃时间（折射由几何驱动），故按 FR-12 不需要 Reduce Motion 降级；Reduce Transparency 的降级由调用方决定（`GlassSymbol` 即以 `isEnabled: !reduceTransparency` 兑现）。⚠️ provenance：主体 `coreDesignRefractiveGlass` 经 #281 仍未指认到具名上游、分档由强指纹改判低指纹，其调用的 `cd::roundedBoxSDF` 追到 Inigo Quilez（MIT，须署名）；本条不作任何原创声称。"
     }
   ]
 }

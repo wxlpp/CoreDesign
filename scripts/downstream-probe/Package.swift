@@ -26,10 +26,20 @@ let package = Package(
         // 能不能用这些类型」，而 `.defaultIsolation(MainActor.self)` 是**逐 target** 生效的
         // ——只接 `CoreDesign` 的话，Effects / Charts 的隔离契约在结构上无人验证。
         //
-        // ⚠️ **`CoreDesignShaders` 有意未接**：它还不存在（`shipswift-foundation` AD-A：
-        // 该 target 归 `shipswift-shaders` 的 B-1 建，闸不过就不该留一个空 product）。
-        // **manifest 接线与实质调用点都归 B-4**——B-1 那时只有 target 骨架、没有 shader
-        // 类型可调。与根 `Package.swift` 里"有意不预留 Shaders product"那段对称。
+        // ⚠️⚠️ **`CoreDesignShaders` 仍未接，但上一版给的理由已作废**（`#279` 更正）。
+        // 原文逐字：「它**还不存在**（`shipswift-foundation` AD-A：该 target 归
+        // `shipswift-shaders` 的 B-1 建，闸不过就不该留一个空 product）」——
+        // **该前提已被 `#261` 推翻**：`Sources/CoreDesignShaders/` 与 `CoreDesignShaders`
+        // product 都已落地，`#279` 还把它接进了 `GuardScanRoots.targetNames` 与登记表。
+        // ⇒ 现在的理由只剩后半句：**manifest 接线与实质调用点都归 B-4**（本 probe 的价值
+        // 全在**调用点**——只加一行 `.product(...)` 而没有任何 nonisolated 上下文里的实际
+        // 调用，probe 对这个 module 依然什么都没验，那正是本文件下面
+        // `CoreDesignOnlyProbe` 那段注释记的「变异实证现场抓到的」假绿形态）。
+        // ⚠️ **如实记账**：在 B-4 落地之前，`CoreDesignShaders` 的
+        // `.defaultIsolation(MainActor.self)` 隔离契约**在下游侧零验证**，
+        // 且**没有任何判据会为此判红** —— 本 manifest 不受任何守卫覆盖
+        // （`#279` 逐文件核过：`Tests/` 下提到 downstream-probe 的全部位置都是散文注释）。
+        // 这条缝没有堵，写在这里而不是让它无声无息。
         .target(
             name: "DownstreamProbe",
             dependencies: [

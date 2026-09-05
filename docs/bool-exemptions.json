@@ -190,5 +190,11 @@
     "reason": "出现时是否自动聚焦输入框。struct 侧的第二张 public 参数面（说明同 wandEnabled 条）。删除不成立：自动聚焦与否是调用场景的真实分歧（弹出式输入要、常驻输入栏不要）。正确形态是走 3.4 环境值或与 externalFocus 合并成焦点策略类型。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-09-03"
+  },
+  {
+    "parameter": "CoreDesignShaders/View.refractiveGlass#isEnabled",
+    "reason": "折射效果的开关，原样透传给 SwiftUI 自己的 `layerEffect(_:maxSampleOffset:isEnabled:)` ——那个系统 API 的形参本来就是 `Bool`，本仓没有发明这个旋钮。四条替代路径逐条不适用：不是被压扁的取值域（强度另有 `RefractiveGlassStrength` 语义枚举承担）、不是可选内容槽、不独立于组件构造、不作用于一整棵子树。终局条款先试 (b) **删除**：删掉之后调用方关效果的唯一写法是把 `.refractiveGlass(...)` 挂在 `if` 里，而那会切换 View 身份（`_ConditionalContent`）——`GlassSymbol` 正是靠 `isEnabled: !reduceTransparency` 在 Reduce Transparency 下关折射且**不**换身份的，改成 `if` 会让符号在开关切换时整棵重建、丢掉过渡与焦点。⇒ (b) 不成立 ⇒ 记入豁免 (a)。形态与既有的 `View.spinning#isActive` / `View.focusRing#visible` 同族（modifier 常驻 + 内部门控），真要治理得先给出一个能表达「开 / 关」之外语义的类型，属破坏性变更，处置归属：epic component-contract 收尾时另开任务。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-09-05"
   }
 ]

@@ -10,15 +10,23 @@ import Testing
 // 这种形态里，外层字面量显眼、**内层的 "search" 藏在插值里**，按 token 粗扫会漏。
 // #222 修的四个字面量里就有一个是这种形态，故变异自证的靶点专打它。
 //
-// 扫描范围：`GuardScanRoots.allRoots` 下的全部 `**/*.swift`（`#246` 起**多根**：
-// `CoreDesign` / `CoreDesignEffects` / `CoreDesignCharts`），跳过 `#if DEBUG` 区块
+// 扫描范围：`GuardScanRoots.allRoots` 下的全部 `**/*.swift`（`#246` 起**多根**，
+// `#279` 起是四根：`CoreDesign` / `CoreDesignEffects` / `CoreDesignCharts` /
+// `CoreDesignShaders` —— ⚠️ 这句是**散文**，权威名单在 `GuardScanRoots.targetNames`，
+// 代码侧取的是 `allRoots`，不会因为这句话过期而漏扫），跳过 `#if DEBUG` 区块
 // （预览宿主不是产品路径）。豁免台账：`docs/a11y-exemptions.json`。
 //
 // ⚠️ **多根化后必须按 target 分辨各自的 `.module`**（`#246` AC）：
 // `bundle: .module` 是**每个 target 各自的** bundle，不是「CoreDesign 的 String Catalog」
-// 的同义词。`CoreDesignEffects` / `CoreDesignCharts` 在 `Package.swift` 里**没有
-// `resources:` 声明** ⇒ SwiftPM 不给它们合成 `Bundle.module` ⇒ 在这两个 target 里
-// 写 `bundle: .module` 既编译不过、也到不了任何 catalog。而旧的放行条只看 span 文本里
+// 的同义词。某个 target 在 `Package.swift` 里**没有 `resources:` 声明**时，SwiftPM 不给它
+// 合成 `Bundle.module` ⇒ 在那个 target 里写 `bundle: .module` 既编译不过、也到不了任何 catalog。
+// ⚠️ **此处有意不点名具体 target**（`#279` 更正）：上一版逐字写「`CoreDesignEffects` /
+// `CoreDesignCharts` 在 `Package.swift` 里没有 `resources:` 声明」，而两者**今天都已经
+// 有资源包了**（`ChromeTextLiteralGuard` 的处方就是给新 target 声明自己的 String Catalog）
+// ——那句话在写下之后就成了化石，且没有任何判据会为它判红。谁有 `.module` 由
+// `GuardScanRoots.ownsResourceBundle(_:)` 当场读 manifest 回答，本守卫消费的是它的返回值。
+// ⚠️ `CoreDesignShaders` 声明的 `resources:` 是**单个 `.metal` 文件**而不是 String Catalog
+// ⇒ 它有 `Bundle.module`，但那个 bundle 里没有任何可本地化的东西。而旧的放行条只看 span 文本里
 // 有没有 `bundle: .module` 这串字符 ⇒ 一旦多根化，它会把这种写法**当成已本地化放行**。
 // ⇒ 放行条改为「该 target 真的拥有自己的资源包」才成立，由
 // `GuardScanRoots.ownsResourceBundle(_:)` 提供事实。
