@@ -1062,13 +1062,16 @@ struct MaskRevealTransitionBodyTests {
     /// ⚠️⚠️ **`properties` 必须是显式声明**（终审 S-2 / I-5，`#292` 统一跟踪）。
     ///
     /// Apple 文档逐字：`hasMotion == true` ⇒ **Reduce Motion 打开时 SwiftUI 直接把
-    /// 本转场换成 `.opacity`**（默认值就是 `true`）。实测继承值：
+    /// 本转场换成 `.opacity`**（默认值就是 `true`）。`#268` 落地时实测的继承值：
     /// ```
     /// MaskRevealTransition.properties.hasMotion == true
     /// ParticleTransition.properties.hasMotion   == true
     /// OpacityTransition.properties.hasMotion    == false
     /// IdentityTransition.properties.hasMotion   == false
     /// ```
+    /// ⚠️ 上表前两行是**当时**的继承值，今天两者都已是**显式声明**
+    /// （`ParticleTransition` 在 `#292` 补上，取值仍是 `true`）；
+    /// 后两行是 SwiftUI 自家类型，仍为实测继承值。
     /// ⇒ **框架那道闸在前**，`MaskReveal.plan(…isReduced:)` 是它为假时的兜底。
     /// 取值理由、内层 RM 路径「保留」的裁定与代价，全部写在 `MaskRevealTransition`
     /// 与 `MaskRevealTransition.properties` 的文档注释里。
@@ -1084,10 +1087,14 @@ struct MaskRevealTransitionBodyTests {
     /// #267（簇 B）  public static var properties: TransitionProperties { .init(hasMotion: true) }
     /// #266（滤镜簇）public static let properties = TransitionProperties(hasMotion: false)
     /// ```
-    /// ⇒ **`#292` 统一声明形态的那次改动会让本条判红，而那不是真缺陷**：届时请连同
-    /// 下面的期望串 `"static let properties: TransitionProperties"` 一起改成新形态，
-    /// 别把它读成"有人偷偷删了声明"。逐字钉是本仓惯例（换来的是"删掉声明必红"），
-    /// 代价就是这一次统一形态的返工，照录在此。
+    /// ⇒ 上一版这里写「**`#292` 统一声明形态的那次改动会让本条判红**，届时请连同下面的
+    /// 期望串一起改」。**`#292` 落地时定案：不统一**——收益在
+    /// `TransitionPropertiesGuard`（`CoreDesignTests`，SwiftSyntax 按**结构**判「有没有
+    /// 声明 `properties`」，三种写法一视同仁）落地之后是零，而统一的代价就是改本条。
+    /// ⇒ **本条继续原样有效**，期望串不动。完整理由见那条守卫的文件头
+    /// 《`#292` 有意**不统一**三种声明形态》一节。
+    /// ⚠️ 本条的射程仍然只有本簇那一种写法：它今天由 `TransitionPropertiesGuard` 兜底
+    /// （那条守卫对**全仓 12 条**做结构判定），本条守的是"本簇这一行别被悄悄删掉"。
     @Test("MaskRevealTransition 显式声明 properties，且 hasMotion 为 true")
     func transitionDeclaresItHasMotion() throws {
         #expect(MaskRevealTransition.properties.hasMotion, """

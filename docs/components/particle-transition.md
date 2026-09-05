@@ -19,6 +19,7 @@ public struct ParticleTransition: Transition {
     public let count: Int
     public let colors: [Color]
     public static let defaultCount: Int          // 18
+    public static let properties: TransitionProperties  // hasMotion: true
     public init(count: Int = ParticleTransition.defaultCount, colors: [Color] = [])
     public func body(content: Content, phase: TransitionPhase) -> some View
 }
@@ -122,9 +123,9 @@ public extension Transition where Self == ParticleTransition {
 粒子位置全部由 `index` 派生的**确定性伪随机**给出，不用 `random`——否则每次重绘粒子都会跳，
 且测试无法复现（`Spray` / `Confetti` 已就同一件事立过规矩）。
 
-## Reduce Motion
+## Reduce Motion —— ⚠️⚠️ 两道闸，框架那道在前
 
-**不放粒子、不缩放，只留内容自身的淡入淡出**（与 #251 给整个转场簇定的
+结论形态：**不放粒子、不缩放，只留内容自身的淡入淡出**（与 #251 给整个转场簇定的
 「位移 / 旋转类降级为淡入淡出」一致）。⚠️ **不是 no-op**：转场承载的是"这块内容出现 /
 消失了"这个信息，抹掉它会让开启该偏好的用户看到界面瞬间跳变。
 走**降级形态 2**（保留呈现、去掉运动、不叠透明度脉冲）。
@@ -132,6 +133,40 @@ public extension Transition where Self == ParticleTransition {
 实现走**早退**（`guard !isReduced`，与 `.ping` / `.spray` / `.shine` 同形态），
 文件同时登记在 `MicroInteractionReduceMotionGuard` 的 `approvedEarlyExit` 与
 `approvedFormTwo` 两份名单上（双向差集守着，新领一张豁免必须改那两份名单）。
+
+⚠️⚠️ **上一版这一节只有上面那两段，读起来像"降级是那道 `guard` 做的"——
+那句话在运行时是假的，照录更正**（#292）：
+
+| 闸 | 谁 | 何时生效 |
+|---|---|---|
+| **第一道（真正生效的那道）** | SwiftUI，看 `ParticleTransition.properties.hasMotion` | 本类型声明 `hasMotion == true` ⇒ **RM 打开时框架直接把整条转场换成 `.opacity`**，`ParticleTransition.body` 根本不被调用 |
+| 第二道（兜底） | `ParticleTransitionChrome` 的 `guard !isReduced` | 只在框架**没有**替换时才轮得到 |
+
+⇒ 经 `.transition(.particle)` 这条正常路径，`ParticleTransitionChrome` 的
+`reduceMotion` **永远读不到 `true`**。
+
+### `hasMotion` 取 `true`：裁定、后果与代价
+
+**取值理由**：本转场未降级的形态里，一圈粒子真的沿半径飞出去、内容本身还在缩放
+——**几何位置在动**，不是纯成像滤镜。`properties` 是 `static`、拿不到环境，它能描述的
+只有未降级形态，而那个形态确实含运动；取 `false` 是对系统撒谎，并会把将来所有基于该属性
+的适配一并关掉。⚠️ 这与滤镜簇（`.blur` / `.filmExposure` / `.snapshot` / `.flicker` 取
+`false`）**不是纪律不一致**：那四条没有任何几何位移，本条有。**按事实分类，不按簇统一。**
+
+**内层门控是否可达**：不可达（见上表）。**为什么仍然保留**：`hasMotion` 是一行就能改回
+`false` 的开关（届时内层闸当场从兜底变成唯一保护，而删掉它之后那次改动会**静默**让 RM
+用户看到完整的粒子飞散）；框架替换的时机与范围对 `AnyTransition` 包装、别的平台 / 版本
+没有文档承诺。两道闸的结论一致（都是一次纯淡入淡出），分歧只在"谁做的"。
+
+**代价照录**：别把本仓「RM 降级有判据、全绿」读成"我们亲手把 `.particle` 降级给用户看了"
+——生产里处置它的是 SwiftUI。
+
+⚠️ **#292 之前本转场是全仓 12 条 `Transition` 里唯一没有声明 `properties` 的那条**：
+取值恰好也是 `true`、屏幕上的行为没错，错的是没有任何东西写下或钉住它，
+而本节与类型文档当时都把那道 `guard` 说成降级的裁决点。
+判据：`TransitionPropertiesRoster.everyTransitionDeclaresItsMotionHonestly`（运行时取值，
+12 条逐条）+ `TransitionPropertiesGuard`（SwiftSyntax 结构判定「显式声明」，
+且新增 `Transition` 漏声明 / 漏运行时判据 / 登记表 notes 漏记框架闸都会判红）。
 
 ⚠️ **Reduce Motion 必须从环境里读，而 `Transition.body(content:phase:)` 拿不到
 `@Environment`**（它不是 `View`）⇒ 实际绘制走一个**非泛型**的 `ViewModifier`

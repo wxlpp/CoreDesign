@@ -33,12 +33,35 @@ import SwiftUI
 /// 粒子取色池默认**为空 ⇒ 全部取调用方的 `.tint`**，与 `.spray` / `.confetti` 共用
 /// 同一个取色函数（`[Color].particleStyle(at:)`）。**不给彩虹默认色板**——那是品牌决定。
 ///
-/// ## Reduce Motion
+/// ## Reduce Motion —— ⚠️⚠️ **两道闸，框架那道在前**
 ///
-/// **不放粒子、不缩放，只留内容自身的淡入淡出**（与 `#251` 给整个转场簇定的
+/// 结论形态：**不放粒子、不缩放，只留内容自身的淡入淡出**（与 `#251` 给整个转场簇定的
 /// 「位移 / 旋转类降级为淡入淡出」一致）。⚠️ **不是 no-op**：转场承载的是
 /// "这块内容出现 / 消失了"这个信息，抹掉它会让开启该偏好的用户看到界面瞬间跳变。
 /// 走**降级形态 2**（保留呈现、去掉运动、不叠透明度脉冲）。
+///
+/// ⚠️⚠️ **上一版这一节只写了上面那段，读起来像"降级是本文件里那道 `guard` 做的"
+/// ——那句话在运行时是假的，照录更正**（`#292`）：
+///
+/// | 闸 | 谁 | 何时生效 |
+/// |---|---|---|
+/// | **第一道（真正生效的那道）** | SwiftUI，看 `properties.hasMotion` | 本类型声明 `hasMotion == true` ⇒ **RM 打开时框架直接把整条转场换成 `.opacity`**，本类型的 `body` 根本不被调用 |
+/// | 第二道（兜底） | `ParticleTransitionChrome` 的 `guard !isReduced` | 只在框架**没有**替换时才轮得到 |
+///
+/// ⇒ 经 `.transition(.particle)` 这条正常路径，`ParticleTransitionChrome` 的
+/// `reduceMotion` **永远读不到 `true`**。
+///
+/// ## ⚠️ 内层 RM 路径：**显式裁定为保留**，理由与代价照录
+///
+/// `ParticleTransitionChrome` 的 `@Environment(\.accessibilityReduceMotion)` 读取、
+/// 那条 `guard !isReduced` 早退、以及 `MicroInteractionReduceMotionGuard` 的
+/// `approvedEarlyExit` / `approvedFormTwo` 两份名单里的本文件条目，**全部保留**，理由：
+/// · `hasMotion` 是一个**一行就能改**的开关——哪天它被改成 `false`，内层这道闸当场从
+///   "兜底"变成"唯一保护"，而删掉它之后那次改动会**静默**让 RM 用户看到完整的粒子飞散；
+/// · 框架替换的**时机与范围**没有文档承诺（`AnyTransition` 包装、别的平台 / 版本）；
+/// · 两道闸的**结论一致**（都是"只剩一次淡入淡出"），所以行为上没有分歧，分歧只在"谁做的"。
+/// **代价照录**：内层那道闸今天守的是**不可达路径**。别把本仓「RM 降级有判据、全绿」
+/// 读成"我们亲手把 `.particle` 降级给用户看了"——生产里处置它的是 SwiftUI。
 ///
 /// ## a11y 分工（FR-13）
 ///
@@ -58,6 +81,52 @@ public struct ParticleTransition: Transition {
     ///（实测 `error: … is internal and cannot be referenced from a default argument value`）。
     /// `ParticleBurst` 是**几何契约**，一个 API 默认值本来也不该长在那里。
     public static let defaultCount: Int = 18
+
+    /// ## ⚠️⚠️ `hasMotion` 取 `true`，这是一次**有代价**的定案，代价照录
+    ///
+    /// Apple 文档逐字（`TransitionProperties.hasMotion`，从 `SwiftUICore.swiftdoc` 提取）：
+    ///
+    /// > Whether the transition includes motion.
+    /// > When this behavior is included in a transition, that transition will be
+    /// > replaced by opacity when Reduce Motion is enabled.
+    /// > Defaults to `true`.
+    ///
+    /// ⇒ 声明 `true` 意味着 **Reduce Motion 打开时 SwiftUI 直接把本转场换成 `.opacity`，
+    /// 本类型的 `body` 根本不会被调用**。
+    ///
+    /// **为什么取 `true`**（本条是 `#292` 对本类型的独立裁定，不是照抄别的簇）：
+    /// 1. **它是事实。** 本转场未降级的形态里，一圈粒子真的沿半径飞出去
+    ///    （`ParticleBurst.offset(…)` ⇒ `.offset(x:y:)`），内容本身还在 `scaleEffect` 上
+    ///    缩放——**几何位置在动**，不是纯成像滤镜。`properties` 是 `static`、拿不到环境，
+    ///    它能描述的只有**未降级形态**，而那个形态确实含运动。
+    ///    取 `false` 是对系统撒谎，且 `TransitionProperties` 的文档明写这些属性
+    ///    「决定转场如何与**包括辅助功能在内**的系统特性交互」——今天只有 RM 一项，
+    ///    骗过这一项等于把将来所有基于它的适配一并关掉。
+    ///    ⚠️ 这条与滤镜簇（`blur` / `filmExposure` / `snapshot` / `flicker` 取 `false`）
+    ///    **不是纪律不一致**：那四条没有任何几何位移，本条有。按事实分类，不按簇统一。
+    /// 2. **降级结论一致，用户看不出差别。** 框架的替换是纯 opacity；本类型自己的降级
+    ///    （`ParticleTransitionChrome` 的 `guard !isReduced`：不放粒子、不缩放，
+    ///    只留 `ParticleBurst.contentOpacity(phase:)` 的淡入淡出）**就是**一次纯淡入淡出。
+    /// 3. 取 `false` 则**唯一**的保护是那道手写闸；一旦有人把它重构掉，
+    ///    RM 用户当场看到完整的粒子飞散，且没有任何系统兜底。
+    ///
+    /// ⚠️⚠️ **代价（别把它读成"两道保险"）**：`true` ⇒ 本类型自己那套 RM 降级在
+    /// **生产路径上不可达**。保留它的裁定与理由写在本类型的文档注释里
+    /// （「## ⚠️ 内层 RM 路径：**显式裁定为保留**」那一节）。
+    ///
+    /// ⚠️ **显式写出来的意义**：`true` 与 SDK 默认值相同 ⇒ 这一行不改变任何行为，
+    /// 它换来的是**下一个人能在代码里看见框架那道闸**——`#292` 之前本类型是全仓
+    /// 12 条 `Transition` 里唯一**继承**默认值的那条，而整份文档把那道 `guard`
+    /// 说成降级的裁决点，那在运行时是假的。
+    ///
+    /// ⚠️ 声明**形态**（`static let` 带类型标注 vs `static var { }` vs `static let` 不带标注）
+    /// 全仓有三种，`#292` **有意不统一**，理由见
+    /// `Tests/CoreDesignTests/TransitionPropertiesGuard.swift` 的文件头。
+    ///
+    /// 判据：`TransitionPropertiesRoster.everyTransitionDeclaresItsMotionHonestly`
+    /// （运行时取值，12 条逐条）+ `TransitionPropertiesGuard`（结构上钉住"显式声明"
+    /// 而不是继承默认值，且新增 `Transition` 漏声明必红）。
+    public static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
 
     public init(count: Int = ParticleTransition.defaultCount, colors: [Color] = []) {
         self.count = count
