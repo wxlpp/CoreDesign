@@ -29,6 +29,19 @@ struct ShadersScanRootGuard {
     /// 埋进副本里的探针文件名前缀。⚠️ 以 `ZZ` 开头，排序时落在最后，扫描输出里一眼可辨。
     static let probePrefix = "ZZShadersScanProbe"
 
+    /// 真实 Shaders 树上的 `public extension View` 成员全集（**不带 target 前缀**，
+    /// 与 `ComponentRegistryGuard.scanTypes(root:).entryPoints` 同口径）。
+    ///
+    /// ⚠️ 本常量是**副本完整性**的基线，不是登记表的替身：下面那段变异证明的前提是
+    /// 「副本与真实树一致」，副本漏文件时变异开不开火都说明不了问题。
+    /// ⚠️ **`#283` 由 1 条变 3 条**：新增 `View.glassOrb`（Inferno WarpingLoupe 的移植）
+    /// 与 `View.halftone`（paper `halftone-dots.ts` 的移植）。
+    /// 新增 `public extension View` 成员时**必须同时**改这里与
+    /// `docs/component-registry.json` 的 `entryPoints`——只改一处会在另一处判红。
+    static let realTreeEntryPoints: Set<String> = [
+        "View.refractiveGlass", "View.glassOrb", "View.halftone",
+    ]
+
     // MARK: - ① 扫描文件数 > 0（AC 逐字要求的那条实证）
 
     @Test("Shaders 根真的被枚举到了文件（扫描文件数 > 0，且逐条打印出来）")
@@ -96,9 +109,13 @@ struct ShadersScanRootGuard {
         #expect(try EffectsColorLiteralGuard.scan(root: tree).isEmpty, "副本基线就有色相字面量 —— 下面的变异证明不了任何事")
         #expect(try ChromeTextLiteralGuard.scan(root: tree).violations.isEmpty, "副本基线就有裸 chrome 文案")
         let baselineEntryPoints = try ComponentRegistryGuard.scanTypes(root: tree).entryPoints
-        #expect(baselineEntryPoints == ["View.refractiveGlass"], """
-        副本基线的入口点集合是 \(baselineEntryPoints.sorted())，而真实树上是 `["View.refractiveGlass"]` ——
-        拷贝出了问题（漏文件 / 编码），下面的变异证明不了任何事。
+        #expect(baselineEntryPoints == Self.realTreeEntryPoints, """
+        副本基线的入口点集合是 \(baselineEntryPoints.sorted())，而真实树上是 \
+        \(Self.realTreeEntryPoints.sorted()) —— 拷贝出了问题（漏文件 / 编码），\
+        下面的变异证明不了任何事。
+        ⚠️ 若这是**新增了一个 `public extension View` 成员**导致的，正确处置是把它登记进
+        `docs/component-registry.json` 的 `entryPoints` **并**同步 `realTreeEntryPoints`，
+        不是把这条断言改宽。
         """)
 
         // ---- ① EffectsColorLiteralGuard：埋一处色相字面量 ----

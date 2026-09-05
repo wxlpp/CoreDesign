@@ -203,6 +203,15 @@ inline float edgeWidth(float x) {
     return max(fwidth(x), 1e-4);
 }
 
+/// 内容层里**最后一个有效像素的中心**坐标。
+///
+/// ⚠️ **不是 `size`**：`size` 是层的尺寸，坐标恰为 `size` 已经在最后一个像素**之外**
+/// —— `layer.sample` 在那里可能返回透明，而调用方夹坐标的动机恰恰是躲开透明。
+/// ⚠️ `max(..., 0)` 兜住退化尺寸（`size` 为 0 时上下界都是 0，`clamp` 仍良定义）。
+inline float2 lastPixel(float2 size) {
+    return max(size - 0.5, float2(0.0));
+}
+
 } // namespace cd
 
 // MARK: - Plasma
@@ -495,4 +504,190 @@ inline float roundedBoxSDF(float2 p, float2 halfSize, float radius) {
     //（无透明环），透明内容上 rim 照常显影，且输出恒为合法预乘值。
     half4 src = rim * half(rimBand);
     return src + sample * (1.0h - src.a);
+}
+
+// MARK: - GlassOrb（layerEffect）
+
+/// 玻璃珠放大镜：在一个圆形区域内做**随距离衰减**的放大，中心放得最大、边缘回落到 1。
+///
+/// ## Provenance —— ⚠️ 这是一次**移植**，不是自研，别把它读成后者
+///
+/// **上游：[Inferno](https://github.com/twostraws/Inferno) 的
+/// `Sources/Inferno/Shaders/Transformation/WarpingLoupe.metal`（Paul Hudson 等，MIT）。**
+/// 本函数保留了它的**算法结构与表达**：
+/// `totalZoom = 1` → 区域内 `totalZoom /= zoomFactor` → `totalZoom += smoothstep(…)/2`
+/// → `newPosition = delta * totalZoom + center` → `layer.sample(newPosition)`。
+/// ⇒ 档位按 `ACKNOWLEDGEMENTS.md` 的《归属分档》记 **较大段落移植**，
+/// MIT 通知全文已转载在 `ACKNOWLEDGEMENTS.md` 的《Inferno》一节。
+///
+/// ⚠️ **我们做了三处修改，逐条列出（不列 = 默认原样，那是本仓栽过的坑）**：
+/// ① **坐标空间**：上游在 UV（0…1）空间里算，并用 `dx² + dy²/aspect` 近似圆；
+///    本函数直接在**点空间**里算 `dot(delta, delta)`，圆是真圆，
+///    `radius` 是**点**而不是"归一化距离的平方"。参数含义因此不同，别照抄上游的调参建议。
+/// ② **`softness`**：上游把 `smoothstep` 的那半档写死；本函数把它乘上一个 0…1 的系数，
+///    供 Swift 侧在 Reduce Transparency 下取 0 —— 那时放大倍率在整个圆内是常数、
+///    边界是硬边，观感从"玻璃珠"退化成"硬边镜片"（材质暗示消失，放大功能保留）。
+///    ⚠️ 这一条是**本仓的增补**，不是上游的东西。
+/// ③ ⚠️⚠️ **衰减项从 `+= smoothstep(…) / 2` 改成「向 1.0 插值」**
+///    `+= (1 - totalZoom) * smoothstep(…)`。**这一条最重要，上一版漏了它**（#303 终审 C-1）。
+///    上游那个 `/2` 与它自己 `zoomFactor` 的默认值 **2** 是**配套**的：
+///    `1/2 + 1/2 = 1`，边界恰好回到 1。本函数**同时**改了坐标空间**并且**自选了
+///    1.6 / 2.4 / 4.0 三个倍率档（`GlassOrbMagnification.factor`），**没有一档是 2**
+///    ⇒ 照抄那个常数，边界处的 `totalZoom` 分别落在 **1.125 / 0.917 / 0.750**：
+///    gentle 档 > 1（近边一圈**反向缩小**），另两档仍在放大 ⇒ 三档各留一道
+///    约 **4.5 / 6 / 15 px** 源位移的接缝（200×200 灰阶渐变上实测）。
+///    ⇒ 「越靠边放得越少、边界处回到 1」这句注释在照抄版下是**假的**。
+///    插值形式让它对**任何**倍率都成立，代价是与上游那一行不再逐字相同。
+///    判据：`RenderProofTests.glassOrbSofteningClosesTheSeam`（三档参数化，
+///    带 `softness == 0` 的反向对照）。
+///
+/// ⚠️ **零硬编码色**（FR-8）：本函数一个颜色都不产生，只重采样内容层。
+/// ⚠️ **不吃时间**：放大位置由手势（空间输入）驱动，不是动画。
+/// 按 FR-12，`layerEffect` 类冻结时间输入、保留空间输入 —— 这里根本没有时间输入。
+///
+/// - Parameter position: 当前像素的用户空间坐标。
+/// - Parameter layer: 被读取的内容层。
+/// - Parameter size: 内容层尺寸（点）。⚠️ 目前仅用于把采样点夹回层内，
+///   不参与距离计算 —— 与上游用它做 UV 归一化不同。
+/// - Parameter focus: 放大中心（点），由手势给出。
+/// - Parameter radius: 放大区域半径（点）。
+/// - Parameter magnification: 中心处的放大倍率（> 1）。
+/// - Parameter softness: 0…1。1 = 上游的衰减放大（玻璃珠），0 = 常数放大（硬边镜片）。
+[[stitchable]] half4 coreDesignGlassOrb(float2 position, SwiftUI::Layer layer,
+                                        float2 size, float2 focus,
+                                        float radius, float magnification,
+                                        float softness) {
+    float2 delta = position - focus;
+    float distanceSquared = dot(delta, delta);
+    float radiusSquared = max(radius * radius, 1e-4);
+
+    // 默认原样透过——1 个像素占 1 个像素的位置。
+    float totalZoom = 1.0;
+
+    if (distanceSquared < radiusSquared) {
+        // 缩小采样步长 ⇒ 同样的屏幕面积里塞进更少的内容 ⇒ 放大。
+        totalZoom /= max(magnification, 1e-3);
+        // 把 `totalZoom` **向 1.0 插值**：越靠边放得越少，边界处（`smoothstep == 1`）
+        // **恰好**回到 1，于是与圆外严丝合缝、没有硬边。
+        // ⚠️⚠️ **这里不是上游的 `+= smoothstep(...) / 2`**（见文档注释的修改标注 ③）：
+        // 那个 `0.5` 只在 `zoomFactor == 2` 时让边界回到 1，而本仓的三档是 1.6 / 2.4 / 4.0，
+        // **没有一档是 2**，照抄会在三档上各留一道接缝（gentle 档甚至反向缩小）。
+        // ⚠️ `softness == 0` 时这一项整个消失 ⇒ 圆内是常数放大 + 硬边（Reduce Transparency 档）。
+        totalZoom += (1.0 - totalZoom) * smoothstep(0.0, radiusSquared, distanceSquared) * saturate(softness);
+    }
+
+    // ⚠️ 采样点夹回层内：`layer.sample` 越界返回透明，放大镜贴边时会咬出一圈空洞。
+    // ⚠️ 上界是 `size - 0.5` 而不是 `size`：坐标恰为 `size` 已落在**最后一个有效像素之外**
+    // （像素中心在 `size - 0.5`），夹到那里仍可能取到透明 —— 那正是本行想堵的失效形态。
+    float2 sampled = clamp(delta * totalZoom + focus, float2(0.0), cd::lastPixel(size));
+    return layer.sample(sampled);
+}
+
+// MARK: - Halftone（layerEffect）
+
+namespace cd {
+
+/// 二维旋转矩阵。⚠️ 事实性构造（`mat2(cos, ±sin, ∓sin, cos)`），
+/// `docs/shader-provenance.md` 的《⑤-bis》已就 paper 的同款内联写法记明
+/// 「旋转矩阵是事实性构造，**不产生通知义务**」——本仓这一份同理。
+inline float2x2 rotate2(float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return float2x2(c, -s, s, c);
+}
+
+/// 预乘 alpha 的内容层采样 → 相对亮度。
+///
+/// ⚠️ **两步都不能省**：
+/// ① `layer.sample` 是**预乘**值（`SwiftUI_Metal.h` 的 `Layer::sample` 文档逐字），
+///    直接对 `rgb` 取亮度会把半透明处算暗；先除回去。
+/// ② 透明处按**纸白**处理（`mix(1, lum, a)`）——这一步是 paper `halftone-dots.ts`
+///    `getLumAtPx()` 的做法（`lum = mix(1., lum, tex.a)`），随该件一并署名。
+///
+/// ⚠️ 亮度权重 `0.2126 / 0.7152 / 0.0722` 是 **Rec. 709 的 luma 系数**（ITU-R BT.709），
+/// 标准里的数字、不是谁的表达；paper 用的也是这一组。
+inline float layerLuminance(half4 premultiplied) {
+    float alpha = float(premultiplied.a);
+    float3 straight = float3(premultiplied.rgb) / max(alpha, 1e-4);
+    float luminance = dot(float3(0.2126, 0.7152, 0.0722), saturate(straight));
+    return mix(1.0, luminance, saturate(alpha));
+}
+
+} // namespace cd
+
+/// 半调网屏：把内容层按网格取样，用**点的大小**表示明暗，输出油墨色 + 纸色两色。
+///
+/// ## Provenance —— ⚠️ 这是一次**移植**
+///
+/// **上游：[paper-design/shaders](https://github.com/paper-design/shaders) 的
+/// `packages/shaders/src/shaders/halftone-dots.ts`，Apache-2.0。**
+/// 保留的结构：网格取样点 = `floor(p) + .5`、由**格心亮度**决定点半径
+/// （`r = mix(baseR, 0, lum)`）、`length(uv - .5)` 的圆 + `fwidth` 抗锯齿边
+/// （其 `getCircle()`）、透明处按纸白处理（其 `getLumAtPx()` 的 `mix(1., lum, tex.a)`）。
+/// ⇒ Apache-2.0 的四条义务（LICENSE 全文 / `NOTICE` / 修改标注 / `.ts` 路径）
+/// 见 `ACKNOWLEDGEMENTS.md` 的《paper-design/shaders》一节，**本行即第 4 条**。
+///
+/// ⚠️ **§4(b) 要求的「修改标注」—— 逐条列出本函数与上游的差异**：
+/// ① **只移植了 `classic` 一种点形**；上游的 `gooey` / `holes` / `soft` 三种、
+///    `u_grid == 1` 的六边形网格、`u_inverted`、`u_contrast` 的 sigmoid 对比度、
+///    `grainMixer` / `grainOverlay` / `grainSize` 三档颗粒，**都没有移植**。
+/// ② **只移植了 `halftone-dots.ts`，没有移植 `halftone-cmyk.ts`**（四色分色版）。
+///    ⚠️⚠️ 这一条不是省事：`halftone-cmyk.ts:80` 声明 `uniform sampler2D u_noiseTexture`、
+///    `:98` 本地定义 `randomRG()` 从该纹理取随机、`:171` 真的调用它
+///    （`docs/shader-provenance.md` 的《⑤-bis》第 6 轮终审新发现的第 5 件）。
+///    移植它必须先决定"随包发一张预计算噪声纹理"还是"换程序化 hash"，
+///    **本次选择的是把该入口整个划出范围**，理由与代价写在
+///    `docs/shader-provenance.md` 的《`Halftone` 的落地记录（#283）》。
+///    ⚠️ `halftone-dots.ts` 自身**不依赖** `u_noiseTexture`（它 import 的是
+///    `proceduralHash21`，程序化的），所以本次移植不携带那条依赖。
+/// ③ **网屏角度参数化**：上游没有整体旋转，本函数把网格整体旋转 `angle`
+///    （印刷业的单色网屏惯例角度由 Swift 侧给出）。
+/// ④ **两色输出由 Swift 侧传入**（FR-8：`.metal` 零硬编码色）；上游的
+///    `u_originalColors` 保留原图色那一档没有移植。
+///
+/// ⚠️ **本函数不含 paper 的任何 hash**：paper 的 `proceduralHash21` /
+/// `halftone-cmyk.hash23` 追到 **Dave Hoskins**（`19.19`）与 **iq**（`0.3183099`），
+/// 两位的 MIT 通知义务由本仓在 `ACKNOWLEDGEMENTS.md` 补齐（paper 的 `NOTICE` 只字未提）。
+/// 本次移植**没有复制那些 hash**（本函数一个 hash 都不调用），
+/// 通知照给 —— 宁可多给，成本为零。
+///
+/// ⚠️ **不吃时间**：半调是对内容层的**空间**重排，没有时间输入。
+///
+/// - Parameter position: 当前像素的用户空间坐标。
+/// - Parameter layer: 被读取的内容层。
+/// - Parameter size: 内容层尺寸（点）。
+/// - Parameter cell: 网格边长（点）。
+/// - Parameter angle: 网屏角度（弧度）。
+/// - Parameter dotScale: 最黑处的点半径（格宽的倍数）。
+/// - Parameter ink: 油墨色（预乘）。
+/// - Parameter paper: 纸色（预乘）。传全透明即"印在透明背景上"。
+[[stitchable]] half4 coreDesignHalftone(float2 position, SwiftUI::Layer layer,
+                                        float2 size, float cell, float angle,
+                                        float dotScale, half4 ink, half4 paper) {
+    float cellSize = max(cell, 1.0);
+    float2x2 screen = cd::rotate2(angle);
+    // ⚠️ 旋转矩阵是正交的 ⇒ 逆 = 转置。别再算一次 `rotate2(-angle)`。
+    float2x2 unscreen = transpose(screen);
+
+    float2 gridSpace = (screen * position) / cellSize;
+    float2 cellIndex = floor(gridSpace);
+    float2 inCell = gridSpace - cellIndex;
+
+    // 格心 → 回到用户空间，作为该格的取样点。
+    float2 samplePoint = unscreen * ((cellIndex + 0.5) * cellSize);
+    samplePoint = clamp(samplePoint, float2(0.0), cd::lastPixel(size));
+
+    float luminance = cd::layerLuminance(layer.sample(samplePoint));
+
+    // 越暗点越大；纸白（luminance == 1）处半径为 0，一个点都不落。
+    float radius = mix(max(dotScale, 0.0), 0.0, luminance);
+    float distanceToCentre = length(inCell - 0.5);
+    float aa = cd::edgeWidth(distanceToCentre);
+    // ⚠️ `step` 那一项不是冗余：`radius == 0` 时 `smoothstep(-aa, aa, 0)` 在**格心那一像素**
+    // 仍返回 0 ⇒ `coverage == 1` ⇒ **纯白区域每一格的中心都会落一个 1px 的墨点**。
+    // 抗锯齿把半径为 0 的点画成了可见的点，实测（`RenderProofTests` 的白底一条）才暴露。
+    float coverage = step(1e-4, radius) * (1.0 - smoothstep(radius - aa, radius + aa, distanceToCentre));
+
+    // ⚠️ 两个输入都是**预乘**色（`.color(...)` 的文档逐字），预乘空间里做线性插值合法。
+    return mix(paper, ink, half(saturate(coverage)));
 }
