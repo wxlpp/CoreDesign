@@ -591,8 +591,20 @@ struct CrossPlatformRenderTests {
     /// `swift test` 进程里 `Color("brand-…", bundle: .module)` 一族**解析成完全透明**
     /// （实测 `Color.secondaryAccent.resolve(in:)` 给出 `a = 0.0`，
     /// 在 `CoreDesignTests` 与 `CoreDesignEffectsTests` 两个 target 上都一样
-    /// ⇒ 是本仓既有条件，不是本 target 的私事，与 `CLAUDE.md`《验证边界与常见坑》
-    /// 记的"资源缺失是静默失败"同源）。
+    /// ⇒ 是本仓既有条件，不是本 target 的私事）。
+    /// ⚠️ **更正传播（`#275`）**：本段原先把成因归到 `CLAUDE.md`《验证边界与常见坑》
+    /// 记的"资源缺失是静默失败"，**归因是错的**——资源没缺失。真正的成因是
+    /// macOS SwiftPM native 构建**不调 `actool`**，`.xcassets` 以目录形态原样进 bundle，
+    /// 而 `NSColor(named:bundle:)` 只认编译后的 `Assets.car` ⇒ 查找必然 miss 返回 clear。
+    /// 原句已随 `#275` 从 `CLAUDE.md` 删除，量化与机器判据见
+    /// `Tests/CoreDesignTests/ColorGradeResolutionGuard.swift`
+    /// ——那条反向钉子的判据名叫 `catalogColorsAreFullyTransparentOnRawXcassets`。
+    /// ⚠️ **此处有意不写成 `类型.成员` 限定名，而是文件路径 + 拆开写的成员名**
+    /// （`#275` 第 2 轮终审 S-2）：本文件在 `CoreDesignEffectsTests`、那条判据在
+    /// `CoreDesignTests` ⇒ **跨 test target 的引用只核类型存在性、不核成员**
+    /// （该缺口登记在 `JudgementReferenceGuard.swift` 的射程清单里，属 `#287` 既有射程；
+    /// 实测把成员名改成伪造的，那个守卫 `EXIT=0` 全绿）。写成限定名只会给出
+    /// 「机器在守着」的假象——本轮它就已经被手工改过一次名，下次改名同样没有东西提醒。
     /// ⚠️ 后果不是理论上的：用它当"另一种 tint"会让 `a != b` 这类判据**因为其中一张
     /// 是空白而通过** —— 判到的是"这个色根本没画出来"，不是"取色跟着调用方走"。
     /// ⇒ 本文件用到的每个颜色都实测过非透明：`accent` / `contentPrimary` /
