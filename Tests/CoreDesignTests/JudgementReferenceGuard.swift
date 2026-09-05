@@ -169,7 +169,14 @@ import Testing
 // 「第 2 轮终审」。⇒ 这正是本文件全篇在讲的「引用指不到它声称的东西」，只是载体从
 // 符号名换成了评审标号。
 //
-// **本 issue 的轮次 ↔ commit 对照**（可用 `git show` 逐条核）：
+// **本 issue 的轮次 ↔ commit 对照**：
+// ⚠️ **这两个 SHA 合并后不在 `main` 的历史里**——本仓 PR 走 **squash**（实测 main 上
+// `4a0b3fa` / `eba3811` / `51c9bb5` / `2eb208e` **父数都是 1**，标题尾部的 `(#N)` 就是
+// squash 的写法），所以裸 `git show 1ff9216` 在新 clone 里会失败。要核请先取 PR ref：
+// `git fetch origin 'refs/pull/305/*:refs/remotes/pr/305/*'` 再 `git show`。
+// ⚠️ 上一版这里写「可用 `git show` 逐条核」，并且 PR #305 第 4 轮终审据以断言
+// 「main 上四个 PR 集成点都是 2 个 parent 的真 merge、SHA 合并后仍可达」——
+// **实测为假，照录更正**（父数逐个查过，都是 1）。
 // · 第 1 轮终审 ⇒ `1ff9216`「终审 REVISE 修复」（扫描面扩到仓库根 `.md` 等）；
 // · 第 2 轮终审 ⇒ `37fad75`「终审第 2 轮 REVISE 修复」（下界按扫描面切分等）；
 // · 第 3 轮终审 ⇒ 本次（`other` 桶下界、面清单走 `allCases`、候选引用数下界等）。
