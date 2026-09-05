@@ -368,6 +368,14 @@ struct MainActorStaticRatchetGuard {
     /// ⚠️ **两级各带一份 `reason`**（PR #314 第 3 轮终审 S-1）：原来顶层命中直接打印
     /// job 级那份措辞，于是 workflow 顶层的 `if:` 会报出「**这个 job** 可能在某些事件上
     /// 压根不跑」——主语指错了一层。`topLevelReason` 就是那一层的措辞。
+    ///
+    /// ⚠️ 两份 `reason` 都是**报错文案**，不是判定依据：判定只看键名相等
+    /// （`blockedTopLevelKeys` / `blockedJobLevelKeys` 都只比 `keyName(ofLine:)` 的结果）
+    /// ——与 `stepKeyDangerNotes` 同一条登记：改文案不会让判据更严，也不会更松。
+    /// ⚠️ 覆盖面如实登记（PR #314 第 4 轮终审 I-1）：`topLevelReason` 里**只有 `defaults`
+    /// 那一份**被判据钉住（`syntheticWorkflowWithInheritedShellDefaultsAreRejected` 断言
+    /// 顶层报错含「每个 job 继承」——那句只出现在 `topLevelReason` 里，把打印改回
+    /// `entry.reason` 当场判红）；另外三个键的 `topLevelReason` **零判据覆盖**，是纯文案。
     nonisolated static let blockedJobKeys: [(key: String, reason: String, topLevelReason: String)] = [
         (
             "if",
@@ -679,9 +687,13 @@ struct MainActorStaticRatchetGuard {
     /// `runLineIsInlineScalar` 报，报错文案更准，两条不要混。
     /// ⚠️ 认块标量走 `isBlockScalarIndicator(_:)` 而不是一张写死的表：原来那张表只列了
     /// `| > |- >- |+ >+` **六种**，漏掉带**显式缩进指示**的 `|2` / `>2` / `|-2` / `|2-`
-    /// 一族（合法 YAML），于是那一族会由本函数而非 `runLineIsInlineScalar` 报
-    /// ——与上一句自己立的分工相左（PR #314 第 3 轮终审 S-3）。
-    /// ⚠️ 如实登记：两条都会判红，所以这是**注释与实现对不上**，不是安全洞。
+    /// 一族（合法 YAML），于是那一族会由本函数**与** `runLineIsInlineScalar` **双报**
+    /// ——与上一句自己立的分工相左（PR #314 第 3 轮终审 S-3、第 4 轮终审 C-B）。
+    /// ⚠️ 实测（把 `isBlockScalarIndicator` 换回 `98f551b` 那张六项表、块标量体只有
+    /// 一行）：`|2` / `>2` / `|-2` / `|2-` 各 `runLineIsInlineScalar` 报 **1**、本函数报
+    /// **1**、`violations(inWorkflow:)` 合计 **3**（第三条是「找不到跑脚本的 `run:`」）。
+    /// 换成现在这条规则式判断之后，同样四种各**本函数报 0**、合计 2。
+    /// ⚠️ 如实登记：两条都会判红，所以那是**注释与实现对不上**，不是安全洞。
     nonisolated static func runScalarContinuationLines(inStep step: String) -> [String] {
         let lines = step.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         guard let firstIndex = lines.firstIndex(where: { !Self.isSkippable($0) }) else { return [] }
@@ -844,9 +856,22 @@ struct MainActorStaticRatchetGuard {
     /// ⇒ 本轮改成**只在非注释行上计数**（`isSkippable` 现成，bash 与 python 的注释都以
     /// `#` 起头）：搬家之后非注释行上的命中变成 0 ⇒ 判红。
     ///
-    /// ⚠️⚠️ **别把它读成「彻底堵上」**：把副本塞进一条**非注释语句**（例如 `echo` 的字符串
-    /// 里）仍能把计数保持在 1 ⇒ 仍是绿的。这一步把门槛从「多写一行注释」抬到
-    /// 「伪造一条非注释语句」，**不是密不透风**。
+    /// ⚠️⚠️ **别把它读成「彻底堵上」，也别把门槛读高**（PR #314 第 4 轮终审 C-A 实测）：
+    /// 它只堵住了「把副本搬进**整行**注释」这一种。`isSkippable` 只判
+    /// `trimmed.hasPrefix("#")` ⇒ **只剥整行注释**，于是下面**四种**搬家实测仍**全绿**
+    /// （逐 pin 跑，各 11/11 GREEN）：
+    /// · **行尾注释**——在一条已有代码行的行尾追加 `  # <副本>`；
+    /// · `echo` 字符串；
+    /// · heredoc 正文；
+    /// · python 多行字符串。
+    /// ⚠️ 第一种在本脚本里**一点都不显眼**：`scripts/mainactor-static-ratchet.sh` 本来
+    /// 就有行尾注释风格的行（`found = []          # "<Target>:<path>" ——…`）
+    /// ⇒ 上一轮那句「门槛抬到伪造一条非注释语句」写高了，实测**一条注释就够**。
+    /// ⚠️⚠️ **不要顺手把 `isSkippable` 改成「剥到行尾」**：脚本里 `[ "$#" -gt 1 ]`
+    /// 与 python 的 `line.startswith("#")` 会被朴素剥法打断 ⇒ 正确处置是**把缺口登记准**，
+    /// 不是把这条加严。
+    /// ⚠️ 定性：这个洞在改成非注释行计数**之前就已存在、性质不变**（全文计数下同样四种
+    /// 全绿）⇒ 上一轮不是引入新洞，是**把洞登记小了**；这一轮只改措辞，安全面没动。
     ///
     /// ⚠️ 顺带消掉的假红（PR #314 第 3 轮终审 I-1）：全文计数下，给脚本追加一行**完全合法**
     /// 的说明注释、其中逐字提到某条 pin ⇒ 那条 pin 当场判红。改成非注释行计数之后，
@@ -875,8 +900,12 @@ struct MainActorStaticRatchetGuard {
                 ⚠️ 0 次 = 判据被删（**含**「删掉真的那一份、只在注释里留一份逐字副本」这种搬家）；
                 ≥2 次 = 真代码里出现了第二份，两份里删掉哪一份都不会有人看见。
                 ⚠️ 注释行不计数 ⇒ 在注释里逐字提这条片段是**允许**的。
-                ⚠️ 但这不是密不透风：把副本塞进一条非注释语句（`echo` 的字符串之类）
-                仍能把计数保持在 1。它抬高的是门槛，不是关死了门。
+                ⚠️ 但只剥**整行**注释：行尾注释（`cmd  # <副本>`）、`echo` 字符串、
+                heredoc 正文、python 多行字符串里的副本都照样计数 ⇒ 这四种搬家实测仍全绿
+                （各 11/11）。门槛抬高了，门没关死。
+                ⚠️ ≥2 的补救（这是真实的假红成本：保留真的那份、另加一条**合法**的
+                `echo` 提及，实测 11 条 pin 全部判红）：把那句措辞改写成不逐字重复，
+                或把这条 pin 换成更长的、只可能出现在真代码里的唯一片段。
                 """
         }
     }
@@ -884,8 +913,14 @@ struct MainActorStaticRatchetGuard {
     /// 脚本文本里**非注释、非空**的那些行（保持原有换行结构）。
     ///
     /// ⚠️ bash 段与 python 段的注释都以 `#` 起头 ⇒ 同一条 `isSkippable` 两段通吃。
-    /// ⚠️ 它**不解析字符串字面量**：写在 `echo "…"` / python 字符串里的 `#` 不会被误当注释，
-    /// 但反过来，写在字符串里的 pin 副本**会**被计进去——这正是上面登记的那个残留缺口。
+    /// ⚠️ 它**不解析字符串字面量**，两个方向的代价都登记：
+    /// · 写在**单行**字符串里的 `#`（`echo "a # b"`）不会被误当注释——那一行的 trimmed
+    ///   不以 `#` 起头；但写在字符串里的 pin 副本**会**被计进去，这正是
+    ///   `violations(inScript:)` 上面登记的那个残留缺口。
+    /// · 反过来：**多行字符串里以 `#` 起头的行会被当成注释剥掉** ⇒ 计数偏小
+    ///   （方向是假红，或掩盖掉一份真的重复）。今天的脚本里没有这种构造
+    ///   （实测：无 heredoc、`"""` 出现 0 次），但 python 段是 `python3 -c '…'` 一整块，
+    ///   将来很容易长出三引号块 ⇒ 先登记（PR #314 第 4 轮终审 S-1）。
     nonisolated static func nonCommentText(ofScript script: String) -> String {
         script
             .split(separator: "\n", omittingEmptySubsequences: false)
@@ -1236,9 +1271,21 @@ struct MainActorStaticRatchetGuard {
                 "jobs:",
             ].joined(separator: "\n")
         )
+        let workflowLevelProblems = Self.violations(inWorkflow: workflowLevel)
         #expect(
-            !Self.violations(inWorkflow: workflowLevel).isEmpty,
+            !workflowLevelProblems.isEmpty,
             "workflow 级 `defaults:` 应判红（它会被每个 job 继承，`jobBlock` 看不见它）"
+        )
+        // ⚠️ 钉的是**顶层那一份措辞**（PR #314 第 4 轮终审 I-1）：`topLevelReason` 在此之前
+        // 零判据覆盖，把 `blockedTopLevelKeys` 里的 `entry.topLevelReason` 改回 `entry.reason`
+        // ⇒ 整条 S-1 被撤销而本 suite 全绿。「每个 job 继承」这句只出现在 `topLevelReason` 里。
+        #expect(
+            workflowLevelProblems.contains(where: { $0.contains("每个 job 继承") }),
+            """
+            顶层命中必须打印**顶层那一份**措辞（`topLevelReason`），不是 job 级那份
+            ——后者的主语是「这个 job」，指错了一层。
+            实际报出来的是：\(workflowLevelProblems)
+            """
         )
     }
 
@@ -1313,7 +1360,14 @@ struct MainActorStaticRatchetGuard {
 
         // 二、**前面有一个正常 step** 时（与真 `ci.yml` 的 `swiftpm` job 同形，
         //    它第一步是 `- uses: actions/checkout@v4`），裸 `-` 那一段被**吞进上一个 step**
-        //    ⇒ `run:` 仍在直接子键那一列 ⇒ **判绿**。⚠️ 这一格原来登记成「判红」，是错的。
+        //    ⇒ `run:` 仍在直接子键那一列 ⇒ 判绿。⚠️ 这一格原来登记成「判红」，是错的。
+        //
+        // ⚠️⚠️ **下面这条钉的是「现状」，不是「期望性质」**（PR #314 第 4 轮终审 I-4）：
+        //    `stepBlocks` 认新条目要求 `trimmed.hasPrefix("- ")`，裸 `-` 因此被吞进上一个
+        //    step——这是**弱点**，不是想要的行为，只是今天它不构成安全洞（第三段证明）。
+        //    ⇒ 谁将来把 `stepBlocks` 改成**也认裸 `-`**（那是真正的加强），这一条会红：
+        //    **请改本行**（把期望翻成判红并补上分支断言），**不要为了让它绿而把
+        //    `stepBlocks` 改回去**。
         let bareDashAfterNormalStep = [
             "name: CI",
             "on:",
@@ -1331,7 +1385,8 @@ struct MainActorStaticRatchetGuard {
         #expect(
             Self.violations(inWorkflow: bareDashAfterNormalStep).isEmpty,
             """
-            裸 `-` 前面还有一个正常 step 时应当判绿（它被吞进上一个 step）。
+            登记的现状变了：裸 `-` 前面还有一个正常 step 时，今天它被吞进上一个 step ⇒ 判绿。
+            如果这是因为 `stepBlocks` 被加强成也认裸 `-`，请改这条断言，不要改 `stepBlocks`。
             实际报出来的是：\(Self.violations(inWorkflow: bareDashAfterNormalStep))
             """
         )
@@ -1351,16 +1406,36 @@ struct MainActorStaticRatchetGuard {
             "      -",
             "        name: MainActor static ratchet",
         ]
-        let neutralizations: [(String, [String])] = [
-            ("命令长出 `|| true` 尾巴", ["        run: \(Self.expectedRunCommand) || true"]),
-            ("偷塞 `if:`", ["        if: false", "        run: \(Self.expectedRunCommand)"]),
-            ("折行续行挂 `|| true`", ["        run: \(Self.expectedRunCommand)", "          || true"]),
+        // ⚠️ 三条都**各钉一个分支特征子串**（PR #314 第 4 轮终审 I-3）：只断言
+        //    `!isEmpty` 的话，将来某条判据一旦变成「对什么都报」，这三条会**以错误的理由
+        //    通过**——那正是第一段那句 `contains("切不出含它的 step 块")` 要防的那件事。
+        let neutralizations: [(label: String, tail: [String], branch: String)] = [
+            (
+                "命令长出 `|| true` 尾巴",
+                ["        run: \(Self.expectedRunCommand) || true"],
+                "那一行不是逐字的期望命令"
+            ),
+            (
+                "偷塞 `if:`",
+                ["        if: false", "        run: \(Self.expectedRunCommand)"],
+                "不在允许清单里的直接子键 `if:`"
+            ),
+            (
+                "折行续行挂 `|| true`",
+                ["        run: \(Self.expectedRunCommand)", "          || true"],
+                "底下还有更深缩进的续行"
+            ),
         ]
-        for (label, tail) in neutralizations {
+        for (label, tail, branch) in neutralizations {
             let yaml = (prefix + tail).joined(separator: "\n")
+            let problems = Self.violations(inWorkflow: yaml)
+            #expect(!problems.isEmpty, "被吞进上一个 step 之后，中和写法「\(label)」仍必须判红")
             #expect(
-                !Self.violations(inWorkflow: yaml).isEmpty,
-                "被吞进上一个 step 之后，中和写法「\(label)」仍必须判红"
+                problems.contains(where: { $0.contains(branch) }),
+                """
+                中和写法「\(label)」判红了，但走的不是期望那条分支（期望的特征子串：\(branch)）。
+                实际报出来的是：\(problems)
+                """
             )
         }
     }
