@@ -1408,7 +1408,9 @@ private struct ShaderModifierDemo<Effected: View>: View {
         VStack(spacing: CoreSpacing.md) {
             ForEach(Array(self.labels.enumerated()), id: \.offset) { index, label in
                 self.effect(AnyView(self.subject.view), index)
-                    .frame(height: 110)
+                    // 行高须 ≥ `GlassOrbSize.large` 的直径 144pt，否则最大一档被自身的
+                    // clip 削平（`GlassOrb.swift` 的 radius：24 / 44 / 72）。
+                    .frame(height: 160)
                     // ⚠️ 别删：不 clip 时 `.glassOrb` 三行溢出 frame、连成一片（实测）。
                     .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
                     .overlay(alignment: .topLeading) {
