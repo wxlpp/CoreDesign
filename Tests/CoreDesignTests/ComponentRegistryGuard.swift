@@ -805,6 +805,12 @@ struct ComponentRegistryGuard {
             // ⇒ 从它落进兜底时 `Issue.record` 的位置一律指向 `GuardScanRoots.swift` 那一行。
             // ⚠️ 前缀取 `root.lastPathComponent`，与 `scanComponentJudgeInputs(root:)` 的台账键
             // 同一形态（`<根目录名>/<根内相对路径>`）⇒ 真实根与副本根上诊断串的形状一致。
+            //
+            // ⚠️ **这条分支连同它拼出来的 `site` 串，今天零判据覆盖——如实登记**
+            //（`#313` 第 3 轮终审）：它只在 `tree.hasError` 时才走到，而 parser 与工具链
+            // 配套时全量跑一次也进不去 ⇒ 改前改后同样零覆盖，不是本轮引入的回归。
+            // 要覆盖它得喂一份故意写坏的源码，那属于「解析保真检查」自己的判据，
+            // 不在 `#311` 的范围内。
             if tree.hasError {
                 let site = root.lastPathComponent + "/" + GuardScanRoots.relativePath(url, from: root)
                 Issue.record("解析出错：\(site) —— swift-syntax major 可能与工具链不配套")

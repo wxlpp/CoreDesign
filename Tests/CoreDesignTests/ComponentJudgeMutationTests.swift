@@ -137,8 +137,12 @@ struct ComponentJudgeMutationTests {
         #expect(copied.bareTextKeys == real.bareTextKeys, "副本与真实源码的裸文本参数集合不一致 —— 拷贝有问题")
         #expect(copied.styleProtocolNames == real.styleProtocolNames)
         // ⚠️ **也比 `file` 串**（`#313` 第 2 轮终审 S-1）：上面两条比的都是**符号键**
-        //（裸文本参数键 / style 协议名），扫描器产出的**文件键**在本条之前零判据覆盖
-        // —— 而 `#311` 的**第 2 味**分叉恰恰只污染文件键：`copySources()` 把树拷进
+        //（裸文本参数键 / style 协议名），而扫描器产出的**文件键**上，`#311` 的**第 2 味**
+        // 分叉在本条之前零判据覆盖（⚠️ 措辞限定，`#313` 第 3 轮终审：本句原写「文件键在本条
+        // 之前零判据覆盖」，说宽了——同 PR 早先落地的
+        // `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
+        // 断的就是文件键，只是它走的是第 1 味）。
+        // 第 2 味只污染文件键：`copySources()` 把树拷进
         // `NSTemporaryDirectory()`，macOS 上那是 `/var/folders/…`，而 `/var` 是
         // `/private/var` 的符号链接 ⇒ 根不解析、枚举解析，两端分叉。
         // ⚠️ **这一味与 checkout 落在哪里无关**（第 1 味要 checkout 本身落在符号链接下才现形）

@@ -256,16 +256,22 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   `GuardScanRoots.relativePath(_:from:)`（按**路径分量**比较 + `/private` 归一），
   **不得**自己写 `url.path.replacingOccurrences(of: root.path + "/", with: "")`
   ——`replacingOccurrences` 不是前缀操作，前缀对不上时它会在**串中间**挖掉一段。
-  ⚠️ 另有一条**与 checkout 位置无关**的同源分叉，但它**只在 macOS 腿上**（`swift test`
-  与 `xcodebuild` 皆然）：`NSTemporaryDirectory()` 在 macOS 给的是 `/var/folders/…`，
+  ⚠️ 另有一条**与 checkout 位置无关**的同源分叉，但它**只在 macOS 腿上**（且**与 runner
+  无关**——这一味来自「macOS 上 `/var` 是 `/private/var` 的符号链接」这条 OS 事实，不是
+  构建系统给出来的路径，所以 `swift test` 与 `xcodebuild` 走的是同一条；⚠️ 本仓 CI
+  没有 macOS `xcodebuild` 腿，这半句是**从机制推出的，不是实测**）：
+  `NSTemporaryDirectory()` 在 macOS 给的是 `/var/folders/…`，
   而 `/var` 同样是 `/private/var` 的符号链接 ⇒ 凡是把源码树拷进临时目录再扫的判据，
   在 macOS 上**不论 checkout 落在哪里**都吃这一条。
   ⚠️ **iOS Simulator 腿的 `NSTemporaryDirectory()` 不在 `/private` 之下，这一味在那条腿上
   不出现**：它落在 `…/Library/Developer/CoreSimulator/Devices/<id>/data/tmp/`，逐分量查过
   没有符号链接祖先、`realpath` 与原串相同（`#313` 终审实测；第 3 轮用 iOS 腿实跑的判据
   输出复核过——那条串整条**不含** `/private`）。⇒ 拿 `/private` 写死的复现 fixture 在 iOS 腿上
-  会静默退化成「两端一致、构造不出分叉 ⇒ 恒绿」；要两条腿都成立，fixture 必须自己建一条
-  符号链接（见 `Tests/CoreDesignTests/GuardScanRoots.swift` 的 `SymlinkedScanRootFixture`）。
+  **构造不出分叉**，后果分两种、取决于它有没有前提自证：**没有**前提自证的（只断言「相对
+  路径干净」）会静默退化成「两端一致 ⇒ 恒绿」；**带**前提自证的会当场红——本仓早一版判据
+  自证那一句写的是 `file.path.hasPrefix("/private/")`，iOS 腿上就红在它（实测）。两种后果
+  都要不得；要两条腿都成立，fixture 必须自己建一条符号链接
+  （见 `Tests/CoreDesignTests/GuardScanRoots.swift` 的 `SymlinkedScanRootFixture`）。
 
 ### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
 

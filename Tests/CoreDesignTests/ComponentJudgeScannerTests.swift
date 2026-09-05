@@ -423,6 +423,18 @@ struct ComponentJudgeScannerPathKeyTests {
         //    「零命中 ⇒ 零违规 ⇒ 绿」。今天这条前提由
         //    `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 单独钉着，
         //    但本条不该把它当**事实**默认下来，自己也证一次。
+        //    ⚠️ **但它在 macOS 腿上不是干净的判别器，与那条同款 ① 同一条登记**
+        //    （`#313` 第 3 轮终审 C-3；那条的登记见
+        //    `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 的 ①）：
+        //    macOS 的 `NSTemporaryDirectory()` 自带 `/var` → `/private/var` 一味，单它就
+        //    足以让前缀对不上 ⇒ **fixture 的符号链接那一半只有 iOS 腿钉得住**。
+        //    实测（`#313` 第 4 轮 M-I2：把 `SymlinkedScanRootFixture.make` 返回的 `root`
+        //    从 `linkDirectoryName` 改成 `realDirectoryName`，符号链接彻底不参与；各跑两遍）
+        //    ⇒ macOS `swift test` 两条 ① 双绿（`Test run with 2 tests in 2 suites passed`）、
+        //    iOS Simulator 腿两条 ① 双红。
+        //    ⇒ 上面那句「哪天 `FileManager.enumerator` 不再解析祖先符号链接」只覆盖
+        //    **Foundation 行为变更**这一种攻击面；「**有人把 fixture 改简单了**」这一种更现实，
+        //    而它在 macOS 腿上本条**照样绿**。
         let walker = try #require(
             FileManager.default.enumerator(at: fixture.root, includingPropertiesForKeys: nil),
             "无法枚举 fixture 根 —— 判据无法工作，这不是「零违规」"
