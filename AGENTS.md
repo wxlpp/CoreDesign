@@ -127,9 +127,42 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   `xcshareddata/xcschemes/CoreDesignPreview.xcscheme`。完整警告与恢复步骤见
   `App/project.yml` 顶部注释；验证要覆盖 `name=` 字段与文件内注释两种形态的目录名
   残留，只查一种会漏。
-- **新增 / 修改 `.xcassets` 里的 colorset 后必须 `swift package clean` 再构建/测试**：
-  macOS SwiftPM 以目录形式而非 `.car` 分发 `.xcassets`，增量构建不会拷贝新加的目录，
-  资源缺失是静默失败，颜色断言抓不到。
+- **第 1 层资源色在 macOS `swift test` 下全部解析为透明——颜色断言在这条腿上抓不到**
+  （`#275`。⚠️ 本条**推翻**了这里原来那句「新增 / 修改 colorset 后必须
+  `swift package clean` 再构建/测试；增量构建不会拷贝新加的目录」——成因与补救都不对，
+  逐条见下）。asset catalog 在本仓有**两种产物形态**，由构建路径决定：
+  - `swift build` / `swift test`（SwiftPM native，即日常 macOS 腿）：**不调 `actool`**，
+    `.process("Resources")` 对 `.xcassets` 就是一次**目录原样拷贝**。产物里是
+    `Info.plist` / `Resources.xcassets/` / `en.lproj/`，**没有 `Assets.car`**。
+    而 `Color(_:bundle:)` 在 AppKit 下最终落到 `NSColor(named:bundle:)`，**只认编译后的
+    catalog** ⇒ 每一次查找都 miss、返回 clear。
+  - `xcodebuild`（iOS Simulator 腿）与 `swift test --build-system swiftbuild`：跑 `actool`，
+    产物里是 `Assets.car`，同一批 token 取值正常。
+  ⇒ 在 macOS 腿上，第 1 层的 **198 个** `Color("…", bundle: .module)` 常量
+  （`Colors/ColorGrade.swift` 170 个色阶 + `Colors/StatusColors.swift` 24 个 status token
+  + `Tokens/CoreElevation.swift` 4 个 shadow token）**以及原样转手它们的别名**
+  （`InteractionColors` 的 `secondaryAccent` / `neutralAccent` 两族共 8 个、
+  `FunctionalColor` 全部 10 个）**一律 `resolve(in:)` 出 `(0, 0, 0, 0)`**。
+  两条腿的实测对照（同一份探针、同一个 commit）：`statusDangerForeground` 在 macOS 腿是
+  `a=0.0`、在 iOS 腿是 `r=0.812 g=0.133 b=0.180 a=1.0`；同一次运行里
+  `accent` / `contentPrimary` / `surfaceRaised` 这些系统语义色**两条腿都正常**。
+  - ⇒ **硬规则：第 1 层及其别名绝不可进 macOS 腿的位图 / `resolve(in:)` 断言。**
+    失效方向**向绿**：`a != b` 会因为其中一张根本没画出来而通过——判到的是「这个色没渲染」，
+    不是「取色跟着调用方走」。阈值型断言（`α > x`）则会恒红得莫名其妙。
+  - ⚠️ **`swift package clean` 对这一条毫无作用**：它是构建计划的结构性事实，
+    从零构建一模一样。原句里「增量构建不会拷贝新加的目录」今天也**不成立**——实测新增一个
+    colorset 目录后裸跑 `swift build`，日志就是 `[1/2] Copying Resources.xcassets`、
+    新目录当场进 bundle，删除同理（Swift 6.3 / Xcode 26.4）。
+    clean 仍然是缓存出问题时的通用手段，但**不是**这条盲区的补救。
+  - 机器判据：`ColorGradeResolutionGuard`（`Tests/CoreDesignTests/`）按 bundle 形态分叉——
+    有 `Assets.car` 就正向断言抽样 token 非全透明；只有目录形态就反向钉死「恒为全透明」，
+    并把正向那条**显式 skip 且打印原因**（跳过在退出码上等同于通过，所以理由必须写在日志里）；
+    两种形态都探不到时由一条**无条件**判据判红。
+  - 今天全仓**唯一**把第 1 层 token 喂进 `resolve(in:)` 的判据是
+    `SurfaceContrastTests.statusSubtleFillsAreDistinguishableInDark`（5 个 `status*Subtle`），
+    它整个 suite 在 `#if os(iOS)` 里 ⇒ 只在 catalog 已编译的那条腿上跑，**没有空转**。
+    `StatusColorsTests` 与 `TimelineTests` 断言的是 **asset 名**（经 `assetName`）而非解析值，
+    免疫；`ColorAssetGuardTests` 查的是**文件系统里的目录是否存在**，也不解析颜色。
 
 - **多 product 之后，CI 的 iOS 腿必须用 `-scheme CoreDesign-Package`**：包只有一个
   product 时 Xcode 把包 scheme 合并进同名 scheme，于是 `-scheme CoreDesign` 恰好能跑测试；
@@ -143,6 +176,52 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   jq 取到的是 `null`。照 `[]` 写判据会永远判红。
 - **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
   `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
+
+### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
+
+⚠️ 五种的共同点：**退出码是成功的**。只看 `$?` 的验证纪律对它们全部免疫，
+必须核对「到底跑了几条」。除第 4 条另有标注外，以下每条都在本仓实测过
+（Swift 6.3 / Xcode 26.4）：
+
+1. **`swift test --filter` 传的是 `@Suite` 的中文显示名**——要传 Swift **类型名**。
+   实测：`swift test --filter "资源 bundle canary"` → `Test run with 0 tests in 0 suites passed`、
+   `EXIT=0`；换成类型名 `ResourceBundleCanaryTests` 才真的跑。
+2. **macOS 上 `#if os(iOS)` 的 suite 是空 suite**（`DynamicTypeLayoutTests`、
+   `SurfaceContrastTests`）。整跑与 `--filter` 到这类类型名都是零条 + `EXIT=0`。
+   ⚠️ 这一条与构建系统无关：native 与 swiftbuild 表现一致。
+3. **`xcodebuild` 的 `-only-testing:` / `-skip-testing:` 传了不存在的标识符 ⇒ 静默 no-op**。
+   实测 `-only-testing:CoreDesignTests/NoSuchSuiteTests` → `** TEST SUCCEEDED **`、`EXIT=0`、
+   日志里**连一行 `Test run with …` 都没有**。⇒ `ci.yml` 里那几行 skip 标识符写错了不会报错，
+   只会静默失效（这也是那里反复强调「用类型名不用显示名」的原因）。
+4. **`-destination` 的 simulator id 过期** ⇒ `Ineligible destinations`、零测试、退出码 0。
+   ⚠️ **这一条是历史报告，本次没有复现出退出码 0 的那一半**（要复现需要一台「存在但不合格」
+   的设备，本机凑不出）——如实登记，别当成本轮实测。
+   ⚠️ **本次实测到的是它容易被认错的孪生体：「id 压根不存在」是硬红**——
+   `id=00000000-0000-0000-0000-000000000000` 给出
+   `xcodebuild: error: Unable to find a device matching the provided destination specifier`、
+   `EXIT=70`，**同时也**打印一份 `Ineligible destinations` 清单（那份清单列的是本机没装的
+   tvOS / visionOS / watchOS 平台，属附带信息）。⇒ 两者靠那一行 `error:` 与退出码区分，
+   只看到 `Ineligible` 就下「静默零测试」的结论会判错。
+5. **`--build-system swiftbuild` 下，`swift test` 给每个 test target 各打印一行
+   `Test run with …` 汇总，而末行常常是 `0 tests`**（排在后面的 target 没有匹配项）。
+   ⇒ `tail -1` 或肉眼扫结尾，会把一次**真实的运行**读成「零测试」。
+   实测（`main`，三个 test target）：`swift test --build-system swiftbuild --filter <类型名>`
+   打印 3 行汇总，其中一行是真实条数、末行是 `0 tests`，`EXIT=0`。
+   ⇒ 核对条数**必须扫全文**（`grep -qE 'Test run with [1-9][0-9]* tests?'`），不能取末行。
+
+⚠️ **`#302` 把第 5 条记成了「`--build-system swiftbuild --filter` 静默跑零个测试」——
+复现不出来**（本次在 `main` 与 `epic/shipswift-shaders` 各测一遍）：后者上
+`swift test --build-system swiftbuild --filter CoreDesignShadersTests` **真跑了 27 条**
+（4 行汇总里的一行），只是末行为 `0 tests`；它同时举的 `--filter RenderProofTests` 确实零条，
+但那是上面第 2 条（那个文件整包在 `#if os(iOS)` 里），在 native 构建下同样零条，与 swiftbuild 无关。
+⇒ 第 5 条是**读日志的方式**问题，不是 `--filter` 语义问题。
+
+⚠️ **那道 fail-closed 的 grep 网只在 `epic/shipswift-shaders` 上**（`ci.yml` 的
+「Test (swiftbuild) — CoreDesignShaders」步骤末尾），`main` 的 `ci.yml` 里既没有它、
+也没有 shader 那一步。它扫全文而非取末行，**对第 5 条免疫**——实测在
+`--filter CoreDesignShadersTests` 上判绿、在 `--filter RenderProofTests` 上判红，方向正确。
+⚠️ 但它只兜第 5 条与第 1 条：第 3 条（`-only-testing:` 打错）根本不产生
+`Test run with` 行，第 4 条发生在 `xcodebuild` 腿上而那条腿没有同类的网。
 
 ### 判据引用与「更正传播」约定（`#287`）
 
