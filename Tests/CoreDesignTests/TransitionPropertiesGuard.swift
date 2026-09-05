@@ -28,9 +28,9 @@ import Testing
 // 全仓今天有**三种**语义相同的写法：
 //
 // ```
-// public static let properties = TransitionProperties(hasMotion: false)                       // 滤镜簇 #266
-// public static var properties: TransitionProperties { .init(hasMotion: true) }               // 3D 与弹性簇 #267
-// public static let properties: TransitionProperties = TransitionProperties(hasMotion: true)  // mask reveal #268 / particle #292
+// public nonisolated static let properties = TransitionProperties(hasMotion: false)           // 滤镜簇 #266
+// public nonisolated static var properties: TransitionProperties { .init(hasMotion: true) }   // 3D 与弹性簇 #267
+// public nonisolated static let properties: TransitionProperties = TransitionProperties(hasMotion: true)  // mask reveal #268 / particle #292
 // ```
 //
 // 任何「`code.contains("static let properties: TransitionProperties")`」形态的判据都只认

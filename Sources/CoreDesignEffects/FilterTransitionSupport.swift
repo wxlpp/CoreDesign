@@ -75,9 +75,25 @@ import SwiftUI
 // `blur` 的类型文档说「降级等于删掉这条转场」，而那件事已经在发生；
 // `filmExposure` / `snapshot` 的「**有意不读** Reduce Motion，免得只开减弱动态效果的用户
 // 白白丢掉一条无害的成像效果」也落空了——他们照样丢掉，经框架默认值。
-// ⇒ 四个类型各写一行 `public static let properties = TransitionProperties(hasMotion: false)`，
+// ⇒ 四个类型各写一行
+// `public nonisolated static let properties = TransitionProperties(hasMotion: false)`，
 // 判据 `FilterTransitionTests.everyTransitionOptsOutOfTheFrameworkMotionSubstitution`
 // 钉住这四位，并用一个**不覆写** `properties` 的探针类型互锁（证明默认值真的是 `true`）。
+//
+// ⚠️ **`nonisolated` 是必需的、不是装饰**（#290，同 `FlipTransition.quarterTurn` 那条）
+// ——本条对**全部 12 条转场**的 `properties` 都成立，不只这四条：
+// 本 target 开了 `.defaultIsolation(MainActor.self)`，而 `properties` 长在遵从 SwiftUI
+// `Transition` 的类型上 ⇒ 不标它就是 MainActor 隔离的，下游从 `nonisolated` 上下文读
+// `hasMotion`（"这条转场含运动吗，我要不要自己换一条"这种判断不该被逼上主线程）会拿到
+//
+//     warning: main actor-isolated static property 'properties'
+//              can not be referenced from a nonisolated context
+//
+// ⚠️ 注意是 **warning 不是 error**：这里的隔离由 SwiftUI 协议遵从**推断**而来，
+// 编译器对它降级。⇒ 库自身的 `swift build` / `swift test` 全绿也说明不了什么，
+// 常驻判据在 `scripts/downstream-probe`（`readTransitionPropertiesHasMotion()`，12 条
+// 逐条），而 CI 的 `downstream-probe` job 带 `-Xswiftc -warnings-as-errors`
+// ——没有那个标志时这类 warning 会**绿着积累**，#290 之前正是如此。
 //
 // ⚠️ **`flicker` 也取 `false`，这是一次显式裁决**——两条路都记在这里：
 // · 取 `true`（让框架替换）：Reduce Motion 用户拿到 SwiftUI 的 `.opacity`，

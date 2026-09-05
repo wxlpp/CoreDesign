@@ -936,7 +936,7 @@ struct FilterTransitionTests {
             {
                 public let radius: CGFloat
                 public nonisolated static let defaultRadius: CGFloat = 12
-                public static let properties = TransitionProperties(hasMotion: false)
+                public nonisolated static let properties = TransitionProperties(hasMotion: false)
                 public init(radius: CGFloat = BlurTransition.defaultRadius) {
                     self.radius = radius
                 }
@@ -957,7 +957,7 @@ struct FilterTransitionTests {
             {
                 public let intensity: Double
                 public nonisolated static let defaultIntensity: Double = 0.55
-                public static let properties = TransitionProperties(hasMotion: false)
+                public nonisolated static let properties = TransitionProperties(hasMotion: false)
                 public init(intensity: Double = FilmExposureTransition.defaultIntensity) {
                     self.intensity = intensity
                 }
@@ -981,7 +981,7 @@ struct FilterTransitionTests {
             {
                 public let intensity: Double
                 public nonisolated static let defaultIntensity: Double = 0.7
-                public static let properties = TransitionProperties(hasMotion: false)
+                public nonisolated static let properties = TransitionProperties(hasMotion: false)
                 public init(intensity: Double = SnapshotTransition.defaultIntensity) {
                     self.intensity = intensity
                 }
@@ -1005,7 +1005,7 @@ struct FilterTransitionTests {
             {
                 public let cycles: Int
                 public nonisolated static let defaultCycles: Int = 3
-                public static let properties = TransitionProperties(hasMotion: false)
+                public nonisolated static let properties = TransitionProperties(hasMotion: false)
                 public init(cycles: Int = FlickerTransition.defaultCycles) {
                     self.cycles = cycles
                 }

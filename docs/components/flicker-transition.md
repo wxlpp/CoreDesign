@@ -16,7 +16,7 @@ import CoreDesignEffects
 public struct FlickerTransition: Transition {
     public let cycles: Int
     public nonisolated static let defaultCycles: Int   // 3
-    public static let properties: TransitionProperties // hasMotion: false
+    public nonisolated static let properties: TransitionProperties // hasMotion: false
     public init(cycles: Int = FlickerTransition.defaultCycles)
     public func body(content: Content, phase: TransitionPhase) -> some View
 }

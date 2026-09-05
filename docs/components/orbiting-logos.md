@@ -16,7 +16,7 @@ import CoreDesignEffects
 ```swift
 public struct OrbitingLogos<Data: RandomAccessCollection, Logo: View, Center: View>: View
 where Data.Element: Identifiable {
-    public static var defaultRotationPeriod: Double { get }   // 10（秒 / 圈）
+    public nonisolated static var defaultRotationPeriod: Double { get }   // 10（秒 / 圈）
     public init(_ items: Data,
                 colors: [Color] = [],
                 rotationPeriod: Double = OrbitingLogos.defaultRotationPeriod,

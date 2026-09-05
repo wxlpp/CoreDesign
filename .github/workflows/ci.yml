@@ -121,11 +121,60 @@ jobs:
     # 库的其余验证全都跑在启用了 defaultIsolation 的 target **内部**，
     # 结构上看不见「下游从 nonisolated 上下文能否使用公开 API」。
     # 这个 job 是唯一的下游视角，防的是公开 API 隔离契约的静默回归。
+    #
+    # ⚠️⚠️ `-Xswiftc -warnings-as-errors` **不是可省的严格度装饰**（#290）：
+    # 隔离契约的破法**大多数是 warning 而不是 error**——公开常量长在 `View` /
+    # `Transition` 上时，MainActor 隔离由 SwiftUI 的协议遵从推断而来，编译器
+    # 把「从 nonisolated 上下文读它」降级成 warning。⇒ 不带这个标志，这个 job
+    # 对**整整一类**隔离回归是空的。最直接的反证是它自己的历史：本包一度带着
+    # 5 条这样的 warning，而这个 job 一直是绿的（#290 的起因）。
+    #
+    # ⚠️ 「加了标志」不等于「它真的会响」：`selftest-warnings-as-errors.sh` 塞一个
+    # 必然产生 warning 的临时文件进 probe，断言这条命令**判红**、删掉后**判绿**
+    # ——那是本仓 AD-E 对新守卫的一贯要求（能触发红的 fixture）。
+    #
+    # ⚠️ 而「selftest 绿」也不等于「CI 跑的是这条命令」——selftest 自己硬编码这个
+    # 标志。把下面那步改回裸 `swift build`，selftest 照样绿、整道闸静默消失。
+    # 钉住它的是**树内**判据 `Tests/CoreDesignTests/DownstreamProbeGateGuard.swift`
+    # （读本文件，断言下面这条 `run:` 逐字含该标志）⇒ 随 `swift test` 在每个事件上跑。
+    #
+    # ⚠️ 那条判据还会拦一批「标志还在、但红点传不到 job 结论 / 这个 job 压根没跑」的
+    # 改法（PR #304 第 2 轮终审 I-2、第 3 轮 C-2/I-C）。**别把下面这串读成穷举清单**，
+    # 判据自己的头注释里写着哪些仍然敞着（`on:` 收窄、`paths-ignore:`、假的 `runs-on:`）：
+    #   · 下面那条构建 `run:` 必须**逐字**等于
+    #     `cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors`
+    #     ——后面接**任何**尾巴都判红（` || true` / ` ||true`（少一个空格也算）/
+    #     `|| :` / `|| exit 0` / `|| echo skipped` / `; true` / 换行接 `true` / `2>/dev/null` …）。
+    #     ⚠️ 这条也意味着给它加合法后缀（`--verbose`、`| tee build.log`）同样判红。
+    #   · 这个 job 块里出现 `continue-on-error:` / `if:` / `needs:` / `shell:` 任意一个，判红。
+    #     （`needs:` 不是理论洁癖：`needs: bool-ratchet` 会让本 job 在**每一次 push 事件**
+    #     上被跳过，因为 `bool-ratchet` 自己带着 `if: github.event_name == 'pull_request'`。）
+    #   · 块标量里用 `echo "<整条命令>"` 冒充真命令、把命令塞进 `uses:` 步骤的 `with:` 下面，
+    #     判据都不认（它先剥引号、丢 `echo`/`printf` 行、只认步骤自己的 `run:` 键）。
+    #   ⚠️ **但它锁的是「那一行」——同一个 `run:` 块里的兄弟行完全不设防**
+    #     （PR #304 第 4 轮终审 C-2'，**已登记、本轮未堵**）：把这条命令逐字保留不动，
+    #     在它上面加一行 `exit 0` / `trap 'exit 0' ERR` / `if false; then` / `eval "exit 0"` /
+    #     `swift() { exit 0; }`，或把它塞进一个 `cat <<'EOF' > /dev/null` 诱饵里，
+    #     判据**全绿**而这条命令一次都不会跑。⇒ 这一步的 `run:` 请**保持单行**。
+    # 真要加，先改判据并说明理由——别以为它只看那个标志。
+    # 另：`run:` 里那一串是**逐字**匹配的，改写成语义等价的多行 / 折叠标量会判红
+    #（fail-closed，但报错信息像 bug）；唯一被放行的等价写法是 shell 反斜杠续行。
+    #
+    # ⚠️⚠️ **副作用：这个标志顺带给了库自身一道零警告闸**（PR #304 终审 S-2）。
+    # `-Xswiftc` 会传给**依赖图里所有** Swift 编译，而 probe 的依赖图包含
+    # `CoreDesign` / `CoreDesignEffects` / `CoreDesignCharts` 三个 target 的源码。
+    # ⇒ 从此 `Sources/` 里**任何一条** warning 都会让**这个 job** 变红，而同一个 PR 的
+    # `swift build` job 是绿的（那条不带标志）。方向是 fail-closed（好事），
+    # 但失效形态会认错人：工具链升级引入一条 deprecation 时，**红点出现在
+    # 「Downstream API probe」这个名字完全对不上的 job 里**。
+    # 先看这一段，再去翻日志里那条 `Sources/...: error: ... deprecated`。
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - name: Build downstream probe
-        run: cd scripts/downstream-probe && swift build
+        run: cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors
+      - name: Self-test the warnings-as-errors gate
+        run: scripts/downstream-probe/selftest-warnings-as-errors.sh
 
   bool-ratchet:
     name: Bool exemption ratchet

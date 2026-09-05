@@ -1085,9 +1085,9 @@ struct MaskRevealTransitionBodyTests {
     /// ⇒ 本条上一版那句 `code.contains("static let properties: TransitionProperties")`
     /// **已删**：它逐字钉的是本簇那一种写法（三簇各写各的，语义完全相同——
     /// ```
-    /// #268（本簇）  public static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
-    /// #267（簇 B）  public static var properties: TransitionProperties { .init(hasMotion: true) }
-    /// #266（滤镜簇）public static let properties = TransitionProperties(hasMotion: false)
+    /// #268（本簇）  public nonisolated static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
+    /// #267（簇 B）  public nonisolated static var properties: TransitionProperties { .init(hasMotion: true) }
+    /// #266（滤镜簇）public nonisolated static let properties = TransitionProperties(hasMotion: false)
     /// ```
     /// ），在结构守卫落地之后它被**完全支配**：净效果只剩"给将来任何一次重排版留一枚假红"。
     /// ⚠️ 顺带更正一句旧文案：上一版这里写「`#292` 统一声明形态的那次改动会让本条判红」

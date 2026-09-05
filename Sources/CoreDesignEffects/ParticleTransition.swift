@@ -89,7 +89,7 @@ public struct ParticleTransition: Transition {
     /// 签名当默认实参用，而 Swift 不允许默认实参引用 internal 符号
     ///（实测 `error: … is internal and cannot be referenced from a default argument value`）。
     /// `ParticleBurst` 是**几何契约**，一个 API 默认值本来也不该长在那里。
-    public static let defaultCount: Int = 18
+    public nonisolated static let defaultCount: Int = 18
 
     /// ## ⚠️⚠️ `hasMotion` 取 `true`，这是一次**有代价**的定案，代价照录
     ///
@@ -142,7 +142,7 @@ public struct ParticleTransition: Transition {
     /// 判据：`TransitionPropertiesRoster.everyTransitionDeclaresItsMotionHonestly`
     /// （运行时取值，12 条逐条）+ `TransitionPropertiesGuard`（结构上钉住"显式声明"
     /// 而不是继承默认值，且新增 `Transition` 漏声明必红）。
-    public static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
+    public nonisolated static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
 
     public init(count: Int = ParticleTransition.defaultCount, colors: [Color] = []) {
         self.count = count
