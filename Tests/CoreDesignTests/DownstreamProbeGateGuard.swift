@@ -158,23 +158,37 @@ import Testing
 //   真实脚本上各跑一次 `swift test`，两种都 `23 tests passed`（PR #304 第 4 轮终审 R-7 ②③）：
 //   ① 把 `:63` 的 `exit 1`（步骤 1 期望判红却拿到 0 时的那条）改成 `exit 0` ⇒ 脚本永远成功；
 //   ② 在 `set -euo pipefail` 之后加一行 `trap "exit 0" ERR` ⇒ 任何失败都被吞掉。
-//   **已知缺口，未修，已登记进 #307**（与下面那条「probe 里某个 `nonisolated func`
-//   被删无人红」同处）。
+//   **已知缺口，未修**。⚠️ `#307` 落地后**它仍然未修**：那一轮加的
+//   `MainActorStaticRatchetGuard` 也只钉自己那个脚本的**筛条件字面量**，同样不看脚本
+//   怎么判成败（把 python 段整段换成 `sys.exit(0)`、或加 `trap "exit 0" ERR`，
+//   那条判据照绿）——「谁看着看门人」这条链条在两处各断在同一环。
 // · probe 里某个 `nonisolated func` 被整个删掉会判红 ——
 //   `readTransitionPropertiesHasMotion()` / `useSettingsRowMetrics()` 删掉，
 //   没有任何判据会红（`scripts/api-surface-diff.sh` 的头注释自己就写了
 //   「它引用的符号是**手写清单**」；而 `api-surface-diff.sh` 比的是 `CoreDesign`
 //   模块的 digester dump，**根本不读 probe**）。**已知缺口**，不在本判据射程。
-//   ⚠️ 附带状态（PR #304 第 3 轮终审 S-iv）：`consumeSettingsRowMetrics()` 删除后，
-//   `SettingsRowMetrics` 在整个 probe 里**只剩 `useSettingsRowMetrics()` 一个 pin**，
-//   而删掉它不会有任何判据红 ⇒ 「单点 + 无守卫」。删除本身无损（改回 internal 时
-//   probe 判 6 条 `cannot find 'SettingsRowMetrics' in scope`），但这个状态一并
-//   带进 **#307**。
-// · 新增的公开 `static` 成员会被 probe 引用 —— 完整性仍是 `#290` 的**一次性人工
-//   枚举**：新加一个 `public static let` 到新类型上，它默认仍被 `defaultIsolation`
-//   卷进 MainActor，而 probe 不引用它就没有任何东西判红。**已知缺口**，连同一个
-//   可行的 symbol-graph 机器判据（含「扫描范围决定豁免表是 5 条还是 51 条」这个
-//   必须先定案的分叉）登记在 **#307**。
+//   ⚠️ 附带状态（PR #304 第 3 轮终审 S-iv，**#307 已部分处置，照录更新**）：
+//   `consumeSettingsRowMetrics()` 删除后，`SettingsRowMetrics` 在整个 probe 里
+//   **只剩 `useSettingsRowMetrics()` 一个 pin**，而删掉它不会有任何判据红
+//   ⇒ 当时是「单点 + 无守卫」。
+//   ⚠️ **「无守卫」这一半已经不成立了**：`#307` 的 `MainActorStaticRatchetGuard` +
+//   `scripts/mainactor-static-ratchet.sh` 直接从 symbol graph 判定
+//   `SettingsRowMetrics` 那 6 个公开 static 的隔离——`enum SettingsRowMetrics` 上那个
+//   `nonisolated` 被拿掉，6 个成员会在 symbol graph 里长出 `@MainActor`，与豁免表的
+//   双向差集当场红（本轮在 `CoreDesignCharts.moduleName` 上做过同形态的变异实证）。
+//   ⇒ **删 `useSettingsRowMetrics()` 不再意味着这条隔离契约失守**。
+//   ⚠️ 但「单点」这一半**仍然成立、仍未修**：删掉那个 `nonisolated func` 之后，probe
+//   就完全不引用 `SettingsRowMetrics` 了，**「它还是不是 public」这件事没有任何判据钉住**
+//   （棘轮只问隔离，不问可见性；`api-surface-diff.sh` 的清单是手写的）。
+// · 新增的公开 `static` 成员会被 probe 引用 —— **#307 已处置这一条，照录更新**：
+//   完整性不再依赖 `#290` 的一次性人工枚举。`scripts/mainactor-static-ratchet.sh`
+//   从 `swift package dump-symbol-graph` 取编译器算出来的隔离，与
+//   `docs/mainactor-static-exemptions.txt` 做双向差集，由 `ci.yml` 的 `swiftpm` job
+//   一步执行、由 `Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift` 树内看守。
+//   ⚠️ **它只覆盖各 target 的主 symbols 文件**：写在 `extension <外来类型>`
+//   （`extension Color` / `extension Transition` / `extension ButtonStyle` …）里的
+//   新公开 static 成员**仍然是盲区**——那是 `#307` 定案时明确买单的代价，
+//   逐字理由见那个脚本的《范围定案与代价》一节。
 //
 // ⚠️ 判据**只解析文本、不跑 CI**——因此它和 `AppProjectManifestGuard` 一样，
 // 是那类「CI 里唯一看得见自己」的判据：它随 `swift test` 在**每个事件**上跑。

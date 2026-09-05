@@ -242,18 +242,9 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   jq 取到的是 `null`。照 `[]` 写判据会永远判红。
 - **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
   `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
-- **`xcodebuild` 的 console 输出会漏行 ——「数 `Test run with` 行」这个检查本身不稳，
-  权威值取 `.xcresult`**（`#299` / PR #315 第 2 轮终审）。下一条那节「必须核对到底跑了几条」
-  的纪律**不能靠数 console 行来兑现**：
-  - 终审在核 iOS 腿时撞到过这个形态：同一条命令的第 2 遍 `EXIT=0` + `** TEST SUCCEEDED **`，
-    但 console 里只落下 **2** 条 `Test run with …` 行（第 1 遍是 3 条）。
-    ⚠️ **成因未查明**：那次观测**没有留下 `.xcresult`**，因此「不是少跑了一个 test target」
-    与「xcodebuild 的输出捕获竞态」**都推不出来**——前者是个无法从 console 行数得出的否定，
-    后者是个未经验证的机制假设。（`#315` 第 3 轮终审 I-2 更正：上一版把这两句写成了事实。）
-  - ⚠️ **两次独立的复现尝试各连跑 3 遍、累计 6 遍，一次都没再现** ⇒ 它不是稳定可复现的形态。
-    ⇒ 无论成因是什么，处置一样：**console 行数不可作承重判据**，
-    「行数对了就算跑全了」这个推断本身不成立。
-  - ⇒ **权威值取 result bundle**，console 行数只作粗筛：
+- **`xcodebuild` 的 console 行数不可作承重判据**（`#299`）：出现过「同一条命令第 2 遍只落 2 条
+  `Test run with` 行」，成因未查明、6 次复现尝试未再现 ⇒ 无论成因如何，「行数对了就算跑全了」
+  这个推断不成立。**权威值取 result bundle**：
 
     ```bash
     xcodebuild test -scheme CoreDesign-Package \
@@ -262,17 +253,26 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     xcrun xcresulttool get test-results summary --path <path>.xcresult
     ```
 
-    ⚠️ **取 JSON 的顶层 `passedTests`，不是 `devicesAndConfigurations[].passedTests`** ——
-    后者按 dynamic parameters（`arguments:` 参数化用例）**展开**计，两个数会对不上：
-    实测顶层 `928`，`devicesAndConfigurations[0]` 为 **966**（= 928 − 9 + 47：9 条参数化
-    函数展开成 47 条实例），同一份 JSON 的 `statistics` 字段会逐字说明这一点。
-    照 `devicesAndConfigurations[].passedTests` 读会把它误判成基线漂移。
-
-    本轮三遍运行的 `.xcresult` **完全相同**：`result=Passed`、`failedTests=0`、
-    `expectedFailures=5`、`skippedTests=4`、`passedTests=928`（928 + 5 + 4 = **937** ✓，
-    与 console 三行汇总 74 + 244 + 619 一致）。
-  - ⚠️ 通过与否、跑了几条、跳过几条，一律以 `.xcresult` 为准；`EXIT` 与
-    `** TEST SUCCEEDED **` 连同 console 行数都只是**粗筛**。
+    ⚠️ **取顶层 `passedTests`，不是 `devicesAndConfigurations[].passedTests`** —— 后者按
+    dynamic parameters 展开计（实测顶层 928、per-device 966 = 928 − 9 + 47），照后者读会
+    误判成基线漂移。
+- **公开 `static` 成员的 MainActor 隔离棘轮只在 CI 上跑**（`#307`）：本包三个 target
+  都开了 `.defaultIsolation(MainActor.self)`，新加的公开 `static` 成员**默认**被卷进
+  MainActor，下游在非主 actor 语境取用会报错或被迫 `await`。判据是
+  `scripts/mainactor-static-ratchet.sh`（`swift package dump-symbol-graph` → 筛
+  `@MainActor` 的公开 static 型成员 → 与 `docs/mainactor-static-exemptions.txt`
+  做双向差集），挂在 `ci.yml` 的 `swiftpm` job 里 `swift test` 之后那一步
+  ——**本地 `swift test` 全绿不代表这条过了**，改公开 static 后请手动跑一次
+  （本机热 `.build` 上**实测约 4 s**，写出约 265 MB JSON；这里曾写「约 100s」，
+  是失真的数，`#314` 终审实测推翻）。看着这一步不被静默拆掉的是无条件树内判据
+  `Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift`。
+  ⚠️ **只有第三方模块的扩展块成员不在射程内**：脚本扫「各 target 的主 symbols 文件」
+  **加**「本包内跨 target 的 `<Target>@<本包另一个 target>.symbols.json`」，只放过
+  `@SwiftUI` / `@SwiftUICore` 那一类（有意的取舍，逐字代价登记在那个脚本的
+  《范围定案与代价》一节）。⚠️ 那块盲区的形态要写准：**不是**「往
+  `public extension Color` 加常量忘了写 `nonisolated`」——实测那样加出来的成员
+  **根本不带 `@MainActor`**（`defaultIsolation` 不作用于外来模块类型的扩展）；
+  真实形态是**显式**写 `@MainActor`，或扩展一个自身就是 `@MainActor` 的第三方类型。
 
 ### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
 
