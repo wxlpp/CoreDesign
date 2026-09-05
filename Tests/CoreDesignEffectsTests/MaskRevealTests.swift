@@ -921,8 +921,17 @@ struct MaskRevealTransitionBodyTests {
     ///
     /// ⚠️ 先断言尺寸真的是 0 再转换：哪天 SDK 给它加了存储，这里会明确判红，
     /// 而不是变成一次静默的未定义行为。
+    ///
+    /// ⚠️ 判据写成 `#require(Bool)` 而**不是** `#require(cond ? true : nil)`（#306）：
+    /// 后者的实参类型是 `Bool?`，会命中 swift-testing 的 `AmbiguousRequireMacro`
+    /// —— 「解包这个 optional」与「判这个 Bool 为真」两条路都讲得通，宏只能报
+    /// `Requirement '...' is ambiguous`，并把解包出来的 `Bool` 原样还给调用方，
+    /// 于是再叠一条 `expression of type 'Bool' is unused [#no-usage]`。
+    /// 两条在 `swift build --build-tests -Xswiftc -warnings-as-errors` 下是硬红。
+    /// （实测：三元写法**确实**会在条件为假时抛出——`#306` 的变异实证见该 issue；
+    /// 也就是说改成 `Bool` 重载是消歧义，不是修一条空转的判据。）
     static func placeholder() throws -> MaskRevealTransition.Content {
-        try #require(MemoryLayout<MaskRevealTransition.Content>.size == 0 ? true : nil, """
+        try #require(MemoryLayout<MaskRevealTransition.Content>.size == 0, """
         `PlaceholderContentView` 不再是零尺寸类型 —— 本 suite 的 `body` 直呼手法失效，
         请改用别的方式对 `MaskRevealTransition.body(content:phase:)` 求值。
         """)
