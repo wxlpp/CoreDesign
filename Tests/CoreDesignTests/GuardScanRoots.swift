@@ -649,6 +649,32 @@ nonisolated enum GuardScanRoots {
         for case let url as URL in walker where extensions.contains(url.pathExtension) { out.append(url) }
         return out.sorted { $0.path < $1.path }
     }
+
+    /// 仓库**根目录**下的 `.md`（不递归）—— `CLAUDE.md` / `AGENTS.md` / `README.md` /
+    /// `ACKNOWLEDGEMENTS.md` 这一层。
+    ///
+    /// ⚠️ `#287` 第 2 轮终审：指引文件本身就住在这一层，而 `docFiles()` 只看 `docs/`
+    /// ⇒ 「判据引用必须指得到真实符号」这条纪律**对写着这条纪律的那份文件本身不生效**。
+    /// 实测代价不是零：那一层当时活着两条真悬空引用（`CLAUDE.md` 与 `AGENTS.md` 各一条
+    /// 同文的 `ComponentRegistryGuard` 单根声称，`#270` 之后已失真）。
+    ///
+    /// ⚠️ **不递归**是刻意的：`.claude/`（epic / PRD 归档，173 个 `.md`）是历史文档，
+    /// 按「撤回痕迹拆开写」的纪律回改它们等于篡改归档，理由写在
+    /// `JudgementReferenceGuard` 文件头的「找到但堵不住的路径」一节。
+    ///
+    /// 与 `swiftFiles(in:)` / `docFiles()` 同一条 fail-closed 纪律。
+    static func rootDocFiles(
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) -> [URL] {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: Self.repoRoot, includingPropertiesForKeys: nil
+        ) else {
+            Issue.record("无法枚举仓库根：\(Self.repoRoot.path)（权限或 IO 异常）—— 判据无法工作",
+                         sourceLocation: sourceLocation)
+            return []
+        }
+        return entries.filter { $0.pathExtension == "md" }.sorted { $0.path < $1.path }
+    }
 }
 
 // MARK: - 扫描根自身的守卫

@@ -55,13 +55,13 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 **不并进 `CoreDesignTests`**——并进去需要 `@testable import`，会让 `CoreDesignTests` 的
 依赖图包含新 target，破坏上面那条隔离判据。
 
-⚠️ **源码守卫的扫描根有三份，不要混为一谈**（`#246` 落地后）：
+⚠️ **源码守卫的扫描根有三个入口，不要混为一谈**（`#246` 落地、`#270` 收口后）：
 
 | 根列表 | 谁在用 | 覆盖 |
 |---|---|---|
 | `GuardScanRoots.allRoots`（`Tests/CoreDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep | 三个 target 全覆盖 |
 | `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 CoreDesign 现状 |
-| `ComponentRegistryGuard.coreDesignSources`（仍是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | 仍只有 `Sources/CoreDesign` —— 扩它会顶动 `ComponentExtensionPointGuard` 的 `inspected.count == 11` 等一串断言（AD-4《下游连锁一》），归 Charts 落件时（`#255`）处置 |
+| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，三 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/CoreDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count == 11` 在三根下照样成立 |
 
 ⚠️ 新增 library target 时**必须**把它加进 `GuardScanRoots.targetNames`——该表与
 `Package.swift` 声明的 library target 做双向差集，忘了扩根会当场判红（这是刻意的
@@ -148,9 +148,13 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 - **注释 / 文档里写「测试类型 + 点 + 判据名」形式的引用，其类型与成员必须在测试目标里
   真的存在**——由 `JudgementReferenceGuard`（`Tests/CoreDesignTests/`）机器守着，扫描面
-  是 `Sources/` `Tests/` `docs/`（含 `docs/component-registry.json`）。它按 SwiftSyntax
-  解析出的**声明**建符号表（写在字符串字面量里的 fixture 类型不进表），引用侧只取注释
-  trivia 与字符串片段；射程与堵不住的路径逐条写在该文件头，**不要读成完备保证**。
+  是 `Sources/` `Tests/` `docs/`（含 `docs/component-registry.json`）**加仓库根那一层
+  `.md`（含本文件）**。它按 SwiftSyntax 解析出的**声明**建符号表（写在字符串字面量里的
+  fixture 类型不进表），引用侧只取注释 trivia 与字符串片段；射程与堵不住的路径逐条写在
+  该文件头，**不要读成完备保证**。
+- ⚠️ **`.claude/**` 是历史归档，有意不在扫描面内**——那里面确实活着若干条悬空引用，
+  但归档记的是「写下它的那天的事实」，回改等于篡改归档。⇒ 引一条判据时，
+  **别把 `.claude/` 里的旧写法当成现行事实抄过来**，它没有任何机器判据兜底。
 - **该判据不区分「活引用」与「历史提及」**：提到一个已被改名 / 删除的符号（包括
   「上一版这里写的是…」这类撤回痕迹）或**跨仓符号**时，把类型名与成员名**拆开写**
   （各自加反引号、中间不用点连），并写明它现在叫什么。
@@ -158,9 +162,11 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   源码注释、`docs/components/*.md`、`docs/component-registry.json` 的 `notes`。
   前两处离改动近、会被顺手改到，**登记表在另一个文件、另一种格式，每次都掉队**
   （`#286` 的 `.move`、`#291` 的 `blinds` 都是这么漏的）。
-- ⚠️ `ExtensionEntryPointGuard` 只校验 `notes` 的**长度与占位词，不校验真伪**
-  ⇒ 「引用的判据真实存在、却被声称证明了它证明不了的事」这一族**没有机器判据**，
-  是**人工评审项**。
+- ⚠️ 登记表里有**两族同形的 `notes`，两个守卫各管一族、都只看长度、都不校验真伪**：
+  `entryPoints[].notes` 由 `ExtensionEntryPointGuard` 校验（长度下限 + 占位短语黑名单），
+  `components[].notes`（更长、声称更密集的那一族）由 `ComponentRegistryGuard` 校验
+  （只有长度下限）。⇒ 「引用的判据真实存在、却被声称证明了它证明不了的事」这一族
+  **没有机器判据**，两族都是**人工评审项**——别把人工复核的射程说小了。
 
 ## 仓库内的代码风格观察
 

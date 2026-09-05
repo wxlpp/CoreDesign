@@ -7,8 +7,16 @@ import Testing
 //
 // ## 它守什么
 //
-// **源码注释、`#expect` 文案、`docs/**.md` 与 `docs/component-registry.json` 里
-// 形如「测试类型 + 点 + 成员名」的引用，其类型与成员必须在测试目标里真的存在。**
+// **源码注释、`#expect` 文案、`docs/**.md`、`docs/component-registry.json`
+// 与**仓库根那一层 `.md`**（`CLAUDE.md` / `AGENTS.md` / `README.md` /
+// `ACKNOWLEDGEMENTS.md`）里形如「测试类型 + 点 + 成员名」的引用，
+// 其类型与成员必须在测试目标里真的存在。**
+//
+// ⚠️ 仓库根那一层是 `#287` 第 2 轮终审补进来的，代价是实测出来的：这条纪律**写在
+// `CLAUDE.md` 里**，而 `CLAUDE.md` 当时不在扫描面 ⇒ 纪律对自己的载体不生效。
+// 那一层当时活着两条真悬空引用（`CLAUDE.md` 与 `AGENTS.md` 各一条同文的
+// `ComponentRegistryGuard` 单根声称，`#270` 之后已失真），且**本 PR 自己为同一个符号
+// 修了另外三处**却漏了这两处——正是本判据要堵的形态。
 //
 // ## 为什么这是一条判据而不是一条约定
 //
@@ -91,6 +99,32 @@ import Testing
 // - **`App/Tests/` 与 `scripts/downstream-probe/` 不在扫描面内**：前者属 xcodegen 生成的
 //   预览宿主、后者是独立 SwiftPM 包，两者都不在 `Package.swift` 的 target 图里。
 //   ⚠️ 这不是「扫过了发现零违规」，而是**根本没扫**。
+// - **`.claude/**` 不在扫描面内**（`#287` 第 2 轮终审 I-2 (a)）：那是 PRD / epic / 任务的
+//   **历史归档**，173 个 `.md`。⚠️ **代价已实测，不是零**：那片面里活着若干条真悬空引用
+//   （`ComponentRegistryGuard` 的 `coreDesignSources` 在 `.claude/epics/**` 有 5 处、
+//   `BoolExemptionGuard` 的同名成员 1 处，另有几条已失效的 suite 成员名）。
+//   **有意不扫**：归档记录的是「写下它的那天的事实」，按「撤回痕迹拆开写」的纪律回改
+//   等于篡改归档；而不改又必然判红 ⇒ 只能扫进来再全量豁免，那等于一张长白名单。
+//   ⇒ 登记为已知缺口。仓库根那四个 `.md` 与它不同：那是**现行**指引，必须先管住自己。
+// - **紧跟在 CJK 字符后面的引用永远提取不到**（`#287` 第 2 轮终审 I-2 (b)）：
+//   `references(inText:file:startingAtLine:)` 在前一个字符 `.isLetter` 时拒绝该起点，
+//   而 `Character("见").isLetter == true` ⇒ 形如「`见` 紧贴类型名、再跟点与成员名」的写法
+//   整个抽不出来，隔一个空格的孪生体抽得出来（⚠️ 这里刻意**不写出**那个粘连例子本身：
+//   它今天抽不出来、将来这个洞被堵上时就会变成本文件上的一条假引用）。
+//   **在一个散文是中文的仓里这是结构性的洞。**
+//   ⚠️ **今天曝露为零**（`grep -rnP '[\x{4e00}-\x{9fff}][A-Z]\w*(Tests|Guard)\.\w'`
+//   over `Sources Tests docs` 加仓库根四个 `.md` = 0 命中）⇒ 这是**登记缺口，不是活缺陷**。
+//   收紧它要把「前一个字符」的判据从 `isLetter` 改成「ASCII 标识符字符」，代价是
+//   `内联CamelCase.member` 这种粘连写法会开始被认领——今天没有语料能证明那一侧不误红，
+//   故留在此处登记而不动。
+// - **Markdown 围栏代码块按散文扫**（`#287` 第 2 轮终审 I-2 (c)）：```` ```swift ```` 块里的
+//   `X.y` 与散文里的一视同仁。这是**未来的假阳性发生器**——`docs/superpowers/plans/`
+//   的 17 个 `.md` 已经含 Swift 片段。⚠️ **今天不咬人**：把扫描面扩到仓库根 `.md` 之后
+//   跑 J1，命中恰好是 I-2 (a) 那两条真违规，**零条来自围栏**。
+//   **有意不做围栏剥离**：剥离本身要在这里再实现一个 Markdown 解析器
+//   （围栏有 ``` / ~~~ 两种、可任意加长、可缩进），而它一旦有 bug 就是**静默放行**
+//   ——把真引用当成围栏内容跳过，比今天这个已知的假阳性方向危险得多。
+//   ⇒ 等第一条真假阳性出现时再处置，届时优先考虑「围栏内只降级为警告」而不是整块跳过。
 // - **成员的可见性 / 静态性不核**：`private` 成员被外部文档引用照样放行。
 //   本判据要答的问题是「这个名字指得到东西吗」，不是「这个名字在那个上下文里可访问吗」。
 //
@@ -103,6 +137,15 @@ import Testing
 //
 // 同理，**跨仓符号**（`oh-my-story` 那边的判据）也要拆开写：本判据的语料只有本仓，
 // 不拆开就会被判成悬空。
+//
+// ⚠️ **「按显式仓库前缀做结构性豁免」这个替代方案已评估并否掉**（`#287` 第 2 轮终审 S-2）：
+// 唯一可实现的形态是「本行提到了外仓 slug ⇒ 豁免本行的引用」，而本仓文档里
+// **含 `oh-my-story` 的行有 144 行、其上坐着 87 条候选引用**（占文档面 1943 条的 4.5%）
+// ——`docs/component-contract.md` 的表格行动辄数千字符，一行里同时提外仓和本仓判据是常态。
+// ⇒ 为省掉**今天仅 1 处**的散文别扭，代价是让判据在本仓文档最密的那一片上静默失效。
+// 收益/代价倒挂 ⇒ 维持散文纪律。真到「跨仓引用多到 scale 不动」的那天，正确的做法是
+// **给引用本身定一个可解析的形态**（例如 `<仓>#<类型>#<成员>`，三段各自可校验），
+// 而不是按「同一行里出现过某个词」豁免。
 //
 // ⚠️ 本判据**会扫自己的注释与字符串字面量**。⇒ 上面的散文里不出现编造的类型名，
 // 下面 J3 的 fixture 里那些「不存在的类型」一律**拼**出来，不写成字面量
@@ -347,6 +390,19 @@ struct JudgementReferenceGuard {
         return String(parts[1])
     }
 
+    /// 一次判定的产物：违规清单 + **规则 A 真的走到过几次**。
+    ///
+    /// ⚠️ `memberCheckedCount` 不是统计口味，是 J1 的**非空前置**（`#287` 第 2 轮终审 S-5）：
+    /// 四条既有 `#require` 只钉住「文件枚举 / 文档枚举 / 引用条数 / 符号表大小」非空，
+    /// 没有任何一条证明**规则 A 的成员核对分支在真实语料上被进入过**。将来任何一次
+    /// 重构（作用域切分改动、`primaryMembers` 归并口径变化）让规则 A 在真实语料上不可达时，
+    /// J1 照绿——只有 J3-a 的合成 fixture 会红，而那证明不了真实语料。
+    nonisolated struct Analysis: Sendable {
+        var violations: [Violation] = []
+        /// 走到规则 A 成员核对的引用条数（不论最终是否判红）。
+        var memberCheckedCount = 0
+    }
+
     /// - Parameters:
     ///   - testSymbols: 每个 test target 一张表。
     ///   - sourceSymbols: 全部 `Sources/` 合成一张表（library target 之间互相可见）。
@@ -357,6 +413,18 @@ struct JudgementReferenceGuard {
         sourceSymbols: SymbolTable,
         moduleNames: Set<String>
     ) -> [Violation] {
+        Self.analyse(
+            references: references, testSymbols: testSymbols,
+            sourceSymbols: sourceSymbols, moduleNames: moduleNames
+        ).violations
+    }
+
+    nonisolated static func analyse(
+        references: [Reference],
+        testSymbols: [String: SymbolTable],
+        sourceSymbols: SymbolTable,
+        moduleNames: Set<String>
+    ) -> Analysis {
         var globalTests = SymbolTable()
         for table in testSymbols.values { globalTests.formUnion(table) }
         let globalNames = globalTests.knownNames.union(sourceSymbols.knownNames)
@@ -380,6 +448,7 @@ struct JudgementReferenceGuard {
         }
 
         var out: [Violation] = []
+        var memberChecked = 0
         for reference in references {
             if Self.excludedMemberNames.contains(reference.member) { continue }
             if moduleNames.contains(reference.type) { continue }
@@ -394,6 +463,7 @@ struct JudgementReferenceGuard {
             // 一并判红只会逼人关掉判据。
             if scopedTestOnly(scope).primaryMembers[reference.type] != nil {
                 guard knowable.contains(reference.type) else { continue }
+                memberChecked += 1
                 if !visible.members(of: reference.type).contains(reference.member) {
                     out.append(Violation(
                         file: reference.file, line: reference.line,
@@ -414,7 +484,12 @@ struct JudgementReferenceGuard {
                 ))
             }
         }
-        return out.sorted { ($0.file, $0.line, $0.type, $0.member) < ($1.file, $1.line, $1.type, $1.member) }
+        return Analysis(
+            violations: out.sorted {
+                ($0.file, $0.line, $0.type, $0.member) < ($1.file, $1.line, $1.type, $1.member)
+            },
+            memberCheckedCount: memberChecked
+        )
     }
 
     // MARK: - 磁盘装载
@@ -431,6 +506,15 @@ struct JudgementReferenceGuard {
         return out.sorted { $0.path < $1.path }
     }
 
+    /// 文档面 = `docs/**`（`.md` + 登记表）**加上仓库根那一层 `.md`**。
+    ///
+    /// ⚠️ 根那一层是 `#287` 第 2 轮终审补进来的：`CLAUDE.md` / `AGENTS.md` 就是写着
+    /// 「判据引用必须指得到真实符号」这条纪律的文件，却在扫描面之外
+    /// ——纪律对自己的载体不生效，实测代价是那一层当时活着两条真悬空引用。
+    nonisolated static func docScanFace() -> [URL] {
+        (GuardScanRoots.docFiles() + GuardScanRoots.rootDocFiles()).sorted { $0.path < $1.path }
+    }
+
     // MARK: - J1：全仓扫描
 
     @Test("J1：源码 / 测试 / 文档里的判据引用必须指得到真实符号")
@@ -441,13 +525,19 @@ struct JudgementReferenceGuard {
         try #require(swiftURLs.count > 200, """
         只枚举到 \(swiftURLs.count) 个 Swift 源文件 —— 扫描失效，这不是「零违规」。
         """)
-        let docURLs = GuardScanRoots.docFiles()
+        let docURLs = Self.docScanFace()
         try #require(docURLs.count > 30, """
         只枚举到 \(docURLs.count) 个文档文件 —— 扫描失效，这不是「零违规」。
         """)
         try #require(docURLs.contains { $0.lastPathComponent == "component-registry.json" }, """
         `docs/component-registry.json` 不在扫描面里 —— `#287` 的追加验收逐字要求它在。
         """)
+        for guide in ["CLAUDE.md", "AGENTS.md"] {
+            try #require(docURLs.contains { $0.lastPathComponent == guide }, """
+            `\(guide)` 不在扫描面里 —— 这条纪律就写在那份文件里，它必须先管住自己
+            （`#287` 第 2 轮终审 I-1：那一层当时活着两条真悬空引用，正是从这个缺口漏出去的）。
+            """)
+        }
 
         var testSymbols: [String: SymbolTable] = [:]
         for root in try GuardScanRoots.testRootDirectories() {
@@ -477,12 +567,23 @@ struct JudgementReferenceGuard {
         只抽出 \(references.count) 条候选引用 —— 抽取失效，这不是「零违规」。
         """)
 
-        let violations = Self.violations(
+        let analysis = Self.analyse(
             references: references,
             testSymbols: testSymbols,
             sourceSymbols: sourceSymbols,
             moduleNames: Set(try GuardScanRoots.declaredTargets().map(\.name))
         )
+        // ⚠️ **规则 A 必须在真实语料上真的被走到**（`#287` 第 2 轮终审 S-5）：上面四条
+        // `#require` 都只钉住输入非空，没有一条证明成员核对分支可达。将来任何一次重构
+        // 让规则 A 在**真实语料**上不可达时，J1 照绿——只有 J3-a 的合成 fixture 会红。
+        // 实测当下值 **452**（把门槛临时抬到 999999 读出来的；另一个方向的实测是把成员
+        // 核对改成恒判红 ⇒ J1 报 444 处、涉 44+ 个类型）。门槛取 **200** 是留足余量的
+        // **下界**，不是当下值的快照——这个数会随文档增长而涨，钉死它只会制造无谓的红。
+        try #require(analysis.memberCheckedCount > 200, """
+        只有 \(analysis.memberCheckedCount) 条引用走到了规则 A 的成员核对 —— 规则 A 在真实语料上
+        近乎不可达，J1 的绿来自「没核」而不是「核过了都对」。
+        """)
+        let violations = analysis.violations
         #expect(violations.isEmpty, """
         以下判据引用**指不到任何符号**（共 \(violations.count) 处）：
 
@@ -524,10 +625,17 @@ struct JudgementReferenceGuard {
         #expect(FileManager.default.fileExists(atPath: GuardScanRoots.docsRoot.path), """
         `docs/` 不存在 —— 文档面的扫描会在空输入上恒绿。
         """)
-        let docs = GuardScanRoots.docFiles()
+        let docs = Self.docScanFace()
         #expect(docs.contains { $0.pathExtension == "md" }, "`docs/` 下一个 `.md` 都没有 —— 扫描失效")
         #expect(docs.contains { $0.lastPathComponent == "component-registry.json" },
                 "`docs/component-registry.json` 不在扫描面里")
+
+        // 仓库根那一层的指引文件同样 fail-closed：它们是这条纪律的**载体**。
+        let rootDocs = Set(GuardScanRoots.rootDocFiles().map(\.lastPathComponent))
+        #expect(rootDocs.isSuperset(of: ["CLAUDE.md", "AGENTS.md", "README.md"]), """
+        仓库根 `.md` 只枚举到 \(rootDocs.sorted()) —— 指引文件不在扫描面里，
+        「判据引用必须指得到真实符号」这条纪律就管不住写着它的那份文件。
+        """)
     }
 
     // MARK: - J3：判据自证会开火（AD-E：能触发红的 fixture）
@@ -535,6 +643,22 @@ struct JudgementReferenceGuard {
     /// ⚠️ **fixture 里那个「不存在的类型名」拼出来而不是写死**：本判据会扫自己的字符串
     /// 字面量，写死会让 J1 判红在本文件上。
     nonisolated static var ghostSuiteName: String { "Ghost" + "Tests" }
+
+    /// fixture 的两个模块名。
+    ///
+    /// ⚠️ **它们必须以 `Tests` / `Guard` 结尾**（`#287` 第 2 轮终审 I-3）：J3-b ⑨ 断言
+    /// 「模块限定名不认领」，而这条断言只有在**规则 B 本来会对这个名字开火**时才有内容。
+    /// 初版的名字是 `MainFixtureTarget`——不带后缀 ⇒ 规则 B 压根不看它 ⇒ ⑨ **恒真**：
+    /// 实测把 `moduleNames` 那条豁免整个短路掉（变异 E），J3-a/b/c/d **全绿**。
+    /// 改成带后缀之后，豁免成为 ⑨ 保持绿的**唯一**原因，同一个变异当场让 ⑨ 判红。
+    ///
+    /// ⚠️ 同样**拼**出来而不写死：带这两个后缀的名字写成字面量会被 J1 自己判成悬空类型。
+    nonisolated static var fixtureModuleName: String { "MainFixture" + "Tests" }
+    nonisolated static var otherFixtureModuleName: String { "OtherFixture" + "Tests" }
+
+    /// fixture 的默认文件路径 —— 目录名必须等于 `fixtureModuleName`，
+    /// 否则 `visibleScope(of:)` 切出来的范围取不到 `fixtureTestSymbols` 里的主表。
+    nonisolated static var fixtureSwiftFile: String { "Tests/" + Self.fixtureModuleName + "/fixture.swift" }
 
     /// 合成符号表。
     ///
@@ -555,17 +679,19 @@ struct JudgementReferenceGuard {
         var other = SymbolTable()
         other.primaryMembers["OtherTargetOnly"] = ["itsOwnMember"]
         other.knownNames = ["OtherTargetOnly"]
-        return ["MainFixtureTarget": main, "OtherFixtureTarget": other]
+        return [Self.fixtureModuleName: main, Self.otherFixtureModuleName: other]
     }
 
-    nonisolated static func fixtureViolations(
-        swift source: String, file: String = "Tests/MainFixtureTarget/fixture.swift"
-    ) -> [Violation] {
+    nonisolated static var fixtureModuleNames: Set<String> {
+        [Self.fixtureModuleName, Self.otherFixtureModuleName]
+    }
+
+    nonisolated static func fixtureViolations(swift source: String, file: String? = nil) -> [Violation] {
         Self.violations(
-            references: Self.references(inSwift: source, file: file),
+            references: Self.references(inSwift: source, file: file ?? Self.fixtureSwiftFile),
             testSymbols: Self.fixtureTestSymbols,
             sourceSymbols: SymbolTable(),
-            moduleNames: ["MainFixtureTarget", "OtherFixtureTarget"]
+            moduleNames: Self.fixtureModuleNames
         )
     }
 
@@ -574,7 +700,7 @@ struct JudgementReferenceGuard {
             references: Self.references(inText: text, file: file, startingAtLine: 1),
             testSymbols: Self.fixtureTestSymbols,
             sourceSymbols: SymbolTable(),
-            moduleNames: ["MainFixtureTarget", "OtherFixtureTarget"]
+            moduleNames: Self.fixtureModuleNames
         )
     }
 
@@ -661,6 +787,11 @@ struct JudgementReferenceGuard {
         """).isEmpty, "代码位置被收进了引用面 —— 会与编译器重复，且把类型推断的东西误判红")
 
         // ⑦ 只有 `extension` 的类型不核成员（否则散文里提到的 stdlib 成员全红）。
+        //   ⚠️ **这条是纵深防御，不是唯一把关的闸**（`#287` 第 2 轮终审 I-3b 实测）：
+        //   把「主声明才核成员」那条判断短路掉，本条**照绿**——真正吸收它的是
+        //   `analyse` 里的 `guard knowable.contains(...)`，而 `knowableTypes` 由
+        //   `primaryMembers.keys` 算出 ⇒ 只有 extension 的类型永远不可知。
+        //   ⇒ 失败信息点名的机制与真正兜住它的机制不是同一个，改这条断言前先看那道 `guard`。
         #expect(Self.fixtureViolations(swift: """
         // 见 `SampleArray.sort`。
         let x = 1
@@ -673,8 +804,11 @@ struct JudgementReferenceGuard {
         """).isEmpty, "带继承子句的类型被当成了闭世界 —— 协议要求会被误判成不存在")
 
         // ⑨ 模块限定名不认领（`swift test --filter` 的写法，本仓文档里到处都是）。
+        //   ⚠️ 模块名**刻意以 `Tests` 结尾**：不带后缀的话规则 B 本来就不会开火，
+        //   这条断言就是恒真的（`#287` 第 2 轮终审 I-3 实测：初版在变异 E 下全绿）。
+        //   现在唯一让它保持绿的是 `moduleNames` 那条豁免。
         #expect(Self.fixtureViolations(text: """
-        `swift test --filter MainFixtureTarget.SampleSuite`
+        `swift test --filter \(Self.fixtureModuleName).SampleSuite`
         """).isEmpty, "模块限定名被当成了类型引用")
 
         // ⑩ 「拿后缀当通配符」不是引用：本仓 `MaskRevealTests` 里真的这么数过调用点。
