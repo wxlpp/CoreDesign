@@ -13,8 +13,9 @@
 # 格式：每行 `<Target>:<pathComponents 用 . 连接>`；`#` 起头与空行忽略。
 # ⚠️ 顺序无关（脚本按集合比对），但请按 target / 类型分组，方便 review 读 diff。
 #
-# ⚠️ **扫描范围只有各 target 的主 symbols 文件**（`<Target>.symbols.json`），
-#   `<Target>@<外来模块>.symbols.json`（扩展块成员，即声明在 SwiftUI 自家类型上的
+# ⚠️ **扫描范围 = 各 target 的主 symbols 文件（`<Target>.symbols.json`）
+#   + 本包内跨 target 的扩展块文件（`<Target>@<本包另一个 target>.symbols.json`）。**
+#   只有 `<Target>@<第三方模块>.symbols.json`（声明在 SwiftUI 自家类型上的
 #   `extension Color` / `extension Transition` / `extension ButtonStyle` 成员）
 #   **不在射程内**——代价逐字登记在脚本头注释《范围定案与代价》一节，先读那节再改这里。
 
@@ -32,4 +33,13 @@ CoreDesign:SidebarTextStyle.tertiary
 CoreDesign:BottomInputBarDefaults.placeholder
 
 # 同根：函数体取 `Color("shadow-…", bundle: .module)`，`Bundle.module` 同上。
+# ⚠️ 这条理由只说了一半。给它加 `nonisolated` 的**完整**编译错误是 5 种（8 行，本轮实测）：
+#   · `error: call to main actor-isolated initializer 'init(color:radius:x:y:)'
+#     in a synchronous nonisolated context` —— **头一条**，出现 4 次（4 个 case 各一次）。
+#     根因是 `CoreElevation.Spec` **自己**在 `.defaultIsolation(MainActor.self)` 下就是
+#     MainActor 隔离的，跟 shadow 色无关；
+#   · 另外 4 条才是 `shadowNoneColor` / `shadowSmallColor` / `shadowMediumColor` /
+#     `shadowLargeColor` 各一条 `main actor-isolated static property … can not be
+#     referenced from a nonisolated context`。
+#   ⇒ 想解开这条豁免，光把 shadow 色挪出去不够，还得先让 `Spec` 本身 nonisolated。
 CoreDesign:CoreElevation.spec(for:)

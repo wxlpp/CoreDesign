@@ -70,13 +70,23 @@ jobs:
         # 与 `docs/mainactor-static-exemptions.txt` 做**双向差集**（多一条少一条都判红）。
         #
         # ⚠️ 放在 `swift test` 之后是为了复用**热 `.build`**：`dump-symbol-graph` 本身
-        # 要重新跑一遍 symbol graph 提取（本机热树上实测约 100s）。放进独立 job 会多起
-        # 一台 macOS runner（按 10× 计费，见本文件顶部 push 触发器那段的同一考量）。
+        # 要重新跑一遍 symbol graph 提取（本机热树上实测约 4 s——这里曾写「约 100s」，
+        # 是失真的数，PR #314 终审实测推翻）。**搭 `swiftpm` job 的理由是计费不是耗时**：
+        # 放进独立 job 会多起一台 macOS runner（按 10× 计费，见本文件顶部 push 触发器
+        # 那段的同一考量）。
         #
         # ⚠️ 这条 `run:` 被**树内**判据 `Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift`
-        # **逐字**钉住，并且它会拒绝这一步 / 这个 job 上出现 `if:` / `continue-on-error:`。
+        # **逐字**钉住；那条判据还给**这一步的直接子键**上了一份**正面允许清单**
+        # （`name` / `run` / `env` / `working-directory` / `uses` / `with`），清单外的键
+        # 一律判红——`if:` / `continue-on-error:` / `shell:` 连同它们的同义拼法
+        # （`"if": false` / `if : false` …）都在其中。job 的直接子键上则不许出现
+        # `if` / `needs` / `continue-on-error`（比对前先归一化键名）。
+        # ⚠️ 这条 `run:` 还必须是**行内标量**：改成 `run: |` 块标量当场判红
+        # （`MainActorStaticRatchetGuard.runLineIsInlineScalar`）。理由是 `#304` 第 4 轮
+        # 终审登记的「兄弟行不设防」——要在这条命令旁边塞一行 `exit 0` / `trap 'exit 0' ERR`，
+        # **必须先**把它改写成块标量，所以钉住「不许是块标量」比按拼法追兄弟行便宜得多。
         # 要改写这一行（加参数、加 `| tee`、改成多行块标量），先改那条判据并说明理由。
-        # 脚本自己的射程与代价（**只扫主 symbols 文件、扩展块成员是盲区**）写在
+        # 脚本自己的射程与代价（**不扫第三方模块的扩展块文件**）写在
         # `scripts/mainactor-static-ratchet.sh` 的《范围定案与代价》一节。
         run: bash scripts/mainactor-static-ratchet.sh
 

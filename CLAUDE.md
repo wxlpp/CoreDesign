@@ -249,11 +249,16 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   `@MainActor` 的公开 static 型成员 → 与 `docs/mainactor-static-exemptions.txt`
   做双向差集），挂在 `ci.yml` 的 `swiftpm` job 里 `swift test` 之后那一步
   ——**本地 `swift test` 全绿不代表这条过了**，改公开 static 后请手动跑一次
-  （本机热 `.build` 上约 100s）。看着这一步不被静默拆掉的是无条件树内判据
+  （本机热 `.build` 上**实测约 4 s**，写出约 265 MB JSON；这里曾写「约 100s」，
+  是失真的数，`#314` 终审实测推翻）。看着这一步不被静默拆掉的是无条件树内判据
   `Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift`。
-  ⚠️ **它只扫各 target 的主 symbols 文件**：写在 `extension Color` / `extension Transition`
-  这类**外来类型**上的公开 static 成员**不在射程内**（有意的取舍，逐字代价登记在那个
-  脚本的《范围定案与代价》一节）。
+  ⚠️ **只有第三方模块的扩展块成员不在射程内**：脚本扫「各 target 的主 symbols 文件」
+  **加**「本包内跨 target 的 `<Target>@<本包另一个 target>.symbols.json`」，只放过
+  `@SwiftUI` / `@SwiftUICore` 那一类（有意的取舍，逐字代价登记在那个脚本的
+  《范围定案与代价》一节）。⚠️ 那块盲区的形态要写准：**不是**「往
+  `public extension Color` 加常量忘了写 `nonisolated`」——实测那样加出来的成员
+  **根本不带 `@MainActor`**（`defaultIsolation` 不作用于外来模块类型的扩展）；
+  真实形态是**显式**写 `@MainActor`，或扩展一个自身就是 `@MainActor` 的第三方类型。
 
 ### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
 
