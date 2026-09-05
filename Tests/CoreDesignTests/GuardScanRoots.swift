@@ -162,8 +162,81 @@ nonisolated enum GuardScanRoots {
     ///     而**不是** `relativePath`。那一处是唯一的例外，理由写在该函数的文档里：
     ///     它的 `file` 串被 `ComponentJudgeMutationTests` 拿来比对「临时副本 vs 真实源码」，
     ///     用仓库根相对路径的话副本侧会退化成绝对路径、等值断言不再成立。
+    ///     ⚠️ `#311` 起那一处**也走本函数**，只是传的 `root` 是扫描根而不是仓库根
+    ///     （见 `relativePath(_:from:)`）——同一条符号链接归一逻辑必须两处共用。
     static func relativePath(_ url: URL) -> String {
-        url.path.replacingOccurrences(of: Self.repoRoot.path + "/", with: "")
+        Self.relativePath(url, from: Self.repoRoot)
+    }
+
+    /// 把 `url` 表达成相对 `root` 的路径；`url` 不在 `root` 之下时**原样返回绝对路径**。
+    ///
+    /// ⚠️ **不得退回裸字符串前缀替换**（`#311`）。原实现是
+    /// `url.path.replacingOccurrences(of: root.path + "/", with: "")`，它有两处独立缺陷，
+    /// 叠在一起就是 `#311` 的失效形态：
+    ///
+    /// 1. **两端对符号链接的解析不一致**。macOS 上 `/tmp` 是 `/private/tmp` 的符号链接。
+    ///    `repoRoot` 由 `#filePath` 推出，而 `#filePath` 是**编译期**记下的那串路径；
+    ///    扫描侧的路径则来自**运行期** `FileManager.enumerator(at:)`。
+    ///    实测（Xcode 26.4，worktree 在 `/tmp/cd311-repro`）：
+    ///    · `xcodebuild` 腿——`#filePath` = `/tmp/cd311-repro/…`，
+    ///      而同一次运行里 `FileManager.enumerator(at: /tmp/cd311-repro/Sources/CoreDesign)`
+    ///      吐出来的是 `/private/tmp/cd311-repro/Sources/CoreDesign/…`（枚举器**会**解析
+    ///      符号链接，即使传进去的根没解析）⇒ 两端分叉；
+    ///    · `swift test` 腿——SwiftPM 先把包根解析成 `/private/tmp/cd311-repro` 再传给
+    ///      编译器，`#filePath` 与枚举结果**同为** `/private/…` ⇒ 不分叉。
+    ///    ⇒ 这个坑**只在 `xcodebuild` 腿上现形**，macOS `swift test` 全绿是假绿。
+    /// 2. **`replacingOccurrences` 不是前缀操作**。前缀对不上时它不会「原样返回」，而是
+    ///    在**串中间**找到那段并挖掉：`/private` + `/tmp/repo/` + `Sources/…` 里的中段被
+    ///    删掉 ⇒ 得到 `/privateSources/…`。实测被污染的键（`#311` 复现）：
+    ///    `"/privateSources/CoreDesignEffects/AnimatedMeshGradient.swift#body"`、
+    ///    `"CoreDesign//privateComponents/ProgressIndicator/ProgressIndicator.swift"`。
+    ///    ⇒ 失效方向是**假红**（判据本身仍在工作），但诊断指向完全错误的方向：
+    ///    `JudgementReferenceGuard` 报的是「各面候选引用数全 0、扫描面之外 4857」，
+    ///    读到的人会去查扫描面配置，不会想到是 checkout 位置。
+    ///
+    /// ⇒ 现在按**路径分量**比较，且分两步：
+    /// · 先拿未归一的分量试一次（绝大多数情形命中，零 IO）；
+    /// · 不中才归一后重试——`resolvingSymlinksInPath()` 打通「同一个文件的两种写法」。
+    ///
+    /// ⚠️ **只靠 `resolvingSymlinksInPath()` 不够**，还要显式抹掉领头的 `private` 分量：
+    /// 该 API 只在路径**真实存在**时才会去掉 `/private` 前缀。实测（本机 Swift 6.3）：
+    /// `/private/tmp/cd311-repro` 存在 ⇒ 归一成 `/tmp/cd311-repro`；
+    /// 而 `/private/tmp/cd311-repro/Sources/CoreDesign/NOPE.swift`（不存在）**原样返回**，
+    /// 对应的 `/tmp/…/NOPE.swift` 也原样返回 ⇒ 两端仍分叉。
+    /// 判据要能用合成路径构造这个形态，就不能把正确性建在「文件恰好存在」上。
+    static func relativePath(_ url: URL, from root: URL) -> String {
+        if let relative = Self.relative(
+            Self.componentsOf(url), under: Self.componentsOf(root)
+        ) {
+            return relative
+        }
+        if let relative = Self.relative(
+            Self.canonicalComponents(url), under: Self.canonicalComponents(root)
+        ) {
+            return relative
+        }
+        return url.path
+    }
+
+    /// 路径分量的前缀比较——命中返回根内相对路径，不中返回 `nil`。
+    ///
+    /// ⚠️ 用 `>` 而不是 `>=`：`url == root` 时没有「根内相对路径」可言，
+    /// 交给调用方走原样返回绝对路径那一支（与替换版的行为一致）。
+    private static func relative(_ file: [String], under root: [String]) -> String? {
+        guard file.count > root.count, Array(file.prefix(root.count)) == root else { return nil }
+        return file.dropFirst(root.count).joined(separator: "/")
+    }
+
+    private static func componentsOf(_ url: URL) -> [String] {
+        url.standardizedFileURL.pathComponents
+    }
+
+    /// ⚠️ **`count >= 3` 不是随手写的下界**：`/private` 自己（分量 `["/", "private"]`）
+    /// 不能被抹成 `["/"]`——那会让「根 = `/private`」匹配上**任何**绝对路径。
+    private static func canonicalComponents(_ url: URL) -> [String] {
+        var parts = url.standardizedFileURL.resolvingSymlinksInPath().pathComponents
+        if parts.count >= 3, parts[0] == "/", parts[1] == "private" { parts.remove(at: 1) }
+        return parts
     }
 
     // MARK: - 台账键的 target 前缀（`#246` AC「台账键加 target 前缀」）
@@ -1201,5 +1274,74 @@ struct GuardScanRootsGuard {
                 "解析器没从 Package.swift 读出 CoreDesign 的 `resources:` —— `.module` 归属判据失效")
         #expect(!targets.filter(\.hasResources).isEmpty,
                 "解析器一条 `resources:` 都没读出来 —— 「谁有资源包」会退化成恒 false")
+    }
+
+    // MARK: - `relativePath` 对符号链接前缀的免疫（`#311`）
+
+    /// ⚠️ **这条判据用的是合成路径，不是磁盘上的真实文件**，理由有二：
+    /// 1. 要复现的分叉（`#filePath` 不解析 `/private`、`FileManager` 枚举解析）只在
+    ///    checkout **落在 `/tmp` 这类符号链接下**时才出现。仓库在 `/Users/…` 时它不出现
+    ///    ⇒ 拿真实路径写的判据在正常 checkout 下会**恒绿**，是典型的假绿；
+    /// 2. 合成路径同时钉住了 `resolvingSymlinksInPath()` 对**不存在的路径**不去 `/private`
+    ///    前缀那一格（见 `GuardScanRoots.relativePath(_:from:)` 的文档），
+    ///    那正是这条修法里最容易被「简化」掉的一步。
+    ///
+    /// **变异实证（`#311` 落地时跑过双向）**：把 `relativePath(_:from:)` 的实现回退成
+    /// `url.path.replacingOccurrences(of: root.path + "/", with: "")`
+    /// ⇒ 本条当场判红，**五种形态里红了三种**，且三种红法各不相同（实测原文）：
+    /// · 形态一 → `"/privateSources/CoreDesignEffects/Shine.swift"`（串中间被挖掉一段）；
+    /// · 形态二 → `"/tmp/repo/Sources/CoreDesign/Components/Banner/Banner.swift"`
+    ///   （串里没有可替换的段 ⇒ 整条绝对路径被原样当成相对路径）；
+    /// · 形态四 → `"/elsewhereSources/CoreDesign/Foo.swift"`（同形态一的挖串）。
+    /// ⚠️ **两种红法都会落进 `JudgementReferenceGuard` 的「扫描面之外」**（面的归属靠
+    /// `Sources/` / `Tests/` / `docs/` 前缀判定，上面两种串都不以它们开头）
+    /// ——`#309` 与 `#311` 复现里那条「各面候选引用数全 0、扫描面之外 4637 / 4857」
+    /// 因此**指不出**是哪一种，别照着那行数字反推成因。
+    /// 形态三与形态五在替换版下**本来就绿**，留着是为了钉住修法没把它们改坏。
+    @Test("`relativePath` 对 /private 前缀不一致免疫，且不做串中间的替换（#311）")
+    func relativePathIgnoresPrivatePrefixMismatch() {
+        // 形态一：根未解析（`#filePath` 侧）、文件已解析（`FileManager` 枚举侧）
+        // —— `#311` 在 xcodebuild 腿上实测到的那一种。
+        #expect(
+            GuardScanRoots.relativePath(
+                URL(fileURLWithPath: "/private/tmp/repo/Sources/CoreDesignEffects/Shine.swift"),
+                from: URL(fileURLWithPath: "/tmp/repo")
+            ) == "Sources/CoreDesignEffects/Shine.swift"
+        )
+
+        // 形态二：反向（根已解析、文件未解析）。两端谁解析谁不解析取决于构建系统，
+        // 判据不该只盯一个方向。
+        #expect(
+            GuardScanRoots.relativePath(
+                URL(fileURLWithPath: "/tmp/repo/Sources/CoreDesign/Components/Banner/Banner.swift"),
+                from: URL(fileURLWithPath: "/private/tmp/repo")
+            ) == "Sources/CoreDesign/Components/Banner/Banner.swift"
+        )
+
+        // 形态三：两端本来就一致（`/Users/…` 下的正常 checkout）——不得被归一改坏。
+        #expect(
+            GuardScanRoots.relativePath(
+                URL(fileURLWithPath: "/Users/somebody/CoreDesign/docs/DESIGN-FOUNDATION.md"),
+                from: URL(fileURLWithPath: "/Users/somebody/CoreDesign")
+            ) == "docs/DESIGN-FOUNDATION.md"
+        )
+
+        // 形态四：文件**真的**在根之外 ⇒ 原样返回绝对路径。
+        // ⚠️ 这一条钉的是「不做串中间的替换」：根名整段出现在路径中间时，
+        // 替换版会把它挖掉、拼出 `/elsewhereSources/CoreDesign/Foo.swift` 这种畸形串
+        // 并当成相对路径继续用下去（`MaskSiteRegistryGuard` 的台账键就是这么被污染的）。
+        #expect(
+            GuardScanRoots.relativePath(
+                URL(fileURLWithPath: "/elsewhere/tmp/repo/Sources/CoreDesign/Foo.swift"),
+                from: URL(fileURLWithPath: "/tmp/repo")
+            ) == "/elsewhere/tmp/repo/Sources/CoreDesign/Foo.swift"
+        )
+
+        // 形态五：`url == root` ⇒ 没有「根内相对路径」，原样返回（与替换版行为一致）。
+        #expect(
+            GuardScanRoots.relativePath(
+                URL(fileURLWithPath: "/tmp/repo"), from: URL(fileURLWithPath: "/tmp/repo")
+            ) == "/tmp/repo"
+        )
     }
 }

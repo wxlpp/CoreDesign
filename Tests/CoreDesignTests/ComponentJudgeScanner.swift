@@ -404,6 +404,13 @@ func scanComponentJudgeInputs(
 /// `Sources/CoreDesign/…`）：`ComponentJudgeMutationTests` 把源码树拷进 `NSTemporaryDirectory()`
 /// 再扫，用仓库根相对路径的话副本里的 `file` 会退化成一串绝对路径，
 /// `copiedTreeReproducesBaseline` 的「副本 == 真实源码」就不再成立。根目录名两边一致。
+/// ⚠️ **根内相对路径那一段必须走 `GuardScanRoots.relativePath(_:from:)`，不得自己拼串**
+///（`#311`）：这里原来是 `url.path.replacingOccurrences(of: root.path + "/", with: "")`，
+/// 与 `GuardScanRoots.relativePath` 同一份缺陷 —— `#filePath` 与 `FileManager` 枚举对
+/// `/private` 前缀不一致时，`replacingOccurrences` 会在串中间挖掉一段，键被污染成
+/// `"CoreDesign//privateComponents/ProgressIndicator/ProgressIndicator.swift"`（实测）。
+/// 这一处**同样吃 `NSTemporaryDirectory()`**（`ComponentJudgeMutationTests` 的副本树落在
+/// `/var/folders/…`，而 `/var` 也是 `/private/var` 的符号链接）⇒ 两个来源都要归一。
 func scanComponentJudgeInputs(root: URL) throws -> ComponentJudgeScanResult {
     guard FileManager.default.fileExists(atPath: root.path) else {
         Issue.record("源码路径不存在：\(root.path) —— 判据无法工作，这不是「零违规」")
@@ -418,7 +425,7 @@ func scanComponentJudgeInputs(root: URL) throws -> ComponentJudgeScanResult {
     var result = ComponentJudgeScanResult()
     let rootPrefix = root.lastPathComponent
     for case let url as URL in walker where url.pathExtension == "swift" {
-        let name = rootPrefix + "/" + url.path.replacingOccurrences(of: root.path + "/", with: "")
+        let name = rootPrefix + "/" + GuardScanRoots.relativePath(url, from: root)
         let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
         // ⚠️ **解析保真检查**：parser major 与工具链不配套时会静默产出 error node
         // ⇒ 声明被漏采，而扫描器照样「成功」返回一个偏小的集合。
