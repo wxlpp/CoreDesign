@@ -244,6 +244,19 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   jq 取到的是 `null`。照 `[]` 写判据会永远判红。
 - **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
   `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
+- **checkout 落在 `/tmp` 这类符号链接下时，多条源码守卫会集体假红**（`#311`）：`#filePath` 是
+  **编译期**路径（`xcodebuild` 腿上不解析符号链接），`FileManager.enumerator(at:)` 是**运行期**
+  枚举、**会**解析根里的符号链接 ⇒ 两端分叉，台账键被污染成 `/privateSources/…` 这类畸形串。
+  ⚠️ 诊断会说「各面候选引用数全 0」——**读的人会去查扫描面配置，想不到是 checkout 位置**。
+  ⚠️ **只在 `xcodebuild` 腿现形**（`swift test` 腿两端同为 `/private/…` 不分叉）⇒ 这条坑上
+  macOS `swift test` 全绿是**假绿**。
+  ⇒ 根内相对路径一律走 `GuardScanRoots.relativePath(_:)` / `relativePath(_:from:)`（按**路径
+  分量**比较 + `/private` 归一），**不得**自写 `url.path.replacingOccurrences(of: root.path + "/")`
+  ——它不是前缀操作，前缀对不上时会在**串中间**挖掉一段。
+  ⚠️ 另有一条**与 checkout 位置无关**的同源分叉：`NSTemporaryDirectory()` 在 macOS 落在
+  `/var/folders/…` 而 `/var` 是 `/private/var` 的符号链接 ⇒ 拷贝源码树再扫的判据都吃这一条；
+  **iOS Simulator 腿不在 `/private` 之下**（`…/CoreSimulator/Devices/<id>/data/tmp/`），
+  所以拿 `/private` 写死的 fixture 在 iOS 腿上构造不出分叉、会静默恒绿 ⇒ fixture 必须自建符号链接。
 - **`xcodebuild` 的 console 行数不可作承重判据**（`#299`）：出现过「同一条命令第 2 遍只落 2 条
   `Test run with` 行」，成因未查明、6 次复现尝试未再现 ⇒ 无论成因如何，「行数对了就算跑全了」
   这个推断不成立。**权威值取 result bundle**：
