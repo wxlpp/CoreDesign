@@ -70,9 +70,16 @@ struct ComponentTextParamGuard {
     ///   ⚠️ **公约 §A.2 旧句称它「已移交 39.md（J-1/FR-4）」——那句对 FR-4 不成立**：
     ///   #39 只做了 J-1（Bool），FR-4 落地后它**仍然没有任何机器判据给它分类**。
     ///   Task 12 修正该句，处置移交 #41/#42。
+    /// ⚠️ **`#270` 新增第三条 `View.spray#symbol`**：扫描根扩到 `Sources/CoreDesignEffects`
+    /// 之后，`View.spray(trigger:symbol:strength:colors:)` 这个公开 modifier 第一次进入
+    /// FR-4 的视野。它是 `func` 侧参数 ⇒ 与另外两条一样落本留痕桶，不进主判据。
+    /// ⚠️ **它的内容是 SF Symbol 标识符，不是界面文案** —— 与 `LabelIcon.systemName`
+    /// 同类（公约 §4「点名收编：编译期符号名」）。本桶只留痕、不裁决；真要裁决它算不算
+    /// 文案，落点是把 FR-4 的定义域从 `init` 扩到 `func`，那是独立一块工程，不在 `#270` 射程内。
     static let knownFunctionSideBareText: Set<String> = [
         "ToastHost.show#message",
         "View.bottomInputBar#placeholder",
+        "View.spray#symbol",
     ]
 
     /// 单条条目的「散文 ⟂ 数据」判定。返回 `nil` 表示无矛盾。
@@ -238,8 +245,13 @@ struct ComponentTextParamGuard {
                 "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效，这不是『零违规』")
         #expect(scan.localizedTextKeys.count > 5,
                 "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")
-        #expect(registryTextParams == 31,
-                "CoreDesign 侧 textParams 实测 31 条（#221 新增 BottomInputBar.placeholder，由 30 变为 31），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
+        // ⚠️ **31 → 36 的出处（`#270`）**：扩扫描根后新登记的 15 条里有 5 条带 textParams
+        // —— `TypewriterText.text`（C；`init(verbatim:String)` 是运行期内容通道）
+        // + 四个图表的 `title`（by-type；`LocalizedStringResource?` 且无裸串孪生重载，
+        // 该「无孪生」由本文件 `byTypeCategoryHasNoBareStringTwin` 逐条核过）。
+        // 其余 10 条的 public init 没有文本型参数。
+        #expect(registryTextParams == 36,
+                "CoreDesign 侧 textParams 实测 36 条（#270 扩扫描根后新增 TypewriterText.text 与四个图表的 title，由 31 变为 36），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
         // ⚠️ 覆盖数 29 与登记表 30 条**不相等是预期的**，两者的计数单位不同：
         // 前者数的是**扫描键**（`Owner.init#param`），后者数的是**登记表条目**。
         // ⚠️ **29 的完整记账（Task 10 实测，非推演）**：
@@ -257,8 +269,13 @@ struct ComponentTextParamGuard {
         //   (b) plan 评审推的「必须还存在**至少两处**双命中」也偏了一位：28 条产键条目
         //       只需 **1 条**双命中即可从 28 到 29。
         //   ⇒ 数字对不等于理由对；理由由下方的映射打印定案，不由推演定案。
-        #expect(result.covered.count == 30,
-                "覆盖数实测 30（#221 新增 BottomInputBar.init#placeholder，由 29 变为 30），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
+        // ⚠️ **30 → 31 的出处（`#270`）**：新登记的 5 条 textParams 里，只有
+        // `TypewriterText.text` 产出 covered 键（`TypewriterText.init#text`，来自
+        // `init(verbatim text: String)` 那个裸串重载）。四个图表的 `title` 是 by-type、
+        // 走 `.localizedText` 分支 ⇒ **按设计不产生 covered 键**（与既有的
+        // `Descriptions.header` / `SpinningModifier.text` 同一形态）。⇒ 30 + 1 = 31。
+        #expect(result.covered.count == 31,
+                "覆盖数实测 31（#270 新增 TypewriterText.init#text，由 30 变为 31），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
         // 数量级吻合（AC 原文）：覆盖数与登记条数同一量级（相差不超过登记条数的一半）。
         #expect(abs(result.covered.count - registryTextParams) * 2 <= registryTextParams,
                 "扫到的覆盖数 \(result.covered.count) 与登记表 \(registryTextParams) 条不在同一量级 —— 两侧口径可能已经脱节")
@@ -329,15 +346,24 @@ struct ComponentTextParamGuard {
         // 这里选前者。计数取自 Task 3 Step 5 的真实源码冒烟（裸文本 39 / LSK/LSR 11 / carrying 8）。
         // ⚠️ 这两个桶用**计数**而不是固定集合：它们是留痕桶不是判据桶，集合逐条钉住会把
         // 「改了个参数名」也变成红，成本与收益不匹配；计数变化已足以逼人过目。
-        #expect(result.localizedByType.count == 11,
+        // ⚠️ **11 → 17 的出处（`#270`）**：扩扫描根后新增 6 个 LSK/LSR 键 ——
+        // 四个图表的 `title`（`LocalizedStringResource?`）+ `TypewriterText.init#text`
+        // （它的另一个重载 `init(_:LocalizedStringResource)`；同一个键同时出现在本桶与
+        // covered 里，因为两个 public init 共用参数名 `text`）+ `View.rise#text`
+        // （`CoreDesignEffects` 的公开 modifier，`func` 侧的 LSK/LSR 参数）。
+        #expect(result.localizedByType.count == 17,
                 """
-                LSK/LSR 由类型判定的键实测 11 条，实际 \(result.localizedByType.count)：\(result.localizedByType)。\
+                LSK/LSR 由类型判定的键实测 17 条（`#270` 扩扫描根后由 11 变为 17），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
                 变化意味着有参数在 LSK/LSR 与裸串之间换了类型 —— 要人过目，不能静默
                 """)
-        #expect(result.carrying.count == 9,
+        // ⚠️ **9 → 10 的出处（`#270`）**：新增 `CharSphere.init#characters`（`[String]`）。
+        // 按 FR-7 它是**调用方的数据内容**而不是本件的界面文案（`docs/components/char-sphere.md`
+        // 逐字：「调用方传入的数据文案是内容不是 UI 文案，不强制本地化类型」），
+        // 扫描器把它归入 text-carrying 桶 ⇒ 不进 FR-4 主判据，与该文档的裁决同向。
+        #expect(result.carrying.count == 10,
                 """
-                text-carrying 键实测 9 条（#221 把 BottomInputBar 提为 public，其 init 的 \
-                Binding/回调参数进入本桶，由 8 变为 9），实际 \(result.carrying.count)：\(result.carrying)。\
+                text-carrying 键实测 10 条（`#270` 扩扫描根后新增 CharSphere.init#characters，由 9 变为 10），\
+                实际 \(result.carrying.count)：\(result.carrying)。\
                 本桶（Binding<String> / 回调等）不进主判据，但它是**文案经此进入组件**的通道，\
                 静默增长等于 FR-4 的定义域在无人过目的情况下缩小
                 """)
@@ -518,9 +544,17 @@ struct ComponentTextParamGuard {
                 }
             }
         }
-        #expect(byTypeCount == 2,
-                "by-type 条目实测 2 条（Descriptions.header / SpinningModifier.text），实际 \(byTypeCount)")
+        // ⚠️ **2 → 6 的出处（`#270`）**：四个图表的 `title` 是 `LocalizedStringResource?`
+        // 且**没有**裸串孪生重载（本测试上面的循环刚逐条核过），按公约 §4 落 by-type。
+        // ⚠️ `TypewriterText.text` **不在**这 6 条里：它有 `init(verbatim text: String)`
+        // 这个裸串孪生重载 ⇒ 公约 §4 的筛子把它挡在 by-type 之外，登记为 C。
+        #expect(byTypeCount == 6,
+                "by-type 条目实测 6 条（Descriptions.header / SpinningModifier.text + 四个图表的 title），实际 \(byTypeCount)")
         #expect(localizedBCount == 0)
-        print("FR-4 by-type 核对：\(byTypeCount) 条 by-type 均无裸串孪生重载；28 条 B/C 均有裸串入口")
+        // ⚠️ 分母**从数据里算**，不写死：上一版写死「28 条 B/C」，而 `#270` 一改登记表它就过期了，
+        // 且它是 print 不是断言 ⇒ 过期了也没有任何判据会红。
+        let bcCount = entries.filter { $0.repo == "coredesign" }
+            .flatMap(\.textParams).count - byTypeCount
+        print("FR-4 by-type 核对：\(byTypeCount) 条 by-type 均无裸串孪生重载；\(bcCount) 条 B/C 均有裸串入口")
     }
 }

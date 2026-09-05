@@ -81,3 +81,12 @@ LightSweep {
 ⚠️ 上面这段 `.accessibilityElement(children: .combine)` **不是可有可无的排版**：
 本组件的光带层已 `accessibilityHidden(true)`，"正在传输"这个语义**只能**由调用方通告，
 而通告落不到 accessibility 树上就等于没通告。
+
+## ⚠️ 登记（`#270`）
+
+`public struct LightSweep` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+落 tiebreaker 的理由：作用域条款排除了 `ScanningOverlay` / `GlowSweep` 各自承担的候选形态，
+其余（宽度 / 倾角 / 透明度曲线）是同一条光带换画法 ⇒ 装饰 ⇒ 不计入 ≥2。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

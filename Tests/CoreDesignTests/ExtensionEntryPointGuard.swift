@@ -274,12 +274,15 @@ struct ExtensionEntryPointGuard {
     func scannerFiresOnRealSource() throws {
         // ⚠️ 与另外两条新守卫同款。`CoreDesign` **不在射程内**（见文件头），
         // 这里只把它当靶场：它有 15 个 `extension View` 块、40+ 个公开 modifier 方法。
-        // ⚠️ **必须走 `coreDesignScan()`，不能直接调 `scanTypes(root:)`**
-        // （PR #265 终审 S-3）：`ComponentRegistryGuard.coreDesignScan()` 的文档逐字写着
+        // ⚠️ **必须走 `componentScan()`，不能直接调 `scanTypes(roots:)`**
+        // （PR #265 终审 S-3）：`ComponentRegistryGuard.componentScan()` 的文档逐字写着
         // 「三条判据统一走这个入口」，绕过它既丢缓存、也绕过「空结果不入缓存」那条纪律。
-        let scan = try ComponentRegistryGuard.coreDesignScan()
+        // ⚠️ `#270` 起 `componentScan()` 是**三根**（含 Effects / Charts），本条的下界
+        // 因此不再是「主 target 独自采到 > 10」——主 target 的抽查改由下面三个具名
+        // 入口点承担（它们全在 `Sources/CoreDesign` 里），计数只作扫描器非真空的信号。
+        let scan = try ComponentRegistryGuard.componentScan()
         #expect(scan.entryPoints.count > 10, """
-        扩展成员扫描器在 Sources/CoreDesign 上只采到 \(scan.entryPoints.count) 个入口点 —— 疑似失效。
+        扩展成员扫描器在三个扫描根上只采到 \(scan.entryPoints.count) 个入口点 —— 疑似失效。
         本条**不是**要求主 target 登记它们，而是「新 target 的零入口点来自真的没有、
         不是来自坏掉的扫描器」这句话的活证据。
         """)

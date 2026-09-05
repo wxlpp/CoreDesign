@@ -267,7 +267,7 @@ struct ComponentJudgeScannerTests {
 
     @Test("真实源码扫描：文本参数三个桶的实测规模")
     func realScanMagnitudes() throws {
-        let scan = try scanComponentJudgeInputs(root: ComponentRegistryGuard.coreDesignSources)
+        let scan = try scanComponentJudgeInputs(roots: ComponentRegistryGuard.componentScanRoots)
         // ⚠️ 非空断言先行：扫描器失效时「零命中 ⇒ 零违规 ⇒ 绿」会静默通过。
         #expect(scan.bareTextKeys.count > 20, "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效")
         #expect(scan.localizedTextKeys.count > 5, "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")

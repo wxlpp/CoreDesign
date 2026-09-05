@@ -318,6 +318,16 @@ struct ComponentJudgeScanResult: Sendable {
     /// 类型名（含被 extension 扩展的类型名）→ 声明它的文件名集合。J-3 用它定「组件作用域」。
     var typeDeclFiles: [String: Set<String>] = [:]
 
+    /// 四个桶全空 —— 扫描器的三条失败路径（路径不存在 / 无法枚举 / 解析出错）产出的
+    /// 正是这个形状。⚠️ **判「失败」的信号是全空，不是「`textParams` 空」**
+    /// （PR #195 第 2 轮 review）：只看 `textParams` 会把「扫描成功、恰好零文本参数」
+    /// 也判成失败。`ComponentJudgeSources.scan()` 的缓存准入与
+    /// `scanComponentJudgeInputs(roots:)` 的逐根断言共用本属性，免得两处各写一份而漂。
+    var isEmpty: Bool {
+        self.textParams.isEmpty && self.styleProtocols.isEmpty
+            && self.conformances.isEmpty && self.typeDeclFiles.isEmpty
+    }
+
     var bareTextKeys: Set<String> { Set(self.textParams.filter { $0.kind == .bareText }.map(\.key)) }
     var localizedTextKeys: Set<String> { Set(self.textParams.filter { $0.kind == .localizedText }.map(\.key)) }
     var carryingKeys: Set<String> { Set(self.textParams.filter { $0.kind == .textCarrying }.map(\.key)) }
@@ -341,8 +351,59 @@ struct ComponentJudgeScanResult: Sendable {
 
 // MARK: - 扫描入口 / Scan entry points
 
+/// 多根扫描（`#270`）。J-2 / J-3 / FR-4 三条判据的真实入口是
+/// `ComponentJudgeSources.scan()`，它传的就是 `ComponentRegistryGuard.componentScanRoots`。
+///
+/// ⚠️ **为什么必须跟着登记表一起扩根**：登记表 `#270` 起收 `CoreDesignEffects` /
+/// `CoreDesignCharts` 的 public 类型，而 J-2 是「登记表说要扩展点 ⇒ 源码里必须真的有」。
+/// 只扩登记表不扩本扫描器，新条目的扩展点在源码里找不到 ⇒ J-2 会把**已经存在的**扩展点
+/// 判成缺失；反过来若把新条目全判 `prescriptive` 逃开 J-2，J-3（原生协议纯度）与 FR-4
+/// （文本参数分类）**照样**看不见它们的源码 —— 那正是本 issue 要收的那个口。
+///
+/// ⚠️ **三层 fail-closed，缺一层就留一条缝**：
+/// ① `GuardScanRoots.assertRootsExist` —— 列表非空 + 每根目录存在；
+/// ② `scanComponentJudgeInputs(root:)` 内部 —— 该根的路径存在 / 可枚举；
+/// ③ **逐根产出非空**（PR #297 终审 S-3 补上的一层）。
+///
+/// ⚠️ **③ 是本轮补的，此前只有 ①②**：它的姊妹
+/// `ComponentRegistryGuard.scannerFindsComponentTypes` 早就明写着「多根扫描最容易的
+/// 假绿正是『新根静默产出空集』，故每个根各自也要有非空断言」，而同一族、同一批扩根的
+/// 本函数**没有**这条 —— 同风险、同文件族、待遇不对称。
+/// 「目录存在、里面也有 `.swift`，但整根一个声明都没采到」（解析器对新 target 的语法
+/// 形态整体失效、拷贝出错、`.swift` 全在被跳过的子目录里）会让合并结果只少掉一部分，
+/// 而下游的 `bareTextKeys.count > 20` 这类**合计**下界靠主 target 一家就能满足。
+func scanComponentJudgeInputs(
+    roots: [(target: String, url: URL)],
+    sourceLocation: Testing.SourceLocation = #_sourceLocation
+) throws -> ComponentJudgeScanResult {
+    GuardScanRoots.assertRootsExist(roots)
+    var result = ComponentJudgeScanResult()
+    for root in roots {
+        let one = try scanComponentJudgeInputs(root: root.url)
+        if one.isEmpty {
+            Issue.record("""
+            扫描根 \(root.target)（\(root.url.path)）四个桶全空 —— 判据无法工作，这不是「零违规」。
+            多根扫描最容易的假绿就是新根静默产出空集：合并之后主 target 的量把合计下界撑满，
+            而这一根的源码**完全不受 J-2 / J-3 / FR-4 覆盖**。
+            """, sourceLocation: sourceLocation)
+        }
+        result.merge(one)
+    }
+    return result
+}
+
 /// ⚠️ **必须先断言路径存在**：`FileManager.enumerator(at:)` 对不存在的路径**静默产出
 /// 空序列** ⇒「零命中 ⇒ 零违规 ⇒ 绿」会静默通过（#38/#39 同款纪律）。
+///
+/// ⚠️ **`fileName` 从裸文件名改成了 `<根目录名>/<根内相对路径>`**（`#270`）：
+/// 该字符串**不只是诊断**——J-3 的「组件作用域」靠 `typeDeclFiles[component]` 与
+/// `styleProtocols.file` 做**集合相交**（见 `ComponentJudgeRules` 的通道 (i)），
+/// 裸文件名在三根之下会让 `CoreDesign/Foo.swift` 与 `CoreDesignEffects/Foo.swift`
+/// **塌成同一个作用域**，一个 target 里的协议声明会被算进另一个 target 的组件作用域。
+/// ⚠️ **前缀取的是根目录名而不是仓库根相对路径**（`GuardScanRoots.relativePath` 会给出
+/// `Sources/CoreDesign/…`）：`ComponentJudgeMutationTests` 把源码树拷进 `NSTemporaryDirectory()`
+/// 再扫，用仓库根相对路径的话副本里的 `file` 会退化成一串绝对路径，
+/// `copiedTreeReproducesBaseline` 的「副本 == 真实源码」就不再成立。根目录名两边一致。
 func scanComponentJudgeInputs(root: URL) throws -> ComponentJudgeScanResult {
     guard FileManager.default.fileExists(atPath: root.path) else {
         Issue.record("源码路径不存在：\(root.path) —— 判据无法工作，这不是「零违规」")
@@ -355,14 +416,16 @@ func scanComponentJudgeInputs(root: URL) throws -> ComponentJudgeScanResult {
         return ComponentJudgeScanResult()
     }
     var result = ComponentJudgeScanResult()
+    let rootPrefix = root.lastPathComponent
     for case let url as URL in walker where url.pathExtension == "swift" {
+        let name = rootPrefix + "/" + url.path.replacingOccurrences(of: root.path + "/", with: "")
         let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
         // ⚠️ **解析保真检查**：parser major 与工具链不配套时会静默产出 error node
         // ⇒ 声明被漏采，而扫描器照样「成功」返回一个偏小的集合。
         if tree.hasError {
-            Issue.record("解析出错：\(url.lastPathComponent) —— swift-syntax major 可能与工具链不配套")
+            Issue.record("解析出错：\(name) —— swift-syntax major 可能与工具链不配套")
         }
-        result.merge(collectComponentJudgeInputs(tree: tree, fileName: url.lastPathComponent))
+        result.merge(collectComponentJudgeInputs(tree: tree, fileName: name))
     }
     return result
 }

@@ -1,6 +1,24 @@
 {
   "components": [
     {
+      "component": "ActivityHeatmap",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "pendingStep2",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [
+        {
+          "name": "title",
+          "category": "by-type"
+        }
+      ],
+      "notes": "`#255` 落地的贡献热力图（`CoreDesignCharts`）：按周成列、按星期成行的日格网格。步骤 1：Apple 无对应原生样式协议。步骤 2：候选（日历月视图 / 折线时间序列）属**排布**差异、本该计入 ≥2，但 `#270` 未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。`calendar: Calendar = .current` 是可注入的行为依赖（为可测性）而不是外观面；文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+    },
+    {
       "component": "AgentMessageList",
       "repo": "storyui",
       "kind": "prescriptive",
@@ -10,6 +28,19 @@
       "needsExtensionPoint": false,
       "textParams": [],
       "notes": "agent 过程消息流，五类角色（user/assistant/thought/system/error）各自固定渲染形态。步骤 1 无。步骤 2/3：文档反复强调『三种“文本流”必须分开渲染』『reasoning 与 thought 长得不一样』——五类形态互不相同是正确性约束（避免用户混淆消息语义），不是风格自由度 ⇒ 步骤 3 规定性，不给扩展点。展示文本来自 AgentMessage/AgentMessageRole 关联值，组件 init 本身无裸 String 参数。"
+    },
+    {
+      "component": "AnimatedMeshGradient",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#253` 落地的动态网格渐变背景面（`CoreDesignEffects`），3×3 控制点持续漂移。步骤 1：Apple 无对应原生样式协议（`MeshGradient` 是视图不是样式协议）。步骤 2：它是公约补充规则 1 意义上的**纯装饰层**——不承载状态语义、也不承载内容语义，整块只作背景；候选（换色板 / 换网格密度 / 换成噪声底）都是同一整幅背景换画法 ⇒ 装饰⇒ 不计入 ≥2 ⇒ 举得犹豫。色板由调用方经 `colors` / `alternateColors` 传入，组件不预置「好看的默认色板」（那是品牌决定，FR-8 已就此立过规矩）。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
     },
     {
       "component": "ApprovalRequestCard",
@@ -95,6 +126,19 @@
       "notes": "祖父条款：BannerStyle 已发布公开协议（CLAUDE.md『组件 style 协议』一节记录的既有形态，PlainBannerStyle / BorderedBannerStyle 两个内置实现），不走判定法。label 是 @ViewBuilder 泛型槽位，无固定 String 便利 init，无 textParams 可记。"
     },
     {
+      "component": "BeforeAfterSlider",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "pendingStep2",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#253` 落地的前后对比滑块（`CoreDesignEffects`）：拖动分隔线，左右分别露出 `before` / `after` 两层。步骤 1：Apple 无对应原生样式协议。⚠️ **本条与同批其余条目的理由不同，且是这批里最可能被改判为 semantic 的一条**：它的候选形态（竖向分隔、并排对照）按公约三分法属**排布**差异（换轴 / 重叠↔并排），本该计入 ≥2，而**不是**皮肤变体。落 tiebreaker 的理由是**枚举本身未完成**：公约步骤 2 的停止规则要求每个计入 ≥2 的候选给出可核验来源（设计体系名 + 具体形态，或产品名 + 场景），或写明已穷尽并列出查过的 Apple HIG / Material / Fluent / Ant 与一个贴近产品；`#270` 是「扫描根收口」的 task，未做这份来源核验 ⇒ 按公约「不满足停止规则 ⇒ **枚举视为未完成**，不得据以走任一出口」，本条因此不落任何出口（见文末）。公开的 `BeforeAfterSliderLabels`（hidden/standard/shown）是**标签内容**取值域、不是外观配置枚举，故 `styleEnum` 留空；其 `shown` 关联值携带的 `LocalizedStringKey` 不是 init 参数，不进本条目的参数表。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+    },
+    {
       "component": "BottomInputBar",
       "repo": "coredesign",
       "kind": "prescriptive",
@@ -158,6 +202,19 @@
         }
       ],
       "notes": "章节三态徽章，文档自述『建在 CoreDesign StateLabel 上，胶囊/图标/配色/对比度全部来自上游，本件一处都不重造』。步骤 1 无（StateLabel 本身已是 prescriptive，无原生协议）。步骤 2/3：三态到色相（黄/紫/红）的映射是刻意的无障碍设计（避免与 StateLabelStyle 的 attention 黄冲突），换色即破坏可区分性 ⇒ 步骤 3 规定性，不给扩展点。textParams：label 是 App 层本地化出口（覆盖内置中文 defaultLabel），界面文案 ⇒ B 类。⚠️ 相关但不同的观察：defaultLabel（内置中文『草稿/完成/待修』）是 43.md 已经点名的『组件持有默认文案』——对 #6『App 层持有用户文案』立场的有意偏离，非本条 textParams 覆盖范围（defaultLabel 不是 public init 参数，是内部枚举 extension 计算属性），留给 #43 的 spec 逐一回答。"
+    },
+    {
+      "component": "CharSphere",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#254` 落地的字形球背景面（`CoreDesignEffects`）：球面斐波那契分布的字形自转，背面剔除。步骤 1：Apple 无对应原生样式协议。步骤 2 先过作用域条款——「球面上摆的是点而不是字形」这个候选由已登记的兄弟条目 `DotSphere` 真实承担⇒ 不计入本条目的候选；剩下的（字号 / 数量 / 颜色）是同一球面换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫。背面剔除随形态走、固化在内部的 `SphereMark`，不占公开参数面。首参 `characters: [String]` 按 FR-7 是**调用方的数据内容**而不是本件的界面文案，类型上不强制本地化；它进的是扫描器的 text-carrying 桶（与 `PinCode.value` 等同桶），不进 FR-4 主判据。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
     },
     {
       "component": "ChevronRightIcon",
@@ -264,6 +321,19 @@
       "notes": "步骤 1 无。文档自述『换皮不重造』——分组卡片/分隔线视觉全部继承 InsetGroupedSection，值槽位样式全部继承已实现的 CoreLabeledContentStyle（`.core`），Descriptions 自身只负责 1/2 列切分与分隔线密度，两者均已是恰当的 enum 配置（非 Bool hack），无独立视觉身份需要扩展点 ⇒ 步骤 3 规定性。textParams：header 类型为 `LocalizedStringKey?`，无 StringProtocol 孪生重载（单一、已是正确类型），由类型直接判定 ⇒ by-type。 ⚠️ #53 段 2 源码级压测改判（step3 → tiebreaker；kind 与 needsExtensionPoint 不变）。公开 API 反证：本条落款「无独立视觉身份需要扩展点」，而 Descriptions.swift:112-122 的公开 init 已带两条外观轴——DescriptionsColumns（.one/.two，:11-16）与 DescriptionsDividerDensity（.none/.row，:21-26），共 4 种公开可选长相；body（:128-139）把全部 chrome 委托给 InsetGroupedSection 与 .core LabeledContentStyle，本组件自己只画内边距（:191-193）。诚实枚举举得出 3 个候选：带边框的键值表格（Ant Design Descriptions 的 bordered prop 把两种长相作为同一组件发布）、label 在值上方的纵向布局（Ant Design layout=\"vertical\"、HTML dl）、无卡片纯文本键值段（Semi Design plain）。作用域条款三条件对 InsetGroupedSection 在条件 ③ 落空（它承担的恰是无边框圆角卡片本身），未走通；第一、三个候选共享「每行 label+value」骨架属皮肤变体，非皮肤候选只剩 1 个 < 2 ⇒ 举得犹豫。且实质问句答「是」——换成带边框表格或纵向布局，它仍是一张键值描述列表 ⇒ 两条路径同向落步骤 4。取证见 53-stress.md 第 4 节。 ⚠️ #53 PR 层降级评审标注（D-53-18，不改本条落点）：本条的非皮肤候选恰为 1 个 —— 再举出一个非皮肤候选就会翻进 D-53-17 的成因②（应移交而非落地），而公约对「枚举到什么程度算完毕」无停止规则 ⇒ 本条落点依赖一个自由裁量的计数、不可复现。待 #54 裁定枚举停止规则后复核。 ⚠️ #59 按修订后判据重判（依据：公约步骤 2 的枚举停止规则 + 皮肤变体条款的槽/排布/装饰三分法及补充规则 1、3）：候选 1 带边框的键值表格（Ant Design Descriptions 的 bordered prop）判**装饰**——边框属补充规则 1 逐字列举的描边/分隔线，header/label/value 三个槽与「同行左右分居、行间纵向线性」的排布逐一不变，去掉边框后每个 label 仍指向其右侧 value；候选 2 label 置于 value 上方的纵向布局（Ant Design layout=\"vertical\" / HTML dl 的 dt-dd）判**排布**——换轴，label 与 value 的空间关系由同行左右分居改为上下两行；候选 3 无卡片的纯文本键值段（Semi Design Descriptions 的 plain 风格）判**装饰**——卡片外壳由 InsetGroupedSection 提供，是背景 + 描边 + 内边距，已考虑补充规则 3 并判不适用（plain 与卡片版足迹量级相同，都是与父容器同宽的整块，只改内边距取值），分组归属仍由 header 与相邻性承担。作用域三条件对 InsetGroupedSection 在条件 ③ 两次落空（它承担的恰是无边框圆角卡片本身，既不承担带边框表格、也不承担无卡片纯文本段）⇒ 三条均不排除 ⇒ 非皮肤且未被排除的候选数 = 1 < 2 ⇒ 举得犹豫 ⇒ 出口 3 落步骤 4；(A) 成立（成因①②均不成立），未到达步骤 3 ⇒ decidedBy: tiebreaker、kind: prescriptive、needsExtensionPoint: false，与 #53 落点一致。⚠️ 本条 notes 里 #53 PR 层降级评审标注的「计数不可复现、待裁定枚举停止规则后复核」由本轮消解。取证见 oh-my-story `.claude/epics/component-contract/59-rejudge.md` 第 4 节。"
     },
     {
+      "component": "DotSphere",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#254` 落地的点球背景面（`CoreDesignEffects`）：球面斐波那契分布的点缓慢自转。步骤 1：Apple 无对应原生样式协议。步骤 2 先过作用域条款——「球面上摆的是字形而不是点」这个候选由已登记的兄弟条目 `CharSphere` 真实承担（它的公开 init 第一个参数就是字表）⇒ 不计入本条目的候选；剩下的（点的直径 / 数量 / 颜色）是同一球面换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
+    },
+    {
       "component": "DynamicForm",
       "repo": "storyui",
       "kind": "prescriptive",
@@ -317,6 +387,32 @@
       "notes": "专注模式容器：紧凑宽度下隐藏状态栏/工具栏，仅留退出按钮。步骤 1 无。步骤 2/3：这是一个行为容器（分工归属见 spec §4.1），不是外观容器——『隐藏 chrome + 退出入口』本身就是它存在的唯一理由，没有『换一种长相但功能不变』的空间 ⇒ 步骤 3 规定性。exitButtonAccessibilityLabel 是固定 a11y chrome（内部静态函数，非公开参数），不进 textParams。"
     },
     {
+      "component": "FullScreenButton",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#254` 落地的全屏展开按钮（`CoreDesignEffects`）：底层是 `NavigationLink` + `matchedTransitionSource`，卡片 zoom 展开到调用方给的目的地。步骤 1：Apple 无对应原生样式协议（`ButtonStyle` 不适用——它不是 `Button`，改写成 `Button` + 自定义 `ButtonStyle` 会丢掉导航语义与 zoom 的几何配对）。步骤 2：`destination:` / `label:` 两个 `@ViewBuilder` 槽已经把外观整块交给调用方，本件自身没有可换皮的绘制面；展开动效的替代形态由 SwiftUI 的 `navigationTransition` 承担，不是本件的样式面 ⇒ 举不出属于本件的非皮肤候选，且写不出不引兄弟名的反事实机制 ⇒ 举得犹豫。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
+    },
+    {
+      "component": "GlowSweep",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#252` 落地的处理中容器（`CoreDesignEffects`）：一段辉光弧沿内容边界环行。步骤 1：Apple 无对应原生样式协议。步骤 2 先过作用域条款——「横向光带往复扫描」由已登记的兄弟条目 `ScanningOverlay` 真实承担、「斜向光带掠过表面」由已登记的兄弟条目 `LightSweep` 真实承担 ⇒ 两个候选不计入；剩下的（辉光弧多宽、多亮、几段）是同一条弧换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
+    },
+    {
       "component": "InsetGroupedSection",
       "repo": "coredesign",
       "kind": "prescriptive",
@@ -346,6 +442,19 @@
       "needsExtensionPoint": false,
       "textParams": [],
       "notes": "纯装饰 app-tile 风格图标（底层 app.fill 色块 + 上层 SF Symbol），固定叠合结构——长相即含义 ⇒ 步骤 3 规定性，不给扩展点。systemName 是符号标识符不是展示文案，不计入 textParams。 ⚠️ #53 段 2 源码级压测改判（step3 → tiebreaker；kind 与 needsExtensionPoint 不变）。公开 API 反证：本条落款「固定叠合结构——长相即含义」，而 Form.swift 的两个 public init（:36、:48）把上层字形（systemName）与底层色块着色（任意 ShapeStyle，含 gradient / material）都交给调用方，组件自己固定的只剩 24pt / 16pt 两个几何常量与 Color.contentInverse（body :55-70）。诚实枚举举得出 3 个候选：无底色的单色字形图标（Material list item leading icon、WhatsApp/Telegram 早期设置页）、圆形底 + 字形（Google/Android 联系人与设置项）、emoji 或图片替代字形（Notion 页面图标、Slack 自定义频道图标）。作用域条款三条件对 SettingsRowIcon（承担的是同样的圆角色块 + 反白字形，不是无底字形）在条件 ③ 落空，未走通；后两个候选共享「底 + 前景」两层叠合骨架属皮肤变体，非皮肤候选只剩 1 个 < 2 ⇒ 举得犹豫。且实质问句答「是」——去掉方块底只留单色字形，它仍是这一行的类别图标 ⇒ 落步骤 4。取证见 53-stress.md 第 6 节。 ⚠️ #53 PR 层降级评审标注（D-53-18，不改本条落点）：本条的非皮肤候选恰为 1 个 —— 再举出一个非皮肤候选就会翻进 D-53-17 的成因②（应移交而非落地），而公约对「枚举到什么程度算完毕」无停止规则 ⇒ 本条落点依赖一个自由裁量的计数、不可复现。待 #54 裁定枚举停止规则后复核。 ⚠️ #59 按修订后判据重判（依据：公约步骤 2 的枚举停止规则 + 皮肤变体条款的槽/排布/装饰三分法及补充规则 1、2）：候选 1 无底色的单色字形图标（Material Design 3 list item leading icon / Telegram 与 WhatsApp 设置页）判**槽**——底层色块是承载内容的子视图位置而非纯装饰层，依据有三条可核验事实：backgroundColor 与 backgroundStyle 在两个 public init（Form.swift:36、:48）里都是必填无默认值的参数、上层字形固定用 Color.contentInverse 反白绘制而该反白只有在有底板时才成立、色块承担 iOS 设置页惯例的类别色编码（与公约反例 SidebarStatusFooter 的状态圆点同型，颜色即内容）⇒ 删它是「2 个槽 → 1 个槽」的槽差异；本条不采信本 notes 旧落款「纯装饰 app-tile 风格图标」这句自陈（补充规则 1：自陈不足以定性）。候选 2 圆形底板 + 字形（Google Contacts、Android 设置项、Gmail 圆形分类图标）与候选 3 emoji 或图片替代字形（Notion 页面图标、Slack 自定义频道图标）判**装饰**——两层结构与相对位置不变，只是某一槽内换画法，与公约正典例「格子画成方框/圆点/下划线」同型。作用域三条件：候选 1 曾拟援引 SettingsRowIcon，本轮实核它连条件 ① 都不满足（component-registry.json 的 71 条里没有 SettingsRowIcon，它只是 SettingsRow.swift:39-51 的内部类型），另两条无承担者 ⇒ 三条均不排除 ⇒ 非皮肤且未被排除的候选数 = 1 < 2 ⇒ 举得犹豫 ⇒ 出口 3 落步骤 4；(A) 成立（成因①②均不成立），未到达步骤 3 ⇒ decidedBy: tiebreaker、kind: prescriptive、needsExtensionPoint: false，与 #53 落点一致。⚠️ 本条 notes 里 #53 PR 层降级评审标注的「计数不可复现、待裁定枚举停止规则后复核」由本轮消解。取证见 oh-my-story `.claude/epics/component-contract/59-rejudge.md` 第 6 节。"
+    },
+    {
+      "component": "LightSweep",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#252` 落地的处理中容器（`CoreDesignEffects`）：一条斜向光带掠过内容表面。步骤 1：Apple 无对应原生样式协议。步骤 2 先过作用域条款——「横向光带往复扫描」由已登记的兄弟条目 `ScanningOverlay` 真实承担、「环形辉光沿边界行进」由已登记的兄弟条目 `GlowSweep` 真实承担 ⇒ 两个候选不计入；剩下的（光带的宽度 / 倾角 / 透明度曲线）是同一条光带换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
     },
     {
       "component": "ListRow",
@@ -389,6 +498,37 @@
         }
       ],
       "notes": "只读正文阅读面，与 ManuscriptEditor 共用同一个 StoryTextView（TextKit 2）底座，仅 isEditable 不同。步骤 1 无（UIViewRepresentable 场景没有可用的 SwiftUI 原生样式协议）。步骤 2/3：外观完全由调用方传入的 typography/theme 值类型决定（已是恰当参数化，非 Bool hack），组件本身不拥有独立于这两个入参之外的可换皮视觉表面 ⇒ 视觉即含义，步骤 3 规定性。text 以 AttributedString 承载。⚠️ 上句原判**该参数不进本表**（当时的理由：判据只面向 String/LocalizedStringKey/Resource 类型），已由 #67 推翻：公约 §4 的 C 行类型列已纳入 AttributedString，本参数登记为 C（用户手稿正文，运行期动态、无编译期本地化键）。"
+    },
+    {
+      "component": "NetworkGraph",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "pendingStep2",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [
+        {
+          "name": "title",
+          "category": "by-type"
+        }
+      ],
+      "notes": "`#255` 落地的力导向网络图（`CoreDesignCharts`）：节点位置由斥力与弹簧解出。步骤 1：Apple 无对应原生样式协议。步骤 2：候选（邻接矩阵 / 分层树布局）属**排布**差异、本该计入 ≥2，但 `#270` 未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。超限时从力导向降级为静态环形并**显示提示横幅**，是四个图表里唯一提示的一个，理由是它的截断会改变布局算法、用户看到的是一张不一样的图，见 `docs/components/network-graph.md`。文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+    },
+    {
+      "component": "OrbitingLogos",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "pendingStep2",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#254` 落地的环绕轨道视图（`CoreDesignEffects`）：调用方的 logo 沿同心点环公转，中心是调用方的槽。步骤 1：Apple 无对应原生样式协议。步骤 2：`logo:` 与 `center:` 两个 `@ViewBuilder` 槽已经把「换内容」这一维交给调用方；⚠️ **上句原写「剩下的候选（换环数 / 换点密度 / 换轨道形状）是同一套同心排布换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫」——PR #297 终审 I-3 证伪该分箱**：公约把**排布**定义为「**子视图之间的空间关系改变**（换轴 / 重叠↔并排 / 分居两侧 / 网格↔线性）」，而**装饰**是「**同一槽内的画法变化** + 纯装饰层」；把 logo 从圆轨道改成椭圆 / 螺旋，改变的是**它们彼此之间**的落点 ⇒ 命中排布、不是同一槽内。「换环数」另擦到补充规则 2（槽的计数变化也算槽差异），而补充规则 4 写着「一个候选只要含有任一『槽』或『排布』差异，即整体计入非皮肤」。⇒ 这些候选**本该计入 ≥2**，本条与四个图表 / `BeforeAfterSlider` 同组，不是「干净的 tiebreaker」。但 `#270` 同样未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，不得据以走任一出口（见文末）。已登记的形状缺陷（`rotationPeriod` 一个旋钮同时管住停自转与停轮播）处置是另开一个「这件动到什么程度」的**行为**档位枚举，不是样式扩展点，见 `docs/components/orbiting-logos.md`。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
     },
     {
       "component": "OutlineTree",
@@ -440,6 +580,24 @@
       "notes": "步骤 1 答「有」：ProgressIndicator.swift:53-78 的 body 全部内容是外观——ProgressView + 下方文案 + accent tint + controlSize，零 @State / 零 Task，可改写为『ProgressView(label 承载文案) + 自定义 ProgressViewStyle』且不丢功能。ProgressViewStyle 有公开的 makeBody 定制点（第三方能实现），本仓 Style/CoreProgressViewStyle.swift:37 的 makeBody 就是可实现性证明。⇒ 语义组件，必须实现原生协议。 ⚠️ textParams：公约第 4 节点名 ProgressIndicator(text:) 属 B 类（调用方传入的可本地化文案），此前误填空数组——没有任何机器判据能拦这条。"
     },
     {
+      "component": "RadarChart",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "pendingStep2",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [
+        {
+          "name": "title",
+          "category": "by-type"
+        }
+      ],
+      "notes": "`#255` 落地的雷达图（`CoreDesignCharts`）：多维评分在极坐标上连成一个轮廓多边形。步骤 1：Apple 无对应原生样式协议（Swift Charts 没有极坐标多轴 mark，这正是本 target 存在的理由）。步骤 2：候选（并排条形 / 平行坐标）按三分法确实属**排布**差异、本该计入 ≥2，但公约停止规则要求每个候选给出可核验来源，或写明已穷尽并列出查过的 Apple HIG / Material / Fluent / Ant 与一个贴近产品；`#270` 是扫描根收口 task，未做这份核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。步骤 3 另一侧同样不成立：写得出的只有「换成条形就读成分类比较」这类结论复述，公约明令消极描述与结论复述不算 (B)。`tint: Color` 是取值参数不是扩展点；文本参数 `title` 类型为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+    },
+    {
       "component": "RadioGroup",
       "repo": "coredesign",
       "kind": "prescriptive",
@@ -478,6 +636,24 @@
       "notes": "#41 裁决 4b 新增（Rating 的只读展示态拆出的 indicator）。⚠️ 判定法真走了一遍，结论与 Rating 相同但理由不同，不是照抄：弃用条款与祖父条款均不适用。步骤 1：最近的原生候选仍是 ProgressViewStyle（写法 ProgressView(value:total:) + 自定义 style），但 Rating 那条否决理由（改写会丢手势取整与 accessibility adjust action）在 indicator 身上不成立——它本来就没有手势与 adjust action，必须重新论证。重新论证：ProgressViewStyle.Configuration 只给到 fractionCompleted，而 value/count 这个比值丢掉了 count 本身（3.5/5 与 7/10 的 fractionCompleted 都是 0.7，样式实现无法区分该画 5 档还是 10 档），离散档位数是评分展示的语义核心（『4 星』与『4/10』不是同一个信息）⇒ 改写丢功能 ⇒ 按步骤 1 的操作化判据视为无，进步骤 2。步骤 2『会』：(a) 星形序列（当前）/ (b) 数字条（IMDb 式连续条形，骨架是一条连续条而非离散图形序列）/ (c) 表情（NPS 式单一图形，不是序列）/ (d) 纯数字文本『4.5 / 5』（完全没有图形骨架）——四者布局骨架本身不同，不是同一骨架换画法。⚠️ (d) 是 indicator 特有的形态，control 侧不成立（纯文本无从拖拽）：这正是『结论未必与 Rating 相同』兑现的地方，它比 Rating 多一个合法候选，更加站得住步骤 2 ⇒ 语义组件，需要扩展点。扩展点复用同一个 RatingStyle（不新造第二个协议——否则 J-2 会多出一条红，且评分的外观语汇本就只有一套）。textParams 为空：public init 只有 value: Double 与 count: Int，无文本入口。⚠️ 兄弟组件惯例的边界：Rating / RatingDisplay 是一对具名兄弟组件，但拆的是 control vs indicator 的交互语义（Apple 自己就是这么分的：Slider vs ProgressView、Toggle vs 只读标签），不是外观变体——证据是两者共用同一个 RatingStyle，外观候选并没有被兄弟组件消化掉。这与任务书点名的『未成文第四出口』不是同一回事，记录在此供 #44 SC-8 裁断该出口时引用。"
     },
     {
+      "component": "RingChart",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "pendingStep2",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [
+        {
+          "name": "title",
+          "category": "by-type"
+        }
+      ],
+      "notes": "`#255` 落地的活动环（`CoreDesignCharts`）：多个同心进度环，每环一个指标对 `goal` 的完成度。步骤 1：Apple 无对应原生样式协议（Swift Charts 无同心环 mark）。步骤 2：候选（堆叠条 / 并排进度条）属**排布**差异、本该计入 ≥2，但与 `RadarChart` 同因——`#270` 未做公约停止规则要求的候选来源核验 ⇒ **枚举视为未完成**，按停止规则「不得据以走任一出口」，本条因此不落任何出口（见文末）。`tint` 逐环按固定衰减取色是内部实现、不对外开；文本参数 `title` 为 `LocalizedStringResource?` 且无裸串孪生重载 ⇒ by-type。超出 `recommendedRingLimit` 的截断不提示，是与 `NetworkGraph` 对照后的显式定案。⚠️ **本条不声称判定法的任何出口**（PR #297 终审 I-1，`#270` 初版写的是 `decidedBy: tiebreaker`）：公约步骤 3 门槛的兜底句逐字是「重跑至多一次；**重跑后** (A) 仍不成立 … ⇒ 落步骤 4」——**它以「重跑发生过」为前置**，而本条的候选枚举与来源核验**一次都没做**，既无一次也无重跑 ⇒ 援引不成立；公约另有一条直接点名「败在 (A)（诚实枚举后**其实举得出** ≥2 个非皮肤、未被作用域排除的候选）⇒ **不是 tiebreaker**」，而上文自陈的正是这种成因②。⇒ 改记 `decidedBy: pendingStep2`：步骤 2 的枚举与来源核验**尚未完成**，本条**缓办**登记在**可逆的那一侧**（`kind: prescriptive` / 不给扩展点——公约自陈少给扩展点可逆、多给不可逆），**不主张**它就是判定法的落点。补做枚举并按公约重判是 **`#299`**；⚠️ 公约明令**不得预判**「重跑必然落步骤 4」，诚实重枚举可能落**任一**出口（含 `semantic` ⇒ 要开扩展点）。机器钩子：`ComponentRegistryGuard.knownPendingStep2Enumeration` 与本字段做**双侧等式**断言，少一条标记或多一条未登记的标记都判红。"
+    },
+    {
       "component": "RunMetricsBar",
       "repo": "storyui",
       "kind": "prescriptive",
@@ -487,6 +663,19 @@
       "needsExtensionPoint": false,
       "textParams": [],
       "notes": "运行指标条：token 用量 + 会话轮次，两组分隔展示。步骤 1 无。步骤 2/3：spec §3.1 明确要求 token 与轮次『不是一组数字』必须视觉分组——这是防止用户误算平均值的正确性约束，不是外观选择 ⇒ 步骤 3 规定性。展示文本来自 RunMetricsBarState 数据字段与固定分组标题（『token（含委派子树）』/『本会话』，内部常量非公开参数），组件 init 本身无裸 String 参数。"
+    },
+    {
+      "component": "ScanningOverlay",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#252` 落地的处理中容器（`CoreDesignEffects`）：一道横向光带在内容上往复扫描。无配置参数，颜色取 `.tint`、运动与否取 `\\.accessibilityReduceMotion`。步骤 1：Apple 无对应原生样式协议。步骤 2 先过公约「候选形态的作用域」条款——「环形辉光沿边界行进」由已登记的兄弟条目 `GlowSweep` 真实承担、「斜向光带掠过表面」由已登记的兄弟条目 `LightSweep` 真实承担（三件在 `docs/components/glow-sweep.md` 的分工表里逐条分工），按该条款这两个候选不计入本条目的候选；剩下的候选只是同一道光带换画法 ⇒ 装饰 ⇒ 不计入 ≥2。作用域条款只排除候选、不决定落点，排除后仍走完步骤 2 → 3 → 4：举得犹豫且写不出不引兄弟名的反事实机制。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
     },
     {
       "component": "SearchField",
@@ -593,6 +782,19 @@
       "needsExtensionPoint": false,
       "textParams": [],
       "notes": "纯装饰 disclosure chevron，与 ChevronRightIcon 同构（固定渲染 chevron.forward，自动镜像 RTL）——长相即含义 ⇒ 步骤 3 规定性，不给扩展点。无公开文本参数。 ⚠️ #53 段 2 源码级压测改判（step3 → tiebreaker；kind 与 needsExtensionPoint 不变）。诚实枚举（逐条重列、不靠引用同源条目过关）举得出 3 个候选：右向实心三角（SF Symbols arrowtriangle.forward.fill、macOS NSOutlineView）、右箭头（Material Symbols arrow_forward_ios）、「>」字符（早期 Web 面包屑）。作用域条款三条件对三者均在条件 ③ 落空；⚠️ 不能拿 ChevronRightIcon 来援引本条款——它承担的是同一个 chevron.forward 形态、不是被排除的那三个候选中的任何一个，按公约反例警告（点名一个真实存在但与该候选无关的组件不算数）条件 ③ 对它不成立。三个候选共享「单一字形占 trailing 一格、指向阅读方向下一级」同一骨架 ⇒ 皮肤变体、不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4。另记一条本仓自证：SettingsRow.swift:56-65 与 Form.swift:87-98 渲染同一个 SF Symbol 却给出两套字号与配色（前者写死 .footnote.weight(.semibold) + contentTertiary，后者一概继承父容器）——同一披露语义在本设计系统内部就有两种在产长相。(B) 侧无合格句：本条现状的全部视觉理由是「与 ChevronRightIcon 同构」，属 D-52-4 #53 裁断判死的关系性类型，剥掉兄弟名后源码里只剩字号与色 token 两个取值。取证见 53-stress.md 第 9 节。 ⚠️ #59 按修订后判据重判（依据：公约步骤 2 的枚举停止规则与「来源义务两侧一致」+ 皮肤变体条款的槽/排布/装饰三分法）：三个候选逐条按三分法重判——右向实心三角（SF Symbols arrowtriangle.forward.fill / macOS NSOutlineView）、右箭头字形（Material Symbols arrow_forward_ios / Gmail 与 Google 设置页）、「>」半角字符（本轮把 #53 的泛称来源「早期 Web 面包屑」——公约逐字点名的不合格泛称——替换为具名来源：Bootstrap 5.3 breadcrumb 官方文档「Dividers」示例 --bs-breadcrumb-divider: '>' 与 Sass 的 $breadcrumb-divider: quote(\">\")）——三者均判**装饰**，走「同一槽内的画法变化」支而非「纯装饰层」支：三种字形占据同一个 trailing 披露槽，槽数、轴向、与行内容的空间关系均不变，本组件在渲染上决定的只有字形与 .font(.footnote.weight(.semibold))、Color.contentTertiary 两个取值（SettingsRow.swift:61-62），取值不是槽；本仓自证同槽可有不同画法：本组件与 ChevronRightIcon（Form.swift:87-98）渲染同一个 SF Symbol 却给出两套字号与配色。作用域三条件对三者均无承担者，且不得援引 ChevronRightIcon（它承担的是同一个 chevron.forward 形态、非被排除候选，条件 ③ 不成立）⇒ 非皮肤且未被排除的候选数 = 0 < 2 ⇒ 举得犹豫 ⇒ 出口 3 落步骤 4；(A) 成立（成因①②均不成立），未到达步骤 3，(B) 侧无合格句（现状理由「与 ChevronRightIcon 同构」属纯关系性表述）但不承重 ⇒ decidedBy: tiebreaker、kind: prescriptive、needsExtensionPoint: false，与 #53 落点一致。取证见 oh-my-story `.claude/epics/component-contract/59-rejudge.md` 第 9 节。"
+    },
+    {
+      "component": "Shine",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#250` 落地的 `public struct Shine<Content: View>: View`（`CoreDesignEffects`），一次性高光扫过容器内容，与 `View.shine(trigger:highlight:)` 是同一套实现的两种形态。`#270` 扩扫描根后由 `PublicTypeCollector` 采到，按判定法补登记。弃用条款 / 祖父条款均不适用（未弃用、未发布过样式协议）。步骤 1：Apple 无对应原生样式协议。步骤 2：候选形态只有「高光的软硬 / 角度 / 颜色怎么画」，按公约槽 / 排布 / 装饰三分法全部落**装饰**（同一槽内的画法变化，不增删承载内容的子视图位置、也不改子视图之间的空间关系）⇒ 不计入 ≥2 ⇒ 属公约明写的「举得犹豫」。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
     },
     {
       "component": "SidebarDocumentRow",
@@ -955,6 +1157,24 @@
       "needsExtensionPoint": false,
       "textParams": [],
       "notes": "`.streaming` / `.custom` 未被接管时的兜底可见提示。步骤 1 无。步骤 2/3：文档明确『刻意渲成可见的交接提示而不是空视图』——存在的唯一理由就是这个可见性本身，换外观等于取消它的作用 ⇒ 步骤 3 规定性，不给扩展点。text 是根据 render 关联值拼接的内部计算属性，非公开参数。 ⚠️ #54 段 1 直接改判（本轮未进段 2 压测）：notes 给出的反事实句「换外观等于取消它的作用」实为偷换概念——把「改变外观」等同于「变不可见」，两件不同的事；只要仍然可见，交接提示完全存在多种不同的视觉样式选择（替换图标、改用不同文案措辞、改用不同的容器 chrome），普通设计常识即可看出这一结论不成立，无需读源码验证即可判定实质也不满足 ⇒ decidedBy：step3 → tiebreaker（kind/needsExtensionPoint 不变）。"
+    },
+    {
+      "component": "TypewriterText",
+      "repo": "coredesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [
+        {
+          "name": "text",
+          "category": "C"
+        }
+      ],
+      "notes": "`#253` 落地的打字机文本（`CoreDesignEffects`），按**字素簇**逐个揭示。步骤 1：Apple 无对应原生样式协议。步骤 2：候选（逐词揭示 / 整段淡入 / 尾随光标闪烁）全部作用在**同一个文本槽**上，既不增删承载内容的子视图位置、也不改子视图间的空间关系⇒ 按三分法落装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫。公开的 `TypewriterSpeed`（slow/regular/fast）是**节奏**取值域、不是外观配置枚举，因此 `styleEnum` 留空——形态 D2 要求该枚举能完整承载**外观**差异，节奏档位承载不了。文本参数：两个 public init 共用参数名 `text`——`init(_:LocalizedStringResource)` 由类型直接判定，`init(verbatim:String)` 是运行期内容通道，按公约第 4 节 C 类登记为 C。该组件不跟随 `\\.locale` 环境是已登记的限度，见 `docs/components/typewriter-text.md`。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。"
     },
     {
       "component": "UnderlinedTabBar",

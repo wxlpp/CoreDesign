@@ -39,8 +39,14 @@ struct NativeProtocolPurityGuard {
         // 防线 2：作用域真的解析出来了（扫到了非零个源码文件）。
         #expect(result.unresolvedScopes.isEmpty,
                 "这些组件的声明文件定位不到 —— 判据没能运行，这不是『零违规』：\(result.unresolvedScopes)")
-        #expect(result.inspected["ProgressIndicator"] == ["ProgressIndicator.swift"],
-                "ProgressIndicator 的作用域文件实测为 ProgressIndicator.swift，实际 \(result.inspected["ProgressIndicator"] ?? [])")
+        // ⚠️ **`#270` 起是「根目录名 + 根内相对路径」而不是裸文件名**：J-3 的作用域靠
+        // `typeDeclFiles[component]` 与 `styleProtocols.file` 做集合相交，三个扫描根之下
+        // 裸文件名会让 `CoreDesign/Foo.swift` 与 `CoreDesignEffects/Foo.swift` 塌成同一个
+        // 作用域 —— 一个 target 里的协议声明会被算进另一个 target 的组件作用域。
+        // 详见 `scanComponentJudgeInputs(root:)` 的文档。
+        #expect(result.inspected["ProgressIndicator"]
+                == ["CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift"],
+                "ProgressIndicator 的作用域文件实测为 CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift，实际 \(result.inspected["ProgressIndicator"] ?? [])")
 
         // 主判据（**无 withKnownIssue**：J-3 当前零违规，没有已知缺口要豁免）。
         #expect(result.violations.isEmpty,

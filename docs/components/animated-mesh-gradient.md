@@ -137,3 +137,12 @@ AnimatedMeshGradient(
 ```
 
 ⚠️ **本文档的示例代码零机器覆盖**（与 `confetti.md` 同一条登记）。
+
+## ⚠️ 登记（`#270`）
+
+`public struct AnimatedMeshGradient` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+落 tiebreaker 的理由：它是公约补充规则 1 意义上的**纯装饰层**（不承载状态 / 内容语义），
+候选都是同一整幅背景换画法 ⇒ 装饰 ⇒ 不计入 ≥2。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

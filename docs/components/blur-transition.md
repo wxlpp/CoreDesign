@@ -109,9 +109,12 @@ SDK 对该位的原文：
 （`target` = `CoreDesignEffects`、`host` = `Transition`、`member` = `blur` + `notes`），
 由 `ExtensionEntryPointGuard` 做双向差集（漏登记与幽灵条目两个方向都判红）。
 
-⚠️ `public struct BlurTransition` 本身**不**进 `components` 数组：
-`ComponentRegistryGuard.coreDesignSources` 仍是单根 `Sources/CoreDesign`，
-塞进去会被判成幽灵条目（同 `ParticleTransition` 的处置；该口子由 issue #270 收口）。
+⚠️ `public struct BlurTransition` 本身**不**进 `components` 数组，但 `#270` 起**理由变了**：
+`ComponentRegistryGuard` 的扫描根已由单根 `Sources/CoreDesign` 扩成
+`GuardScanRoots.allRoots`（三个 target），**扫描根不再是理由**；
+真正的理由是 `PublicTypeCollector` 只采 `public struct: View / ViewModifier`，
+而它是 `public struct: Transition` ⇒ 结构上仍不进 `components`。
+公开表面由上面那条 `entryPoints` 覆盖，不是漏登记。
 
 ## 预览
 

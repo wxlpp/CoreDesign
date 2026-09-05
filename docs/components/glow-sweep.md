@@ -68,3 +68,12 @@ GlowSweep {
 .tint(.accent)
 .accessibilityLabel("正在生成回答")
 ```
+
+## ⚠️ 登记（`#270`）
+
+`public struct GlowSweep` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+落 tiebreaker 的理由：作用域条款排除了 `ScanningOverlay` / `LightSweep` 各自承担的候选形态，
+其余（弧多宽 / 多亮 / 几段）是同一条弧换画法 ⇒ 装饰 ⇒ 不计入 ≥2。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

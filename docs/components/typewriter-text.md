@@ -179,3 +179,14 @@ struct OnboardingHeadline: View {
 
 ⚠️ **本文档的示例代码零机器覆盖**（与 `confetti.md` 同一条登记）：`import` 漏写、
 API 改名、参数标签变更都不会让任何一条 CI 腿变红，只能人工发现。
+
+## ⚠️ 登记（`#270`）
+
+`public struct TypewriterText` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+落 tiebreaker 的理由：候选（逐词揭示 / 整段淡入 / 光标闪烁）都作用在同一个文本槽上 ⇒ 装饰。
+`TypewriterSpeed` 是**节奏**取值域不是外观配置枚举，故 `styleEnum` 留空。
+文本参数：`text` 登记为 **C**（`init(verbatim:String)` 是运行期内容通道；
+另一个 `init(_:LocalizedStringResource)` 由类型直接判定，两个 init 共用同一个参数名）。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

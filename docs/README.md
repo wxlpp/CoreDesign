@@ -96,17 +96,21 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 `CoreDesignEffects`（36 个）与 `CoreDesignCharts`（4 个）的 API 单位。由
 `shipswift-effects` epic（#242）落地，逐单位说明见各自的 `components/*.md`。
 
-> ⚠️ **落点说明（`#256`）**：本节**刻意不在上面的「## 组件索引」小节之内**，
-> 与 AD-4《下游连锁三》写的「三个 target 全部进主索引」不同 —— **那条的前提没有兑现**。
-> AD-4 那句话建立在「Charts 走路线 b（进 `component-registry.json` 的 `components` 数组）」
-> 之上；而 `#255` 落地时**没有**扩 `ComponentRegistryGuard.coreDesignSources` 的扫描根，
-> 登记表至今仍是 `coredesign` 47 条、扫描根仍是单根 `Sources/CoreDesign`。
-> ⇒ 这 40 个单位**不是登记条目**，把它们写进「## 组件索引」会让
-> `ComponentRegistryGuard.readmeIndexReconcilesWithRegistry` 当场判红
-> （该判据要求该小节里每个候选名都能落进登记表 / styleImpls / 墓碑 / 排除等桶）。
-> 而 `readmeIndexRows` 的解析范围恰好止于 `## 生成预览图`，本节在其之后 ⇒ 不进定义域。
-> **要把本节并进主索引，前置动作是先把这两个 target 纳入登记表**（AD-4《下游连锁一》
-> 列了那条链会顶动的一串断言），那是一次独立的裁决与批量改动，不在 `#256` 射程内。
+> ⚠️ **落点说明（`#256` 原文 → `#270` 改写）**：`#256` 当时写的是「本节刻意不在
+> 『## 组件索引』之内，因为这 40 个单位不是登记条目，写进去会让
+> `readmeIndexReconcilesWithRegistry` 当场判红；扫描根仍是单根 `Sources/CoreDesign`、
+> 登记表仍是 `coredesign` 47 条」。**那个前提已由 `#270` 兑现并作废**：
+> 扫描根已扩成 `GuardScanRoots.allRoots`（三个 target），两个新 target 里的 15 个
+> `public struct: View`（Effects 11 + Charts 4）已按判定法登记，`coredesign` 侧由 47 变 62。
+>
+> ⚠️ **本节仍保持独立小节，但已进入判据的定义域**：`readmeIndexRows` 的解析范围
+> `#270` 起是**两段**——`## 组件索引 → ## 生成预览图` 与
+> `## 动效与图表索引 → ## NFR-1 帧率基准`。⇒ 本节每一行的行名都必须能落进
+> 登记表 / `entryPoints` / styleImpls / 墓碑 / 排除等桶，落空即红。
+> 保留分节的理由是 AD-4《下游连锁三》自己写的那句「每行仍须带模块名……
+> 那是**可读性要求**」——按 `import` 分组正是可读性的那一侧；
+> 而 AD-4「三个 target 全部进主索引」的**论据**是解析范围止于 `## 生成预览图`
+> 这条工程事实，`#270` 直接把那条事实改掉了，规范目的（每个登记条目都被索引行覆盖）不变。
 
 > ⚠️ **本节没有预览图**：这 40 个单位的 `#Preview` 都住在库内源文件里，而提交态的快照
 > 只收宿主 `App/Sources/Previews.swift` 驱动的产物（产地规则见

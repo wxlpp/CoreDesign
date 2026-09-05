@@ -162,3 +162,12 @@ Shine {
 - [`light-sweep.md`](light-sweep.md) —— 常驻的"处理中"光带，同样是掠过表面
 - [`ping.md`](ping.md) / [`spray.md`](spray.md) —— 同批的另外两个早退式装饰层效果
 - [`haptic.md`](haptic.md) —— ⚠️ 不要放进 `.shine()` 之内，见《已知限度》
+
+## ⚠️ 登记（`#270`）
+
+`public struct Shine` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: tiebreaker` / `needsExtensionPoint: false`。
+落 tiebreaker 的理由：候选形态只有「高光怎么画」，按公约的槽 / 排布 / 装饰三分法全落**装饰**
+⇒ 不计入 ≥2 ⇒ 举得犹豫。同一份实现的另一形态 `View.shine(trigger:highlight:)` 走 `entryPoints`。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。

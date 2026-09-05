@@ -226,3 +226,19 @@ struct ContributionsCard: View {
 - [`network-graph.md`](network-graph.md) —— 力导向网络图，四个图表里唯一**会提示截断**的那个
 - [`ring-chart.md`](ring-chart.md) —— 活动环，与本图表同为「截断但不提示」的一侧
 - [`radar-chart.md`](radar-chart.md) —— 雷达图；它**没有**公开的规模上限
+
+## ⚠️ 登记（`#270`）
+
+`public struct ActivityHeatmap` 由 `PublicTypeCollector` 采到，已按公约判定法登记进
+`docs/component-registry.json` 的 `components`：
+`kind: prescriptive` / `decidedBy: pendingStep2` / `needsExtensionPoint: false`。
+⚠️ **`decidedBy` 不是 `tiebreaker`**（PR #297 终审 I-1，本节已改写）：`#270` 初版填的是
+`tiebreaker`，而公约步骤 3 门槛的兜底句**以「重跑发生过」为前置**、步骤 2 的停止规则又写着
+「枚举视为未完成 ⇒ **不得据以走任一出口**」——本条的候选枚举与来源核验**一次都没做**。
+⇒ 改记 `pendingStep2`：**如实说「还没判」**，条目缓办在**可逆的那一侧**
+（规定性 / 不给扩展点），落点留给承接 issue **`#299`**。
+⚠️ 公约明令**不得预判**重判结论 —— 补足枚举后可能落**任一**出口，含 `semantic`（要开扩展点）。
+候选（日历月视图 / 折线时间序列）属排布差异、本该计入 ≥2，与另外三个图表同因。
+`calendar:` 是可注入的行为依赖不是外观面。
+文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
+逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。
