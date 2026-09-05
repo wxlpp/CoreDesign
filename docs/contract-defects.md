@@ -2487,8 +2487,19 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 | `RadarChart` | 候选 3 笛卡尔并排条形（`BarMark`） | 候选 1 平行坐标、候选 2 径向柱状 —— `RadarChart.swift:12`：「Swift Charts 画不出来：它没有极坐标多轴的 mark」 | **按 Swift Charts 口径** 3 → 2，仍 ≥2、不翻；**全口径未核完**（见表下） |
 | `RingChart` | 候选 1 并排线性进度条（SwiftUI `ProgressView(value:)`）、候选 3 堆叠条（`BarMark` 堆叠） | 候选 2 分段进度条 —— Swift Charts 无「分段进度」概念，只能用 N 个 `BarMark` 手拼 | 3 → **≤1 < 2，落点会从出口 1 翻回步骤 4**（⚠️ `#315` 第 3 轮终审 S-2：本行的「候选 2 不命中」同样**只按 Swift Charts 口径**核过，与第 3 列同一条限制 ⇒ 精确值写作 `≤1`；全口径下任何进一步收窄只会把 1 再往下压，**结论不变**） |
 | `ActivityHeatmap` | 候选 3 折线 / 柱状时间序列（`LineMark` / `BarMark`） | 候选 1 日历月视图、候选 2 月轨图 —— `ActivityHeatmap.swift:12-13`：「`RectangleMark` 能画格子，但按周分列 + 按星期几分行 + 日期对齐是一套布局，不是一个 mark」 | **按 Swift Charts 口径** 3 → 2，仍 ≥2、不翻；**全口径未核完**（见表下） |
-| `NetworkGraph` | **无 —— 本条不适用 `D-299-1`** | 三个候选全是图布局；`NetworkGraph.swift:12-13`：「Swift Charts **画不出来**：它没有图布局的概念」，且 Swift Charts 无任何 node-link mark | 不受影响 |
+| `NetworkGraph` | **无 —— 本条不适用 `D-299-1`** | 三个候选全是图布局；`NetworkGraph.swift:13`：「Swift Charts **画不出来**：它没有图布局的概念」，且 Swift Charts 无任何 node-link mark | 不受影响 |
 | `BeforeAfterSlider` | **无 —— 本条不适用**（原判定即已写明） | 前后对比滑块在 Apple 平台上没有任何框架级承担者 | 不受影响 |
+
+⚠️ **上表引 `NetworkGraph` 那处的行号更正**（`#315` 第 4 轮终审 S-d，但**更正的方向与它给的不同**）：
+上一版写 `NetworkGraph.swift:12-13`，终审说「其实只落在第 12 行」——**两个都不对**，
+实测该文件第 12 行是空的 `///`、被引的那句整句落在**第 13 行**（第 14 行是它的后半
+「不是把数据映射到坐标轴」）。成因：`NetworkGraph.swift` 比同族三个图表文件多一行
+`import Synchronization`，整块类型文档**下移一行** —— 同族的 `RadarChart.swift:12`、
+`ActivityHeatmap.swift:12-13`、`RingChart.swift:12-13` 实测无误，只有本件偏了。
+⇒ 引整句的两处（`docs/components/network-graph.md` 与 registry `notes`）改成 `:13-14`，
+只引前半句的两处（本表与 `docs/component-contract-revisions.md` 的 `R-48` 段）改成 `:13`。
+⚠️ 这是**同一个族的第三次犯**（`#315` C-3 的 `:154`/`:167`、本条的 `:12-13` 与终审的 `:12`）；
+散文里的行号引用在本仓没有机器判据兜底，收口形态见 `#316`。
 
 ⚠️⚠️ **`#315` 第 2 轮终审 F-2：上表第 3 列的口径比本条的谓词窄，如实标注。**
 本条这一轮**自己**把谓词从「Swift Charts」放宽成了「**宿主平台框架**」（`RingChart` 候选 1
@@ -2536,7 +2547,7 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 
 ⚠️ **代价如实记录**：不扩这一条的直接后果就是本轮那 5 条 `semantic` 判定
 （含 `#312` 那批扩展点）—— 若将来条件 ① 被扩宽，**至少 `RingChart` 的落点会真的翻**
-（计入数 3 → 1 < 2 ⇒ 从出口 1 翻回步骤 4，见上表）；`RadarChart` / `ActivityHeatmap`
+（计入数 3 → **≤1** < 2 ⇒ 从出口 1 翻回步骤 4，见上表；`≤` 的理由见上表 `RingChart` 行）；`RadarChart` / `ActivityHeatmap`
 **按 Swift Charts 口径**计入数掉到 2、仍 ≥2 不翻，但**按「宿主平台框架的具名 API」全口径
 尚未逐条核**（见上表下方 F-2 段的两个具名反例：`UICalendarView` / `SectorMark(outerRadius:)`）
 ⇒ 这两条**不能**声称不翻；`NetworkGraph` / `BeforeAfterSlider` 不受影响。
@@ -2625,8 +2636,14 @@ of the ellipse on Y-axis in percentage, relative to the container.”）、`tilt
 - **① 下游连锁应当单独过一次评审（这是主理由）**：翻转会顶动 J-2 的 `inspected.count`
   （实测 16 → 17）、`knownMissingExtensionPoints`（实测 5 条 → 6 条）、`withKnownIssue`
   的文案（逐字「5 条待补的扩展点」）、`R-48` 的判定表与 `#312` 的范围 —— 这一整条链
-  应当单独过一次评审，不应挟在一次「修终审反馈」的提交里悄悄落地。而且这条证据是
-  `#315` 终审**之后**由修复方自己复核出来的，还没有任何人独立看过它。
+  应当单独过一次评审，不应挟在一次「修终审反馈」的提交里悄悄落地。
+  ⚠️ 上一版这里还写着「这条证据还没有任何人独立看过它」——**该句已到期**
+  （`#315` 第 4 轮终审 S-c）：终审本轮**独立取页复核**了
+  <https://animata.design/docs/list/orbiting-items-3-d>，确认 HTTP 200 / 364334 字节，
+  并逐字命中上表记的 `3D Ellipse` / `radiusX` / `radiusY` / `tiltAngle` 与
+  “The radius of the ellipse on X-axis in percentage, relative to the container.”
+  ⇒ **证据侧已不再是单方自证**，本条主理由只剩「下游连锁那条链要单独过评审」这一半，
+  `#312` 先裁出口的**到期性因此更强**，不因本轮不翻而变缓。
 - **② 这是一条到期项，不是「缺陷登记后慢慢等」**：`D-299-1` 推迟的是一条**未成文的规则**，
   本条推迟的是**公约现行字面在现有证据下已经给出的落点**。⇒ `#312` 必须**先裁**
   `OrbitingLogos` 到底落哪个出口，**再**决定扩展点形态（该排序约束已写进 `#312` 正文）。
@@ -2645,6 +2662,16 @@ of the ellipse on Y-axis in percentage, relative to the container.”）、`tilt
   ⚠️ **依据不是「只增不改」**（`#315` 第 3 轮终审 I-5 更正：那条成法在此**不适用** ——
   `docs/component-contract-revisions.md` 的 `R-48` 段自陈「本条台账写于 `#299` 本轮、
   尚未合并 ⇒ **上表直接改**；`#270` 及更早的记录仍按只增不改」，且同表 `BeforeAfterSlider`
-  行本轮就被**直接改过**（计入 3 → 2））。**真正的依据是**：该行记的是**落盘字段**，
-  而落盘字段本轮不动 ⇒ 表随落盘；过期项在表后注记 + 翻转移交 `#312`。
+  行本轮就被**直接改过**（计入 3 → 2））。**真正的依据是**：该行的「计入数」与「落点」
+  被公约的推导链**绑死**（计入 ≥2 ⇒ 出口 1），**只改计入数会让该行自相矛盾**
+  （写着计入 2、落点却仍是步骤 4），而改落点已超出本轮范围（下游连锁见 ①）
+  ⇒ **整行冻结**，过期项在表后注记 + 翻转移交 `#312`。
+  ⚠️ **一条被否证的措辞，如实更正**（`#315` 第 4 轮终审 C-a）：上一版这里写的
+  「该行记的是落盘字段 ⇒ 表随落盘」**被它自己引的例子证伪**，不要再用 ——
+  `R-48` 判定表的表头是 5 列（`条目 / 具名候选 / 三分法 / 计入数 / 落点`），
+  其中**只有「落点」**对应落盘字段（`decidedBy`），「计入数」在
+  `docs/component-registry.json` 里**没有对应字段**（它是枚举结果，不是登记项）；
+  而同表本轮直接改过的三行改的**全是非落盘列**（`BeforeAfterSlider` 计入 3 → 2、
+  `ActivityHeatmap` 换引文、`RadarChart` 换反向证据）⇒ 「表随落盘」若成立，
+  那三行就不该动。
 

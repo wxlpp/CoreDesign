@@ -2210,10 +2210,12 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
     另见 `D-299-2` 的自陈与 `#312`。
   ⚠️⚠️ **`#315` 终审 C-2 更正**：`D-299-1` 的那段说明**被逐字抄进了四份 `notes` 与四份类型
   文档而没有逐条重判**，抄到 `NetworkGraph` 上时是**假的**（它的三个候选是图布局，
-  Swift Charts 没有 node-link mark，`NetworkGraph.swift:12-13` 逐字写着「Swift Charts
+  Swift Charts 没有 node-link mark，`NetworkGraph.swift:13` 逐字写着「Swift Charts
   画不出来：它没有图布局的概念」）。现已逐条重判并补一张承担者表（见 `D-299-1`）：
   `RadarChart` / `ActivityHeatmap` 各只 1 个候选命中，扣掉仍 ≥2 ⇒ 落点不翻；
-  **`RingChart` 有 2 个候选命中，扣掉只剩 1 < 2 ⇒ 落点会从出口 1 翻回步骤 4**；
+  **`RingChart` 有 2 个候选命中，扣掉只剩 ≤1 < 2 ⇒ 落点会从出口 1 翻回步骤 4**
+  （⚠️ 写 `≤1` 不写 `1`：那条「不命中」同样只按 Swift Charts 口径核过，全口径下只会更少，
+  结论不变 —— `#315` 第 3 轮终审 S-2 / 第 4 轮终审 C-b）；
   `NetworkGraph` / `BeforeAfterSlider` **不适用**。⇒ `#312` 因此多一条**排序约束**：
   `D-299-1` 的修订回路走完前不得走形态 B（已写进 `#312` 正文）。
   ⚠️⚠️ **`#315` 修复轮复核出的一条到期项**：`OrbitingLogos` 候选 4（椭圆轨道）的负面核验

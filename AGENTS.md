@@ -325,9 +325,15 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    实测（`main`，三个 test target）：`swift test --build-system swiftbuild --filter <类型名>`
    打印 3 行汇总，其中一行是真实条数、末行是 `0 tests`，`EXIT=0`。
    ⇒ 核对条数**必须扫全文**（`grep -qE 'Test run with [1-9][0-9]* tests?'`），不能取末行。
-   ⚠️ **回指本节之前那条「`xcodebuild` 的 console 输出会漏行」**：本条整条以「数 `Test run with` 行」为手段，
-   而那条正是对这个手段的否证 ⇒ 那道 `grep -qE` 的网只兜得住「一条都没跑」，
-   **不能**用来核对到底跑了几条；条数取 `.xcresult`。
+   ⚠️ **同族风险，不是回指**（`#315` 第 4 轮终审 I-a 更正上一版）：上面那条「console 输出会漏行」
+   是在 **`xcodebuild`** 上实测出来的，本条讲的是 **`swift test --build-system swiftbuild`**
+   —— **跨了工具边界**，`swift test` 侧本仓**没有实测过**行数是否也丢。⇒ 保守处置：那道
+   `grep -qE` 的网只当「一条都没跑」的兜底用，**不要**把 console 行数当权威条数。
+   ⚠️ 权威条数**不要写「取 `.xcresult`」**（上一版就是这么写的）：`.xcresult` 是 `xcodebuild`
+   的产物，`swift test --help` 实测**没有任何产出 `.xcresult` 的选项** ⇒ 读者在 SwiftPM 腿上
+   照那句话**无处可取**。SwiftPM 侧要权威条数走 `swift test --xunit-output <path>`
+   （实测 `--help` 里有：“Path where the xUnit xml file should be generated.”），
+   或把**每个 target 那一行汇总相加**。
 
 ⚠️ **`#302` 把第 5 条记成了「`--build-system swiftbuild --filter` 静默跑零个测试」——
 复现不出来**（本次在 `main` 与 `epic/shipswift-shaders` 各测一遍）：后者上

@@ -227,8 +227,14 @@ struct ComponentExtensionPointGuard {
                 //   （fail-closed），不是 `return false`。
                 // ⚠️ **这里有意不写行号**（`#315` 第 3 轮终审 C-3：上一版写的 `:154` / `:167` 在
                 // **同一个 commit** 里被上方新插入的 9 行注释顶掉，两处恰好各差 9 行、双双落到无关行上；
-                // 而 `JudgementReferenceGuard` 只认「类型.成员」形式的引用，**裸行号没有任何机器判据
-                // 兜底**）。⇒ 引用块内的判据一律用**名字与相对位置**描述，不用行号。
+                // 而 `JudgementReferenceGuard` 只认「类型.成员」形式的引用，**散文注释里的裸行号
+                // 没有机器判据兜底**）。⇒ 引用块内的判据一律用**名字与相对位置**描述，不用行号。
+                // ⚠️ **上一句上一版写成了无限定的全称否定**（「裸行号没有**任何**机器判据兜底」），
+                // 本仓有反例（`#315` 第 4 轮终审 I-b）：`AccessibilityStringLiteralGuard` 的
+                // 死豁免自检就对「相对路径:行号」形态的登记装了判据 —— 格式非法 / 文件不存在 /
+                // 该行已不再被判为违规，三种情形各自判红。⇒ 本仓已有的「给行号装判据」形态是
+                // **显式登记表**（一张可枚举、逐条回扫的清单），**不是散文引用**；
+                // 这里的结论（不写行号）不受影响。
                 // ⚠️ 将来若那**两条同时**被改动，**必须回头把这里改成 fail-closed**，否则本条会静默失守。
                 guard let entry = entries.first(where: { $0.component == component }) else { return false }
                 return !entry.notes.contains(Self.extensionPointFollowUpIssue)
