@@ -25,23 +25,31 @@ import SwiftUI
 //      ⇒ 这条"只揭示到 85%"**只在 macOS 腿上成立**。本条的结论不变——一个
 //      平台相关、未文档化的 α 不能当"保证 α = 1 的颜色"用。
 //      登记在 `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`。
-//    · `Color.black` / `Color.white` / `Color(white: 1)` 是**唯二**能写死 α = 1 的写法，
-//      而两者都被 `EffectsColorLiteralGuard` 判红（`hueNames` 含 `black` / `white`，
-//      `numericColorLabels` 含 `white`），且该守卫**至今没有例外台账**——
-//      「用削弱判据来消化一个例外」正是它文件头点名禁止的 G-7 形态。
+//    · `Color.black` / `Color.white` / `Color(white: 1)` 是**颜色**写法里仅有的三种
+//      能写死 α = 1 的形态，三者都被 `EffectsColorLiteralGuard` 判红（`hueNames` 含
+//      `black` / `white`，`numericColorLabels` 含 `white`），且该守卫**至今没有例外
+//      台账**——「用削弱判据来消化一个例外」正是它文件头点名禁止的 G-7 形态。
+//      ⚠️⚠️ **上一版这里写「唯二」，那是个可被证伪的全称句，照录更正**（#276 终审 F3）：
+//      **未填色的 `Shape`**（`.mask { Rectangle() }`）在遮罩里同样是 α = 1、且不含
+//      任何颜色字面量 ⇒ 该守卫碰不到它（本轮 macOS 实测：明暗两端 `bare ==
+//      mask { Rectangle() }` 均为 true）；仓内生产先例是 `Rating.swift` 的 `star(at:)`。
+//      ⇒ 本条的**结论**不受影响（本簇根本不用遮罩），`Color.maskOpaque` 的必要性
+//      也不受影响（那一族要的是 `Gradient(colors:)` / `MeshGradient` 的 `[Color]`，
+//      未填色的 `Shape` 塞不进去）——但「唯二」这个措辞本身是假的。
 //    · `ColorGrade` 资源色在 macOS `swift test` 下**全部解析为透明**（#275），
 //      拿它当遮罩基色会让 macOS 腿上的每一条遮罩断言都测不到真东西。
 //    ⚠️⚠️ **上一版这里写「三条路全堵死」，那句话是错的，照录更正**（终审 S-1）：
 //      `EffectsColorLiteralGuard` 的扫描根**有意不含** `Sources/CoreDesign`
 //      （`Tests/CoreDesignTests/EffectsColorLiteralGuard.swift` 扫的是
 //      `GuardScanRoots.newTargetRoots`，只有 Effects / Charts）⇒ 在
-//      `Sources/CoreDesign/Colors/` 加一个第 3 层不透明 token 再从 Effects 引用
+//      `Sources/CoreDesign/Colors/` 加一个不透明基色 token（**不在四层色彩之内**）
+//      再从 Effects 引用
 //      **不会命中该守卫**，本仓已有现成先例：本文件用的 `Color.specularHighlight`
 //      就是 `Sources/CoreDesign/Colors/FillColors.swift` 里的 `Color.white.opacity(0.45)`,
 //      而 `CLAUDE.md` 也明写「缺少需要的语义 token，应在对应文件中补充新名称」。
 //      #275 对这类字面量派生 token 同样不适用（它说的是资源色）。
-//    ⇒ **正确的记账是**：遮罩路线**可行，只是代价更高**（要为它新开一个第 3 层
-//      token，且那个 token 的"α 恒为 1"本身还得有判据守着）；**选裁剪的真正理由是
+//    ⇒ **正确的记账是**：遮罩路线**可行，只是代价更高**（要为它新开一个遮罩基色
+//      token（**不在四层色彩之内**），且那个 token 的"α 恒为 1"本身还得有判据守着）；**选裁剪的真正理由是
 //      下面第 2 条——可判据性**。别把本条读成"遮罩在本仓结构上不可能"。
 //    ⚠️⚠️ **那个"更高的代价"现在已经付过了，本条第一句因此需要重读**（Issue #276）：
 //      `Color.maskOpaque`（`Sources/CoreDesign/Colors/MaskColors.swift`）已经存在，

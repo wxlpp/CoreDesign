@@ -69,7 +69,8 @@ macOS 实测（红叠蓝、完全揭示、取中心像素）：
 ⇒ 本处**不换遮罩基色、直接不用遮罩**（`mask-reveal-transitions.md` 已就同一件事立过
 裁断：裁剪不涉及 alpha，不存在"揭示到 85%"这种状态），顺带去掉一层离屏合成。
 需要**空间上变化**的 alpha 场那一族（`AnimatedMeshGradient` / `ProcessingSweep`）
-裁剪替代不了，那里走第 3 层 token `Color.maskOpaque`。
+裁剪替代不了，那里走 `Colors/MaskColors.swift` 的遮罩基色 token `Color.maskOpaque`
+（**不在四层色彩之内**）。
 
 判据：`BeforeAfterSliderTests.endpointRenderIsIndependentOfTheHiddenLayer`
 ——`fraction = 1` 时换掉 `after` 的颜色，位图一个字节都不许变。

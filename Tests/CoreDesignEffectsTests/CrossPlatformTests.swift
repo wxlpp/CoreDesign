@@ -693,7 +693,8 @@ struct CrossPlatformRenderTests {
             expectBitmapsEqual(tinted, explicit, """
             \(mark)：空色板走 `.tint` 与显式单色色板渲出了**不同**的图。
             两条路的量程本该逐字相同 —— 差异来自 `.tint` 那条路上多吃的一层 alpha
-            （`Rectangle().fill(.tint).mask { … }` + `Color.primary` 哨兵，`.primary` 实测 a=0.8471）。
+            （`Rectangle().fill(.tint).mask { … }` + `Color.primary` 哨兵，`.primary`
+            **macOS 实测 a=0.8471、iOS 实测 a=1.0** ⇒ 本条只会在 macOS 腿上因此判红）。
             """)
         }
         let tintedOrbit = Self.pixels(Self.staged(Self.orbitBody().tint(tone)))

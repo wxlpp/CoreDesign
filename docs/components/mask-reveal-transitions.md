@@ -104,12 +104,14 @@ content.transition(.dissolve(cellSize: 12))
    ⚠️⚠️ **上一版这里把本条写成"三条路全堵死"，那是错的，照录更正**（终审 S-1）：
    `EffectsColorLiteralGuard` 的扫描根**有意不含** `Sources/CoreDesign`
    （它扫的是 `GuardScanRoots.newTargetRoots`，只有 Effects / Charts）⇒ 在
-   `Sources/CoreDesign/Colors/` 加一个第 3 层不透明 token 再从 Effects 引用
+   `Sources/CoreDesign/Colors/` 加一个不透明基色 token（**不在四层色彩之内**）
+   再从 Effects 引用
    **不会命中该守卫**。本仓已有现成先例：`glare` 用的 `Color.specularHighlight`
    就是 `Sources/CoreDesign/Colors/FillColors.swift` 里的 `Color.white.opacity(0.45)`,
    `CLAUDE.md` 也明写「缺少需要的语义 token，应在对应文件中补充新名称」；#275
    对这类字面量派生 token 同样不适用（它说的是资源色）。
-   ⇒ **正确的记账是：遮罩路线可行，只是代价更高**（要新开一个第 3 层 token，
+   ⇒ **正确的记账是：遮罩路线可行，只是代价更高**（要新开一个遮罩基色 token，
+   **不在四层色彩之内**，
    且"α 恒为 1"这件事本身还得有判据守着）；**选裁剪的真正理由是下面第 2 条。**
 
    ⚠️⚠️ **那个"更高的代价"现在已经付过了，本条第一句因此要重读**（#276）：

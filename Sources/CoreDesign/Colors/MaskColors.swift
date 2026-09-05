@@ -50,8 +50,22 @@ import SwiftUI
 // ## 为什么落在 `CoreDesign` 而不是 `CoreDesignEffects`
 //
 // `EffectsColorLiteralGuard` 的 `hueNames` 含 `white` / `black`、`numericColorLabels`
-// 含 `white` ⇒ 三种能写死 α = 1 的写法在新 target 里全被判红，而该守卫**至今没有
-// 例外台账**（「用削弱判据来消化一个例外」正是它文件头点名禁止的形态）。
+// 含 `white` ⇒ **颜色**写法里能写死 α = 1 的三种（`Color.black` / `Color.white` /
+// `Color(white: 1)`）在新 target 里全被判红，而该守卫**至今没有例外台账**
+//（「用削弱判据来消化一个例外」正是它文件头点名禁止的形态）。
+//
+// ⚠️⚠️ **上一句刻意限定在「颜色写法」上，别把它读成全称句**（#276 终审 F3 实测反例）：
+// **未填色的 `Shape`** 放进遮罩同样是 α = 1，而且它**不含任何颜色字面量**
+// ⇒ `EffectsColorLiteralGuard` 碰不到它。本轮 macOS 实测（红叠蓝、40 × 20 取全图字节）：
+//
+//     light: bare == mask { Rectangle() }  true  | bare == mask { Color.primary }  false
+//     dark : bare == mask { Rectangle() }  true  | bare == mask { Color.primary }  false
+//
+// 仓内已有**生产**先例：`Sources/CoreDesign/Components/Rating/Rating.swift` 的
+// `star(at:)` 就是 `.mask(alignment: .leading) { Rectangle().frame(...) }`。
+// ⇒ 本 token 的必要性**只对色标那一族成立**：`ProcessingSweep` 的 `Gradient(colors:)`
+// 与 `AnimatedMeshGradient` 的 `MeshGradient` 要的是 `[Color]`，未填色的 `Shape`
+// 塞不进去，那一族除本 token 外确实无路可走。结论（token 必要）不变，理由收窄。
 // 而该守卫的扫描根**有意不含** `Sources/CoreDesign`，`CLAUDE.md`《分层色彩系统》也
 // 明写「缺少需要的语义 token，应在对应文件中补充新名称」——`Color.specularHighlight`
 //（`FillColors.swift`，同样是 `Color.white` 派生）是现成先例。

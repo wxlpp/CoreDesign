@@ -224,7 +224,27 @@ nonisolated enum BeforeAfterSweep {
 /// ⚠️ 需要**空间上变化**的 alpha 场那一族（`AnimatedMeshGradient` 的网格、
 /// `ProcessingSweep` 的两条扫光渐变）裁剪替代不了，那里走 `Color.maskOpaque`。
 ///
-/// 判据：`BeforeAfterSliderTests.endpointRenderIsIndependentOfTheHiddenLayer`。
+/// ## ⚠️ 换成裁剪之后**边缘的抗锯齿行为变了**，这一条本 PR 之前没记账
+///
+///（#276 终审 F7 提出，本轮在本仓 macOS 腿上复现）：上面那张表只证明了「**完全揭示**
+/// 时与不遮逐字节相同」，它**没有**覆盖非整数揭示宽度。实测（macOS，红叠蓝、
+/// 40 × 20 × scale 1，取第 20 列像素；旧写法 = `.mask(alignment: .leading) {
+/// Rectangle().frame(width:) }`）：
+///
+///     width=20.0  clip[20]=(0,157,255)     mask[20]=(0,157,255)    逐字节相同 = true
+///     width=20.5  clip[20]=(147,118,173)   mask[20]=(255,81,76)    逐字节相同 = false
+///     width=20.3  clip[20]=(68,140,221)    mask[20]=(0,157,255)    逐字节相同 = false
+///
+/// ⇒ `clipShape` 给出**亚像素混合**（边界那一列按覆盖率在红蓝之间插值），
+/// 旧遮罩则把宽度**吸附到整像素**（20.3 → 不揭示该列、20.5 → 整列揭示）。
+/// ⚠️ **这条差别在生产路径上总是生效**：`reveal = fraction × width`，拖拽中它几乎
+/// 恒为分数。观感上大概率是改进（拖动更平滑，不再逐像素跳），但它是一处
+/// **未被判据检查、此前也未被记录**的行为变化，故照录在此。
+/// ⚠️ 上面的 RGB 绝对值依赖位图读回时的色彩空间转换，**别把它们当契约**；
+/// 承重的只有那一列的三个 `逐字节相同` 布尔值（整数宽度相同 / 分数宽度不同）。
+///
+/// 判据：`BeforeAfterSliderTests.endpointRenderIsIndependentOfTheHiddenLayer`
+/// —— ⚠️ 它钉的是**端点**（`fraction = 1`），上面这条亚像素差异**不在它射程内**。
 struct BeforeAfterRevealClip: Shape {
 
     /// 揭示宽度（点）。超出 / 低于 `rect` 的部分被钳住 ⇒ 不会画出负宽矩形。

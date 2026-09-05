@@ -668,7 +668,12 @@ struct AnimatedMeshGradientAlphaRangeTests {
     /// 解析出真 alpha，要求两个端点**都被摸到**且没有一个样本越界。
     ///
     /// ⚠️ 容差取 `1/255`（渲染栈的 8 位量化，`Color.primary` 的 0.8471 = 216/255 就是
-    /// 这么来的）；而两条路的差距是 0.145，远大于容差 ⇒ 不存在"容差把偏差吃掉"。
+    /// 这么来的 ⇒ 容差 ≈ 0.0039）。两条路的差距在**两个端点上不一样大**，真正起约束
+    /// 作用的是**低**端点：高端点 `0.95 − 0.8471 × 0.95 = 0.145`、低端点
+    /// `0.18 − 0.8471 × 0.18 = 0.0275`，**两者都 ≫ 容差**（最紧的低端点仍是容差的
+    /// 7 倍）⇒ 不存在"容差把偏差吃掉"。
+    /// ⚠️ 上一版这里只写了高端点的 0.145 并称"远大于容差"（#276 终审 D）——结论不变，
+    /// 但它引的不是最紧的那一侧。
     @Test("tintAlphaMask 的实际 alpha 量程必须等于 minimumAlpha…maximumAlpha")
     func tintAlphaMaskSpansItsDeclaredRange() {
         let tolerance = 1.0 / 255
@@ -689,12 +694,13 @@ struct AnimatedMeshGradientAlphaRangeTests {
             #expect(abs(low - MeshDrift.minimumAlpha) <= tolerance, """
             \(schemeName)：实际最小 alpha = \(low)，而 `MeshDrift.minimumAlpha` 声称 \(MeshDrift.minimumAlpha)。
             `mask` 吃的是 alpha ⇒ 遮罩基色不是满不透明时，这两个常量就不再是实际量程
-            （Issue #276：`Color.primary` 实测 α = 0.8471 ⇒ 整体暗 15%）。
-            基色必须走 `Color.maskOpaque`（契约 α = 1）。
+            （Issue #276：`Color.primary` **macOS 实测 α = 0.8471、iOS 实测 1.0**
+            ⇒ 整体暗 15% 只在 macOS 腿上）。基色必须走 `Color.maskOpaque`（契约 α = 1）。
             """)
             #expect(abs(high - MeshDrift.maximumAlpha) <= tolerance, """
             \(schemeName)：实际最大 alpha = \(high)，而 `MeshDrift.maximumAlpha` 声称 \(MeshDrift.maximumAlpha)。
-            同上 —— 这正是 Issue #276 的实质损害：常量声称的量程与渲染出来的量程差一个 0.847。
+            同上 —— 这正是 Issue #276 的实质损害：常量声称的量程与渲染出来的量程
+            在 **macOS** 上差一个 0.847（iOS 上 `label` 实测 α = 1.0，那一腿没有偏差）。
             """)
             let outOfRange = samples.filter {
                 $0 < MeshDrift.minimumAlpha - tolerance || $0 > MeshDrift.maximumAlpha + tolerance
@@ -1071,8 +1077,9 @@ struct BeforeAfterSliderTests {
         expectBitmapsEqual(fullyBefore, fullyBeforeOtherAfter, """
         `fraction = 1`（完全揭示 `before`）时换掉 `after` 的颜色，位图变了 ——
         说明 `after` 那一层**透上来了**：揭示遮罩不是满不透明的
-        （Issue #276：`Color.primary` 实测 α = 0.8471 ⇒ 露出的那半以 84.7% 合成，
-        对比越强的两张图 ghosting 越明显）。揭示应当走**裁剪**（`BeforeAfterRevealClip`），
+        （Issue #276：`Color.primary` **macOS 实测 α = 0.8471**、**iOS 实测 1.0**
+        ⇒ 露出的那半在 macOS 上以 84.7% 合成，对比越强的两张图 ghosting 越明显）。
+        揭示应当走**裁剪**（`BeforeAfterRevealClip`），
         裁剪不涉及 alpha，不存在"揭示到 85%"这种状态。
         """)
 

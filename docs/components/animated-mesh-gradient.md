@@ -57,7 +57,8 @@ alpha ⇒ 这一档在 macOS 上的实际量程曾是 `0.847 × [0.18, 0.95]` = 
 
 而且「它是语义色」这条好处在两个平台上都是空的——语义色的价值在 RGB 随外观走，
 而 `mask` 只读 alpha（实测 `.mask { Color.black }` 与 `.mask { Color.white }` 逐字节相同）。
-现在基色取第 3 层 token `Color.maskOpaque`（契约就是 α = 1，由
+现在基色取 `Colors/MaskColors.swift` 的遮罩基色 token `Color.maskOpaque`
+（**不在四层色彩之内**，契约就是 α = 1，由
 `MaskOpaqueTokenTests` 守着）。判据：`AnimatedMeshGradientAlphaRangeTests.tintAlphaMaskSpansItsDeclaredRange`。
 
 ⚠️ **为什么不给一个"好看的默认色板"**：那是品牌决定，不是设计系统该替调用方做的。

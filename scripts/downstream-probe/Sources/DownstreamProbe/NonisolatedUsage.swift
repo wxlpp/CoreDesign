@@ -77,6 +77,20 @@ nonisolated func useFunctionalColors() -> [Color] {
     [.success, .info, .warning, .danger]
 }
 
+// 遮罩基色 token（`Colors/MaskColors.swift`，`#276`；**不在四层色彩之内**）。
+// 一句话同时覆盖两半：漏 `public` ⇒ 本包解析不到符号；标成 MainActor 隔离
+// ⇒ 这个 `nonisolated` 函数当场判红。
+//
+// ⚠️ **为什么明知已有覆盖还要加这三行**（#276 终审 F6）：终审实测本 token 今天已有
+// **三个跨模块消费点**（`ProcessingSweep.swift` ×2、`AnimatedMeshGradient.swift` ×1），
+// 且两个宿主都是 `nonisolated enum` ⇒ 去掉 `public` 或标 `@MainActor` 都会让
+// `swift build` 硬红（29 处 / 1 处）。但那份覆盖是**偶然的**——它取决于那 3 个用点
+// 继续存在，而本 PR 自己刚把第 4 个用点（`BeforeAfterSlider`）改成了 `clipShape`。
+// ⇒ 这里把覆盖钉成**结构性**的，不再依赖生产代码的用点数量。
+nonisolated func useMaskOpaque() -> Color {
+    .maskOpaque
+}
+
 // `CoreShape` 是 #119 引入的圆角唯一出口，而它的主要消费点是 `Shape.path(in:)` 这类
 // nonisolated 同步上下文。本包走 `defaultIsolation(MainActor)`，漏 `nonisolated` 关键字
 // 时这里会编译失败——#122 迁移调用点前先在这里挡住。

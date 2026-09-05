@@ -378,7 +378,8 @@ where Data.Element: Identifiable {
     /// ⚠️ 这不削弱"必须改"的结论——注释写的是**无条件**的"恒不透明"，
     /// 而依赖一个未文档化、平台相关的 α 本身就是缺陷；本包是双平台库。
     /// ⇒ 直接用 `.tint` 给 `Canvas` 上色（`Color.white` 被 `EffectsColorLiteralGuard` 禁；
-    /// ⚠️ 该括注在 `#276` 之后已过时——现在有第 3 层 token `Color.maskOpaque`，
+    /// ⚠️ 该括注在 `#276` 之后已过时——现在有 `Colors/MaskColors.swift` 的遮罩基色
+    /// token `Color.maskOpaque`（**不在四层色彩之内**），
     /// 只是本处仍选直接上色，因为它顺带省掉一层离屏合成），
     /// 顺带去掉一层离屏合成。判据：`CrossPlatformRenderTests.tintPathMatchesSinglePalette`。
     ///

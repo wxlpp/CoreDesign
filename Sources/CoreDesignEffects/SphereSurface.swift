@@ -182,8 +182,9 @@ struct SphereSurfaceBody: View {
         // 登记在 `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`。
         // ⚠️ 这不削弱"必须改"的结论：注释写的是**无条件**的"恒不透明"。
         // ⚠️ 另：`Color.white` 那条括注现在也已过时——`#276` 在
-        // `Sources/CoreDesign/Colors/MaskColors.swift` 加了第 3 层 token
-        // `Color.maskOpaque`（契约 α = 1），Effects 现在有可用的不透明遮罩基色；
+        // `Sources/CoreDesign/Colors/MaskColors.swift` 加了遮罩基色 token
+        // `Color.maskOpaque`（**不在四层色彩之内**，契约 α = 1），
+        // Effects 现在有可用的不透明遮罩基色；
         // 本处仍走 `.tint` 直接上色，因为它顺带省掉一层离屏合成。
         // ⇒ 直接用 `.tint` 给 `Canvas` 上色（`Color.white` 被 `EffectsColorLiteralGuard` 禁），
         // 顺带去掉一层离屏合成。判据：`CrossPlatformRenderTests.tintPathMatchesSinglePalette`。

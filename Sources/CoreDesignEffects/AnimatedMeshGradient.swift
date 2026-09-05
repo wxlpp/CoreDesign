@@ -44,7 +44,8 @@ import SwiftUI
 ///   （#276 正文没写这一条，本轮 iOS 腿实测；登记在
 ///   `MaskOpaqueTokenTests.primaryAlphaIsPlatformDependent`）。
 ///   而且「它是语义色」这条好处在**两个**平台上都是空的——语义色的价值在 RGB
-///   随外观走，mask 却只读 alpha。⇒ 现在用 `Color.maskOpaque`（第 3 层 token，
+///   随外观走，mask 却只读 alpha。⇒ 现在用 `Color.maskOpaque`
+///（`Colors/MaskColors.swift` 的遮罩基色 token，**不在四层色彩之内**，
 ///   契约就是 α = 1，有判据守着）。
 /// - `alternateColors` **非空** ⇒ 两组色板之间来回混合（`Color.mix(with:by:)`），
 ///   这就是 AC 里「9 色 × 2 组」的第二组。为空 ⇒ 只有网格点在漂，颜色不变。
@@ -320,7 +321,8 @@ nonisolated enum MeshDrift {
 
     /// `.tint` 形态下每个色位的 alpha 遮罩色。
     ///
-    /// ⚠️ 基色取 `Color.maskOpaque`（第 3 层 token，契约是 **α = 1**）：`mask` 吃的是
+    /// ⚠️ 基色取 `Color.maskOpaque`（`Colors/MaskColors.swift` 的遮罩基色 token，
+    /// **不在四层色彩之内**，契约是 **α = 1**）：`mask` 吃的是
     /// alpha 通道，基色只要**不是**满不透明，`minimumAlpha` / `maximumAlpha` 这两个
     /// 常量就不再是实际量程。
     ///

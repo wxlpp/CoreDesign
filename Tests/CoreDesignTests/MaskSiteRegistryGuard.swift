@@ -35,6 +35,12 @@ import Testing
 // **静默漏过**，而它长得像在守——那正是本仓反复记账的失效形态。
 // ⇒ 这里明说自己是**形状级的完备性闸**，不是性质判据；性质在上表那四条里。
 //
+// ⚠️ **顺带把射程的另一半也写成实测**（#276 终审 F5 的 M8）：`registeredSites` 的
+// value（署名理由）是**自由文本，没有任何机器兜底**——把一处新点位登记成
+// `"seam probe"`、基色写 `Color.primary.opacity(0.5)` ⇒ 本守卫**全绿**。
+// 本守卫认的只有**键**，理由那一栏它一个字都不读。⇒ 那一栏的价值只在"新增点位的人
+// 必须停下来把 α 这件事写清楚、并被评审读到"，α 本身仍由上表四条性质判据钉。
+//
 // ## 射程：只有新 target
 //
 // `GuardScanRoots.newTargetRoots`（`CoreDesignEffects` / `CoreDesignCharts`），
@@ -50,10 +56,15 @@ import Testing
 // ⚠️ **不用行号**：行号今天全对，任何人在文件里插一行就全错，而且改动是无声的
 //（`GuardScanRoots.relativePath` 的文档里记着同一条：「本 PR 刚把行号引用统一改成
 // 符号名，写回行号是反向漂移」）。
-// ⚠️ **已知脆弱面照录**：同一个声明里有**两处** `.mask` 时，两者的键相同 ⇒ 台账只需
-// 一条就都放行。今天四个点位各在自己的声明里（实测），但这不是结构上的保证。
-// 出现同一声明两处遮罩时，正确处置是**把键细化**（例如带上出现序号），
-// 不是给台账加一条了事。
+// ⚠️ **键碰撞：上一版只把它记成「已知脆弱面」，现在由一条判据钉住**（#276 终审 F4）。
+// 形态：同一个声明里有**两处** `.mask` 时两者的键相同 ⇒ 台账只需一条就都放行。
+// ⚠️⚠️ 上一版写「正确处置是把键细化」，但**守卫自己检测不到这个情形**，那条指令
+// 因此永远不会被触发——而它恰好就是 `#276` 本身的失效形态（一处 α < 1 的遮罩静默
+// 进树）。实测（终审 M10）：在已登记的 `ProcessingSweep.swift#glowRing` 里再插一处
+// `.mask { Color.primary.opacity(0.5) }` ⇒ 全绿、台账零改动。
+// ⇒ 现在 `maskSitesMatchTheRegistry` 里多一条 `dupes` 断言：同键多处当场判红，
+// 处置仍是**把键细化**（例如带上同一声明内的出现序号），不是给台账加一条了事。
+// 今天四个点位各在自己的声明里（该断言即为实证）。
 @Suite("新 target 的 .mask 点位台账")
 struct MaskSiteRegistryGuard {
 
@@ -136,6 +147,20 @@ struct MaskSiteRegistryGuard {
         #expect(!found.isEmpty, """
         新 target 里一处 `.mask` 都没扫到 —— 台账里却登记着 \(Self.registeredSites.count) 条。
         这更可能是探测器坏了，而不是遮罩全被删光了。
+        """)
+
+        // ⚠️ **键碰撞要判红，不能只写在文档里**（#276 终审 F4，实测 M10）：同一声明里
+        // 出现第二处 `.mask` 时两者的键相同 ⇒ 下面两条差集**双双满足**（`unregistered`
+        // 空、`vanished` 空）⇒ 全绿、台账零改动，而那正是 `#276` 的失效形态。
+        let dupes = Dictionary(grouping: found, by: \.key).filter { $0.value.count > 1 }
+        #expect(dupes.isEmpty, """
+        同一个声明里出现了**多处** `.mask`，它们的键相同 ⇒ 台账只要有一条就把它们全放行：
+        \(dupes
+            .map { "\($0.key)：第 \($0.value.map(\.line).sorted().map(String.init).joined(separator: " / ")) 行，共 \($0.value.count) 处" }
+            .sorted().joined(separator: "\n"))
+        处置是**把键细化**（例如带上同一声明内的出现序号），**不是**给台账加一条了事
+        —— 加一条只会让第二处遮罩连"被人读到"这一步都省掉，而"被人读到"是本守卫
+        唯一在做的事（它不查 alpha，见文件头）。
         """)
 
         let foundKeys = Set(found.map(\.key))
@@ -233,7 +258,14 @@ private nonisolated final class MaskCallCollector: SyntaxVisitor {
               member.declName.baseName.text == "mask" else {
             return .visitChildren
         }
-        let line = self.converter.location(for: node.positionAfterSkippingLeadingTrivia).line
+        // ⚠️ 取 **`mask` 这个成员名 token** 的位置，不是整条调用链的起点（#276 终审 F4
+        // 收尾时实测）：`node.positionAfterSkippingLeadingTrivia` 落在链**最前面**那个
+        // 表达式上 ⇒ 同一条链里的两处 `.mask` 会报出**同一个行号**，键碰撞那条断言的
+        // 提示就退化成"第 172 / 172 行"，指不出第二处在哪。行号只进失败文案、不进键
+        //（键刻意不含行号，见文件头）。
+        let line = self.converter.location(
+            for: member.declName.baseName.positionAfterSkippingLeadingTrivia
+        ).line
         self.sites.append(
             MaskSiteRegistryGuard.Site(
                 key: "\(self.fileName)#\(Self.enclosingName(of: Syntax(node)))",
