@@ -54,9 +54,7 @@ enum DescriptionsLayout {
 
 // MARK: - Descriptions
 
-/// 描述列表——`.core` `LabeledContentStyle` + `InsetGroupedSection` 分组容器的组合，
-/// 换皮不重造：分组卡片 / 分隔线视觉全部继承 `InsetGroupedSection`，本组件只负责把
-/// 传入的 `LabeledContent` 行按 1/2 列重新排布，再交给它渲染。
+/// 描述列表：把传入的 `LabeledContent` 行按 1/2 列排布，再交给 `InsetGroupedSection` 渲染。
 public struct Descriptions<Content: View>: View {
     private let columns: DescriptionsColumns
     private let dividerDensity: DescriptionsDividerDensity

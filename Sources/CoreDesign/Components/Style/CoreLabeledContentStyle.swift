@@ -2,9 +2,7 @@ import SwiftUI
 
 // MARK: - CoreLabeledContentStyle
 
-/// 系统 `LabeledContent` 的 CoreDesign 视觉外观——**不重新实现控件本身**，只重排
-/// `makeBody(configuration:)` 交出的 `label` / `content`。`LabeledContentStyleConfiguration`
-/// 的 `makeBody` 是公开 API，与 `CoreLabelStyle` / `CoreProgressViewStyle` 同一形态。
+/// 系统 `LabeledContent` 的 CoreDesign 视觉外观——只重排 `makeBody(configuration:)` 交出的 `label` / `content`。
 public struct CoreLabeledContentStyle: LabeledContentStyle {
     public init() {}
 

@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - 为什么要有"可注入"这一层
-
 // MARK: - 可注入的 EnvironmentValues 键 / Injectable environment keys
 
 extension EnvironmentValues {

@@ -1,8 +1,6 @@
 import CoreDesign
 import SwiftUI
 
-// MARK: - 为什么三个效果共用一个驱动
-
 // MARK: - 效果种类
 
 enum ProcessingSweepKind: CaseIterable {

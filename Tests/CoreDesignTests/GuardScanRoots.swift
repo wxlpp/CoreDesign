@@ -395,7 +395,7 @@ nonisolated enum GuardScanRoots {
         character.isLetter || character.isNumber || character == "_"
     }
 
-    // MARK: - 测试根与文档根（`#287`：判据引用守卫的扫描面也要有单一来源）
+    // MARK: - 测试根
 
     static var testsRoot: URL { Self.repoRoot.appendingPathComponent("Tests") }
 
@@ -404,29 +404,6 @@ nonisolated enum GuardScanRoots {
             .contentsOfDirectory(at: Self.testsRoot, includingPropertiesForKeys: [.isDirectoryKey])
             .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
-    }
-
-    static var docsRoot: URL { Self.repoRoot.appendingPathComponent("docs") }
-
-    static func docFiles(
-        extensions: Set<String> = ["md", "json"],
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) -> [URL] {
-        guard FileManager.default.fileExists(atPath: Self.docsRoot.path) else {
-            Issue.record("文档根不存在：\(Self.docsRoot.path) —— 判据无法工作，这不是「零违规」",
-                         sourceLocation: sourceLocation)
-            return []
-        }
-        guard let walker = FileManager.default.enumerator(
-            at: Self.docsRoot, includingPropertiesForKeys: nil
-        ) else {
-            Issue.record("无法枚举文档目录：\(Self.docsRoot.path)（权限或 IO 异常）—— 判据无法工作",
-                         sourceLocation: sourceLocation)
-            return []
-        }
-        var out: [URL] = []
-        for case let url as URL in walker where extensions.contains(url.pathExtension) { out.append(url) }
-        return out.sorted { $0.path < $1.path }
     }
 }
 

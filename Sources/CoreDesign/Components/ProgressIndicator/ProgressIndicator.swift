@@ -8,11 +8,7 @@ public struct ProgressIndicator: View {
 
     let tint: Color
 
-    /// 原有形态：无文案。
-    /// ⚠️ **签名变了**：新增的 `tint` 带默认值 ⇒ **已应用**的调用点（`ProgressIndicator()`）
-    /// 零影响，但**未应用**的 `.init` 引用会硬破坏（实测
-    /// `let f: () -> ProgressIndicator = ProgressIndicator.init` 报
-    /// `cannot convert value of type '(Color) -> …' to specified type '() -> …'`）。
+    /// 创建无文案的进度指示器。
     public init(tint: Color = .accent) {
         self.text = nil
         self.tint = tint
@@ -25,9 +21,7 @@ public struct ProgressIndicator: View {
         self.tint = tint
     }
 
-    /// 运行期字符串文案（数据来的进度说明等），verbatim 显示、不走本地化查表。
-    /// `@_disfavoredOverload` 避免与 `LocalizedStringKey` 重载产生调用方歧义，
-    /// 参照 `InsetGroupedSection` 的 `header`/`footer` 双 init 模式。
+    /// 运行期字符串文案，verbatim 显示、不走本地化查表。
     @_disfavoredOverload
     public init<S: StringProtocol>(text: S, tint: Color = .accent) {
         self.text = Text(text)

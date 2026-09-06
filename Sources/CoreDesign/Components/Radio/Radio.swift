@@ -20,10 +20,7 @@ public struct RadioOption<SelectionValue: Hashable & Sendable>: Identifiable, Se
 
 // MARK: - RadioGroup
 
-/// Semi 风格单选组 / Semi-style radio group：`Binding<SelectionValue>` 驱动的互斥选择控件，
-/// 视觉上与既有 `Components/CheckBox/`（`CheckBoxToggleStyle`）成对——同一套 token
-/// （`Color.contentPrimary` / `Color.contentSecondary`、`CoreControlMetrics.iconSize(for: .regular)`、
-/// `CoreSpacing.sm`、44pt 命中区手法），只是把方框换成圆点。
+/// `Binding<SelectionValue>` 驱动的互斥选择组，与 `CheckBoxToggleStyle` 同套 token、方框换圆点。
 public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
     @Binding private var selection: SelectionValue
     private let options: [RadioOption<SelectionValue>]

@@ -1,10 +1,6 @@
 import CoreDesign
 import SwiftUI
 
-// MARK: - 为什么这一簇是「裁剪」而不是「遮罩」
-
-// MARK: - 恒等相位必须是**真的**恒等
-
 // MARK: - 几何族 / Geometry family
 
 nonisolated enum MaskRevealKind: Equatable, Sendable {

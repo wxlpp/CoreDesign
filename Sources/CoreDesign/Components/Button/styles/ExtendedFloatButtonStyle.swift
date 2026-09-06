@@ -4,9 +4,7 @@ import SwiftUI
 
 /// 胶囊形悬浮按钮样式（icon + 文字的 extended FAB 形态）。
 public struct ExtendedFloatButtonStyle: ButtonStyle {
-    /// 尺寸档位 / Size tier。取值来源与 `CircularGlassButtonStyle` 一致，走
-    /// `CoreControlMetrics.height(for:)`；默认 `.large`（50pt），与悬浮按钮的
-    /// large-CTA 语义匹配。
+    /// 尺寸档位，走 `CoreControlMetrics.height(for:)`；默认 `.large`（50pt）。
     public let size: ControlSize
 
     public init(size: ControlSize = .large) {

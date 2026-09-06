@@ -2,10 +2,7 @@ import SwiftUI
 
 // MARK: - SectionHeader
 
-/// 分组的页眉——复刻 iOS `.insetGrouped` 列表的分组标题惯例:**大写**、
-/// `contentSecondary`（`secondaryLabel`）灰、字号走 **`.footnote` 一族的
-/// Dynamic Type text style**（随辅助功能字号缩放，**不是** `Font.system(size:)`
-/// 固定 pt）。
+/// 分组页眉，复刻 iOS `.insetGrouped` 的分组标题：大写、`contentSecondary` 灰、`.footnote` 字号。
 public struct SectionHeader: View {
     private let title: Text
 

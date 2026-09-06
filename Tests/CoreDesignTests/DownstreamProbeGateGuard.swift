@@ -51,7 +51,7 @@ struct DownstreamProbeGateGuard {
             .appendingPathComponent("scripts/downstream-probe/selftest-warnings-as-errors.sh")
     }
 
-    // MARK: - 归一化（共用；理由见文件头「病根与通用对策」）
+    // MARK: - 归一化（共用）
 
     nonisolated private static func indentation(of line: String) -> Int {
         line.prefix { $0 == " " }.count
@@ -324,7 +324,8 @@ struct DownstreamProbeGateGuard {
                 实际：\(flagged.joined(separator: "\n"))
                 期望：\(Self.selftestBuildCommands.joined(separator: "\n"))
 
-                逐字钉住是有意的（脚本侧不能剥引号，见文件头）。合法改写这两行请同时改常量。
+                逐字钉住是有意的：脚本侧不能剥引号，所以两边必须逐字一致。
+                合法改写这两行请同时改常量。
                 """
             )
         }

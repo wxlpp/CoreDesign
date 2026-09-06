@@ -2,9 +2,7 @@ import SwiftUI
 
 // MARK: - CoreLabelStyle
 
-/// 系统 `Label` 的 CoreDesign 视觉外观——**不重新实现控件本身**，只重排
-/// `makeBody(configuration:)` 交出的 `icon` / `title`。`LabelStyleConfiguration`
-/// 的 `makeBody` 是公开 API，`.tint` 接入无障碍。
+/// 系统 `Label` 的 CoreDesign 视觉外观——只重排 `makeBody(configuration:)` 交出的 `icon` / `title`。
 public struct CoreLabelStyle: LabelStyle {
     public init() {}
 

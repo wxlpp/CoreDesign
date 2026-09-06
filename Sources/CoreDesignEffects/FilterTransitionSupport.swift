@@ -1,9 +1,5 @@
 import SwiftUI
 
-// MARK: - ⚠️ 写滤镜类转场前必读：这一簇为什么不套「降级为淡入淡出」
-
-// MARK: - ⚠️⚠️ `TransitionProperties.hasMotion`：不写这一行，上面那张表在运行时全是假的
-
 // MARK: - 相位 → 进度
 
 nonisolated enum FilterTransitionPhase {

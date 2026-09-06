@@ -2,9 +2,7 @@ import SwiftUI
 
 // MARK: - ListRow
 
-/// 内容层组件。保持安静、易扫视、稳定：**无默认玻璃、无默认卡片化**。hover 态用
-/// 克制的填充色（`Color.surfaceCanvasSubtle`），默认背景落在 `View.surface(.canvas)` 上。
-/// **不提供选中态**——需要的话由调用方在外层自行组合。
+/// 内容层列表行：无默认玻璃、无默认卡片化、不提供选中态，背景落在 `View.surface(.canvas)`。
 public struct ListRow<Leading: View, Trailing: View, Label: View>: View {
     // MARK: - Designated init
 

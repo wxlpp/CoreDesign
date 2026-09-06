@@ -13,9 +13,7 @@ public enum AvatarGroupLayout: Sendable, Equatable {
     /// 网格平铺。
     /// 业界来源：Slack Huddle 参与者网格 / Google Meet 头像平铺 / Discord 语音频道头像平铺。
     case grid
-    /// 纯计数徽标：N 个头像塌成 1 个计数 —— 判定时判「**槽**」的依据正是这一点。
-    /// 业界来源：GitHub Contributors 计数 / Linear assignee 计数。
-    /// ⚠️ 本形态下不渲染任何头像，`max` 不生效（见上方正交性说明）。
+    /// 纯计数徽标：N 个头像塌成 1 个计数；本形态不渲染任何头像，`max` 不生效。
     case countOnly
 }
 

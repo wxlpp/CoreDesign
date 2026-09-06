@@ -15,8 +15,7 @@ import CoreDesignCharts
 ⚠️ 向心力是 `#295` 补的：没有它时斥力（每对节点都有）压倒弹簧（只沿边），节点全被推到
 容器边框并被钳位焊死，画出来是一圈矩形轮廓而不是力导向结果。
 前后对照见 [`docs/issues/295-network-graph-before-after.png`](../issues/295-network-graph-before-after.png)。
-代价（节点更密、不相连的簇被拉近）与调参依据逐条写在
-`NetworkGraph.centeringStrength` 的文档注释里。
+代价是节点更密、不相连的簇被拉近；调参入口是 `NetworkGraph.centeringStrength`。
 
 ## API
 
@@ -111,8 +110,7 @@ public nonisolated struct GraphEdge<ID: Hashable & Sendable>: Sendable, Hashable
 
 ⚠️ **四个图表里只有本图表提示截断**，这是**显式定案**：它的截断会**改变布局算法**
 （力导向 → 静态环形），用户看到的是一张"不一样的图"而不只是"少了几个"；
-`ActivityHeatmap` / `RingChart` 的截断是**同质的**（少几天 / 少几环）⇒ 由调用方自行提示
-（照录自 `ActivityHeatmap.maximumDays` 的文档注释）。
+`ActivityHeatmap` / `RingChart` 的截断是**同质的**（少几天 / 少几环）⇒ 由调用方自行提示。
 
 ⚠️ **边超限会把力导向整个关掉，连节点没超限时也关**——理由被要求写明：力导向布局的簇结构
 **完全由边决定**，丢掉 1/4 的边之后解出来的布局会把本该相邻的节点摆开、把不相干的摆到一起，
@@ -159,7 +157,7 @@ resize / 旋转时逐帧启动的 solve 会全部跑满，把有界的卡顿换�
 ## FR-7 文本边界
 
 - **调用方给的 `Node.label`（节点名）是「内容」不是「UI 文案」** ⇒ 普通 `String`，
-  **有意不强制 `LocalizedStringResource`**（`ChartValue` 的文档注释明写这是 FR-7 的边界声明，
+  **有意不强制 `LocalizedStringResource`**（FR-7 的边界声明，
   `GraphNode` 与它同一条约定）。
 - **组件自带的 chrome 才本地化**：`title`（缺省 `.chart("Relationship graph")`）、空态文案
   `"No data"`、两条截断横幅 `"Showing the first %lld nodes"` /
@@ -225,8 +223,7 @@ for a 'Sendable' type parameter
 
 ⚠️ **为什么仍然要 `Sendable`**：图表的数据入参是调用方在自己模型层构造的值类型，
 若被 `MainActor` 隔离，下游在后台线程准备数据时就用不了。这条约束是**有意的**。
-（照录自 `ChartSupport.swift` 上 `ChartValue` 的文档注释；`GraphNode` / `HeatmapDay` 的注释
-明写「与 `ChartValue` 同理，`nonisolated` 不可省」。）
+（`GraphNode` / `HeatmapDay` 同理，`nonisolated` 不可省。）
 
 ⚠️ 本图表对此格外敏感：`layout` 是 `nonisolated` 纯函数、跑在 detached 任务里，
 `LayoutKey` 也是 `Sendable`——数据类型不 `Sendable` 这条路就走不通。
@@ -330,8 +327,8 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 
 ⚠️⚠️ **本条不适用 `D-299-1`（`#315` 终审 C-2 更正）**：上一版这里原样抄了给三个图表用的
 那句「同样适用于本条」，而它**被本仓自己的源码逐字证伪** —— 本条的三个候选是 **dagre / 环形 /
-网格三种图布局**，`NetworkGraph.swift:13-14` 的类型文档逐字写着「⚠️ Swift Charts **画不出来**：
-它没有图布局的概念——节点位置要由**斥力 + 弹簧**迭代解出，不是把数据映射到坐标轴」，`CLAUDE.md`
+网格三种图布局**，而 Swift Charts **画不出来**本件：它没有图布局的概念——节点位置要由
+**斥力 + 弹簧**迭代解出，不是把数据映射到坐标轴；`CLAUDE.md`
 也把本件列为「Swift Charts **原生画不出来**的四类图表」之一；Swift Charts 没有任何 node-link
 mark ⇒ **这三个候选没有任何框架级承担者**，`D-299-1` 那条「候选的真实承担者是宿主平台框架」的
 前提在本条上根本不成立 ⇒ 本条的落点在这一侧**没有翻转风险**。

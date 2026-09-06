@@ -2,9 +2,7 @@ import SwiftUI
 
 // MARK: - SettingsRowMetrics
 
-/// `SettingsRow` 与 `InsetGroupedSection` **共享**的布局常量——分组分隔线的 leading
-/// inset 从这里推导（图标方块宽 + 图标↔标题间距），不在两个组件里各自硬编码,
-/// 否则图标尺寸一改就错位。
+/// `SettingsRow` 与 `InsetGroupedSection` 共享的布局常量，分隔线的 leading inset 由它推导。
 public nonisolated enum SettingsRowMetrics {
     /// iOS 设置那种圆角色块的边长。iOS 系统约 29pt,这里取 30 便于对齐。
     public static let iconSquareSize: CGFloat = 30

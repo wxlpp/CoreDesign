@@ -166,7 +166,7 @@ struct TouchTargetTests {
         #expect(height >= Self.minimumHitTarget, "UnderlinedTabBar item 实测高度 \(height)pt < 44pt")
     }
 
-    // MARK: - SegmentedControl（整体容器；单段命中区域的已知缺口见文件头注释）
+    // MARK: - SegmentedControl（只测整体容器；单段命中区域未覆盖）
 
     @Test("SegmentedControl 整体容器实测高度 ≥ 44pt")
     func segmentedControlContainerMeetsMinimumTouchTarget() {

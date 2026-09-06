@@ -525,8 +525,7 @@
 本仓已有的形态 B 先例，**公约认可**：`SegmentedControlStyle`、`BannerStyle`
 ——Apple 对这两类控件确无原生协议。
 
-> ⚠️ `SegmentedControl.swift` 的注释里有一句值得抄给每个组件作者看：
-> 「此前的 `glass: Bool` **布尔 hack** 升级为本协议。」
+> ⚠️ `SegmentedControl` 的样式协议是这么来的：**此前的 `glass: Bool` 布尔 hack 升级为本协议**。
 > **这个库自己已经做过一次「布尔开关 → 样式协议」的升级并称前者为 hack**,
 > 本公约只是把它变成通行规矩。
 
@@ -735,8 +734,7 @@ J-1 的谓词是「**任何 Bool**」，做的是纯符号比对 ⇒
 
 ### ⚠️ 取值域的命名规矩：「角色 + 修饰词」允许，禁的是**裸**修饰词
 
-按 3.1 把布尔还原成取值域时，新 case 的命名受一条规矩约束（原文在
-`Sources/CoreDesign/Modifier/SurfaceModifier.swift` 的 `SurfaceKind` 文档注释）：
+按 3.1 把布尔还原成取值域时，新 case 的命名受一条规矩约束（本公约是它的唯一真源）：
 **不引入裸修饰词**（如 `.subtle`、`.muted`）；每个 case 直接对应一种容器角色。
 
 ⚠️ **这条规矩此前与自身先例不自洽**（#41 撞上，缺陷 D-41-1）：同一个枚举里
@@ -772,7 +770,7 @@ J-1 的谓词是「**任何 Bool**」，做的是纯符号比对 ⇒
 
 例：`Rating(allowsHalfStar: Bool)` → `Rating(step: Double)`（**已于 `v0.8.0` 落地**，#41 裁决 4a；
 迁移写法见 `docs/BREAKING-CHANGES.md` 的 B5）。
-`Rating` 的手势注释证明 `step`（`allowsHalfStar ? 0.5 : 1.0`）本来就是内部概念，
+`Rating` 的手势实现里 `step`（`allowsHalfStar ? 0.5 : 1.0`）本来就是内部概念，
 Bool 只是它的二值投影。
 
 ⚠️ **取值域不限于连续量**：只要满足第 3 节头号反例判据（**存在真实第三 case**）的
@@ -819,7 +817,7 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 ⚠️ **优先复用系统环境值，不要自造平行开关**。
 例：`Rating(isReadOnly: Bool)` 与 `@Environment(\.isEnabled)` 语义重叠
 （**已于 `v0.8.0` 落地**，#41 裁决 4b：`isReadOnly` 已删除）
-——`Rating` 的手势注释写明「`isReadOnly` 或外层 `.disabled(true)` 时手势整体不挂载」,
+——`Rating` 在 `isReadOnly` 或外层 `.disabled(true)` 时手势整体不挂载,
 **两条路径做同一件事**。
 
 **反例（重要）**：直接把 `isReadOnly` 删掉、让调用方用 `.disabled(true)` —— **不够**。
@@ -943,7 +941,7 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 ① `.rise(text:)` 用 LSK、`TypewriterText` 用 LSR ⇒ 本仓 B 类文案参数**不再是同一种类型**；
 ② `String(localized:)` 按 resource 自己的 locale 解析，**不看 SwiftUI 的 `\.locale` 环境**
 ⇒ 援引本例外的组件若在 `init` 里急切解析，`.environment(\.locale, …)` 对它**无效**
-（`TypewriterText` 已在类型文档与 `docs/components/typewriter-text.md` 里登记这条）。
+（`TypewriterText` 已在 `docs/components/typewriter-text.md` 里登记这条）。
 ⚠️ **本例外无机器判据**——⇒ 靠评审 + 本段。
 ⚠️ **引用精确到类**（#253 PR #273 终审 S-B）：**A 类**见缺口 **G-4**（《已知判据缺口》一节，
 其标题逐字是「A 类的类型要求有规定、无判据」）；**B 类**的类型今天**同样无机器判据**
@@ -1132,7 +1130,7 @@ D-41-4 移交给 #44 的原话要求裁断两件事：**(i) 台账条目是否�
 > `SolidButtonStyle` / `LightButtonStyle` 现在**每轮都被分类核对**。
 > ⇒ 保留它们的理由也随之变了：从「保留唯一样本」变成更直接的「**它们的分类今天仍然成立、
 > 没有回收依据**」。⚠️ 下面 (ii)③ 要求「必须写清**它当前不承重**」—— 该义务因前提消失
-> 而失效，`BoolExemptionGuard` 的注释已按新事实改写。详见 `D-48-1` ②。
+> 而失效，`BoolExemptionGuard` 已按新事实改写。详见 `D-48-1` ②。
 
 **(ii)「样本保留」的表达形式（三条，缺一不可）：**
 1. 台账条目旁必须注明 **`样本保留`** 字样，并写清它**保留的是哪一个分类值的样本**；
@@ -1277,8 +1275,8 @@ PRD 原文：「与 `onRemove` 闭包耦合 ⇒ 既是外观也是行为」。
 
 ### A.1 续：`allowsHalfStar` 这个参数改成什么形状
 
-`Rating` 的手势注释写明它算出 `step`（`allowsHalfStar ? 0.5 : 1.0`）供手势
-取整用 ⇒ 按 **3.1**，它是**被压成布尔的连续量**，替代路径是**专用参数**（`step`）。
+`Rating` 的手势实现算出 `step`（`allowsHalfStar ? 0.5 : 1.0`）供取整用 ⇒ 按 **3.1**，
+它是**被压成布尔的连续量**，替代路径是**专用参数**（`step`）。
 
 ⚠️ **不塞进样式协议** —— 手势粒度是行为，违反第 2 节的「样式不得携带行为」。
 
@@ -1294,13 +1292,13 @@ Bool + 配套闭包 ⇒ 按 **3.2** 走**子视图槽**，一并消除 `Tag.init
 ⚠️ **本节已从「待办项」转为已落地判例**（`v0.8.0`，#41 裁决 1）：
 `View.surface(_:bordered:)` 的 `bordered` 参数**已删除**，容器角色改由 `SurfaceKind.grouped`
 承担；`View.surface#bordered` 已不在任何违规集合里，`BoolExemptionGuard` 里包住它的
-`withKnownIssue` 块也已随之删除（见 `BoolExemptionGuard.swift` 中三处 `#41 裁决 1` 的留痕注释）。
+`withKnownIssue` 块也已随之删除。
 下面保留原判决记录，是为了让「为什么它当年被判不合规」可追溯。
 
 这不是组件，是 **View extension 上的 public modifier** —— 用来验证 **3.3** 的 modifier 条款。
 
-`SurfaceModifier.swift` 的文档注释：「`bordered` 是否画描边，默认 `true`。
-置 `false` 只保留背景 + 圆角、去描边」。
+当年 `SurfaceModifier.swift` 对该参数的描述（该参数已于 `v0.8.0` 删除）：
+「`bordered` 是否画描边，默认 `true`。置 `false` 只保留背景 + 圆角、去描边」。
 
 | 第 3 节判据 | 结论 |
 |---|---|

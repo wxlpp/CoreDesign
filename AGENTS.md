@@ -140,8 +140,9 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     的 170 个色阶（`StatusColors` 列在 layer 3，`CoreElevation` 的阴影根本不在色彩分层里）
     ⇒ 两者**外延不同**。本条一律用前者。
   - ⚠️ **机理不是本轮首次查明**：「xcodebuild 会调 `actool` 把整个 xcassets 编译成单个
-    `Assets.car`」与「`swift test` 进程里资源色解析成完全透明」在 `#274` 就已实测。
-    `#275` 做的是**再发现 + 把两半合并 + 量化到 token 级 + 装机器判据**，不是首次发现。
+    `Assets.car`」与「`swift test` 进程里资源色解析成完全透明」这两条，在 `#275` 之前
+    就已分别成立。`#275` 做的是**再发现 + 把两半合并 + 量化到 token 级 + 装机器判据**，
+    不是首次发现。
   asset catalog 在本仓有**两种产物形态**，由构建路径决定：
   - `swift build` / `swift test`（SwiftPM native，即日常 macOS 腿）：**不调 `actool`**，
     `.process("Resources")` 对 `.xcassets` 就是一次**目录原样拷贝**。产物里是

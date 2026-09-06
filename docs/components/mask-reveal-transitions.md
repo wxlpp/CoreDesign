@@ -196,7 +196,7 @@ bounds 中心，已经揭示的采样点会掉进缝里 ⇒ 最后 15% 一次闪
 两道闸的结论是**同一个观感**（纯淡入淡出），因此用户看到的东西与本节开头描述的一致。
 
 内层那条路径**显式裁定为保留**（防御 `hasMotion` 将来被改判、`AnyTransition` 包装、
-以及别的平台 / 版本上替换时机不同），完整理由写在 `MaskRevealTransition` 的类型文档里。
+以及别的平台 / 版本上替换时机不同）。
 `MaskRevealSourceGuard.reduceMotionIsOnlyConsumedByThePlan` 钉的是**内层这道闸**
 不被绕过；`MaskRevealTransitionBodyTests.transitionDeclaresItHasMotion` 钉住
 `properties` 是显式声明（`true` 与 SDK 默认值相同，不显式写出来下一个人就看不见框架闸）。

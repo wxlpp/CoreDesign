@@ -61,19 +61,11 @@ public nonisolated enum ToastDefaults {
 
 // MARK: - ToastHost
 
-/// Scene 级的浮层 toast 队列与调度器。
-/// 内部把每个 `ToastItem` 渲染为 `ToastView`，其容器在一个 `InsettableShape` 外壳上施加
-/// `View.floatingGlass(in:isInteractive:)`——让 toast 读起来像**浮起的系统反馈**，
-/// 而不是内容自身的 chrome。公开 API（`show` / `dismiss`）与队列状态机保持不变。
-/// ⚠️ **外壳形状按 `ToastPresentation` 分三种**（`#65`）：`.floatingCapsule` 用
-/// `Capsule`、`.fullWidthBanner` 用 `Rectangle`、`.centeredHUD` 用 `RoundedRectangle`
-/// —— 见 `ToastContainerDecoration`。上一版这里写死 `Capsule` 是 T2 之前的状态。
+/// Scene 级的浮层 toast 队列与调度器，外壳形状由 `ToastPresentation` 三选一。
 @MainActor
 @Observable
 public final class ToastHost {
-    /// 当前队列。约定：
-    /// - `queue.first` 即正在显示的 toast（如果非空且非 dismiss 中）。
-    /// - 视图层渲染时只读取 `queue.first`，渲染单条。
+    /// 当前队列；`queue.first` 是正在显示的那条，视图层只渲染它。
     public private(set) var queue: [ToastItem] = []
 
     /// 当前 toast 是否正处于 dismiss 动画中。`true` 时新 `show(...)` append 到队尾，

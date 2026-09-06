@@ -50,7 +50,7 @@ Text("感谢您的购买")
 ```
 
 `CoreTypography.Token` 的完整 12 档见 `docs/DESIGN-FOUNDATION.md` 与
-`Sources/CoreDesign/Tokens/CoreTypography.swift` 的 doc comment；`0.3.0` 的改名映射（旧
+`Sources/CoreDesign/Tokens/CoreTypography.swift` 本身；`0.3.0` 的改名映射（旧
 `displayLarge`/`titleLarge`/… → 新 `largeTitle`/`title`/…）记录在
 [BREAKING-CHANGES.md](../BREAKING-CHANGES.md)。
 

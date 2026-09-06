@@ -21,10 +21,7 @@ private struct DisclosureChevron: View {
 
 // MARK: - CoreDisclosureGroupStyle
 
-/// 系统 `DisclosureGroup` 的 CoreDesign 视觉外观——**不重新实现控件本身**，只重排
-/// `makeBody(configuration:)` 交出的 `label` / `content`，展开状态仍由系统
-/// 通过 `configuration.$isExpanded`（`Binding<Bool>`）驱动。`DisclosureGroupStyle.makeBody`
-/// 是公开 API，`.tint` 接入无障碍。
+/// 系统 `DisclosureGroup` 的 CoreDesign 视觉外观——只重排 `label` / `content`，展开状态仍由系统驱动。
 public struct CoreDisclosureGroupStyle: DisclosureGroupStyle {
     public init() {}
 

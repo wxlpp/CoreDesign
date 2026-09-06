@@ -116,20 +116,7 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
         return result
     }
 
-    /// 单张热力图渲染的天数上限（≈ 5 年）。超出即**截断最旧的一段**（FR-20：截断不断言）。
-    /// ⚠️ **截断对用户静默**。⚠️ 上一版这里写「与 `NetworkGraph` 一致」——
-    /// 那句在同一个 commit 里就已失真（`NetworkGraph` 已加可见提示，第 3 轮终审 I-6）。
-    /// 三个会截断的图表现在是三种行为，本轮**显式定案**：
-    /// 只有 `NetworkGraph` 提示，因为它的截断会**改变布局算法**（力导向 → 静态环形），
-    /// 用户看到的是一张"不一样的图"而不只是"少了几个"；
-    /// 热力图与活动环的截断是**同质的**（少几天 / 少几环），且都发生在时间/指标序列的
-    /// 一端，读图时可自明 ⇒ 由调用方按场景自行提示。
-    /// ⚠️ 泛型类型不支持 static **存储**属性。
-    /// ⚠️ **`nonisolated` 是有意的**（`#256`）：AD-F 的「超限固定为截断 + 降级 + 文档」
-    /// 契约要求调用方**在自己的数据层**按这个数先行分页 / 抽样，而那是后台线程上的活。
-    /// 不标它，下游从 nonisolated 上下文读会拿到
-    /// `warning: main actor-isolated static property ... can not be referenced
-    /// from a nonisolated context`，而库自身四条验证命令全绿。
+    /// 单张热力图渲染的天数上限（≈ 5 年）；超出即静默截断最旧的一段，不提示调用方。
     public nonisolated static var maximumDays: Int { 1830 }
 
     static func buckets(for days: [Day]) -> [Int] {

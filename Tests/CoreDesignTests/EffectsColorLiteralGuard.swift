@@ -162,7 +162,7 @@ struct EffectsColorLiteralGuard {
             // 这里说的是 .white 与 Color(red: 1, green: 0, blue: 0)
             let s = "白色 .white"
             """),
-            ("`#Preview` 里的原色（有意跳过，见文件头）", """
+            ("`#Preview` 里的原色（有意跳过：预览不进产物，不受色相纪律约束）", """
             import SwiftUI
             #Preview { Color.red }
             """),

@@ -235,7 +235,7 @@ struct ChromeTextLiteralGuard {
             let l = Label(self.title, systemImage: "star")
             """),
             ("非文案字面量（无字母）", #"let t = Text("•")"#),
-            ("`#Preview` 里的写死文案（有意跳过，见文件头）", """
+            ("`#Preview` 里的写死文案（有意跳过：预览不进产物，不需要本地化）", """
             import SwiftUI
             #Preview { Text("Preview only") }
             """),

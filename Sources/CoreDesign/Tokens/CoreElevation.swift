@@ -2,9 +2,7 @@ import SwiftUI
 
 // MARK: - CoreElevation
 
-/// 阴影 / 高度 (elevation) token。语义与数值均按 Apple HIG 的分层原则设计：
-/// 平面层级优先靠 material（毛玻璃）与 separator（分隔线/描边）表达，阴影只用于
-/// 真正悬浮于内容之上的元素。
+/// 阴影 / 高度 (elevation) token，只用于真正悬浮于内容之上的元素。
 public enum CoreElevation {
     // MARK: - Level
 
@@ -47,8 +45,6 @@ public enum CoreElevation {
             self.y = y
         }
     }
-
-    // MARK: - Specs
 
     // MARK: - Asset-backed colors
 

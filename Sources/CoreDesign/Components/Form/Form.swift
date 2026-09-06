@@ -50,10 +50,7 @@ public struct LabelIcon: View {
 
 // MARK: - ChevronRightIcon
 
-/// 列表行 trailing 位置的"可进入下一级"指示符。用系统 `chevron.forward`——
-/// **在 LTR 下渲染为 chevron.right（视觉不变），在 RTL 下自动镜像为 chevron.left**，
-/// 与 iOS 系统一致。类型名保留 `ChevronRightIcon`（公开 API 稳定），"Right" 指
-/// LTR 下的朝向。
+/// 列表行 trailing 的「可进入下一级」指示符，用 `chevron.forward` 以在 RTL 下自动镜像。
 public struct ChevronRightIcon: View {
     /// 创建一个默认配置的 chevron 指示符。
     public init() {}

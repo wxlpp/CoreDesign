@@ -126,7 +126,7 @@ OrbitingLogos(brands) { brand in
 本件自己就是反例——它画内容，却**在** `energyGatedFiles` 名单里。
 `BeforeAfterSlider` / `ParticleTransition` 现在不进名单用的是另一条理由：
 **它们没有可停的常驻装饰层**（两件全文件无 `TimelineView`、无常驻调度器），
-进来只会白挨一道闸。现行规则逐字见 `energyGatedFiles` 类型文档开头的《当前规则》。
+进来只会白挨一道闸。现行规则的真源是 `energyGatedFiles` 这份名单本身。
 之前那句"需要规避的宿主 App 自行注入 `\.scenePhaseOverride = .active`"是在**记录症状**，
 并把一个已判定为 bug 的默认行为的 opt-out 推给每个消费方 —— 已删。
 装饰层（环）的完整记账仍见 `EnergyState.policy`。

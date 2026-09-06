@@ -15,9 +15,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
     case floating
     /// 覆盖层表面，如菜单与 popover。
     case overlay
-    /// 分组容器表面：贴近 iOS 系统分组容器——**背景 + 圆角、无描边**，靠填充色对比定界。
-    /// 背景与 `.content` 同取 `surfaceRaised`（`secondarySystemGroupedBackground`），
-    /// 因此在深浅双模式下都与 `Color.surfaceCanvas` 拉开、不会塌缩隐形（Issue #140）。
+    /// 分组容器表面：背景 + 圆角、无描边，靠填充色对比定界，背景与 `.content` 同取 `surfaceRaised`。
     case grouped
     /// 兼容别名：更淡的画布。
     case canvasSubtle

@@ -1,8 +1,6 @@
 import CoreDesign
 import SwiftUI
 
-// MARK: - ⚠️ 本 target 的三条硬约束（写新图表前必读）
-
 // MARK: - ChartValue
 
 /// 图表数据点的最小契约。

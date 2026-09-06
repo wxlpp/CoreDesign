@@ -47,8 +47,6 @@ struct TriggerRelay<T: Equatable, Core: ViewModifier>: ViewModifier {
     }
 }
 
-// MARK: - ⚠️ 写微交互前必读：隔离约束
-
 // MARK: - Reduce Motion 降级
 
 extension View {

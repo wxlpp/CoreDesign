@@ -81,9 +81,7 @@ public nonisolated enum CoreControlMetrics {
 
     // MARK: - iconSize
 
-    /// 控件内联 icon 边长（pt）。比对应字号约大 1.0–1.2 倍，以视觉等重原则与 label 文字
-    /// 对齐——SF Symbol / SVG glyph 的视觉重心通常略低于 cap height，需要稍大边长才能感觉
-    /// 与字母 x-height 等高。
+    /// 控件内联 icon 边长（pt），比对应字号大 1.0–1.2 倍以与 label 文字视觉等重。
     ///
     /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
     /// - Returns: 该尺寸下推荐的 icon 边长，单位 pt。

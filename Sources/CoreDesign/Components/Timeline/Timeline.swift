@@ -65,9 +65,7 @@ public enum TimelineLayout: Sendable, Equatable {
     /// 横向：节点沿水平轴排列，内容在节点下方。
     /// 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
     case horizontal
-    /// 无连线的分组列表：删掉节点列与连线，只留内容。
-    /// 业界来源：Apple 邮件与信息的日期分组 / GitHub 活动流。
-    /// ⚠️ 本形态下 `TimelineItem.node:` 槽不生效（见上方正交性说明）。
+    /// 无连线的分组列表：删掉节点列与连线，只留内容；本形态下 `TimelineItem.node:` 槽不生效。
     case grouped
 }
 

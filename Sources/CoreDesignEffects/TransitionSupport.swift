@@ -1,8 +1,6 @@
 import CoreDesign
 import SwiftUI
 
-// MARK: - ⚠️ 写转场前必读：本簇的三层形态
-
 // MARK: - 位移档位
 
 /// 位移类转场的行程档位（pt）。

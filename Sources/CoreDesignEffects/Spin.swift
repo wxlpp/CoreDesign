@@ -38,12 +38,7 @@ enum SpinTurn {
     }
 }
 
-/// 旋转方向。⚠️ **不用 `Bool`**（J-1 禁未豁免 Bool 参数）——`clockwise: true` 在调用处
-/// 读不出含义，语义枚举可以。
-/// ⚠️⚠️ **`nonisolated` 是必需的、不是装饰**（`#256` probe 补齐调用点时炸出来的）：
-/// 本 target 开了 `.defaultIsolation(MainActor.self)` ⇒ 不标它，这个枚举**派生的
-/// `Equatable` 一致性**是 MainActor 隔离的，下游从 nonisolated 上下文写
-/// `direction == .clockwise` 会拿到**硬 error**（不是 warning，实测原文照录）：
+/// 旋转方向。
 public nonisolated enum SpinDirection: Sendable, CaseIterable {
     case clockwise, counterClockwise
 

@@ -85,7 +85,7 @@ public struct TypewriterText: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// 界面文案（公约 §4 **B 类**）。见类型文档「两个 init 的分工」。
+    /// 界面文案（公约 §4 **B 类**）：编译期本地化键，走 `LocalizedStringResource`。
     public init(_ text: LocalizedStringResource, speed: TypewriterSpeed = .regular) {
         self.init(resolved: String(localized: text), speed: speed, initialTyped: 0)
     }

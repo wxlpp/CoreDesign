@@ -93,7 +93,10 @@ public struct Shine<Content: View>: View {
 
 public extension View {
     /// `trigger` 变化时，让一道高光扫过本视图（遮罩到内容形状）。
-
+    ///
+    /// ⚠️ 本 modifier 会把被修饰内容的视图树实例化两次——不要把带副作用的 modifier
+    /// （`onAppear` 打点 / `task {}` / `@FocusState`）放在 `.shine()` 之内。
+    ///
     /// - Parameter highlight: 高光色，默认 `Color.specularHighlight`（第 3 层 token）。
     func shine(
         trigger: some Equatable,

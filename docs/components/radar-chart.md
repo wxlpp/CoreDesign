@@ -92,7 +92,7 @@ FR-20 的原则本身仍然成立并被本 target 全线遵守：**超限行为�
 ## FR-7 文本边界
 
 - **调用方给的 `label`（轴名）是「内容」不是「UI 文案」** ⇒ 它是普通 `String`，
-  **有意不强制 `LocalizedStringResource`**（`ChartValue` 的文档注释明写这是 FR-7 的边界声明）。
+  **有意不强制 `LocalizedStringResource`**（FR-7 的边界声明）。
 - **组件自带的 chrome 才本地化**：`title` 是 `LocalizedStringResource`，缺省值走
   `.chart("Radar chart")`；三条空态文案（`"No data"` / `"A radar chart needs at least 3 dimensions"` /
   `"Data contains values that are not finite"`）同样是 `LocalizedStringResource`，
@@ -150,7 +150,7 @@ for a 'Sendable' type parameter
 
 ⚠️ **为什么 `ChartValue` 仍然要求 `Sendable`**：图表的数据入参是调用方在自己模型层构造的值类型，
 若被 `MainActor` 隔离，下游在后台线程准备数据时就用不了。这条约束是**有意的**
-（以上全部照录自 `ChartSupport.swift` 上 `ChartValue` 的文档注释）。
+
 
 ## 使用示例 / Usage
 
@@ -256,9 +256,8 @@ lollipop / radial column / radial lollipop / stellar 四形态 —— 形态真�
 ⚠️ **一处公约缺口，已登记 `D-299-1`；`#315` 终审 C-2 要求逐条重判，本条的结论是
 「只对候选 3 适用」**：**候选 3（笛卡尔并排条形）命中** —— 它在 Apple 平台上的真实承担者是
 Swift Charts 的 `BarMark`，不在登记表里 ⇒ 作用域条款的条件 ① 结构性不成立、无法援引。
-**候选 1（平行坐标）与候选 2（径向柱状）按 Swift Charts 口径不命中** —— `RadarChart.swift:12`
-的类型文档逐字写着「⚠️ Swift Charts 画不出来：它没有极坐标多轴的 mark」，Swift Charts 既没有
-平行坐标 mark 也没有极坐标变换。
+**候选 1（平行坐标）与候选 2（径向柱状）按 Swift Charts 口径不命中** —— Swift Charts
+画不出本件：它没有极坐标多轴的 mark，既没有平行坐标 mark 也没有极坐标变换。
 ⇒ **按 Swift Charts 口径：即使将来条件 ① 被扩宽、候选 3 因此被排除，本条仍剩 2 ≥ 2、落点不翻转。**
 
 ⚠️⚠️ **本条的「不命中」论证有已登记的口径缺口，若补齐后成立、落点会翻**（具名反例：Swift Charts `SectorMark(outerRadius:)`）。

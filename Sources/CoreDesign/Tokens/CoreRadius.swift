@@ -24,9 +24,7 @@ public nonisolated enum CoreRadius {
 
 // MARK: - CoreShape
 
-/// 圆角 shape 的统一出口。内部固定 `style: .continuous`（squircle 观感）——组件不应
-/// 再直接构造 `RoundedRectangle`，那样每个构造点都要记得手动指定 `.continuous`，
-/// 漏一处就是一处观感不一致的元素。
+/// 圆角 shape 的统一出口，内部固定 `style: .continuous`；组件不要再直接构造 `RoundedRectangle`。
 public nonisolated enum CoreShape {
     /// 统一圆角矩形出口，固定 `.continuous` 角样式。
     ///

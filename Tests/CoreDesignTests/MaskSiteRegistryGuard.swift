@@ -30,8 +30,7 @@ struct MaskSiteRegistryGuard {
             `.shine(trigger:)`：`.mask(content)` —— 遮罩内容是**被修饰的视图本身**，
             用的正是它自己的 alpha（把高光裁到内容形状内）。
             ⚠️ 本条与 #276 那一族**不同源**：它没有"遮罩基色"这个自由度，
-            也就没有"基色选错了"这种失效形态。已知限度（内容被实例化两次）
-            逐字记在 `Shine.swift` 的类型文档里。
+            也就没有"基色选错了"这种失效形态。已知限度：内容被实例化两次。
             """,
     ]
 
@@ -94,7 +93,7 @@ struct MaskSiteRegistryGuard {
           各有 `var body`）⇒ 出现序号**修不好**它，处置是**给键加类型限定**
           （把外层类型名拼进键里）。
         两种都**不是**"给台账加一条了事" —— 加一条只会让第二处遮罩连"被人读到"这一步
-        都省掉，而"被人读到"是本守卫唯一在做的事（它不查 alpha，见文件头）。
+        都省掉，而"被人读到"是本守卫唯一在做的事（它只查登记，不查 alpha）。
         """)
 
         let foundKeys = Set(found.map(\.key))
@@ -115,8 +114,8 @@ struct MaskSiteRegistryGuard {
         · 基色走 `Color.maskOpaque`（契约 α = 1），并**为这一处补一条性质判据**
           （量程 / 峰值 / 端点无关性，看它是哪一类），然后登记到
           `MaskSiteRegistryGuard.registeredSites`；
-        · 或者干脆不用遮罩 —— 纯几何的揭示走 `clipShape`（`MaskReveal.swift` 文件头
-          有完整论证，`BeforeAfterRevealClip` 是现成先例），裁剪不涉及 alpha。
+        · 或者干脆不用遮罩 —— 纯几何的揭示走 `clipShape`（裁剪不涉及 alpha，
+          `BeforeAfterRevealClip` 是现成先例）。
         """)
 
         let vanished = registeredKeys.subtracting(foundKeys)

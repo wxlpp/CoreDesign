@@ -22,9 +22,7 @@ public enum SettingsDividerInset: Equatable, Sendable {
 
 // MARK: - InsetGroupedSection
 
-/// iOS `.insetGrouped` 分组容器的**视觉**复刻（ADR-2:只复刻观感,不复刻 `List` 的
-/// 数据/滚动/编辑能力）——圆角卡片 + raised 背景浮于画布之上（依赖 #140）+ 可选页眉
-/// 页脚 + **相邻行自动分隔线**。
+/// iOS `.insetGrouped` 分组容器的视觉复刻——只复刻观感，不复刻 `List` 的数据 / 滚动 / 编辑能力。
 public struct InsetGroupedSection<Content: View>: View {
     private let header: SectionHeader?
     private let footer: SectionFooter?

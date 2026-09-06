@@ -10,9 +10,7 @@ private struct BannerPalette {
 
 // MARK: - Banner
 
-/// 内容 / 控件层的信息表面。用状态语义（`info` / `success` / `warning` / `danger`）
-/// 配克制的描边或填充——**不用** Liquid Glass。Banner 面向**页内信息**，不是浮层反馈；
-/// 需要浮层反馈请经 `.toastHost(edge:)` 用 `ToastHost`。
+/// 页内信息表面，按状态语义配描边或填充；浮层反馈请改用 `ToastHost`。
 public struct Banner<Label: View>: View {
     /// 创建 Banner。
     ///

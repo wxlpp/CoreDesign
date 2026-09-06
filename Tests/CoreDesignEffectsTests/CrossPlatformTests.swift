@@ -742,7 +742,7 @@ struct CrossPlatformRenderTests {
         let hiddenBranch = switchBody.components(separatedBy: "case .resting:").first ?? ""
         #expect(hiddenBranch.contains("EmptyView()"), """
         `.hidden` 分支不是 `EmptyView()` —— NFR-7 的"一个像素都不画"变成了"画了但画不出来"。
-        ⚠️ 这枚变异在位图判据上是绿的（见本条的类型文档）。
+        ⚠️ 这枚变异在位图判据上是绿的——位图判据看不出"画了但完全透明"与"没画"的差别。
         """)
         #expect(!hiddenBranch.contains("SphereSurfaceBody("), "`.hidden` 分支还在建绘制层")
         #expect(!hiddenBranch.contains("SphereSurfaceTimeline("), "`.hidden` 分支还在建调度器")

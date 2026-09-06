@@ -895,7 +895,7 @@ struct MainActorStaticRatchetGuard {
     }
 
     @Test("本 suite 的判据条数 = 钉住的那个数")
-    func judgementRosterMatchesTheHeaderTable() throws {
+    func judgementCountIsPinned() throws {
         let source = try String(contentsOf: Self.ownSourceURL, encoding: .utf8)
         let lines = source.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         let declared = lines.filter { $0.hasPrefix("    @Test") }.count

@@ -122,7 +122,7 @@ struct RootView: View {
 
 ⚠️ 已知不对称（本 PR 登记，未处置）：`usesGlow` 是在 `TimelineView` 闭包内**每帧**重解析的，
 所以即便不注入这个键它也会跟着系统变；而 `minimumInterval`（帧率）与彩纸数由外层求一次，
-不注入就不会中途改变。详见 `ProcessingSweepBody` 的类型文档。
+不注入就不会中途改变。
 
 ⚠️ **两道闸的顺序是承重的：能耗闸在 Reduce Motion 闸之前**。也就是说
 「后台 / 非活跃 ⇒ 一个像素都不画」对**开启了「减弱动态效果」的用户同样成立**——
