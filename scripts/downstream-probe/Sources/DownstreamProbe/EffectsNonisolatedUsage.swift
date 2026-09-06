@@ -50,7 +50,8 @@ nonisolated func readEffectsModuleName() -> String {
 // ⚠️⚠️ **别把本文件读成这两个成员 `nonisolated` 契约的判据**（`#271` 终审逐条变异实测）：
 // 拿掉 `usesGlow` 的 `nonisolated` ⇒ 库、本 probe、`swift build --build-tests`
 //（含 `@testable import`）**三条腿全绿**。`defaultIsolation` 卷进来的隔离**跨模块看不见**，
-// 只有**同模块**的 nonisolated 读者会红（`particleScale` 恰好有一个：`Confetti.swift:443`）。
+// 只有**同模块**的 nonisolated 读者会红（`particleScale` 恰好有一个：
+// `ConfettiBurst.particleCount(baseParticleCount:policy:)`）。
 // ⇒ 那条契约由源码判据 `ExtensionIsolationGuard.pinnedExtensionMembersAreExplicitlyNonisolated` 守。
 // 本文件在这两个成员上守的只是**可见性**：它们从模块外取不到时会红。
 //

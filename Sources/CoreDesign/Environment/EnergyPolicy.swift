@@ -18,10 +18,17 @@ import SwiftUI
 /// 一层常驻渲染件在当前能耗状态下的渲染策略。
 ///
 /// ⚠️ `nonisolated`：本包三个 target 都开了 `.defaultIsolation(MainActor.self)`，不标的话
-/// 下游 **nonisolated 上下文**（在后台线程准备渲染参数的宿主代码）用不了它
-/// —— 那是 `scripts/downstream-probe` 的 `CoreDesignOnlyProbe` 看得见、而库内断言看不见的
-/// 一类问题。⚠️ 该 probe 更承重的角色是钉住「**下沉到底了**」：把任一成员挪回 Effects，
-/// 库 `swift build` 一声不吭，只有它会红。
+/// 下游 **nonisolated 上下文**（在后台线程准备渲染参数的宿主代码）用不了它。
+/// ⚠️ **本类型的这条由编译器守着**（`#271` 逐条变异实测）：拿掉它 ⇒ 库 `swift build`
+/// **当场红** —— `EffectsEnergy.swift` 的 extension 里有 `self == .full`，报
+/// `main actor-isolated conformance … to 'Equatable' … [#IsolatedConformances]`。
+/// 「库内看不见、只有 probe 会红」**只对 `EnergyState` 成立**（它没有同模块的 nonisolated
+/// `==` 读者），逐条对照见 `scripts/downstream-probe/Sources/CoreDesignOnlyProbe/EnergyPolicy.swift`。
+///
+/// ⚠️ **也别把「下沉到底了」记成 probe 独有**：把本表任一成员挪回 Effects，
+/// `EnergyPolicyTests`（只链 `CoreDesign`、读遍五个成员）同样红，多数还会先在库里红
+/// —— `presentation(reduceMotion:)` 就读着 `self.policy.drawsAnything`。
+/// probe 真正独有的增量只有一条：**不靠 `@testable`、只链 product 也拿得到** ⇒ 证 `public`。
 public nonisolated enum RenderPolicy: Sendable, Equatable, CaseIterable {
 
     /// 满帧。

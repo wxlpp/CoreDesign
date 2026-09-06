@@ -1,4 +1,6 @@
 import Foundation
+import SwiftParser
+import SwiftSyntax
 import SwiftUI
 import Testing
 @testable import CoreDesign
@@ -53,20 +55,32 @@ struct EnergyPolicyTests {
     /// 把 `?? ProcessInfo…` 改成 `?? false`（永不读系统）⇒ 在 `isLowPowerModeEnabled == false`
     /// 的机器上 `resolved.isLowPower == system` 恰好是 `false == false` ⇒ **本 suite 五条全绿**。
     /// CI 与开发机常态就是 `false`，所以那一半实际上只在低电量机器上才成立。
-    /// ⇒ 「真的去问了系统」这句由下面的**源码断言**钉住，它在任何机器上都有区分力；
+    /// ⇒ 「真的去问了系统」这句由下面的**语法树断言**钉住，它与机器的电量状态无关；
     /// 运行期断言留着，它在低电量机器上是真判据、在别的机器上是一致性检查。
+    ///
+    /// ⚠️ **语法树而不是字符串**（第 3 轮终审 I-2，评审有变异实证）：上一版比的是去空白后的
+    /// **整文件子串** ⇒ 把表达式改成 `?? false`、但让**上方的文档注释**里留着那串字面量，
+    /// 判据照绿。而那正是本仓最可能发生的形态 —— 紧邻的 `resolve` 文档本来就在转述这个表达式。
+    /// 现在改为从 `resolve` 的函数体里取 `isLowPower:` 实参、断言它是
+    /// `lowPowerModeOverride ?? ProcessInfo.processInfo.isLowPowerModeEnabled` 这个 `??` 表达式。
     @Test("`nil` 回落到系统读数（源码 + 运行期两条链）；`false` 注入 ⇒ 不读")
     func nilFallsBackToSystemButFalseDoesNot() throws {
-        // ⚠️ 源码这半是**唯一**与机器状态无关的那半，见上面的实测登记。
+        // 语法树这半是与机器电量状态无关的那半，见上面的实测登记。
         let sourceURL = GuardScanRoots.sourcesURL(of: "CoreDesign")
             .appendingPathComponent("Environment/EnergyPolicy.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
-        // ⚠️ 先收成一个 `Bool` 再 `#expect`：直接把 `source.contains(...)` 写进去，
-        // 失败信息会把**整个文件**内联进来，读不了。
-        let fallsBackToProcessInfo = source.filter { !$0.isWhitespace }
-            .contains("lowPowerModeOverride??ProcessInfo.processInfo.isLowPowerModeEnabled")
-        #expect(fallsBackToProcessInfo,
-                "`resolve` 的 nil 回落不再落到 `ProcessInfo.processInfo.isLowPowerModeEnabled` —— 「没人注入就去问系统」这条断了")
+        let finder = ResolveLowPowerArgumentFinder()
+        finder.walk(Parser.parse(source: source))
+        // ⚠️ 找不到也要判红，不能"没找到 ⇒ 没违规 ⇒ 绿"。
+        let argument = try #require(finder.lowPowerArgument,
+                                    "在 `EnergyState.resolve` 里找不到 `isLowPower:` 实参 —— 判据无法工作，这不是「零违规」")
+        // 只取实参**表达式**的 token 文本，注释与别处的死代码都进不来。
+        let expression = argument.tokens(viewMode: .sourceAccurate).map(\.text).joined()
+        #expect(expression == "lowPowerModeOverride??ProcessInfo.processInfo.isLowPowerModeEnabled", """
+        `resolve` 的 `isLowPower:` 实参是 `\(expression)` —— 「没人注入就去问系统」这条断了。\
+        ⚠️ 等价改写（如把 `ProcessInfo.processInfo` 提成局部量）也会判红：本条钉的是**这个表达式的形状**，\
+        要改先来这里改，别让改动静默通过。
+        """)
 
         let system = ProcessInfo.processInfo.isLowPowerModeEnabled
         let resolved = EnergyState.resolve(
@@ -118,5 +132,28 @@ struct EnergyPolicyTests {
         #expect(RenderPolicy.full.minimumInterval == nil, "满帧不该限速")
         #expect(RenderPolicy.reduced.minimumInterval == 1.0 / 15.0)
         #expect(RenderPolicy.paused.minimumInterval == nil)
+    }
+}
+
+/// 从 `EnergyState.resolve` 的函数体里抠出 `EnergyState(…)` 调用的 `isLowPower:` 实参。
+///
+/// ⚠️ 只认**名为 `resolve` 的函数体内**的那个调用 —— 文件里别处的 `EnergyState(...)`
+/// （包括注释、别的初始化）都不算。
+private nonisolated final class ResolveLowPowerArgumentFinder: SyntaxVisitor {
+
+    private(set) var lowPowerArgument: ExprSyntax?
+
+    init() { super.init(viewMode: .sourceAccurate) }
+
+    override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
+        guard node.name.text == "resolve", let body = node.body else { return .skipChildren }
+        for call in body.tokens(viewMode: .sourceAccurate).compactMap({
+            $0.parent?.as(FunctionCallExprSyntax.self)
+        }) where call.calledExpression.trimmedDescription == "EnergyState" {
+            for argument in call.arguments where argument.label?.text == "isLowPower" {
+                self.lowPowerArgument = argument.expression
+            }
+        }
+        return .skipChildren
     }
 }

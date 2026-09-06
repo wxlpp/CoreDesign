@@ -16,7 +16,7 @@ import Testing
 // ⚠️ **注意区分**：类型级 `nonisolated` **进**接口（拿掉 `EnergyState` 的 `nonisolated`，
 // 库绿而 probe 红）。不进接口的只有 `defaultIsolation` **推**出来的那一档。
 //
-// ⇒ 漏标今天唯一可观测的后果是「**同模块**新增 nonisolated 读者时当场编译红」，而那是
+// ⇒ 漏标今天唯一**会判红**的后果是「**同模块**新增 nonisolated 读者时当场编译红」，而那是
 // 编译器已经在守的东西。本判据钉的是**显式性**本身，理由有二，都不是"下游会坏"：
 // · 这个不一致（同模块严、跨模块松）是编译器的现状，**收紧它是兼容方向的改动**，
 //   哪天收紧了，没显式标的成员会一次性变成下游破坏；
@@ -48,11 +48,23 @@ import Testing
 //（`ci.yml` 只挂了 `mainactor-static-ratchet.sh`），接进去是独立改动。
 //
 // ⚠️ 同一个类型在**别的文件**里再开一个 extension，本判据看不见 —— 这也在射程之外。
+//
+// ⚠️ **收集器已知不覆盖的三种形态**（第 3 轮终审 S-3 / S-4，均登记而非修复）：
+// · **extension 级** `nonisolated`（`public nonisolated extension P { var x }`）是合法写法，
+//   而收集器只读**成员**的 modifier ⇒ 这种写法会判红、且失败信息说得不准。
+//   方向是 **fail-closed**（误报不漏报），故不修；写在这里免得下一个人以为是 bug。
+// · public extension **里嵌套的类型声明**（`struct` / `enum`）及其成员：不进名单。
+// · 元组模式的存储属性（`static var (a, b) = …`）：`IdentifierPatternSyntax` 取不到，跳过。
 @Suite("public extension 成员的 nonisolated 显式性")
 struct ExtensionIsolationGuard {
 
     /// 受本判据保护的文件，及其 `public extension` 里**必须**逐个显式 `nonisolated`
-    /// 的成员名。⚠️ 数量与名字都钉死：删掉一个成员而不来改这里会判红。
+    /// 的成员名。**名字**钉死：新增或删除一个成员名而不来改这里会判红。
+    ///
+    /// ⚠️ **同名重载不计数**（第 3 轮终审 S-2）：本表是 `Set<String>`，`func foo(_:)` 与
+    /// `func foo(a:)`、两个 `subscript`、两个 `init` 都塌成一条 ⇒ 删掉一对里的一个**不会红**。
+    /// 这只影响"数量"这一半；`nonisolated` 那一半仍逐个成员跑，**不是** fail-open。
+    /// 要连重载也钉住得改成按完整签名建键，本轮有意未做（本文件今天无重载）。
     static let pinnedMembers: [String: Set<String>] = [
         "Sources/CoreDesignEffects/EffectsEnergy.swift": [
             "usesGlow", "particleScale", "frozenIfPeriodIsDegenerate",
