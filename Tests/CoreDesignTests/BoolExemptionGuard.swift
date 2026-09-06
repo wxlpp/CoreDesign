@@ -165,6 +165,8 @@ struct BoolExemptionGuard {
         "LightButtonStyle": .styleImplementation,
         "StepItem": .nonViewPublicType,
         "ButtonRoleStyleRole": .nonViewPublicType,
+        // `#271`：NFR-7 通用能耗策略表下沉后的解析结果类型。非 View、不进组件登记表。
+        "EnergyState": .nonViewPublicType,
         "SegmentedControlStyleConfiguration.Segment": .nonViewPublicType,
         // ⚠️ **#41 裁决 3 之后，两条宿主处于「休眠」态**：`SolidButtonStyle` /
         // `LightButtonStyle` 已没有活的豁免键 ⇒ 按豁免键遍历的那条通路不会访问它们。

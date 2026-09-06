@@ -55,7 +55,7 @@ public struct CharSphere: View {
     ///   - count: 点位数。上限 1000，超出截断（字形比圆点贵得多）。
     ///   - colors: 循环渐变的色板。**默认为空 ⇒ 取调用方的 `.tint`**。
     ///   - rotationPeriod: 转一圈用多少秒。**非法值（`<= 0` / `NaN` / `±∞`）退化为静止**
-    ///     ——见 `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)`。
+    ///     ——见 `MotionPresentation.frozenIfPeriodIsDegenerate(_:)`。
     public init(
         _ characters: [String],
         count: Int = CharSphere.defaultCount,

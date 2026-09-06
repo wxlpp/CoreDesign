@@ -87,18 +87,19 @@ alpha ⇒ 这一档在 macOS 上的实际量程曾是 `0.847 × [0.18, 0.95]` = 
 | `\.lowPowerModeOverride` | `Bool?` | `nil` ⇒ 读 `ProcessInfo.isLowPowerModeEnabled` | `true` ⇒ 降到 15 fps，并去掉柔化用的离屏模糊 |
 
 ⚠️⚠️ **顺序是承重的：先 NFR-7 的能耗闸，再 Reduce Motion 闸**。这个顺序不由本文件实现
-——它在 `EffectsEnergyState.presentation(reduceMotion:)` 里，与 `ConfettiCore` /
+——它在 `EnergyState.presentation(reduceMotion:)` 里（`#271` 下沉到 `CoreDesign`，旧名见
+`docs/BREAKING-CHANGES.md`），与 `ConfettiCore` /
 `ProcessingSweepDriver` **共用同一份**。此前两处各写一遍时 `Confetti` 就把顺序写反了，
 而当时全套测试是绿的（#252 PR #269 第 1 轮终审 I-1 / I-2）。
 
 ## ⚠️⚠️ 已知限度：`.inactive` 下这块背景面会**在用户眼前**变空白
 
 「`.inactive` / `.background` ⇒ 一个像素都不画」是本仓既有的、有机器判据守着的停摆语义
-（`EffectsRenderPolicy.drawsAnything` 的文档逐字：「调用方应当**整层不建**」）。
+（`RenderPolicy.drawsAnything` 的文档逐字：「调用方应当**整层不建**」）。
 对 `ScanningOverlay` 那类**盖在内容上的小装饰**它无副作用；而本组件是一整块**背景面**。
 
 ⚠️ **别把这条读成"只是 App 切换器快照会缺底色"**（#253 PR #273 终审 I-3 逐字纠正了上一版）。
-`EffectsEnergyState.policy` 给出的理由是「`.inactive` 是 App 切换器 / 通知中心 / 来电这类
+`EnergyState.policy` 给出的理由是「`.inactive` 是 App 切换器 / 通知中心 / 来电这类
 **用户看不到或看不清**的时刻」，而这个前提在两种**常见**情形下直接为假：
 
 | 情形 | 窗口可见？ | 后果 |
@@ -111,7 +112,7 @@ alpha ⇒ 这一档在 macOS 上的实际量程曾是 `0.847 × [0.18, 0.95]` = 
 **本轮仍按既有语义落地、不为一个组件另开一档**：`presentation(reduceMotion:)` 是
 `ConfettiCore` / `ProcessingSweepDriver` / 本组件**共用**的纯函数（#252 已合并），
 改它要同轮动三个调用点 ⇒ **属 epic 级裁决**。
-⇒ 这条**登记为已知限度并按上表的真实成本记账**（处置：给 `EffectsRenderPolicy` 增设
+⇒ 这条**登记为已知限度并按上表的真实成本记账**（处置：给 `RenderPolicy` 增设
 「停摆但保留静止帧」一档，或把 `.inactive` 与 `.background` 分开判；
 **接受这条限度等于接受上表两行**）。
 需要立刻规避的宿主 App 可以自己注入 `\.scenePhaseOverride = .active`。

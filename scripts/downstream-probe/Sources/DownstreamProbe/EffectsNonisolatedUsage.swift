@@ -1,3 +1,4 @@
+import CoreDesign
 import CoreDesignEffects
 import SwiftUI
 
@@ -31,45 +32,34 @@ nonisolated func readEffectsModuleName() -> String {
     CoreDesignEffects.moduleName
 }
 
-// MARK: - NFR-7 的能耗值类型（Issue #252）
+// MARK: - NFR-7 里 **effects 专用**的那两个旋钮（Issue #252 / `#271` 下沉后）
 //
-// ⚠️ 这三个类型走**本文件**而不是 `PublicVisibility.swift`，按文件头的分流表：
-// 它们是**值类型 / 配置类型**，`nonisolated` 是它们的承重契约。
-// 若哪天有人把 `EffectsEnergyState` 上的 `nonisolated` 拿掉，本函数当场编译红
-// （`main actor-isolated ... can not be referenced from a nonisolated context`）。
+// ⚠️ **`#271` 起本节只剩两个旋钮**。此前这里守的是三个能耗值类型，而通用那部分
+// （`RenderPolicy` 的三个 case / `drawsAnything` / `minimumInterval`、`EnergyState` 与
+// `resolve`、`MotionPresentation` 与两道闸顺序）已下沉进 `CoreDesign`；旧名到新名的
+// 对照见 `docs/BREAKING-CHANGES.md`。
 //
-// ⚠️⚠️ **这里曾写着「`shipswift-shaders` 的 17 个 `colorEffect` 会在渲染参数准备阶段
-// 用它们」——那句话与两个能耗键下沉的立论直接打架，已按事实改写**
-// （#252 PR #269 第 2 轮终审 I-B）。
+// ⚠️ **它们的 `nonisolated` 契约不再由本文件守**：本 target 链着 `CoreDesignEffects`，
+// 在这里取 `EnergyState` 证不了「只链 `CoreDesign` 也拿得到」。那半边的机器判据搬到了
+// `Sources/CoreDesignOnlyProbe/EnergyPolicy.swift`（**那个 target 只链 `CoreDesign`**
+// ——这正是「下沉到底了」的判据；库内断言证不了它，internal 在同模块内一样能过）。
 //
-// 下沉（`\.lowPowerModeOverride` / `\.scenePhaseOverride` 搬进 `CoreDesign`）的**全部理由**
-// 是「键留在 Effects 会逼只想要 shader 的消费者链上整个 Effects product」。而这三个类型
-// **仍然住在 `CoreDesignEffects`**：B-2 若真去消费它们，就得 `import CoreDesignEffects`，
-// 那条依赖一条都没省下——两句不能同时为真。
+// ⇒ 本文件留下的是 `usesGlow` / `particleScale`：它们是挂在 `RenderPolicy` 上的
+// **Effects 侧 extension 成员**，本 probe 是它们在模块外的唯一消费者。
+// 若哪天有人把这两个成员上的 `nonisolated` 拿掉，下面这个函数当场编译红
+// （`main actor-isolated ... can not be referenced from a nonisolated context`）
+// ——本 target 开了 `.defaultIsolation(MainActor.self)`，而它**确实**作用于同包内
+// 类型的扩展，所以这不是理论上的逃逸位。
 //
-// ⇒ **事实是**：B-2 只消费 `CoreDesign` 的那两个键（`Bool?` / `ScenePhase?`），
-// **自行派生**自己那套渲染参数；`EffectsEnergyState` / `EffectsRenderPolicy` /
-// `EffectsPowerMode` 是**动效层的**语义面，本 probe 是它们在模块外的**唯一**消费者
-// （守的是 `nonisolated` 这条契约，不是"下游真的会这样用"的示范）。
-//
-// ⚠️ **未了结的残余**（已同步登记在 `EffectsRenderPolicy` 的裁决记录里）：
-// `EffectsRenderPolicy` 自己把策略分成「通用」（`drawsAnything` / `minimumInterval`
-// ——任何常驻渲染件都要）与「effects 专用」（`particleScale` / `usesGlow`），
-// 而本轮只下沉了**原始信号**，被标为「通用」的那半张策略表仍在 Effects。
-// ⇒ B-2 要么重新派生一遍（本仓反复在堵的"两处各写一遍必然漂移"），
-// 要么就这半张表再裁决一次。**本轮不解决跨 epic 归属，只如实留痕。**
+// ⚠️⚠️ **保留一条旧更正的结论**（#252 PR #269 第 2 轮终审 I-B）：这里曾写着
+// 「`shipswift-shaders` 的 17 个 `colorEffect` 会用这些类型」——那句与两个能耗键下沉的
+// 立论直接打架（若真去消费它们就得 `import CoreDesignEffects`，那条依赖一条都没省下）。
+// `#271` 把通用部分下沉之后，这条冲突**从根上消失**：B-2 现在只 `import CoreDesign`
+// 就能同时拿到那两个键与那张通用策略表。
 
-nonisolated func resolveEffectsRenderPolicy() -> EffectsRenderPolicy {
-    EffectsEnergyState.resolve(
-        injectedScenePhase: nil,
-        systemScenePhase: .active,
-        injectedPowerMode: EffectsPowerMode.current
-    ).policy
-}
-
-nonisolated func readEffectsPolicyKnobs() -> (Bool, Bool, Double?, Double) {
-    let policy = EffectsRenderPolicy.reduced
-    return (policy.drawsAnything, policy.usesGlow, policy.minimumInterval, policy.particleScale)
+nonisolated func readEffectsPolicyKnobs() -> (Bool, Double) {
+    let policy = RenderPolicy.reduced
+    return (policy.usesGlow, policy.particleScale)
 }
 
 // MARK: - 文本与展示动效的值类型（Issue #253）
@@ -120,8 +110,11 @@ nonisolated func readCrossPlatformDefaults() -> [Double] {
 // `PublicVisibility.swift`（`@MainActor`）那侧。
 //
 // ⚠️ **安全档位那套（`FilterTransitionSafety`）有意不在这里**：它是 `internal`
-// ——理由与 `EffectsPresentation` 逐字相同（`public` 会让它的裸 `Bool` 参数命中
-// `BoolExemptionGuard`，要一条署名豁免并抬棘轮，而本 epic 的净增预算只有 2 条）。
+// ——`public` 会让它的裸 `Bool` 参数命中 `BoolExemptionGuard`，要一条署名豁免并抬棘轮，
+// 而 `#266` 那个 epic 的净增预算只有 2 条。
+// ⚠️ 上一版这里写「理由与 `EffectsPresentation` 逐字相同」——`#271` 把那个类型改名成
+// `MotionPresentation` 并下沉、且**做成了 `public`**（其 `presentation(reduceMotion:)`
+// 的 `Bool` 参数如实登记了一条豁免）⇒ 那个类比今天已经反向，故删掉、只留理由本身。
 nonisolated func readFilterTransitionDefaults() -> (Double, Double, Double, Int) {
     (
         Double(BlurTransition.defaultRadius),

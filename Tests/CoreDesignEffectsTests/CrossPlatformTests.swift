@@ -468,18 +468,18 @@ struct DegeneratePeriodTests {
     @Test("非法周期（含 nan / inf）把 .animated 降到 .resting，其余两档原样穿过")
     func degeneratePeriodFreezesAnimated() {
         for period in [0.0, -3.0, -0.001, .nan, .infinity, -.infinity] {
-            #expect(EffectsPresentation.animated.frozenIfPeriodIsDegenerate(period) == .resting,
+            #expect(MotionPresentation.animated.frozenIfPeriodIsDegenerate(period) == .resting,
                     "period=\(period) 时仍在建调度器")
-            #expect(EffectsPresentation.resting.frozenIfPeriodIsDegenerate(period) == .resting)
+            #expect(MotionPresentation.resting.frozenIfPeriodIsDegenerate(period) == .resting)
             // ⚠️ **停摆档不许被这道闸抬回 .resting**：NFR-7 的优先级最高。
-            #expect(EffectsPresentation.none.frozenIfPeriodIsDegenerate(period) == .none,
+            #expect(MotionPresentation.hidden.frozenIfPeriodIsDegenerate(period) == .hidden,
                     "period=\(period) 把停摆档抬回了 .resting —— 能耗闸被这道闸绕过了")
         }
         for period in [0.001, 10.0, 24.0] {
-            #expect(EffectsPresentation.animated.frozenIfPeriodIsDegenerate(period) == .animated,
+            #expect(MotionPresentation.animated.frozenIfPeriodIsDegenerate(period) == .animated,
                     "period=\(period) 是合法周期，不该被冻结")
-            #expect(EffectsPresentation.none.frozenIfPeriodIsDegenerate(period) == .none)
-            #expect(EffectsPresentation.resting.frozenIfPeriodIsDegenerate(period) == .resting)
+            #expect(MotionPresentation.hidden.frozenIfPeriodIsDegenerate(period) == .hidden)
+            #expect(MotionPresentation.resting.frozenIfPeriodIsDegenerate(period) == .resting)
         }
     }
 }
@@ -1233,7 +1233,7 @@ struct CrossPlatformRenderTests {
             for keyword in MicroInteractionReduceMotionGuard.motionCalls {
                 #expect(!code.contains(keyword), "\(name) 自己写了运动调用 `\(keyword)` —— 它不再是薄封装")
             }
-            for keyword in ["EffectsEnergyState", "accessibilityReduceMotion", "TimelineView", "phaseAnimator", "keyframeAnimator"] {
+            for keyword in ["EnergyState", "accessibilityReduceMotion", "TimelineView", "phaseAnimator", "keyframeAnimator"] {
                 #expect(!code.contains(keyword),
                         "\(name) 自己接了 `\(keyword)` —— 降级 / 能耗闸会与共享驱动漂移")
             }

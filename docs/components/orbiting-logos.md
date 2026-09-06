@@ -106,7 +106,7 @@ OrbitingLogos(brands) { brand in
 | `.inactive` / `.background` | **一个像素都不画** | **照常静态显示** |
 | 低电量 | 15 fps、每环点数减半（23 → 12） | 照常显示，**座位跟着变稀的环挪** |
 
-两道闸的顺序在共用纯函数 `EffectsEnergyState.presentation(reduceMotion:)` 里；
+两道闸的顺序在共用纯函数 `EnergyState.presentation(reduceMotion:)` 里；
 第三道是"周期非法"闸（见下面《退化输入》）。
 
 ⚠️⚠️ **`.none` 档在本件上是收窄的：只摘装饰，不摘内容**（PR #274 终审 C-1）。
@@ -129,7 +129,7 @@ OrbitingLogos(brands) { brand in
 进来只会白挨一道闸。现行规则逐字见 `energyGatedFiles` 类型文档开头的《当前规则》。
 之前那句"需要规避的宿主 App 自行注入 `\.scenePhaseOverride = .active`"是在**记录症状**，
 并把一个已判定为 bug 的默认行为的 opt-out 推给每个消费方 —— 已删。
-装饰层（环）的完整记账仍见 `EffectsEnergyState.policy`。
+装饰层（环）的完整记账仍见 `EnergyState.policy`。
 
 ⚠️ **低电量下 logo 必须跟着环挪**（终审 S-3）：低电量时每环只画 `round(23 × 0.5) = 12`
 个点，座位数若还钉在标称的 23，logo 会悬在环点**之间**——本件"logo 坐在环上巡游"的

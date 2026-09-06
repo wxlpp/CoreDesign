@@ -44,7 +44,7 @@ import SwiftUI
 /// 与 `AnimatedMeshGradient` / `Confetti` 共用同一道闸：
 /// `.inactive` / `.background` ⇒ **整层不建**；低电量 ⇒ 降到 15 fps 且**点数减半**。
 /// ⚠️ 「`.inactive` 下这块背景面会在可见窗口里变空白」这条**已知限度**逐字适用，
-/// 完整记账见 `AnimatedMeshGradient` 的类型文档与 `EffectsEnergyState.policy`。
+/// 完整记账见 `AnimatedMeshGradient` 的类型文档与 `EnergyState.policy`。
 ///
 /// ## a11y（FR-13）
 ///
@@ -69,7 +69,7 @@ public struct DotSphere: View {
     ///     抛断言就是让宿主 App crash（AD-F）。负数与 0 都退化为"不画"。
     ///   - colors: 循环渐变的色板。**默认为空 ⇒ 取调用方的 `.tint`**。
     ///   - rotationPeriod: 转一圈用多少秒。**非法值（`<= 0` / `NaN` / `±∞`）退化为静止**
-    ///     ——见 `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)`。
+    ///     ——见 `MotionPresentation.frozenIfPeriodIsDegenerate(_:)`。
     public init(
         count: Int = DotSphere.defaultCount,
         colors: [Color] = [],

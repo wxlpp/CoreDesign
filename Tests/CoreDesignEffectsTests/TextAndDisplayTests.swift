@@ -17,7 +17,7 @@ import Testing
 // | `ParticleTransition` | Reduce Motion ⇒ 只留淡入淡出（**不是 no-op**）；恒等相位不画粒子 | 纯函数 + 位图 |
 //
 // ⚠️ **`\.accessibilityReduceMotion` 不可注入**（`EnvironmentValues` 上它是只读的系统偏好，
-// 写它编译红——`EffectsPresentation` 的文档已实测过这条）。⇒ 凡 Reduce Motion 方向的判据
+// 写它编译红——`MotionPresentation` 的文档已实测过这条）。⇒ 凡 Reduce Motion 方向的判据
 // 只能落在**纯函数**（"给定这个布尔值，这个函数返回什么"）与**源码**（"调用点是否真的
 // 只用这个结论"）两条链上，位图路结构上不可达。本文件两条都写，缺一条就只剩函数体、
 // 调用点可以自己再判一遍（#252 PR #269 第 2 轮终审 I-A 逐字记着这个失效形态）。

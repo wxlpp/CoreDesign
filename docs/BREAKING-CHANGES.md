@@ -15,6 +15,63 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.9.0`）——Issue #271：NFR-7 通用能耗策略表下沉
+
+**含破坏性变更** —— `CoreDesignEffects` **删除 31 条** public 声明、新增 5 条；
+`CoreDesign` 删除 **0** 条、新增 28 条。两侧数字由 `scripts/api-surface-diff.sh` 各跑一次得出：
+
+```bash
+MODULE=CoreDesignEffects bash scripts/api-surface-diff.sh <base>   # 删除侧
+bash scripts/api-surface-diff.sh <base>                            # 新增侧（默认 MODULE=CoreDesign）
+```
+
+⚠️ **必须跑两次**：脚本的 `MODULE` 默认是 `CoreDesign`，只跑默认那次**看不到任何删除**
+——本次的删除全在 `CoreDesignEffects`。
+
+### 主题：把「任何常驻渲染件都要」的那半张表移出动效层
+
+原裁决（`#252`）逐字：「别让只想要 shader 的消费者链上整个 `CoreDesignEffects` product」。
+当时只下沉了两个**信号键**，而从信号推出「画不画 / 降不降帧」的策略表仍在 Effects
+⇒ `shipswift-shaders` 的 B-2 只有两条路：`import CoreDesignEffects`（推翻下沉的全部理由），
+或自己把同一条映射再写一遍（本仓反复在堵的「两处各写一遍必然漂」）。
+
+| 删除（`CoreDesignEffects`） | 替代（`CoreDesign`） |
+|---|---|
+| `EffectsEnergyState` | `EnergyState` |
+| `EffectsEnergyState.init(scenePhase:powerMode:)` | `EnergyState.init(scenePhase:isLowPower:)` |
+| `EffectsEnergyState.resolve(injectedScenePhase:systemScenePhase:injectedPowerMode:)` | `EnergyState.resolve(injectedScenePhase:systemScenePhase:lowPowerModeOverride:)` |
+| `EffectsRenderPolicy` | `RenderPolicy` |
+| `EffectsRenderPolicy.drawsAnything` / `.minimumInterval` | `RenderPolicy` 同名成员（下沉） |
+| `EffectsRenderPolicy.usesGlow` / `.particleScale` | **仍在 Effects**，改挂 `extension RenderPolicy` |
+| `EffectsPresentation` | `MotionPresentation` |
+| `EffectsPresentation.none` | `MotionPresentation.hidden`（⚠️ 见下） |
+| `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)` | **仍在 Effects**，改挂 `extension MotionPresentation` |
+| **`EffectsPowerMode`（整个类型）** | **无替代** —— 边界改用 `Bool` |
+
+### 三处需要动手改的
+
+1. **`powerMode:` → `isLowPower:`**：`EffectsPowerMode` 已删除，边界改用 `Bool`。
+   `EffectsPowerMode.lifted(from:)` 一并删除 —— 环境键 `\.lowPowerModeOverride` 本身就是
+   `Bool?`，直接传即可。
+2. **`.none` → `.hidden`**：`.none` 一旦公开，在 `MotionPresentation?` 语境下 `x == .none`
+   会被解析成 `Optional.none` 并**发警告**；本仓 probe 带 `-Xswiftc -warnings-as-errors`
+   ⇒ 那是硬红。趁改名窗口一并换掉。
+3. **`import`**：只用通用策略表的消费者现在**只需 `import CoreDesign`**
+   —— 这正是本次改动的全部目的。
+
+### 为什么不留 typealias 兼容层
+
+最硬的理由不是「0.x 先例」，而是**模块外实际消费者为零**
+—— 唯一消费者是 `scripts/downstream-probe` 自己。留别名等于把两个名字都变成永久承诺。
+
+### 一并付出的代价
+
+`CoreDesign` 新增 **3 条** Bool 豁免（`EnergyState.init#isLowPower` /
+`resolve#lowPowerModeOverride` / `presentation#reduceMotion`），棘轮基线 32 → 35。
+⚠️ **本仓惯例是每轮把棘轮压小，本次是反向抬 3**，逐条理由见 `docs/bool-exemptions.json`。
+
+---
+
 ## 未发布（相对 `v0.9.0`）——画廊场景化配色 PR
 
 **纯新增 + 一处行为变更 + 一处已修正的观感回归。**

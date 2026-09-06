@@ -133,12 +133,12 @@ device      r=0.5000 g=0.3765 b=0.6176   ← 上游给的
 | `\.lowPowerModeOverride` | `Bool?` | `nil` ⇒ 读 `ProcessInfo` | `true` ⇒ 降到 15 fps，**点数减半** |
 
 两道闸的顺序（先能耗、后 Reduce Motion）在共用纯函数
-`EffectsEnergyState.presentation(reduceMotion:)` 里，与 `Confetti` /
+`EnergyState.presentation(reduceMotion:)` 里，与 `Confetti` /
 `ProcessingSweep` / `AnimatedMeshGradient` **同一份**。
 
 ⚠️ **已知限度**：`.inactive` 下这块背景面会在**可见窗口里**变空白
 （macOS 失焦、iPadOS 台前调度都会报 `.inactive`）。完整记账见
-`EffectsEnergyState.policy` 的文档；需要规避的宿主 App 自行注入
+`EnergyState.policy` 的文档；需要规避的宿主 App 自行注入
 `\.scenePhaseOverride = .active`。
 
 ## 退化输入

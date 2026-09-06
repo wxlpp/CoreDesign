@@ -30,7 +30,7 @@ import SwiftUI
 //
 // ⚠️ **层 2 / 层 3 分开不是"多一层"，是本簇 Reduce Motion 判据能不能存在的前提**：
 // `\.accessibilityReduceMotion` 在 `EnvironmentValues` 上**只读**，测试里注不进去
-// （`EffectsPresentation` 的文档已实测过这条）。层 3 把它降成一个普通实参之后，
+// （`MotionPresentation` 的文档已实测过这条）。层 3 把它降成一个普通实参之后，
 // 判据才能把**同一个相位**分别用 `isReduced: true` / `false` 渲两遍、逐字节比较
 // ——「降级真的去掉了运动」与「降级不是 no-op」这两句话才有位图证据，
 // 而不是只剩源码扫描（`MicroInteractionReduceMotionGuard` 那条链）。
@@ -83,7 +83,7 @@ import SwiftUI
 /// ⚠️ `public` 且 `nonisolated`：它被 `.move(angle:distance:)` 的**默认实参**引用，
 /// 而 Swift 不允许默认实参引用 internal 符号；`nonisolated` 是因为本包开了
 /// `.defaultIsolation(MainActor.self)`，不标的话下游 nonisolated 上下文用不了它
-///（同 `EffectsPowerMode` 的理由）。
+///（同 `RenderPolicy` 等下沉后类型的理由）。
 public nonisolated enum TransitionTravel: Sendable, Equatable, CaseIterable {
 
     /// 36 pt —— 徽标、行内小件。

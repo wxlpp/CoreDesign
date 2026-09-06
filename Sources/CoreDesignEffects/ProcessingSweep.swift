@@ -43,7 +43,7 @@ enum ProcessingSweepKind: CaseIterable {
 /// 而 Reduce Motion 是 a11y 偏好，前台时仍要留下"这里正在处理"的静态呈现。
 ///
 /// ⚠️⚠️ **这个顺序不再由本文件自己实现**（#252 PR #269 第 1 轮终审 I-1 / I-2）：
-/// 它被抽进 `EffectsEnergyState.presentation(reduceMotion:)`，与 `ConfettiCore`
+/// 它被抽进 `EnergyState.presentation(reduceMotion:)`，与 `ConfettiCore`
 /// **共用同一份**。此前两处各写一遍，`Confetti` 就把顺序写反了，而两道闸对调
 /// 在当时是 42/42 全绿——没有任何判据看得见顺序。
 struct ProcessingSweepDriver: View {
@@ -56,17 +56,17 @@ struct ProcessingSweepDriver: View {
     @Environment(\.scenePhase) private var systemScenePhase
 
     var body: some View {
-        let state = EffectsEnergyState.resolve(
+        let state = EnergyState.resolve(
             injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
+            lowPowerModeOverride: self.lowPowerModeOverride
         )
         // ⚠️ 两道闸的顺序在这个纯函数里，不在这里——见类型文档。
         let presentation = state.presentation(reduceMotion: self.reduceMotion)
 
         // ⚠️ **NFR-7 停摆：整层不建**。不是 `paused: true` 的 `TimelineView`，
         // 是根本没有 `TimelineView`——后者仍是一个活着的视图节点。
-        guard presentation != .none else { return AnyView(EmptyView()) }
+        guard presentation != .hidden else { return AnyView(EmptyView()) }
 
         // ⚠️ **`isReduced` 由 `presentation` 派生，不再直接读 `self.reduceMotion`**：
         // 后者会让这道闸独立于能耗闸生效，正是 `Confetti` 当初翻车的形态。
@@ -105,7 +105,7 @@ struct ProcessingSweepDriver: View {
 /// 的性能闸一起想，属于 epic 级裁决。）
 ///
 /// 本类型是在 `ProcessingSweepDriver` 的 `TimelineView` 闭包**内部**被构造的
-/// ⇒ 上面那次 `EffectsEnergyState.resolve(...)` **每帧都跑一次**，而在默认路径
+/// ⇒ 上面那次 `EnergyState.resolve(...)` **每帧都跑一次**，而在默认路径
 /// （没人注入 `\.lowPowerModeOverride`）下它每帧都命中
 /// `ProcessInfo.processInfo.isLowPowerModeEnabled`——60–120 Hz × 每个在场效果。
 ///
@@ -115,9 +115,10 @@ struct ProcessingSweepDriver: View {
 /// · `minimumInterval` 由驱动层求**一次**并交给 `TimelineSchedule` ⇒ 帧率**不会**
 ///   跟着变，直到驱动层因为别的原因重建。
 ///
-/// ⇒ `EffectsPowerMode.current` 文档里那句"它不是响应式的"**只对 `minimumInterval`
-/// （以及 `Confetti` 的粒子数）成立**，对 `usesGlow` 不成立。这条不对称是本 PR
-/// 登记的已知限度，不是本轮要修的东西。
+/// ⇒ "低电量档位不是响应式的"这个说法**只对 `minimumInterval`（以及 `Confetti` 的
+/// 粒子数）成立**，对 `usesGlow` 不成立。这条不对称是登记的已知限度，不是本轮要修的。
+/// ⚠️ 上一版把这句挂在 `CoreDesignEffects` 那个二态枚举的 `current` 文档上——
+/// 该类型已随 `#271` 删除，此处只保留结论本身。
 struct ProcessingSweepBody: View {
 
     let kind: ProcessingSweepKind
@@ -128,10 +129,10 @@ struct ProcessingSweepBody: View {
     @Environment(\.scenePhase) private var systemScenePhase
 
     var body: some View {
-        let policy = EffectsEnergyState.resolve(
+        let policy = EnergyState.resolve(
             injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
+            lowPowerModeOverride: self.lowPowerModeOverride
         ).policy
         let glow = policy.usesGlow
 

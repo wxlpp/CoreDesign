@@ -29,131 +29,21 @@ import Testing
 
 // MARK: - 纯函数层：能耗状态 → 渲染策略
 
-@Suite("NFR-7 能耗状态与渲染策略")
-struct EffectsEnergyStateTests {
+@Suite("NFR-7 的 effects 专用旋钮（#271 下沉后只剩这一半）")
+struct EffectsEnergyKnobTests {
 
-    @Test("后台 / 非活跃 ⇒ 停摆；低电量 ⇒ 降级；其余 ⇒ 满帧")
-    func policyMapping() {
-        #expect(EffectsEnergyState(scenePhase: .active, powerMode: .standard).policy == .full)
-        #expect(EffectsEnergyState(scenePhase: .active, powerMode: .lowPower).policy == .reduced)
-        #expect(EffectsEnergyState(scenePhase: .inactive, powerMode: .standard).policy == .paused)
-        #expect(EffectsEnergyState(scenePhase: .background, powerMode: .standard).policy == .paused)
-        // ⚠️ 后台 + 低电量仍是 `.paused`，不是 `.reduced`——停摆比降帧更省，别把它降错方向。
-        #expect(EffectsEnergyState(scenePhase: .background, powerMode: .lowPower).policy == .paused)
-    }
-
-    @Test("注入值优先，`nil` 才从系统读")
-    func injectionWinsOverSystem() {
-        // ① 注入的场景阶段盖过系统值。
-        let injected = EffectsEnergyState.resolve(
-            injectedScenePhase: .background,
-            systemScenePhase: .active,
-            injectedPowerMode: .standard
-        )
-        #expect(injected.scenePhase == .background, "注入的 scenePhase 没有盖过系统值 —— NFR-7 的判据整条落空")
-        #expect(injected.policy == .paused)
-
-        // ② 注入为 `nil` ⇒ 用系统值。
-        let fallback = EffectsEnergyState.resolve(
-            injectedScenePhase: nil,
-            systemScenePhase: .inactive,
-            injectedPowerMode: .standard
-        )
-        #expect(fallback.scenePhase == .inactive, "注入 nil 时没有回落到系统值")
-
-        // ③ 能耗档位同理，且 `.standard` 与 `nil` 必须可区分
-        //（前者是宿主明确说"按常规供电渲染"，不该被系统读数覆盖）。
-        let explicitStandard = EffectsEnergyState.resolve(
-            injectedScenePhase: .active, systemScenePhase: .active, injectedPowerMode: .standard
-        )
-        #expect(explicitStandard.powerMode == .standard)
-        let injectedLowPower = EffectsEnergyState.resolve(
-            injectedScenePhase: .active, systemScenePhase: .active, injectedPowerMode: .lowPower
-        )
-        #expect(injectedLowPower.policy == .reduced, "注入的低电量没有生效")
-    }
-
-    @Test("`nil` 能耗注入 ⇒ 真的去读 ProcessInfo（默认从系统读）")
-    func defaultPowerModeReadsSystem() {
-        let expected: EffectsPowerMode =
-            ProcessInfo.processInfo.isLowPowerModeEnabled ? .lowPower : .standard
-        #expect(EffectsPowerMode.current == expected)
-        let resolved = EffectsEnergyState.resolve(
-            injectedScenePhase: .active, systemScenePhase: .active, injectedPowerMode: nil
-        )
-        #expect(resolved.powerMode == expected, "注入 nil 时没有从 ProcessInfo 读 —— 默认值不是系统值")
-    }
-
-    /// ⚠️ **`CoreDesign` 的 `Bool?` 键 → 本 target 的语义档位，这一步是承重的**
-    ///（#252 PR #269 终审 S-2 的下沉处置）：三个调用点都靠
-    /// `EffectsPowerMode.lifted(from:)` 抬升，抬错就等于两个能耗键在动效层上失效。
-    ///
-    /// ⚠️ **`nil` 必须原样传下去**，不能就地折成 `.standard`：`nil` 的语义是
-    /// "没有人注入 ⇒ 去读 `ProcessInfo`"，折成 `.standard` 会把"默认从系统读"
-    /// 整条抹掉（`defaultPowerModeReadsSystem` 断的正是那条），
-    /// 而这两种写法在 `.policy` 上**只在真机开着低电量时**才可分辨——
-    /// 靠上面那个测试抓不到，必须在这里单独钉死。
-    @Test("lowPowerModeOverride（Bool?）抬成 EffectsPowerMode?：true ⇒ .lowPower，nil ⇒ nil")
-    func liftsGenericLowPowerKeyIntoPowerMode() {
-        #expect(EffectsPowerMode.lifted(from: true) == .lowPower)
-        #expect(EffectsPowerMode.lifted(from: false) == .standard)
-        #expect(EffectsPowerMode.lifted(from: nil) == nil, "nil 被折成了档位 —— 「默认从系统读」整条失效")
-    }
-
-    /// ⚠️⚠️ **I-1 的机器判据**（#252 PR #269 第 1 轮终审 I-1 / I-2）。
-    ///
-    /// 「顺序是承重的：先 NFR-7 的能耗闸，再 Reduce Motion 闸」这句话此前**只是注释**：
-    /// 终审把 `ProcessingSweepDriver` 的两道闸对调，**42/42 全绿**；而 `Confetti`
-    /// 当时就是反的（RM 闸在前 ⇒ `policy` 根本不被求值 ⇒ 两个能耗键对它完全无效）。
-    ///
-    /// ⇒ 裁决抽成纯函数 `EffectsEnergyState.presentation(reduceMotion:)`，两个调用点
-    /// 共用同一份，顺序由本条钉死：**只要不在 `.active`，无论 Reduce Motion 与能耗档位
-    /// 取什么值，结果都必须是 `.none`**。
-    ///
-    /// ⚠️ 为什么不走位图：`\.accessibilityReduceMotion` **不可注入**（写它编译红），
-    /// "RM 开启 × 后台"这个组合在 `ImageRenderer` 下构造不出来。纯函数是唯一可行路径。
-    @Test("两道闸的顺序：能耗闸压过 Reduce Motion 闸")
-    func energyGateOutranksReduceMotion() {
-        for phase in [ScenePhase.background, .inactive] {
-            for mode in EffectsPowerMode.allCases {
-                for reduceMotion in [true, false] {
-                    let state = EffectsEnergyState(scenePhase: phase, powerMode: mode)
-                    #expect(state.presentation(reduceMotion: reduceMotion) == .none,
-                            "\(phase) / \(mode) / reduceMotion=\(reduceMotion) 下没有停摆 —— 两道闸的顺序反了：Reduce Motion 闸不得先于 NFR-7 的能耗闸")
-                }
-            }
-        }
-        // 前台：这时才轮到 Reduce Motion 决定"动还是静止"。
-        for mode in EffectsPowerMode.allCases {
-            let state = EffectsEnergyState(scenePhase: .active, powerMode: mode)
-            #expect(state.presentation(reduceMotion: true) == .resting,
-                    "\(mode) 下 Reduce Motion 没有降级为静止呈现 —— 降级不是 no-op")
-            #expect(state.presentation(reduceMotion: false) == .animated,
-                    "\(mode) 下前台不动了 —— 上面那两条会退化成恒真")
-        }
-    }
-
-    @Test("策略旋钮：停摆不画、低电量去光晕并降帧、满帧不限速")
-    func policyKnobs() {
-        #expect(EffectsRenderPolicy.full.drawsAnything)
-        #expect(EffectsRenderPolicy.reduced.drawsAnything)
-        #expect(!EffectsRenderPolicy.paused.drawsAnything)
-
-        #expect(EffectsRenderPolicy.full.usesGlow)
-        #expect(!EffectsRenderPolicy.reduced.usesGlow, "低电量还开着离屏模糊 —— 那是最贵的一层")
-        #expect(!EffectsRenderPolicy.paused.usesGlow)
-
-        #expect(EffectsRenderPolicy.full.minimumInterval == nil)
-        if let interval = EffectsRenderPolicy.reduced.minimumInterval {
-            #expect(interval > 0, "降帧间隔必须为正，否则 TimelineView 会当成不限速")
-        } else {
-            Issue.record("低电量没有降帧间隔 —— NFR-7 的『降帧』落空")
-        }
-
-        #expect(EffectsRenderPolicy.full.particleScale == 1)
-        #expect(EffectsRenderPolicy.reduced.particleScale > 0)
-        #expect(EffectsRenderPolicy.reduced.particleScale < 1)
-        #expect(EffectsRenderPolicy.paused.particleScale == 0)
+    /// ⚠️ 通用部分（`policy` 映射 / `resolve` / 两道闸顺序 / `drawsAnything` /
+    /// `minimumInterval`）已随 `#271` 下沉，判据搬到
+    /// `EnergyPolicyTests`（`CoreDesignTests`）—— 那才是它们公开面的所在 target。
+    /// 本 suite 只留 effects 独有的两个旋钮。
+    @Test("effects 旋钮：低电量去光晕、粒子减半，停摆一个不放")
+    func effectsKnobs() {
+        #expect(RenderPolicy.full.usesGlow)
+        #expect(RenderPolicy.reduced.usesGlow == false, "低电量没有去掉光晕 —— 那是唯一能拍进静态位图的差异")
+        #expect(RenderPolicy.paused.usesGlow == false)
+        #expect(RenderPolicy.full.particleScale == 1)
+        #expect(RenderPolicy.reduced.particleScale == 0.5)
+        #expect(RenderPolicy.paused.particleScale == 0)
     }
 }
 
@@ -859,7 +749,7 @@ struct ConfettiTests {
     /// 这是本仓能拿到的最硬的一种红。
     @Test("静态庆祝层是 active 的纯函数（active: false ⇒ 一个像素都不画）")
     func staticCelebrationIsDrivenByItsActiveParameter() {
-        func layer(active: Bool, policy: EffectsRenderPolicy) -> Data? {
+        func layer(active: Bool, policy: RenderPolicy) -> Data? {
             Self.pixels(Self.framed(ConfettiStaticCelebration(
                 active: active, strength: .regular, colors: [], policy: policy
             )))

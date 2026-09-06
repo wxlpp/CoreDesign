@@ -190,5 +190,23 @@
     "reason": "出现时是否自动聚焦输入框。struct 侧的第二张 public 参数面（说明同 wandEnabled 条）。删除不成立：自动聚焦与否是调用场景的真实分歧（弹出式输入要、常驻输入栏不要）。正确形态是走 3.4 环境值或与 externalFocus 合并成焦点策略类型。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-09-03"
+  },
+  {
+    "parameter": "EnergyState.init#isLowPower",
+    "reason": "低电量状态。**不能按终局条款 (b) 删除**：本参数是 `ProcessInfo.isLowPowerModeEnabled` 的直接镜像，那个系统 API 的形状就是 `Bool`；删掉它 `EnergyState` 就无法表达「低电量」这一半输入，`policy` 的映射整条落空。**也不该收成枚举**：`#252` 的用户裁决逐字是「键用 `Bool`」，而在通用底座上凭空造一个二态枚举正是公约第 3 节点名的头号换皮反例（`#271` 落地前 Effects 那个 `EffectsPowerMode` 实测已无人读其 case，本轮随之删除）。⇒ 两条纪律在此冲突，按用户 2026-09-06 的裁决取 `Bool`。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-09-06"
+  },
+  {
+    "parameter": "EnergyState.resolve#lowPowerModeOverride",
+    "reason": "低电量注入值，`Bool?`。**不能删除**：`nil` 与 `false` 必须可区分——`false` 是「有人明确注入了『不低电量』」，`nil` 才是「没人注入、去读 `ProcessInfo`」，判据 `EnergyPolicyTests.nilFallsBackToSystemButFalseDoesNot` 钉的正是这条。**也不该收成枚举**：它是环境键 `\\.lowPowerModeOverride`（本身即 `Bool?`，`#252` 用户裁决）的直接转发，换类型等于在转发路径上做一次无谓的往返。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-09-06"
+  },
+  {
+    "parameter": "EnergyState.presentation#reduceMotion",
+    "reason": "Reduce Motion 开关。**不能删除**：本函数是两道闸（NFR-7 能耗闸 + RM 闸）唯一的裁决点，去掉这个入参就没有第二个途径把 RM 状态喂进来。**不能改读环境**：本类型 `nonisolated` 且要能被单测直接调用，读环境必须发生在 `View` 里；且 `\\.accessibilityReduceMotion` 不可注入 ⇒ 改读环境后 RM=true 的路径无从测试，`EnergyPolicyTests.energyGateOutranksReduceMotion` 整条作废。**也不该收成枚举**：`\\.accessibilityReduceMotion` 的形状就是 `Bool`。",
+    "decidedBy": "wxlpp",
+    "decidedOn": "2026-09-06"
   }
 ]
