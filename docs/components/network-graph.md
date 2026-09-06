@@ -1,6 +1,6 @@
 # NetworkGraph
 
-力导向关系网络图（斥力 + 弹簧迭代解出节点位置）/ A force-directed relationship graph.
+力导向关系网络图（斥力 + 弹簧 + 向心力迭代解出节点位置）/ A force-directed relationship graph.
 
 `NetworkGraph(nodes:edges:)`（`CoreDesignCharts/NetworkGraph.swift`，Issue #255）。**泛型视图**——
 数据类型由调用方提供，本库**不发货**具体的数据 struct。
@@ -10,7 +10,13 @@ import CoreDesignCharts
 ```
 
 ⚠️ 本 target **有意不 `import Charts`**。Swift Charts 没有图布局的概念——节点位置要由
-**斥力 + 弹簧**迭代解出，不是把数据映射到坐标轴（`NetworkGraph.swift` 头注释）。
+**斥力 + 弹簧 + 向心力**迭代解出，不是把数据映射到坐标轴（`NetworkGraph.swift` 头注释）。
+
+⚠️ 向心力是 `#295` 补的：没有它时斥力（每对节点都有）压倒弹簧（只沿边），节点全被推到
+容器边框并被钳位焊死，画出来是一圈矩形轮廓而不是力导向结果。
+前后对照见 [`docs/issues/295-network-graph-before-after.png`](../issues/295-network-graph-before-after.png)。
+代价（节点更密、不相连的簇被拉近）与调参依据逐条写在
+`NetworkGraph.centeringStrength` 的文档注释里。
 
 ## API
 
