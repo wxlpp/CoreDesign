@@ -138,7 +138,7 @@ struct MicroInteractionAPITests {
         return true
     }()
 
-    /// ⚠️ 进程级暖机 + 视图级暖机各一道，见 `processWarmUp`。
+    /// ⚠️ 进程级暖机一道 + 视图级暖机**两道**（`#317`：返回第 3 帧），见 `processWarmUp` 与 `stablePixels`。
     ///
     /// ## ⚠️⚠️ 本 harness 的第三条限度：**拿到的位图不能直接进 `#expect(==)`**（Issue #293）
     ///
@@ -170,6 +170,17 @@ struct MicroInteractionAPITests {
     /// 「可选 ⇒ 非可选」只有一次重构的距离，故纪律对两者一视同仁，别按可选性开例外。
     static func stablePixels(_ view: some View) -> Data? {
         _ = Self.processWarmUp
+        // ⚠️ **返回第 3 帧，不是第 2 帧**（`#317`）。
+        //
+        // 一个**新视图结构**的头 2 次渲染与后续不同（纯序位，与颜色 / 内容无关：
+        // 暖机后换全新色 `.purple`，第 1 次与后续相同）。上一版 `_ = pixels; return pixels`
+        // 返回的正是第 2 次 —— **仍是冷的**。
+        // ⚠️ **删掉任意一行 `_ = Self.pixels(view)` 不会有任何东西变红**，故此处必须写明。
+        //
+        // ⚠️ **这条与 `FilterTransitionTests` 文件头「加长暖机（丢掉前三帧）实测更糟」
+        // 并存**：那条说的是**丢三帧**（返回第 4 帧），本条是返回第 3 帧；两者都没有
+        // 能分辨的样本量，谁也没推翻谁 —— 见下面《本改动没有证明的事》。
+        _ = Self.pixels(view)
         _ = Self.pixels(view)
         return Self.pixels(view)
     }
