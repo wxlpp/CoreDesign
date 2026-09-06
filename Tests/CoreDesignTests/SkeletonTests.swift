@@ -127,7 +127,6 @@ struct SkeletonLineTests {
     @Test("totalHeight sums line heights plus inter-line spacing")
     func totalHeightSumsLinesAndSpacing() {
         let line = SkeletonLine(lineCount: 3, lineHeight: 12, spacing: 4)
-        // 3 * 12 + 2 * 4 = 44
         #expect(line.totalHeight == 44)
     }
 
@@ -209,7 +208,6 @@ struct SkeletonShimmerMathTests {
     @Test("offset starts at -width when progress is 0")
     func offsetStartsAtNegativeWidth() {
         let width: CGFloat = 100
-        // timeIntervalSinceReferenceDate == 0 → progress == 0 → offset == -width.
         let offset = SkeletonShimmerMath.offset(at: Date(timeIntervalSinceReferenceDate: 0), width: width)
         #expect(abs(offset - (-width)) < 0.0001)
     }

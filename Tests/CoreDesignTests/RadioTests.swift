@@ -2,10 +2,6 @@ import SwiftUI
 import Testing
 @testable import CoreDesign
 
-/// 文件作用域声明 / File-scope declaration：`Hashable` 合成的 conformance 需要
-/// `nonisolated`（本包 `.defaultIsolation(MainActor.self)`），否则局部 enum
-/// 的 conformance 会被推断为 MainActor-isolated，无法满足
-/// `RadioOption<SelectionValue: Hashable & Sendable>` 的 `Sendable` 约束。
 nonisolated enum RadioTestPlan: Hashable, Sendable {
     case basic, pro, enterprise
 }

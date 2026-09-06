@@ -1,27 +1,9 @@
-//
-//  FlowLayout.swift
-//  CoreDesign
-//
-
 import SwiftUI
 
 // MARK: - FlowLayout
 
 /// Tag 自动换行布局容器。
-///
-/// 使用 SwiftUI `Layout` 协议实现，子视图在行内容纳不下时自动折行。
-/// 配合现有 `Tag` 组件使用，构建 label chip group。
-///
-/// ```swift
-/// FlowLayout(spacing: CoreSpacing.xs) {
-///     Tag("bug", color: .red)
-///     Tag("enhancement", color: .blue)
-/// }
-/// ```
 public struct FlowLayout: Layout {
-
-    // 通过 `Layout.Cache` 把每个子视图的 `sizeThatFits(.unspecified)` 结果缓存起来，
-    // `sizeThatFits` 与 `placeSubviews` 共享同一份测量数据——一次布局只测一次。
     public typealias Cache = [CGSize]
 
     public let spacing: CGFloat
@@ -46,9 +28,6 @@ public struct FlowLayout: Layout {
         let rows = self.computeRows(proposalWidth: proposal.width, sizes: cache)
         let height = rows.reduce(0) { $0 + $1.maxHeight }
             + CGFloat(max(0, rows.count - 1)) * self.spacing
-        // 取 proposal.width 与最宽行的最大值——当某个 subview 比 proposal.width 还宽时
-        // (computeRows 此时会保留 1-item 行，totalWidth 自然超过 proposal)，
-        // 否则 placeSubviews 会把 subview 放到 layout 报出的 bounds 之外，造成 clipping。
         let widest = rows.map(\.totalWidth).max() ?? 0
         let width = max(proposal.width ?? 0, widest)
         return CGSize(width: width, height: height)

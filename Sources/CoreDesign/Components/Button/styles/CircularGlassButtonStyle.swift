@@ -1,31 +1,10 @@
-//
-//  CircularGlassButtonStyle.swift
-//  CoreDesign
-//
-
 import SwiftUI
 
 // MARK: - CircularGlassButtonStyle
 
 /// 圆形玻璃浮按钮样式。
-///
-/// 始终使用 Telegram 玻璃四层结构（命名即语义），不使用 `glass:` 参数。
-/// 为 BottomInputBar 的 send / stop / shuffle 浮按钮，或任何漂浮在内容之上的
-/// 圆形 icon 按钮提供清晰的 elevation 暗示。
 public struct CircularGlassButtonStyle: ButtonStyle {
     /// 尺寸档位 / Size tier。
-    ///
-    /// 浮按钮（send / stop / shuffle 一类）语义上是 **large 档**控件，故默认
-    /// `.large`（50pt，落在 `CoreControlMetrics.height` 的 28/32/44/50/56 序列内）。
-    ///
-    /// > 为何不读 `@Environment(\.controlSize)`：该环境值未被显式设置时是
-    /// > `.regular`，而现有五个调用点都没设——直接采信会把浮按钮缩小。
-    /// > `.regular` = 44pt、`.large` = 50pt，差 6pt——相对 `.large` 约 12%、相对
-    /// > `.regular` 约 13.6%。数学上 `.regular` 仍小于 `.large`，方向结论不变；但差距
-    /// > 是否足够"显著"到肉眼可辨须看实际渲染，静态计算无法替代，留给视觉终审确认。
-    /// > 若改为「忽略 `.regular` 按 `.large` 解释」，则下游**刻意**写
-    /// > `.controlSize(.regular)` 时会静默得到 44pt，是永久的公开 API 陷阱。把档位存
-    /// > 在 style 上既避免了这两者，也让意图显式可读。
     public let size: ControlSize
 
     /// 显式直径覆写 / Explicit diameter override：绕过 `size` 直接指定。
@@ -53,10 +32,6 @@ public struct CircularGlassButtonStyle: ButtonStyle {
                 shape: Circle(),
                 isPressed: configuration.isPressed
             ))
-            // 禁用视觉（Phase 3 / #173 收口项：此前 `\.isEnabled` 完全未读取，禁用态与
-            // 启用态渲染无区别）。与按压态的 `.opacity` 反馈同一手法、同一层叠加——
-            // 禁用态固定在比按压态更低的不透明度（0.4，接近 `InteractionColors` 的
-            // `accentDisabled` 观感基准），并关闭按压态的额外淡出，避免二者叠乘。
             .opacity(self.isEnabled ? (configuration.isPressed ? 0.9 : 1) : 0.4)
     }
 }
@@ -71,9 +46,6 @@ public extension ButtonStyle where Self == CircularGlassButtonStyle {
 
     /// 指定尺寸档位的圆形玻璃按钮样式。
     ///
-    /// 这是**主通道**——档位取自 `CoreControlMetrics.height(for:)`，与其余
-    /// 三个 style 的尺寸来源一致。
-    ///
     /// - Parameter size: 尺寸档位。
     /// - Returns: `CircularGlassButtonStyle` 实例。
     static func circularGlass(size: ControlSize) -> CircularGlassButtonStyle {
@@ -81,9 +53,6 @@ public extension ButtonStyle where Self == CircularGlassButtonStyle {
     }
 
     /// 自定义直径的圆形玻璃按钮样式（**逃生舱**）。
-    ///
-    /// 绕过 `size` 档位直接给值，用于 metrics 序列覆盖不到的非标尺寸。
-    /// 常规场景请用 `circularGlass(size:)`。
     ///
     /// - Parameter diameter: 按钮直径（pt）。
     /// - Returns: `CircularGlassButtonStyle` 实例。

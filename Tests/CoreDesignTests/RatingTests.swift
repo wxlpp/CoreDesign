@@ -2,10 +2,6 @@ import SwiftUI
 import Testing
 @testable import CoreDesign
 
-// Rating（Issue #165）——手势 / accessibility adjust action 背后的受控逻辑无法在 Swift
-// Testing 里直接模拟真实触摸，因此覆盖面全部落在 `Rating` 内部暴露的静态纯函数上：
-// `fillFraction` / `steppedValue` / `isInteractive`。真实渲染与手势交互留给 iOS Simulator
-// 视觉评审（见 CLAUDE.md 验证边界章节）。
 @Suite("Rating")
 @MainActor
 struct RatingTests {
@@ -46,21 +42,19 @@ struct RatingTests {
 
     @Test("steppedValue：step=1.0 按 ceiling——点第 k 颗星得 k 分")
     func steppedValueWholeStep() {
-        // 5 颗星，总宽 100pt：每颗星占 20pt（星 k 覆盖 rawValue ∈ (k−1, k]，x ∈ ((k−1)*20, k*20]）
-        #expect(Rating.steppedValue(atRelativeX: 0, totalWidth: 100, count: 5, step: 1.0) == 0)   // 最左缘 → 清空
-        #expect(Rating.steppedValue(atRelativeX: 10, totalWidth: 100, count: 5, step: 1.0) == 1)  // 星 1 内 → 1（关键：不再回落 0）
-        #expect(Rating.steppedValue(atRelativeX: 20, totalWidth: 100, count: 5, step: 1.0) == 1)  // 星 1 右边界 → 仍 1
-        #expect(Rating.steppedValue(atRelativeX: 22, totalWidth: 100, count: 5, step: 1.0) == 2)  // 进入星 2 → 2
+        #expect(Rating.steppedValue(atRelativeX: 0, totalWidth: 100, count: 5, step: 1.0) == 0)
+        #expect(Rating.steppedValue(atRelativeX: 10, totalWidth: 100, count: 5, step: 1.0) == 1)
+        #expect(Rating.steppedValue(atRelativeX: 20, totalWidth: 100, count: 5, step: 1.0) == 1)
+        #expect(Rating.steppedValue(atRelativeX: 22, totalWidth: 100, count: 5, step: 1.0) == 2)
         #expect(Rating.steppedValue(atRelativeX: 100, totalWidth: 100, count: 5, step: 1.0) == 5)
     }
 
     @Test("steppedValue：step=0.5 按 ceiling——星 k 左半 → k−0.5、右半 → k")
     func steppedValueHalfStep() {
-        // 星 3 覆盖 x ∈ (40, 60]：左半 (40,50] → 2.5、右半 (50,60] → 3.0
-        #expect(Rating.steppedValue(atRelativeX: 5, totalWidth: 100, count: 5, step: 0.5) == 0.5)  // 星 1 左半 → 0.5
-        #expect(Rating.steppedValue(atRelativeX: 44, totalWidth: 100, count: 5, step: 0.5) == 2.5) // 星 3 左半 → 2.5
-        #expect(Rating.steppedValue(atRelativeX: 50, totalWidth: 100, count: 5, step: 0.5) == 2.5) // 星 3 左/右半分界 → 2.5
-        #expect(Rating.steppedValue(atRelativeX: 56, totalWidth: 100, count: 5, step: 0.5) == 3.0) // 星 3 右半 → 3.0
+        #expect(Rating.steppedValue(atRelativeX: 5, totalWidth: 100, count: 5, step: 0.5) == 0.5)
+        #expect(Rating.steppedValue(atRelativeX: 44, totalWidth: 100, count: 5, step: 0.5) == 2.5)
+        #expect(Rating.steppedValue(atRelativeX: 50, totalWidth: 100, count: 5, step: 0.5) == 2.5)
+        #expect(Rating.steppedValue(atRelativeX: 56, totalWidth: 100, count: 5, step: 0.5) == 3.0)
     }
 
     // MARK: - 边界值
@@ -96,8 +90,6 @@ struct RatingTests {
         let value = 2.5
         let count = 5
         let text = Rating.accessibilityValueText(value: value, count: count)
-        // 不硬编码 locale 相关的字面量（如 "2.5 of 5"）——直接拿同一套 formatted()
-        // 结果重建期望值，避免 CI 运行环境 locale 不同导致假红。
         #expect(text == "\(value.formatted()) of \(Double(count).formatted())")
     }
 
@@ -112,20 +104,6 @@ struct RatingTests {
     }
 
     // MARK: - 交互开关（#41 裁决 4b：isReadOnly 已删除）
-    //
-    // ⚠️ 原先这里有三条 `@Test` 盯着 `Rating.isInteractive(isReadOnly:isEnabled:)`
-    // （4 组断言）。#41 把展示态拆成了独立的 `RatingDisplay`（indicator），
-    // `Rating` 只剩 control 语义 ⇒ 该函数退化为「`isEnabled` 恒等」，随之删除，
-    // 两处调用点直接读 `@Environment(\.isEnabled)`。
-    //
-    // **行为没有丢失，是被类型二分吸收了**：
-    // · 「只读 ⇒ 不可交互」现在由「用 `RatingDisplay` 这个类型」表达——它根本没有手势
-    //   与 adjust action，这由**类型结构保证**（无 binding、`body` 里无手势代码路径），
-    //   不是 `RatingDisplayTests` 那三条测试（构造参数 / clamp / a11y 文案）断言出来的；
-    // · 「`.disabled(true)` ⇒ 不可交互」由 SwiftUI 原生 `\.isEnabled` 表达，本就不需要
-    //   本仓再写一个纯函数去转述。
-    // 留一个恒真的 `isInteractive(isEnabled:) == isEnabled` 的壳只会让覆盖率好看，
-    // 不增加任何信息。
 
     // MARK: - 构造参数保留
 
@@ -147,38 +125,22 @@ struct RatingTests {
 
     @Test("step 非正值 clamp 回 1.0——挡住「静默恒 0」，不是挡除零")
     func stepClampsNonPositiveToWholeStar() {
-        // ⚠️ 失效形态不是崩溃：`steppedValue` 的 `guard ... step > 0 else { return 0 }`
-        // 会让 step <= 0 的 Rating **恒返回 0 分**，比崩溃难发现得多。
-        // 走 clamp 而不是 precondition，与仓内惯例一致（Rating.count 的 max(0,count)、
-        // AvatarGroup.max 的 Swift.max(0,max)、Separator.Inset.leading 的 max(0,amount)），
-        // 且 clamp 可单测——precondition 触发 trap，Swift Testing 抓不住。
         #expect(Rating(value: .constant(1), step: 0).step == 1.0)
         #expect(Rating(value: .constant(1), step: -0.5).step == 1.0)
-        // clamp 之后组件真的能用：整星步进给出非 0 分。
         #expect(Rating.steppedValue(atRelativeX: 10, totalWidth: 100, count: 5,
                                     step: Rating(value: .constant(1), step: 0).step) == 1)
     }
 
     @Test("step 不设上界——count == 0 是合法入参，任何 step ≤ count 的上界都会恒不可满足")
     func stepHasNoUpperBoundBecauseZeroCountIsLegal() {
-        // ⚠️ `Rating(count:)` 的 init 有 `max(0, count)`，`negativeCountClampsToZero`
-        // 已把「count == 0 合法」钉成判据 ⇒ 若给 step 加上界 `step <= Double(count)`，
-        // count == 0 时它与 `step > 0` 联立无解，会把一个既有合法调用打成非法。
         let zeroCount = Rating(value: .constant(0), count: 0, step: 2)
         #expect(zeroCount.count == 0)
         #expect(zeroCount.step == 2)
-        // step > count 也不是失效形态：steppedValue 把结果 clamp 回 0...count。
         #expect(Rating.steppedValue(atRelativeX: 50, totalWidth: 100, count: 3, step: 10) == 3)
     }
 
     @Test("step: .infinity clamp 回 1.0——挡住 steppedValue 产出 NaN（#41 收尾修复）")
     func stepClampsInfinityToWholeStar() {
-        // ⚠️ `step > 0` 单独挡不住 `.infinity`：`.infinity > 0 == true`，旧实现会把
-        // `self.step` 原样存成 `.infinity`。`steppedValue` 里
-        // `(rawValue / .infinity).rounded(.up) * .infinity` = `0 * .infinity` = **NaN**，
-        // 且 `min(max(NaN, 0), count)` 会把 NaN 原样传出、写回 `Binding`（NaN 自身反而会被
-        // `NaN > 0 == false` 挡在 `steppedValue` 的入口 guard 外，唯独 `+inf` 漏网）。
-        // clamp 条件必须是 `step > 0 && step.isFinite`，而不是单独 `step > 0`。
         let rating = Rating(value: .constant(1), step: .infinity)
         #expect(rating.step == 1.0)
         #expect(!Rating.steppedValue(atRelativeX: 50, totalWidth: 100, count: 5, step: rating.step).isNaN)

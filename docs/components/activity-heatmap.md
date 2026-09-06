@@ -78,7 +78,7 @@ public protocol HeatmapDay: Identifiable, Sendable {
 - **截断对用户静默、不显示提示横幅**——这是三个会截断的图表里**显式定案**的分工：
   只有 `NetworkGraph` 提示，因为它的截断会**改变布局算法**（力导向 → 静态环形）；
   热力图与活动环的截断是**同质的**（少几天 / 少几环）且发生在序列一端，读图时可自明
-  ⇒ **由调用方按场景自行提示**（照录自 `maximumDays` 的文档注释）。
+  ⇒ **由调用方按场景自行提示**。
 - **截断窗口是渲染、分档与 descriptor 的共同源**：`renderInputs(_:calendar:)` 一次算齐
   `(shown, buckets, weeks)`。曾经的 bug 是「10 年数据、峰值 50 出现在 8 年前 ⇒ 可见窗口内每格
   都落最低档、整张图变成均匀最浅色」，现由 `heatmapBucketsUseEffectiveWindow`（断言
@@ -176,8 +176,7 @@ for a 'Sendable' type parameter
 
 ⚠️ **为什么仍然要 `Sendable`**：图表的数据入参是调用方在自己模型层构造的值类型，
 若被 `MainActor` 隔离，下游在后台线程准备数据时就用不了。这条约束是**有意的**。
-（以上照录自 `ChartSupport.swift` 上 `ChartValue` 的文档注释；`HeatmapDay` 的注释明写
-「与 `ChartValue` 同理，`nonisolated` 不可省」。）
+（`HeatmapDay` 同理，`nonisolated` 不可省。）
 
 ## 使用示例 / Usage
 
@@ -281,9 +280,8 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 ⚠️ **公约缺口 `D-299-1`（宿主平台框架承担的候选，作用域条款援引不了）；`#315` 终审 C-2
 要求逐条重判，本条的结论是「只对候选 3 适用」**：**候选 3（折线 / 柱状时间序列）命中** ——
 承担者是 Swift Charts 的 `LineMark` / `BarMark`。**候选 1（日历月视图）与候选 2（月轨图）
-按 Swift Charts 口径不命中** —— `ActivityHeatmap.swift:12-13` 的类型文档逐字写着
-「⚠️ Swift Charts 画不出来：`RectangleMark` 能画格子，但**按周分列 + 按星期几分行 + 日期对齐**
-是一套布局，不是一个 mark」，这两个候选换的正是那套布局。
+按 Swift Charts 口径不命中** —— Swift Charts 画不出本件：`RectangleMark` 能画格子，但
+**按周分列 + 按星期几分行 + 日期对齐**是一套布局、不是一个 mark，而这两个候选换的正是那套布局。
 ⇒ **按 Swift Charts 口径：即使将来条件 ① 被扩宽、候选 3 因此被排除，本条仍剩 2 ≥ 2、落点不翻转。**
 
 ⚠️⚠️ **本条的「不命中」论证有已登记的口径缺口，若补齐后成立、落点会翻**（具名反例：UIKit `UICalendarView`）。

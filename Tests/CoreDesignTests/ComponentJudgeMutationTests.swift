@@ -1,30 +1,8 @@
 import Foundation
 import Testing
 
-/// 端到端变异证伪：在 `Sources/CoreDesign` 的**临时副本**上改源码，跑真实扫描 + 真实规则。
-///
-/// ⚠️ **三条纪律，缺一条这个测试就会变成自己制造的绿**：
-/// 1. **先证基线**：未变异的副本上，判据结果必须与真实源码上的结果一致——否则拷贝本身
-///    出了问题（漏文件 / 编码问题），后面的「变异后判红」毫无意义。
-/// 2. **变异自证**：`applyMutation` 断言替换命中次数 > 0；`replacingOccurrences` 找不到
-///    目标时**静默返回原串**，不自证就会得到「变异了个寂寞 ⇒ 判据当然还是绿」。
-/// 3. **违规集合精确**：断言 `== [期望的那一条]` 而不是 `!isEmpty`。这是「红要证明是
-///    **这条**断言造成的」在纯函数世界里的等价落法。
 @Suite("组件判据端到端变异")
 struct ComponentJudgeMutationTests {
-
-    /// 把**三个 target** 的源码树拷到同一个临时目录，返回该目录（不是某一个根）。
-    /// 调用方负责在 `defer` 里删掉它。
-    ///
-    /// ⚠️ `#270` 之前这里只拷 `Sources/CoreDesign` 一棵树并直接返回那棵树的根。
-    /// 登记表扩到三根之后，`copiedTreeReproducesBaseline` 拿「一棵树的扫描结果」
-    /// 去比「三棵树的扫描结果」必然不等 —— 而那条断言的语义是「拷贝没出问题」，
-    /// 不是「射程变了」。⇒ 副本布局与仓库一致：`<tmp>/CoreDesign`、
-    /// `<tmp>/CoreDesignEffects`、`<tmp>/CoreDesignCharts`。
-    ///
-    /// ⚠️ **子目录名必须与真实根同名**：`scanComponentJudgeInputs(root:)` 的 `fileName`
-    /// 前缀取的是根目录名（见该函数文档），同名才能让副本与真实源码产出**逐字相同**的
-    /// `file` 串，`copiedTreeReproducesBaseline` 的等值断言才成立。
     private func copySources() throws -> URL {
         let destination = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("component-judge-mutation-\(UUID().uuidString)")
@@ -37,18 +15,12 @@ struct ComponentJudgeMutationTests {
         return destination
     }
 
-    /// 副本目录里与 `ComponentRegistryGuard.componentScanRoots` 一一对应的根列表。
     private func copiedRoots(in destination: URL) -> [(target: String, url: URL)] {
         ComponentRegistryGuard.componentScanRoots.map {
             ($0.target, destination.appendingPathComponent($0.target))
         }
     }
 
-    /// 在副本的某个文件上做文本替换，并**断言真的替换到了**。
-    /// ⚠️ `relativePath` 是**相对 `Sources/CoreDesign` 那棵树**的路径（全部现存变异都落在
-    /// 主 target 里），`root` 是 `copySources()` 返回的**临时目录**。`#270` 之前两者
-    /// 恰好同一个 URL，改多根后必须在这里补上 target 段，否则替换会找不到文件、
-    /// 上面那条「变异没命中」的自证断言会红 —— 那是好的失败形态（不会静默变绿）。
     private func applyMutation(
         root: URL, relativePath: String, find: String, replace: String,
         sourceLocation: SourceLocation = #_sourceLocation
@@ -64,13 +36,6 @@ struct ComponentJudgeMutationTests {
         try mutated.write(to: url, atomically: true, encoding: .utf8)
     }
 
-    /// ⚠️ **本条是 `#270` 的承重实证，不是锦上添花**：AC 要求的不只是「新增未登记类型 ⇒ 判红」，
-    /// 还要求证明**扩根前后有差别** —— 只做单向验证会漏掉「红是别的原因造成的 / 修的不是那个洞」。
-    /// 这里把两侧放进**同一棵被污染的树**上跑：多根判红、单根**完全不红**，
-    /// 差别只可能来自扫描根本身。
-    ///
-    /// ⚠️ 用副本而不是真实源码：真实源码里写一个 probe 类型会污染工作区，
-    /// 而 CI 上「跑完忘了删」就是一条永久的假条目。
     @Test("`#270` 扩根实证：新 target 里未登记的 public 类型，多根下判红、单根下完全不红")
     func multiRootCatchesUnregisteredTypeInNewTarget() throws {
         let root = try self.copySources()
@@ -96,16 +61,12 @@ struct ComponentJudgeMutationTests {
         let registered = Set(entries.filter { $0.repo == "coredesign" }.map(\.component))
             .subtracting(ComponentRegistryGuard.knownOffScannerComponents)
 
-        // ---- 多根（`#270` 之后）：判红，且违规集合**恰好**是那一条 ----
         let multiRoot = try ComponentRegistryGuard.scanTypes(roots: self.copiedRoots(in: root))
         let multi = compareRegistryToScan(scanned: multiRoot.components, registered: registered)
         #expect(multi.missing == [probe],
                 "多根扫描下未登记类型没有被判成缺失，实际缺失集合：\(multi.missing.sorted())")
         #expect(multi.ghosts.isEmpty, "多根扫描下出现了幽灵条目：\(multi.ghosts.sorted())")
 
-        // ---- 单根（`#270` 之前的形态）：**同一棵被污染的树上完全不红** ----
-        // ⚠️ 这一半才是本条存在的理由。缺了它，上面那条只证明「判据会红」，
-        // 证明不了「红是因为扩了根」——本仓的教训是只做单向验证会漏掉「修的不是那个洞」。
         let singleRoot = try ComponentRegistryGuard.scanTypes(
             root: root.appendingPathComponent(GuardScanRoots.primaryTargetName)
         )
@@ -116,7 +77,6 @@ struct ComponentJudgeMutationTests {
         单根扫描下的缺失集合本应为空（旧判据看不见 Sources/CoreDesignEffects），实际 \(single.missing.sorted())。
         """)
 
-        // ---- 补登记 ⇒ 转绿 ----
         let afterRegistering = compareRegistryToScan(
             scanned: multiRoot.components, registered: registered.union([probe])
         )
@@ -136,40 +96,10 @@ struct ComponentJudgeMutationTests {
 
         #expect(copied.bareTextKeys == real.bareTextKeys, "副本与真实源码的裸文本参数集合不一致 —— 拷贝有问题")
         #expect(copied.styleProtocolNames == real.styleProtocolNames)
-        // ⚠️ **也比 `file` 串**（`#313` 第 2 轮终审 S-1）：上面两条比的都是**符号键**
-        //（裸文本参数键 / style 协议名），而扫描器产出的**文件键**上，`#311` 的**第 2 味**
-        // 分叉在本条之前零判据覆盖（⚠️ 措辞限定，`#313` 第 3 轮终审：本句原写「文件键在本条
-        // 之前零判据覆盖」，说宽了——同 PR 早先落地的
-        // `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
-        // 断的就是文件键，只是它走的是第 1 味）。
-        // 第 2 味只污染文件键：`copySources()` 把树拷进
-        // `NSTemporaryDirectory()`，macOS 上那是 `/var/folders/…`，而 `/var` 是
-        // `/private/var` 的符号链接 ⇒ 根不解析、枚举解析，两端分叉。
-        // ⚠️ **这一味与 checkout 落在哪里无关**（第 1 味要 checkout 本身落在符号链接下才现形）
-        // ⇒ 本条在 macOS `swift test` 腿上就能杀掉它，覆盖面比第 1 味更广。
-        // ⚠️ 等值是**构造性**的、不是巧合：副本子目录名与真实根同名（见 `copySources()` 的
-        // 文档），键又是 `<根目录名>/<根内相对路径>` ⇒ 两侧本应**逐字相同**。
-        // 实测（本轮，把 `scanComponentJudgeInputs(root:)` 里那一处单独回退成串替换）：
-        // 本条当场红，副本侧退化成 `CoreDesign//privateComponents/Timeline/Timeline.swift`、
-        // `CoreDesignEffects//privateSkidTransition.swift` 这类**串中间被挖掉一段**的畸形键，
-        // 真实侧仍是 `CoreDesign/Components/Timeline/Timeline.swift`。
-        // ⚠️ **本条与 `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
-        // 的红法不同，别互相套用**：这里 `root.path` 整段**确实**出现在文件路径中间
-        //（只差领头的 `/private`）⇒ 被挖掉中段；那条 fixture 的根走 `link`、枚举走 `real`
-        // ⇒ 根前缀整段对不上、替换不发生 ⇒ 吐的是一整条绝对路径。
         #expect(copied.typeDeclFiles == real.typeDeclFiles, """
         副本与真实源码的**类型声明文件键**不一致 —— 要么拷贝出了问题，要么根内相对路径的
         推导又被路径分叉污染了（`#311`）。上面两条比的是符号键，看不见这一味。
         """)
-        // ⚠️ 期望是**空集**：`Toast` 由 `wxlpp/oh-my-story#65` 以形态 D2 补齐后，
-        // J-2 的扩展点缺口全部收口。基线为空集使下面的变异断言**语义更强**——
-        // 变异引入的违规不再需要从「已有缺口」里择出来。
-        // ⚠️ **上句是 `#65` 当时的记录，不改写。现状（`#299`）：基线不再是空集**——
-        // 5 条重判落出口 1、扩展点实现移交 `#312`，登记在
-        // `ComponentExtensionPointGuard.knownMissingExtensionPoints` 里。
-        // ⇒ 基线改为**与那张红名单逐字相等**，而不是写死 `isEmpty`：
-        // 写死空集会让本条在红名单非空期间**永远红**，写死 5 个名字则会在 `#312` 补齐后
-        // 忘记同步。取红名单本身作期望，两个方向都由 J-2 自己的棘轮断言守着。
         #expect(Set(judgeExtensionPoints(entries: entries, scan: copied).missing)
                 == ComponentExtensionPointGuard.knownMissingExtensionPoints,
                 "副本的 J-2 缺口与真实红名单不一致 —— 拷贝有问题，或红名单没同步")
@@ -189,18 +119,6 @@ struct ComponentJudgeMutationTests {
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)))
-        // ⚠️ **期望 = 已知红名单 ∪ {Banner}**（`#299` 由 `== ["Banner"]` 改）：本条要证的是
-        // 「变异**新引入**了 Banner 这一条」，不是「全库恰好只有 Banner 一条缺口」。
-        // 写死 `["Banner"]` 会把判据与红名单的长度耦合起来，`#312` 补齐后又得改回去。
-        //
-        // ⚠️ **`#315` 终审 S-6 登记的代价（明知而取）**：期望值与被测对象现在**同源** ——
-        // 都取 `ComponentExtensionPointGuard.knownMissingExtensionPoints`。⇒ 若那张红名单本身
-        // 写错了（多写 / 少写一个名字），**本条变异判据不会红**，它只证「变异新引入了 Banner」。
-        // 挡红名单本身写错的是**另外两条**：J-2 自己的块外 canary
-        // （`Set(result.missing) == knownMissingExtensionPoints`，拿真实扫描结果对账）与
-        // 「已知缺口条目必须仍是 semantic + 要扩展点 + 协议字段皆 null + notes 写着承接 issue」
-        // 那个承重核对循环。⇒ 分工是清楚的，此处只登记这条耦合，不改写法：
-        // 换成写死名字会在 `#312` 补齐后静默过期，那是更糟的一侧。
         #expect(Set(result.missing) == ComponentExtensionPointGuard.knownMissingExtensionPoints.union(["Banner"]),
                 "登记表说 Banner 的扩展点是 BannerStyle，源码里没有这个协议声明了 ⇒ 必须判红")
         #expect(result.diagnostics.contains { $0.contains("Banner：") && $0.contains("无该协议声明") })
@@ -220,7 +138,6 @@ struct ComponentJudgeMutationTests {
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)))
-        // ⚠️ 同上（`#299`）：期望 = 已知红名单 ∪ {Banner}。
         #expect(Set(result.missing) == ComponentExtensionPointGuard.knownMissingExtensionPoints.union(["Banner"]))
         #expect(result.diagnostics.contains { $0.contains("Banner：") && $0.contains("无实现类型") },
                 "只查协议声明、不查实现的话，把两个 style 实现删光判据照绿 —— AC 原文是『定义 + 使用』")
@@ -283,7 +200,6 @@ struct ComponentJudgeMutationTests {
                 ComponentTextParamGuard.knownUnregisteredSymbolParams.union(["Avatar.init#caption"]),
                 "新增未登记的裸 String 参数必须判红，且违规集合精确")
 
-        // 「补登记 ⇒ 转绿」：登记表只读，因此在**内存里**补一条条目，不碰 JSON。
         let patched = entries.map { entry -> ComponentRegistryGuard.Entry in
             guard entry.component == "Avatar" else { return entry }
             return makeTestEntry(

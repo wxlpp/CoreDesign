@@ -1,16 +1,9 @@
-//
-//  SystemBackgroundColors.swift
-//  CoreDesign
-//
-//  Created by 王晓龙 on 2025/1/28.
-//
-
 import SwiftUI
 
 public extension Color {
     /// 界面主背景的颜色。
-    ///
-    /// 使用此颜色用于标准表格视图和在设计中有白色主背景的浅色环境。
+    /// ⚠️ macOS 无分层背景 API，本文件 6 个 token 在那里**全部同值**（实测 `windowBackgroundColor`
+    /// 与 `controlBackgroundColor` 取值相同）——分层效果只在 iOS 上成立。
     static var systemBackground: Color {
         #if canImport(UIKit)
             Color(uiColor: .systemBackground)
@@ -20,8 +13,8 @@ public extension Color {
     }
 
     /// 主要背景上层内容的颜色。
-    ///
-    /// 在浅色环境中，将此颜色用于标准表视图和具有白色主背景的设计。
+    /// ⚠️ macOS 无分层背景 API，本文件 6 个 token 在那里**全部同值**（实测 `windowBackgroundColor`
+    /// 与 `controlBackgroundColor` 取值相同）——分层效果只在 iOS 上成立。
     static var secondarySystemBackground: Color {
         #if canImport(UIKit)
             Color(uiColor: .secondarySystemBackground)
@@ -31,8 +24,8 @@ public extension Color {
     }
 
     /// 次要背景上层内容的颜色。
-    ///
-    /// 在浅色环境中，将此颜色用于标准表视图和具有白色主背景的设计。
+    /// ⚠️ macOS 无分层背景 API，本文件 6 个 token 在那里**全部同值**（实测 `windowBackgroundColor`
+    /// 与 `controlBackgroundColor` 取值相同）——分层效果只在 iOS 上成立。
     static var tertiarySystemBackground: Color {
         #if canImport(UIKit)
             Color(uiColor: .tertiarySystemBackground)
@@ -42,15 +35,8 @@ public extension Color {
     }
 
     /// 分组界面的主要背景颜色。
-    ///
-    /// 将此颜色用于分组内容，包括表视图和基于托盘的设计。
-    ///
-    /// macOS 降级：AppKit 没有 grouped background 系列。取 `.windowBackgroundColor`——
-    /// AppKit 里代表窗口最外层画布背景，与 `controlBackgroundColor`（内容/控件区背景，
-    /// 见下方 `secondarySystemGroupedBackground`）在浅色与深色下均有可辨差异（验证见
-    /// `SystemBackgroundColorsMacOSTests`）。若改落 `controlBackgroundColor`，会与
-    /// `secondarySystemGroupedBackground` 完全同值，让 `surfaceCanvas`（本 token 的
-    /// 消费者）与 `surfaceRaised` 在 macOS 上卡片和画布同色、raised 层完全隐形。
+    /// ⚠️ macOS 无分层背景 API，本文件 6 个 token 在那里**全部同值**（实测 `windowBackgroundColor`
+    /// 与 `controlBackgroundColor` 取值相同）——分层效果只在 iOS 上成立。
     static var systemGroupedBackground: Color {
         #if canImport(UIKit)
             Color(uiColor: .systemGroupedBackground)
@@ -60,12 +46,8 @@ public extension Color {
     }
 
     /// 分组界面主要背景上层内容的颜色。
-    ///
-    /// 将此颜色用于分组内容，包括表视图和基于托盘的设计。
-    ///
-    /// 与上面 `systemGroupedBackground` 配对：取 `.controlBackgroundColor`
-    /// （AppKit 里内容/控件区背景），使其与 `systemGroupedBackground`（画布，
-    /// `.windowBackgroundColor`）在 macOS 上确有可辨差异。
+    /// ⚠️ macOS 无分层背景 API，本文件 6 个 token 在那里**全部同值**（实测 `windowBackgroundColor`
+    /// 与 `controlBackgroundColor` 取值相同）——分层效果只在 iOS 上成立。
     static var secondarySystemGroupedBackground: Color {
         #if canImport(UIKit)
             Color(uiColor: .secondarySystemGroupedBackground)
@@ -75,19 +57,8 @@ public extension Color {
     }
 
     /// 内容层叠在分组界面次要背景之上的颜色。
-    ///
-    /// 使用此颜色用于分组内容，包括表格视图和基于盘子的设计。
-    ///
-    /// macOS 分支保持 `.controlBackgroundColor`（与上面二级同值）——AppKit 没有第三档
-    /// grouped 背景概念可用，不强行找一个不精确的近似值。
-    ///
-    /// - Note: **Issue #220 起本档有了真实消费者**：`surfaceElevated` 成为
-    ///   `surfaceSidebar` 的别名目标。实际到达界面的路径是 **App 预览宿主的三处
-    ///   `Color.surfaceSidebar`**；`.surface(.sidebar)` 这条公开通路目前**产品调用点
-    ///   为零**（库内无组件消费）。（此前 `surfaceGroupedElevated` / `surfaceElevated`
-    ///   确为零引用，那是上述取舍当初成立的前提。）
-    ///   后果：**macOS 下侧栏与内容表面同色**——已在
-    ///   `SystemBackgroundColorsMacOSTests` 钉成显式相等断言，非静默塌缩。
+    /// ⚠️ macOS 无分层背景 API，本文件 6 个 token 在那里**全部同值**（实测 `windowBackgroundColor`
+    /// 与 `controlBackgroundColor` 取值相同）——分层效果只在 iOS 上成立。
     static var tertiarySystemGroupedBackground: Color {
         #if canImport(UIKit)
             Color(uiColor: .tertiarySystemGroupedBackground)

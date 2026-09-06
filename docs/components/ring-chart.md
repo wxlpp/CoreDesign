@@ -89,7 +89,7 @@ public protocol ChartValue: Identifiable, Sendable {
 - **不显示提示横幅**——这是本 target 里**显式定案**的三种行为之一：只有 `NetworkGraph` 提示，
   因为它的截断会**改变布局算法**（力导向 → 静态环形），用户看到的是一张"不一样的图"；
   热力图与活动环的截断是**同质的**（少几天 / 少几环），读图时可自明 ⇒
-  **由调用方按场景自行提示**（照录自 `ActivityHeatmap.maximumDays` 的文档注释）。
+  **由调用方按场景自行提示**。
 - descriptor **走同一批** `effectiveValues`。这曾经是一个真 bug（渲染 6 环、VoiceOver 播报 20 个），
   现由 `descriptorMatchesRendering` 钉住。
 
@@ -110,7 +110,7 @@ radius = -22 ⇒ `.frame(width: -44)`）。6 是取「最内环仍有正半径�
 ## FR-7 文本边界
 
 - **调用方给的 `label`（指标名）是「内容」不是「UI 文案」** ⇒ 普通 `String`，
-  **有意不强制 `LocalizedStringResource`**（`ChartValue` 的文档注释明写这是 FR-7 的边界声明）。
+  **有意不强制 `LocalizedStringResource`**（FR-7 的边界声明）。
 - **组件自带的 chrome 才本地化**：`title`（缺省 `.chart("Activity rings")`）与两条空态文案
   （`"No data"` / `"The goal must be greater than 0"`）都是 `LocalizedStringResource`，
   译文在 `Sources/CoreDesignCharts/Resources/en.lproj/Localizable.strings`。
@@ -173,8 +173,8 @@ for a 'Sendable' type parameter
 ⚠️ **把类型提到文件作用域不够**——该设置作用于**整个 target**，解法是给该类型标 `nonisolated`。
 
 ⚠️ **为什么仍然要 `Sendable`**：图表的数据入参是调用方在自己模型层构造的值类型，
-若被 `MainActor` 隔离，下游在后台线程准备数据时就用不了。这条约束是**有意的**
-（照录自 `ChartSupport.swift` 上 `ChartValue` 的文档注释）。
+若被 `MainActor` 隔离，下游在后台线程准备数据时就用不了。这条约束是**有意的**。
+
 
 ## 使用示例 / Usage
 
@@ -274,9 +274,8 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 要求逐条重判，本条是四个图表里**至少**会被它翻转的一条**（⚠️ 不是「唯一」会翻的一条 —— 依据见 `docs/contract-defects.md` 的 `D-299-1`）：**候选 1（并排线性进度条）命中** ——
 框架级承担者是 SwiftUI 自家的 `ProgressView(value:)`（linear style）；**候选 3（堆叠条）命中**
 —— 承担者是 Swift Charts 的 `BarMark` 堆叠。**候选 2（分段进度条）不命中** —— Swift Charts
-没有「分段进度」这个概念，只能用 N 个 `BarMark` 手拼；`RingChart.swift:12-13` 的类型文档也逐字
-写着「`SectorMark` 是饼图/环形图（按占比切分**一个**环），活动环是**多个独立环各自表示完成度**
-——不是同一个概念」。
+没有「分段进度」这个概念，只能用 N 个 `BarMark` 手拼；`SectorMark` 也不顶用——它是饼图 /
+环形图（按占比切分**一个**环），而活动环是**多个独立环各自表示完成度**，不是同一个概念。
 ⇒ ⚠️⚠️ **若将来条件 ① 被扩宽，本条计入数会从 3 掉到 ≤1 < 2、落点从出口 1 翻回步骤 4** ——
 这正是 `D-299-1`《代价如实记录》那段说的「四个图表的落点可能要重判」，本条是四条里**已确证会翻**
 的一条（⚠️ 不是「唯一」会翻的一条，见上），也是 `#312` 应优先选形态 D（槽 / 枚举可演进）

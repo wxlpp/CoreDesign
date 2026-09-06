@@ -5,7 +5,6 @@ import Testing
 @Suite("AsyncButton")
 @MainActor
 struct AsyncButtonTests {
-
     private struct DemoError: Error, Equatable {
         let code: Int
     }
@@ -59,7 +58,6 @@ struct AsyncButtonTests {
             onError: nil,
             toastHost: nil
         )
-        // 不应崩溃,无可观测副作用
     }
 
     @Test("_runThrowing:CancellationError 静默 — 不调 onError、不弹 toast")
@@ -79,12 +77,9 @@ struct AsyncButtonTests {
 
     @Test("重载解析:非抛错文本 init 编译")
     func nonThrowingTextInitsCompile() {
-        // LocalizedStringKey 重载
         _ = AsyncButton("Submit", action: { })
-        // StringProtocol 重载
         let title: String = "Submit"
         _ = AsyncButton(title, action: { })
-        // trailing closure 形态(项目主流调用方式)——必须解析到非抛错重载
         _ = AsyncButton("Submit") { }
     }
 
@@ -97,7 +92,6 @@ struct AsyncButtonTests {
         _ = AsyncButton(title,
                         action: { throw DemoError(code: 1) },
                         onError: { _ in })
-        // onError 省略 → 走 toast / silent fallback
         _ = AsyncButton("Submit", action: { throw DemoError(code: 1) })
     }
 }

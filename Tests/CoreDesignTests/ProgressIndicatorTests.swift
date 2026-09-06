@@ -3,9 +3,6 @@ import Testing
 @testable import CoreDesign
 
 // MARK: - ProgressIndicator 文案存储（Issue #172）
-//
-// 三个 init 的行为差异只在“存不存文案、存的是不是 verbatim”，覆盖这条逻辑即可——
-// 渲染正确性（spinner 尺寸、tint、无障碍标签）交给 `#Preview` + 视觉终审。
 
 @Suite("ProgressIndicator 文案存储")
 @MainActor

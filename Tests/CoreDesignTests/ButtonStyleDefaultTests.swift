@@ -5,18 +5,6 @@ import Testing
 @MainActor
 struct ButtonStyleDefaultTests {
     // MARK: - solid / light 的公开表面（#41 裁决 3：glass 存储属性已删除）
-    //
-    // ⚠️ 原先这里有四条 `@Test` 盯着 `glass` 存储属性（默认 false / 显式 true 可用 /
-    // 两个工厂默认 false）。#41 按公约第 3 节终局条款 (b) 把 `glass` 整个删掉了——
-    // 跨仓实测对外零调用点（App/ 零命中、scripts/downstream-probe 零命中、StoryUI
-    // 全仓零命中，`glass:` 的命中全在 .build/checkouts 里的 vendored 本库副本），
-    // (b) 成立 ⇒ 前两条与第四条失去被测对象、第三条被测行为整个消失。
-    // 删测试而不是留一个恒真的壳：留壳会让「这个开关还在被守着」这句话变成假话。
-    //
-    // 换上一条**仍然承重**的断言：两个 style 的公开表面现在只按 role 参数化。
-    // 它挡的是「有人顺手给 SolidButtonStyle 再加一个布尔外观开关」——新增的
-    // 存储属性不会让这条红，但新增的 **init 形参**会让 J-1 立刻红
-    //（BoolExemptionGuard 的双向差集），两道合起来覆盖住这个回归面。
 
     @Test("solid / light 只按 role 参数化，直接构造与工厂两条路给出同一个 role")
     func solidAndLightAreParameterizedByRoleOnly() {
@@ -42,7 +30,6 @@ struct ButtonStyleDefaultTests {
 
     @Test("explicit diameter overrides the tier")
     func explicitDiameterOverridesTier() {
-        // `.circularGlass(diameter:)` 是逃生舱：绕过 `size` 直接给值。
         let style: CircularGlassButtonStyle = .circularGlass(diameter: 44)
         #expect(style.diameter == 44)
     }
@@ -83,16 +70,7 @@ struct ButtonRoleStyleRoleTests {
     }
 
     // MARK: - 三态调色板互不相同（Issue #120）
-    //
-    // Issue #120 把 `ButtonRoleStyleRole.primary` 的调色板改为对动态 `accent` 做
-    // `mix`/`opacity` 调制而非固定色阶。这里断言每个 role 的 `color` /
-    // `activeColor` / `disabledColor` 三者结构上互不相同——`Color` 是 Equatable，
-    // 对同一表达式重复求值会得到结构相同的值，因此这条断言能捕获"调制没生效、
-    // 三态退化为同一个颜色"这类回归（尤其是 pressed 若被误改成降低不透明度，
-    // 有可能与 disabled 撞色）。真实的浅色/深色差异无法在 `swift test` 里直接
-    // 渲染断言，但 `accent` 走 `Color.accentColor`、`secondaryAccent`/`neutralAccent`
-    // 走带 light/dark 双值的 colorset、`warning`/`danger` 走同样带双值的 colorset，
-    // 三者的明暗自适应链路本身已由 SwiftUI / colorset 机制保证。
+
     @Test("每个 role 的 color / activeColor / disabledColor 三态互不相同")
     func everyRoleHasThreeDistinctTones() {
         for role in [ButtonRoleStyleRole.primary, .secondary, .tertiary, .warning, .danger] {

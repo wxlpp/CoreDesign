@@ -1,14 +1,7 @@
-//
-//  ColorGrade.swift
-//  CoreDesign
-//
-//  Created by 王晓龙 on 2025/2/1.
-//
-
 import Foundation
 import SwiftUI
 
-/// brand
+/// 品牌色相的 10 级资源色阶：`brand-0`（最浅）到 `brand-9`（最深）。
 public extension Color {
     static let brand0 = Color("brand-0", bundle: .module)
     static let brand1 = Color("brand-1", bundle: .module)
@@ -22,7 +15,7 @@ public extension Color {
     static let brand9 = Color("brand-9", bundle: .module)
 }
 
-/// amber
+/// 琥珀色相的 10 级资源色阶：`amber-0`（最浅）到 `amber-9`（最深）。
 public extension Color {
     static let amber0 = Color("amber-0", bundle: .module)
     static let amber1 = Color("amber-1", bundle: .module)
@@ -36,7 +29,7 @@ public extension Color {
     static let amber9 = Color("amber-9", bundle: .module)
 }
 
-/// blue
+/// 蓝色相的 10 级资源色阶：`blue-0`（最浅）到 `blue-9`（最深）。
 public extension Color {
     static let blue0 = Color("blue-0", bundle: .module)
     static let blue1 = Color("blue-1", bundle: .module)
@@ -50,7 +43,7 @@ public extension Color {
     static let blue9 = Color("blue-9", bundle: .module)
 }
 
-/// cyan
+/// 青色相的 10 级资源色阶：`cyan-0`（最浅）到 `cyan-9`（最深）。
 public extension Color {
     static let cyan0 = Color("cyan-0", bundle: .module)
     static let cyan1 = Color("cyan-1", bundle: .module)
@@ -64,7 +57,7 @@ public extension Color {
     static let cyan9 = Color("cyan-9", bundle: .module)
 }
 
-/// green
+/// 绿色相的 10 级资源色阶：`green-0`（最浅）到 `green-9`（最深）。
 public extension Color {
     static let green0 = Color("green-0", bundle: .module)
     static let green1 = Color("green-1", bundle: .module)
@@ -78,7 +71,7 @@ public extension Color {
     static let green9 = Color("green-9", bundle: .module)
 }
 
-/// grey
+/// 灰色相的 10 级资源色阶：`grey-0`（最浅）到 `grey-9`（最深）。
 public extension Color {
     static let grey0 = Color("grey-0", bundle: .module)
     static let grey1 = Color("grey-1", bundle: .module)
@@ -92,7 +85,7 @@ public extension Color {
     static let grey9 = Color("grey-9", bundle: .module)
 }
 
-/// indigo
+/// 靛蓝色相的 10 级资源色阶：`indigo-0`（最浅）到 `indigo-9`（最深）。
 public extension Color {
     static let indigo0 = Color("indigo-0", bundle: .module)
     static let indigo1 = Color("indigo-1", bundle: .module)
@@ -106,7 +99,7 @@ public extension Color {
     static let indigo9 = Color("indigo-9", bundle: .module)
 }
 
-/// light-blue
+/// 浅蓝色相的 10 级资源色阶：`light-blue-0`（最浅）到 `light-blue-9`（最深）。
 public extension Color {
     static let lightBlue0 = Color("light-blue-0", bundle: .module)
     static let lightBlue1 = Color("light-blue-1", bundle: .module)
@@ -120,7 +113,7 @@ public extension Color {
     static let lightBlue9 = Color("light-blue-9", bundle: .module)
 }
 
-/// light-green
+/// 浅绿色相的 10 级资源色阶：`light-green-0`（最浅）到 `light-green-9`（最深）。
 public extension Color {
     static let lightGreen0 = Color("light-green-0", bundle: .module)
     static let lightGreen1 = Color("light-green-1", bundle: .module)
@@ -134,7 +127,7 @@ public extension Color {
     static let lightGreen9 = Color("light-green-9", bundle: .module)
 }
 
-/// lime
+/// 青柠色相的 10 级资源色阶：`lime-0`（最浅）到 `lime-9`（最深）。
 public extension Color {
     static let lime0 = Color("lime-0", bundle: .module)
     static let lime1 = Color("lime-1", bundle: .module)
@@ -148,7 +141,7 @@ public extension Color {
     static let lime9 = Color("lime-9", bundle: .module)
 }
 
-/// orange
+/// 橙色相的 10 级资源色阶：`orange-0`（最浅）到 `orange-9`（最深）。
 public extension Color {
     static let orange0 = Color("orange-0", bundle: .module)
     static let orange1 = Color("orange-1", bundle: .module)
@@ -162,7 +155,7 @@ public extension Color {
     static let orange9 = Color("orange-9", bundle: .module)
 }
 
-/// pink
+/// 粉色相的 10 级资源色阶：`pink-0`（最浅）到 `pink-9`（最深）。
 public extension Color {
     static let pink0 = Color("pink-0", bundle: .module)
     static let pink1 = Color("pink-1", bundle: .module)
@@ -176,7 +169,7 @@ public extension Color {
     static let pink9 = Color("pink-9", bundle: .module)
 }
 
-/// purple
+/// 紫色相的 10 级资源色阶：`purple-0`（最浅）到 `purple-9`（最深）。
 public extension Color {
     static let purple0 = Color("purple-0", bundle: .module)
     static let purple1 = Color("purple-1", bundle: .module)
@@ -190,7 +183,7 @@ public extension Color {
     static let purple9 = Color("purple-9", bundle: .module)
 }
 
-/// red
+/// 红色相的 10 级资源色阶：`red-0`（最浅）到 `red-9`（最深）。
 public extension Color {
     static let red0 = Color("red-0", bundle: .module)
     static let red1 = Color("red-1", bundle: .module)
@@ -204,7 +197,7 @@ public extension Color {
     static let red9 = Color("red-9", bundle: .module)
 }
 
-/// teal
+/// 鸭绿色相的 10 级资源色阶：`teal-0`（最浅）到 `teal-9`（最深）。
 public extension Color {
     static let teal0 = Color("teal-0", bundle: .module)
     static let teal1 = Color("teal-1", bundle: .module)
@@ -218,7 +211,7 @@ public extension Color {
     static let teal9 = Color("teal-9", bundle: .module)
 }
 
-/// violet
+/// 紫罗兰色相的 10 级资源色阶：`violet-0`（最浅）到 `violet-9`（最深）。
 public extension Color {
     static let violet0 = Color("violet-0", bundle: .module)
     static let violet1 = Color("violet-1", bundle: .module)
@@ -232,7 +225,7 @@ public extension Color {
     static let violet9 = Color("violet-9", bundle: .module)
 }
 
-/// yellow
+/// 黄色相的 10 级资源色阶：`yellow-0`（最浅）到 `yellow-9`（最深）。
 public extension Color {
     static let yellow0 = Color("yellow-0", bundle: .module)
     static let yellow1 = Color("yellow-1", bundle: .module)

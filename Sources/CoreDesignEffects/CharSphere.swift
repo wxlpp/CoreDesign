@@ -1,43 +1,9 @@
-//
-//  CharSphere.swift
-//  CoreDesignEffects
-//
-//  自转的字球 / A slowly rotating sphere of glyphs.
-//
-
 import CoreDesign
 import SwiftUI
 
 /// 一颗**自转的字球**：调用方给一组字，它们按球面 Fibonacci 铺满球面并随球自转，
 /// 背面的字被剔除以免与正面糊在一起。典型用途：多语言 / 多品类的品牌区块。
-///
-/// ```swift
-/// CharSphere(["道", "德", "经"])
-///     .tint(.indigo)
-///     .frame(width: 280, height: 280)
-/// ```
-///
-/// ## 平台支持（AD-E）
-///
-/// **iOS 与 macOS 完全一致，没有平台分支**——理由与 `DotSphere` 逐字相同
-///（上游的 `import UIKit` 只为拆颜色分量，`Color.mix(with:by:)` 之后不再需要）。
-/// 逐条见 `docs/components/char-sphere.md`。
-///
-/// ## 字表是**调用方的数据，不是本件的文案**（FR-7）
-///
-/// ⚠️ `characters` **没有默认值**，本件不自带任何字表：上游的默认值是《道德经》第一章，
-/// 那是一段内容决定，与"给调用方一个好看的默认色板"是同一类越界（AD-D / FR-8 已就
-/// 色板立过规矩）。字表为空 ⇒ 一个字都不画（**不**回落到某个占位符号）。
-/// ⚠️ 同理它是**内容不是 UI 文案** ⇒ 类型是 `[String]` 而不是
-/// `[LocalizedStringResource]`（公约 FR-7 的边界逐字：调用方传入的数据文案不强制本地化类型）。
-///
-/// ## 取色 / Reduce Motion / 后台与低电量 / a11y
-///
-/// 与 `DotSphere` **共用同一份实现**（`SphereSurface`），逐条见那边的类型文档：
-/// 空色板 ⇒ 取 `.tint`；Reduce Motion ⇒ 冻结在某一帧（降级形态 2）；
-/// `.inactive` / `.background` ⇒ 整层不建；低电量 ⇒ 降帧 + 字数减半；字球是纯装饰。
 public struct CharSphere: View {
-
     /// 默认字数（球面上的点位数，不是字表长度）。
     public nonisolated static let defaultCount: Int = 240
 
@@ -68,7 +34,7 @@ public struct CharSphere: View {
         self.rotationPeriod = rotationPeriod
     }
 
-    /// ⚠️ **薄封装**，同 `DotSphere`：判据见 `spheresDelegateToSharedSurface`。
+    /// 薄封装，同 `DotSphere`：绘制全部在 `SphereSurface` 里。
     public var body: some View {
         SphereSurface(
             mark: .glyphs(self.characters, fontSize: 11),

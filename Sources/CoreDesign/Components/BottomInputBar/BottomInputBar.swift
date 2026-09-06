@@ -1,55 +1,18 @@
-//
-//  BottomInputBar.swift
-//  CoreDesign
-//
-//  Created by Evan Wang on 2026/3/28.
-//
-
 import SwiftUI
 
 // MARK: - BottomInputBar Defaults
 
 /// 组件源码提供的兜底文案。
-///
-/// ⚠️ **按 `#43-1` 处置**：`placeholder` 判 **B 类**（`#67`：无上调动态度的证据 ⇒
-/// 按表面角色判），而 B 类参数「调用方可传参覆盖、但缺省时由组件源码提供」的兜底
-/// **按 A 类处置**——文案写在组件源码里、调用方读不到也改不了这份默认值本身，
-/// 故必须可本地化，不能是裸字面量。
 public enum BottomInputBarDefaults {
     /// 输入框占位文字的兜底。
-    ///
-    /// 必须是 `public`：它出现在 `BottomInputBar.init` 与 `View.bottomInputBar` 的
-    /// **默认参数值**里，internal 类型无法被 public 默认参数引用。
     public static var placeholder: String { String(localized: "iMessage", bundle: .module) }
 }
 
 // MARK: - BottomInputBar
 
 /// 浮层输入条。
-///
-/// 本库最显眼的浮层输入表面。经 `BottomInputBarGlassModifier` 使用 iOS 26 的
-/// Liquid Glass（`BottomInputBarGlassEffectShape: InsettableShape` + `strokeBorder`
-/// overlay）。**输入体验优先于观感**——玻璃是 chrome，不是卖点。
-///
-/// **材质层**: 浮层. **表面角色**: 浮层.
-///
-/// ## 为什么它是 public（Issue #221）
-///
-/// 本类型此前是 internal，唯一的 public 表面是 `View.bottomInputBar(...)` modifier。
-/// `docs/component-contract.md` 的终审 C1 裁决据此把它**排除出组件登记表**
-/// （「没有可被 `PublicTypeCollector` 采集、可被判定法审查的 public 类型」），
-/// 并给出两条出路：删掉这个组件，或**给它一个可登记的 public 类型表面**。
-/// #221 走第二条——它同时解掉了另一个后果：本库唯一在 demo 里看不到的组件。
-///
-/// - Note: modifier `View.bottomInputBar(...)` 仍是推荐用法（它额外管理
-///   suggestions 的显隐状态）；直接构造本类型适用于需要自行掌控
-///   `isShowingSuggestions` 的场景。
 public struct BottomInputBar: View {
     /// 直接构造浮层输入条。
-    ///
-    /// 多数场景应改用 `View.bottomInputBar(...)` modifier——它额外接管
-    /// suggestions 列表与显隐动画。本 init 适用于调用方要自己持有
-    /// `isShowingSuggestions` 的场景。
     ///
     /// - Parameters:
     ///   - isShowingSuggestions: 建议条显隐的双向绑定，由调用方持有。
@@ -96,16 +59,7 @@ public struct BottomInputBar: View {
     let sendEnabled: Bool
     let showMenuButton: Bool
     let isRunning: Bool
-    /// bar 一 mount 就把焦点拉到自身的 TextField 上。**关键**：用 bar 自己的
-    /// `.onAppear` 而不是父 view 的 onAppear——只有此时 `.focused($isInputFocused)`
-    /// 已经绑上来，写内部 FocusState 才会真的让 TextField first-responder；父
-    /// view 的 onAppear 触发时子 view 还没 mount，写 @FocusState 会被 SwiftUI 丢弃。
-    /// 也不用 `.task`：.task 是 async dispatch，body 可能被排到 dismiss 之后跑，
-    /// 导致键盘"收起 → 又弹起 → 再收起"的 race。
     let autoFocus: Bool
-    /// 外层 view（譬如 AppShell）持有的 `@FocusState`，让外层能驱动 / 观测 bar 的
-    /// 焦点状态——譬如 dismiss panel 时翻 false 主动 resign。bar 内部仍然挂自己的
-    /// `@FocusState` 跟踪触摸态，两个 `.focused()` modifier 协同同步。
     let externalFocus: FocusState<Bool>.Binding?
     let onActivate: (() -> Void)?
     let onSubmit: (String) -> Void
@@ -194,8 +148,6 @@ public struct BottomInputBar: View {
         }
         .buttonStyle(.circularGlass)
         .accessibilityLabel(Text("Suggestions", bundle: .module))
-        // suggestion 按钮是 toggle：额外播报展开态，否则 VoiceOver 听不出面板开合
-        // （与 UnderlinedTabItem 的选中态 trait 同模式）。
         .accessibilityAddTraits(self.isShowingSuggestions ? .isSelected : [])
     }
 
@@ -246,9 +198,6 @@ public struct BottomInputBar: View {
 // MARK: - View focusedExternally helper
 
 private extension View {
-    /// `.focused(_:)` 的可选版——`binding` 为 nil 时跳过这层 modifier。让 BottomInputBar
-    /// 既能挂自身内部 `@FocusState`、又能把外层（譬如 AppShell）传进来的可选 binding
-    /// 同步上去，无外层时不污染 view tree。
     @ViewBuilder
     func focusedExternally(_ binding: FocusState<Bool>.Binding?) -> some View {
         if let binding {
@@ -264,10 +213,6 @@ private extension View {
 struct BottomInputBarGlassEffectShape: InsettableShape {
     var insetAmount: CGFloat = 0
 
-    /// HIG 最小可点击区域边长（44pt）。输入栏收缩到 ≤ 44pt（单行紧凑态）时把形状
-    /// 收成整胶囊（height/2），更高（多行）时用 `CoreRadius.large`。
-    /// **不是** metrics 序列里的档位——`CoreControlMetrics.height(for: .extraLarge)`
-    /// 是 56pt，替换会静默改变布局；此处刻意保留 HIG 的 44。
     private static let minimumHitTargetSide: CGFloat = 44
 
     func path(in rect: CGRect) -> Path {
@@ -276,8 +221,6 @@ struct BottomInputBarGlassEffectShape: InsettableShape {
         return Path(roundedRect: insetRect, cornerRadius: cornerRadius)
     }
 
-    // InsettableShape：配合 `strokeBorder` 把描边收在路径内部，避免被外部
-    // clipShape / glassEffect 裁掉外侧一半（与 SurfaceModifier 边框约定一致）。
     func inset(by amount: CGFloat) -> BottomInputBarGlassEffectShape {
         var copy = self
         copy.insetAmount += amount
@@ -411,16 +354,8 @@ struct BottomInputBarModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            // 两段都必须走 `safeAreaBar` 而非 `safeAreaInset`——理由见
-            // `suggestionsBar` / `inputBar` 各自的 doc 注释（涉及 iOS 26 的
-            // scroll edge effect，改错会让内容滑到底时硬切）。
             .safeAreaBar(edge: .bottom, content: { self.suggestionsBar })
             .safeAreaBar(edge: .bottom, content: { self.inputBar })
-            // 两个 handler 的 show 条件相同但 **hide 条件不同**，且都有隐含的
-            // 「什么都不做」第三分支——**不能**合并成单一 `sync(shouldShow:)`。
-            // 反例：autoShow 关闭 + suggestions 非空 + 用户已手动展开时，数组更新
-            // 在原逻辑下保持展开，合并后会被强制收起。故只收敛动画包装这一层，
-            // 条件逻辑原样保留——「两个 onChange 同构」的前提经实测不成立。
             .onChange(of: self.suggestions) { _, newValue in
                 if self.autoShowSuggestions, !newValue.isEmpty {
                     self.setSuggestionsVisible(true)
@@ -439,10 +374,6 @@ struct BottomInputBarModifier: ViewModifier {
 
     // MARK: - Private helpers
 
-    /// suggestions chips 段：用 `safeAreaBar` 而非 `safeAreaInset`——iOS 26 起前者
-    /// 在 inset 安全区之外**会把内层 ScrollView 的 scroll edge effect 延伸**到 bar
-    /// 区（Liquid Glass 内容渐隐 / 模糊），后者只 inset 不带边缘效果，导致内容滑到
-    /// 底时硬切到 bar 边缘。
     private var suggestionsBar: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.xs + CoreSpacing.xxs) {
             if self.isShowingSuggestions, self.showShuffleButton {
@@ -469,10 +400,6 @@ struct BottomInputBarModifier: ViewModifier {
         }
     }
 
-    /// 输入框段：同样走 `safeAreaBar` —— 让 NavigationStack 内每条页面的 ScrollView
-    /// 都自动拿到底部 inset + scroll edge effect，无需各页自行 contentMargins。
-    /// bar 自身 pill 上的 `.glassEffect(.regular, in: BottomInputBarGlassEffectShape())`
-    /// 仍负责视觉材质；safeAreaBar 不会再叠一层背景。
     private var inputBar: some View {
         BottomInputBar(
             isShowingSuggestions: self.$isShowingSuggestions,
@@ -489,9 +416,6 @@ struct BottomInputBarModifier: ViewModifier {
         )
     }
 
-    /// 统一 suggestions 的显隐动画 / Single place for the show-hide animation。
-    ///
-    /// 只收敛**动画包装**这一层重复；两个 `onChange` 各自的条件逻辑保持原样。
     private func setSuggestionsVisible(_ visible: Bool) {
         withAnimation(.snappy(duration: 0.2)) {
             self.isShowingSuggestions = visible
@@ -561,11 +485,6 @@ private struct BottomInputBarChipModifier: ViewModifier {
 }
 
 private extension View {
-    /// 输入栏内 chip（suggestion / 换一批）的统一样式。
-    ///
-    /// 原先在 `BottomInputBarSuggestionsView` 与 `BottomInputBarModifier` 中各写一份，
-    /// 逐字相同。文件级 `private`——它只服务本文件的两个消费点，与同文件的
-    /// `focusedExternally` 写法一致。
     func bottomInputBarChip() -> some View {
         self.modifier(BottomInputBarChipModifier())
     }

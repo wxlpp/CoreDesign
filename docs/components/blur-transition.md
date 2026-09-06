@@ -62,7 +62,7 @@ SDK 对该位的原文：
 「文件里没出现某个词」，与「Reduce Motion 下这条转场**实际发生什么**」无关。
 
 ⚠️ 同簇另外三种的判断**各不相同**（`filmExposure` / `snapshot` 只读「减弱闪烁灯光」，
-`flicker` 两个都读），完整对照表见 `Sources/CoreDesignEffects/FilterTransitionSupport.swift` 文件头。
+`flicker` 两个都读）；判据 `FilterTransitionTests.safetySignalsAreOnlyConsumedByTheSharedGate` 钉住这个分工。
 
 ## 相位契约
 

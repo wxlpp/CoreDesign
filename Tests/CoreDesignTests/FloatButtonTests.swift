@@ -3,10 +3,6 @@ import Testing
 @testable import CoreDesign
 
 // MARK: - ExtendedFloatButtonStyle（Issue #170）
-//
-// 本样式主要是视觉合成（胶囊玻璃背景 + 内边距），可提纯的受控逻辑只有
-// `size` 档位的存取与静态工厂的透传——按 170.md 的"测试重点"说明，退化为
-// "样式可实例化 + 静态成员可访问"的最小编译期验证测试。
 
 @Suite("ExtendedFloatButtonStyle 档位默认值与静态工厂")
 @MainActor

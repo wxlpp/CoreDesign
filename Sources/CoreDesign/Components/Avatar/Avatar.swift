@@ -1,37 +1,13 @@
-//
-//  Avatar.swift
-//  CoreDesign
-//
-//  Created by 王晓龙 on 2025/1/29.
-//
-
 import SwiftUI
 
 // MARK: - Avatar
 
 /// **材质层**: 内容. **表面角色**: 内容.
-///
-/// 头像 / Avatar：根据姓名生成圆形彩色占位头像。
-///
-/// **无玻璃、无装饰性材质**——身份标识靠色相与首字母表达，不靠材质。
-///
-/// 使用场景：用户列表 / 评论作者 / 登录态指示器等需要在缺图情景下给出可视化身份提示
-/// 的位置。本组件**不渲染外部图片**，
-/// 仅按姓名首字符 + 由姓名稳定哈希出的色相填充背景。
-///
-/// 视觉规格：
-/// - 内部位图边长 `CoreSpacing.xxxxl`（48pt）。`.resizable()` + `.aspectRatio(.fill)`
-///   暴露给调用方，调用方决定外框尺寸；圆形语义由调用方 `.clipShape(Circle())` 保证。
-/// - 首字符字号 `CoreTypography.Token.title.font`（28pt regular）+ `.weight(.bold)`
-///   保留原有 bold 视觉权重；颜色固定 `Color.white` 与彩色背景对比。
-/// - light / dark 行为一致：背景由 `Color(text:)` 哈希派生，前景始终白色。
 public struct Avatar: View {
     public init(name: String) {
         self.name = name
     }
 
-    /// 内部位图边长。Avatar 圆角语义由调用方 `clipShape(Circle())` 保证（对应
-    /// `Capsule()` 的 pill / 头像意图），本结构不在内部 `cornerRadius` 字面量上做约束。
     private static let canvasSide: CGFloat = CoreSpacing.xxxxl
 
     public var body: some View {
@@ -45,10 +21,6 @@ public struct Avatar: View {
             )
             context.draw(
                 Text(firstCharacter)
-                    // Canvas / GraphicsContext.draw 是命令式绘制，套不了 `.coreFont`
-                    // modifier，只能直接引用 `CoreTypography.Token.title.font`。
-                    // 该 token 本身随 Dynamic Type 缩放，首字符字号因此也会跟着系统
-                    // 字号设置变化。
                     .font(CoreTypography.Token.title.font.weight(.bold))
                     .foregroundStyle(Color.white),
                 at: CGPoint(x: size.width / 2, y: size.height / 2)

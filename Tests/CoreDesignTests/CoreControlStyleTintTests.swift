@@ -3,18 +3,6 @@ import Testing
 @testable import CoreDesign
 
 // MARK: - `.tint` 真实响应的像素级证据（Issue #143 / FR-12 / ADR-3）
-//
-// 光靠读源码「没有 `Color.accent` 字面量」不足以证明 `.tint` 真的接入了——
-// `.foregroundStyle(.tint)` / `.fill(.tint)` 这类写法本身就可能被误用成
-// 恒定颜色（例如不小心用了 `ShapeStyle.tint` 之外的固定 token）。这里用
-// `ImageRenderer` 把三个 style 的关键着色元素实际渲染成位图，分别在
-// `.tint(.red)` 与 `.tint(.blue)` 下取像素平均色，断言两者色相确实不同
-// 且分别偏红/偏蓝——直接证据，而不是「看起来应该会生效」的推断。
-//
-// 与仓库既有的 `AccentDerivationTests` / `SurfaceContrastTests` 不同：那些测的是
-// `Color` 值本身（`.resolve(in:)` 不需要渲染），本文件测的是**渲染结果**——因为
-// `.tint` 是 `ShapeStyle`，不是 `Color`，没有等价的 `.resolve(in:)` 直接取值路径，
-// 只能经渲染管线验证「环境 tint 确实传导到了最终像素」。
 
 private func averageColor(of content: some View, size: CGSize) -> (r: Double, g: Double, b: Double)? {
     let renderer = ImageRenderer(content: content.frame(width: size.width, height: size.height))
@@ -25,9 +13,6 @@ private func averageColor(of content: some View, size: CGSize) -> (r: Double, g:
     let height = cgImage.height
     guard width > 0, height > 0 else { return nil }
 
-    // 用己方构造的 CGContext 重新绘制一遍，锁定像素格式（8-bit RGBA，
-    // premultiplied，big-endian）——不依赖 `cgImage` 原生格式（可能因平台/
-    // 版本而异），避免误读字节序导致颜色断言假阳性/假阴性。
     var pixels = [UInt8](repeating: 0, count: width * height * 4)
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     guard let context = CGContext(
@@ -46,7 +31,7 @@ private func averageColor(of content: some View, size: CGSize) -> (r: Double, g:
     var count = 0.0
     for index in stride(from: 0, to: pixels.count, by: 4) {
         let alpha = pixels[index + 3]
-        guard alpha > 0 else { continue } // 跳过完全透明像素（背景/间隙）
+        guard alpha > 0 else { continue }
         totalR += Double(pixels[index])
         totalG += Double(pixels[index + 1])
         totalB += Double(pixels[index + 2])

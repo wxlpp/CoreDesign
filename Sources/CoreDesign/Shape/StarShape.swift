@@ -1,10 +1,3 @@
-//
-//  StarShape.swift
-//  CoreDesign
-//
-//  Created by 王晓龙 on 2025/1/30.
-//
-
 import SwiftUI
 
 public struct StarShape: Shape {

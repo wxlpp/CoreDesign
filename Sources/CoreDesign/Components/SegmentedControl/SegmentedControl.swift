@@ -1,20 +1,8 @@
-//
-//  SegmentedControl.swift
-//  CoreDesign
-//
-//  Created by AnyWriter on 2026/4/14.
-//
-
 import SwiftUI
 #if os(iOS)
 import UIKit
 #endif
 
-/// 分段控件玻璃壳的共享构造。
-///
-/// `selectedThumb` 的 glass 分支与 `SegmentedControlBackgroundModifier` 的 glass
-/// 分支此前各自复制同一段「透明填充 + 交互玻璃 + 细描边」；抽此一处，thumb 侧再叠
-/// `.coreShadow(.small)`。
 @ViewBuilder
 private func segmentedGlassChrome<S: InsettableShape>(_ shape: S) -> some View {
     shape
@@ -28,9 +16,6 @@ private func segmentedGlassChrome<S: InsettableShape>(_ shape: S) -> some View {
 // MARK: - SegmentedControlStyleConfiguration
 
 /// 传给 `SegmentedControlStyle.makeBody` 的上下文：类型擦除的分段数据 + 选择回调。
-///
-/// `Item` 泛型在此收敛为「index + 展示文字 + 选中态」，让 style 能同时驱动 iOS 原生
-/// `UISegmentedControl`（收 `[String]` + index）与 SwiftUI 回退路径（按 index 重建）。
 public struct SegmentedControlStyleConfiguration {
     /// 单个分段的类型擦除表示。
     public struct Segment: Identifiable {
@@ -59,10 +44,6 @@ public struct SegmentedControlStyleConfiguration {
 // MARK: - SegmentedControlStyle
 
 /// `SegmentedControl` 视觉外观的扩展点，形态对齐 `BannerStyle` / Apple `ButtonStyle`。
-///
-/// 实现该协议提供新外观，通过 `View.segmentedControlStyle(_:)` 注入子树。内置
-/// `GlassSegmentedControlStyle`（默认，Liquid Glass 外壳）与 `PlainSegmentedControlStyle`
-/// （纯色外壳）。此前的 `glass: Bool` 布尔 hack 升级为本协议。
 public protocol SegmentedControlStyle {
     associatedtype Body: View
 
@@ -137,15 +118,10 @@ private struct SwiftUISegmentedControl: View {
                 self.segmentView(segment)
             }
         }
-        // inset 让 segments/thumb 从玻璃外壳边缘缩进，形成「track 内浮起 thumb」的观感。
-        // 缺失会让 thumb 贴外壳——所有 SwiftUI 回退渲染（iOS Plain + 全 macOS）都受影响，
-        // 且只测构造的测试抓不到这类视觉回归，需靠预览目视确认。
         .padding(CoreSpacing.xxs)
         .frame(maxWidth: .infinity)
         .modifier(SegmentedControlBackgroundModifier(shape: shape, glass: self.glass))
         .frame(height: CoreControlMetrics.height(for: .regular))
-        // 触感反馈由选中 segment 的 index 驱动 trigger（Int? 可 Equatable）——
-        // 本类型没有独立的 `selection` 属性可用。
         .sensoryFeedback(.selection, trigger: self.configuration.segments.first(where: \.isSelected)?.index)
     }
 
@@ -223,7 +199,6 @@ public struct PlainSegmentedControlStyle: SegmentedControlStyle {
 // MARK: - Environment entry
 
 extension EnvironmentValues {
-    /// 当前生效的 `SegmentedControlStyle`，默认 `GlassSegmentedControlStyle`。
     @Entry var segmentedControlStyle: any SegmentedControlStyle = GlassSegmentedControlStyle()
 }
 
@@ -320,8 +295,6 @@ private final class NativeGlassSegmentedControlView: UIView {
             self.control.selectedSegmentTintColor = .label.withAlphaComponent(0.08)
         }
 
-        // 用 UIFontMetrics 让原生分段标题字号跟随 Dynamic Type 缩放，
-        // 同时保留设计基线 15pt 与 weight 区分。
         let metrics = UIFontMetrics(forTextStyle: .body)
         let regularFont = metrics.scaledFont(for: UIFont.systemFont(ofSize: 15, weight: .regular))
         let selectedFont = metrics.scaledFont(for: UIFont.systemFont(ofSize: 15, weight: .semibold))
@@ -385,16 +358,6 @@ private final class ImmediateFeedbackSegmentedControl: UISegmentedControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // 隐藏 UISegmentedControl 自带的 UIImageView 装饰层（背景胶囊 + 分段间分隔
-        // image），交由外层 `UIVisualEffectView(UIGlassEffect)` 容器统一提供玻璃
-        // 材质——避免内置背景叠在外层玻璃上造成"玻璃中夹玻璃"的浑浊视觉。
-        //
-        // **已知风险**：依赖 UISegmentedControl 内部视图层级。尝试过
-        // `setBackgroundImage(UIImage(), for:barMetrics:)` / `setDividerImage(...)`
-        // 的 public API 路径，但在 iOS 26 上不能完全压制原生 Glass 背景图；遍历
-        // UIImageView 是当前已知唯一可靠手段，后续 iOS 版本若改动私有层级需要
-        // 复测此处。`selectedSegmentTintColor` 通过另一条路径渲染（不是
-        // UIImageView 子视图），所以选中态仍可见。
         for subview in self.subviews where subview is UIImageView {
             subview.alpha = 0
         }
@@ -459,12 +422,6 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
 
     func body(content: Content) -> some View {
         if self.glass {
-            // `.fill(.clear)`：让 .glassEffect 自己提供材质，不在底下叠任何 tint
-            // ——SegmentedControl 走的是"纯玻璃容器"形态，配合 thumb 那层玻璃
-            // 形成一致的两层玻璃叠加视觉，而不是 FloatingGlass / BottomInputBar 那
-            // 种"玻璃覆盖在 .background.opacity(0.64) 之上"的混合形态。
-            // 因为没有 tint 底色需要从玻璃壳下"透出"，所以也不需要 `glassInset`
-            // 的内缩（它专门服务于 Telegram 分层按钮的纵深效果）。
             content
                 .background(segmentedGlassChrome(self.shape))
         } else {
@@ -501,9 +458,6 @@ private struct SegmentedControlBackgroundModifier<S: InsettableShape>: ViewModif
     return PreviewHost()
 }
 
-/// 窄列填充验证：模拟 macOS 4-列工作区 sidebar / inspector 的宽度约束
-/// （sidebar ≥220pt、inspector ≥260pt），确认 `SegmentedControl` 不会缩到
-/// intrinsic 宽度，而是撑满列宽。
 #Preview("Narrow container fill (220pt / 320pt)") {
     struct NarrowFillHost: View {
         @State private var sidebarSelection = "卷一"

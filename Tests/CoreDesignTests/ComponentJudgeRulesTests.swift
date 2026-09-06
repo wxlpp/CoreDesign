@@ -3,8 +3,6 @@ import Testing
 
 @Suite("组件判据规则层")
 struct ComponentJudgeRulesTests {
-
-    /// 合成一份扫描结果：只填 J-2/J-3 关心的三个桶。
     private func scan(
         styleProtocols: [String] = [],
         protocolFiles: [String: String] = [:],
@@ -81,7 +79,6 @@ struct ComponentJudgeRulesTests {
             scan: self.scan(conformances: [("CoreProgressViewStyle", ["ProgressViewStyle"], "S.swift")])
         )
         #expect(ok.missing.isEmpty)
-        // 变异：本仓没有任何类型实现该原生协议 ⇒ 扩展点不存在。
         let bad = judgeExtensionPoints(entries: entries, scan: self.scan())
         #expect(bad.missing == ["ProgressIndicator"])
     }
@@ -133,8 +130,6 @@ struct ComponentJudgeRulesTests {
 
     @Test("J-2 形态 D1 变异：私有 body 里的 @ViewBuilder 不算扩展点（调用方够不着）")
     func j2StyleSlotMutationPrivateBodyDoesNotCount() {
-        // ⚠️ 这正是 `Timeline.swift:220` 的 `private var nodeView` 那种形态 —— 若采集器
-        // 把它也采进来，J-2 会把「组件自己有个私有 ViewBuilder」误判成「已给扩展点」。
         let source = """
         public struct Timeline {
             @ViewBuilder
@@ -155,7 +150,6 @@ struct ComponentJudgeRulesTests {
 
     @Test("J-2 形态 D2：styleEnum 真实存在 ⇒ 满足；不存在 ⇒ 判红")
     func j2StyleEnumBothWays() {
-        // ⚠️ 枚举必须**接进公开 init** 才算满足，见下一条变异用例。
         let scan = scanComponentJudgeInputs(source: """
         public enum StepsIndicatorStyle { case dot, numbered }
         public struct Steps {
@@ -181,9 +175,6 @@ struct ComponentJudgeRulesTests {
 
     @Test("J-2 形态 D2 变异：enum 声明了但没接进任何公开 init ⇒ 必须判红")
     func j2StyleEnumDeclaredButNotWired() {
-        // ⚠️ 这条堵的是 PR #206 第 2 轮 review 抓到的洞：D2 臂原先只核「公开 enum 声明存在」，
-        // 于是登记表填一个本仓早就有的枚举名，**组件代码一行不写**也判绿。实测（当时）：
-        // 把 `Steps` 的 styleEnum 指向 `StepsAxis`，整套测试 403 全绿。
         let scan = scanComponentJudgeInputs(source: """
         public enum StepsPresentation { case steps, segmentedBar }
         public struct Steps {
@@ -198,7 +189,6 @@ struct ComponentJudgeRulesTests {
         #expect(result.missing == ["Steps"], "声明了没接线 ⇒ 调用方够不着 ⇒ 不算扩展点")
         #expect(result.diagnostics.contains { $0.contains("没有出现在任何公开") })
 
-        // 对照：同一份登记表，只要把参数接上就转绿 —— 证明判红的原因是「没接线」而非别的。
         let wired = scanComponentJudgeInputs(source: """
         public enum StepsPresentation { case steps, segmentedBar }
         public struct Steps {
@@ -216,11 +206,6 @@ struct ComponentJudgeRulesTests {
 
     @Test("J-2 形态 D2 变异：enum 接在别的组件上 ⇒ 本条目必须判红（不许跨组件借线）")
     func j2StyleEnumWiredToAnotherComponent() {
-        // ⚠️ PR #206 第 3 轮 review 抓到：上一轮只判了 `hosts.isEmpty`，没检查 hosts 里有没有
-        // 本条目自己。于是「组件代码一行不写也判绿」并没关死 —— 借另一个组件的形态枚举即可。
-        // 实测（当时）：把 `AvatarGroup` 的 styleEnum 指向 `StepsPresentation` ⇒ 407 全绿。
-        // 更要命的是这类条目**从不进 `missing`** ⇒ `ComponentExtensionPointGuard` 的棘轮
-        // （`Set(result.missing) == knownMissingExtensionPoints`）结构上也抓不到。
         let scan = scanComponentJudgeInputs(source: """
         public enum StepsPresentation { case steps, segmentedBar }
         public struct Steps {
@@ -238,7 +223,6 @@ struct ComponentJudgeRulesTests {
         #expect(borrowed.missing == ["AvatarGroup"], "枚举接在 Steps 上，AvatarGroup 自己没有扩展点")
         #expect(borrowed.diagnostics.contains { $0.contains("不含本条目") })
 
-        // 对照：同一份源码，条目换成真正接了线的 Steps ⇒ 绿。证明判红的原因是「宿主不匹配」。
         let own = judgeExtensionPoints(
             entries: [makeTestEntry(
                 component: "Steps", kind: "semantic", decidedBy: "step2",
@@ -249,13 +233,6 @@ struct ComponentJudgeRulesTests {
 
     @Test("J-2 形态 D2 的限度：接线判据核不了『枚举承载的是不是形态候选』")
     func j2StyleEnumWiringCannotJudgeSemantics() {
-        // ⚠️ 这条**不是**期望行为，是钉住判据的**已知限度**，防止有人把它读成比实际更强的
-        // 保证。`StepsAxis`（排列方向）与 `StepsPresentation`（形态）在机器眼里完全同形：
-        // 都是公开枚举、都接在 `Steps.init` 上 ⇒ 登记表指向前者照样绿。
-        // 「枚举承载的是形态候选」属公约 §2 的**人工判定**，与 D1 的 styleSlot 可以被填成
-        // 内容槽同源。机器守的是「没接线就不算」，不是「填对了才算」。
-        // ⚠️ 两个枚举都接在**同一个** `Steps` 上 —— 宿主匹配那道门槛过得去
-        // （见 `j2StyleEnumWiredToAnotherComponent`），剩下的才是真正不可机器化的那一半。
         let scan = scanComponentJudgeInputs(source: """
         public enum StepsAxis { case horizontal, vertical }
         public enum StepsPresentation { case steps, segmentedBar }
@@ -273,13 +250,6 @@ struct ComponentJudgeRulesTests {
 
     @Test("J-2 形态 D 变异：两个扩展点字段同时非空 ⇒ 靠后那条通路被静默略过")
     func j2MultipleExtensionPointFieldsSilentlySkipped() {
-        // ⚠️ 这条记录的是判定链的**已知形状**，不是期望行为：J-2 按
-        // customStyleProtocol → nativeProtocol → styleSlot → styleEnum 顺序裁决，
-        // 靠前的命中就 return ⇒ 同时填两个时，靠后那条**从未被核对**而判据照样绿。
-        // 真正的防线在 `ComponentRegistryGuard` 的「四字段至多一个非空」断言上（登记表侧），
-        // 本测试钉住「规则层确实会静默略过」这个事实，防止有人误以为规则层自己拦得住。
-        // ⚠️ 协议必须带 `makeBody(configuration:)` requirement 才会被采成 styleProtocol
-        //（`ComponentJudgeScanner` 的结构性信号），空协议采不到。
         let scan = scanComponentJudgeInputs(source: """
         public protocol FakeStyle {
             associatedtype Body: View
@@ -291,12 +261,11 @@ struct ComponentJudgeRulesTests {
             makeTestEntry(
                 component: "Ghost", kind: "semantic", decidedBy: "step2",
                 customStyleProtocol: "FakeStyle",
-                styleSlot: "NoSuchType.noSuchParam",   // 源码里不存在 —— 单独填必判红
+                styleSlot: "NoSuchType.noSuchParam",
                 needsExtensionPoint: true
             ),
         ]
         let result = judgeExtensionPoints(entries: entries, scan: scan)
-        // customStyleProtocol 先命中 ⇒ 判绿，styleSlot 那条假值**没被核**。
         #expect(result.missing.isEmpty, "判定链靠前的 customStyleProtocol 命中后应直接满足")
         #expect(result.satisfied["Ghost"]?.contains("自有协议") == true)
         #expect(
@@ -444,7 +413,6 @@ struct ComponentJudgeRulesTests {
             makeTestEntry(component: "ProgressIndicator", kind: "semantic", decidedBy: "step1",
                           nativeProtocol: "ProgressViewStyle", needsExtensionPoint: true),
         ]
-        // 两条通道同时命中，且 file 各不相同 —— 内联重写版本很容易在这里把 file 填错。
         let scan = self.scan(
             styleProtocols: ["ProgressIndicatorStyle", "BannerStyle"],
             protocolFiles: [
@@ -457,20 +425,15 @@ struct ComponentJudgeRulesTests {
         let probeHits = customStyleProtocolsInScope(of: "ProgressIndicator", scan: scan)
         let result = judgeNativeProtocolPurity(entries: entries, scan: scan)
 
-        // ⚠️ **这条断言是 Task 8「绿色正对照」的结构前提**：正对照红只能证明**探针**死了；
-        // 只有当主判据的违规逐字来自探针命中时，「探针死 ⇒ 主判据也瞎」才是可推的，
-        // 而不是两段各写各的代码恰好都还活着。
         #expect(result.violations.map(\.symbol) == probeHits.map(\.symbol))
         #expect(result.violations.map(\.channel) == probeHits.map(\.channel))
         #expect(result.violations.map(\.file) == probeHits.map(\.file))
         #expect(result.violations.map(\.component) == ["ProgressIndicator", "ProgressIndicator"])
-        // 非空断言先行：两个空集合也能让上面三条相等 —— 那是「都没跑」不是「一致」。
         #expect(probeHits.count == 2, "两条通道各应命中一次，实际 \(probeHits)")
     }
 
     // MARK: - FR-4
 
-    /// 合成一份只含文本参数的扫描结果。
     private func textScan(_ rows: [(String, String, TextParamKind, Bool)]) -> ComponentJudgeScanResult {
         var result = ComponentJudgeScanResult()
         result.textParams = rows.map { owner, parameter, kind, isInit in
@@ -633,8 +596,6 @@ struct ComponentJudgeRulesTests {
 
     @Test("FR-4：同一个键被多个 init 重载命中时，各桶按键去重（计数单位是键不是命中）")
     func fr4BucketsAreDedupedByKey() {
-        // 同一个 `SettingsRow.init#title` 被两个重载各命中一次 —— 真实源码里就是这个形态
-        // （SettingsRow 有多个 init 重载都带 `title: LocalizedStringKey`）。
         let scan = self.textScan([
             ("SettingsRow", "title", .localizedText, true),
             ("SettingsRow", "title", .localizedText, true),
@@ -648,8 +609,6 @@ struct ComponentJudgeRulesTests {
                 "留痕桶的单位是**扫描键**不是命中数：两个重载命中同一个键只算一条，实际 \(result.localizedByType)")
         #expect(result.carrying == ["SearchField.init#text"])
         #expect(result.unmappedOwners == ["Ghost.init#a"])
-        // ⚠️ 承重：不去重时上面三条会各得 2 —— 这正是 Task 10 首跑时 localizedByType
-        // 打出 14（命中数）而 Task 3 冒烟打出 11（Set 键数）的原因。
         #expect(result.localizedByType.count == 1 && result.carrying.count == 1 && result.unmappedOwners.count == 1)
     }
 

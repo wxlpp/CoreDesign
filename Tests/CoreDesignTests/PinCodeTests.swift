@@ -2,11 +2,6 @@ import SwiftUI
 import Testing
 @testable import CoreDesign
 
-// PinCode（Issue #166）——真实键盘输入 / 焦点跳转无法在 Swift Testing 里直接模拟，
-// 因此覆盖面全部落在 `PinCode` 内部暴露的静态纯函数上：`sanitizedValue` /
-// `isComplete` / `character(at:in:)` / `displayText(for:isSecure:)` /
-// `focusedIndex` / `positionText`。真实渲染与键盘交互留给 iOS Simulator 视觉评审
-// （见 CLAUDE.md 验证边界章节）。
 @Suite("PinCode")
 @MainActor
 struct PinCodeTests {
@@ -106,7 +101,6 @@ struct PinCodeTests {
     @Test("displayText：isSecure 为 true 时以圆点替代实际字符")
     func displayTextMasksCharacterWhenSecure() {
         #expect(PinCode.displayText(for: "7", isSecure: true) == "\u{2022}")
-        // 掩码文案与具体数字无关——任意数字都得到同一个圆点。
         #expect(PinCode.displayText(for: "7", isSecure: true) == PinCode.displayText(for: "1", isSecure: true))
     }
 
@@ -134,8 +128,6 @@ struct PinCodeTests {
     @Test("positionText：按 Phase 0 位置键组装，两端为 formatted() 结果")
     func positionTextComposesPositionalKey() {
         let text = PinCode.positionText(index: 3, count: 6)
-        // 不硬编码 locale 相关字面量——直接拿同一套 formatted() 结果重建期望值，
-        // 避免 CI 运行环境 locale 不同导致假红（与 RatingTests 同一手法）。
         #expect(text == "\(3.formatted()) of \(6.formatted())")
     }
 
@@ -165,20 +157,13 @@ struct PinCodeTests {
     }
 
     // MARK: - onComplete 转变沿（模拟真实 onChange：binding 已被 TextField 写成新值）
-    //
-    // 关键形态：真实 `onChange(of: value)` 触发时 `self.value` 已 == 新值，故组件用 onChange
-    // 提供的**击键前旧值**穿透。下列测试统一模拟这一形态——先把 `stored` 置为 raw（TextField
-    // 已写），再以真旧值调两参 `processInput(raw, previousValue: old)`。单参/binding 未预写的
-    // 旧测试形态是运行时不存在的上下文（会假绿），已全部废弃。
 
     @Test("shouldFireComplete：新值满 且『规整旧值 ≠ 新值』才为真（含写回第二轮 / 满态替换）")
     func shouldFireCompleteTruthTable() {
-        #expect(PinCode.shouldFireComplete(previousValue: "123", newSanitized: "1234", length: 4))     // 补满 → fire
-        #expect(!PinCode.shouldFireComplete(previousValue: "1234", newSanitized: "1234", length: 4))   // 满→满同值 → 不 fire
-        // 写回第二轮：旧值超长 `(raw, sanitize(raw))` 规整后与新值相等 → 结构性不 fire
+        #expect(PinCode.shouldFireComplete(previousValue: "123", newSanitized: "1234", length: 4))
+        #expect(!PinCode.shouldFireComplete(previousValue: "1234", newSanitized: "1234", length: 4))
         #expect(!PinCode.shouldFireComplete(previousValue: "12345", newSanitized: "1234", length: 4))
-        #expect(!PinCode.shouldFireComplete(previousValue: "12", newSanitized: "123", length: 4))      // 未满→未满 → 不 fire
-        // 满态整体替换成另一个完整码（iOS .oneTimeCode 自动填充招牌场景）→ 内容不同 → fire
+        #expect(!PinCode.shouldFireComplete(previousValue: "12", newSanitized: "123", length: 4))
         #expect(PinCode.shouldFireComplete(previousValue: "1111", newSanitized: "2222", length: 4))
     }
 
@@ -186,10 +171,10 @@ struct PinCodeTests {
     func onCompleteFiresOnFullReplace() {
         var captured: String?
         var count = 0
-        var stored = "2222"   // 自动填充已把新码整体写进 binding
+        var stored = "2222"
         let binding = Binding(get: { stored }, set: { stored = $0 })
         let pin = PinCode(value: binding, length: 4, onComplete: { captured = $0; count += 1 })
-        pin.processInput("2222", previousValue: "1111")   // 旧码 "1111" 已满但内容不同
+        pin.processInput("2222", previousValue: "1111")
         #expect(captured == "2222")
         #expect(count == 1)
     }
@@ -198,10 +183,10 @@ struct PinCodeTests {
     func onCompleteFiresOnFill() {
         var captured: String?
         var count = 0
-        var stored = "1234"   // TextField 已把新值写进 binding
+        var stored = "1234"
         let binding = Binding(get: { stored }, set: { stored = $0 })
         let pin = PinCode(value: binding, length: 4, onComplete: { captured = $0; count += 1 })
-        pin.processInput("1234", previousValue: "123")   // 击键前旧值 "123"
+        pin.processInput("1234", previousValue: "123")
         #expect(captured == "1234")
         #expect(count == 1)
         #expect(stored == "1234")
@@ -221,11 +206,11 @@ struct PinCodeTests {
     @Test("onComplete：满态多敲一位——两轮 onChange 均不重复触发")
     func onCompleteDoesNotRefireOnOverType() {
         var count = 0
-        var stored = "12345"   // TextField 已写入超长
+        var stored = "12345"
         let binding = Binding(get: { stored }, set: { stored = $0 })
         let pin = PinCode(value: binding, length: 4, onComplete: { _ in count += 1 })
-        pin.processInput("12345", previousValue: "1234")   // 第一轮：旧 "1234" 已满 → 不 fire；写回 "1234"
-        pin.processInput("1234", previousValue: "12345")   // 写回引发第二轮：旧 "12345" 规整后满 → 不 fire
+        pin.processInput("12345", previousValue: "1234")
+        pin.processInput("1234", previousValue: "12345")
         #expect(count == 0)
         #expect(stored == "1234")
     }
@@ -246,9 +231,9 @@ struct PinCodeTests {
         var stored = ""
         let binding = Binding(get: { stored }, set: { stored = $0 })
         let pin = PinCode(value: binding, length: 4, onComplete: { _ in count += 1 })
-        stored = "1234"; pin.processInput("1234", previousValue: "123")   // 未满→满：触发 1
-        stored = "123";  pin.processInput("123", previousValue: "1234")   // 删一位：不触发
-        stored = "1234"; pin.processInput("1234", previousValue: "123")   // 未满→满：再触发
+        stored = "1234"; pin.processInput("1234", previousValue: "123")
+        stored = "123";  pin.processInput("123", previousValue: "1234")
+        stored = "1234"; pin.processInput("1234", previousValue: "123")
         #expect(count == 2)
     }
 

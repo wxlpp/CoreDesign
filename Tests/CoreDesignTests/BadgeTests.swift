@@ -12,7 +12,6 @@ struct BadgeTests {
         }
         #expect(badge.variant == .info)
         #expect(badge.outlined == true)
-        // Verify Label type at compile time (label stored as Text, not erased to AnyView).
         let _: Text = badge.label
     }
 
