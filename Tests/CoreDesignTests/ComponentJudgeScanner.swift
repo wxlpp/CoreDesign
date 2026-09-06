@@ -445,6 +445,10 @@ func scanComponentJudgeInputs(root: URL) throws -> ComponentJudgeScanResult {
         let tree = SwiftParser.Parser.parse(source: try String(contentsOf: url, encoding: .utf8))
         // ⚠️ **解析保真检查**：parser major 与工具链不配套时会静默产出 error node
         // ⇒ 声明被漏采，而扫描器照样「成功」返回一个偏小的集合。
+        // ⚠️ **本分支今天零判据覆盖，且同形状的分支全仓还有多处**（`#318`）
+        //（`grep -rn 'if tree.hasError' Tests/`）⇒ 别读成「只此一处没覆盖」。
+        // ⚠️ **有意不写个数**：手工计数在本仓反复漂过，而 `JudgementReferenceGuard`
+        // 只核符号名、不核数字 —— 写成命令就永不失真。
         if tree.hasError {
             Issue.record("解析出错：\(name) —— swift-syntax major 可能与工具链不配套")
         }

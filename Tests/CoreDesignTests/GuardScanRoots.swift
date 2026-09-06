@@ -215,7 +215,15 @@ nonisolated enum GuardScanRoots {
     ///   这一趟给 `nil`，落到下面那一趟。
     /// · 不中才归一后重试（见 `canonicalComponents(_:)`）。
     ///
-    /// ⚠️ **快路径今天零判据覆盖**（`#313` 第 2 / 3 / 4 轮终审 C-2 / C-1）。
+    /// ⚠️ **没有判据能杀死「整段删掉快路径」这个变异；但污染它的返回值会判红 3 条判据**
+    ///（`#313` 第 2 / 3 / 4 轮终审 C-2 / C-1；`#318` 实测：给快路径的返回值加个后缀 ⇒
+    /// `NativeProtocolPurityGuard` 的 J-3、
+    /// `GuardScanRootsGuard.relativePathIgnoresPrivatePrefixMismatch` 的**形态三**、
+    /// `MaskSiteRegistryGuard` 的 `.mask` 台账三条同时红）。
+    /// ⚠️ 是形态**三**——八种里唯一注释明说「两端本来就一致」、与 `/private` 无关的那格。
+    /// 其余七种在这枚变异下都不红：它们的两端前缀在 `standardizedFileURL` 之后对不上
+    /// ⇒ 走慢路径，污染快路径影响不到（形态二的 `root` 带 `/private`、`url` 不带，正是此形）。
+    /// ⇒ **别读成「快路径没被任何判据看着」**：没被钉住的是「它在不在」，不是「它算得对不对」。
     ///（⚠️ **这一段刻意不给一句话定性**：「慢路径是死代码」→「两趟各守一味分叉」→
     /// 「慢路径独自兜得住」三版定性被逐个反例证伪，第三版正是被下面第 3 类打掉的。
     /// 改成**逐条列已知形态 + 逐条写今天的判据覆盖**，这种写法不会被下一个反例整句推翻。）
@@ -245,12 +253,28 @@ nonisolated enum GuardScanRoots {
     ///     （`a/link.swift` 对 `b/real.swift`）；
     ///   3. `root` 本身是 `/private`、且 `url` 落在 `/private` 之下（上一条的 PROBE-A）
     ///      ⇒ **快中、慢不中**；
-    ///   4. 路径**不存在**且两端 `/private` 不一致（下面的合成形态一 / 二）
-    ///      ⇒ **快不中、慢中**——`standardizedFileURL` 只对**真实存在**的路径去 `/private`。
+    ///   4. 两端经 `standardizedFileURL` 之后仍对不上前缀 ⇒ **快必不中**；
+    ///      **慢中与否另说**——取决于 `resolvingSymlinksInPath()` 能否把两端拉回一致。
+    ///      它只对**真实存在**的路径解析符号链接（大小写归一另需卷本身不敏感）；路径不存在时
+    ///      **两趟都不中** ⇒ 落兜底那一支（实测：大小写不同 + 路径存在 ⇒ 慢中；
+    ///      同样大小写不同但路径不存在 ⇒ 两趟都 `nil`）。
+    ///      **已实测的成员**：大小写不同（⚠️ 只在**大小写不敏感的卷**上成立——本机
+    ///      实测如此，case-sensitive APFS 上未验），以及 `SymlinkedScanRootFixture`
+    ///      那个「**根侧祖先是符号链接**」的形状。
+    ///      ⚠️ **「存在性不同」不属于本类**：同拼法下只有一端存在时，实测**两趟都中**
+    ///      （`fast = slow = ZZnope.swift`）—— 上一版把它列进来是错的。
+    ///      ⚠️ firmlink **未实测**，不列为成员。
+    ///      —— 那个符号链接形状是本仓最承重的：
+    ///      `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 与
+    ///      `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
+    ///      两条真实 fixture 判据正靠它活着（上一版四类里没有这一格）。
     ///   逐类的覆盖状况——先看哪几类**可能**因删掉快路径而变红：删掉它只在「快中」时
     ///   改变结果（不中时控制流本就落到慢路径）⇒ **第 4 类结构上钉不住快路径**
-    ///  （形态一 / 二正是这一类：它们断言的相对路径本来就由慢路径给出）；能钉住的只有
-    ///   第 1 / 2 / 3 类。而：
+    ///  （形态一 / 二正是这一类：它们断言的相对路径本来就由慢路径给出）；**已列举的四类里**
+    ///   能钉住的是第 1 / 2 / 3 类。
+    ///   ⚠️ **这不是穷尽断言**（`#318`）：未列举的形态里同样可能有「快中」的
+    ///   ——把「一句话定性」换成「逐条列举」**并不消除全称句风险**，只是把它搬到了
+    ///   「对列举做穷尽推理」那一步。而：
     ///   · 第 1 / 2 类在本 checkout 里构造不出来——`Sources/` / `Tests/` / `docs/` 之下
     ///     **零符号链接**、仓库根的各祖先分量也**零符号链接**（`#313` 第 3 轮实测：
     ///     `find Sources Tests docs -type l` 得 0 条；从仓库根逐级 `[ -L ]` 测到 `/` 全否，
@@ -258,8 +282,13 @@ nonisolated enum GuardScanRoots {
     ///   · 第 3 类今天没有任何判据落在上面——形态七的 `root` 虽然就是 `/private`，
     ///     但它的 `url`（`/Users/somebody/y.swift`）在 `/private` **之外** ⇒ 快慢两趟都不中、
     ///     同样落到原样返回。
-    ///   ⇒ 与第一条实测一致：今天没有任何判据钉得住快路径。
-    /// ⚠️ **⇒ 不要把快路径当成不可动的承重件**；但更不要照 `#313` 第 1 轮那句
+    ///   ⇒ 与第一条实测一致：今天没有任何判据钉得住「快路径**在不在**」
+    ///     ——但污染它的**返回值**会判红（判据清单见本段开头，此处不重复计数）。
+    /// ⚠️ **⇒ 「快路径不承重」这个加粗结论不成立**（`#318`）：它的**返回值**是承重的。
+    /// ⚠️ 复跑「删掉快路径 ⇒ 全量零红」时**排除 `ToastHostTests`**
+    ///（墙钟敏感；`ci.yml` 的 xcodebuild 腿已 `-skip-testing` 它，`swift test` 腿不 skip）
+    /// —— 否则会把一次与快路径无关的红算到它头上。
+    /// ⚠️ 更不要把快路径当成不可动的承重件；但更不要照 `#313` 第 1 轮那句
     /// 「慢路径是不执行的死代码」动手，**方向正相反**：
     /// `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 与
     /// `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
@@ -324,7 +353,8 @@ nonisolated enum GuardScanRoots {
     /// `/private` 前缀（实测见 `relativePath(_:from:)` 的文档）。
     /// ⚠️ 但它**不解析普通符号链接**（实测：`<tmp>/link -> <tmp>/real` 之下的路径
     /// 原样返回）⇒ 那一味只能靠 `canonicalComponents(_:)`。
-    /// ⚠️ **本函数所在的那一趟（快路径）今天零判据覆盖**：把它整段删掉全量零红（实测）。
+    /// ⚠️ **没有判据钉得住这一趟「在不在」（整段删掉全量零红）；但污染它的返回值会判红**
+    /// —— 逐条见 `GuardScanRoots.relativePath(_:from:)` 的文档，此处有意不复述计数。
     /// ⚠️ **但别把这读成「它做的事慢路径都能做」**：`root` 本身是 `/private` 时反过来
     /// **只有快路径能归一**，删掉它在那个形态上会多触发一条兜底 `Issue.record`
     ///（`#313` 第 4 轮实测 PROBE-A）。两趟结论会**不同**的四类形态、以及逐类的判据覆盖，
@@ -1437,8 +1467,9 @@ struct GuardScanRootsGuard {
     /// · **形态六承重**——杀死「分量比较退化成串前缀比较」（`#313` C-2 补，补之前静默存活）；
     /// · **形态七承重**——杀死「`canonicalComponents` 的 `count >= 3` 放松成 `>= 2`」
     ///   （`#313` C-3 补，补之前静默存活）；
-    /// · **形态三不承重**——实测整轮变异里它一个都没杀掉，是纯文档性的 happy path 示范，
-    ///   价值在「读的人一眼看到正常 checkout 长什么样」，不在判别力。
+    /// · **形态三在 `#313` 那轮变异里不承重**——那一轮它一个都没杀掉，价值在
+    ///   「读的人一眼看到正常 checkout 长什么样」。⚠️ **作用域仅限那一轮**（`#318`）：
+    ///   `#318` 的「污染快路径返回值」这枚变异下**它是八种里唯一判红的** ⇒ 别读成「永远不承重」。
     @Test("`relativePath` 对 /private 前缀不一致免疫，且不做串中间的替换（#311）")
     func relativePathIgnoresPrivatePrefixMismatch() {
         // 形态一：根未解析（`#filePath` 侧）、文件已解析（`FileManager` 枚举侧）
@@ -1531,8 +1562,11 @@ struct GuardScanRootsGuard {
         //   却只有注释；全仓 `Tests/` 下今天 6 处真实 `withKnownIssue(` 调用点，没有任何
         //   扫描器统计块内语句数。⇒ 违反它是**静默**的（上面「消音器的那一半」那条实测：
         //   多加一句 `#expect(1 == 2)` ⇒ 仍报 `passed`，只是 known issue 计数 +1）。
-        //   没顺手补判据的理由：语句数要可靠地数出来得走 swift-syntax 解析块体，而本仓
-        //   其余 grep 判据都是行级文本比对 —— 那是一条单独的活，不在 `#311` 的范围内。
+        //   没顺手补判据的理由**不是「工具不现成」**（`#318` 更正）：`CoreDesignTests` 里
+        //   swift-syntax 早已在用，且已有判据在数块体语句（`EffectsColorLiteralGuard` 用
+        //   `CodeBlockItemListSyntax` 的 `count`、`BitmapExpectationGuard` 在遍历它）。
+        //   真实理由是这条纪律属**测试自纪律**，不在 `#311` 的路径推导范围内
+        //   —— 免得下一个人拿着虚高的成本估算永远拖下去。
         withKnownIssue("兜底会记录：这里故意传一个不在根下的 url，期望恰好记下一条") {
             // ⚠️ 本块只许放这一条语句 —— 见上面「消音器的那一半」。
             _ = GuardScanRoots.relativePath(
