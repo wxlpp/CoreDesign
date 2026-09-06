@@ -8,7 +8,7 @@ import Testing
 // ⚠️ **别把漏标 `nonisolated` 读成「下游会坏」**：`defaultIsolation` **推**出来的隔离
 // 不进模块接口 ⇒ 跨模块（probe / 测试 target）看到的就是 nonisolated，不会红。
 // 会红的只有**同模块**新增 nonisolated 读者的那一刻。（类型级 `nonisolated` 则**进**接口，
-// 两者别混。逐条变异实测见 PR #271 正文。）
+// 两者别混。逐条变异实测见 `#271` 收尾 PR 的正文。）
 // ⇒ 本判据钉的是**显式性**：这个不一致收紧是兼容方向的改动，收紧那天没显式标的成员会
 // 一次性变成下游破坏；且显式 `nonisolated` 是这条设计意图在 diff 与 symbol graph 里的唯一载体。
 
@@ -57,7 +57,7 @@ struct ExtensionIsolationGuard {
                 Issue.record("""
                 \(relative) 的 `\(member.name)` 没有显式 `nonisolated` —— \
                 本 target 的 `.defaultIsolation(MainActor.self)` 会把它卷进 MainActor。\
-                ⚠️ 这**今天不会**让下游编译红（推出来的隔离不进模块接口，见本文件头那张变异表）\
+                ⚠️ 这**今天不会**让下游编译红（`defaultIsolation` 推出来的隔离不进模块接口）\
                 ⇒ 症状是：同模块哪天新增一个 nonisolated 读者才当场红，或编译器收紧这个不一致时\
                 一次性变成下游破坏。显式标上，别让它悬着。
                 """)

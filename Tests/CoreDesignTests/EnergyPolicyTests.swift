@@ -52,7 +52,8 @@ struct EnergyPolicyTests {
     /// —— 写成 `Bool` 的话本条无从表达。
     ///
     /// ⚠️⚠️ **运行期那一半在非低电量机器上是空判据**：把 `?? ProcessInfo…` 改成 `?? false`
-    /// ⇒ `resolved.isLowPower == system` 成了 `false == false`，本 suite 全绿。
+    /// ⇒ `resolved.isLowPower == system` 成了 `false == false`，**运行期那一半照绿**
+    ///（今天整条会红，是下面那条语法树断言在拦）。
     /// CI 与开发机常态就是 `false` ⇒ 那一半只在低电量机器上才有区分力。
     /// ⇒ 「真的去问了系统」由下面的**语法树断言**钉住，它与机器电量状态无关。
     ///
@@ -65,7 +66,8 @@ struct EnergyPolicyTests {
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
         let finder = ResolveLowPowerArgumentFinder()
         finder.walk(Parser.parse(source: source))
-        // ⚠️ **必须恰好一处**：找不到 = 判据无法工作；多于一处 ⇒ 死代码可以顶包。
+        // ⚠️ **必须恰好一处**：找不到 = 判据无法工作；多于一处 ⇒ 死代码可以顶包
+        // （诱饵那一族只有把 `Self(` / `.init(` 也算进来才堵得住，见 collector）。
         #expect(finder.lowPowerArguments.count == 1,
                 "`EnergyState.resolve` 里 `isLowPower:` 实参出现 \(finder.lowPowerArguments.count) 处，应恰为 1 处")
         let argument = try #require(finder.lowPowerArguments.first,
@@ -157,18 +159,26 @@ private nonisolated final class ResolveLowPowerArgumentFinder: SyntaxVisitor {
     }
 }
 
-/// 收集一段语法树里所有 `EnergyState(…)` 调用的 `isLowPower:` 实参。
+/// 收集一段语法树里所有构造 `EnergyState` 的调用的 `isLowPower:` 实参。
 ///
 /// ⚠️ **走 `visit(_: FunctionCallExprSyntax)` 而不是 `tokens(...).parent`**：后者会把同一个
 /// 调用的 `(` 与 `)` 各摸一次 ⇒ 同一处实参进两遍，让「恰好一处」这条判据恒红。
+///
+/// ⚠️ **五种拼法都要认**：只认 `EnergyState(` 的话，「写一处正确的当诱饵、真正 `return`
+/// 的那句用 `Self(…)` 或 `.init(…)`」就能让 `count == 1` 且匹配到诱饵 ⇒ 全绿。
 private nonisolated final class EnergyStateCallCollector: SyntaxVisitor {
+
+    static let constructorSpellings: Set<String> = [
+        "EnergyState", "Self", ".init", "EnergyState.init", "Self.init",
+    ]
 
     private(set) var lowPowerArguments: [ExprSyntax] = []
 
     init() { super.init(viewMode: .sourceAccurate) }
 
     override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
-        guard node.calledExpression.trimmedDescription == "EnergyState" else { return .visitChildren }
+        guard Self.constructorSpellings.contains(node.calledExpression.trimmedDescription)
+        else { return .visitChildren }
         for argument in node.arguments where argument.label?.text == "isLowPower" {
             self.lowPowerArguments.append(argument.expression)
         }
