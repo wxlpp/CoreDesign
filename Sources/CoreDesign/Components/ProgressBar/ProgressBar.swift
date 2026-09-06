@@ -9,6 +9,8 @@ public struct ProgressBar: View {
     let tint: Color?
     let label: String?
 
+    @Environment(\.locale) private var locale
+
     public init(value: Double, tint: Color? = nil, label: String? = nil) {
         let sanitized = value.isFinite ? value : 0
         self.value = min(max(sanitized, 0), 1)
@@ -38,11 +40,16 @@ public struct ProgressBar: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(self.label.map(Text.init(verbatim:)) ?? Text("Progress", bundle: .module))
-        .accessibilityValue(Self.percentValue(self.value))
+        .accessibilityValue(Self.percentValue(self.value, locale: self.locale))
     }
 
-    static func percentValue(_ value: Double) -> String {
-        let pct = "\(Int(value * 100))%"
-        return String(localized: "\(pct) complete", bundle: .module)
+    static func percentValue(_ value: Double, locale: Locale = .autoupdatingCurrent) -> String {
+        let pct = value.formatted(
+            .percent
+                .precision(.fractionLength(0))
+                .rounded(rule: .towardZero)
+                .locale(locale)
+        )
+        return String(localized: "\(pct) complete", bundle: .module, locale: locale)
     }
 }
