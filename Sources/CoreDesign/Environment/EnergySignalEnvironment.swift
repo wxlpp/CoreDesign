@@ -23,9 +23,10 @@ import SwiftUI
 //
 // ## ⚠️ 为什么这两个键住在 `CoreDesign` 而不是 `CoreDesignEffects`
 //
-// （#252 PR #269 第 1 轮终审 S-2 的**已裁决**处置。⚠️ 裁决的完整记录原本留在
-// `CoreDesignEffects` 那个类型的文档里，而 `#271` 把该类型下沉并改名 ⇒ 记录随之搬到
-// 本文件下方的 `EnergyPolicy.swift`；旧名到新名的对照见 `docs/BREAKING-CHANGES.md`。）
+// （#252 PR #269 第 1 轮终审 S-2 的**已裁决**处置。⚠️ 裁决的**完整记录**——冲突原文、
+// 两条出路、选中哪条——随 `#271` 下沉时**删除**了，不是搬走：同目录的 `EnergyPolicy.swift`
+// 只留结论摘要。要读原文去 `main` 上的 `Sources/CoreDesignEffects/EffectsEnergy.swift`。
+// 旧名到新名的对照见 `docs/BREAKING-CHANGES.md`。）
 //
 // 这两个信号是**任何**常驻渲染件都要的通用能耗输入，不是动效层专有：
 // `shipswift-shaders` 的 B-2（17 个 `colorEffect` 背景）同样要按它们降级。
@@ -54,9 +55,8 @@ import SwiftUI
 // **系统读数本身**的可注入镜像，而那个读数的形状就是 `Bool`。让通用底座去定义一个
 // "档位枚举"，等于把动效层的语义分级摊派给所有消费者（shader 那 17 个背景没有"档位"，
 // 只有"要不要省电"）。需要更细分级的模块**自己**在上面包一层。
-// ⚠️ 此前这里举的例子是 `CoreDesignEffects` 里那个二态枚举——`#271` 实测它已无人读其
-// case，**已删除**（见 `docs/BREAKING-CHANGES.md`）⇒ 今天这句话没有活着的例子。
-// 它仍成立，但成立的是**留给未来的余地**，不是既成事实。
+// ⚠️ **今天没有任何模块真的包了这一层**：Effects 那个二态枚举 `#271` 实测已无人读其 case、
+// 随之删除（见 `docs/BREAKING-CHANGES.md`）⇒ 这句话是留给未来的余地，不是既成事实。
 //
 // ⚠️ **这条不欠 Bool 纪律的账，且这句是实查结论不是推断**：本仓的
 // `BoolExemptionGuard` / `docs/bool-exemptions.json` 对两种声明处置不同——
@@ -97,8 +97,10 @@ extension EnvironmentValues {
     /// ⚠️ **默认值是 `nil` 而不是当前系统读数**：`nil` 的语义是"**没有人注入**"，
     /// 与"注入了 `false`"必须可区分——后者是宿主 App 明确说"按常规供电渲染"
     /// （例如它自己订阅了 `NSProcessInfoPowerStateDidChange`），不该被系统读数覆盖。
-    /// 真正的"从系统读"发生在各消费模块的解析点（Effects 侧是
-    /// `EnergyState.resolve(injectedScenePhase:systemScenePhase:lowPowerModeOverride:)`）。
+    /// 真正的"从系统读"发生在**唯一**的解析点
+    /// `EnergyState.resolve(injectedScenePhase:systemScenePhase:lowPowerModeOverride:)`
+    /// ——`#271` 起它与本键同在 `CoreDesign`（此前这里写「各消费模块的解析点」，
+    /// 那时每个消费模块确实各有一个）。
     ///
     /// ⚠️ **名字里没有 `effects`**（本轮下沉时重估）：旧名 `\.effectsPowerMode` 是它住在
     /// `CoreDesignEffects` 时的名字，下沉后该前缀名实不符——它不再是动效层专有。

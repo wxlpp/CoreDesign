@@ -109,18 +109,18 @@ OrbitingLogos(brands) { brand in
 两道闸的顺序在共用纯函数 `EnergyState.presentation(reduceMotion:)` 里；
 第三道是"周期非法"闸（见下面《退化输入》）。
 
-⚠️⚠️ **`.none` 档在本件上是收窄的：只摘装饰，不摘内容**（PR #274 终审 C-1）。
+⚠️⚠️ **`.hidden` 档在本件上是收窄的：只摘装饰，不摘内容**（PR #274 终审 C-1）。
 
-`0.4.x` 之前 `.none` 返回 `EmptyView()` ⇒ 宿主 App 的品牌 logo 与全部合作方 logo
+`0.4.x` 之前 `.hidden` 返回 `EmptyView()` ⇒ 宿主 App 的品牌 logo 与全部合作方 logo
 在**完全可见的窗口里**凭空消失，VoiceOver 也一并丢掉这些元素——而 macOS 上 `.inactive`
 就是"窗口不是前台"（窗口照常显示），iPadOS 上是台前调度后台。本仓已就这一情形裁决过，
 `MicroInteractionReduceMotionGuard.energyGatedFiles` 逐字：
 
-> 能耗闸的 `.none` 语义是「一个像素都不画」，而它们画的是**内容**，
+> 能耗闸的 `.hidden` 语义是「一个像素都不画」，而它们画的是**内容**，
 > 把内容隐藏不是停摆、是 bug。
 
 本件画的同样是内容（`logo(item)` / `center`，两者都**有意不** `accessibilityHidden`）
-⇒ 规则收窄为：**`.none` 摘掉的是装饰层与调度器，内容层静态留下**。
+⇒ 规则收窄为：**`.hidden` 摘掉的是装饰层与调度器，内容层静态留下**。
 
 ⚠️ **收窄之后，"画内容"不再是"排除在能耗闸之外"的理由**（PR #274 第 2 轮终审 I-E）：
 本件自己就是反例——它画内容，却**在** `energyGatedFiles` 名单里。
@@ -174,7 +174,7 @@ OrbitingLogos(brands) { brand in
 `OrbitRing.turns(period: 0)` 只让自转冻结，而 `OrbitRing.feature(at:logoCount:)`
 **不吃** `rotationPeriod` ⇒ logo 仍每 2.4s 弹一次；呈现档仍是 `.animated`
 ⇒ `TimelineView(.animation)` 照常建、满帧跑只为产出同一批帧。
-现在由 `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)` 这道第三闸统一降到 `.resting`。
+现在由 `MotionPresentation.frozenIfPeriodIsDegenerate(_:)` 这道第三闸统一降到 `.resting`。
 
 ⚠️ **`NaN` 与 `±∞` 同样算非法**（第 2 轮终审 I-C）：这道闸最初写作 `rotationPeriod <= 0`，
 而 `NaN <= 0` 与 `inf <= 0` **都是 `false`** ⇒ 两者当场绕过（实测 `presentation=.animated`
@@ -198,7 +198,7 @@ OrbitingLogos(brands) { brand in
 - ⚠️ **logo 与中心视图不隐藏**：它们是调用方给的内容，a11y **由调用方在自己的视图上
   提供**（这正是 FR-13 那条"承载语义的部分由调用方通告"的分工）。本件不代劳、也不猜文案。
 
-⚠️ 上面这一条正是《后台 / 低电量》里 `.none` 只摘装饰的**直接依据**：能耗闸如果把
+⚠️ 上面这一条正是《后台 / 低电量》里 `.hidden` 只摘装饰的**直接依据**：能耗闸如果把
 整件删掉，被删掉的会包括这些**没有隐藏、承载语义**的元素。
 
 ## ⚠️ 登记

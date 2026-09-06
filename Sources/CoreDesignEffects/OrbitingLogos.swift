@@ -47,7 +47,7 @@ import SwiftUI
 ///
 /// ## 后台 / 低电量（NFR-7）
 ///
-/// 与 `AnimatedMeshGradient` / `Confetti` 共用同一道闸，**但 `.none` 档的语义在本件上
+/// 与 `AnimatedMeshGradient` / `Confetti` 共用同一道闸，**但 `.hidden` 档的语义在本件上
 /// 是收窄的**（PR #274 终审 C-1）：
 ///
 /// | 档 | 环 + `Canvas` + 调度器 | 调用方的 logo 与中心视图 |
@@ -60,8 +60,8 @@ import SwiftUI
 /// macOS 上 `.inactive` = 窗口不是前台（**窗口完全可见**）、iPadOS 上 = 台前调度后台
 /// ⇒ 返回 `EmptyView()` 会让宿主 App 的品牌 logo 与全部合作方 logo 在**可见窗口里**
 /// 凭空消失、VoiceOver 也一并丢掉这些元素。本仓已就这一情形裁决过：能耗闸的
-/// `.none` 语义是「一个**装饰**像素都不画」，画内容的件把内容藏掉不是停摆、是 bug。
-/// ⇒ 本件留在闸上（环是常驻渲染，该停），但 `.none` 只摘装饰层。
+/// `.hidden` 语义是「一个**装饰**像素都不画」，画内容的件把内容藏掉不是停摆、是 bug。
+/// ⇒ 本件留在闸上（环是常驻渲染，该停），但 `.hidden` 只摘装饰层。
 /// 装饰层的完整记账仍见 `EnergyState.policy`。
 ///
 /// ⚠️ **别把这条与"`BeforeAfterSlider` / `ParticleTransition` 为什么不进名单"混为一谈**
@@ -200,7 +200,7 @@ where Data.Element: Identifiable {
 ///
 /// ⚠️ **不是 Bool**（同 `SphereMark` 的 J-1 / AD-C 理由）：两档的区别不是
 /// "要不要环"这个开关，而是**这一帧代表什么**——`.contentOnly` 是"装饰全停、
-/// 调用方的内容留下"（NFR-7 的 `.none` 档在一个画内容的件上的正确形态），
+/// 调用方的内容留下"（NFR-7 的 `.hidden` 档在一个画内容的件上的正确形态），
 /// `.full` 是"整件照画"。
 enum OrbitLayers: Equatable {
 

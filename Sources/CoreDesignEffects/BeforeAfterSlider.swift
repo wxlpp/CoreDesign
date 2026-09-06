@@ -458,7 +458,7 @@ struct BeforeAfterSliderBody<Before: View, After: View>: View {
 ///（持续调度的那一类）。本组件的入场摆动是**一次性**的（`.task` 里一次
 /// `withAnimation`，之后没有任何调度器），其余时间它是一张静止的图 + 一个手势
 /// ——与 `.ping` / `.spray` 这些 trigger 驱动的一次性微交互同类。
-/// ⚠️ 另一半理由与 `TypewriterText` 相同：能耗闸的 `.none` 语义是**一个像素都不画**，
+/// ⚠️ 另一半理由与 `TypewriterText` 相同：能耗闸的 `.hidden` 语义是**一个像素都不画**，
 /// 而这里画的是调用方的**内容**，把它隐藏不是"停摆"，是 bug。
 ///
 /// ## a11y

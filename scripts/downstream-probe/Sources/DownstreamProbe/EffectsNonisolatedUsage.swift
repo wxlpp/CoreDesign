@@ -46,10 +46,13 @@ nonisolated func readEffectsModuleName() -> String {
 //
 // ⇒ 本文件留下的是 `usesGlow` / `particleScale`：它们是挂在 `RenderPolicy` 上的
 // **Effects 侧 extension 成员**，本 probe 是它们在模块外的唯一消费者。
-// 若哪天有人把这两个成员上的 `nonisolated` 拿掉，下面这个函数当场编译红
-// （`main actor-isolated ... can not be referenced from a nonisolated context`）
-// ——本 target 开了 `.defaultIsolation(MainActor.self)`，而它**确实**作用于同包内
-// 类型的扩展，所以这不是理论上的逃逸位。
+//
+// ⚠️⚠️ **别把本文件读成这两个成员 `nonisolated` 契约的判据**（`#271` 终审逐条变异实测）：
+// 拿掉 `usesGlow` 的 `nonisolated` ⇒ 库、本 probe、`swift build --build-tests`
+//（含 `@testable import`）**三条腿全绿**。`defaultIsolation` 卷进来的隔离**跨模块看不见**，
+// 只有**同模块**的 nonisolated 读者会红（`particleScale` 恰好有一个：`Confetti.swift:443`）。
+// ⇒ 那条契约由源码判据 `ExtensionIsolationGuard.pinnedExtensionMembersAreExplicitlyNonisolated` 守。
+// 本文件在这两个成员上守的只是**可见性**：它们从模块外取不到时会红。
 //
 // ⚠️⚠️ **保留一条旧更正的结论**（#252 PR #269 第 2 轮终审 I-B）：这里曾写着
 // 「`shipswift-shaders` 的 17 个 `colorEffect` 会用这些类型」——那句与两个能耗键下沉的

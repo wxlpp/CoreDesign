@@ -30,7 +30,8 @@ import SwiftUI
 //
 // ⚠️ **层 2 / 层 3 分开不是"多一层"，是本簇 Reduce Motion 判据能不能存在的前提**：
 // `\.accessibilityReduceMotion` 在 `EnvironmentValues` 上**只读**，测试里注不进去
-// （`MotionPresentation` 的文档已实测过这条）。层 3 把它降成一个普通实参之后，
+// （实测：写它编译红；这条事实的完整记账在 `MicroInteractionReduceMotionGuard` 的
+// I-A 段与 `docs/bool-exemptions.json` 里）。层 3 把它降成一个普通实参之后，
 // 判据才能把**同一个相位**分别用 `isReduced: true` / `false` 渲两遍、逐字节比较
 // ——「降级真的去掉了运动」与「降级不是 no-op」这两句话才有位图证据，
 // 而不是只剩源码扫描（`MicroInteractionReduceMotionGuard` 那条链）。

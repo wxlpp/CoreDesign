@@ -644,7 +644,7 @@ struct ConfettiTests {
     ///
     /// `isReduced` 改成由 `presentation` 派生之后，它就**依赖 `scenePhase`** 了。
     /// 对开启 Reduce Motion 的用户：`.active` ⇒ `.resting` ⇒ 走 `guard !isReduced` 的
-    /// 早退出口（静态庆祝层，**没有 `.task`**）；`.inactive` / `.background` ⇒ `.none`
+    /// 早退出口（静态庆祝层，**没有 `.task`**）；`.inactive` / `.background` ⇒ `.hidden`
     /// ⇒ 走主出口（`.task(id:)` + 空 overlay）。**每次后台往返 `content` 被包进底层类型
     /// 不同的两个 `AnyView`**，两条后果：庆祝重放（静态层是新插入实例，`@State` 复位、
     /// `.task(id: fire)` 重跑，而 `fire` 触发过就永远 `> 0`）、调用方整棵被修饰子树的

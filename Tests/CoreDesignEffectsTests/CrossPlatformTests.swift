@@ -813,8 +813,8 @@ struct CrossPlatformRenderTests {
     /// ⚠️⚠️ **承重**：`.background` / `.inactive` ⇒ 一个像素都不画。
     ///
     /// ⚠️ **它证不到"整层不建"那一半**（本轮变异实测）：`SphereSurfaceBody` 自己也读
-    /// 能耗环境，停摆时 `particleScale == 0` ⇒ 「`.none` 分支返回 `EmptyView()`」与
-    /// 「`.none` 分支照常建绘制层」渲出来**逐字节相同**。那一半由
+    /// 能耗环境，停摆时 `particleScale == 0` ⇒ 「`.hidden` 分支返回 `EmptyView()`」与
+    /// 「`.hidden` 分支照常建绘制层」渲出来**逐字节相同**。那一半由
     /// `presentationBranchesAreWiredCorrectly`（源码链）接管。
     @Test("后台与非活跃：两个球面件一个像素都不画")
     func pausedDrawsNothing() {
@@ -830,22 +830,22 @@ struct CrossPlatformRenderTests {
         expectBitmapsDiffer(active, Self.blank, "活跃态下什么都没画 —— 上面的停摆判据是空真")
     }
 
-    /// ⚠️⚠️ **承重**（PR #274 终审 C-1）：`OrbitingLogos` 的 `.none` 档**不许**返回
+    /// ⚠️⚠️ **承重**（PR #274 终审 C-1）：`OrbitingLogos` 的 `.hidden` 档**不许**返回
     /// `EmptyView()`。
     ///
-    /// `.none` 在 `.inactive` / `.background` 触发，而 macOS 上 `.inactive` = 窗口不是
+    /// `.hidden` 在 `.inactive` / `.background` 触发，而 macOS 上 `.inactive` = 窗口不是
     /// 前台（**窗口完全可见**）、iPadOS 上 = 台前调度后台。本件的视图树里装着**调用方的
     /// 内容**——`logo(item)` 与 `center`，两者都**有意不** `accessibilityHidden`
     ///（只有点环隐藏）⇒ 返回 `EmptyView()` 会让宿主 App 的品牌 logo 与全部合作方 logo
     /// 在可见窗口里凭空消失，VoiceOver 也一并丢掉这些元素。
     ///
     /// 本仓已就这一情形裁决过（`MicroInteractionReduceMotionGuard.energyGatedFiles` 逐字：
-    /// 「能耗闸的 `.none` 语义是『一个像素都不画』，而它们画的是**内容**，把内容隐藏
+    /// 「能耗闸的 `.hidden` 语义是『一个像素都不画』，而它们画的是**内容**，把内容隐藏
     /// 不是停摆、是 bug」——那正是 `BeforeAfterSlider` / `ParticleTransition` 被排除在
-    /// 名单之外的理由）。⇒ 收窄成：`.none` 摘掉的是**装饰层与调度器**，内容层静态留下。
+    /// 名单之外的理由）。⇒ 收窄成：`.hidden` 摘掉的是**装饰层与调度器**，内容层静态留下。
     ///
     /// ⚠️ **已知限度**：停摆档 `particleScale == 0` ⇒ 环本来就画不出点
-    /// ⇒ "`.contentOnly` 与 `.full` 在 `.none` 下渲出同一张图"，位图分不出这两种写法。
+    /// ⇒ "`.contentOnly` 与 `.full` 在 `.hidden` 下渲出同一张图"，位图分不出这两种写法。
     /// 本条钉的是"内容还在不在"这一半，"装饰层不建"那一半由
     /// `orbitPresentationBranchesAreWiredCorrectly`（源码链）接管。
     @Test("后台与非活跃：OrbitingLogos 摘掉装饰，但调用方的内容必须留下")
@@ -963,7 +963,7 @@ struct CrossPlatformRenderTests {
     ///
     /// | 变异 | `pausedDrawsNothing` / `restingPhaseStillDraws` | 成因 |
     /// |---|---|---|
-    /// | 把 `.none` 分支换成"照常画一帧静止球" | **绿** | `SphereSurfaceBody` **自己**也读能耗环境，停摆时 `particleScale == 0` ⇒ 两条路都渲成空白，位图上不可分辨 |
+    /// | 把 `.hidden` 分支换成"照常画一帧静止球" | **绿** | `SphereSurfaceBody` **自己**也读能耗环境，停摆时 `particleScale == 0` ⇒ 两条路都渲成空白，位图上不可分辨 |
     /// | 把 `.resting` 分支的相位从 `SphereField.restingPhase` 改成 `0.37` | **绿** | `\.accessibilityReduceMotion` 不可注入 ⇒ 那条分支在测试里**根本到不了**；位图判据构造的是 `SphereSurfaceBody`，绕过了驱动层 |
     ///
     /// ⇒ 三档呈现"接得对不对"只能落在**源码**这条链上（同
@@ -988,13 +988,13 @@ struct CrossPlatformRenderTests {
         let switchBody = afterSwitch.components(separatedBy: "struct SphereSurfaceTimeline").first ?? afterSwitch
 
         // ① 停摆档**什么都不建**。
-        let noneBranch = switchBody.components(separatedBy: "case .resting:").first ?? ""
-        #expect(noneBranch.contains("EmptyView()"), """
-        `.none` 分支不是 `EmptyView()` —— NFR-7 的"一个像素都不画"变成了"画了但画不出来"。
+        let hiddenBranch = switchBody.components(separatedBy: "case .resting:").first ?? ""
+        #expect(hiddenBranch.contains("EmptyView()"), """
+        `.hidden` 分支不是 `EmptyView()` —— NFR-7 的"一个像素都不画"变成了"画了但画不出来"。
         ⚠️ 这枚变异在位图判据上是绿的（见本条的类型文档）。
         """)
-        #expect(!noneBranch.contains("SphereSurfaceBody("), "`.none` 分支还在建绘制层")
-        #expect(!noneBranch.contains("SphereSurfaceTimeline("), "`.none` 分支还在建调度器")
+        #expect(!hiddenBranch.contains("SphereSurfaceBody("), "`.hidden` 分支还在建绘制层")
+        #expect(!hiddenBranch.contains("SphereSurfaceTimeline("), "`.hidden` 分支还在建调度器")
 
         // ② 静止档钉在 restingPhase / restingWave 上，且**不建调度器**。
         let restingBranch = (switchBody.components(separatedBy: "case .resting:").last ?? "")
@@ -1047,18 +1047,18 @@ struct CrossPlatformRenderTests {
         let switchBody = afterSwitch.components(separatedBy: "struct OrbitingLogosTimeline").first ?? afterSwitch
 
         // ① 停摆档：**摘装饰、留内容**（终审 C-1）。
-        let noneBranch = switchBody.components(separatedBy: "case .resting:").first ?? ""
-        #expect(!noneBranch.contains("EmptyView()"), """
-        `.none` 分支又回到了 `EmptyView()` —— 那会把**调用方的** logo 与中心视图一起删掉。
+        let hiddenBranch = switchBody.components(separatedBy: "case .resting:").first ?? ""
+        #expect(!hiddenBranch.contains("EmptyView()"), """
+        `.hidden` 分支又回到了 `EmptyView()` —— 那会把**调用方的** logo 与中心视图一起删掉。
         能耗闸的"一个像素都不画"只适用于装饰层；画内容的件把内容藏掉不是停摆、是 bug。
         （⚠️ 别拿这条去判断下一个件：`BeforeAfterSlider` / `ParticleTransition` 不进
         `energyGatedFiles` 用的是**另一条**理由——它们没有可停的常驻装饰层。终审 I-E。）
         """)
-        #expect(noneBranch.contains("layers: .contentOnly"), """
-        `.none` 分支没有把绘制层钉在 `.contentOnly` 上 —— 装饰层（环 + Canvas）会跟着建出来。
+        #expect(hiddenBranch.contains("layers: .contentOnly"), """
+        `.hidden` 分支没有把绘制层钉在 `.contentOnly` 上 —— 装饰层（环 + Canvas）会跟着建出来。
         """)
-        #expect(!noneBranch.contains("OrbitingLogosTimeline("), "`.none` 分支还在建调度器")
-        #expect(!noneBranch.contains("TimelineView("), "`.none` 分支还在建调度器")
+        #expect(!hiddenBranch.contains("OrbitingLogosTimeline("), "`.hidden` 分支还在建调度器")
+        #expect(!hiddenBranch.contains("TimelineView("), "`.hidden` 分支还在建调度器")
 
         // ② 静止档钉在 restingPhase / restingFeature 上，画整件，且**不建调度器**。
         let restingBranch = (switchBody.components(separatedBy: "case .resting:").last ?? "")
@@ -1094,7 +1094,7 @@ struct CrossPlatformRenderTests {
 
     /// ⚠️⚠️ **C-1 立论的 a11y 那半此前零判据**（第 2 轮终审 I-B，变异已复现）。
     ///
-    /// C-1 的规则收窄（`.none` 只摘装饰、内容层静态留下）靠**两条腿**站着：
+    /// C-1 的规则收窄（`.hidden` 只摘装饰、内容层静态留下）靠**两条腿**站着：
     /// ① "调用方的 logo 与中心视图在可见窗口里不许消失"——由
     /// `pausedKeepsCallerContentInOrbitingLogos` 的位图判据钉住；
     /// ② "VoiceOver 也不许一并丢掉这些元素"（类型文档 / `energyGatedFiles` 逐字写着

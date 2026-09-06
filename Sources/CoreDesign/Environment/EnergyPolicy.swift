@@ -19,7 +19,9 @@ import SwiftUI
 ///
 /// ⚠️ `nonisolated`：本包三个 target 都开了 `.defaultIsolation(MainActor.self)`，不标的话
 /// 下游 **nonisolated 上下文**（在后台线程准备渲染参数的宿主代码）用不了它
-/// —— 那是 `scripts/downstream-probe` 的 `CoreDesignOnlyProbe` 唯一能看见的那类问题。
+/// —— 那是 `scripts/downstream-probe` 的 `CoreDesignOnlyProbe` 看得见、而库内断言看不见的
+/// 一类问题。⚠️ 该 probe 更承重的角色是钉住「**下沉到底了**」：把任一成员挪回 Effects，
+/// 库 `swift build` 一声不吭，只有它会红。
 public nonisolated enum RenderPolicy: Sendable, Equatable, CaseIterable {
 
     /// 满帧。
@@ -90,8 +92,13 @@ public nonisolated struct EnergyState: Sendable, Equatable {
     /// ⚠️ **`systemScenePhase` 是参数而不是在这里读环境**：本类型 `nonisolated`、
     /// 且要能被单测直接调用，读环境必须发生在 `View` 里。
     ///
-    /// ⚠️ **已知限度：读系统那一路不是响应式的**。`ProcessInfo` 的低电量变化会发
-    /// `NSProcessInfoPowerStateDidChange`，但环境默认值只在被读取时求值一次。
+    /// ⚠️ **已知限度：读系统那一路不是响应式的**。本函数**每次调用都直接读 `ProcessInfo`**
+    /// ——不响应的原因不在这里，而在于电量状态变化**不是 SwiftUI 的依赖**：它会发
+    /// `NSProcessInfoPowerStateDidChange`，但不会让任何 `body` 重算 ⇒ 只有 `body` 因别的
+    /// 原因重跑时才会重读到新值。
+    /// ⚠️ **因此这条限度有一个已登记的例外**：每帧重跑 `body` 的调用点（`ProcessingSweepBody`
+    /// 就是一个，见该类型文档）实际上**是**响应式的——那里逐字记着 `usesGlow` 与
+    /// `minimumInterval` 在这一点上行为并不一致。
     /// 需要「用户中途打开低电量就立刻降级」的宿主，应自己订阅该通知并注入
     /// `.environment(\.lowPowerModeOverride, true)` —— 那也正是这个键存在的第二个用途。
     public static func resolve(

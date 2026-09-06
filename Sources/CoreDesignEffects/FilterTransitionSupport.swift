@@ -152,7 +152,7 @@ nonisolated enum FilterTransitionPhase {
 
 /// 滤镜类转场的**安全档位**：两道 a11y 信号裁出来的结果。
 ///
-/// ⚠️ **刻意 `internal`**（同 `MotionPresentation` 的理由，逐字见 `EffectsEnergy.swift`）：
+/// ⚠️ **刻意 `internal`**：
 /// 本类型只服务同模块四个转场，没有跨模块消费者；而两个解析函数一旦 `public`，
 /// 它们的裸 `Bool` 参数就会命中 `BoolExemptionGuard` 的判据、要求署名豁免并抬
 /// `docs/bool-exemptions-baseline.json` 的棘轮（`CoreDesignEffects` 当前是 0 条，

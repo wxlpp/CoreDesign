@@ -84,8 +84,8 @@ App 都会重放一次庆祝**（PR #269 第 2 轮修的正是这条）。
 ⚠️ **`#271` 起由它们派生的通用策略表（`RenderPolicy` / `EnergyState` /
 `MotionPresentation`）也在 `CoreDesign`**；此前这里说的「动效层的语义档位」是
 `CoreDesignEffects` 里那个二态枚举，实测已无人读其 case、**已随 `#271` 删除**
-（见 `docs/BREAKING-CHANGES.md`）。留在动效层的只有 `usesGlow` / `particleScale`
-两个 effects 专用旋钮。
+（见 `docs/BREAKING-CHANGES.md`）。留在动效层的是 `usesGlow` / `particleScale` /
+`frozenIfPeriodIsDegenerate(_:)` 三个 effects 专用旋钮。
 
 ### 宿主主动注入的完整配方
 

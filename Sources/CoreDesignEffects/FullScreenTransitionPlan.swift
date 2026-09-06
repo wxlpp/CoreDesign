@@ -24,7 +24,7 @@ import SwiftUI
 /// macOS 上的单测因此能对**iOS 的那条分支**求值（`platformSupportsZoom: true`），
 /// 这是本仓能在 macOS 上验证 iOS 行为的唯一可行形态。
 ///
-/// ⚠️ **刻意 `internal`**（同 `MotionPresentation` 的理由）：
+/// ⚠️ **刻意 `internal`**：
 /// `resolve(reduceMotion:platformSupportsZoom:)` 一旦 `public`，两个裸 `Bool` 参数
 /// 就会命中 `BoolExemptionGuard`、要求署名豁免并抬棘轮基线
 /// （`CoreDesignEffects` 当前是 0 条）。测试走 `@testable import` 够用。

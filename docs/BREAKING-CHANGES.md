@@ -35,28 +35,31 @@ bash scripts/api-surface-diff.sh <base>                            # 新增侧�
 ⇒ `shipswift-shaders` 的 B-2 只有两条路：`import CoreDesignEffects`（推翻下沉的全部理由），
 或自己把同一条映射再写一遍（本仓反复在堵的「两处各写一遍必然漂」）。
 
-| 删除（`CoreDesignEffects`） | 替代（`CoreDesign`） |
+| 删除（`CoreDesignEffects` 的 **public** 声明） | 替代（`CoreDesign`） |
 |---|---|
 | `EffectsEnergyState` | `EnergyState` |
 | `EffectsEnergyState.init(scenePhase:powerMode:)` | `EnergyState.init(scenePhase:isLowPower:)` |
+| `EffectsEnergyState.powerMode`（属性） | `EnergyState.isLowPower`（`Bool`） |
+| `EffectsEnergyState.scenePhase` | `EnergyState.scenePhase`（不变） |
+| `EffectsEnergyState.policy` | `EnergyState.policy` |
 | `EffectsEnergyState.resolve(injectedScenePhase:systemScenePhase:injectedPowerMode:)` | `EnergyState.resolve(injectedScenePhase:systemScenePhase:lowPowerModeOverride:)` |
-| `EffectsRenderPolicy` | `RenderPolicy` |
+| `EffectsRenderPolicy`（含三个 case） | `RenderPolicy` |
 | `EffectsRenderPolicy.drawsAnything` / `.minimumInterval` | `RenderPolicy` 同名成员（下沉） |
 | `EffectsRenderPolicy.usesGlow` / `.particleScale` | **仍在 Effects**，改挂 `extension RenderPolicy` |
-| `EffectsPresentation` | `MotionPresentation` |
-| `EffectsPresentation.none` | `MotionPresentation.hidden`（⚠️ 见下） |
-| `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)` | **仍在 Effects**，改挂 `extension MotionPresentation` |
-| **`EffectsPowerMode`（整个类型）** | **无替代** —— 边界改用 `Bool` |
+| `EffectsPowerMode`（整个类型，含 `.standard` / `.lowPower`） | **无替代** —— 边界改用 `Bool` |
+| `EffectsPowerMode.current` | `ProcessInfo.processInfo.isLowPowerModeEnabled` |
 
-### 三处需要动手改的
+⚠️ **本表只列 public 声明**。`#271` 同时改名 / 移动了几个 **internal** 声明
+（`EffectsPresentation` → `MotionPresentation`（并**转为 public**）、其 `.none` → `.hidden`、
+`frozenIfPeriodIsDegenerate(_:)`、`presentation(reduceMotion:)`、`EffectsPowerMode.lifted(from:)`），
+**对下游不构成破坏** —— 它们在 `main` 上就取不到。列在这里只为改名时能查到去向。
+
+### 两处需要动手改的
 
 1. **`powerMode:` → `isLowPower:`**：`EffectsPowerMode` 已删除，边界改用 `Bool`。
-   `EffectsPowerMode.lifted(from:)` 一并删除 —— 环境键 `\.lowPowerModeOverride` 本身就是
-   `Bool?`，直接传即可。
-2. **`.none` → `.hidden`**：`.none` 一旦公开，在 `MotionPresentation?` 语境下 `x == .none`
-   会被解析成 `Optional.none` 并**发警告**；本仓 probe 带 `-Xswiftc -warnings-as-errors`
-   ⇒ 那是硬红。趁改名窗口一并换掉。
-3. **`import`**：只用通用策略表的消费者现在**只需 `import CoreDesign`**
+   读 `EffectsPowerMode.current` 的调用点改读 `ProcessInfo.processInfo.isLowPowerModeEnabled`；
+   环境键 `\.lowPowerModeOverride` 本身就是 `Bool?`，直接传即可。
+2. **`import`**：只用通用策略表的消费者现在**只需 `import CoreDesign`**
    —— 这正是本次改动的全部目的。
 
 ### 为什么不留 typealias 兼容层

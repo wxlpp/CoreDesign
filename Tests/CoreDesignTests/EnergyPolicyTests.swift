@@ -12,12 +12,18 @@ import Testing
 @Suite("NFR-7 能耗状态与渲染策略（#271 下沉）")
 struct EnergyPolicyTests {
 
-    @Test("后台 / 非活跃 ⇒ 停摆；低电量 ⇒ 降级；其余 ⇒ 满帧")
+    /// ⚠️ **非前台两档 × 低电量两档必须逐格断言**：只测 `.background + 非低电量` 时，
+    /// 把「停摆」写成「低电量优先」（`.background + lowPower ⇒ .reduced`）**不会红**
+    /// —— 那正是"降错方向"的形态。
+    @Test("后台 / 非活跃 ⇒ 停摆（含低电量）；前台低电量 ⇒ 降级；其余 ⇒ 满帧")
     func policyMapping() {
         #expect(EnergyState(scenePhase: .active, isLowPower: false).policy == .full)
         #expect(EnergyState(scenePhase: .active, isLowPower: true).policy == .reduced)
-        #expect(EnergyState(scenePhase: .inactive, isLowPower: false).policy == .paused)
-        #expect(EnergyState(scenePhase: .background, isLowPower: false).policy == .paused)
+        for phase in [ScenePhase.inactive, .background] {
+            #expect(EnergyState(scenePhase: phase, isLowPower: false).policy == .paused)
+            #expect(EnergyState(scenePhase: phase, isLowPower: true).policy == .paused,
+                    "\(phase) + 低电量给出的不是停摆 —— 能耗档位被降错了方向")
+        }
     }
 
     @Test("注入值优先，`nil` 才从系统读")
@@ -61,15 +67,29 @@ struct EnergyPolicyTests {
     /// 本仓出过一次「两个调用点各写一遍就写反了」的事故，`#271` 把它下沉正是为此。
     @Test("两道闸的顺序：能耗闸压过 Reduce Motion 闸")
     func energyGateOutranksReduceMotion() {
-        for isLowPower in [true, false] {
-            let paused = EnergyState(scenePhase: .background, isLowPower: isLowPower)
-            #expect(paused.presentation(reduceMotion: true) == .hidden)
-            #expect(paused.presentation(reduceMotion: false) == .hidden,
-                    "停摆状态下没有整层不画 —— 能耗闸没有压过 RM 闸")
+        // ⚠️ **`.inactive` 这一维不能省**：只测 `.background` 时，把停摆判据从
+        // `policy.drawsAnything` 改成 `policy == .paused` 之外的任何等价式都照绿，
+        // 而 `.inactive` 才是本仓登记了「可见窗口失焦」限度的那一档。
+        for phase in [ScenePhase.background, .inactive] {
+            for isLowPower in [true, false] {
+                let paused = EnergyState(scenePhase: phase, isLowPower: isLowPower)
+                for reduceMotion in [true, false] {
+                    #expect(paused.presentation(reduceMotion: reduceMotion) == .hidden,
+                            "\(phase) / lowPower=\(isLowPower) / RM=\(reduceMotion) 下没有整层不画 —— 能耗闸没有压过 RM 闸")
+                }
+            }
         }
-        let active = EnergyState(scenePhase: .active, isLowPower: false)
-        #expect(active.presentation(reduceMotion: true) == .resting)
-        #expect(active.presentation(reduceMotion: false) == .animated)
+        // ⚠️ **前台的低电量这一维同样不能省**：`.reduced` 仍要画，只是画得省。
+        // 只测 `isLowPower: false` 时，把 `guard policy.drawsAnything` 收紧成
+        // `guard policy == .full` ⇒ `active + lowPower ⇒ .hidden`（低电量下整层消失）
+        // 而本 suite 全绿。
+        for isLowPower in [true, false] {
+            let active = EnergyState(scenePhase: .active, isLowPower: isLowPower)
+            #expect(active.presentation(reduceMotion: true) == .resting,
+                    "前台 / lowPower=\(isLowPower) / RM 开 ⇒ 应是静止帧，不是整层不画")
+            #expect(active.presentation(reduceMotion: false) == .animated,
+                    "前台 / lowPower=\(isLowPower) / RM 关 ⇒ 应是正常动")
+        }
     }
 
     @Test("通用旋钮：停摆不画、低电量降帧、满帧不限速")

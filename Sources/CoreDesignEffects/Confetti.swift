@@ -101,7 +101,7 @@ struct ConfettiCore: ViewModifier {
         // | scenePhase | presentation | 走哪个出口 |
         // |---|---|---|
         // | `.active` | `.resting` | 出口 A（静态层，**没有 `.task`**） |
-        // | `.inactive` / `.background` | `.none` | 出口 B（`.task` + 空 overlay） |
+        // | `.inactive` / `.background` | `.hidden` | 出口 B（`.task` + 空 overlay） |
         //
         // ⇒ 每次后台往返，`content` 被包进**底层类型不同**的两个 `AnyView`，两条后果：
         // 1. **庆祝重放**：静态层只存在于出口 A ⇒ 回前台是**新插入**的实例，
