@@ -71,10 +71,10 @@ struct SphereSurface: View {
     @Environment(\.scenePhase) private var systemScenePhase
 
     var body: some View {
-        let state = EffectsEnergyState.resolve(
+        let state = EnergyState.resolve(
             injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
+            lowPowerModeOverride: self.lowPowerModeOverride
         )
         // ⚠️ 两道闸的顺序在这个纯函数里，不在这里（先 NFR-7 能耗闸、再 Reduce Motion 闸）。
         // ⚠️ 第三道闸是"自转周期非法"（`<= 0` / `NaN` / `±∞`）：这样的调用方要的就是**静止**，
@@ -84,7 +84,7 @@ struct SphereSurface: View {
 
         // ⚠️ **单出口**：分支只发生在这个 `switch` 内部（同 `AnimatedMeshGradient`）。
         switch presentation {
-        case .none:
+        case .hidden:
             // NFR-7 停摆：一个像素都不画。
             EmptyView()
         case .resting:
@@ -157,10 +157,10 @@ struct SphereSurfaceBody: View {
     @Environment(\.scenePhase) private var systemScenePhase
 
     var body: some View {
-        let policy = EffectsEnergyState.resolve(
+        let policy = EnergyState.resolve(
             injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
+            lowPowerModeOverride: self.lowPowerModeOverride
         ).policy
         // ⚠️ 复用 `particleScale` 这个既有旋钮而不是另开一个：它的语义就是
         //「这一档下画多少个粒子」，球面上的点是同一件事。

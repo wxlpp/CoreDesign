@@ -22,7 +22,7 @@ import SwiftUI
 /// 本仓不落 SpriteKit，理由**不是**"macOS 上编译不过"（SpriteKit 在 macOS 上有，
 /// `SpriteView` 也有），而是三条与本仓公约正面冲突：
 ///
-/// 1. **两套渲染时钟**：`SKScene` 自带 display link，`EffectsRenderPolicy` 的
+/// 1. **两套渲染时钟**：`SKScene` 自带 display link，`RenderPolicy` 的
 ///    `minimumInterval` / `drawsAnything`（NFR-7 的后台与低电量闸）对它一概无效
 ///    ——那道闸是靠"根本不建 `TimelineView`"实现的，管不到一个自转的场景；
 /// 2. **Reduce Motion 无处插手**：`SKAction.repeatForever` 一旦 `run` 就自己跑，

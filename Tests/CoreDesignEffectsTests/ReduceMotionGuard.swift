@@ -119,7 +119,7 @@ struct MicroInteractionReduceMotionGuard {
     /// `guard !isReduced else { return AnyView(…) }`——那个形态给 `body` 造出了**两个**
     /// `AnyView` 出口，而出口选择依赖 `scenePhase` ⇒ 每次后台往返调用方内容子树换身份、
     /// 且 Reduce Motion 下的庆祝会重放。单出口的写法把两道闸的结论物化成
-    /// `EffectsPresentation` 再 `switch`，**语义与早退等价**（整段换一套呈现、不逐处门控），
+    /// `MotionPresentation` 再 `switch`，**语义与早退等价**（整段换一套呈现、不逐处门控），
     /// 只是决策点从 `guard` 挪进了 `switch`。
     /// ⇒ 标记的**射程与 `guard` 一样窄**：`switch presentation {` 之后的代码才被豁免，
     /// 而三个 `switch` 分支本身仍在射程内（判据实测：往 `.resting` 分支加一处
@@ -313,21 +313,58 @@ struct MicroInteractionReduceMotionGuard {
             .appendingPathComponent("Sources/CoreDesignEffects")
     }
 
+    /// 能耗闸判据**专用**的扫描根：`CoreDesignEffects` **加上** `CoreDesign`（`#271`）。
+    ///
+    /// ⚠️ **单开一个根，不动 `sourceRoot`**：后者被 `PlatformSupportGuard.effectsSources()`
+    /// 与 `TypewriterTextTests.source(_:)` 共用，而前者的 `noPlatformOnlyImports` 禁
+    /// `import UIKit/AppKit` —— `CoreDesign` 的系统色桥接层正靠这些 import 活着，
+    /// 扩它会当场顶红一批无关判据。
+    ///
+    /// ⚠️ **为什么现在扩得了**：`#271` 把通用策略表下沉到了 `CoreDesign`，
+    /// `presentation(reduceMotion:)` 也在那一层 ⇒ `CoreDesign` 侧的常驻渲染件既能共用
+    /// 那张表、也能被本判据看见。此前扩根是空跑（策略表不在那层，那层也调不到裁决点）。
+    static var energyGateScanRoots: [URL] {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        return ["Sources/CoreDesignEffects", "Sources/CoreDesign"]
+            .map { repoRoot.appendingPathComponent($0) }
+    }
+
     /// ⚠️ **递归枚举**（第 3 轮终审 I-5）：上一版用 `contentsOfDirectory` 不递归，
     /// 把任一效果文件挪进子目录（本仓 `Sources/CoreDesign/Components/*/` 就是这么组织的）
     /// 它就不再被扫描，而计数阈值仍然通过 ⇒ 静默逃逸。
     static func swiftFiles() throws -> [URL] {
-        let root = Self.sourceRoot
-        // ⚠️ **fail-closed**：目录不存在时必须判红，不能"零文件 ⇒ 零违规 ⇒ 绿"。
-        var isDirectory: ObjCBool = false
-        let exists = FileManager.default.fileExists(atPath: root.path, isDirectory: &isDirectory)
-        #expect(exists && isDirectory.boolValue,
-                "扫描根不存在：\(root.path) —— 判据无法工作，这不是「零违规」")
-        guard exists, let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
-        else { return [] }
-        return e.compactMap { $0 as? URL }
-            .filter { $0.pathExtension == "swift" }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        try Self.swiftFiles(in: [Self.sourceRoot])
+    }
+
+    /// 多根版本。⚠️ **返回按 `lastPathComponent` 排序**，与单根版一致——
+    /// 调用侧的名单全部按裸文件名建，见下方 `assertNoBasenameCollision(_:)`。
+    static func swiftFiles(in roots: [URL]) throws -> [URL] {
+        var all: [URL] = []
+        for root in roots {
+            // ⚠️ **fail-closed**：目录不存在时必须判红，不能"零文件 ⇒ 零违规 ⇒ 绿"。
+            var isDirectory: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: root.path, isDirectory: &isDirectory)
+            #expect(exists && isDirectory.boolValue,
+                    "扫描根不存在：\(root.path) —— 判据无法工作，这不是「零违规」")
+            guard exists,
+                  let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)
+            else { continue }
+            all += e.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
+        }
+        return all.sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    /// ⚠️ **多根扫描的前提条件**：本守卫所有名单（`energyGatedFiles` 等）都按**裸文件名**
+    /// 建 ⇒ 两个根里出现同名文件时，名单条目会同时命中两份、判据的语义静默失真。
+    /// `#271` 把扫描根从一个扩到两个，这个前提第一次可能被打破 ⇒ 显式钉住它。
+    static func assertNoBasenameCollision(_ files: [URL]) {
+        let grouped = Dictionary(grouping: files, by: \.lastPathComponent)
+        let collisions = grouped.filter { $0.value.count > 1 }
+        #expect(collisions.isEmpty,
+                "两个扫描根里有同名文件 \(collisions.keys.sorted()) —— 本守卫的名单按裸文件名建，会同时命中两份；要么改名，要么把名单改成带 target 前缀")
     }
 
     /// 去掉 `//` 行注释，避免注释里的示例代码被当成真调用。
@@ -498,8 +535,8 @@ struct MicroInteractionReduceMotionGuard {
     ///
     /// 1. **进不进名单只看一件事：有没有可停的常驻装饰层**（`TimelineView` /
     ///    常驻调度器持续驱相位的那一层）。有 ⇒ 进；没有 ⇒ 不进，进来只会白挨一道闸。
-    /// 2. **`.none` 的语义是「一个*装饰*像素都不画」**。一个件若同时画装饰与
-    ///    **调用方的内容**，`.none` 分支摘掉的是装饰层与调度器，**内容层静态留下**
+    /// 2. **`.hidden` 的语义是「一个*装饰*像素都不画」**。一个件若同时画装饰与
+    ///    **调用方的内容**，`.hidden` 分支摘掉的是装饰层与调度器，**内容层静态留下**
     ///    （`OrbitingLogos` 走 `OrbitLayers.contentOnly`）——把调用方的内容藏掉
     ///    不是停摆、是 bug。
     /// 3. ⚠️ **「画内容」不是排除在名单外的理由**（第 2 轮终审 I-E）：收窄之后它
@@ -518,22 +555,19 @@ struct MicroInteractionReduceMotionGuard {
     ///
     /// ## 沿革（历史，读到这里就够了；下面只解释规则怎么变成现在这样）
     ///
-    /// ⚠️⚠️ **登记一条本守卫看不见的方向**（#252 PR #269 第 4 轮终审 S2-3）：
-    /// 扫描根固定为 `Sources/CoreDesignEffects`（`sourceRoot`）⇒ 若把一个**常驻渲染件**
-    /// 落在 `Sources/CoreDesign`，它走不走能耗闸本守卫一概看不见。这不是本轮能修的
-    /// ——它是 issue #271 那条残余（NFR-7 的通用策略表仍在 `CoreDesignEffects`，
-    /// `shipswift-shaders` 的 B-2 只能在"import 整个 Effects product"与"自己再派生
-    /// 一份"之间二选一）的**判据侧**同一枚硬币：只要策略表没下沉，
-    /// `CoreDesign` 侧的常驻渲染件就既不共用那张表、也不进这个扫描根。
-    /// ⇒ **B-2 落件时与 #271 一并裁决**：策略表下沉到哪一层，扫描根就跟到哪一层。
-    /// 本轮只留痕，不改扫描根（现在 `CoreDesign` 里没有常驻渲染件，改了也只是空跑）。
+    /// ⚠️ **扫描根现在覆盖两个 target**（`#271` 落地）：`energyGateScanRoots` =
+    /// `Sources/CoreDesignEffects` + `Sources/CoreDesign`。此前只有前者 ⇒ 落在
+    /// `CoreDesign` 的常驻渲染件走不走能耗闸本守卫一概看不见。
+    /// 那是「策略表下沉到哪一层，扫描根就跟到哪一层」这条的兑现。
+    /// ⚠️ 今天 `CoreDesign` 里还没有常驻渲染件 ⇒ 第二个根**暂时是空跑**，
+    /// 但它必须先在，否则 `shipswift-shaders` 的 B-2 落件那天没人看着。
     /// ⚠️ **`#253` 加入 `AnimatedMeshGradient.swift`**：它是本 target 第三个
     /// **常驻渲染件**（`TimelineView` 持续驱相位），与 `ScanningOverlay` / `Confetti` 同类。
     /// 另外三个新件**有意不在这里**，理由逐条写在各自的类型文档里：
     /// · `TypewriterText` —— 有限时长的一次性揭示，打完就没有调度器；
     /// · `BeforeAfterSlider` —— 入场摆动是一次性的，其余时间是静止图 + 手势；
     /// · `ParticleTransition` —— 转场由 SwiftUI 驱动，瞬态。
-    /// 后两者还有同一条硬理由：能耗闸的 `.none` 语义是「一个像素都不画」，
+    /// 后两者还有同一条硬理由：能耗闸的 `.hidden` 语义是「一个像素都不画」，
     /// 而它们画的是**内容**，把内容隐藏不是停摆、是 bug。
     /// ⚠️ **上面这句已于下一段（`#254`）收窄，别再照它判新件**：收窄之后「画内容」
     /// 不再蕴含「排除在闸外」，那两件现在的理由是"没有可停的常驻装饰层"。
@@ -545,8 +579,8 @@ struct MicroInteractionReduceMotionGuard {
     /// 「进名单 ⇒ 整层不建」与「画内容 ⇒ 不许藏」在它身上正面撞车，而当时选的是前者
     /// ⇒ macOS 上一失焦（`.inactive`，**窗口完全可见**）宿主 App 的品牌 logo 与全部
     /// 合作方 logo 就从窗口里消失。
-    /// ⇒ 规则收窄为：**`.none` 的语义是「一个*装饰*像素都不画」**。一个既画装饰又画
-    /// 内容的件仍然进名单（装饰该停），但它的 `.none` 分支摘掉的是装饰层与调度器，
+    /// ⇒ 规则收窄为：**`.hidden` 的语义是「一个*装饰*像素都不画」**。一个既画装饰又画
+    /// 内容的件仍然进名单（装饰该停），但它的 `.hidden` 分支摘掉的是装饰层与调度器，
     /// 内容层静态留下（`OrbitingLogos` 走 `OrbitLayers.contentOnly`）。
     /// 纯内容件（`BeforeAfterSlider` / `ParticleTransition`）仍然整个不进名单——
     /// 它们没有可停的常驻装饰层，进来只会白挨一道闸。
@@ -567,7 +601,7 @@ struct MicroInteractionReduceMotionGuard {
 
     /// ⚠️⚠️ **第 2 轮终审 I-A 的判据**（#252 PR #269）。
     ///
-    /// `EffectsEnergyStateTests.energyGateOutranksReduceMotion` 是**纯函数判据**，钉的是
+    /// `EnergyPolicyTests.energyGateOutranksReduceMotion` 是**纯函数判据**，钉的是
     /// `presentation(reduceMotion:)` **函数体内**的顺序。**调用点是否真的用这个结论**
     /// 是另一条链，而它此前**零覆盖**——终审逐条实测过：
     /// · 位图路不可能覆盖：`\.accessibilityReduceMotion` 不可注入，测试里恒为 `false`，
@@ -578,7 +612,7 @@ struct MicroInteractionReduceMotionGuard {
     /// `let isReduced = self.reduceMotion`，**I-1 原封不动回来而全套测试仍绿**。
     ///
     /// ⇒ 本条直接守调用点：**凡走能耗闸的文件，读到的 `\.accessibilityReduceMotion`
-    /// 只许喂给 `EffectsEnergyState.presentation(reduceMotion:)` 这一个裁决点**，
+    /// 只许喂给 `EnergyState.presentation(reduceMotion:)` 这一个裁决点**，
     /// 一次都不许另作他用。任何"自己再拿它判一次"的写法（`let isReduced = self.reduceMotion`、
     /// `self.reduceMotion ? .resting : .animated`、`guard !self.reduceMotion`…）
     /// 都会让 `self.reduceMotion` 的出现次数多于喂给纯函数的次数 ⇒ 判红。
@@ -589,20 +623,25 @@ struct MicroInteractionReduceMotionGuard {
     /// 纯函数判据只管函数体内，调用点这一环由本条接管。
     @Test("走能耗闸的文件：reduceMotion 只许喂给 presentation(reduceMotion:) 这一个裁决点")
     func reduceMotionIsOnlyConsumedByTheSharedGate() throws {
-        let scanned = try Self.swiftFiles().map { url -> (String, String) in
+        // ⚠️ **本条判据用 `energyGateScanRoots`（两个 target），不是 `sourceRoot`**（`#271`）：
+        // 策略表已下沉到 `CoreDesign`，那一层的常驻渲染件同样能走能耗闸、同样能在调用点
+        // 二次消费 `reduceMotion`。本文件其余判据仍只看 `sourceRoot`。
+        let files = try Self.swiftFiles(in: Self.energyGateScanRoots)
+        Self.assertNoBasenameCollision(files)
+        let scanned = try files.map { url -> (String, String) in
             (url.lastPathComponent, Self.stripComments(try String(contentsOf: url, encoding: .utf8)))
         }
         // ① 名单与实际**双向差集**：新增一个走能耗闸的效果必须来改本文件。
         //
         // ⚠️⚠️ **必须去空白后再匹配**（#252 PR #269 第 4 轮终审 S2-3，评审有变异实证）：
-        // 上一版直接 `contains("EffectsEnergyState.resolve(")`，这对**新增文件**是
+        // 上一版直接 `contains("EnergyState.resolve(")`，这对**新增文件**是
         // **fail-open** —— 一个新文件把调用写成跨行的
-        // `EffectsEnergyState\n    .resolve(`，它既不进 `actual`、也不在 `energyGatedFiles`
+        // `EnergyState\n    .resolve(`，它既不进 `actual`、也不在 `energyGatedFiles`
         // 里 ⇒ 两个集合仍然相等 ⇒ ① 判绿，而下面 ② 的循环**根本不对它执行**
         // ⇒ 它在调用点里怎么二次消费 `reduceMotion` 都没人看得见。
         //（已经在名单里的文件这么写会判红——那个方向本来就是对的，漏的只有新增文件。）
         let actual = Set(scanned.filter { entry in
-            entry.1.filter { !$0.isWhitespace }.contains("EffectsEnergyState.resolve(")
+            entry.1.filter { !$0.isWhitespace }.contains("EnergyState.resolve(")
         }.map(\.0))
         #expect(actual == Self.energyGatedFiles,
                 "走能耗闸的文件名单 \(Self.energyGatedFiles.sorted()) 与实际 \(actual.sorted()) 不一致")
@@ -613,7 +652,7 @@ struct MicroInteractionReduceMotionGuard {
             let fed = code.components(separatedBy: "presentation(reduceMotion: self.reduceMotion)")
                 .count - 1
             #expect(fed >= 1,
-                    "\(name) 没有把 reduceMotion 喂给 EffectsEnergyState.presentation(reduceMotion:) —— 两道闸的顺序在这个调用点上又变成各写一遍了")
+                    "\(name) 没有把 reduceMotion 喂给 EnergyState.presentation(reduceMotion:) —— 两道闸的顺序在这个调用点上又变成各写一遍了")
             #expect(reads == fed,
                     "\(name) 里 `self.reduceMotion` 出现 \(reads) 次，但只有 \(fed) 次是喂给 presentation(reduceMotion:) 的 —— 多出来的那些是调用点自己又判了一遍 Reduce Motion，能耗闸会被绕过（I-1 的原形态）")
 

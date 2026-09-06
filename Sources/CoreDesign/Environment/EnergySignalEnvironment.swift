@@ -23,9 +23,10 @@ import SwiftUI
 //
 // ## ⚠️ 为什么这两个键住在 `CoreDesign` 而不是 `CoreDesignEffects`
 //
-// （#252 PR #269 第 1 轮终审 S-2 的**已裁决**处置；裁决的完整记录——冲突原文、两条出路、
-// 选中哪条、理由与时点——留在 `CoreDesignEffects` 的 `EffectsRenderPolicy` 类型文档里，
-// 那里是它被发现的地方，本仓要求错误与决策过程留痕。）
+// （#252 PR #269 第 1 轮终审 S-2 的**已裁决**处置。⚠️ 裁决的**完整记录**——冲突原文、
+// 两条出路、选中哪条——随 `#271` 下沉时**删除**了，不是搬走：同目录的 `EnergyPolicy.swift`
+// 只留结论摘要。要读原文去 `main` 上的 `Sources/CoreDesignEffects/EffectsEnergy.swift`。
+// 旧名到新名的对照见 `docs/BREAKING-CHANGES.md`。）
 //
 // 这两个信号是**任何**常驻渲染件都要的通用能耗输入，不是动效层专有：
 // `shipswift-shaders` 的 B-2（17 个 `colorEffect` 背景）同样要按它们降级。
@@ -38,9 +39,12 @@ import SwiftUI
 // CoreDesign`**——这正是"下沉到底了"这件事的机器判据；库内断言证不了它，
 // internal 在同模块内一样能过）。
 //
-// ⚠️ **下沉的只是通用信号**。effects 专用的旋钮（粒子数缩放之类）留在
-// `EffectsRenderPolicy`，由这两个键**派生**——`CoreDesign` 不长出与"系统原生观感"
-// 无关的渲染策略表面。
+// ⚠️ **下沉的不只是这两个信号**：由它们派生的**通用**策略表（`RenderPolicy` /
+// `EnergyState` / `MotionPresentation`，见同目录 `EnergyPolicy.swift`）也在 `CoreDesign`。
+// 只有键而没有那张表的话，B-2 仍要自己复刻一遍"两道闸的顺序"，下沉只兑现一半。
+// ⚠️ **界线在"通不通用"，不在"在不在这一层"**：effects 专用的旋钮
+//（`usesGlow` / `particleScale` / 自转退化保护）仍在 `CoreDesignEffects/EffectsEnergy.swift`，
+// 以 `extension` 挂回下沉后的类型。
 //
 // ## ⚠️ 为什么低电量键是 `Bool?` 而不是一个枚举
 //
@@ -48,8 +52,9 @@ import SwiftUI
 // "动效层的能耗档位"，而是 `ProcessInfo.processInfo.isLowPowerModeEnabled` 这个
 // **系统读数本身**的可注入镜像，而那个读数的形状就是 `Bool`。让通用底座去定义一个
 // "档位枚举"，等于把动效层的语义分级摊派给所有消费者（shader 那 17 个背景没有"档位"，
-// 只有"要不要省电"）。需要更细分级的模块**自己**在上面包一层——`CoreDesignEffects`
-// 的 `EffectsPowerMode` 就是这样一层。
+// 只有"要不要省电"）。需要更细分级的模块**自己**在上面包一层。
+// ⚠️ **今天没有任何模块真的包了这一层**：Effects 那个二态枚举 `#271` 实测已无人读其 case、
+// 随之删除（见 `docs/BREAKING-CHANGES.md`）⇒ 这句话是留给未来的余地，不是既成事实。
 //
 // ⚠️ **这条不欠 Bool 纪律的账，且这句是实查结论不是推断**：本仓的
 // `BoolExemptionGuard` / `docs/bool-exemptions.json` 对两种声明处置不同——
@@ -90,8 +95,9 @@ extension EnvironmentValues {
     /// ⚠️ **默认值是 `nil` 而不是当前系统读数**：`nil` 的语义是"**没有人注入**"，
     /// 与"注入了 `false`"必须可区分——后者是宿主 App 明确说"按常规供电渲染"
     /// （例如它自己订阅了 `NSProcessInfoPowerStateDidChange`），不该被系统读数覆盖。
-    /// 真正的"从系统读"发生在各消费模块的解析点（Effects 侧是
-    /// `EffectsEnergyState.resolve(injectedScenePhase:systemScenePhase:injectedPowerMode:)`）。
+    /// 真正的"从系统读"发生在**唯一**的解析点
+    /// `EnergyState.resolve(injectedScenePhase:systemScenePhase:lowPowerModeOverride:)`
+    /// ——`#271` 起它与本键同在 `CoreDesign`。
     ///
     /// ⚠️ **名字里没有 `effects`**（本轮下沉时重估）：旧名 `\.effectsPowerMode` 是它住在
     /// `CoreDesignEffects` 时的名字，下沉后该前缀名实不符——它不再是动效层专有。

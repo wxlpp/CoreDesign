@@ -80,12 +80,12 @@ struct ConfettiCore: ViewModifier {
         // 且静态层里 `policy` 写死 `.full`，
         // 低电量下粒子数也不减。
         //
-        // ⇒ 顺序现在由 `EffectsEnergyState.presentation(reduceMotion:)` 固定，
+        // ⇒ 顺序现在由 `EnergyState.presentation(reduceMotion:)` 固定，
         // 与 `ProcessingSweepDriver` 共用同一份。
-        let state = EffectsEnergyState.resolve(
+        let state = EnergyState.resolve(
             injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
+            lowPowerModeOverride: self.lowPowerModeOverride
         )
         let policy = state.policy
         let presentation = state.presentation(reduceMotion: self.reduceMotion)
@@ -101,7 +101,7 @@ struct ConfettiCore: ViewModifier {
         // | scenePhase | presentation | 走哪个出口 |
         // |---|---|---|
         // | `.active` | `.resting` | 出口 A（静态层，**没有 `.task`**） |
-        // | `.inactive` / `.background` | `.none` | 出口 B（`.task` + 空 overlay） |
+        // | `.inactive` / `.background` | `.hidden` | 出口 B（`.task` + 空 overlay） |
         //
         // ⇒ 每次后台往返，`content` 被包进**底层类型不同**的两个 `AnyView`，两条后果：
         // 1. **庆祝重放**：静态层只存在于出口 A ⇒ 回前台是**新插入**的实例，
@@ -121,7 +121,7 @@ struct ConfettiCore: ViewModifier {
         return content
             .overlay {
                 switch presentation {
-                case .none:
+                case .hidden:
                     // NFR-7 停摆：一个像素都不画。
                     EmptyView()
                 case .resting:
@@ -219,7 +219,7 @@ struct ConfettiStaticCelebration: View {
     /// 写死 `.full` 时"低电量 ⇒ 粒子数减半"这条在 Reduce Motion 路径上完全失效。
     /// 本层永远不会在 `.paused` 下被构造（那道闸在 `ConfettiCore` 里先行裁决），
     /// 但 `.reduced` 会传进来。
-    let policy: EffectsRenderPolicy
+    let policy: RenderPolicy
 
     var body: some View {
         ConfettiCanvas(
@@ -438,7 +438,7 @@ nonisolated enum ConfettiBurst {
     /// `MainActor` 上，直接读它的 `particleCount` 编译红
     /// （`main actor-isolated property ... can not be referenced from a nonisolated context`，
     /// 实测）。⇒ 档位在调用点解析成数，本函数只做与档位无关的策略缩放。
-    static func particleCount(baseParticleCount: Int, policy: EffectsRenderPolicy) -> Int {
+    static func particleCount(baseParticleCount: Int, policy: RenderPolicy) -> Int {
         let base = Double(baseParticleCount * Self.countMultiplier)
         return max(0, Int((base * policy.particleScale).rounded()))
     }
@@ -540,7 +540,7 @@ public extension View {
     /// ⚠️ **能耗闸在 Reduce Motion 闸之前**：上面这两条对开启了「减弱动态效果」的用户
     /// **同样成立**（静态庆祝层在 `.inactive` / `.background` 下同样整层不建，
     /// 在低电量下同样减半粒子数）。裁决在
-    /// `EffectsEnergyState.presentation(reduceMotion:)`，与三个"处理中"效果共用同一份。
+    /// `EnergyState.presentation(reduceMotion:)`，与三个"处理中"效果共用同一份。
     ///
     /// ## a11y 分工（FR-13）
     ///

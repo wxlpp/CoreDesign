@@ -49,8 +49,9 @@ public nonisolated enum TypewriterSpeed: Sendable, CaseIterable {
 ///
 /// ⚠️ **抽出来的唯一理由是可测性**（与 `ConfettiBurst` / `ProcessingSweep` / `ShineBand`
 /// 同一条纪律）：`\.accessibilityReduceMotion` **不可注入**
-///（`EnvironmentValues` 上它是只读的系统偏好，写它编译红——`EffectsPresentation` 的
-/// 文档已实测过），⇒ 「Reduce Motion 下直接显示完整文本」这条 AC 在位图上**结构上
+///（`EnvironmentValues` 上它是只读的系统偏好，写它编译红 —— 同形实测记录见
+/// `FilterTransitionSupport.swift` 文件头；「只能走两条链」的记账见
+/// `MicroInteractionReduceMotionGuard` 的 I-A 段），⇒ 「Reduce Motion 下直接显示完整文本」这条 AC 在位图上**结构上
 /// 不可观测**，只能落在纯函数 + 调用点源码两条链上。
 /// ⚠️ **不要把字面量写回 `TypewriterText`**——那会让判据重新变成"测试自说自话"。
 nonisolated struct TypewriterPlan: Equatable, Sendable {
@@ -240,7 +241,7 @@ nonisolated struct TypewriterRun: Equatable, Sendable {
 /// 打字机是**有限时长**的一次性揭示——打完就停，没有 `TimelineView`、没有常驻调度器，
 /// 驱动它的 `.task` 在最后一个字之后自然结束。给它接能耗闸的唯一可见后果是
 /// 「切后台再回来时文字停在半句」，那既不省电也更糟。
-/// ⚠️ 另一半理由：能耗闸的 `.none` 语义是**一个像素都不画**，而本组件画的是**内容**
+/// ⚠️ 另一半理由：能耗闸的 `.hidden` 语义是**一个像素都不画**，而本组件画的是**内容**
 /// ——把内容整块隐藏不是"停摆"，是 bug。
 ///
 /// ## a11y

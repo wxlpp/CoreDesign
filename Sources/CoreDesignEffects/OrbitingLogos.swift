@@ -47,7 +47,7 @@ import SwiftUI
 ///
 /// ## 后台 / 低电量（NFR-7）
 ///
-/// 与 `AnimatedMeshGradient` / `Confetti` 共用同一道闸，**但 `.none` 档的语义在本件上
+/// 与 `AnimatedMeshGradient` / `Confetti` 共用同一道闸，**但 `.hidden` 档的语义在本件上
 /// 是收窄的**（PR #274 终审 C-1）：
 ///
 /// | 档 | 环 + `Canvas` + 调度器 | 调用方的 logo 与中心视图 |
@@ -60,9 +60,9 @@ import SwiftUI
 /// macOS 上 `.inactive` = 窗口不是前台（**窗口完全可见**）、iPadOS 上 = 台前调度后台
 /// ⇒ 返回 `EmptyView()` 会让宿主 App 的品牌 logo 与全部合作方 logo 在**可见窗口里**
 /// 凭空消失、VoiceOver 也一并丢掉这些元素。本仓已就这一情形裁决过：能耗闸的
-/// `.none` 语义是「一个**装饰**像素都不画」，画内容的件把内容藏掉不是停摆、是 bug。
-/// ⇒ 本件留在闸上（环是常驻渲染，该停），但 `.none` 只摘装饰层。
-/// 装饰层的完整记账仍见 `EffectsEnergyState.policy`。
+/// `.hidden` 语义是「一个**装饰**像素都不画」，画内容的件把内容藏掉不是停摆、是 bug。
+/// ⇒ 本件留在闸上（环是常驻渲染，该停），但 `.hidden` 只摘装饰层。
+/// 装饰层的完整记账仍见 `EnergyState.policy`。
 ///
 /// ⚠️ **别把这条与"`BeforeAfterSlider` / `ParticleTransition` 为什么不进名单"混为一谈**
 ///（第 2 轮终审 I-E）：收窄之后「画内容」**不再蕴含**「排除在闸外」——本件正是反例
@@ -96,7 +96,7 @@ where Data.Element: Identifiable {
     ///   - colors: 点环取色的色板。**默认为空 ⇒ 取调用方的 `.tint`**。
     ///   - rotationPeriod: 转一圈用多少秒。**非法值（`<= 0` / `NaN` / `±∞`）⇒ 整件冻结**
     ///     （自转、轮播一并停，且**不建调度器**）——见
-    ///     `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)`。
+    ///     `MotionPresentation.frozenIfPeriodIsDegenerate(_:)`。
     ///     ⚠️ **已登记的形状缺陷**（第 2 轮终审 S-b）：这一个旋钮同时管住了"停自转"与
     ///     "停轮播"，调用方想要"环不转但 logo 照常轮播"**已无表达方式**，而这个名字
     ///     读不出"整件冻结"——一个旋钮被重载成了开关，与本仓 J-1 的口味相左。
@@ -119,10 +119,10 @@ where Data.Element: Identifiable {
     }
 
     public var body: some View {
-        let state = EffectsEnergyState.resolve(
+        let state = EnergyState.resolve(
             injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
+            lowPowerModeOverride: self.lowPowerModeOverride
         )
         // ⚠️ 两道闸的顺序在这个纯函数里（先能耗、后 Reduce Motion），不在这里。
         // ⚠️ 第三道闸是"自转周期非法"（`<= 0` / `NaN` / `±∞`）：调用方要的就是静止（终审 I-4 / I-C）。
@@ -130,7 +130,7 @@ where Data.Element: Identifiable {
             .frozenIfPeriodIsDegenerate(self.rotationPeriod)
 
         switch presentation {
-        case .none:
+        case .hidden:
             // ⚠️⚠️ **不是 `EmptyView()`**（终审 C-1）：装饰层（环 + `Canvas` + 调度器）
             // 全停，但 `logo` 与 `center` 是**调用方的内容**，藏掉它们不是停摆、是 bug。
             // 逐条理由见本类型文档《后台 / 低电量》一节。
@@ -200,7 +200,7 @@ where Data.Element: Identifiable {
 ///
 /// ⚠️ **不是 Bool**（同 `SphereMark` 的 J-1 / AD-C 理由）：两档的区别不是
 /// "要不要环"这个开关，而是**这一帧代表什么**——`.contentOnly` 是"装饰全停、
-/// 调用方的内容留下"（NFR-7 的 `.none` 档在一个画内容的件上的正确形态），
+/// 调用方的内容留下"（NFR-7 的 `.hidden` 档在一个画内容的件上的正确形态），
 /// `.full` 是"整件照画"。
 enum OrbitLayers: Equatable {
 
@@ -257,11 +257,11 @@ where Data.Element: Identifiable {
     ///
     /// ⚠️ 它自己读能耗环境（同 `SphereSurfaceBody` / `AnimatedMeshBody` 的理由）：
     /// 降帧拍不进静态帧，密度才是低电量在位图上唯一可观测的差异。
-    private var energy: EffectsEnergyState {
-        EffectsEnergyState.resolve(
+    private var energy: EnergyState {
+        EnergyState.resolve(
             injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
+            lowPowerModeOverride: self.lowPowerModeOverride
         )
     }
 
@@ -287,8 +287,8 @@ where Data.Element: Identifiable {
     /// ⇒ 座位数改由「**若此刻在活跃档会画出几个点**」决定，与 `scenePhase` 解耦；
     /// `layers` 不再参与。判据：`CrossPlatformRenderTests.seatCountFollowsPowerModeNotScenePhase`。
     private var seatCount: Int {
-        let activePolicy = EffectsEnergyState(
-            scenePhase: .active, powerMode: self.energy.powerMode
+        let activePolicy = EnergyState(
+            scenePhase: .active, isLowPower: self.energy.isLowPower
         ).policy
         return OrbitRing.seats(particleScale: activePolicy.particleScale)
     }

@@ -80,8 +80,12 @@ App 都会重放一次庆祝**（PR #269 第 2 轮修的正是这条）。
 它们是任何常驻渲染件都要的通用能耗信号，`shipswift-shaders` 的 `colorEffect` 背景同样按它们
 降级——键留在 Effects 会逼「只想要 shader 的消费者」链上整个 Effects product。
 ⇒ 只想注入这两个键的宿主 `import CoreDesign` 就够。低电量键的类型也因此是**通用的 `Bool?`**
-（它是 `ProcessInfo.processInfo.isLowPowerModeEnabled` 的可注入镜像），
-动效层的语义档位 `EffectsPowerMode` 是 `CoreDesignEffects` 在它上面自己包的一层。
+（它是 `ProcessInfo.processInfo.isLowPowerModeEnabled` 的可注入镜像）。
+⚠️ **`#271` 起由它们派生的通用策略表（`RenderPolicy` / `EnergyState` /
+`MotionPresentation`）也在 `CoreDesign`**；此前这里说的「动效层的语义档位」是
+`CoreDesignEffects` 里那个二态枚举，实测已无人读其 case、**已随 `#271` 删除**
+（见 `docs/BREAKING-CHANGES.md`）。留在动效层的是 `usesGlow` / `particleScale` /
+`frozenIfPeriodIsDegenerate(_:)` 三个 effects 专用旋钮。
 
 ### 宿主主动注入的完整配方
 
@@ -124,9 +128,9 @@ struct RootView: View {
 「后台 / 非活跃 ⇒ 一个像素都不画」对**开启了「减弱动态效果」的用户同样成立**——
 静态庆祝层在这种状态下同样整层不建（PR #269 第 1 轮修的正是这条：此前顺序反了，
 RM 开启时两个能耗键对 Confetti 完全无效）。裁决抽在
-`EffectsEnergyState.presentation(reduceMotion:)` 一个纯函数里，
+`EnergyState.presentation(reduceMotion:)` 一个纯函数里，
 与三个"处理中"效果**共用同一份**，判据是
-`EffectsEnergyStateTests.energyGateOutranksReduceMotion`。
+`EnergyPolicyTests.energyGateOutranksReduceMotion`。
 
 ⚠️ **状态机挂在能耗闸之外**：进后台只是不画，`burst` 的计时照走——否则回到前台会
 重放一次已经结束的庆祝。

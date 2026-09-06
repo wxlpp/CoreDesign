@@ -97,8 +97,10 @@ nonisolated enum BoolParamKind: Sendable, Equatable {
 
 /// ⚠️ **`Bool?` 归 `.plainBool`，不归 `.boolCarrying`**：它只是同一个旋钮多了个「没说」态,
 /// 而公约第 3 节「头号反例」封的正是这类换皮逃逸（两 case enum 不算替代路径）,
-/// `Bool?` 是最廉价的换皮。当前源码里 public 的 `Bool?` 参数为 0 条，本条**先于**
-/// 第一例出现就写死，免得将来靠「恰好没匹配上」蒙混。
+/// `Bool?` 是最廉价的换皮。本条**先于**第一例出现就写死，免得靠「恰好没匹配上」蒙混。
+/// ⚠️ 上一版这里写「当前源码里 public 的 `Bool?` 参数为 0 条」——`#271` 起**不再为 0**：
+/// `EnergyState.resolve#lowPowerModeOverride` 就是第一例，已如实入
+/// `docs/bool-exemptions.json`（这正说明本条不是空判据）。
 ///
 /// ⚠️ **ownership / parameter specifier 必须先剥掉**（裁决 (b′)）：SwiftSyntax 的
 /// `type.trimmedDescription` 把 specifier 一起给出来（`"inout Cache"`、`"consuming Bool"`

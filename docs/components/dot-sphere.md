@@ -133,12 +133,12 @@ device      r=0.5000 g=0.3765 b=0.6176   ← 上游给的
 | `\.lowPowerModeOverride` | `Bool?` | `nil` ⇒ 读 `ProcessInfo` | `true` ⇒ 降到 15 fps，**点数减半** |
 
 两道闸的顺序（先能耗、后 Reduce Motion）在共用纯函数
-`EffectsEnergyState.presentation(reduceMotion:)` 里，与 `Confetti` /
+`EnergyState.presentation(reduceMotion:)` 里，与 `Confetti` /
 `ProcessingSweep` / `AnimatedMeshGradient` **同一份**。
 
 ⚠️ **已知限度**：`.inactive` 下这块背景面会在**可见窗口里**变空白
 （macOS 失焦、iPadOS 台前调度都会报 `.inactive`）。完整记账见
-`EffectsEnergyState.policy` 的文档；需要规避的宿主 App 自行注入
+`EnergyState.policy` 的文档；需要规避的宿主 App 自行注入
 `\.scenePhaseOverride = .active`。
 
 ## 退化输入
@@ -156,7 +156,7 @@ device      r=0.5000 g=0.3765 b=0.6176   ← 上游给的
 `.animated` ⇒ `TimelineView(.animation)` 照常构建、display link 满帧跑，**只为产出
 同一批帧**，白付 NFR-1 / NFR-7 的代价。而且 `restingPhase = 0.125` 的存在理由正是
 "0 那一帧螺旋的接缝正对着观察者，看起来像没做任何事"，`<= 0` 恰好把调用方送到相位 0。
-⇒ 现在由 `EffectsPresentation.frozenIfPeriodIsDegenerate(_:)` 这道**第三闸**统一降到
+⇒ 现在由 `MotionPresentation.frozenIfPeriodIsDegenerate(_:)` 这道**第三闸**统一降到
 `.resting`，文档那句"退化为静止"才成立。
 
 ⚠️ **`NaN` 与 `±∞` 同样算非法**（PR #274 第 2 轮终审 I-C）：这道闸最初写作

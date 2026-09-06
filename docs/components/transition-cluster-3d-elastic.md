@@ -228,7 +228,7 @@ direction(of:) // Edge → 单位方向向量（三条位移转场共用一份 s
 
 ⚠️ **六条都不接能耗闸**：NFR-7 管的是**常驻渲染件**，而转场由 SwiftUI 的动画驱动、
 瞬态，没有自己的调度器（判据侧的对应事实是六个文件都不出现
-`EffectsEnergyState.resolve(`，由 `MicroInteractionReduceMotionGuard` 的
+`EnergyState.resolve(`，由 `MicroInteractionReduceMotionGuard` 的
 `energyGatedFiles` 双向差集守着）。同 `ParticleTransition` 的处置。
 
 ## 登记

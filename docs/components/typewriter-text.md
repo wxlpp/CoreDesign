@@ -146,7 +146,7 @@ let plan = TypewriterReveal.plan(total: total, typed: self.typed, reduceMotion: 
 ⚠️ **本组件不接能耗闸，这是一条判定不是遗漏。** NFR-7 管的是**常驻渲染**的效果
 （`Confetti` / `ScanningOverlay` / `AnimatedMeshGradient` 那一类持续调度的）。
 打字机是**有限时长**的一次性揭示：打完就停，没有 `TimelineView`、没有常驻调度器。
-另一半理由：能耗闸的 `.none` 语义是**一个像素都不画**，而本组件画的是**内容**。
+另一半理由：能耗闸的 `.hidden` 语义是**一个像素都不画**，而本组件画的是**内容**。
 
 ## a11y
 

@@ -75,7 +75,7 @@ import SwiftUI
 /// | `\.lowPowerModeOverride` | `Bool?` | `nil` ⇒ 读 `ProcessInfo.isLowPowerModeEnabled` | `true` ⇒ 降到 15 fps，并去掉柔化用的离屏模糊 |
 ///
 /// ⚠️⚠️ **顺序是承重的：先 NFR-7 的能耗闸，再 Reduce Motion 闸**。
-/// 这个顺序不由本文件实现——它在 `EffectsEnergyState.presentation(reduceMotion:)` 里，
+/// 这个顺序不由本文件实现——它在 `EnergyState.presentation(reduceMotion:)` 里，
 /// 与 `ConfettiCore` / `ProcessingSweepDriver` **共用同一份**。
 /// 此前两处各写一遍时 `Confetti` 就把顺序写反了，而当时全套测试是绿的
 ///（#252 PR #269 第 1 轮终审 I-1 / I-2）。
@@ -83,12 +83,11 @@ import SwiftUI
 /// ## ⚠️⚠️ 已知限度：`.inactive` 下这块背景面会**在用户眼前**变空白
 ///
 /// 「`.inactive` / `.background` ⇒ 一个像素都不画」是本仓既有的、有机器判据守着的
-/// 停摆语义（`EffectsRenderPolicy.drawsAnything` 的文档逐字：「调用方应当**整层不建**」）。
+/// 停摆语义（`RenderPolicy.drawsAnything` 的文档逐字：「调用方应当**整层不建**」）。
 /// 对 `ScanningOverlay` 那类**盖在内容上的小装饰**它无副作用；而本组件是一整块**背景面**。
 ///
 /// ⚠️ **别把这条读成"只是 App 切换器快照会缺底色"**（#253 PR #273 终审 I-3 逐字纠正了
-/// 上一版的这个措辞）：该策略文档给的理由是「`.inactive` 是 App 切换器 / 通知中心 /
-/// 来电这类**用户看不到或看不清**的时刻」，而这个前提在两种**常见**情形下直接为假：
+/// 上一版的这个措辞）：`.inactive` 在两种**常见**情形下窗口是完全可见的 ——
 ///
 /// - **macOS**：`WindowGroup` 场景在 App 不是前台时就报 `.inactive`，而窗口**完全可见**
 ///   ⇒ 用户一点别的 App，这块网格背景当场变空白；切回来又出现。
@@ -100,7 +99,7 @@ import SwiftUI
 /// **本轮仍按既有语义落地、不为一个组件另开一档**：`state.presentation(reduceMotion:)`
 /// 是 `ConfettiCore` / `ProcessingSweepDriver` / 本组件**共用**的纯函数（#252 已合并），
 /// 改它属 epic 级裁决、要同时动三个调用点。⇒ 这条**登记为已知限度并按真实成本记账**
-///（处置：要么给 `EffectsRenderPolicy` 增设「停摆但保留静止帧」一档，
+///（处置：要么给 `RenderPolicy` 增设「停摆但保留静止帧」一档，
 /// 要么把 `.inactive` 与 `.background` 分开判——**接受这条限度等于接受上面那两种情形**）。
 /// 需要立刻规避的宿主 App 可以自己注入 `\.scenePhaseOverride = .active`。
 public struct AnimatedMeshGradient: View {
@@ -122,10 +121,10 @@ public struct AnimatedMeshGradient: View {
     }
 
     public var body: some View {
-        let state = EffectsEnergyState.resolve(
+        let state = EnergyState.resolve(
             injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
+            lowPowerModeOverride: self.lowPowerModeOverride
         )
         // ⚠️ 两道闸的顺序在这个纯函数里，不在这里——见类型文档。
         let presentation = state.presentation(reduceMotion: self.reduceMotion)
@@ -134,7 +133,7 @@ public struct AnimatedMeshGradient: View {
         // 但形状上仍与 `ConfettiCore` 保持一致（`#252` PR #269 第 2 轮终审 C-1 的教训：
         // 随 `scenePhase` 翻转的多出口会让子树反复换身份）。
         switch presentation {
-        case .none:
+        case .hidden:
             // NFR-7 停摆：一个像素都不画。已知限度见类型文档。
             EmptyView()
         case .resting:
@@ -190,7 +189,7 @@ struct AnimatedMeshTimeline: View {
 /// 测试就只能走 `TimelineView`，两次渲染落在不同相位上，比不出来）。
 ///
 /// ⚠️ **每帧重解析的已知限度同样适用**：本类型在 `TimelineView` 闭包内部被构造
-/// ⇒ 那次 `EffectsEnergyState.resolve(...)` 每帧都跑一次。完整登记在
+/// ⇒ 那次 `EnergyState.resolve(...)` 每帧都跑一次。完整登记在
 /// `ProcessingSweepBody` 的类型文档里，本轮不改结构。
 struct AnimatedMeshBody: View {
 
@@ -203,10 +202,10 @@ struct AnimatedMeshBody: View {
     @Environment(\.scenePhase) private var systemScenePhase
 
     var body: some View {
-        let policy = EffectsEnergyState.resolve(
+        let policy = EnergyState.resolve(
             injectedScenePhase: self.scenePhaseOverride,
             systemScenePhase: self.systemScenePhase,
-            injectedPowerMode: EffectsPowerMode.lifted(from: self.lowPowerModeOverride)
+            lowPowerModeOverride: self.lowPowerModeOverride
         ).policy
         // ⚠️ 复用 `usesGlow` 这个既有旋钮而不是另开一个：它的语义就是
         //「要不要走离屏模糊这类昂贵通道」，柔化正是同一件事。

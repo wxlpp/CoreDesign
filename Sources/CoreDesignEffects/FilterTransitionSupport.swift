@@ -152,7 +152,7 @@ nonisolated enum FilterTransitionPhase {
 
 /// 滤镜类转场的**安全档位**：两道 a11y 信号裁出来的结果。
 ///
-/// ⚠️ **刻意 `internal`**（同 `EffectsPresentation` 的理由，逐字见 `EffectsEnergy.swift`）：
+/// ⚠️ **刻意 `internal`**：
 /// 本类型只服务同模块四个转场，没有跨模块消费者；而两个解析函数一旦 `public`，
 /// 它们的裸 `Bool` 参数就会命中 `BoolExemptionGuard` 的判据、要求署名豁免并抬
 /// `docs/bool-exemptions-baseline.json` 的棘轮（`CoreDesignEffects` 当前是 0 条，
@@ -253,7 +253,7 @@ enum FilterTransitionSafety: Sendable, Equatable, CaseIterable {
     /// 把调用方请求的曝光峰值按档位压到安全范围。
     ///
     /// ⚠️ **返回的是"最终画出来的那个数"**，调用点不再自己判档位——
-    /// 这正是 `EffectsEnergyState.presentation(reduceMotion:)` 立下的那条纪律：
+    /// 这正是 `EnergyState.presentation(reduceMotion:)` 立下的那条纪律：
     /// 档位的结论物化成一个值交给绘制层，绘制层不再看见原始信号。
     func exposurePeak(_ requested: Double) -> Double {
         let sane = FilterTransitionPhase.clamped01(requested)

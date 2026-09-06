@@ -94,7 +94,7 @@ public struct FilmExposureTransition: Transition {
 
 /// 读环境、裁档位，把**结论**（一个已经压过的峰值）交给绘制层。
 ///
-/// ⚠️ **绘制层不再看见原始信号**——这正是 `EffectsEnergyState.presentation(reduceMotion:)`
+/// ⚠️ **绘制层不再看见原始信号**——这正是 `EnergyState.presentation(reduceMotion:)`
 /// 立下的纪律：档位的结论物化成一个值，调用点不许自己再判一遍。
 /// 判据：`FilterTransitionTests.safetySignalsAreOnlyConsumedByTheSharedGate`
 ///（本文件里 `self.dimFlashingLights` 的出现次数必须恰等于喂给
