@@ -7,10 +7,15 @@
 > `v0.5.0`（2026-07-24，文本入参统一——含破坏性变更）、
 > `v0.6.0`（2026-07-25，Separator.Inset 改名 + ProgressBar 弃用 + SettingsRowMetrics 公开——含破坏性变更）、
 > `v0.7.0`（2026-07-26，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning + 收口的取色修正——纯新增，无破坏性变更）、
-> `v0.8.0`（2026-08-16，`component-contract` epic：把 5 组压扁成 Bool 的 API 还原成语义类型——**含破坏性变更**）。
-> 本文件早期版本曾写「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
+> `v0.8.0`（2026-08-16，`component-contract` epic：把 5 组压扁成 Bool 的 API 还原成语义类型——**含破坏性变更**）、
+> `v0.9.0`（2026-09-01，形态 D2 扩展点落地（`#59` / `#60` / `#64` / `#65`）+ 守卫（`#48`）+
+> 可达类型登记表（`#72` / `#216`）：7 个已有 init / modifier 各加一个带默认值的形态参数
+> ——**对已应用调用点零影响，但对未应用的函数引用是破坏性变更**）。
+> ⚠️ 本清单**失真过两次**：早期版本写「本库当前无外部版本 tag」（`v0.1.0` 之前成立、之后未同步）；
+> 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
+> 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
-## 未发布（画廊场景化配色 PR）
+## 未发布（相对 `v0.9.0`）——画廊场景化配色 PR
 
 **纯新增 + 一处行为变更 + 一处已修正的观感回归。**
 
@@ -49,7 +54,7 @@
 
 ---
 
-## 未发布（`coredesign-leftover-closeout` epic，Issue #220）
+## 未发布（相对 `v0.9.0`）——`coredesign-leftover-closeout` epic，Issue #220
 
 **对下游编译零感知，仅改观感。** 不删除、不重命名任何公开符号；三处「同名换值」。
 
@@ -89,6 +94,129 @@
 > fallback RGBA，故 macOS 侧刻意不解析、只比 `Color` 承载的 `NSColor` 是否同一常量。已知的相等项均为系统色族的物理下限，已钉成显式断言：iOS 浅色 `.canvas == .sidebar`；macOS 下 `.content` / `.card` / `.grouped` / `.canvasSubtle` / `.sidebar` 五路同落 `controlBackgroundColor`；全平台 `.overlay == .panel`（二者走同一 token，border 与 radius 也相同）。
 
 > **本条只担保「解析值不同」，不担保「肉眼可辨」**。三档填充的 RGB 几乎相同、只靠 α 区分，逐位判据会平凡通过；观感结论由视觉复核（Issue #225）给出。
+
+## `0.9.0`（形态参数化：7 个 API 各加一个带默认值的形态参数，2026-09-01）
+
+**含破坏性变更 —— 但只对一种调用形态。** 删除 **7 条 public 声明**、新增 56 条。
+本节清单**不是凭 diff 印象写的**：由 `scripts/api-surface-diff.sh` 从 `v0.8.0` 与 `v0.9.0`
+各提取一次 public 表面后做集合差得出（比较键是 `(usr, declAttributes)`，见该脚本文件头
+「不要把比较器换回 `swift-api-digester -diagnose-sdk`」那段——它是**破坏性变更检测器**，
+新增声明一行都不报）。`v0.8.0..v0.9.0` 共 143 个提交。
+
+复现：
+
+```bash
+git worktree add /tmp/cd-v090 --detach v0.9.0
+cp <本仓>/scripts/api-surface-diff.sh /tmp/cd-v090/scripts/   # v0.9.0 的树上 scripts/ 已存在
+( cd /tmp/cd-v090 && bash scripts/api-surface-diff.sh v0.8.0 )
+git worktree remove --force /tmp/cd-v090                      # worktree 记录留在调用者仓库里，要清
+```
+
+（`api-surface-diff.sh` 是 `#245` 之后才加的，v0.9.0 的树上没有该文件，需拷进去。）
+
+⚠️ **本块只覆盖 `CoreDesign` 一个模块**（脚本的 `MODULE` 默认值）。对 v0.9.0 是完整的
+——`v0.8.0` 与 `v0.9.0` 的 `Package.swift` **都只有一个 library product**，多 target 是
+v0.9.0 之后才拆的。⇒ **下一个版本照抄本块会静默只测三分之一**，多 product 之后须
+`MODULE=CoreDesignEffects bash …` 之类对每个 module 各跑一次。
+
+### 本次无同名换值 / 行为变更
+
+⚠️ **上面那个脚本对这一类结构性失明**：它比的是 `(usr, declAttributes)`，
+符号名与签名不变的取值 / 观感变更**一条都不报**——与本文件后面警告的
+`downstream-probe` 盲区同型。所以「跑了脚本」不等于「全查过」。以下是另行查证的结果：
+
+- `git diff --name-only v0.8.0 v0.9.0 -- Sources/` 共 **7 个文件**：`AvatarGroup` /
+  `Sidebar` / `Steps` / `Timeline` / `Toast` 五个组件 + `SpinningModifier` +
+  `en.lproj/Localizable.stringsdict`；**`Tokens/` 与 `Colors/` 零改动**。
+- `Timeline.nodeColumnWidth` **取值**仍是 24（声明多了 `nonisolated`，值未动）；
+  `AvatarGroup` 的 `overlapOffset`（−6 / −8 / −10）与 `avatarSize`（20 / 24 / 32 / 40）
+  两张 ramp 表逐行相同。
+- 20 个新 enum case **全部归属那 6 个新枚举**，既有 public enum 一个 case 都没加
+  ⇒ `0.8.0` 节里 `SurfaceKind.grouped` 那条「加 case 打断下游穷尽 switch」的坑本次不适用。
+
+### 主题：把「只有一种长相」的组件参数化成多形态
+
+7 处删除同源——都是给已有的 init / modifier **插入一个带默认值的形态参数**，
+并配套新增一个语义枚举：
+
+| v0.8.0 | v0.9.0 | 新增的形态枚举 |
+|---|---|---|
+| `AvatarGroup.init(max:avatars:)` | `init(max:layout:avatars:)` | `AvatarGroupLayout`（`overlapped` / `spaced` / `grid` / `countOnly`） |
+| `Timeline.init(items:)` | `init(items:layout:)` | `TimelineLayout`（`vertical` / `alternate` / `horizontal` / `grouped`） |
+| `Steps.init(items:currentIndex:axis:indicatorStyle:)` | `…:presentation:)` | `StepsPresentation`（`steps` / `segmentedBar` / `navigation` / `text`） |
+| `SidebarUtilityRow.init(systemImage:title:trailingSystemImage:action:)` | `…:trailingSystemImage:presentation:action:` | `SidebarUtilityRowPresentation`（`iconLeading` / `textOnly`） |
+| `SpinningModifier.init(isActive:text:)` | `init(isActive:text:presentation:)` | `SpinningPresentation`（`overlay` / `topBar` / `inline`） |
+| `View.spinning(_:text:)` | `spinning(_:text:presentation:)` | 同上 |
+| `View.toastHost(edge:)` | `toastHost(edge:presentation:)` | `ToastPresentation`（`floatingCapsule` / `fullWidthBanner` / `centeredHUD`） |
+
+### 迁移：绝大多数调用方**不需要改任何东西**
+
+新参数都带默认值，且默认值就是 v0.8.0 的行为 ⇒ **已应用**的调用点逐字不动即可编译。
+
+⚠️ **唯一会红的是「未应用」的函数引用**（把 init / 方法当一等函数值传递）。实测：
+
+```swift
+// v0.8.0 上通过，v0.9.0 上硬红
+let items: [TimelineItem] = []
+let make: ([TimelineItem]) -> Timeline = Timeline.init
+_ = make(items)
+```
+
+报错形态：
+
+```
+cannot convert value of type '([TimelineItem], TimelineLayout) -> Timeline'
+                 to specified type '([TimelineItem]) -> Timeline'
+```
+
+⚠️ **前缀随调用方的隔离语境变，别拿上面这行逐字 grep 自己的报错**（三种语境实测）：
+
+| 调用方语境 | 报错里的类型 |
+|---|---|
+| nonisolated | `([TimelineItem], TimelineLayout) -> Timeline` |
+| `@MainActor` | `@MainActor ([TimelineItem], TimelineLayout) -> Timeline` |
+
+**迁移写法**：改成显式闭包，把默认值补齐。
+
+```swift
+let make: ([TimelineItem]) -> Timeline = { Timeline(items: $0) }
+```
+
+⚠️ **两处参数是插在中间而不是追加的**（`init(max:` **`layout:`** `avatars:)`、
+`…trailingSystemImage:` **`presentation:`** `action:`），对已应用的调用点仍无影响。
+⚠️ 理由**不是**「Swift 按标签匹配」——**那是假的**，实测
+`S(currentIndex: 0, items: [])` 报 `argument 'items' must precede argument 'currentIndex'`。
+真实理由是：**插入保持了原有标签之间的相对顺序**，且新参数有默认值可省略。
+（照「按标签匹配」推会得出「签名随便重排也安全」这个相反结论，故此处写明。）
+
+⚠️ 未应用引用的破坏面里，现实中真会被伤到的是 `Timeline.init` 与
+`SidebarUtilityRow.init`；`AvatarGroup.init` 的 `avatars` 是
+`@ViewBuilder … @escaping () -> Avatars` 且类型泛型于 `Avatars`，几乎不会有人对它做未应用引用。
+
+### 新增（非破坏）
+
+| 构成 | 数 |
+|---|---|
+| 6 个语义枚举（`TypeNominal`） | 6 |
+| 它们的 enum case | 20 |
+| `hashValue` / `hash(into:)` / `__derived_enum_equals`（各 6） | 18 |
+| `AllCases` / `allCases`（只有 `ToastPresentation` 与 `SidebarUtilityRowPresentation` 是 `CaseIterable`） | 4 |
+| 新签名的 init | 5 |
+| 新签名的 modifier（`spinning` / `toastHost`） | 2 |
+| **`SpinningModifier.presentation`** | **1** |
+| 合计 | **56** |
+
+⚠️ 最后一条容易漏：`SpinningModifier` 是六个组件里**唯一**把形态参数也暴露成
+`public let` 的，其余五个的对应存储属性是 internal、根本不进 dump。
+⇒ 下游多了一个可读的公开属性。
+
+> **为什么是一次 minor 而不是 1.0.0**：本库 0.x 阶段以 minor 携带破坏性变更，
+> `v0.3.0`（6 个组件删除 + `Blossom` trait 删除 + 9 个字体 token 改名，见下方该节自述）、
+> `v0.5.0` / `v0.6.0` / `v0.8.0` 已有**四次**先例。
+> ⚠️ `0.8.0` 节写的「已有两次先例」同样少算了 `0.3.0`；头部 tag 清单里 `v0.3.0`
+> 也没有「含破坏性变更」标记，与该节自述冲突——**既存不一致，本次未收**。
+
+---
 
 ## `0.8.0`（`component-contract` epic 试点改造，2026-08-16）
 
