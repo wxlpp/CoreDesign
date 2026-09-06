@@ -42,27 +42,63 @@ CheckoutSummary()
 本效果走的是共享降级**形态 2**（保留"长什么样"、去掉运动，**不再叠透明度脉冲**——
 静态层本身就是一次淡入淡出，叠脉冲就是两次反馈）。
 
-⚠️ **静态层没有自己的计时器**：它的可见时长与正常 burst 共用同一个状态机
-（`ConfettiBurst.duration`，两端各一次 `staticFadeDuration` 的淡入淡出），
-由 `ConfettiCore` 的 `burstStart` 驱动。上一版它自带 `@State` + `.task(id: fire)`，
-而那个分支会随 `scenePhase` 出现/消失 ⇒ 开启「减弱动态效果」的用户**每次从后台切回
-App 都会重放一次庆祝**（PR #269 第 2 轮修的正是这条）。
+⚠️ **静态层没有自己的计时器**：它由 `ConfettiCore` 的 `burstStart` 驱动，自身是 `active`
+的纯函数。上一版它自带 `@State` + `.task(id: fire)`，而那个分支会随 `scenePhase`
+出现/消失 ⇒ 开启「减弱动态效果」的用户**每次从后台切回 App 都会重放一次庆祝**
+（PR #269 第 2 轮修的正是这条）。
 
-⚠️⚠️ **副产品：静态庆祝比上一版长了 52%，且这个取值尚未被裁决**（PR #269 第 4 轮 S2-4）。
+**停留时长按呈现档位取**（`ConfettiBurst.holdDuration(presentation:)`，`#272`）：
+计时器仍然只有一个、仍然长在 `ConfettiCore` 上，只是它 sleep 多久由档位决定。
 
-| | 旧（静态层自带计时器） | 现在（共用 `duration`） |
+| 档位 | 停留终点 | 完全消失于 |
 |---|---|---|
-| 常量 | `staticHoldDuration = 1.2` + `staticFadeDuration = 0.35` | `ConfettiBurst.duration = 2.0` + `staticFadeDuration = 0.35` |
-| **完全消失于** | **1.55 s** | **2.35 s**（+52%） |
+| **`.resting`**（Reduce Motion，静态层） | `staticHoldDuration = 1.2` | **1.55 s** |
+| `.animated`（`ConfettiLayer`） | `ConfettiBurst.duration = 2.0` | 2.0 s |
 
-**口径**：淡入的 0.35 s 与"停留"是**重叠**的（`.opacity` 从 0 动到 1 的同时停留计时已在走），
-⇒ 完全消失 = `duration + staticFadeDuration`；淡出那一段在 `active` 转 `false` 之后才开始。
-⚠️ `duration = 2.0` **不是可见时长**，它是 `active` 停留的终点——拿它直接比 1.55 s
-会得到 +29%，那个数是错的。
+⚠️ **喂给 `holdDuration` 的那个档位不是 `body` 里裁决「画什么」的那个**：它是
+`EnergyState(scenePhase: .active, isLowPower: state.isLowPower).presentation(reduceMotion:)`
+——**把 scenePhase 钉成 `.active` 再过一遍同一个共享闸**，于是它永远只会是 `.resting`
+或 `.animated`，`.hidden` 落不到 `holdDuration` 上。理由见下方《为什么时长要避开能耗闸》。
+⚠️ **`isLowPower` 今天不参与档位**：`presentation(reduceMotion:)` 只看
+`policy.drawsAnything`，而那只看 `scenePhase == .active` ⇒ 这一行今天恒等于
+`reduceMotion ? .resting : .animated`。传真实值而不是 `false`，只为「将来共享闸的口径变了
+这里跟着变」——**不是**因为低电量影响时长。
 
-这是**删掉独立常量之后落到的结果**，不是一次设计裁决；已上报，**待裁决**。
-（若最终要给静态层单独一条时长：**不得**把计时器还给静态层——那正是上面那条"后台往返即
-重放"的成因——只能由 `ConfettiCore` 的状态机按呈现档位取不同的 sleep 时长。）
+**口径**：`staticFadeDuration = 0.35` 只挂在**静态层**的 `.opacity` 动画上；淡入那 0.35 s
+与「停留」是**重叠**的（`.opacity` 从 0 动到 1 的同时停留计时已在走）⇒ 静态层完全消失
+= 停留终点 + `staticFadeDuration`。⚠️ 停留终点**不是可见时长**——拿 `1.2` 直接当可见
+时长会少算一次淡出。
+⚠️ **动画层没有这一层**：`ConfettiLayer` 在 `burstStart` 转 `nil` 时**无过渡地**从
+`if let` 分支移除，且 `ConfettiBurst.opacity` 在 `progress >= particle.lifetime`（≤ 1.0）
+时已返回 0 ⇒ t = 2.0 时画面本就空了。**别把 2.35 s 记到它头上。**
+
+#### 为什么时长要避开能耗闸
+
+⚠️ **档位在 burst 起点一次定死，中途不重算**：`.task(id:)` 的语义是「`id` 变化时取消并
+重启」，`id` 不变的后续 body 求值生成的新闭包**不会**被执行 ⇒ `hold` 取的是**点下去
+那一刻**的档位。
+
+若直接把 `body` 里那个带能耗闸的 `presentation` 喂给 `holdDuration`，就会出现这条坏形态：
+burst 恰在 `.inactive` / `.background`（来电、通知横幅、切走再切回都会短暂经过）触发
+⇒ 档位是 `.hidden` ⇒ `hold` 被定死成 2.0 s ⇒ 回到前台后若 Reduce Motion 开着，
+静态层仍然到 **2.35 s** 才消失，正是本 issue 要修的那个数。
+⇒ 时长走**把 scenePhase 钉成 `.active`** 的那一遍闸；能耗闸只管画不画，不管画多久。
+这与本文件下方《状态机挂在能耗闸之外：进后台只是不画，burst 的计时照走》是同一条原则。
+
+⚠️ **不能改成让 `holdDuration` 直接收 `reduceMotion:`**（那样 `.hidden` 也不必挑取值）：
+`ReduceMotionGuard.reduceMotionIsOnlyConsumedByTheSharedGate` 要求走能耗闸的文件里
+`self.reduceMotion` 出现几次就得有几次是喂给 `EnergyState.presentation(reduceMotion:)` 的，
+且不许出现裸的 `reduceMotion` —— 实测那个写法当场判红。
+⚠️ **但那条判据挡的是写法，不是「把闸再过一遍」**：上面这个形态里
+`self.reduceMotion` 读 2 次、喂 2 次，判据全绿。
+
+⚠️ **历史（别再走一遍）**：`#269` 把 RM 与正常路径合并进同一个状态机时删掉了
+`staticHoldDuration`，静态层因此与 burst 共用 `duration`，完全消失时刻由 1.55 s 变成
+2.35 s（**+52%**）。那是修 C-1 的副产品、不是裁决——对一个在系统设置里明确要求「减弱
+动态效果」的用户，把纯装饰覆盖层的可见时长拉长一半与该设置的意图相反。`#272` 改回
+1.55 s 的方式是上面那条：**不得**把计时器还给静态层——那正是「后台往返即重放」的成因。
+给 `ConfettiStaticCelebration` 加一个 `@State` 会被 `confettiKeepsOneShapeAcrossScenePhase`
+判红（变异实证见 PR 正文）。
 
 ## 后台与低电量（NFR-7）
 
@@ -151,14 +187,17 @@ RM 用户每次后台往返都重放一次庆祝；**被 `.confetti` 包住的�
 ### burst 结束后没有常驻调度
 
 驱动彩纸的是 `TimelineView(.animation)`（不是 `Timer` / `CADisplayLink`）。
-burst 起始时刻存在 `@State var burstStart: Date?` 里，`ConfettiBurst.duration`（2 s）之后
-被清成 `nil`，**整个 `TimelineView` 分支随之从视图树里消失**——不是"建了但 `paused: true`"。
+burst 起始时刻存在 `@State var burstStart: Date?` 里，`ConfettiBurst.holdDuration(presentation:)`
+之后被清成 `nil`（`TimelineView` 只在 Reduce Motion **关**的分支里构造 ⇒ 对它而言就是
+`ConfettiBurst.duration` = 2 s），**整个 `TimelineView` 分支随之从视图树里消失**
+——不是"建了但 `paused: true`"。
 
 ⚠️ 已知覆盖限度：`ImageRenderer` 拍的是静态帧，"两秒后那个节点真的消失了"**没有**
 端到端的机器判据（`.task` 在 macOS 的 `ImageRenderer` 下不跑；iOS Simulator 下会被调度，
 但落点不确定，拿它当判据只会得到一条随机判红的测试）。机器守住的是三段结构
 （全文件只有一处 `TimelineView(`、它只在 `switch presentation` 的 `.animated` 分支里
-对 `burstStart` 做 `if let` 时被构造、状态机等的是 `ConfettiBurst.duration` 且随后清空），
+对 `burstStart` 做 `if let` 时被构造、状态机等的是 `ConfettiBurst.holdDuration(presentation:)`
+算出的那个 `hold` 且随后清空），
 加上两条渲染判据：
 "没有 burst 时与裸视图逐字节相同"，以及"burst 早已结束的那一帧与空基线逐字节相同"。
 
