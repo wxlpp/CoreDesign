@@ -9,6 +9,7 @@ public struct NetworkGraph<Node: GraphNode>: View {
     public typealias Edge = GraphEdge<Node.ID>
 
     /// 建议的节点上限。
+    /// ⚠️ 「建议」不是软约束：超限即**截断**多余节点并关掉力导向解算器（退化为静态环形）。
     public nonisolated static var recommendedNodeLimit: Int { 150 }
 
     private let nodes: [Node]
@@ -58,6 +59,7 @@ public struct NetworkGraph<Node: GraphNode>: View {
     nonisolated static var centeringStrength: Double { 0.10 }
 
     /// 建议的**边数**上限。
+    /// ⚠️ 超限即**静默丢弃**多余的边，且**边超限会连带关掉力导向**——节点没超限时也关。
     public nonisolated static var recommendedEdgeLimit: Int { 600 }
 
     private func effectiveEdges(visibleIn visible: Set<Node.ID>) -> [Edge] {

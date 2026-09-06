@@ -160,6 +160,7 @@ public enum SidebarUtilityRowPresentation: Sendable, Equatable, CaseIterable {
     /// 默认：leading 字形 + 标题（现状形态）。
     case iconLeading
     /// 纯文字行：**不渲染 leading 字形、也不占位**。
+    /// ⚠️ 本形态下 `systemImage` **静默不生效**——传了不是错误，只是无效。
     case textOnly
 }
 

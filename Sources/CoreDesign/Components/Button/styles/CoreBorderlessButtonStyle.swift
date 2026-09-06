@@ -4,6 +4,9 @@ import SwiftUI
 // MARK: - CoreBorderlessButtonStyle
 
 /// 无边框 / 无背景按钮样式。
+///
+/// ⚠️ `Core` 前缀是为避开 SwiftUI 同名的 `BorderlessButtonStyle`——去掉前缀后下游
+/// **仍能编译**，但静默拿到 SwiftUI 的那个。不要为了「简洁」去掉它。
 public struct CoreBorderlessButtonStyle: PrimitiveButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -38,6 +41,11 @@ public struct CoreBorderlessButtonStyle: PrimitiveButtonStyle {
 
 public extension PrimitiveButtonStyle where Self == CoreBorderlessButtonStyle {
     /// 以指定 role 构造无边框按钮样式。
+    ///
+    /// ⚠️ **调用时必须带括号。** 本访问器名与 SwiftUI 自带的
+    /// `PrimitiveButtonStyle.borderless` 重合，两者只差一对括号、都能编译且无诊断：
+    /// `.buttonStyle(.borderless)` 拿到的是 **SwiftUI 的**样式，
+    /// `.buttonStyle(.borderless())` 才是本样式。
     ///
     /// - Parameter role: 角色色板（默认 `.primary`）。仅决定 label 文字颜色。
     /// - Returns: `CoreBorderlessButtonStyle` 实例，可直接传给 `.buttonStyle(...)`。

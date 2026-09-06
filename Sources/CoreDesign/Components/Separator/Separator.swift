@@ -7,6 +7,8 @@ public struct Separator: View {
     /// 分隔线的 leading 缩进方式。
     public enum Inset: Equatable, Sendable {
         /// 无缩进，分隔线贯穿父容器整宽。
+        /// ⚠️ 命名为 `edgeToEdge` 而非 `none` 是有意的：调用方持有 `Inset?` 时写 `.none`
+        /// 会静默解析成 `Optional.none`。不要改名。
         case edgeToEdge
         /// 从 leading 缩进指定量（pt）。
         case leading(CGFloat)
