@@ -11,6 +11,7 @@
 | (none) | - | - | `init()`，不带文案；通过 `.controlSize(_:)` 调整尺寸 |
 | text | `LocalizedStringKey` | - | `init(text:)`，静态文案，在 `Bundle.main` 本地化 |
 | text | `some StringProtocol` | - | `init(text:)`，运行期字符串文案，verbatim 显示（`@_disfavoredOverload`，字面量优先落到 `LocalizedStringKey` 重载） |
+| tint | `Color` | `.accent` | spinner 取色。⚠️ **必须走这个参数**——本组件对系统 `ProgressView` 显式设 tint，内层恒胜外层，调用方外加的 `.tint(_:)` 会被**静默吞掉**（实测：外加 `.tint(.orange)` 时 spinner 仍是强调色、橙色零像素） |
 
 三个 init 均保留既有 `accessibilityLabel("Loading")` 语义——带文案时，可视文案对 VoiceOver `.accessibilityHidden(true)`，避免与 label 双重播报。
 
@@ -42,7 +43,8 @@ HStack {
 
 ## 视觉 Token
 
-- Tint：`Color.accent`（**FR-3a 例外**：本文件是 epic 内唯一直接包装系统 `ProgressView` 的组件，显式写 `.tint(Color.accent)` 而非走 `.tint` 环境取色——SC-5 的静态核对「无字面 `Color.accent`」对本文件豁免，详见 `.claude/epics/semi-mobile-components/172.md` Technical Details）
+- Tint：默认 `Color.accent`，可经 `tint:` 参数覆盖（**FR-3a 例外**：本文件是 epic 内唯一直接包装系统 `ProgressView` 的组件，显式设 tint 而非走 `.tint` 环境取色——SC-5 的静态核对「无字面 `Color.accent`」对本文件豁免，详见 `.claude/epics/semi-mobile-components/172.md` Technical Details）。
+  ⚠️ **不能改成「不设 tint、让环境流过」**：`ProgressView(.circular)` 的系统默认色是**灰**不是 accent，实测那样改会把默认观感从强调色变成灰，对下游是回归。
 - 尺寸：跟随 `\.controlSize`（mini / small / regular / large / extraLarge）
 - 文案：`.coreFont(.footnote)` + `Color.contentSecondary`，spinner 与文案间距 `CoreSpacing.sm`
 - 可访问性：`accessibilityLabel("Loading")`
