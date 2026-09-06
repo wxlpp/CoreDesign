@@ -255,11 +255,16 @@ nonisolated enum GuardScanRoots {
     ///      ⇒ **快中、慢不中**；
     ///   4. 两端经 `standardizedFileURL` 之后仍对不上前缀 ⇒ **快必不中**；
     ///      **慢中与否另说**——取决于 `resolvingSymlinksInPath()` 能否把两端拉回一致。
-    ///      它只对**真实存在**的路径解析符号链接、并做大小写归一；路径不存在时
+    ///      它只对**真实存在**的路径解析符号链接（大小写归一另需卷本身不敏感）；路径不存在时
     ///      **两趟都不中** ⇒ 落兜底那一支（实测：大小写不同 + 路径存在 ⇒ 慢中；
     ///      同样大小写不同但路径不存在 ⇒ 两趟都 `nil`）。
-    ///      成员含：存在性不同、大小写不同、firmlink，以及 `SymlinkedScanRootFixture`
-    ///      那个「**根侧祖先是符号链接**」的形状 ——
+    ///      **已实测的成员**：大小写不同（⚠️ 只在**大小写不敏感的卷**上成立——本机
+    ///      实测如此，case-sensitive APFS 上未验），以及 `SymlinkedScanRootFixture`
+    ///      那个「**根侧祖先是符号链接**」的形状。
+    ///      ⚠️ **「存在性不同」不属于本类**：同拼法下只有一端存在时，实测**两趟都中**
+    ///      （`fast = slow = ZZnope.swift`）—— 上一版把它列进来是错的。
+    ///      ⚠️ firmlink **未实测**，不列为成员。
+    ///      —— 那个符号链接形状是本仓最承重的：
     ///      `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 与
     ///      `ComponentJudgeScannerPathKeyTests.componentJudgeKeysAreImmuneToSymlinkDivergence`
     ///      两条真实 fixture 判据正靠它活着（上一版四类里没有这一格）。
