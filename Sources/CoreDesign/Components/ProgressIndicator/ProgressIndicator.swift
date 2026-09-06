@@ -29,23 +29,40 @@ public struct ProgressIndicator: View {
     // `@testable import` 断言文案存储正确性（AC「新 init 的文案存储正确性」）。
     let text: Text?
 
-    /// 原有形态：无文案，签名不变（NFR-6 无破坏）。
-    public init() {
+    /// spinner 取色。
+    ///
+    /// ⚠️ **必须是参数、不能靠调用方外加 `.tint(_:)`**：本组件对系统 `ProgressView`
+    /// 显式写 `.tint(...)`（见 `body` 里那段），内层 tint 恒胜外层 ⇒ 外加的
+    /// `.tint(_:)` 会被**静默吞掉**。实测：外层 `.tint(.orange)` 时 spinner 仍渲染
+    /// 成强调色蓝、橙色零像素。
+    /// ⚠️ **也不能改成「不设 tint、让环境流过」**：`ProgressView(.circular)` 的系统
+    /// 默认色是**灰**不是 accent ⇒ 那样改会把默认观感从蓝改成灰（实测），是下游回归。
+    let tint: Color
+
+    /// 原有形态：无文案。
+    /// ⚠️ **签名变了**：新增的 `tint` 带默认值 ⇒ **已应用**的调用点（`ProgressIndicator()`）
+    /// 零影响，但**未应用**的 `.init` 引用会硬破坏（实测
+    /// `let f: () -> ProgressIndicator = ProgressIndicator.init` 报
+    /// `cannot convert value of type '(Color) -> …' to specified type '() -> …'`）。
+    public init(tint: Color = .accent) {
         self.text = nil
+        self.tint = tint
     }
 
     /// 静态文案——字面量在 `Bundle.main` 本地化（对 App 调用方即其自身 bundle），
     /// 渲染于 spinner 下方。
-    public init(text: LocalizedStringKey) {
+    public init(text: LocalizedStringKey, tint: Color = .accent) {
         self.text = Text(text)
+        self.tint = tint
     }
 
     /// 运行期字符串文案（数据来的进度说明等），verbatim 显示、不走本地化查表。
     /// `@_disfavoredOverload` 避免与 `LocalizedStringKey` 重载产生调用方歧义，
     /// 参照 `InsetGroupedSection` 的 `header`/`footer` 双 init 模式。
     @_disfavoredOverload
-    public init<S: StringProtocol>(text: S) {
+    public init<S: StringProtocol>(text: S, tint: Color = .accent) {
         self.text = Text(text)
+        self.tint = tint
     }
 
     @Environment(\.controlSize) private var controlSize
@@ -55,11 +72,12 @@ public struct ProgressIndicator: View {
             ProgressView()
                 .progressViewStyle(.circular)
                 // FR-3a 例外（Issue #172，唯一例外，见 172.md Technical Details）：
-                // 显式 `Color.accent`——避免在 `tint(_:)` 多个 ShapeStyle 重载之间
-                // 解析到 SwiftUI 自带的环境 accent，而不是 CoreDesign 的 `Color.accent`。
-                // SC-5「无字面 Color.accent」的静态核对对本文件豁免；新增 init
-                // 重载延续这一写法，不改为 `.tint` 环境取色。
-                .tint(Color.accent)
+                // 显式设 tint——避免在 `tint(_:)` 多个 ShapeStyle 重载之间解析到
+                // SwiftUI 自带的环境 accent，而不是 CoreDesign 的 `Color.accent`。
+                // SC-5「无字面 Color.accent」的静态核对对本文件豁免。
+                // 默认值 `.accent` 在 `init` 上，调用方要换色走 `tint:` 参数
+                // ——理由见 `tint` 属性的文档注释。
+                .tint(self.tint)
                 .controlSize(self.controlSize)
                 // 带文案时播报文案本身（更具体），不带文案时回退到通用 "Loading"
                 // 键（Phase 3 / #173 收口项：此前恒播 "Loading"，文案态下 VoiceOver

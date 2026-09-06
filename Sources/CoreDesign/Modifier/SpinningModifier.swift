@@ -48,8 +48,11 @@ public enum SpinningPresentation: Sendable, Equatable {
 ///
 /// **不直接包装系统 `ProgressView`**——遮罩内的 loading 视觉复用已经处理好
 /// tint 的 `ProgressIndicator` 组件（本 Issue 第一部分产出），因此本文件**不落入**
-/// `ProgressIndicator.swift` 的 FR-3a 例外范围：本文件若需要强调色，须正常走
-/// `.tint`（当前实现无此需求）。
+/// `ProgressIndicator.swift` 的 FR-3a 例外范围。
+/// ⚠️ 本段曾写「本文件若需要强调色，须正常走 `.tint`（当前实现无此需求）」——现在有此需求
+/// 且**有意不走环境 `.tint`**：取色统一经 `tint:` 参数逐层透传（`SpinningModifier` →
+/// `ProgressIndicator` / `TopBarIndicator`），三个形态一致。理由与代价见 `View.spinning`
+/// 的参数文档与《为什么自绘》第 2 条。
 ///
 /// ```swift
 /// ContentView()
@@ -65,6 +68,9 @@ public struct SpinningModifier: ViewModifier {
     public let isActive: Bool
     public let text: LocalizedStringKey?
     public let presentation: SpinningPresentation
+    /// spinner 取色，透传给 `ProgressIndicator`。⚠️ 不能靠外加 `.tint(_:)`
+    /// ——理由见 `ProgressIndicator.tint`。
+    public let tint: Color
 
     /// - Parameters:
     ///   - isActive: 是否显示。
@@ -75,11 +81,13 @@ public struct SpinningModifier: ViewModifier {
     public init(
         isActive: Bool,
         text: LocalizedStringKey? = nil,
-        presentation: SpinningPresentation = .overlay
+        presentation: SpinningPresentation = .overlay,
+        tint: Color = .accent
     ) {
         self.isActive = isActive
         self.text = text
         self.presentation = presentation
+        self.tint = tint
     }
 
     public func body(content: Content) -> some View {
@@ -102,7 +110,7 @@ public struct SpinningModifier: ViewModifier {
         content
             .overlay(alignment: .top) {
                 if self.isActive {
-                    TopBarIndicator()
+                    TopBarIndicator(tint: self.tint)
                         .transition(.opacity)
                 }
             }
@@ -160,9 +168,9 @@ public struct SpinningModifier: ViewModifier {
     @ViewBuilder
     private var indicator: some View {
         if let text = self.text {
-            ProgressIndicator(text: text)
+            ProgressIndicator(text: text, tint: self.tint)
         } else {
-            ProgressIndicator()
+            ProgressIndicator(tint: self.tint)
         }
     }
 }
@@ -179,9 +187,11 @@ public struct SpinningModifier: ViewModifier {
 ///    包一个进来，这三处当场失真。
 /// 2. **会让同一个 API 的两个形态对 `.tint` 的响应分裂**。FR-3a 的成因正是「包装系统
 ///    `ProgressView` 时 `.tint(_:)` 的重载解析落到 SwiftUI 环境 accent 而非本库 accent」；
-///    `.overlay` 走 `ProgressIndicator`（其内显式 `.tint(Color.accent)`）。于是
-///    `.spinning(true, presentation: .topBar).tint(.orange)` 变橙、`.overlay` 不变 —— 同一
-///    modifier 的两个形态行为不一致，且无人定案。
+///    `.overlay` 走 `ProgressIndicator`（其内显式设 tint）。⚠️ **这条论据的举例已经过期**：
+///    当时 `.topBar` 从环境取色 ⇒ `.spinning(true, presentation: .topBar).tint(.orange)`
+///    变橙而 `.overlay` 不变。现在三个形态统一吃 `tint:` 参数、都**不**响应外层
+///    `.tint(_:)`（代价见 `View.spinning` 的文档）。分裂已消除，但**方向与当时相反**
+///    ——是把 `.topBar` 拉齐到另外两个，不是反过来。
 /// 3. **`.linear` 的不确定态渲染是未定案行为**。`ProgressView()` 无 `value` 即不确定态，
 ///    而本仓自己的 `CoreProgressViewStyle` 在不确定态是**退回系统环形 spinner** 的
 ///    （见该文件文档）—— 说明「线性 + 不确定」这个组合在本仓没有确定的视觉答案。押在它
@@ -195,6 +205,12 @@ public struct SpinningModifier: ViewModifier {
 /// `offset(at:trackWidth:)` 要被 `@testable import` 的单测读到。与 `Steps.StepsProgress`
 /// 同一取舍 —— 退一档到默认 internal，仍不出现在下游可见的公开 API 表面。
 struct TopBarIndicator: View {
+    /// ⚠️ **必须由 `SpinningModifier` 透传、不能只从环境取**：只取环境时
+    /// `.spinning(..., presentation: .topBar, tint: .green)` **不报错也不变绿**，
+    /// 而 `.overlay` / `.inline` 两个形态吃这个参数 ⇒ 同一 API 三形态取色分裂，
+    /// 正是本文件《为什么自绘》第 2 条明文拒绝过的情形。
+    let tint: Color
+
     /// 扫过的亮条占轨道宽度的比例。
     static let barWidthRatio: CGFloat = 0.3
     /// 扫一趟的周期（秒）。
@@ -210,13 +226,14 @@ struct TopBarIndicator: View {
                 // 相位落在两端时条整个在视口外、被 `.clipped()` 裁掉，看上去就是**什么都没有**。
                 // 上一版正是这样：初始 `offset(x: -barWidth)` ⇒ 静态快照里 `.topBar` 完全不可见
                 // （PR #206 第 3 轮 review 预判、随后被快照实测证实）。
-                Capsule().fill(.tint.opacity(Self.trackOpacity))
+                Capsule().fill(self.tint.opacity(Self.trackOpacity))
 
                 TimelineView(.animation) { context in
                     Capsule()
-                        // ⚠️ `.tint` 不写死 `Color.accent`（FR-12 / ADR-3）—— 与 `.overlay`
-                        // 形态经 `ProgressIndicator` 得到的强调色通路保持一致。
-                        .fill(.tint)
+                        // ⚠️ 取的是**透传进来的 `tint` 参数**，不是环境 `.tint`。
+                        // 上一版写「`.tint` 不写死 `Color.accent`」会把维护者引向相反判断
+                        // （以为环境 tint 仍流过）——它不流过了，默认值就是 `.accent`。
+                        .fill(self.tint)
                         .frame(width: barWidth)
                         .offset(x: Self.offset(at: context.date, trackWidth: proxy.size.width))
                 }
@@ -263,12 +280,19 @@ public extension View {
     ///   - presentation: 呈现形态，默认 `.overlay`（现状形态）⇒ **现有调用方零影响**。
     ///     ⚠️ `.topBar` / `.inline` 是**非阻塞**形态：不禁用底层交互、不隐藏无障碍，
     ///     语义是「后台正在加载、内容仍可用」，与 `.overlay` 的「此刻不可操作」不同。
+    /// - Parameter tint: spinner / 顶条取色，**三个形态都生效**。
+    ///   ⚠️ 必须走本参数，**外加 `.tint(_:)` 三个形态一律无效**。`.overlay` / `.inline`
+    ///   是因为 `ProgressIndicator` 内层显式设 tint（FR-3a）；`.topBar` 是本次改动的
+    ///   **代价**——它原本吃环境 tint，为消除「同一 API 两形态取色分裂」而拉齐到参数通路。
     func spinning(
         _ isActive: Bool,
         text: LocalizedStringKey? = nil,
-        presentation: SpinningPresentation = .overlay
+        presentation: SpinningPresentation = .overlay,
+        tint: Color = .accent
     ) -> some View {
-        self.modifier(SpinningModifier(isActive: isActive, text: text, presentation: presentation))
+        self.modifier(
+            SpinningModifier(isActive: isActive, text: text, presentation: presentation, tint: tint)
+        )
     }
 }
 

@@ -16,21 +16,74 @@ public struct RingChart<Value: ChartValue>: View {
     private let values: [Value]
     private let goal: Double
     private let tint: Color
+    private let colors: [Color]
     private let title: LocalizedStringResource
 
     /// - Parameters:
     ///   - goal: 满环对应的值。⚠️ **不从数据里推**——活动环的语义是"完成度"，
     ///     目标是外部设定的，用数据最大值当目标会让"全部未达标"看起来像"有人满环"。
+    /// - Parameter colors: **逐环**取色，按下标轮转。默认空数组 ⇒ 退回 `tint` 的
+    ///   透明度阶梯（每内一环降 0.18）。
+    ///
+    ///   ⚠️ 透明度阶梯表达不了「每一环是一个**独立的量**」这件事：本组件的原型是
+    ///   活动三环，而活动/锻炼/站立现实中是三个不同颜色、不是同一色的三档深浅。
+    ///   同色阶梯读起来像「同一个量的三个层级」，语义相反。
+    ///   ⚠️ **不给默认彩色板**——与 `ParticleTransition` 同一条：那是品牌决定，
+    ///   由调用方给。
+    ///   ⚠️ **正交性代价**：`colors` 非空时 `tint` **完全不生效**（环体与轨道都取
+    ///   `colors`），传了不报错也不起作用。与 `SpinningModifier.text` 在 `.topBar` 下
+    ///   失效、`Steps.indicatorStyle` 在非 `.steps` 下失效是同一族处置。
     public init(
         _ values: [Value],
         goal: Double,
         title: LocalizedStringResource? = nil,
-        tint: Color = .accent
+        tint: Color = .accent,
+        colors: [Color] = []
     ) {
         self.values = values
         self.goal = goal
         self.title = title ?? .chart("Activity rings")
         self.tint = tint
+        self.colors = colors
+    }
+
+    /// 第 `index` 环的**基色**——未施加任何透明度阶梯。轨道用它。
+    ///
+    /// ⚠️ **轨道必须用基色、不能用 `ringColor(at:)`**：后者在 `colors` 为空时已经压过
+    /// 一次阶梯透明度，再 `.opacity(0.18)` 是**相乘** —— 第 6 环轨道 α 会从 0.18 掉到
+    /// 0.018（10 倍），空环底轨基本不可见，而 `docs/components/ring-chart.md` 的退化表
+    /// 逐字承诺「空环底轨仍在」。
+    /// ⚠️ `index` 只接受**非负**值：`colors` 非空时走 `index % count`，负数会 trap。
+    nonisolated func ringBaseColor(at index: Int) -> Color {
+        self.colors.isEmpty ? self.tint : self.colors[index % self.colors.count]
+    }
+
+    /// 第 `index` 环**轨道**的颜色。
+    ///
+    /// ⚠️ 取**基色**再压 0.18：`ringColor(at:)` 在 `colors` 为空时已压过阶梯，再压是相乘
+    /// （C-1：第 6 环轨道 α 会从 0.18 掉到 0.018）。本方法把这个表达式收成**唯一真源**，
+    /// `rings` 只调用它 —— 目的是**消除重复**，不是让判据能抓住调用点（见下）。
+    /// ⚠️ **判据抓不到调用点**：`rings` 是 `private` + 返回 `some View`，结构上测不到。
+    /// 实测把 `rings` 里的调用改回 `ringColor(at:).opacity(0.18)`，
+    /// `RingChartColorsGuard` 三条**全绿 `EXIT=0`**——加了本方法之后**仍然全绿**。
+    nonisolated func trackColor(at index: Int) -> Color {
+        self.ringBaseColor(at: index).opacity(0.18)
+    }
+
+    /// 第 `index` 环**环体**的颜色。`colors` 为空时退回 `tint` 的透明度阶梯。
+    nonisolated func ringColor(at index: Int) -> Color {
+        guard !self.colors.isEmpty else {
+            // ⚠️ 透明度夹一道 0.1 地板（PR #263 Copilot 第 1 轮）。
+            // 先说事实：`recommendedRingLimit == 6` ⇒ `index ≤ 5`
+            // ⇒ 本式最小为 `1.0 - 5 × 0.18 = 0.1`，**现状下取不到负值**
+            // ——评论说的「环数多了变负」在截断存在时不可达。
+            // 仍加地板是因为上限是一个 public 计算属性、改它只需一行，
+            // 而 7 环起本式就 ≤ -0.08（`opacity` 对负值无定义）。
+            // 地板取 0.1 而不是 0：夹到 0 同样是「看不见」，与「最内环仍可辨」
+            // 的层级意图相反。最外层（index == 0）仍为 1.0，视觉层级不变。
+            return self.tint.opacity(max(1.0 - Double(index) * 0.18, 0.1))
+        }
+        return self.ringBaseColor(at: index)
     }
 
     public var body: some View {
@@ -117,20 +170,16 @@ public struct RingChart<Value: ChartValue>: View {
                     let progress = max(0, min(value.value / self.goal, 1))
 
                     ZStack {
+                        // ⚠️ 轨道用本环的**基色**压透明度：逐环配色下共用 `tint` 会让
+                        // 三条轨道与三条环体不同族；而用 `ringColor(at:)` 会二次相乘
+                        // ——理由见 `ringBaseColor(at:)`。`colors` 为空时本式逐字节
+                        // 等于旧的 `tint.opacity(0.18)`。
                         Circle()
-                            .stroke(self.tint.opacity(0.18), lineWidth: width)
+                            .stroke(self.trackColor(at: index), lineWidth: width)
                         Circle()
                             .trim(from: 0, to: progress)
                             .stroke(
-                                // ⚠️ 透明度夹一道 0.1 地板（PR #263 Copilot 第 1 轮）。
-                                // 先说事实：`recommendedRingLimit == 6` ⇒ `index ≤ 5`
-                                // ⇒ 本式最小为 `1.0 - 5 × 0.18 = 0.1`，**现状下取不到负值**
-                                // ——评论说的「环数多了变负」在截断存在时不可达。
-                                // 仍加地板是因为上限是一个 public 计算属性、改它只需一行，
-                                // 而 7 环起本式就 ≤ -0.08（`opacity` 对负值无定义）。
-                                // 地板取 0.1 而不是 0：夹到 0 同样是「看不见」，与「最内环仍可辨」
-                                // 的层级意图相反。最外层（index == 0）仍为 1.0，视觉层级不变。
-                                self.tint.opacity(max(1.0 - Double(index) * 0.18, 0.1)),
+                                self.ringColor(at: index),
                                 style: StrokeStyle(lineWidth: width, lineCap: .round)
                             )
                             .rotationEffect(.degrees(-90))

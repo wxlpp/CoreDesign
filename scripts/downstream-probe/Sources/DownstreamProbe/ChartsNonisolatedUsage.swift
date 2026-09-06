@@ -1,5 +1,6 @@
 import CoreDesignCharts
 import Foundation
+import SwiftUI
 
 // `CoreDesignCharts` 的 nonisolated 消费面（#247 建结构）。
 //
@@ -113,4 +114,16 @@ nonisolated func readChartScaleLimits() -> [Int] {
         NetworkGraph<ChartsProbeNode>.recommendedNodeLimit,
         NetworkGraph<ChartsProbeNode>.recommendedEdgeLimit,
     ]
+}
+
+// MARK: RingChart(colors:)（画廊场景化配色 PR）
+//
+// 逐环取色是新增的公开参数；没有 probe 引用时，删掉它或改签名 probe 照常绿。
+@MainActor
+func consumeRingChartColors() -> some View {
+    RingChart(
+        [ChartsProbeMetric(id: 0, label: "a", value: 1)],
+        goal: 10,
+        colors: [.green, .orange]
+    )
 }

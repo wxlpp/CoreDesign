@@ -25,8 +25,16 @@ public struct RingChart<Value: ChartValue>: View {
         _ values: [Value],
         goal: Double,
         title: LocalizedStringResource? = nil,
-        tint: Color = .accent
+        tint: Color = .accent,
+        colors: [Color] = []
     )
+
+    /// 逐环取色，按下标轮转。默认空数组 ⇒ 退回 `tint` 的透明度阶梯。
+    ///
+    /// ⚠️ **正交性代价**：`colors` 非空时 `tint` **完全不生效**（环体与轨道都取
+    /// `colors`），传了不报错也不起作用。
+    /// ⚠️ 轨道取的是本环的**基色**（`colors` 为空时即 `tint`）压 0.18，
+    /// 不是环体那个已经压过阶梯的成色——否则会二次相乘、第 6 环轨道 α 掉到 0.018。
 
     /// 同心环的建议上限。**超出即截断**，与 `NetworkGraph` 同一条 FR-20 原则。
     public nonisolated static var recommendedRingLimit: Int { 6 }
