@@ -1291,8 +1291,10 @@ struct PlatformSupportGuard {
         ))
         #expect(!code.contains(">.sourceID"), """
         出现了跨泛型特化的 `sourceID` 静态访问（形如 `FullScreenButton<A, B>.sourceID`）。
-        Swift 的泛型静态成员按具体特化分开 ⇒ label 与 destination 可能拿到两个不同的 id，
-        zoom 静默退化成普通 push 且无编译错误、无测试失败。
+        Swift 的泛型静态成员按具体特化分开 ⇒ label 与 destination 可能拿到两个不同的 id。
+        失效形态不是「退化成普通 push」（#277 推翻）：源找不到时 SwiftUI 照样跑 zoom，
+        只是没有锚点——起点与被点的那张卡无关。#277 实测的是「整行删掉修饰符」；
+        「id 对不上」按同一机理推断，未单独实测。两种都无编译错误、无测试失败。
         """)
         #expect(code.contains("matchedTransitionSource(id: Self.sourceID"),
                 "label 侧不再用 `Self.sourceID` —— 单一来源这条断了")
