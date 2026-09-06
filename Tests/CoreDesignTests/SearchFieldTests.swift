@@ -28,8 +28,6 @@ struct SearchFieldL10nTests {
     @Test("placeholder 为空时，清除按钮的可访问名内外层都走 catalog")
     func clearLabelLocalizesBothLayers() {
         let label = SearchField.clearLabel(for: "")
-        // 外层位置键 "Clear %@" + **插值内层** 的 "search" fallback。
-        // 内层那个是按行扫描的守卫看不见的形态——本断言是它唯一的运行时覆盖。
         #expect(label == "Clear search", "内外层未都走 catalog：\(label)")
     }
 

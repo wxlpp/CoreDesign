@@ -1,15 +1,7 @@
-//
-//  CoreMenuButton.swift
-//  CoreDesign
-//
-//  Created by Evan Wang on 2026/3/31.
-//
-
 import SwiftUI
 
 // MARK: - MenuIconView
 
-/// 三线 ↔ X 自绘动画图标，progress 0 = 汉堡菜单，1 = 关闭 X
 private struct MenuIconView: View, @MainActor Animatable {
     var progress: Double
 
@@ -57,11 +49,6 @@ private struct MenuIconView: View, @MainActor Animatable {
         .frame(width: self.size, height: self.size)
     }
 
-    /// 图标基线尺寸（pt），随 Dynamic Type 缩放。
-    ///
-    /// 用 `CoreControlMetrics.iconSize(for: .large)` (20pt)：外框是 50pt
-    /// （`CoreMenuButtonStyleModifier.controlSize`，见下），20/50 = 0.4 恰好落在
-    /// SF Symbol 的经验值（icon ≈ 容器 40%）上，让图标与外框的比例符合这一经验值。
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = CoreControlMetrics.iconSize(for: .large)
 
     private var lineWidth: CGFloat {
@@ -71,7 +58,6 @@ private struct MenuIconView: View, @MainActor Animatable {
 
 // MARK: - CoreMenuButtonStyle
 
-/// 菜单按钮的外形变体 / Shape variant：`labeled` = 胶囊 + 文案，`circular` = 圆形纯图标。
 enum CoreMenuButtonStyle: Sendable, Equatable {
     case labeled
     case circular
@@ -108,8 +94,6 @@ private struct CoreMenuButtonStyleModifier: ViewModifier {
         }
     }
 
-    /// 控件外框尺寸。取 `CoreControlMetrics.height(for: .large)`
-    /// (`CoreControlMetrics.height(for: .large)` = 50pt)，与输入栏 trailing 圆形按钮保持视觉等高。
     private let controlSize: CGFloat = CoreControlMetrics.height(for: .large)
 }
 
@@ -146,7 +130,6 @@ struct CoreMenuButton: View {
                     self.longPressTriggered = false
                 }
             }, perform: {
-                // long-press activated (minimumDuration reached)
                 self.longPressTriggered = true
             })
             .onTapGesture {
@@ -164,12 +147,6 @@ struct CoreMenuButton: View {
     @State private var longPressTriggered = false
 }
 
-/// 触觉反馈助手——`UIImpactFeedbackGenerator` 的 `init(style:)` / `prepare()` /
-/// `impactOccurred()` 在 iOS 上都标记为 `@MainActor`（Swift 6 strict concurrency 下
-/// 是硬性约束，main 上的 build 之前就因此失败）。`CoreMenuButton` 的两处调用点
-/// （`onLongPressGesture` / `onTapGesture` 闭包）本身就是 SwiftUI gesture 回调、
-/// 在 MainActor 上跑，故把整个 helper 标 `@MainActor` 是 zero-cost 的精确隔离——
-/// 无 Task hop、无 await、调用语义不变。
 @MainActor
 private func triggerMenuFeedback() {
     #if canImport(UIKit)

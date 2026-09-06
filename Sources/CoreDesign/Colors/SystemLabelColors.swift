@@ -1,16 +1,7 @@
-//
-//  SystemLabelColors.swift
-//  CoreDesign
-//
-//  Created by 王晓龙 on 2025/1/28.
-//
-
 import SwiftUI
 
 public extension Color {
     /// 标签
-    ///
-    ///  包含一级内容的文本标签。
     static var label: Color {
         #if canImport(UIKit)
             Color(uiColor: .label)
@@ -20,8 +11,6 @@ public extension Color {
     }
 
     /// 二级标签
-    ///
-    /// 包含二级内容的文本标签。
     static var secondaryLabel: Color {
         #if canImport(UIKit)
             Color(uiColor: .secondaryLabel)
@@ -31,8 +20,6 @@ public extension Color {
     }
 
     /// 三级标签
-    ///
-    /// 包含三级内容的文本标签。
     static var tertiaryLabel: Color {
         #if canImport(UIKit)
             Color(uiColor: .tertiaryLabel)
@@ -42,8 +29,6 @@ public extension Color {
     }
 
     /// 四级标签
-    ///
-    /// 包含四级内容的文本标签。
     static var quaternaryLabel: Color {
         #if canImport(UIKit)
             Color(uiColor: .quaternaryLabel)
@@ -53,30 +38,24 @@ public extension Color {
     }
 
     /// 非自适应系统颜色，用于浅色背景上的文本。
-    ///
-    /// 这种颜色不适应底层特性环境的变化。
     static var darkText: Color {
         #if canImport(UIKit)
             Color(uiColor: .darkText)
         #else
-            Color(nsColor: .textColor) // 假设
+            Color(nsColor: .textColor)
         #endif
     }
 
     /// 暗色背景上文本的非可适应系统颜色。
-    ///
-    /// 这种颜色不适应底层特性环境的变化。
     static var lightText: Color {
         #if canImport(UIKit)
             Color(uiColor: .lightText)
         #else
-            Color(nsColor: .textColor) // 假设
+            Color(nsColor: .textColor)
         #endif
     }
 
     /// 占位符文本
-    ///
-    /// 控制或文本视图中的占位符文本。
     static var placeholderText: Color {
         #if canImport(UIKit)
             Color(uiColor: .placeholderText)
@@ -86,8 +65,6 @@ public extension Color {
     }
 
     /// 分隔符
-    ///
-    /// 允许某些底层内容可见的分隔符。
     static var separator: Color {
         #if canImport(UIKit)
             Color(uiColor: .separator)
@@ -97,19 +74,15 @@ public extension Color {
     }
 
     /// 不透明分隔符
-    ///
-    /// 不允许任何底层内容可见的分隔符。
     static var opaqueSeparator: Color {
         #if canImport(UIKit)
             Color(uiColor: .opaqueSeparator)
         #else
-            Color(nsColor: .separatorColor) // 假设
+            Color(nsColor: .separatorColor)
         #endif
     }
 
     /// 链接
-    ///
-    /// 用作链接的文本。
     static var link: Color {
         #if canImport(UIKit)
             Color(uiColor: .link)

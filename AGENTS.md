@@ -139,9 +139,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     '*.colorset' | wc -l` = 198）。上面《分层色彩系统》里的 layer 1 = **仅** `ColorGrade`
     的 170 个色阶（`StatusColors` 列在 layer 3，`CoreElevation` 的阴影根本不在色彩分层里）
     ⇒ 两者**外延不同**。本条一律用前者。
-  - ⚠️ **机理不是本轮首次查明**：`ColorAssetGuardTests` 的注释早就写对了「xcodebuild 会调
-    `actool` 把整个 xcassets 编译成单个 `Assets.car`」，而「`swift test` 进程里资源色解析成
-    完全透明」在 `#274` 就已实测并写进 `CoreDesignEffectsTests/CrossPlatformTests.swift`。
+  - ⚠️ **机理不是本轮首次查明**：「xcodebuild 会调 `actool` 把整个 xcassets 编译成单个
+    `Assets.car`」与「`swift test` 进程里资源色解析成完全透明」在 `#274` 就已实测。
     `#275` 做的是**再发现 + 把两半合并 + 量化到 token 级 + 装机器判据**，不是首次发现。
   asset catalog 在本仓有**两种产物形态**，由构建路径决定：
   - `swift build` / `swift test`（SwiftPM native，即日常 macOS 腿）：**不调 `actool`**，
@@ -186,10 +185,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     （两种形态都探不到就判红，兜住上面双 skip）、
     `ColorGradeResolutionGuard.sampleBasisHasExpectedCardinality`（抽样面被清空 / 缩水就判红）
     与 `ColorGradeResolutionGuard.sampleLabelsMatchTheirColors`（label 与取值不同源就判红）。
-    ⚠️ **这里写限定名不是排版洁癖**：`JudgementReferenceGuard` 的规则 A 只认
-    `类型.成员` 形态，裸判据名它不核 ⇒ 上面这个「五条」的清单本身曾是散文——
-    删掉其中一条不会有任何东西变红（**正是本节在讲的那个病的元层**）。写成限定名之后
-    改名 / 删除至少会被规则 A 接住。⚠️ 但**数字「五」仍是散文**，仍要人工同步。
+    ⚠️ **这个「五条」的清单是散文**：删掉其中一条不会有任何东西变红，数字「五」
+    也要人工同步（**正是本节在讲的那个病的元层**）。
     ⚠️ 后两条都是补的，且补的正是这个文件自己犯过的病：
     · `sampleBasisHasExpectedCardinality`——`samples` 一旦返回 `[]`，两条分叉判据的循环
     一次都不进，**两条腿都给 `EXIT=0` 全绿**（实测）；它按**三组各钉一个数**，
@@ -366,20 +363,12 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 ⚠️ 但它只兜第 5 条与第 1 条：第 3 条（`-only-testing:` 打错）根本不产生
 `Test run with` 行，第 4 条发生在 `xcodebuild` 腿上而那条腿没有同类的网。
 
-### 判据引用与「更正传播」约定（`#287`）
+### 「更正传播」约定（`#287`）
 
-- **注释 / 文档里写「测试类型 + 点 + 判据名」形式的引用，其类型与成员必须在测试目标里
-  真的存在**——由 `JudgementReferenceGuard`（`Tests/CoreDesignTests/`）机器守着，扫描面
-  是 `Sources/` `Tests/` `docs/`（含 `docs/component-registry.json`）**加仓库根那一层
-  `.md`（含本文件）**。它按 SwiftSyntax 解析出的**声明**建符号表（写在字符串字面量里的
-  fixture 类型不进表），引用侧只取注释 trivia 与字符串片段；射程与堵不住的路径逐条写在
-  该文件头，**不要读成完备保证**。
-- ⚠️ **`.claude/**` 是历史归档，有意不在扫描面内**——那里面确实活着若干条悬空引用，
-  但归档记的是「写下它的那天的事实」，回改等于篡改归档。⇒ 引一条判据时，
-  **别把 `.claude/` 里的旧写法当成现行事实抄过来**，它没有任何机器判据兜底。
-- **该判据不区分「活引用」与「历史提及」**：提到一个已被改名 / 删除的符号（包括
-  「上一版这里写的是…」这类撤回痕迹）或**跨仓符号**时，把类型名与成员名**拆开写**
-  （各自加反引号、中间不用点连），并写明它现在叫什么。
+⚠️ **判据引用不再有机器兜底**：核对「文档里写的『类型 + 点 + 成员』引用真的存在」的
+那条判据（原 `Tests/CoreDesignTests/JudgementReferenceGuard.swift`）已随注释精简一并
+删除。`docs/` 与本文件里的判据引用现在**全靠人工**——引一条之前先 grep 确认它还在。
+
 - ⚠️ **更正 / 撤回一处声称时，必须 grep 该判据名或该理由的关键词，确认三处落点同步**：
   源码注释、`docs/components/*.md`、`docs/component-registry.json` 的 `notes`。
   前两处离改动近、会被顺手改到，**登记表在另一个文件、另一种格式，每次都掉队**
@@ -393,7 +382,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 ## 仓库内的代码风格观察
 
 - 即使在同一类型内访问成员也显式使用 `self.`（如 `self.controlSize`、`self.title(item)`）。修改现有文件时保持一致。
-- 注释与 `// MARK: -` 标题双语混用（中文 + 英文），这是有意为之，编辑时与周围文件保持一致。部分注释是较长的设计说明（例如 `BottomInputBar.autoFocus` 解释了为何必须放在 bar 自身的 `onAppear` 中执行），编辑时予以保留。
+- 注释只留两类：`// MARK: -` 分节标题，与 public / open 声明上的文档注释（`///` 一句话摘要 + `- Parameters` / `- Returns`）。internal / private 声明、函数体内、文件头 banner 一律不写注释。MARK 标题双语混用（中文 + 英文），这是有意为之。
 - 组件大量使用 `iOS 26+` API：`.glassEffect`、`.safeAreaBar`、`EnvironmentValues` 上的 `@Entry`、`matchedGeometryEffect`。除非部署目标下调，否则不要为这些 API 加可用性回退。
 
 ## 工作流 skill（项目本地 `.claude/skills/`）

@@ -2,9 +2,6 @@ import Testing
 import SwiftUI
 @testable import CoreDesign
 
-// Issue #119 把 `CoreTypography.Token` 从手写 Primer 字号表改为直接映射系统文本样式，
-// `Spec` 类型本身被删除。旧版本断言 Primer 字号表与 `captionSmall.scales == false` 的
-// 整套测试因此作废，本文件按新契约重写。
 @Suite("CoreTypography.Token")
 struct CoreTypographyTokenTests {
     @Test("12 档一一对应系统文本样式")
@@ -35,9 +32,4 @@ struct CoreTypographyTokenTests {
     func allCasesCount() {
         #expect(CoreTypography.Token.allCases.count == 12)
     }
-
-    // Task #121 完成全部调用点迁移后，删除了 9 个 `@available(deprecated, renamed:)`
-    // Token 别名与 10 个旧 `*Font` static var——曾在此验证它们解析到正确新档位的两个
-    // 测试（`deprecatedAliasesResolveToMappedToken` / `legacyFontStaticVarsStillResolve`）
-    // 随别名一起删除：别名本身不存在了，断言"别名解析正确"无对象可测。
 }

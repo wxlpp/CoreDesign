@@ -5,25 +5,8 @@ import Testing
 
 // MARK: - public extension 成员的 nonisolated 显式性（Issue #271）
 
-// ⚠️ **别把漏标 `nonisolated` 读成「下游会坏」**：`defaultIsolation` **推**出来的隔离
-// 不进模块接口 ⇒ 跨模块（probe / 测试 target）看到的就是 nonisolated，不会红。
-// 会红的只有**同模块**新增 nonisolated 读者的那一刻。（类型级 `nonisolated` 则**进**接口，
-// 两者别混。逐条变异实测见 `#271` 收尾 PR 的正文。）
-// ⇒ 本判据钉的是**显式性**：这个不一致收紧是兼容方向的改动，收紧那天没显式标的成员会
-// 一次性变成下游破坏；且显式 `nonisolated` 是这条设计意图在 diff 与 symbol graph 里的唯一载体。
-
-// 射程：只看 `pinnedMembers` 点名的文件。三种形态不覆盖，**失效方向不同** ——
-// extension 级 `nonisolated`（`public nonisolated extension P { … }`）会**误报**，fail-closed；
-// 嵌套类型的成员、元组模式存储属性是 **fail-open**：不进名单、也不查修饰符，漏标什么都不红。
-// 更一般的替代方案：`scripts/api-surface-diff.sh` 比 `(usr, declAttributes)` 而 `nonisolated`
-// 进 `declAttributes` ⇒ 接进 `ci.yml` 可覆盖全部 public 成员；它今天不在 CI 里，是独立改动。
 @Suite("public extension 成员的 nonisolated 显式性")
 struct ExtensionIsolationGuard {
-
-    /// 受保护的文件 → 其 public extension 成员名。
-    ///
-    /// ⚠️ 本表是 `Set<String>` ⇒ **同名重载塌成一条**，删掉一对里的一个不会红。
-    /// 只影响"数量"这一半，`nonisolated` 检查仍逐个成员跑。
     static let pinnedMembers: [String: Set<String>] = [
         "Sources/CoreDesignEffects/EffectsEnergy.swift": [
             "usesGlow", "particleScale", "frozenIfPeriodIsDegenerate",
@@ -34,10 +17,8 @@ struct ExtensionIsolationGuard {
     func pinnedExtensionMembersAreExplicitlyNonisolated() throws {
         for (relative, expected) in Self.pinnedMembers {
             let url = GuardScanRoots.repoRoot.appendingPathComponent(relative)
-            // ⚠️ **fail-closed**：文件不在就判红，不能"零成员 ⇒ 零违规 ⇒ 绿"。
             #expect(FileManager.default.fileExists(atPath: url.path),
                     "受保护的文件不存在：\(relative) —— 判据无法工作，这不是「零违规」")
-            // 读失败也要判红：`else { continue }` 会让它落进绿色。
             let source: String
             do { source = try String(contentsOf: url, encoding: .utf8) } catch {
                 Issue.record("受保护的文件读取失败：\(relative)（\(error)）—— 判据无法工作")
@@ -66,14 +47,7 @@ struct ExtensionIsolationGuard {
     }
 }
 
-/// 收集**公开的** extension 成员及其是否显式 `nonisolated`。
-///
-/// ⚠️ 四个收集条件各堵一种逃逸，改窄任一条都会开洞：
-/// "公开"取 **extension 或成员任一带 `public`**；`#if` 的**所有**分支都要展开
-///（要的是"源码里写了没有"，不是"这次编译进了哪支"）；
-/// `var` / `func` / `subscript` / `init` 四种形态都收（`init` 的隔离正是下游构造时会撞上的）。
 private nonisolated final class PublicExtensionMemberCollector: SyntaxVisitor {
-
     struct Member { let name: String; let isNonisolated: Bool }
 
     private(set) var members: [Member] = []
@@ -88,7 +62,6 @@ private nonisolated final class PublicExtensionMemberCollector: SyntaxVisitor {
 
     private func collect(_ items: MemberBlockItemListSyntax, extensionIsPublic: Bool) {
         for item in items {
-            // `#if` / `#else` 的每一支都要看进去。
             if let ifConfig = item.decl.as(IfConfigDeclSyntax.self) {
                 for clause in ifConfig.clauses {
                     if let nested = clause.elements?.as(MemberBlockItemListSyntax.self) {

@@ -2,10 +2,6 @@ import SwiftUI
 import Testing
 @testable import CoreDesign
 
-// Carousel 的自动轮播回绕逻辑（`nextID(after:in:)`）与页点 accessibility 文案组装
-// （`positionText(index:count:)`）均抽成 `static` 纯函数，脱离 SwiftUI 运行时单测——
-// 覆盖 issue #171 Technical Details 明确要求的边界：空集合 / nil 当前值 / 当前值不在
-// 集合中 / 末尾回绕到首个 / 单元素恒返回自身。
 @Suite("Carousel")
 @MainActor
 struct CarouselTests {

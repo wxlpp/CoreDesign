@@ -1,17 +1,7 @@
 import Testing
 
-// `compareRegistryToScan` 的常驻单元测试（终审 M2）。
-//
-// ⚠️ **为什么需要这个文件**：`ComponentRegistryGuard` 的双向差集判据此前只在
-// `swift test` 全绿/全红两种状态上验证过，证明「它真的会拦」靠的是两个 gitignored
-// 一次性脚本临时改真实的 `component-registry.json` / 临时挪走真实源码文件，跑完
-// 手动还原——这类证据不进 CI、不可复现，评审换个人来核对就得重新做一遍。
-//
-// 用**合成输入**测纯函数 `compareRegistryToScan`，两个方向（漏登记 / 幽灵条目）
-// 都变成常驻 CI 测试，不再需要改动任何真实文件。
 @Suite("登记表↔扫描器 差集纯函数")
 struct ComponentRegistryCompareTests {
-
     @Test("双方完全一致 ⇒ 两个方向都空")
     func fullyMatched() {
         let names: Set<String> = ["Alpha", "Beta", "Gamma"]

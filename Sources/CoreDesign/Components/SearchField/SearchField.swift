@@ -1,62 +1,9 @@
-//
-//  SearchField.swift
-//  CoreDesign
-//
-
 import SwiftUI
 
 // MARK: - SearchField
 
 /// 紧凑的搜索 / 筛选控件：leading 放大镜图标 + 可选清除动作 + 明确的焦点环，
 /// **无默认 Liquid Glass**。
-///
-/// **使用场景 / Use cases**：列表 / 表格 / 侧栏顶部的关键字过滤入口；
-/// 全局搜索的内联触发器；表单内"search-as-you-type"过滤场景。需要复杂的
-/// 命令面板（带建议列表 / 历史记录 / scope 切换）时，应使用更高层组合
-/// 而非本组件单体。
-///
-/// **关键参数语义 / Key parameters**：
-/// - `text` —— 双向绑定的搜索文本；调用方负责派生过滤结果与持久化策略。
-/// - `placeholder` —— 空文本占位提示，默认 `"Search"`；走 SwiftUI `TextField`
-///   原生 placeholder 渲染（自动套 `Color.contentPlaceholder`）。
-/// - `onSubmit` —— Return / Enter 提交回调；当用户按下提交键时调用，参数为
-///   当前 `text`。**可选**——对纯实时过滤场景留 `nil` 即可。
-///
-/// **形态**：leading 放大镜图标 + 输入区 + 尾部清除按钮
-/// 组合（GitHub 桌面 UI 中的 issue / PR 列表筛选框，仓库左上角的 "Go to file" 入口）。
-/// 本实现保留其前缀 magnifyingglass + 末尾 clear button 的实用结构。
-///
-/// **light / dark 行为 / light-dark behavior**：
-/// - 容器底色 `Color.surfaceInteractive`、边框 `Color.borderMuted`、文字
-///   `Color.contentPrimary`、icon `Color.contentMuted` 均走语义色 token，
-///   light / dark 双模式自动切换。
-/// - 焦点环走 `View.focusRing(visible:)`：iOS 与 macOS 共享同一套 SwiftUI overlay
-///   实现（**不是临时分支**——是显式评估后的最终决定）。macOS 下该 overlay
-///   **不被 Accessibility Inspector 识别为系统 focus indicator**，仅是视觉等价；
-///   这是已记录的已知限制，详见 `FocusRingModifier.swift` 文件级 doc-comment。
-///   键盘 focus / 失焦切换由内部 `@FocusState` 驱动，`borderFocus` 仅在聚焦时
-///   高亮 2pt 描边。
-///
-/// **height 策略 / height strategy**：使用 `frame(minHeight:)` 而非
-/// `frame(height:)`，遵循 `CoreControlMetrics` doc-comment 推荐——避免字号偏大时
-/// padding × 2 + font 超过 `height(for:)` 导致裁切。
-///
-/// **In-tree 渲染保证 / In-tree rendering guarantee**：本组件**不调用** SwiftUI
-/// `.searchable()`——它纯粹由 `HStack + TextField` 组成，因此在任意父容器
-/// （`NavigationSplitView` 的 sidebar / content / detail、`NavigationStack`、
-/// 普通 `VStack`）内都会原地渲染，**不会被 SwiftUI 提升到窗口 toolbar**。
-/// 对 macOS 多列工作区尤其重要：调用方放在 `NavigationSplitView { } content: { }` 内
-/// 时，组件不会与右上角 toolbar 项（如 Inspector toggle）抢占位置。详见下方
-/// "Toolbar hoist verification (macOS)" Preview。
-///
-/// 调用示例 / Example usage:
-///
-/// ```swift
-/// @State private var query: String = ""
-/// SearchField(text: $query, placeholder: "Filter issues") { submitted in
-///     viewModel.runSearch(submitted)
-/// }
-/// ```
 public struct SearchField: View {
     /// 创建搜索输入框 / Creates a search input field.
     ///
@@ -79,8 +26,6 @@ public struct SearchField: View {
     public var body: some View {
         let shape = CoreShape.rounded(CoreRadius.small)
         return HStack(spacing: CoreSpacing.sm) {
-            // 聚焦命中区 / Focus hit-test region：点击放大镜 + TextField 区域才聚焦，
-            // 不包含尾部 clear button——避免清空时容器 tap 立即重新聚焦的交互冲突。
             HStack(spacing: CoreSpacing.sm) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
@@ -91,8 +36,6 @@ public struct SearchField: View {
                     .textFieldStyle(.plain)
                     .coreFont(CoreControlMetrics.fontToken(for: .regular))
                     .foregroundStyle(Color.contentPrimary)
-                    // 只本地化 **fallback 分支**：`placeholder` 是调用方传入值，
-                    // 库不该翻译它。
                     .accessibilityLabel(self.placeholder.isEmpty
                         ? String(localized: "Search", bundle: .module)
                         : self.placeholder)
@@ -117,9 +60,6 @@ public struct SearchField: View {
                 .buttonStyle(.plain)
                 .contentShape(Rectangle())
                 .padding(.horizontal, CoreSpacing.xs)
-                // ⚠️ 这里有**两个**字面量：外层 "Clear %@" 与**插值内层**的
-                // "search" fallback。按行扫描的守卫看不见内层那个——它是本组
-                // 最容易漏的形态，故变异自证的靶点就打在它上面。
                 .accessibilityLabel(Text(Self.clearLabel(for: self.placeholder)))
             }
         }
@@ -146,8 +86,6 @@ public struct SearchField: View {
 
     @FocusState private var isFocused: Bool
 
-    /// 清除按钮的可访问名。外层走位置键 `"Clear %@"`；`placeholder` 为空时
-    /// 内层回落到本地化的 `"search"`（**不是**硬编码英文）。
     static func clearLabel(for placeholder: String) -> String {
         let target = placeholder.isEmpty
             ? String(localized: "search", bundle: .module)
@@ -204,15 +142,6 @@ private struct SearchFieldPreviewHost: View {
         .preferredColorScheme(.dark)
 }
 
-/// Toolbar hoist 验证：
-///
-/// 把 `SearchField` 放进 `NavigationSplitView` 的 content 列，并在 toolbar 的
-/// `.primaryAction` 槽里放一个按钮。**预期**：search 框留在 content 列内（不被
-/// SwiftUI 自动提升到窗口 toolbar），`.primaryAction` 按钮仍可见、可点击。
-///
-/// 这是 macOS 上对应原生 `.searchable()` 的反例验证——`.searchable()` 在 macOS
-/// 会把 TextField hoist 到窗口标题栏，挤占 toolbar 槽位；本组件不走那条路径，
-/// 因而可以与右上 toolbar 项（如 Inspector toggle）共存。
 private struct SearchFieldNavigationHostPreview: View {
     @State private var query: String = ""
     @State private var sidebarSelection: String? = "Inbox"
@@ -245,7 +174,6 @@ private struct SearchFieldNavigationHostPreview: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    // Inspector toggle stand-in — proves the toolbar slot is unaffected.
                 } label: {
                     Image(systemName: "sidebar.right")
                 }

@@ -1,21 +1,7 @@
-//
-//  FunctionalColor.swift
-//  CoreDesign
-//
-//  Created by 王晓龙 on 2025/2/1.
-//
-
 import Foundation
 import SwiftUI
 
-
 /// 第 4 层「状态功能别名」。
-///
-/// 本层只承载**状态语义**（success / info / warning / danger）。交互色不在此层——
-/// `accent` / `secondaryAccent` / `neutralAccent` 等走第 3 层 `InteractionColors`。
-///
-/// > 该层曾定义 `Color.primary/secondary/tertiary` 三组，因与 SwiftUI 内建成员同名
-/// > 而遮蔽它们（删除时编译器不报错，只静默改变解析目标）——已移除该组别名。
 public extension Color {
     static let success: Color = .green5
     static let info: Color = .blue5

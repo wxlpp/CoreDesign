@@ -3,7 +3,6 @@ import Testing
 
 @Suite("组件判据扫描层")
 struct ComponentJudgeScannerTests {
-
     // MARK: - 文本型参数分类器 / Text parameter classification
 
     @Test("裸文本：String 的各种等价拼法都判 .bareText")
@@ -40,7 +39,6 @@ struct ComponentJudgeScannerTests {
     func stringProtocolGenericIsBare() {
         #expect(classifyTextParameterType("S", stringProtocolGenerics: ["S"]) == .bareText)
         #expect(classifyTextParameterType("S?", stringProtocolGenerics: ["S"]) == .bareText)
-        // 不在集合里的泛型名不能误判 —— 否则任何 `T` 都成了文本参数。
         #expect(classifyTextParameterType("T", stringProtocolGenerics: ["S"]) == .notText)
     }
 
@@ -52,11 +50,6 @@ struct ComponentJudgeScannerTests {
                 "「\(spelling)」应判 .bareText —— 类型文本逐字含 StringProtocol，与泛型形态结论必须一致"
             )
         }
-        // 负例：词边界——`some`/`any` 后面紧跟标识符字符（不是空格）不得被误剥前缀。
-        // 若误用 `hasPrefix("some")`（不带空格），`someCustomType` 会被剥成
-        // `CustomType`，与本例无关地判 .notText 只是巧合；换一个「剥了之后恰好撞进
-        // StringProtocol 判据」的输入就会被误判 .bareText，所以这里同时钉住剥离结果
-        // 与最终分类两层。
         #expect(
             classifyTextParameterType("someCustomType", stringProtocolGenerics: []) == .notText,
             "「someCustomType」不含空格分隔的 some 前缀，不应被剥掉后误判"
@@ -69,11 +62,6 @@ struct ComponentJudgeScannerTests {
             stripSomeOrAnyPrefix("someCustomType") == nil,
             "剥离函数本身也必须对无空格的 some 前缀返回 nil，不能只靠下游巧合兜底"
         )
-        // ⚠️ 上面两个负例即使实现写成 `hasPrefix("some")` 也照样绿（剥出的
-        // `CustomType` / `AnyCustomType` 本来就不在 StringProtocol 集合里）——它们钉的是
-        // 剥离函数那一层。下面这两条才是**唯一会在错误实现下变成假阳性**的输入：
-        // `hasPrefix("some")` 会把 `someStringProtocol` 剥成 `StringProtocol`、恰好撞进
-        // 集合而误判 .bareText。缺了它们，「词边界安全」这个宣称就没有承重的反例。
         for spelling in ["someStringProtocol", "anyStringProtocol"] {
             #expect(
                 classifyTextParameterType(spelling, stringProtocolGenerics: []) == .notText,
@@ -86,7 +74,6 @@ struct ComponentJudgeScannerTests {
     func textProducingClosureIsText() {
         #expect(classifyTextParameterType("@escaping (Item) -> String", stringProtocolGenerics: []) == .bareText)
         #expect(classifyTextParameterType("(Item) -> LocalizedStringKey", stringProtocolGenerics: []) == .localizedText)
-        // ⚠️ 反向：把文本**传出去**的回调不是文本参数入口，判 .textCarrying。
         #expect(classifyTextParameterType("((String) -> Void)?", stringProtocolGenerics: []) == .textCarrying)
         #expect(classifyTextParameterType("@escaping (String) -> Void", stringProtocolGenerics: []) == .textCarrying)
     }
@@ -268,14 +255,11 @@ struct ComponentJudgeScannerTests {
     @Test("真实源码扫描：文本参数三个桶的实测规模")
     func realScanMagnitudes() throws {
         let scan = try scanComponentJudgeInputs(roots: ComponentRegistryGuard.componentScanRoots)
-        // ⚠️ 非空断言先行：扫描器失效时「零命中 ⇒ 零违规 ⇒ 绿」会静默通过。
         #expect(scan.bareTextKeys.count > 20, "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效")
         #expect(scan.localizedTextKeys.count > 5, "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")
         print("裸文本 \(scan.bareTextKeys.count) 个：\(scan.bareTextKeys.sorted())")
         print("LSK/LSR \(scan.localizedTextKeys.count) 个：\(scan.localizedTextKeys.sorted())")
         print("carrying \(scan.carryingKeys.count) 个：\(scan.carryingKeys.sorted())")
-        // ⚠️ 非空断言：自有样式协议识别器一旦失效，J-3 的「作用域内没有自有协议 ⇒ 绿」
-        // 就变成假绿（零命中 ⇒ 零违规）。这里先钉住它真的认得出东西。
         #expect(scan.styleProtocolNames == ["BannerStyle", "RatingStyle", "SegmentedControlStyle"],
                 "本仓自有样式协议实测恰为这三个（#41 裁决 4c 新增 RatingStyle）；集合变了要么是新增了扩展点（预期变化，同步改这里），要么是识别器失效")
         #expect(scan.conformers(of: "ProgressViewStyle").contains("CoreProgressViewStyle"),
@@ -287,18 +271,13 @@ struct ComponentJudgeScannerTests {
 
     @Test("baseTypeName：已知限度 —— 泛型包装会在 `<` 处截断，接线记录随之丢失")
     func baseTypeNameKnownLimits() {
-        // ⚠️ **钉住已知限度，不是期望行为**（与 `j2StyleEnumWiringCannotJudgeSemantics` 同款）。
-        // 今天无条目命中，将来真有人把形态枚举做成 `Binding<Layout>` 而被判「没接线」时，
-        // 第一时间能查到这是已知形状、不是判据坏了。
         #expect(componentJudgeBaseTypeName("Binding<StepsPresentation>") == "Binding",
                 "泛型实参被丢弃 ⇒ 包在 Binding 里的形态枚举登记不到接线")
 
-        // 正常形态：剥可选、剥点分前缀。
         #expect(componentJudgeBaseTypeName("StepsPresentation") == "StepsPresentation")
         #expect(componentJudgeBaseTypeName("StepsPresentation?") == "StepsPresentation")
         #expect(componentJudgeBaseTypeName("SwiftUI.HorizontalEdge") == "HorizontalEdge")
 
-        // 容器 / 闭包 / 带空格的类型一律不参与 D2 接线（返回空串）。
         #expect(componentJudgeBaseTypeName("[StepItem]").isEmpty)
         #expect(componentJudgeBaseTypeName("@escaping () -> Avatars").isEmpty)
         #expect(componentJudgeBaseTypeName("some View").isEmpty)
@@ -307,11 +286,6 @@ struct ComponentJudgeScannerTests {
 
 // MARK: - D2 第二条接线通路：`extension View` 上的 modifier 方法（`#65`）
 
-/// 采集口径扩到 `extension View` 的 modifier 方法后，**三条收窄条件**各自的负测试。
-///
-/// ⚠️ 这些**不是**一次性变异，是**常驻守卫**（`65-plan` 评审 S-4 的建议）：一次性变异
-/// 只在跑的那一刻有效，而收窄条件一旦被后人放宽，D2 的第二道门槛会被稀释到没有意义
-/// —— 那时**任意公开方法的任意参数**都算「扩展点接线」。
 @Suite("D2 接线通路二：extension View modifier 的三条收窄条件")
 struct ViewModifierStyleEnumWiringTests {
     private func hosts(_ source: String, of enumName: String) -> Set<String> {
@@ -329,7 +303,6 @@ struct ViewModifierStyleEnumWiringTests {
             """,
             of: "Demo"
         )
-        // ⚠️ hostType 记的是**方法名**，不是 `View` —— 对 modifier 型 API，调用方写的就是方法名。
         #expect(hosts.contains("demoHost"), "公开 extension View modifier 的参数没被采到：\(hosts)")
     }
 
@@ -393,21 +366,8 @@ struct ViewModifierStyleEnumWiringTests {
 
 // MARK: - 扫描器台账键对符号链接分叉的免疫（`#311` / `#313` 终审 C-1）
 
-/// ⚠️ `scanComponentJudgeInputs(root:)` 里那一处
-/// `GuardScanRoots.relativePath(_:from:)` 在 `#313` 终审前**零判据覆盖**：
-/// 只把它单独回退成 `url.path.replacingOccurrences(of: root.path + "/", with: "")`，
-/// `/Users` checkout 下 `swift test` **全绿**（实测）。唯一沾边的间接守卫
-/// `NativeProtocolPurityGuard.nativeProtocolComponentsAreFreeOfCustomStyleProtocols`
-/// 走的是**真实扫描根** ⇒ 正常 checkout 下它恒绿，指望不上。
-///
-/// ⇒ 本 suite 以 `SymlinkedScanRootFixture` 造的**真实**源码树为输入：根的祖先分量是
-/// 符号链接，而 `FileManager.enumerator(at:)` 会解析它 ⇒ **在任何机器、任何 checkout
-/// 位置、macOS 与 iOS 两条腿上都能复现分叉**，与仓库放哪儿无关。
-/// ⚠️ 早一版这里靠 `NSTemporaryDirectory()` 自带的 `/var` → `/private/var` 符号链接，
-/// 那在 iOS Simulator 上不成立（实测），是一条会静默恒绿的写法——理由见该 fixture 的文档。
 @Suite("扫描器台账键对符号链接分叉的免疫")
 struct ComponentJudgeScannerPathKeyTests {
-
     @Test("台账键的根内相对路径段不被符号链接分叉污染（#311）")
     func componentJudgeKeysAreImmuneToSymlinkDivergence() throws {
         let fixture = try SymlinkedScanRootFixture.make(
@@ -416,25 +376,6 @@ struct ComponentJudgeScannerPathKeyTests {
         )
         defer { fixture.destroy() }
 
-        // ① **前提自证**：枚举结果确实与传进去的根**分叉了**（`#313` 第 2 轮终审 I-2）。
-        //    没有这一条，本条的有效性就悄悄挂在「`FileManager.enumerator` 会解析祖先符号
-        //    链接」这条 Foundation 行为上：哪天它不再解析 ⇒ 两端一致 ⇒ 串替换版**也能**
-        //    替换成功 ⇒ 本条在串替换版下**也绿**，退化成本仓反复登记的
-        //    「零命中 ⇒ 零违规 ⇒ 绿」。今天这条前提由
-        //    `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 单独钉着，
-        //    但本条不该把它当**事实**默认下来，自己也证一次。
-        //    ⚠️ **但它在 macOS 腿上不是干净的判别器，与那条同款 ① 同一条登记**
-        //    （`#313` 第 3 轮终审 C-3；那条的登记见
-        //    `GuardScanRootsGuard.enumeratorResolvesSymlinksInScanRootAncestor` 的 ①）：
-        //    macOS 的 `NSTemporaryDirectory()` 自带 `/var` → `/private/var` 一味，单它就
-        //    足以让前缀对不上 ⇒ **fixture 的符号链接那一半只有 iOS 腿钉得住**。
-        //    实测（`#313` 第 4 轮 M-I2：把 `SymlinkedScanRootFixture.make` 返回的 `root`
-        //    从 `linkDirectoryName` 改成 `realDirectoryName`，符号链接彻底不参与；各跑两遍）
-        //    ⇒ macOS `swift test` 两条 ① 双绿（`Test run with 2 tests in 2 suites passed`）、
-        //    iOS Simulator 腿两条 ① 双红。
-        //    ⇒ 上面那句「哪天 `FileManager.enumerator` 不再解析祖先符号链接」只覆盖
-        //    **Foundation 行为变更**这一种攻击面；「**有人把 fixture 改简单了**」这一种更现实，
-        //    而它在 macOS 腿上本条**照样绿**。
         let walker = try #require(
             FileManager.default.enumerator(at: fixture.root, includingPropertiesForKeys: nil),
             "无法枚举 fixture 根 —— 判据无法工作，这不是「零违规」"
@@ -450,7 +391,6 @@ struct ComponentJudgeScannerPathKeyTests {
             """
         )
 
-        // ② 分叉确实存在的前提下，台账键的根内相对路径段仍必须干净。
         let scan = try scanComponentJudgeInputs(root: fixture.root)
         let expected = GuardScanRoots.primaryTargetName + "/Shape/Cd311KeyProbe.swift"
         #expect(

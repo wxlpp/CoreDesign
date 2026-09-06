@@ -1,8 +1,3 @@
-//
-//  SectionFooter.swift
-//  CoreDesign
-//
-
 import SwiftUI
 
 // MARK: - SectionFooter
@@ -10,13 +5,6 @@ import SwiftUI
 /// 分组的页脚——iOS 分组设置页里跟在分组下方的说明文字:`.footnote` 一族的
 /// Dynamic Type text style（**非固定 pt**）、`contentSecondary`（`secondaryLabel`）灰、
 /// **不大写**（与 `SectionHeader` 的大写标题相对）。
-///
-/// 与 `SectionHeader` 一样只负责文本样式，分组外边距交由 `InsetGroupedSection`
-/// （#142）提供。
-///
-/// ```swift
-/// SectionFooter("Turning this off stops all notifications from this app.")
-/// ```
 public struct SectionFooter: View {
     private let content: Text
 

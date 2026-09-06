@@ -1,8 +1,3 @@
-//
-//  Separator.swift
-//  CoreDesign
-//
-
 import SwiftUI
 
 // MARK: - Separator
@@ -12,28 +7,14 @@ import SwiftUI
 /// 随系统外观 / 对比度设置自动更新。用语义 token 而非直接的第 2 层 `Color.separator`：
 /// 与库内既有分隔线（`UnderlinedTabBar`）一致，且日后 `dividerDefault` 若被重定向
 /// 也能自动跟随（参 `borderFocus`/`borderSelected` 曾从固定蓝改指 accent 的先例）。
-///
-/// `inset` 复刻 iOS 分组列表的分隔线惯例：行间分隔线从 leading 缩进一段，
-/// 与「图标之后的文本」对齐，而非贯穿整行。
-///
-/// ```swift
-/// Separator()                       // 贯穿
-/// Separator(inset: .leading(CoreSpacing.xl))  // leading 缩进 24pt
-/// ```
 public struct Separator: View {
     /// 分隔线的 leading 缩进方式。
     public enum Inset: Equatable, Sendable {
         /// 无缩进，分隔线贯穿父容器整宽。
-        ///
-        /// 命名为 `edgeToEdge` 而非 `none`：`.none` 与 `Optional.none` 同名，调用方持有
-        /// `Inset?` 时写 `.none` 会静默解析成 `Optional.none`（编译器仅在部分位置告警）。
         case edgeToEdge
         /// 从 leading 缩进指定量（pt）。
         case leading(CGFloat)
 
-        /// leading 缩进量（pt）。`internal` 而非 `fileprivate`：供 `@testable` 断言映射。
-        /// 负值 clamp 到 0——负 inset 会把分隔线向 leading 外扩、溢出父容器边界，
-        /// 无实际用途，视作 `.edgeToEdge`（贯穿）。
         var leadingAmount: CGFloat {
             switch self {
             case .edgeToEdge: 0
@@ -53,8 +34,6 @@ public struct Separator: View {
     public var body: some View {
         Rectangle()
             .fill(Color.dividerDefault)
-            // hairline：1 物理像素。`displayScale` 保证 @2x/@3x 屏上都是最细的一线，
-            // 而非固定 1pt（在 @3x 上会显粗）。
             .frame(height: 1.0 / self.displayScale)
             .frame(maxWidth: .infinity)
             .padding(.leading, self.inset.leadingAmount)

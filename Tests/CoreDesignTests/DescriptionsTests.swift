@@ -12,7 +12,7 @@ struct DescriptionsTests {
     @Test(".labeledContentStyle(.core) 产出 CoreLabeledContentStyle")
     func labeledContentStyleCore() {
         let style: CoreLabeledContentStyle = .core
-        _ = style // 类型即断言：签名不对齐这里就编译不过
+        _ = style
     }
 
     // MARK: DescriptionsLayout.effectiveColumns —— 大字号强制单列
@@ -90,7 +90,6 @@ struct DescriptionsTests {
 
     @Test("DescriptionsColumns 两个枚举值互不相等")
     func descriptionsColumnsCasesAreDistinct() {
-        // 编译期即可判断相等性——枚举无关联值，Equatable 由编译器合成。
         let one: DescriptionsColumns = .one
         let two: DescriptionsColumns = .two
         #expect(DescriptionsLayout.effectiveColumns(one, dynamicTypeSize: .large) != DescriptionsLayout.effectiveColumns(two, dynamicTypeSize: .large))

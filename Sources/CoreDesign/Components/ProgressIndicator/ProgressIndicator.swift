@@ -1,42 +1,11 @@
-//
-//  ProgressIndicator.swift
-//  CoreDesign
-//
-
 import SwiftUI
 
 // MARK: - ProgressIndicator
 
 /// **材质层**: 内容. **表面角色**: 内容.
-///
-/// 通用圆形加载指示器。
-///
-/// 实用可读性优先于装饰：**无玻璃、无装饰性材质**。用于页内加载态；
-/// 需要浮层反馈请改用 `ToastHost`；需要为任意内容整体叠加加载遮罩请改用
-/// `View.spinning(_:text:)`（`Modifier/SpinningModifier.swift`）。
-///
-/// 封装系统 `ProgressView`，使用 `Color.accent` 作为 tint，自动响应
-/// `@Environment(\.controlSize)` 调整尺寸。可选传入文案，渲染于 spinner 下方
-/// （Issue #172）。
-///
-/// ```swift
-/// ProgressIndicator()                    // 无文案
-/// ProgressIndicator(text: "Loading…")    // 带静态文案
-/// ProgressIndicator(text: statusString)  // 带运行期字符串文案
-/// ```
 public struct ProgressIndicator: View {
-    // 不标 `private`——`Tests/CoreDesignTests/ProgressIndicatorTests.swift` 经
-    // `@testable import` 断言文案存储正确性（AC「新 init 的文案存储正确性」）。
     let text: Text?
 
-    /// spinner 取色。
-    ///
-    /// ⚠️ **必须是参数、不能靠调用方外加 `.tint(_:)`**：本组件对系统 `ProgressView`
-    /// 显式写 `.tint(...)`（见 `body` 里那段），内层 tint 恒胜外层 ⇒ 外加的
-    /// `.tint(_:)` 会被**静默吞掉**。实测：外层 `.tint(.orange)` 时 spinner 仍渲染
-    /// 成强调色蓝、橙色零像素。
-    /// ⚠️ **也不能改成「不设 tint、让环境流过」**：`ProgressView(.circular)` 的系统
-    /// 默认色是**灰**不是 accent ⇒ 那样改会把默认观感从蓝改成灰（实测），是下游回归。
     let tint: Color
 
     /// 原有形态：无文案。
@@ -71,25 +40,14 @@ public struct ProgressIndicator: View {
         VStack(spacing: CoreSpacing.sm) {
             ProgressView()
                 .progressViewStyle(.circular)
-                // FR-3a 例外（Issue #172，唯一例外，见 172.md Technical Details）：
-                // 显式设 tint——避免在 `tint(_:)` 多个 ShapeStyle 重载之间解析到
-                // SwiftUI 自带的环境 accent，而不是 CoreDesign 的 `Color.accent`。
-                // SC-5「无字面 Color.accent」的静态核对对本文件豁免。
-                // 默认值 `.accent` 在 `init` 上，调用方要换色走 `tint:` 参数
-                // ——理由见 `tint` 属性的文档注释。
                 .tint(self.tint)
                 .controlSize(self.controlSize)
-                // 带文案时播报文案本身（更具体），不带文案时回退到通用 "Loading"
-                // 键（Phase 3 / #173 收口项：此前恒播 "Loading"，文案态下 VoiceOver
-                // 用户听不到调用方传入的具体说明，如 "Refreshing…"）。
                 .accessibilityLabel(self.text ?? Text("Loading", bundle: .module))
 
             if let text = self.text {
                 text
                     .coreFont(.footnote)
                     .foregroundStyle(Color.contentSecondary)
-                    // VoiceOver 语义已由上方 ProgressView 的 accessibilityLabel 播报
-                    // 同一段文案（见上）——这里的可视文案隐藏，避免双重播报。
                     .accessibilityHidden(true)
             }
         }

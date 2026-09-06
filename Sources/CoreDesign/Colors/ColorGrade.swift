@@ -1,10 +1,3 @@
-//
-//  ColorGrade.swift
-//  CoreDesign
-//
-//  Created by 王晓龙 on 2025/2/1.
-//
-
 import Foundation
 import SwiftUI
 

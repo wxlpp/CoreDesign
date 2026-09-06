@@ -1,10 +1,3 @@
-//
-//  ButtonRoleStyleRole.swift
-//  CoreDesign
-//
-//  Created by 王晓龙 on 2025/2/2.
-//
-
 import Foundation
 import SwiftUI
 
@@ -64,10 +57,6 @@ public nonisolated enum ButtonRoleStyleRole: Sendable, Equatable {
     }
 
     /// 按交互状态解析出最终颜色 / Resolve the color for a given interaction state.
-    ///
-    /// 三态优先级：disabled > pressed > normal。此前 `SolidButtonStyle`、
-    /// `LightButtonStyle`、`CoreBorderlessButtonStyle` 各自持有一份逐字相同的
-    /// 实现，现收敛到本枚举——它本就是三个调色板属性的唯一来源。
     ///
     /// - Parameters:
     ///   - isEnabled: 通常来自 `@Environment(\.isEnabled)`。

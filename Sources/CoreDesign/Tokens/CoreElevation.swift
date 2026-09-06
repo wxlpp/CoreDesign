@@ -1,8 +1,3 @@
-//
-//  CoreElevation.swift
-//  CoreDesign
-//
-
 import SwiftUI
 
 // MARK: - CoreElevation
@@ -10,29 +5,7 @@ import SwiftUI
 /// 阴影 / 高度 (elevation) token。语义与数值均按 Apple HIG 的分层原则设计：
 /// 平面层级优先靠 material（毛玻璃）与 separator（分隔线/描边）表达，阴影只用于
 /// 真正悬浮于内容之上的元素。
-///
-/// 设计要点：
-///
-/// - **4 档语义**：`.none` / `.small` / `.medium` / `.large`——`.none` 无阴影；
-///   `.small` / `.medium` 是近乎平坦的 resting 层级，普通卡片、列表行等常驻内容用它们，
-///   不应产生明显"浮起"视觉；`.large` 才是留给 popover / 菜单 / 真正浮层的档位。
-/// - **暗色模式自适应**：`Spec.color` 通过 `Resources.xcassets/shadow/shadow-*.colorset`
-///   提供 light / dark 双取值；dark 模式不透明度 ≥ light 的 2 倍。这是常见的工程实践
-///   而非 HIG 的明文规定（深色背景下的低对比阴影会"消失"，须靠加深浓度补回 elevation 视觉）。
-/// - **克制的单层阴影**：Apple HIG 提倡阴影服务于内容层级而非装饰，日常静止内容
-///   （resting）应尽量平坦，只有真正悬浮的内容（floating）才使用更明显的阴影。
-///   本文件的 `.small` / `.medium` 因此刻意调低 blur 与 y-offset，让普通卡片更多依赖
-///   surface + border 层级，而不是强浮起阴影；`.large` 保留给真正的浮层。
-///
-/// 调用方式：
-///
-/// ```swift
-/// CoreShape.rounded(CoreRadius.medium)
-///     .fill(Color.systemBackground)
-///     .coreShadow(.medium)
-/// ```
 public enum CoreElevation {
-
     // MARK: - Level
 
     /// 高度档位。每档对应 Apple HIG elevation 语义的一档。
@@ -47,9 +20,6 @@ public enum CoreElevation {
         case medium
 
         /// 大阴影。floating 层级，用于 popover、菜单、真正悬浮于内容之上的浮层。
-        ///
-        /// > Note: 全屏 modal / sheet 级别的强阴影留待后续按需扩展，不在本仓库当前
-        /// > 4 档语义内。
         case large
     }
 
@@ -82,8 +52,6 @@ public enum CoreElevation {
 
     // MARK: - Asset-backed colors
 
-    /// 集中管理 shadow colorset 的字符串引用，避免 stringly-typed 调用点散落在各 case，
-    /// 重命名 colorset 时只需要改这里。命名约定见 `Resources.xcassets/shadow/`。
     private static let shadowNoneColor = Color("shadow-none", bundle: .module)
     private static let shadowSmallColor = Color("shadow-small", bundle: .module)
     private static let shadowMediumColor = Color("shadow-medium", bundle: .module)
@@ -97,7 +65,6 @@ public enum CoreElevation {
     public static func spec(for level: Level) -> Spec {
         switch level {
         case .none:
-            // 占位规格：radius = 0 时 SwiftUI 不渲染阴影，color/y 实际不参与绘制。
             return Spec(
                 color: Self.shadowNoneColor,
                 radius: 0,
@@ -105,7 +72,6 @@ public enum CoreElevation {
                 y: 0
             )
         case .small:
-            // Apple HIG: resting elevation should be nearly flat; hierarchy comes from surface + border.
             return Spec(
                 color: Self.shadowSmallColor,
                 radius: 1,
@@ -113,7 +79,6 @@ public enum CoreElevation {
                 y: 0.5
             )
         case .medium:
-            // Apple HIG: ordinary cards should not float strongly above the page.
             return Spec(
                 color: Self.shadowMediumColor,
                 radius: 4,
@@ -121,7 +86,6 @@ public enum CoreElevation {
                 y: 2
             )
         case .large:
-            // Apple HIG: keep obvious elevation for true floating surfaces, but reduce gloss.
             return Spec(
                 color: Self.shadowLargeColor,
                 radius: 12,
@@ -136,13 +100,6 @@ public enum CoreElevation {
 
 public extension View {
     /// 应用 CoreDesign elevation 阴影。颜色随 colorScheme 自动切换 light / dark。
-    ///
-    /// ```swift
-    /// VStack { ... }
-    ///     .background(Color.systemBackground)
-    ///     .clipShape(CoreShape.rounded(CoreRadius.medium))
-    ///     .coreShadow(.medium)
-    /// ```
     ///
     /// - Parameter level: elevation 档位（`.none` / `.small` / `.medium` / `.large`）。
     /// - Returns: 已应用阴影的视图。

@@ -4,7 +4,6 @@ import Testing
 
 @Suite("TagInput")
 struct TagInputTests {
-
     // MARK: - Construction
 
     @MainActor
@@ -88,7 +87,6 @@ struct TagInputTests {
 
     @Test("tagToCommit dedupe check is case sensitive")
     func tagToCommitDedupeIsCaseSensitive() {
-        // "Bug" (capitalized) is not considered a duplicate of existing "bug".
         let result = TagInput.tagToCommit("Bug", into: ["bug"], allowDuplicates: false)
         #expect(result == "Bug")
     }

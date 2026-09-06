@@ -1,22 +1,8 @@
-//
-//  CoreBorderWidth.swift
-//  CoreDesign
-//
-
 import CoreGraphics
 
 // MARK: - CoreBorderWidth
 
 /// 描边宽度 token，提供一套固定的描边宽度标度。
-///
-/// 调用方式：
-///
-/// ```swift
-/// CoreShape.rounded(CoreRadius.medium)
-///     .stroke(.borderDefault, lineWidth: CoreBorderWidth.thin)
-/// ```
-///
-/// `.thick` (2pt) 推荐用于交互元素的 focus ring、selected state、强调边框。
 public nonisolated enum CoreBorderWidth {
     /// 无描边 (0pt)。零值占位。
     public static let none: CGFloat = 0

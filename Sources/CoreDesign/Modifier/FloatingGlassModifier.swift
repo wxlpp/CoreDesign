@@ -1,8 +1,3 @@
-//
-//  FloatingGlassModifier.swift
-//  CoreDesign
-//
-
 import SwiftUI
 
 // MARK: - FloatingGlassModifier

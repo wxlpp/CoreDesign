@@ -1,10 +1,3 @@
-//
-//  ColorExtension.swift
-//  CoreDesign
-//
-//  Created by 王晓龙 on 2025/1/29.
-//
-
 import Foundation
 import SwiftUI
 

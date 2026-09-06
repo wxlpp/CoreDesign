@@ -1,22 +1,13 @@
-//
-//  RadarChart.swift
-//  CoreDesignCharts
-//
-
 import Accessibility
 import CoreDesign
 import SwiftUI
 
 /// 雷达图（蛛网图）。多维评分的形状对比。
-///
-/// ⚠️ Swift Charts 画不出来：它没有极坐标多轴的 mark。
 public struct RadarChart<Value: ChartValue>: View {
-
     private let values: [Value]
     private let tint: Color
     private let title: LocalizedStringResource
 
-    /// 轴数下限。⚠️ **少于 3 轴不成其为雷达图**（两轴退化成一条线段）。
     static var minimumAxes: Int { 3 }
 
     /// - Parameters:
@@ -40,11 +31,8 @@ public struct RadarChart<Value: ChartValue>: View {
         case .empty:
             ChartEmptyState(message: .chart("No data"))
         case .insufficientPoints:
-            // ⚠️ 不是错误，是"轴不够"。给出可操作的提示而非空白。
             ChartEmptyState(message: .chart("A radar chart needs at least 3 dimensions"))
         case .nonFinite:
-            // ⚠️ 非有限值单列一支（终审 C-4）：继续画会让 `ClosedRange` 端点变 NaN，
-            // 那是**进程 trap**，不是画歪。
             ChartEmptyState(message: .chart("Data contains values that are not finite"))
         default:
             self.web(normalized: raw.normalizedSafely())
@@ -61,7 +49,6 @@ public struct RadarChart<Value: ChartValue>: View {
             let count = normalized.count
 
             ZStack {
-                // 网格：4 圈同心多边形。⚠️ 用 `Color.dividerDefault` 而非硬编码灰。
                 ForEach(1...4, id: \.self) { ring in
                     Self.polygon(
                         center: center, radius: radius * Double(ring) / 4, count: count
@@ -69,8 +56,6 @@ public struct RadarChart<Value: ChartValue>: View {
                     .stroke(Color.dividerDefault, lineWidth: CoreBorderWidth.hairline)
                 }
 
-                // 数据多边形。
-                // ⚠️ `normalizedSafely` 在全等时返回 0.5 而不是 NaN——所有维度同分是常见输入。
                 Self.polygon(
                     center: center, radius: radius, count: count, scales: normalized
                 )
@@ -87,14 +72,12 @@ public struct RadarChart<Value: ChartValue>: View {
         .accessibilityChartDescriptor(self)
     }
 
-    /// 正多边形路径。`scales` 非空时逐顶点缩放（画数据形状）。
     private static func polygon(
         center: CGPoint, radius: Double, count: Int, scales: [Double]? = nil
     ) -> Path {
         Path { path in
             guard count >= minimumAxes else { return }
             for i in 0..<count {
-                // 从正上方起，顺时针均分。
                 let angle = -Double.pi / 2 + 2 * .pi * Double(i) / Double(count)
                 let r = radius * (scales.map { $0[i] * 0.85 + 0.15 } ?? 1)
                 let point = CGPoint(
@@ -111,12 +94,8 @@ public struct RadarChart<Value: ChartValue>: View {
 // MARK: - Accessibility
 
 extension RadarChart: AXChartDescriptorRepresentable {
-
-    /// ⚠️ 走 `Accessibility` 框架的 `AXChartDescriptor`，**不需要 `import Charts`**
-    /// （本 target 的硬约束之一；落地前已一次性验证，见 epic 的 A-3 checkpoint）。
+    /// 交出 VoiceOver 的图表描述符——走 `Accessibility` 框架，不需要 `import Charts`。
     public func makeChartDescriptor() -> AXChartDescriptor {
-        // ⚠️ 只取有限值定轴（终审 C-4）：`min()`/`max()` 遇 NaN 会把 NaN 传出来
-        //（NaN 的比较恒 false ⇒ 保留 seed），`NaN...NaN` 直接 trap。
         let raw = self.values.map(\.value).filter(\.isFinite)
         let axis = AXNumericDataAxisDescriptor(
             title: chartAXString("Value"),
@@ -138,8 +117,6 @@ extension RadarChart: AXChartDescriptorRepresentable {
         )
 
         return AXChartDescriptor(
-            // ⚠️ 终审 S-5：初版四处全传 nil ⇒ VoiceOver 的音频图表没有标题。
-            // 每个图表本来就有 `self.title`，传进去成本为零。
             title: String(localized: self.title),
             summary: nil,
             xAxis: category,
@@ -152,11 +129,6 @@ extension RadarChart: AXChartDescriptorRepresentable {
 
 // MARK: - Preview
 
-/// ⚠️ Preview 专用的最小实现。放在这里而不是测试里——`#Preview` 是本仓组件的
-/// 主要视觉冒烟方式（CLAUDE.md）。
-///
-/// ⚠️ **必须 `nonisolated`** —— 本 target 设了 `defaultIsolation(MainActor)`，
-/// 不标就拿不到满足 `Sendable` 的 `Identifiable` conformance。见 `ChartValue` 的文档。
 private nonisolated struct Metric: ChartValue {
     let id = UUID()
     let label: String
@@ -174,7 +146,6 @@ private nonisolated struct Metric: ChartValue {
         ])
         .frame(height: 220)
 
-        // 退化：全等值 —— 应画出正多边形而非 NaN
         RadarChart([
             Metric(label: "A", value: 50),
             Metric(label: "B", value: 50),
@@ -182,7 +153,6 @@ private nonisolated struct Metric: ChartValue {
         ])
         .frame(height: 160)
 
-        // 退化：轴不够
         RadarChart([Metric(label: "只有一个", value: 10)])
             .frame(height: 60)
     }
