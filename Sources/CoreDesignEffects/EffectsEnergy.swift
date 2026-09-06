@@ -18,12 +18,14 @@ import SwiftUI
 // **不是同一回事** —— 那条讲的是**外来模块**类型的扩展。
 //
 // ⚠️⚠️ **漏标只有同模块读者会红，跨模块一律看不见**（`#271` 终审逐条变异实测）：
-// 拿掉 `particleScale` 的 `nonisolated` ⇒ `Confetti.swift:443`（同模块 nonisolated
-// 读者）当场红；而 `usesGlow` / `frozenIfPeriodIsDegenerate(_:)` 今天**一个 nonisolated
-// 读者都没有**，拿掉之后库、`downstream-probe`、`swift build --build-tests`
-//（含 `@testable import`）**三条腿全绿**。
-// ⇒ 这条契约由源码判据 `ExtensionIsolationGuard.pinnedExtensionMembersAreExplicitlyNonisolated`
-// 守，不由编译器守；新增成员必须去那张名单登记。
+// 拿掉 `particleScale` 的 `nonisolated` ⇒ `ConfettiBurst.particleCount(baseParticleCount:policy:)`
+//（同模块 nonisolated 读者）当场红；而 `usesGlow` / `frozenIfPeriodIsDegenerate(_:)`
+// 今天**一个 nonisolated 读者都没有**，拿掉之后库、`downstream-probe`、
+// `swift build --build-tests`（含 `@testable import`）**三条腿全绿**
+// —— `defaultIsolation` 推出来的隔离**不进模块接口**。
+// ⚠️ **因此别把漏标说成"下游会坏"**：今天不会。它由源码判据
+// `ExtensionIsolationGuard.pinnedExtensionMembersAreExplicitlyNonisolated` 守显式性，
+// 完整理由与变异表在那个文件头；新增成员必须去那张名单登记。
 
 public extension RenderPolicy {
 

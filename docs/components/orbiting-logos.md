@@ -111,7 +111,7 @@ OrbitingLogos(brands) { brand in
 
 ⚠️⚠️ **`.hidden` 档在本件上是收窄的：只摘装饰，不摘内容**（PR #274 终审 C-1）。
 
-`0.4.x` 之前 `.hidden` 返回 `EmptyView()` ⇒ 宿主 App 的品牌 logo 与全部合作方 logo
+`0.4.x` 之前停摆档（当时叫 `.none`）返回 `EmptyView()` ⇒ 宿主 App 的品牌 logo 与全部合作方 logo
 在**完全可见的窗口里**凭空消失，VoiceOver 也一并丢掉这些元素——而 macOS 上 `.inactive`
 就是"窗口不是前台"（窗口照常显示），iPadOS 上是台前调度后台。本仓已就这一情形裁决过，
 `MicroInteractionReduceMotionGuard.energyGatedFiles` 逐字：
@@ -271,7 +271,7 @@ OrbitingLogos(brands) { brand in
 **「换环数」另核，同样是对 I-3 的实核否证**：本件的四圈同心点环是**纯装饰层**。
 ⚠️ **`#315` 终审 I-3 换掉了这里的论据（结论不变）**：上一版拿「低电量档下每环点数直接减半」
 当依据，而那句说的**是另一个量** —— 减半的是 `dotsPerRing`（每环**点数**，23 → 12；
-`OrbitingLogos.swift:268-271` × `EffectsEnergy.swift:203-210` 的 `particleScale == 0.5`），
+`OrbitingLogos.swift` 的 `dotsPerRing` × `RenderPolicy.particleScale == 0.5`），
 而**环数** `OrbitRing.ringCount` 是 `static let ringCount: Int = 4`（`OrbitRing.swift:44`）、
 **恒定、根本不吃电量**。⇒ 改用真正管用的依据：按补充规则 1「判『装饰』时须写明依据，源码或
 a11y 的自陈不足以定性」，此处**不援引**它的 `accessibilityHidden(true)` 自陈，而看它承不承载

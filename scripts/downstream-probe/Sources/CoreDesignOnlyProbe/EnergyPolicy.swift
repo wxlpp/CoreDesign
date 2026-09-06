@@ -10,9 +10,16 @@ import SwiftUI
 // **也可见**，哪怕那个文件自己没 import 它。⇒ 文件级的 import 隔离对扩展成员不成立，
 // **只有 target 边界才成立**。放错地方 ⇒ 把策略表搬回 Effects 时 probe 照样全绿。
 //
-// ⚠️ 全部 `nonisolated`：本包三个 target 都开了 `.defaultIsolation(MainActor.self)`，
-// 漏标时库内 `swift build` / `swift test` 全绿（都在隔离 target 内部），
-// **只有这里的 `nonisolated func` 会红**。
+// ⚠️ **三个类型都写了类型级 `nonisolated`，但本 probe 只对其中一个是唯一守卫**
+//（`#271` 第 2 轮终审 I-3，逐条变异实测）：
+// · 去掉 `RenderPolicy` / `MotionPresentation` 的 `nonisolated` ⇒ **库 `swift build` 当场红**
+//   （`EffectsEnergy.swift` 的 extension 里有 `self == .full` / `self == .animated`，
+//   报 `main actor-isolated conformance … to 'Equatable' cannot be used in nonisolated
+//   context [#IsolatedConformances]`）；
+// · 去掉 `EnergyState` 的 ⇒ **库绿**，只有本文件红（`policy` 取不到）
+//   —— 它没有同模块的 nonisolated `==` 读者。
+// ⇒ 别把这里读成"三个类型的 nonisolated 都靠本 probe"。本 probe 在通用表上的**共同**增量
+// 是「不靠 `@testable`、只链 product 也拿得到」⇒ 证的是 `public` + 跨 product 可见。
 
 nonisolated func consumeRenderPolicyGenericKnobs() -> (Bool, Double?) {
     let policy = RenderPolicy.reduced

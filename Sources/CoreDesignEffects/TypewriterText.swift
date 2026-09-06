@@ -49,7 +49,8 @@ public nonisolated enum TypewriterSpeed: Sendable, CaseIterable {
 ///
 /// ⚠️ **抽出来的唯一理由是可测性**（与 `ConfettiBurst` / `ProcessingSweep` / `ShineBand`
 /// 同一条纪律）：`\.accessibilityReduceMotion` **不可注入**
-///（`EnvironmentValues` 上它是只读的系统偏好，写它编译红；完整记账见
+///（`EnvironmentValues` 上它是只读的系统偏好，写它编译红 —— 同形实测记录见
+/// `FilterTransitionSupport.swift` 文件头；「只能走两条链」的记账见
 /// `MicroInteractionReduceMotionGuard` 的 I-A 段），⇒ 「Reduce Motion 下直接显示完整文本」这条 AC 在位图上**结构上
 /// 不可观测**，只能落在纯函数 + 调用点源码两条链上。
 /// ⚠️ **不要把字面量写回 `TypewriterText`**——那会让判据重新变成"测试自说自话"。

@@ -99,8 +99,9 @@ extension EnvironmentValues {
     /// （例如它自己订阅了 `NSProcessInfoPowerStateDidChange`），不该被系统读数覆盖。
     /// 真正的"从系统读"发生在**唯一**的解析点
     /// `EnergyState.resolve(injectedScenePhase:systemScenePhase:lowPowerModeOverride:)`
-    /// ——`#271` 起它与本键同在 `CoreDesign`（此前这里写「各消费模块的解析点」，
-    /// 那时每个消费模块确实各有一个）。
+    /// ——`#271` 起它与本键同在 `CoreDesign`。
+    /// ⚠️ 此前这里写「各消费模块的解析点」，读起来像有多个；`main` 上其实也只有一个
+    /// （在 `CoreDesignEffects`），本次只是把它挪了层。
     ///
     /// ⚠️ **名字里没有 `effects`**（本轮下沉时重估）：旧名 `\.effectsPowerMode` 是它住在
     /// `CoreDesignEffects` 时的名字，下沉后该前缀名实不符——它不再是动效层专有。

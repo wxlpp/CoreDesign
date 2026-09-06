@@ -17,7 +17,8 @@ import Testing
 // | `ParticleTransition` | Reduce Motion ⇒ 只留淡入淡出（**不是 no-op**）；恒等相位不画粒子 | 纯函数 + 位图 |
 //
 // ⚠️ **`\.accessibilityReduceMotion` 不可注入**（`EnvironmentValues` 上它是只读的系统偏好，
-// 写它编译红；这条事实的完整记账在 `MicroInteractionReduceMotionGuard` 的 I-A 段）。
+// 写它编译红 —— 同形实测记录见 `FilterTransitionSupport.swift` 文件头；
+// 「只能走纯函数 + 源码两条链」的记账见 `MicroInteractionReduceMotionGuard` 的 I-A 段）。
 // ⇒ 凡 Reduce Motion 方向的判据
 // 只能落在**纯函数**（"给定这个布尔值，这个函数返回什么"）与**源码**（"调用点是否真的
 // 只用这个结论"）两条链上，位图路结构上不可达。本文件两条都写，缺一条就只剩函数体、

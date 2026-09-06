@@ -48,8 +48,26 @@ struct EnergyPolicyTests {
     /// ⚠️ **`nil` 与 `false` 必须可区分**：`false` 是「有人明确注入了『不低电量』」，
     /// `nil` 才是「没人注入、去问系统」。这正是那个环境键是 `Bool?` 而不是 `Bool` 的理由
     /// —— 写成 `Bool` 的话本条无从表达。
-    @Test("`nil` 注入 ⇒ 真的去读 ProcessInfo；`false` 注入 ⇒ 不读")
-    func nilFallsBackToSystemButFalseDoesNot() {
+    ///
+    /// ⚠️⚠️ **运行期那一半在非低电量机器上没有区分力**（`#271` 第 2 轮终审 I-5，有变异实证）：
+    /// 把 `?? ProcessInfo…` 改成 `?? false`（永不读系统）⇒ 在 `isLowPowerModeEnabled == false`
+    /// 的机器上 `resolved.isLowPower == system` 恰好是 `false == false` ⇒ **本 suite 五条全绿**。
+    /// CI 与开发机常态就是 `false`，所以那一半实际上只在低电量机器上才成立。
+    /// ⇒ 「真的去问了系统」这句由下面的**源码断言**钉住，它在任何机器上都有区分力；
+    /// 运行期断言留着，它在低电量机器上是真判据、在别的机器上是一致性检查。
+    @Test("`nil` 回落到系统读数（源码 + 运行期两条链）；`false` 注入 ⇒ 不读")
+    func nilFallsBackToSystemButFalseDoesNot() throws {
+        // ⚠️ 源码这半是**唯一**与机器状态无关的那半，见上面的实测登记。
+        let sourceURL = GuardScanRoots.sourcesURL(of: "CoreDesign")
+            .appendingPathComponent("Environment/EnergyPolicy.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        // ⚠️ 先收成一个 `Bool` 再 `#expect`：直接把 `source.contains(...)` 写进去，
+        // 失败信息会把**整个文件**内联进来，读不了。
+        let fallsBackToProcessInfo = source.filter { !$0.isWhitespace }
+            .contains("lowPowerModeOverride??ProcessInfo.processInfo.isLowPowerModeEnabled")
+        #expect(fallsBackToProcessInfo,
+                "`resolve` 的 nil 回落不再落到 `ProcessInfo.processInfo.isLowPowerModeEnabled` —— 「没人注入就去问系统」这条断了")
+
         let system = ProcessInfo.processInfo.isLowPowerModeEnabled
         let resolved = EnergyState.resolve(
             injectedScenePhase: .active, systemScenePhase: .active, lowPowerModeOverride: nil
@@ -67,8 +85,8 @@ struct EnergyPolicyTests {
     /// 本仓出过一次「两个调用点各写一遍就写反了」的事故，`#271` 把它下沉正是为此。
     @Test("两道闸的顺序：能耗闸压过 Reduce Motion 闸")
     func energyGateOutranksReduceMotion() {
-        // ⚠️ **`.inactive` 这一维不能省**：只测 `.background` 时，把停摆判据从
-        // `policy.drawsAnything` 改成 `policy == .paused` 之外的任何等价式都照绿，
+        // ⚠️ **`.inactive` 这一维不能省**：只测 `.background` 时，把 `presentation` 写成
+        // 绕过 `policy`、直接判 `scenePhase == .background` 的形态照绿，
         // 而 `.inactive` 才是本仓登记了「可见窗口失焦」限度的那一档。
         for phase in [ScenePhase.background, .inactive] {
             for isLowPower in [true, false] {
