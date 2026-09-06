@@ -181,7 +181,7 @@ extension ComponentMeta {
                 .font(CoreTypography.Token.footnote.font)
                 .foregroundStyle(Color.contentMuted)
         }, demoAction: { AnyView(ToastDemoButton()) }),
-        ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:presentation:)：overlay 遮罩（阻塞）/ topBar / inline（非阻塞）", category: .feedback) {
+        ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:presentation:tint:)：overlay 遮罩（阻塞）/ topBar / inline（非阻塞）；取色走 tint: 参数，三个形态一致", category: .feedback) {
             SpinningPreview()
         },
         ComponentMeta(id: "spinning-nonblocking", name: "Spinning · 非阻塞", description: "topBar 顶条 / inline 行内：不铺遮罩、不禁用交互", category: .feedback) {
@@ -234,9 +234,9 @@ extension ComponentMeta {
                 view.ping(trigger: fire)
             }
         },
-        ComponentMeta(id: "effect-spray", name: ".spray(trigger:symbol:)", description: "trigger 值变化时喷出 SF Symbol 粒子；colors 默认空数组 ⇒ 取调用方 .tint", category: .effect) {
-            MicroInteractionDemo(label: "喷一次", symbol: "heart.fill") { view, fire in
-                view.spray(trigger: fire, symbol: "heart.fill", strength: .pronounced)
+        ComponentMeta(id: "effect-spray", name: ".spray(trigger:symbol:)", description: "trigger 值变化时喷出 SF Symbol 粒子；colors 空数组时全取调用方 .tint，这里给了彩虹色板", category: .effect) {
+            MicroInteractionDemo(label: "喷一次", symbol: "sparkle") { view, fire in
+                view.spray(trigger: fire, symbol: "sparkle", strength: .pronounced, colors: GalleryPalette.festive)
             }
         },
         ComponentMeta(id: "effect-rise", name: ".rise(trigger:text:)", description: "trigger 值变化时浮起一段文字；text 是 LocalizedStringKey（公约 B 类）", category: .effect) {
@@ -365,6 +365,21 @@ extension ComponentMeta {
             NetworkGraphDemo()
         },
     ]
+}
+
+// MARK: - 画廊场景色板
+//
+// ⚠️ **色板住在画廊、不住在库里**：`ParticleTransition` 的文件头逐字写着
+// 「不给彩虹默认色板——那是品牌决定」，`Confetti` / `Spray` / `DotSphere` /
+// `RingChart` 同族，`colors: []` 一律退回调用方的单一 `.tint`。
+// ⇒ 「彩纸是单色的」不是库的缺陷，是画廊一直没给色。
+private enum GalleryPalette {
+    /// 庆祝类（彩纸 / 喷洒 / 粒子）。彩虹序，冷暖交替避免相邻两色糊在一起。
+    static let festive: [Color] = [.red, .orange, .yellow, .green, .teal, .blue, .purple, .pink]
+    /// 活动三环。对应「活动 / 锻炼 / 站立」三个**互相独立的量**，不是同一量的三档深浅。
+    static let activityRings: [Color] = [.pink, .green, .cyan]
+    /// 多品牌轨道 / 字符球这类「一堆同级实体」。
+    static let entities: [Color] = [.orange, .teal, .indigo, .pink, .green]
 }
 
 // MARK: - Component Previews
@@ -759,7 +774,8 @@ private struct SettingsScreenDemo: View {
 private struct FloatButtonPreview: View {
     var body: some View {
         ZStack {
-            LinearGradient(colors: [.indigo, .blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+            // 悬浮按钮的意义是「浮在内容之上」，底衬要像真实内容而不是一块纯色。
+            LinearGradient(colors: [.teal, .green, .yellow], startPoint: .topLeading, endPoint: .bottomTrailing)
                 .clipShape(CoreShape.rounded(CoreRadius.medium))
 
             HStack(spacing: CoreSpacing.lg) {
@@ -789,6 +805,8 @@ private struct RatingPreview: View {
             Rating(value: .constant(4))
                 .disabled(true)
         }
+        // 评分星现实里一律是琥珀 / 金色，不是 App 强调色。星形填充走 `.tint`。
+        .tint(.orange)
     }
 }
 
@@ -798,6 +816,7 @@ private struct RatingDisplayPreview: View {
             RatingDisplay(value: 4)
             RatingDisplay(value: 3.5)
         }
+        .tint(.orange)
     }
 }
 
@@ -836,11 +855,28 @@ private struct TagInputPreview: View {
 
 private struct ProgressIndicatorGalleryPreview: View {
     var body: some View {
-        VStack(spacing: CoreSpacing.md) {
-            ProgressIndicator()
-                .controlSize(.regular)
-            ProgressIndicator(text: "Loading…")
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            // 三个真实场景，各自的取色与语义一致：上传走强调色、同步走中性、
+            // 失败重试走 danger。`tint:` 是参数而不是外加 `.tint(_:)`——理由见
+            // `ProgressIndicator.tint` 的文档注释。
+            HStack(spacing: CoreSpacing.sm) {
+                ProgressIndicator().controlSize(.small)
+                Text(verbatim: "正在上传 3 个文件…").coreFont(.subheadline)
+            }
+            HStack(spacing: CoreSpacing.sm) {
+                ProgressIndicator(tint: Color.contentSecondary).controlSize(.small)
+                Text(verbatim: "后台同步中").coreFont(.subheadline)
+                    .foregroundStyle(Color.contentSecondary)
+            }
+            HStack(spacing: CoreSpacing.sm) {
+                ProgressIndicator(tint: .danger).controlSize(.small)
+                Text(verbatim: "重试连接（第 2 次）").coreFont(.subheadline)
+                    .foregroundStyle(Color.statusDangerForeground)
+            }
+            Divider()
+            ProgressIndicator(text: "正在导出…", tint: .green)
                 .controlSize(.large)
+                .frame(maxWidth: .infinity)
         }
     }
 }
@@ -908,7 +944,18 @@ private struct TimelinePreview: View {
             Timeline(
                 items: [
                     TimelineItem(status: .info) {
-                        Color.statusAccentEmphasis.frame(width: 220, height: 32)
+                        // 本槽位存在的意义是「非文本的定高内容」，用真实的附件行
+                        // 而不是一块纯色，才看得出 `.alternate` 的对齐。
+                        HStack(spacing: CoreSpacing.xs) {
+                            Image(systemName: "paperclip")
+                                .foregroundStyle(Color.contentSecondary)
+                            Text(verbatim: "合同终稿.pdf").coreFont(.footnote)
+                            Text(verbatim: "2.4 MB").coreFont(.caption)
+                                .foregroundStyle(Color.contentSubtle)
+                        }
+                        .padding(.horizontal, CoreSpacing.sm)
+                        .frame(width: 220, height: 32, alignment: .leading)
+                        .background(Color.surfaceRaised, in: CoreShape.rounded(CoreRadius.small))
                     },
                     TimelineItem(status: .success) { Text("短").coreFont(.callout) },
                     TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) },
@@ -929,9 +976,9 @@ private struct CarouselPreviewItem: Identifiable {
 
 private struct CarouselPreview: View {
     private let cards: [CarouselPreviewItem] = [
-        CarouselPreviewItem(id: 0, title: "第一页", color: .blue),
-        CarouselPreviewItem(id: 1, title: "第二页", color: .purple),
-        CarouselPreviewItem(id: 2, title: "第三页", color: .orange),
+        CarouselPreviewItem(id: 0, title: "限时 5 折", color: .orange),
+        CarouselPreviewItem(id: 1, title: "新品上架", color: .purple),
+        CarouselPreviewItem(id: 2, title: "会员专享", color: .teal),
     ]
     var body: some View {
         Carousel(self.cards, autoAdvance: false) { item in
@@ -965,7 +1012,7 @@ private struct SpinningPreview: View {
                     .foregroundStyle(Color.contentSecondary)
             }
         }
-        .spinning(true, text: "Refreshing…")
+        .spinning(true, text: "Refreshing…", tint: .green)
     }
 }
 
@@ -1045,6 +1092,54 @@ private struct MicroInteractionDemo<Decorated: View>: View {
 ///
 /// ⚠️ **必须由 `withAnimation` 驱动插入/删除**：`Transition` 只在视图**进出**时求值，
 /// 光把它挂在一个常驻视图上什么都看不到。
+/// 转场的被试内容。
+///
+/// ⚠️ **不能是一块纯色矩形**：转场里最难判的是旋转 / 翻转 / 溶解**有没有作用到内容上**，
+/// 而纯色块转起来跟不转几乎一样。给它真实卡片的结构（缩略图 + 标题 + 副标题 + 角标）
+/// 之后，`rotate3d` 的背面、`flip` 的镜像、`blinds` 的条带才有可辨的参照物。
+private struct TransitionSubject: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            LinearGradient(
+                colors: [.orange, .pink, .purple],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            .frame(height: 64)
+            .overlay(alignment: .topTrailing) {
+                Text(verbatim: "NEW")
+                    .font(CoreTypography.Token.caption.font.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, CoreSpacing.xs)
+                    .padding(.vertical, 2)
+                    .background(.black.opacity(0.28), in: Capsule())
+                    .padding(CoreSpacing.xs)
+            }
+            .overlay(alignment: .bottomLeading) {
+                Image(systemName: "music.note")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(CoreSpacing.xs)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: "夜航西飞")
+                    .font(CoreTypography.Token.footnote.font.weight(.semibold))
+                    .foregroundStyle(Color.contentPrimary)
+                Text(verbatim: "柏林爱乐 · 4:12")
+                    .font(CoreTypography.Token.caption.font)
+                    .foregroundStyle(Color.contentSubtle)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, CoreSpacing.sm)
+            .padding(.vertical, CoreSpacing.xs)
+            .background(Color.surfaceRaised)
+        }
+        .frame(width: 160, height: 110)
+        .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
+        .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+    }
+}
+
 private struct TransitionDemo<T: Transition>: View {
     let transition: T
 
@@ -1055,14 +1150,7 @@ private struct TransitionDemo<T: Transition>: View {
             ZStack {
                 Color.clear.frame(height: 140)
                 if self.isShown {
-                    RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous)
-                        .fill(.tint)
-                        .frame(width: 160, height: 110)
-                        .overlay {
-                            Text(verbatim: "Hello")
-                                .font(CoreTypography.Token.headline.font)
-                                .foregroundStyle(Color.surfaceCanvas)
-                        }
+                    TransitionSubject()
                         .transition(self.transition)
                 }
             }
@@ -1084,7 +1172,8 @@ private struct ConfettiDemo: View {
         VStack(spacing: CoreSpacing.lg) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(.tint)
+                // 「完成」的语义色是 success 绿，不是 App 强调色。
+                .foregroundStyle(Color.success)
             Button("完成一项") { self.completed += 1 }
                 .buttonStyle(.light(role: .primary))
             Text(verbatim: "completed = \(self.completed)")
@@ -1093,7 +1182,7 @@ private struct ConfettiDemo: View {
         }
         .frame(height: 180)
         .frame(maxWidth: .infinity)
-        .confetti(trigger: self.completed, strength: .pronounced)
+        .confetti(trigger: self.completed, strength: .pronounced, colors: GalleryPalette.festive)
     }
 }
 
@@ -1157,7 +1246,8 @@ private struct TypewriterTextDemo: View {
 
 private struct AnimatedMeshGradientDemo: View {
     var body: some View {
-        AnimatedMeshGradient()
+        AnimatedMeshGradient(colors: [.indigo, .purple, .pink, .orange],
+                            alternateColors: [.teal, .blue, .indigo, .purple])
             .frame(height: 160)
             .clipShape(RoundedRectangle(cornerRadius: CoreRadius.medium, style: .continuous))
     }
@@ -1204,10 +1294,13 @@ private struct OrbitingLogosDemo: View {
     ]
 
     var body: some View {
-        OrbitingLogos(Self.brands) { brand in
+        OrbitingLogos(Self.brands, colors: GalleryPalette.entities) { brand in
+            // ⚠️ 逐 logo 取色必须在**内容闭包**里做：`OrbitingLogos(colors:)` 给的是
+            // 轨道粒子的色板，盖不住这里；上一版写 `.foregroundStyle(.tint)`，
+            // 五个品牌图标于是全是同一个强调色。
             Image(systemName: brand.symbol)
                 .font(.system(size: 18))
-                .foregroundStyle(.tint)
+                .foregroundStyle(GalleryPalette.entities[brand.id % GalleryPalette.entities.count])
         } center: {
             Image(systemName: "circle.hexagongrid.fill")
                 .font(.system(size: 28))
@@ -1219,13 +1312,13 @@ private struct OrbitingLogosDemo: View {
 
 private struct DotSphereDemo: View {
     var body: some View {
-        DotSphere().frame(height: 200)
+        DotSphere(colors: GalleryPalette.entities).frame(height: 200)
     }
 }
 
 private struct CharSphereDemo: View {
     var body: some View {
-        CharSphere(["道", "德", "经", "S", "w", "i", "f", "t"])
+        CharSphere(["道", "德", "经", "S", "w", "i", "f", "t"], colors: GalleryPalette.entities)
             .frame(height: 200)
     }
 }
@@ -1288,7 +1381,7 @@ private struct RadarChartDemo: View {
             GalleryMetric(id: 2, label: "耐力", value: 94),
             GalleryMetric(id: 3, label: "技巧", value: 47),
             GalleryMetric(id: 4, label: "智力", value: 73),
-        ])
+        ], tint: .indigo)
         .frame(height: 220)
     }
 }
@@ -1299,7 +1392,7 @@ private struct RingChartDemo: View {
             GalleryMetric(id: 0, label: "活动", value: 420),
             GalleryMetric(id: 1, label: "锻炼", value: 28),
             GalleryMetric(id: 2, label: "站立", value: 9),
-        ], goal: 500)
+        ], goal: 500, colors: GalleryPalette.activityRings)
         .frame(height: 200)
     }
 }
@@ -1318,7 +1411,8 @@ private struct ActivityHeatmapDemo: View {
     }
 
     var body: some View {
-        ActivityHeatmap(Self.days).frame(height: 120)
+        // 贡献热力图的现实原型（GitHub / 健身打卡）一律是绿色阶。
+        ActivityHeatmap(Self.days, tint: .green).frame(height: 120)
     }
 }
 
@@ -1329,6 +1423,6 @@ private struct NetworkGraphDemo: View {
     }
 
     var body: some View {
-        NetworkGraph(nodes: Self.nodes, edges: Self.edges).frame(height: 260)
+        NetworkGraph(nodes: Self.nodes, edges: Self.edges, tint: .teal).frame(height: 260)
     }
 }

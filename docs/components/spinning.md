@@ -2,7 +2,7 @@
 
 为任意内容整体叠加一层加载遮罩 / Overlay any content with a loading mask.
 
-`View.spinning(_:text:presentation:)`（`Modifier/SpinningModifier.swift`）吸收 Semi Design `Spin` 能力（Issue #172）。
+`View.spinning(_:text:presentation:tint:)`（`Modifier/SpinningModifier.swift`）吸收 Semi Design `Spin` 能力（Issue #172）。
 
 ⚠️ **交互与无障碍契约按 `presentation` 分岔**——不是整个 modifier 的统一语义：
 
@@ -16,6 +16,7 @@
 | isActive | `Bool` | - | 是否显示加载指示 |
 | text | `LocalizedStringKey?` | `nil` | 指示器的可选文案。⚠️ `.topBar` 下不生效（顶条没有文案位） |
 | presentation | `SpinningPresentation` | `.overlay` | 呈现形态，见下表。默认 `.overlay` = 现状形态 ⇒ 现有调用方零影响 |
+| tint | `Color` | `.accent` | spinner / 顶条取色，**三个形态都生效**。⚠️ 必须走本参数——**外加 `.tint(_:)` 三个形态一律无效**：`.overlay` / `.inline` 是因为 `ProgressIndicator` 内层显式设 tint（FR-3a），`.topBar` 则是本次统一取色通路的**代价**（它原本吃环境 tint，见 `docs/BREAKING-CHANGES.md` 未发布节） |
 
 ### `SpinningPresentation`（`#60` 形态 D2「配置枚举」）
 
@@ -79,4 +80,4 @@ ScrollView {
 
 ## FR-3a 例外范围说明
 
-`ProgressIndicator.swift` 因直接包装系统 `ProgressView`，显式写 `.tint(Color.accent)`，是 epic FR-3「强调色走 `.tint`」的唯一例外（SC-5 静态核对对该文件豁免）。`SpinningModifier` **不**落入这条豁免范围——它不直接包装 `ProgressView`，而是组合调用已经处理好 tint 的 `ProgressIndicator` 组件；本文件若出现任何强调色需求，须正常走 `.tint`（当前实现无此需求）。详见 `.claude/epics/semi-mobile-components/172.md` Technical Details。
+`ProgressIndicator.swift` 因直接包装系统 `ProgressView`，显式设 tint（默认 `Color.accent`，可经 `tint:` 覆盖），是 epic FR-3「强调色走 `.tint`」的唯一例外（SC-5 静态核对对该文件豁免）。`SpinningModifier` 本身把 `tint:` **透传**给 `ProgressIndicator`（`.overlay` / `.inline`）与 `TopBarIndicator`（`.topBar`）——⚠️ 三个形态必须**一致**吃这个参数，否则就是同一 API 的取色行为分裂，正是本文件《为什么自绘》第 2 条明文拒绝过的情形。详见 `.claude/epics/semi-mobile-components/172.md` Technical Details。

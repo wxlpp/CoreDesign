@@ -10,6 +10,45 @@
 > `v0.8.0`（2026-08-16，`component-contract` epic：把 5 组压扁成 Bool 的 API 还原成语义类型——**含破坏性变更**）。
 > 本文件早期版本曾写「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
 
+## 未发布（画廊场景化配色 PR）
+
+**纯新增 + 一处行为变更 + 一处已修正的观感回归。**
+
+### 行为变更（对下游编译零感知，但语义变了）
+
+`.spinning(..., presentation: .topBar)` **不再响应外层 `.tint(_:)`**，改走 `tint:` 参数。
+
+原本 `.topBar` 的顶条用 `.fill(.tint)` 从**环境**取色，而 `.overlay` / `.inline` 经
+`ProgressIndicator` 走内层显式 tint、本就吞掉外层 `.tint(_:)` ⇒ 同一 modifier 的三个形态
+取色行为分裂（`SpinningModifier` 自己的文档把这条当作「为什么自绘」的反对论据之一）。
+本次把三者统一到 `tint:` 参数通路。**下游若写过
+`.spinning(true, presentation: .topBar).tint(.orange)`，需改成
+`.spinning(true, presentation: .topBar, tint: .orange)`** —— 不报错，只是不再变橙。
+
+### 新增（对已应用调用点零影响）
+
+| 符号 | 变更 |
+|---|---|
+| `RingChart.init(_:goal:title:tint:colors:)` | 新增 `colors: [Color] = []`，逐环取色。⚠️ **正交性代价**：`colors` 非空时 `tint` 完全不生效 |
+| `ProgressIndicator.init(tint:)` / `init(text:tint:)` ×2 | 三个 init 各新增 `tint: Color = .accent` |
+| `View.spinning(_:text:presentation:tint:)` | 新增 `tint: Color = .accent` |
+| `SpinningModifier.tint` / `.init(..., tint:)` | 新增 `public let` 与 init 参数 |
+| `TopBarIndicator.tint` | 新增（internal 类型） |
+
+⚠️ **一处罕见的源码破坏**：带默认值的参数对**已应用**的调用点零影响，但对**未应用**的
+`.init` 引用是硬破坏。实测 `let f: () -> ProgressIndicator = ProgressIndicator.init`
+报 `cannot convert value of type '(Color) -> …' to specified type '() -> …'`。
+`scripts/downstream-probe` 全绿（`EXIT=0`），但它只覆盖已应用调用点，对这条无射程。
+
+### 已修正、未外泄的观感回归
+
+`RingChart` 轨道一度写成 `ringColor(at:).opacity(0.18)`，而 `ringColor` 在 `colors` 为空时
+已压过一次阶梯 ⇒ **二次相乘**，第 6 环轨道 α 从 0.18 掉到 0.018（10 倍）。
+终审 C-1 抓到，已改为取本环**基色**再压 0.18，`colors` 为空时逐字节等于旧值。
+判据 `RingChartColorsGuard.emptyColorsKeepsTrackOpacityConstant` 钉住这条。
+
+---
+
 ## 未发布（`coredesign-leftover-closeout` epic，Issue #220）
 
 **对下游编译零感知，仅改观感。** 不删除、不重命名任何公开符号；三处「同名换值」。

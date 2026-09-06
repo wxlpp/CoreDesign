@@ -1457,7 +1457,7 @@ modifier **internal 化**（只经 `public extension View` 暴露，即 `Surface
 （`.progressViewStyle(.core)`）与 `DelegationTimeline` / `AgentMessageList` /
 `ToolCallRow`（`.disclosureGroupStyle(.core)`）——**没有一个登记表条目通过这三个 style
 提供扩展点**。`ProgressIndicator` 是本仓唯一 `nativeProtocol: ProgressViewStyle` 的组件，
-但它走的是自己的固定 `.circular` + `Color.accent`（FR-3a 例外），不消费 `.core`。
+但它走的是自己的 `.circular` + 显式 tint（默认 `Color.accent`，可经 `tint:` 参数覆盖；FR-3a 例外），不消费 `.core`。
 
 ⇒ **裁决：选二选一里的第 2 条——登记为 AC 偏离**。`38.md` 那句「标出对应协议名」的 AC 在「登记单位 = 组件」
 下无对应物，不是漏做，是 AC 原文与登记单位定义之间的张力（同 D1 的既有说明）。三个

@@ -434,6 +434,26 @@ func consumeProgressIndicatorVerbatimText(_ status: String) -> some View {
     ProgressIndicator(text: status)
 }
 
+// MARK: tint 参数三处新公开面（画廊场景化配色 PR）
+//
+// 按 AC #173 的同一条理由：新增的公开面若无 probe 引用，回退成 internal 或改签名时
+// probe 照常绿。这三个 consume 各钉一处。
+
+@MainActor
+func consumeSpinningModifierTint() -> Color {
+    SpinningModifier(isActive: true, presentation: .topBar, tint: .green).tint
+}
+
+@MainActor
+func consumeSpinningViewTint() -> some View {
+    Text("content").spinning(true, tint: .green)
+}
+
+@MainActor
+func consumeProgressIndicatorTint() -> some View {
+    ProgressIndicator(tint: .green)
+}
+
 // MARK: - NFR-7 的两个可注入能耗环境键：**不在本文件**（Issue #252）
 //
 // `\.lowPowerModeOverride` / `\.scenePhaseOverride` 已从 `CoreDesignEffects` 下沉到
