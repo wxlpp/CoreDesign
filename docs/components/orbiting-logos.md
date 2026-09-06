@@ -254,13 +254,10 @@ OrbitingLogos(brands) { brand in
    · **Framer Marketplace 的 OrbitMotion**（<https://www.framer.com/marketplace/components/orbit-motion/>）
      —— HTTP **200**，但正文只回 111 字符的导航壳 ⇒ 仍未读到实际措辞，按纪律不得引用。
    · ⚠️⚠️ **Animata “Orbiting Items 3D”**（<https://animata.design/docs/list/orbiting-items-3-d>）
-     —— 本轮实测 **HTTP 200、取得到完整正文**，上一版记的 HTTP 403 **已经过期**。页面逐字：
-     组件自述 “List component with orbiting items. The items orbit around the center of an
-     element in 3D Ellipse.”；props 含 `radiusX`（“The radius of the ellipse on X-axis in
-     percentage, relative to the container.”）、`radiusY`、`tiltAngle`（“The angle at which
-     ellipse is tilted to x-axis.”）。⇒ 这是一份**可核验的来源**，且它是「**同一个组件**、
-     两个 props 决定轨道是圆还是椭圆」（`radiusX == radiusY` 即圆）⇒ 同时过得了来源义务与
+     —— 本轮实测 **HTTP 200、取得到完整正文**。⇒ 这是一份**可核验的来源**，且它是
+     「**同一个组件**、两个 props 决定轨道是圆还是椭圆」⇒ 同时过得了来源义务与
      `D-299-2` 那把「须是本组件的另一种长相」的尺子。
+     **逐字页面证据的唯一真源在 `docs/contract-defects.md` 的 `D-299-2`。**
    ⇒ ⚠️⚠️ **按公约字面，本条的计入数应为 2（候选 1 + 候选 4）≥ 2 ⇒ 落出口 1**，而不是本条
    现在落盘的步骤 4。**本轮不据此翻转落点**（理由见本文末段 —— ⚠️ `#315` 第 2 轮终审 C 之后
    已**不再是**「可逆一侧」，主理由改为下游连锁应当单独过一次评审），复核结论登记在
@@ -304,9 +301,8 @@ a11y 的自陈不足以定性」，此处**不援引**它的 `accessibilityHidde
 （环形↔线性 / 环形↔网格）⇒ 计入数 2（候选 1 + 候选 4）→ 4 ≥ 2 ⇒ 出口 1 ⇒ `semantic` +
 `needsExtensionPoint`** —— 本条的整条落点都挂在它上面，不是边角。
 
-⚠️ **`#315` 第 2 轮终审 F-4：基数统一为 2。** 「1 → 3」里的 1 是**复核之前**的计入数；
-同一批文档的《`#315` 终审后复核》段已把基数改成 **2**（候选 1 多轨道分布 + 候选 4 椭圆轨道）。
-两条路径同时成立时应是 **2 + 2 = 4**。结论（≥2 ⇒ 出口 1）不受影响，但两处基数不得再打架。
+⚠️ **本条计入基数的口径（候选 1 多轨道分布 + 候选 4 椭圆轨道）与理由，唯一真源在
+`docs/contract-defects.md` 的 `D-299-2`。**
 ⚠️ **而且公约字面并不支持那条读法**：步骤 2 的「…的**版本**吗」是**问句**，紧接其后的才是
 **操作化门槛**（「能当场举出 **≥2 个业界真实存在的替代形态**」），而「替代形态」不等于
 「同一组件的版本」；作用域条款只排除**本登记表内**的兄弟，`Marquee` 与 Logo Clouds 都不在。

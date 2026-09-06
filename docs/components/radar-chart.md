@@ -261,20 +261,9 @@ Swift Charts 的 `BarMark`，不在登记表里 ⇒ 作用域条款的条件 ①
 平行坐标 mark 也没有极坐标变换。
 ⇒ **按 Swift Charts 口径：即使将来条件 ① 被扩宽、候选 3 因此被排除，本条仍剩 2 ≥ 2、落点不翻转。**
 
-⚠️⚠️ **`#315` 第 2 轮终审 F-2：上面这句只在 Swift Charts 这个窄口径下成立，不是全口径结论。**
-`D-299-1` 本轮**自己**把谓词从「Swift Charts」放宽成了「**宿主平台框架**」（`RingChart` 候选 1
-援引的就是 SwiftUI 的 `ProgressView(value:)`），但本条的「不命中」论证**只查了 Swift Charts**
-⇒ **用放宽后的谓词判、却只拿收窄的证据证**。按「宿主平台框架的具名 API」的**全口径尚未逐条核**。
-⚠️ **已找到一个具名的实体反例，作为后续核查的起点**（本轮不据以改落点）：**候选 2（径向柱状）**
-—— Swift Charts 的 `SectorMark(angle:innerRadius:outerRadius:)`，
-`.../iPhoneOS26.4.sdk/System/Library/Frameworks/Charts.framework/Modules/Charts.swiftmodule/arm64e-apple-ios.swiftinterface:2338`
-逐字 `nonisolated public init(angle: Charts.PlottableValue<some Plottable>, innerRadius:
-Charts.MarkDimension = .automatic, outerRadius: Charts.MarkDimension = .automatic,
-angularInset: CoreFoundation.CGFloat? = nil)` ⇒ `outerRadius` 是**逐 mark 可变**的
-`MarkDimension`（`:2361-2362` 的 `SectorPlot` 更给出 `MarkDimensions<DataElement>` 的逐元素形态）
-⇒ 每类一个 sector、半径编码取值 = 径向柱状图。⚠️ 这与排除 `RingChart` 候选 2 时用的
-「只能用 N 个 `BarMark` 手拼」**不同类** —— 这是**单一具名 mark 直接用**。
-⇒ 若该反例成立，本条计入数 3 → 1 < 2，**也会翻**。逐条核查移交 `#312`。
+⚠️⚠️ **本条的「不命中」论证有已登记的口径缺口，若补齐后成立、落点会翻**（具名反例：Swift Charts `SectorMark(outerRadius:)`）。
+**论证、逐字 SDK 依据与移交 `#312` 的排序约束，唯一真源在 `docs/contract-defects.md` 的 `D-299-1`。**
+⚠️ 本段有意只留指针不留副本 —— 同一句样板此前被抄进 6 份落点、一处更正要人工同步 6 次，收口理由与机器判据见 `#316`。
 
 本轮按公约字面走，`D-299-1` **未被用来改本条落点**，缺口另走修订回路。
 ⚠️ **上面这句只管 `D-299-1`，不是全称句**（`#315` 终审 C-1）：同批新开的 `D-299-2` **是**

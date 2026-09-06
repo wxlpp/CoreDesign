@@ -271,10 +271,7 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
 
 ⚠️ **公约缺口 `D-299-1`（宿主平台框架承担的候选，作用域条款援引不了）；`#315` 终审 C-2
-要求逐条重判，本条是四个图表里**至少**会被它翻转的一条**（⚠️ `#315` 第 2 轮终审 F-2：
-上一版写的是「**唯一**一条」，那句声称的范围超出了证据 —— `RadarChart` / `ActivityHeatmap`
-的「不命中」只按 Swift Charts 口径核过，全口径下已找到具名反例，见各自文档与
-`docs/contract-defects.md` 的 `D-299-1`）：**候选 1（并排线性进度条）命中** ——
+要求逐条重判，本条是四个图表里**至少**会被它翻转的一条**（⚠️ 不是「唯一」会翻的一条 —— 依据见 `docs/contract-defects.md` 的 `D-299-1`）：**候选 1（并排线性进度条）命中** ——
 框架级承担者是 SwiftUI 自家的 `ProgressView(value:)`（linear style）；**候选 3（堆叠条）命中**
 —— 承担者是 Swift Charts 的 `BarMark` 堆叠。**候选 2（分段进度条）不命中** —— Swift Charts
 没有「分段进度」这个概念，只能用 N 个 `BarMark` 手拼；`RingChart.swift:12-13` 的类型文档也逐字

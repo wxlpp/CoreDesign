@@ -286,19 +286,9 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 是一套布局，不是一个 mark」，这两个候选换的正是那套布局。
 ⇒ **按 Swift Charts 口径：即使将来条件 ① 被扩宽、候选 3 因此被排除，本条仍剩 2 ≥ 2、落点不翻转。**
 
-⚠️⚠️ **`#315` 第 2 轮终审 F-2：上面这句只在 Swift Charts 这个窄口径下成立，不是全口径结论。**
-`D-299-1` 本轮**自己**把谓词从「Swift Charts」放宽成了「**宿主平台框架**」（`RingChart` 候选 1
-援引的就是 SwiftUI 的 `ProgressView(value:)`），但本条的「不命中」论证**只查了 Swift Charts**
-⇒ **用放宽后的谓词判、却只拿收窄的证据证**。按「宿主平台框架的具名 API」的**全口径尚未逐条核**。
-⚠️ **已找到一个具名的实体反例，作为后续核查的起点**（本轮不据以改落点）：**候选 1（日历月视图）**
-—— UIKit 的 `UICalendarView`，
-`.../iPhoneOS26.4.sdk/System/Library/Frameworks/UIKit.framework/Headers/UICalendarView.h:17-18`
-逐字 `UIKIT_EXTERN API_AVAILABLE(ios(16.0)) API_UNAVAILABLE(watchos, tvos) NS_SWIFT_UI_ACTOR` /
-`@interface UICalendarView : UIView`；同头 `:61` 有 `#pragma mark - Decorations`、`:86` 的
-delegate 方法 `calendarView:decorationForDateComponents:` 做**每日**装饰，
-`UICalendarViewDecoration.h:24` 逐字 “Creates a default decoration with a circle image.”
-—— 正是候选 1 那个「月历网格 + 每日标记」的形态；SwiftUI 侧另有 `MultiDatePicker`。
-⇒ 若该反例成立，本条计入数 3 → 1 < 2，**也会翻**。逐条核查移交 `#312`。
+⚠️⚠️ **本条的「不命中」论证有已登记的口径缺口，若补齐后成立、落点会翻**（具名反例：UIKit `UICalendarView`）。
+**论证、逐字 SDK 依据与移交 `#312` 的排序约束，唯一真源在 `docs/contract-defects.md` 的 `D-299-1`。**
+⚠️ 本段有意只留指针不留副本 —— 同一句样板此前被抄进 6 份落点、一处更正要人工同步 6 次，收口理由与机器判据见 `#316`。
 
 本轮按公约字面走，`D-299-1` **未被用来改本条落点**，缺口另走修订回路。
 ⚠️ **上面这句只管 `D-299-1`，不是全称句**（`#315` 终审 C-1）：同批新开的 `D-299-2` **是**
