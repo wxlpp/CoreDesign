@@ -10,7 +10,7 @@ import Synchronization
 
 /// 力导向网络图。
 ///
-/// ⚠️ Swift Charts 画不出来：它没有图布局的概念——节点位置要由**斥力 + 弹簧**迭代解出，
+/// ⚠️ Swift Charts 画不出来：它没有图布局的概念——节点位置要由**斥力 + 弹簧 + 向心力**迭代解出，
 /// 不是把数据映射到坐标轴。
 public struct NetworkGraph<Node: GraphNode>: View {
 
@@ -103,6 +103,31 @@ public struct NetworkGraph<Node: GraphNode>: View {
     nonisolated static func iterations(for count: Int) -> Int {
         count <= 60 ? 90 : max(20, 90 * 60 / count)
     }
+
+    /// 向心力系数（#295）。力为 `(center − p) * strength * k`。
+    ///
+    /// ⚠️ **取值理由**：0.10 让贴边在**整个部署宽度范围**归零。
+    ///
+    /// | cs | 345×260 | 700 | 1000 | 1200 | 1400 | 最近邻@345 |
+    /// |---|---|---|---|---|---|---|
+    /// | 0.05 | 0/14 | 3/14 | 4/14 | 6/14 | 5/14 | 45.8 |
+    /// | **0.10** | 0/14 | 0/14 | 0/14 | 0/14 | 0/14 | 34.2 |
+    ///
+    /// ⚠️ **本条一度定在 0.05 并把「宽容器只修好一半」登记成固有代价——那是欠调参**：
+    /// 0.05 是让**最窄的那一个**容器（345×260，即 iPhone 宽度）贴边归零的最小系数，
+    /// 而宿主画廊在 macOS / iPad 上宽度轻易到 700–1400，那个范围一处都没扫过。
+    /// 把可避免的次优结果登记成固有局限，会让后来者以为要换算法才能解决。
+    ///
+    /// ⚠️ **两项真实代价**：
+    /// 1. **节点更密**：345×260 的最近邻从 45.8 降到 34.2pt（−25%）。
+    /// 2. **不相连的簇被拉近**：「最近跨簇距离 ÷ 簇内平均边长」在 0.05 时就已经破了
+    ///    （345×260 双环 1.00、600×600 双环 0.54），0.10 是 0.89 / 0.49
+    ///    ——**不跨越新阈值，但确实更糟**。⇒ **靠得近反而意味着没有连接**，
+    ///    与 node-link 图的基本读法相反。不修更糟（整圈贴边），但这项代价真实存在。
+    ///
+    /// ⚠️ 稠密图仍有贴边，但比 0.05 好一截：`800×200` / n=30 从 18/30 降到 10/30。
+    nonisolated static var centeringStrength: Double { 0.10 }
+
     /// 建议的**边数**上限。
     ///
     /// ⚠️ **第 3 轮终审 I-5**：上一版只有节点上限，而弹簧回路每轮遍历**全部** edges
@@ -408,13 +433,16 @@ public struct NetworkGraph<Node: GraphNode>: View {
         .accessibilityChartDescriptor(self)
     }
 
-    /// 力导向布局：环形初始位置 + N 轮「斥力 + 弹簧」迭代。
+    /// 力导向布局：环形初始位置 + N 轮「斥力 + 弹簧 + 向心力」迭代。
     ///
     /// ⚠️ **初始位置必须是环形而不是随机/同点**：所有节点重合时斥力方向未定义，
     /// 归一化零向量会产生 **NaN**，整张图消失（FR-19 点名的退化形态）。
     /// 环形初始保证任意两点初始就不重合。
+    /// - Parameter centeringStrength: 向心力系数。默认 `Self.centeringStrength`；
+    ///   置 0 即退回 #295 之前的行为，**只有对照判据该这么传**。
     nonisolated static func layout(
-        nodes: [Node], edges: [Edge], size: CGSize, iterations: Int
+        nodes: [Node], edges: [Edge], size: CGSize, iterations: Int,
+        centeringStrength: Double = Self.centeringStrength
     ) -> [Node.ID: CGPoint] {
         guard !nodes.isEmpty else { return [:] }
         // ⚠️ `max(x, 1)` 挡得住 0 与负数，**挡不住 `NaN`**（`max(NaN, 1) == NaN`）
@@ -443,6 +471,9 @@ public struct NetworkGraph<Node: GraphNode>: View {
 
         let ids = nodes.map(\.id)
         let k = sqrt(w * h / Double(nodes.count))
+        // ⚠️ 与上面 `w` / `h` 同一条标准：`NaN` 会让全体坐标变 `NaN`，**负值是向外的力、
+        // 会放大本 issue 要修的缺陷**。同一个函数里不该有两种标准。
+        let centering = centeringStrength.isFinite ? max(centeringStrength, 0) : 0
 
         for step in 0..<iterations {
             // ⚠️⚠️ **Swift 的取消是协作式的**（第 4 轮终审 C-1）：外层
@@ -488,6 +519,19 @@ public struct NetworkGraph<Node: GraphNode>: View {
                 let vy = dy / dist * force
                 disp[edge.from]? -= CGVector(dx: vx, dy: vy)
                 disp[edge.to]? += CGVector(dx: vx, dy: vy)
+            }
+
+            // 向心力：抵消全局斥力的 O(n) 净外推。
+            // ⚠️ **别删**（#295）：没有这一项时，斥力是每对节点都有（人均 n−1 个伙伴）
+            // 而弹簧只沿边（画廊那张图人均 2.9 个端点）⇒ 净力恒向外，节点在头十几轮
+            // 就全部撞墙，再被下面的钳位**焊死在边框线上**。实测：14 节点 / 20 边、
+            // 345×260 时贴边 **14/14**、6 个共享同一 y；加本项后 **0/14**、无共线。
+            for id in ids {
+                guard let p = pos[id] else { continue }
+                disp[id]? += CGVector(
+                    dx: (center.x - p.x) * centering * k,
+                    dy: (center.y - p.y) * centering * k
+                )
             }
 
             // 退火：步长随迭代衰减，让布局收敛而不是永远抖动。
