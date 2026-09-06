@@ -17,18 +17,8 @@ import SwiftUI
 
 /// 一层常驻渲染件在当前能耗状态下的渲染策略。
 ///
-/// ⚠️ `nonisolated`：本包三个 target 都开了 `.defaultIsolation(MainActor.self)`，不标的话
-/// 下游 **nonisolated 上下文**（在后台线程准备渲染参数的宿主代码）用不了它。
-/// ⚠️ **本类型的这条由编译器守着**（`#271` 逐条变异实测）：拿掉它 ⇒ 库 `swift build`
-/// **当场红** —— `EffectsEnergy.swift` 的 extension 里有 `self == .full`，报
-/// `main actor-isolated conformance … to 'Equatable' … [#IsolatedConformances]`。
-/// 「库内看不见、只有 probe 会红」**只对 `EnergyState` 成立**（它没有同模块的 nonisolated
-/// `==` 读者），逐条对照见 `scripts/downstream-probe/Sources/CoreDesignOnlyProbe/EnergyPolicy.swift`。
-///
-/// ⚠️ **也别把「下沉到底了」记成 probe 独有**：把本表任一成员挪回 Effects，
-/// `EnergyPolicyTests`（只链 `CoreDesign`、读遍五个成员）同样红，多数还会先在库里红
-/// —— `presentation(reduceMotion:)` 就读着 `self.policy.drawsAnything`。
-/// probe 真正独有的增量只有一条：**不靠 `@testable`、只链 product 也拿得到** ⇒ 证 `public`。
+/// ⚠️ **必须 `nonisolated`**：本包三个 target 都开了 `.defaultIsolation(MainActor.self)`，
+/// 不标的话下游在后台线程准备渲染参数时用不了它。
 public nonisolated enum RenderPolicy: Sendable, Equatable, CaseIterable {
 
     /// 满帧。
@@ -99,15 +89,11 @@ public nonisolated struct EnergyState: Sendable, Equatable {
     /// ⚠️ **`systemScenePhase` 是参数而不是在这里读环境**：本类型 `nonisolated`、
     /// 且要能被单测直接调用，读环境必须发生在 `View` 里。
     ///
-    /// ⚠️ **已知限度：读系统那一路不是响应式的**。本函数**每次调用都直接读 `ProcessInfo`**
-    /// ——不响应的原因不在这里，而在于电量状态变化**不是 SwiftUI 的依赖**：它会发
-    /// `NSProcessInfoPowerStateDidChange`，但不会让任何 `body` 重算 ⇒ 只有 `body` 因别的
-    /// 原因重跑时才会重读到新值。
-    /// ⚠️ **因此这条限度有一个已登记的例外**：每帧重跑 `body` 的调用点（`ProcessingSweepBody`
-    /// 就是一个，见该类型文档）实际上**是**响应式的——那里逐字记着 `usesGlow` 与
-    /// `minimumInterval` 在这一点上行为并不一致。
-    /// 需要「用户中途打开低电量就立刻降级」的宿主，应自己订阅该通知并注入
-    /// `.environment(\.lowPowerModeOverride, true)` —— 那也正是这个键存在的第二个用途。
+    /// ⚠️ **已知限度：读系统那一路不是响应式的**。本函数每次调用都直接读 `ProcessInfo`，
+    /// 但电量变化**不是 SwiftUI 依赖**、不会让 `body` 重算 ⇒ 只有 `body` 因别的原因重跑时
+    /// 才读到新值。⚠️ 例外：每帧重跑 `body` 的调用点（如 `ProcessingSweepBody`）实际上**是**
+    /// 响应式的。需要立即降级的宿主自己订阅 `NSProcessInfoPowerStateDidChange` 并注入
+    /// `.environment(\.lowPowerModeOverride, true)`。
     public static func resolve(
         injectedScenePhase: ScenePhase?,
         systemScenePhase: ScenePhase,

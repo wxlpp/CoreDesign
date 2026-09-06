@@ -13,19 +13,12 @@ import SwiftUI
 // 三个 `Bool` 参数各有一条署名豁免，见 `docs/bool-exemptions.json`。
 //
 // ⚠️ **本文件的 extension 成员必须逐个显式 `nonisolated`**：本 target 开了
-// `.defaultIsolation(MainActor.self)`，而它**确实**作用于「同包内类型的扩展」。
-// ⚠️ 这与 `CLAUDE.md` 记的「往 `public extension Color` 加常量不带 `@MainActor`」
-// **不是同一回事** —— 那条讲的是**外来模块**类型的扩展。
-//
-// ⚠️⚠️ **漏标只有同模块读者会红，跨模块一律看不见**（`#271` 终审逐条变异实测）：
-// 拿掉 `particleScale` 的 `nonisolated` ⇒ `ConfettiBurst.particleCount(baseParticleCount:policy:)`
-//（同模块 nonisolated 读者）当场红；而 `usesGlow` / `frozenIfPeriodIsDegenerate(_:)`
-// 今天**一个 nonisolated 读者都没有**，拿掉之后库、`downstream-probe`、
-// `swift build --build-tests`（含 `@testable import`）**三条腿全绿**
-// —— `defaultIsolation` 推出来的隔离**不进模块接口**。
-// ⚠️ **因此别把漏标说成"下游会坏"**：今天不会。它由源码判据
-// `ExtensionIsolationGuard.pinnedExtensionMembersAreExplicitlyNonisolated` 守显式性，
-// 完整理由与变异表在那个文件头；新增成员必须去那张名单登记。
+// `.defaultIsolation(MainActor.self)`，而它**确实**作用于「同包内类型的扩展」
+//（`CLAUDE.md` 里「往 `public extension Color` 加常量不带 `@MainActor`」讲的是**外来模块**
+// 类型的扩展，不是同一回事）。
+// ⚠️ 漏标**不会**让下游编译红 —— 编译器只在同模块有 nonisolated 读者时才红。
+// 这条由 `ExtensionIsolationGuard.pinnedExtensionMembersAreExplicitlyNonisolated` 守，
+// 理由见那个文件头；新增成员必须去那张名单登记。
 
 public extension RenderPolicy {
 

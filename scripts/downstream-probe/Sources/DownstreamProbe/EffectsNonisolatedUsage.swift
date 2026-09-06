@@ -34,32 +34,18 @@ nonisolated func readEffectsModuleName() -> String {
 
 // MARK: - NFR-7 里 **effects 专用**的那两个旋钮（Issue #252 / `#271` 下沉后）
 //
-// ⚠️ **`#271` 起本节只剩两个旋钮**。此前这里守的是三个能耗值类型，而通用那部分
-// （`RenderPolicy` 的三个 case / `drawsAnything` / `minimumInterval`、`EnergyState` 与
-// `resolve`、`MotionPresentation` 与两道闸顺序）已下沉进 `CoreDesign`；旧名到新名的
-// 对照见 `docs/BREAKING-CHANGES.md`。
+// ⚠️ **`#271` 起本节只剩 effects 侧的两个旋钮**：通用那部分已下沉进 `CoreDesign`
+//（旧名对照见 `docs/BREAKING-CHANGES.md`），它们「只链 `CoreDesign` 也拿得到」这半
+// 必须在 `Sources/CoreDesignOnlyProbe/EnergyPolicy.swift` 证 —— **本 target 链着
+// `CoreDesignEffects`，在这里取证不了**。
 //
-// ⚠️ **它们的 `nonisolated` 契约不再由本文件守**：本 target 链着 `CoreDesignEffects`，
-// 在这里取 `EnergyState` 证不了「只链 `CoreDesign` 也拿得到」。那半边的机器判据搬到了
-// `Sources/CoreDesignOnlyProbe/EnergyPolicy.swift`（**那个 target 只链 `CoreDesign`**
-// ——这正是「下沉到底了」的判据；库内断言证不了它，internal 在同模块内一样能过）。
+// ⚠️⚠️ **别把本文件读成这两个成员 `nonisolated` 契约的判据**：`defaultIsolation` 卷进来的
+// 隔离跨模块看不见，拿掉 `usesGlow` 的 `nonisolated` 本文件照绿。那条契约由
+// `ExtensionIsolationGuard.pinnedExtensionMembersAreExplicitlyNonisolated` 守。
+// 本文件在这两个成员上守的只是**可见性**：从模块外取不到时会红。
 //
-// ⇒ 本文件留下的是 `usesGlow` / `particleScale`：它们是挂在 `RenderPolicy` 上的
-// **Effects 侧 extension 成员**，本 probe 是它们在模块外的唯一消费者。
-//
-// ⚠️⚠️ **别把本文件读成这两个成员 `nonisolated` 契约的判据**（`#271` 终审逐条变异实测）：
-// 拿掉 `usesGlow` 的 `nonisolated` ⇒ 库、本 probe、`swift build --build-tests`
-//（含 `@testable import`）**三条腿全绿**。`defaultIsolation` 卷进来的隔离**跨模块看不见**，
-// 只有**同模块**的 nonisolated 读者会红（`particleScale` 恰好有一个：
-// `ConfettiBurst.particleCount(baseParticleCount:policy:)`）。
-// ⇒ 那条契约由源码判据 `ExtensionIsolationGuard.pinnedExtensionMembersAreExplicitlyNonisolated` 守。
-// 本文件在这两个成员上守的只是**可见性**：它们从模块外取不到时会红。
-//
-// ⚠️⚠️ **保留一条旧更正的结论**（#252 PR #269 第 2 轮终审 I-B）：这里曾写着
-// 「`shipswift-shaders` 的 17 个 `colorEffect` 会用这些类型」——那句与两个能耗键下沉的
-// 立论直接打架（若真去消费它们就得 `import CoreDesignEffects`，那条依赖一条都没省下）。
-// `#271` 把通用部分下沉之后，这条冲突**从根上消失**：B-2 现在只 `import CoreDesign`
-// 就能同时拿到那两个键与那张通用策略表。
+// ⚠️ B-2（`shipswift-shaders` 的 17 个 `colorEffect`）现在只 `import CoreDesign`
+// 就能同时拿到那两个键与那张通用策略表 —— 不必碰本 target。
 
 nonisolated func readEffectsPolicyKnobs() -> (Bool, Double) {
     let policy = RenderPolicy.reduced
@@ -116,9 +102,7 @@ nonisolated func readCrossPlatformDefaults() -> [Double] {
 // ⚠️ **安全档位那套（`FilterTransitionSafety`）有意不在这里**：它是 `internal`
 // ——`public` 会让它的裸 `Bool` 参数命中 `BoolExemptionGuard`，要一条署名豁免并抬棘轮，
 // 而 `#266` 那个 epic 的净增预算只有 2 条。
-// ⚠️ 上一版这里写「理由与 `EffectsPresentation` 逐字相同」——`#271` 把那个类型改名成
-// `MotionPresentation` 并下沉、且**做成了 `public`**（其 `presentation(reduceMotion:)`
-// 的 `Bool` 参数如实登记了一条豁免）⇒ 那个类比今天已经反向，故删掉、只留理由本身。
+
 nonisolated func readFilterTransitionDefaults() -> (Double, Double, Double, Int) {
     (
         Double(BlurTransition.defaultRadius),

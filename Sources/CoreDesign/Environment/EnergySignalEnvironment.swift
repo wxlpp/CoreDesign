@@ -39,14 +39,12 @@ import SwiftUI
 // CoreDesign`**——这正是"下沉到底了"这件事的机器判据；库内断言证不了它，
 // internal 在同模块内一样能过）。
 //
-// ⚠️ **`#271` 起下沉的不只是这两个信号**：由它们派生的**通用**策略表
-//（`RenderPolicy` / `EnergyState` / `MotionPresentation`，见同目录 `EnergyPolicy.swift`）
-// 也在 `CoreDesign` 里。此前这里写的是「`CoreDesign` 不长出渲染策略表面」——那句已被
-// `#271` 推翻：只有两个键而没有那张表，B-2 仍要自己复刻一遍"两道闸的顺序"，
-// 下沉就只兑现了一半。
-// ⚠️ **界线改在"通不通用"上，不在"在不在这一层"**：effects 专用的旋钮
-//（离屏模糊 `usesGlow`、粒子数 `particleScale`、自转退化保护）仍留在
-// `CoreDesignEffects/EffectsEnergy.swift`，以 `extension` 挂回下沉后的类型。
+// ⚠️ **下沉的不只是这两个信号**：由它们派生的**通用**策略表（`RenderPolicy` /
+// `EnergyState` / `MotionPresentation`，见同目录 `EnergyPolicy.swift`）也在 `CoreDesign`。
+// 只有键而没有那张表的话，B-2 仍要自己复刻一遍"两道闸的顺序"，下沉只兑现一半。
+// ⚠️ **界线在"通不通用"，不在"在不在这一层"**：effects 专用的旋钮
+//（`usesGlow` / `particleScale` / 自转退化保护）仍在 `CoreDesignEffects/EffectsEnergy.swift`，
+// 以 `extension` 挂回下沉后的类型。
 //
 // ## ⚠️ 为什么低电量键是 `Bool?` 而不是一个枚举
 //
@@ -100,8 +98,6 @@ extension EnvironmentValues {
     /// 真正的"从系统读"发生在**唯一**的解析点
     /// `EnergyState.resolve(injectedScenePhase:systemScenePhase:lowPowerModeOverride:)`
     /// ——`#271` 起它与本键同在 `CoreDesign`。
-    /// ⚠️ 此前这里写「各消费模块的解析点」，读起来像有多个；`main` 上其实也只有一个
-    /// （在 `CoreDesignEffects`），本次只是把它挪了层。
     ///
     /// ⚠️ **名字里没有 `effects`**（本轮下沉时重估）：旧名 `\.effectsPowerMode` 是它住在
     /// `CoreDesignEffects` 时的名字，下沉后该前缀名实不符——它不再是动效层专有。

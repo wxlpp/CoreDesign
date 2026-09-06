@@ -51,28 +51,24 @@ struct EnergyPolicyTests {
     /// `nil` 才是「没人注入、去问系统」。这正是那个环境键是 `Bool?` 而不是 `Bool` 的理由
     /// —— 写成 `Bool` 的话本条无从表达。
     ///
-    /// ⚠️⚠️ **运行期那一半在非低电量机器上没有区分力**（`#271` 第 2 轮终审 I-5，有变异实证）：
-    /// 把 `?? ProcessInfo…` 改成 `?? false`（永不读系统）⇒ 在 `isLowPowerModeEnabled == false`
-    /// 的机器上 `resolved.isLowPower == system` 恰好是 `false == false` ⇒ **本 suite 五条全绿**。
-    /// CI 与开发机常态就是 `false`，所以那一半实际上只在低电量机器上才成立。
-    /// ⇒ 「真的去问了系统」这句由下面的**语法树断言**钉住，它与机器的电量状态无关；
-    /// 运行期断言留着，它在低电量机器上是真判据、在别的机器上是一致性检查。
+    /// ⚠️⚠️ **运行期那一半在非低电量机器上是空判据**：把 `?? ProcessInfo…` 改成 `?? false`
+    /// ⇒ `resolved.isLowPower == system` 成了 `false == false`，本 suite 全绿。
+    /// CI 与开发机常态就是 `false` ⇒ 那一半只在低电量机器上才有区分力。
+    /// ⇒ 「真的去问了系统」由下面的**语法树断言**钉住，它与机器电量状态无关。
     ///
-    /// ⚠️ **语法树而不是字符串**（第 3 轮终审 I-2，评审有变异实证）：上一版比的是去空白后的
-    /// **整文件子串** ⇒ 把表达式改成 `?? false`、但让**上方的文档注释**里留着那串字面量，
-    /// 判据照绿。而那正是本仓最可能发生的形态 —— 紧邻的 `resolve` 文档本来就在转述这个表达式。
-    /// 现在改为从 `resolve` 的函数体里取 `isLowPower:` 实参、断言它是
-    /// `lowPowerModeOverride ?? ProcessInfo.processInfo.isLowPowerModeEnabled` 这个 `??` 表达式。
+    /// ⚠️ **必须是语法树而不是字符串**：比整文件子串的话，把表达式改坏、另找一处
+    ///（注释里、或体内一段死代码）留着那串字面量就能绕过。
     @Test("`nil` 回落到系统读数（源码 + 运行期两条链）；`false` 注入 ⇒ 不读")
     func nilFallsBackToSystemButFalseDoesNot() throws {
-        // 语法树这半是与机器电量状态无关的那半，见上面的实测登记。
         let sourceURL = GuardScanRoots.sourcesURL(of: "CoreDesign")
             .appendingPathComponent("Environment/EnergyPolicy.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
         let finder = ResolveLowPowerArgumentFinder()
         finder.walk(Parser.parse(source: source))
-        // ⚠️ 找不到也要判红，不能"没找到 ⇒ 没违规 ⇒ 绿"。
-        let argument = try #require(finder.lowPowerArgument,
+        // ⚠️ **必须恰好一处**：找不到 = 判据无法工作；多于一处 ⇒ 死代码可以顶包。
+        #expect(finder.lowPowerArguments.count == 1,
+                "`EnergyState.resolve` 里 `isLowPower:` 实参出现 \(finder.lowPowerArguments.count) 处，应恰为 1 处")
+        let argument = try #require(finder.lowPowerArguments.first,
                                     "在 `EnergyState.resolve` 里找不到 `isLowPower:` 实参 —— 判据无法工作，这不是「零违规」")
         // 只取实参**表达式**的 token 文本，注释与别处的死代码都进不来。
         let expression = argument.tokens(viewMode: .sourceAccurate).map(\.text).joined()
@@ -135,25 +131,47 @@ struct EnergyPolicyTests {
     }
 }
 
-/// 从 `EnergyState.resolve` 的函数体里抠出 `EnergyState(…)` 调用的 `isLowPower:` 实参。
+/// 收集 `EnergyState.resolve` 体内所有 `EnergyState(…)` 调用的 `isLowPower:` 实参。
 ///
-/// ⚠️ 只认**名为 `resolve` 的函数体内**的那个调用 —— 文件里别处的 `EnergyState(...)`
-/// （包括注释、别的初始化）都不算。
+/// ⚠️ 两条都不能松：收集成**数组**由调用方要求恰好一个（`ExprSyntax?` 是 last-wins，
+/// 死代码能顶包）；函数身份按**签名**锚定而不只按名字（否则同名异签名的 `resolve` 会混进来）。
 private nonisolated final class ResolveLowPowerArgumentFinder: SyntaxVisitor {
 
-    private(set) var lowPowerArgument: ExprSyntax?
+    static let expectedParameterLabels = ["injectedScenePhase", "systemScenePhase", "lowPowerModeOverride"]
+
+    private(set) var lowPowerArguments: [ExprSyntax] = []
 
     init() { super.init(viewMode: .sourceAccurate) }
 
     override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
-        guard node.name.text == "resolve", let body = node.body else { return .skipChildren }
-        for call in body.tokens(viewMode: .sourceAccurate).compactMap({
-            $0.parent?.as(FunctionCallExprSyntax.self)
-        }) where call.calledExpression.trimmedDescription == "EnergyState" {
-            for argument in call.arguments where argument.label?.text == "isLowPower" {
-                self.lowPowerArgument = argument.expression
-            }
-        }
+        let labels = node.signature.parameterClause.parameters.map { $0.firstName.text }
+        guard node.name.text == "resolve",
+              labels == Self.expectedParameterLabels,
+              node.modifiers.contains(where: { $0.name.text == "static" }),
+              let body = node.body
+        else { return .skipChildren }
+        let calls = EnergyStateCallCollector()
+        calls.walk(body)
+        self.lowPowerArguments += calls.lowPowerArguments
         return .skipChildren
+    }
+}
+
+/// 收集一段语法树里所有 `EnergyState(…)` 调用的 `isLowPower:` 实参。
+///
+/// ⚠️ **走 `visit(_: FunctionCallExprSyntax)` 而不是 `tokens(...).parent`**：后者会把同一个
+/// 调用的 `(` 与 `)` 各摸一次 ⇒ 同一处实参进两遍，让「恰好一处」这条判据恒红。
+private nonisolated final class EnergyStateCallCollector: SyntaxVisitor {
+
+    private(set) var lowPowerArguments: [ExprSyntax] = []
+
+    init() { super.init(viewMode: .sourceAccurate) }
+
+    override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
+        guard node.calledExpression.trimmedDescription == "EnergyState" else { return .visitChildren }
+        for argument in node.arguments where argument.label?.text == "isLowPower" {
+            self.lowPowerArguments.append(argument.expression)
+        }
+        return .visitChildren
     }
 }
