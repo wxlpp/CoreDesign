@@ -72,12 +72,14 @@ public extension Color {
         .quaternaryFill
     }
 
-    /// 侧栏 / 导航容器背景，走 `surfaceElevated` 与画布、内容表面拉开三档。
+    /// 侧栏 / 导航容器背景，走 `surfaceElevated`——**在 iOS 上**与画布、内容表面拉开三档；
+    /// macOS 上三者同色（系统无分层背景 API）。
     static var surfaceSidebar: Color {
         .surfaceElevated
     }
 
-    /// 卡片容器背景，别名 `surfaceRaised`——浮于画布之上，深色下不与画布塌缩同色。
+    /// 卡片容器背景，别名 `surfaceRaised`——**在 iOS 上**浮于画布之上、深色下不与画布塌缩同色；
+    /// macOS 上与画布同色。
     static var surfaceCard: Color {
         .surfaceRaised
     }
