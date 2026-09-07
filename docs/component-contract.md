@@ -1519,6 +1519,11 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
 问题本身是真的：`ComponentRegistryGuard.swift:366` 把扫描根硬编码为
 `Sources/CoreDesign`，而 AD-2 **通篇未按 target 划作用域** ⇒ 实现层盲区会被读成
 公约层许可（G-7 早已把「新增第二个源 target」记为逃生门）。
+⚠️ **上面这句描述的是当时的实现，今天已不成立**（`#337` 实测）：`#270`（`eba3811`）之后
+`ComponentRegistryGuard.componentScanRoots` 直接返回 `GuardScanRoots.allRoots`，
+**三个 target 全覆盖**，那个硬编码单根已经没有了；`:366` 这个坐标今天也指向别的断言。
+CLAUDE.md 的《源码守卫的扫描根有三个入口》一节已更正过同一事实，本文件此前掉队。
+⇒ **裁决结论不受影响**（「AD-2 适用于全部三个 target」照旧成立，只是实现层已经先做到了）。
 ⇒ **本裁决的产出是把「AD-2 适用于全部三个 target」这句话写下来**，
 以及下面四件下游连锁。**这不是零产出，但它也不是当初以为的那个产出。**
 
