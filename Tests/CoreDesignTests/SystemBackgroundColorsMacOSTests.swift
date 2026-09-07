@@ -159,6 +159,41 @@ struct SystemBackgroundColorsMacOSTests {
         _ = knownSameAsCard
     }
 
+    @Test("#342：三个叠加档位的 **token** 都真的画得出来——0 < α < 1，不是全透明")
+    func macOSOverlayTiersAreActuallyPaintable() {
+        for scheme in [ColorScheme.light, ColorScheme.dark] {
+            var e = EnvironmentValues()
+            e.colorScheme = scheme
+            for (name, color) in [("control", Color.surfaceInteractive),
+                                  ("floating", Color.surfaceOverlay),
+                                  ("overlay/panel", Color.surfacePanel)] {
+                let a = color.resolve(in: e).opacity
+                #expect(a > 0, """
+                \(scheme)：叠加档 \(name) 解析出 α = \(a) —— **它画不出来**。
+                ⚠️ 本条存在的理由：本文件其余**涉及叠加档的**判据问的全是「**不同**吗」，
+                而 `.clear` 与什么都不同 ⇒ 把这个 token 换成 `.clear`，
+                `macOSFloatingDiffersFromCanvasByValue` / `macOSUnderlyingNSColorsAreDistinct`
+                / `macOSFillTokensAreDistinct` **十条全绿**（`#342` 实测）。
+                没有一条问过「它**在**吗」。
+                ⚠️ **背景档（`.canvas` / `.content`）有意不进本判据**：它们本来就不透明，
+                对它们断言 `α > 0` 恒真、是噪声。⚠️ 但「它们必须不透明」这件事
+                **今天全仓没有任何判据守**（`#345`）。
+                ⚠️ **射程只到 token**：`SurfaceKind` → token 的映射层（`SurfaceModifier` 的
+                `background`）被改成 `.clear` 时本条照绿，见 `#345`。
+                """)
+                #expect(a < 1, """
+                \(scheme)：叠加档 \(name) 变成不透明（α = \(a)）——叠加档位应走填充族。
+                依据是 `macOSUnderlyingNSColorsAreDistinct` 的消息：AppKit 只有
+                `windowBackgroundColor` / `controlBackgroundColor` 两个不透明背景取值，
+                已被 canvas 与 content 族占满，浮层档位挑不到第三个。
+                ⚠️ **若这一档是「有意」改成不透明**：先确认它没跟那两个 `NSColor` 像素撞色
+                （撞了的话 `macOSUnderlyingNSColorsAreDistinct` 会同时红），
+                再照 iOS 浅色 `floating` 的先例**分道**写成 `== 1`，而不是放宽本条。
+                """)
+            }
+        }
+    }
+
     @Test("macOS：三个填充档位两两不同，且与两个背景档位不同")
     func macOSFillTokensAreDistinct() {
         let fills: [(String, Color)] = [

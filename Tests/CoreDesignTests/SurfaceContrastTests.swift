@@ -161,9 +161,13 @@ struct SurfaceContrastTests {
             let panel = Color.surfacePanel.resolve(in: e)
             for (name, v) in [("control", control), ("overlay/panel", panel)] {
                 #expect(v.opacity < 1.0, "\(scheme)：\(name) 不再半透明——叠加档位应走 FillColors")
+                // `#342`：只有上界会漏掉 `.clear` —— 它满足 `< 1.0`，而所有「不同吗」式
+                // 判据对全透明色一律假绿（`α = 0` 与什么都不同）。
+                #expect(v.opacity > 0, "\(scheme)：\(name) 解析出 α = \(v.opacity)——它画不出来")
             }
             if scheme == .dark {
                 #expect(floating.opacity < 1.0, "深色：floating 应走半透明填充")
+                #expect(floating.opacity > 0, "深色：floating 解析出 α = \(floating.opacity)——它画不出来")
             } else {
                 #expect(floating.opacity == 1.0, "浅色：floating 应走不透明抬起色（分道的浅色分支）")
             }
