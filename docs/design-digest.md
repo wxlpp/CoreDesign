@@ -563,7 +563,7 @@
 
 ### `Modifier/FloatingGlassModifier.swift`
 
-- **`FloatingGlassModifier`** *<S: InsettableShape>: ViewModifier* — ⚠️ 源码缺摘要
+- **`FloatingGlassModifier`** *<S: InsettableShape>: ViewModifier* — ⚠️ 源码无文档注释
 
 ### `Modifier/SpinningModifier.swift`
 
@@ -580,7 +580,7 @@
 
 ### `Shape/StarShape.swift`
 
-- **`StarShape`** *: Shape* — ⚠️ 源码缺摘要
+- **`StarShape`** *: Shape* — ⚠️ 源码无文档注释
 
 ### `Tokens/CoreBorderWidth.swift`
 
@@ -771,7 +771,7 @@
 | target | 入口 | 说明 |
 |---|---|---|
 | `CoreDesign` | `.bannerStyle` on `View` | 为子树中的所有 `Banner` 设置外观。 |
-| `CoreDesign` | `.bottomInputBar` on `View` | ⚠️ 源码缺摘要 |
+| `CoreDesign` | `.bottomInputBar` on `View` | ⚠️ 源码无文档注释 |
 | `CoreDesign` | `.ratingStyle` on `View` | 为子树中的所有 `Rating` / `RatingDisplay` 设置外观。 |
 | `CoreDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
 | `CoreDesign` | `.sidebarSelectedBackground` on `View` | `isSelected` 为 true 时施加侧栏选中态背景。 |
@@ -779,7 +779,7 @@
 | `CoreDesign` | `.toastHost` on `View` | 在当前 view 子树挂载一个 scene-scoped `ToastHost`，并在 `edge` 方向以 `safeAreaInset` 渲染当前队列的首条 toast。 |
 | `CoreDesign` | `.bordered` on `View` | 叠加一圈描边 / Add a border.  - Parameters: - style: 描边样式，任意 `ShapeStyle`（含 `Color` 与渐变）。 |
 | `CoreDesign` | `.coreFont` on `View` | 施加 CoreDesign 排版 token（直接取系统文本样式，随 Dynamic Type 缩放）。 |
-| `CoreDesign` | `.floatingGlass` on `View` | ⚠️ 源码缺摘要 |
+| `CoreDesign` | `.floatingGlass` on `View` | ⚠️ 源码无文档注释 |
 | `CoreDesign` | `.focusRing` on `View` | 给视图添加一个焦点环。 |
 | `CoreDesign` | `.spinning` on `View` | 为内容整体叠加加载遮罩。 |
 | `CoreDesign` | `.surface` on `View` | 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角）。 |

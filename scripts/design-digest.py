@@ -5,7 +5,7 @@
 评审项对待（见 docs/design-digest.header.md 顶部）。
 
 每一节都有基数判据（当前钉法是精确值：删任何一条即判红）。空节在退出码上等同于
-通过，是本仓反复吃过的那类假绿。判据不过时不写盘。
+通过，是本仓反复吃过的那类假绿。基数不符时返回 1（**照常写盘**，理由见 main 末尾）。
 """
 import argparse
 import glob
@@ -28,6 +28,8 @@ FLOORS = {
 COMPONENT_CONFORMANCES = {"View", "Transition", "Layout", "Shape", "ViewModifier"}
 
 DOC_RESIDUE = "⚠️ 源码缺摘要"
+
+DOC_ABSENT = "⚠️ 源码无文档注释"
 
 
 def read(path):
@@ -74,7 +76,7 @@ def attribute_span(lines, index):
     ⚠️ 射程：只认**单行**属性；跨行 `@available(` 本仓今天没有活样本。
     """
     cursor = index - 1
-    while cursor >= 0 and lines[cursor].strip().startswith("@"):
+    while cursor >= 0 and re.fullmatch(r"@\w+(\(.*\))?", lines[cursor].strip()):
         cursor -= 1
     return cursor
 
@@ -101,7 +103,9 @@ def summarise(raw, limit=170):
     「材质层 / 表面角色」这两个字段**不丢**——它们正是 header 规则 3 要调用方填的
     `SurfaceKind` 语境，扔掉等于扔掉设计相关信息。剥出来当后缀，剥完真的为空才标注。
     """
-    text = (raw or "").strip()
+    if not (raw or "").strip():
+        return DOC_ABSENT
+    text = raw.strip()
     facets = []
     for label in ("材质层", "表面角色"):
         hit = re.search(r"\*\*" + label + r"\*\*[:：]\s*([^.。]*)[.。]", text)
@@ -148,11 +152,15 @@ def is_component(tokens):
 def split_top_level(text, sep=","):
     """按**顶层**分隔符切分；括号 / 方括号 / 尖括号内的分隔符不算。"""
     parts, depth, current = [], 0, []
+    previous = ""
     for char in text:
         if char in "([<":
             depth += 1
-        elif char in ")]>":
+        elif char in ")]" or (char == ">" and previous not in ("-", "=")):
+            # `->` 的 `>` 不是闭括号。当成闭括号会让 depth 提前归零，把关联值内部的逗号
+            # 当成顶层逗号切开 ⇒ 造出源码里不存在的 case 名（与 `.let` 同族，方向相反）。
             depth -= 1
+        previous = char
         if char == sep and depth <= 0:
             parts.append("".join(current))
             current = []
@@ -242,7 +250,11 @@ def single_line_alias(lines, index):
 
     本仓的写法是**函数体换行**（`{` 在声明行末，表达式在下一行），所以不能只看同一行。
     """
-    line = strip_noise(lines[index]).rstrip()
+    # 只剥行尾注释。⚠️ 不要复用 `strip_noise`——它连**字符串字面量内容**一并抹掉，
+    # 会把 `Color("status-danger-fg", bundle: .module)` 印成 `Color(, bundle: .module)`
+    # 这种语法都不成立、却自称是源码别名的东西（射程内 24 个站点，今天全都有文档注释
+    # 所以不触发；删掉其中一条 `///` 就会发货）。
+    line = re.sub(r"\s*//.*$", "", lines[index]).rstrip()
     same = re.search(r"=\s*(.+?)\s*$", line)
     if same:
         return same.group(1)
@@ -282,7 +294,7 @@ def semantic_colors(root):
                     # 没有文档注释时退到**单行别名**：这批 token 几乎全是
                     # `static var surfaceRaised: Color { .secondarySystemGroupedBackground }`
                     # 这种形态，指向哪个系统语义色比一句中文摘要更有用（能直接映射到 HIG）。
-                    if doc.startswith(DOC_RESIDUE):
+                    if doc.startswith(DOC_RESIDUE) or doc.startswith(DOC_ABSENT):
                         alias = single_line_alias(lines, index)
                         if alias:
                             doc = f"→ `{alias}`"

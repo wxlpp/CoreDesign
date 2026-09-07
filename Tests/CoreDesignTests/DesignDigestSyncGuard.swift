@@ -216,6 +216,39 @@ struct DesignDigestSyncGuard {
         )
     }
 
+    /// header 手写着「`ProgressBar` 是全仓**唯一**一个 `@available(*, deprecated)` 的公开
+    /// 符号」，而 `is_deprecated` 只认 `@available(*, deprecated` 这一种拼法，且只在类型
+    /// 声明上查（modifier / 颜色两条抽取路径都不查）。多出第二个弃用符号、或换成
+    /// `@available(iOS, deprecated:)` 这一族时：header 变假、产物可能漏标、其余判据全绿。
+    /// 这条把两侧一起钉住——fail-closed：出现任何未登记的弃用写法即判红。
+    @Test("弃用符号恰一处、拼法逐字，且产物里的弃用标注恰一次")
+    func deprecationClaimHoldsOnBothSides() throws {
+        var lines: [String] = []
+        for entry in GuardScanRoots.allRoots {
+            guard let walker = FileManager.default.enumerator(at: entry.url, includingPropertiesForKeys: nil)
+            else { continue }
+            for case let url as URL in walker where url.pathExtension == "swift" {
+                let text = try String(contentsOf: url, encoding: .utf8)
+                for line in text.split(separator: "\n", omittingEmptySubsequences: false)
+                where line.contains("@available(") && line.contains("deprecated") {
+                    lines.append(String(line).trimmingCharacters(in: .whitespaces))
+                }
+            }
+        }
+        let found = lines.count
+        #expect(
+            found == 1,
+            "弃用符号数量变了（现 \(found) 处）——header 那句「全仓唯一」随之失真"
+        )
+        let recognised = lines.allSatisfy { $0.hasPrefix("@available(*, deprecated") }
+        let shown = lines.joined(separator: " | ")
+        #expect(recognised, "出现 `is_deprecated` 不认识的弃用拼法：\(shown)")
+
+        let digest = try String(contentsOf: Self.url(Self.digestRelativePath), encoding: .utf8)
+        let marks = digest.components(separatedBy: "**[已弃用]**").count - 1
+        #expect(marks == 1, "产物里的弃用标注有 \(marks) 处，应与源码的 1 处弃用对上")
+    }
+
     @Test("生成器的基数键与树内登记逐条相符（双向差集）")
     func floorKeysMatchRegisteredTable() throws {
         let source = try String(contentsOf: Self.url(Self.generatorRelativePath), encoding: .utf8)
