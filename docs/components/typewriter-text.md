@@ -141,6 +141,16 @@ let plan = TypewriterReveal.plan(total: total, typed: self.typed, reduceMotion: 
 ⚠️ **代价照录**：换 `speed` 会从第 0 个字重打，而不是保持进度换速度。
 判据：`TypewriterTextTests.typingTaskRestartsOnPlanAndSpeed`。
 
+⚠️⚠️ **重启条件不止「id 变化」**（`#330`）：`.task(id:)` 在**视图重新出现**时会以**当前 id**
+重跑。⇒ 默认样式 `TabView` 切走再切回、`LazyVStack` 滚出再滚回（两者都**保留 `@State`**）
+都会让任务重跑一次，而 id 一个字段都没变。
+
+⇒ 现在的契约是：**重跑时不归零、从 `typed + 1` 续打**。归零只发生在 `run` 真的变了时
+（`typedRun != run`）。没有这条，切回来会**整段文字从头重打**。
+⚠️ 上一段那条「换 `speed` 会从第 0 个字重打」**仍然成立**——那是 `run` 真的变了，与本条无关。
+判据：`TypewriterTextTests.reappearDoesNotRestartTyping` 与
+`TypewriterTextTests.reappearMarkersAreStateAndWrittenOnce`。
+
 ## 后台 / 低电量（NFR-7）
 
 ⚠️ **本组件不接能耗闸，这是一条判定不是遗漏。** NFR-7 管的是**常驻渲染**的效果

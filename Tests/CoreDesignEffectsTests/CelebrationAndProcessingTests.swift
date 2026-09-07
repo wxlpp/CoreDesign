@@ -557,6 +557,41 @@ struct ConfettiTests {
                 "RM 下静态层完全消失的时刻不再是 1.55 s，实为 \(vanishesAt) s")
     }
 
+    @Test("#330：runBurst 的三分支裁决——逐态用值判据钉，不只靠文本比对")
+    func burstDecisionCoversEveryState() {
+        let t0 = Date(timeIntervalSinceReferenceDate: 1_000)
+
+        // 从未触发（含 `fire: 0` + initialBurstStart 注入路径）
+        #expect(ConfettiBurst.decide(fire: 0, consumed: 0, burstStart: nil) == .idle)
+        #expect(ConfettiBurst.decide(fire: 0, consumed: 0, burstStart: t0) == .idle, """
+        `fire: 0` + 注入 `initialBurstStart` 被判成了「被打断的 hold」——那条路径从未触发过 burst，
+        续睡它会把注入的静态帧在 hold 之后清掉。`consumed > 0` 那道门就是为它留的。
+        """)
+
+        // 首次触发 / 隐藏期间又涨
+        #expect(ConfettiBurst.decide(fire: 1, consumed: 0, burstStart: nil) == .start)
+        #expect(ConfettiBurst.decide(fire: 3, consumed: 1, burstStart: nil) == .start, """
+        隐藏期间 trigger 又涨了几次，回来时应当**补放一次**（而不是当作重放挡掉）。
+        """)
+        #expect(ConfettiBurst.decide(fire: 2, consumed: 1, burstStart: t0) == .start, """
+        burst 进行中 trigger 再涨应当**开新 burst**（`.start` 优先于 `.resume`）——
+        次序反了会让新触发被当成「续睡旧 hold」而丢掉。
+        """)
+
+        // reappear：已消费、hold 还在飞 ⇒ 只续睡，不重放（`#330` 的正题）
+        #expect(ConfettiBurst.decide(fire: 1, consumed: 1, burstStart: t0) == .resume(startedAt: t0), """
+        视图重新出现时把 in-flight 的 hold 判成了别的 —— `.task(id:)` 会以**当前 id** 重跑，
+        这里判 `.start` 就是 `#330` 的重放，判 `.idle` 则 `burstStart` 永不清 ⇒
+        `.resting` 档静态层常亮、`.animated` 档 `TimelineView` 空转。
+        """)
+
+        // 已消费、hold 已清 ⇒ 什么都不做
+        #expect(ConfettiBurst.decide(fire: 1, consumed: 1, burstStart: nil) == .idle)
+
+        // ⚠️ `fire &+= 1` 回绕后 fire < consumed，只能落 idle/resume，绝不重放
+        #expect(ConfettiBurst.decide(fire: Int.min, consumed: 5, burstStart: nil) == .idle)
+    }
+
     @Test("那条短窗口由 ConfettiCore 的状态机取，不是把计时器还给静态层（#272）")
     func shorterWindowLivesInTheStateMachine() throws {
         let code = MicroInteractionReduceMotionGuard.stripComments(
@@ -571,13 +606,16 @@ struct ConfettiTests {
         let expectedRunBurst = """
         {
             let startedAt: Date
-            if self.fire > self.consumedFire {
+            switch ConfettiBurst.decide(
+                fire: self.fire, consumed: self.consumedFire, burstStart: self.burstStart
+            ) {
+            case .start:
                 self.consumedFire = self.fire
                 startedAt = Date.now
                 self.burstStart = startedAt
-            } else if self.consumedFire > 0, let inFlight = self.burstStart {
+            case let .resume(inFlight):
                 startedAt = inFlight
-            } else {
+            case .idle:
                 return
             }
             let hold = ConfettiBurst.holdDuration(presentation: presentation)

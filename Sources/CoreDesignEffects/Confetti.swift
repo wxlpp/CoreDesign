@@ -73,13 +73,16 @@ struct ConfettiCore: ViewModifier {
 
     private func runBurst(presentation: MotionPresentation) async {
         let startedAt: Date
-        if self.fire > self.consumedFire {
+        switch ConfettiBurst.decide(
+            fire: self.fire, consumed: self.consumedFire, burstStart: self.burstStart
+        ) {
+        case .start:
             self.consumedFire = self.fire
             startedAt = Date.now
             self.burstStart = startedAt
-        } else if self.consumedFire > 0, let inFlight = self.burstStart {
+        case let .resume(inFlight):
             startedAt = inFlight
-        } else {
+        case .idle:
             return
         }
         let hold = ConfettiBurst.holdDuration(presentation: presentation)
@@ -212,6 +215,12 @@ nonisolated struct ConfettiParticle: Equatable {
     let lifetime: Double
 }
 
+nonisolated enum BurstDecision: Equatable, Sendable {
+    case start
+    case resume(startedAt: Date)
+    case idle
+}
+
 nonisolated enum ConfettiBurst {
     static let duration: Double = 2.0
 
@@ -237,6 +246,17 @@ nonisolated enum ConfettiBurst {
 
     static func shouldClear(current: Date?, startedAt: Date) -> Bool {
         current == startedAt
+    }
+
+    /// `runBurst` 的三分支裁决。⚠️ **纯函数，生产代码与判据共用同一份**
+    /// （本仓 `ConfettiBurst` / `TypewriterReveal` / `BeforeAfterSweep` 的既有约定）——
+    /// 这样各种态可以逐条写**值判据**，而不是只靠对 `runBurst` 函数体的文本比对。
+    static func decide(fire: Int, consumed: Int, burstStart: Date?) -> BurstDecision {
+        if fire > consumed { return .start }
+        // ⚠️ `consumed > 0` 这道门保住 `fire: 0` + `initialBurstStart` 的注入路径：
+        // 那条路径从未触发过 burst，不该被当成「被打断的 hold」去续睡。
+        if consumed > 0, let inFlight = burstStart { return .resume(startedAt: inFlight) }
+        return .idle
     }
 
     static func holdDuration(presentation: MotionPresentation) -> Double {
