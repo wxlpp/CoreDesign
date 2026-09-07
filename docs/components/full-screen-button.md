@@ -88,9 +88,9 @@ SwiftUI 照样跑 zoom，只是**没有锚点**——起点与被点的那张卡
 **现已有一次运行期确认。**
 
 **器材**：iPhone 17 Pro / iOS 26.4 模拟器，预览宿主（`scripts/run-preview.sh`），
-`xcrun simctl io … recordVideo` 录屏，`scripts/zoom-proof/extract-frames.swift`
+`xcrun simctl io … recordVideo` 录屏，`scripts/motion-proof/extract-frames.swift`
 （`AVAssetReader` **逐样本解码**，不抽样、不去重，文件名带真实 PTS）+
-`scripts/zoom-proof/measure.py` 逐帧测量。
+`scripts/motion-proof/measure-zoom-icon.py` 逐帧测量。
 
 ⚠️⚠️ **不要用按时刻取帧的方式量这个**：本节的第一版用 `AVAssetImageGenerator` +
 固定步长网格，**漏掉了其中一段的真首帧**，2×2 表里承重的那一格因此差了 132 px。
@@ -108,7 +108,7 @@ SwiftUI 照样跑 zoom，只是**没有锚点**——起点与被点的那张卡
 掩码密度 0.70。
 **「首个可见帧」定义为掩码命中 `n >= 5000` 的第一帧**（约终态 26709 的 19%）——
 低于它的是淡入中的鬼影帧（实测有过 `n = 102` 的），包围盒不稳，不作数。
-门槛写死在 `measure.py` 里，不然下表按文档复现不出来。
+门槛写死在 `measure-zoom-icon.py` 里，不然下表按文档复现不出来。
 
 #### 结论 1 ✅ 是几何放大，不是普通 push
 
@@ -178,7 +178,8 @@ Light + Dark 两块预览里 Solid 按钮 + Borderless 文字的**联合包围�
 ——它断言源码里存在 `matchedTransitionSource(id: Self.sourceID`。那是**结构判定**，
 抓得住删行、抓不住运行期退化，两者别混。
 要装成运行期判据需要「iOS 模拟器录屏 → 抽帧 → 逐帧几何断言」的链路，本仓今天没有；
-`#233`（SegmentedControl thumb 滑动缺可用验证手段）是同一族缺口。
+`#233`（SegmentedControl thumb 滑动）是同一族缺口——它已用同一套工具拿到运行期证据，
+但同样**没有变成 CI 判据**，见 `docs/components/segmented-control.md`。
 
 <details>
 <summary>复现步骤</summary>
@@ -189,9 +190,9 @@ SIMULATOR_ID=<udid> ./scripts/run-preview.sh
 xcrun simctl io <udid> recordVideo --codec h264 --force /tmp/zoom.mov &
 #  ↑ 录制期间点一次卡片，2–3 s 后 kill -INT。两张卡各录一次。
 
-swiftc -O scripts/zoom-proof/extract-frames.swift -o /tmp/xf
+swiftc -O scripts/motion-proof/extract-frames.swift -o /tmp/xf
 /tmp/xf /tmp/zoom.mov /tmp/frames 2.0 2.5    # 逐样本解码，可选起止秒
-python3 scripts/zoom-proof/measure.py '/tmp/frames/*.png'   # 需要 numpy + Pillow
+python3 scripts/motion-proof/measure-zoom-icon.py '/tmp/frames/*.png'   # 需要 numpy + Pillow
 # 看「首个可见帧的 cy」是否跟着被点的那张卡变。
 ```
 

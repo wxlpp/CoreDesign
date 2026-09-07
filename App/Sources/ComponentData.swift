@@ -408,8 +408,20 @@ private struct FormIconsPreview: View {
 private struct SegmentedControlPreview: View {
     let items = ["One", "Two", "Three"]
     @State private var selection = "One"
+    @State private var plainSelection = "One"
     var body: some View {
-        SegmentedControl(items: self.items, selection: self.$selection, title: { $0 })
+        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+            Text(verbatim: "GlassSegmentedControlStyle（默认；iOS 上是原生 UISegmentedControl）")
+                .coreFont(.caption)
+                .foregroundStyle(.secondary)
+            SegmentedControl(items: self.items, selection: self.$selection, title: { $0 })
+
+            Text(verbatim: "PlainSegmentedControlStyle（全平台走 SwiftUI 回退 + matchedGeometryEffect）")
+                .coreFont(.caption)
+                .foregroundStyle(.secondary)
+            SegmentedControl(items: self.items, selection: self.$plainSelection, title: { $0 })
+                .segmentedControlStyle(PlainSegmentedControlStyle())
+        }
     }
 }
 
