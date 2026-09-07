@@ -2512,10 +2512,23 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 本文件的 `D-299-1` / `D-299-2`。
 ⚠️ **`#316` 已落地**：F-2 段（3 份 registry `notes` + 3 份 `docs/components/*.md`）、`OrbitingLogos` 侧的
 逐字页面证据 / 计入基数两段、以及 `docs/component-contract-revisions.md` 的 `R-48` 段，
-均已换成指针，fail-closed 判据是
-`SingleSourceOfTruthGuard.boilerplateStaysInSourceOfTruth`。
+均已换成指针。与「一处事实一个落点」**直接对应**的 fail-closed 判据有三条，分管两侧
+（该 suite 另有四条守指针本身，不在此列）：
+- **论证侧** `SingleSourceOfTruthGuard.boilerplateStaysInSourceOfTruth`
+  ——样板短语只许出现在真源里；
+- **结论侧** `SingleSourceOfTruthGuard.factSitesAreExhaustive` 与
+  `…factSitesCarryTheCorrectedValue`——一张显式的「事实键 → 落点清单」表，
+  **按「处」**（不是按文件）双向断言，并逐处核对写的是更正后的取值。
+  ⚠️ 结论按设计分散在各组件本地、收不掉，只能逐处钉死；`#316` 评论 ② 那次
+  「实有 5 处、连终审自己也少数了两处」就是这条要接住的形态。
+
 ⚠️ **仍未收口的面**：各组件自己的结论句（候选编号逐条不同，有意保留）与
 「按 Swift Charts 口径」这个限定词（它出现在每条组件本地的结论里）。
+⚠️ 「全口径」**不属于**上面那句——它今天在**组件本地 0 处**，真源之外只剩
+`docs/component-contract-revisions.md` 的 `R-48` 台账那一处，**定性移交 `#338`**。
+⚠️ **这里有意不写「本文件几处」**：写下那个计数的那句话本身就会变成新的一处
+（第 5 轮终审实测：上一版写「本文件 4 处」，而那句自己就是第 5 处）
+——正是 `#316` 在治的病。
 
 ⇒ **本轮的处置是把结论降级到证据能支撑的范围，落点不动**：
 - 上表第 4 列的「不翻」一律读作「**按 Swift Charts 口径不翻**」；
