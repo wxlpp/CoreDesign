@@ -106,6 +106,76 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ⚠️ 本步骤治的是两件**不同**的事，别混为一谈（`#348`）：
+      #
+      # (a) **已观测到的故障：CoreSimulator 瞬时零设备。** run 34138058495 attempt 1
+      #     在 `macos-26-arm64 / 20260831.0337.3` 上 60s 查找超时后报
+      #     `Unable to find a device matching the provided destination specifier`，
+      #     而 `Available destinations` 里**一台具体的 iOS 模拟器都没有**（只有 macOS 与
+      #     tvOS/visionOS/watchOS placeholder）。attempt 2 **同一镜像、同一 destination 写法**
+      #     直接绿。⇒ 与设备名无关，任何写法都会失败。对准它的是下面的**有界重试**。
+      # (b) **假设性风险：镜像换设备名。** 硬编码 `name=iPhone 17 Pro` 依赖那个名字一直存在。
+      #     这条**至今没有观测到**，动态挑设备是对它的预防。
+      #
+      # ⚠️⚠️ **绝不能改成「找不到设备就跳过」**：那会把硬红换成假绿，正是 CLAUDE.md
+      # 《退出码 0，却一条测试都没跑》那一节在治的病。本步骤穷尽重试后 **exit 1**。
+      # ⚠️ 失败路径最坏约 **400s**（3×120s 的 simctl 超时 + 2×20s 退避），别以为只多 40s。
+      - name: Select iOS simulator
+        id: sim
+        run: |
+          set -o pipefail
+          for attempt in 1 2 3; do
+            UDID=$(python3 - <<'PY'
+          import json, re, subprocess, sys
+          try:
+              raw = subprocess.run(
+                  ["xcrun", "simctl", "list", "devices", "available", "--json"],
+                  capture_output=True, text=True, check=True, timeout=120,
+              ).stdout
+          except Exception as error:                 # 超时 / 非零退出都当「这一轮没拿到」
+              print(f"simctl 失败：{error}", file=sys.stderr)
+              sys.exit(1)
+          best = None
+          total = 0          # 所有可用设备（任何平台 / 任何版本）
+          eligible = 0       # iOS ≥ 26 的可用 iPhone
+          for runtime, devices in json.loads(raw).get("devices", {}).items():
+              total += len(devices)
+              m = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if not m:
+                  continue
+              version = (int(m.group(1)), int(m.group(2)))
+              if version < (26, 0):          # 本包的部署目标
+                  continue
+              for device in devices:
+                  name = device.get("name", "")
+                  if not device.get("isAvailable") or "iPhone" not in name or not device.get("udid"):
+                      continue
+                  # ⚠️ 取最小值 ⇒ **≥26 里最低的 runtime**、同版本里**字典序最小的机型名**
+                  # （即最老一代 Pro）。这是有意的：在部署目标下限上跑，比在最新款上跑更保守。
+                  rank = (version, 0 if re.fullmatch(r"iPhone \d+ Pro", name) else 1, name)
+                  eligible += 1
+                  if best is None or rank < best[0]:
+                      best = (rank, device["udid"], name, runtime)
+          # ⚠️ 这两个数是 `::error::` 判读法的**唯一**依据 —— 别改成打印 `simctl list` 的文本：
+          # 零设备时它**照样打 header**（实测 `== Devices ==` + 各 runtime 标题），
+          # 「列表为空」这个观测**根本不存在**，读者只会误判成「镜像变了」。
+          print(f"ZZCOUNT total={total} eligible={eligible}", file=sys.stderr)
+          if best is None:
+              sys.exit(1)
+          print(f"{best[1]}\t{best[2]}\t{best[3]}")
+          PY
+            ) && [ -n "$UDID" ] && break
+            echo "第 $attempt 次没选到设备"
+            [ "$attempt" -lt 3 ] && sleep 20
+            UDID=""
+          done
+          if [ -z "$UDID" ]; then
+            echo "::error::没在 runner 上选到 iOS 26+ 的 iPhone 模拟器（已重试 3 次）—— **与被测代码无关**。按上面每轮打印的 ZZCOUNT 判读：**total=0** ⇒ CoreSimulator 一台设备都没有（瞬时故障，#348 实测过一次、同一镜像重跑即绿）⇒ **直接重跑本 job**；**total>0 而 eligible=0** ⇒ runner 上有设备但没有 iOS 26+ 的 iPhone ⇒ **镜像变了，改本步骤的筛选条件**。"
+            exit 1
+          fi
+          echo "$UDID" | awk -F'\t' '{ printf "选中 %s（%s）\nudid=%s\n", $2, $3, $1 }'
+          echo "udid=$(echo "$UDID" | cut -f1)" >> "$GITHUB_OUTPUT"
+
       - name: Run iOS tests
         # ToastHostTests 被跳过：三个 timing 用例依赖 Task.sleep 真实墙钟，buffer
         # 取 0.3–0.5s。在 CI runner 上实测**稳定失败**（连跑两次都红，不是偶发），
@@ -135,7 +205,7 @@ jobs:
           set -o pipefail
           xcodebuild test \
             -scheme CoreDesign-Package \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
             -skip-testing:CoreDesignTests/ToastHostTests \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-first.log
 
