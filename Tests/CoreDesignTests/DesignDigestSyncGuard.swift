@@ -220,7 +220,9 @@ struct DesignDigestSyncGuard {
     /// 符号」，而 `is_deprecated` 只认 `@available(*, deprecated` 这一种拼法，且只在类型
     /// 声明上查（modifier / 颜色两条抽取路径都不查）。多出第二个弃用符号、或换成
     /// `@available(iOS, deprecated:)` 这一族时：header 变假、产物可能漏标、其余判据全绿。
-    /// 这条把两侧一起钉住——fail-closed：出现任何未登记的弃用写法即判红。
+    /// 这条钉住**数量与拼法**两侧——fail-closed：出现任何未登记的弃用写法即判红。
+    /// ⚠️ **不钉符号身份**：把那条 `@available` 从 `ProgressBar` 挪到别的类型上，两侧仍是
+    /// 1、判据全绿，而 header 那句点名 `ProgressBar` 的话已经失真。
     @Test("弃用符号恰一处、拼法逐字，且产物里的弃用标注恰一次")
     func deprecationClaimHoldsOnBothSides() throws {
         var lines: [String] = []

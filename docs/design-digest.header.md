@@ -11,7 +11,10 @@
 ## 与 `docs/component-registry.json` 的口径差
 
 两份台账射程不同，**名字对不上是正常的**：registry 里 `repo=coredesign` 的 62 条（全表 87 条，另 25 条属别的仓）是「组件**契约**」射程，
-本文件的 90 条是「所有 `View` / `Shape` / `*Style` / `Transition` / `Layout` 遵从者」。
+本文件的 90 条是「所有 `View` / `Shape` / `*Style` / `Transition` / `Layout` / `ViewModifier`
+遵从者」。⚠️ 其中 `ViewModifier` 类型（`FloatingGlassModifier` / `SpinningModifier` /
+`TelegramGlassButtonModifier`）**不要直接标注**——走它们对应的 `.floatingGlass` /
+`.spinning` 入口，见《Modifier / Transition 入口点》。
 ⚠️ 具体地，registry 里那条 `Toast` 是**契约名不是类型名**——`Sources/` 里没有名叫
 `Toast` 的类型（真名 `ToastItem` / `ToastHost`）。**以本文件为准**：它由源码派生。
 

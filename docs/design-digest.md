@@ -11,7 +11,10 @@
 ## 与 `docs/component-registry.json` 的口径差
 
 两份台账射程不同，**名字对不上是正常的**：registry 里 `repo=coredesign` 的 62 条（全表 87 条，另 25 条属别的仓）是「组件**契约**」射程，
-本文件的 90 条是「所有 `View` / `Shape` / `*Style` / `Transition` / `Layout` 遵从者」。
+本文件的 90 条是「所有 `View` / `Shape` / `*Style` / `Transition` / `Layout` / `ViewModifier`
+遵从者」。⚠️ 其中 `ViewModifier` 类型（`FloatingGlassModifier` / `SpinningModifier` /
+`TelegramGlassButtonModifier`）**不要直接标注**——走它们对应的 `.floatingGlass` /
+`.spinning` 入口，见《Modifier / Transition 入口点》。
 ⚠️ 具体地，registry 里那条 `Toast` 是**契约名不是类型名**——`Sources/` 里没有名叫
 `Toast` 的类型（真名 `ToastItem` / `ToastHost`）。**以本文件为准**：它由源码派生。
 
@@ -332,12 +335,16 @@
 ### `Components/AvatarGroup/AvatarGroup.swift`
 
 - **`AvatarGroup`** *<Avatars: View>: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
-- *enum* **`AvatarGroupLayout`**: `.overlapped`, `.spaced`, `.grid`, `.countOnly`
+- *enum* **`AvatarGroupLayout`** — `AvatarGroup` 的**排布形态**——与 `avatars:` 槽**正交**：本枚举决定「这组头像怎么排」， `avatars:` 提供「排什么」。
+  - `.overlapped` — 默认：头像按 `controlSize` 递增的负 offset 交叠（现状形态）。
+  - `.spaced` — 并排不重叠 + 溢出计数。 业界来源：Google Docs 协作者栏 / Microsoft Teams 成员条。
+  - `.grid` — 网格平铺。 业界来源：Slack Huddle 参与者网格 / Google Meet 头像平铺 / Discord 语音频道头像平铺。
+  - `.countOnly` — 纯计数徽标：N 个头像塌成 1 个计数；本形态不渲染任何头像，`max` 不生效。
 
 ### `Components/Badge/Badge.swift`
 
 - **`Badge`** *<Label: View>: View* — ⚠️ 源码缺摘要（材质层: 控件 / 表面角色: 控件）
-- *enum* **`BadgeVariant`**: `.info`, `.success`, `.warning`, `.danger`, `.neutral`
+- *enum* **`BadgeVariant`**: `.info`, `.success`, `.warning`, `.danger`, `.neutral` — Badge 的语义等级，决定背景 / 边框配色映射。
 
 ### `Components/Banner/Banner.swift`
 
@@ -383,7 +390,9 @@
 ### `Components/Card/Card.swift`
 
 - **`Card`** *<Content: View>: View* — `.surface(.content)` 的**具名封装** + 默认内边距——iOS 分组卡片/内容容器的最薄外壳。
-- *enum* **`CardKind`**: `.content`, `.grouped`
+- *enum* **`CardKind`** — `Card` 的容器观感取值域——**刻意只有两个 case**。
+  - `.content` — 带描边的内容卡片（默认）——完整 `.surface(.content)`：背景 + 描边 + 圆角。
+  - `.grouped` — 分组容器观感——背景 + 圆角、**无描边**，靠填充色对比定界，与 `InsetGroupedSection` 的卡片外观一致。等价于 #41 之前的 `bordered: false`。
 
 ### `Components/Carousel/Carousel.swift`
 
@@ -402,7 +411,10 @@
 ### `Components/InsetGroupedSection/InsetGroupedSection.swift`
 
 - **`InsetGroupedSection`** *<Content: View>: View* — iOS `.insetGrouped` 分组容器的视觉复刻——只复刻观感，不复刻 `List` 的数据 / 滚动 / 编辑能力。
-- *enum* **`SettingsDividerInset`**: `.iconAligned`, `.textAligned`, `.custom`
+- *enum* **`SettingsDividerInset`** — `InsetGroupedSection` 相邻行分隔线的 leading 对齐方式。
+  - `.iconAligned` — 越过图标列、对齐标题 leading（有图标分组的 iOS 惯例,默认）。
+  - `.textAligned` — 对齐内容 leading（无图标分组）。
+  - `.custom` — 自定义 leading inset（pt）。
 
 ### `Components/ListRow/ListRow.swift`
 
@@ -460,7 +472,9 @@
 ### `Components/Separator/Separator.swift`
 
 - **`Separator`** *: View* — 可控 inset 的分隔线，默认 hairline 宽度、颜色走 `Color.dividerDefault`。
-- *enum* **`Separator.Inset`**: `.edgeToEdge`, `.leading`
+- *enum* **`Separator.Inset`** — 分隔线的 leading 缩进方式。
+  - `.edgeToEdge` — 无缩进，分隔线贯穿父容器整宽；⚠️ 不叫 `none` 是有意的——调用方持有 `Inset?` 时写 `.none` 会静默解析成 `Optional.none`，不要改名。
+  - `.leading` — 从 leading 缩进指定量（pt）。
 
 ### `Components/SettingsRow/SettingsRow.swift`
 
@@ -477,7 +491,9 @@
 - **`SidebarDocumentRow`** *: View* — 带尾部 detail 文本的文档行。
 - **`SidebarTagRow`** *: View* — 以 `#` 字形开头的标签行。
 - **`SidebarStatusFooter`** *: View* — 状态点 + 标题/详情文本的页脚。
-- *enum* **`SidebarUtilityRowPresentation`**: `.iconLeading`, `.textOnly`
+- *enum* **`SidebarUtilityRowPresentation`** — `SidebarUtilityRow` 的**呈现形态**。
+  - `.iconLeading` — 默认：leading 字形 + 标题（现状形态）。
+  - `.textOnly` — 纯文字行：**不渲染 leading 字形、也不占位**。 ⚠️ 本形态下 `systemImage` **静默不生效**——传了不是错误，只是无效。
 - *enum* **`SidebarTextStyle`** — 侧栏内容的语义文字色别名。
 
 ### `Components/Skeleton/Skeleton.swift`
@@ -490,18 +506,24 @@
 ### `Components/StateLabel/StateLabel.swift`
 
 - **`StateLabel`** *<Label: View>: View* — ⚠️ 源码缺摘要（材质层: 控件 / 表面角色: 控件）
-- *enum* **`StateLabelStyle`**: `.active`, `.draft`, `.completed`, `.cancelled`, `.inProgress`, `.error`
+- *enum* **`StateLabelStyle`**: `.active`, `.draft`, `.completed`, `.cancelled`, `.inProgress`, `.error` — 通用状态标签的语义样式。
 
 ### `Components/StatusLevel.swift`
 
-- *enum* **`StatusLevel`**: `.info`, `.success`, `.warning`, `.danger`
+- *enum* **`StatusLevel`**: `.info`, `.success`, `.warning`, `.danger` — 状态语义等级，决定组件的图标 + 配色映射。
 
 ### `Components/Steps/Steps.swift`
 
 - **`Steps`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
-- *enum* **`StepsAxis`**: `.horizontal`, `.vertical`
-- *enum* **`StepsIndicatorStyle`**: `.dot`, `.numbered`
-- *enum* **`StepsPresentation`**: `.steps`, `.segmentedBar`, `.navigation`, `.text`
+- *enum* **`StepsAxis`**: `.horizontal`, `.vertical` — `Steps` 排列方向。
+- *enum* **`StepsIndicatorStyle`** — `Steps` 指示器展示样式——纯展示配置，不携带进行态语义，可安全公开 （区别于下方 `Steps.StepsProgress`，后者才是需要收敛为非公开的状态语义类型）。
+  - `.dot` — 圆点指示器：pending 描边空心圆 / current & done 实心 `.tint` 圆点 / error 实心 danger 圆点。
+  - `.numbered` — 数字指示器：pending 描边空心圆 + 序号 / current 实心 `.tint` 圆 + 白色序号 / done 实心 `.tint` 圆 + 白色 checkmark / error 实心 danger 圆 + 白色感叹号。
+- *enum* **`StepsPresentation`** — `Steps` 的**整体呈现形态**——与 `StepsIndicatorStyle` **正交**：本枚举决定「这组步骤 数据画成什么结构」，后者只决定「`.steps` 结构下那些离散指示器长什么样」。
+  - `.steps` — 默认：离散指示器 + 连线（现状形态，`axis` 与 `indicatorStyle` 均在此形态下生效）。
+  - `.segmentedBar` — 分段式进度条：N 个离散位置塌成一条连续条，已完成的段填充。 业界来源：Ant Design Steps 的 percent 形态 / Google 表单底部按页分段的进度条。
+  - `.navigation` — 导航式步骤条：去掉公共轴线与连线，每一步成为彼此直接拼接的块。 业界来源：Ant Design Steps `type="navigation"` / Shopify Polaris 结账步骤导航。
+  - `.text` — 纯文本：N 个指示器槽与标题槽连同连线塌成一个文本槽。 业界来源：Typeform 的「1 of 5」进度文案。
 - *struct* **`StepItem`** — 单个步骤的数据模型：标题（必填）+ 可选描述 + 错误标记。
 
 ### `Components/Style/CoreDisclosureGroupStyle.swift`
@@ -523,8 +545,12 @@
 ### `Components/Style/Descriptions.swift`
 
 - **`Descriptions`** *<Content: View>: View* — 描述列表：把传入的 `LabeledContent` 行按 1/2 列排布，再交给 `InsetGroupedSection` 渲染。
-- *enum* **`DescriptionsColumns`**: `.one`, `.two`
-- *enum* **`DescriptionsDividerDensity`**: `.none`, `.row`
+- *enum* **`DescriptionsColumns`** — `Descriptions` 的列数配置。
+  - `.one` — 单列纵向排布。
+  - `.two` — 两列网格排布——大字号可访问性档位下自动强制塌成单列，见 `Descriptions` doc-comment。
+- *enum* **`DescriptionsDividerDensity`** — `Descriptions` 相邻行（`columns == .two` 时为「相邻行组」）之间的分隔线密度。
+  - `.none` — 无分隔线。
+  - `.row` — 每行之间都有分隔线（对齐 `InsetGroupedSection` 默认行为）。
 
 ### `Components/TabBar/UnderlinedTabBar.swift`
 
@@ -541,20 +567,33 @@
 ### `Components/Timeline/Timeline.swift`
 
 - **`Timeline`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
-- *enum* **`TimelineLayout`**: `.vertical`, `.alternate`, `.horizontal`, `.grouped`
+- *enum* **`TimelineLayout`** — `Timeline` 的**整体排布形态**——与 `TimelineItem` 的 `node:` 外观槽**正交**： 本枚举决定「这组节点怎么排」，`node:` 决定「单个节点画成什么」。
+  - `.vertical` — 默认：左侧固定节点列 + 右侧内容，节点间竖向连线（现状形态）。
+  - `.alternate` — 左右交替：内容在中轴两侧交替排布。 业界来源：Ant Design Timeline 的 `mode="alternate"`。
+  - `.horizontal` — 横向：节点沿水平轴排列，内容在节点下方。 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
+  - `.grouped` — 无连线的分组列表：删掉节点列与连线，只留内容；本形态下 `TimelineItem.node:` 槽不生效。
 - *struct* **`TimelineItem`** — `Timeline` 单条节点的数据载体。
 
 ### `Components/Toast/Toast.swift`
 
-- *enum* **`ToastPresentation`**: `.floatingCapsule`, `.fullWidthBanner`, `.centeredHUD`
+- *enum* **`ToastPresentation`** — `Toast` 的**呈现形态**（公约 §2 形态 D2「配置枚举」，`wxlpp/oh-my-story#65`）。
+  - `.floatingCapsule` — 现状形态：`safeAreaInset` 贴边 + `Capsule` 几何 + 水平内边距，读起来像系统反馈。
+  - `.fullWidthBanner` — 全宽横幅条（Android Snackbar / in-app banner）：贴边、横跨屏幕宽度、非胶囊。
+  - `.centeredHUD` — 居中 HUD（经典 UIKit toast/HUD）：浮于屏幕中央而非贴边，宽度收缩为内容宽。 ⚠️ 本形态下 `edge` 不生效。
 - *struct* **`ToastItem`** — 单条 Toast 的数据载体。
 - *enum* **`ToastDefaults`** — Toast 行为的默认值常量集合。
 - *final class* **`ToastHost`** — Scene 级的浮层 toast 队列与调度器，外壳形状由 `ToastPresentation` 三选一。
 
 ### `Environment/EnergyPolicy.swift`
 
-- *enum* **`RenderPolicy`**: `.full`, `.reduced`, `.paused`
-- *enum* **`MotionPresentation`**: `.hidden`, `.resting`, `.animated`
+- *enum* **`RenderPolicy`** — 一层常驻渲染件在当前能耗状态下的渲染策略。
+  - `.full` — 满帧。
+  - `.reduced` — 降帧，但**仍然在动**。
+  - `.paused` — 完全停摆：驱动动画的 `TimelineView` **不建**（不是「建了但暂停」）。
+- *enum* **`MotionPresentation`** — 两道闸（NFR-7 能耗闸 + Reduce Motion 闸）**一起**裁出来的结果：这一层到底呈现什么。
+  - `.hidden` — 一个像素都不画（NFR-7 停摆）。**优先级最高**——它在 Reduce Motion 之前裁决。
+  - `.resting` — 画，但静止（Reduce Motion：保留视觉、去掉运动）。
+  - `.animated` — 正常动。
 - *struct* **`EnergyState`** — 「注入值优先、否则从系统读」的解析结果，以及它推出的渲染策略。
 
 ### `Layout/FlowLayout.swift`
@@ -568,11 +607,24 @@
 ### `Modifier/SpinningModifier.swift`
 
 - **`SpinningModifier`** *: ViewModifier* — 为任意内容叠加加载指示（吸收 Semi Design `Spin` 能力，Issue #172）。
-- *enum* **`SpinningPresentation`**: `.overlay`, `.topBar`, `.inline`
+- *enum* **`SpinningPresentation`** — `spinning` 的**呈现形态**。
+  - `.overlay` — 默认：材质遮罩铺满内容 + 居中指示器（现状形态）。
+  - `.topBar` — 容器顶边的细进度条，不铺遮罩。 业界来源：NProgress / YouTube 顶条 / GitHub Turbo。
+  - `.inline` — 原位行内指示器，不铺遮罩。 业界来源：Ant Design Spin 的非包裹用法 / MUI CircularProgress。
 
 ### `Modifier/SurfaceModifier.swift`
 
-- *enum* **`SurfaceKind`**: `.canvas`, `.content`, `.control`, `.floating`, `.overlay`, `.grouped`, `.canvasSubtle`, `.panel`, `.sidebar`, `.card`
+- *enum* **`SurfaceKind`** — 容器表面语义类别 / Container surface semantic kinds.
+  - `.canvas` — 页面级画布。
+  - `.content` — 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。 列表行不用本 kind，`ListRow` 走 `.surface(.canvas)` 贴画布。
+  - `.control` — 交互控件表面：按钮、输入框、分段控件。
+  - `.floating` — 浮于内容之上的表面：toast、浮动工具栏、底部栏。
+  - `.overlay` — 覆盖层表面，如菜单与 popover。
+  - `.grouped` — 分组容器表面：背景 + 圆角、无描边，靠填充色对比定界，背景与 `.content` 同取 `surfaceRaised`。
+  - `.canvasSubtle` — 兼容别名：更淡的画布。
+  - `.panel` — 兼容别名：面板容器。
+  - `.sidebar` — 兼容别名：侧栏容器。
+  - `.card` — 兼容别名：卡片容器。
 
 ### `Modifier/TelegramGlassButtonModifier.swift`
 
@@ -596,7 +648,11 @@
 
 ### `Tokens/CoreElevation.swift`
 
-- *enum* **`CoreElevation.Level`**: `.none`, `.small`, `.medium`, `.large`
+- *enum* **`CoreElevation.Level`** — 高度档位。
+  - `.none` — 无阴影。等价于平面元素，不产生 elevation 视觉。
+  - `.small` — 小阴影。resting 层级，近乎平坦，日常静止内容（Badge、紧凑控件）用它。
+  - `.medium` — 中阴影。resting 层级，普通卡片不应强烈浮起——层级交给 surface + border 表达。
+  - `.large` — 大阴影。floating 层级，用于 popover、菜单、真正悬浮于内容之上的浮层。
 - *enum* **`CoreElevation`** — 阴影 / 高度 (elevation) token，只用于真正悬浮于内容之上的元素。
 - *struct* **`CoreElevation.Spec`** — 单档 elevation 的视觉规格。
 
@@ -611,7 +667,7 @@
 
 ### `Tokens/CoreTypography.swift`
 
-- *enum* **`CoreTypography.Token`**: `.largeTitle`, `.title`, `.title2`, `.title3`, `.headline`, `.body`, `.callout`, `.subheadline`, `.footnote`, `.caption`, `.captionMono`, `.caption2`
+- *enum* **`CoreTypography.Token`**: `.largeTitle`, `.title`, `.title2`, `.title3`, `.headline`, `.body`, `.callout`, `.subheadline`, `.footnote`, `.caption`, `.captionMono`, `.caption2` — 排版 token，经 `.coreFont(_:)` 施加。
 - *enum* **`CoreTypography`** — 字体 token，对齐 Apple HIG 的系统文本样式（`Font.TextStyle`）标度。
 
 ## `CoreDesignEffects`
@@ -623,7 +679,10 @@
 ### `BeforeAfterSlider.swift`
 
 - **`BeforeAfterSlider`** *<Before: View, After: View>: View* — 拖动分隔线对比"之前 / 之后"两张图的滑块。
-- *enum* **`BeforeAfterSliderLabels`**: `.hidden`, `.standard`, `.shown`
+- *enum* **`BeforeAfterSliderLabels`** — `BeforeAfterSlider` 两侧标签的取值域。
+  - `.hidden` — 不显示标签。
+  - `.standard` — 显示**组件自带**的默认文案（"Before" / "After"，公约 §4 A 类）。
+  - `.shown` — 显示**调用方给定**的文案（公约 §4 B 类）。
 
 ### `BlurTransition.swift`
 
@@ -679,7 +738,7 @@
 
 ### `MicroInteractionSupport.swift`
 
-- *enum* **`MicroInteractionStrength`**: `.subtle`, `.regular`, `.pronounced`
+- *enum* **`MicroInteractionStrength`**: `.subtle`, `.regular`, `.pronounced` — 微交互的强度。
 
 ### `OrbitingLogos.swift`
 
@@ -715,7 +774,7 @@
 
 ### `Spin.swift`
 
-- *enum* **`SpinDirection`**: `.clockwise`, `.counterClockwise`
+- *enum* **`SpinDirection`**: `.clockwise`, `.counterClockwise` — 旋转方向。
 
 ### `SwooshTransition.swift`
 
@@ -723,13 +782,23 @@
 
 ### `TransitionSupport.swift`
 
-- *enum* **`TransitionTravel`**: `.short`, `.regular`, `.long`
-- *enum* **`TransitionAxis3D`**: `.horizontal`, `.vertical`, `.depth`, `.tilted`
+- *enum* **`TransitionTravel`** — 位移类转场的行程档位（pt）。
+  - `.short` — 36 pt —— 徽标、行内小件。
+  - `.regular` — 80 pt —— 卡片、面板。
+  - `.long` — 160 pt —— 整屏级的大块内容。
+- *enum* **`TransitionAxis3D`** — 3D 旋转的轴。
+  - `.horizontal` — 内容水平翻转 —— 转轴 `(0, 1, 0)`。
+  - `.vertical` — 内容垂直翻转 —— 转轴 `(1, 0, 0)`。
+  - `.depth` — 内容在自己平面内打转 —— 转轴 `(0, 0, 1)`。
+  - `.tilted` — 斜向翻滚 —— 转轴 `(1, 1, 0)`。
 
 ### `TypewriterText.swift`
 
 - **`TypewriterText`** *: View* — 逐字揭示的打字机文本。
-- *enum* **`TypewriterSpeed`**: `.slow`, `.regular`, `.fast`
+- *enum* **`TypewriterSpeed`** — 打字机的速度档位。
+  - `.slow` — 慢（约 13 字 / 秒）。适合一两行的标题。
+  - `.regular` — 常规（约 25 字 / 秒）。
+  - `.fast` — 快（约 55 字 / 秒）。适合整段正文。
 
 ## `CoreDesignCharts`
 

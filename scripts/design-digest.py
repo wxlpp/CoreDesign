@@ -175,7 +175,8 @@ def enum_cases(lines, start):
 
     只在 **enum 自身体那一层深度**收——`switch self { case let .leading(x): … }` 住在更深
     的层，混进来会把 `let` 当成 case 名（`.let` 曾两次进入产物）。
-    一行可声明多个 case（`case subtle, regular, pronounced`），必须按顶层逗号切：只取
+    返回 `(case 名, case 上方的文档注释)`。一行可声明多个 case（`case subtle, regular,
+    pronounced`），必须按顶层逗号切：只取
     第一个的话产物会**声称**自己是完整列表却少了后面几个（曾漏掉
     `MicroInteractionStrength` 的 2 个与 `SpinDirection` 的 1 个）。
     花括号计数前剥注释与字符串，否则注释里的 `.mask {` 会跑飞。
@@ -183,7 +184,7 @@ def enum_cases(lines, start):
     cases = []
     depth = 0
     entered = False
-    for line in lines[start:]:
+    for offset, line in enumerate(lines[start:]):
         body = strip_noise(line)
         if entered and depth <= 0:
             break
@@ -191,10 +192,13 @@ def enum_cases(lines, start):
             stripped = re.sub(r"^\s*@\w+(?:\([^)]*\))?\s+", "", body)
             match = re.match(r"^\s*(?:indirect\s+)?case\s+(.+)$", stripped)
             if match:
+                # case 级文档注释是「兼容别名」这类语义的唯一载体——只取 enum 自身的
+                # doc 不够（`SurfaceKind` 的 4 个别名全写在 case 上）。
+                case_doc = doc_above(lines, start + offset)
                 for part in split_top_level(match.group(1)):
                     name = re.match(r"\s*([A-Za-z_]\w*)", part)
                     if name and name.group(1) not in ("let", "var"):
-                        cases.append(name.group(1))
+                        cases.append((name.group(1), case_doc))
         depth += body.count("{") - body.count("}")
         if depth > 0:
             entered = True
@@ -510,7 +514,15 @@ def main():
             for name, cases, doc in enums:
                 enum_total += 1
                 case_total += len(cases)
-                add(f"- *enum* **`{name}`**: " + ", ".join(f"`.{c}`" for c in cases))
+                summary = "" if doc.startswith(DOC_ABSENT) else f" — {doc}"
+                if any(case_doc for _, case_doc in cases):
+                    add(f"- *enum* **`{name}`**{summary}")
+                    for case_name, case_doc in cases:
+                        tail = f" — {case_doc}" if case_doc else ""
+                        add(f"  - `.{case_name}`{tail}")
+                else:
+                    listed = ", ".join(f"`.{c}`" for c, _ in cases)
+                    add(f"- *enum* **`{name}`**: {listed}{summary}")
             for kind, name, doc in others:
                 other_total += 1
                 add(f"- *{kind}* **`{name}`** — {doc}")
