@@ -92,6 +92,15 @@ jobs:
         # `scripts/mainactor-static-ratchet.sh` 的《范围定案与代价》一节。
         run: bash scripts/mainactor-static-ratchet.sh
 
+      - name: design-digest 未过期
+        # 重跑生成器再与已提交产物比对：`docs/design-digest.md` 是台账，改了组件不重跑
+        # 就会静默落后，而它的**唯一价值**是名字与源码同真——漂掉比不存在更坏（下游
+        # 设计 agent 会自信地标注已改名/删除的组件，且失效方向向绿）。
+        # ⚠️ 这条 `run:` 被树内判据 `Tests/CoreDesignTests/DesignDigestSyncGuard.swift`
+        # 逐字钉住，要改先改那条判据。生成器基数不符时返回 1、`&&` 短路，所以这一步
+        # 同时兜住「基数变了没人看一眼」。
+        run: python3 scripts/design-digest.py && git diff --exit-code -- docs/design-digest.md
+
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4

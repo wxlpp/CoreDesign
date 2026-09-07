@@ -2,7 +2,8 @@ import CoreGraphics
 
 // MARK: - CoreSpacing
 
-/// 间距 token，提供一套固定的 8pt 网格标度，覆盖从紧密分隔线到顶级页面结构的常见间距需求。
+/// 间距 token，提供一套固定的间距标度，覆盖从紧密分隔线到顶级页面结构的常见间距需求。
+/// ⚠️ 不是纯 8pt 网格：`xxs` / `xs` / `md` 三档（2 / 4 / 12pt）不是 8 的倍数。
 public nonisolated enum CoreSpacing {
     /// 无间距 (0pt)。零值占位，避免组件内魔法数字 0。
     public static let none: CGFloat = 0
