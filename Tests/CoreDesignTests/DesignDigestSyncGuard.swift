@@ -19,9 +19,15 @@ struct DesignDigestSyncGuard {
         "python3 scripts/design-digest.py && git diff --exit-code -- docs/design-digest.md"
 
     /// 生成器里每一节的基数键。少一节即少一道判据，而缺的那一节在退出码上等同于通过。
+    /// 生成器里做基数比对的那一行，逐字钉住。把 `!=` 改成 `<`（退回下界语义）时
+    /// key 集合不变、产物不变、其余判据全绿——只有这一条会响。
+    nonisolated static let expectedComparison =
+        "if counts.get(key, 0) != expected"
+
     nonisolated static let expectedFloorKeys: Set<String> = [
         "spacing", "radius", "border", "typography", "elevation", "controlsize",
-        "colors", "components", "enums", "viewext", "styleext", "others",
+        "colors", "components", "enums", "enumcases", "protocols",
+        "viewext", "styleext", "others",
     ]
 
     nonisolated static func url(_ relativePath: String) -> URL {
@@ -37,13 +43,23 @@ struct DesignDigestSyncGuard {
         // 整行精确比对，不是子串包含：`run: <cmd> || true` 这类尾巴含着原命令，
         // 用 `contains` 会放行（本判据的合成 fixture 当场抓到过）。
         let wanted = "run: \(Self.expectedRunCommand)"
-        let hasExactLine = block
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .contains { $0.trimmingCharacters(in: .whitespaces) == wanted }
-        guard hasExactLine else {
+        let steps = MainActorStaticRatchetGuard.stepBlocks(inJobBlock: block)
+        let mine = steps.filter { step in
+            step.split(separator: "\n", omittingEmptySubsequences: false)
+                .contains { $0.trimmingCharacters(in: .whitespaces) == wanted }
+        }
+        guard let step = mine.first else {
             return ["`\(Self.jobName)` job 里找不到逐字独占一行的 `\(wanted)`"]
         }
-        return []
+        // 这一步自己的中和面：step 级 `if:` / `continue-on-error:` / `shell:` 及同义拼法，
+        // 以及把 `run:` 折成跨行普通标量后在续行挂 `|| true`。job 级与 workflow 顶层的
+        // 中和面由 `MainActorStaticRatchetGuard` 对同一个 job 兜住，不在此重复实现。
+        var problems: [String] = []
+        problems += MainActorStaticRatchetGuard.disallowedStepKeys(inStep: step)
+            .map { "这一步的直接子键里出现 \($0)" }
+        problems += MainActorStaticRatchetGuard.runScalarContinuationLines(inStep: step)
+            .map { "`run:` 有续行：\($0)" }
+        return problems
     }
 
     nonisolated static func floorKeys(inGenerator source: String) -> Set<String> {
@@ -80,6 +96,49 @@ struct DesignDigestSyncGuard {
         #expect(problems.isEmpty, "\(problems.joined(separator: "；"))")
     }
 
+    nonisolated static func syntheticWorkflow(runLine: String, stepKeys: [String] = []) -> String {
+        let extra = stepKeys.map { "                \($0)" }.joined(separator: "\n")
+        return """
+        jobs:
+          swiftpm:
+            steps:
+              - name: design-digest 未过期
+                \(runLine)
+        \(extra)
+        """
+    }
+
+    @Test("合成输入：干净形态判绿（正对照，防解析失效导致负 fixture 空转）")
+    func syntheticCleanWorkflowIsAccepted() {
+        let yaml = Self.syntheticWorkflow(runLine: "run: \(Self.expectedRunCommand)")
+        #expect(Self.violations(inWorkflow: yaml).isEmpty, "干净形态被误判红 ⇒ 解析失效")
+    }
+
+    @Test("合成输入：这一步加 `if: false` ⇒ 判红")
+    func syntheticWorkflowWithStepConditionIsRejected() {
+        let yaml = Self.syntheticWorkflow(
+            runLine: "run: \(Self.expectedRunCommand)", stepKeys: ["if: false"]
+        )
+        #expect(!Self.violations(inWorkflow: yaml).isEmpty)
+    }
+
+    @Test("合成输入：这一步加 `continue-on-error: true` ⇒ 判红")
+    func syntheticWorkflowWithContinueOnErrorIsRejected() {
+        let yaml = Self.syntheticWorkflow(
+            runLine: "run: \(Self.expectedRunCommand)", stepKeys: ["continue-on-error: true"]
+        )
+        #expect(!Self.violations(inWorkflow: yaml).isEmpty)
+    }
+
+    @Test("生成器的基数比对逐字是 `!=`（精确值语义，不是下界）")
+    func generatorPinsExactComparison() throws {
+        let source = try String(contentsOf: Self.url(Self.generatorRelativePath), encoding: .utf8)
+        #expect(
+            source.contains(Self.expectedComparison),
+            "找不到 `\(Self.expectedComparison)` —— 基数判据可能已被退回下界语义"
+        )
+    }
+
     @Test("合成输入：这一步被删掉 ⇒ 判红")
     func syntheticWorkflowWithoutTheStepIsRejected() {
         let yaml = """
@@ -102,6 +161,44 @@ struct DesignDigestSyncGuard {
                 run: \(Self.expectedRunCommand) || true
         """
         #expect(!Self.violations(inWorkflow: yaml).isEmpty)
+    }
+
+    /// `docs/component-registry.json` 里 `repo=coredesign` 却在源码中查无此类型的名字。
+    /// 每一条都是一处存量假登记；表为空是目标状态，往里加需在 PR 正文写明理由。
+    nonisolated static let registryNamesWithoutType: Set<String> = [
+        // `Toast` 是契约名不是类型名——真名 `ToastItem` / `ToastHost`。
+        "Toast",
+    ]
+
+    @Test("registry 的 coredesign 组件名都能在摘要里找到对应类型（已知分歧除外）")
+    func registryNamesResolveToRealTypes() throws {
+        let registryURL = Self.url("docs/component-registry.json")
+        let data = try Data(contentsOf: registryURL)
+        let root = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let entries = (root?["components"] as? [[String: Any]]) ?? []
+        #expect(!entries.isEmpty, "registry 解析不出 components ⇒ 判红而不是当作零违规")
+
+        let digest = try String(contentsOf: Self.url(Self.digestRelativePath), encoding: .utf8)
+        var declared: Set<String> = []
+        for line in digest.split(separator: "\n") where line.hasPrefix("- ") {
+            for chunk in line.components(separatedBy: "**`").dropFirst() {
+                guard let name = chunk.components(separatedBy: "`**").first else { continue }
+                declared.insert(name)
+                if let last = name.split(separator: ".").last { declared.insert(String(last)) }
+            }
+        }
+        #expect(!declared.isEmpty, "摘要里抠不出任何类型名 ⇒ 解析失效")
+
+        let missing = entries
+            .filter { ($0["repo"] as? String) == "coredesign" }
+            .compactMap { $0["component"] as? String }
+            .filter { !declared.contains($0) }
+        let added = Set(missing).subtracting(Self.registryNamesWithoutType)
+        let gone = Self.registryNamesWithoutType.subtracting(Set(missing))
+        #expect(
+            Set(missing) == Self.registryNamesWithoutType,
+            "registry 里查无此类型的名字变了：新增 \(added)，已消失 \(gone)"
+        )
     }
 
     @Test("生成器的基数键与树内登记逐条相符（双向差集）")

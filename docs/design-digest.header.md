@@ -8,10 +8,17 @@
 > 说明文字是手写的**（住在那个脚本里），与本节一样没有机器判据兜底、同属人工评审项。
 > 不要手改产物——改了会在下次生成时被覆盖。要改约定，改 `docs/design-digest.header.md`。
 
+## 与 `docs/component-registry.json` 的口径差
+
+两份台账射程不同，**名字对不上是正常的**：registry 的 62 条是「组件**契约**」射程，
+本文件的 90 条是「所有 `View` / `Shape` / `*Style` / `Transition` / `Layout` 遵从者」。
+⚠️ 具体地，registry 里那条 `Toast` 是**契约名不是类型名**——`Sources/` 里没有名叫
+`Toast` 的类型（真名 `ToastItem` / `ToastHost`）。**以本文件为准**：它由源码派生。
+
 ## 平台与单位
 
 - SwiftUI，iOS 26+ / macOS 26+，Swift 6 严格并发。
-- 长度单位一律 **pt**。间距标度见下方 `CoreSpacing` 表，**不是纯 8 的倍数**（含 2 / 4 / 12 / 40 档）。
+- 长度单位一律 **pt**。间距标度见下方 `CoreSpacing` 表，**不是纯 8 的倍数**：`xxs` / `xs` / `md` 三档（2 / 4 / 12pt）不是。
 - 字号**不写数字**：走 Apple 系统文本样式，随 Dynamic Type 缩放。
 
 ## 三个 target（依赖单向）
@@ -41,8 +48,8 @@
    `.circularGlass` / `.extendedFloat`。**不要为按钮描述自定义配色**——role 是配色的唯一来源。
 6. **`Toggle` / `TextField` 没有 `.core` 入口点**，有意为之：设置行里的开关直接用系统
    `Toggle` + `.tint(_:)`。⚠️ 但 `Toggle` **另有** `CheckBoxToggleStyle`（复选框形态，方框 + label）。
-   `ProgressView` / `Label` / `LabeledContent` / `DisclosureGroup` 有 `.core` 样式，其中前三者
-   **只有 `ProgressView` / `Label` / `DisclosureGroup` 的强调色走 `.tint(_:)`**；
+   `ProgressView` / `Label` / `LabeledContent` / `DisclosureGroup` 有 `.core` 样式，其中
+   **`ProgressView` / `Label` / `DisclosureGroup` 三者的强调色走 `.tint(_:)`**；
    ⚠️ `CoreLabeledContentStyle` **没有强调色**，label / content 固定走
    `contentSecondary` / `contentPrimary`，对它施加 `.tint(_:)` 静默无效。
 7. **反馈四件套分工**：页内信息条 → `Banner`；浮层瞬时反馈 → `ToastItem`（经 `.toastHost` 呈现，队列由 `ToastHost` 管；**没有名叫 `Toast` 的类型**）；

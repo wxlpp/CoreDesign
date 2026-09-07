@@ -8,10 +8,17 @@
 > 说明文字是手写的**（住在那个脚本里），与本节一样没有机器判据兜底、同属人工评审项。
 > 不要手改产物——改了会在下次生成时被覆盖。要改约定，改 `docs/design-digest.header.md`。
 
+## 与 `docs/component-registry.json` 的口径差
+
+两份台账射程不同，**名字对不上是正常的**：registry 的 62 条是「组件**契约**」射程，
+本文件的 90 条是「所有 `View` / `Shape` / `*Style` / `Transition` / `Layout` 遵从者」。
+⚠️ 具体地，registry 里那条 `Toast` 是**契约名不是类型名**——`Sources/` 里没有名叫
+`Toast` 的类型（真名 `ToastItem` / `ToastHost`）。**以本文件为准**：它由源码派生。
+
 ## 平台与单位
 
 - SwiftUI，iOS 26+ / macOS 26+，Swift 6 严格并发。
-- 长度单位一律 **pt**。间距标度见下方 `CoreSpacing` 表，**不是纯 8 的倍数**（含 2 / 4 / 12 / 40 档）。
+- 长度单位一律 **pt**。间距标度见下方 `CoreSpacing` 表，**不是纯 8 的倍数**：`xxs` / `xs` / `md` 三档（2 / 4 / 12pt）不是。
 - 字号**不写数字**：走 Apple 系统文本样式，随 Dynamic Type 缩放。
 
 ## 三个 target（依赖单向）
@@ -41,8 +48,8 @@
    `.circularGlass` / `.extendedFloat`。**不要为按钮描述自定义配色**——role 是配色的唯一来源。
 6. **`Toggle` / `TextField` 没有 `.core` 入口点**，有意为之：设置行里的开关直接用系统
    `Toggle` + `.tint(_:)`。⚠️ 但 `Toggle` **另有** `CheckBoxToggleStyle`（复选框形态，方框 + label）。
-   `ProgressView` / `Label` / `LabeledContent` / `DisclosureGroup` 有 `.core` 样式，其中前三者
-   **只有 `ProgressView` / `Label` / `DisclosureGroup` 的强调色走 `.tint(_:)`**；
+   `ProgressView` / `Label` / `LabeledContent` / `DisclosureGroup` 有 `.core` 样式，其中
+   **`ProgressView` / `Label` / `DisclosureGroup` 三者的强调色走 `.tint(_:)`**；
    ⚠️ `CoreLabeledContentStyle` **没有强调色**，label / content 固定走
    `contentSecondary` / `contentPrimary`，对它施加 `.tint(_:)` 静默无效。
 7. **反馈四件套分工**：页内信息条 → `Banner`；浮层瞬时反馈 → `ToastItem`（经 `.toastHost` 呈现，队列由 `ToastHost` 管；**没有名叫 `Toast` 的类型**）；
@@ -136,18 +143,18 @@
 
 # 语义颜色（第 2–4 层）
 
-⚠️ **本节跨层，不都是第 3 / 4 层**——按 CLAUDE.md《分层色彩系统》的定层：`SystemBackgroundColors` / `SystemLabelColors` 是**第 2 层**系统色桥接；`MaskColors` 的 `maskOpaque` **不在四层之内**（唯一契约是 α = 1，不是一个颜色决定，别拿它当前景/背景色用）。其余各组为第 3 / 4 层。
+⚠️ **本节跨层，不都是第 3 / 4 层**——按 CLAUDE.md《分层色彩系统》的定层：`SystemBackgroundColors` / `SystemLabelColors` 是**第 2 层**系统色桥接；`MaskColors` 的 `maskOpaque` **不在四层之内**（唯一契约是 α = 1，不是一个颜色决定，别拿它当前景/背景色用）。其余各组为第 3 / 4 层。⇒ 原型标注里**不要**直接写第 2 层的名字，走对应的第 3 层别名（`surfaceBase` / `contentPrimary` …）。
 ⚠️ 第 1 层色阶（`ColorGrade` 的 17 色相 × 10 档）**有意不列入本摘要**——组件里不直接用。
 
 ## `BorderColors`（10）
 
 | token | 说明 |
 |---|---|
-| `Color.borderSubtle` | ⚠️ 源码缺摘要 |
-| `Color.borderDefault` | ⚠️ 源码缺摘要 |
-| `Color.borderStrong` | ⚠️ 源码缺摘要 |
-| `Color.dividerDefault` | ⚠️ 源码缺摘要 |
-| `Color.dividerOpaque` | ⚠️ 源码缺摘要 |
+| `Color.borderSubtle` | → `.separator.opacity(0.28)` |
+| `Color.borderDefault` | → `.separator` |
+| `Color.borderStrong` | → `.opaqueSeparator` |
+| `Color.dividerDefault` | → `.separator` |
+| `Color.dividerOpaque` | → `.opaqueSeparator` |
 | `Color.borderMuted` | 比 `borderDefault` 更弱的次要分隔线 / 卡片边框；语义接近 `borderSubtle`， 但取值略强（透明度更高，0.42）。 |
 | `Color.borderHover` | 交互态边框的 hover 表现，取 `borderDefault` 的稍强表现作为高亮。 |
 | `Color.borderFocus` | 键盘 focus / 强调描边专用。 |
@@ -158,16 +165,16 @@
 
 | token | 说明 |
 |---|---|
-| `Color.contentPrimary` | ⚠️ 源码缺摘要 |
-| `Color.contentSecondary` | ⚠️ 源码缺摘要 |
-| `Color.contentTertiary` | ⚠️ 源码缺摘要 |
-| `Color.contentQuaternary` | ⚠️ 源码缺摘要 |
-| `Color.contentPlaceholder` | ⚠️ 源码缺摘要 |
-| `Color.contentInverse` | ⚠️ 源码缺摘要 |
-| `Color.contentOnAccent` | ⚠️ 源码缺摘要 |
-| `Color.contentOnDanger` | ⚠️ 源码缺摘要 |
-| `Color.contentLink` | ⚠️ 源码缺摘要 |
-| `Color.contentDisabled` | ⚠️ 源码缺摘要 |
+| `Color.contentPrimary` | → `.label` |
+| `Color.contentSecondary` | → `.secondaryLabel` |
+| `Color.contentTertiary` | → `.tertiaryLabel` |
+| `Color.contentQuaternary` | → `.quaternaryLabel` |
+| `Color.contentPlaceholder` | → `.placeholderText` |
+| `Color.contentInverse` | → `.white` |
+| `Color.contentOnAccent` | → `.white` |
+| `Color.contentOnDanger` | → `.white` |
+| `Color.contentLink` | → `.link` |
+| `Color.contentDisabled` | → `.quaternaryLabel` |
 | `Color.contentMuted` | 次要文本，如时间戳 / 元数据 / helper text。 |
 | `Color.contentSubtle` | 弱化辅助文本（弱于 `contentMuted`），用于占位 / 装饰文本。 |
 | `Color.contentOnEmphasis` | 在 emphasis 强调背景上的白色文本，用于通用 emphasis 背景（含中性 emphasis）。 |
@@ -188,16 +195,16 @@
 
 | token | 说明 |
 |---|---|
-| `Color.success` | ⚠️ 源码缺摘要 |
-| `Color.info` | ⚠️ 源码缺摘要 |
-| `Color.warning` | ⚠️ 源码缺摘要 |
-| `Color.warningActive` | ⚠️ 源码缺摘要 |
-| `Color.warningDisable` | ⚠️ 源码缺摘要 |
-| `Color.warningHover` | ⚠️ 源码缺摘要 |
-| `Color.danger` | ⚠️ 源码缺摘要 |
-| `Color.dangerActive` | ⚠️ 源码缺摘要 |
-| `Color.dangerDisable` | ⚠️ 源码缺摘要 |
-| `Color.dangerHover` | ⚠️ 源码缺摘要 |
+| `Color.success` | → `.green5` |
+| `Color.info` | → `.blue5` |
+| `Color.warning` | → `.orange5` |
+| `Color.warningActive` | → `.orange7` |
+| `Color.warningDisable` | → `.orange2` |
+| `Color.warningHover` | → `.orange6` |
+| `Color.danger` | → `.red5` |
+| `Color.dangerActive` | → `.red7` |
+| `Color.dangerDisable` | → `.red2` |
+| `Color.dangerHover` | → `.red6` |
 
 ## `InteractionColors`（19）
 
@@ -208,14 +215,14 @@
 | `Color.accentPressed` | 按下态：比 hover 再远离背景一档；混合基色取 `.primary` 以在深浅双模式都成立。 |
 | `Color.accentDisabled` | 禁用态：对 accent 降低不透明度，保持色相、只削存在感。 |
 | `Color.accentSubtleBackground` | accent 的极淡背景色，用于选中态等大面积低对比场景；走降不透明度而非白混合。 |
-| `Color.secondaryAccent` | ⚠️ 源码缺摘要 |
-| `Color.secondaryAccentHover` | ⚠️ 源码缺摘要 |
-| `Color.secondaryAccentPressed` | ⚠️ 源码缺摘要 |
-| `Color.secondaryAccentDisabled` | ⚠️ 源码缺摘要 |
-| `Color.neutralAccent` | ⚠️ 源码缺摘要 |
-| `Color.neutralAccentHover` | ⚠️ 源码缺摘要 |
-| `Color.neutralAccentPressed` | ⚠️ 源码缺摘要 |
-| `Color.neutralAccentDisabled` | ⚠️ 源码缺摘要 |
+| `Color.secondaryAccent` | → `Color.lightBlue5` |
+| `Color.secondaryAccentHover` | → `Color.lightBlue6` |
+| `Color.secondaryAccentPressed` | → `Color.lightBlue7` |
+| `Color.secondaryAccentDisabled` | → `Color.lightBlue2` |
+| `Color.neutralAccent` | → `Color.grey5` |
+| `Color.neutralAccentHover` | → `Color.grey6` |
+| `Color.neutralAccentPressed` | → `Color.grey7` |
+| `Color.neutralAccentDisabled` | → `Color.grey2` |
 | `Color.selectionBackground` | 常规选中态背景：低调的强调色淡染。 |
 | `Color.selectionBackgroundEmphasis` | 强调选中态背景：实心 `accent`，与 `contentOnAccent` 白字前景配对。 |
 | `Color.hoverBackground` | 中性 hover 底色。 |
@@ -262,14 +269,14 @@
 
 | token | 说明 |
 |---|---|
-| `Color.surfaceBase` | ⚠️ 源码缺摘要 |
-| `Color.surfaceRaised` | ⚠️ 源码缺摘要 |
-| `Color.surfaceElevated` | ⚠️ 源码缺摘要 |
-| `Color.surfaceGrouped` | ⚠️ 源码缺摘要 |
-| `Color.surfaceGroupedRaised` | ⚠️ 源码缺摘要 |
-| `Color.surfaceGroupedElevated` | ⚠️ 源码缺摘要 |
-| `Color.surfaceMuted` | ⚠️ 源码缺摘要 |
-| `Color.surfaceInteractive` | ⚠️ 源码缺摘要 |
+| `Color.surfaceBase` | → `.systemBackground` |
+| `Color.surfaceRaised` | → `.secondarySystemGroupedBackground` |
+| `Color.surfaceElevated` | → `.tertiarySystemGroupedBackground` |
+| `Color.surfaceGrouped` | → `.systemGroupedBackground` |
+| `Color.surfaceGroupedRaised` | → `.secondarySystemGroupedBackground` |
+| `Color.surfaceGroupedElevated` | → `.tertiarySystemGroupedBackground` |
+| `Color.surfaceMuted` | → `.tertiaryFill` |
+| `Color.surfaceInteractive` | → `.surfaceCanvasInset` |
 | `Color.surfaceOverlay` | 浮层表面背景（服务 `.surface(.floating)`：toast、浮动工具栏、底部栏）。 |
 | `Color.surfaceCanvas` | 页面级最底层背景，指向 `systemGroupedBackground`。 |
 | `Color.surfaceCanvasSubtle` | 次级内容区背景（侧栏 / 表格头）。 |
@@ -310,21 +317,22 @@
 # 组件与类型
 
 每个文件下分四类：**组件**（遵从 `View` / `Transition` / `Layout` / `Shape` / `ViewModifier` 或以 `Style` 结尾的协议）、**protocol**、**配置枚举**、**其他公开类型**（前三类之外的，如 `ToastHost` / 各 `*StyleConfiguration`）。
+⚠️ 名字带 `RenderProbe` 的是**测试探针**，不是设计系统表面，别当组件用。
 
 ## `CoreDesign`
 
 ### `Components/Avatar/Avatar.swift`
 
-- **`Avatar`** *: View* — ⚠️ 源码缺摘要
+- **`Avatar`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 
 ### `Components/AvatarGroup/AvatarGroup.swift`
 
-- **`AvatarGroup`** *<Avatars: View>: View* — ⚠️ 源码缺摘要
+- **`AvatarGroup`** *<Avatars: View>: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 - *enum* **`AvatarGroupLayout`**: `.overlapped`, `.spaced`, `.grid`, `.countOnly`
 
 ### `Components/Badge/Badge.swift`
 
-- **`Badge`** *<Label: View>: View* — ⚠️ 源码缺摘要
+- **`Badge`** *<Label: View>: View* — ⚠️ 源码缺摘要（材质层: 控件 / 表面角色: 控件）
 - *enum* **`BadgeVariant`**: `.info`, `.success`, `.warning`, `.danger`, `.neutral`
 
 ### `Components/Banner/Banner.swift`
@@ -375,7 +383,7 @@
 
 ### `Components/Carousel/Carousel.swift`
 
-- **`Carousel`** *<Data: RandomAccessCollection, ID: Hashable, Content: View>: View where Data.Element: Identifiable, Data.Element.ID == ID* — ⚠️ 源码缺摘要
+- **`Carousel`** *<Data: RandomAccessCollection, ID: Hashable, Content: View>: View where Data.Element: Identifiable, Data.Element.ID == ID* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 
 ### `Components/CheckBox/CheckBox.swift`
 
@@ -390,7 +398,7 @@
 ### `Components/InsetGroupedSection/InsetGroupedSection.swift`
 
 - **`InsetGroupedSection`** *<Content: View>: View* — iOS `.insetGrouped` 分组容器的视觉复刻——只复刻观感，不复刻 `List` 的数据 / 滚动 / 编辑能力。
-- *enum* **`SettingsDividerInset`**: `.iconAligned`, `.textAligned`, `.custom`, `.let`
+- *enum* **`SettingsDividerInset`**: `.iconAligned`, `.textAligned`, `.custom`
 
 ### `Components/ListRow/ListRow.swift`
 
@@ -398,7 +406,7 @@
 
 ### `Components/PinCode/PinCode.swift`
 
-- **`PinCode`** *: View* — ⚠️ 源码缺摘要
+- **`PinCode`** *: View* — ⚠️ 源码缺摘要（材质层: 控件 / 表面角色: 控件）
 
 ### `Components/ProgressBar/ProgressBar.swift`
 
@@ -406,7 +414,7 @@
 
 ### `Components/ProgressIndicator/ProgressIndicator.swift`
 
-- **`ProgressIndicator`** *: View* — ⚠️ 源码缺摘要
+- **`ProgressIndicator`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 
 ### `Components/Radio/Radio.swift`
 
@@ -415,14 +423,14 @@
 
 ### `Components/Rating/Rating.swift`
 
-- **`Rating`** *: View* — ⚠️ 源码缺摘要
+- **`Rating`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 - **`StarRatingStyle`** *: RatingStyle* — 默认评分外观：一排五角星，按 `value` 与星索引计算填充比例（整星 / 半星 / 空星三态）， 用 `.mask` 裁切实现半星视觉。
 - *protocol* **`RatingStyle`** — `Rating` / `RatingDisplay` 视觉外观的扩展点，形态对齐 Apple `ButtonStyle` / `ToggleStyle` 与本仓既有的 `BannerStyle` / `SegmentedControlStyle`。
 - *struct* **`RatingStyleConfiguration`** — 传给 `RatingStyle.makeBody` 的上下文：**只描述外观所需的状态**。
 
 ### `Components/Rating/RatingDisplay.swift`
 
-- **`RatingDisplay`** *: View* — ⚠️ 源码缺摘要
+- **`RatingDisplay`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 
 ### `Components/SearchField/SearchField.swift`
 
@@ -443,12 +451,12 @@
 - **`PlainSegmentedControlStyle`** *: SegmentedControlStyle* — 纯色外壳外观（此前 `glass: false`）。
 - *protocol* **`SegmentedControlStyle`** — `SegmentedControl` 视觉外观的扩展点，形态对齐 `BannerStyle` / Apple `ButtonStyle`。
 - *struct* **`SegmentedControlStyleConfiguration`** — 传给 `SegmentedControlStyle.makeBody` 的上下文：类型擦除的分段数据 + 选择回调。
-- *struct* **`Segment`** — 单个分段的类型擦除表示。
+- *struct* **`SegmentedControlStyleConfiguration.Segment`** — 单个分段的类型擦除表示。
 
 ### `Components/Separator/Separator.swift`
 
 - **`Separator`** *: View* — 可控 inset 的分隔线，默认 hairline 宽度、颜色走 `Color.dividerDefault`。
-- *enum* **`Inset`**: `.edgeToEdge`, `.leading`, `.let`
+- *enum* **`Separator.Inset`**: `.edgeToEdge`, `.leading`
 
 ### `Components/SettingsRow/SettingsRow.swift`
 
@@ -470,14 +478,14 @@
 
 ### `Components/Skeleton/Skeleton.swift`
 
-- **`Skeleton`** *<Placeholder: View, Content: View>: View* — ⚠️ 源码缺摘要
+- **`Skeleton`** *<Placeholder: View, Content: View>: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 - **`SkeletonLine`** *: View* — 文本行占位形状：圆角矩形 + 固定高度，可指定条数模拟多行文本。
 - **`SkeletonRect`** *: View* — 图片 / 卡片占位形状：矩形块，尺寸由调用方指定。
 - **`SkeletonCircle`** *: View* — 头像占位形状：圆形，直径由调用方指定。
 
 ### `Components/StateLabel/StateLabel.swift`
 
-- **`StateLabel`** *<Label: View>: View* — ⚠️ 源码缺摘要
+- **`StateLabel`** *<Label: View>: View* — ⚠️ 源码缺摘要（材质层: 控件 / 表面角色: 控件）
 - *enum* **`StateLabelStyle`**: `.active`, `.draft`, `.completed`, `.cancelled`, `.inProgress`, `.error`
 
 ### `Components/StatusLevel.swift`
@@ -486,7 +494,7 @@
 
 ### `Components/Steps/Steps.swift`
 
-- **`Steps`** *: View* — ⚠️ 源码缺摘要
+- **`Steps`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 - *enum* **`StepsAxis`**: `.horizontal`, `.vertical`
 - *enum* **`StepsIndicatorStyle`**: `.dot`, `.numbered`
 - *enum* **`StepsPresentation`**: `.steps`, `.segmentedBar`, `.navigation`, `.text`
@@ -528,7 +536,7 @@
 
 ### `Components/Timeline/Timeline.swift`
 
-- **`Timeline`** *: View* — ⚠️ 源码缺摘要
+- **`Timeline`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 - *enum* **`TimelineLayout`**: `.vertical`, `.alternate`, `.horizontal`, `.grouped`
 - *struct* **`TimelineItem`** — `Timeline` 单条节点的数据载体。
 
@@ -584,9 +592,9 @@
 
 ### `Tokens/CoreElevation.swift`
 
-- *enum* **`CoreElevation`**: `.none`, `.small`, `.medium`, `.large`
-- *enum* **`Level`**: `.none`, `.small`, `.medium`, `.large`
-- *struct* **`Spec`** — 单档 elevation 的视觉规格。
+- *enum* **`CoreElevation.Level`**: `.none`, `.small`, `.medium`, `.large`
+- *enum* **`CoreElevation`** — 阴影 / 高度 (elevation) token，只用于真正悬浮于内容之上的元素。
+- *struct* **`CoreElevation.Spec`** — 单档 elevation 的视觉规格。
 
 ### `Tokens/CoreRadius.swift`
 
@@ -595,12 +603,12 @@
 
 ### `Tokens/CoreSpacing.swift`
 
-- *enum* **`CoreSpacing`** — 间距 token，提供一套固定的 8pt 网格标度，覆盖从紧密分隔线到顶级页面结构的常见间距需求。
+- *enum* **`CoreSpacing`** — 间距 token，提供一套固定的间距标度，覆盖从紧密分隔线到顶级页面结构的常见间距需求。
 
 ### `Tokens/CoreTypography.swift`
 
-- *enum* **`CoreTypography`**: `.largeTitle`, `.title`, `.title2`, `.title3`, `.headline`, `.body`, `.callout`, `.subheadline`, `.footnote`, `.caption`, `.captionMono`, `.caption2`
-- *enum* **`Token`**: `.largeTitle`, `.title`, `.title2`, `.title3`, `.headline`, `.body`, `.callout`, `.subheadline`, `.footnote`, `.caption`, `.captionMono`, `.caption2`
+- *enum* **`CoreTypography.Token`**: `.largeTitle`, `.title`, `.title2`, `.title3`, `.headline`, `.body`, `.callout`, `.subheadline`, `.footnote`, `.caption`, `.captionMono`, `.caption2`
+- *enum* **`CoreTypography`** — 字体 token，对齐 Apple HIG 的系统文本样式（`Font.TextStyle`）标度。
 
 ## `CoreDesignEffects`
 
@@ -804,7 +812,7 @@
 
 # 样式入口点（`*Style where Self == …`）
 
-共 9 个。经 `.buttonStyle(_:)` / `.progressViewStyle(_:)` 等施加。
+共 9 个（按 `Host.member` 去重，含参重载算一条——`.solid` 与 `.solid(role:)` 是同一条）。经 `.buttonStyle(_:)` / `.progressViewStyle(_:)` 等施加。
 ⚠️ **`.borderless` 必须带括号**：该名与 SwiftUI 自带的 `PrimitiveButtonStyle.borderless` 重合，两者只差一对括号、**都能编译且无诊断**——`.buttonStyle(.borderless)` 拿到的是 **SwiftUI 的**样式，`.buttonStyle(.borderless())` 才是本包的。
 
 | 入口 | 协议 | 具体样式 | 说明 |
@@ -836,8 +844,10 @@
 | controlsize | 5 | 5 |
 | colors | 115 | 115 |
 | components | 90 | 90 |
-| enums | 30 | 30 |
+| enums | 28 | 28 |
+| enumcases | 102 | 102 |
+| protocols | 6 | 6 |
 | viewext | 40 | 40 |
 | styleext | 9 | 9 |
-| others | 27 | 27 |
+| others | 29 | 29 |
 

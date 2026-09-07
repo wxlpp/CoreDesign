@@ -20,8 +20,8 @@ TARGETS = ["CoreDesign", "CoreDesignEffects", "CoreDesignCharts"]
 FLOORS = {
     "spacing": 11, "radius": 5, "border": 5, "typography": 12,
     "elevation": 4, "controlsize": 5,
-    "colors": 115, "components": 90, "enums": 30,
-    "viewext": 40, "styleext": 9, "others": 27,
+    "colors": 115, "components": 90, "enums": 28, "enumcases": 102,
+    "protocols": 6, "viewext": 40, "styleext": 9, "others": 29,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。
@@ -76,15 +76,26 @@ def doc_above(lines, index):
 
 
 def summarise(raw, limit=170):
-    """取文档注释首句。剥掉「材质层 / 表面角色」这类结构化残渣后为空的，如实标注。"""
-    text = re.sub(r"\*\*材质层\*\*.*?\.\s*", "", raw or "")
-    text = re.sub(r"\*\*表面角色\*\*.*?\.\s*", "", text).strip()
+    """取文档注释首句。
+
+    「材质层 / 表面角色」这两个字段**不丢**——它们正是 header 规则 3 要调用方填的
+    `SurfaceKind` 语境，扔掉等于扔掉设计相关信息。剥出来当后缀，剥完真的为空才标注。
+    """
+    text = (raw or "").strip()
+    facets = []
+    for label in ("材质层", "表面角色"):
+        hit = re.search(r"\*\*" + label + r"\*\*[:：]\s*([^.。]*)[.。]", text)
+        if hit:
+            facets.append(f"{label}: {hit.group(1).strip()}")
+            text = text.replace(hit.group(0), "").strip()
+    facet_suffix = f"（{' / '.join(facets)}）" if facets else ""
     if not text:
-        return DOC_RESIDUE
+        return (DOC_RESIDUE + facet_suffix) if facet_suffix else DOC_RESIDUE
     cut = re.split(r"(?<=[。！？])", text)[0].strip()
     if not cut:
-        return DOC_RESIDUE
-    return cut if len(cut) <= limit else cut[:limit] + "…"
+        return (DOC_RESIDUE + facet_suffix) if facet_suffix else DOC_RESIDUE
+    body = cut if len(cut) <= limit else cut[:limit] + "…"
+    return body + facet_suffix
 
 
 def conformance_tokens(tail):
@@ -115,18 +126,27 @@ def is_component(tokens):
 
 
 def enum_cases(lines, start):
-    """收集 enum 的 case。花括号计数前剥注释与字符串，否则注释里的 `.mask {` 会跑飞。"""
-    depth = 0
+    """收集 enum 的 case。
+
+    只在 **enum 自身体那一层深度**收——`switch self { case let .leading(x): … }` 住在
+    更深的层，混进来会把 `let` 当成 case 名（`.let` 曾两次进入产物）。花括号计数前
+    剥注释与字符串，否则注释里的 `.mask {` 会跑飞。
+    """
     cases = []
-    for offset, line in enumerate(lines[start:]):
-        if offset > 0 and depth <= 0:
-            break
-        depth += depth_delta(line)
+    depth = 0
+    entered = False
+    for line in lines[start:]:
         body = strip_noise(line)
-        for raw in re.findall(r"^\s*case\s+([A-Za-z_]\w*)", body):
-            cases.append(raw)
-        for extra in re.findall(r";\s*case\s+([A-Za-z_]\w*)", body):
-            cases.append(extra)
+        if entered and depth <= 0:
+            break
+        if depth == 1:
+            for raw in re.findall(r"^\s*case\s+(?!let\b|var\b)([A-Za-z_]\w*)", body):
+                cases.append(raw)
+            for extra in re.findall(r";\s*case\s+(?!let\b|var\b)([A-Za-z_]\w*)", body):
+                cases.append(extra)
+        depth += body.count("{") - body.count("}")
+        if depth > 0:
+            entered = True
     return cases
 
 
@@ -174,6 +194,26 @@ def control_metrics(root):
     return [(size, table[size]) for size in order if size in table]
 
 
+def single_line_alias(lines, index):
+    """取 `static var x: Color { .secondaryLabel }` 这类单行别名的右手边。
+
+    本仓的写法是**函数体换行**（`{` 在声明行末，表达式在下一行），所以不能只看同一行。
+    """
+    line = lines[index]
+    same = re.search(r"=\s*(.+?)\s*$", line)
+    if same:
+        return same.group(1)
+    same = re.search(r"\{\s*([^{}]+?)\s*\}\s*$", line)
+    if same:
+        return same.group(1)
+    if line.rstrip().endswith("{") and index + 2 < len(lines):
+        expr = lines[index + 1].strip()
+        closer = lines[index + 2].strip()
+        if closer == "}" and expr and "{" not in expr and "}" not in expr:
+            return expr
+    return None
+
+
 def semantic_colors(root):
     """只收 `public extension Color` 块内的 static 成员。
 
@@ -195,7 +235,15 @@ def semantic_colors(root):
             if public_ext_depth is not None and depth > public_ext_depth:
                 member = re.match(r"\s*static\s+(?:let|var)\s+(\w+)\s*[:=]", line)
                 if member:
-                    rows.append((member.group(1), summarise(doc_above(lines, index), 110)))
+                    doc = summarise(doc_above(lines, index), 110)
+                    # 没有文档注释时退到**单行别名**：这批 token 几乎全是
+                    # `static var surfaceRaised: Color { .secondarySystemGroupedBackground }`
+                    # 这种形态，指向哪个系统语义色比一句中文摘要更有用（能直接映射到 HIG）。
+                    if doc.startswith(DOC_RESIDUE):
+                        alias = single_line_alias(lines, index)
+                        if alias:
+                            doc = f"→ `{alias}`"
+                    rows.append((member.group(1), doc))
             depth += depth_delta(line)
             if public_ext_depth is not None and depth <= public_ext_depth:
                 public_ext_depth = None
@@ -205,38 +253,46 @@ def semantic_colors(root):
 
 
 def target_surface(root, target):
-    """收集各 target 的公开类型，分三桶：组件 / 配置枚举 / 其他公开类型。
+    """收集各 target 的公开类型，分四桶：组件 / protocol / 配置枚举 / 其他公开类型。
 
-    第三桶存在的理由：不静默丢弃任何公开类型——`ToastHost`、`ToastItem`、各
-    `*StyleConfiguration` 都落在前两桶之外，漏掉它们读者无从知道有取舍。
+    第四桶存在的理由：不静默丢弃任何公开类型——`ToastHost`、`ToastItem`、各
+    `*StyleConfiguration` 都落在前三桶之外，漏掉它们读者无从知道有取舍。
+    嵌套类型输出**限定名**（`CoreElevation.Spec`），裸名不是能写进代码的真名。
     """
     files = []
     for path in sorted(glob.glob(os.path.join(root, f"Sources/{target}/**/*.swift"), recursive=True)):
         lines = read(path).split("\n")
         views, enums, protocols, others = [], [], [], []
+        depth = 0
+        stack = []
         for index, line in enumerate(lines):
+            body = strip_noise(line)
+            while stack and stack[-1][1] >= depth:
+                stack.pop()
             match = re.match(
                 r"\s*public\s+(?:nonisolated\s+)?(struct|enum|protocol|final class|class)\s+(\w+)(.*)",
                 line,
             )
-            if not match:
-                continue
-            kind, name, tail = match.group(1), match.group(2), match.group(3)
-            doc = summarise(doc_above(lines, index))
-            tokens = conformance_tokens(tail)
-            conforms = tail.split("{")[0].strip()
-            if kind == "protocol":
-                protocols.append((name, doc))
-            elif kind == "enum":
-                cases = enum_cases(lines, index)
-                if cases:
-                    enums.append((name, cases, doc))
+            if match:
+                kind, name, tail = match.group(1), match.group(2), match.group(3)
+                qualified = ".".join([n for n, _ in stack] + [name])
+                doc = summarise(doc_above(lines, index))
+                tokens = conformance_tokens(tail)
+                conforms = tail.split("{")[0].strip()
+                if kind == "protocol":
+                    protocols.append((qualified, doc))
+                elif kind == "enum":
+                    cases = enum_cases(lines, index)
+                    if cases:
+                        enums.append((qualified, cases, doc))
+                    else:
+                        others.append((kind, qualified, doc))
+                elif is_component(tokens):
+                    views.append((qualified, conforms, doc))
                 else:
-                    others.append((kind, name, doc))
-            elif is_component(tokens):
-                views.append((name, conforms, doc))
-            else:
-                others.append((kind, name, doc))
+                    others.append((kind, qualified, doc))
+                stack.append((name, depth))
+            depth += body.count("{") - body.count("}")
         if views or enums or protocols or others:
             rel = os.path.relpath(path, os.path.join(root, f"Sources/{target}"))
             files.append((rel, views, enums, protocols, others))
@@ -264,7 +320,10 @@ def extension_members(root, hosts, require_where=False):
                 )
                 if ext and host is None:
                     name, where = ext.group(1), ext.group(2)
-                    hit = name in hosts if not require_where else (where is not None and name in hosts)
+                    if require_where:
+                        hit = where is not None and name.endswith("Style")
+                    else:
+                        hit = hosts is not None and name in hosts
                     if hit:
                         host = name
                         host_depth = depth
@@ -358,7 +417,9 @@ def main():
     add("⚠️ **本节跨层，不都是第 3 / 4 层**——按 CLAUDE.md《分层色彩系统》的定层："
         "`SystemBackgroundColors` / `SystemLabelColors` 是**第 2 层**系统色桥接；"
         "`MaskColors` 的 `maskOpaque` **不在四层之内**（唯一契约是 α = 1，不是一个颜色决定，"
-        "别拿它当前景/背景色用）。其余各组为第 3 / 4 层。")
+        "别拿它当前景/背景色用）。其余各组为第 3 / 4 层。"
+        "⇒ 原型标注里**不要**直接写第 2 层的名字，走对应的第 3 层别名"
+        "（`surfaceBase` / `contentPrimary` …）。")
     add("⚠️ 第 1 层色阶（`ColorGrade` 的 17 色相 × 10 档）**有意不列入本摘要**——组件里不直接用。\n")
     total_colors = 0
     for group, rows in semantic_colors(root):
@@ -374,8 +435,9 @@ def main():
     add("\n---\n\n# 组件与类型\n")
     add("每个文件下分四类：**组件**（遵从 `View` / `Transition` / `Layout` / `Shape` / "
         "`ViewModifier` 或以 `Style` 结尾的协议）、**protocol**、**配置枚举**、"
-        "**其他公开类型**（前三类之外的，如 `ToastHost` / 各 `*StyleConfiguration`）。\n")
-    comp_total = enum_total = other_total = 0
+        "**其他公开类型**（前三类之外的，如 `ToastHost` / 各 `*StyleConfiguration`）。\n"
+        "⚠️ 名字带 `RenderProbe` 的是**测试探针**，不是设计系统表面，别当组件用。\n")
+    comp_total = enum_total = other_total = proto_total = case_total = 0
     for target in TARGETS:
         add(f"## `{target}`\n")
         for rel, views, enums, protocols, others in target_surface(root, target):
@@ -384,9 +446,11 @@ def main():
                 comp_total += 1
                 add(f"- **`{name}`** *{conforms}* — {doc}")
             for name, doc in protocols:
+                proto_total += 1
                 add(f"- *protocol* **`{name}`** — {doc}")
             for name, cases, doc in enums:
                 enum_total += 1
+                case_total += len(cases)
                 add(f"- *enum* **`{name}`**: " + ", ".join(f"`.{c}`" for c in cases))
             for kind, name, doc in others:
                 other_total += 1
@@ -394,6 +458,8 @@ def main():
             add("")
     counts["components"] = comp_total
     counts["enums"] = enum_total
+    counts["enumcases"] = case_total
+    counts["protocols"] = proto_total
     counts["others"] = other_total
 
     exts = extension_members(root, {"View", "Transition"})
@@ -406,14 +472,12 @@ def main():
         add(f"| `{target}` | `.{name}` on `{host}` | {doc} |")
     add("")
 
-    style_hosts = {
-        "ButtonStyle", "PrimitiveButtonStyle", "ToggleStyle", "ProgressViewStyle",
-        "LabelStyle", "LabeledContentStyle", "DisclosureGroupStyle",
-    }
-    styles = extension_members(root, style_hosts, require_where=True)
+    # host 不写死白名单：判定为「`where Self ==` 且 host 名以 Style 结尾」。写死白名单
+    # 的失效方向向绿——新增一族样式协议会既不进本节、也不让 styleext 计数变化。
+    styles = extension_members(root, None, require_where=True)
     counts["styleext"] = len(styles)
     add("\n---\n\n# 样式入口点（`*Style where Self == …`）\n")
-    add(f"共 {len(styles)} 个。经 `.buttonStyle(_:)` / `.progressViewStyle(_:)` 等施加。")
+    add(f"共 {len(styles)} 个（按 `Host.member` 去重，含参重载算一条——`.solid` 与 `.solid(role:)` 是同一条）。经 `.buttonStyle(_:)` / `.progressViewStyle(_:)` 等施加。")
     add("⚠️ **`.borderless` 必须带括号**：该名与 SwiftUI 自带的 "
         "`PrimitiveButtonStyle.borderless` 重合，两者只差一对括号、**都能编译且无诊断**——"
         "`.buttonStyle(.borderless)` 拿到的是 **SwiftUI 的**样式，`.buttonStyle(.borderless())` "
@@ -437,14 +501,22 @@ def main():
         for key, expected in FLOORS.items()
         if counts.get(key, 0) != expected
     ]
-    if failed:
-        print("FAIL 基数与钉住的值不符：", "; ".join(failed), file=sys.stderr)
-        print("（未写盘——判据不过时不覆盖产物）", file=sys.stderr)
-        return 1
 
+    # 判据不过**照常写盘**：此处产物已完整构建（上面几百行都跑完了），与钉住的数不符
+    # 不等于文件残缺——「生成基数」那张表自己就把两列并排印出来。不写盘只会逼开发者
+    # 跑两趟才看得见 diff，而摩擦正是「干脆把判据调松」的第一推动力。
     header = read(header_path).rstrip() + "\n"
     with open(out_path, "w", encoding="utf-8") as handle:
         handle.write(header + "\n".join(body) + "\n")
+
+    if failed:
+        print("FAIL 基数与钉住的值不符：", "; ".join(failed), file=sys.stderr)
+        print("核对无误后，把 FLOORS 换成：", file=sys.stderr)
+        print("FLOORS = {", file=sys.stderr)
+        for key in FLOORS:
+            print(f'    "{key}": {counts.get(key, 0)},', file=sys.stderr)
+        print("}", file=sys.stderr)
+        return 1
     print("OK", {k: counts.get(k, 0) for k in FLOORS})
     return 0
 
