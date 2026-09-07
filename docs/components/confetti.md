@@ -78,6 +78,13 @@ CheckoutSummary()
 重启」，`id` 不变的后续 body 求值生成的新闭包**不会**被执行 ⇒ `hold` 取的是**点下去
 那一刻**的档位。
 
+⚠️⚠️ **上面这句只对「视图一直在场」的路径成立**（`#330` 更正）：`.task(id:)` 在**视图重新
+出现**时**会**以**当前 id** 重跑——不只是 id 变化时。⇒ 被 disappear 打断的 burst 在
+reappear 时走 `.resume` 续睡，而那一次用的是**重新求值的 body 捕获的 `holdPresentation`**
+⇒ **隐藏期间用户切了 Reduce Motion，续睡时长按新档位取**，不是点下去那一刻的。
+两条不冲突：**不重放**（`consumedFire` 记账）与**档位一次定死**是两件事，后者只在
+不跨 appear 的那条路径上成立。判据：`ConfettiTests.burstDecisionCoversEveryState`。
+
 若直接把 `body` 里那个带能耗闸的 `presentation` 喂给 `holdDuration`，就会出现这条坏形态：
 burst 恰在 `.inactive` / `.background`（来电、通知横幅、切走再切回都会短暂经过）触发
 ⇒ 档位是 `.hidden` ⇒ `hold` 被定死成 2.0 s ⇒ 回到前台后若 Reduce Motion 开着，

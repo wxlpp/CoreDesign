@@ -64,6 +64,33 @@ nonisolated enum BeforeAfterSweep {
 
     static func settlesAfterSweep(hasInteracted: Bool) -> Bool { !hasInteracted }
 
+    /// 入场扫动的三态。⚠️ **不能用 Bool**：`#330` 第一版用 `introPlayed: Bool`，把「重放一次」
+    /// 换成了**持久错态** —— 扫到 peak 之后、回程之前视图 disappear，`Task.sleep` 抛出、
+    /// 回程不执行，而布尔已置真 ⇒ 把手**永远停在 peak**，只有用户拖一下才恢复。
+    /// LazyVStack 快速滚动让 cell 停留不足 `sweepDuration` 是常态，不是边角。
+    enum IntroPhase: Equatable, Sendable {
+        case pending
+        case sweeping
+        case done
+    }
+
+    enum IntroAction: Equatable, Sendable {
+        case idle
+        case sweep
+        case settleOnly
+    }
+
+    /// ⚠️ `.sweeping` 一律判 `.settleOnly`，**与 `sweep` 是否为 nil 无关** ——
+    /// 隐藏期间用户打开 Reduce Motion 时 `introSweep(reduceMotion:)` 返回 nil，
+    /// 若在这里跟着返回 `.idle`，把手就又卡在 peak 上了。
+    static func introAction(phase: IntroPhase, sweep: BeforeAfterIntroSweep?) -> IntroAction {
+        switch phase {
+        case .done: .idle
+        case .sweeping: .settleOnly
+        case .pending: sweep == nil ? .idle : .sweep
+        }
+    }
+
     static func fraction(dragX: CGFloat, width: CGFloat) -> CGFloat {
         guard width > 0 else { return Self.initialFraction }
         return Self.clamp01(dragX / width)
@@ -206,6 +233,8 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
 
     @State private var hasInteracted = false
 
+    @State private var introPhase = BeforeAfterSweep.IntroPhase.pending
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// - Parameters:
@@ -256,15 +285,29 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
     }
 
     private func playIntroSweep(_ sweep: BeforeAfterIntroSweep?) async {
-        guard let sweep else { return }
-        withAnimation(.easeInOut(duration: sweep.duration)) { self.fraction = sweep.peak }
-        do {
-            try await Task.sleep(for: .seconds(sweep.duration))
-        } catch {
+        switch BeforeAfterSweep.introAction(phase: self.introPhase, sweep: sweep) {
+        case .idle:
             return
+        case .settleOnly:
+            self.introPhase = .done
+            self.settleAfterIntro(duration: sweep?.duration ?? BeforeAfterSweep.sweepDuration)
+        case .sweep:
+            guard let sweep else { return }
+            self.introPhase = .sweeping
+            withAnimation(.easeInOut(duration: sweep.duration)) { self.fraction = sweep.peak }
+            do {
+                try await Task.sleep(for: .seconds(sweep.duration))
+            } catch {
+                return
+            }
+            self.introPhase = .done
+            self.settleAfterIntro(duration: sweep.duration)
         }
+    }
+
+    private func settleAfterIntro(duration: Double) {
         guard BeforeAfterSweep.settlesAfterSweep(hasInteracted: self.hasInteracted) else { return }
-        withAnimation(.easeInOut(duration: sweep.duration)) { self.fraction = sweep.settle }
+        withAnimation(.easeInOut(duration: duration)) { self.fraction = BeforeAfterSweep.initialFraction }
     }
 }
 

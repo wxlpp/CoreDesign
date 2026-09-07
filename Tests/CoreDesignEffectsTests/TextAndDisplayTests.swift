@@ -95,9 +95,16 @@ struct TypewriterTextTests {
 
         #expect(count("await self.type(") == 1,
                 "打字状态机被调用了 \(count("await self.type(")) 次 —— 逐次计数不再说明唯一那次喂的是什么")
-        #expect(count("types: plan.types") == 1, """
-        状态机拿到的不是 `plan.types`（命中 \(count("types: plan.types")) 次）——
-        改成 `types: false` 会让逐字推进整个停掉，而闸的输入判据仍然全绿。
+        // `#330` 起 `plan.types` 不再直接传给状态机，而是先包进 `run`（`.task(id:)` 与
+        // 状态机共用同一个值），所以要钉的是**构造 run 的那一句**加**两处都用同一个 run**。
+        #expect(count("TypewriterRun(text: self.text, typing: plan.types, speed: self.speed)") == 1, """
+        `run` 不是由 `plan.types` 构造的（命中 \(count("TypewriterRun(text: self.text, typing: plan.types, speed: self.speed)")) 次）——
+        写成 `typing: false` 会让逐字推进整个停掉，而闸的输入判据仍然全绿。
+        """)
+        #expect(count("await self.type(run: run,") == 1, """
+        状态机拿到的不是上面绑定的那个 `run`（命中 \(count("await self.type(run: run,")) 次）。
+        ⚠️ `#330` 把 run 从 `.task(id:)` 的内联表达式提成了绑定，**新增了一个攻击面**：
+        id 用一个 run、状态机用另一个 run，两边就不再同步——`typedRun != run` 的归零判断会失准。
         """)
     }
 
@@ -167,10 +174,140 @@ struct TypewriterTextTests {
 
         #expect(count(".task(id:") == 1,
                 "本文件里有 \(count(".task(id:")) 个 `.task(id:)` —— 下面的逐字判据不再说明「那一个」用的是什么")
-        #expect(count(".task(id: TypewriterRun(text: self.text, typing: plan.types, speed: self.speed))") == 1, """
-        打字任务的 id 不是 `TypewriterRun(text: self.text, typing: plan.types, speed: self.speed)`。
-        少了 `plan.types` ⇒ 切换 Reduce Motion 时旧任务不被取消，会继续逐字写状态跑到底；
-        少了 `speed` ⇒ 换速度不重启，新速度要等下次换文案才生效。
+        // ⚠️ **钉整段，不是钉几行。** `#330` 把 `run` 从 `.task(id:)` 的内联表达式提成了绑定，
+        // 原来「id 与状态机入参同源」是**语法上必然**的，现在只是**写法上碰巧**。
+        // 逐条 `count(...) == 1` 挡不住**遮蔽**：在 `.task(id: run) { }` 闭包内插一句
+        // `let run = TypewriterRun(text: self.text, typing: false, speed: self.speed)`，
+        // 上面那些计数全部照旧 == 1、套件 14/14 全绿（实测），而 id 与状态机已经是两个 run。
+        // 这与 `CelebrationAndProcessingTests` 钉 `runBurst` 整段是同一族对策、同一个理由。
+        guard let bodyRegion = ConfettiTests.bracedRegion(
+            after: "public var body: some View {", in: code
+        ) else {
+            Issue.record("找不到 TypewriterText.body 声明")
+            return
+        }
+        let expectedBody = """
+        {
+            let total = TypewriterReveal.characterCount(of: self.text)
+            let plan = TypewriterReveal.plan(
+                total: total, typed: self.typed, reduceMotion: self.reduceMotion
+            )
+            let run = TypewriterRun(text: self.text, typing: plan.types, speed: self.speed)
+            TypewriterBody(text: self.text, revealed: plan.revealed)
+                .task(id: run) {
+                    await self.type(run: run, total: total)
+                }
+        }
+        """
+        #expect(
+            ConfettiTests.dense(bodyRegion)
+                == ConfettiTests.dense(expectedBody),
+            """
+            `TypewriterText.body` 与期望**整段**不一致（比对前去掉全部空白）。
+
+            少了 `plan.types` ⇒ 切换 Reduce Motion 时旧任务不被取消，会继续逐字写状态跑到底；
+            少了 `speed` ⇒ 换速度不重启；id 与 `type(run:)` 用上不同的 `run` ⇒
+            `typedRun != run` 的归零判断失准、`#330` 的修复静默失效。
+
+            代价：合法地改 body 必须同步更新上面那段期望串。这是**有意付的**——
+            见上方注释里那条遮蔽变异。
+
+            实得：
+            \(bodyRegion)
+            """
+        )
+    }
+
+    @Test("#330：视图重新出现时不从头重打——归零只发生在 run 真的变了的时候")
+    func reappearDoesNotRestartTyping() throws {
+        let code = MicroInteractionReduceMotionGuard.stripComments(try Self.source("TypewriterText.swift"))
+        func count(_ needle: String) -> Int { code.components(separatedBy: needle).count - 1 }
+
+        #expect(count("self.typed = 0") == 1,
+                "把 typed 归零的地方有 \(count("self.typed = 0")) 处 —— 下面那条「只在 run 变了时归零」不再说明全部归零点")
+        #expect(code.contains("""
+        if self.typedRun != run {
+                    self.typedRun = run
+                    self.typed = 0
+                }
+        """.trimmingCharacters(in: .whitespacesAndNewlines)), """
+        归零不再被 `typedRun != run` 门控（`#330`）。
+        ⚠️ `.task(id:)` 在**视图重新出现**时会以**当前 id** 重跑（不只是 id 变化时），
+        所以无条件 `typed = 0` 会让默认样式 TabView 切回 / LazyVStack 滚回时**整段文字从头重打**。
+        实测：切回 0.5 s 时截图只到句子中段，3 s 后才补全。
+        """)
+        #expect(code.contains("for index in (self.typed + 1)...total"), """
+        循环不再从 `self.typed + 1` 起（`#330`）—— 从 1 起会把已打出的字重打一遍，
+        「不归零」也就白做了；打到一半切走再回来的续打同样依赖这一句。
+        """)
+        #expect(code.contains("guard self.typed < total else { return }"), """
+        少了 `self.typed < total` 的提前返回（`#330`）—— `typed == total` 时
+        `(total + 1)...total` 是**非法区间，会运行期崩溃**。
+        """)
+    }
+
+    @Test("#330：入场扫动的三态裁决——被打断时只补回程，不重放也不卡在 peak")
+    func introActionCoversEveryPhase() {
+        let sweep = BeforeAfterSweep.introSweep(reduceMotion: false)
+        #expect(sweep != nil)
+
+        #expect(BeforeAfterSweep.introAction(phase: .pending, sweep: sweep) == .sweep)
+        #expect(BeforeAfterSweep.introAction(phase: .pending, sweep: nil) == .idle,
+                "Reduce Motion 开着时首次出现不该扫动")
+        #expect(BeforeAfterSweep.introAction(phase: .done, sweep: sweep) == .idle,
+                "已经播完还再播一次 —— 这就是 `#330` 的重放")
+        #expect(BeforeAfterSweep.introAction(phase: .sweeping, sweep: sweep) == .settleOnly, """
+        扫到 peak 之后、回程之前被 disappear 打断，重新出现时应当**只补回程**。
+        判 `.sweep` ⇒ 重放；判 `.idle` ⇒ 把手**永远停在 peak(0.78)**。
+        """)
+        #expect(BeforeAfterSweep.introAction(phase: .sweeping, sweep: nil) == .settleOnly, """
+        ⚠️ `.sweeping` 遇上 `sweep == nil`（隐藏期间用户打开了 Reduce Motion）
+        必须**照样补回程** —— 跟着判 `.idle` 就又卡在 peak 上了。
+        """)
+    }
+
+    @Test("#330：三个记号都真的是 @State，且没有第二条路径复位它们")
+    func reappearMarkersAreStateAndWrittenOnce() throws {
+        // ⚠️ **这一条守的是「记号存活」本身，不是它长什么样。** 终审实证：三个修法的**全部**
+        // 效力都系在「记号跨 appear 存活」这一个事实上，而按形状写的判据对以下两族**零射程**：
+        //   · 记号被**第二条路径**复位（`.onAppear { consumedFire = 0 }`、guard 之前先复位）；
+        //   · 记号**不是 `@State`**（换成恒返回初值的计算属性，声明行还在、语义全废）。
+        // 六种此类变异当时全部 44/44 绿。⇒ 钉**声明逐字** + **写点计数**。
+        func code(_ file: String) throws -> String {
+            MicroInteractionReduceMotionGuard.stripComments(try Self.source(file))
+        }
+        func count(_ needle: String, in text: String) -> Int {
+            text.components(separatedBy: needle).count - 1
+        }
+
+        let slider = try code("BeforeAfterSlider.swift")
+        #expect(count("@State private var introPhase = BeforeAfterSweep.IntroPhase.pending", in: slider) == 1,
+                "`introPhase` 的声明不再是那一行 `@State` —— 换成计算属性它就不跨 appear 存活了")
+        #expect(count("self.introPhase = ", in: slider) == 3, """
+        写 `introPhase` 的地方有 \(count("self.introPhase = ", in: slider)) 处，期望 **3**
+        （`.settleOnly` 置 `.done`；`.sweep` 置 `.sweeping` 再置 `.done`）。
+        多出来的一处多半是「在 guard 之前先复位」——那会把整个门原样废掉。
+        """)
+
+        let confetti = try code("Confetti.swift")
+        #expect(count("@State private var consumedFire = 0", in: confetti) == 1,
+                "`consumedFire` 的声明不再是那一行 `@State`")
+        #expect(count("self.consumedFire = ", in: confetti) == 1, """
+        写 `consumedFire` 的地方有 \(count("self.consumedFire = ", in: confetti)) 处，期望 **1**
+        （只在 `.start` 分支记账）。第二处写入 —— 例如 `.onAppear { self.consumedFire = 0 }` ——
+        会把 `#330` 的重放原样招回，而 `runBurst` 的整段比对**看不到函数体之外**。
+        """)
+
+        let typewriter = try code("TypewriterText.swift")
+        #expect(count("@State private var typedRun: TypewriterRun?", in: typewriter) == 1,
+                "`typedRun` 的声明不再是那一行 `@State`")
+        #expect(count("self.typedRun = ", in: typewriter) == 1,
+                "写 `typedRun` 的地方不止一处 —— 第二处复位会让每次 reappear 都重新归零")
+        #expect(count("self.typed = ", in: typewriter) == 3, """
+        写 `typed` 的地方有 \(count("self.typed = ", in: typewriter)) 处，期望 **3**
+        （门控内归零、`guard run.typing` 的 `= total`、循环里的 `= index`）。
+        ⚠️ 原来那条 `count("self.typed = 0") == 1` 只数字面 `= 0`，
+        终审用 `self.typed = .zero` 一行就绕过了。
         """)
     }
 
@@ -815,8 +952,10 @@ struct BeforeAfterSliderTests {
         #expect(callSites != code, "没能挖掉闸函数的函数体 —— 下面的顺序断言会被闸本身干扰")
         let gate = try #require(callSites.range(of: "settlesAfterSweep(hasInteracted: self.hasInteracted)"),
                                 "调用点上找不到闸")
-        let settle = try #require(callSites.range(of: "self.fraction = sweep.settle"),
-                                  "找不到回程那次赋值 —— 入场摆动没有回程了？")
+        let settle = try #require(
+            callSites.range(of: "self.fraction = BeforeAfterSweep.initialFraction"),
+            "找不到回程那次赋值 —— 入场摆动没有回程了？（`#330` 起回程在 `settleAfterIntro` 里）"
+        )
         #expect(gate.lowerBound < settle.lowerBound,
                 "`settlesAfterSweep` 闸写在回程赋值之后 —— 挡不住任何东西")
     }
