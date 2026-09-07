@@ -15,6 +15,72 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.9.0`）——Issue #238：删除 `SurfaceKind.overlay`
+
+**含破坏性变更** —— `SurfaceKind` 删除 **1** 个 public case：`.overlay`。
+
+数字由 `scripts/api-surface-diff.sh` 得出（与 `#271` 那章同一格式）：
+
+```bash
+bash scripts/api-surface-diff.sh 42a872a
+#   - 删除  EnumElement    overlay
+#   EXIT=1
+```
+
+⚠️ **该脚本不在 CI 里**（`grep -rn api-surface .github` 零命中）⇒ 这个数是**人工跑的**，
+没有机器兜底。
+
+### 为什么删而不是改语义
+
+`.overlay` 的 doc 写着「**覆盖层表面，如菜单与 popover**」，而它自 `#220` 起走 `quaternaryFill`
+—— **iOS** 实测 α **0.078（浅）/ 0.180（深）**，即约 **92% 透明**，**且没有任何模糊**
+（⚠️ macOS 侧是 `#00000007` / `#FFFFFF07`，α ≈ .027、约 97% 透明——更淡，不是同一个数）。
+⚠️ 叠在纯色底上看着只是「淡一点的面」（`#225` 的合成对照预览正是这么漏掉它的），
+**叠在文字内容上会整片 ghosting**。⇒ **名字在邀请一种它做不到的用法。**
+
+⚠️ `.overlay` 与 `.panel` **今天就是全等的两个 case**（同 background / border / radius，
+`SurfaceModifier` 的三个 switch 逐条相同），而 `.panel` 的 doc 本就是「兼容别名」。
+⇒ 删掉误导的那个、把诚实的那个扶正，**取值零变化**。
+
+### ⚠️ 为什么是**硬删**而不是 `@available(*, deprecated, renamed:)`
+
+本仓两种先例都有：`ProgressBar` 是**弃用**（`v0.6.0`，source-compatible、带警告、
+「保留至下游迁移完成后移除」），`#271` 是**硬删** 31 条。本次选硬删，理由：
+
+**`#238` 的核心是「名字本身在邀请误用」。** 弃用别名会让 `.overlay` **继续留在补全列表里**
+（只是带删除线），而那正是要消除的东西 —— 一个仍能被打出来、doc 还写着「如菜单与 popover」
+的名字。⇒ 弃用能消除**破坏**，消除不了**邀请**。
+
+⚠️ **代价照录**：`renamed:` 弃用可以做到**零编译破坏 + 下游一键 fix-it**
+（终审实测：`@available(*, deprecated, renamed: "panel") static var overlay: SurfaceKind { .panel }`
+可编译，调用方只得 warning）。**我们放弃了这个代价更低的路径**，换取名字彻底消失。
+
+### 迁移
+
+`.surface(.overlay)` → `.surface(.panel)`，**渲染结果逐位相同**。
+
+⚠️ 本仓内 `SurfaceKind.overlay` **零调用点**（`App/` / `docs/component-registry.json` /
+`docs/components/*.md` 均无）。⚠️ **理由要写准**：`git grep '\.overlay\b'` 的其余命中
+**绝大多数是 SwiftUI 的 `View.overlay { }` / `.overlay(alignment:)` modifier 调用**
+（AvatarGroup / Badge / Skeleton / BorderModifier 等十几个文件），另有少数属于
+`SpinningPresentation` —— 初稿把它们**全部**说成 `SpinningPresentation`，那是错的。
+⇒ 删除对本仓零改动，只影响外部调用方。
+
+### 菜单 / popover 该用什么
+
+⚠️ **不在 `SurfaceKind` 的射程内** —— 走系统 `Menu` / `.popover`（iOS 26 原生玻璃）。
+
+⚠️ **初稿这里写的是「thick material 或 `floatingGlass`」，那是指向空处**：
+`thick material` **不是本库的任何 API 或 token**（指的是裸 SwiftUI `.thickMaterial`）；
+`floatingGlass` 在本仓的消费点全是 `Toast` / `FloatButton` / `Sidebar` 选中行 /
+`BottomInputBar` 这类**小面积浮动 chrome**，**没有任何菜单 / popover / 大面积文字层的
+用法、预览或判据** ⇒ 它能不能承载菜单，本仓**没有证据**。
+⇒ 与其把人指向一个未经验证的替代品，不如明说这件事**不由 `SurfaceKind` 承担**。
+
+⚠️ 顺带登记一条设计决定的变更：`docs/superpowers/specs/2026-05-14-native-primer-telegram-taste-design.md`
+里「popover 与 menu | floating | overlay」那一行，在 `.overlay` 删除后**在 `SurfaceKind` 里
+不再有对应**。
+
 ## 未发布（相对 `v0.9.0`）——Issue #271：NFR-7 通用能耗策略表下沉
 
 **含破坏性变更** —— `CoreDesignEffects` **删除 31 条** public 声明、新增 5 条；

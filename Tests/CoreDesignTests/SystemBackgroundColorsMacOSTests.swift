@@ -139,7 +139,7 @@ struct SystemBackgroundColorsMacOSTests {
             ("surfaceSidebar", .surfaceSidebar),
             ("surfaceInteractive(control)", .surfaceInteractive),
             ("surfaceOverlay(floating)", .surfaceOverlay),
-            ("surfacePanel(overlay/panel)", .surfacePanel),
+            ("surfacePanel(panel)", .surfacePanel),
         ]
         let knownSameAsCard: Set<String> = ["surfaceCard", "surfaceSidebar"]
 
@@ -166,7 +166,7 @@ struct SystemBackgroundColorsMacOSTests {
             e.colorScheme = scheme
             for (name, color) in [("control", Color.surfaceInteractive),
                                   ("floating", Color.surfaceOverlay),
-                                  ("overlay/panel", Color.surfacePanel)] {
+                                  ("panel", Color.surfacePanel)] {
                 let a = color.resolve(in: e).opacity
                 #expect(a > 0, """
                 \(scheme)：叠加档 \(name) 解析出 α = \(a) —— **它画不出来**。
@@ -200,7 +200,7 @@ struct SystemBackgroundColorsMacOSTests {
         let fills: [(String, Color)] = [
             ("surfaceInteractive(control)", .surfaceInteractive),
             ("surfaceOverlay(floating)", .surfaceOverlay),
-            ("surfacePanel(overlay/panel)", .surfacePanel),
+            ("surfacePanel(panel)", .surfacePanel),
         ]
         for i in fills.indices {
             for j in fills.indices where j > i {
