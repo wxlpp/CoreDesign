@@ -4,13 +4,14 @@
 > 界面草图时，用 CoreDesign 的**真实名字**标注每一个元素，使产出能被逐条翻译回
 > SwiftUI，而不是翻译成一套它自己发明的词汇。
 >
-> ⚠️ **本文件除本节外全部由 `scripts/design-digest.py` 从 `Sources/` 派生**，不要手改
-> 正文——改了会在下次生成时被覆盖。要改约定，改本节所在的 `docs/design-digest.header.md`。
+> ⚠️ **正文的每一个条目由 `scripts/design-digest.py` 从 `Sources/` 派生**，但**各节段首的
+> 说明文字是手写的**（住在那个脚本里），与本节一样没有机器判据兜底、同属人工评审项。
+> 不要手改产物——改了会在下次生成时被覆盖。要改约定，改 `docs/design-digest.header.md`。
 
 ## 平台与单位
 
 - SwiftUI，iOS 26+ / macOS 26+，Swift 6 严格并发。
-- 长度单位一律 **pt**。间距走 8pt 网格。
+- 长度单位一律 **pt**。间距标度见下方 `CoreSpacing` 表，**不是纯 8 的倍数**（含 2 / 4 / 12 / 40 档）。
 - 字号**不写数字**：走 Apple 系统文本样式，随 Dynamic Type 缩放。
 
 ## 三个 target（依赖单向）
@@ -29,20 +30,27 @@
    **不写色相名、不写 hex、不写 `brand-5` 这类色阶**——色阶是第 1 层，组件里不直接用。
 2. **间距 / 圆角 / 描边一律写 token 名**（`CoreSpacing.md`、`CoreRadius.medium`、
    `CoreBorderWidth.thin`），不写裸数字。字号写 `CoreTypography.Token` 的档位名。
-3. **容器背景走 `.surface(_:)`**，从下表 10 个 `SurfaceKind` 里选，不要自己拼背景色 + 圆角 + 描边。
+3. **容器背景走 `.surface(_:)`**，从这 10 个 `SurfaceKind` 里选，不要自己拼背景色 + 圆角 + 描边：
+   `.canvas` `.content` `.control` `.floating` `.overlay` `.grouped` `.canvasSubtle` `.panel`
+   `.sidebar` `.card`。
 4. **分组设置页 = `InsetGroupedSection` + `SettingsRow`**（尾部指示符用 `SettingsRowChevron`）。
    它只复刻 `.insetGrouped` 的**观感**，没有 `List` 的数据 / 滚动 / 编辑能力——需要那些能力时
    写明「用原生 `List`，行用 `SettingsRow`」。
 5. **按钮 = SwiftUI `Button` + 样式 + role**：`.solid(role:)` / `.light(role:)` /
    `.borderless(role:)`，role 从 `ButtonRoleStyleRole` 五档里选。悬浮按钮用
    `.circularGlass` / `.extendedFloat`。**不要为按钮描述自定义配色**——role 是配色的唯一来源。
-6. **`Toggle` / `TextField` 没有 CoreDesign 样式**，有意为之：直接用系统控件 + `.tint(_:)`。
-   `ProgressView` / `Label` / `LabeledContent` / `DisclosureGroup` 有 `.core` 样式，强调色同样走 `.tint(_:)`。
-7. **反馈四件套分工**：页内信息条 → `Banner`；浮层瞬时反馈 → `Toast`（经 `.toastHost`）；
+6. **`Toggle` / `TextField` 没有 `.core` 入口点**，有意为之：设置行里的开关直接用系统
+   `Toggle` + `.tint(_:)`。⚠️ 但 `Toggle` **另有** `CheckBoxToggleStyle`（复选框形态，方框 + label）。
+   `ProgressView` / `Label` / `LabeledContent` / `DisclosureGroup` 有 `.core` 样式，其中前三者
+   **只有 `ProgressView` / `Label` / `DisclosureGroup` 的强调色走 `.tint(_:)`**；
+   ⚠️ `CoreLabeledContentStyle` **没有强调色**，label / content 固定走
+   `contentSecondary` / `contentPrimary`，对它施加 `.tint(_:)` 静默无效。
+7. **反馈四件套分工**：页内信息条 → `Banner`；浮层瞬时反馈 → `ToastItem`（经 `.toastHost` 呈现，队列由 `ToastHost` 管；**没有名叫 `Toast` 的类型**）；
    实体的状态标记 → `StateLabel`（生命周期态）/ `Badge`（语义等级）；进行中 → `ProgressIndicator`
-   / `ProgressBar` / `.spinning`。**不要用 `Banner` 做浮层，也不要用 `Toast` 做常驻信息。**
+   / `ProgressBar` / `.spinning`。**不要用 `Banner` 做浮层，也不要用 `ToastItem` 做常驻信息。**
 8. **Liquid Glass 只出现在 5 处**：`BottomInputBar`、`Carousel`、`SegmentedControl`、
-   `.floatingGlass`、`TelegramGlassButtonModifier`（`.circularGlass` / `.extendedFloat` 经它间接用）。
+   `.floatingGlass`、`TelegramGlassButtonModifier`。⚠️ 两个悬浮按钮样式**走的不是同一条**：
+   `.circularGlass` 经 `TelegramGlassButtonModifier`，`.extendedFloat` 经 `.floatingGlass`。
    别处不要描述玻璃材质。
 9. **动效不在原型里定案**：`CoreDesignEffects` 的微交互与转场手感只能在真机上判。
    原型里最多标注「此处用 `.confetti` / `.iris` 转场」，不要据此下视觉结论。
