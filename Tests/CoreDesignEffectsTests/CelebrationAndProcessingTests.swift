@@ -407,8 +407,12 @@ struct ConfettiTests {
                 "`.animated` 分支的第一句不是对 burstStart 的 `if let`（实为 `\(firstStatement)`）—— 双重门控被拆掉了一半")
         #expect(code.contains("switch presentation {"),
                 "两道闸的结论不再由 switch presentation 单点裁决")
-        #expect(code.contains("try await Task.sleep(for: .seconds(hold))"),
-                "sleep 的时长不再是 holdDuration 算出的那个 hold（#272）—— 也可能是层永不移除")
+        // `#330` 起 sleep 的是 `remaining`（被 disappear 取消后按剩余时间续睡），
+        // 所以要钉的是 hold → remaining → sleep **整条推导链**，缺任一环都可能变成写死的时长。
+        #expect(code.contains("let remaining = max(0, hold - Date.now.timeIntervalSince(startedAt))"),
+                "remaining 不再由 hold 减去已过时间算出（#330）—— 续睡的时长可能被写死")
+        #expect(code.contains("try await Task.sleep(for: .seconds(remaining))"),
+                "sleep 的时长不再是那个 remaining（#272 / #330）—— 也可能是层永不移除")
         #expect(code.contains("ConfettiBurst.holdDuration("),
                 "那个时长不再按呈现档位取（#272）")
         #expect(code.contains("self.burstStart = nil"), "没有任何地方把 burstStart 清空 —— 层永不移除")
@@ -566,12 +570,20 @@ struct ConfettiTests {
         }
         let expectedRunBurst = """
         {
-            guard self.fire > 0 else { return }
-            let startedAt = Date.now
-            self.burstStart = startedAt
+            let startedAt: Date
+            if self.fire > self.consumedFire {
+                self.consumedFire = self.fire
+                startedAt = Date.now
+                self.burstStart = startedAt
+            } else if self.consumedFire > 0, let inFlight = self.burstStart {
+                startedAt = inFlight
+            } else {
+                return
+            }
             let hold = ConfettiBurst.holdDuration(presentation: presentation)
+            let remaining = max(0, hold - Date.now.timeIntervalSince(startedAt))
             do {
-                try await Task.sleep(for: .seconds(hold))
+                try await Task.sleep(for: .seconds(remaining))
             } catch {
                 return
             }

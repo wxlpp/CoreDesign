@@ -83,6 +83,8 @@ public struct TypewriterText: View {
 
     @State private var typed: Int
 
+    @State private var typedRun: TypewriterRun?
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// 界面文案（公约 §4 **B 类**）：编译期本地化键，走 `LocalizedStringResource`。
@@ -106,20 +108,25 @@ public struct TypewriterText: View {
         let plan = TypewriterReveal.plan(
             total: total, typed: self.typed, reduceMotion: self.reduceMotion
         )
+        let run = TypewriterRun(text: self.text, typing: plan.types, speed: self.speed)
         TypewriterBody(text: self.text, revealed: plan.revealed)
-            .task(id: TypewriterRun(text: self.text, typing: plan.types, speed: self.speed)) {
-                await self.type(total: total, types: plan.types)
+            .task(id: run) {
+                await self.type(run: run, total: total)
             }
     }
 
-    private func type(total: Int, types: Bool) async {
-        self.typed = 0
+    private func type(run: TypewriterRun, total: Int) async {
+        if self.typedRun != run {
+            self.typedRun = run
+            self.typed = 0
+        }
         guard total > 0 else { return }
-        guard types else {
+        guard run.typing else {
             self.typed = total
             return
         }
-        for index in 1...total {
+        guard self.typed < total else { return }
+        for index in (self.typed + 1)...total {
             do {
                 try await Task.sleep(for: .seconds(self.speed.secondsPerCharacter))
             } catch {

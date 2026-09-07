@@ -14,6 +14,8 @@ struct ConfettiCore: ViewModifier {
 
     @State private var burstStart: Date?
 
+    @State private var consumedFire = 0
+
     let initialBurstStart: Date?
 
     init(
@@ -70,12 +72,20 @@ struct ConfettiCore: ViewModifier {
     }
 
     private func runBurst(presentation: MotionPresentation) async {
-        guard self.fire > 0 else { return }
-        let startedAt = Date.now
-        self.burstStart = startedAt
+        let startedAt: Date
+        if self.fire > self.consumedFire {
+            self.consumedFire = self.fire
+            startedAt = Date.now
+            self.burstStart = startedAt
+        } else if self.consumedFire > 0, let inFlight = self.burstStart {
+            startedAt = inFlight
+        } else {
+            return
+        }
         let hold = ConfettiBurst.holdDuration(presentation: presentation)
+        let remaining = max(0, hold - Date.now.timeIntervalSince(startedAt))
         do {
-            try await Task.sleep(for: .seconds(hold))
+            try await Task.sleep(for: .seconds(remaining))
         } catch {
             return
         }

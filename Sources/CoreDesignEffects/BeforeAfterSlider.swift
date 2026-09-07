@@ -206,6 +206,8 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
 
     @State private var hasInteracted = false
 
+    @State private var introPlayed = false
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// - Parameters:
@@ -256,7 +258,8 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
     }
 
     private func playIntroSweep(_ sweep: BeforeAfterIntroSweep?) async {
-        guard let sweep else { return }
+        guard let sweep, !self.introPlayed else { return }
+        self.introPlayed = true
         withAnimation(.easeInOut(duration: sweep.duration)) { self.fraction = sweep.peak }
         do {
             try await Task.sleep(for: .seconds(sweep.duration))
