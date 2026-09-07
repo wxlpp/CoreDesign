@@ -822,6 +822,11 @@
 ### `NetworkGraph.swift`
 
 - **`NetworkGraph`** *<Node: GraphNode>: View* — 力导向网络图。
+- *enum* **`NetworkGraphLayout`** — `NetworkGraph` 的布局形态。
+  - `.force` — 默认：力导向解算（现状形态）—— 环形播种后跑排斥 / 吸引迭代。
+  - `.circular` — 环形：节点等角分布在一个圆上，**不跑迭代**。 ⚠️ 这**不是新画法**：超 `recommendedNodeLimit` 时 `.force` 的降级形态本来就是它， 本 case 只是把它提成可选项。
+  - `.grid` — 网格：按行列均匀铺开，忽略边的拉力。 业界来源：AntV G6 的 `grid` 布局。
+  - `.layered` — 分层：按边的方向做拓扑分层，同层横向铺开、层间竖向排列。 业界来源：AntV G6 的 `dagre` 布局。  ⚠️ **本组件的边模型是无向的**（`effectiveEdges` 会把互指的一对去重、只留**先列出**的那条）， 而本形态**要读方向** ⇒ **层向由 `Edge.from → Edge.to` 定，互指对按先列出者算**。 换句话说：同一份数据里 a→b 与 b→a 谁写在前面，会改变分层方向。 ⚠️ **同层的列序 = `nodes` 数组顺序**，不是 ID 排序 —— 换节点顺序列位置就变（与 `.circular` 一致）。 ⚠️ 有环时**不会死循环**，但**不是**「剩余节点整体压到最后一层」—— 那样会把环的**下游**一起卡住。剥不动时强制放一个再继续，见 `layeredRanks`。
 - *enum* **`NetworkGraphRenderProbe`** — `NetworkGraph` **真的把边画出来了**的帧数。
 
 ### `RadarChart.swift`
@@ -919,8 +924,8 @@
 | controlsize | 5 | 5 |
 | colors | 115 | 115 |
 | components | 90 | 90 |
-| enums | 28 | 28 |
-| enumcases | 104 | 104 |
+| enums | 29 | 29 |
+| enumcases | 108 | 108 |
 | protocols | 6 | 6 |
 | viewext | 40 | 40 |
 | styleext | 9 | 9 |

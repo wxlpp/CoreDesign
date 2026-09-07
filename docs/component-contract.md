@@ -325,6 +325,8 @@
 > `BeforeAfterSlider` / `NetworkGraph` / `RadarChart` / `RingChart`）——`#299` 对 `#270`
 > 留下的 6 条 `pendingStep2` 条目补做步骤 2 的枚举与来源核验后，5 条落**出口 1**、
 > 1 条（`OrbitingLogos`）落**步骤 4**；判定法结论已产出、扩展点实现未跟上，移交 `#312`。
+> ⚠️ **再一次更新（`#312`）：现为 4 条** —— `NetworkGraph` 已以形态 D2（`NetworkGraphLayout`）
+> 补上扩展点并移出红名单，其余 4 条仍在 `#312` 下。
 > 上句「全部收口」是 `#65` 当时的记录，按只增不改的成法保留；
 > > #60 已 closed。⇒ `step3` 条目数 **33 → 28**（移出的：`SidebarStatusFooter` /
 > `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）。
@@ -1038,7 +1040,8 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 > 详见 `docs/contract-defects.md` 的 `D-65-1`。
 >
 > ⚠️⚠️ **上面这段又成了「当时的记录」（`#299`），不改写。现状：定义域 16 条、11 条满足、
-> `knownMissingExtensionPoints` 5 条、`withKnownIssue` 块已按上句的指令原样重建**
+> `knownMissingExtensionPoints` 5 条（⚠️ **`#312` 起为 4 条**，`NetworkGraph` 已补上
+> 形态 D2 扩展点并移出）、`withKnownIssue` 块已按上句的指令原样重建**
 > （只包住主判据那一句）。成因：`#299` 对 `#270` 留下的 6 条 `pendingStep2` 条目补做了
 > 步骤 2 的候选枚举与来源核验，`RadarChart` / `RingChart` / `ActivityHeatmap` /
 > `NetworkGraph` / `BeforeAfterSlider` 五条落**出口 1** ⇒ `kind: semantic` ⇒ 硬断言
@@ -1712,5 +1715,6 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
   `functionSideBareText` **3 条固定集合**、`unmappedOwners` **2 条固定集合**、
   J-2 `inspected.count` **11**（`#270` 的 15 条全落 prescriptive，未进 J-2 定义域）。
   ⚠️ **上一行的 J-2 计数已被 `#299` 改掉：现为 16**（五条重判落 `step2` ⇒ `semantic` ⇒
-  进定义域），`knownMissingExtensionPoints` 现为 **5 条**。其余八个计数 `#299` **一个都没动**
+  进定义域），`knownMissingExtensionPoints` 现为 **5 条**（⚠️ **`#312` 起为 4 条**：
+  `NetworkGraph` 已补上扩展点移出；`inspected.count` 仍是 16，定义域没变）。其余八个计数 `#299` **一个都没动**
   （只改 `decidedBy` / `kind` / `needsExtensionPoint` / `notes`，不增删条目、不动文本参数）。

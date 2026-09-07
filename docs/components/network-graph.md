@@ -26,7 +26,8 @@ public struct NetworkGraph<Node: GraphNode>: View {
     public typealias Edge = GraphEdge<Node.ID>
 
     /// 建议的节点上限。
-    /// ⚠️ **力导向布局是每帧 O(n²)**。超过此数走"截断 + 静态环形布局"——**不抛断言**。
+    /// ⚠️ **力导向布局是每帧 O(n²)**。超过此数走"截断 + 关掉力导向"——**不抛断言**。
+    /// ⚠️ 「退化为静态**环形**」只对 `.force` 成立；其余形态本就不跑迭代，截断后保持各自形态。
     public nonisolated static var recommendedNodeLimit: Int { 150 }
 
     /// 建议的**边数**上限。
@@ -36,7 +37,8 @@ public struct NetworkGraph<Node: GraphNode>: View {
         nodes: [Node],
         edges: [Edge],
         title: LocalizedStringResource? = nil,
-        tint: Color = .accent
+        tint: Color = .accent,
+        layout: NetworkGraphLayout = .force
     )
 }
 ```
@@ -65,6 +67,81 @@ public nonisolated struct GraphEdge<ID: Hashable & Sendable>: Sendable, Hashable
 
 ⚠️ **`Node.ID` 只要求 `Hashable`，不要求 `Comparable`**——组件内部的无向边归一化因此
 不能靠排序，走的是「顺序无关的相等性 + 交换律哈希」。
+
+## 布局形态扩展点（`#312` · 形态 D2）
+
+```swift
+public nonisolated enum NetworkGraphLayout: Sendable, Equatable, CaseIterable {
+    case force      // 默认：环形播种 + 力导向迭代（现状形态）
+    case circular   // 环形，不跑迭代
+    case grid       // 按行列铺开（业界来源：AntV G6 的 grid）
+    case layered    // 拓扑分层（业界来源：AntV G6 的 dagre）
+}
+
+NetworkGraph(nodes: nodes, edges: edges, layout: .layered)
+```
+
+⚠️ **只有 `.force` 会跑力导向迭代**，其余三个形态的位置**就是播种结果** ——
+迭代会把它们揉回力导向的样子，那正是选那些形态的人不要的。
+守这一条的是 `layout()` 里 `guard layout == .force, iterations > 0, …`
+与判据 `NetworkGraphLayoutFormTests.onlyForceRunsIterations`。
+
+⚠️ **`.circular` 不是新画法**：超 `recommendedNodeLimit` 时的降级形态本来就是环形
+（见上面《规模上限》），本 case 只是把它提成可选项。
+
+⚠️ **`.layered` 的分层规则（三条，各自被一次退化或一次终审换来）**：
+1. **层号 = 已放前驱的最大层号 + 1**，没有已放前驱则第 0 层。
+   ⚠️ **不是**「循环跑到第几轮」—— 那样互不相连的分量会被**串成一列**
+   （50 个互不相连的 3-环、共 150 点，排成 150 层而不是 3 层）。
+2. 有环、剥不动时**强制放一个再继续**（取剩余入度最小、并列取 `nodes` 数组里先出现者）。
+   ⚠️ **不是**「把剩下的整体放到最后一层」—— 那会把环的**下游**一起卡住。
+3. 强制放行**只在「还有未放后继」的节点里挑** —— 放一个纯汇点释放不了任何人，
+   只会把指向它的边压成同层。
+   ⚠️ 这里**有意不写「实测 N 张随机图，同层边 X → Y」**：那组数完全由随机图生成器的
+   点数 / 边数分布决定，换一个生成器方向一致但数值全变 ⇒ **不可复现的数比没有数更坏**。
+
+判据：`NetworkGraphLayoutFormTests` 的 `layeredSeparatesCycleDownstream` /
+`layeredHandlesRootCycle`（规则 2）、`disjointCyclesShareLayers` /
+`cycleBesideIsolatedNodeStartsAtZero` / `rankTakesDeepestPredecessor` /
+`forcedNodeStillHonoursPlacedPredecessors`（规则 1）、
+`forcedPickReleasesSomeone`（规则 3）—— 全部走 `layoutKey(for:)`。
+
+⚠️⚠️ **`.layered` 明确不做的三件事（都会在有环的图上看得见）**：
+- **不做交叉最小化**：同层的列序就是 `nodes` 数组顺序，两个分量会在同一行里交错。
+- **不做边路由**：边是直线段。**回边与正向链共线** ⇒ 一条回边会从视觉上**穿过**
+  中间的每一个节点（含另一个分量的节点）。
+- **向上边消不掉，而且不止环造成的**：有环时至少有一条回边消不掉（形态本身的代价）；
+  ⚠️ 除此之外，规则 2 的 tie-break（入度最小、并列取 `nodes` 顺序）会**先挑到环外的节点**，
+  由此**多出**的向上边不是环造成的 —— 换 `nodes` 顺序就能变。
+  规则 3 只是不再**平白**制造同层边，不是把向上边清零。
+⇒ 复杂的有向图用 `.layered` 只能看出「大致的层次」，看不出连接关系；那种图仍应用 `.force`。
+
+⚠️ **`layout` 必须进 `LayoutKey`**：`.task(id: key)` 靠它重算，漏了换形态不会重新布局。
+（这条由**编译期**兜底：`LayoutKey` 少字段时 `layoutKey(for:)` 与调用点都编译不过。）
+
+⚠️ **加 case 是 source-breaking**：`NetworkGraphLayout` 非 `@frozen`，
+下游穷举 `switch` 不写 `@unknown default` 就会编译红 ⇒ 加 case 要走 BREAKING-CHANGES 登记。
+（这仍比形态 B 的 public 协议可撤 —— 那个发出去就收不回。）
+
+⚠️⚠️ **`.layered` 读边的方向，而本组件的边模型是无向的**：`effectiveEdges` 把互指的一对
+**去重、只留先列出的那条**（见上面《无向边归一化》）。⇒ **层向由 `Edge.from → Edge.to` 定，
+互指对按先列出者算** —— 同一份数据里 a→b 与 b→a 谁写在前面，会改变分层方向。
+⚠️ **同层的列序 = `nodes` 数组顺序**，换节点顺序列位置就变（与 `.circular` 一致）。
+
+⚠️ **超 `recommendedNodeLimit` 时的「退化为静态环形」只对 `.force` 成立**：
+截断时 `iterations` 置 0，而 `.grid` / `.layered` 的播种**根本不看 `iterations`**，
+截断后保持各自形态。
+
+⚠️ **`.layered` 的宽层与高层都会挤**：一层 149 个点时**列**间距约 2.2 px（点直径 8 px）；
+150 层时**行**间距约 1.6 px（画布高 300、上下各 10% 留白 ⇒ 可用 240 px）。
+`.circular` 在 150 点时列间距也只有约 5 px（既有问题）；`.grid` 无此问题（约 22–27 px）。
+⇒ **`.layered` 只适合层数与每层宽度都不大的图**，两个方向都没有自动缩放。
+
+### 为什么是形态 D2（配置枚举）而不是 public 协议
+
+`#312` 有一条**排序约束**：在 `D-299-1` 的修订回路走完前**不得走形态 B**
+—— public 协议受祖父条款约束、**发布后不可撤**，而枚举与槽**可演进**。
+逐条见 `docs/contract-defects.md` 的 `D-299-1` 与 `#312`。
 
 ## AD-F 退化输入契约
 
@@ -101,15 +178,19 @@ public nonisolated struct GraphEdge<ID: Hashable & Sendable>: Sendable, Hashable
 
 1. **截断**：`firstUnique` 保留首次出现的前 N 个唯一节点 / 前 600 条唯一无向边，**收够即停**
    （不扫完全表）。顺序由 `TruncationPathTests` 逐条钉住。
-2. **降级为静态环形布局**：`layoutKey(for:)` 把 `iterations` 置 **0** ⇒ `layout` 在
-   `guard iterations > 0` 处直接返回环形初始位置，**力导向解算器整个关掉**。
+2. **降级为静态布局**：`layoutKey(for:)` 把 `iterations` 置 **0** ⇒ `layout` 在
+   `guard layout == .force, iterations > 0` 处直接返回播种位置，**力导向解算器整个关掉**。
    由 `truncationDegradesToStaticLayout` 与 `edgeLimitTriggersDegradation` 钉住。
+   ⚠️ **「退化为静态*环形*」只对 `.force` 成立**——`.circular` / `.grid` / `.layered`
+   本就不跑迭代，截断后保持各自形态（`iterations` 对它们没有作用）。
+   ⚠️ 但**边的截断对 `.layered` 有实质影响**：分层完全由边算出，丢边会改变层数与层向。
 3. **对用户可见的横幅**：`body` 在截断分支下在 canvas 下方渲染
    `"Showing the first %lld nodes"` 或 `"Showing the first %lld connections"`
    （`.coreFont(.caption2)` + `Color.contentTertiary`），数字写的是**实际渲染数**而非上限。
 
 ⚠️ **四个图表里只有本图表提示截断**，这是**显式定案**：它的截断会**改变布局算法**
-（力导向 → 静态环形），用户看到的是一张"不一样的图"而不只是"少了几个"；
+（`.force` 下：力导向 → 静态环形；`.layered` 下：丢边改变分层），
+用户看到的是一张"不一样的图"而不只是"少了几个"；
 `ActivityHeatmap` / `RingChart` 的截断是**同质的**（少几天 / 少几环）⇒ 由调用方自行提示。
 
 ⚠️ **边超限会把力导向整个关掉，连节点没超限时也关**——理由被要求写明：力导向布局的簇结构
@@ -249,7 +330,7 @@ struct TeamGraph: View {
 
     var body: some View {
         NetworkGraph(
-            // ⚠️ 超限会截断 + 降级为静态环形 + 弹出横幅 ⇒ 在自己的数据层先收敛更可控。
+            // ⚠️ 超限会截断 + 关掉力导向 + 弹出横幅 ⇒ 在自己的数据层先收敛更可控。
             nodes: Array(people.prefix(NetworkGraph<Person>.recommendedNodeLimit)),
             // 边只以 ID 相连；指向不存在节点的边被静默忽略。
             edges: links.map { GraphEdge(from: $0.0, to: $0.1) },
@@ -321,9 +402,11 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 ⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
 「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
 
-⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
-`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
-这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+⚠️ **扩展点已由 `#312` 落地**（形态 D2 配置枚举 `NetworkGraphLayout`，四个 case），
+本条已从 `ComponentExtensionPointGuard.knownMissingExtensionPoints` 移出
+（曾按 `Toast` 与 #59 的同款成法暂登记在那里）。
+⚠️ **有意不发 public 协议**（形态 B）：`D-299-1` 的修订回路未走完前不得发布不可撤的协议，
+配置枚举可演进。判据：`NetworkGraphLayoutFormTests`。
 
 ⚠️⚠️ **本条不适用 `D-299-1`（`#315` 终审 C-2 更正）**：上一版这里原样抄了给三个图表用的
 那句「同样适用于本条」，而它**被本仓自己的源码逐字证伪** —— 本条的三个候选是 **dagre / 环形 /

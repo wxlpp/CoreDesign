@@ -9,8 +9,12 @@ public struct NetworkGraph<Node: GraphNode>: View {
     public typealias Edge = GraphEdge<Node.ID>
 
     /// 建议的节点上限。
-    /// ⚠️ 「建议」不是软约束：超限即**截断**多余节点并关掉力导向解算器（退化为静态环形）。
+    /// ⚠️ 「建议」不是软约束：超限即**截断**多余节点并关掉力导向解算器。
+    /// ⚠️ 「退化为静态环形」**只对 `.force` 成立**：其余三个 `NetworkGraphLayout` 本就不跑迭代，
+    /// 截断后保持各自形态。
     public nonisolated static var recommendedNodeLimit: Int { 150 }
+
+    private let layout: NetworkGraphLayout
 
     private let nodes: [Node]
     private let edges: [Edge]
@@ -21,8 +25,10 @@ public struct NetworkGraph<Node: GraphNode>: View {
         nodes: [Node],
         edges: [Edge],
         title: LocalizedStringResource? = nil,
-        tint: Color = .accent
+        tint: Color = .accent,
+        layout: NetworkGraphLayout = .force
     ) {
+        self.layout = layout
         self.nodes = nodes
         self.edges = edges
         self.title = title ?? .chart("Relationship graph")
@@ -60,6 +66,7 @@ public struct NetworkGraph<Node: GraphNode>: View {
 
     /// 建议的**边数**上限。
     /// ⚠️ 超限即**静默丢弃**多余的边，且**边超限会连带关掉力导向**——节点没超限时也关。
+    /// （只影响 `.force`；其余形态本就不跑迭代，但**边照样被丢弃** ⇒ `.layered` 的分层会变。）
     public nonisolated static var recommendedEdgeLimit: Int { 600 }
 
     private func effectiveEdges(visibleIn visible: Set<Node.ID>) -> [Edge] {
@@ -134,6 +141,8 @@ public struct NetworkGraph<Node: GraphNode>: View {
         let edges: [Edge]
         let size: CGSize
         let iterations: Int
+        // ⚠️ 必须进 key：`.task(id: key)` 靠它重算，漏了换形态不会重新布局。
+        let layout: NetworkGraphLayout
     }
 
     func layoutKey(for size: CGSize) -> LayoutKey {
@@ -143,7 +152,8 @@ public struct NetworkGraph<Node: GraphNode>: View {
             ids: shownNodes.map(\.id),
             edges: self.effectiveEdges(visibleIn: visible),
             size: size,
-            iterations: self.isTruncated(visibleIn: visible) ? 0 : Self.iterations(for: shownNodes.count)
+            iterations: self.isTruncated(visibleIn: visible) ? 0 : Self.iterations(for: shownNodes.count),
+            layout: self.layout
         )
     }
 
@@ -181,7 +191,8 @@ public struct NetworkGraph<Node: GraphNode>: View {
                 let edges = key.edges
                 let handle = Task.detached(priority: .userInitiated) {
                     Self.layout(nodes: nodes, edges: edges,
-                                size: key.size, iterations: key.iterations)
+                                size: key.size, iterations: key.iterations,
+                                layout: key.layout)
                 }
                 let result = await withTaskCancellationHandler {
                     await handle.value
@@ -199,6 +210,7 @@ public struct NetworkGraph<Node: GraphNode>: View {
 
     nonisolated static func layout(
         nodes: [Node], edges: [Edge], size: CGSize, iterations: Int,
+        layout: NetworkGraphLayout = .force,
         centeringStrength: Double = Self.centeringStrength
     ) -> [Node.ID: CGPoint] {
         guard !nodes.isEmpty else { return [:] }
@@ -210,15 +222,13 @@ public struct NetworkGraph<Node: GraphNode>: View {
         var seen = Set<Node.ID>()
         let nodes = nodes.filter { seen.insert($0.id).inserted }
 
-        var pos = [Node.ID: CGPoint]()
-        for (i, node) in nodes.enumerated() {
-            let angle = 2 * Double.pi * Double(i) / Double(nodes.count)
-            pos[node.id] = CGPoint(
-                x: center.x + cos(angle) * radius,
-                y: center.y + sin(angle) * radius
-            )
-        }
-        guard iterations > 0, nodes.count > 1 else { return pos }
+        var pos = Self.seed(
+            layout: layout, nodes: nodes, edges: edges,
+            center: center, radius: radius, width: w, height: h
+        )
+        // ⚠️ **只有 `.force` 会继续跑力导向迭代**：其余三个形态的位置就是播种结果，
+        // 迭代会把它们揉回力导向的样子 —— 那正是选那些形态的人不要的。
+        guard layout == .force, iterations > 0, nodes.count > 1 else { return pos }
 
         let ids = nodes.map(\.id)
         let k = sqrt(w * h / Double(nodes.count))
@@ -337,6 +347,55 @@ extension NetworkGraph: AXChartDescriptorRepresentable {
         .padding()
 }
 
+// MARK: - 四个布局形态各一个 Preview（Issue #312）
+//
+// ⚠️ 分开画不是形式主义：`.layered` 的两次退化（12 个点挤一行、14 个点串成一列）
+// 在**这份样例数据**上画一次就看见，而当时的值判据全绿。
+
+nonisolated struct NetworkGraphPreviewNode: GraphNode {
+    let id: String
+    let label: String
+}
+
+nonisolated enum NetworkGraphPreviewSample {
+    static let nodes = (0..<14).map { NetworkGraphPreviewNode(id: "n\($0)", label: "节点 \($0)") }
+    static let edges = (0..<20).map {
+        GraphEdge(from: "n\($0 % 14)", to: "n\(($0 * 5 + 3) % 14)")
+    }
+}
+
+#Preview("NetworkGraph — .force") {
+    NetworkGraph(
+        nodes: NetworkGraphPreviewSample.nodes, edges: NetworkGraphPreviewSample.edges,
+        title: ".force", layout: .force
+    )
+    .padding()
+}
+
+#Preview("NetworkGraph — .circular") {
+    NetworkGraph(
+        nodes: NetworkGraphPreviewSample.nodes, edges: NetworkGraphPreviewSample.edges,
+        title: ".circular", layout: .circular
+    )
+    .padding()
+}
+
+#Preview("NetworkGraph — .grid") {
+    NetworkGraph(
+        nodes: NetworkGraphPreviewSample.nodes, edges: NetworkGraphPreviewSample.edges,
+        title: ".grid", layout: .grid
+    )
+    .padding()
+}
+
+#Preview("NetworkGraph — .layered") {
+    NetworkGraph(
+        nodes: NetworkGraphPreviewSample.nodes, edges: NetworkGraphPreviewSample.edges,
+        title: ".layered", layout: .layered
+    )
+    .padding()
+}
+
 // MARK: - 渲染存活读数（基准专用观测点）
 
 /// `NetworkGraph` **真的把边画出来了**的帧数。
@@ -354,5 +413,147 @@ public nonisolated enum NetworkGraphRenderProbe {
     static func recordDrawnFrame(edges: Int) {
         Self.counter.wrappingAdd(1, ordering: .relaxed)
         Self.lastDrawn.store(edges, ordering: .relaxed)
+    }
+}
+
+// MARK: - 布局形态（Issue #312 · 形态 D2）
+
+/// `NetworkGraph` 的布局形态。
+///
+/// ⚠️ **本枚举是 `#312` 给 `NetworkGraph` 补的样式扩展点**（形态 D2 配置枚举）——
+/// `#299` 步骤 2 枚举出的三个业界替代形态各对应一个 case，来源逐条记在各 case 的文档注释里。
+///
+/// ⚠️ **「配置枚举可演进」不是零代价**：本枚举**非 `@frozen`**，加 case 对下游任何
+/// 穷举 `switch` 都是 source-breaking（下游要写 `@unknown default` 才免疫）。
+/// 它仍比形态 B（public 协议）可撤，但加 case 要走一次 BREAKING-CHANGES 登记。
+public nonisolated enum NetworkGraphLayout: Sendable, Equatable, CaseIterable {
+    /// 默认：力导向解算（现状形态）—— 环形播种后跑排斥 / 吸引迭代。
+    case force
+    /// 环形：节点等角分布在一个圆上，**不跑迭代**。
+    /// ⚠️ 这**不是新画法**：超 `recommendedNodeLimit` 时 `.force` 的降级形态本来就是它，
+    /// 本 case 只是把它提成可选项。
+    case circular
+    /// 网格：按行列均匀铺开，忽略边的拉力。
+    /// 业界来源：AntV G6 的 `grid` 布局。
+    case grid
+    /// 分层：按边的方向做拓扑分层，同层横向铺开、层间竖向排列。
+    /// 业界来源：AntV G6 的 `dagre` 布局。
+    ///
+    /// ⚠️ **本组件的边模型是无向的**（`effectiveEdges` 会把互指的一对去重、只留**先列出**的那条），
+    /// 而本形态**要读方向** ⇒ **层向由 `Edge.from → Edge.to` 定，互指对按先列出者算**。
+    /// 换句话说：同一份数据里 a→b 与 b→a 谁写在前面，会改变分层方向。
+    /// ⚠️ **同层的列序 = `nodes` 数组顺序**，不是 ID 排序 —— 换节点顺序列位置就变（与 `.circular` 一致）。
+    /// ⚠️ 有环时**不会死循环**，但**不是**「剩余节点整体压到最后一层」——
+    /// 那样会把环的**下游**一起卡住。剥不动时强制放一个再继续，见 `layeredRanks`。
+    case layered
+}
+
+extension NetworkGraph {
+    /// 按形态给出初始位置。⚠️ **纯函数，生产代码与判据共用同一份**（本仓既有约定）。
+    nonisolated static func seed(
+        layout: NetworkGraphLayout, nodes: [Node], edges: [Edge],
+        center: CGPoint, radius: Double, width: Double, height: Double
+    ) -> [Node.ID: CGPoint] {
+        switch layout {
+        case .force, .circular:
+            var pos = [Node.ID: CGPoint]()
+            for (i, node) in nodes.enumerated() {
+                let angle = 2 * Double.pi * Double(i) / Double(nodes.count)
+                pos[node.id] = CGPoint(
+                    x: center.x + cos(angle) * radius,
+                    y: center.y + sin(angle) * radius
+                )
+            }
+            return pos
+        case .grid:
+            let columns = max(1, Int(ceil(sqrt(Double(nodes.count)))))
+            let rows = max(1, Int(ceil(Double(nodes.count) / Double(columns))))
+            var pos = [Node.ID: CGPoint]()
+            for (i, node) in nodes.enumerated() {
+                let col = i % columns
+                let row = i / columns
+                pos[node.id] = CGPoint(
+                    x: Self.slot(index: col, count: columns, extent: width),
+                    y: Self.slot(index: row, count: rows, extent: height)
+                )
+            }
+            return pos
+        case .layered:
+            let ranks = Self.layeredRanks(nodes: nodes, edges: edges)
+            let rowCount = max(1, (ranks.values.max() ?? 0) + 1)
+            var byRow = [Int: [Node.ID]]()
+            for node in nodes { byRow[ranks[node.id] ?? 0, default: []].append(node.id) }
+            var pos = [Node.ID: CGPoint]()
+            for (row, ids) in byRow {
+                for (col, id) in ids.enumerated() {
+                    pos[id] = CGPoint(
+                        x: Self.slot(index: col, count: ids.count, extent: width),
+                        y: Self.slot(index: row, count: rowCount, extent: height)
+                    )
+                }
+            }
+            return pos
+        }
+    }
+
+    /// 把第 `index` 格（共 `count` 格）映射到 `extent` 上的中心点。
+    /// ⚠️ `count == 1` 时给正中，不是贴边。
+    nonisolated static func slot(index: Int, count: Int, extent: Double) -> Double {
+        guard count > 1 else { return extent / 2 }
+        let margin = extent * 0.1
+        let usable = extent - margin * 2
+        return margin + usable * Double(index) / Double(count - 1)
+    }
+
+    /// 拓扑分层：层号 = **已放前驱的最大层号 + 1**，没有已放前驱则为第 0 层。
+    ///
+    /// ⚠️ **别改成「循环跑到第几轮」当层号**：剥不动时每轮只强制放行一个节点，
+    /// 互不相连的分量会被串成一列 —— 50 个互不相连的 3-环（150 点）排成 **150 层**而不是 3 层。
+    /// ⚠️ **别改成「剥不动就把剩下的整体压到最后一层」**：那会让环的**下游**也跟着卡住。
+    /// ⚠️ **强制放行只在「还有未放后继」的节点里挑**：放一个纯汇点释放不了任何人，
+    /// 只会把指向它的边压成同层。
+    /// ⚠️ **有环时消不掉全部向上边**：环至少留一条回边（形态本身的代价）；
+    /// 另外「入度最小 + `nodes` 顺序」这个 tie-break 会先挑到环外的节点，还会多出向上边。
+    nonisolated static func layeredRanks(nodes: [Node], edges: [Edge]) -> [Node.ID: Int] {
+        let order = nodes.map(\.id)
+        let ids = Set(order)
+        var pending = [Node.ID: Int]()
+        var outgoing = [Node.ID: [Node.ID]]()
+        var predecessors = [Node.ID: [Node.ID]]()
+        for id in ids { pending[id] = 0; outgoing[id] = []; predecessors[id] = [] }
+        for edge in edges where ids.contains(edge.from) && ids.contains(edge.to) && edge.from != edge.to {
+            pending[edge.to]? += 1
+            outgoing[edge.from]?.append(edge.to)
+            predecessors[edge.to]?.append(edge.from)
+        }
+        var rank = [Node.ID: Int]()
+        var placed = Set<Node.ID>()
+        while placed.count < order.count {
+            var frontier = order.filter { !placed.contains($0) && (pending[$0] ?? 0) <= 0 }
+            if frontier.isEmpty {
+                let remaining = order.filter { !placed.contains($0) }
+                let releasing = remaining.filter { id in
+                    (outgoing[id] ?? []).contains { !placed.contains($0) }
+                }
+                // ⚠️ `releasing` 按论证恒非空（剩余子图每点入度 ≥1 ⇒ 必有一条内部边），
+                // 这个兜底只防 pending 表缺项。
+                let candidates = releasing.isEmpty ? remaining : releasing
+                guard let fewest = candidates.map({ pending[$0] ?? 0 }).min(),
+                      let forced = candidates.first(where: { (pending[$0] ?? 0) == fewest })
+                else { break }
+                frontier = [forced]
+            }
+            for id in frontier {
+                let above = (predecessors[id] ?? []).compactMap { rank[$0] }.max()
+                rank[id] = above.map { $0 + 1 } ?? 0
+            }
+            placed.formUnion(frontier)
+            for id in frontier {
+                for target in outgoing[id] ?? [] where !placed.contains(target) {
+                    pending[target]? -= 1
+                }
+            }
+        }
+        return rank
     }
 }

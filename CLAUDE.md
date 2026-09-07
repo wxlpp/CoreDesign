@@ -267,6 +267,27 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     ⚠️ **取顶层 `passedTests`，不是 `devicesAndConfigurations[].passedTests`** —— 后者按
     dynamic parameters 展开计（实测顶层 928、per-device 966 = 928 − 9 + 47），照后者读会
     误判成基线漂移。
+
+    ⚠️⚠️ **`swift test` 的 native 腿也丢行，而且丢得更狠**（`#312` 实测，2026-09-08）——
+    本条原来只记在 `xcodebuild` 腿上，**跨了工具边界**，所以单独记。
+    取一次**全绿**的全量 native `swift test`（`Test run with 968 tests in 138 suites
+    passed`、`EXIT=0`）的完整日志逐类数：
+
+    | console 行 | 实际条数 | 日志里的行数 |
+    |---|---|---|
+    | 逐条 `Test "…" started.` | 968 | **563** |
+    | 逐条 `Test "…" passed after` | 968 | **813** |
+    | `Suite "…" started.` | 138 | **137** |
+    | `Suite "…" passed after` | 138 | **117** |
+
+    ⇒ **四类全都丢，逐条比 suite 丢得还多。** 机理是并行执行下多个测试往同一个 stdout
+    交错写（一条 `started` 被另一条测试的多行输出从中间截断），⇒ **那一遍失败越多、
+    输出越长，丢得越多**；全绿的这一遍已经丢掉四成 `started` 行。
+    ⚠️ **别按「起止配对」判某条判据跑没跑**：抽一个子集去数往往恰好配得上
+    （本轮 `#312：` 前缀的 11 条就是 11/11），那是抽样的产物，不是证据。
+    ⇒ SwiftPM 侧要权威条数走 `swift test --xunit-output <path>`，
+    或只读 `Test run with … tests` 那一行的总数。
+
 - **公开 `static` 成员的 MainActor 隔离棘轮只在 CI 上跑**（`#307`）：本包三个 target
   都开了 `.defaultIsolation(MainActor.self)`，新加的公开 `static` 成员**默认**被卷进
   MainActor，下游在非主 actor 语境取用会报错或被迫 `await`。判据是

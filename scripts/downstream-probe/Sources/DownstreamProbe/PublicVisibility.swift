@@ -684,5 +684,6 @@ func consumeCharts() -> some View {
         ActivityHeatmap(days, title: "Heatmap", tint: .accent, calendar: .current)
         NetworkGraph(nodes: nodes, edges: edges)
         NetworkGraph(nodes: nodes, edges: edges, title: "Graph", tint: .accent)
+        NetworkGraph(nodes: nodes, edges: edges, layout: .layered)
     }
 }

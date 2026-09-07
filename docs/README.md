@@ -193,7 +193,7 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 | RadarChart | `RadarChart(_:title:tint:)` | [radar-chart.md](components/radar-chart.md) |
 | RingChart | `RingChart(_:goal:title:tint:colors:)` | [ring-chart.md](components/ring-chart.md) |
 | ActivityHeatmap | `ActivityHeatmap(_:title:tint:calendar:)` | [activity-heatmap.md](components/activity-heatmap.md) |
-| NetworkGraph | `NetworkGraph(nodes:edges:title:tint:)` | [network-graph.md](components/network-graph.md) |
+| NetworkGraph | `NetworkGraph(nodes:edges:title:tint:layout:)` | [network-graph.md](components/network-graph.md) |
 
 ## NFR-1 帧率基准 / Frame-rate benchmark
 

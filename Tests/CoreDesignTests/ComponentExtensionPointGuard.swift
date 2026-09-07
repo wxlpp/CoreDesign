@@ -19,7 +19,7 @@ enum ComponentJudgeSources {
 @Suite("J-2 样式扩展点")
 struct ComponentExtensionPointGuard {
     static let knownMissingExtensionPoints: Set<String> = [
-        "ActivityHeatmap", "BeforeAfterSlider", "NetworkGraph", "RadarChart", "RingChart",
+        "ActivityHeatmap", "BeforeAfterSlider", "RadarChart", "RingChart",
     ]
 
     static let extensionPointFollowUpIssue = "#312"
@@ -43,14 +43,15 @@ struct ComponentExtensionPointGuard {
         #expect(result.satisfied["RatingDisplay"]?.contains("RatingStyle") == true,
                 "customStyleProtocol 通路（#41 新增的第三例，与 Rating 复用同一个协议）未走通：\(result.satisfied["RatingDisplay"] ?? "(缺)")")
 
-        withKnownIssue("5 条待补的扩展点，移交 #312（#299 重判落出口 1，实现未跟上）") {
+        withKnownIssue("4 条待补的扩展点，移交 #312（#299 重判落出口 1，实现未跟上）") {
             #expect(result.missing.isEmpty, "这些语义组件缺样式扩展点：\n\(result.diagnostics.joined(separator: "\n"))")
         }
 
         #expect(Set(result.missing) == Self.knownMissingExtensionPoints,
                 """
                 J-2 违规集合变了：实际 \(result.missing.sorted())，已知 \(Self.knownMissingExtensionPoints.sorted())。\
-                ⚠️ 已知集合现为 5 条（`#299` 重判落出口 1、实现移交 `#312`）；`#65` 收口后它曾是空集。\
+                ⚠️ 已知集合现为 4 条（`#299` 重判落出口 1、实现移交 `#312`）；`#65` 收口后它曾是空集。\
+                ⚠️ `NetworkGraph` 已由 `#312` 以形态 D2 补上 `NetworkGraphLayout`，从本集合移出。\
                 红了意味着新增了缺扩展点的语义组件 ⇒ 要么补扩展点，要么在公约 §2 走一次判定\
                 （允许得出形态 C「承认差异存在、本轮不开扩展点」，须在 notes 写明理由）。\
                 ⚠️ **不要**为了让它变绿而把新条目塞回 knownMissingExtensionPoints —— 那个集合的\
