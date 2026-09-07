@@ -147,11 +147,29 @@ bash scripts/api-surface-diff.sh <base>                            # 新增侧�
 
 三档 RGB 几乎相同（`#787880` / `#767680` / `#747480`），**区分几乎全靠 α**。
 
-改后 distinct 数（**必带平台与外观限定**）：**iOS 深色 6 / iOS 浅色 5 / macOS 5**。
+改后 distinct 数（**必带平台与外观限定**）：**iOS 深色 6 / iOS 浅色 4 /
+macOS 身份层 5、取值层 4**。
+
+> ⚠️ **「iOS 浅色 5」是本行原写的数，已失真**：`#225`（`eb3efbd`）把 `.floating` 改成
+> **按外观分道**后，iOS 浅色的 `.floating` 落到 `systemBackground`、与 `.content` 同值
+> ⇒ distinct 由 5 变 4，判据 `SurfaceContrastTests.surfaceKindTokensAreFourDistinctInLight` 同次改成
+> `resolved.count == 4`（**引方法名不引行号**——行号会漂，见 `#337`）。
+> 而 `eb3efbd` **一个 docs 文件都没碰**（`git show --stat`）⇒ 这份活文档漏接了那次更正，
+> 直到 `#239` 才补上。
 
 > ⚠️ **三个数字不同量纲**：iOS 两个是 `Color.Resolved` **逐位**实测（模拟器上取值）；
-> macOS 那个是 **token 身份层**——AppKit 无 WindowServer 会话时颜色会塌成同一
-> fallback RGBA，故 macOS 侧刻意不解析、只比 `Color` 承载的 `NSColor` 是否同一常量。已知的相等项均为系统色族的物理下限，已钉成显式断言：iOS 浅色 `.canvas == .sidebar`；macOS 下 `.content` / `.card` / `.grouped` / `.canvasSubtle` / `.sidebar` 五路同落 `controlBackgroundColor`；全平台 `.overlay == .panel`（二者走同一 token，border 与 radius 也相同）。
+> **macOS 那个 5 是 token 身份层**的数——只比 `Color` 承载的 `NSColor` 是否同一常量。
+> ⚠️ **macOS 侧的取值层数字是 4，不是 5**（`#239` 实测）：`.canvas` 与 `.content` / `.card` /
+> `.grouped` / `.canvasSubtle` / `.sidebar` 五路**解析值逐位相同**，`windowBackgroundColor`
+> 与 `controlBackgroundColor` 在本代 macOS 上同值 ⇒ 取值层是「五路碰撞 + 三档 fill」= 4。
+> ⚠️ 本行原写「AppKit 无 WindowServer 会话时颜色会塌成同一 fallback RGBA，故 macOS 侧刻意
+> 不解析」——`#239` **两句都推翻**：macOS 侧现在有无条件的取值层判据（在 CI 上跑），
+> 而那个前提复现不出来（拒掉 windowserver 的 mach-lookup 后取值逐位不变；拒读
+> `SystemAppearance.bundle` 是硬崩不是塌缩）。逐条见 `docs/DESIGN-FOUNDATION.md`。
+> 已知的相等项均为系统色族的物理下限，已钉成显式断言：iOS 浅色 `.canvas == .sidebar`
+> **与 `.floating == .content`**（后者是 `#225` 分道的结果，正是让浅色 5 变 4 的那一对）；
+> macOS 下 `.content` / `.card` / `.grouped` / `.canvasSubtle` / `.sidebar` 五路同落
+> `controlBackgroundColor`；全平台 `.overlay == .panel`（二者走同一 token，border 与 radius 也相同）。
 
 > **本条只担保「解析值不同」，不担保「肉眼可辨」**。三档填充的 RGB 几乎相同、只靠 α 区分，逐位判据会平凡通过；观感结论由视觉复核（Issue #225）给出。
 
