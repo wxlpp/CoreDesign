@@ -7,10 +7,14 @@ struct SingleSourceOfTruthGuard {
 
     private static let anchors = ["D-299-1", "D-299-2"]
 
+    /// ⚠️ **按裸子串匹配**：`全口径` 这类通用词组会被**含它的更长词**命中
+    /// （实测「安**全口径**统一后再核」判红）。这是有意的 fail-closed，改措辞即可通过
+    /// —— 失败消息带命中处上下文，就是为了让这种误伤一眼读得出来，不用去查扫描面配置。
     private static let sourceOnly = [
         "第 2 轮终审 F-2",
         "第 2 轮终审 F-4",
         "基数统一为 2",
+        "全口径",
         "用放宽后的谓词判",
         "两处基数不得再打架",
         "3D Ellipse",
@@ -44,15 +48,12 @@ struct SingleSourceOfTruthGuard {
     /// ⚠️⚠️ **清单按「处」登记，不是按文件**：评论 ② 数错的正是「同一文件里有两处、
     /// 人肉只数到一处」。只钉文件集合时，把同文件的第 2 处静默删掉**判不出来**（实测全绿）。
     ///
-    /// ⚠️ **只钉这一条事实**，理由**不是**「另外三组已被 `sourceOnly` 覆盖」——那是假的：
-    /// `sourceOnly` 里只有 `第 2 轮终审 F-2` 与 `基数统一为 2` 两组。另两组逐条说：
-    /// - `按 Swift Charts 口径` 是 PR #324 **有意不收口**的**结论限定词**（那条 PR 正文点名），
-    ///   它出现在每条组件本地的结论里、没有单一的更正值可钉，本表管不了；
-    /// - `全口径` **不是** #324 点名的（那条 PR 正文只在更正数字里提过它一次），
-    ///   今天**组件本地已经 0 处**，真源之外只剩 `docs/component-contract-revisions.md`
-    ///   的 R-48 台账那一处 ⇒ 它其实最接近能直接进 `sourceOnly`，只差把那处定性。
-    ///   ⚠️ **有意不写「真源里几处」**：写下那个计数的那句话本身就会变成新的一处。
-    ///   **本 PR 不动它**，定性移交 **#338**。
+    /// ⚠️ **只钉这一条事实**，理由**不是**「其余几组已被 `sourceOnly` 覆盖」——四组样板短语里
+    /// `sourceOnly` 收了三组，**唯一不收的是 `按 Swift Charts 口径`**：它是 PR #324 点名
+    /// **有意不收口**的**结论限定词**，出现在每条组件本地的结论里、没有单一的更正值可钉，
+    /// 本表也管不了它。
+    /// ⚠️ **有意不写任何「几处」的计数**：写下计数的那句话本身就会变成新的一处
+    /// （`#316` 实测过一次）。要数就现场 `git grep`。
     ///
     /// ⚠️ 本表判的是**短语计数 + 更正值正则**，不是 `#316` 收口方案第 3 条字面写的
     /// 「每个落点**逐字包含**当前措辞」——各落点的措辞本来就不逐字相同。这是有意的弱化。
@@ -61,8 +62,8 @@ struct SingleSourceOfTruthGuard {
         (
             key: "RingChart 的计入数会从 3 掉到 ≤1、落点翻回步骤 4",
             phrase: "翻回步骤 4",
-            // ⚠️ `≤1` 是 `#315` 第 4 轮的更正值。写成裸 `1` 是**旧的、已被推翻的**形态：
-            // 那一列只按 Swift Charts 口径核过，全口径未核完 ⇒ 精确值是 `≤1` 不是 `1`。
+            // ⚠️ `≤1` 是 `#315` 第 4 轮的更正值，裸 `1` 是**旧的、已被推翻的**形态。
+            // 理由在真源 `D-299-1`，本文件不复述（`全口径` 已进 `sourceOnly`）。
             // ⚠️ 用正则而不是 `contains("≤1")` —— 后者会被 `≤10` / `≤1.5` 满足。
             corrected: "≤ ?1(?![0-9.])",
             sites: [
@@ -92,6 +93,17 @@ struct SingleSourceOfTruthGuard {
     /// ⚠️ 比 `componentDocsPointBack` 那处**更宽**（那边只折 `\n` 与 ≥2 个空格），不要说成「口径一致」。
     private static func folded(_ text: String) -> String {
         text.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    }
+
+    /// 命中处前后各 20 个折叠字符，给失败消息用。
+    private static func context(_ phrase: String, in body: String, radius: Int = 20) -> String {
+        let flat = Self.folded(body)
+        guard let hit = flat.range(of: phrase) else { return phrase }
+        let start = flat.index(hit.lowerBound, offsetBy: -radius, limitedBy: flat.startIndex)
+            ?? flat.startIndex
+        let end = flat.index(hit.upperBound, offsetBy: radius, limitedBy: flat.endIndex)
+            ?? flat.endIndex
+        return String(flat[start..<end])
     }
 
     #if os(macOS)
@@ -164,7 +176,9 @@ struct SingleSourceOfTruthGuard {
                 guard let body = try? String(contentsOf: url, encoding: .utf8) else { continue }
                 scannedPaths.insert(relative)
                 for phrase in Self.sourceOnly where body.contains(phrase) {
-                    offenders.append("\(relative) 出现了只应在真源里的「\(phrase)」")
+                    offenders.append(
+                        "\(relative) 出现了只应在真源里的「\(phrase)」：…\(Self.context(phrase, in: body))…"
+                    )
                 }
             }
         }
@@ -326,7 +340,7 @@ struct SingleSourceOfTruthGuard {
                     #expect(matched, """
                     \(site) 第 \(occurrence) 处「\(fact.phrase)」附近没有更正后的取值
                     （正则 `\(fact.corrected)`）——写成裸 `1` 是已被 `#315` 第 4 轮推翻的旧形态
-                    （那一列只按 Swift Charts 口径核过，全口径未核完 ⇒ 精确值是 `≤1`）。
+                    （精确值是 `≤1` 不是 `1`；理由见真源 `D-299-1`）。
 
                     上下文：…\(context.suffix(80))
                     """)
