@@ -32,12 +32,103 @@ struct SingleSourceOfTruthGuard {
 
     private static let registryComponents = ["ActivityHeatmap", "RadarChart", "RingChart"]
 
+    /// `#316` 收口方案第 3 条要的那张「事实键 → 落点清单」表。
+    ///
+    /// 上面 `sourceOnly` 管的是**论证**（只许待在真源里）；本表管的是**结论**——它按设计
+    /// 分散在各组件本地，收不掉，只能逐处钉死。
+    ///
+    /// ⚠️ 这一条不是假想：`#315` 第 4 轮普查发现「`RingChart` 计入数 3 → ≤1」这个事实
+    /// **实有 5 处**——上一轮**只改了 1 处**（真源），终审点名「两份副本」（合计 3），
+    /// **连终审自己的落点计数也少了两处**。扇出面已经大到人肉普查普遍数错。
+    ///
+    /// ⚠️⚠️ **清单按「处」登记，不是按文件**：评论 ② 数错的正是「同一文件里有两处、
+    /// 人肉只数到一处」。只钉文件集合时，把同文件的第 2 处静默删掉**判不出来**（实测全绿）。
+    ///
+    /// ⚠️ **只钉这一条事实**，理由**不是**「另外三组已被 `sourceOnly` 覆盖」——那是假的：
+    /// `sourceOnly` 里只有 `第 2 轮终审 F-2` 与 `基数统一为 2` 两组。另两组逐条说：
+    /// - `按 Swift Charts 口径` 是 PR #324 **有意不收口**的**结论限定词**（那条 PR 正文点名），
+    ///   它出现在每条组件本地的结论里、没有单一的更正值可钉，本表管不了；
+    /// - `全口径` **不是** #324 点名的（那条 PR 正文只在更正数字里提过它一次），
+    ///   今天**组件本地已经 0 处**，真源之外只剩 `docs/component-contract-revisions.md`
+    ///   的 R-48 台账那一处 ⇒ 它其实最接近能直接进 `sourceOnly`，只差把那处定性。
+    ///   ⚠️ **有意不写「真源里几处」**：写下那个计数的那句话本身就会变成新的一处。
+    ///   **本 PR 不动它**，定性移交 **#338**。
+    ///
+    /// ⚠️ 本表判的是**短语计数 + 更正值正则**，不是 `#316` 收口方案第 3 条字面写的
+    /// 「每个落点**逐字包含**当前措辞」——各落点的措辞本来就不逐字相同。这是有意的弱化。
+    /// ⚠️ **同义改写**（「回到步骤 4」「退回步骤 4」）对短语键表天然不可见，是形态本身的射程。
+    private static let factSites: [(key: String, phrase: String, corrected: String, sites: [(path: String, count: Int)])] = [
+        (
+            key: "RingChart 的计入数会从 3 掉到 ≤1、落点翻回步骤 4",
+            phrase: "翻回步骤 4",
+            // ⚠️ `≤1` 是 `#315` 第 4 轮的更正值。写成裸 `1` 是**旧的、已被推翻的**形态：
+            // 那一列只按 Swift Charts 口径核过，全口径未核完 ⇒ 精确值是 `≤1` 不是 `1`。
+            // ⚠️ 用正则而不是 `contains("≤1")` —— 后者会被 `≤10` / `≤1.5` 满足。
+            corrected: "≤ ?1(?![0-9.])",
+            sites: [
+                ("docs/contract-defects.md", 2),
+                ("docs/component-contract-revisions.md", 1),
+                ("docs/component-registry.json", 1),
+                ("docs/components/ring-chart.md", 1),
+            ]
+        ),
+    ]
+
     private static let landingSitesD2 = [
         "docs/components/orbiting-logos.md",
         "docs/component-contract-revisions.md",
     ]
 
     private static var repoRoot: URL { GuardScanRoots.repoRoot }
+
+    /// 本判据自己写着那些短语，扫描时必须跳过——**用精确路径而不是 `hasSuffix`**：
+    /// 后者会让任何以同名结尾的文件（`Tests/CoreDesignChartsTests/ZZSingleSourceOfTruthGuard.swift`）
+    /// 一并免检，实测能藏进一句失真的散文而全绿。
+    /// ⚠️ 代价：**本文件自身不受本判据保护**。它也是那条事实的一个落点
+    /// （上面 `factSites` 的文档注释里写着 `3 → ≤1`）⇒ 改那个值时要连同这里一起改。
+    private static let selfPath = "Tests/CoreDesignTests/SingleSourceOfTruthGuard.swift"
+
+    /// 把连续空白（含换行 / tab / CR）折成单个空格。
+    /// ⚠️ 比 `componentDocsPointBack` 那处**更宽**（那边只折 `\n` 与 ≥2 个空格），不要说成「口径一致」。
+    private static func folded(_ text: String) -> String {
+        text.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    }
+
+    #if os(macOS)
+    /// ⚠️ **`Process` 只在 macOS 的 Foundation 里有**。不加这个围栏，
+    /// `CoreDesignTests` **整个 target 在 iOS Simulator 腿编译失败**
+    /// （`error: cannot find 'Process' in scope`），连带 `DynamicTypeLayoutTests` /
+    /// `SurfaceContrastTests` 这些**只在 iOS 腿有效**的 suite 一起失守。
+    /// ⚠️ 本地 `swift test` 看不见这个错——那正是 CLAUDE.md 讲的 macOS 假绿。
+    private static func trackedFiles() throws -> [String] {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        // `-z`：⚠️ 默认 `core.quotePath=true` 会把非 ASCII 路径输出成 C 风格转义
+        //   （实测 `docs/探针.md` ⇒ `"docs/\346\216\242..."`），读不到就被静默跳过
+        //   ——**又一条「本地红 / CI 绿」**（本机 `.gitconfig` 恰好关了 quotePath）。`-z` 下原样输出。
+        // `--cached --others --exclude-standard`：连**未跟踪但未被 ignore** 的新文件一起列
+        //   （实测：新加的 `docs/zz.md` 不用先 `git add` 就能被判；`.claude/omsp/` 仍不列）。
+        process.arguments = ["git", "-C", Self.repoRoot.path, "ls-files", "-z",
+                             "--cached", "--others", "--exclude-standard"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            // ⚠️ 不静默降级成 FileManager 枚举 —— 那会让扫描面在两种环境下不同而无人察觉。
+            throw GitListFailure(status: process.terminationStatus)
+        }
+        return (String(data: data, encoding: .utf8) ?? "")
+            .split(separator: "\0").map(String.init)
+    }
+
+    private struct GitListFailure: Error, CustomStringConvertible {
+        let status: Int32
+        var description: String { "git ls-files 退出码 \(status) —— 本判据要求在 git 工作树里跑" }
+    }
+    #endif
 
     private static func text(_ relativePath: String) throws -> String {
         try String(contentsOf: Self.repoRoot.appendingPathComponent(relativePath), encoding: .utf8)
@@ -69,7 +160,7 @@ struct SingleSourceOfTruthGuard {
                 guard ["md", "json", "swift"].contains(url.pathExtension) else { continue }
                 let relative = GuardScanRoots.relativePath(url, from: Self.repoRoot)
                 guard relative != Self.sourceOfTruth else { continue }
-                guard !relative.hasSuffix("SingleSourceOfTruthGuard.swift") else { continue }
+                guard relative != Self.selfPath else { continue }
                 guard let body = try? String(contentsOf: url, encoding: .utf8) else { continue }
                 scannedPaths.insert(relative)
                 for phrase in Self.sourceOnly where body.contains(phrase) {
@@ -138,6 +229,109 @@ struct SingleSourceOfTruthGuard {
             #expect(entry != nil, "登记表里找不到 \(name)")
             guard let notes = entry?.notes else { continue }
             #expect(notes.contains(Self.pointer), "\(name) 的 notes 缺少指针「\(Self.pointer)」")
+        }
+    }
+
+    /// ⚠️ 用 `.enabled(if:)` **trait** 而不是在体内 `print` 一行 SKIP —— 与
+    /// `ColorGradeResolutionGuard` 同形（那条也是 trait，不是 print）。
+    /// 差别不是风格：`print` 版在 **xcresult 里记成 `passedTests`**，`skippedTests` 仍是 0
+    /// ⇒ 「跳过」只活在 console，而 CLAUDE.md 写明 `xcodebuild` 的 console 不可承重、
+    /// 权威值取 result bundle。那样等于往 iOS 腿的 passed 基线里灌一条 no-op。
+    nonisolated static let canListTrackedFiles: Bool = {
+        #if os(macOS)
+        true
+        #else
+        false
+        #endif
+    }()
+
+    @Test(
+        "每个事实的落点清单是穷尽的：清单里的文件都有它，清单外的文件都没有",
+        .enabled(
+            if: canListTrackedFiles,
+            "跳过：本条走 `git ls-files`（`Process` 只在 macOS 的 Foundation 里有），只在 macOS 腿跑。"
+        )
+    )
+    func factSitesAreExhaustive() throws {
+        // ⚠️ 体内这道 `#if` 与上面那个 trait **缺一不可，不是冗余**：
+        // `#if` 是**编译**需要（`trackedFiles()` 整个定义在 `#if os(macOS)` 里，删了 iOS 腿
+        // 就回到 `cannot find 'Process' in scope` 那条硬红）；trait 是**记账**需要
+        // （只靠 `#if` 的话这条在 iOS 上是个空跑的 passed，xcresult 的 `skippedTests` 为 0）。
+        #if os(macOS)
+        // ⚠️ **扫的是 `git ls-files`，不是 `FileManager` 枚举。** 两个理由：
+        // ① 结论类事实的扩散面比论证宽得多——`CLAUDE.md` / `.claude/epics/**` / `App/` 里
+        //    写一句同样判不出来（实测），而 `boilerplateStaysInSourceOfTruth` 只扫
+        //    `allRoots` + `docs` + `Tests`；
+        // ② 一旦把根扩到 `.claude` / `App` / `scripts`，`.gitignore` 掉的
+        //    `.claude/omsp/` `App/.derivedData/` `scripts/downstream-probe/.build/`
+        //    就都落在扫描面里 ⇒ **判据结果依赖本地状态**（实测：往 `.claude/omsp/` 里写一句
+        //    本地判红、CI 绿；主检出上那两个构建目录里有 1300 个会被读的文件）。
+        //    只扫**已跟踪文件**同时解决这两条。
+        let tracked = try Self.trackedFiles()
+        #expect(tracked.count > 100, "git ls-files 只返回 \(tracked.count) 个文件 —— 枚举异常")
+        for canary in ["CLAUDE.md", "docs/contract-defects.md", "Package.swift",
+                       "App/Sources/ComponentData.swift", "scripts/run-preview.sh"] {
+            #expect(tracked.contains(canary), "扫描面缺少 \(canary) —— `git ls-files` 异常")
+        }
+
+        for fact in Self.factSites {
+            var found: [String: Int] = [:]
+            let needle = Self.folded(fact.phrase)
+            for relative in tracked {
+                guard ["md", "json", "swift"].contains((relative as NSString).pathExtension) else { continue }
+                if relative == Self.selfPath { continue }
+                let url = Self.repoRoot.appendingPathComponent(relative)
+                // ⚠️ 读不出来**抛错**，不 `continue` —— 静默跳过正是上面 quotePath 那条的成因。
+                let body = try String(contentsOf: url, encoding: .utf8)
+                // ⚠️ **比对前折叠空白**：`#316` 正文 ③ 点名的正是「同一句样板在各副本里换行
+                // 位置不同 ⇒ `grep` 兜不住」，而这条判据就是来替代 grep 的。不折叠的第一版
+                // 对「翻回步骤\n4」这种未登记副本实测全绿。
+                let hits = Self.folded(body).components(separatedBy: needle).count - 1
+                if hits > 0 { found[relative] = hits }
+            }
+            let paths = fact.sites.map(\.path)
+            #expect(Set(paths).count == paths.count,
+                    "事实「\(fact.key)」的落点清单里有重复路径 \(paths) —— 表本身的笔误应当判红，不是让进程崩")
+            let expected = Dictionary(paths.indices.map { (paths[$0], fact.sites[$0].count) },
+                                      uniquingKeysWith: { a, _ in a })
+            #expect(found == expected, """
+            事实「\(fact.key)」的落点清单对不上（**按「处」比，不是按文件**）。
+            清单：\(expected.sorted { $0.key < $1.key })
+            实得：\(found.sorted { $0.key < $1.key })
+
+            ⚠️ 三个方向都要处理：**新增落点必须登进清单**（否则下次更正又会漏掉它，
+            `#315` 第 4 轮就是这么漏了两处的）；**清单里的落点消失也要判红**；
+            **同一文件里少一处 / 多一处同样判红** —— 评论 ② 数错的正是这一层，
+            只钉文件集合时它判不出来。
+            """)
+        }
+        #endif
+    }
+
+    @Test("每个落点上写的都是更正后的取值，不是被推翻的旧值")
+    func factSitesCarryTheCorrectedValue() throws {
+        for fact in Self.factSites {
+            for site in fact.sites.map(\.path) {
+                let body = Self.folded(try Self.text(site))
+                var cursor = body.startIndex
+                var occurrence = 0
+                let needle = Self.folded(fact.phrase)
+                while let range = body.range(of: needle, range: cursor..<body.endIndex) {
+                    occurrence += 1
+                    cursor = range.upperBound
+                    let lower = body.index(range.lowerBound, offsetBy: -160, limitedBy: body.startIndex)
+                        ?? body.startIndex
+                    let context = String(body[lower..<range.lowerBound])
+                    let matched = context.range(of: fact.corrected, options: .regularExpression) != nil
+                    #expect(matched, """
+                    \(site) 第 \(occurrence) 处「\(fact.phrase)」附近没有更正后的取值
+                    （正则 `\(fact.corrected)`）——写成裸 `1` 是已被 `#315` 第 4 轮推翻的旧形态
+                    （那一列只按 Swift Charts 口径核过，全口径未核完 ⇒ 精确值是 `≤1`）。
+
+                    上下文：…\(context.suffix(80))
+                    """)
+                }
+            }
         }
     }
 }
