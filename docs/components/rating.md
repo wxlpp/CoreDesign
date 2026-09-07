@@ -120,6 +120,10 @@ VStack {
   `String(localized: "\(value.formatted()) of \(Double(count).formatted())", bundle: .module)`
   组装（`Rating.accessibilityValueText(value:count:)`），半星精确播报（`Double.formatted()`，
   不取整），如「2.5 of 5」
+  ⚠️ **这句在启用态上未经运行期证实**：`#234` 的 a11y 冒烟里，挂了
+  `.accessibilityAdjustableAction` 的那个 `Rating` 在 a11y 树的 `AXValue` 投影里**不是字符串而是 `nan`**；
+  只有 `.disabled(true)` 与 `RatingDisplay`（都不挂该 action）读得到 `4 of 5`。
+  逐条见 `docs/issues/234-a11y-smoke.md` 结论 3，承接 [#332](https://github.com/wxlpp/CoreDesign/issues/332)。
 - `.accessibilityAdjustableAction`：VoiceOver increment / decrement 按 `step` 调整 `value`，
   clamp 在 `0...count`；外层 `.disabled(true)` 时不挂载该 action（只读展示态请用 `RatingDisplay`，它根本不挂 adjust action）
 - Phase 0 同时预登记了复数摘要键 `"%lld stars"`（如「5 stars」），供未来「满分摘要」类用法

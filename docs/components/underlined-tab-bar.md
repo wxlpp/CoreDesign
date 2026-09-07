@@ -45,3 +45,11 @@ UnderlinedTabBar(
 - 垂直间距：`CoreSpacing.sm`（文字顶部），`CoreSpacing.xs`（underline 左右）
 - 分隔线（trailing 存在时）：`Color.dividerDefault`，宽度 `CoreBorderWidth.hairline`
 - 滚动：横向 `ScrollView`，选中项自动 `scrollTo(.center)`
+
+## a11y 的一处已登记盲区
+
+tab 的选中态走 `.accessibilityAddTraits(self.isSelected ? .isSelected : [])`。
+⚠️ `#234` 的 a11y 冒烟**证实不了它落进了 AX 树**——用的那个工具（`axe describe-ui`）
+的 JSON 没有 traits 字段，实测点了 Tab 2 再 dump，树里除约 1 pt 的宽度变化（Tab 1 63→61.67、Tab 2 64→65.33）外无任何差异。
+**两个方向都判不了**：源码只证明声明存在。同形态另有六处，逐条见
+`docs/issues/234-a11y-smoke.md`。
