@@ -20,7 +20,7 @@ TARGETS = ["CoreDesign", "CoreDesignEffects", "CoreDesignCharts"]
 FLOORS = {
     "spacing": 11, "radius": 5, "border": 5, "typography": 12,
     "elevation": 4, "controlsize": 5,
-    "colors": 115, "components": 90, "enums": 28, "enumcases": 102,
+    "colors": 115, "components": 90, "enums": 28, "enumcases": 105,
     "protocols": 6, "viewext": 40, "styleext": 9, "others": 29,
 }
 
@@ -66,9 +66,29 @@ def depth_delta(line):
     return clean.count("{") - clean.count("}")
 
 
+def attribute_span(lines, index):
+    """从声明行往上，跳过连续属性行后的位置。
+
+    `@available(...)` / `@MainActor` / `@Observable` 挡在声明与文档注释之间时，不跳过
+    会把「有文档注释」误报成「源码缺摘要」——那是一句关于源码的假断言。
+    ⚠️ 射程：只认**单行**属性；跨行 `@available(` 本仓今天没有活样本。
+    """
+    cursor = index - 1
+    while cursor >= 0 and lines[cursor].strip().startswith("@"):
+        cursor -= 1
+    return cursor
+
+
+def is_deprecated(lines, index):
+    return any(
+        "@available(*, deprecated" in lines[cursor]
+        for cursor in range(attribute_span(lines, index) + 1, index)
+    )
+
+
 def doc_above(lines, index):
     out = []
-    cursor = index - 1
+    cursor = attribute_span(lines, index)
     while cursor >= 0 and lines[cursor].strip().startswith("///"):
         out.insert(0, lines[cursor].strip()[3:].strip())
         cursor -= 1
@@ -125,12 +145,32 @@ def is_component(tokens):
     return any(t in COMPONENT_CONFORMANCES or t.endswith("Style") for t in tokens)
 
 
+def split_top_level(text, sep=","):
+    """按**顶层**分隔符切分；括号 / 方括号 / 尖括号内的分隔符不算。"""
+    parts, depth, current = [], 0, []
+    for char in text:
+        if char in "([<":
+            depth += 1
+        elif char in ")]>":
+            depth -= 1
+        if char == sep and depth <= 0:
+            parts.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    parts.append("".join(current))
+    return parts
+
+
 def enum_cases(lines, start):
     """收集 enum 的 case。
 
-    只在 **enum 自身体那一层深度**收——`switch self { case let .leading(x): … }` 住在
-    更深的层，混进来会把 `let` 当成 case 名（`.let` 曾两次进入产物）。花括号计数前
-    剥注释与字符串，否则注释里的 `.mask {` 会跑飞。
+    只在 **enum 自身体那一层深度**收——`switch self { case let .leading(x): … }` 住在更深
+    的层，混进来会把 `let` 当成 case 名（`.let` 曾两次进入产物）。
+    一行可声明多个 case（`case subtle, regular, pronounced`），必须按顶层逗号切：只取
+    第一个的话产物会**声称**自己是完整列表却少了后面几个（曾漏掉
+    `MicroInteractionStrength` 的 2 个与 `SpinDirection` 的 1 个）。
+    花括号计数前剥注释与字符串，否则注释里的 `.mask {` 会跑飞。
     """
     cases = []
     depth = 0
@@ -140,10 +180,13 @@ def enum_cases(lines, start):
         if entered and depth <= 0:
             break
         if depth == 1:
-            for raw in re.findall(r"^\s*case\s+(?!let\b|var\b)([A-Za-z_]\w*)", body):
-                cases.append(raw)
-            for extra in re.findall(r";\s*case\s+(?!let\b|var\b)([A-Za-z_]\w*)", body):
-                cases.append(extra)
+            stripped = re.sub(r"^\s*@\w+(?:\([^)]*\))?\s+", "", body)
+            match = re.match(r"^\s*(?:indirect\s+)?case\s+(.+)$", stripped)
+            if match:
+                for part in split_top_level(match.group(1)):
+                    name = re.match(r"\s*([A-Za-z_]\w*)", part)
+                    if name and name.group(1) not in ("let", "var"):
+                        cases.append(name.group(1))
         depth += body.count("{") - body.count("}")
         if depth > 0:
             entered = True
@@ -199,7 +242,7 @@ def single_line_alias(lines, index):
 
     本仓的写法是**函数体换行**（`{` 在声明行末，表达式在下一行），所以不能只看同一行。
     """
-    line = lines[index]
+    line = strip_noise(lines[index]).rstrip()
     same = re.search(r"=\s*(.+?)\s*$", line)
     if same:
         return same.group(1)
@@ -277,6 +320,8 @@ def target_surface(root, target):
                 kind, name, tail = match.group(1), match.group(2), match.group(3)
                 qualified = ".".join([n for n, _ in stack] + [name])
                 doc = summarise(doc_above(lines, index))
+                if is_deprecated(lines, index):
+                    doc = "**[已弃用]** " + doc
                 tokens = conformance_tokens(tail)
                 conforms = tail.split("{")[0].strip()
                 if kind == "protocol":
@@ -420,7 +465,9 @@ def main():
         "别拿它当前景/背景色用）。其余各组为第 3 / 4 层。"
         "⇒ 原型标注里**不要**直接写第 2 层的名字，走对应的第 3 层别名"
         "（`surfaceBase` / `contentPrimary` …）。")
-    add("⚠️ 第 1 层色阶（`ColorGrade` 的 17 色相 × 10 档）**有意不列入本摘要**——组件里不直接用。\n")
+    add("⚠️ 第 1 层色阶（`ColorGrade` 的 17 色相 × 10 档）不作为**条目**列入。但下表 `→` 右手边\n"
+        "会出现色阶名（`secondaryAccent` / `neutralAccent` / `FunctionalColor` 显式保留品牌色阶）\n"
+        "——那一列**只作溯源，不要写进标注**。\n")
     total_colors = 0
     for group, rows in semantic_colors(root):
         total_colors += len(rows)
@@ -495,6 +542,15 @@ def main():
     for key, expected in FLOORS.items():
         add(f"| {key} | {counts.get(key, 0)} | {expected} |")
     add("")
+
+    # 新加一节却忘了加 FLOORS 条目会静默全绿——键集合不符直接判红。
+    if set(counts) != set(FLOORS):
+        print(
+            "FAIL counts 与 FLOORS 键集合不符："
+            f"counts 多 {set(counts) - set(FLOORS)}，FLOORS 多 {set(FLOORS) - set(counts)}",
+            file=sys.stderr,
+        )
+        return 1
 
     failed = [
         f"{key}: {counts.get(key, 0)} != {expected}"

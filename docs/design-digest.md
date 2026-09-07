@@ -10,7 +10,7 @@
 
 ## 与 `docs/component-registry.json` 的口径差
 
-两份台账射程不同，**名字对不上是正常的**：registry 的 62 条是「组件**契约**」射程，
+两份台账射程不同，**名字对不上是正常的**：registry 里 `repo=coredesign` 的 62 条（全表 87 条，另 25 条属别的仓）是「组件**契约**」射程，
 本文件的 90 条是「所有 `View` / `Shape` / `*Style` / `Transition` / `Layout` 遵从者」。
 ⚠️ 具体地，registry 里那条 `Toast` 是**契约名不是类型名**——`Sources/` 里没有名叫
 `Toast` 的类型（真名 `ToastItem` / `ToastHost`）。**以本文件为准**：它由源码派生。
@@ -54,7 +54,9 @@
    `contentSecondary` / `contentPrimary`，对它施加 `.tint(_:)` 静默无效。
 7. **反馈四件套分工**：页内信息条 → `Banner`；浮层瞬时反馈 → `ToastItem`（经 `.toastHost` 呈现，队列由 `ToastHost` 管；**没有名叫 `Toast` 的类型**）；
    实体的状态标记 → `StateLabel`（生命周期态）/ `Badge`（语义等级）；进行中 → `ProgressIndicator`
-   / `ProgressBar` / `.spinning`。**不要用 `Banner` 做浮层，也不要用 `ToastItem` 做常驻信息。**
+   / `.spinning`。
+   ⚠️ **`ProgressBar` 已弃用**（全仓唯一一个 `@available(*, deprecated)` 的公开符号），
+   改用 `ProgressView(value:).progressViewStyle(.core)`——就是上一条说的 `.core` 通路。**不要用 `Banner` 做浮层，也不要用 `ToastItem` 做常驻信息。**
 8. **Liquid Glass 只出现在 5 处**：`BottomInputBar`、`Carousel`、`SegmentedControl`、
    `.floatingGlass`、`TelegramGlassButtonModifier`。⚠️ 两个悬浮按钮样式**走的不是同一条**：
    `.circularGlass` 经 `TelegramGlassButtonModifier`，`.extendedFloat` 经 `.floatingGlass`。
@@ -144,7 +146,9 @@
 # 语义颜色（第 2–4 层）
 
 ⚠️ **本节跨层，不都是第 3 / 4 层**——按 CLAUDE.md《分层色彩系统》的定层：`SystemBackgroundColors` / `SystemLabelColors` 是**第 2 层**系统色桥接；`MaskColors` 的 `maskOpaque` **不在四层之内**（唯一契约是 α = 1，不是一个颜色决定，别拿它当前景/背景色用）。其余各组为第 3 / 4 层。⇒ 原型标注里**不要**直接写第 2 层的名字，走对应的第 3 层别名（`surfaceBase` / `contentPrimary` …）。
-⚠️ 第 1 层色阶（`ColorGrade` 的 17 色相 × 10 档）**有意不列入本摘要**——组件里不直接用。
+⚠️ 第 1 层色阶（`ColorGrade` 的 17 色相 × 10 档）不作为**条目**列入。但下表 `→` 右手边
+会出现色阶名（`secondaryAccent` / `neutralAccent` / `FunctionalColor` 显式保留品牌色阶）
+——那一列**只作溯源，不要写进标注**。
 
 ## `BorderColors`（10）
 
@@ -410,7 +414,7 @@
 
 ### `Components/ProgressBar/ProgressBar.swift`
 
-- **`ProgressBar`** *: View* — ⚠️ 源码缺摘要
+- **`ProgressBar`** *: View* — **[已弃用]** ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 
 ### `Components/ProgressIndicator/ProgressIndicator.swift`
 
@@ -545,7 +549,7 @@
 - *enum* **`ToastPresentation`**: `.floatingCapsule`, `.fullWidthBanner`, `.centeredHUD`
 - *struct* **`ToastItem`** — 单条 Toast 的数据载体。
 - *enum* **`ToastDefaults`** — Toast 行为的默认值常量集合。
-- *final class* **`ToastHost`** — ⚠️ 源码缺摘要
+- *final class* **`ToastHost`** — Scene 级的浮层 toast 队列与调度器，外壳形状由 `ToastPresentation` 三选一。
 
 ### `Environment/EnergyPolicy.swift`
 
@@ -635,7 +639,7 @@
 
 ### `Confetti.swift`
 
-- *enum* **`ConfettiRenderProbe`** — ⚠️ 源码缺摘要
+- *enum* **`ConfettiRenderProbe`** — `ConfettiCanvas` **真的画出了粒子**的帧数。
 
 ### `CoreDesignEffects.swift`
 
@@ -675,7 +679,7 @@
 
 ### `MicroInteractionSupport.swift`
 
-- *enum* **`MicroInteractionStrength`**: `.subtle`
+- *enum* **`MicroInteractionStrength`**: `.subtle`, `.regular`, `.pronounced`
 
 ### `OrbitingLogos.swift`
 
@@ -711,7 +715,7 @@
 
 ### `Spin.swift`
 
-- *enum* **`SpinDirection`**: `.clockwise`
+- *enum* **`SpinDirection`**: `.clockwise`, `.counterClockwise`
 
 ### `SwooshTransition.swift`
 
@@ -747,7 +751,7 @@
 ### `NetworkGraph.swift`
 
 - **`NetworkGraph`** *<Node: GraphNode>: View* — 力导向网络图。
-- *enum* **`NetworkGraphRenderProbe`** — ⚠️ 源码缺摘要
+- *enum* **`NetworkGraphRenderProbe`** — `NetworkGraph` **真的把边画出来了**的帧数。
 
 ### `RadarChart.swift`
 
@@ -845,7 +849,7 @@
 | colors | 115 | 115 |
 | components | 90 | 90 |
 | enums | 28 | 28 |
-| enumcases | 102 | 102 |
+| enumcases | 105 | 105 |
 | protocols | 6 | 6 |
 | viewext | 40 | 40 |
 | styleext | 9 | 9 |

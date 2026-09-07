@@ -97,7 +97,9 @@ struct DesignDigestSyncGuard {
     }
 
     nonisolated static func syntheticWorkflow(runLine: String, stepKeys: [String] = []) -> String {
-        let extra = stepKeys.map { "                \($0)" }.joined(separator: "\n")
+        // ⚠️ 缩进必须与 `run:` 同层：写深了这些键就不是 step 的直接子键，
+        // `disallowedStepKeys` 一条都看不到，fixture 会因为**别的规则**判红而空转。
+        let extra = stepKeys.map { "        \($0)" }.joined(separator: "\n")
         return """
         jobs:
           swiftpm:
@@ -127,6 +129,19 @@ struct DesignDigestSyncGuard {
         let yaml = Self.syntheticWorkflow(
             runLine: "run: \(Self.expectedRunCommand)", stepKeys: ["continue-on-error: true"]
         )
+        #expect(!Self.violations(inWorkflow: yaml).isEmpty)
+    }
+
+    @Test("合成输入：`run:` 折成跨行标量、续行挂 `|| true` ⇒ 判红")
+    func syntheticWorkflowWithScalarContinuationIsRejected() {
+        let yaml = """
+        jobs:
+          swiftpm:
+            steps:
+              - name: design-digest 未过期
+                run: \(Self.expectedRunCommand)
+                  || true
+        """
         #expect(!Self.violations(inWorkflow: yaml).isEmpty)
     }
 

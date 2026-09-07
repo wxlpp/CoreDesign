@@ -10,7 +10,7 @@
 
 ## 与 `docs/component-registry.json` 的口径差
 
-两份台账射程不同，**名字对不上是正常的**：registry 的 62 条是「组件**契约**」射程，
+两份台账射程不同，**名字对不上是正常的**：registry 里 `repo=coredesign` 的 62 条（全表 87 条，另 25 条属别的仓）是「组件**契约**」射程，
 本文件的 90 条是「所有 `View` / `Shape` / `*Style` / `Transition` / `Layout` 遵从者」。
 ⚠️ 具体地，registry 里那条 `Toast` 是**契约名不是类型名**——`Sources/` 里没有名叫
 `Toast` 的类型（真名 `ToastItem` / `ToastHost`）。**以本文件为准**：它由源码派生。
@@ -54,7 +54,9 @@
    `contentSecondary` / `contentPrimary`，对它施加 `.tint(_:)` 静默无效。
 7. **反馈四件套分工**：页内信息条 → `Banner`；浮层瞬时反馈 → `ToastItem`（经 `.toastHost` 呈现，队列由 `ToastHost` 管；**没有名叫 `Toast` 的类型**）；
    实体的状态标记 → `StateLabel`（生命周期态）/ `Badge`（语义等级）；进行中 → `ProgressIndicator`
-   / `ProgressBar` / `.spinning`。**不要用 `Banner` 做浮层，也不要用 `ToastItem` 做常驻信息。**
+   / `.spinning`。
+   ⚠️ **`ProgressBar` 已弃用**（全仓唯一一个 `@available(*, deprecated)` 的公开符号），
+   改用 `ProgressView(value:).progressViewStyle(.core)`——就是上一条说的 `.core` 通路。**不要用 `Banner` 做浮层，也不要用 `ToastItem` 做常驻信息。**
 8. **Liquid Glass 只出现在 5 处**：`BottomInputBar`、`Carousel`、`SegmentedControl`、
    `.floatingGlass`、`TelegramGlassButtonModifier`。⚠️ 两个悬浮按钮样式**走的不是同一条**：
    `.circularGlass` 经 `TelegramGlassButtonModifier`，`.extendedFloat` 经 `.floatingGlass`。
