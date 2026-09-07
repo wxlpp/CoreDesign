@@ -62,7 +62,69 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 ⚠️ **`MaskColors` 不属于本节（`#276` 新增，一个 token）**：`Color.maskOpaque` 是给 `.mask { … }` 用的**不透明基色**，唯一契约是 **α = 1**。它**不是一个颜色决定**——`mask` 只吃 alpha 通道，RGB 不参与合成（实测 `.mask { Color.black }` 与 `.mask { Color.white }` 逐字节相同），取白是任意的。
 之所以必须单列一个 token：Effects 层此前拿 `Color.primary` 当遮罩基色，而 `label` 族**不是满不透明的**——macOS/AppKit `labelColor` 实测 α = 0.8471（iOS/UIKit `label` 实测 1.0），`mask` 每处因此在 macOS 上额外乘 0.847。判据 `MaskOpaqueTokenTests` 在明暗两端守着 α = 1；新增 `.mask` 点位由 `MaskSiteRegistryGuard` 强制登记。
 
-**macOS 降级**：AppKit 没有 grouped background 系列。`systemGroupedBackground` 现降级到 `windowBackgroundColor`（此前误降级到与 `secondarySystemGroupedBackground` 相同的 `controlBackgroundColor`，导致 macOS 上画布与 raised 层同色、raised 层完全隐形——已在本次修正，`SystemBackgroundColorsMacOSTests` 守卫二者在浅色/深色下均可辨）。`secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground` 保持 `controlBackgroundColor`。
+**macOS 降级**：AppKit 没有 grouped background 系列。`systemGroupedBackground` 现降级到 `windowBackgroundColor`（此前误降级到与 `secondarySystemGroupedBackground` 相同的 `controlBackgroundColor`。⚠️ **`#120` 改的只是指向（身份层）**：`windowBackgroundColor` 与 `controlBackgroundColor` 在本代 macOS 上**取值本来就相同**，所以「画布与 raised 同色」这个现象 `#120` 没改变、在 AppKit 下也改变不了——macOS 上 raised 与 canvas 今天只靠 `.surface` 的 border 与 radius 区分）。⚠️ **`SystemBackgroundColorsMacOSTests` 守的是二者不再指向同一个 `NSColor`（身份层），不是它们的取值可辨**——逐位取值见下节。此处原写「守卫二者在浅色/深色下均可辨」，`#239` 证伪，已更正。`secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground` 保持 `controlBackgroundColor`。
+
+#### ⚠️⚠️ macOS 上这些 token 的**实际取值**（`#239` 实测，2026-09-07）
+
+判据历来在 `Color` **身份**层比（`Color.surfaceCanvas != Color.surfaceCard`），
+`#226` 又补了一层在**底层 `NSColor` 名字**上比 —— **两层都按 `#120` 的设计工作**
+（用来抓「有人把分支改回同一个 `NSColor`」）。`#239` 把它们**解析成 RGBA** 量了一遍。
+
+⚠️ **这些 token 在 macOS 上同值不是新发现**：`SystemBackgroundColors.swift` 里
+**6 个成员各自的 `///` 文档注释**（`#328` 引入）与 `SurfaceColors.swift` 都写着，
+`#239` 正文自己也写了「像素级同色」。`#239` 的增量是两条
+——**给它装上机器判据**，以及**指出若干判据的消息是取值层说法而断言是身份层**。
+
+**实测环境**：macOS 26.3.1（25D2128），辅助功能「增强对比度」「减少透明度」**均关闭**
+（`defaults read com.apple.universalaccess` 两个键均不存在 ⇒ 取默认值「关」）。
+⚠️ **本次没有开启后的对照数据**：下表的 α 与那条「五路取值相同」**是否随这两项变，未实测**
+——别把这句读成「已知会变」，也别读成「已知不变」。
+
+| SurfaceKind | token | 浅色 | 深色 |
+|---|---|---|---|
+| `.canvas` | `surfaceCanvas` → `windowBackgroundColor` | `#FFFFFFFF` | `#1E1E1EFF` |
+| `.content` / `.card` / `.grouped` | `surfaceCard` → `controlBackgroundColor` | **`#FFFFFFFF`** | **`#1E1E1EFF`** |
+| `.canvasSubtle` · `.sidebar` | 同上 | **同上** | **同上** |
+| `.control` | `surfaceInteractive` → `tertiarySystemFill` | `#0000000C`（α .047） | `#FFFFFF0C` |
+| `.floating` | `surfaceOverlay` → `secondarySystemFill` | `#00000014`（α .078） | `#FFFFFF14` |
+| `.overlay` / `.panel` | `surfacePanel` → `quaternarySystemFill` | `#00000007`（α .027） | `#FFFFFF07` |
+
+**两条结论**：
+
+1. ✅ **`.floating` 与 `.canvas` 取值确实不同**（一个是 α .078 的填充、一个不透明）
+   —— 这正是 `#239` 要验的那条命题，PRD v1 那个「`.floating == .canvas` on macOS」塌缩没有回来。
+2. ⚠️⚠️ **但 `.canvas` 与 `.content` / `.card` / `.canvasSubtle` / `.sidebar` 取值逐位相同**
+   （`windowBackgroundColor` 与 `controlBackgroundColor` 在本代 macOS 上同值），
+   **而判据 `macOSCanvasStandsApart` 的消息写着「塌缩」这种取值层说法** —— 它判的是
+   **身份比较**，与 `macOSFillTokensAreDistinct` 是**同一机制**，但**按 `#120` 的设计如此**
+   ⇒ **断言没错，错的是消息措辞**。
+   ⇒ `#239` 加了 `macOSFiveWayCollapseIsRealAtValueLevel` **在取值层如实钉住这个塌缩**，
+   并把 `macOSCanvasStandsApart` / `groupedBackgroundsDiffer` / `semanticSurfacesDiffer`
+   **三条的失败消息**从「塌缩 / 完全隐形 / 不可辨」改成「指向了同一个 `Color`」
+   （**测试名只改了 `macOSCanvasStandsApart` 一条**，另两条的 `@Test` 标题仍是「…不同色」
+   ——它们描述的就是身份层，本来没错），**断言一律不动**。
+
+⚠️ **取值这一层的判据一律无条件断言，不做「退化就跳过」的分叉。**
+**理由**：`#120` 描述的退化形态是「塌成**同一** fallback RGBA」——同值但**不透明**，
+任何靠 `opacity > 0` 的探针都判不出来，一分叉就等于给判据装了个恒真的跳过开关。
+逐条见 `resolutionIsAppearanceSensitive` 的失败消息。
+而那条「无 WindowServer 会话会塌成 fallback」的前提本身**复现不出来**（源头是 `#120` 的
+文件头注，已随 `#328` 删除，但 `docs/BREAKING-CHANGES.md` 与 `.claude/` 下的 PRD / epic
+沿用了它）：`sandbox-exec`
+拒掉 windowserver 的 mach-lookup 后 `CGSessionCopyCurrentDictionary()` 确为 nil，
+六个 `NSColor` 的解析值仍与 GUI 会话逐位相同；拒读 `SystemAppearance.bundle` 则是**硬崩**。
+且本仓早就在这条腿上无条件依赖 AppKit 系统色解析（`MaskOpaqueTokenTests` 断言
+`Color.primary` α == 0.8471、`AccentDerivationTests` 断言明暗互异）——⚠️ 措辞要准：
+**断言本身无条件、没有跳过分支**，但 `MaskOpaqueTokenTests` 的**期望值按平台分叉**
+（`#if canImport(UIKit)` 取 1.0、`#else` 取 0.8471）。⚠️ 「CI 上一直是绿的」这句**没有逐次核过**；
+`#239` 落地时核到的是两次 CI run，三条新判据**零 SKIP、全部 passed**。
+
+⚠️ **这仍然不是渲染证据**：`resolve(in:)` 拿的是 token 的解析值，不是屏幕上的像素。
+`#239` 附带要验的「macOS 浅色下 `.floating` 的 `secondarySystemFill` 读作浮起还是凹陷」
+是**观感**问题，需要 macOS 截图链路，本仓仍然没有
+（`scripts/run-snapshots.sh` 硬绑 `platform=iOS Simulator`，`App/project.yml` 两个 target
+都是 `platform: iOS`）⇒ **已按 `#239` owner 的书面指示改写为独立工作项
+[#341](https://github.com/wxlpp/CoreDesign/issues/341)**，不是就地丢掉。
 
 ### accent 衍生族（Task #120 交接，本节是承诺落盘的取值理由）
 
