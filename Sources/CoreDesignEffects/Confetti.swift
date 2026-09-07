@@ -37,6 +37,8 @@ struct ConfettiCore: ViewModifier {
         )
         let policy = state.policy
         let presentation = state.presentation(reduceMotion: self.reduceMotion)
+        let holdPresentation = EnergyState(scenePhase: .active, isLowPower: state.isLowPower)
+            .presentation(reduceMotion: self.reduceMotion)
 
         return content
             .overlay {
@@ -64,15 +66,16 @@ struct ConfettiCore: ViewModifier {
                     }
                 }
             }
-            .task(id: self.fire) { await self.runBurst() }
+            .task(id: self.fire) { await self.runBurst(presentation: holdPresentation) }
     }
 
-    private func runBurst() async {
+    private func runBurst(presentation: MotionPresentation) async {
         guard self.fire > 0 else { return }
         let startedAt = Date.now
         self.burstStart = startedAt
+        let hold = ConfettiBurst.holdDuration(presentation: presentation)
         do {
-            try await Task.sleep(for: .seconds(ConfettiBurst.duration))
+            try await Task.sleep(for: .seconds(hold))
         } catch {
             return
         }
@@ -204,6 +207,8 @@ nonisolated enum ConfettiBurst {
 
     static let restingProgress: Double = 0.45
 
+    static let staticHoldDuration: Double = 1.2
+
     static let staticFadeDuration: Double = 0.35
 
     static let spinTurns: Double = 540
@@ -222,6 +227,13 @@ nonisolated enum ConfettiBurst {
 
     static func shouldClear(current: Date?, startedAt: Date) -> Bool {
         current == startedAt
+    }
+
+    static func holdDuration(presentation: MotionPresentation) -> Double {
+        switch presentation {
+        case .resting: Self.staticHoldDuration
+        case .animated, .hidden: Self.duration
+        }
     }
 
     static func particle(at index: Int, count: Int) -> ConfettiParticle {

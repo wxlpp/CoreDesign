@@ -407,8 +407,15 @@ struct ConfettiTests {
                 "`.animated` 分支的第一句不是对 burstStart 的 `if let`（实为 `\(firstStatement)`）—— 双重门控被拆掉了一半")
         #expect(code.contains("switch presentation {"),
                 "两道闸的结论不再由 switch presentation 单点裁决")
-        #expect(code.contains("try await Task.sleep(for: .seconds(ConfettiBurst.duration))"))
+        #expect(code.contains("try await Task.sleep(for: .seconds(hold))"),
+                "sleep 的时长不再是 holdDuration 算出的那个 hold（#272）—— 也可能是层永不移除")
+        #expect(code.contains("ConfettiBurst.holdDuration("),
+                "那个时长不再按呈现档位取（#272）")
         #expect(code.contains("self.burstStart = nil"), "没有任何地方把 burstStart 清空 —— 层永不移除")
+    }
+
+    static func dense(_ text: String) -> String {
+        text.filter { !$0.isWhitespace }
     }
 
     static func bracedRegion(after marker: String, in code: String) -> String? {
@@ -528,5 +535,99 @@ struct ConfettiTests {
                 "静态庆祝层的相位落在了终帧或起帧上 —— 那一帧要么空要么全挤在中心")
         #expect(!code.contains("reduceMotionFallback("),
                 "Confetti 走的是降级形态 2，不该再叠 reduceMotionFallback 的脉冲")
+    }
+
+    @Test("停留窗口：只有 .resting 这一档短，另两档留在 duration（#272）")
+    func staticCelebrationHoldsShorterThanBurst() {
+        #expect(ConfettiBurst.holdDuration(presentation: .resting) == ConfettiBurst.staticHoldDuration)
+        #expect(ConfettiBurst.staticHoldDuration < ConfettiBurst.duration,
+                "静态层的停留窗口不比 burst 短 —— #272 要修的正是「RM 下反而更长」")
+
+        for presentation in MotionPresentation.allCases where presentation != .resting {
+            #expect(ConfettiBurst.holdDuration(presentation: presentation) == ConfettiBurst.duration,
+                    "\(presentation) 档不该走静态层的短窗口 —— .hidden 的取舍见 docs/components/confetti.md")
+        }
+
+        let vanishesAt = ConfettiBurst.staticHoldDuration + ConfettiBurst.staticFadeDuration
+        #expect(abs(vanishesAt - 1.55) < 1e-9,
+                "RM 下静态层完全消失的时刻不再是 1.55 s，实为 \(vanishesAt) s")
+    }
+
+    @Test("那条短窗口由 ConfettiCore 的状态机取，不是把计时器还给静态层（#272）")
+    func shorterWindowLivesInTheStateMachine() throws {
+        let code = MicroInteractionReduceMotionGuard.stripComments(
+            try ProcessingSweepTests.source("Confetti.swift")
+        )
+        guard let burst = Self.bracedRegion(
+            after: "private func runBurst(presentation: MotionPresentation) async {", in: code
+        ) else {
+            Issue.record("找不到 runBurst 声明")
+            return
+        }
+        let expectedRunBurst = """
+        {
+            guard self.fire > 0 else { return }
+            let startedAt = Date.now
+            self.burstStart = startedAt
+            let hold = ConfettiBurst.holdDuration(presentation: presentation)
+            do {
+                try await Task.sleep(for: .seconds(hold))
+            } catch {
+                return
+            }
+            if ConfettiBurst.shouldClear(current: self.burstStart, startedAt: startedAt) {
+                self.burstStart = nil
+            }
+        }
+        """
+        #expect(Self.dense(burst) == Self.dense(expectedRunBurst), """
+        runBurst 的函数体与期望**整段**不一致（比对前去掉全部空白，换行 / 缩进不影响）。
+
+        本判据有意钉整段而不是钉几行：钉几行的版本被这四条姊妹变异一起绕过 —— 循环 sleep
+        两次、内层 `let hold = 2.0` 遮蔽、首行把 `presentation` 重新绑成 `.animated`、
+        改用 `ContinuousClock().sleep` 躲开 `Task.sleep(` 的计数。它们的共同点是「在被钉的
+        那几行**之外**加东西」，逐条补丁关不掉这一族。
+
+        代价：合法地改 runBurst 必须同步更新上面那段期望串。对一个 12 行、承载「RM 下停留
+        1.2 s」这条无运行期证据的状态机，这个代价是刻意付的。
+
+        实得：
+        \(burst)
+        """)
+
+        guard let bodyRegion = Self.bracedRegion(
+            after: "func body(content: Content) -> some View {", in: code
+        ) else {
+            Issue.record("找不到 ConfettiCore.body 声明")
+            return
+        }
+        let bodyDense = Self.dense(bodyRegion)
+        #expect(bodyDense.contains(
+            "letholdPresentation=EnergyState(scenePhase:.active,isLowPower:state.isLowPower).presentation(reduceMotion:self.reduceMotion)returncontent"
+        ), "holdPresentation 的绑定不再是「scenePhase 钉成 .active 再过一遍共享闸」、或它后面不再紧跟 return content —— 尾巴上接个三元表达式就能把 .hidden 的坑原样放回来，而 ReduceMotionGuard 的 fed 是子串计数、挡不住")
+        #expect(bodyDense.contains(
+            ".task(id:self.fire){awaitself.runBurst(presentation:holdPresentation)}"
+        ), "调用点传给 runBurst 的不再是 holdPresentation —— 形参名对得上不代表实参来源对")
+        #expect(bodyRegion.components(separatedBy: "runBurst(").count - 1 == 1,
+                "body 里 runBurst 被调用不止一次 —— 再挂一个 .onChange(of: fire) 起第二条 burst，两条竞速会让先到期的那条被 shouldClear 挡掉")
+
+        guard let staticDecl = Self.bracedRegion(
+            after: "struct ConfettiStaticCelebration: View {", in: code
+        ) else {
+            Issue.record("找不到 ConfettiStaticCelebration 声明")
+            return
+        }
+        #expect(!staticDecl.contains("staticHoldDuration"),
+                "静态层自己读起了停留时长 —— 计时器正在往回搬（C-1 的成因）")
+        #expect(Self.dense(staticDecl).contains(
+            ".animation(.easeInOut(duration:ConfettiBurst.staticFadeDuration),value:self.active)"
+        ), """
+        静态层的淡出不再逐字是 `.easeInOut(duration: ConfettiBurst.staticFadeDuration)`。
+
+        「完全消失于 1.55 s」= 停留终点 1.2 + 淡出 0.35，**两半**。上面那条真值表只钉了
+        `staticHoldDuration + staticFadeDuration == 1.55` 这个常量算术，钉不住淡出**真用的是
+        哪个时长**：把这里改成 `duration: 1.15` 或给它接一个 `.delay(0.8)`，RM 下完全消失
+        就回到 2.35 s，而整个 CoreDesignEffectsTests 240 条全绿（实测）。
+        """)
     }
 }
