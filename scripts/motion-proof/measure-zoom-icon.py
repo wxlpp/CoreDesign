@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """逐帧量目的地那个饱和蓝图标（`photo.fill` + `.tint`）的质心与包围盒。
 
-用法：`python3 measure.py '<glob>' [visible_min]`（依赖 numpy + Pillow）。
+用法：`python3 measure-zoom-icon.py '<glob>' [visible_min]`（依赖 numpy + Pillow）。
 
 ⚠️ 本脚本的三个常数**只对 `#277` 那组录制成立**，不是通用门槛：
 - 掩码 `b > 150 and b - r > 70 and b - g > 50` 绑死在那个 tint 蓝上；
