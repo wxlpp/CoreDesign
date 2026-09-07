@@ -67,7 +67,8 @@ public extension Color {
         .tertiaryFill
     }
 
-    /// 面板 / 覆盖层容器背景（服务 `.surface(.panel)` 与 `.surface(.overlay)`）。
+    /// 贴底的静态面板容器背景（服务 `.surface(.panel)`）。⚠️ **不服务菜单 / popover**
+    /// —— iOS 实测 α 约 0.078 / 0.180、无模糊，叠在文字上会 ghosting（`#238`）。
     static var surfacePanel: Color {
         .quaternaryFill
     }

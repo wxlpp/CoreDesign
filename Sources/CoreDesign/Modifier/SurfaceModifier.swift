@@ -13,13 +13,13 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
     case control
     /// 浮于内容之上的表面：toast、浮动工具栏、底部栏。
     case floating
-    /// 覆盖层表面，如菜单与 popover。
-    case overlay
     /// 分组容器表面：背景 + 圆角、无描边，靠填充色对比定界，背景与 `.content` 同取 `surfaceRaised`。
     case grouped
     /// 兼容别名：更淡的画布。
     case canvasSubtle
-    /// 兼容别名：面板容器。
+    /// 贴底的静态面板容器 —— **不做菜单 / popover**（iOS α ≈ .078 / .180，无模糊，
+    /// 叠在文字上会 ghosting）。菜单 / popover **不在 `SurfaceKind` 射程**，走系统
+    /// `Menu` / `.popover`。取代已删除的 `.overlay`，逐条见 `#238`。
     case panel
     /// 兼容别名：侧栏容器。
     case sidebar
@@ -39,7 +39,6 @@ extension SurfaceKind {
         case .content: .surfaceCard
         case .control: .surfaceInteractive
         case .floating: .surfaceOverlay
-        case .overlay: .surfacePanel
         case .grouped: .surfaceCard
         case .canvasSubtle: .surfaceCanvasSubtle
         case .panel: .surfacePanel
@@ -54,7 +53,6 @@ extension SurfaceKind {
         case .content: .borderMuted
         case .control: .borderSubtle
         case .floating: .borderMuted
-        case .overlay: .borderDefault
         case .grouped: .clear
         case .canvasSubtle: .borderMuted
         case .panel: .borderDefault
@@ -69,7 +67,6 @@ extension SurfaceKind {
         case .content: CoreRadius.medium
         case .control: CoreRadius.small
         case .floating: CoreRadius.large
-        case .overlay: CoreRadius.medium
         case .grouped: CoreRadius.medium
         case .canvasSubtle: CoreRadius.medium
         case .panel: CoreRadius.medium
@@ -123,7 +120,6 @@ private struct SurfacePreviewGallery: View {
         ("content", .content),
         ("control", .control),
         ("floating", .floating),
-        ("overlay", .overlay),
         ("grouped", .grouped),
         ("canvasSubtle", .canvasSubtle),
         ("panel", .panel),
@@ -166,7 +162,6 @@ private struct SurfacePreviewGallery: View {
 private struct SurfaceCompositePreview: View {
     private let overlayKinds: [(String, SurfaceKind)] = [
         ("floating", .floating),
-        ("overlay", .overlay),
         ("panel", .panel),
     ]
     private let baseKinds: [(String, SurfaceKind)] = [

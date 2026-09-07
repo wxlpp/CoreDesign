@@ -87,7 +87,7 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 | `.canvasSubtle` · `.sidebar` | 同上 | **同上** | **同上** |
 | `.control` | `surfaceInteractive` → `tertiarySystemFill` | `#0000000C`（α .047） | `#FFFFFF0C` |
 | `.floating` | `surfaceOverlay` → `secondarySystemFill` | `#00000014`（α .078） | `#FFFFFF14` |
-| `.overlay` / `.panel` | `surfacePanel` → `quaternarySystemFill` | `#00000007`（α .027） | `#FFFFFF07` |
+| `.panel` | `surfacePanel` → `quaternarySystemFill` | `#00000007`（α .027） | `#FFFFFF07` |
 
 **两条结论**：
 
@@ -125,6 +125,42 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 （`scripts/run-snapshots.sh` 硬绑 `platform=iOS Simulator`，`App/project.yml` 两个 target
 都是 `platform: iOS`）⇒ **已按 `#239` owner 的书面指示改写为独立工作项
 [#341](https://github.com/wxlpp/CoreDesign/issues/341)**，不是就地丢掉。
+
+#### ⚠️ `#237` 裁决：三档填充**不靠底色区分**——如实承认，不拉阶梯
+
+`#237` 给了两条出路：**① 把阶梯真正拉开**（如 `.control` 升 `secondaryFill`）、
+**② 在 doc 里如实承认「档位区分靠 border + radius，不靠底色」**。
+现状是两头都不占：既没拉开，doc 又暗示底色能区分。**用户裁决走 ②。**
+
+⇒ **本节就是那次承认**：`.control` / `.floating` / `.panel` 三档的区分**主要来自
+`border` 与 `cornerRadius`，不是填充色**。设计与评审都不应指望用底色判档。
+
+**实测**（`#237` 的逐像素采样，三档叠在 `.canvas` 上，**iOS**）：
+
+| 档位 | 浅色（灰阶） | 深色（灰阶） |
+|---|---|---|
+| `.floating` | **—** ⚠️ 未测：浅色走不透明 `systemBackground`，不在同一族里 | 38 |
+| `.control`（`tertiaryFill`） | 227 | 28 |
+| `.panel`（`quaternaryFill`） | 232 | 21 |
+
+- **浅色**：`.control` 与两邻档各差**约 5 个灰阶**，整个阶梯**只占约 10 个灰阶**
+  ⇒ 并排都难分，单独出现不可能判档。
+- **深色**：并排勉强可分、**单独不可分**；⚠️⚠️ 而且 **`.control` `(28,28,30)` 与
+  `.content` `(28,28,29)` 逐位近同** —— **控件表面在深色下塌进内容表面**，
+  只剩 `borderSubtle` 与小圆角在撑。
+
+⚠️⚠️ **机器判据抓不到这一族，别拿它们当反证**：三档 RGB 几乎相同
+（`#787880` / `#767680` / `#747480`），区分几乎**全靠 α**；而 `SurfaceContrastTests`
+在 `Color.Resolved` 层比较，**α 不同即算 distinct ⇒ 平凡通过**。
+⇒ 「判据绿」说明不了「肉眼能分」。同理 `SurfaceKindAlphaContractGuard`（`#345`）
+只守 `0 < α < 1` 这个**档位契约**，同样不是可辨性的证据。
+
+⚠️ **`#225` 之后新增的一个副作用一并登记**：`.floating` 已按外观分道（浅色走不透明
+`systemBackground`），于是**浅色阶梯方向劈叉** —— `.floating` 变亮、`.panel` 仍变暗。
+「填充族在浅色下读作凹陷」这条批评现在**单独落在 `.panel` 头上**，比 `#225` 之前更显眼。
+
+⚠️ **本条不为「合并档位」背书**：三档在**语义**上仍是三档（`SurfaceModifier` 的
+`border` / `cornerRadius` 两个 switch 对它们取值不同），只是**底色不承担区分职责**。
 
 ### accent 衍生族（Task #120 交接，本节是承诺落盘的取值理由）
 

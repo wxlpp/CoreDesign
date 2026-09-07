@@ -102,7 +102,7 @@ struct SurfaceContrastTests {
         ("sidebar", .surfaceSidebar),
         ("control", .surfaceInteractive),
         ("floating", .surfaceOverlay),
-        ("overlay/panel", .surfacePanel),
+        ("panel", .surfacePanel),
     ]
 
     @Test("iOS 深色：SurfaceKind 的 token 解析出 6 个 distinct 值")
@@ -152,14 +152,14 @@ struct SurfaceContrastTests {
         )
     }
 
-    @Test("三个叠加档位（control / floating / overlay+panel）走填充族且两两不同")
+    @Test("三个叠加档位（control / floating / panel）走填充族且两两不同")
     func overlayKindsUseDistinctFills() {
         for scheme in [ColorScheme.light, .dark] {
             let e = Self.env(scheme)
             let control = Color.surfaceInteractive.resolve(in: e)
             let floating = Color.surfaceOverlay.resolve(in: e)
             let panel = Color.surfacePanel.resolve(in: e)
-            for (name, v) in [("control", control), ("overlay/panel", panel)] {
+            for (name, v) in [("control", control), ("panel", panel)] {
                 #expect(v.opacity < 1.0, "\(scheme)：\(name) 不再半透明——叠加档位应走 FillColors")
                 // `#342`：只有上界会漏掉 `.clear` —— 它满足 `< 1.0`，而所有「不同吗」式
                 // 判据对全透明色一律假绿（`α = 0` 与什么都不同）。
@@ -174,7 +174,7 @@ struct SurfaceContrastTests {
 
             #expect(
                 control.opacity > panel.opacity,
-                "\(scheme)：control(tertiaryFill) 的 α 应高于 overlay/panel(quaternaryFill)"
+                "\(scheme)：control(tertiaryFill) 的 α 应高于 panel(quaternaryFill)"
             )
             if scheme == .dark {
                 #expect(
@@ -183,8 +183,8 @@ struct SurfaceContrastTests {
                 )
             }
             #expect(control != floating, "\(scheme)：control 与 floating 同值")
-            #expect(control != panel, "\(scheme)：control 与 overlay/panel 同值")
-            #expect(floating != panel, "\(scheme)：floating 与 overlay/panel 同值")
+            #expect(control != panel, "\(scheme)：control 与 panel 同值")
+            #expect(floating != panel, "\(scheme)：floating 与 panel 同值")
             if scheme == .light {
                 #expect(
                     floating == Color.surfaceCard.resolve(in: e),

@@ -23,7 +23,7 @@ struct SurfaceKindAlphaContractGuard {
     ) -> AlphaContract {
         switch kind {
         case .canvas, .content, .grouped, .canvasSubtle, .sidebar, .card: .opaque
-        case .control, .overlay, .panel: .translucent
+        case .control, .panel: .translucent
         case .floating:
             #if canImport(UIKit)
                 scheme == .light ? .opaque : .translucent
@@ -40,7 +40,7 @@ struct SurfaceKindAlphaContractGuard {
         ("canvas", .canvas), ("content", .content), ("grouped", .grouped),
         ("canvasSubtle", .canvasSubtle), ("sidebar", .sidebar), ("card", .card),
         ("control", .control), ("floating", .floating),
-        ("overlay", .overlay), ("panel", .panel),
+        ("panel", .panel),
     ]
 
     @Test("#345：每个 SurfaceKind 经映射层取到的色都满足它那一档的 α 契约")
