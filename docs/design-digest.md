@@ -40,9 +40,12 @@
    **不写色相名、不写 hex、不写 `brand-5` 这类色阶**——色阶是第 1 层，组件里不直接用。
 2. **间距 / 圆角 / 描边一律写 token 名**（`CoreSpacing.md`、`CoreRadius.medium`、
    `CoreBorderWidth.thin`），不写裸数字。字号写 `CoreTypography.Token` 的档位名。
-3. **容器背景走 `.surface(_:)`**，从这 10 个 `SurfaceKind` 里选，不要自己拼背景色 + 圆角 + 描边：
-   `.canvas` `.content` `.control` `.floating` `.overlay` `.grouped` `.canvasSubtle` `.panel`
+3. **容器背景走 `.surface(_:)`**，从这 9 个 `SurfaceKind` 里选，不要自己拼背景色 + 圆角 + 描边：
+   `.canvas` `.content` `.control` `.floating` `.grouped` `.canvasSubtle` `.panel`
    `.sidebar` `.card`。
+   ⚠️ **菜单 / popover 不在 `SurfaceKind` 射程**——走系统 `Menu` / `.popover`，
+   不要拿 `.panel` 顶替（它是贴底的静态面板，无模糊，叠在文字上会 ghosting）。
+   ⚠️ 曾有一个 `.overlay`，`#238` 已删除，别再写。
 4. **分组设置页 = `InsetGroupedSection` + `SettingsRow`**（尾部指示符用 `SettingsRowChevron`）。
    它只复刻 `.insetGrouped` 的**观感**，没有 `List` 的数据 / 滚动 / 编辑能力——需要那些能力时
    写明「用原生 `List`，行用 `SettingsRow`」。
@@ -288,7 +291,7 @@
 | `Color.surfaceCanvas` | 页面级最底层背景，指向 `systemGroupedBackground`。 |
 | `Color.surfaceCanvasSubtle` | 次级内容区背景（侧栏 / 表格头）。 |
 | `Color.surfaceCanvasInset` | 凹陷 well / 输入框内底色，指向 `FillColors.tertiaryFill`。 |
-| `Color.surfacePanel` | 面板 / 覆盖层容器背景（服务 `.surface(.panel)` 与 `.surface(.overlay)`）。 |
+| `Color.surfacePanel` | 贴底的静态面板容器背景（服务 `.surface(.panel)`）。 |
 | `Color.surfaceSidebar` | 侧栏 / 导航容器背景，走 `surfaceElevated`——**在 iOS 上**与画布、内容表面拉开三档； macOS 上三者同色（系统无分层背景 API）。 |
 | `Color.surfaceCard` | 卡片容器背景，别名 `surfaceRaised`——**在 iOS 上**浮于画布之上、深色下不与画布塌缩同色； macOS 上与画布同色。 |
 
@@ -619,10 +622,9 @@
   - `.content` — 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。 列表行不用本 kind，`ListRow` 走 `.surface(.canvas)` 贴画布。
   - `.control` — 交互控件表面：按钮、输入框、分段控件。
   - `.floating` — 浮于内容之上的表面：toast、浮动工具栏、底部栏。
-  - `.overlay` — 覆盖层表面，如菜单与 popover。
   - `.grouped` — 分组容器表面：背景 + 圆角、无描边，靠填充色对比定界，背景与 `.content` 同取 `surfaceRaised`。
   - `.canvasSubtle` — 兼容别名：更淡的画布。
-  - `.panel` — 兼容别名：面板容器。
+  - `.panel` — 贴底的静态面板容器 —— **不做菜单 / popover**（iOS α ≈ .078 / .180，无模糊， 叠在文字上会 ghosting）。菜单 / popover **不在 `SurfaceKind` 射程**，走系统 `Menu` / `.popover`。取代已删除的 `.overlay`，逐条见 `#238`。
   - `.sidebar` — 兼容别名：侧栏容器。
   - `.card` — 兼容别名：卡片容器。
 
@@ -918,7 +920,7 @@
 | colors | 115 | 115 |
 | components | 90 | 90 |
 | enums | 28 | 28 |
-| enumcases | 105 | 105 |
+| enumcases | 104 | 104 |
 | protocols | 6 | 6 |
 | viewext | 40 | 40 |
 | styleext | 9 | 9 |

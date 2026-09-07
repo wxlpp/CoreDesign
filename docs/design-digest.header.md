@@ -40,9 +40,12 @@
    **不写色相名、不写 hex、不写 `brand-5` 这类色阶**——色阶是第 1 层，组件里不直接用。
 2. **间距 / 圆角 / 描边一律写 token 名**（`CoreSpacing.md`、`CoreRadius.medium`、
    `CoreBorderWidth.thin`），不写裸数字。字号写 `CoreTypography.Token` 的档位名。
-3. **容器背景走 `.surface(_:)`**，从这 10 个 `SurfaceKind` 里选，不要自己拼背景色 + 圆角 + 描边：
-   `.canvas` `.content` `.control` `.floating` `.overlay` `.grouped` `.canvasSubtle` `.panel`
+3. **容器背景走 `.surface(_:)`**，从这 9 个 `SurfaceKind` 里选，不要自己拼背景色 + 圆角 + 描边：
+   `.canvas` `.content` `.control` `.floating` `.grouped` `.canvasSubtle` `.panel`
    `.sidebar` `.card`。
+   ⚠️ **菜单 / popover 不在 `SurfaceKind` 射程**——走系统 `Menu` / `.popover`，
+   不要拿 `.panel` 顶替（它是贴底的静态面板，无模糊，叠在文字上会 ghosting）。
+   ⚠️ 曾有一个 `.overlay`，`#238` 已删除，别再写。
 4. **分组设置页 = `InsetGroupedSection` + `SettingsRow`**（尾部指示符用 `SettingsRowChevron`）。
    它只复刻 `.insetGrouped` 的**观感**，没有 `List` 的数据 / 滚动 / 编辑能力——需要那些能力时
    写明「用原生 `List`，行用 `SettingsRow`」。
