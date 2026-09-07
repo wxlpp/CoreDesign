@@ -29,7 +29,10 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 
 // MARK: - SurfaceKind Token Mapping
 
-private extension SurfaceKind {
+// 有意是 internal 而不是 private：`SurfaceKindAlphaContractGuard` 要按 kind 取色（#345）。
+// 改回 private 会让那条判据编译不过，而它守的是「映射层某一行被改成 .clear / 半透明」——
+// token 层的判据（#342）对此假绿。
+extension SurfaceKind {
     var background: Color {
         switch self {
         case .canvas: .surfaceCanvas

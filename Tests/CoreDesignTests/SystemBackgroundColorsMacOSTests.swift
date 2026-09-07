@@ -176,10 +176,11 @@ struct SystemBackgroundColorsMacOSTests {
                 / `macOSFillTokensAreDistinct` **十条全绿**（`#342` 实测）。
                 没有一条问过「它**在**吗」。
                 ⚠️ **背景档（`.canvas` / `.content`）有意不进本判据**：它们本来就不透明，
-                对它们断言 `α > 0` 恒真、是噪声。⚠️ 但「它们必须不透明」这件事
-                **今天全仓没有任何判据守**（`#345`）。
-                ⚠️ **射程只到 token**：`SurfaceKind` → token 的映射层（`SurfaceModifier` 的
-                `background`）被改成 `.clear` 时本条照绿，见 `#345`。
+                对它们断言 `α > 0` 恒真、是噪声。「它们必须不透明」由
+                `SurfaceKindAlphaContractGuard` 守（`#345`）。
+                ⚠️ **本条射程只到 token**：`SurfaceKind` → token 的映射层
+                （`SurfaceModifier` 的 `background`）被改坏时本条照绿，
+                那一层同样由 `SurfaceKindAlphaContractGuard` 守。
                 """)
                 #expect(a < 1, """
                 \(scheme)：叠加档 \(name) 变成不透明（α = \(a)）——叠加档位应走填充族。
