@@ -2,7 +2,7 @@
 
 ## 执行摘要
 
-OhMyDesign 当前的 v2 路线图完全对齐 GitHub Primer。本 spec 替代现有 `ohmydesign-v2-tokens` 和 `ohmydesign-v2-components` 两个 PRD，引入**三合一设计语言**：Apple 系统底层 + GitHub Primer 结构骨架 + Telegram 玻璃按钮皮肤。按页面区域分 5 个 Zone 分阶段交付，目标是能用这套组件拼出完整的 GitHub PR 页面。
+OhMyDesign 当前的 v2 路线图完全对齐 GitHub Primer。本 spec 替代现有 `coredesign-v2-tokens` 和 `coredesign-v2-components` 两个 PRD，引入**三合一设计语言**：Apple 系统底层 + GitHub Primer 结构骨架 + Telegram 玻璃按钮皮肤。按页面区域分 5 个 Zone 分阶段交付，目标是能用这套组件拼出完整的 GitHub PR 页面。
 
 ## 设计哲学
 
@@ -507,5 +507,5 @@ Z1 → Z2 → Z3 → Z4 → Z5。每个 zone 产出一个可视觉验证的块�
 ## 与现有 v2 PRD 的关系
 
 本 spec **取代**以下两份：
-- `ohmydesign-v2-tokens` —— token 系统已部分实现；按 Z1.1 扩展
-- `ohmydesign-v2-components` —— 组件重构范围合并到 Z1.2 + Z2–Z5 的新组件
+- `coredesign-v2-tokens` —— token 系统已部分实现；按 Z1.1 扩展
+- `coredesign-v2-components` —— 组件重构范围合并到 Z1.2 + Z2–Z5 的新组件

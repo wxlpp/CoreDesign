@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Reference | [Apple Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines) |
-| Adopted at | `0.3.0`（epic `ohmydesign-native-foundation`，Issue #116） |
+| Adopted at | `0.3.0`（epic `coredesign-native-foundation`，Issue #116） |
 | Previously | `docs/PRIMER_VERSION.md`（GitHub Primer Primitives `v11.8.0`）—— 已删除，本文件是其替代物 |
 
 ## Why this exists
@@ -216,7 +216,7 @@ macOS `NSColor.textColor`。⚠️ macOS 取 `textColor` **而不是** `labelCol
 
 ## 决策记录
 
-- **2026-07-21 ~ 2026-07-23**（epic `ohmydesign-native-foundation`，Issue #116）——把地基从 Primer 换成 Apple HIG：删除 6 个 GitHub 专用组件与 Blossom trait / `CoreGradient`（Issue #117 / #118），重铸字体 / 圆角 / 控件尺寸 / 阴影 token（Issue #119），重铸语义色层与 accent 衍生族（Issue #120），组件调用点机械迁移（Issue #121），token 换值逐点复核（Issue #122），可访问性收尾（Issue #123），代码注释清理（Issue #124），视觉终审与修复（Issue #125），文档 / CI / 版本收尾（本文件，Issue #126）。发布 `0.3.0`。
+- **2026-07-21 ~ 2026-07-23**（epic `coredesign-native-foundation`，Issue #116）——把地基从 Primer 换成 Apple HIG：删除 6 个 GitHub 专用组件与 Blossom trait / `CoreGradient`（Issue #117 / #118），重铸字体 / 圆角 / 控件尺寸 / 阴影 token（Issue #119），重铸语义色层与 accent 衍生族（Issue #120），组件调用点机械迁移（Issue #121），token 换值逐点复核（Issue #122），可访问性收尾（Issue #123），代码注释清理（Issue #124），视觉终审与修复（Issue #125），文档 / CI / 版本收尾（本文件，Issue #126）。发布 `0.3.0`。
 
 ## 后续再锁定的注意事项
 

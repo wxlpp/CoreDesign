@@ -18,7 +18,7 @@ let package = Package(
     ],
     dependencies: [
         // 必须显式写 name:——SwiftPM 对 path 依赖的 identity 取目录 basename,
-        // 而 basename 与包名**恒不相等**(规范 checkout 是 oh-my-design、包名是
+        // 而规范 checkout 下 basename 与包名不相等(目录 oh-my-design、包名
         // OhMyDesign),worktree 里更是任意名(如 issue-92-build-config)。
         // ⇒ 删掉这个 name: 会让下面 package: "OhMyDesign" 解析不到。
         .package(name: "OhMyDesign", path: "../.."),

@@ -28,6 +28,8 @@
 | product / module `CoreDesignCharts` | `OhMyDesignCharts` |
 | 预览宿主 `CoreDesignPreview` | `OhMyDesignPreview` |
 | bundle id 前缀 `com.coredesign` | `com.ohmydesign` |
+| `docs/component-registry.json` 的 `repo` 字段 `"coredesign"` | `"ohmydesign"` |
+| SwiftPM checkout 目录名 / 包 identity `CoreDesign` | `oh-my-design` |
 
 下游改法：
 
@@ -43,8 +45,13 @@
 `CoreControlMetrics` / `CoreMenuButton` / `.coreAccent(_:)` / `.core` 系列 control style
 ……）。它们表达的是「核心 / 内建」语义，不是仓库名 ⇒ 改名不波及，下游这部分调用点零改动。
 
-⚠️ 旧仓库名在 GitHub 上有重定向，`git remote` 与既有 issue 链接暂时仍可用；但
-`import CoreDesign` **没有**任何兼容垫片，不改就编译不过。
+⚠️ 后两行是**跨仓契约**，本仓 CI 只 checkout 本仓 ⇒ 对面仓（`wxlpp/oh-my-story` 的
+`CrossRepoRegistryGuard` 按 `repo` 值筛条目、按 checkout 目录名定位本仓登记表）在这条
+分叉上**零信号**，须人工去对面仓核一次。
+
+⚠️ 旧仓库名在 GitHub 上的重定向是**会过期的外部状态**（截至 2026-09-09 有效；任何人新建
+一个 `wxlpp/CoreDesign` 就会打断它），不要当长期契约。而 `import CoreDesign` **没有**任何
+兼容垫片，不改就编译不过。
 
 ## 未发布（相对 `v0.9.0`）——设计系统配色 / 样式回灌
 
@@ -294,7 +301,7 @@ bash scripts/api-surface-diff.sh <base>                            # 新增侧�
 
 ---
 
-## 未发布（相对 `v0.9.0`）——`ohmydesign-leftover-closeout` epic，Issue #220
+## 未发布（相对 `v0.9.0`）——`coredesign-leftover-closeout` epic，Issue #220
 
 **对下游编译零感知，仅改观感。** 不删除、不重命名任何公开符号；三处「同名换值」。
 
@@ -780,7 +787,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 
 - `InsetGroupedSection` 的 `header` / `footer` 补 `StringProtocol` 重载——此前只收 `LocalizedStringKey`，运行期字符串传不进；现与 `SettingsRow` / Section 组件对齐。现有 `header: "General"` 字面量调用不变。
 
-## `0.3.0`（epic ohmydesign-native-foundation，2026-07-21 ~ 2026-07-23）
+## `0.3.0`（epic coredesign-native-foundation，2026-07-21 ~ 2026-07-23）
 
 把 token 地基从 GitHub Primer 换成 Apple HIG。取值理由见
 [`docs/DESIGN-FOUNDATION.md`](DESIGN-FOUNDATION.md)。这是一次**破坏面很大**的改造：
@@ -813,7 +820,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 
 ### 改名的 token
 
-`CoreTypography.Token` 9 个改名档位，映射逐字沿用 `.claude/epics/ohmydesign-native-foundation/119.md` 定案（不做二次判断）：
+`CoreTypography.Token` 9 个改名档位，映射逐字沿用 `.claude/epics/archived/coredesign-native-foundation/119.md` 定案（不做二次判断）：
 
 | 旧名 | 新名 |
 |---|---|
@@ -909,7 +916,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 - **`Card(bordered:)` + `View.surface(_:bordered:)`（新增公开 API）**：`Card` 新增 `bordered: Bool = true` 参数，`SurfaceModifier` 同步暴露 `.surface(_:bordered:)`。置 `false` 去描边、只留背景 + 圆角，贴近 iOS 系统分组容器（无描边、靠填充色对比定界）。默认 `true`，现有 `Card { }` / `.surface(kind)` 调用行为不变。
 - **全库 chevron 统一 `chevron.forward`（RTL 正确性）**：`ChevronRightIcon` / `Sidebar` / `ListRow` / `CoreDisclosureGroupStyle` 的 disclosure chevron 从 `chevron.right` 改为 `chevron.forward`。**LTR 下视觉不变**（仍指右），**RTL 下自动镜像**为指左，与系统一致。`CoreDisclosureGroupStyle` 的展开旋转同步做了 `layoutDirection` 感知（RTL 展开态指下而非指上）。`ChevronRightIcon` 公开类型名保留（API 稳定）。
 
-## `0.4.0`（epic ohmydesign-native-components）
+## `0.4.0`（epic coredesign-native-components）
 
 Phase 2 新组件交付,**纯新增为主**:基础容器 `Card` / `Separator` / `SectionHeader` / `SectionFooter`、分组设置行 `InsetGroupedSection` / `SettingsRow`（含 `SettingsRowIcon` / `SettingsRowChevron` / 顶层枚举 `SettingsDividerInset`）、系统控件 `.core` style 3 个（`progressViewStyle(.core)` / `labelStyle(.core)` / `disclosureGroupStyle(.core)`）。这些**不删不改公开符号,对下游零破坏**。唯一的破坏面是下方「同名换值」的 `.content` / `.card` 表面色指向变更（对下游编译零感知,仅改观感）。
 
@@ -925,7 +932,7 @@ Phase 2 新组件交付,**纯新增为主**:基础容器 `Card` / `Separator` / 
 
 Phase 1 视觉终审（#125）与 #136 查明 `.surface(.content)` → `surfaceCard` → `surfaceCanvas` → `systemGroupedBackground` 这条链路——卡片背景与页面画布完全同色，深色下、无描边时不可辨。iOS 卡片本应浮于画布之上（`secondarySystemGroupedBackground`，即库内已有的 `surfaceRaised`），故只改 `surfaceCard` 的别名目标，不改 `SurfaceKind` 的 case 结构。
 
-## Issue #97（epic ohmydesign-audit-remediation，2026-07-21）
+## Issue #97（epic coredesign-audit-remediation，2026-07-21）
 
 ### 删除的公开符号
 
