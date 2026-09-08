@@ -1,6 +1,6 @@
 # a11y 运行期冒烟记录
 
-承接 [#234](https://github.com/wxlpp/CoreDesign/issues/234)（`#99` 列的 VoiceOver 运行时冒烟）。
+承接 [#234](https://github.com/wxlpp/oh-my-design/issues/234)（`#99` 列的 VoiceOver 运行时冒烟）。
 
 **日期**：2026-09-07 · **器材**：iPhone 17 Pro / iOS 26.4 模拟器，预览宿主
 （`scripts/run-preview.sh`）· **工具**：`axe describe-ui`（AXe 1.7.1）
@@ -105,7 +105,7 @@ String(localized: "Clear \(target)", bundle: .main)   // ⇒ "Clear Search"
 String(localized: "\(42) of \(5)", bundle: .main)      // ⇒ "42 of 5"
 ```
 
-而本仓的表是 `Sources/CoreDesign/Resources/en.lproj/Localizable.strings`，
+而本仓的表是 `Sources/OhMyDesign/Resources/en.lproj/Localizable.strings`，
 `"Clear %@" = "Clear %@";`，且**只有 `en.lproj` 一个目录** ⇒ 表里**每一个键**都是
 「值 = 键 + 唯一语言」，**命中与回退在运行期逐字相同、不可区分**。
 第一版说「`"Search"` 这类键判不出来、能判的是带插值的那条」——**前半句对，后半句错**：
@@ -145,7 +145,7 @@ PinCode 详情页
 ```
 
 **「键真的注册进了 catalog」那一层由单测证明，不由本记录证明**：
-`ProgressBarL10nTests.newKeysExistInCatalog`（`Tests/CoreDesignTests/ProgressBarTests.swift`）
+`ProgressBarL10nTests.newKeysExistInCatalog`（`Tests/OhMyDesignTests/ProgressBarTests.swift`）
 用 `__MISSING__` 哨兵调 `Bundle.module.localizedString(forKey:value:table:)`
 ——**那个 `value:` 哨兵正是区分命中与回退的唯一办法**，运行期读出的字符串做不到。
 
@@ -240,7 +240,7 @@ AXe 的 `AXValue` 是**一个字段投影**，不是整棵 AX 树——文档自
 
 ⇒ 先试 **Accessibility Inspector**（可直接以 Simulator 为目标，能读 Traits 也能 Speak）。
 
-⇒ **不改代码**，已开 [#332](https://github.com/wxlpp/CoreDesign/issues/332) 承接。
+⇒ **不改代码**，已开 [#332](https://github.com/wxlpp/oh-my-design/issues/332) 承接。
 ⚠️ `docs/components/rating.md` 的 Accessibility 一节写着「半星精确播报…如『2.5 of 5』」
 ——**那句在启用态上未经证实**，已就地加指针。
 
@@ -255,7 +255,7 @@ AXe 的 `AXValue` 是**一个字段投影**，不是整棵 AX 树——文档自
    ⚠️ **走不通的那条也登记**：拿 macOS `AXUIElement` 遍历 `Simulator.app` 窗口读不到 iOS 内容。
 3. **手势交互**（三指滚动、双击激活、可调元素的上下滑）—— 需要真 VoiceOver。
 
-⇒ **第 1–3 条已开 [#334](https://github.com/wxlpp/CoreDesign/issues/334) 承接**
+⇒ **第 1–3 条已开 [#334](https://github.com/wxlpp/oh-my-design/issues/334) 承接**
 （用 Accessibility Inspector 以 Simulator 为目标补 traits + Speak）。第 4 条由单测覆盖，
 第 5 条随 `ProgressBar` 弃用一并消失。
 4. **catalog 命中 vs 回退**——本仓表里值 = 键、且只有 `en.lproj` ⇒ **运行期读出的字符串

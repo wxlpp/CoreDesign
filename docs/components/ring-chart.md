@@ -2,11 +2,11 @@
 
 多个同心进度环，每环一个指标的完成度 / Concentric activity rings, one per metric.
 
-`RingChart(values, goal:)`（`CoreDesignCharts/RingChart.swift`，Issue #255）。**泛型视图**——
+`RingChart(values, goal:)`（`OhMyDesignCharts/RingChart.swift`，Issue #255）。**泛型视图**——
 数据类型由调用方提供，本库**不发货**具体的数据 struct。
 
 ```swift
-import CoreDesignCharts
+import OhMyDesignCharts
 ```
 
 ⚠️ 本 target **有意不 `import Charts`**。Swift Charts 的 `SectorMark` 是饼图/环形图
@@ -113,7 +113,7 @@ radius = -22 ⇒ `.frame(width: -44)`）。6 是取「最内环仍有正半径�
   **有意不强制 `LocalizedStringResource`**（FR-7 的边界声明）。
 - **组件自带的 chrome 才本地化**：`title`（缺省 `.chart("Activity rings")`）与两条空态文案
   （`"No data"` / `"The goal must be greater than 0"`）都是 `LocalizedStringResource`，
-  译文在 `Sources/CoreDesignCharts/Resources/en.lproj/Localizable.strings`。
+  译文在 `Sources/OhMyDesignCharts/Resources/en.lproj/Localizable.strings`。
 
 ⚠️ `LocalizedStringResource.chart(_:)` 是 **`internal`**：它把 key 绑死在本 target 的
 `Bundle.module`，下游传自己的 key 必然查不到，而查不到时 Foundation **原样返回 key、不报错**。
@@ -179,7 +179,7 @@ for a 'Sendable' type parameter
 ## 使用示例 / Usage
 
 ```swift
-import CoreDesignCharts
+import OhMyDesignCharts
 import SwiftUI
 
 // ⚠️ 调用方定义自己的模型 —— 本库**不发货**具体数据 struct。

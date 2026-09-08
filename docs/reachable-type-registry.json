@@ -107,7 +107,7 @@
   },
   {
     "type": "ChartValue",
-    "repo": "coredesign",
+    "repo": "ohmydesign",
     "textParams": [
       {
         "name": "label",
@@ -197,7 +197,7 @@
       {
         "name": "icon",
         "category": "C",
-        "notes": "SF Symbol 标识符，非文案，无编译期本地化键，点名收编（同 CoreDesign 的 systemImage 先例）"
+        "notes": "SF Symbol 标识符，非文案，无编译期本地化键，点名收编（同 OhMyDesign 的 systemImage 先例）"
       },
       {
         "name": "id",
@@ -255,7 +255,7 @@
   },
   {
     "type": "GraphEdge",
-    "repo": "coredesign",
+    "repo": "ohmydesign",
     "textParams": [
       {
         "name": "from",
@@ -271,7 +271,7 @@
   },
   {
     "type": "GraphNode",
-    "repo": "coredesign",
+    "repo": "ohmydesign",
     "textParams": [
       {
         "name": "label",

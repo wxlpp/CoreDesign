@@ -2,12 +2,12 @@
 
 拖动分隔线对比"之前 / 之后"两层内容 / A draggable before-after comparison slider.
 
-`BeforeAfterSlider { } after: { }`（`CoreDesignEffects/BeforeAfterSlider.swift`，Issue #253）。
+`BeforeAfterSlider { } after: { }`（`OhMyDesignEffects/BeforeAfterSlider.swift`，Issue #253）。
 **容器视图形态**，两个 `@ViewBuilder` 槽。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0。
@@ -162,7 +162,7 @@ B 类 `LocalizedStringKey`，两条路径解析出的字**相同**，但渲染�
 而那一档正是这个组件现实中最常用的形态（"原图 / 修图后"、"Draft / Final"）。
 ⇒ 走的是「专用参数 + 取值域枚举」这条替代路径，**没有**动用本 epic 的豁免预算
 （`docs/bool-exemptions-baseline.json` 的 `maxEntries` 32 / `sourceSites` 35 一动不动，
-`perTarget.CoreDesignEffects` 仍为 0）。
+`perTarget.OhMyDesignEffects` 仍为 0）。
 
 ## 文案类型：两档各按公约走各自的类别（FR-7 / 公约 §4）
 
@@ -177,8 +177,8 @@ B 类 `LocalizedStringKey`，两条路径解析出的字**相同**，但渲染�
 又与第 4 节「新增 B 类参数用 `LocalizedStringKey`」的成文裁决相反（`.rise(text:)`
 正是按那条落的）。
 
-⚠️ 为此 `CoreDesignEffects` 新增了自己的 `Resources/en.lproj/Localizable.strings`
-与 `Package.swift` 的 `resources:` 声明（与 `CoreDesignCharts` 同一条裁决，PR #263 终审 C-5）：
+⚠️ 为此 `OhMyDesignEffects` 新增了自己的 `Resources/en.lproj/Localizable.strings`
+与 `Package.swift` 的 `resources:` 声明（与 `OhMyDesignCharts` 同一条裁决，PR #263 终审 C-5）：
 没有资源包时 `LocalizedStringResource("Before")` 只能落到 `Bundle.main`，
 **本包永远无法为自己的 chrome 文案提供翻译**。
 文件里有一个哨兵键 `__localization_probe__`（译文与 key **有意不同**），
@@ -219,17 +219,17 @@ Reduce Motion 下保留 ⇒ 「给这个 `offset` 加一个 `isReduced` 三元�
 ## 触控目标 ≥ 44pt
 
 把手的视觉直径是 28pt，靠 `frame(minWidth:minHeight:)` + 最外层 `contentShape` 撑到
-`BeforeAfterSweep.handleHitSize = 44`（同 `CoreDesign` 里 `Rating` / `CheckBox` 的处置）。
+`BeforeAfterSweep.handleHitSize = 44`（同 `OhMyDesign` 里 `Rating` / `CheckBox` 的处置）。
 
-判据**在 `CoreDesignEffectsTests` 内同形态实现**，两条：
+判据**在 `OhMyDesignEffectsTests` 内同形态实现**，两条：
 
 - `BeforeAfterSliderTests.handleHitSizeConstantMeetsMinimum`（平台无关，钉常量）；
 - `BeforeAfterSliderTouchTargetTests`（`#if os(iOS)` + `ImageRenderer` 量渲染尺寸，
-  与 `CoreDesignTests.TouchTargetTests` 同形态；**只在 xcodebuild iOS Simulator 腿上执行**）。
+  与 `OhMyDesignTests.TouchTargetTests` 同形态；**只在 xcodebuild iOS Simulator 腿上执行**）。
 
-⚠️ **有意不加进 `CoreDesignTests.TouchTargetTests`**：那会让 `CoreDesignTests` 的依赖图
-包含 `CoreDesignEffects`，判红 `shipswift-foundation` #245 立的 NFR-5② 隔离判据
-（`swift package describe` 里 `CoreDesignTests` 的依赖必须恰为 `["CoreDesign"]`）。
+⚠️ **有意不加进 `OhMyDesignTests.TouchTargetTests`**：那会让 `OhMyDesignTests` 的依赖图
+包含 `OhMyDesignEffects`，判红 `shipswift-foundation` #245 立的 NFR-5② 隔离判据
+（`swift package describe` 里 `OhMyDesignTests` 的依赖必须恰为 `["OhMyDesign"]`）。
 
 ## 后台 / 低电量（NFR-7）
 
@@ -247,8 +247,8 @@ Reduce Motion 下保留 ⇒ 「给这个 `offset` 加一个 `isReduced` 三元�
 ## 使用示例 / Usage
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 import SwiftUI
 
 struct RetouchComparison: View {

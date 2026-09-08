@@ -2,17 +2,17 @@
 
 `trigger` 变化时整圈旋转一次 / One full rotation per trigger change.
 
-`View.spin(trigger:direction:)`（`CoreDesignEffects/Spin.swift`，Issue #250）。
+`View.spin(trigger:direction:)`（`OhMyDesignEffects/Spin.swift`，Issue #250）。
 典型用途：刷新、重试、切换。
 
-⚠️ **与 `CoreDesign` 的 `.spinning(_:text:presentation:)` 不是一回事**：那个是**持续**的加载遮罩
+⚠️ **与 `OhMyDesign` 的 `.spinning(_:text:presentation:)` 不是一回事**：那个是**持续**的加载遮罩
 （material + 居中 `ProgressIndicator`，见 [`spinning.md`](spinning.md)），
 本效果是 `trigger` 驱动的**一次性**旋转。
 
-⚠️ **本 API 在 `CoreDesignEffects` 里，不在 `CoreDesign`**：
+⚠️ **本 API 在 `OhMyDesignEffects` 里，不在 `OhMyDesign`**：
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 ```
 
 ## API
@@ -102,7 +102,7 @@ keyframe 值，不回 `initialValue`**，而 `rotationEffect(.degrees(360))` **�
 ⚠️ 本节示例**没有任何机器校验**（同 [`confetti.md`](confetti.md) 记的限度）。
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 import SwiftUI
 
 struct RefreshButton: View {
@@ -122,6 +122,6 @@ struct RefreshButton: View {
 
 ## 相关
 
-- [`spinning.md`](spinning.md) —— `CoreDesign` 的**持续**加载遮罩，与本效果同名不同物
+- [`spinning.md`](spinning.md) —— `OhMyDesign` 的**持续**加载遮罩，与本效果同名不同物
 - [`shake.md`](shake.md) / [`jump.md`](jump.md) —— 同族的形态 1 降级微交互
 - [`haptic.md`](haptic.md) —— 刷新触发时常一并给一次触感

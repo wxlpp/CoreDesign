@@ -1,7 +1,7 @@
-# CoreDesign 设计系统摘要
+# OhMyDesign 设计系统摘要
 
 > **这份文件是给设计 agent 读的**，不是给人读的参考手册。用途：让 agent 在出原型 /
-> 界面草图时，用 CoreDesign 的**真实名字**标注每一个元素，使产出能被逐条翻译回
+> 界面草图时，用 OhMyDesign 的**真实名字**标注每一个元素，使产出能被逐条翻译回
 > SwiftUI，而不是翻译成一套它自己发明的词汇。
 >
 > ⚠️ **正文的每一个条目由 `scripts/design-digest.py` 从 `Sources/` 派生**，但**各节段首的
@@ -10,7 +10,7 @@
 
 ## 与 `docs/component-registry.json` 的口径差
 
-两份台账射程不同，**名字对不上是正常的**：registry 里 `repo=coredesign` 的 62 条（全表 87 条，另 25 条属别的仓）是「组件**契约**」射程，
+两份台账射程不同，**名字对不上是正常的**：registry 里 `repo=ohmydesign` 的 62 条（全表 87 条，另 25 条属别的仓）是「组件**契约**」射程，
 本文件的 90 条是「所有 `View` / `Shape` / `*Style` / `Transition` / `Layout` / `ViewModifier`
 遵从者」。⚠️ 其中 `ViewModifier` 类型（`FloatingGlassModifier` / `SpinningModifier` /
 `TelegramGlassButtonModifier`）**不要直接标注**——走它们对应的 `.floatingGlass` /
@@ -28,9 +28,9 @@
 
 | target | 内容 | 依赖 |
 |---|---|---|
-| `CoreDesign` | 系统原生观感的组件、四层色彩、token、modifier | 无（恒为空） |
-| `CoreDesignEffects` | 微交互 / 转场 / 常驻动效 | → `CoreDesign` |
-| `CoreDesignCharts` | Swift Charts 画不出来的四类图表 | → `CoreDesign` |
+| `OhMyDesign` | 系统原生观感的组件、四层色彩、token、modifier | 无（恒为空） |
+| `OhMyDesignEffects` | 微交互 / 转场 / 常驻动效 | → `OhMyDesign` |
+| `OhMyDesignCharts` | Swift Charts 画不出来的四类图表 | → `OhMyDesign` |
 
 标注元素时**写明它来自哪个 target**——只要系统原生观感的消费者不会引入后两个。
 
@@ -67,7 +67,7 @@
    `.floatingGlass`、`TelegramGlassButtonModifier`。⚠️ 两个悬浮按钮样式**走的不是同一条**：
    `.circularGlass` 经 `TelegramGlassButtonModifier`，`.extendedFloat` 经 `.floatingGlass`。
    别处不要描述玻璃材质。
-9. **动效不在原型里定案**：`CoreDesignEffects` 的微交互与转场手感只能在真机上判。
+9. **动效不在原型里定案**：`OhMyDesignEffects` 的微交互与转场手感只能在真机上判。
    原型里最多标注「此处用 `.confetti` / `.iris` 转场」，不要据此下视觉结论。
 10. **标不出名字的地方，明写「缺组件」**，不要用近似的名字凑。那一处就是设计系统的缺口，
     是有价值的产出，不是失败。
@@ -335,7 +335,7 @@
 每个文件下分四类：**组件**（遵从 `View` / `Transition` / `Layout` / `Shape` / `ViewModifier` 或以 `Style` 结尾的协议）、**protocol**、**配置枚举**、**其他公开类型**（前三类之外的，如 `ToastHost` / 各 `*StyleConfiguration`）。
 ⚠️ 名字带 `RenderProbe` 的是**测试探针**，不是设计系统表面，别当组件用。
 
-## `CoreDesign`
+## `OhMyDesign`
 
 ### `Components/Avatar/Avatar.swift`
 
@@ -538,19 +538,19 @@
 
 ### `Components/Style/CoreDisclosureGroupStyle.swift`
 
-- **`CoreDisclosureGroupStyle`** *: DisclosureGroupStyle* — 系统 `DisclosureGroup` 的 CoreDesign 视觉外观——只重排 `label` / `content`，展开状态仍由系统驱动。
+- **`CoreDisclosureGroupStyle`** *: DisclosureGroupStyle* — 系统 `DisclosureGroup` 的 OhMyDesign 视觉外观——只重排 `label` / `content`，展开状态仍由系统驱动。
 
 ### `Components/Style/CoreLabelStyle.swift`
 
-- **`CoreLabelStyle`** *: LabelStyle* — 系统 `Label` 的 CoreDesign 视觉外观——只重排 `makeBody(configuration:)` 交出的 `icon` / `title`。
+- **`CoreLabelStyle`** *: LabelStyle* — 系统 `Label` 的 OhMyDesign 视觉外观——只重排 `makeBody(configuration:)` 交出的 `icon` / `title`。
 
 ### `Components/Style/CoreLabeledContentStyle.swift`
 
-- **`CoreLabeledContentStyle`** *: LabeledContentStyle* — 系统 `LabeledContent` 的 CoreDesign 视觉外观——只重排 `makeBody(configuration:)` 交出的 `label` / `content`。
+- **`CoreLabeledContentStyle`** *: LabeledContentStyle* — 系统 `LabeledContent` 的 OhMyDesign 视觉外观——只重排 `makeBody(configuration:)` 交出的 `label` / `content`。
 
 ### `Components/Style/CoreProgressViewStyle.swift`
 
-- **`CoreProgressViewStyle`** *: ProgressViewStyle* — 系统 `ProgressView` 的 CoreDesign 视觉外观——只重绘 `makeBody(configuration:)` 交出的内容，强调色经 `ShapeStyle.tint` 取值，所以 `.tint(_:)` 对它生效。
+- **`CoreProgressViewStyle`** *: ProgressViewStyle* — 系统 `ProgressView` 的 OhMyDesign 视觉外观——只重绘 `makeBody(configuration:)` 交出的内容，强调色经 `ShapeStyle.tint` 取值，所以 `.tint(_:)` 对它生效。
 
 ### `Components/Style/Descriptions.swift`
 
@@ -679,7 +679,7 @@
 - *enum* **`CoreTypography.Token`**: `.largeTitle`, `.title`, `.title2`, `.title3`, `.headline`, `.body`, `.callout`, `.subheadline`, `.footnote`, `.caption`, `.captionMono`, `.caption2` — 排版 token，经 `.coreFont(_:)` 施加。
 - *enum* **`CoreTypography`** — 字体 token，对齐 Apple HIG 的系统文本样式（`Font.TextStyle`）标度。
 
-## `CoreDesignEffects`
+## `OhMyDesignEffects`
 
 ### `AnimatedMeshGradient.swift`
 
@@ -708,10 +708,6 @@
 ### `Confetti.swift`
 
 - *enum* **`ConfettiRenderProbe`** — `ConfettiCanvas` **真的画出了粒子**的帧数。
-
-### `CoreDesignEffects.swift`
-
-- *enum* **`CoreDesignEffects`** — `CoreDesignEffects` 的命名空间与模块标识。
 
 ### `DotSphere.swift`
 
@@ -748,6 +744,10 @@
 ### `MicroInteractionSupport.swift`
 
 - *enum* **`MicroInteractionStrength`**: `.subtle`, `.regular`, `.pronounced` — 微交互的强度。
+
+### `OhMyDesignEffects.swift`
+
+- *enum* **`OhMyDesignEffects`** — `OhMyDesignEffects` 的命名空间与模块标识。
 
 ### `OrbitingLogos.swift`
 
@@ -809,7 +809,7 @@
   - `.regular` — 常规（约 25 字 / 秒）。
   - `.fast` — 快（约 55 字 / 秒）。适合整段正文。
 
-## `CoreDesignCharts`
+## `OhMyDesignCharts`
 
 ### `ActivityHeatmap.swift`
 
@@ -822,10 +822,6 @@
 - *protocol* **`GraphNode`** — 网络图的一个节点。
 - *struct* **`GraphEdge`** — 网络图的一条边。
 
-### `CoreDesignCharts.swift`
-
-- *enum* **`CoreDesignCharts`** — `CoreDesignCharts` 的命名空间与模块标识。
-
 ### `NetworkGraph.swift`
 
 - **`NetworkGraph`** *<Node: GraphNode>: View* — 力导向网络图。
@@ -835,6 +831,10 @@
   - `.grid` — 网格：按行列均匀铺开，忽略边的拉力。 业界来源：AntV G6 的 `grid` 布局。
   - `.layered` — 分层：按边的方向做拓扑分层，同层横向铺开、层间竖向排列。 业界来源：AntV G6 的 `dagre` 布局。  ⚠️ **本组件的边模型是无向的**（`effectiveEdges` 会把互指的一对去重、只留**先列出**的那条）， 而本形态**要读方向** ⇒ **层向由 `Edge.from → Edge.to` 定，互指对按先列出者算**。 换句话说：同一份数据里 a→b 与 b→a 谁写在前面，会改变分层方向。 ⚠️ **同层的列序 = `nodes` 数组顺序**，不是 ID 排序 —— 换节点顺序列位置就变（与 `.circular` 一致）。 ⚠️ 有环时**不会死循环**，但**不是**「剩余节点整体压到最后一层」—— 那样会把环的**下游**一起卡住。剥不动时强制放一个再继续，见 `layeredRanks`。
 - *enum* **`NetworkGraphRenderProbe`** — `NetworkGraph` **真的把边画出来了**的帧数。
+
+### `OhMyDesignCharts.swift`
+
+- *enum* **`OhMyDesignCharts`** — `OhMyDesignCharts` 的命名空间与模块标识。
 
 ### `RadarChart.swift`
 
@@ -853,47 +853,47 @@
 
 | target | 入口 | 说明 |
 |---|---|---|
-| `CoreDesign` | `.coreAccent` on `View` | 为子树设置强调色，`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground` 四个派生态自动跟随。 |
-| `CoreDesign` | `.bannerStyle` on `View` | 为子树中的所有 `Banner` 设置外观。 |
-| `CoreDesign` | `.bottomInputBar` on `View` | ⚠️ 源码无文档注释 |
-| `CoreDesign` | `.ratingStyle` on `View` | 为子树中的所有 `Rating` / `RatingDisplay` 设置外观。 |
-| `CoreDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
-| `CoreDesign` | `.sidebarSelectedBackground` on `View` | `isSelected` 为 true 时施加侧栏选中态背景。 |
-| `CoreDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
-| `CoreDesign` | `.toastHost` on `View` | 在当前 view 子树挂载一个 scene-scoped `ToastHost`，并在 `edge` 方向以 `safeAreaInset` 渲染当前队列的首条 toast。 |
-| `CoreDesign` | `.bordered` on `View` | 叠加一圈描边 / Add a border.  - Parameters: - style: 描边样式，任意 `ShapeStyle`（含 `Color` 与渐变）。 |
-| `CoreDesign` | `.coreFont` on `View` | 施加 CoreDesign 排版 token（直接取系统文本样式，随 Dynamic Type 缩放）。 |
-| `CoreDesign` | `.floatingGlass` on `View` | ⚠️ 源码无文档注释 |
-| `CoreDesign` | `.focusRing` on `View` | 给视图添加一个焦点环。 |
-| `CoreDesign` | `.spinning` on `View` | 为内容整体叠加加载遮罩。 |
-| `CoreDesign` | `.surface` on `View` | 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角）。 |
-| `CoreDesign` | `.coreShadow` on `View` | 应用 CoreDesign elevation 阴影。 |
-| `CoreDesignEffects` | `.blur` on `Transition` | 失焦转场。 |
-| `CoreDesignEffects` | `.boing` on `Transition` | 弹性缩放转场。 |
-| `CoreDesignEffects` | `.confetti` on `View` | `trigger` 变化时喷发一次彩纸。 |
-| `CoreDesignEffects` | `.filmExposure` on `Transition` | 胶片过曝转场。 |
-| `CoreDesignEffects` | `.flicker` on `Transition` | 闪烁转场。 |
-| `CoreDesignEffects` | `.flip` on `Transition` | 卡片翻面转场（水平翻）。 |
-| `CoreDesignEffects` | `.haptic` on `View` | `trigger` 变化时播一次触感反馈。 |
-| `CoreDesignEffects` | `.jump` on `View` | `trigger` 变化时跳一次。 |
-| `CoreDesignEffects` | `.iris` on `Transition` | 圆形光圈从中心向外张开。 |
-| `CoreDesignEffects` | `.wipe` on `Transition` | 一条直边沿默认方向（左 → 右）扫过。 |
-| `CoreDesignEffects` | `.blinds` on `Transition` | 若干条横向百叶各自从自己的中线向上下张开。 |
-| `CoreDesignEffects` | `.clock` on `Transition` | 扇形扫针从 12 点方向顺时针扫一圈。 |
-| `CoreDesignEffects` | `.glare` on `Transition` | 斜掠的直边扫过，揭示边上骑一条柔光带。 |
-| `CoreDesignEffects` | `.dissolve` on `Transition` | 网格逐格随机浮现。 |
-| `CoreDesignEffects` | `.particle` on `Transition` | 粒子消散 / 汇聚转场。 |
-| `CoreDesignEffects` | `.ping` on `View` | `trigger` 变化时，从视图背后扩散一组圆环。 |
-| `CoreDesignEffects` | `.move` on `Transition` | 平移转场（默认向下 90°、`TransitionTravel.regular` 的距离）。 |
-| `CoreDesignEffects` | `.rise` on `View` | `trigger` 变化时，从视图上方浮起一段文字。 |
-| `CoreDesignEffects` | `.rotate3D` on `Transition` | 空间翻滚转场（默认 75°、斜向轴）。 |
-| `CoreDesignEffects` | `.shake` on `View` | `trigger` 的值每次变化时，横向抖动一次。 |
-| `CoreDesignEffects` | `.shine` on `View` | `trigger` 变化时，让一道高光扫过本视图（遮罩到内容形状）。 |
-| `CoreDesignEffects` | `.skid` on `Transition` | 刹车打滑转场（默认从左侧滑入）。 |
-| `CoreDesignEffects` | `.snapshot` on `Transition` | 快门 / 显影转场。 |
-| `CoreDesignEffects` | `.spin` on `View` | `trigger` 变化时旋转一整圈。 |
-| `CoreDesignEffects` | `.spray` on `View` | `trigger` 变化时向上喷出一束符号粒子。 |
-| `CoreDesignEffects` | `.swoosh` on `Transition` | 带动态模糊的穿行转场（默认从右侧进、左侧出）。 |
+| `OhMyDesign` | `.coreAccent` on `View` | 为子树设置强调色，`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground` 四个派生态自动跟随。 |
+| `OhMyDesign` | `.bannerStyle` on `View` | 为子树中的所有 `Banner` 设置外观。 |
+| `OhMyDesign` | `.bottomInputBar` on `View` | ⚠️ 源码无文档注释 |
+| `OhMyDesign` | `.ratingStyle` on `View` | 为子树中的所有 `Rating` / `RatingDisplay` 设置外观。 |
+| `OhMyDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
+| `OhMyDesign` | `.sidebarSelectedBackground` on `View` | `isSelected` 为 true 时施加侧栏选中态背景。 |
+| `OhMyDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
+| `OhMyDesign` | `.toastHost` on `View` | 在当前 view 子树挂载一个 scene-scoped `ToastHost`，并在 `edge` 方向以 `safeAreaInset` 渲染当前队列的首条 toast。 |
+| `OhMyDesign` | `.bordered` on `View` | 叠加一圈描边 / Add a border.  - Parameters: - style: 描边样式，任意 `ShapeStyle`（含 `Color` 与渐变）。 |
+| `OhMyDesign` | `.coreFont` on `View` | 施加 OhMyDesign 排版 token（直接取系统文本样式，随 Dynamic Type 缩放）。 |
+| `OhMyDesign` | `.floatingGlass` on `View` | ⚠️ 源码无文档注释 |
+| `OhMyDesign` | `.focusRing` on `View` | 给视图添加一个焦点环。 |
+| `OhMyDesign` | `.spinning` on `View` | 为内容整体叠加加载遮罩。 |
+| `OhMyDesign` | `.surface` on `View` | 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角）。 |
+| `OhMyDesign` | `.coreShadow` on `View` | 应用 OhMyDesign elevation 阴影。 |
+| `OhMyDesignEffects` | `.blur` on `Transition` | 失焦转场。 |
+| `OhMyDesignEffects` | `.boing` on `Transition` | 弹性缩放转场。 |
+| `OhMyDesignEffects` | `.confetti` on `View` | `trigger` 变化时喷发一次彩纸。 |
+| `OhMyDesignEffects` | `.filmExposure` on `Transition` | 胶片过曝转场。 |
+| `OhMyDesignEffects` | `.flicker` on `Transition` | 闪烁转场。 |
+| `OhMyDesignEffects` | `.flip` on `Transition` | 卡片翻面转场（水平翻）。 |
+| `OhMyDesignEffects` | `.haptic` on `View` | `trigger` 变化时播一次触感反馈。 |
+| `OhMyDesignEffects` | `.jump` on `View` | `trigger` 变化时跳一次。 |
+| `OhMyDesignEffects` | `.iris` on `Transition` | 圆形光圈从中心向外张开。 |
+| `OhMyDesignEffects` | `.wipe` on `Transition` | 一条直边沿默认方向（左 → 右）扫过。 |
+| `OhMyDesignEffects` | `.blinds` on `Transition` | 若干条横向百叶各自从自己的中线向上下张开。 |
+| `OhMyDesignEffects` | `.clock` on `Transition` | 扇形扫针从 12 点方向顺时针扫一圈。 |
+| `OhMyDesignEffects` | `.glare` on `Transition` | 斜掠的直边扫过，揭示边上骑一条柔光带。 |
+| `OhMyDesignEffects` | `.dissolve` on `Transition` | 网格逐格随机浮现。 |
+| `OhMyDesignEffects` | `.particle` on `Transition` | 粒子消散 / 汇聚转场。 |
+| `OhMyDesignEffects` | `.ping` on `View` | `trigger` 变化时，从视图背后扩散一组圆环。 |
+| `OhMyDesignEffects` | `.move` on `Transition` | 平移转场（默认向下 90°、`TransitionTravel.regular` 的距离）。 |
+| `OhMyDesignEffects` | `.rise` on `View` | `trigger` 变化时，从视图上方浮起一段文字。 |
+| `OhMyDesignEffects` | `.rotate3D` on `Transition` | 空间翻滚转场（默认 75°、斜向轴）。 |
+| `OhMyDesignEffects` | `.shake` on `View` | `trigger` 的值每次变化时，横向抖动一次。 |
+| `OhMyDesignEffects` | `.shine` on `View` | `trigger` 变化时，让一道高光扫过本视图（遮罩到内容形状）。 |
+| `OhMyDesignEffects` | `.skid` on `Transition` | 刹车打滑转场（默认从左侧滑入）。 |
+| `OhMyDesignEffects` | `.snapshot` on `Transition` | 快门 / 显影转场。 |
+| `OhMyDesignEffects` | `.spin` on `View` | `trigger` 变化时旋转一整圈。 |
+| `OhMyDesignEffects` | `.spray` on `View` | `trigger` 变化时向上喷出一束符号粒子。 |
+| `OhMyDesignEffects` | `.swoosh` on `Transition` | 带动态模糊的穿行转场（默认从右侧进、左侧出）。 |
 
 
 ---
@@ -913,10 +913,10 @@
 | `.glass` | `SegmentedControlStyle` | `GlassSegmentedControlStyle` | 默认外观：Liquid Glass 外壳。 |
 | `.plain` | `SegmentedControlStyle` | `PlainSegmentedControlStyle` | 纯色外壳外观。 |
 | `.ink` | `SegmentedControlStyle` | `InkSegmentedControlStyle` | 墨色外观：实心 accent 胶囊 + 反色文字。 |
-| `.core` | `DisclosureGroupStyle` | `CoreDisclosureGroupStyle` | CoreDesign 的默认 `DisclosureGroup` 外观：chevron 走 `.tint`，展开内容 作 leading 缩进（贴近原生，不加卡片）。 |
-| `.core` | `LabelStyle` | `CoreLabelStyle` | CoreDesign 的默认 `Label` 外观：icon 走 `.tint`、title 走默认前景色。 |
-| `.core` | `LabeledContentStyle` | `CoreLabeledContentStyle` | CoreDesign 的默认 `LabeledContent` 外观：label 走 `contentSecondary`， content 走 `contentPrimary`（描述列表惯例：字段名弱化、值强化）。 |
-| `.core` | `ProgressViewStyle` | `CoreProgressViewStyle` | CoreDesign 的默认 `ProgressView` 外观。 |
+| `.core` | `DisclosureGroupStyle` | `CoreDisclosureGroupStyle` | OhMyDesign 的默认 `DisclosureGroup` 外观：chevron 走 `.tint`，展开内容 作 leading 缩进（贴近原生，不加卡片）。 |
+| `.core` | `LabelStyle` | `CoreLabelStyle` | OhMyDesign 的默认 `Label` 外观：icon 走 `.tint`、title 走默认前景色。 |
+| `.core` | `LabeledContentStyle` | `CoreLabeledContentStyle` | OhMyDesign 的默认 `LabeledContent` 外观：label 走 `contentSecondary`， content 走 `contentPrimary`（描述列表惯例：字段名弱化、值强化）。 |
+| `.core` | `ProgressViewStyle` | `CoreProgressViewStyle` | OhMyDesign 的默认 `ProgressView` 外观。 |
 
 
 ---

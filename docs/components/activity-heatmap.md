@@ -2,11 +2,11 @@
 
 按周分列、按星期几分行的贡献热力图（GitHub 那种日格）/ A GitHub-style contribution heatmap.
 
-`ActivityHeatmap(days)`（`CoreDesignCharts/ActivityHeatmap.swift`，Issue #255）。**泛型视图**——
+`ActivityHeatmap(days)`（`OhMyDesignCharts/ActivityHeatmap.swift`，Issue #255）。**泛型视图**——
 数据类型由调用方提供，本库**不发货**具体的数据 struct。
 
 ```swift
-import CoreDesignCharts
+import OhMyDesignCharts
 ```
 
 ⚠️ 本 target **有意不 `import Charts`**。Swift Charts 的 `RectangleMark` 能画格子，但
@@ -117,7 +117,7 @@ nonisolated 上下文读会拿到
   它**不是** `LocalizedStringResource`——与 `ChartValue.label`、`GraphNode.label` 同一条 FR-7 边界声明。
 - **组件自带的 chrome 才本地化**：`title`（缺省 `.chart("Activity heatmap")`）与空态文案
   `"No data"` 是 `LocalizedStringResource`，译文在
-  `Sources/CoreDesignCharts/Resources/en.lproj/Localizable.strings`。
+  `Sources/OhMyDesignCharts/Resources/en.lproj/Localizable.strings`。
 
 ⚠️ **日期标签跟随注入的 `calendar`**（时区、locale、日历标识），不是设备的：
 `label(for:calendar:)` 把 `calendar` / `timeZone` / `locale` 逐项灌进 `FormatStyle`。
@@ -181,7 +181,7 @@ for a 'Sendable' type parameter
 ## 使用示例 / Usage
 
 ```swift
-import CoreDesignCharts
+import OhMyDesignCharts
 import SwiftUI
 
 // ⚠️ 调用方定义自己的模型 —— 本库**不发货**具体数据 struct。

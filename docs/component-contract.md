@@ -1,6 +1,6 @@
 # 组件 API 公约 / Component API Contract
 
-本文件是 CoreDesign 与 StoryUI 的**组件 API 地基**——回答「这个组件该长什么样的 API」。
+本文件是 OhMyDesign 与 StoryUI 的**组件 API 地基**——回答「这个组件该长什么样的 API」。
 
 > 视觉地基（token 取值理由）在 [`DESIGN-FOUNDATION.md`](DESIGN-FOUNDATION.md)。
 > 两者不同轴：那份管「这个数字为什么是这个数字」，本份管「这个参数为什么是这个形状」。
@@ -293,7 +293,7 @@
 
 ⚠️ **本条只排除候选，不决定落点**：候选排除后仍要走完步骤 2 → 3 → 4。能**额外**说清
 「长相即含义」⇒ `step3`；说不清 ⇒ `tiebreaker`。**不得**用本条直接推出 `step3`。
-> **实测状态（#52 全量审计；#53 已补跑 CoreDesign 侧；#59 已按修订后判据重判 17 条压测样本；#54 已补跑 StoryUI 侧 24 条）**：登记表现有全部 `step3` 条目中，
+> **实测状态（#52 全量审计；#53 已补跑 OhMyDesign 侧；#59 已按修订后判据重判 17 条压测样本；#54 已补跑 StoryUI 侧 24 条）**：登记表现有全部 `step3` 条目中，
 > **没有一条被确认合格**——没有一条同时满足「步骤 2 的答案站得住」与「有不引兄弟组件的
 > 反事实机制」；⚠️ **原「另有 4 条两可、#52 未裁」已由 #54 裁完**（见 `oh-my-story` 仓
 > `.claude/epics/component-contract/52-step3-audit.md` 的「档 5：存疑」，该文件已随 #52 落地于
@@ -302,7 +302,7 @@
 > 不再是「有 4 条没裁」，而是 **#54 的 24 条里通过档为 0**，且 20 条出口 1 判定**本轮不落盘**
 > （见上方三段读的第三段）。逐条依据见 `oh-my-story` 仓
 > `.claude/epics/component-contract/54-report.md` 的 §3 / §4。
-> ⚠️ **#53（移交 A）在 CoreDesign 侧补跑后仍未出现合格者**（逐条裁定见 `oh-my-story` 仓
+> ⚠️ **#53（移交 A）在 OhMyDesign 侧补跑后仍未出现合格者**（逐条裁定见 `oh-my-story` 仓
 > `.claude/epics/component-contract/53-triage.md` 与 `53-stress.md`）。
 > ⚠️ **#59 按修订后的判据重判后，`step3` 集合本身变了，且仍未出现合格者**：#59 裁定
 > `D-53-17`（(A) 不成立 ⇒ **重跑步骤 2**）与 `D-53-18`（槽 / 排布 / 装饰三分法 + 枚举
@@ -314,7 +314,7 @@
 > 其余落**步骤 4**。
 > > ⚠️ **上句是 #59 当时的裁定记录，不是现状**（不改写，改写等于篡改记录）。现状：那 5 条
 > > 里的 `AvatarGroup` / `SpinningModifier` / `Steps` / `Timeline` **已由 #60 落地**
-> > （公约 §2 形态 D2「配置枚举」，CoreDesign PR #206）；`SidebarUtilityRow` 被
+> > （公约 §2 形态 D2「配置枚举」，OhMyDesign PR #206）；`SidebarUtilityRow` 被
 > > `60-form-decision.md` §5 判为「建议退回重判，不在本轮开扩展点」，**已不在 #60 范围内**，
 > > 承接 `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
 > 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态；
@@ -394,8 +394,8 @@
 
 ⚠️ **`Tag` 这个例子在 #52 改判后仍然成立，但要读对它说明了什么**：本条优先适用 ⇒ pill 被
 排除，`Tag` **不因 pill 本身**直接落 `tiebreaker`；排除之后，`Tag` 自己**没有成文的**剩余
-共享骨架候选（改判前〔CoreDesign `511576f`〕实测：`实心 chip` / `描边 chip` 在
-`docs/component-registry.json`、本文件、`Sources/CoreDesign/Components/Tag/Tag.swift` 命中
+共享骨架候选（改判前〔OhMyDesign `511576f`〕实测：`实心 chip` / `描边 chip` 在
+`docs/component-registry.json`、本文件、`Sources/OhMyDesign/Components/Tag/Tag.swift` 命中
 **均为 0**——⚠️ **三处缺一不可**：D-44-3 的 hedge 原话是「**登记表与源码**均未成文枚举」，
 只扫登记表与公约会漏掉它点名的**源码**那一半。
 ⚠️ 本句自身与本轮回写文本对这两个词的引用不计入该计数；`docs/contract-defects.md` 的命中
@@ -452,7 +452,7 @@
 > 直接产出结论的情形。第一版枚举漏了它，而交接文件 `38.md` 的 schema 里有
 > —— 两份规范性文档打架，且公约是更权威的那份。
 > ⚠️ **这不是第一次**——`exclusion` 同样只在登记表（`ProgressBar` 条目）与守卫代码
-> （`Tests/CoreDesignTests/ComponentRegistryGuard.swift` 的 `validDecidedBy`）里出现过，
+> （`Tests/OhMyDesignTests/ComponentRegistryGuard.swift` 的 `validDecidedBy`）里出现过，
 > `38-plan.md:27-28` 把它记成对 `38.md` AC 的偏离，却从未回写进本公约——于是弃用条款
 > 强制生成的 `kind: excluded` 条目，长期没有一个合法的 `decidedBy` 取值能描述它。上面
 > 这段警告讲的正是「枚举漏值 ⇒ 两份规范性文档打架 ⇒ 公约是更权威的那份」，而它自己
@@ -513,7 +513,7 @@
 
 本仓已有的正确先例（形态 A）：`CoreLabelStyle` / `CoreProgressViewStyle` /
 `CoreDisclosureGroupStyle` / `CoreLabeledContentStyle`（均在
-`Sources/CoreDesign/Components/Style/`）、以及 `Button` 的各 `ButtonStyle` 实现、
+`Sources/OhMyDesign/Components/Style/`）、以及 `Button` 的各 `ButtonStyle` 实现、
 `CheckBoxToggleStyle: ToggleStyle`（`CheckBox` 组件，见附录 A.0）。
 
 ⚠️ **「正确先例」仅指「实现原生协议」这一点**：`SolidButtonStyle.swift` /
@@ -542,8 +542,8 @@
 
 | 子形态 | 形状 | 本仓既有实例 |
 |---|---|---|
-| **D1 外观槽** | 公开 `@ViewBuilder` 参数，让调用方替换组件**自身某一处视觉** | `TimelineItem` 的 `node:`（`Sources/CoreDesign/Components/Timeline/Timeline.swift:64`） |
-| **D2 配置枚举** | 公开枚举，穷举该组件外观的合法取值 | `StepsIndicatorStyle`（`Sources/CoreDesign/Components/Steps/Steps.swift:49`） |
+| **D1 外观槽** | 公开 `@ViewBuilder` 参数，让调用方替换组件**自身某一处视觉** | `TimelineItem` 的 `node:`（`Sources/OhMyDesign/Components/Timeline/Timeline.swift:64`） |
+| **D2 配置枚举** | 公开枚举，穷举该组件外观的合法取值 | `StepsIndicatorStyle`（`Sources/OhMyDesign/Components/Steps/Steps.swift:49`） |
 
 ⚠️ **形态 D 不是新发明** —— 上表两条都是本仓**已有的实践**，本节只是把它们从「判据看不见
 的灰区」正名为合法形态。
@@ -560,7 +560,7 @@
 **操作化判据**（两条都要满足才算 D1）：
 
 1. **有默认画法** —— 不传该槽时组件**自己画**那一处，源码里能指出对应的默认实现
-   （如 `Sources/CoreDesign/Components/Timeline/Timeline.swift:220` 的
+   （如 `Sources/OhMyDesign/Components/Timeline/Timeline.swift:220` 的
    `private var nodeView`）。⚠️ 内容槽通常**没有**默认画法，因为组件不知道调用方要放什么。
 2. **替换的是组件的视觉主张** —— 该槽覆盖的正是判定时**被枚举为候选形态差异**的那一处。
 
@@ -592,7 +592,7 @@
 成本 / 收益权衡。
 
 ⚠️ **决定性实例**（实测，非假想）：`SidebarUtilityRow` 判「槽」的**承重证据**逐字是
-「`systemImage` 是必填无默认值的公开参数」（`Sources/CoreDesign/Components/Sidebar/Sidebar.swift:221`
+「`systemImage` 是必填无默认值的公开参数」（`Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:221`
 实测：同一个 `init` 里 `trailingSystemImage` 有 `= nil`，而 `systemImage` 没有）。而实现
 其候选 1（纯文字工具行）就**必须让该参数可省** ⇒ **拆掉自己成立的前提**。
 
@@ -662,7 +662,7 @@
 **(b) 不成立才用 (a)：记入豁免基线** —— 写入 `docs/bool-exemptions.json`（#39 已落地），
 理由里**必须包含「为什么删不掉」**，而不只是「为什么四条都不适用」。
 守卫会真的查这一点：理由文本必须出现「删除」二字，否则判红
-（`Tests/CoreDesignTests/BoolExemptionGuard.swift` 的 `exemptionBaselineIsWellFormed`）。
+（`Tests/OhMyDesignTests/BoolExemptionGuard.swift` 的 `exemptionBaselineIsWellFormed`）。
 
 ⚠️ **豁免基线是两份文件，加一条豁免要改两处**（#39 的一/二文件选型裁决）：
 `docs/bool-exemptions.json` 是清单本身（每条四字段：`parameter` / `reason` /
@@ -851,7 +851,7 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
    ⚠️ 来源枚举用**开放式**措辞（「等运行期来源」），免得下一个来源（服务端 / remote config）
    又要开一轮裁定。
 2. **类型列纳入 `AttributedString`**，与 `String` **同级、逐参数按内容判 A/B/C**。
-   ⚠️ CoreDesign 排除它的成文理由是「把它并入 `.bareText` 是新裁决……**本仓零使用**，先留痕」
+   ⚠️ OhMyDesign 排除它的成文理由是「把它并入 `.bareText` 是新裁决……**本仓零使用**，先留痕」
    （`ComponentJudgeScanner.swift:135-136`）——**那个理由在 StoryUI 被证伪**：
    `ManuscriptEditor.text` / `ManuscriptReader.text` / `StoryTextView.initialText`
    三个**登记组件的直接 public init** 就用它。
@@ -919,20 +919,20 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 源码提供），**本条不处置**——它们的分类要不要一并改，属登记表层面的连带改判，已记为缺陷
 （`docs/contract-defects.md` D-44-4）。
 
-⚠️ **B 类是 CoreDesign 文本 API 的大头，不是 A 类。** `SectionHeader` /
+⚠️ **B 类是 OhMyDesign 文本 API 的大头，不是 A 类。** `SectionHeader` /
 `InsetGroupedSection(header:footer:)` / `ProgressIndicator(text:)` / `SettingsRow` 都是 B。
 
 ⚠️ **裁决：新增 B 类参数用 `LocalizedStringKey`**，与本仓既有 `SectionHeader` 一致、
 `Bundle.main` 解析语义不变，**不是** `LocalizedStringResource`。
 
-⚠️⚠️ **上面这条裁决有一条成文例外，射程如下**（`wxlpp/CoreDesign#253` 引入，PR #273 终审 I-5 定射程；
+⚠️⚠️ **上面这条裁决有一条成文例外，射程如下**（`wxlpp/oh-my-design#253` 引入，PR #273 终审 I-5 定射程；
 **裁决措辞本身不动**，本段只登记例外）：**仅当组件必须对解析后的字符串做索引 / 切片时**，
 该 B 类文案参数可改用 `LocalizedStringResource`。依据：SwiftUI **没有**把
 `LocalizedStringKey` 解析成 `String` 的公开 API（它只能整体交给 `Text`），
 而 `LocalizedStringResource` 有（`String(localized:)`）⇒ 这不是"两种都行、选了另一种"，
 是只有一种做得到。FR-7 自身写的是「`LocalizedStringResource` / `LocalizedStringKey`」
 **二选一**，故两者都合规。
-今天唯一的落点是 `CoreDesignEffects.TypewriterText`（打字机要按**字素簇**切前缀）。
+今天唯一的落点是 `OhMyDesignEffects.TypewriterText`（打字机要按**字素簇**切前缀）。
 
 ⚠️ **射程是谓词，不是白名单、也不是"任何需要逐字符处理的文本参数"**：
 写成「就这一个组件」不可维护（下一个同形态组件要从头重打这一仗），
@@ -959,7 +959,7 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 **新增**参数不受此限，直接用 `LocalizedStringKey`，不必等 #42。
 
 **本仓现状**：`Package.swift` 已有 `defaultLocalization: "en"`，`en.lproj/Localizable.strings`
-里 chrome 已本地化。⇒ **CoreDesign 侧不需要新增本地化基建**；
+里 chrome 已本地化。⇒ **OhMyDesign 侧不需要新增本地化基建**；
 缺 `defaultLocalization` 的是 **StoryUI**（归 #43）。
 
 ### 登记表的第四个 `category` 取值：`by-type`
@@ -969,14 +969,14 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 `LocalizedStringKey` / `LocalizedStringResource`、且**无接受裸字符串的孪生重载**
 （`String` **或** `StringProtocol`）时，分类由类型直接判定，**不落 A/B/C 的人工三分**。
 出处 `oh-my-story` 仓的 `.claude/epics/component-contract/38.md` 的 Acceptance Criteria 里 `textParams` 那条 bullet；守卫侧见
-`Tests/CoreDesignTests/ComponentRegistryGuard.swift` 的 `validCategories`。
+`Tests/OhMyDesignTests/ComponentRegistryGuard.swift` 的 `validCategories`。
 ⚠️ **不写现状条数**（`#270` 改）：上一版写「现状 2 条在用（`Descriptions.header`、
 `SpinningModifier.text`）」，而 `#270` 扩扫描根后四个图表的 `title` 一次加了 4 条 ⇒ 变 6 条，
 那个数字在写下几个月后就成了化石 —— 与本节下方「不写裸分母是为了不再重蹈『31』的覆辙」
 是同一条纪律，只是上一版没把它用到自己这句上。
 **权威计数在守卫里**：`ComponentTextParamGuard.byTypeCategoryHasNoBareStringTwin` 的
 `byTypeCount` 断言，改登记表时它会红、逼人过目。
-`by-type` 现全部在 CoreDesign 侧；StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
+`by-type` 现全部在 OhMyDesign 侧；StoryUI 侧现无 LSK/LSR 参数，该判据在那边恒不触发。
 
 ⚠️ **「无孪生重载」是本节的实际筛子**：第 4 节点名的四件
 （`SectionHeader` / `InsetGroupedSection(header:footer:)` / `ProgressIndicator(text:)` /
@@ -1022,7 +1022,7 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 
 | 判据 | 落点 | 定义域 | 现状 |
 |---|---|---|---|
-| **J-2** 语义组件必须有样式扩展点 | `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift` 的 `ComponentExtensionPointGuard` | `kind == semantic && needsExtensionPoint && repo == coredesign`，实测 5 条 | 3 条满足；`Rating` / `Toast` 是**待补的扩展点**，以 `withKnownIssue` + 块外固定集合 canary 落账，补齐后判据主动判红逼人清理 |
+| **J-2** 语义组件必须有样式扩展点 | `Tests/OhMyDesignTests/ComponentExtensionPointGuard.swift` 的 `ComponentExtensionPointGuard` | `kind == semantic && needsExtensionPoint && repo == ohmydesign`，实测 5 条 | 3 条满足；`Rating` / `Toast` 是**待补的扩展点**，以 `withKnownIssue` + 块外固定集合 canary 落账，补齐后判据主动判红逼人清理 |
 
 > ⚠️ **上面这行 J-2 的「现状」栏是当时的记录，不改写。现状（`wxlpp/oh-my-story#65`，
 > PR #210 终审 I-5）**：该栏三个断言**现已全假**，读者按它去找 `withKnownIssue` 块会扑空 ——
@@ -1050,8 +1050,8 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 > ⚠️ **这一次正是那句「将来若再出现已知缺口」的兑现** —— 它写下时是前瞻句，`#299` 把它
 > 变成了实测：块重建了、`inspected.count` 由 `== 11` 改 `== 16`、块外 canary 的固定集合
 > 由空集改 5 条。逐条见 `docs/contract-defects.md` 的 `D-270-1` `#299` 处置段。
-| **J-3** 标注 `nativeProtocol` 的组件作用域内不得有自有样式协议 | `Tests/CoreDesignTests/NativeProtocolPurityGuard.swift` | `nativeProtocol != nil && repo == coredesign`，实测 **1** 条（`ProgressIndicator`） | 零违规。⚠️ 1 条输入的判据靠非空断言挡不住「探针退化成恒空」⇒ 另设**绿色正对照**（把探针反向施加到 `Banner` / `SegmentedControl`，必须命中）。判据**消费**该探针而不内联重写，正对照的红因此能推到判据的探测能力上（规则层 `j3JudgeConsumesTheProbe` 钉住这条结构约束） |
-| **FR-4** public init 的裸文本参数必须有分类条目 | `Tests/CoreDesignTests/ComponentTextParamGuard.swift`；⚠️ **StoryUI 侧另有实现**：`oh-my-story` 的 `TextParamGuard` / `TextParamScan`（`#67`） | 宿主可解析到 `repo == coredesign` 登记表条目的 public `init`，实测覆盖 29 条。⚠️ **StoryUI 侧的定义域是「结构可达性传递闭包」，不是本行的字面定义域**（`#67` 的定义性扩展）：种子 = 25 个 `repo == "storyui"` 登记组件，沿 public init 参数类型走、剥壳后**跟进本包声明的类型**，到不动点。**理由**：StoryUI 的组件 init 形如 `ChapterCard.init(state: ChapterCardState)`，字面定义域**结构性地漏掉它几乎全部的文案面**。⚠️ **不是按名字后缀（`*State`）画线** —— 那违反本公约 J-3 的「识别是**结构性的**，不是名字匹配」，且 `CodexCard.init(state: CodexEntryState)` 而 `CodexEntryState.init(entry:type:)` **零文本参数** ⇒ 名字后缀口径对**整个 Codex 家族覆盖为 0**。⚠️ 本仓（CoreDesign）侧**未改**定义域 | 4 条已知违规（三条 Sidebar row 的 `systemImage` + `SidebarUtilityRow.trailingSystemImage`）——与 `LabelIcon.systemName` 同类的 SF Symbol 标识符，但 `notes` 未点名 ⇒ 缺陷已报回 #38 |
+| **J-3** 标注 `nativeProtocol` 的组件作用域内不得有自有样式协议 | `Tests/OhMyDesignTests/NativeProtocolPurityGuard.swift` | `nativeProtocol != nil && repo == ohmydesign`，实测 **1** 条（`ProgressIndicator`） | 零违规。⚠️ 1 条输入的判据靠非空断言挡不住「探针退化成恒空」⇒ 另设**绿色正对照**（把探针反向施加到 `Banner` / `SegmentedControl`，必须命中）。判据**消费**该探针而不内联重写，正对照的红因此能推到判据的探测能力上（规则层 `j3JudgeConsumesTheProbe` 钉住这条结构约束） |
+| **FR-4** public init 的裸文本参数必须有分类条目 | `Tests/OhMyDesignTests/ComponentTextParamGuard.swift`；⚠️ **StoryUI 侧另有实现**：`oh-my-story` 的 `TextParamGuard` / `TextParamScan`（`#67`） | 宿主可解析到 `repo == ohmydesign` 登记表条目的 public `init`，实测覆盖 29 条。⚠️ **StoryUI 侧的定义域是「结构可达性传递闭包」，不是本行的字面定义域**（`#67` 的定义性扩展）：种子 = 25 个 `repo == "storyui"` 登记组件，沿 public init 参数类型走、剥壳后**跟进本包声明的类型**，到不动点。**理由**：StoryUI 的组件 init 形如 `ChapterCard.init(state: ChapterCardState)`，字面定义域**结构性地漏掉它几乎全部的文案面**。⚠️ **不是按名字后缀（`*State`）画线** —— 那违反本公约 J-3 的「识别是**结构性的**，不是名字匹配」，且 `CodexCard.init(state: CodexEntryState)` 而 `CodexEntryState.init(entry:type:)` **零文本参数** ⇒ 名字后缀口径对**整个 Codex 家族覆盖为 0**。⚠️ 本仓（OhMyDesign）侧**未改**定义域 | 4 条已知违规（三条 Sidebar row 的 `systemImage` + `SidebarUtilityRow.trailingSystemImage`）——与 `LabelIcon.systemName` 同类的 SF Symbol 标识符，但 `notes` 未点名 ⇒ 缺陷已报回 #38 |
 
 **自有样式协议的识别是结构性的，不是名字匹配**：信号为「`protocol` 成员里有
 `func makeBody(configuration:)` requirement」（Apple `ButtonStyle` / `ToggleStyle` 的形状）。
@@ -1070,8 +1070,8 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 `--filter` 单独跑起来，**必须独占一个文件**；合并文件会静默破坏 AC「三条判据可独立运行」的取证，
 而合并后的输出看起来完全正常。
 
-**跨仓边界（裁决 (a)，继承 #38 Task 2 的 `registryCoversCoreDesignTypes`）**：三条判据
-都**只对 `repo == "coredesign"` 的条目跑**，其余在输出里**显式报告跳过条数**（现状
+**跨仓边界（裁决 (a)，继承 #38 Task 2 的 `registryCoversOhMyDesignTypes`）**：三条判据
+都**只对 `repo == "ohmydesign"` 的条目跑**，其余在输出里**显式报告跳过条数**（现状
 `storyui` 25 条 / 3 个 `textParams`），并由三条棘轮断言盯住：跳过计数固定、StoryUI 侧
 不得出现 `kind == semantic` 的条目、不得出现 `nativeProtocol` 非空的条目。语义是
 **「这条不归本仓判据管，已移交 #43」**，不是「查不出问题所以放行」。
@@ -1090,14 +1090,14 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 
 | # | 缺口 | 判据侧现状 | 靠什么补位 | 实现层 |
 |---|---|---|---|---|
-| **G-1** | J-2 的 `customStyleProtocol` 通路**只查符号存在性**，查不出「组件真的把定制权交出去了」 | 判绿条件是「协议已声明 + 至少一个类型采纳」（规则层 `Tests/CoreDesignTests/ComponentJudgeRules.swift`；消费该规则的 suite 是下方 J-2 行落点 `ComponentExtensionPointGuard.swift`，两者对应同一条判据的不同层次）。组件完全可以声明协议、登记表填上名字，而 `body` 里照旧硬渲染 ⇒ J-2 照绿 | **一条人来守的规矩 + spy 测试**：#41 的 `Rating` / `RatingDisplay` 用「`body` 真的经 `style.makeBody(configuration:)` 渲染」的测试补位，#43 同款。**靠人自觉，不是靠判据** | ✅ **已部分覆盖**（`wxlpp/oh-my-story#48`，`StyleConsumptionGuard`）。⚠️ 「需要语义判断」这个估计**实测不成立** —— 四个条目**都在 `body` 内调用** `style.makeBody(configuration:)`，**语法级判据**就能守。⚠️ 但统一的只是「**存在调用**」这一层 —— 写法有**三种**（单表达式 / 跨行 / 多语句 + `return`），判据须对三种都成立（spec 评审专门把「形态完全统一」定性为过强说法）。⚠️ **两条精度上限**：① 守的是「**调用了**」不是「结果真被渲染」（`_ = style.makeBody(...)` 仍判绿）；② receiver 已锚定为 `style`（不锚的话硬编码具体样式会绕开 environment 注入）。⇒ 故写「已部分覆盖」，**不是**「已覆盖」 |
+| **G-1** | J-2 的 `customStyleProtocol` 通路**只查符号存在性**，查不出「组件真的把定制权交出去了」 | 判绿条件是「协议已声明 + 至少一个类型采纳」（规则层 `Tests/OhMyDesignTests/ComponentJudgeRules.swift`；消费该规则的 suite 是下方 J-2 行落点 `ComponentExtensionPointGuard.swift`，两者对应同一条判据的不同层次）。组件完全可以声明协议、登记表填上名字，而 `body` 里照旧硬渲染 ⇒ J-2 照绿 | **一条人来守的规矩 + spy 测试**：#41 的 `Rating` / `RatingDisplay` 用「`body` 真的经 `style.makeBody(configuration:)` 渲染」的测试补位，#43 同款。**靠人自觉，不是靠判据** | ✅ **已部分覆盖**（`wxlpp/oh-my-story#48`，`StyleConsumptionGuard`）。⚠️ 「需要语义判断」这个估计**实测不成立** —— 四个条目**都在 `body` 内调用** `style.makeBody(configuration:)`，**语法级判据**就能守。⚠️ 但统一的只是「**存在调用**」这一层 —— 写法有**三种**（单表达式 / 跨行 / 多语句 + `return`），判据须对三种都成立（spec 评审专门把「形态完全统一」定性为过强说法）。⚠️ **两条精度上限**：① 守的是「**调用了**」不是「结果真被渲染」（`_ = style.makeBody(...)` 仍判绿）；② receiver 已锚定为 `style`（不锚的话硬编码具体样式会绕开 environment 注入）。⇒ 故写「已部分覆盖」，**不是**「已覆盖」 |
 | **G-2** | `BoolExemptionGuard.ownersWithoutRegistryEntry` 台账**不随最后一个豁免键回收** | 三条宿主（`ButtonStyle` / `SolidButtonStyle` / `LightButtonStyle`）在 #41 删掉 `glass` 之后都已**没有任何活的豁免键**；`exemptionOwnersReconcileWithRegistry` 的循环按豁免键遍历 ⇒ 不再访问它们。但三者归类不同：`SolidButtonStyle` / `LightButtonStyle` 绑 `.styleImplementation`，它们绑定的正向核对（`scan.styleImpls.contains(owner)`）**零覆盖**，判据仍是绿的。`ButtonStyle` 绑的是 `.externalProtocolExtension`——该分类另有 `View` 的 11 个活豁免键撑着，正向核对**非零覆盖**，`ButtonStyle` 单独按下方裁断 (ii)② 的回收条件**今天已满足**，单独表态见下方裁断 | 无——保留的行不承重，靠人守；处置口径见下方**裁断** | ✅ **已覆盖**（`#48`）。三件事：① **全表 pass** —— 台账每条宿主的分类标注都被核，无论有没有活豁免键 ⇒「休眠」不再等于零覆盖（保留了原有的按键遍历，它另管「凭空宿主」判红）；② ⚠️ **`.nonViewPublicType` 此前只有两条负向断言**，把一个样式实现改标进来两条都过、**静默判绿**（实测）⇒ 已补**正向 + 排他**核对；③ **`ButtonStyle` 已回收**（依据是下方裁断 (ii)② 的条件已满足，非 #48 新裁）⇒ 台账现为 6 条 |
 | **G-3** | README 组件索引的对账是**单向**的，且不检查快照存在性 | `ComponentRegistryGuard.readmeIndexReconcilesWithRegistry` 只做 README → 登记表方向：索引**缺行不会红**；也不检查该行 `<img src="snapshots/...">` 指向的 PNG 是否真的存在 | 无——靠人补。#41 新增 `RatingDisplay` 时索引行与快照全靠人手补 | ✅ **已覆盖**（`#48`）。⚠️ **朴素的反向断言会误红 11/45** —— 那 11 条是结构性合法未索引（子行 / modifier），且解析器在首个括号处截断 ⇒ 一条都对不上。故落地为**聚合映射** `readmeRowCoverage`（README 行名 → 覆盖的条目集合 + 理由），**正向的 `resolveReadmeCandidate` 与反向断言共用同一份数据**（两张表必然漂移）。映射表带四条自洽守卫（key 真在 README / value 真是条目 / 覆盖集非空 / 理由过空话拦截）。快照断言**只做 README → PNG 单向**（反向会把正常的未索引快照判红）|
-| **G-4** | **A 类的类型要求有规定、无判据，且本仓参考实现自己不合规** | 公约要求「A 类必须用 `LocalizedStringResource`」，而 CoreDesign `Sources/` 下 `LocalizedStringResource` 命中 **0**（实测）；`StateLabel.swift` 的 `StateLabelStyle.Spec.defaultLabel`（A 类 chrome，值是 `"Active"`/`"Draft"` 等英文）是裸 `String`。⚠️ **A 类文案不经任何一路进入 FR-4 的机器视野**：源码侧 FR-4 只扫 public `init` 参数、A 类不是参数；登记表侧 `textParams[]` 收 public 参数、A 计数恒为 0 | 评审（无机器判据） | ⚠️ **本公约在此明写：A 类的类型要求当前无机器判据，靠评审**；并把 CoreDesign 侧 `StateLabel.defaultLabel` 登记为**已知例外**。StoryUI 的 `ChapterStatus.defaultLabel` 是整个 epic 中**唯一**遵守该条的地方——这个不对称必须记录，否则下一个人会以为 `String` 是既定惯例。`StateLabel` 的改造 ⇒ 移交 |
-| **G-5** | 跨仓登记表守卫的 `derivedDataCandidates()` 有**陈旧命中**风险（失效方向**静默**） | StoryUI 侧 `CrossRepoRegistryGuard` 做 8 级有界上溯、`allEntries()` first-hit-wins。若 `.build/checkouts` 缺席而上层恰有一份陈旧的 `SourcePackages/checkouts/CoreDesign`，守卫会**静默读到旧版登记表**——判据照常绿，但对的是过期事实 | 概率极低（需同时满足两个条件），按 #43 终审裁定**留痕而非加固** | 📝 **正式不实现**（`#48` 的裁断）：按 **#43 终审**「留痕而非加固」—— 触发需**同时**满足两个条件（`.build/checkouts` 缺席 **且** 上层恰有一份陈旧的 `SourcePackages/checkouts/CoreDesign`）。⚠️ **再评估的触发条件写死在此**：`wxlpp/oh-my-story#67`（G-8 的跨仓参数级扫描）落地后，若它让本风险面**实质变大**，须重新评估本裁定，**不得沿用**。若要收紧，落点仍是在 `allEntries()` 里核对「该 checkout 的 git 版本 ≟ `Package.resolved` 的 pin」。⚠️ **`wxlpp/oh-my-story#67` 触发了本行写死的再评估条件，结论：仍沿用「留痕而非加固」**，依据须写成**两轴**（不能只留「净缩小」这个未加度量的单句）：**轴一 消费者数 1 → 3**（同一份陈旧副本能骗的读者**变多**）——⚠️ **上一版写「1 → 2」，`wxlpp/oh-my-story#72` 触发了本行写死的再评估条件并重算**：PR-B 新增一个读 `docs/reachable-type-registry.json` 的 loader ⇒ **第三个读者** —— ⚠️ 它由 `wxlpp/oh-my-story#72` 的 **PR-B** 引入，**PR-A 合并时尚不存在**，此处是**预先记账**。⚠️ **`#72` 的结论仍是「留痕而非加固」，但那是重算出来的、不是沿用**，且**轴一确实恶化了** ⇒ 是「**变大但仍可接受**」，不是「无变化」。逐字段账（⚠️ **此处不排表格** —— 本行是表格行，塞 markdown 表会把它劈开；`#67` 已现场犯过一次）：**`type` + `textParams[].name`** 由 story 侧 J5 的扫描器双向差集守 ⇒ **fail-loud**；**`category`** 只有 CoreDesign 侧的 J8 读**本仓**文件、story 侧**无断言性读者** ⇒ **静默**（⚠️ 但域**外**值若 loader 用枚举解码会**解码即抛** ⇒ 静默的只有**域内翻转**）；**`notes`** **无人读** ⇒ 静默（本就无人读，不是新增的洞）。⇒ 新增的静默项**只有 `notes` 与 `category` 的域内翻转**，主面是 fail-loud 的。**轴二 可静默的形态集变小**（`#67` 的 registry 侧参数级双向差集把**幽灵方向**从「无人守」补成 fail-loud，且它连 `category` 一起比 ⇒ 残余静默只剩「深度 0 完全等价的陈旧副本」这一无害形态。⚠️ **「完全等价」只对当前两个消费者实际读取的字段成立** —— 组件名集 + 深度 0 的 textParams 名与 category；陈旧副本在 `kind` / `decidedBy` / `notes` 维度的漂移**对两个消费者依旧静默**。这与 `#67` 前无变化、无受害判据 ⇒「无害」的结论可守，但别把它读成「逐字节等价」）。⚠️ **静默面本身依然存在且被重新接受** —— `CrossRepoRegistryGuard.swift:98-105` 的「已知盲区（终审 I-1 / T-2，静默方向）」注释块逐字写着「这是本守卫三处盲区里**唯一失效方向是「静默」的**」；概率极低（需同时满足两个条件）|
+| **G-4** | **A 类的类型要求有规定、无判据，且本仓参考实现自己不合规** | 公约要求「A 类必须用 `LocalizedStringResource`」，而 OhMyDesign `Sources/` 下 `LocalizedStringResource` 命中 **0**（实测）；`StateLabel.swift` 的 `StateLabelStyle.Spec.defaultLabel`（A 类 chrome，值是 `"Active"`/`"Draft"` 等英文）是裸 `String`。⚠️ **A 类文案不经任何一路进入 FR-4 的机器视野**：源码侧 FR-4 只扫 public `init` 参数、A 类不是参数；登记表侧 `textParams[]` 收 public 参数、A 计数恒为 0 | 评审（无机器判据） | ⚠️ **本公约在此明写：A 类的类型要求当前无机器判据，靠评审**；并把 OhMyDesign 侧 `StateLabel.defaultLabel` 登记为**已知例外**。StoryUI 的 `ChapterStatus.defaultLabel` 是整个 epic 中**唯一**遵守该条的地方——这个不对称必须记录，否则下一个人会以为 `String` 是既定惯例。`StateLabel` 的改造 ⇒ 移交 |
+| **G-5** | 跨仓登记表守卫的 `derivedDataCandidates()` 有**陈旧命中**风险（失效方向**静默**） | StoryUI 侧 `CrossRepoRegistryGuard` 做 8 级有界上溯、`allEntries()` first-hit-wins。若 `.build/checkouts` 缺席而上层恰有一份陈旧的 `SourcePackages/checkouts/OhMyDesign`，守卫会**静默读到旧版登记表**——判据照常绿，但对的是过期事实 | 概率极低（需同时满足两个条件），按 #43 终审裁定**留痕而非加固** | 📝 **正式不实现**（`#48` 的裁断）：按 **#43 终审**「留痕而非加固」—— 触发需**同时**满足两个条件（`.build/checkouts` 缺席 **且** 上层恰有一份陈旧的 `SourcePackages/checkouts/OhMyDesign`）。⚠️ **再评估的触发条件写死在此**：`wxlpp/oh-my-story#67`（G-8 的跨仓参数级扫描）落地后，若它让本风险面**实质变大**，须重新评估本裁定，**不得沿用**。若要收紧，落点仍是在 `allEntries()` 里核对「该 checkout 的 git 版本 ≟ `Package.resolved` 的 pin」。⚠️ **`wxlpp/oh-my-story#67` 触发了本行写死的再评估条件，结论：仍沿用「留痕而非加固」**，依据须写成**两轴**（不能只留「净缩小」这个未加度量的单句）：**轴一 消费者数 1 → 3**（同一份陈旧副本能骗的读者**变多**）——⚠️ **上一版写「1 → 2」，`wxlpp/oh-my-story#72` 触发了本行写死的再评估条件并重算**：PR-B 新增一个读 `docs/reachable-type-registry.json` 的 loader ⇒ **第三个读者** —— ⚠️ 它由 `wxlpp/oh-my-story#72` 的 **PR-B** 引入，**PR-A 合并时尚不存在**，此处是**预先记账**。⚠️ **`#72` 的结论仍是「留痕而非加固」，但那是重算出来的、不是沿用**，且**轴一确实恶化了** ⇒ 是「**变大但仍可接受**」，不是「无变化」。逐字段账（⚠️ **此处不排表格** —— 本行是表格行，塞 markdown 表会把它劈开；`#67` 已现场犯过一次）：**`type` + `textParams[].name`** 由 story 侧 J5 的扫描器双向差集守 ⇒ **fail-loud**；**`category`** 只有 OhMyDesign 侧的 J8 读**本仓**文件、story 侧**无断言性读者** ⇒ **静默**（⚠️ 但域**外**值若 loader 用枚举解码会**解码即抛** ⇒ 静默的只有**域内翻转**）；**`notes`** **无人读** ⇒ 静默（本就无人读，不是新增的洞）。⇒ 新增的静默项**只有 `notes` 与 `category` 的域内翻转**，主面是 fail-loud 的。**轴二 可静默的形态集变小**（`#67` 的 registry 侧参数级双向差集把**幽灵方向**从「无人守」补成 fail-loud，且它连 `category` 一起比 ⇒ 残余静默只剩「深度 0 完全等价的陈旧副本」这一无害形态。⚠️ **「完全等价」只对当前两个消费者实际读取的字段成立** —— 组件名集 + 深度 0 的 textParams 名与 category；陈旧副本在 `kind` / `decidedBy` / `notes` 维度的漂移**对两个消费者依旧静默**。这与 `#67` 前无变化、无受害判据 ⇒「无害」的结论可守，但别把它读成「逐字节等价」）。⚠️ **静默面本身依然存在且被重新接受** —— `CrossRepoRegistryGuard.swift:98-105` 的「已知盲区（终审 I-1 / T-2，静默方向）」注释块逐字写着「这是本守卫三处盲区里**唯一失效方向是「静默」的**」；概率极低（需同时满足两个条件）|
 | **G-6** | StoryUI 侧 `CrossRepoRegistryGuard` 的 View 扫描：同一扫描器的两处口径边缘（失效方向 **fail-loud**） | (i) `visit(_:StructDeclSyntax)` 只看结构体自身修饰符 ⇒ 嵌在非 public 容器内、有效访问级实为 internal 的 `public struct` 仍被计入；(ii) `*Demo` 排除后返回 `.visitChildren` ⇒ Demo 内嵌的 public View 也会被采集 | 今日**零命中**（扫描命中集与登记表条目逐名闭合可证），且失效方向是多扫 ⇒ `missing` ⇒ 红 | 留痕即可 |
 | **G-7** | `ComponentIndexGuardTests` 的 27-slug roster 是**手工清单**，有方向性盲区 | 新 View 从未进 roster 时，文档索引与 roster **一起**漏掉它、两集合仍相等、判据永绿 | 无 | ✅ **已部分覆盖**（`wxlpp/oh-my-story#48` PR ②，已合并 `d80d4de`）。⚠️ **射程：9 种宿主协议的直接继承子句 conformance** —— 含 composition（`: View & Sendable`）、attributed（`: @MainActor View`，SE-0470 isolated conformance）与模块限定（`: SwiftUI.View`）三种拼法，**均在继承子句内**，PR ② 末轮已闭合；边界见本格末。⚠️ **不写「已覆盖」** —— 与 G-1 同构：守卫存在，但本行「影响」栏描述的失效形态仍有登记在案的逃逸通道，其中 `public struct NewCard {}` + `extension NewCard: View { … }` 是**完全地道的 Swift 写法**，这样写的新组件**逐字复现**本行影响栏的原话（从未进 roster ⇒ 两集合仍相等 ⇒ 判据永绿），而主判据与绊线**都不响**。本节节头自述「读到它就该知道判据绿了不代表这一条被查过」—— 对 extension-conformance 组件，判据绿 ≠ 被查过。⚠️ **落点不是原先写的 `App/Tests/GalleryIntegrityTests.swift`**，是 `oh-my-story` 的 `Packages/StoryUI/Tests/StoryUITests/ComponentRosterSourceAnchorTests.swift` —— 这是**锚点选择**不是文件搬家：App 那条的 roster 来自**扫 `docs/components/*.md` 的文件列表**，锚它上面等于断言「文档文件在不在」；`ComponentIndex.allSlugs` 是手写台账，判据 1 已把它与文档**恰好相等**地钉住 ⇒ 锚台账上，新组件必须**同时**进台账与文档才变绿。且新守卫住在 SwiftPM 包里，`swift test` 就能跑。**四条断言**：源码里每个公开组件都在 roster 或豁免表（**并直接 `fileExists` 钉 `docs/components/<slug>.md`** ⇒ 不依赖判据 1）/ 扫描器看得见 `#if` 块里的 Representable / 豁免表自洽（key 真实存在 · 理由带文档引文锚 · 豁免 ∩ roster = ∅）/ slug 转换的**逐对往返 + 单射 + override 悬空 key**（`wxlpp/oh-my-story#69` 已落，合并 `761bb33`）—— （⚠️ 旧的 `matched.count >= 20` 降为**非退化前置**；**往返那条**守的是「误映射到**另一个现存 slug**」：那种改法下 `missing` / `docless` / 计数**一条都不收**（全套件绿），只有独立逆函数的往返断言能抓到）—— 外加一条绊线：没有 protocol / typealias 把宿主协议洗白。变异自证全部判红：`#48` PR ② **22 条** + `#69` **15 条**。⚠️ **分开归因** —— 上面「四条断言」的第四槽已被 `#69` 换过；22 条打的是**换之前**那版（其第四槽是 `matched.count >= 20`），**其中没有任何一条打的是那条计数断言本身**；15 条打的是换之后的往返 / 单射 / override 与三段式。 ⚠️ **口径是 9 种宿主协议**（`View` / `UIViewRepresentable` / `UIViewControllerRepresentable` / `Shape` / `InsettableShape` / `RoundedRectangularShape` / `DynamicViewContent` / `ShapeView` / `_AnimatableView`），由 **iPhoneOS26.4 SDK swiftinterface 求 refine `View` 的传递闭包**实测得到，审计由**三段式判据**机器守护（落盘审计快照 + `hosts` 比对 + SDK build 变动或 CI 强制时条件性全量重算），见 `wxlpp/oh-my-story#69`（合并 `761bb33`）。⚠️ 仍**不是**每次都重算：SDK build 与钉子相同且未置强制开关时走快路径（**~0.02s**）；**CI 上无条件走全量**（**~12–13s**）。⚠️ **耗时的样本与出处以 `oh-my-story` 的 `ComponentRosterSourceAnchorTests` 里 `hosts` 的注释为准（单一权威源；⚠️ 跨仓符号在此**拆开写**，避免读成本仓的符号），本行不复述** —— 这两个数在收口过程中被历轮评审反复推翻（「~12.5s」→「七次」→「六次」→「三有三无留痕」→判准与样本表自相矛盾，**每版都撑不住**；⚠️ **此处不写序数** —— 本行正是因为数错次数被打回的），逐字镜像到两个仓正是「两处各自演化」的做法（复审 I-3）。前三版靠「凭想」枚举，**连续三轮各漏一批**。⚠️ **`#48` 收口时这里原本写的是**（逐字保留）：「⚠️ 落盘的只是做法描述加一行 `xcrun --show-sdk-path`，**照着跑不出来**（复审 Suggestion 2）；把可复跑的提取管线补全 ⇒ 承接 **`wxlpp/oh-my-story#69`**（具名，不写「后续任务」）。」**该 issue 的实现已全部合并**（`wxlpp/oh-my-story` 的 `761bb33`）；**本条改写即其收尾回写** ⇒ 现状见上，前向指针到此为止。⚠️ **本行不断言 ticket 状态** —— 实测 PR #70 的 `closingIssuesReferences` 为 **0**（没有任何 PR/commit 携带指向 `#69` 的 closing keyword），关闭它是一次**独立操作**；把 ticket 状态写进文档就是一条待证伪的将来时。issue 的生死交给 GitHub 自己陈述。⚠️ 上一版这里写「取决于一次**跨仓**手动操作（closing keyword 不跨仓自动生效）」—— **两处都错**：`#69` 与实现 PR #70 **在同一个仓**，而 closing keyword 的跨仓语义我根本没核就写了（终审 Critical）。⚠️ **仍未守住、只是登记了的**：`*Demo` 后缀通配排除、`extension X: View` 形式的 conformance、AppKit 形态、`protocol P where Self: View`、加第二个 source target 时的 `package` 访问级；以及 **`hosts` 是枚举的** —— 上游 SDK 升级或第三方库带来新 View refinement 时**两头都不响** |
-| **G-8** | FR-4 的 StoryUI 侧 `storyuiTextParams == 3` 只做「计数 + 条目名」核对，**无参数级源码扫描** | 工作量取舍，**非能力边界**——测试 target 已依赖 swift-syntax，基建现成；参数级扫描是独立一块工程 | 无 | ✅ **已部分覆盖**（`wxlpp/oh-my-story#67`，已合并 `7eade05`）。⚠️ **「已覆盖」不等于「CI 在守」**：`oh-my-story` 是**私有仓**，其 CI **最后一次成功是 2026-08-11**；承载本条全部实现的 `7eade05`，三个 job 都在 **runner 分配层**失败（`runner_name` 为空、**0 个 step**、3 秒结束）⇒ **本条的四条判据自落地起从未在任何 CI 上执行过**，证据只有作者机器上的 `swift test`。疑似私有仓 macOS 分钟数耗尽，另开跟进。**读到「✅」的人请连这句一起读。**落点是 `oh-my-story` 的 `Packages/StoryUI/Tests/StoryUITests/TextParamGuard.swift` + `TextParamScan.swift`。⚠️ **扫描必须在对面仓**：本仓 CI **只 checkout 本仓**（`ComponentTextParamGuard` 的 **FR-4 主测试结尾**那条 print 逐字，⚠️ **不写行号** —— 该文件的自引用行号会被引用它的那次编辑自己顶失效，本 PR 已现场犯过一次），读不到 StoryUI 源码。⚠️ **原判「工作量可能超过其余五条之和」被实测推翻，且方向相反**：按 FR-4 字面定义域（登记组件的 public init）做出来的扫描器**落地当天就是绿的** —— 域内 3 条裸文本，**恰好就是已登记的那 3 条**。真问题是**结构性的**：StoryUI 的组件 init 形如 `ChapterCard.init(state: ChapterCardState)`，文案在 `ChapterCardState.init(id:title:summary:…)` 里 ⇒ **定义域按字面套过来会结构性地漏掉它几乎全部的文案面**。⇒ 定义域改用**结构可达性传递闭包**（见 FR-4 行）。**四条判据**：深度 0 源码侧三桶差集 / 深度 0 registry 侧（**派生** pin 盲区，兼作抬版 canary）/ 深度 ≥1 的 canary（⚠️ **此处不写字面数**：该集合会随新增文本参数增长，写死就是一条会跨仓静默漂移的数，本行与 G-7 已以同一理由删过别的数字）—— ⚠️ **这一条的具体形态以 story 侧 `TextParamGuard` 的判据为准，本行不复述**：`#72` 的 **PR-B（`wxlpp/oh-my-story#76`）**把它从「本地已知集 + 块外 canary」改成**对本仓可达类型登记表的双向差集**（`deeperParamsMatchRegistry`）+ 一条 pin 门槛判据（`pinBumpForcesRegistrySourceOfTruth`）。⚠️ **这是对那个 PR 的 diff 内容的描述，与它合没合并无关** —— 上一版写「`#72` **把它改成**…」是个**早产的完成时**：写下时那两个判据名**只存在于未合并分支**，story main 上仍是本地已知集。⚠️ **本行不写「story 侧现在是哪种」** —— 那是**会过期的跨仓状态断言**，而本仓 CI **只 checkout 本仓** ⇒ **没有任何机器接得住它**。⇒ 只写判据名，状态去对面仓读。⚠️ **「判据名稳定」是期望、不是被守住的性质**：对面仓改名时本仓**零信号**（本行对**行号**写明了同款失效并配了逐字引文兜底，**判据名没有兜底**） / `#44` 移交指针自检。变异自证的**权威台账是 story 侧 squash commit `7eade05` 的正文**（静止树全套重跑的那张表）—— ⚠️ **此处不写条数**：隔壁 **G-7 行**逐字写着「此处不写序数 —— 本行正是因为数错次数被打回的」，而我起草本行时写的「12 条」在对面台账里**找不到任何一处这么数过**（重跑表 10 条 + 两条单独跑红 + 两条不变性探针，怎么拼都不是一个有出处的数）。 ⚠️ **不写「已覆盖」** —— 深度 ≥1 那批（story 侧**当时的** `knownDeeperParams`）**曾经**是「停车 + 报警」——`textParams` 挂在**组件条目**上，而 `ChapterCardState` / `AgentTodoItem` / `CodexEntry` 不是登记表条目 ⇒ 当时**无登记落点**，承接 `wxlpp/oh-my-story#72`。⚠️ **该承接已兑现**（`#216` / `6f7f59a`）：落点是本仓的 **`docs/reachable-type-registry.json`**（可达类型登记表，见上方并集规则）⇒ **「无登记落点」这句自 `#216` 合并起即为假，此处改写**（`wxlpp/CoreDesign#217`）。⚠️ **本行及 G-5 / §4 引对面仓的行号（`TextParamScan.swift:127`、`CodexEntry.swift:11-12`、`CrossRepoRegistryGuard.swift:98-105`）一律「以逐字引文为准、行号仅供当日定位」** —— 与 `#75` 那条方向相反、失效形态对称：击穿它们的编辑在**对面仓**，本仓测试全绿、零信号；好在都带了逐字引文，可 grep 恢复。 ⚠️ **仍未守住、只是登记了的（显式编号，⚠️ 别在别处复述成一个概数 —— 本 PR 初版描述写「五类」时它是 **4** 项，终审 S-D 后补了一项、现在是 **5** 项。⚠️ 这两次一增一减恰好说明**为什么要编号而不写概数**：数会变，编号跟着列表自己走）**：**①** 那批深度 ≥1 参数的 **category 无「独立来源」判据** —— ⚠️ **本条已被 `wxlpp/oh-my-story#72` 部分处置，措辞随之更新**（上一版写「全体无判据覆盖……要等 `#72` 的 schema」，schema 已落地 ⇒ 那句即过期）：`docs/reachable-type-registry.json` 的 **J8** 把**取值域**钉成「全体为 C」，翻转任一条为非 C 会红。⚠️ **但那不等于 category 被独立校验** —— 扫描器只产出**参数名**，category 是人判的、源码里不存在 ⇒ 拿 registry 比 registry 是**同源恒真**。J8 挡「悄悄改成非 C」，**挡不了「非 C 被误登记成 C」**· **②** 元组 / typealias（活体 `OutlineNodeState.ID`）/ 枚举关联值 / `Dictionary` 的 key / **函数类型参数的载荷**（`TextParamScan.swift` 逐字「函数类型参数不展开」，且 `InlineActionMenu.Action.Kind.rawValue` 的唯一入口就是它）—— 五类**逃逸**（扫不到）。⚠️ **此处不是闭合枚举**：扫不到的通道以 story 侧 `TextParamScan` 的注释与 `#67` spec §12 的「出闭包文本通道」清单为准（该清单自述「已知已核，不是穷尽」）· **③** carrying 通道。⚠️ **这条指的是「方向 / category 没判据」，不是「扫不到」** —— `TextParamScan.swift:127` 逐字把 `Binding` 与 `Optional`/`Array`/`Set` 并列剥壳，`Binding<String>` **是被纳入扫描的**；缺的是「双向绑定 / 回调回传的文本该判什么类」这条裁决 · **④** coredesign 侧的 `textParams` **同样无唯一性断言**（`ComponentRegistryGuard` 只验 category 允许域）—— `#67` 只给 storyui 侧补了，本仓侧留痕未补 · **⑤** ⚠️ **点路径解析与多段 extension 的机器在提交态零覆盖**（手工变异不进 CI、不防回退）⇒ 承接 `wxlpp/oh-my-story#74`。⚠️ **并集规则（`wxlpp/oh-my-story#72`）**：深度 ≥1 的文本参数登记在 **`docs/reachable-type-registry.json`**（可达类型登记表），与 `docs/component-registry.json` **并列** ⇒ **「StoryUI 文本参数全集 = 两文件的并集」**，凡要枚举全集的工具（迁移器 / 审计脚本 / 判据）**必须读两份**。⚠️ **今天没有判据强制任何人做并集** —— 本表 43 条全是 C /「不迁移」，漏读**当前**无实害；**第一条非 C 条目出现时前提即失效**，那一刻的机器触发点是 `ReachableTypeRegistryGuard` 的 **J8 判红**（其失败 message 里写着当下要做的三件事）。⚠️ 本表**没有 `reachableFrom` 字段**：纯信息性、守它要么把套件时间翻三倍要么改 `#74` 点名「提交态零覆盖」的机器 ⇒ **不登记不能守的东西**。⚠️ **本文件自己曾有一处表格行被裸换行劈开**（`Tag(removable:)` 走查表步骤 2 那格，`#215` 报告时它在 `main` 上已存在），⇒ `wxlpp/CoreDesign#215` **已在 `#72` 的 PR-A 里落地**：缺陷本身**已修**（`Tag(removable:)` 走查表步骤 2 那格被劈成 7 行，已折回），并加 `ComponentContractStructureGuard.contractTablesHaveNoSplitRows` **断言全文零违规**（⚠️ **不设已知违规集、不锚行号** —— 锚行号在本文档上必然高频误红，人就会为求绿扩集合）。⚠️ 上一版此处写「**无判据守**」，那句已作废。⚠️ 另有一处**跨仓分叉、无判据**：`oh-my-story` 的 `.claude/prds/component-contract.md` 仍写着旧的 C 行（`**C. 用户数据**` / `用户自己输入的领域内容…`），与本轮改写后的 C 行**不一致**。PRD 是**时点记录**（add-only，不回改），此处只留指针 —— 但若有人把 PRD 当权威读，会读到被推翻的定义。 |
+| **G-8** | FR-4 的 StoryUI 侧 `storyuiTextParams == 3` 只做「计数 + 条目名」核对，**无参数级源码扫描** | 工作量取舍，**非能力边界**——测试 target 已依赖 swift-syntax，基建现成；参数级扫描是独立一块工程 | 无 | ✅ **已部分覆盖**（`wxlpp/oh-my-story#67`，已合并 `7eade05`）。⚠️ **「已覆盖」不等于「CI 在守」**：`oh-my-story` 是**私有仓**，其 CI **最后一次成功是 2026-08-11**；承载本条全部实现的 `7eade05`，三个 job 都在 **runner 分配层**失败（`runner_name` 为空、**0 个 step**、3 秒结束）⇒ **本条的四条判据自落地起从未在任何 CI 上执行过**，证据只有作者机器上的 `swift test`。疑似私有仓 macOS 分钟数耗尽，另开跟进。**读到「✅」的人请连这句一起读。**落点是 `oh-my-story` 的 `Packages/StoryUI/Tests/StoryUITests/TextParamGuard.swift` + `TextParamScan.swift`。⚠️ **扫描必须在对面仓**：本仓 CI **只 checkout 本仓**（`ComponentTextParamGuard` 的 **FR-4 主测试结尾**那条 print 逐字，⚠️ **不写行号** —— 该文件的自引用行号会被引用它的那次编辑自己顶失效，本 PR 已现场犯过一次），读不到 StoryUI 源码。⚠️ **原判「工作量可能超过其余五条之和」被实测推翻，且方向相反**：按 FR-4 字面定义域（登记组件的 public init）做出来的扫描器**落地当天就是绿的** —— 域内 3 条裸文本，**恰好就是已登记的那 3 条**。真问题是**结构性的**：StoryUI 的组件 init 形如 `ChapterCard.init(state: ChapterCardState)`，文案在 `ChapterCardState.init(id:title:summary:…)` 里 ⇒ **定义域按字面套过来会结构性地漏掉它几乎全部的文案面**。⇒ 定义域改用**结构可达性传递闭包**（见 FR-4 行）。**四条判据**：深度 0 源码侧三桶差集 / 深度 0 registry 侧（**派生** pin 盲区，兼作抬版 canary）/ 深度 ≥1 的 canary（⚠️ **此处不写字面数**：该集合会随新增文本参数增长，写死就是一条会跨仓静默漂移的数，本行与 G-7 已以同一理由删过别的数字）—— ⚠️ **这一条的具体形态以 story 侧 `TextParamGuard` 的判据为准，本行不复述**：`#72` 的 **PR-B（`wxlpp/oh-my-story#76`）**把它从「本地已知集 + 块外 canary」改成**对本仓可达类型登记表的双向差集**（`deeperParamsMatchRegistry`）+ 一条 pin 门槛判据（`pinBumpForcesRegistrySourceOfTruth`）。⚠️ **这是对那个 PR 的 diff 内容的描述，与它合没合并无关** —— 上一版写「`#72` **把它改成**…」是个**早产的完成时**：写下时那两个判据名**只存在于未合并分支**，story main 上仍是本地已知集。⚠️ **本行不写「story 侧现在是哪种」** —— 那是**会过期的跨仓状态断言**，而本仓 CI **只 checkout 本仓** ⇒ **没有任何机器接得住它**。⇒ 只写判据名，状态去对面仓读。⚠️ **「判据名稳定」是期望、不是被守住的性质**：对面仓改名时本仓**零信号**（本行对**行号**写明了同款失效并配了逐字引文兜底，**判据名没有兜底**） / `#44` 移交指针自检。变异自证的**权威台账是 story 侧 squash commit `7eade05` 的正文**（静止树全套重跑的那张表）—— ⚠️ **此处不写条数**：隔壁 **G-7 行**逐字写着「此处不写序数 —— 本行正是因为数错次数被打回的」，而我起草本行时写的「12 条」在对面台账里**找不到任何一处这么数过**（重跑表 10 条 + 两条单独跑红 + 两条不变性探针，怎么拼都不是一个有出处的数）。 ⚠️ **不写「已覆盖」** —— 深度 ≥1 那批（story 侧**当时的** `knownDeeperParams`）**曾经**是「停车 + 报警」——`textParams` 挂在**组件条目**上，而 `ChapterCardState` / `AgentTodoItem` / `CodexEntry` 不是登记表条目 ⇒ 当时**无登记落点**，承接 `wxlpp/oh-my-story#72`。⚠️ **该承接已兑现**（`#216` / `6f7f59a`）：落点是本仓的 **`docs/reachable-type-registry.json`**（可达类型登记表，见上方并集规则）⇒ **「无登记落点」这句自 `#216` 合并起即为假，此处改写**（`wxlpp/oh-my-design#217`）。⚠️ **本行及 G-5 / §4 引对面仓的行号（`TextParamScan.swift:127`、`CodexEntry.swift:11-12`、`CrossRepoRegistryGuard.swift:98-105`）一律「以逐字引文为准、行号仅供当日定位」** —— 与 `#75` 那条方向相反、失效形态对称：击穿它们的编辑在**对面仓**，本仓测试全绿、零信号；好在都带了逐字引文，可 grep 恢复。 ⚠️ **仍未守住、只是登记了的（显式编号，⚠️ 别在别处复述成一个概数 —— 本 PR 初版描述写「五类」时它是 **4** 项，终审 S-D 后补了一项、现在是 **5** 项。⚠️ 这两次一增一减恰好说明**为什么要编号而不写概数**：数会变，编号跟着列表自己走）**：**①** 那批深度 ≥1 参数的 **category 无「独立来源」判据** —— ⚠️ **本条已被 `wxlpp/oh-my-story#72` 部分处置，措辞随之更新**（上一版写「全体无判据覆盖……要等 `#72` 的 schema」，schema 已落地 ⇒ 那句即过期）：`docs/reachable-type-registry.json` 的 **J8** 把**取值域**钉成「全体为 C」，翻转任一条为非 C 会红。⚠️ **但那不等于 category 被独立校验** —— 扫描器只产出**参数名**，category 是人判的、源码里不存在 ⇒ 拿 registry 比 registry 是**同源恒真**。J8 挡「悄悄改成非 C」，**挡不了「非 C 被误登记成 C」**· **②** 元组 / typealias（活体 `OutlineNodeState.ID`）/ 枚举关联值 / `Dictionary` 的 key / **函数类型参数的载荷**（`TextParamScan.swift` 逐字「函数类型参数不展开」，且 `InlineActionMenu.Action.Kind.rawValue` 的唯一入口就是它）—— 五类**逃逸**（扫不到）。⚠️ **此处不是闭合枚举**：扫不到的通道以 story 侧 `TextParamScan` 的注释与 `#67` spec §12 的「出闭包文本通道」清单为准（该清单自述「已知已核，不是穷尽」）· **③** carrying 通道。⚠️ **这条指的是「方向 / category 没判据」，不是「扫不到」** —— `TextParamScan.swift:127` 逐字把 `Binding` 与 `Optional`/`Array`/`Set` 并列剥壳，`Binding<String>` **是被纳入扫描的**；缺的是「双向绑定 / 回调回传的文本该判什么类」这条裁决 · **④** ohmydesign 侧的 `textParams` **同样无唯一性断言**（`ComponentRegistryGuard` 只验 category 允许域）—— `#67` 只给 storyui 侧补了，本仓侧留痕未补 · **⑤** ⚠️ **点路径解析与多段 extension 的机器在提交态零覆盖**（手工变异不进 CI、不防回退）⇒ 承接 `wxlpp/oh-my-story#74`。⚠️ **并集规则（`wxlpp/oh-my-story#72`）**：深度 ≥1 的文本参数登记在 **`docs/reachable-type-registry.json`**（可达类型登记表），与 `docs/component-registry.json` **并列** ⇒ **「StoryUI 文本参数全集 = 两文件的并集」**，凡要枚举全集的工具（迁移器 / 审计脚本 / 判据）**必须读两份**。⚠️ **今天没有判据强制任何人做并集** —— 本表 43 条全是 C /「不迁移」，漏读**当前**无实害；**第一条非 C 条目出现时前提即失效**，那一刻的机器触发点是 `ReachableTypeRegistryGuard` 的 **J8 判红**（其失败 message 里写着当下要做的三件事）。⚠️ 本表**没有 `reachableFrom` 字段**：纯信息性、守它要么把套件时间翻三倍要么改 `#74` 点名「提交态零覆盖」的机器 ⇒ **不登记不能守的东西**。⚠️ **本文件自己曾有一处表格行被裸换行劈开**（`Tag(removable:)` 走查表步骤 2 那格，`#215` 报告时它在 `main` 上已存在），⇒ `wxlpp/oh-my-design#215` **已在 `#72` 的 PR-A 里落地**：缺陷本身**已修**（`Tag(removable:)` 走查表步骤 2 那格被劈成 7 行，已折回），并加 `ComponentContractStructureGuard.contractTablesHaveNoSplitRows` **断言全文零违规**（⚠️ **不设已知违规集、不锚行号** —— 锚行号在本文档上必然高频误红，人就会为求绿扩集合）。⚠️ 上一版此处写「**无判据守**」，那句已作废。⚠️ 另有一处**跨仓分叉、无判据**：`oh-my-story` 的 `.claude/prds/component-contract.md` 仍写着旧的 C 行（`**C. 用户数据**` / `用户自己输入的领域内容…`），与本轮改写后的 C 行**不一致**。PRD 是**时点记录**（add-only，不回改），此处只留指针 —— 但若有人把 PRD 当权威读，会读到被推翻的定义。 |
 
 #### G-2 的裁断（#44 本次成文，D-41-4 原文要求的正是「裁断」而不只是留痕）
 
@@ -1146,7 +1146,7 @@ D-41-4 移交给 #44 的原话要求裁断两件事：**(i) 台账条目是否�
 下一个人只能凭猜删或凭猜留。
 
 ⚠️ **本裁断只回写公约，不改判据实现**（`44-spec.md` 第四节）。把上述三条标注真正写进
-`Tests/CoreDesignTests/BoolExemptionGuard.swift` 的 `ownersWithoutRegistryEntry`、
+`Tests/OhMyDesignTests/BoolExemptionGuard.swift` 的 `ownersWithoutRegistryEntry`、
 以及（若采纳）**对 `ownersWithoutRegistryEntry` 全表跑一遍分类核对**（不局限于当前有活键
 的宿主），都属实现层 ⇒ **移交**。⚠️ 这条全表核对与「给分类值加一条至少一个活样本的断言」
 不是同一件事：后者只断言**样本存在**（抓的是「分类缺席」），一次核对完就通过，抓不到
@@ -1343,19 +1343,19 @@ J-1 主判据 `BoolExemptionGuard.j1NoUnexemptedBoolParameters` 用 Swift Testin
 - `SpinningModifier` / `FloatingGlassModifier` / `TelegramGlassButtonModifier`
   三个是 **`public struct ... : ViewModifier`**——它们本身就是公开类型，有自己的
   init 参数表，一样有「这个参数该长什么形状」的问题，且扫描器（`PublicTypeCollector`,
-  `Tests/CoreDesignTests/ComponentRegistryGuard.swift`）设计上就把 `View` 与
+  `Tests/OhMyDesignTests/ComponentRegistryGuard.swift`）设计上就把 `View` 与
   `ViewModifier` 归为同一类「组件」一并采集。
 
 ⚠️⚠️ ~~**本裁决已被 AD-4 按 target 划了作用域**（#244，见本附录末尾）：
-`CoreDesignEffects` / `CoreDesignShaders` 的 public 类型**不进** `component-registry.json`
-（走轻公约），`CoreDesignCharts` 照常进。~~ 读到这里就停的人会拿到一个**已被推翻**的答案
+`OhMyDesignEffects` / `OhMyDesignShaders` 的 public 类型**不进** `component-registry.json`
+（走轻公约），`OhMyDesignCharts` 照常进。~~ 读到这里就停的人会拿到一个**已被推翻**的答案
 ——而 AD-4 存在的全部理由，正是「实现层盲区不该被读成公约层许可」。
 
 ⚠️⚠️ **上面这段横幅本身已随 AD-4 第 6 轮撤回**（#246 / PR #265 终审 I-7，
 见本附录末尾《AD-4 裁决》：终稿裁定「**AD-2 原样适用**」——三个 target 全走路线 b，
 轻公约与选 a 的全部产物撤回；该裁决的《第 6 版》段落更把本横幅逐字点名为
-「三处反向指令仍活在树上」之一）。⇒ **`CoreDesignEffects` / `CoreDesignShaders` 的
-public 类型与 `CoreDesignCharts` 一样，照常进 `component-registry.json`。**
+「三处反向指令仍活在树上」之一）。⇒ **`OhMyDesignEffects` / `OhMyDesignShaders` 的
+public 类型与 `OhMyDesignCharts` 一样，照常进 `component-registry.json`。**
 ⚠️ 这不是文字洁癖：`#246` 交付的 `ExtensionEntryPointGuard` 在 `schemaProblems(for:)`
 里**硬断言**入口点条目的 `target != GuardScanRoots.primaryTargetName`
 （即新 target 的公开入口点**必须**登记进这份文件），
@@ -1430,7 +1430,7 @@ public——只是都不是 `View`/`ViewModifier`。
 | `LabelIcon / ChevronRightIcon / DangerIcon` | 1 条 | 3 条 |
 | `SectionHeader / SectionFooter` | 1 条 | 2 条 |
 
-⚠️ **复合条件也不是必要条件**：45 条 coredesign 条目里有 **14 条**根本不是任何 README
+⚠️ **复合条件也不是必要条件**：45 条 ohmydesign 条目里有 **14 条**根本不是任何 README
 行名（`AsyncButton` / `FloatingGlassModifier` / `TelegramGlassButtonModifier` /
 `SettingsRowChevron` 等）。它们由扫描器的双向差集**强制要求登记**——把复合条件当必要
 条件读，会推出这 14 条「不该登记」，与判据直接冲突。⇒ **复合条件只是「扫描器看不见的
@@ -1462,11 +1462,11 @@ modifier **internal 化**（只经 `public extension View` 暴露，即 `Surface
 
 ⇒ **裁决：选二选一里的第 2 条——登记为 AC 偏离**。`38.md` 那句「标出对应协议名」的 AC 在「登记单位 = 组件」
 下无对应物，不是漏做，是 AC 原文与登记单位定义之间的张力（同 D1 的既有说明）。三个
-style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `scannerFindsCoreDesignTypes`
-（`styleImpls` 打印清单）与 J-3 判据（#40 已落地，见 `Tests/CoreDesignTests/NativeProtocolPurityGuard.swift`；
+style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `scannerFindsOhMyDesignTypes`
+（`styleImpls` 打印清单）与 J-3 判据（#40 已落地，见 `Tests/OhMyDesignTests/NativeProtocolPurityGuard.swift`；
 读取 `nativeProtocol` 交叉核对源码作用域）覆盖，
 不需要在登记表里额外造三条不对应任何真实组件的幽灵条目——那会立即被
-`registryCoversCoreDesignTypes` 的双向差集判红（`registered.subtracting(scanned)`
+`registryCoversOhMyDesignTypes` 的双向差集判红（`registered.subtracting(scanned)`
 非空，因为它们在 `styleImpls` 而非 `components` 集合里）。
 
 ### A.4 `PinCode` —— 一个真的落到 tiebreaker 的样本
@@ -1490,7 +1490,7 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
    圆点 / 逐位下划线」都是泛称。补：**锁屏圆点** = iOS 锁屏 passcode；**逐位下划线** =
    Material 的 OTP 输入（`OtpTextField` 型）/ Ant Design `Input.OTP` 的 variant。
 2. ⚠️ **「分格框」是 `PinCode` 的当前形态，按「替代 = 不含组件当前的形态」不该入候选** ——
-   `Sources/CoreDesign/Components/PinCode/PinCode.swift` 的实现自陈「渲染层是 `length` 个
+   `Sources/OhMyDesign/Components/PinCode/PinCode.swift` 的实现自陈「渲染层是 `length` 个
    **独立格子**（各自带边框的容器）」。⇒ 真实候选是 **2 个**，不是 3 个。
 3. ⚠️ **「锁屏圆点」按三分法要重判**：本公约明写「复核时**不得照抄旧的皮肤 / 非皮肤逐候选
    归类**」，而补充规则 1 的反例（`SidebarStatusFooter` 的状态圆点「颜色即状态」⇒ **槽**）
@@ -1520,7 +1520,7 @@ style 的存在性、协议采纳、`.core` 静态工厂已通过 Task 1 的 `sc
 ##### 为什么裁「AD-2 原样适用」而不是「什么都不裁」
 
 问题本身是真的：`ComponentRegistryGuard.swift:366` 把扫描根硬编码为
-`Sources/CoreDesign`，而 AD-2 **通篇未按 target 划作用域** ⇒ 实现层盲区会被读成
+`Sources/OhMyDesign`，而 AD-2 **通篇未按 target 划作用域** ⇒ 实现层盲区会被读成
 公约层许可（G-7 早已把「新增第二个源 target」记为逃生门）。
 ⚠️ **上面这句描述的是当时的实现，今天已不成立**（`#337` 实测）：`#270`（`eba3811`）之后
 `ComponentRegistryGuard.componentScanRoots` 直接返回 `GuardScanRoots.allRoots`，
@@ -1577,7 +1577,7 @@ CLAUDE.md 的《源码守卫的扫描根有三个入口》一节已更正过同�
 
 | 断言 | 预判 | 实际 | 为什么 |
 |---|---|---|---|
-| `coredesign` 条目数 `== 47` | 会变 | **47 → 62** | Effects 11 + Charts 4 = 15 条新条目 |
+| `ohmydesign` 条目数 `== 47` | 会变 | **47 → 62** | Effects 11 + Charts 4 = 15 条新条目 |
 | `ComponentExtensionPointGuard` 的 `inspected.count == 11` | 变 15 ⇒ 红 | **不变，仍是 11** | 15 条全部 `prescriptive`（9 条 `tiebreaker` + 6 条 `pendingStep2`）⇒ 不进 J-2 定义域 |
 | `knownMissingExtensionPoints` | 要同批交扩展点 | **不变，仍是空集** | 同上：J-2 定义域没变，一条新缺口都没产生 |
 | `registryTextParams == 31` | 会变 | **31 → 36** | `TypewriterText.text`（C）+ 四个图表的 `title`（by-type） |
@@ -1587,7 +1587,7 @@ CLAUDE.md 的《源码守卫的扫描根有三个入口》一节已更正过同�
 | `unmappedOwners` 固定集合 | 会变 | **不变，仍是 2 条** | `TypewriterText.init#text` 登记后由「域外」变成「已覆盖」 |
 | `functionSideBareText` 固定集合 | 会变 | **2 → 3 条** | 新增 `View.spray#symbol`（SF Symbol 标识符，`func` 侧留痕桶） |
 | `by-type` 条目数 `== 2` | 未预判 | **2 → 6** | 四个图表的 `title` |
-| `NativeProtocolPurityGuard` 的作用域文件名 | 未预判 | 裸文件名 → `CoreDesign/…/ProgressIndicator.swift` | 三根之下裸文件名会让两个 target 的同名文件塌成同一个作用域 |
+| `NativeProtocolPurityGuard` 的作用域文件名 | 未预判 | 裸文件名 → `OhMyDesign/…/ProgressIndicator.swift` | 三根之下裸文件名会让两个 target 的同名文件塌成同一个作用域 |
 
 ⚠️⚠️ **`#299` 实测：上表「J-2 那两行不变」这个结论已经过期，本段的原始预判反而是对的。**
 上表是 `#270` 当时的实测，**不改写**。`#299` 对 6 条 `pendingStep2` 条目补做步骤 2 的
@@ -1649,7 +1649,7 @@ task 250 的 8 个 `public extension View` 方法 + task 251 的 16 个转场 =
 `ComponentRegistryGuard.readmeIndexRows`（`:338-343`）只解析
 `## 组件索引` 到 `## 生成预览图 / Generating Snapshots` **之间**的行，
 而 `registryEntriesAreCoveredByReadme`（`:641-646`）断言**每个非 excluded 的
-`coredesign` 条目都被该范围内的某一行覆盖**。
+`ohmydesign` 条目都被该范围内的某一行覆盖**。
 ⇒ 三个 target 全走 b ⇒ 三组索引行**必须都被 `readmeIndexRows` 的解析范围覆盖**。
 
 ⚠️⚠️ **`#270` 落地实测：本条的措辞（「必须都在 `## 组件索引` 之内」）比它的论据更强，已改写。**
@@ -1657,7 +1657,7 @@ task 250 的 8 个 `public extension View` 方法 + task 251 的 16 个转场 =
 这条规范要求 —— 本条自己下一句就写着「每行仍须带模块名……那是**可读性要求**」。
 `#270` 的处置是把 `readmeIndexRows` 的解析范围改成**两段**
 （`## 组件索引 → ## 生成预览图` 与 `## 动效与图表索引 → ## NFR-1 帧率基准`），
-保留 `#256` 按 `import` 分组的分节。规范目的（每个非 excluded 的 `coredesign` 条目
+保留 `#256` 按 `import` 分组的分节。规范目的（每个非 excluded 的 `ohmydesign` 条目
 都被某条索引行覆盖）不变，且定义域由**一节**扩到**两节** ⇒ **是收紧不是放松**：
 新进来的那一节里，**多数行是入口点而不是类型**，它们由此第一次与
 `component-registry.json` 的 `entryPoints` 数组对上账。
@@ -1672,7 +1672,7 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
 
 ⚠️ **第 1–5 版裁的是「Effects/Shaders 另起小节」——那会让判据判红**，
 而该判据文档自己为 Charts 算过一遍、翻 b 后没有重跑。
-⚠️ 每行仍须带模块名（调用方要 `import CoreDesignEffects` 而非 `import CoreDesign`），
+⚠️ 每行仍须带模块名（调用方要 `import OhMyDesignEffects` 而非 `import OhMyDesign`），
 但那是**可读性要求**，不是作用域要求。
 
 ##### 下游连锁四 · 扫描根的实施形态（工程事实，**不是禁令**）
@@ -1694,7 +1694,7 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
 - `ComponentJudgeMutationTests:17-24` 把**单棵树**拷进临时目录、变异路径是相对的
   ⇒ 两个根意味着副本布局要重构，否则 `copiedTreeReproducesBaseline` 会红。
 - ⚠️ ~~**扩根到 Effects 今天扫到 0 个类型**：`PublicTypeCollector` 只认
-  `public struct : View/ViewModifier`，而 `Sources/CoreDesignEffects/` 目前只有一个
+  `public struct : View/ViewModifier`，而 `Sources/OhMyDesignEffects/` 目前只有一个
   `public enum` 命名空间 ⇒ **必绿、零覆盖**。~~
   **该判断已过期**：`#247`–`#255` 落件之后，`#270` 实测 Effects **11 个**、
   Charts **4 个** `public struct: View`。「新根静默产出空集」这条假绿由
@@ -1706,11 +1706,11 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
   ⚠️ **上一版只查 `components` 一个桶，PR #297 终审 S-1 指出 `scanTypes(roots:)` 合并的是
   `components` / `styleImpls` / `entryPoints` 三个**——后两个同样是判据的依据
   （`styleImpls` 判 README 行归宿、`entryPoints` 判入口点行归宿），已改为三个桶一并查。
-- ⚠️ **给 `#279`（`CoreDesignShaders` 进根列表）的交接**：`#270` 定下的形态是
+- ⚠️ **给 `#279`（`OhMyDesignShaders` 进根列表）的交接**：`#270` 定下的形态是
   「`componentScanRoots` = `GuardScanRoots.allRoots`」⇒ `#279` **只需把
-  `CoreDesignShaders` 加进 `GuardScanRoots.targetNames`**，登记表扫描根自动跟随，
+  `OhMyDesignShaders` 加进 `GuardScanRoots.targetNames`**，登记表扫描根自动跟随，
   本文件与 `ComponentRegistryGuard` 都不必再改。`#279` 要在 `#270` 的新值之上叠加的计数是：
-  `coredesign` 条目数 **62**、`registryTextParams` **36**、`covered` **31**、
+  `ohmydesign` 条目数 **62**、`registryTextParams` **36**、`covered` **31**、
   `localizedByType` **17**、`carrying` **10**、`by-type` **6**、
   `functionSideBareText` **3 条固定集合**、`unmappedOwners` **2 条固定集合**、
   J-2 `inspected.count` **11**（`#270` 的 15 条全落 prescriptive，未进 J-2 定义域）。

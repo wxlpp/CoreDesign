@@ -2,11 +2,11 @@
 
 自转的点球 / A slowly rotating sphere of dots.
 
-`DotSphere`（`CoreDesignEffects/DotSphere.swift`，Issue #254）。
+`DotSphere`（`OhMyDesignEffects/DotSphere.swift`，Issue #254）。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0。

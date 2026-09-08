@@ -4,7 +4,7 @@ Date: 2026-05-16
 
 ## Goal
 
-Move CoreDesign's overall visual style toward a Craft-like editorial workbench while preserving the library's Primer/GitHub-informed structure and blue interaction color.
+Move OhMyDesign's overall visual style toward a Craft-like editorial workbench while preserving the library's Primer/GitHub-informed structure and blue interaction color.
 
 The target style is warm, calm, dense enough for real tools, and restrained. It should feel like a document/editor workspace rather than a marketing surface, a beige stationery theme, or a glass-first iOS demo.
 
@@ -143,7 +143,7 @@ The visual review should specifically check for:
 
 ## Acceptance Criteria
 
-- The preview app reads as a warm editorial workbench while still feeling like CoreDesign.
+- The preview app reads as a warm editorial workbench while still feeling like OhMyDesign.
 - Blue remains the primary interaction and focus color.
 - Ordinary cards and rows rely more on surface and border hierarchy than shadow.
 - Existing glass components feel quieter but still intentional.

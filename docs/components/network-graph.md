@@ -2,11 +2,11 @@
 
 力导向关系网络图（斥力 + 弹簧 + 向心力迭代解出节点位置）/ A force-directed relationship graph.
 
-`NetworkGraph(nodes:edges:)`（`CoreDesignCharts/NetworkGraph.swift`，Issue #255）。**泛型视图**——
+`NetworkGraph(nodes:edges:)`（`OhMyDesignCharts/NetworkGraph.swift`，Issue #255）。**泛型视图**——
 数据类型由调用方提供，本库**不发货**具体的数据 struct。
 
 ```swift
-import CoreDesignCharts
+import OhMyDesignCharts
 ```
 
 ⚠️ 本 target **有意不 `import Charts`**。Swift Charts 没有图布局的概念——节点位置要由
@@ -243,7 +243,7 @@ resize / 旋转时逐帧启动的 solve 会全部跑满，把有界的卡顿换�
 - **组件自带的 chrome 才本地化**：`title`（缺省 `.chart("Relationship graph")`）、空态文案
   `"No data"`、两条截断横幅 `"Showing the first %lld nodes"` /
   `"Showing the first %lld connections"` 都是 `LocalizedStringResource`，译文在
-  `Sources/CoreDesignCharts/Resources/en.lproj/Localizable.strings`。
+  `Sources/OhMyDesignCharts/Resources/en.lproj/Localizable.strings`。
   两条横幅在表里且**译文保留 `%lld` 占位符**由 `truncationBannersAreRegistered` 钉住。
 
 ⚠️ `LocalizedStringResource.chart(_:)` 是 **`internal`**：它把 key 绑死在本 target 的
@@ -314,7 +314,7 @@ for a 'Sendable' type parameter
 ## 使用示例 / Usage
 
 ```swift
-import CoreDesignCharts
+import OhMyDesignCharts
 import SwiftUI
 
 // ⚠️ 调用方定义自己的节点模型 —— 本库**不发货**具体节点 struct。
@@ -370,7 +370,7 @@ struct TeamGraph: View {
 ⚠️ 公约明令**不得预判**重判结论 —— 补足枚举后可能落**任一**出口，含 `semantic`（要开扩展点）。
 候选（邻接矩阵 / 分层树布局）属排布差异、本该计入 ≥2，与另外三个图表同因。
 文本参数 `title`（`LocalizedStringResource?`、无裸串孪生重载）登记为 **by-type**。
-⚠️ `NetworkGraphRenderProbe` 是 `@_spi(CoreDesignBenchmark)` 的仪器，不是 `View` ⇒ 不进登记表。
+⚠️ `NetworkGraphRenderProbe` 是 `@_spi(OhMyDesignBenchmark)` 的仪器，不是 `View` ⇒ 不进登记表。
 逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。
 
 ### ⚠️ `#299` 重判：`pendingStep2` → `step2`（出口 1，语义组件）（本节只增不改，上文保留为成因记录）

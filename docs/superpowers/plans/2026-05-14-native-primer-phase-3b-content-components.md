@@ -30,26 +30,26 @@
 
 修改（仅 doc-comment 头部，不涉及行为变更）：
 
-- `Sources/CoreDesign/Components/CommentCard/CommentCard.swift`
-- `Sources/CoreDesign/Components/EventRow/EventRow.swift`
-- `Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift`
-- `Sources/CoreDesign/Components/StatusRow/StatusRow.swift`
-- `Sources/CoreDesign/Components/BookCover/BookCover.swift`
+- `Sources/OhMyDesign/Components/CommentCard/CommentCard.swift`
+- `Sources/OhMyDesign/Components/EventRow/EventRow.swift`
+- `Sources/OhMyDesign/Components/TimelineItem/TimelineItem.swift`
+- `Sources/OhMyDesign/Components/StatusRow/StatusRow.swift`
+- `Sources/OhMyDesign/Components/BookCover/BookCover.swift`
 
 只读（既有测试覆盖——必须保持绿）：
 
-- `Tests/CoreDesignTests/CommentCardTests.swift`
-- `Tests/CoreDesignTests/EventRowTests.swift`
-- `Tests/CoreDesignTests/TimelineItemTests.swift`
-- `Tests/CoreDesignTests/StatusRowTests.swift`
-- `Tests/CoreDesignTests/BookCoverTests.swift`
+- `Tests/OhMyDesignTests/CommentCardTests.swift`
+- `Tests/OhMyDesignTests/EventRowTests.swift`
+- `Tests/OhMyDesignTests/TimelineItemTests.swift`
+- `Tests/OhMyDesignTests/StatusRowTests.swift`
+- `Tests/OhMyDesignTests/BookCoverTests.swift`
 
 ---
 
 ## 任务 1：CommentCard Native Primer 声明
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/CommentCard/CommentCard.swift`
+- 修改：`Sources/OhMyDesign/Components/CommentCard/CommentCard.swift`
 
 - [ ] **Step 1：基线现有测试**
 
@@ -63,7 +63,7 @@ swift test --filter CommentCardTests
 
 - [ ] **Step 2：更新顶部 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/CommentCard/CommentCard.swift` 中，找到 `public struct CommentCard` 上方的顶部 doc-comment，前置一段 Native Primer 头部。保留所有现有正文（avatar / author / timestamp 的布局规约、展开行为等）：
+在 `Sources/OhMyDesign/Components/CommentCard/CommentCard.swift` 中，找到 `public struct CommentCard` 上方的顶部 doc-comment，前置一段 Native Primer 头部。保留所有现有正文（avatar / author / timestamp 的布局规约、展开行为等）：
 
 ```swift
 /// Native Primer comment card.
@@ -81,7 +81,7 @@ swift test --filter CommentCardTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/CommentCard
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/CommentCard
 ```
 
 预期：零匹配。
@@ -100,7 +100,7 @@ swift build
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/CommentCard/CommentCard.swift
+git add Sources/OhMyDesign/Components/CommentCard/CommentCard.swift
 git commit -m "docs: declare CommentCard Native Primer material/role"
 ```
 
@@ -109,7 +109,7 @@ git commit -m "docs: declare CommentCard Native Primer material/role"
 ## 任务 2：EventRow Native Primer 声明
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/EventRow/EventRow.swift`
+- 修改：`Sources/OhMyDesign/Components/EventRow/EventRow.swift`
 
 - [ ] **Step 1：基线现有测试**
 
@@ -123,7 +123,7 @@ swift test --filter EventRowTests
 
 - [ ] **Step 2：更新顶部 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/EventRow/EventRow.swift` 中，找到 `public struct EventRow` 声明上方的顶部 doc-comment，前置一段 Native Primer 头部。保留所有现有正文：
+在 `Sources/OhMyDesign/Components/EventRow/EventRow.swift` 中，找到 `public struct EventRow` 声明上方的顶部 doc-comment，前置一段 Native Primer 头部。保留所有现有正文：
 
 ```swift
 /// Native Primer event row.
@@ -141,7 +141,7 @@ swift test --filter EventRowTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/EventRow
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/EventRow
 ```
 
 预期：零匹配。
@@ -160,7 +160,7 @@ swift build
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/EventRow/EventRow.swift
+git add Sources/OhMyDesign/Components/EventRow/EventRow.swift
 git commit -m "docs: declare EventRow Native Primer material/role"
 ```
 
@@ -169,7 +169,7 @@ git commit -m "docs: declare EventRow Native Primer material/role"
 ## 任务 3：TimelineItem Native Primer 声明
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift`
+- 修改：`Sources/OhMyDesign/Components/TimelineItem/TimelineItem.swift`
 
 - [ ] **Step 1：基线现有测试**
 
@@ -183,7 +183,7 @@ swift test --filter TimelineItemTests
 
 - [ ] **Step 2：更新顶部 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift` 中，找到 `public struct TimelineItem` 上方的顶部 doc-comment，前置一段 Native Primer 头部。保留现有的 isLast / 间距 / 引导轨道（leading-rail）文档：
+在 `Sources/OhMyDesign/Components/TimelineItem/TimelineItem.swift` 中，找到 `public struct TimelineItem` 上方的顶部 doc-comment，前置一段 Native Primer 头部。保留现有的 isLast / 间距 / 引导轨道（leading-rail）文档：
 
 ```swift
 /// Native Primer timeline item.
@@ -201,7 +201,7 @@ swift test --filter TimelineItemTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/TimelineItem
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/TimelineItem
 ```
 
 预期：零匹配。
@@ -220,7 +220,7 @@ swift build
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift
+git add Sources/OhMyDesign/Components/TimelineItem/TimelineItem.swift
 git commit -m "docs: declare TimelineItem Native Primer material/role"
 ```
 
@@ -229,7 +229,7 @@ git commit -m "docs: declare TimelineItem Native Primer material/role"
 ## 任务 4：StatusRow Native Primer 声明
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/StatusRow/StatusRow.swift`
+- 修改：`Sources/OhMyDesign/Components/StatusRow/StatusRow.swift`
 
 - [ ] **Step 1：基线现有测试**
 
@@ -243,7 +243,7 @@ swift test --filter StatusRowTests
 
 - [ ] **Step 2：更新顶部 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/StatusRow/StatusRow.swift` 中，找到 `public struct StatusRow` 上方的顶部 doc-comment，前置一段 Native Primer 头部。保留现有的 leading-icon / status-color 映射文档：
+在 `Sources/OhMyDesign/Components/StatusRow/StatusRow.swift` 中，找到 `public struct StatusRow` 上方的顶部 doc-comment，前置一段 Native Primer 头部。保留现有的 leading-icon / status-color 映射文档：
 
 ```swift
 /// Native Primer status row.
@@ -260,7 +260,7 @@ swift test --filter StatusRowTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/StatusRow
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/StatusRow
 ```
 
 预期：零匹配。
@@ -279,7 +279,7 @@ swift build
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/StatusRow/StatusRow.swift
+git add Sources/OhMyDesign/Components/StatusRow/StatusRow.swift
 git commit -m "docs: declare StatusRow Native Primer material/role"
 ```
 
@@ -288,7 +288,7 @@ git commit -m "docs: declare StatusRow Native Primer material/role"
 ## 任务 5：BookCover Native Primer 声明
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/BookCover/BookCover.swift`
+- 修改：`Sources/OhMyDesign/Components/BookCover/BookCover.swift`
 
 - [ ] **Step 1：基线现有测试**
 
@@ -302,7 +302,7 @@ swift test --filter BookCoverTests
 
 - [ ] **Step 2：更新顶部 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/BookCover/BookCover.swift` 中，找到 `public struct BookCover` 上方的顶部 doc-comment，前置一段 Native Primer 头部。保留现有的图像优先呈现 / 长宽比 / 占位符行为文档：
+在 `Sources/OhMyDesign/Components/BookCover/BookCover.swift` 中，找到 `public struct BookCover` 上方的顶部 doc-comment，前置一段 Native Primer 头部。保留现有的图像优先呈现 / 长宽比 / 占位符行为文档：
 
 ```swift
 /// Native Primer book cover.
@@ -320,7 +320,7 @@ swift test --filter BookCoverTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/BookCover
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/BookCover
 ```
 
 预期：零匹配。
@@ -339,7 +339,7 @@ swift build
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/BookCover/BookCover.swift
+git add Sources/OhMyDesign/Components/BookCover/BookCover.swift
 git commit -m "docs: declare BookCover Native Primer material/role"
 ```
 
@@ -375,7 +375,7 @@ swift build
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/CommentCard Sources/CoreDesign/Components/EventRow Sources/CoreDesign/Components/TimelineItem Sources/CoreDesign/Components/StatusRow Sources/CoreDesign/Components/BookCover
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/CommentCard Sources/OhMyDesign/Components/EventRow Sources/OhMyDesign/Components/TimelineItem Sources/OhMyDesign/Components/StatusRow Sources/OhMyDesign/Components/BookCover
 ```
 
 预期：零匹配。内容层组件不使用 Liquid Glass。
@@ -385,7 +385,7 @@ rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Comme
 运行：
 
 ```bash
-rg "#Preview" Sources/CoreDesign/Components/CommentCard Sources/CoreDesign/Components/EventRow Sources/CoreDesign/Components/TimelineItem Sources/CoreDesign/Components/StatusRow Sources/CoreDesign/Components/BookCover
+rg "#Preview" Sources/OhMyDesign/Components/CommentCard Sources/OhMyDesign/Components/EventRow Sources/OhMyDesign/Components/TimelineItem Sources/OhMyDesign/Components/StatusRow Sources/OhMyDesign/Components/BookCover
 ```
 
 预期：每个组件文件至少有一个 `#Preview`。

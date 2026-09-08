@@ -7,7 +7,7 @@
 
 ---
 
-## #41 CoreDesign 试点改造
+## #41 OhMyDesign 试点改造
 
 试点：`Rating`（+ 本轮新增的 `RatingDisplay`）、`View.surface(_:bordered:)` + `Card(bordered:)`、
 `glass` 簇（`SolidButtonStyle` / `LightButtonStyle`）。**撞上 6 条缺陷，非零。**
@@ -127,7 +127,7 @@ indicator 身上**完全不成立**——它本来就没有手势与 adjust acti
 
 ⚠️ **#52 裁断：不补跑，全部移交，但移交清单逐条可核。** 成本与范围不匹配 ⇒ 分三批：
 
-- **移交 A（CoreDesign 侧，25 条）** ⇒ `wxlpp/oh-my-story` **#53**。
+- **移交 A（OhMyDesign 侧，25 条）** ⇒ `wxlpp/oh-my-story` **#53**。
   **优先处理** `SidebarNavigationRow` / `StateLabel`（原 carve-out 两条），并一并承接
   `A.1` 尾巴（`Rating(allowsHalfStar:)` 走查步骤 2 仍用被本轮判为「无法证伪」的旧措辞，
   `#52` 授权范围不含 `A.1`）；排除清单里属本仓的逐条列出：`Descriptions` /
@@ -141,14 +141,14 @@ indicator 身上**完全不成立**——它本来就没有手势与 adjust acti
 - **移交 B（StoryUI 侧，24 条）** ⇒ `wxlpp/oh-my-story` **#54**。需在
   `oh-my-story` 仓做**源码级压测**；排除清单里属该仓的逐条列出：`ManuscriptEditor` /
   `DynamicForm` / `ContextPicker` / `CodexEntryForm`。⚠️ **这项成本本条原记录未覆盖**——
-  CoreDesign 的 CI 只 checkout 本仓，`ComponentRegistryGuard` 对 StoryUI 侧不做源码比对。
+  OhMyDesign 的 CI 只 checkout 本仓，`ComponentRegistryGuard` 对 StoryUI 侧不做源码比对。
 - **移交 C（`D-44-4` + `D-52-2`）** ⇒ `wxlpp/oh-my-story` **#55**。
   四件必带事项已转录进该 issue 正文；⚠️ **循环依据的四种措辞形态仍以本文件 D-52-2 的表为准**
   （#55 只链接回本条、**未转录**——#52 终审实测该 issue 正文对 `跨行` / `SharedFoundationTests` /
   `BREAKING-CHANGES` 命中均为 0）。**处置时必须读本条的表**：四种形态里有一种**跨行断开**，
   任何单一 grep 都抓不全——这正是 D-52-2 本身要防的东西，做成互指引用等于把它退回原状。
 
-⚠️ **25（CoreDesign 余量，= 26 − 改判的 `Tag`）+ 24（StoryUI）= 49**，与本条上方「一律以
+⚠️ **25（OhMyDesign 余量，= 26 − 改判的 `Tag`）+ 24（StoryUI）= 49**，与本条上方「一律以
 **49** 为准」吻合。⚠️ **不许只写「其余 49 条」**——**排除清单**（按判准考察过、因故不收进本轮的条目）已逐条
 列在移交 A / B 的 issue 正文里；⚠️ **49 条的完整名单不在 issue 正文里**，以本仓
 `docs/component-registry.json` 的 `decidedBy: step3` 为准。
@@ -168,12 +168,12 @@ indicator 身上**完全不成立**——它本来就没有手势与 adjust acti
 `D-53-15`/`D-53-16` carve-out 2 条）；成因②（`D-53-17` 记录的门槛方向与三出口相反那个
 bug）触发、**本轮不落地** 5 条（`SidebarStatusFooter` / `SidebarUtilityRow` /
 `SpinningModifier` / `Steps` / `Timeline`，`decidedBy` 一律未动）；保留 `step3` **0** 条；
-只补写 `notes` **0** 条。CoreDesign 侧 `step3` 余量 **9** 条 = 上述 5 条移交 + `Skeleton*`
+只补写 `notes` **0** 条。OhMyDesign 侧 `step3` 余量 **9** 条 = 上述 5 条移交 + `Skeleton*`
 4 条。
 
 **作用域限制（如实记录，逐字）**：
 
-> 本结论只覆盖 **49 条中的 25 条**（CoreDesign 侧）。StoryUI 侧 24 条（移交 B / #54）
+> 本结论只覆盖 **49 条中的 25 条**（OhMyDesign 侧）。StoryUI 侧 24 条（移交 B / #54）
 > 未复核前，**不足以支撑「`step3` 通路应当废除」这个全局结论**。
 
 ⇒ **本 issue 不提出废除判定法出口的修订提案**（spec §七 硬边界），裁断留给两侧都完成后。
@@ -189,7 +189,7 @@ bug）触发、**本轮不落地** 5 条（`SidebarStatusFooter` / `SidebarUtili
 收口视图**。
 
 **公约正文连带**：第 1 节「候选形态的作用域」小节「> **实测状态**」段已同批改写为
-「#52 全量审计；#53 已补跑 CoreDesign 侧」版本——按已执行 (A)(B) 门槛 21 条 /
+「#52 全量审计；#53 已补跑 OhMyDesign 侧」版本——按已执行 (A)(B) 门槛 21 条 /
 `Skeleton*` 门槛未执行 4 条 / StoryUI 侧未复核 24 条三段分读，`21 + 4 + 24 = 49`，与本条
 「一律以 **49** 为准」吻合；旧版「其中大多数条目的步骤 2 是靠未枚举候选通过的，操作化
 门槛在它们身上从未执行」这句无作用域的全称断言已删除，不再对已执行门槛的 21 条成立。
@@ -270,7 +270,7 @@ bug）触发、**本轮不落地** 5 条（`SidebarStatusFooter` / `SidebarUtili
 
 ⚠️ **#54 勘误指针**（只增不删，上文原样保留）：`OutlineTree` 在 **#54（移交 B）本轮 24 条
 之内**，已按 #59 的判据复核完毕 ⇒ 上文「**待复核条目**」这个状态对它**已失真**；`AvatarGroup`
-（`repo: coredesign`，不受 `:134` canary 约束）已由 **#59** 复核并**落盘**（`decidedBy: step2`，
+（`repo: ohmydesign`，不受 `:134` canary 约束）已由 **#59** 复核并**落盘**（`decidedBy: step2`，
 `kind: semantic`）。两条的现落点与依据见本文件 `## #54 移交 B` 段与 `54-report.md`；
 `AvatarGroup` 现文见本文件 `### D-53-3` 段与 `docs/component-registry.json` 同名条目。
 ⚠️ 上文是 **#44 时点**的正确记录，本指针只更新状态、不改写它。
@@ -301,7 +301,7 @@ bug）触发、**本轮不落地** 5 条（`SidebarStatusFooter` / `SidebarUtili
 2. **公约自己给出了击穿它的反事实**：公约「候选形态的作用域」小节原话——`Tag` 的 pill
    「既是 `Badge` 的领域，又与 `Tag` 自身共享『低 chrome 状态色块』骨架」——公约亲口
    承认 pill 与 `Tag` 的圆角矩形共享同一骨架，即皮肤变体而非「换了长相就不是这东西」。
-3. **源码自述也是关系性的**：`Sources/CoreDesign/Components/Tag/Tag.swift` 圆角规格段
+3. **源码自述也是关系性的**：`Sources/OhMyDesign/Components/Tag/Tag.swift` 圆角规格段
    原话「不使用 `.full`——这是与 `Badge` 的视觉区分点之一」——剥掉 `Badge`，源码里没有
    任何非关系性的形状理由。
 
@@ -355,9 +355,9 @@ A.2 对 `Tag` 的点名钉死的正是它的 `step3` 结论」——翻转它等
 ⚠️ **上文「连锁」段的第二条路径（皮肤变体推演）经 #52 裁断为不承重**：该段自带 hedge
 「该组剩余候选（实心 chip / 描边 chip）**为本轮推演，登记表与源码均未成文枚举**……
 **若 Task 12 认定 `Tag` 无成文剩余候选，则本连锁只剩第一条路径**，结论不变」——#52 作出了
-该 hedge 要求的那个认定：改判前（CoreDesign `511576f`）实测「实心 chip」/「描边 chip」在
+该 hedge 要求的那个认定：改判前（OhMyDesign `511576f`）实测「实心 chip」/「描边 chip」在
 `docs/component-registry.json`、`docs/component-contract.md` 与
-`Sources/CoreDesign/Components/Tag/Tag.swift` **三处**命中**均为 0**（⚠️ 三处缺一不可：本条 hedge
+`Sources/OhMyDesign/Components/Tag/Tag.swift` **三处**命中**均为 0**（⚠️ 三处缺一不可：本条 hedge
 原话点名的是「登记表**与源码**」，只扫前两个会漏掉源码那一半）（⚠️ 本段
 自身与 #52 回写文本对这两个词的引用不计入该计数——它们描述的是改判前的状态）
 ⇒ **`Tag` 无成文剩余候选** ⇒ 皮肤变体路径不承重，**结论不变**（仍是 `tiebreaker`）。
@@ -489,16 +489,16 @@ registry 这一处因**不在本清单里**而漏掉（`dfd1f00` 漏改并在 co
   另一侧的理由是「文档未给出迁移意图」——**消极描述**，不构成实质依据。
 
 ⚠️ **`SearchField` 源码从未被 #173 裁决**：实测（基线 `511576f`）全仓 `#173` 命中 **25 行**（⚠️ 本轮回写文本自身的 `#173` 引用不计入该数），
-`Sources/CoreDesign/Components/SearchField/` 下 **0 行**。
+`Sources/OhMyDesign/Components/SearchField/` 下 **0 行**。
 
 ⚠️ **循环措辞的落点要写清「哪种措辞、在哪、能不能 grep 到」，不要写一个笼统的总数**
 （前两稿写过的「4 处」/「3 处」都复算不出来）：
 
 | 措辞形态 | 位置 | 单行 `git grep` 能否命中 |
 |---|---|---|
-| 逐字 `仿 SearchField 先例`（无反引号） | `Tests/CoreDesignTests/SharedFoundationTests.swift` | **能**（1 处） |
+| 逐字 `仿 SearchField 先例`（无反引号） | `Tests/OhMyDesignTests/SharedFoundationTests.swift` | **能**（1 处） |
 | `仿 ` + 反引号包裹的 `` `SearchField` `` + ` 先例` | `docs/BREAKING-CHANGES.md` | 逐字 `仿 SearchField 先例` **不命中**；正则 `仿 \`\?SearchField\`\? 先例` 命中 |
-| 同义但**跨行断开**：「仿 `SearchField.placeholder` / 先例，verbatim 消费…」 | `Sources/CoreDesign/Components/TagInput/TagInput.swift` | **不能**——单行 grep 对跨行断开的措辞必不命中 |
+| 同义但**跨行断开**：「仿 `SearchField.placeholder` / 先例，verbatim 消费…」 | `Sources/OhMyDesign/Components/TagInput/TagInput.swift` | **不能**——单行 grep 对跨行断开的措辞必不命中 |
 | 另一措辞，registry 侧互指（2 条） | `docs/component-registry.json` 的 `SearchField.notes`「比照同款处理的 `TagInput.placeholder`」+ `TagInput.notes`「与 `SearchField` 同款处理」 | **能**（各 1 处） |
 
 **⇒ 移交**（并入移交 C，与 D-44-4 同批）：处置这条必须**同时**处理上面四种形态，只 grep
@@ -542,10 +542,10 @@ registry 这一处因**不在本清单里**而漏掉（`dfd1f00` 漏改并在 co
 **逐条裁断**（两点**不是同一个问题**，分开写；每条附本轮实测证据，不裸断言）：
 
 1. **`SkeletonRect.cornerRadius` 的公开 API 自反** —— 实测
-   `Sources/CoreDesign/Components/Skeleton/Skeleton.swift` 的
+   `Sources/OhMyDesign/Components/Skeleton/Skeleton.swift` 的
    `public init(width: CGFloat? = nil, height: CGFloat = 120, cornerRadius: CGFloat = CoreRadius.medium)`
    （⚠️ 源码 `:178-181` 是**断行**写的，此处为便于阅读拼成一行，非逐字原文）
-   把 `cornerRadius` 交给调用方；`Sources/CoreDesign/Tokens/CoreRadius.swift` 的
+   把 `cornerRadius` 交给调用方；`Sources/OhMyDesign/Tokens/CoreRadius.swift` 的
    `CoreShape.rounded(_:)` 返回普通 `RoundedRectangle`、**对 radius 无上限 clamp**
    ⇒ `width == height && cornerRadius == width / 2` 时 `SkeletonRect` 在几何上渲成与
    `SkeletonCircle` 视觉等价的圆形。四条 `Skeleton*` 的 `notes` 里**无一条讨论或排除**
@@ -619,9 +619,9 @@ registry 这一处因**不在本清单里**而漏掉（`dfd1f00` 漏改并在 co
 
 ---
 
-## #53 移交 A：CoreDesign 侧 25 条 `step3` 补跑复核
+## #53 移交 A：OhMyDesign 侧 25 条 `step3` 补跑复核
 
-范围：`docs/component-registry.json` 中 `decidedBy == "step3"` 且 `repo == "coredesign"` 的
+范围：`docs/component-registry.json` 中 `decidedBy == "step3"` 且 `repo == "ohmydesign"` 的
 **25** 条（实测，`18f92fc`）。⚠️ **25 + 24（StoryUI，移交 B / #54）= 49**，与 `D-44-1`
 「一律以 **49** 为准」吻合。
 
@@ -710,7 +710,7 @@ addendum，详见 `D-53-6`/`D-53-9`/`D-53-11` 与本文件「## #53 移交 A 段
 
 ---
 
-## #53 移交 A 段 2：CoreDesign 侧「待压测」档 12 条源码级压测改判（逐条独立登记）
+## #53 移交 A 段 2：OhMyDesign 侧「待压测」档 12 条源码级压测改判（逐条独立登记）
 
 **批量口径边界（spec §六之二）**：段 2（待压测档）是本轮判断密度最高的部分——每条独立读
 源码、逐条枚举、逐条走豁免路径，**不适用** `D-53-2` 那种「合并登记」口径。以下 `D-53-3` ~
@@ -745,10 +745,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-3：`AvatarGroup` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 1 节；
-`53-survey.md` 证据行 1。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 1。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift:18,22,46,32-39,49-53,56-69,77-86。public init(max:avatars:) 只暴露 max 与 @ViewBuilder 头像槽；重叠靠 HStack(spacing: overlapOffset) 的负数（-6/-8/-10，按 controlSize），单元画法固定为 clipShape(Circle())+strokeBorder(surfaceCanvas)。
+**① 源码事实**：Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift:18,22,46,32-39,49-53,56-69,77-86。public init(max:avatars:) 只暴露 max 与 @ViewBuilder 头像槽；重叠靠 HStack(spacing: overlapOffset) 的负数（-6/-8/-10，按 controlSize），单元画法固定为 clipShape(Circle())+strokeBorder(surfaceCanvas)。
 
 **② (A) 诚实枚举**：候选 1 = **并排不重叠的头像行 + 溢出计数**（来源：Google Docs 协作者栏、Microsoft Teams 成员条），豁免路径：皮肤变体走通（与现状同一 HStack 骨架，只差 spacing 正负号）；作用域 ③ 对 Avatar 落空（Avatar 只承担单个头像占位，不承担多头像并排排列）。 候选 2 = **纯计数徽标（无头像脸，只有『+12』文本块）**（来源：GitHub Contributors 计数、Linear issue assignee 计数），豁免路径：皮肤变体未走通（拿掉整个『每人一圆』单元骨架）；作用域 ③ 对 Badge 落空（Badge 只承担固定状态描述文案，不承担成员计数）。
 
@@ -764,10 +764,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-4：`ChevronRightIcon` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 2 节；
-`53-survey.md` 证据行 3。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 3。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Components/Form/Form.swift:87-98。public init() 零公开参数；body 只有 Image(systemName:"chevron.forward") + accessibilityHidden(true)；配色字号全部继承父容器（doc :84-86），doc 自留『未来可加默认参数走 CoreControlMetrics.iconSize(for:)』的扩展口。
+**① 源码事实**：Sources/OhMyDesign/Components/Form/Form.swift:87-98。public init() 零公开参数；body 只有 Image(systemName:"chevron.forward") + accessibilityHidden(true)；配色字号全部继承父容器（doc :84-86），doc 自留『未来可加默认参数走 CoreControlMetrics.iconSize(for:)』的扩展口。
 
 **② (A) 诚实枚举**：候选 1 = **右向实心三角**（来源：SF Symbols arrowtriangle.forward.fill、macOS NSOutlineView 展开指示符），豁免路径：皮肤变体走通；作用域 ③ 落空（登记表内无 Triangle*/Disclosure* 组件）。 候选 2 = **右箭头字形**（来源：Material Symbols arrow_forward_ios、Gmail/Google 设置页），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **『>』半角字符**（来源：早期 Web 面包屑、iOS 前身纯文本披露符），豁免路径：皮肤变体走通；作用域 ③ 落空。
 
@@ -783,10 +783,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-5：`DangerIcon` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 3 节；
-`53-survey.md` 证据行 4。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 4。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Components/Form/Form.swift:107-120。public init() 零公开参数；body 为 Image(systemName:"exclamationmark.circle.fill")+foregroundStyle(statusDangerForeground)+accessibilityLabel("Alert")；尺寸继承父容器字号（doc :103）。
+**① 源码事实**：Sources/OhMyDesign/Components/Form/Form.swift:107-120。public init() 零公开参数；body 为 Image(systemName:"exclamationmark.circle.fill")+foregroundStyle(statusDangerForeground)+accessibilityLabel("Alert")；尺寸继承父容器字号（doc :103）。
 
 **② (A) 诚实枚举**：候选 1 = **三角形感叹号**（来源：SF Symbols exclamationmark.triangle.fill（与 circle.fill 并列提供）、Xcode issue navigator、Material Symbols warning），豁免路径：皮肤变体走通；作用域 ③ 落空（StateLabel 是文本状态标签、Badge 是状态色块，均不承担字形本身）。 候选 2 = **八边形/停止牌**（来源：SF Symbols exclamationmark.octagon.fill、Material dangerous、交通停止标志惯例），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **纯色圆点（无字形）**（来源：GitHub/Slack 的未读与告警红点），豁免路径：皮肤变体未走通（拿掉字形层，骨架不同）；作用域 ③ 落空（Sidebar.swift:355-363 的状态点是 SidebarStatusFooter 内部私有渲染，登记表内无独立状态点组件）。
 
@@ -802,10 +802,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-6：`Descriptions` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 4 节；
-`53-survey.md` 证据行 5。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 5。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Components/Style/Descriptions.swift:99,112-122,128-139,191-193。public init(columns:dividerDensity:header:content:) 已带 DescriptionsColumns(.one/.two)×DescriptionsDividerDensity(.none/.row) 共 4 种公开可选长相；body 把全部 chrome 委托给 InsetGroupedSection(header:dividerInset:.textAligned) 与 .labeledContentStyle(.core)，本组件自己只画内边距。
+**① 源码事实**：Sources/OhMyDesign/Components/Style/Descriptions.swift:99,112-122,128-139,191-193。public init(columns:dividerDensity:header:content:) 已带 DescriptionsColumns(.one/.two)×DescriptionsDividerDensity(.none/.row) 共 4 种公开可选长相；body 把全部 chrome 委托给 InsetGroupedSection(header:dividerInset:.textAligned) 与 .labeledContentStyle(.core)，本组件自己只画内边距。
 
 **② (A) 诚实枚举**：候选 1 = **带边框的键值表格**（来源：Ant Design Descriptions 的 bordered prop——同名组件把有边框/无边框列表作为同一组件的两种长相发布），豁免路径：皮肤变体走通（同为『每行 label+value』骨架）；作用域 ③ 落空（InsetGroupedSection 承担的恰是无边框圆角卡片）。 候选 2 = **label 在值上方的纵向布局**（来源：Ant Design layout="vertical"、HTML <dl> 默认纵向），豁免路径：皮肤变体未走通（label/value 相对几何关系变了，非换画法）；作用域 ③ 落空。 候选 3 = **无卡片纯文本键值段**（来源：Semi Design Descriptions 的 plain 风格），豁免路径：皮肤变体走通；作用域 ③ 落空。
 
@@ -837,10 +837,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-7：`FloatingGlassModifier` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 5 节；
-`53-survey.md` 证据行 6。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 6。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Modifier/FloatingGlassModifier.swift:10-17,19-35,38-45,55；Sidebar.swift:404-406。public struct 带 public let shape: S（任意 InsettableShape）+ isInteractive: Bool；View.floatingGlass(in:isInteractive:) 默认值只是 Capsule，仓内实际调用点传过 CoreShape.rounded(.large)/(.medium)。body 三层：inset(by:).fill(.background.opacity(0.64)) + .glassEffect(glass,in:shape) + overlay(strokeBorder(borderSubtle))。
+**① 源码事实**：Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift:10-17,19-35,38-45,55；Sidebar.swift:404-406。public struct 带 public let shape: S（任意 InsettableShape）+ isInteractive: Bool；View.floatingGlass(in:isInteractive:) 默认值只是 Capsule，仓内实际调用点传过 CoreShape.rounded(.large)/(.medium)。body 三层：inset(by:).fill(.background.opacity(0.64)) + .glassEffect(glass,in:shape) + overlay(strokeBorder(borderSubtle))。
 
 **② (A) 诚实枚举**：候选 1 = **不透明面 + 投影（elevation）**（来源：Material Design 3 elevation/surface tint、Android FAB/bottom sheet），豁免路径：皮肤变体走通（同为『shape 轮廓 + 一层背景处理 + 一条边缘描边』骨架）；作用域 ③ 落空（Card 承担的是内容表面而非浮层）。 候选 2 = **半透明模糊/振动材质（非玻璃）**（来源：iOS 7–17 UIBlurEffect、macOS NSVisualEffectView（Liquid Glass 直接前身，真实在产）），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **纯描边无填充浮层框**（来源：Ant Design/Bootstrap popover 默认白底细描边），豁免路径：皮肤变体走通；作用域 ③ 落空。
 
@@ -856,10 +856,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-8：`LabelIcon` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 6 节；
-`53-survey.md` 证据行 7。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 7。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Components/Form/Form.swift:27-75。两个 public init（:36 systemName+backgroundColor:Color、:48 systemName+backgroundStyle:some ShapeStyle）——上层字形与底层着色（任意 ShapeStyle，含 gradient/material）均由调用方传入；组件自己固定的只剩 24pt/16pt 两个几何常量与 Color.contentInverse。
+**① 源码事实**：Sources/OhMyDesign/Components/Form/Form.swift:27-75。两个 public init（:36 systemName+backgroundColor:Color、:48 systemName+backgroundStyle:some ShapeStyle）——上层字形与底层着色（任意 ShapeStyle，含 gradient/material）均由调用方传入；组件自己固定的只剩 24pt/16pt 两个几何常量与 Color.contentInverse。
 
 **② (A) 诚实枚举**：候选 1 = **无底色单色字形图标**（来源：Material list item leading icon、WhatsApp/Telegram 早期设置页），豁免路径：皮肤变体未走通（两层叠合的底层整个删掉，一层 vs 两层是骨架差异）；作用域 ③ 落空（SettingsRowIcon 承担同样的圆角色块+反白字形，不是无底字形；ChevronRightIcon/DangerIcon 是 trailing 指示符不是 leading 类别图标）。 候选 2 = **圆形底 + 字形**（来源：Google/Android 联系人与设置项圆形图标底、Gmail 圆形分类图标），豁免路径：皮肤变体走通（同为两层叠合，只换底层形状）；作用域 ③ 落空。 候选 3 = **emoji/图片替代字形**（来源：Notion 页面图标、Slack 自定义频道图标），豁免路径：皮肤变体走通（仍是『底+前景』两层）；作用域 ③ 落空。
 
@@ -875,10 +875,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-9：`SectionFooter` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 7 节；
-`53-survey.md` 证据行 8。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 8。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Components/Section/SectionFooter.swift:20-41。整个渲染是 3 个 modifier——coreFont(.footnote)(:37)+foregroundStyle(contentSecondary)(:38)+frame(maxWidth:.infinity,alignment:.leading)(:39)；两个 public init 只区分 LocalizedStringKey 与 StringProtocol，不产生视觉差异。
+**① 源码事实**：Sources/OhMyDesign/Components/Section/SectionFooter.swift:20-41。整个渲染是 3 个 modifier——coreFont(.footnote)(:37)+foregroundStyle(contentSecondary)(:38)+frame(maxWidth:.infinity,alignment:.leading)(:39)；两个 public init 只区分 LocalizedStringKey 与 StringProtocol，不产生视觉差异。
 
 **② (A) 诚实枚举**：候选 1 = **caption 字号 + 前缀信息字形的 helper text**（来源：Material supporting text（常带 leading icon）、Ant Design Form.Item extra），豁免路径：皮肤变体走通（同为『分组下方一段说明文本』骨架）；作用域 ③ 落空（Banner 承担带背景的提示块，不是分组说明文字）。 候选 2 = **浅底说明块**（来源：Ant Design Alert 型 form 说明、GitHub 设置页灰底说明框），豁免路径：皮肤变体走通（加背景仍是同一段文本的 chrome）。 候选 3 = **与卡片同宽的分隔线 + 说明**（来源：macOS 系统设置分组脚注排版），豁免路径：皮肤变体走通。
 
@@ -902,10 +902,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-10：`SectionHeader` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 8 节；
-`53-survey.md` 证据行 9。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 9。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Components/Section/SectionHeader.swift:15-17,25-51。渲染=5 个 modifier——coreFont(.footnote)+textCase(.uppercase)+foregroundStyle(contentSecondary)+frame(...)+accessibilityAddTraits(.isHeader)。doc comment 自陈『刻意用 .insetGrouped 惯例（大写）而非 .sidebar 风格（非大写）——Phase 1 视觉终审发现 demo 误用 .sidebar list style 导致 header 非大写』——本仓自记的『同一分组标题确有非大写在产渲染』事实。
+**① 源码事实**：Sources/OhMyDesign/Components/Section/SectionHeader.swift:15-17,25-51。渲染=5 个 modifier——coreFont(.footnote)+textCase(.uppercase)+foregroundStyle(contentSecondary)+frame(...)+accessibilityAddTraits(.isHeader)。doc comment 自陈『刻意用 .insetGrouped 惯例（大写）而非 .sidebar 风格（非大写）——Phase 1 视觉终审发现 demo 误用 .sidebar list style 导致 header 非大写』——本仓自记的『同一分组标题确有非大写在产渲染』事实。
 
 **② (A) 诚实枚举**：候选 1 = **title-case、非大写的 sidebar 风格分组标题**（来源：SwiftUI .sidebar list style 系统渲染（本仓 :15-17 自述实测过）、macOS Finder 边栏分组标题），豁免路径：皮肤变体走通；作用域 ③ 对 SidebarSection（标题走 .headline+contentPrimary）看似满足，但排除后仍要走完步骤 2→3→4，不改变落点。 候选 2 = **较大字号加粗的 Material subheader**（来源：Material subheader、iOS .plain 列表 title-case header），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **带 trailing 动作/计数的分组标题行**（来源：Slack 频道分组头、Notion 数据库分组头），豁免路径：皮肤变体未走通（多了 trailing 槽，骨架不同）；作用域 ③ 对 SidebarSection（头部确有 trailing 字形，Sidebar.swift:62-67）满足 ⇒ 被正当排除。
 
@@ -921,10 +921,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-11：`SettingsRowChevron` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 9 节；
-`53-survey.md` 证据行 11。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 11。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Components/SettingsRow/SettingsRow.swift:56-65。public init() 零公开参数；body 为 Image(systemName:"chevron.forward")+.font(.footnote.weight(.semibold))+foregroundStyle(contentTertiary)+accessibilityHidden(true)。本仓自证：本组件与 ChevronRightIcon（Form.swift:87-98）渲染同一个 SF Symbol，却给出两套字号与配色——同一披露语义在本设计系统内部就有两种在产长相。
+**① 源码事实**：Sources/OhMyDesign/Components/SettingsRow/SettingsRow.swift:56-65。public init() 零公开参数；body 为 Image(systemName:"chevron.forward")+.font(.footnote.weight(.semibold))+foregroundStyle(contentTertiary)+accessibilityHidden(true)。本仓自证：本组件与 ChevronRightIcon（Form.swift:87-98）渲染同一个 SF Symbol，却给出两套字号与配色——同一披露语义在本设计系统内部就有两种在产长相。
 
 **② (A) 诚实枚举**：候选 1 = **右向实心三角**（来源：SF Symbols arrowtriangle.forward.fill、macOS NSOutlineView），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 2 = **右箭头**（来源：Material Symbols arrow_forward_ios、Google 设置页），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **『>』字符**（来源：早期 Web 面包屑），豁免路径：皮肤变体走通；作用域 ③ 落空。⚠️ 作用域条款不能拿 ChevronRightIcon 来援引：它承担的是同一个 chevron.forward 形态、不是被排除的那三个候选中的任何一个，属公约反例警告的『点名一个真实存在但与该候选无关的组件不算数』。
 
@@ -950,10 +950,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-12：`SidebarSection` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 10 节；
-`53-survey.md` 证据行 13。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 13。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Components/Sidebar/Sidebar.swift:33-80。public init(title:showsChevron:content:)（:34-42）——showsChevron 就是公开外观开关（:51）；头部（:46-68）：Text(title).headline+primary、条件 chevron、Spacer、Image("ellipsis")。⚠️ 决定性渲染事实：溢出字形『…』在源码注释 :65-67 被自陈为『装饰性占位符，当前无 action』且对 VoiceOver 隐藏。
+**① 源码事实**：Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:33-80。public init(title:showsChevron:content:)（:34-42）——showsChevron 就是公开外观开关（:51）；头部（:46-68）：Text(title).headline+primary、条件 chevron、Spacer、Image("ellipsis")。⚠️ 决定性渲染事实：溢出字形『…』在源码注释 :65-67 被自陈为『装饰性占位符，当前无 action』且对 VoiceOver 隐藏。
 
 **② (A) 诚实枚举**：候选 1 = **折叠三角（disclosure triangle）头部**（来源：Xcode navigator、macOS Finder 边栏、VS Code 侧栏分组），豁免路径：皮肤变体走通（同为『标题+折叠字形』骨架）；作用域 ③ 落空。 候选 2 = **纯大写小标签头、无任何字形**（来源：iOS 分组列表 header、Slack 早期频道分组），豁免路径：皮肤变体走通；作用域 ③ 对 SectionHeader（大写 footnote 灰分组标题）满足三条件 ⇒ 被正当排除。 候选 3 = **头部带计数徽标/未读数**（来源：Discord 频道分组、Notion 侧栏分组），豁免路径：皮肤变体未走通（多一个数据槽）；作用域 ③ 落空。
 
@@ -969,10 +969,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-13：`SidebarTagRow` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 12 节；
-`53-survey.md` 证据行 15。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 15。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Components/Sidebar/Sidebar.swift:307-334,116-159。public init(title:action:)——只有文案与动作，无外观参数；leading『#』（Text("#").title2，:320-321）、trailing chevron（自陈『装饰性指示箭头』，:323-328）都写死。结构性反证：本组件是私有共享骨架 SidebarRow（:116-159）的一次实例化，leading/trailing 是该骨架的两个 @ViewBuilder 槽（:121-122），同一骨架也被 SidebarNavigationRow/SidebarUtilityRow/SidebarDocumentRow 实例化。
+**① 源码事实**：Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:307-334,116-159。public init(title:action:)——只有文案与动作，无外观参数；leading『#』（Text("#").title2，:320-321）、trailing chevron（自陈『装饰性指示箭头』，:323-328）都写死。结构性反证：本组件是私有共享骨架 SidebarRow（:116-159）的一次实例化，leading/trailing 是该骨架的两个 @ViewBuilder 槽（:121-122），同一骨架也被 SidebarNavigationRow/SidebarUtilityRow/SidebarDocumentRow 实例化。
 
 **② (A) 诚实枚举**：候选 1 = **标签字形前缀**（来源：SF Symbols tag.fill、Apple 提醒事项/邮件标签行、Things 3），豁免路径：皮肤变体走通（SidebarRow leading 槽换填充物）；作用域 ③ 对 SidebarUtilityRow（任意 SF Symbol 前缀的工具行，:239-240）满足 ⇒ 被正当排除。 候选 2 = **彩色圆点前缀**（来源：Linear label、Todoist 项目/标签色点、Notion 多选属性色点），豁免路径：皮肤变体走通（仍是 leading 槽的一种填法）；作用域 ③ 落空。 候选 3 = **无前缀的彩色 chip 行**（来源：Notion、Things 3 把标签渲染成 chip 而非行），豁免路径：皮肤变体未走通（不再是行结构）；作用域 ③ 对 Tag（自述 GitHub issue label 风格圆角矩形 chip）满足 ⇒ 被正当排除。
 
@@ -988,10 +988,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-14：`TelegramGlassButtonModifier` 段 2 源码级压测改判 —— 皮肤变体交叉裁断封死落点
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-stress.md` 第 16 节；
-`53-survey.md` 证据行 24。基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
+`53-survey.md` 证据行 24。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift:58-95。四个公开存储属性——shape:S（任意 InsettableShape）、isPressed:Bool、border:Color?、pressFeedback:Bool；body（:78-94）逐层：第 1 层轮廓由调用方 shape 给、底色由调用方 backgroundStyle 注入（doc :16-17）；第 3 层描边色是公开 border（仓内 CoreMenuButton 传 .borderSubtle 换掉默认半透明白）；第 4 层按压反馈可由公开 pressFeedback 整个关掉。
+**① 源码事实**：Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift:58-95。四个公开存储属性——shape:S（任意 InsettableShape）、isPressed:Bool、border:Color?、pressFeedback:Bool；body（:78-94）逐层：第 1 层轮廓由调用方 shape 给、底色由调用方 backgroundStyle 注入（doc :16-17）；第 3 层描边色是公开 border（仓内 CoreMenuButton 传 .borderSubtle 换掉默认半透明白）；第 4 层按压反馈可由公开 pressFeedback 整个关掉。
 
 **② (A) 诚实枚举**：候选 1 = **实心填充按钮容器**（来源：Material Design 3 filled button、Apple .borderedProminent），豁免路径：皮肤变体走通；作用域 ① 落空（被点名的 Solid/Light/CircularGlass 三个 ButtonStyle 均不在 71 条登记表内）。 候选 2 = **描边/tonal 容器**（来源：Material 3 outlined/tonal button、Ant Design default 与 dashed 按钮），豁免路径：皮肤变体走通；作用域 ① 同样落空。 候选 3 = **无容器的纯文字按钮**（来源：Material text button、Apple .plain），豁免路径：皮肤变体未走通（去掉全部容器层）；作用域 ③ 落空。
 
@@ -1023,7 +1023,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-15：`SidebarNavigationRow` carve-out 三步程序 —— 剥离委托句后零独立材料，直接改判
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-survey.md` 条目 12。
-基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/` 输出为空，源码事实与
+基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/` 输出为空，源码事实与
 基线逐字一致）。
 
 **① 剥离委托句**：原 `notes`「同 `SidebarDocumentRow` 的骨架/推理，步骤 3 规定性，不给扩展点
@@ -1037,7 +1037,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 「是，`SidebarDocumentRow`，且是整条理由的唯一来源」——(A)(B) 操作化门槛均不成立。
 
 源码级补充核验（非门槛必需，但已做，用于确认「为什么不进段 2」）：
-`Sources/CoreDesign/Components/Sidebar/Sidebar.swift:116-159,167-198,391-416`。
+`Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:116-159,167-198,391-416`。
 `SidebarNavigationRow` 与已判 `tiebreaker` 的 `SidebarDocumentRow`/`SidebarUtilityRow`/
 `SidebarTagRow`（分别见 `R-3`/`D-53-12` 的 `SidebarSection` 邻近先例、`D-53-13`）共用同一
 `private SidebarRow` 骨架（:116-159）；选中态视觉唯一来源 `sidebarSelectedBackground(_:)`
@@ -1056,7 +1056,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 ### D-53-16：`StateLabel` carve-out 三步程序 —— 剥离委托句后仅剩公约明列的消极短语，直接改判
 
 **取证留痕**：`oh-my-story` 仓 `.claude/epics/component-contract/53-survey.md` 条目 22。
-基线 CoreDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/` 输出为空，源码事实与
+基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/` 输出为空，源码事实与
 基线逐字一致）。⚠️ 与 #49 有顺序关系，见本条末段。
 
 **① 剥离委托句**：原 `notes`「六固定 case 状态 pill，与 `Badge` 同一套『颜色即语义、无装饰性
@@ -1070,8 +1070,8 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 0 个、排除理由不适用、积极理由/反事实机制无、是否引兄弟组件名「是，`Badge`，且是整条视觉
 判定理由的唯一来源」——(A)(B) 操作化门槛均不成立。
 
-源码级补充核验（非门槛必需，但已做）：`Sources/CoreDesign/Components/StateLabel/StateLabel.swift`
-与 `Sources/CoreDesign/Components/Badge/Badge.swift`。`StateLabel` body（:76-98）=
+源码级补充核验（非门槛必需，但已做）：`Sources/OhMyDesign/Components/StateLabel/StateLabel.swift`
+与 `Sources/OhMyDesign/Components/Badge/Badge.swift`。`StateLabel` body（:76-98）=
 `Capsule(style: .continuous)` 填充 `status*Emphasis` + 固定图标 + label；`Badge` body
 （:89-105）= `Capsule(style: .continuous)` 填充 `status*Subtle`（`outlined:true` 时加描边）+
 label——两者共享同一「pill + 状态色即语义」骨架，`StateLabel` 相对 `Badge` 的唯一差异是内建
@@ -1085,7 +1085,7 @@ label——两者共享同一「pill + 状态色即语义」骨架，`StateLabel
 **③ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-16` / `R-31`。
 
 **⚠️ 与 #49 的顺序（并行安全声明）**：实测 #49 尚未开工——
-`Sources/CoreDesign/Components/StateLabel/StateLabel.swift:31` 仍为 `let defaultLabel:
+`Sources/OhMyDesign/Components/StateLabel/StateLabel.swift:31` 仍为 `let defaultLabel:
 String`，未变成 `LocalizedStringResource` ⇒ #53 本轮先行。本次改动只动 `decidedBy` 与
 `notes`（registry.json 该条目，只增不删），`textParams` 与 `Sources/` 零改动，与 #49 计划中
 的 A 类类型改造（`defaultLabel: String` → `LocalizedStringResource`，公约缺口 `G-4`，见
@@ -1095,7 +1095,7 @@ String`，未变成 `LocalizedStringResource` ⇒ #53 本轮先行。本次改�
 **⚠️ 跨仓对齐记录（给 #54，本 issue 不改判它，spec §七 硬边界）**：
 
 - `ChapterStatusBadge`（`repo: storyui`，`decidedBy: step3`）的机制**整条挂在** `StateLabel` /
-  `StateLabelStyle` 上——其自身 `notes` 原话「建在 CoreDesign `StateLabel` 上，胶囊/图标/
+  `StateLabelStyle` 上——其自身 `notes` 原话「建在 OhMyDesign `StateLabel` 上，胶囊/图标/
   配色/对比度全部来自上游，本件一处都不重造」。
 - `StateLabel` 本轮判死（`step3` → `tiebreaker`）后，`ChapterStatusBadge` 就变成新的
   「**当前就矛盾**」条目（它的 `step3` 结论建立在一个现已判 `tiebreaker` 的上游组件上）；
@@ -1218,7 +1218,7 @@ String`，未变成 `LocalizedStringResource` ⇒ #53 本轮先行。本次改�
 issue 的硬边界严格分开）。
 > ⚠️ **上句是当时的承接记录，现状已变**（不改写原句，改写等于篡改台账）：`wxlpp/oh-my-story#60`
 > **已 closed** —— 其范围一分为二：`Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier`
-> 四条已由 **CoreDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
+> 四条已由 **OhMyDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
 > 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
 > `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
 > 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态。
@@ -1383,7 +1383,7 @@ task），且会阻断 #54。
 
 ### D-53-19：FR-4 的「登记表 notes 豁免」用裸子串匹配，区分不了「裁决」与「顺带提及」
 
-**缺陷**：`Tests/CoreDesignTests/ComponentJudgeRules.swift:378`（#59 修复前）用
+**缺陷**：`Tests/OhMyDesignTests/ComponentJudgeRules.swift:378`（#59 修复前）用
 `resolved.entry.notes.contains(hit.parameter)` 判定某个 `textParams` 命中是否已被登记表
 `notes` 豁免——**全文裸子串匹配**，不要求参数名与「裁决语」同句出现。
 
@@ -1414,7 +1414,7 @@ task），且会阻断 #54。
 授权同理——判据本身的口径缺陷，发现于本轮落盘、修复范围严格限定在触发该缺陷的那一处
 判据代码，即 `judgeTextParamCoverage` 函数内豁免匹配这一句）。
 
-**落点**：`Tests/CoreDesignTests/ComponentJudgeRules.swift`（豁免匹配收紧为同句共现）。
+**落点**：`Tests/OhMyDesignTests/ComponentJudgeRules.swift`（豁免匹配收紧为同句共现）。
 
 **台账**：随 `b804cf5` 落地；`docs/component-contract-revisions.md` 台账记录见 Task 10。
 
@@ -1430,10 +1430,10 @@ task），且会阻断 #54。
 1. **候选形态清单 ≠ 扩展点需求集。** #59 产出的是「这 5 条举得出 ≥2 个非皮肤替代形态」，
    那是**判定结论**；`wxlpp/oh-my-story#60` 要做的是**设计扩展点**，两者之间还隔着一次
    设计判断。实例：`SidebarUtilityRow` 判**槽**的承重证据恰是「`systemImage` 是必填无默认值
-   的公开参数」（`Sources/CoreDesign/Components/Sidebar/Sidebar.swift:220-224` 实测）——
+   的公开参数」（`Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:220-224` 实测）——
    #60 要实现它的候选 1（纯文字工具行）就必须让该参数**可省**，即**拆掉自己成立的前提**。
 
-2. **J-2 只认 `nativeProtocol` / `customStyleProtocol` 两个字段**（`Tests/CoreDesignTests/ComponentJudgeRules.swift:70-113`），
+2. **J-2 只认 `nativeProtocol` / `customStyleProtocol` 两个字段**（`Tests/OhMyDesignTests/ComponentJudgeRules.swift:70-113`），
    而公约第 2 节只承认 **A（原生协议）/ B（自有协议）/ C（不给）** 三种形态。
    ⇒ 用 **`@ViewBuilder` 槽**或**配置枚举**落地扩展点，`ComponentExtensionPointGuard` 的
    canary 会红 ⇒ **#60 事实上被判据逼着为这 5 条各发一个 public 协议**，
@@ -1470,7 +1470,7 @@ task），且会阻断 #54。
 形态都**可配置**」是另一次**设计判断**。⇒ 实现 issue 须对每条**独立做一次设计判断**，
 不得照单实现；允许得出「承认差异存在、但本轮不开扩展点」（形态 C，须在 `notes` 写理由）。
 ⚠️ **决定性实例**（实测复核，非引用本条原文）：`SidebarUtilityRow` 的 `systemImage` 在
-`Sources/CoreDesign/Components/Sidebar/Sidebar.swift:221` 确为**必填无默认**（同一 `init`
+`Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:221` 确为**必填无默认**（同一 `init`
 里 `trailingSystemImage` 有 `= nil`），而它判「槽」的承重证据逐字就是这一点。
 ⇒ 落点：公约 §2 的「候选形态清单 ≠ 扩展点需求集」小节。
 
@@ -1484,7 +1484,7 @@ task），且会阻断 #54。
 **可演进**。在判定法仍处修订期时让判据把设计空间压成「必发 public 协议」，等于把**可逆的
 实现选择**变成**不可逆的 API 承诺**。
 ⇒ 落点：公约 §2（标题「三选一」→「四选一」+ 形态 D 五个小节）；
-`Tests/CoreDesignTests/ComponentJudgeScanner.swift`（`StyleSlotDecl` / `StyleEnumDecl` 两种
+`Tests/OhMyDesignTests/ComponentJudgeScanner.swift`（`StyleSlotDecl` / `StyleEnumDecl` 两种
 采集）；`ComponentRegistryGuard.Entry`（`styleSlot` / `styleEnum` 两字段）；
 `ComponentJudgeRules.swift`（J-2 两条判定分支）；台账 `R-37`。
 
@@ -1520,7 +1520,7 @@ task），且会阻断 #54。
 
 > ⚠️ **上句是当时的承接记录，现状已变**（不改写原句，改写等于篡改台账）：`wxlpp/oh-my-story#60`
 > **已 closed** —— 其范围一分为二：`Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier`
-> 四条已由 **CoreDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
+> 四条已由 **OhMyDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
 > 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
 > `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由 `#64` 以形态 D2
 > 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」系 #64 落地前的状态。
@@ -1561,14 +1561,14 @@ task），且会阻断 #54。
 
 ⚠️ **本轮落盘口径（判定先行、落盘阻塞）**：落**步骤 4** 的条目正常改判 `tiebreaker`；
 落**出口 1** 的条目 **本轮不落盘**，只进判定报告 + 本节缺陷登记。理由：落 `step2`
-（`kind: semantic`）会碰 `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift:134`
+（`kind: semantic`）会碰 `Tests/OhMyDesignTests/ComponentExtensionPointGuard.swift:134`
 那条 canary，而它守的是「跨仓判据未落地前，StoryUI 侧不得出现 `semantic`」，其自述解除
 路径是「必须移交 **#43** 落地跨仓判据，不得靠裁决 (a) 的跳过静默放过」。改它等于绕过它要
 守的那条路。⚠️ **代价如实记**：登记表在一段时期内**不反映**这些条目的新判定——但报告与本
 节有完整记录，与 #53 的「移交 5 条不落地」是同款处置口径。
 
 ⚠️ **`D-59-1` 在 StoryUI 侧没有机器执行者**：J-2 的定义域是
-`entry.repo == "coredesign" && …`（`Tests/CoreDesignTests/ComponentJudgeRules.swift:71`），
+`entry.repo == "ohmydesign" && …`（`Tests/OhMyDesignTests/ComponentJudgeRules.swift:71`），
 对这 24 条连看都不看。本轮判出出口 1 的条目里带公开 `@ViewBuilder` 槽的那些
 （候选池：`FocusModeContainer.content` / `StoryScaffold` 的 `outline`/`manuscript`/`assistant`
 三槽 / `ToolCallRow.hostContent`）**已有槽而 J-2 不认**，逐条见下方对应条目。
@@ -1643,7 +1643,7 @@ VS Code Copilot 状态栏）、`StoryScaffold`（Apple Notes/Mail iPad 三栏/Ap
 `StoryScaffold`（`outline`/`manuscript`/`assistant` 三槽，`StoryScaffold.swift:47`）、
 `ToolCallRow`（`hostContent` 泛型槽，`ToolCallRow.swift:159`）三条组件本轮均判出口 1
 （`needsExtensionPoint: true`），但它们已经持有公开 `@ViewBuilder` 内容槽——判定法
-（J-2，`Tests/CoreDesignTests/ComponentJudgeRules.swift:71`）字面只问「候选枚举 → 是否
+（J-2，`Tests/OhMyDesignTests/ComponentJudgeRules.swift:71`）字面只问「候选枚举 → 是否
 需要扩展点」，不检查组件是否已持有某种扩展点，也不区分「内容槽」（装什么内容）与
 「外观扩展点」（chrome 长什么样）两种不同槽义。
 
@@ -1671,7 +1671,7 @@ issue 参考。
 （见本文件 `### 9.`）已压测判定为 `step2`/`semantic`/`needsExtensionPoint:true` 而改变
 方向」。「本文件」在原产地 `54-stress.md` 里成立（`### 9. DynamicFormSummary` 就在同一
 文件内，`54-stress.md:369`），但该句逐字搬进 `docs/component-registry.json` 落盘后，
-读者在 registry 或 CoreDesign `docs/` 目录里找不到 `### 9.`——该锚点实际位于**另一个仓**
+读者在 registry 或 OhMyDesign `docs/` 目录里找不到 `### 9.`——该锚点实际位于**另一个仓**
 `oh-my-story/.claude/epics/component-contract/54-stress.md`。
 
 **证据**：`docs/component-registry.json`（`component: "CodexEntryDetail"` 条目 `notes`
@@ -1681,7 +1681,7 @@ issue 参考。
 **本轮处置**：登记勘误，**不回改**已落盘的 `notes`（回改会破坏纯追加的审计链——
 registry.json 的 `notes` 字段本轮起全部只增不删）。勘误：「见本文件 `### 9.`」中的
 「本文件」应读作 `oh-my-story` 仓 `.claude/epics/component-contract/54-stress.md` 的
-`### 9. DynamicFormSummary` 节，不是 `component-registry.json` 本身或 CoreDesign `docs/`
+`### 9. DynamicFormSummary` 节，不是 `component-registry.json` 本身或 OhMyDesign `docs/`
 目录下任何文件。后续约定：模板改为写**绝对定位**（如「见 `54-stress.md` 的 `### 9.`」）
 而不是「本文件」，避免文本跨仓落盘后指代失真复发。
 
@@ -1691,7 +1691,7 @@ registry.json 的 `notes` 字段本轮起全部只增不删）。勘误：「见
 
 **来源**：`D-53-16`（本文件 `### D-53-16` 段）「跨仓对齐记录」要求 #54 将
 `ChapterStatusBadge` 按「当前就矛盾」优先级处理——其 `step3` 结论的翼一（「建在
-CoreDesign `StateLabel` 上，胶囊/图标/配色/对比度全部来自上游」）挂在已于 #53 判死
+OhMyDesign `StateLabel` 上，胶囊/图标/配色/对比度全部来自上游」）挂在已于 #53 判死
 `tiebreaker` 的 `StateLabel` 上。
 
 **缺陷**：`54-triage.md` 第 23 行确认：剥离翼一（依赖 `StateLabel` 的关系性理由）后，
@@ -1764,11 +1764,11 @@ registry 该条目 `decidedBy` 本轮零改动，登记表在一段时期内仍�
 **来源**：`docs/component-registry.json` 中 `repo=="storyui" && decidedBy=="step3"` 的
 24 条，本轮压测后其中 20 条落出口 1（`step2`/`semantic`/`needsExtensionPoint:true`）。
 
-**缺陷**：这 20 条因落 `step2` 会碰 `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift:134`
+**缺陷**：这 20 条因落 `step2` 会碰 `Tests/OhMyDesignTests/ComponentExtensionPointGuard.swift:134`
 的 canary（`entries.filter { $0.repo == "storyui" && $0.kind == "semantic" }.isEmpty`，
 自述解除路径「必须移交 #43 落地跨仓判据，不得靠裁决 (a) 的跳过静默放过」），本轮不落盘，
 只进判定报告 + 本条缺陷登记。⚠️ `D-59-1` 在 StoryUI 侧没有机器执行者：J-2 定义域是
-`entry.repo == "coredesign" && …`（`Tests/CoreDesignTests/ComponentJudgeRules.swift:71`），
+`entry.repo == "ohmydesign" && …`（`Tests/OhMyDesignTests/ComponentJudgeRules.swift:71`），
 对这 20 条连看都不看。
 
 **证据**：`54-stress.md ### 1.`～`### 22.`（除 D1～D4 缩略节外的 20 节逐条判定记录）；
@@ -1856,7 +1856,7 @@ diff 与 commit message 明文记录了以下四处换源，均发生在 Task 5 
 按 D-54-1 原文第 5 条（`FocusModeContainer` 候选 1，Zen Mode 机制误归属换 macOS 全屏）
 同款标准计入，则为 **10 处**——本勘误不裁定该边界情形是否计入，只确认下限 ≥9。
 
-**⚠️ 指回 `b9d1af1`**：CoreDesign 仓 commit `b9d1af1`（"docs(defects): #54 移交 B 缺陷
+**⚠️ 指回 `b9d1af1`**：OhMyDesign 仓 commit `b9d1af1`（"docs(defects): #54 移交 B 缺陷
 登记"）message 断言「实核确认真实换掉的来源为 6 处，非转述的 7 处」——为假，是本 epic
 commit message 事实断言未经命令核验即写入的又一次复发。commit 本身无法改写，本勘误
 在此显式指回并作废该断言。
@@ -2019,7 +2019,7 @@ commit message 事实断言未经命令核验即写入的**第 5 次复发**。c
 
 ### D-64-1：`D-59-1` 决定性实例的模态断言过强；并预防未来重判的自指陷阱
 
-**来源**：`wxlpp/oh-my-story#64`（CoreDesign 实现 `SidebarUtilityRowPresentation`）。
+**来源**：`wxlpp/oh-my-story#64`（OhMyDesign 实现 `SidebarUtilityRowPresentation`）。
 **性质**：**补强，不改结论** —— 不翻转任何落点，`SidebarUtilityRow` 的
 `kind: semantic` / `decidedBy: step2` / `needsExtensionPoint: true` 三字段一字未改。
 
@@ -2134,8 +2134,8 @@ leading 为 `EmptyView` 时分配 0pt）。⇒ **预先写明为何不因此翻�
 
 ```bash
 git grep -n "public enum SidebarUtilityRowPresentation\|public struct SidebarUtilityRow\b" \
-  -- Sources/CoreDesign/Components/Sidebar/Sidebar.swift
-git grep -n "systemImage: String," -- Sources/CoreDesign/Components/Sidebar/Sidebar.swift
+  -- Sources/OhMyDesign/Components/Sidebar/Sidebar.swift
+git grep -n "systemImage: String," -- Sources/OhMyDesign/Components/Sidebar/Sidebar.swift
 ```
 
 ⚠️ 第二条命中 **3 处**（`SidebarNavigationRow.init` / `SidebarUtilityRow.init` /
@@ -2153,7 +2153,7 @@ S-c 抓到）。⇒ **给定位命令时不要写窗口大小**，描述相对�
 
 ### D-65-1：J-2 判据 D2 臂的两处口径缺口（`Toast` 暴露，本 issue 内修补）
 
-**来源**：`wxlpp/oh-my-story#65`（CoreDesign 实现 `ToastPresentation`）。
+**来源**：`wxlpp/oh-my-story#65`（OhMyDesign 实现 `ToastPresentation`）。
 **性质**：**判据修补** —— 与 `D-64-1` 那种「补强、不改结论」不同，本条**动了判据本身**
 （epic 的核心产物）。落点结论无一改变，改的是判据的**识别能力**。
 
@@ -2355,7 +2355,7 @@ J-2 前后对比**（`ComponentExtensionPointGuard` 逐条打印判绿理由，�
 
 ## #270 组件登记表扫描根收口（PR #297 终审移交）
 
-`#270` 把组件登记表的扫描根由单根 `Sources/CoreDesign` 扩成 `GuardScanRoots.allRoots`
+`#270` 把组件登记表的扫描根由单根 `Sources/OhMyDesign` 扩成 `GuardScanRoots.allRoots`
 三根，并按判定法补登了 15 条新 target 的 public 类型。**撞上 1 条缺陷，非零。**
 
 > ⚠️ 按本文件头「零缺陷也要写『零缺陷』」的规矩：`#270` 的**扫描根 / 判据**那一半
@@ -2498,7 +2498,7 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 **今天指向的是别的内容**（如 `RingChart.swift:13` 现在是 `/// - Parameters:`）。
 
 ⇒ **承重的是表里内联的那几句引文本身，不是那几个行号。** 要取回源码侧原文：
-`git show 4cd5fc1^:Sources/CoreDesignCharts/<类型>.swift`。
+`git show 4cd5fc1^:Sources/OhMyDesignCharts/<类型>.swift`。
 ⚠️ **不要**因为坐标失效就去把注释加回 `Sources/` —— `#328` 是有意删的；
 也**不要**照着坐标去读今天的那几行，那会读到无关内容。
 （本条是 `#337` 普查点名的承重失真之一；⚠️ **此处有意不写普查的计数**——那两个数每处置一批就变，逐条见 `#337`。）
@@ -2582,7 +2582,7 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 （明写「本条不适用」）⇒ 缺的不是判断力，是「样板落到每一条上都要重判一次」这个动作。
 ⇒ 这也是 `#315` 终审 P-1 提的那条建议（样板只写一份、`notes` 留指针）的直接论据。
 
-⚠️ **这不是一个理论问题**：`CoreDesignCharts` 这个 target 的存在理由逐字就是
+⚠️ **这不是一个理论问题**：`OhMyDesignCharts` 这个 target 的存在理由逐字就是
 「Swift Charts **原生画不出来**的四类图表」（`CLAUDE.md`）⇒ 对「我想要并排条形」这个诉求，
 本设计系统给出的正确答案很可能就是「**用 Swift Charts**」，而不是给 `RadarChart` 开一个
 把它变成条形图的扩展点。⇒ 作用域条款想表达的那条「换用那个承担者，别给本组件加扩展点」

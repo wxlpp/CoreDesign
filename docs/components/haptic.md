@@ -2,12 +2,12 @@
 
 `trigger` 变化时播一次触感反馈 / Plays one haptic on trigger change.
 
-`View.haptic(_:trigger:)`（`CoreDesignEffects/Haptic.swift`，Issue #250）。
+`View.haptic(_:trigger:)`（`OhMyDesignEffects/Haptic.swift`，Issue #250）。
 
-⚠️ **本 API 在 `CoreDesignEffects` 里，不在 `CoreDesign`**：
+⚠️ **本 API 在 `OhMyDesignEffects` 里，不在 `OhMyDesign`**：
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 ```
 
 ## API
@@ -105,7 +105,7 @@ conformance 的类型当 trigger，加约束即编译红。
 ⚠️ 本节示例**没有任何机器校验**（同 [`confetti.md`](confetti.md) 记的限度）。
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 import SwiftUI
 
 struct PurchaseButton: View {

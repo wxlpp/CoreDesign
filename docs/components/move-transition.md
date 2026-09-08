@@ -1,7 +1,7 @@
 # PolarMoveTransition（`.move`）
 
 任意极角的平移转场 / A polar (angle + distance) move。
-`CoreDesignEffects/PolarMoveTransition.swift`，Issue #267。
+`OhMyDesignEffects/PolarMoveTransition.swift`，Issue #267。
 
 > 六条转场共用的形态与契约见
 > [`transition-cluster-3d-elastic.md`](transition-cluster-3d-elastic.md)。
@@ -36,7 +36,7 @@ HintBubble().transition(.move(angle: .degrees(-60), distance: 120))
 `SwiftUICore` **已有** `public struct MoveTransition` 与
 `extension Transition where Self == MoveTransition { static func move(edge:) }`。
 
-同名类型在下游同时 `import SwiftUI` 与 `import CoreDesignEffects` 时会**歧义**
+同名类型在下游同时 `import SwiftUI` 与 `import OhMyDesignEffects` 时会**歧义**
 ——而本模块内部靠 shadowing 照样编译得过，也就是说**库自己 `swift build` 全绿、
 红的是调用方**。这是最坏的失效形态。⇒ 类型名取 `PolarMoveTransition`
 （极坐标：角 + 距离，正是它与系统那个的差别）。

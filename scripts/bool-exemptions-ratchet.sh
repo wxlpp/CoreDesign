@@ -11,7 +11,7 @@
 #
 # ⚠️ **比对对象是 base 分支的当前 tip，不是字面的 `main`，也不是
 #    `github.event.pull_request.base.sha`**（对 39.md AC 措辞的一处偏离，已写进交付说明）：
-#    · 不用字面的 `main`：CoreDesign 侧五个任务集成在 `epic/component-contract`，
+#    · 不用字面的 `main`：OhMyDesign 侧五个任务集成在 `epic/component-contract`，
 #      `epic→main` 要等到 #42 发版——在那之前 `main` 上根本没有这两个文件，
 #      拿 `main` 比要么永久红、要么退化成「文件读不到 ⇒ 绿」。
 #    · **不用 `base.sha`**：那是 GitHub 在 **PR 创建时**记录的 base 快照，

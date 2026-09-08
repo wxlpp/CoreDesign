@@ -1,4 +1,4 @@
-# CoreDesign
+# OhMyDesign
 
 iOS 26+ / macOS 26+ SwiftUI design system library, distributed as a Swift Package.
 
@@ -11,12 +11,12 @@ See the [Component Index](docs/README.md) for a reference of all 34 documented c
 ```swift
 // Package.swift
 dependencies: [
-    .package(url: "https://github.com/wxlpp/CoreDesign", from: "0.7.0"),
+    .package(url: "https://github.com/wxlpp/oh-my-design", from: "0.10.0"),
 ]
 ```
 
 ```swift
-import CoreDesign
+import OhMyDesign
 import SwiftUI
 
 Button("Press Me") {}
@@ -27,11 +27,11 @@ Button("Press Me") {}
 
 | product | 内容 | 状态 |
 |---|---|---|
-| `CoreDesign` | 组件、四层色彩、token、modifier | 主体 |
-| `CoreDesignEffects` | 表达性视觉层（微交互 / 转场 / 动效） | **骨架**，组件由 epic `#242` 下的 `#250`–`#254` 落地 |
-| `CoreDesignCharts` | Swift Charts 原生画不出来的四类图表 | **骨架**，组件由 epic `#242` 下的 `#255` 落地 |
+| `OhMyDesign` | 组件、四层色彩、token、modifier | 主体 |
+| `OhMyDesignEffects` | 表达性视觉层（微交互 / 转场 / 动效） | **骨架**，组件由 epic `#242` 下的 `#250`–`#254` 落地 |
+| `OhMyDesignCharts` | Swift Charts 原生画不出来的四类图表 | **骨架**，组件由 epic `#242` 下的 `#255` 落地 |
 
-后两个依赖 `CoreDesign`；`CoreDesign` 不反向依赖它们，只 `import CoreDesign` 不会把它们拖进来。
+后两个依赖 `OhMyDesign`；`OhMyDesign` 不反向依赖它们，只 `import OhMyDesign` 不会把它们拖进来。
 
 ## Development
 
@@ -43,7 +43,7 @@ swift test           # Run tests
 ### Preview App
 
 ```bash
-scripts/run-preview.sh     # Build and launch CoreDesignPreview in Simulator
+scripts/run-preview.sh     # Build and launch OhMyDesignPreview in Simulator
 scripts/run-snapshots.sh   # Generate component snapshot PNGs
 ```
 

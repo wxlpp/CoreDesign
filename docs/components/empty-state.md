@@ -23,7 +23,7 @@ ContentUnavailableView(
 )
 ```
 
-需要在空状态里放操作按钮时，把 CoreDesign 的按钮样式组合进 `ContentUnavailableView` 的 actions：
+需要在空状态里放操作按钮时，把 OhMyDesign 的按钮样式组合进 `ContentUnavailableView` 的 actions：
 
 ```swift
 ContentUnavailableView {

@@ -2,12 +2,12 @@
 
 持续漂移的 3 × 3 网格渐变背景面 / A continuously drifting mesh gradient surface.
 
-`AnimatedMeshGradient`（`CoreDesignEffects/AnimatedMeshGradient.swift`，Issue #253）。
+`AnimatedMeshGradient`（`OhMyDesignEffects/AnimatedMeshGradient.swift`，Issue #253）。
 **容器视图形态**（一个独立的 `View`，通常用作背景层）。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0。
@@ -87,7 +87,7 @@ alpha ⇒ 这一档在 macOS 上的实际量程曾是 `0.847 × [0.18, 0.95]` = 
 | `\.lowPowerModeOverride` | `Bool?` | `nil` ⇒ 读 `ProcessInfo.isLowPowerModeEnabled` | `true` ⇒ 降到 15 fps，并去掉柔化用的离屏模糊 |
 
 ⚠️⚠️ **顺序是承重的：先 NFR-7 的能耗闸，再 Reduce Motion 闸**。这个顺序不由本文件实现
-——它在 `EnergyState.presentation(reduceMotion:)` 里（`#271` 下沉到 `CoreDesign`，旧名见
+——它在 `EnergyState.presentation(reduceMotion:)` 里（`#271` 下沉到 `OhMyDesign`，旧名见
 `docs/BREAKING-CHANGES.md`），与 `ConfettiCore` /
 `ProcessingSweepDriver` **共用同一份**。此前两处各写一遍时 `Confetti` 就把顺序写反了，
 而当时全套测试是绿的（#252 PR #269 第 1 轮终审 I-1 / I-2）。
@@ -125,8 +125,8 @@ alpha ⇒ 这一档在 macOS 上的实际量程曾是 `0.847 × [0.18, 0.95]` = 
 ## 使用示例 / Usage
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 import SwiftUI
 
 struct BrandHero: View {

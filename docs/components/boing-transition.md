@@ -1,6 +1,6 @@
 # BoingTransition（`.boing`）
 
-弹性缩放转场 / An elastic pop transition。`CoreDesignEffects/BoingTransition.swift`，Issue #267。
+弹性缩放转场 / An elastic pop transition。`OhMyDesignEffects/BoingTransition.swift`，Issue #267。
 
 > 六条转场共用的形态与契约见
 > [`transition-cluster-3d-elastic.md`](transition-cluster-3d-elastic.md)。

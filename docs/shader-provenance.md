@@ -8,7 +8,7 @@
 
 **Shadertoy 的默认许可通常被表述为 CC BY-NC-SA 3.0——完全禁止商用**，除非 shader 源码
 开头有注释声明了别的许可（**参考/概述**：[Wikipedia · Shadertoy](https://en.wikipedia.org/wiki/Shadertoy)）。
-CoreDesign 以 MIT 分发，**与 CC BY-NC-SA 不兼容**（既禁商用，又有传染性 share-alike）。
+OhMyDesign 以 MIT 分发，**与 CC BY-NC-SA 不兼容**（既禁商用，又有传染性 share-alike）。
 
 ⚠️ **该链接是二手概述，不是证据；上一版在此标「已核实」，措辞过强，已撤回**
 （PR #259 review round-4）。**一切以 Shadertoy 官方条款/许可说明为准**——本表**未**
@@ -77,9 +77,9 @@ clean-room 重写这条出口上。」
 |---|---|---|
 | `已追到兼容许可 · MIT` | 追到原始实现，许可为 MIT / BSD / PD / CC0 | 可移植；`ACKNOWLEDGEMENTS.md` 转载原始许可 |
 | `已追到兼容许可 · Apache-2.0` | 追到原始实现，许可为 Apache-2.0 | 可移植；**须转载 LICENSE + `NOTICE`，并标注修改**（§4(a)(b)(d)） |
-| `自研实现` | 属**效果类别**（非某人的具体设计），按**下方**《第三条出路》的**六轴**差异化自研 | 五轴之外**必过第六条轴（函数体）**；参数面须从 CoreDesign 概念推出。⚠️ 上一版这里写「**上方**…**五轴**」——方位与轴数两处都错（第 5 轮终审 I2），而这是本档位的**操作性定义**，只读裁定方法一节的人拿到的就是被证伪的旧标准 |
+| `自研实现` | 属**效果类别**（非某人的具体设计），按**下方**《第三条出路》的**六轴**差异化自研 | 五轴之外**必过第六条轴（函数体）**；参数面须从 OhMyDesign 概念推出。⚠️ 上一版这里写「**上方**…**五轴**」——方位与轴数两处都错（第 5 轮终审 I2），而这是本档位的**操作性定义**，只读裁定方法一节的人拿到的就是被证伪的旧标准 |
 | `待追溯` | 尚未用上面《方法论教训》的方法追过 | **不得据现状落地**；先追一轮 |
-| `不落地` | 追过且追不到兼容来源，也无具名参考实现 | 不进 `CoreDesignShaders` |
+| `不落地` | 追过且追不到兼容来源，也无具名参考实现 | 不进 `OhMyDesignShaders` |
 
 ⚠️ **`Apache-2.0` 是第 1 版遗漏的档位**（第 1 版只列 MIT / BSD / PD / CC0）。它与 MIT
 分发兼容，但**义务更多**：保留 LICENSE、保留 NOTICE、标注修改。
@@ -184,10 +184,10 @@ clean-room 重写这条出口上。」
 
 ### 差异化的五个轴（每一条都是本仓/PRD 既有约束，不是为此临时发明的；⚠️ 其中「颜色」轴的**机器判尚未存在**，见该行注）
 
-| 轴 | 上游（paper / ShaderKit / Shadertoy） | CoreDesign 自研 |
+| 轴 | 上游（paper / ShaderKit / Shadertoy） | OhMyDesign 自研 |
 |---|---|---|
 | **颜色** | shader 内部调色板 / uniform 传一组固定色 | **只吃 `.tint` 与第 3/4 层语义 token**（FR-8 禁色相字面量）。⚠️ **`EffectsColorLiteralGuard` 目前只存在于 PRD/epic 文档，本仓无实现**——它**将由** #246 / PR #265（`A0-3` 守卫建设，尚未合入 `epic/shipswift-foundation`）**交付后**机器判；在那之前 FR-8 是**人工评审判**，不得当作已有的机器闸 |
-| **参数集** | `u_stepsPerColor` / `u_colorGlow` / `u_distortion` 等上游自创的调参面 | 按 CoreDesign 概念表达：`controlSize`、`CoreSpacing` 尺度、语义枚举（Bool 走 J-1 禁令） |
+| **参数集** | `u_stepsPerColor` / `u_colorGlow` / `u_distortion` 等上游自创的调参面 | 按 OhMyDesign 概念表达：`controlSize`、`CoreSpacing` 尺度、语义枚举（Bool 走 J-1 禁令） |
 | **API 形态** | `.colorEffect(ShaderLibrary.xxx(...))` 裸暴露 | 裸名 `public struct: View` + `#Preview`，与 `Badge` / `Card` 同构 |
 | **动效契约** | 无 | Reduce Motion / Reduce Transparency / 后台 / 低电量**四条降级路径从第一行就在** |
 | **代码风格** | 英文注释、无 `self.` | 中英混排注释、显式 `self.`、`// MARK: -` |
@@ -198,11 +198,11 @@ clean-room 重写这条出口上。」
 
 **上面五个轴全部只描述 API 表面。而受版权保护的表达在函数体里。**
 
-第 1 版据此写下过一句承诺：「只要我们的参数面是从 CoreDesign 概念推出来的，那条指认链
+第 1 版据此写下过一句承诺：「只要我们的参数面是从 OhMyDesign 概念推出来的，那条指认链
 在我们身上就不成立——这是**可被下一个 reviewer 用同样方法反查**的承诺」。
 **PR #261 的五轮终审逐轮证伪了它，四次命中，每次都在函数体：**
 
-| 轮次 | 五轴全部满足（参数面确实是 CoreDesign 概念）| 而函数体里被一击命中的 |
+| 轮次 | 五轴全部满足（参数面确实是 OhMyDesign 概念）| 而函数体里被一击命中的 |
 |---|---|---|
 | 1 | ✅ | `hash21` 与 ShipSwift 的 `swInkSmokeHash21` **逐字节相同**（`grep 123.34`）|
 | 2 | ✅ | `grep 0x27d4eb2d` → Thomas Wang / Nathan Reed；`grep 73856093` → Teschner et al. 2003；`coreDesignInkSmoke` 是 iq《Domain Warping》的结构复制，**连变量名 `q`/`r` 都保留** |
@@ -358,7 +358,7 @@ u_color1, u_color2, u_color3,      // shader 自带调色板
 u_iterations, u_warpStrength
 ```
 
-**CoreDesign 自研的形态**（调参面是「设计系统概念」）：
+**OhMyDesign 自研的形态**（调参面是「设计系统概念」）：
 
 ```swift
 /// 程序化等离子背景。
@@ -650,13 +650,13 @@ paper 以 Apache-2.0 再许可是 paper 的断言、我们无法独立核实（�
 3. **逐常量 grep 必须前置** —— 它比五轴便宜一个数量级，四次命中全部来自这一步，
    而第 1 版把它放在最后。
 
-⚠️ **本表与 #261 的引用关系是双向的**：#261 共 **5 处**引用本文件（`CoreDesignShaders.metal` ×3、`Plasma.swift` ×1、`Starfield.swift` ×1，即 **1 个 metal + 2 个 Swift 文件**）
+⚠️ **本表与 #261 的引用关系是双向的**：#261 共 **5 处**引用本文件（`OhMyDesignShaders.metal` ×3、`Plasma.swift` ×1、`Starfield.swift` ×1，即 **1 个 metal + 2 个 Swift 文件**）
 （⚠️ 上一版写「三个 Swift 文件共四处」，两个数都错——而本表的立身之本正是「逐常量 grep 比五轴便宜一个数量级」，这一段却是没 grep 就写下的，第 2 轮终审 I-b），而本文件的《共享原语的逐项出处》是 #261 写出来的。⇒ **#261 不得先于本 PR 合入**
 （该前置已写在 #261 的描述顶部）。
 
 ## ⚠️ #261 合入前必须同步改口径的代码注释（第 2 轮终审 C-6）
 
-`shaders-plasma:Sources/CoreDesignShaders/CoreDesignShaders.metal` 的 `fbm` 注释
+`shaders-plasma:Sources/OhMyDesignShaders/OhMyDesignShaders.metal` 的 `fbm` 注释
 逐字写着「与 **The Book of Shaders 第 13 章**…**逐行同构**」。
 本表已撤回该说法（见《The Book of Shaders 的许可实查》），但**合入顺序是本 PR 先、
 #261 后** ⇒ 按现状 #261 会带着一份**对 `All rights reserved` 来源的书面逐行同构自认**

@@ -6,9 +6,9 @@
 
 ## 1. 背景与目标
 
-CoreDesign 当前是单一视觉风格（Craft workbench，品牌色为蓝 `brand-5 = #0077FA`）的 SwiftUI 设计系统库。
+OhMyDesign 当前是单一视觉风格（Craft workbench，品牌色为蓝 `brand-5 = #0077FA`）的 SwiftUI 设计系统库。
 
-目标：让**同一份 `import CoreDesign`** 能在编译期切换到不同风格方案，并落地第一个非默认主题 **Blossom**——参考 App Store「暖悦」的女性向配色：**珊瑚粉为主色、多色相糖果系、招牌柔和渐变**。
+目标：让**同一份 `import OhMyDesign`** 能在编译期切换到不同风格方案，并落地第一个非默认主题 **Blossom**——参考 App Store「暖悦」的女性向配色：**珊瑚粉为主色、多色相糖果系、招牌柔和渐变**。
 
 默认（不启用任何 trait）行为与现状**完全一致**，零回归。
 
@@ -132,7 +132,7 @@ Contents.json 结构复用现有 colorset（srgb，alpha/red/green/blue 十六�
 ## 6. 验证策略（本机 Swift 6.3，可实跑）
 1. `swift build` + `swift test` → 默认主题编译/测试通过，语义色未变（回归保护）。
 2. `swift build --traits Blossom` + `swift test --traits Blossom` → Blossom 分支编译通过。
-3. 新增 Swift Testing 用例（`CoreDesignTests`）：
+3. 新增 Swift Testing 用例（`OhMyDesignTests`）：
    - 断言 `CoreGradient.brand/cta/canvas` 均可构造（非 nil）。
    - 断言默认主题下若干语义色解析结果与基线一致（防止误改默认分支）。
    - 注：测试 target 默认继承 default traits（即非 Blossom），Blossom 分支主要靠 `--traits Blossom` 的 CI/手动构建覆盖。文档中记录该命令。
@@ -149,7 +149,7 @@ Contents.json 结构复用现有 colorset（srgb，alpha/red/green/blue 十六�
 | `Colors/FunctionalColor.swift` | secondary 组 `#if Blossom` → violet |
 | `Colors/InteractionColors.swift` | secondaryAccent 组 `#if Blossom` → violet |
 | `Colors/CoreGradient.swift`（新） | 渐变 token 层 |
-| `CoreDesignTests/*`（新） | trait/渐变验证用例 |
+| `OhMyDesignTests/*`（新） | trait/渐变验证用例 |
 | `CLAUDE.md` | 新增「主题 trait」「渐变层」架构说明 |
 
 ## 8. 风险与权衡

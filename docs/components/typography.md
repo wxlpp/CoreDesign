@@ -9,16 +9,16 @@
 > （由 `.coreFont(_:)` + 原生 `Text` modifier 覆盖）。
 > —— `.claude/prds/semi-mobile-components.md`
 
-本文件是该裁决的**墓碑记录**：不存在名为 `Typography` 的 CoreDesign 组件、也不会有，本页给出等价能力的
+本文件是该裁决的**墓碑记录**：不存在名为 `Typography` 的 OhMyDesign 组件、也不会有，本页给出等价能力的
 迁移指引。
 
 ## 为什么不需要一个 `Typography` 组件
 
 Semi Design 的 `Typography` 通常提供一组预设文字样式（Title / Body / Secondary / …）+ 截断 / 复制等
-辅助能力。CoreDesign 已经用两层机制覆盖了同等诉求，且更贴近 SwiftUI 原生习惯：
+辅助能力。OhMyDesign 已经用两层机制覆盖了同等诉求，且更贴近 SwiftUI 原生习惯：
 
 1. **`CoreTypography.Token` + `.coreFont(_:)`**——12 档 token 一一对应系统 `Font.TextStyle`
-   （见 `Sources/CoreDesign/Tokens/CoreTypography.swift`），随 Dynamic Type 自动缩放，调用方直接
+   （见 `Sources/OhMyDesign/Tokens/CoreTypography.swift`），随 Dynamic Type 自动缩放，调用方直接
    `Text("...").coreFont(.headline)` 即可拿到对齐 Apple HIG 的字号 / 行高 / 字重标度，不需要额外的
    包装组件。
 2. **原生 `Text` modifier**——截断（`.lineLimit(_:)`）、对齐（`.multilineTextAlignment(_:)`）、颜色
@@ -27,7 +27,7 @@ Semi Design 的 `Typography` 通常提供一组预设文字样式（Title / Body
 
 ## 迁移 / Migration
 
-| Semi `Typography` 常见用法 | CoreDesign 等价写法 |
+| Semi `Typography` 常见用法 | OhMyDesign 等价写法 |
 |---|---|
 | 标题 | `Text("...").coreFont(.title)` / `.coreFont(.title2)` / `.coreFont(.title3)`（按层级选档） |
 | 正文 | `Text("...").coreFont(.body)` |
@@ -38,11 +38,11 @@ Semi Design 的 `Typography` 通常提供一组预设文字样式（Title / Body
 | 多行截断 | `Text("...").lineLimit(2)`（原生） |
 
 ```swift
-// 旧（Semi Design 心智，CoreDesign 中不存在）
+// 旧（Semi Design 心智，OhMyDesign 中不存在）
 Typography.Title("订单详情")
 Typography.Body("感谢您的购买", type: .secondary)
 
-// 新（CoreDesign）
+// 新（OhMyDesign）
 Text("订单详情").coreFont(.title2)
 Text("感谢您的购买")
     .coreFont(.body)
@@ -50,7 +50,7 @@ Text("感谢您的购买")
 ```
 
 `CoreTypography.Token` 的完整 12 档见 `docs/DESIGN-FOUNDATION.md` 与
-`Sources/CoreDesign/Tokens/CoreTypography.swift` 本身；`0.3.0` 的改名映射（旧
+`Sources/OhMyDesign/Tokens/CoreTypography.swift` 本身；`0.3.0` 的改名映射（旧
 `displayLarge`/`titleLarge`/… → 新 `largeTitle`/`title`/…）记录在
 [BREAKING-CHANGES.md](../BREAKING-CHANGES.md)。
 

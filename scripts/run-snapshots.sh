@@ -21,8 +21,8 @@ else
   DESTINATION="platform=iOS Simulator,name=${DEVICE}"
 fi
 
-# KEEP_LIBRARY_SNAPSHOTS=1 renders every #Preview (library CoreDesign_* AND host
-# CoreDesignPreview_*) straight into a fresh scratch dir for per-Issue visual
+# KEEP_LIBRARY_SNAPSHOTS=1 renders every #Preview (library OhMyDesign_* AND host
+# OhMyDesignPreview_*) straight into a fresh scratch dir for per-Issue visual
 # review during parallel component work, and NEVER touches the committed
 # docs/snapshots. This makes `git diff docs/snapshots` unconditionally empty in
 # keep mode — it does not depend on byte-identical re-rendering, so a legitimately
@@ -47,7 +47,7 @@ SNAPSHOT_DIR="$(pwd)/docs/snapshots"
 # dir would let them `rm -rf` each other's exports. Override with the env var if
 # needed — NOTE: in keep mode this dir is `rm -rf`'d wholesale each run, so point
 # it at a scratch location only, never a shared/committed directory.
-LIBRARY_SNAPSHOTS_EXPORT_DIR="${LIBRARY_SNAPSHOTS_EXPORT_DIR:-${TMPDIR:-/tmp}/coredesign-library-snapshots-$(basename "$(pwd)")}"
+LIBRARY_SNAPSHOTS_EXPORT_DIR="${LIBRARY_SNAPSHOTS_EXPORT_DIR:-${TMPDIR:-/tmp}/ohmydesign-library-snapshots-$(basename "$(pwd)")}"
 
 if [ "${KEEP_LIBRARY_SNAPSHOTS}" = "1" ]; then
   # Keep mode: render into a fresh scratch dir; leave docs/snapshots untouched.
@@ -65,8 +65,8 @@ fi
 
 TEST_RUNNER_SNAPSHOTS_EXPORT_DIR="${EXPORT_DIR}" \
 xcodebuild test \
-  -project App/CoreDesignPreview.xcodeproj \
-  -scheme CoreDesignPreview \
+  -project App/OhMyDesignPreview.xcodeproj \
+  -scheme OhMyDesignPreview \
   -only-testing:SnapshotTests \
   -destination "${DESTINATION}" \
   CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
@@ -81,25 +81,25 @@ else
   #
   # SnapshotPreviews 会渲染**所有链入模块**的 `#Preview`，产物文件名前缀是**模块名**
   # （`<Module>_<file>_<preview name>.{png,json}`）。提交态的约定一直是「只收
-  # `App/Sources/Previews.swift` 驱动的产物」（`CoreDesignPreview_*`）。
+  # `App/Sources/Previews.swift` 驱动的产物」（`OhMyDesignPreview_*`）。
   #
   # ## 上一版为什么必须换掉（实测，不是推演）
   #
-  # 上一版这里写的是 `-name "CoreDesign_*"` —— 一条**按模块名前缀的黑名单**。
-  # glob `CoreDesign_*` 要求 "CoreDesign" 后紧跟下划线 ⇒ `CoreDesignEffects_*` /
-  # `CoreDesignCharts_*` **一个都不匹配**。
+  # 上一版这里写的是 `-name "OhMyDesign_*"` —— 一条**按模块名前缀的黑名单**。
+  # glob `OhMyDesign_*` 要求 "OhMyDesign" 后紧跟下划线 ⇒ `OhMyDesignEffects_*` /
+  # `OhMyDesignCharts_*` **一个都不匹配**。
   #
   # 实测（本 PR，`KEEP_LIBRARY_SNAPSHOTS=1` 全量渲染）：
   # · `#256` **之前**（`App/Sources/` 还没 import 两个新 product）导出 135 个 PNG，
-  #   前缀只有 `CoreDesign_` 与 `CoreDesignPreview_` —— 两个新模块的 preview
+  #   前缀只有 `OhMyDesign_` 与 `OhMyDesignPreview_` —— 两个新模块的 preview
   #   **一个都没被渲染**（未被 App 引用 ⇒ 未参与，扫描器看不到）。
   # · 本 PR 把 40 个 API 单位接进画廊之后再渲染：导出 175 个 PNG，多出的正是
-  #   `CoreDesignEffects_*` 36 个 + `CoreDesignCharts_*` 4 个（135 → 175）。
+  #   `OhMyDesignEffects_*` 36 个 + `OhMyDesignCharts_*` 4 个（135 → 175）。
   # ⇒ **在本 PR 之前黑名单“看起来没问题”，恰恰因为它管辖的东西还不存在。**
   #   本 PR 一接进画廊，默认模式就会把这 40 个库内产物连同 JSON 一起提交进
   #   `docs/snapshots`。黑名单形态对「新出现的模块」是**空真**，每加一个 target
   #   就要有人记得回来补一条前缀 —— 这正是 G-7 记在案的失效形态。
-  # ⇒ 改成白名单：**凡不是 `CoreDesignPreview_*` 的产物一律删**。
+  # ⇒ 改成白名单：**凡不是 `OhMyDesignPreview_*` 的产物一律删**。
   #   新 target、新模块、改名，都不需要回来改这一行。
   #
   # ## 关于「非确定 PNG」：epic 点的那三个名字**没有复现**
@@ -111,10 +111,10 @@ else
   # · 这三个名字对应的 4 个产物（`Confetti…confetti`、`ParticleTransition`、
   #   `AnimatedMeshGradient` 两个）**全部逐字节相同**；
   # · 新模块 40 个产物里**只有 1 个**漂移：
-  #   `CoreDesignEffects_BeforeAfterSlider.swift_BeforeAfterSlider_自定义文案_无标签.png`
+  #   `OhMyDesignEffects_BeforeAfterSlider.swift_BeforeAfterSlider_自定义文案_无标签.png`
   #   （该 preview 有一段 `.task` 驱动的 intro sweep）；
   # · 其余 8 个漂移**全是既有的 spinner / 进度族**，且其中 3 个**已经在提交态里**：
-  #   `CoreDesignPreview_Previews.swift_{ProgressIndicator,Spinning,Spinning_Presentations}.png`。
+  #   `OhMyDesignPreview_Previews.swift_{ProgressIndicator,Spinning,Spinning_Presentations}.png`。
   #   ⇒ **提交态今天就在漂**，那是既存状况（`KEEP_LIBRARY_SNAPSHOTS` 当初就是为它加的），
   #   不是本 PR 引入的，也不在本 PR 的射程内。
   #
@@ -126,9 +126,9 @@ else
   # （epic 点的三个实测是稳的），也管不住将来（BeforeAfterSlider 这种才是真漂的）。
   # **判据是「产地」——库内 `#Preview` 一律不进提交态，确定与否都不进。**
   #
-  # ⚠️ 反向的守卫在 `Tests/CoreDesignTests/SnapshotArtifactGuard.swift`：
-  # 提交态里出现任何非 `CoreDesignPreview_` 前缀的产物即判红。
-  /usr/bin/find docs/snapshots -type f ! -name "CoreDesignPreview_*" -delete
+  # ⚠️ 反向的守卫在 `Tests/OhMyDesignTests/SnapshotArtifactGuard.swift`：
+  # 提交态里出现任何非 `OhMyDesignPreview_` 前缀的产物即判红。
+  /usr/bin/find docs/snapshots -type f ! -name "OhMyDesignPreview_*" -delete
   echo "Snapshots saved to docs/snapshots/"
   count=$(/usr/bin/find docs/snapshots -name "*.png" -type f | wc -l)
   echo "${count} PNGs generated"

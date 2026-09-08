@@ -1,6 +1,6 @@
-import CoreDesign
-import CoreDesignCharts
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignCharts
+import OhMyDesignEffects
 import Foundation
 import SwiftUI
 
@@ -11,7 +11,7 @@ import SwiftUI
 // 内部，internal 符号一样可达。只有从外部包才能守住这条契约。
 //
 // 注意本文件与同目录 `NonisolatedUsage.swift` 的分工：那边守**隔离**契约
-// （函数全部 `nonisolated`），这边守**可见性**契约。CoreDesign 开了
+// （函数全部 `nonisolated`），这边守**可见性**契约。OhMyDesign 开了
 // `.defaultIsolation(MainActor.self)`，所以这里的函数都得是 `@MainActor`
 // ——包括读 `ButtonRoleStyleRole` 的调色板属性。换言之：这三个属性对下游
 // **可见但不是 nonisolated 可达的**；若日后需要 nonisolated 可达，那是另一个
@@ -109,7 +109,7 @@ func consumeGlassModifierTwoArgForm() -> some View {
 // ⚠️ **但理由不是 `defaultIsolation(MainActor.self)`——上一版这半句实测为假，照录
 // 更正**（PR #304 第 2 轮终审 I-3 顺带复核）：`ButtonRoleStyleRole` 自己是
 // `public nonisolated enum`，这四个成员的隔离来自它们各自**显式**标的 `@MainActor`
-// （`Sources/CoreDesign/Components/Button/ButtonRoleStyleRole.swift:18/34/50/75`）。
+// （`Sources/OhMyDesign/Components/Button/ButtonRoleStyleRole.swift:18/34/50/75`）。
 // 「**成员级**显式 `@MainActor` 压过**类型级** `nonisolated`」正是下面
 // `consumeSkeletonColorTokens` 那条更正里来源 (i) 的边界条件——两处不能混为一谈。
 @MainActor
@@ -148,7 +148,7 @@ func consumeCircularGlassTierAccessor() -> some View {
 // 「能编译」（internal 也可达），真正的公开可见性护栏在这里——从外部包消费它们，
 // 若日后漏写/收回 `public`，四条 SwiftPM 命令仍绿而此处会炸。
 //
-// ⚠️ **上一版这里写「必须 @MainActor：CoreDesign 开了 `.defaultIsolation(MainActor.self)`，
+// ⚠️ **上一版这里写「必须 @MainActor：OhMyDesign 开了 `.defaultIsolation(MainActor.self)`，
 // 这两个静态计算属性跨模块非 nonisolated 可达（同 ButtonRoleStyleRole 调色板）」
 // ——实测为假，照录更正**（PR #304 第 2 轮终审 I-3）：
 // · 把 `nonisolated func { [Color.skeletonBase, Color.skeletonHighlight] }` 放进本 target
@@ -166,7 +166,7 @@ func consumeCircularGlassTierAccessor() -> some View {
 //
 // 上一版写的是：「可达 **当且仅当** ① 没有显式隔离标注 **且** ② 声明在一个本模块之外的
 // 类型的扩展上」。**① 与 ② 都为假**，两个反例就在本仓树里：
-// · 反证 ①：`SettingsRowMetrics`（`Sources/CoreDesign/Components/SettingsRow/SettingsRow.swift:17`）
+// · 反证 ①：`SettingsRowMetrics`（`Sources/OhMyDesign/Components/SettingsRow/SettingsRow.swift:17`）
 //   是 `public nonisolated enum` —— 它**有**显式标注、而且**不是**任何扩展 —— 而
 //   `NonisolatedUsage.swift:useSettingsRowMetrics()` 跨模块把它 6 个成员逐条读、干净编译。
 // · 反证 ②（「extension 这个词选错了」）：本模块**自有类型的 extension** 上的无标注 static
@@ -183,14 +183,14 @@ func consumeCircularGlassTierAccessor() -> some View {
 //   `ButtonRoleStyleRole` 正是活例：enum 本体是 `public nonisolated`，但四个调色板成员
 //   各自显式 `@MainActor` ⇒ 判红，见上面 `:104` 那条）。
 //   这条对**声明在类型本体内**的成员**模块内外都成立**：
-//   `SettingsRowMetrics.iconAlignedDividerInset` 从 CoreDesign **模块内**的
+//   `SettingsRowMetrics.iconAlignedDividerInset` 从 OhMyDesign **模块内**的
 //   `nonisolated func` 读，同样干净编译。
 //   ⚠️ **成员声明在 `extension` 上时，这条退化成下面的来源 (ii)**（下游绿、模块内红）
 //   ——**类型级 `nonisolated` 不穿透到 extension**，extension 上的成员在模块内仍被
 //   `defaultIsolation` 推成 MainActor。本轮（PR #304 第 4 轮终审 C-1'）在一个
 //   `public nonisolated enum` 上加 `public extension … { static var fromExtension: Int { 5 } }`
 //   （**没有**再标 `@MainActor`）实测：模块内
-//   `Sources/CoreDesign/ZZInModule.swift:7:66: error: main actor-isolated static property
+//   `Sources/OhMyDesign/ZZInModule.swift:7:66: error: main actor-isolated static property
 //   'fromExtension' can not be referenced from a nonisolated context`，
 //   而同一份声明从本 probe 的 nonisolated 顶层 func 读 **Build complete**；
 //   同一个 enum **本体内**的 static 则模块内外**双绿**。
@@ -199,7 +199,7 @@ func consumeCircularGlassTierAccessor() -> some View {
 //   **(ii)** 成员声明在**另一个模块声明的、本身 nonisolated 的类型**的扩展上
 //   （`SwiftUI.Color`、`CoreGraphics.CGFloat`），**且未显式标 `@MainActor`**。
 //   `defaultIsolation` 在模块内仍把它推成 MainActor —— 同一个 `Color.specularHighlight`
-//   从 CoreDesign **模块内**的 `nonisolated func` 读会硬报
+//   从 OhMyDesign **模块内**的 `nonisolated func` 读会硬报
 //   `error: main actor-isolated static property 'specularHighlight' can not be referenced
 //   from a nonisolated context` —— 但**这份推断没有被序列化进 swiftmodule 接口**，
 //   于是下游看到的是 nonisolated。这条**只对下游成立**。
@@ -456,18 +456,18 @@ func consumeProgressIndicatorTint() -> some View {
 
 // MARK: - NFR-7 的两个可注入能耗环境键：**不在本文件**（Issue #252）
 //
-// `\.lowPowerModeOverride` / `\.scenePhaseOverride` 已从 `CoreDesignEffects` 下沉到
-// `CoreDesign`（PR #269 终审 S-2 的已裁决处置），它们的跨模块证明随之搬到**另一个
-// target**：`CoreDesignOnlyProbe`（只接 `CoreDesign` 一个 product）。
+// `\.lowPowerModeOverride` / `\.scenePhaseOverride` 已从 `OhMyDesignEffects` 下沉到
+// `OhMyDesign`（PR #269 终审 S-2 的已裁决处置），它们的跨模块证明随之搬到**另一个
+// target**：`OhMyDesignOnlyProbe`（只接 `OhMyDesign` 一个 product）。
 //
-// ⚠️ **不能留在本 target**，哪怕单开一个"只写 `import CoreDesign`"的文件——
+// ⚠️ **不能留在本 target**，哪怕单开一个"只写 `import OhMyDesign`"的文件——
 // 变异实证现场抓到的：Swift 对**扩展成员**的名字查找是**逐模块**而不是逐文件的，
-// 本文件顶上这句 `import CoreDesignEffects` 会让 Effects 挂在 `EnvironmentValues`
+// 本文件顶上这句 `import OhMyDesignEffects` 会让 Effects 挂在 `EnvironmentValues`
 // 上的成员在同 target 的**其它文件里也可见**。⇒ 那样的"证明"在"键搬回 Effects"
-// 这枚变异下照样全绿，是摆设。理由全文见 `CoreDesignOnlyProbe` 的文件头与
+// 这枚变异下照样全绿，是摆设。理由全文见 `OhMyDesignOnlyProbe` 的文件头与
 // `Package.swift` 里那个 target 的注释。
 
-// MARK: - CoreDesignEffects：#252 的四个 API 单位
+// MARK: - OhMyDesignEffects：#252 的四个 API 单位
 
 @MainActor
 func consumeCelebrationAndProcessingEffects() -> some View {
@@ -479,7 +479,7 @@ func consumeCelebrationAndProcessingEffects() -> some View {
     .confetti(trigger: 1)
 }
 
-// MARK: - CoreDesignEffects：#253 的四个 API 单位
+// MARK: - OhMyDesignEffects：#253 的四个 API 单位
 
 // ⚠️ 三个 View 与一个 `Transition` 静态成员落在**本文件**而不是
 // `EffectsNonisolatedUsage.swift`——分流理由见那份文件的文件头：本包开了
@@ -508,7 +508,7 @@ func consumeTextAndDisplayEffects(streamed: String) -> some View {
     }
 }
 
-// MARK: - CoreDesignEffects：#254 的四个 API 单位（跨平台改造）
+// MARK: - OhMyDesignEffects：#254 的四个 API 单位（跨平台改造）
 
 // ⚠️ 四件都是 `View` struct ⇒ 全部落在**本文件**（`@MainActor`），
 // `EffectsNonisolatedUsage.swift` 那边只放值类型 —— 分流理由见那份文件的文件头。
@@ -547,7 +547,7 @@ struct CrossPlatformProbeItem: Identifiable {
     let name: String
 }
 
-// MARK: - CoreDesignEffects：#266 的四种滤镜类转场
+// MARK: - OhMyDesignEffects：#266 的四种滤镜类转场
 
 // ⚠️ 四个 `Transition` 静态成员都要**经点语法**触达（`.transition(.blur)`），
 // 不能写 `Transition.blur`——该静态成员定义在
@@ -571,7 +571,7 @@ func consumeFilterTransitions() -> some View {
     }
 }
 
-// MARK: - CoreDesignEffects：#268 的六个 API 单位（mask reveal 转场簇）
+// MARK: - OhMyDesignEffects：#268 的六个 API 单位（mask reveal 转场簇）
 
 // ⚠️ 六种转场各有「无参 `var`」与「含参 `func`」两个静态成员（登记表按 `Host.member`
 // 去重算六条，见 `docs/component-registry.json`）——**十二个都在这里点名**，
@@ -606,7 +606,7 @@ func consumeMaskRevealTransitions() -> some View {
     }
 }
 
-// MARK: - CoreDesignEffects：#250 的 8 个微交互 modifier
+// MARK: - OhMyDesignEffects：#250 的 8 个微交互 modifier
 
 // ⚠️ 8 个都是 `public extension View` 上的方法 ⇒ 落**本文件**（`@MainActor`）：
 // 本包开了 `.defaultIsolation(MainActor.self)`，modifier 函数天然 MainActor 隔离，
@@ -648,7 +648,7 @@ func consumeMicroInteractionModifiersB(taps: Int) -> some View {
     }
 }
 
-// MARK: - CoreDesignCharts：#255 的四个图表
+// MARK: - OhMyDesignCharts：#255 的四个图表
 
 // ⚠️ 四个图表**本身**是 `View` struct ⇒ 落本文件（`@MainActor`），
 // 数据契约（`ChartValue` / `HeatmapDay` / `GraphNode` / `GraphEdge`）与四个规模上限

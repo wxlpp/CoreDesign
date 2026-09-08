@@ -3,19 +3,19 @@
 #
 # ⚠️ **为什么需要它**（#245）：`scripts/downstream-probe` 只能证明「下游还能编」，
 # 证不了「公开面没多没少」——它引用的符号是**手写清单**，删掉一个没被 probe 引用的
-# public 符号，probe 照常绿。而多个 epic（shipswift-*）都把「`CoreDesign` 公开 API
+# public 符号，probe 照常绿。而多个 epic（shipswift-*）都把「`OhMyDesign` 公开 API
 # 表面 diff 为空」写进了验收标准，需要一个真能验的工具。
 #
 # ⚠️ **不要把比较器换回 `swift-api-digester -diagnose-sdk`**（#245 终审 C-1 第二层）。
 # 它是**破坏性变更检测器**——分节全是 `Removed Decls` / `Renamed Decls` / `Type Changes`，
-# **新增声明不算破坏，它一行都不报**。实测：往 `Sources/CoreDesign/` 加一个 `public enum`
+# **新增声明不算破坏，它一行都不报**。实测：往 `Sources/OhMyDesign/` 加一个 `public enum`
 # 并提交，`-dump-sdk` 抓到了（json 1496775 → 1499683 字节、命中 8 处），
 # 而 `-diagnose-sdk` 输出为空 ⇒ 报「无变化」。而「多了一个公开符号」正是本工具要抓的
 # 两种情形之一。⇒ 改为**直接对两份 dump 做集合差**。
 #
 # ⚠️ **比较键是 `(usr, declAttributes)`，不能只用 `usr`**（#257 Copilot CLI 复审）。
 # `usr` 是 mangled 符号，增、删、改签名都会体现——但 **actor isolation 的变化不改 usr**。
-# 实测（`CoreDesignEffects.moduleName`）：把 `nonisolated` 删掉后 usr 一字不差，
+# 实测（`OhMyDesignEffects.moduleName`）：把 `nonisolated` 删掉后 usr 一字不差，
 # 只有 `declAttributes` 从 `[HasInitialValue, Nonisolated, HasStorage]` 变成
 # `[HasInitialValue, HasStorage, Custom]`。而本包所有 target 都启用
 # `.defaultIsolation(MainActor.self)`，**「某个公开成员的 isolation 域被改了」正是这里
@@ -34,7 +34,7 @@
 #
 # 用法：
 #   bash scripts/api-surface-diff.sh [base-ref]                 # 默认 base-ref = main
-#   MODULE=CoreDesignEffects bash scripts/api-surface-diff.sh   # 比对别的模块
+#   MODULE=OhMyDesignEffects bash scripts/api-surface-diff.sh   # 比对别的模块
 #
 # 退出码：0 = 无变化；1 = 有变化（差异打印到 stdout）；2 = 工具/环境问题。
 set -euo pipefail
@@ -43,7 +43,7 @@ ROOT="$(git rev-parse --show-toplevel)" || { echo "❌ 不在 git 仓库内"; ex
 cd "${ROOT}"
 
 BASE_REF="${1:-main}"
-MODULE="${MODULE:-CoreDesign}"
+MODULE="${MODULE:-OhMyDesign}"
 
 git rev-parse --verify --quiet "${BASE_REF}^{commit}" >/dev/null \
   || { echo "❌ base-ref 不存在：${BASE_REF}"; exit 2; }

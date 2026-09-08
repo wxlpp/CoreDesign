@@ -2,13 +2,13 @@
 
 向上喷出一束 SF Symbol 粒子 / A cone of SF Symbol particles sprayed upward.
 
-`View.spray(trigger:symbol:strength:colors:)`（`CoreDesignEffects/Spray.swift`，
+`View.spray(trigger:symbol:strength:colors:)`（`OhMyDesignEffects/Spray.swift`，
 Issue #250）。典型用途：点赞、收藏、庆祝。
 
-⚠️ **本 API 在 `CoreDesignEffects` 里，不在 `CoreDesign`**：
+⚠️ **本 API 在 `OhMyDesignEffects` 里，不在 `OhMyDesign`**：
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 ```
 
 ## API
@@ -101,7 +101,7 @@ Reduce Motion 下**整个粒子层不渲染**，降级为一次透明度脉冲
 ⚠️ 本节示例**没有任何机器校验**（同 [`confetti.md`](confetti.md) 记的限度）。
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 import SwiftUI
 
 struct LikeButton: View {

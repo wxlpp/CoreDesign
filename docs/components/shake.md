@@ -2,12 +2,12 @@
 
 输入校验失败时横向抖一下 / A damped horizontal shake on trigger.
 
-`View.shake(trigger:strength:)`（`CoreDesignEffects/Shake.swift`，Issue #250）。
+`View.shake(trigger:strength:)`（`OhMyDesignEffects/Shake.swift`，Issue #250）。
 
-⚠️ **本 API 在 `CoreDesignEffects` 里，不在 `CoreDesign`**：
+⚠️ **本 API 在 `OhMyDesignEffects` 里，不在 `OhMyDesign`**：
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 ```
 
 ## API
@@ -82,10 +82,10 @@ public nonisolated enum MicroInteractionStrength: Sendable, CaseIterable {
 
 ⚠️ 本节示例**没有任何机器校验**（与 [`confetti.md`](confetti.md) 记的是同一条限度）：
 `import` 漏写、API 改名、参数标签变更都只能靠人工发现，CI 的任何一条腿都不会因此变红。
-改动 `CoreDesignEffects` 公开 API 时需人工过一遍。
+改动 `OhMyDesignEffects` 公开 API 时需人工过一遍。
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 import SwiftUI
 
 struct PasscodeView: View {

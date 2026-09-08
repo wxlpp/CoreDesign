@@ -2,11 +2,11 @@
 
 自转的字球 / A slowly rotating sphere of glyphs.
 
-`CharSphere`（`CoreDesignEffects/CharSphere.swift`，Issue #254）。
+`CharSphere`（`OhMyDesignEffects/CharSphere.swift`，Issue #254）。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0。

@@ -2,11 +2,11 @@
 
 同心轨道上巡游的 logo / Logos orbiting on concentric rings.
 
-`OrbitingLogos`（`CoreDesignEffects/OrbitingLogos.swift`，Issue #254）。
+`OrbitingLogos`（`OhMyDesignEffects/OrbitingLogos.swift`，Issue #254）。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0。
@@ -244,7 +244,7 @@ OrbitingLogos(brands) { brand in
    「同一含义的另一个**版本**」，「换用另一个组件」不是本组件的一个版本。
 3. **静态 logo 网格（logo cloud）** —— 设计体系 Tailwind Plus 的 Logo Clouds 区块（含
    “Grid” 等六种例子）。⚠️ **不计入**：同上，且它**完全没有运动**，而本件在
-   `CoreDesignEffects`（表达性视觉动效层），巡游本身就是它的含义。
+   `OhMyDesignEffects`（表达性视觉动效层），巡游本身就是它的含义。
 4. **椭圆 / 螺旋轨道** —— ⚠️⚠️ **`#315` 终审 S-3 要求给负面核验补记 URL + 状态码 + 日期；
    补记时逐条重跑，发现上一版的负面声称之一已经过期。** 这正是 PR #297 终审 I-3 把本条挪进
    缓办台账所依据的候选。逐条复核（全部 2026-09-05 重跑）：

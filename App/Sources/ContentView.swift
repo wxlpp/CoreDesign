@@ -1,5 +1,5 @@
 import SwiftUI
-import CoreDesign
+import OhMyDesign
 
 struct ContentView: View {
     @State private var selectedComponent: ComponentMeta?
@@ -41,7 +41,7 @@ private struct ComponentList: View {
             }
         }
         .listStyle(.sidebar)
-        .navigationTitle("CoreDesign")
+        .navigationTitle("OhMyDesign")
         .navigationDestination(for: ComponentMeta.self) { comp in
             ComponentDetail(component: comp)
         }

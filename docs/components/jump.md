@@ -2,13 +2,13 @@
 
 下蹲 → 起跳 → 落地，带挤压拉伸 / A squash-and-stretch hop on trigger.
 
-`View.jump(trigger:strength:)`（`CoreDesignEffects/Jump.swift`，Issue #250）。
+`View.jump(trigger:strength:)`（`OhMyDesignEffects/Jump.swift`，Issue #250）。
 典型用途：成功、点赞、达成。
 
-⚠️ **本 API 在 `CoreDesignEffects` 里，不在 `CoreDesign`**：
+⚠️ **本 API 在 `OhMyDesignEffects` 里，不在 `OhMyDesign`**：
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 ```
 
 ## API
@@ -83,7 +83,7 @@ public extension View {
 ⚠️ 本节示例**没有任何机器校验**（同 [`confetti.md`](confetti.md) 记的限度）。
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 import SwiftUI
 
 struct TaskRow: View {

@@ -1,4 +1,4 @@
-import CoreDesign
+import OhMyDesign
 import Foundation
 import SwiftUI
 
@@ -167,7 +167,7 @@ nonisolated func useSettingsRowMetrics() -> [CGFloat] {
 // `CoreElevation.spec(for:)` 那条逐字同源，只是上游不同（#290 实测）：
 // · `SidebarTextStyle.primary/secondary/tertiary` 的初始化表达式是
 //   `Color.contentPrimary` / `.contentMuted` / `.contentSubtle`，而**这些表达式在
-//   模块内求值**——`CoreDesign` 自己开了 `.defaultIsolation(MainActor.self)`，于是
+//   模块内求值**——`OhMyDesign` 自己开了 `.defaultIsolation(MainActor.self)`，于是
 //   模块内的色彩层整体是 MainActor 隔离的 ⇒ 一个 `nonisolated` 的静态存储属性
 //   用不了它。给这个 enum 标 `nonisolated` ⇒ `error: main actor-isolated default
 //   value in a nonisolated context`。要解开得先让整个色彩层 `nonisolated`，
@@ -176,8 +176,8 @@ nonisolated func useSettingsRowMetrics() -> [CGFloat] {
 //   ⚠️ **上一版这里写「第 3 层语义色是**计算** `static var` 所以隔离，`static let`
 //   才会按 SE-0434 隐式 `nonisolated`」——实测为假，照录更正**（PR #304 终审 F-2）：
 //   · **判别式不是 `static let` vs 计算 `static var`**。`Color.success` 是
-//     `public static let`（`Sources/CoreDesign/Colors/FunctionalColor.swift`），
-//     往 `Sources/CoreDesign/` 塞一个 `nonisolated func { Color.success }` 同样
+//     `public static let`（`Sources/OhMyDesign/Colors/FunctionalColor.swift`），
+//     往 `Sources/OhMyDesign/` 塞一个 `nonisolated func { Color.success }` 同样
 //     当场 `error: main actor-isolated static property 'success' can not be
 //     referenced from a nonisolated context`——与计算属性 `Color.contentPrimary`
 //     在同一次构建里给出**一模一样**的诊断。两者一视同仁。

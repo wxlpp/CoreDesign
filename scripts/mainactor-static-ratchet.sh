@@ -63,16 +63,16 @@
 #
 #   | 文件                                   | public/open static | 剔 SYNTHESIZED | 其中 @MainActor |
 #   |----------------------------------------|--------------------|----------------|-----------------|
-#   | CoreDesign.symbols.json                | 56                 | 42             | 5               |
-#   | CoreDesign@SwiftUI.symbols.json        | 12                 | 12             | 12              |
-#   | CoreDesign@SwiftUICore.symbols.json    | 285                | 285            | 0               |
-#   | CoreDesignCharts.symbols.json          | 5                  | 5              | 0               |
-#   | CoreDesignEffects.symbols.json         | 78                 | 32             | 0               |
-#   | CoreDesignEffects@SwiftUICore.symbols.json | 34             | 34             | 34              |
+#   | OhMyDesign.symbols.json                | 56                 | 42             | 5               |
+#   | OhMyDesign@SwiftUI.symbols.json        | 12                 | 12             | 12              |
+#   | OhMyDesign@SwiftUICore.symbols.json    | 285                | 285            | 0               |
+#   | OhMyDesignCharts.symbols.json          | 5                  | 5              | 0               |
+#   | OhMyDesignEffects.symbols.json         | 78                 | 32             | 0               |
+#   | OhMyDesignEffects@SwiftUICore.symbols.json | 34             | 34             | 34              |
 #   | 合计                                   | 470                | 410            | 51              |
 #
 #   ⚠️ 表里**没有** `<Target>@<本包另一个 target>.symbols.json` 那一族（如
-#     `CoreDesignEffects@CoreDesign.symbols.json`）——不是漏掉了，是**今天一个都不存在**
+#     `OhMyDesignEffects@OhMyDesign.symbols.json`）——不是漏掉了，是**今天一个都不存在**
 #     （本包内还没有跨 target 的扩展）。本脚本照样扫它们，理由见下面那段。
 #     ⇒ 光看这张 6 行表**推不出**那一族的存在，所以这里点明。
 #
@@ -84,16 +84,16 @@
 # ⇒ 棘轮退化成橡皮图章（本仓加转场的频率见 #268 / #292）。
 #
 # ⚠️ **包内跨 target 的扩展块成员在射程内**（这一半是 PR #314 终审补进来的）：
-#   `CoreDesignEffects` / `CoreDesignCharts` 都 `import CoreDesign`，往 `CoreDesign`
-#   的公开类型上加 `public static` 成员时，`CoreDesign` 对它们而言也是「外来模块」
-#   ⇒ 成员落进 `CoreDesignEffects@CoreDesign.symbols.json`。射程有多大：
-#   `CoreDesign.symbols.json` 里 **109 个公开 nominal 类型有 62 个带 `@MainActor`**
+#   `OhMyDesignEffects` / `OhMyDesignCharts` 都 `import OhMyDesign`，往 `OhMyDesign`
+#   的公开类型上加 `public static` 成员时，`OhMyDesign` 对它们而言也是「外来模块」
+#   ⇒ 成员落进 `OhMyDesignEffects@OhMyDesign.symbols.json`。射程有多大：
+#   `OhMyDesign.symbols.json` 里 **109 个公开 nominal 类型有 62 个带 `@MainActor`**
 #   （本轮实测）——往这 62 个里的任何一个加一个公开 static，得到的就是一个
 #   MainActor 隔离的公开 static，而它既不在主文件里，也**不是**「SwiftUI 协议本身
 #   带来的隔离」。⇒ 这一族必须在射程内。
 #   · 代价核算：这一族**今天零个文件**（上表那三个 `@` 文件的扩展目标全是第三方模块）
 #     ⇒ 收进射程是**零 churn、零新豁免、判据在今天的行为逐字不变**。
-#   · 实证（本轮）：往 `CoreDesignEffects` 加
+#   · 实证（本轮）：往 `OhMyDesignEffects` 加
 #     `public extension CoreProgressViewStyle { static var probeLeakedMainActorStatic: Int { 42 } }`
 #     ⇒ 扩这一族**之前**本脚本 exit 0（洞是真的），**之后** exit 1（洞关上了）。
 #
@@ -105,7 +105,7 @@
 #     **不作用于外来模块类型的扩展**。本轮实测：新加的
 #     `public extension Color { static var probeColorToken: Color { .red } }`
 #     在 symbol graph 里**根本不带 `@MainActor`**。大规模佐证：
-#     `CoreDesign@SwiftUICore` 那 285 个色彩 token **没有一个写 `nonisolated`**，
+#     `OhMyDesign@SwiftUICore` 那 285 个色彩 token **没有一个写 `nonisolated`**，
 #     却**一个都不是** MainActor 隔离的（`@MainActor` 命中为 0）。
 #   · 真实形态窄得多：**显式**写 `@MainActor`（或让它取用某个 MainActor 隔离的东西
 #     从而被推断成隔离的），或者扩展一个自身就是 `@MainActor` 的第三方类型。
@@ -118,9 +118,9 @@
 #   理由：被文件筛选挡在门外的那 46 条，在**主文件里躺着一份副本**——symbol graph 把
 #   「写在协议扩展上的成员」再**复制**到每个具体遵从类型上，挂 `::SYNTHESIZED::`
 #   标记（`ButtonStyle.light(role:)` 在主文件里的副本叫 `LightButtonStyle.light(role:)`）。
-#   本轮逐条核过：`CoreDesign` 的 14 条 SYNTHESIZED 里 12 条带 `@MainActor`，
-#   去掉类型前缀后与 `CoreDesign@SwiftUI` 的 12 条**逐条同名**；`CoreDesignEffects`
-#   的 46 条**全部**带 `@MainActor`，其中 34 条与 `CoreDesignEffects@SwiftUICore`
+#   本轮逐条核过：`OhMyDesign` 的 14 条 SYNTHESIZED 里 12 条带 `@MainActor`，
+#   去掉类型前缀后与 `OhMyDesign@SwiftUI` 的 12 条**逐条同名**；`OhMyDesignEffects`
+#   的 46 条**全部**带 `@MainActor`，其中 34 条与 `OhMyDesignEffects@SwiftUICore`
 #   的 34 条**逐条同名**，另 12 条是 `<X>Transition.properties`（`Transition` 协议的
 #   默认实现）。
 #   ⇒ **删掉 `SYNTHESIZED_MARK` 那一行，被文件筛选挡住的那 46 条会原封不动地从主文件
@@ -151,7 +151,7 @@
 #
 # ⚠️ 「判据在 CI」意味着它**不随本地 `swift test` 跑**——这与 `downstream-probe` /
 #    `bool-ratchet` 同形。看着这一步不被静默拆掉的是**树内**判据
-#    `Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift`（无条件、随每次
+#    `Tests/OhMyDesignTests/MainActorStaticRatchetGuard.swift`（无条件、随每次
 #    `swift test` 跑），它钉住：豁免表逐条、本脚本的筛条件字面量、以及 `ci.yml`
 #    里那条 `run:` 与它所在 step / job 的 `if:` / `continue-on-error:` 等中和键。
 #
@@ -276,8 +276,8 @@ for target in targets:
         )
         sys.exit(1)
     # 主文件 + **本包内跨 target** 的扩展块文件（`<Target>@<本包另一个 target>.symbols.json`）。
-    # 后者是 `CoreDesignEffects`/`CoreDesignCharts` 往 `CoreDesign` 的公开类型上加公开
-    # static 时成员的落点：对它们而言 `CoreDesign` 也是「外来模块」。**有意不含**
+    # 后者是 `OhMyDesignEffects`/`OhMyDesignCharts` 往 `OhMyDesign` 的公开类型上加公开
+    # static 时成员的落点：对它们而言 `OhMyDesign` 也是「外来模块」。**有意不含**
     # `<Target>@<第三方模块>.symbols.json`（SwiftUI / SwiftUICore …）——理由与代价见
     # 头注释《范围定案与代价》。⚠️ 这一族今天零个文件，「在就扫、不在就跳过」，
     # 不套主文件那条 fail-closed（它本来就该不存在）。
@@ -309,8 +309,8 @@ empty = [t for t, n in population.items() if n == 0]
 if empty:
     sys.stderr.write(
         "❌ 这些 target 的「公开/open static 型成员」候选面为 0：%s\n"
-        "   本包每个 library target 都有公开 static 成员（实测 CoreDesign 42 / "
-        "CoreDesignEffects 32 / CoreDesignCharts 5，均已剔 SYNTHESIZED）。\n"
+        "   本包每个 library target 都有公开 static 成员（实测 OhMyDesign 42 / "
+        "OhMyDesignEffects 32 / OhMyDesignCharts 5，均已剔 SYNTHESIZED）。\n"
         "   候选面归零说明筛条件失效，判据会恒绿 —— 判红。\n" % ", ".join(sorted(empty))
     )
     sys.exit(1)

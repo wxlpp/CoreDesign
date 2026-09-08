@@ -1,10 +1,10 @@
-# CoreDesign Three-in-One 实施计划
+# OhMyDesign Three-in-One 实施计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **目标 / Goal：** 跨 5 个 zone 实施 10 个新组件、2 项 token 扩展、1 个共享 modifier 与 4 个按钮样式重构，打造 Apple-GitHub-Telegram 三合一的统一设计语言。
 
-**架构 / Architecture：** Token → Modifier → Component 依赖链。Z1 建立共享基座（CoreButtonMetrics、StatusColors、TelegramGlassButtonModifier），供 Z2–Z5 消费。每个组件遵循既有模式：`public struct` 配 `public init`、组件文件内的 SwiftUI `#Preview`、`Tests/CoreDesignTests/` 下的 Swift Testing `@Test`/`#expect`。所有资源通过 `bundle: .module` 加载。
+**架构 / Architecture：** Token → Modifier → Component 依赖链。Z1 建立共享基座（CoreButtonMetrics、StatusColors、TelegramGlassButtonModifier），供 Z2–Z5 消费。每个组件遵循既有模式：`public struct` 配 `public init`、组件文件内的 SwiftUI `#Preview`、`Tests/OhMyDesignTests/` 下的 Swift Testing `@Test`/`#expect`。所有资源通过 `bundle: .module` 加载。
 
 **技术栈 / Tech Stack：** Swift 6、SwiftUI（iOS 26+ / macOS 26+）、Swift Testing framework、无第三方依赖。
 
@@ -15,53 +15,53 @@
 ### 新建文件
 | File | Zone | 用途 |
 |------|------|------|
-| `Sources/CoreDesign/Tokens/CoreButtonMetrics.swift` | Z1 | 玻璃按钮常量 |
-| `Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift` | Z1 | 共享玻璃壳 |
-| `Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift` | Z1 | 圆形 spinner |
-| `Sources/CoreDesign/Components/StateLabel/StateLabel.swift` | Z2 | 状态 pill |
-| `Sources/CoreDesign/Components/RefPill/RefPill.swift` | Z2 | 代码引用 pill |
-| `Sources/CoreDesign/Layout/FlowLayout.swift` | Z3 | tag 换行布局 |
-| `Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift` | Z3 | 堆叠头像 |
-| `Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift` | Z3 | 水平进度条 |
-| `Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift` | Z4 | 时间线脊柱 + 环境键 |
-| `Sources/CoreDesign/Components/EventRow/EventRow.swift` | Z4 | 紧凑事件行 |
-| `Sources/CoreDesign/Components/CommentCard/CommentCard.swift` | Z4 | 评论卡片 |
-| `Sources/CoreDesign/Components/StatusRow/StatusRow.swift` | Z5 | CI 检查行 |
-| `Tests/CoreDesignTests/CoreButtonMetricsTests.swift` | Z1 | |
-| `Tests/CoreDesignTests/StatusColorsTests.swift` | Z1 | |
-| `Tests/CoreDesignTests/ProgressIndicatorTests.swift` | Z1 | |
-| `Tests/CoreDesignTests/StateLabelTests.swift` | Z2 | |
-| `Tests/CoreDesignTests/RefPillTests.swift` | Z2 | |
-| `Tests/CoreDesignTests/FlowLayoutTests.swift` | Z3 | |
-| `Tests/CoreDesignTests/AvatarGroupTests.swift` | Z3 | |
-| `Tests/CoreDesignTests/ProgressBarTests.swift` | Z3 | |
-| `Tests/CoreDesignTests/TimelineItemTests.swift` | Z4 | |
-| `Tests/CoreDesignTests/EventRowTests.swift` | Z4 | |
-| `Tests/CoreDesignTests/CommentCardTests.swift` | Z4 | |
-| `Tests/CoreDesignTests/StatusRowTests.swift` | Z5 | |
+| `Sources/OhMyDesign/Tokens/CoreButtonMetrics.swift` | Z1 | 玻璃按钮常量 |
+| `Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift` | Z1 | 共享玻璃壳 |
+| `Sources/OhMyDesign/Components/ProgressIndicator/ProgressIndicator.swift` | Z1 | 圆形 spinner |
+| `Sources/OhMyDesign/Components/StateLabel/StateLabel.swift` | Z2 | 状态 pill |
+| `Sources/OhMyDesign/Components/RefPill/RefPill.swift` | Z2 | 代码引用 pill |
+| `Sources/OhMyDesign/Layout/FlowLayout.swift` | Z3 | tag 换行布局 |
+| `Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift` | Z3 | 堆叠头像 |
+| `Sources/OhMyDesign/Components/ProgressBar/ProgressBar.swift` | Z3 | 水平进度条 |
+| `Sources/OhMyDesign/Components/TimelineItem/TimelineItem.swift` | Z4 | 时间线脊柱 + 环境键 |
+| `Sources/OhMyDesign/Components/EventRow/EventRow.swift` | Z4 | 紧凑事件行 |
+| `Sources/OhMyDesign/Components/CommentCard/CommentCard.swift` | Z4 | 评论卡片 |
+| `Sources/OhMyDesign/Components/StatusRow/StatusRow.swift` | Z5 | CI 检查行 |
+| `Tests/OhMyDesignTests/CoreButtonMetricsTests.swift` | Z1 | |
+| `Tests/OhMyDesignTests/StatusColorsTests.swift` | Z1 | |
+| `Tests/OhMyDesignTests/ProgressIndicatorTests.swift` | Z1 | |
+| `Tests/OhMyDesignTests/StateLabelTests.swift` | Z2 | |
+| `Tests/OhMyDesignTests/RefPillTests.swift` | Z2 | |
+| `Tests/OhMyDesignTests/FlowLayoutTests.swift` | Z3 | |
+| `Tests/OhMyDesignTests/AvatarGroupTests.swift` | Z3 | |
+| `Tests/OhMyDesignTests/ProgressBarTests.swift` | Z3 | |
+| `Tests/OhMyDesignTests/TimelineItemTests.swift` | Z4 | |
+| `Tests/OhMyDesignTests/EventRowTests.swift` | Z4 | |
+| `Tests/OhMyDesignTests/CommentCardTests.swift` | Z4 | |
+| `Tests/OhMyDesignTests/StatusRowTests.swift` | Z5 | |
 
 ### 修改文件
 | File | Zone | 变更 |
 |------|------|------|
-| `Sources/CoreDesign/Colors/StatusColors.swift` | Z1 | 新增 5 状态 × 4 变体的 Primer 风格 token（neutral 由 FillColors / ContentColors 提供） |
-| `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift` | Z1 | 新增 `glass:` 参数，使用 `TelegramGlassButtonModifier` |
-| `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift` | Z1 | 新增 `glass:` 参数，使用 `TelegramGlassButtonModifier` |
-| `Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift` | Z1 | token 迁移（魔法数字 → `CoreSpacing`/`CoreControlMetrics`） |
-| `Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift` | Z1 | 使用共享的 `TelegramGlassButtonModifier` |
+| `Sources/OhMyDesign/Colors/StatusColors.swift` | Z1 | 新增 5 状态 × 4 变体的 Primer 风格 token（neutral 由 FillColors / ContentColors 提供） |
+| `Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift` | Z1 | 新增 `glass:` 参数，使用 `TelegramGlassButtonModifier` |
+| `Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift` | Z1 | 新增 `glass:` 参数，使用 `TelegramGlassButtonModifier` |
+| `Sources/OhMyDesign/Components/Button/styles/BorderlessButtonStyle.swift` | Z1 | token 迁移（魔法数字 → `CoreSpacing`/`CoreControlMetrics`） |
+| `Sources/OhMyDesign/Components/Button/styles/CircularGlassButtonStyle.swift` | Z1 | 使用共享的 `TelegramGlassButtonModifier` |
 
 ---
 
 ### Task 1：CoreButtonMetrics token（Z1）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Tokens/CoreButtonMetrics.swift`
-- 新建：`Tests/CoreDesignTests/CoreButtonMetricsTests.swift`
+- 新建：`Sources/OhMyDesign/Tokens/CoreButtonMetrics.swift`
+- 新建：`Tests/OhMyDesignTests/CoreButtonMetricsTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 import CoreGraphics
 
 @Suite("CoreButtonMetrics")
@@ -100,7 +100,7 @@ Run: `swift test --filter CoreButtonMetricsTests`
 ```swift
 //
 //  CoreButtonMetrics.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import CoreGraphics
@@ -148,7 +148,7 @@ Run: `swift test --filter CoreButtonMetricsTests`
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Tokens/CoreButtonMetrics.swift Tests/CoreDesignTests/CoreButtonMetricsTests.swift
+git add Sources/OhMyDesign/Tokens/CoreButtonMetrics.swift Tests/OhMyDesignTests/CoreButtonMetricsTests.swift
 git commit -m "feat: add CoreButtonMetrics token for Telegram glass button constants"
 ```
 
@@ -156,15 +156,15 @@ git commit -m "feat: add CoreButtonMetrics token for Telegram glass button const
 ### Task 2：将 StatusColors 扩展为 Primer 风格的 5 状态 × 4 变体体系（Z1）
 
 **Files：**
-- 修改：`Sources/CoreDesign/Colors/StatusColors.swift`
-- 新建：`Tests/CoreDesignTests/StatusColorsTests.swift`
+- 修改：`Sources/OhMyDesign/Colors/StatusColors.swift`
+- 新建：`Tests/OhMyDesignTests/StatusColorsTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("StatusColors")
 struct StatusColorsTests {
@@ -316,14 +316,14 @@ public extension Color {
 
 - [ ] **Step 4：创建所需 colorset**
 
-每个 colorset 需在 `Sources/CoreDesign/Resources/Resources.xcassets/status/` 下创建带亮/暗变体的 `Contents.json`（SwiftPM 的 `.process("Resources")` 指令会处理此路径下的 `.xcassets` 资源目录）。首版提交时按 Color asset catalog 格式创建 20 个 colorset（5 状态 × 4 变体）。亮色采用 Primer light 调色板；暗色采用 Primer dark 调色板。
+每个 colorset 需在 `Sources/OhMyDesign/Resources/Resources.xcassets/status/` 下创建带亮/暗变体的 `Contents.json`（SwiftPM 的 `.process("Resources")` 指令会处理此路径下的 `.xcassets` 资源目录）。首版提交时按 Color asset catalog 格式创建 20 个 colorset（5 状态 × 4 变体）。亮色采用 Primer light 调色板；暗色采用 Primer dark 调色板。
 
 执行以下命令生成目录结构：
 ```bash
-mkdir -p Sources/CoreDesign/Resources/Resources.xcassets/status
+mkdir -p Sources/OhMyDesign/Resources/Resources.xcassets/status
 for status in accent success attention danger done; do
     for variant in fg emphasis muted subtle; do
-        cat > "Sources/CoreDesign/Resources/Resources.xcassets/status/status-${status}-${variant}.colorset/Contents.json" <<JSON
+        cat > "Sources/OhMyDesign/Resources/Resources.xcassets/status/status-${status}-${variant}.colorset/Contents.json" <<JSON
 {
   "colors" : [
     {"color" : {"color-space" : "srgb","components" : {"red" : "0x00","green" : "0x00","blue" : "0x00","alpha" : "1.000"}},"idiom" : "universal"},
@@ -351,7 +351,7 @@ Run: `swift build`
 - [ ] **Step 7：提交**
 
 ```bash
-git add Sources/CoreDesign/Colors/StatusColors.swift Sources/CoreDesign/Resources/Resources.xcassets/status/ Tests/CoreDesignTests/StatusColorsTests.swift
+git add Sources/OhMyDesign/Colors/StatusColors.swift Sources/OhMyDesign/Resources/Resources.xcassets/status/ Tests/OhMyDesignTests/StatusColorsTests.swift
 git commit -m "feat: expand StatusColors to Primer-style 5-status x 4-variant system"
 ```
 
@@ -359,7 +359,7 @@ git commit -m "feat: expand StatusColors to Primer-style 5-status x 4-variant sy
 ### Task 3：TelegramGlassButtonModifier（Z1）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift`
+- 新建：`Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift`
 - （不单独建测试文件——通过 Task 4–5 的 Solid/Light 按钮样式重构间接覆盖）
 
 - [ ] **Step 1：编写 modifier**
@@ -367,7 +367,7 @@ git commit -m "feat: expand StatusColors to Primer-style 5-status x 4-variant sy
 ```swift
 //
 //  TelegramGlassButtonModifier.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -432,7 +432,7 @@ Run: `swift build`
 - [ ] **Step 3：提交**
 
 ```bash
-git add Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift
+git add Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift
 git commit -m "feat: add TelegramGlassButtonModifier — shared glass button shell"
 ```
 
@@ -440,7 +440,7 @@ git commit -m "feat: add TelegramGlassButtonModifier — shared glass button she
 ### Task 4：重构 SolidButtonStyle（Z1）
 
 **Files：**
-- 修改：`Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
+- 修改：`Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift`
 
 - [ ] **Step 1：更新 SolidButtonStyle**
 
@@ -449,7 +449,7 @@ git commit -m "feat: add TelegramGlassButtonModifier — shared glass button she
 ```swift
 //
 //  SolidButtonStyle.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import Foundation
@@ -582,7 +582,7 @@ Run: `swift build`
 - [ ] **Step 3：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift
+git add Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift
 git commit -m "feat: add glass param to SolidButtonStyle, use TelegramGlassButtonModifier"
 ```
 
@@ -590,7 +590,7 @@ git commit -m "feat: add glass param to SolidButtonStyle, use TelegramGlassButto
 ### Task 5：重构 LightButtonStyle（Z1）
 
 **Files：**
-- 修改：`Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
+- 修改：`Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift`
 
 - [ ] **Step 1：更新 LightButtonStyle**
 
@@ -599,7 +599,7 @@ git commit -m "feat: add glass param to SolidButtonStyle, use TelegramGlassButto
 ```swift
 //
 //  LightButtonStyle.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import Foundation
@@ -704,7 +704,7 @@ Run: `swift build`
 - [ ] **Step 3：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift
+git add Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift
 git commit -m "feat: add glass param to LightButtonStyle, use TelegramGlassButtonModifier"
 ```
 
@@ -712,7 +712,7 @@ git commit -m "feat: add glass param to LightButtonStyle, use TelegramGlassButto
 ### Task 6：重构 BorderlessButtonStyle（Z1）
 
 **Files：**
-- 修改：`Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift`
+- 修改：`Sources/OhMyDesign/Components/Button/styles/BorderlessButtonStyle.swift`
 
 - [ ] **Step 1：token 迁移——清除魔法数字**
 
@@ -726,7 +726,7 @@ Run: `swift build`
 - [ ] **Step 3：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/Button/styles/BorderlessButtonStyle.swift
+git add Sources/OhMyDesign/Components/Button/styles/BorderlessButtonStyle.swift
 git commit -m "refactor: verify BorderlessButtonStyle token migration complete"
 ```
 
@@ -734,14 +734,14 @@ git commit -m "refactor: verify BorderlessButtonStyle token migration complete"
 ### Task 7：重构 CircularGlassButtonStyle（Z1）
 
 **Files：**
-- 修改：`Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift`
+- 修改：`Sources/OhMyDesign/Components/Button/styles/CircularGlassButtonStyle.swift`
 
 - [ ] **Step 1：用共享 modifier 替换内联玻璃代码**
 
 ```swift
 //
 //  CircularGlassButtonStyle.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -808,7 +808,7 @@ Run: `swift build`
 - [ ] **Step 3：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/Button/styles/CircularGlassButtonStyle.swift
+git add Sources/OhMyDesign/Components/Button/styles/CircularGlassButtonStyle.swift
 git commit -m "refactor: use TelegramGlassButtonModifier in CircularGlassButtonStyle"
 ```
 
@@ -816,15 +816,15 @@ git commit -m "refactor: use TelegramGlassButtonModifier in CircularGlassButtonS
 ### Task 8：ProgressIndicator 组件（Z1）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift`
-- 新建：`Tests/CoreDesignTests/ProgressIndicatorTests.swift`
+- 新建：`Sources/OhMyDesign/Components/ProgressIndicator/ProgressIndicator.swift`
+- 新建：`Tests/OhMyDesignTests/ProgressIndicatorTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("ProgressIndicator")
 struct ProgressIndicatorTests {
@@ -846,7 +846,7 @@ Run: `swift test --filter ProgressIndicatorTests`
 ```swift
 //
 //  ProgressIndicator.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -892,7 +892,7 @@ Run: `swift test --filter ProgressIndicatorTests`
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift Tests/CoreDesignTests/ProgressIndicatorTests.swift
+git add Sources/OhMyDesign/Components/ProgressIndicator/ProgressIndicator.swift Tests/OhMyDesignTests/ProgressIndicatorTests.swift
 git commit -m "feat: add ProgressIndicator component"
 ```
 
@@ -900,15 +900,15 @@ git commit -m "feat: add ProgressIndicator component"
 ### Task 9：StateLabel 组件（Z2）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Components/StateLabel/StateLabel.swift`
-- 新建：`Tests/CoreDesignTests/StateLabelTests.swift`
+- 新建：`Sources/OhMyDesign/Components/StateLabel/StateLabel.swift`
+- 新建：`Tests/OhMyDesignTests/StateLabelTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("StateLabel")
 struct StateLabelTests {
@@ -951,7 +951,7 @@ Run: `swift test --filter StateLabelTests`
 ```swift
 //
 //  StateLabel.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -1058,7 +1058,7 @@ Run: `swift test --filter StateLabelTests`
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/StateLabel/StateLabel.swift Tests/CoreDesignTests/StateLabelTests.swift
+git add Sources/OhMyDesign/Components/StateLabel/StateLabel.swift Tests/OhMyDesignTests/StateLabelTests.swift
 git commit -m "feat: add StateLabel component"
 ```
 
@@ -1066,15 +1066,15 @@ git commit -m "feat: add StateLabel component"
 ### Task 10：RefPill 组件（Z2）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Components/RefPill/RefPill.swift`
-- 新建：`Tests/CoreDesignTests/RefPillTests.swift`
+- 新建：`Sources/OhMyDesign/Components/RefPill/RefPill.swift`
+- 新建：`Tests/OhMyDesignTests/RefPillTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("RefPill")
 struct RefPillTests {
@@ -1106,7 +1106,7 @@ Run: `swift test --filter RefPillTests`
 ```swift
 //
 //  RefPill.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -1194,7 +1194,7 @@ Run: `swift test --filter RefPillTests`
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/RefPill/RefPill.swift Tests/CoreDesignTests/RefPillTests.swift
+git add Sources/OhMyDesign/Components/RefPill/RefPill.swift Tests/OhMyDesignTests/RefPillTests.swift
 git commit -m "feat: add RefPill component"
 ```
 
@@ -1202,15 +1202,15 @@ git commit -m "feat: add RefPill component"
 ### Task 11：FlowLayout（Z3）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Layout/FlowLayout.swift`
-- 新建：`Tests/CoreDesignTests/FlowLayoutTests.swift`
+- 新建：`Sources/OhMyDesign/Layout/FlowLayout.swift`
+- 新建：`Tests/OhMyDesignTests/FlowLayoutTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("FlowLayout")
 struct FlowLayoutTests {
@@ -1238,7 +1238,7 @@ Run: `swift test --filter FlowLayoutTests`
 ```swift
 //
 //  FlowLayout.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -1350,7 +1350,7 @@ Run: `swift test --filter FlowLayoutTests`
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Layout/FlowLayout.swift Tests/CoreDesignTests/FlowLayoutTests.swift
+git add Sources/OhMyDesign/Layout/FlowLayout.swift Tests/OhMyDesignTests/FlowLayoutTests.swift
 git commit -m "feat: add FlowLayout for tag-wrapping container"
 ```
 
@@ -1358,15 +1358,15 @@ git commit -m "feat: add FlowLayout for tag-wrapping container"
 ### Task 12：AvatarGroup 组件（Z3）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift`
-- 新建：`Tests/CoreDesignTests/AvatarGroupTests.swift`
+- 新建：`Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift`
+- 新建：`Tests/OhMyDesignTests/AvatarGroupTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("AvatarGroup")
 struct AvatarGroupTests {
@@ -1399,7 +1399,7 @@ Run: `swift test --filter AvatarGroupTests`
 ```swift
 //
 //  AvatarGroup.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -1512,7 +1512,7 @@ Run: `swift test --filter AvatarGroupTests`
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift Tests/CoreDesignTests/AvatarGroupTests.swift
+git add Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift Tests/OhMyDesignTests/AvatarGroupTests.swift
 git commit -m "feat: add AvatarGroup component"
 ```
 
@@ -1520,15 +1520,15 @@ git commit -m "feat: add AvatarGroup component"
 ### Task 13：ProgressBar 组件（Z3）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift`
-- 新建：`Tests/CoreDesignTests/ProgressBarTests.swift`
+- 新建：`Sources/OhMyDesign/Components/ProgressBar/ProgressBar.swift`
+- 新建：`Tests/OhMyDesignTests/ProgressBarTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("ProgressBar")
 struct ProgressBarTests {
@@ -1565,7 +1565,7 @@ Run: `swift test --filter ProgressBarTests`
 ```swift
 //
 //  ProgressBar.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -1636,7 +1636,7 @@ Run: `swift test --filter ProgressBarTests`
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift Tests/CoreDesignTests/ProgressBarTests.swift
+git add Sources/OhMyDesign/Components/ProgressBar/ProgressBar.swift Tests/OhMyDesignTests/ProgressBarTests.swift
 git commit -m "feat: add ProgressBar component"
 ```
 
@@ -1644,15 +1644,15 @@ git commit -m "feat: add ProgressBar component"
 ### Task 14：TimelineItem + TimelineDepthKey（Z4）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift`
-- 新建：`Tests/CoreDesignTests/TimelineItemTests.swift`
+- 新建：`Sources/OhMyDesign/Components/TimelineItem/TimelineItem.swift`
+- 新建：`Tests/OhMyDesignTests/TimelineItemTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("TimelineItem")
 struct TimelineItemTests {
@@ -1692,7 +1692,7 @@ Run: `swift test --filter TimelineItemTests`
 ```swift
 //
 //  TimelineItem.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -1822,7 +1822,7 @@ Run: `swift test --filter TimelineItemTests`
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/TimelineItem/TimelineItem.swift Tests/CoreDesignTests/TimelineItemTests.swift
+git add Sources/OhMyDesign/Components/TimelineItem/TimelineItem.swift Tests/OhMyDesignTests/TimelineItemTests.swift
 git commit -m "feat: add TimelineItem with automatic depth-aware indentation"
 ```
 
@@ -1830,15 +1830,15 @@ git commit -m "feat: add TimelineItem with automatic depth-aware indentation"
 ### Task 15：EventRow 组件（Z4）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Components/EventRow/EventRow.swift`
-- 新建：`Tests/CoreDesignTests/EventRowTests.swift`
+- 新建：`Sources/OhMyDesign/Components/EventRow/EventRow.swift`
+- 新建：`Tests/OhMyDesignTests/EventRowTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("EventRow")
 struct EventRowTests {
@@ -1873,7 +1873,7 @@ Run: `swift test --filter EventRowTests`
 ```swift
 //
 //  EventRow.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -1950,7 +1950,7 @@ Run: `swift test --filter EventRowTests`
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/EventRow/EventRow.swift Tests/CoreDesignTests/EventRowTests.swift
+git add Sources/OhMyDesign/Components/EventRow/EventRow.swift Tests/OhMyDesignTests/EventRowTests.swift
 git commit -m "feat: add EventRow component"
 ```
 
@@ -1958,15 +1958,15 @@ git commit -m "feat: add EventRow component"
 ### Task 16：CommentCard 组件（Z4）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Components/CommentCard/CommentCard.swift`
-- 新建：`Tests/CoreDesignTests/CommentCardTests.swift`
+- 新建：`Sources/OhMyDesign/Components/CommentCard/CommentCard.swift`
+- 新建：`Tests/OhMyDesignTests/CommentCardTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("CommentCard")
 struct CommentCardTests {
@@ -2008,7 +2008,7 @@ Run: `swift test --filter CommentCardTests`
 ```swift
 //
 //  CommentCard.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -2131,7 +2131,7 @@ Run: `swift test --filter CommentCardTests`
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/CommentCard/CommentCard.swift Tests/CoreDesignTests/CommentCardTests.swift
+git add Sources/OhMyDesign/Components/CommentCard/CommentCard.swift Tests/OhMyDesignTests/CommentCardTests.swift
 git commit -m "feat: add CommentCard component with minimized toggle"
 ```
 
@@ -2139,15 +2139,15 @@ git commit -m "feat: add CommentCard component with minimized toggle"
 ### Task 17：StatusRow 组件（Z5）
 
 **Files：**
-- 新建：`Sources/CoreDesign/Components/StatusRow/StatusRow.swift`
-- 新建：`Tests/CoreDesignTests/StatusRowTests.swift`
+- 新建：`Sources/OhMyDesign/Components/StatusRow/StatusRow.swift`
+- 新建：`Tests/OhMyDesignTests/StatusRowTests.swift`
 
 - [ ] **Step 1：编写测试**
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("StatusRow")
 struct StatusRowTests {
@@ -2179,7 +2179,7 @@ Run: `swift test --filter StatusRowTests`
 ```swift
 //
 //  StatusRow.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -2297,6 +2297,6 @@ Run: `swift test`
 - [ ] **Step 7：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/StatusRow/StatusRow.swift Tests/CoreDesignTests/StatusRowTests.swift
+git add Sources/OhMyDesign/Components/StatusRow/StatusRow.swift Tests/OhMyDesignTests/StatusRowTests.swift
 git commit -m "feat: add StatusRow component"
 ```

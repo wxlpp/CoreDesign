@@ -30,7 +30,7 @@
 
 ### R-1｜#41 终审 I2：判定法的「第四种出口」——裁断为**不加第四出口**
 
-- **来源试点**：#41 CoreDesign 试点（终审 I2 移交）。涉 6 条 `step3` 条目：
+- **来源试点**：#41 OhMyDesign 试点（终审 I2 移交）。涉 6 条 `step3` 条目：
   `InsetGroupedSection` / `ListRow` / `RadioGroup` / `SettingsRow` / `SidebarDocumentRow` /
   `UnderlinedTabBar`，另加 `Tag` / `TagInput` 共 8 条援引兄弟组件惯例。
 - **撞上公约哪一条**：`docs/component-contract.md` 第 1 节步骤 2（改动前 `:34-75`）——
@@ -43,7 +43,7 @@
   含三条援引条件、「只排除候选不决定落点」、与皮肤变体条款的**交叉优先序**、
   「不追溯」、以及 `Rating`/`RatingDisplay` 边界反例。
 - **落点**：`docs/component-contract.md` 第 1 节（步骤 2 与 `### ⚠️ Tiebreaker` 之间）。
-- **连带改动**：`Tests/CoreDesignTests/ComponentContractStructureGuard.swift`
+- **连带改动**：`Tests/OhMyDesignTests/ComponentContractStructureGuard.swift`
   ——`requiredSubsections` 10 → 11 条，注释计数词 `**10 个**` → `**11 个**`。
 - **验证**：`swift test --filter ComponentContractStructureGuard` → `2 tests in 1 suite passed`（`No matching` 0 次）；
   `swift test` → `370 tests in 61 suites passed … with 3 known issues`。
@@ -308,7 +308,7 @@
   1. 作用域条款的 `Tag` 样本 —— 随「两侧都有成文样本」一句删除处置；
   2. 逐字引「本句『两侧都有成文样本』」的那条 ⚠️ 注 —— **删句后会变悬空指针**，已改写；
   3. 皮肤变体优先序段（`Tag` 是它**唯一**的举例）—— 已追加读法说明：本条优先排除 pill 后，
-     `Tag` 无**成文**剩余共享骨架候选（**改判前〔CoreDesign `511576f`〕实测**「实心 chip」/
+     `Tag` 无**成文**剩余共享骨架候选（**改判前〔OhMyDesign `511576f`〕实测**「实心 chip」/
      「描边 chip」在登记表、公约**与 `Tag.swift` 源码三处**命中**均为 0**；⚠️ **本轮回写文本对这两个词的引用不计入该计数**）
      ⇒ 皮肤变体路径的前提不成立 ⇒ **只剩第一条路径**；**不要**当成「优先序改变了结果」;
   4. 「钉为范例」条款的对照 —— 已改写（见「改动后」）；
@@ -335,7 +335,7 @@
   登记表 **71** 条不变；`decidedBy` 分布 `step3=49` / `tiebreaker=15`；
   **不变量 `step3 + tiebreaker == kind:prescriptive` 仍成立（64 == 64）**
   ——⚠️ 写不变量、**不写「恒为 64」**：任何新增规定性组件都会移动那个数；
-  `step3` 按仓 `coredesign=25` / `storyui=24`（**25 + 24 = 49**，与 `D-44-1`「一律以 49
+  `step3` 按仓 `ohmydesign=25` / `storyui=24`（**25 + 24 = 49**，与 `D-44-1`「一律以 49
   为准」吻合）；`textParams` 的 B/C 计数**不变**（`B=22` / `C=9` / `by-type=2`，本轮不改
   分类）；`swift test` → `370 tests in 61 suites passed … with 3 known issues`（与
   `511576f` 基线一致）；`swift test --filter ComponentContractStructureGuard` →
@@ -361,7 +361,7 @@
 
 - **来源试点**：#41（`View.surface(_:bordered:)` + `Card(bordered:)` 改造，为新 case `.grouped` 命名时撞上）。
 - **撞上公约哪一条**：⚠️ **严格说是「撞上一条不在公约里的规矩」**——原文在
-  `Sources/CoreDesign/Modifier/SurfaceModifier.swift:12-13`（「不引入裸修饰词…每个 case
+  `Sources/OhMyDesign/Modifier/SurfaceModifier.swift:12-13`（「不引入裸修饰词…每个 case
   直接对应一种容器角色」），而同一个枚举就有 `case canvasSubtle`（「角色 + 修饰词」形态、
   自标「兼容别名」）。公约第 3 节完整地**零提及**这条规矩（实测：改动前公约里 `canvasSubtle`
   命中数 0、`裸修饰词` 命中数 0）。
@@ -419,7 +419,7 @@
 - **改动前（逐字）**：三分法表 A 行 = `| **A. 组件自带 chrome** | 文案**写在组件源码里**，调用方看不见也改不了 | LocalizedStringResource |`（表格「类型」列原文用反引号包住 `LocalizedStringResource`，此处内层反引号因嵌套省略），表后无任何关于「缺省兜底」的条文。
 - **改动后（逐字）**：表后补 `⚠️ **B 类参数的缺省兜底按 A 类处置**（#43 撞上，缺陷 #43-1）：…` 并**明确 A 判别特征中「看不见」「改不了」两个词的所指**（前者指调用方不能经由公开 API 读到文案字面量，后者指不能修改默认值本身，均不是渲染意义），并加一句范围说明：本条只裁 **B 类参数**的兜底，本仓 `SearchField` / `TagInput` 的 `placeholder` 是同形态但登记为 **C 类**的兜底，本条不处置，已记为缺陷（`docs/contract-defects.md` D-44-4）。
 - **落点**：第 4 节（**行内补句，不新增小节**）。
-- **连带改动**：本仓现成实例 `Sources/CoreDesign/Components/StateLabel/StateLabel.swift` 的
+- **连带改动**：本仓现成实例 `Sources/OhMyDesign/Components/StateLabel/StateLabel.swift` 的
   `defaultLabel: String`（`"Active"`/`"Draft"`…）与 `ChapterStatus.defaultLabel` 完全同构，
   `StateLabel.label` 登记表为 **B** ⇒ 本条补句一落地，它就是本仓**第一条被判 A 的文案**，
   而它是裸 `String`、违反 A 的类型要求。「本仓参考实现自己不合规」整体移交 R-10（G-4），
@@ -441,7 +441,7 @@
   并记录 #41/#43 用 **spy 测试**（`body` 真的经 `style.makeBody(configuration:)` 渲染）补位的做法，
   明写这是**一条人来守的规矩**。
 - **落点**：`docs/component-contract.md` 第 4 节末「已知判据缺口」节 G-1 行。
-- **连带改动**：`Tests/CoreDesignTests/ComponentContractStructureGuard.swift` —— `requiredSubsections` 13 → 14，注释计数词 `**13 个**` → `**14 个**`。⚠️ 这是 R-8 / R-9 / R-10 **共享的同一次**小节新增，只在本条记一次，R-9 / R-10 处标「无（已记在 R-8）」。
+- **连带改动**：`Tests/OhMyDesignTests/ComponentContractStructureGuard.swift` —— `requiredSubsections` 13 → 14，注释计数词 `**13 个**` → `**14 个**`。⚠️ 这是 R-8 / R-9 / R-10 **共享的同一次**小节新增，只在本条记一次，R-9 / R-10 处标「无（已记在 R-8）」。
 - **实现层**：是否值得做成机器判据（需语义判断、成本明显更高）⇒ 移交，见 close-out `## 四、移交清单`。
 - **验证**：公约 `^### ` 22 → 23；`G-` 表行 0 → 7；`swift test` → `370 … 3 known issues`。
 
@@ -463,7 +463,7 @@
 - **来源试点**：#43 StoryUI 试点 S1 `ChapterStatusBadge`。
 - **撞上公约哪一条**：第 4 节三分法 A 行（要求 `LocalizedStringResource`）+ 第 4 节
   「`textParams[]` 中 A 计数恒为 0」那段。
-- **实测三条证据**：① CoreDesign `Sources/` 下 `LocalizedStringResource` 命中 **0**
+- **实测三条证据**：① OhMyDesign `Sources/` 下 `LocalizedStringResource` 命中 **0**
   （`git grep --untracked -c 'LocalizedStringResource' -- Sources/` 求和 = 0）；
   ② `StateLabel.swift` 的 `StateLabelStyle.Spec.defaultLabel` 是裸 `String`（A 类 chrome，值是 `"Active"` / `"Draft"` 等英文）；
   ③ **A 类文案不经任何一路进入 FR-4 的机器视野**——源码侧只扫 `init` 参数、A 类不是参数；
@@ -562,7 +562,7 @@ R-10 才是同源——位置、层级、`### R-` 计数均未变，仅更正节
   | 增量 | 内容 | 实测依据 |
   |---|---|---|
   | 第 2 节「正确先例」旁注（`:129-132` 整段） | 原措辞声称该 public 参数仍在、且称它仍在第 3 节的处置范围内（⚠️ **刻意不逐字引原句**：原句正好落在本 Task 归零清单的模式里，逐字引会在**扫描面一旦扩到本台账时**自破断言 —— 与第 2 轮评审 C-2 同型。今日归零断言只扫 `docs/component-contract.md`，但不留这个雷） | 两文件的文档注释现写「**#41 破坏性变更**：`glass: Bool`（legacy Telegram 玻璃模式开关）**已按公约第 3 节**」，public 参数已删。⚠️ **描述必须写准**：`git grep -n --untracked 'glass:' -- Sources/` 命中 **11 处、分布在 4 个文件**（`CircularGlassButtonStyle.swift:12` / `LightButtonStyle.swift:14` / `SolidButtonStyle.swift:18` `:20` / `SegmentedControl.swift` 六处），internal `let glass: Bool` 有**两处**（`:129` / `:458`）——**不是「全在 `SegmentedControl.swift`」、也不是「一处 internal 字段」**（初稿两处失实，已更正） |
-  | 3.4「反例（重要）」段 | 「**取舍留给 #41，但不许默认归并**」 | `Sources/CoreDesign/Components/Rating/RatingDisplay.swift` 已存在，登记表已有 `RatingDisplay` 条目 |
+  | 3.4「反例（重要）」段 | 「**取舍留给 #41，但不许默认归并**」 | `Sources/OhMyDesign/Components/Rating/RatingDisplay.swift` 已存在，登记表已有 `RatingDisplay` 条目 |
   | 第 3 节豁免基线段 | 「跨历史闸**移交 #41/#43**」 | #41 已落地未做；`#43` 在 **#44 处置当时**仍开放（`gh` 实测 `state=OPEN`）⇒ 当时判它是承接者。⚠️ **该时点判断其后失效**：PR #46 合入使 `#43` 关闭，跨历史闸改由 **#50** 承接——公约正文已同批改成不依赖 issue 开闭状态的表述（「两者的工作都已完成而这条闸都没做」），跨历史闸两侧均未实现（`bool-exemptions-baseline.json` 的 `rationale` 原话自承） |
   | AD-2 的 `BottomInputBar` 段 | 「真正的处置**移交 #41/#42**」 | 组件仍在；`View.bottomInputBar#placeholder` 仍在 `knownFunctionSideBareText` 桶里 |
 - **⚠️ 经核对判「不改」的 4 处必须逐条留痕——「核对过、结论是不改」与「没核对」在成品上必须可区分**
@@ -571,7 +571,7 @@ R-10 才是同源——位置、层级、`### R-` 计数均未变，仅更正节
   |---|---|---|---|
   | 第 4 节 B 类存量改造（`:301`） | 「属破坏性变更，必须进 `docs/BREAKING-CHANGES.md`，节奏归 #42」 | ✅ 已核对｜结论：不改 | 它是**规则**（存量 B 类改造的节奏归属），不是前瞻例；#42 已落地不改变该规则的表述 |
   | 第 4 节本地化基建（`:306`） | 「缺 `defaultLocalization` 的是 **StoryUI**（归 #43）」 | ✅ 已核对｜结论：不改 | 实测：StoryUI `Packages/StoryUI/Package.swift` 至今无 `defaultLocalization`（`awk 'index($0,"defaultLocalization")'` 命中 **0**）；#43 **明确裁决不声明它**（`43-spec.md` Q2 原话：「本任务不声明它」）——该句仍成立。「（归 #43）」这个指向单独表态：**#44 处置当时** `#43` 仍开放 ⇒ 指向有效 ⇒ 不改。⚠️ 其后 PR #46 合入使 `#43` 关闭，但**本行的结论不变**——它依据的是「StoryUI 至今无 `defaultLocalization` 且 #43 明确裁决不声明」这个**事实**，与 issue 开闭无关 |
-  | 判据落点表的跨仓边界句（`:386`） | 「「这条不归本仓判据管，已移交 #43」，不是「查不出问题所以放行」」 | ✅ 已核对｜结论：不改 | 它描述的是**跨仓边界语义**（三条判据只对 `repo == coredesign` 跑），#43 落地后依然如此 |
+  | 判据落点表的跨仓边界句（`:386`） | 「「这条不归本仓判据管，已移交 #43」，不是「查不出问题所以放行」」 | ✅ 已核对｜结论：不改 | 它描述的是**跨仓边界语义**（三条判据只对 `repo == ohmydesign` 跑），#43 落地后依然如此 |
   | AD-2 末尾（`:578`） | 「那是**破坏性变更**，节奏归 #42，**属于被搁置而非被否决的选项**」 | ✅ 已核对｜结论：不改 | 三个 modifier 的 internal 化确实未做，且原文**自称「被搁置」**——它本来就不是前瞻例，是一条明示的搁置记录 |
   ⚠️ **这四行各自带的核对标记是可断言的**（Step 7 的计数断言 `= 4`，行锚定只数表行）。
   ⚠️ **初稿把 `:301`/`:306`/`:386` 并成一行判「不改」，却只写了 3 行留痕 ⇒ `:386` 没有留痕行，
@@ -734,7 +734,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 |---|---|---|
 | `D-44-3`（`Tag` 的 `step3` 结论） | **改判**（`step3` → `tiebreaker`） | 见 R-13。补强分支被材料否决（`Tag.swift` 唯一**以圆角/形状为主语、并写明其含义**的陈述明文关系性），维持分支被 A.2 自身的循环论证否决 |
 | `D-44-2`（「两侧都有成文样本」） | **公约正文改写**，不删这条出路 | 出路是判定法的结构，删了三出口就剩两个；改为如实陈述「登记表 `notes` 侧未确认有合格实例（另有 4 条两可未裁）」。⚠️ **不写硬「零」、不写「确证无」** |
-| `D-44-1`（其余 `step3` 未在新尺下复核） | **不补跑，全部移交** | 成本与范围不匹配。移交 A（CoreDesign 侧 **25** 条）/ 移交 B（StoryUI 侧 **24** 条），**25 + 24 = 49**，与 `D-44-1`「一律以 49 为准」吻合 |
+| `D-44-1`（其余 `step3` 未在新尺下复核） | **不补跑，全部移交** | 成本与范围不匹配。移交 A（OhMyDesign 侧 **25** 条）/ 移交 B（StoryUI 侧 **24** 条），**25 + 24 = 49**，与 `D-44-1`「一律以 49 为准」吻合 |
 | `D-44-4`（C 类同形态兜底） | **本轮解不了 ⇒ 登记 + 移交** | 三次转向全部被推翻（改 B 撞 #173 / 判「缺口不成立」答错维度 / 写实质理由被公约 B 类括注当场否掉）。⚠️ 裁断是「**考察过的三条路径都不成立**」，**不是**「给不出理由」这个全称否定——移交必带的第四件事当场证伪了那个全称否定 |
 | 原「`D-52-1`」（`StateLabel` 兜底未按 A 处置） | **撤销**，不新建缺陷号 | 它是**已登记的 G-4**，且 `wxlpp/oh-my-story` 的 **#49 已承接**（实测 `OPEN`，标题逐字含「公约缺口 G-4」） |
 | 公约 G-4 行的「A 计数恒为 **0**」 | **不加时点限定** | 它按定义为真：`defaultLabel` 是 internal `struct Spec` 字段、不是 public `init` 参数，而 `textParams[]` 只收 public 参数；先例 `ChapterStatusBadge` 已裁。加 hedge = 往真陈述里注入假 hedge |
@@ -747,16 +747,16 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 
 ⚠️ **移交清单逐条可核，不许只写「其余 49 条」**：按判准考察过、**因故不收进本轮**的条目，
 逐条列在移交 A / B 的 issue 正文里（`Descriptions` / `SettingsRowChevron` / `SectionFooter`
-属 CoreDesign 侧；`ManuscriptEditor` / `DynamicForm` / `ContextPicker` / `CodexEntryForm`
+属 OhMyDesign 侧；`ManuscriptEditor` / `DynamicForm` / `ContextPicker` / `CodexEntryForm`
 属 StoryUI 侧）。⚠️ **这三组都是真问题**，只是按「当前矛盾 vs 待复核」的界线落在移交侧。
 
-## 四、#53 移交 A（CoreDesign 侧 25 条 `step3` 补跑复核）
+## 四、#53 移交 A（OhMyDesign 侧 25 条 `step3` 补跑复核）
 
 ### R-14｜#53 §3.4：附录 A.1 走查步骤 2 的提问措辞改为可证伪句式（**结论不变**）
 
 - **来源试点**：#53（移交 A，`D-44-1`「移交 A」段点名的「`A.1` 尾巴」）。`Rating` 的
   `decidedBy` 是 `step2`，**不在本 issue「25 条 `step3`」的范围内**——挂在本轮是因为它与
-  移交 A 其余条目共享同一个「措辞可证伪性」维度，且同属 CoreDesign 侧公约文本修订。
+  移交 A 其余条目共享同一个「措辞可证伪性」维度，且同属 OhMyDesign 侧公约文本修订。
 - **撞上公约哪一条**：第 1 节「⚠️ 事后补写的效力边界」小节规定的修订回路（记入
   `docs/contract-defects.md` → 回写本公约 → 台账逐条留痕）。issue #53 逐字要求「翻转措辞
   仍需走完整修订回路，**即便结论不变**」⇒ 本条即便不翻转落点也走满三步。另撞上附录 A.2
@@ -980,7 +980,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
      `component-registry.json`，本条改动不触碰它们。
   5. `docs/bool-exemptions.json` / `docs/bool-exemptions-baseline.json` **零改动**——本条
      只动 `decidedBy`/`notes`，不涉及任何 Bool 参数豁免登记。
-- **验证**：`decidedBy` 分布 `step3` 49 → 47、`tiebreaker` 15 → 17（coredesign `step3`
+- **验证**：`decidedBy` 分布 `step3` 49 → 47、`tiebreaker` 15 → 17（ohmydesign `step3`
   余量 25 → 23）；`step3 + tiebreaker`（`kind:prescriptive` 计数）改判前后不变；
   `D-53-2` 已登记（去格式化命中）**1**；`R-17` 已留痕（去格式化命中）**1**；
   `git diff --quiet Tests` 退出码 **0**；`git diff --quiet docs/bool-exemptions.json
@@ -992,7 +992,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   关系成立 / `textParams` B/C 计数不变 / 豁免棘轮零改动 / registry 71 条不变）四项全
   `PASS`。
 
-### #53 移交 A 段 2：CoreDesign 侧「待压测」档 12 条逐条独立登记（`R-18` ~ `R-29`）
+### #53 移交 A 段 2：OhMyDesign 侧「待压测」档 12 条逐条独立登记（`R-18` ~ `R-29`）
 
 **批量口径边界（spec §六之二）**：段 2 是本轮判断密度最高的部分——每条独立一个缺陷号
 （`D-53-3` ~ `D-53-14`）+ 一个台账号（`R-18` ~ `R-29`），**不并入** `D-53-2`/`R-17` 那种
@@ -1266,7 +1266,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 - **改动后（逐字）**：`SidebarNavigationRow.decidedBy` = `"tiebreaker"`（`kind` 仍
   `"prescriptive"`；`needsExtensionPoint` 仍不动；`textParams` 不变）。`notes` **只增不删**，
   末尾追加（946 字，`notes` 由 157 → 1103 字符）：
-  `⚠️ #53 §3.1 carve-out 三步程序改判（D-41-3：否决理由不可继承，对所有步骤都成立）：① 剥离委托句——把「同 SidebarDocumentRow 的骨架/推理，步骤 3 规定性」从判定依据里拿掉（判定依据的剥离，不是 notes 的删除，notes 只增不删）。② 按段 1/段 2 独立重走——剥离后本条目自身仅剩「不给扩展点（选中态 floating-glass 背景是内建固定行为，非可换皮扩展点）」，这是 needsExtensionPoint 的结论复述，不含独立于兄弟组件的候选枚举或反事实机制（「换成 X 就读成 Y」句式），(A)(B) 操作化门槛均不成立（引 53-survey.md 条目 12：枚举候选 0 个、无反事实机制、兄弟组件名是理由唯一来源）。源码级补充核验（非必需但已做，Sources/CoreDesign/Components/Sidebar/Sidebar.swift:116-159,167-198,391-416）：SidebarNavigationRow 与已判 tiebreaker 的 SidebarDocumentRow/SidebarUtilityRow/SidebarTagRow 共用同一 private SidebarRow 骨架；选中态视觉唯一来源 sidebarSelectedBackground(_:) 是 public 的 View 扩展 modifier，文档原话「自定义行复用它即可与内置选中样式保持一致」——组件本身不持有任何调用方拿不到的独立视觉身份，与 D-53-2 判 Card 直接改判所用的「可被薄封装底层直接替代」标准同构。⇒ 直接改判，无需进段 2（本条本身没有可供三道门槛压测的额外候选材料，不存在需要读源码/业界调研才能发现的额外信息）。③ 走完整修订回路（含连带面分析，见 D-53-15）。⇒ decidedBy: step3 → tiebreaker（kind / needsExtensionPoint 不动）。⚠️ 不是「兄弟已 tiebreaker ⇒ 跟着改判」——本条按剥离后的独立材料判定，只是与兄弟结论方向相同。回路：D-53-15 / R-30。`
+  `⚠️ #53 §3.1 carve-out 三步程序改判（D-41-3：否决理由不可继承，对所有步骤都成立）：① 剥离委托句——把「同 SidebarDocumentRow 的骨架/推理，步骤 3 规定性」从判定依据里拿掉（判定依据的剥离，不是 notes 的删除，notes 只增不删）。② 按段 1/段 2 独立重走——剥离后本条目自身仅剩「不给扩展点（选中态 floating-glass 背景是内建固定行为，非可换皮扩展点）」，这是 needsExtensionPoint 的结论复述，不含独立于兄弟组件的候选枚举或反事实机制（「换成 X 就读成 Y」句式），(A)(B) 操作化门槛均不成立（引 53-survey.md 条目 12：枚举候选 0 个、无反事实机制、兄弟组件名是理由唯一来源）。源码级补充核验（非必需但已做，Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:116-159,167-198,391-416）：SidebarNavigationRow 与已判 tiebreaker 的 SidebarDocumentRow/SidebarUtilityRow/SidebarTagRow 共用同一 private SidebarRow 骨架；选中态视觉唯一来源 sidebarSelectedBackground(_:) 是 public 的 View 扩展 modifier，文档原话「自定义行复用它即可与内置选中样式保持一致」——组件本身不持有任何调用方拿不到的独立视觉身份，与 D-53-2 判 Card 直接改判所用的「可被薄封装底层直接替代」标准同构。⇒ 直接改判，无需进段 2（本条本身没有可供三道门槛压测的额外候选材料，不存在需要读源码/业界调研才能发现的额外信息）。③ 走完整修订回路（含连带面分析，见 D-53-15）。⇒ decidedBy: step3 → tiebreaker（kind / needsExtensionPoint 不动）。⚠️ 不是「兄弟已 tiebreaker ⇒ 跟着改判」——本条按剥离后的独立材料判定，只是与兄弟结论方向相同。回路：D-53-15 / R-30。`
 - **落点**：`docs/component-registry.json`（`SidebarNavigationRow` 1 条）；
   `docs/contract-defects.md`（新建 `D-53-15`）；`docs/component-contract.md`（连带面见下，
   实测承重引证 0 处，不回写）；本文件（本条）。
@@ -1299,7 +1299,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 - **改动后（逐字）**：`StateLabel.decidedBy` = `"tiebreaker"`（`kind` 仍 `"prescriptive"`；
   `needsExtensionPoint` 仍不动；`textParams` 不变）。`notes` **只增不删**，末尾追加（1540
   字，`notes` 由 162 → 1702 字符）：
-  `⚠️ #53 §3.1 carve-out 三步程序改判（D-41-3：否决理由不可继承，对所有步骤都成立）：① 剥离委托句——把「与 Badge 同一套『颜色即语义、无装饰性材质』规则」从判定依据里拿掉（判定依据的剥离，不是 notes 的删除，notes 只增不删）。② 按段 1/段 2 独立重走——剥离后本条目自身仅剩「六固定 case 状态 pill」（组件描述，非理由）与「视觉即含义，规定性，不给扩展点」——「视觉即含义」正是公约第 1 节步骤 3 (B) 操作化门槛明文列出的消极结论复述短语之一，不构成合格的反事实理由，(A)(B) 均不成立（引 53-survey.md 条目 22：枚举候选 0 个、无反事实机制、兄弟组件名是理由唯一来源）。源码级补充核验（非必需但已做，Sources/CoreDesign/Components/StateLabel/StateLabel.swift 与 Sources/CoreDesign/Components/Badge/Badge.swift）：StateLabel = Capsule(style: .continuous) 填充 status*Emphasis + 固定图标 + label；Badge = Capsule(style: .continuous) 填充 status*Subtle（可选描边）+ label——两者共享同一「pill + 状态色即语义」骨架，StateLabel 相对 Badge 的唯一差异是内建图标与 6 态默认文案，不是独立于 Badge 的视觉身份。⇒ 直接改判，无需进段 2（无额外候选材料可供三道门槛压测）。③ 走完整修订回路（含连带面分析，见 D-53-16）。⇒ decidedBy: step3 → tiebreaker（kind / needsExtensionPoint 不动）。⚠️ 不是「兄弟已 tiebreaker ⇒ 跟着改判」——本条按剥离后的独立材料判定，只是与兄弟结论方向相同。 ⚠️ 与 #49 的顺序（并行安全声明）：实测 #49 尚未开工（Sources/CoreDesign/Components/StateLabel/StateLabel.swift:31 仍为 `let defaultLabel: String`，未变成 `LocalizedStringResource`）⇒ #53 本轮先行。本次改动只动 decidedBy 与 notes（本段），textParams 与 Sources/ 零改动，与 #49 计划中的 A 类类型改造（defaultLabel: String → LocalizedStringResource，公约缺口 G-4）互不覆盖，并行安全。 ⚠️ 跨仓对齐（给 #54，本 issue 不改判）：ChapterStatusBadge（repo=storyui，decidedBy=step3）的机制整条挂在 StateLabel / StateLabelStyle 上（其自身 notes 原话「建在 CoreDesign StateLabel 上，胶囊/图标/配色/对比度全部来自上游，本件一处都不重造」）；StateLabel 本轮判死（tiebreaker）后，ChapterStatusBadge 就变成新的「当前就矛盾」条目，而 #52 的 carve-out 判准恰好漏掉它（它未「声明套用规则」，是被建在上游之上而非声明套用同一规则）——对齐详情见 docs/contract-defects.md D-53-16「给 #54 的对齐」段。回路：D-53-16 / R-31。`
+  `⚠️ #53 §3.1 carve-out 三步程序改判（D-41-3：否决理由不可继承，对所有步骤都成立）：① 剥离委托句——把「与 Badge 同一套『颜色即语义、无装饰性材质』规则」从判定依据里拿掉（判定依据的剥离，不是 notes 的删除，notes 只增不删）。② 按段 1/段 2 独立重走——剥离后本条目自身仅剩「六固定 case 状态 pill」（组件描述，非理由）与「视觉即含义，规定性，不给扩展点」——「视觉即含义」正是公约第 1 节步骤 3 (B) 操作化门槛明文列出的消极结论复述短语之一，不构成合格的反事实理由，(A)(B) 均不成立（引 53-survey.md 条目 22：枚举候选 0 个、无反事实机制、兄弟组件名是理由唯一来源）。源码级补充核验（非必需但已做，Sources/OhMyDesign/Components/StateLabel/StateLabel.swift 与 Sources/OhMyDesign/Components/Badge/Badge.swift）：StateLabel = Capsule(style: .continuous) 填充 status*Emphasis + 固定图标 + label；Badge = Capsule(style: .continuous) 填充 status*Subtle（可选描边）+ label——两者共享同一「pill + 状态色即语义」骨架，StateLabel 相对 Badge 的唯一差异是内建图标与 6 态默认文案，不是独立于 Badge 的视觉身份。⇒ 直接改判，无需进段 2（无额外候选材料可供三道门槛压测）。③ 走完整修订回路（含连带面分析，见 D-53-16）。⇒ decidedBy: step3 → tiebreaker（kind / needsExtensionPoint 不动）。⚠️ 不是「兄弟已 tiebreaker ⇒ 跟着改判」——本条按剥离后的独立材料判定，只是与兄弟结论方向相同。 ⚠️ 与 #49 的顺序（并行安全声明）：实测 #49 尚未开工（Sources/OhMyDesign/Components/StateLabel/StateLabel.swift:31 仍为 `let defaultLabel: String`，未变成 `LocalizedStringResource`）⇒ #53 本轮先行。本次改动只动 decidedBy 与 notes（本段），textParams 与 Sources/ 零改动，与 #49 计划中的 A 类类型改造（defaultLabel: String → LocalizedStringResource，公约缺口 G-4）互不覆盖，并行安全。 ⚠️ 跨仓对齐（给 #54，本 issue 不改判）：ChapterStatusBadge（repo=storyui，decidedBy=step3）的机制整条挂在 StateLabel / StateLabelStyle 上（其自身 notes 原话「建在 OhMyDesign StateLabel 上，胶囊/图标/配色/对比度全部来自上游，本件一处都不重造」）；StateLabel 本轮判死（tiebreaker）后，ChapterStatusBadge 就变成新的「当前就矛盾」条目，而 #52 的 carve-out 判准恰好漏掉它（它未「声明套用规则」，是被建在上游之上而非声明套用同一规则）——对齐详情见 docs/contract-defects.md D-53-16「给 #54 的对齐」段。回路：D-53-16 / R-31。`
 - **落点**：`docs/component-registry.json`（`StateLabel` 1 条）；`docs/contract-defects.md`
   （新建 `D-53-16`，含「给 #54 的对齐」段）；`docs/component-contract.md`（连带面见下，实测
   承重引证 0 处，不回写——公约现有两处 `StateLabel` 引用均在 G-4「A 类文案类型」语境，
@@ -1332,7 +1332,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   **0** 条、`53-stress.md` 保留档 **0** 条 ⇒ 无一条同时满足 (A)(B) ⇒ 走「一条都没有」
   分支：**不新增附录 A.5**，附录 A 抬头「本附录当前没有 `step3` 通路的走查样例」实测仍
   为真、本轮不改；但第 1 节「实测状态」段所记录的 `step3` 计数与门槛执行状态两件事本轮
-  都变了（CoreDesign 侧补跑、21 条已执行 (A)(B) 门槛），按该段末「该状态若变化，须走
+  都变了（OhMyDesign 侧补跑、21 条已执行 (A)(B) 门槛），按该段末「该状态若变化，须走
   修订回路更新本句」触发本条修订。
 - **撞上公约哪一条**：第 1 节「候选形态的作用域」小节「> **实测状态（#52 全量审计）**」段。
 - **改动前（逐字）**：
@@ -1346,7 +1346,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   `> 该状态若变化，须走修订回路更新本句。`
 - **改动后（逐字）**：见 `docs/component-contract.md` 第 1 节该段现文（`53-plan.md` Task 10
   Step 2-bis 分支 B 的 new_string 逐字预写、本条按此落地）——核心变化：标题改「#52 全量
-  审计；#53 已补跑 CoreDesign 侧」；新增「#53（移交 A）在 CoreDesign 侧补跑后仍未出现
+  审计；#53 已补跑 OhMyDesign 侧」；新增「#53（移交 A）在 OhMyDesign 侧补跑后仍未出现
   合格者」句；旧的无作用域全称断言「且其中大多数条目的步骤 2 是靠未枚举候选通过的，
   操作化门槛在它们身上从未执行」**已删除**，替换为按作用域三段分读的门槛执行状态
   （已执行 (A)(B) 门槛 21 条 / `Skeleton*` 门槛未执行 4 条 / StoryUI 侧未复核 24 条，
@@ -1391,7 +1391,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   5 条：`AvatarGroup` / `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）；
   `docs/contract-defects.md`（`D-53-17` #59 裁断段）；本文件（本条）。
 - **连带改动**：
-  1. `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift` —— **三处，spec §七 的唯一
+  1. `Tests/OhMyDesignTests/ComponentExtensionPointGuard.swift` —— **三处，spec §七 的唯一
      例外**：① `knownMissingExtensionPoints` 由 `["Toast"]` 增补为 `["AvatarGroup",
      "SidebarUtilityRow", "SpinningModifier", "Steps", "Timeline", "Toast"]`（并补一段
      doc comment 说明这是判定法修订的到期通路）；② `inspected.count == 6` → `== 11`
@@ -1400,7 +1400,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
      缺口补上了，同步删除」）明写该集合**随判定结论增删** ⇒ 到期通路，不是改守卫迁就。
      `Sources/` 零改动。⚠️ **本行原写「其余 `Tests/` 零改动」，那是失实的**——
      本分支还改了 `ComponentJudgeRules.swift`（见下面第 2 点），实测 `Tests/` 共动 **3** 个文件。
-     ⚠️ **实测第四处（plan 未预见，扩围授权）**：`Tests/CoreDesignTests/ComponentJudgeMutationTests.swift`
+     ⚠️ **实测第四处（plan 未预见，扩围授权）**：`Tests/OhMyDesignTests/ComponentJudgeMutationTests.swift`
      三处硬编码期望值同步（随 `knownMissingExtensionPoints` / `inspected.count` 变化连带调整），
      依据同上——两文件同受 J-2「集合随判定结论增删」的到期通路覆盖，不视为越出「`Tests/` 唯一例外」的窄口。
 
@@ -1414,7 +1414,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
      implementer 都**先停下报告**、由 controller 裁定后才动手（符合 §七 的停下义务）。
      ⚠️ 逐行核过**无夹带**：前者仅 3 处字面期望值列表，后者仅豁免匹配一句 + doc comment。
 
-  2. `Tests/CoreDesignTests/ComponentJudgeRules.swift:378` —— **FR-4 判据修正**（缺陷
+  2. `Tests/OhMyDesignTests/ComponentJudgeRules.swift:378` —— **FR-4 判据修正**（缺陷
      `D-53-19`，修复落在 `b804cf5`）。`notes` 豁免通道原为**裸子串**
      `resolved.entry.notes.contains(hit.parameter)`，区分不了「**裁决**该参数」与
      「论证里**顺带提及**参数名」。本轮 `SidebarUtilityRow` 落 `step2` 的 `notes` 追加
@@ -1467,7 +1467,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 - **落点**：`docs/component-contract.md`（皮肤变体条款 1 处）；`docs/contract-defects.md`
   （`D-53-18` #59 裁断段缺陷① 部分）；重判结论落在 `docs/component-registry.json`
   （随 `R-33` 一并落盘）；本文件（本条）。
-- **连带改动**：`Tests/CoreDesignTests/ComponentContractStructureGuard.swift` —— **零改动**：
+- **连带改动**：`Tests/OhMyDesignTests/ComponentContractStructureGuard.swift` —— **零改动**：
   本条只在既有 `###` 小节内插入正文，`^### ` 标题数 **23 不变**、`^#### ` **4 不变**、`requiredSubsections`
   **14 条不变**（实测断言见 Task 2 Step 3）。⚠️ 结构守卫**只锚标题行** ⇒ 它绿**不构成
   内容验证**，内容由本条的去格式化探针（十个探针各命中 1 次）承担。
@@ -1581,12 +1581,12 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   ④ **优先序 A > B > D > C**，且「D 不是 B 的降级替代品」；
   ⑤ **候选形态清单 ≠ 扩展点需求集**（`D-59-1` 第 1 条同批裁定）。
 - **落点**：`docs/component-contract.md`（§2 标题 + 前言 + 表格 + 五个新小节）；
-  `Tests/CoreDesignTests/ComponentJudgeScanner.swift`（`StyleSlotDecl` / `StyleEnumDecl`
+  `Tests/OhMyDesignTests/ComponentJudgeScanner.swift`（`StyleSlotDecl` / `StyleEnumDecl`
   两种采集 + `ScanResult` 字段与查询 + **`merge` 接线**）；
-  `Tests/CoreDesignTests/ComponentRegistryGuard.swift`（`Entry` 加 `styleSlot` / `styleEnum`）；
-  `Tests/CoreDesignTests/ComponentJudgeRules.swift`（J-2 两条判定分支）；
-  `Tests/CoreDesignTests/ComponentContractStructureGuard.swift`（标题字面量同步）；
-  `Tests/CoreDesignTests/ComponentJudgeRulesTests.swift`（5 条测试）；本文件（本条）。
+  `Tests/OhMyDesignTests/ComponentRegistryGuard.swift`（`Entry` 加 `styleSlot` / `styleEnum`）；
+  `Tests/OhMyDesignTests/ComponentJudgeRules.swift`（J-2 两条判定分支）；
+  `Tests/OhMyDesignTests/ComponentContractStructureGuard.swift`（标题字面量同步）；
+  `Tests/OhMyDesignTests/ComponentJudgeRulesTests.swift`（5 条测试）；本文件（本条）。
 - **验证**：
   - **守卫真的在守**：先只改标题「三选一」→「四选一」、**不动守卫**，跑
     `ComponentContractStructureGuard` 实测**变红**（`2 tests in 1 suite failed`），
@@ -1612,7 +1612,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   形态 D 就默认走 D —— 优先序 **A > B > D > C**，且 D 要过两道操作化判据。
   > ⚠️ **上句是当时的承接记录，现状已变**（不改写原句，改写等于篡改台账）：`wxlpp/oh-my-story#60`
   > **已 closed** —— 其范围一分为二：`Steps` / `Timeline` / `AvatarGroup` / `SpinningModifier`
-  > 四条已由 **CoreDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
+  > 四条已由 **OhMyDesign PR #206**（已合并）以形态 **D2「配置枚举」**落地；`SidebarUtilityRow`
   > 被 `60-form-decision.md` §5 判为退回重判（判定自噬）、移出 #60 范围，承接
   > `wxlpp/oh-my-story#64`。J-2 红名单剩 `Toast`（#65）**一条** —— ⚠️ `SidebarUtilityRow` 已由
   > `#64` 以形态 D2 补齐（`SidebarUtilityRowPresentation`）并从红名单摘除，本行原写「两条」
@@ -1622,7 +1622,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 
 ### R-38｜`D-59-1` 决定性实例的现状注记（**补强，不改结论**）
 
-- **来源试点**：`wxlpp/oh-my-story#64`（CoreDesign 实现 `SidebarUtilityRowPresentation`，
+- **来源试点**：`wxlpp/oh-my-story#64`（OhMyDesign 实现 `SidebarUtilityRowPresentation`，
   形态 D2）。落地后发现公约 §2「决定性实例」里的一句**模态断言**被自身实现证伪。
 - **撞上公约哪一条**：第 2 节「候选形态清单 ≠ 扩展点需求集」小节的决定性实例段
   （「其候选 1（纯文字工具行）就**必须让该参数可省** ⇒ 拆掉自己成立的前提」）。
@@ -1661,7 +1661,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 
 ### R-39｜J-2 判据 D2 臂的两处口径修补（**动判据本身，落点结论不变**）
 
-- **来源试点**：`wxlpp/oh-my-story#65`（CoreDesign 实现 `ToastPresentation`，形态 D2）。
+- **来源试点**：`wxlpp/oh-my-story#65`（OhMyDesign 实现 `ToastPresentation`，形态 D2）。
   `Toast` 是 J-2 红名单最后一条；落地时发现 D2 臂的**两道门槛对它都不成立**，且都是
   硬事实、不是措辞问题。
 - **⚠️ 本条与 `R-38` 性质不同**：`R-38` 是「补强、不改结论」的**注记**；本条**修改了判据
@@ -1743,7 +1743,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 
 ## 六、`wxlpp/oh-my-story#67`（G-8）公约五处定义性改写
 
-⚠️ **仓名不可省**：本仓的 `CoreDesign#67` 是另一件事（「FormField 系列组件」，已 CLOSED），裸写 `#67` 在本仓语境下会被解析到它。
+⚠️ **仓名不可省**：本仓的 `OhMyDesign#67` 是另一件事（「FormField 系列组件」，已 CLOSED），裸写 `#67` 在本仓语境下会被解析到它。
 
 ⚠️ **为什么要进本台账**：`component-contract.md` 的修订回路要求「逐条留痕」，而最贴近的先例
 `R-7｜#43-1 三分法未覆盖「B 类参数的缺省兜底」` 与本轮做的是**同一节、同一性质**的事
@@ -1760,7 +1760,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
   / `DelegationEntryState.task` / `AgentTodoItem.content` 是 **agent 产生**的 —— 调用方传 ✓，
   但**既不是「用户自己产生」也不是可本地化界面文案** ⇒ **三分法原文给不出答案**。照 `R-7`（`#43-1`）
   的成法填空白。来源枚举用**开放式**措辞，免得下一个来源（服务端 / remote config）再开一轮。
-- **连带一：类型列纳入 `AttributedString`**。CoreDesign 排除它的成文理由是
+- **连带一：类型列纳入 `AttributedString`**。OhMyDesign 排除它的成文理由是
   「**本仓零使用**，先留痕」（`ComponentJudgeScanner.swift:135-136`）——**那个理由在 StoryUI 被证伪**：
   `ManuscriptEditor.text` / `ManuscriptReader.text` / `StoryTextView.initialText` 三个**登记组件的
   直接 public init** 就用它。⚠️ **别再用「`AttributedString` 不可能承载编译期本地化键」当理由** ——
@@ -1808,7 +1808,7 @@ issue 号（`gh` 实测 `#50` `state=OPEN`）——不再是空指针：
 
 ### ⚠️ 本轮的元教训：修复本身连续制造新假断言
 
-`#67` 的 CoreDesign PR（`wxlpp/CoreDesign#214`）在**五轮外部评审**里，有 **9 次**新的假断言
+`#67` 的 OhMyDesign PR（`wxlpp/oh-my-design#214`）在**五轮外部评审**里，有 **9 次**新的假断言
 **长在修复文字本身**（⚠️ 编号是为了让这个数**跟着列表自己走** —— 本节初稿写「6 次」，
 第 4 轮 Copilot 又抓出第 7 条；写概数就会像 G-8 残余表那样再错一次）：
 
@@ -1896,7 +1896,7 @@ superpowers 终审更敏于**判据有没有真守住**（C-1 的回放实验、
   要么改 `wxlpp/oh-my-story#74` 点名「提交态零覆盖」的那台机器；而它**纯信息性**、
   没有任何判据需要它。⇒ **不登记不能守的东西。**
   组件删除导致孤儿条目的方向由 story 侧的双向差集接住。
-- **判据**：`Tests/CoreDesignTests/ReachableTypeRegistryGuard.swift` 四条 ——
+- **判据**：`Tests/OhMyDesignTests/ReachableTypeRegistryGuard.swift` 四条 ——
   J1 schema 合法（`type` 唯一 / `repo`、`category` 在允许域 / `notes` 非空非占位）·
   J2 与组件表不相交 · J3 同 `type` 内 `name` 唯一 · J8 全部条目 `category == C`。
   ⚠️ **J1 的 `notes` 不用长度阈值**：组件表那条是 `count >= 10`，而本表 43 条里
@@ -1914,13 +1914,13 @@ superpowers 终审更敏于**判据有没有真守住**（C-1 的回放实验、
   PR-B 新增一个读 `reachable-type-registry.json` 的 loader ⇒ **轴一 消费者数 2 → 3**。
 - **重算**（不是沿用）：轴二逐字段过账 ——
   `type` + `name` 由 story 侧扫描器双向差集守 ⇒ **fail-loud**；
-  `category` 只有 CoreDesign 侧 J8 读**本仓**文件、story 侧**无断言性读者** ⇒ **静默**
+  `category` 只有 OhMyDesign 侧 J8 读**本仓**文件、story 侧**无断言性读者** ⇒ **静默**
   （⚠️ 域**外**值若 loader 用枚举解码会解码即抛 ⇒ 静默的只有**域内翻转**）；
   `notes` **无人读** ⇒ 静默（本就无人读，不是新增的洞）。
 - **结论**：**仍沿用「留痕而非加固」，但轴一确实恶化了** ⇒ 是「**变大但仍可接受**」，
   **不是「无变化」**。G-5 行的「1 → 2」同批更新为「1 → 3」。
 
-### ⚠️ 顺带落地 `wxlpp/CoreDesign#215`：公约表格行被裸换行劈开，此前**无判据**
+### ⚠️ 顺带落地 `wxlpp/oh-my-design#215`：公约表格行被裸换行劈开，此前**无判据**
 
 同一个错我在本 epic 里犯了**三次**：`#214` 两次（S-A 的插入带换行把 G-8 行劈成两行；
 后一次在 G-5 格里塞 markdown 表），`#72` 一次（G-5 格留行尾破折号 + G-8 格塞并集规则段落）。
@@ -2038,7 +2038,7 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
 跑出来是绿的，我当时归因「变异脚本行号算错」；终审指出**那个归因无法从 artifact 复核**
 （被测判据根本不在树里）。改成零违规设计后，这个方向变成「**把缺陷放回去**」，可直接回放。
 
-### R-46｜G-8 行两句被 `wxlpp/oh-my-story#72` 落地证伪（`wxlpp/CoreDesign#217`）
+### R-46｜G-8 行两句被 `wxlpp/oh-my-story#72` 落地证伪（`wxlpp/oh-my-design#217`）
 
 - **来源**：`wxlpp/oh-my-story#76`（`#72` 的 PR-B）终审 I3 指出，G-8 行有两句在 `#72` 落地后逐字为假。
 - **第一句**「深度 ≥1 那批……**无登记落点**，承接 `wxlpp/oh-my-story#72`」——
@@ -2106,14 +2106,14 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
 - **连带改动**：
   · `docs/component-registry.json` —— 6 条 `decidedBy: tiebreaker` → `pendingStep2`，
     `notes` 各追加改判段（`kind` / `needsExtensionPoint` **不变**）；
-  · `Tests/CoreDesignTests/ComponentRegistryGuard.swift` —— `validDecidedBy` /
+  · `Tests/OhMyDesignTests/ComponentRegistryGuard.swift` —— `validDecidedBy` /
     `expectedKindForDecidedBy` 各加一条（M1 同步断言会强制），新增
     `knownPendingStep2Enumeration` 双侧等式台账 + 承接 issue 号断言 + 变红自证判据
     `pendingStep2LedgerIsLoadBearing`；
   · `docs/contract-defects.md` —— 新增 `## #270` 节与 `D-270-1` / `D-270-2`；
   · `docs/components/{activity-heatmap,before-after-slider,network-graph,orbiting-logos,
     radar-chart,ring-chart}.md` —— 登记段同步；
-  · 承接 issue **`wxlpp/CoreDesign#299`**（补做步骤 2 枚举并按公约重判）。
+  · 承接 issue **`wxlpp/oh-my-design#299`**（补做步骤 2 枚举并按公约重判）。
 - **验证**：三方同步义务由 `ComponentContractStructureGuard.contractMentionsEveryGuardAllowedValue`
   机器强制（公约文本必须出现 `` `pendingStep2` ``），`registrySchemaIsValid` 的 M1 同步断言
   强制 `validDecidedBy` ⟷ `expectedKindForDecidedBy` 同向；双侧等式的两个方向由
@@ -2172,13 +2172,13 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
   · `docs/component-registry.json` —— 6 条的 `decidedBy` / `kind` /
     `needsExtensionPoint` / `notes`（5 条 → `step2` / `semantic` / `true`，
     `OrbitingLogos` → `tiebreaker` / `prescriptive` / `false`）；
-  · `Tests/CoreDesignTests/ComponentRegistryGuard.swift` ——
+  · `Tests/OhMyDesignTests/ComponentRegistryGuard.swift` ——
     `knownPendingStep2Enumeration` 收缩为**空集**；`pendingStep2LedgerIsLoadBearing`
     改成「合成夹具跑方向 ①（删标记）+ 真实数据跑基线与方向 ②（加标记）」两段
     ——⚠️ 原写法开头那条 `#expect(!known.isEmpty)` 与方向 ① 的
     `#require(known.sorted().first)` 在空台账上会直接判红 / 取不到值，
     **但方向 ① 不能因此删掉**（那是「缓办被静默说成已判」这一侧的唯一证伪手段）；
-  · `Tests/CoreDesignTests/ComponentExtensionPointGuard.swift` ——
+  · `Tests/OhMyDesignTests/ComponentExtensionPointGuard.swift` ——
     `knownMissingExtensionPoints` 由空集增补为 5 条（承接 `#312`）、
     `inspected.count == 11` → `== 16`、主判据重新包进 `withKnownIssue`（只包一句）、
     块外 canary 文案同步；
@@ -2189,7 +2189,7 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
   · 承接 issue **`#312`**（为 5 条落出口 1 的条目补齐样式扩展点）。
 - **⚠️ 本轮新开两条缺陷，均落在「候选作用域」这一块**（见 `docs/contract-defects.md`
   的 `## #299` 节）：`D-299-1`（作用域条款的条件 ① 要求兄弟组件在登记表里，
-  于是排除不了由**宿主平台框架**承担的候选形态 —— 而 `CoreDesignCharts` 存在的理由
+  于是排除不了由**宿主平台框架**承担的候选形态 —— 而 `OhMyDesignCharts` 存在的理由
   恰恰是「Swift Charts 画不出来的四类图表」）；
   `D-299-2`（「候选须是本组件的另一个**版本**」这条读法只活在步骤 2 的问句里，
   没有成文判据）。

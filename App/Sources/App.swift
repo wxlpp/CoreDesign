@@ -1,8 +1,8 @@
-import CoreDesign
+import OhMyDesign
 import SwiftUI
 
 @main
-struct CoreDesignPreviewApp: App {
+struct OhMyDesignPreviewApp: App {
     var body: some Scene {
         WindowGroup {
             // NFR-1 帧率基准（#256）：带 `--perf-benchmark` 启动参数时不进画廊,

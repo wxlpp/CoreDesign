@@ -28,21 +28,21 @@
 
 修改：
 
-- `Sources/CoreDesign/Components/ListRow/ListRow.swift`
+- `Sources/OhMyDesign/Components/ListRow/ListRow.swift`
   - 验证 content-layer 行为；把 doc-comment 调成 Native Primer 措辞。
   - 公开 API 保持不变。不加 glass。不默认卡片化。
-- `Sources/CoreDesign/Components/SidebarRow/SidebarRow.swift`
+- `Sources/OhMyDesign/Components/SidebarRow/SidebarRow.swift`
   - 验证选中 / 悬停语义；更新 doc-comment 标明 control-layer 角色。
   - 公开 API 保持不变。不加全局 glass。
-- `Sources/CoreDesign/Components/TabBar/UnderlinedTabBar.swift`
+- `Sources/OhMyDesign/Components/TabBar/UnderlinedTabBar.swift`
   - 把 doc-comment 换成 Native Primer 措辞；确认没有使用 `.glassEffect`。
   - 公开 API 保持不变。
 
 新建：
 
-- `Tests/CoreDesignTests/ListRowTests.swift`
-- `Tests/CoreDesignTests/SidebarRowTests.swift`
-- `Tests/CoreDesignTests/UnderlinedTabBarTests.swift`
+- `Tests/OhMyDesignTests/ListRowTests.swift`
+- `Tests/OhMyDesignTests/SidebarRowTests.swift`
+- `Tests/OhMyDesignTests/UnderlinedTabBarTests.swift`
 
 只读：
 
@@ -54,17 +54,17 @@
 ## 任务 1：ListRow 的 Native Primer 基线
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/ListRow/ListRow.swift`
-- 新建：`Tests/CoreDesignTests/ListRowTests.swift`
+- 修改：`Sources/OhMyDesign/Components/ListRow/ListRow.swift`
+- 新建：`Tests/OhMyDesignTests/ListRowTests.swift`
 
 - [ ] **步骤 1：写编译 / 行为测试**
 
-创建 `Tests/CoreDesignTests/ListRowTests.swift`：
+创建 `Tests/OhMyDesignTests/ListRowTests.swift`：
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("ListRow")
 struct ListRowTests {
@@ -100,7 +100,7 @@ swift test --filter ListRowTests
 
 - [ ] **步骤 3：更新 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/ListRow/ListRow.swift` 中，把 `public struct ListRow` 上方现有顶部 doc-comment 替换为 Native Primer 措辞。保留现有的 "Hover token debt" 段落——它记录了一处已知 token 缺口，应保留：
+在 `Sources/OhMyDesign/Components/ListRow/ListRow.swift` 中，把 `public struct ListRow` 上方现有顶部 doc-comment 替换为 Native Primer 措辞。保留现有的 "Hover token debt" 段落——它记录了一处已知 token 缺口，应保留：
 
 ```swift
 /// Native Primer list row.
@@ -122,7 +122,7 @@ swift test --filter ListRowTests
 执行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/ListRow
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/ListRow
 ```
 
 预期：零匹配。
@@ -141,7 +141,7 @@ swift build
 - [ ] **步骤 6：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/ListRow/ListRow.swift Tests/CoreDesignTests/ListRowTests.swift
+git add Sources/OhMyDesign/Components/ListRow/ListRow.swift Tests/OhMyDesignTests/ListRowTests.swift
 git commit -m "refactor: align ListRow to Native Primer content baseline"
 ```
 
@@ -150,17 +150,17 @@ git commit -m "refactor: align ListRow to Native Primer content baseline"
 ## 任务 2：SidebarRow 的 Native Primer 导航形态
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/SidebarRow/SidebarRow.swift`
-- 新建：`Tests/CoreDesignTests/SidebarRowTests.swift`
+- 修改：`Sources/OhMyDesign/Components/SidebarRow/SidebarRow.swift`
+- 新建：`Tests/OhMyDesignTests/SidebarRowTests.swift`
 
 - [ ] **步骤 1：写编译 / 行为测试**
 
-创建 `Tests/CoreDesignTests/SidebarRowTests.swift`：
+创建 `Tests/OhMyDesignTests/SidebarRowTests.swift`：
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("SidebarRow")
 struct SidebarRowTests {
@@ -196,7 +196,7 @@ swift test --filter SidebarRowTests
 
 - [ ] **步骤 3：更新 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/SidebarRow/SidebarRow.swift` 中，把 `public struct SidebarRow` 上方现有顶部 doc-comment 替换为 Native Primer 措辞。保留现有的 "Hover token debt" 段落与 accent-bar 规范——这些是不显然的设计决策，值得保留：
+在 `Sources/OhMyDesign/Components/SidebarRow/SidebarRow.swift` 中，把 `public struct SidebarRow` 上方现有顶部 doc-comment 替换为 Native Primer 措辞。保留现有的 "Hover token debt" 段落与 accent-bar 规范——这些是不显然的设计决策，值得保留：
 
 ```swift
 /// Native Primer sidebar row.
@@ -220,7 +220,7 @@ swift test --filter SidebarRowTests
 执行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/SidebarRow
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/SidebarRow
 ```
 
 预期：零匹配。
@@ -239,7 +239,7 @@ swift build
 - [ ] **步骤 6：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/SidebarRow/SidebarRow.swift Tests/CoreDesignTests/SidebarRowTests.swift
+git add Sources/OhMyDesign/Components/SidebarRow/SidebarRow.swift Tests/OhMyDesignTests/SidebarRowTests.swift
 git commit -m "refactor: align SidebarRow to Native Primer control baseline"
 ```
 
@@ -248,17 +248,17 @@ git commit -m "refactor: align SidebarRow to Native Primer control baseline"
 ## 任务 3：UnderlinedTabBar 的 Native Primer 外壳形态
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/TabBar/UnderlinedTabBar.swift`
-- 新建：`Tests/CoreDesignTests/UnderlinedTabBarTests.swift`
+- 修改：`Sources/OhMyDesign/Components/TabBar/UnderlinedTabBar.swift`
+- 新建：`Tests/OhMyDesignTests/UnderlinedTabBarTests.swift`
 
 - [ ] **步骤 1：写编译 / 行为测试**
 
-创建 `Tests/CoreDesignTests/UnderlinedTabBarTests.swift`：
+创建 `Tests/OhMyDesignTests/UnderlinedTabBarTests.swift`：
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("UnderlinedTabBar")
 struct UnderlinedTabBarTests {
@@ -307,7 +307,7 @@ swift test --filter UnderlinedTabBarTests
 
 - [ ] **步骤 3：更新 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/TabBar/UnderlinedTabBar.swift` 中，把 `public struct UnderlinedTabBar` 上方现有顶部 doc-comment 替换为 Native Primer 措辞。现有注释已说明不用 `.glassEffect`——保留这层意图，只换措辞：
+在 `Sources/OhMyDesign/Components/TabBar/UnderlinedTabBar.swift` 中，把 `public struct UnderlinedTabBar` 上方现有顶部 doc-comment 替换为 Native Primer 措辞。现有注释已说明不用 `.glassEffect`——保留这层意图，只换措辞：
 
 ```swift
 /// Native Primer underlined tab bar.
@@ -330,7 +330,7 @@ swift test --filter UnderlinedTabBarTests
 执行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/TabBar
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/TabBar
 ```
 
 预期：零匹配。如 `UnderlinedTabBar.swift` 中出现匹配（应当只剩文档引用），将其移除。
@@ -349,7 +349,7 @@ swift build
 - [ ] **步骤 6：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/TabBar/UnderlinedTabBar.swift Tests/CoreDesignTests/UnderlinedTabBarTests.swift
+git add Sources/OhMyDesign/Components/TabBar/UnderlinedTabBar.swift Tests/OhMyDesignTests/UnderlinedTabBarTests.swift
 git commit -m "refactor: align UnderlinedTabBar to Native Primer chrome"
 ```
 
@@ -385,7 +385,7 @@ swift build
 执行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/ListRow Sources/CoreDesign/Components/SidebarRow Sources/CoreDesign/Components/TabBar
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/ListRow Sources/OhMyDesign/Components/SidebarRow Sources/OhMyDesign/Components/TabBar
 ```
 
 预期：零匹配。这三者都不是 floating-layer 表面。
@@ -395,7 +395,7 @@ rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/ListR
 执行：
 
 ```bash
-rg "#Preview" Sources/CoreDesign/Components/ListRow Sources/CoreDesign/Components/SidebarRow Sources/CoreDesign/Components/TabBar
+rg "#Preview" Sources/OhMyDesign/Components/ListRow Sources/OhMyDesign/Components/SidebarRow Sources/OhMyDesign/Components/TabBar
 ```
 
 预期：每个组件文件至少保留一个 `#Preview`。

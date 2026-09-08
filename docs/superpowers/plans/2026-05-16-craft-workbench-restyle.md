@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restyle CoreDesign toward a Craft-like editorial workbench while preserving blue interaction color, public APIs, and light/dark support.
+**Goal:** Restyle OhMyDesign toward a Craft-like editorial workbench while preserving blue interaction color, public APIs, and light/dark support.
 
 **Architecture:** Use a token-led approach: first lock the component inventory, then update semantic surfaces/borders/elevation, then align the Preview App and component implementations. Component edits must consume existing semantic tokens where possible rather than hard-coding one-off colors.
 
@@ -14,7 +14,7 @@
 
 **Files:**
 - Create: `docs/superpowers/plans/2026-05-16-craft-workbench-component-inventory.md`
-- Test: existing `Tests/CoreDesignTests/*`
+- Test: existing `Tests/OhMyDesignTests/*`
 
 - [ ] **Step 1: Create the component inventory document**
 
@@ -90,16 +90,16 @@ git commit -m "Add Craft workbench component inventory"
 ### Task 2: Warm Workbench Surface And Border Tokens
 
 **Files:**
-- Modify: `Sources/CoreDesign/Resources/Resources.xcassets/canvas/canvas-default.colorset/Contents.json`
-- Modify: `Sources/CoreDesign/Resources/Resources.xcassets/canvas/canvas-subtle.colorset/Contents.json`
-- Modify: `Sources/CoreDesign/Resources/Resources.xcassets/canvas/canvas-inset.colorset/Contents.json`
-- Modify: `Sources/CoreDesign/Colors/SurfaceColors.swift`
-- Modify: `Sources/CoreDesign/Colors/BorderColors.swift`
-- Test: `Tests/CoreDesignTests/SurfaceKindTests.swift`
+- Modify: `Sources/OhMyDesign/Resources/Resources.xcassets/canvas/canvas-default.colorset/Contents.json`
+- Modify: `Sources/OhMyDesign/Resources/Resources.xcassets/canvas/canvas-subtle.colorset/Contents.json`
+- Modify: `Sources/OhMyDesign/Resources/Resources.xcassets/canvas/canvas-inset.colorset/Contents.json`
+- Modify: `Sources/OhMyDesign/Colors/SurfaceColors.swift`
+- Modify: `Sources/OhMyDesign/Colors/BorderColors.swift`
+- Test: `Tests/OhMyDesignTests/SurfaceKindTests.swift`
 
 - [ ] **Step 1: Add a failing surface stability test**
 
-Extend `Tests/CoreDesignTests/SurfaceKindTests.swift` with a test that asserts all public surface roles still construct after token tuning:
+Extend `Tests/OhMyDesignTests/SurfaceKindTests.swift` with a test that asserts all public surface roles still construct after token tuning:
 
 ```swift
 @Test("all surface roles construct after Craft token tuning")
@@ -138,7 +138,7 @@ Keep `alpha` at `1.000`, `idiom` as `universal`, and preserve existing dark lumi
 
 - [ ] **Step 4: Tune semantic surface aliases**
 
-In `Sources/CoreDesign/Colors/SurfaceColors.swift`, keep `surfaceCanvas`, `surfaceCanvasSubtle`, and `surfaceCanvasInset` asset-backed. Change `surfacePanel`, `surfaceSidebar`, and `surfaceCard` to use the warm semantic surfaces instead of system grouped colors:
+In `Sources/OhMyDesign/Colors/SurfaceColors.swift`, keep `surfaceCanvas`, `surfaceCanvasSubtle`, and `surfaceCanvasInset` asset-backed. Change `surfacePanel`, `surfaceSidebar`, and `surfaceCard` to use the warm semantic surfaces instead of system grouped colors:
 
 ```swift
 static var surfacePanel: Color {
@@ -156,7 +156,7 @@ static var surfaceCard: Color {
 
 - [ ] **Step 5: Tune border opacity**
 
-In `Sources/CoreDesign/Colors/BorderColors.swift`, reduce subtle/default visual weight by keeping the same system separator sources but changing semantic opacities:
+In `Sources/OhMyDesign/Colors/BorderColors.swift`, reduce subtle/default visual weight by keeping the same system separator sources but changing semantic opacities:
 
 ```swift
 static var borderSubtle: Color {
@@ -181,23 +181,23 @@ Expected: PASS.
 Run:
 
 ```bash
-git add Sources/CoreDesign/Resources/Resources.xcassets/canvas Sources/CoreDesign/Colors/SurfaceColors.swift Sources/CoreDesign/Colors/BorderColors.swift Tests/CoreDesignTests/SurfaceKindTests.swift
+git add Sources/OhMyDesign/Resources/Resources.xcassets/canvas Sources/OhMyDesign/Colors/SurfaceColors.swift Sources/OhMyDesign/Colors/BorderColors.swift Tests/OhMyDesignTests/SurfaceKindTests.swift
 git commit -m "Tune surfaces for Craft workbench style"
 ```
 
 ### Task 3: Quieter Elevation And Glass Treatment
 
 **Files:**
-- Modify: `Sources/CoreDesign/Tokens/CoreElevation.swift`
-- Modify: `Sources/CoreDesign/Modifier/FloatingGlassModifier.swift`
-- Modify: `Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift`
-- Modify: `Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift`
-- Modify: `Sources/CoreDesign/Components/BottomInputBar/MenuButton.swift`
-- Test: `Tests/CoreDesignTests/FloatingGlassModifierTests.swift`
+- Modify: `Sources/OhMyDesign/Tokens/CoreElevation.swift`
+- Modify: `Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift`
+- Modify: `Sources/OhMyDesign/Components/SegmentedControl/SegmentedControl.swift`
+- Modify: `Sources/OhMyDesign/Components/BottomInputBar/BottomInputBar.swift`
+- Modify: `Sources/OhMyDesign/Components/BottomInputBar/MenuButton.swift`
+- Test: `Tests/OhMyDesignTests/FloatingGlassModifierTests.swift`
 
 - [ ] **Step 1: Add a regression test for explicit glass availability**
 
-Extend `Tests/CoreDesignTests/FloatingGlassModifierTests.swift` with:
+Extend `Tests/OhMyDesignTests/FloatingGlassModifierTests.swift` with:
 
 ```swift
 @MainActor
@@ -243,7 +243,7 @@ Expected: PASS.
 Run:
 
 ```bash
-git add Sources/CoreDesign/Tokens/CoreElevation.swift Sources/CoreDesign/Modifier/FloatingGlassModifier.swift Sources/CoreDesign/Components/SegmentedControl Sources/CoreDesign/Components/BottomInputBar Tests/CoreDesignTests/FloatingGlassModifierTests.swift
+git add Sources/OhMyDesign/Tokens/CoreElevation.swift Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift Sources/OhMyDesign/Components/SegmentedControl Sources/OhMyDesign/Components/BottomInputBar Tests/OhMyDesignTests/FloatingGlassModifierTests.swift
 git commit -m "Quiet elevation and glass treatment"
 ```
 
@@ -294,16 +294,16 @@ git commit -m "Restyle preview app workbench shell"
 ### Task 5: High-Impact Component Pass
 
 **Files:**
-- Modify as needed under `Sources/CoreDesign/Components/Button/`
-- Modify as needed under `Sources/CoreDesign/Components/SegmentedControl/`
-- Modify as needed under `Sources/CoreDesign/Components/SearchField/`
-- Modify as needed under `Sources/CoreDesign/Components/SidebarRow/`
-- Modify as needed under `Sources/CoreDesign/Components/ListRow/`
-- Modify as needed under `Sources/CoreDesign/Components/CommentCard/`
-- Modify as needed under `Sources/CoreDesign/Components/BottomInputBar/`
-- Modify as needed under `Sources/CoreDesign/Components/Toast/`
-- Modify as needed: `Sources/CoreDesign/Components/Banner.swift`
-- Modify as needed under `Sources/CoreDesign/Components/BookCover/`
+- Modify as needed under `Sources/OhMyDesign/Components/Button/`
+- Modify as needed under `Sources/OhMyDesign/Components/SegmentedControl/`
+- Modify as needed under `Sources/OhMyDesign/Components/SearchField/`
+- Modify as needed under `Sources/OhMyDesign/Components/SidebarRow/`
+- Modify as needed under `Sources/OhMyDesign/Components/ListRow/`
+- Modify as needed under `Sources/OhMyDesign/Components/CommentCard/`
+- Modify as needed under `Sources/OhMyDesign/Components/BottomInputBar/`
+- Modify as needed under `Sources/OhMyDesign/Components/Toast/`
+- Modify as needed: `Sources/OhMyDesign/Components/Banner.swift`
+- Modify as needed under `Sources/OhMyDesign/Components/BookCover/`
 - Test: existing focused component tests
 
 - [ ] **Step 1: Audit high-impact components**
@@ -339,14 +339,14 @@ Expected: each available filter passes. If a filter matches no tests, record tha
 Run:
 
 ```bash
-git add Sources/CoreDesign/Components Tests/CoreDesignTests
+git add Sources/OhMyDesign/Components Tests/OhMyDesignTests
 git commit -m "Align high-impact components with Craft workbench"
 ```
 
 ### Task 6: Medium And Low Impact Component Pass
 
 **Files:**
-- Modify as needed under `Sources/CoreDesign/Components/`
+- Modify as needed under `Sources/OhMyDesign/Components/`
 - Modify as needed: `App/Sources/Previews.swift`
 
 - [ ] **Step 1: Audit medium-impact components**
@@ -368,7 +368,7 @@ Expected: PASS.
 Run:
 
 ```bash
-git add Sources/CoreDesign/Components App/Sources/Previews.swift Tests/CoreDesignTests
+git add Sources/OhMyDesign/Components App/Sources/Previews.swift Tests/OhMyDesignTests
 git commit -m "Calibrate remaining components for Craft workbench"
 ```
 
