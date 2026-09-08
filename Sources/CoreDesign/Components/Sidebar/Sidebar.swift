@@ -328,16 +328,15 @@ public struct SidebarStatusFooter: View {
 private struct SidebarSelectedBackgroundModifier: ViewModifier {
     let isSelected: Bool
 
+    @Environment(\.coreAccent) private var resolvedAccent
+
     func body(content: Content) -> some View {
         if self.isSelected {
             let shape = CoreShape.rounded(CoreRadius.medium)
             content
-                .floatingGlass(in: shape, isInteractive: true)
-                .overlay {
-                    shape
-                        .strokeBorder(Color.borderSelected, lineWidth: CoreBorderWidth.thin)
+                .background {
+                    shape.fill(Color.accentSubtleBackground(from: self.resolvedAccent))
                 }
-                .coreShadow(.medium)
         } else {
             content
         }

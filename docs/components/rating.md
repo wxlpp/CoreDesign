@@ -105,7 +105,7 @@ VStack {
 
 - 星形：`StarShape()`
 - 选中态填充：`.tint`（`TintShapeStyle`，响应环境 `.tint(_:)`，未显式设置时解析为宿主 App 的
-  `Color.accentColor`）
+  SwiftUI 的默认 tint）
 - 未选中态填充：`Color.tertiaryFill`
 - 星间距：`CoreSpacing.xs`
 - 星尺寸：`CoreControlMetrics.iconSize(for: controlSize) * 1.5`，随 `\.controlSize` 环境值变化

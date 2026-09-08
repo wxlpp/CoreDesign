@@ -109,10 +109,21 @@ SidebarUtilityRow(
 - leading icon / glyph 列宽：`CoreControlMetrics.iconSize(for: .large)`（20pt）
 - 行内间距：`CoreSpacing.sm`；section header ↔ 内容 `CoreSpacing.sm`，行间 `CoreSpacing.xxs`
 - 圆角：`CoreRadius.mediumPlus`（选中态背景 / contentShape）
-- 选中态：`floatingGlass(isInteractive: true)` + `Color.borderSelected` 描边（`CoreBorderWidth.thin`）+ `coreShadow(.medium)`
+- 选中态：`Color.accentSubtleBackground(from:)` 填充（取环境 `\.coreAccent`），无描边 / 无阴影 / 无玻璃
 - status footer 圆点：边长 `CoreSpacing.sm`，默认色 `Color.statusSuccessForeground`
 
-## 选中态：刻意不追随原生（#136 / #226 定案）
+## 选中态：已于 2026-09-08 改判为追随原生（#136 / #226 → 本次重议）
+
+**现状：着色填充，无独立轮廓。** 与 iOS / macOS 原生一致。
+
+⚠️ 这是对 `#226` 的**改判**，依据是 `#226` 自己写下的重议条件（见本节末）：
+两个触发条件**同时成立** ——（a）第三次同类反馈：继 `#136`、`#225` 之后，
+设计系统的 web edition 第三次给出同族措辞（「Apple 自己的侧栏值读起来更安静」）；
+（b）本库整体向原生收敛：同一批改动里 `SearchField` 改用原生控件、functional 层改指系统色。
+
+以下为 `#136` / `#226` 的历史记账，**原样保留**：
+
+### （历史）选中态：刻意不追随原生（#136 / #226 定案）
 
 **本库的侧栏选中态是「浮层玻璃 + 全周选中色描边 + 阴影」，而 iOS / macOS 原生是
 「着色填充、无独立轮廓」**（Files / Reminders / Mail）。这是风格决策，不是疏漏。

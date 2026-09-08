@@ -15,6 +15,66 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.9.0`）——设计系统配色 / 样式回灌
+
+**含破坏性变更。** 版本意图：下一个 **minor**。
+
+### token 取值变更（不改签名，但下游观感会变）
+
+| token | 旧 | 新 |
+|---|---|---|
+| `Color.accent` | `Color.accentColor`（跟随宿主 `AccentColor`） | `Color.inkPrimary`（墨色；iOS `label` / macOS `textColor`）。宿主换色改走 `View.coreAccent(_:)` |
+| `accentHover` / `accentPressed` | `mix(with: .primary, by: 0.15 / 0.25)`（远离背景） | `mix(with: .surfaceBase, by: 0.18 / 0.30)`（**朝向背景**，方向反转） |
+| `accentDisabled` | `.opacity(0.35)` | `.opacity(0.22)` |
+| `accentSubtleBackground` | `.opacity(0.12)` | `.opacity(0.08)` |
+| `contentOnAccent` | `.white` | `.systemBackground`（随主题反转） |
+| `contentLink` | `.link`（系统蓝） | `.label`。⚠️ 本仓无链接下划线约定 ⇒ 链接与正文视觉上**不可区分**，是登记在案的缺口 |
+| `success` | `green5` | 系统绿 |
+| `info` | `blue5` | `.label` |
+| `secondaryAccent` 族 | `lightBlue5/6/7/2` | `grey7/8/9/2` |
+| 四个图表的 `tint` 默认实参 | `.accent` | `.dataAccent`（系统蓝） |
+
+⚠️ `contentOnEmphasis` / `contentInverse` / `contentOnDanger` **保持 `.white`**——
+它们压的是固定饱和色背景，一刀切会让深色下变成黑字压红 / 橙 / 绿底。
+⚠️ `warning` / `danger` 两族 8 个 token **不动**：它们被 `ButtonRoleStyleRole` 消费，
+基色换系统色而派生态留色阶会让同一按钮 rest 与 pressed 分属两个色相族。
+
+### 签名变更
+
+- **`tint` / `color` 参数改 `Color? = nil`**（`nil` 时回落环境 `\.coreAccent`）：
+  `SpinningModifier.init` 与其 **`public let tint` 存储属性**、`View.spinning(...)`、
+  `ProgressIndicator` 三个 init、`View.ping(...)`、`View.rise(...)`、`View.focusRing(...)`。
+  ⚠️ **读取存储属性的下游要改**：`SpinningModifier(...).tint` 现在是 `Color?`
+  （本仓 `scripts/downstream-probe` 已同步）。调用点因 optional 提升不受影响。
+- **`Card.init` 新增 `elevation: CoreElevation.Level = .small`**——与 `v0.9.0` 那 7 处同形：
+  对已应用调用点零影响，对未应用的函数引用是破坏性变更。⚠️ 默认值不是 `.none`：
+  `Card` 现在**默认带一层浅投影**，这是逐条确认过的单点越界（背离「静置内容不浮起」），
+  `elevation: .none` 一行退回。
+- **`ButtonRoleStyleRole` 新增** `resolvedColor(accent:isEnabled:isPressed:)` 与 `onColor`。
+  旧 `resolvedColor(isEnabled:isPressed:)` 与三个无参属性**保留**并委托新重载。
+
+### 行为变更
+
+- **`SearchField` 内部改用平台原生控件**（iOS `UISearchTextField` / macOS `NSSearchField`）。
+  公开 API `SearchField(text:placeholder:onSubmit:)` 源码兼容。
+  清除按钮与其 a11y 名改由系统提供 ⇒ 移除 internal `clearLabel(for:)` 与
+  `Localizable.strings` 的 `"Clear %@"`；`.focusRing` 撤除（系统自绘焦点态）。
+- **Sidebar 选中态扁平化**：去 `floatingGlass` + `borderSelected` 描边 + `coreShadow(.medium)`，
+  改为 `accentSubtleBackground` 填充。这是对 `#226`「保持现状」的改判，
+  依据是 `#226` 自己写下的重议条件（见 `docs/components/sidebar.md`）。
+- **`ListRow` 竖向 padding 12 → 8**（本处调用改 `CoreSpacing.sm`，
+  **未动共享的 `CoreControlMetrics.verticalPadding`**）。44pt 触控下限不变
+  ⇒ 单行行观感不变，只有多行 / 带副标题的行收紧。
+- **`SegmentedControl` 新增 `InkSegmentedControlStyle`** 与 `.glass` / `.plain` / `.ink`
+  三个静态入口。**默认仍是 `GlassSegmentedControlStyle`**，不变。
+
+### 新增
+
+`Color.inkPrimary`（第 2 层）、`Color.dataAccent` / `dataAccentSubtle`、
+`EnvironmentValues.coreAccent` + `View.coreAccent(_:)`。
+
+---
+
 ## 未发布（相对 `v0.9.0`）——Issue #312：`NetworkGraph` 的布局形态扩展点
 
 **含破坏性变更（与 `v0.9.0` 那 7 处同形）** —— `NetworkGraph.init` 新增

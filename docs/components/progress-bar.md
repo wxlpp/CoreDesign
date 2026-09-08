@@ -11,7 +11,7 @@
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | value | Double | - | 进度，自动 clamp 到 `0...1` |
-| tint | Color? | nil | 填充色，nil 时使用 `Color.accent` |
+| tint | Color? | nil | 填充色，nil 时取环境 `\.coreAccent` |
 | label | String? | nil | 左侧 label，nil 时省略 |
 
 ## 预览 / Preview
@@ -30,7 +30,7 @@ ProgressBar(value: 1.0, tint: .statusSuccessEmphasis, label: "Done")
 - 高度：`CoreSpacing.xs`
 - 圆角：`CoreRadius.small`
 - 底轨色：`Color.surfaceCanvasInset`
-- 填充色：`tint ?? Color.accent`
+- 填充色：`tint ?? 环境 \.coreAccent`（默认墨色 `Color.inkPrimary`）
 - Label 字号：`.coreFont(.footnote)`
 - 可访问性：`accessibilityValue` = 百分比 + catalog 的 `"%@ complete"`。
   百分比走 `value.formatted(.percent…)`（`#235`）⇒ **百分号相对数字的位置由 locale 决定**，

@@ -125,7 +125,7 @@ Reduce Motion 下**不画光带**，降级为一次透明度脉冲
 ⚠️ 本节示例**没有任何机器校验**（同 [`confetti.md`](confetti.md) 记的限度）。
 
 ```swift
-import CoreDesign        // `Color.accent` / `Color.contentOnAccent` 来自这里
+import CoreDesign        // `Color.accent`（墨色）/ `Color.contentOnAccent`（随主题反转）来自这里
 import CoreDesignEffects
 import SwiftUI
 

@@ -19,20 +19,3 @@ struct SearchFieldTests {
         #expect(type(of: field) == SearchField.self)
     }
 }
-
-// MARK: - a11y 串的本地化（Issue #222）
-
-@Suite("SearchField a11y 本地化")
-@MainActor
-struct SearchFieldL10nTests {
-    @Test("placeholder 为空时，清除按钮的可访问名内外层都走 catalog")
-    func clearLabelLocalizesBothLayers() {
-        let label = SearchField.clearLabel(for: "")
-        #expect(label == "Clear search", "内外层未都走 catalog：\(label)")
-    }
-
-    @Test("placeholder 非空时用调用方传入值，库不翻译它")
-    func clearLabelKeepsCallerPlaceholder() {
-        #expect(SearchField.clearLabel(for: "Filter issues") == "Clear Filter issues")
-    }
-}

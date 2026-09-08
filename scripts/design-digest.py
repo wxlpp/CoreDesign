@@ -20,8 +20,11 @@ TARGETS = ["CoreDesign", "CoreDesignEffects", "CoreDesignCharts"]
 FLOORS = {
     "spacing": 11, "radius": 5, "border": 5, "typography": 12,
     "elevation": 4, "controlsize": 5,
-    "colors": 115, "components": 90, "enums": 29, "enumcases": 108,
-    "protocols": 6, "viewext": 40, "styleext": 9, "others": 29,
+    # 2026-09-08 设计系统配色回灌：colors +3（inkPrimary / dataAccent / dataAccentSubtle）、
+    # components +1（InkSegmentedControlStyle）、viewext +1（View.coreAccent）、
+    # styleext +3（SegmentedControlStyle 的 .glass / .plain / .ink 三个静态入口）。
+    "colors": 118, "components": 91, "enums": 29, "enumcases": 108,
+    "protocols": 6, "viewext": 41, "styleext": 12, "others": 29,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。
@@ -482,7 +485,7 @@ def main():
         "⇒ 原型标注里**不要**直接写第 2 层的名字，走对应的第 3 层别名"
         "（`surfaceBase` / `contentPrimary` …）。")
     add("⚠️ 第 1 层色阶（`ColorGrade` 的 17 色相 × 10 档）不作为**条目**列入。但下表 `→` 右手边\n"
-        "会出现色阶名（`secondaryAccent` / `neutralAccent` / `FunctionalColor` 显式保留品牌色阶）\n"
+        "会出现色阶名（`secondaryAccent` / `neutralAccent`，以及 `FunctionalColor` 里保留品牌色阶的 `warning` / `danger` 两族——`success` / `info` 已改指系统色）\n"
         "——那一列**只作溯源，不要写进标注**。\n")
     total_colors = 0
     for group, rows in semantic_colors(root):

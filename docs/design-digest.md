@@ -77,7 +77,10 @@
 - `.glassEffect` 的实时折射 / 高光；web 侧的 `backdrop-filter` 不是同一个东西。
 - 第 3 层大多数 token 直接指系统语义色（`label` / `separator` / `systemFill` /
   `systemGroupedBackground` 族），取值随**外观、增强对比度、平台**在运行期变；
-  `accent` 取宿主 App 的 `AccentColor`。原型里只能快照某一档。
+  `accent` 是**墨色**（`inkPrimary`：iOS `label` / macOS `textColor`），不再取宿主
+  `AccentColor`；宿主要换色走 `View.coreAccent(_:)`，四个派生态自动跟随。
+  ⚠️ 图表 / tag 走 `dataAccent`（系统蓝），刻意不跟随 accent——墨色的环会读成禁用。
+  原型里只能快照某一档。
 - `SystemBackgroundColors` 那 6 个 token 在 **macOS 上全部同值**——分层背景只在 iOS 成立。
 
 ---
@@ -153,7 +156,7 @@
 
 ⚠️ **本节跨层，不都是第 3 / 4 层**——按 CLAUDE.md《分层色彩系统》的定层：`SystemBackgroundColors` / `SystemLabelColors` 是**第 2 层**系统色桥接；`MaskColors` 的 `maskOpaque` **不在四层之内**（唯一契约是 α = 1，不是一个颜色决定，别拿它当前景/背景色用）。其余各组为第 3 / 4 层。⇒ 原型标注里**不要**直接写第 2 层的名字，走对应的第 3 层别名（`surfaceBase` / `contentPrimary` …）。
 ⚠️ 第 1 层色阶（`ColorGrade` 的 17 色相 × 10 档）不作为**条目**列入。但下表 `→` 右手边
-会出现色阶名（`secondaryAccent` / `neutralAccent` / `FunctionalColor` 显式保留品牌色阶）
+会出现色阶名（`secondaryAccent` / `neutralAccent`，以及 `FunctionalColor` 里保留品牌色阶的 `warning` / `danger` 两族——`success` / `info` 已改指系统色）
 ——那一列**只作溯源，不要写进标注**。
 
 ## `BorderColors`（10）
@@ -181,9 +184,9 @@
 | `Color.contentQuaternary` | → `.quaternaryLabel` |
 | `Color.contentPlaceholder` | → `.placeholderText` |
 | `Color.contentInverse` | → `.white` |
-| `Color.contentOnAccent` | → `.white` |
+| `Color.contentOnAccent` | 压在 `accent` 之上的前景色。 |
 | `Color.contentOnDanger` | → `.white` |
-| `Color.contentLink` | → `.link` |
+| `Color.contentLink` | ⚠️ 单色体系下取 `label`。 |
 | `Color.contentDisabled` | → `.quaternaryLabel` |
 | `Color.contentMuted` | 次要文本，如时间戳 / 元数据 / helper text。 |
 | `Color.contentSubtle` | 弱化辅助文本（弱于 `contentMuted`），用于占位 / 装饰文本。 |
@@ -205,8 +208,8 @@
 
 | token | 说明 |
 |---|---|
-| `Color.success` | → `.green5` |
-| `Color.info` | → `.blue5` |
+| `Color.success` | 成功语义色，指向系统绿。 |
+| `Color.info` | 信息语义色。 |
 | `Color.warning` | → `.orange5` |
 | `Color.warningActive` | → `.orange7` |
 | `Color.warningDisable` | → `.orange2` |
@@ -216,25 +219,27 @@
 | `Color.dangerDisable` | → `.red2` |
 | `Color.dangerHover` | → `.red6` |
 
-## `InteractionColors`（19）
+## `InteractionColors`（21）
 
 | token | 说明 |
 |---|---|
-| `Color.accent` | 交互强调色，跟随宿主 App 的 AccentColor 资源。 |
-| `Color.accentHover` | Hover 态：离背景更远一档，用于指针悬停 / 高亮。 |
-| `Color.accentPressed` | 按下态：比 hover 再远离背景一档；混合基色取 `.primary` 以在深浅双模式都成立。 |
+| `Color.accent` | 交互强调色。 |
+| `Color.accentHover` | Hover 态：朝背景走一档。 |
+| `Color.accentPressed` | 按下态：比 hover 再朝背景走一档。 |
 | `Color.accentDisabled` | 禁用态：对 accent 降低不透明度，保持色相、只削存在感。 |
 | `Color.accentSubtleBackground` | accent 的极淡背景色，用于选中态等大面积低对比场景；走降不透明度而非白混合。 |
-| `Color.secondaryAccent` | → `Color.lightBlue5` |
-| `Color.secondaryAccentHover` | → `Color.lightBlue6` |
-| `Color.secondaryAccentPressed` | → `Color.lightBlue7` |
-| `Color.secondaryAccentDisabled` | → `Color.lightBlue2` |
+| `Color.dataAccent` | 图表、tag 等**靠色相携带含义**的场景专用，刻意**不跟随** `accent`—— 墨色的环或标签会读成「禁用」。 |
+| `Color.dataAccentSubtle` | `dataAccent` 的淡染底色。 |
+| `Color.secondaryAccent` | → `Color.grey7` |
+| `Color.secondaryAccentHover` | → `Color.grey8` |
+| `Color.secondaryAccentPressed` | → `Color.grey9` |
+| `Color.secondaryAccentDisabled` | → `Color.grey2` |
 | `Color.neutralAccent` | → `Color.grey5` |
 | `Color.neutralAccentHover` | → `Color.grey6` |
 | `Color.neutralAccentPressed` | → `Color.grey7` |
 | `Color.neutralAccentDisabled` | → `Color.grey2` |
 | `Color.selectionBackground` | 常规选中态背景：低调的强调色淡染。 |
-| `Color.selectionBackgroundEmphasis` | 强调选中态背景：实心 `accent`，与 `contentOnAccent` 白字前景配对。 |
+| `Color.selectionBackgroundEmphasis` | 强调选中态背景：实心 `accent`，与 `contentOnAccent` 前景配对（该前景随主题反转，不再是白字）。 |
 | `Color.hoverBackground` | 中性 hover 底色。 |
 | `Color.pressedBackground` | 中性按下底色。 |
 | `Color.disabledBackground` | 禁用态底色。 |
@@ -306,7 +311,7 @@
 | `Color.secondarySystemGroupedBackground` | 分组界面主要背景上层内容的颜色。 |
 | `Color.tertiarySystemGroupedBackground` | 内容层叠在分组界面次要背景之上的颜色。 |
 
-## `SystemLabelColors`（10）
+## `SystemLabelColors`（11）
 
 | token | 说明 |
 |---|---|
@@ -314,6 +319,7 @@
 | `Color.secondaryLabel` | 次要文本颜色，桥接 `UIColor.secondaryLabel` / `NSColor.secondaryLabelColor`。 |
 | `Color.tertiaryLabel` | 三级文本颜色，桥接 `UIColor.tertiaryLabel` / `NSColor.tertiaryLabelColor`。 |
 | `Color.quaternaryLabel` | 四级文本颜色，桥接 `UIColor.quaternaryLabel` / `NSColor.quaternaryLabelColor`。 |
+| `Color.inkPrimary` | **不透明**的主要墨色：浅色下黑、深色下白，两种外观 α 恒为 1.0。 |
 | `Color.darkText` | 浅色背景上文本的固定深色（`UIColor.darkText`）。 |
 | `Color.lightText` | 暗色背景上文本的固定浅色（`UIColor.lightText`）。 |
 | `Color.placeholderText` | 输入控件占位文本的颜色，桥接 `UIColor.placeholderText` / `NSColor.placeholderTextColor`。 |
@@ -453,7 +459,7 @@
 
 ### `Components/SearchField/SearchField.swift`
 
-- **`SearchField`** *: View* — 紧凑的搜索 / 筛选控件：leading 放大镜图标 + 可选清除动作 + 明确的焦点环， **无默认 Liquid Glass**。
+- **`SearchField`** *: View* — 搜索 / 筛选控件，内部是**平台原生**搜索框 （iOS `UISearchTextField` / macOS `NSSearchField`）。
 
 ### `Components/Section/SectionFooter.swift`
 
@@ -468,6 +474,7 @@
 - **`SegmentedControl`** *<Item: Hashable>: View* — GitHub-like density on an Apple-native control surface. 外观由环境注入的 `SegmentedControlStyle` 决定，默认 `GlassSegmentedControlStyle`。
 - **`GlassSegmentedControlStyle`** *: SegmentedControlStyle* — 默认外观：Liquid Glass 外壳。
 - **`PlainSegmentedControlStyle`** *: SegmentedControlStyle* — 纯色外壳外观（此前 `glass: false`）。
+- **`InkSegmentedControlStyle`** *: SegmentedControlStyle* — 墨色外观：选中段是实心 `coreAccent` 胶囊 + 反色文字（`contentOnAccent`）。
 - *protocol* **`SegmentedControlStyle`** — `SegmentedControl` 视觉外观的扩展点，形态对齐 `BannerStyle` / Apple `ButtonStyle`。
 - *struct* **`SegmentedControlStyleConfiguration`** — 传给 `SegmentedControlStyle.makeBody` 的上下文：类型擦除的分段数据 + 选择回调。
 - *struct* **`SegmentedControlStyleConfiguration.Segment`** — 单个分段的类型擦除表示。
@@ -842,10 +849,11 @@
 
 # Modifier / Transition 入口点
 
-共 40 个（按 `Host.member` 去重，含参重载算一条）。
+共 41 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
+| `CoreDesign` | `.coreAccent` on `View` | 为子树设置强调色，`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground` 四个派生态自动跟随。 |
 | `CoreDesign` | `.bannerStyle` on `View` | 为子树中的所有 `Banner` 设置外观。 |
 | `CoreDesign` | `.bottomInputBar` on `View` | ⚠️ 源码无文档注释 |
 | `CoreDesign` | `.ratingStyle` on `View` | 为子树中的所有 `Rating` / `RatingDisplay` 设置外观。 |
@@ -892,7 +900,7 @@
 
 # 样式入口点（`*Style where Self == …`）
 
-共 9 个（按 `Host.member` 去重，含参重载算一条——`.solid` 与 `.solid(role:)` 是同一条）。经 `.buttonStyle(_:)` / `.progressViewStyle(_:)` 等施加。
+共 12 个（按 `Host.member` 去重，含参重载算一条——`.solid` 与 `.solid(role:)` 是同一条）。经 `.buttonStyle(_:)` / `.progressViewStyle(_:)` 等施加。
 ⚠️ **`.borderless` 必须带括号**：该名与 SwiftUI 自带的 `PrimitiveButtonStyle.borderless` 重合，两者只差一对括号、**都能编译且无诊断**——`.buttonStyle(.borderless)` 拿到的是 **SwiftUI 的**样式，`.buttonStyle(.borderless())` 才是本包的。
 
 | 入口 | 协议 | 具体样式 | 说明 |
@@ -902,6 +910,9 @@
 | `.extendedFloat` | `ButtonStyle` | `ExtendedFloatButtonStyle` | 默认档位（`.large`，50pt）的胶囊玻璃悬浮按钮样式。 |
 | `.light` | `ButtonStyle` | `LightButtonStyle` | 构造次要操作按钮样式。 |
 | `.solid` | `ButtonStyle` | `SolidButtonStyle` | 构造主操作按钮样式。 |
+| `.glass` | `SegmentedControlStyle` | `GlassSegmentedControlStyle` | 默认外观：Liquid Glass 外壳。 |
+| `.plain` | `SegmentedControlStyle` | `PlainSegmentedControlStyle` | 纯色外壳外观。 |
+| `.ink` | `SegmentedControlStyle` | `InkSegmentedControlStyle` | 墨色外观：实心 accent 胶囊 + 反色文字。 |
 | `.core` | `DisclosureGroupStyle` | `CoreDisclosureGroupStyle` | CoreDesign 的默认 `DisclosureGroup` 外观：chevron 走 `.tint`，展开内容 作 leading 缩进（贴近原生，不加卡片）。 |
 | `.core` | `LabelStyle` | `CoreLabelStyle` | CoreDesign 的默认 `Label` 外观：icon 走 `.tint`、title 走默认前景色。 |
 | `.core` | `LabeledContentStyle` | `CoreLabeledContentStyle` | CoreDesign 的默认 `LabeledContent` 外观：label 走 `contentSecondary`， content 走 `contentPrimary`（描述列表惯例：字段名弱化、值强化）。 |
@@ -922,12 +933,12 @@
 | typography | 12 | 12 |
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
-| colors | 115 | 115 |
-| components | 90 | 90 |
+| colors | 118 | 118 |
+| components | 91 | 91 |
 | enums | 29 | 29 |
 | enumcases | 108 | 108 |
 | protocols | 6 | 6 |
-| viewext | 40 | 40 |
-| styleext | 9 | 9 |
+| viewext | 41 | 41 |
+| styleext | 12 | 12 |
 | others | 29 | 29 |
 
