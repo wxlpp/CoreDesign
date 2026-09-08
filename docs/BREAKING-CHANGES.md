@@ -11,13 +11,17 @@
 > `v0.9.0`（2026-09-01，形态 D2 扩展点落地（`#59` / `#60` / `#64` / `#65`）+ 守卫（`#48`）+
 > 可达类型登记表（`#72` / `#216`）：7 个已有 init / modifier 各加一个带默认值的形态参数
 > ——**对已应用调用点零影响，但对未应用的函数引用是破坏性变更**）。
+> `v0.10.0`（2026-09-09，仓库与模块改名为 OhMyDesign + 设计系统配色 / 样式回灌 +
+> `NetworkGraph` 布局扩展点（`#312`）+ 删除 `SurfaceKind.overlay`（`#238`）+ NFR-7 能耗策略表
+> 下沉（`#271`）+ 画廊场景化配色 + `coredesign-leftover-closeout` epic（`#220`）
+> ——**含破坏性变更，所有 `import` 都要改**；本版共 7 个章节，见下）。
 > ⚠️ 本清单**失真过两次**：早期版本写「本库当前无外部版本 tag」（`v0.1.0` 之前成立、之后未同步）；
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
-## 未发布（相对 `v0.9.0`）——仓库与模块改名为 OhMyDesign
+## `0.10.0`（2026-09-09）——仓库与模块改名为 OhMyDesign
 
-**含破坏性变更，且是本轮影响面最大的一条：所有 `import` 都要改。** 版本意图：下一个 **minor**。
+**含破坏性变更，且是本版影响面最大的一条：所有 `import` 都要改。** 已随 `v0.10.0` 发布。
 
 | 旧 | 新 |
 |---|---|
@@ -53,9 +57,9 @@
 一个 `wxlpp/CoreDesign` 就会打断它），不要当长期契约。而 `import CoreDesign` **没有**任何
 兼容垫片，不改就编译不过。
 
-## 未发布（相对 `v0.9.0`）——设计系统配色 / 样式回灌
+## `0.10.0`（2026-09-09）——设计系统配色 / 样式回灌
 
-**含破坏性变更。** 版本意图：下一个 **minor**。
+**含破坏性变更。** 已随 `v0.10.0` 发布。
 
 ### token 取值变更（不改签名，但下游观感会变）
 
@@ -122,7 +126,7 @@
 
 ---
 
-## 未发布（相对 `v0.9.0`）——Issue #312：`NetworkGraph` 的布局形态扩展点
+## `0.10.0`（2026-09-09）——Issue #312：`NetworkGraph` 的布局形态扩展点
 
 **含破坏性变更（与 `v0.9.0` 那 7 处同形）** —— `NetworkGraph.init` 新增
 `layout: NetworkGraphLayout = .force`。
@@ -136,7 +140,7 @@
 
 理由与判定过程见 `docs/components/network-graph.md` 与登记表 `NetworkGraph.notes`。
 
-## 未发布（相对 `v0.9.0`）——Issue #238：删除 `SurfaceKind.overlay`
+## `0.10.0`（2026-09-09）——Issue #238：删除 `SurfaceKind.overlay`
 
 **含破坏性变更** —— `SurfaceKind` 删除 **1** 个 public case：`.overlay`。
 
@@ -202,7 +206,7 @@ bash scripts/api-surface-diff.sh 42a872a
 里「popover 与 menu | floating | overlay」那一行，在 `.overlay` 删除后**在 `SurfaceKind` 里
 不再有对应**。
 
-## 未发布（相对 `v0.9.0`）——Issue #271：NFR-7 通用能耗策略表下沉
+## `0.10.0`（2026-09-09）——Issue #271：NFR-7 通用能耗策略表下沉
 
 **含破坏性变更** —— `OhMyDesignEffects` **删除 31 条** public 声明、新增 5 条；
 `OhMyDesign` 删除 **0** 条、新增 28 条。两侧数字由 `scripts/api-surface-diff.sh` 各跑一次得出：
@@ -262,7 +266,7 @@ bash scripts/api-surface-diff.sh <base>                            # 新增侧�
 
 ---
 
-## 未发布（相对 `v0.9.0`）——画廊场景化配色 PR
+## `0.10.0`（2026-09-09）——画廊场景化配色 PR
 
 **纯新增 + 一处行为变更 + 一处已修正的观感回归。**
 
@@ -301,7 +305,7 @@ bash scripts/api-surface-diff.sh <base>                            # 新增侧�
 
 ---
 
-## 未发布（相对 `v0.9.0`）——`coredesign-leftover-closeout` epic，Issue #220
+## `0.10.0`（2026-09-09）——`coredesign-leftover-closeout` epic，Issue #220
 
 **对下游编译零感知，仅改观感。** 不删除、不重命名任何公开符号；三处「同名换值」。
 
