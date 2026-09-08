@@ -11,7 +11,7 @@ public struct CoreBorderlessButtonStyle: PrimitiveButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
-            .foregroundStyle(self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: self.isPressed))
+            .foregroundStyle(self.role.resolvedColor(accent: self.coreAccent, isEnabled: self.isEnabled, isPressed: self.isPressed))
             .clipShape(Capsule(style: .continuous))
             .animation(.easeInOut, value: self.isPressed)
             .simultaneousGesture(self.pressedStateGesture)
@@ -26,6 +26,7 @@ public struct CoreBorderlessButtonStyle: PrimitiveButtonStyle {
     }
 
     @GestureState private var isPressed = false
+    @Environment(\.coreAccent) private var coreAccent
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
 

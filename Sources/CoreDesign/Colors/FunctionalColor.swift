@@ -3,8 +3,18 @@ import SwiftUI
 
 /// 第 4 层「状态功能别名」。
 public extension Color {
-    static let success: Color = .green5
-    static let info: Color = .blue5
+    /// ⚠️ `success` / `info` 改指系统色；`warning` / `danger` 两族**有意保持 ColorGrade 色阶**
+    /// ——它们被 `ButtonRoleStyleRole` 消费，基色换系统色而派生态留色阶会让同一按钮
+    /// rest 态与 pressed 态分属两个色相族。
+    static var success: Color {
+        #if canImport(UIKit)
+            Color(uiColor: .systemGreen)
+        #else
+            Color(nsColor: .systemGreen)
+        #endif
+    }
+
+    static var info: Color { .label }
 
     static let warning: Color = .orange5
     static let warningActive: Color = .orange7

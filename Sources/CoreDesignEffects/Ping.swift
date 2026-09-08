@@ -4,13 +4,15 @@ import SwiftUI
 private struct PingCore: ViewModifier {
     let fire: Int
     let strength: MicroInteractionStrength
-    let ringColor: Color
+    let ringColor: Color?
+
+    @Environment(\.coreAccent) private var resolvedAccent
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         let isReduced = self.reduceMotion
-        let color = self.ringColor
+        let color = self.ringColor ?? self.resolvedAccent
         let rings = self.strength == .subtle ? 1 : (self.strength == .regular ? 2 : 3)
 
         guard !isReduced else {
@@ -64,7 +66,7 @@ public extension View {
     func ping(
         trigger: some Equatable,
         strength: MicroInteractionStrength = .regular,
-        color: Color = .accent
+        color: Color? = nil
     ) -> some View {
         self.modifier(
             TriggerRelay(trigger: trigger) {

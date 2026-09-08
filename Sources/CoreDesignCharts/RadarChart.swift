@@ -17,7 +17,7 @@ public struct RadarChart<Value: ChartValue>: View {
     public init(
         _ values: [Value],
         title: LocalizedStringResource? = nil,
-        tint: Color = .accent
+        tint: Color = .dataAccent
     ) {
         self.values = values
         self.title = title ?? .chart("Radar chart")

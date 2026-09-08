@@ -5,7 +5,9 @@ private struct RiseCore: ViewModifier {
     let fire: Int
     let text: LocalizedStringKey
     let strength: MicroInteractionStrength
-    let textColor: Color
+    let textColor: Color?
+
+    @Environment(\.coreAccent) private var resolvedAccent
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -13,7 +15,7 @@ private struct RiseCore: ViewModifier {
         let isReduced = self.reduceMotion
         let reach = self.strength.displacement * 3
         let text = self.text
-        let color = self.textColor
+        let color = self.textColor ?? self.resolvedAccent
 
         return content
             .overlay(alignment: .top) {
@@ -55,7 +57,7 @@ public extension View {
         trigger: some Equatable,
         text: LocalizedStringKey,
         strength: MicroInteractionStrength = .regular,
-        color: Color = .accent
+        color: Color? = nil
     ) -> some View {
         self.modifier(
             TriggerRelay(trigger: trigger) {

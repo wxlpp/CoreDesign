@@ -25,7 +25,7 @@ public struct NetworkGraph<Node: GraphNode>: View {
         nodes: [Node],
         edges: [Edge],
         title: LocalizedStringResource? = nil,
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         layout: NetworkGraphLayout = .force
     ) {
         self.layout = layout

@@ -97,6 +97,8 @@ private struct UnderlinedTabItem: View {
     let namespace: Namespace.ID
     let action: () -> Void
 
+    @Environment(\.coreAccent) private var resolvedAccent
+
     var body: some View {
         Button(action: self.action) {
             VStack(spacing: CoreSpacing.sm) {
@@ -113,7 +115,7 @@ private struct UnderlinedTabItem: View {
                         .frame(height: CoreBorderWidth.thick)
                     if self.isSelected {
                         Capsule()
-                            .fill(Color.accent)
+                            .fill(self.resolvedAccent)
                             .frame(height: CoreBorderWidth.thick)
                             .matchedGeometryEffect(id: "underline", in: self.namespace)
                     }

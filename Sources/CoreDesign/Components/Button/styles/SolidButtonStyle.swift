@@ -12,7 +12,7 @@ public struct SolidButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         let isPressed = configuration.isPressed
-        let backgroundColor = self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed)
+        let backgroundColor = self.role.resolvedColor(accent: self.coreAccent, isEnabled: self.isEnabled, isPressed: isPressed)
 
         configuration.label
             .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
@@ -27,9 +27,10 @@ public struct SolidButtonStyle: ButtonStyle {
     }
 
     private var foregroundColor: Color {
-        self.isEnabled ? .contentOnAccent : .contentDisabled
+        self.isEnabled ? self.role.onColor : .contentDisabled
     }
 
+    @Environment(\.coreAccent) private var coreAccent
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
 }

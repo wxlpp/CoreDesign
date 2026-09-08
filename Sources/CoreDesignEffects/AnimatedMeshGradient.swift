@@ -199,7 +199,7 @@ nonisolated enum MeshDrift {
         AnimatedMeshGradient()
         Text("Welcome")
             .font(.largeTitle.bold())
-            .foregroundStyle(Color.contentOnAccent)
+            .foregroundStyle(Color.contentOnEmphasis)
     }
     .frame(width: 320, height: 220)
     .clipShape(CoreShape.rounded(CoreRadius.xLarge))
