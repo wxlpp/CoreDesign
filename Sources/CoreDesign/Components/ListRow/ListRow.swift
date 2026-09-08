@@ -38,7 +38,10 @@ public struct ListRow<Leading: View, Trailing: View, Label: View>: View {
             }
         }
         .padding(.horizontal, CoreControlMetrics.horizontalPadding(for: .regular))
-        .padding(.vertical, CoreControlMetrics.verticalPadding(for: .regular))
+        // ⚠️ 行密度刻意比控件的 verticalPadding(.regular)（12）紧一档。
+        // 不要改 CoreControlMetrics —— 同一函数还喂着 ButtonChromeModifier，改它会动全库按钮高度。
+        // 44pt 触控下限由下一行的 minHeight 守着，所以单行行不受影响，只有多行/带副标题的行收紧。
+        .padding(.vertical, CoreSpacing.sm)
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
         .background {

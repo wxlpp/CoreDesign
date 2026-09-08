@@ -4,16 +4,18 @@ import SwiftUI
 
 struct FocusRingModifier: ViewModifier {
     var visible: Bool
-    var color: Color
+    var color: Color?
     var width: CGFloat
     var cornerRadius: CGFloat
+
+    @Environment(\.coreAccent) private var resolvedAccent
 
     func body(content: Content) -> some View {
         content
             .overlay(
                 CoreShape.rounded(self.cornerRadius)
                     .stroke(
-                        self.visible ? self.color : .clear,
+                        self.visible ? (self.color ?? self.resolvedAccent) : .clear,
                         lineWidth: self.width
                     )
             )
@@ -28,13 +30,14 @@ public extension View {
     /// - Parameters:
     ///   - visible: 是否显示焦点环；通常由 `@FocusState` 或外部状态绑定 / Whether
     ///     the ring is shown; typically driven by `@FocusState` or external state.
-    ///   - color: 描边色，默认 `.borderFocus` / Stroke color, defaults to `.borderFocus`.
+    ///   - color: 描边色；`nil`（默认）时取环境的 `coreAccent` / Stroke color;
+    ///     defaults to the environment's `coreAccent` when `nil`.
     ///   - width: 描边宽度，默认 `CoreBorderWidth.thick` (2pt) / Stroke width.
     ///   - cornerRadius: 圆角，默认 `CoreRadius.medium` (6pt) / Corner radius.
     /// - Returns: 套上了焦点环 overlay 的视图 / The view wrapped with the focus-ring overlay.
     func focusRing(
         visible: Bool = true,
-        color: Color = .borderFocus,
+        color: Color? = nil,
         width: CGFloat = CoreBorderWidth.thick,
         cornerRadius: CGFloat = CoreRadius.medium
     ) -> some View {

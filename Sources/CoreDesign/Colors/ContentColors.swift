@@ -27,16 +27,21 @@ public extension Color {
         .white
     }
 
+    /// 压在 `accent` 之上的前景色。⚠️ **随主题反转**（accent 是墨色，浅色下黑 / 深色下白），
+    /// 故本色取 `systemBackground` 而非白。
+    /// ⚠️ 只服务真正坐在 `accent` 上的点；压在**固定饱和色**上的前景走 `contentOnEmphasis`。
     static var contentOnAccent: Color {
-        .white
+        .systemBackground
     }
 
     static var contentOnDanger: Color {
         .white
     }
 
+    /// ⚠️ 单色体系下取 `label`。**本仓没有任何链接样式施加下划线** ⇒ 改色后链接与正文
+    /// 视觉上不可区分；下划线约定本次未定，是登记在案的缺口。
     static var contentLink: Color {
-        .link
+        .label
     }
 
     static var contentDisabled: Color {

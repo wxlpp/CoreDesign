@@ -133,14 +133,17 @@ struct BeforeAfterSliderHandle: View {
     var body: some View {
         ZStack {
             Rectangle()
-                .fill(Color.contentOnAccent)
+                .fill(Color.contentOnEmphasis)
                 .frame(width: BeforeAfterSweep.dividerWidth)
             Circle()
-                .fill(Color.contentOnAccent)
+                .fill(Color.contentOnEmphasis)
                 .frame(width: BeforeAfterSweep.handleDiameter, height: BeforeAfterSweep.handleDiameter)
                 .overlay {
                     Image(systemName: "arrow.left.and.right")
                         .font(.system(size: CoreControlMetrics.iconSize(for: .mini), weight: .semibold))
+                        // ⚠️ 把手恒为白，而 contentPrimary 深色下也是白 ⇒ 深色下图标不可见。
+                        // 既有问题，非本次引入；修它需要一个「恒定深色」token，本仓没有
+                        // （darkText 在 macOS 退化为随外观切换的 textColor，grey9 明暗镜像）。
                         .foregroundStyle(Color.contentPrimary)
                 }
         }

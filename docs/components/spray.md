@@ -64,7 +64,7 @@ LikeButton()
     .tint(.pink)          // 粒子变粉
 ```
 
-⚠️ 空色板**回落 `.tint` 而不是 `Color.accent`**：后者就是 `Color.accentColor`，
+⚠️ 空色板**回落 `.tint` 而不是 `Color.accent`**：后者现在是墨色（`Color.inkPrimary`，2026-09-08 起；此前是 `Color.accentColor`），
 **不跟随逐视图 `.tint(_:)`** ⇒ 调用方的 `.tint(.pink)` 会静默失效。
 （初版曾以「SwiftUI 无公开 API 把 `.tint` 解析成 `Color`」为由回退到 `Color.accent`
 ——那个前提是错的：粒子要的是 `ShapeStyle`，`.foregroundStyle(.tint)` 本来就成立。）

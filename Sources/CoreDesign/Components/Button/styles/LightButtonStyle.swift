@@ -15,7 +15,7 @@ public struct LightButtonStyle: ButtonStyle {
 
         configuration.label
             .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
-            .foregroundStyle(self.role.resolvedColor(isEnabled: self.isEnabled, isPressed: isPressed))
+            .foregroundStyle(self.role.resolvedColor(accent: self.coreAccent, isEnabled: self.isEnabled, isPressed: isPressed))
             .buttonBackground(
                 shape: Capsule(style: .continuous),
                 fill: Color.surfaceInteractive,
@@ -25,6 +25,7 @@ public struct LightButtonStyle: ButtonStyle {
             .opacity(isPressed ? 0.9 : 1)
     }
 
+    @Environment(\.coreAccent) private var coreAccent
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
 }

@@ -30,7 +30,7 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 1. **资源调色板**（`Colors/ColorGrade.swift`）—— 17 种命名色相 × 10 个色阶（`brand-0`…`yellow-9`），由 `Resources.xcassets` 中的 color set 提供。通过 `Color("...", bundle: .module)` 加载。第 3 层迁到系统色后，本层现仅为 `StatusColors`（24 个状态色 token，Apple 无对应系统概念）与 `InteractionColors` 的 `secondaryAccent` / `neutralAccent` 族（显式定案保留品牌色阶）供色；组件代码中应避免直接使用第 1 层。
 2. **系统色桥接**（`Colors/SystemBackgroundColors.swift`、`SystemLabelColors.swift`）—— 通过 `#if canImport(UIKit)` / `AppKit` 把 `UIColor` / `NSColor` 系统色重新导出为 `Color`，保证同一名称在两端平台都能编译。现在是第 3 层大多数 token 的直接来源。
-3. **语义化 token**——`SurfaceColors`、`ContentColors`、`BorderColors`、`FillColors`、`InteractionColors`、`StatusColors`。命名描述用途而非色相（`surfaceRaised`、`contentPrimary`、`accent`、`accentPressed`、`statusDangerForeground`）。多数 token 直接改指系统语义色（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观 / 对比度设置自动更新；`accent` 改指宿主 App 的 `Color.accentColor`，衍生态（`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground`）用 `Color.mix(with:by:in:)` / `.opacity()` 对 `accent` 本身调制，而非各取固定色阶。`secondaryAccent` / `neutralAccent` / `StatusColors` 显式定案保留 `ColorGrade` 品牌色阶——Apple HIG 没有"第二强调色"或"5 态状态色板"的系统概念，无桥接目标。
+3. **语义化 token**——`SurfaceColors`、`ContentColors`、`BorderColors`、`FillColors`、`InteractionColors`、`StatusColors`。命名描述用途而非色相（`surfaceRaised`、`contentPrimary`、`accent`、`accentPressed`、`statusDangerForeground`）。多数 token 直接改指系统语义色（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观 / 对比度设置自动更新；`accent` 是**墨色**——第 2 层新桥接 `Color.inkPrimary`（iOS `label` / macOS `textColor`；⚠️ macOS 取 `textColor` 而非 `labelColor`，后者实测 α = 0.8471 会让每个比例都落不准）。**不再跟随宿主 `Color.accentColor`**；宿主换色走 `View.coreAccent(_:)`（`@Entry var coreAccent`），四个衍生态自动跟随。衍生态用 `Color.mix(with:by:in:)` / `.opacity()` 对 `accent` 调制，**混合目标是 `surfaceBase`（朝向背景）**——墨色处在明度极值，无法「更远离背景」。公式收成 `Color.accentHover(from:)` 等四个 internal `static func`，静态 token 与 `ButtonRoleStyleRole` 都调它，避免两处各写一遍。⚠️ 图表 / tag 走 **`dataAccent`**（系统蓝），刻意不跟随 accent——墨色的环会读成禁用。`secondaryAccent`（现为 `grey7/8/9/2`）/ `neutralAccent` / `StatusColors` 显式定案保留 `ColorGrade` 品牌色阶——Apple HIG 没有"第二强调色"或"5 态状态色板"的系统概念，无桥接目标。
 4. **状态功能别名**（`Colors/FunctionalColor.swift`）—— `success`、`info`、`warning`、`danger` 及其现有变体。本层为 `public`，是最高层的 API 表面。
 
    **交互色不在此层**——`accent` / `secondaryAccent` / `neutralAccent` 等走第 3 层 `InteractionColors`。该层曾定义 `Color.primary/secondary/tertiary` 三组，因与 SwiftUI 内建成员同名而遮蔽它们（删除时编译器不报错，只静默改变解析目标），已于 Issue #93 移除。
@@ -63,7 +63,7 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 |---|---|---|
 | `GuardScanRoots.allRoots`（`Tests/CoreDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep | 三个 target 全覆盖 |
 | `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 CoreDesign 现状 |
-| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，三 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/CoreDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count == 11` 在三根下照样成立 |
+| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，三 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/CoreDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count`（**实测 16**，本行此前写 11，是更早的失真）在三根下照样成立 |
 
 ⚠️ 新增 library target 时**必须**把它加进 `GuardScanRoots.targetNames`——该表与
 `Package.swift` 声明的 library target 做双向差集，忘了扩根会当场判红（这是刻意的
@@ -155,7 +155,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   （`Colors/ColorGrade.swift` 170 个色阶 + `Colors/StatusColors.swift` 24 个 status token
   + `Tokens/CoreElevation.swift` 4 个 shadow token）**以及原样转手它们的别名**
   （`InteractionColors` 的 `secondaryAccent` / `neutralAccent` 两族共 8 个、
-  `FunctionalColor` 全部 10 个）**一律 `resolve(in:)` 出 `(0, 0, 0, 0)`**。
+  `FunctionalColor` 的 8 个（⚠️ `success` / `info` 已于 2026-09-08 改指系统色 / `label`，**不再**是资源色别名，可在 macOS 腿解析））**一律 `resolve(in:)` 出 `(0, 0, 0, 0)`**。
   两条腿的实测对照（同一份探针、同一个 commit）：`statusDangerForeground` 在 macOS 腿是
   `a=0.0`、在 iOS 腿是 `r=0.812 g=0.133 b=0.180 a=1.0`；同一次运行里
   `accent` / `contentPrimary` / `surfaceRaised` 这些系统语义色**两条腿都正常**。
@@ -222,10 +222,10 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
        （所以判据有效），而三态 `resolve(in:)` 全是 **`#00000000`**、彼此**相等**。
        ⚠️ **这是今天唯一「安全，但一旦被改写成比解析值就立刻不安全」的机制**：谁把那三条
        `!=` 换成比 `resolve(in:)`，secondary / tertiary / warning / danger 四个 role 会
-       **恒红**（三态解析后全是 `#00000000`、彼此相等），而 primary 走 `Color.accentColor`
+       **恒红**（三态解析后全是 `#00000000`、彼此相等），而 primary 走 `Color.inkPrimary`
        ——那不是 catalog 取色，三态解析后**仍互异**，所以照绿。
        ⇒ 同一条判据在同一次运行里一半恒红一半正常，是最难读的失效形态。
-       ⚠️ **有意不钉 primary 的具体取值**：`Color.accentColor` 在 macOS 上取的是
+       ⚠️ 本段的 `Color.accentColor` 注记写于 accent 墨色化之前，现已改指 `NSColor.textColor`（两外观 α 均为 1.0，不再随用户强调色变）；下面这段只作历史记账：`Color.accentColor` 在 macOS 上取的是
        **用户 System Settings 里的强调色**，换机器 / 换设置这个数就变，且明暗两档不同
        （本机注记、仅供复现对照，不是判据：light `#0088FFFF` / dark `#0091FFFF`）。
        照绿的**理由**是「三态解析后仍互异」，不是某个具体色值。

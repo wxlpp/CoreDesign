@@ -23,7 +23,9 @@ public struct SpinningModifier: ViewModifier {
     public let presentation: SpinningPresentation
     /// spinner 取色，透传给 `ProgressIndicator`。⚠️ 不能靠外加 `.tint(_:)`
     /// ——理由见 `ProgressIndicator.tint`。
-    public let tint: Color
+    public let tint: Color?
+
+    @Environment(\.coreAccent) private var resolvedAccent
 
     /// - Parameters:
     ///   - isActive: 是否显示。
@@ -35,7 +37,7 @@ public struct SpinningModifier: ViewModifier {
         isActive: Bool,
         text: LocalizedStringKey? = nil,
         presentation: SpinningPresentation = .overlay,
-        tint: Color = .accent
+        tint: Color? = nil
     ) {
         self.isActive = isActive
         self.text = text
@@ -55,7 +57,7 @@ public struct SpinningModifier: ViewModifier {
         content
             .overlay(alignment: .top) {
                 if self.isActive {
-                    TopBarIndicator(tint: self.tint)
+                    TopBarIndicator(tint: self.tint ?? self.resolvedAccent)
                         .transition(.opacity)
                 }
             }
@@ -156,7 +158,7 @@ public extension View {
         _ isActive: Bool,
         text: LocalizedStringKey? = nil,
         presentation: SpinningPresentation = .overlay,
-        tint: Color = .accent
+        tint: Color? = nil
     ) -> some View {
         self.modifier(
             SpinningModifier(isActive: isActive, text: text, presentation: presentation, tint: tint)

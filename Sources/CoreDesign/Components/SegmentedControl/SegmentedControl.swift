@@ -108,7 +108,9 @@ public struct SegmentedControl<Item: Hashable>: View {
 private struct SwiftUISegmentedControl: View {
     let configuration: SegmentedControlStyleConfiguration
     let glass: Bool
+    var ink: Bool = false
 
+    @Environment(\.coreAccent) private var resolvedAccent
     @Namespace private var namespace
 
     var body: some View {
@@ -133,7 +135,7 @@ private struct SwiftUISegmentedControl: View {
             Text(segment.title)
                 .coreFont(.callout)
                 .fontWeight(segment.isSelected ? .semibold : .regular)
-                .foregroundStyle(segment.isSelected ? Color.contentPrimary : Color.contentSecondary)
+                .foregroundStyle(self.foregroundStyle(for: segment))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .background {
@@ -147,10 +149,19 @@ private struct SwiftUISegmentedControl: View {
         .accessibilityAddTraits(segment.isSelected ? .isSelected : [])
     }
 
+    private func foregroundStyle(
+        for segment: SegmentedControlStyleConfiguration.Segment
+    ) -> Color {
+        guard segment.isSelected else { return .contentSecondary }
+        return self.ink ? .contentOnAccent : .contentPrimary
+    }
+
     @ViewBuilder
     private var selectedThumb: some View {
         let shape = Capsule(style: .continuous)
-        if self.glass {
+        if self.ink {
+            shape.fill(self.resolvedAccent)
+        } else if self.glass {
             segmentedGlassChrome(shape)
                 .coreShadow(.small)
         } else {
@@ -169,7 +180,7 @@ private struct SwiftUISegmentedControl: View {
 /// 默认外观：Liquid Glass 外壳。iOS 走原生 `UISegmentedControl` + `UIGlassEffect`，
 /// 其他平台走玻璃版 SwiftUI 回退。
 public struct GlassSegmentedControlStyle: SegmentedControlStyle {
-    public init() {}
+    public nonisolated init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
         #if os(iOS)
@@ -189,11 +200,43 @@ public struct GlassSegmentedControlStyle: SegmentedControlStyle {
 
 /// 纯色外壳外观（此前 `glass: false`）。全平台走 SwiftUI 回退。
 public struct PlainSegmentedControlStyle: SegmentedControlStyle {
-    public init() {}
+    public nonisolated init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
         SwiftUISegmentedControl(configuration: configuration, glass: false)
     }
+}
+
+/// 墨色外观：选中段是实心 `coreAccent` 胶囊 + 反色文字（`contentOnAccent`）。
+///
+/// ⚠️ **不是默认**——默认仍是 `GlassSegmentedControlStyle`。web 版设计系统用墨色胶囊
+/// 是因为浏览器渲染不了 Liquid Glass，那是渲染基座的代偿而非升级。
+///
+/// ⚠️ 走 SwiftUI 回退路径，**不走** iOS 的 `NativeGlassSegmentedControl`：后者的选中态
+/// 只有 `selectedSegmentTintColor` 一个入口，塞不进「实心填充 + 反色文字」。
+public struct InkSegmentedControlStyle: SegmentedControlStyle {
+    public nonisolated init() {}
+
+    public func makeBody(configuration: Configuration) -> some View {
+        SwiftUISegmentedControl(configuration: configuration, glass: false, ink: true)
+    }
+}
+
+// MARK: - Style convenience
+
+public extension SegmentedControlStyle where Self == GlassSegmentedControlStyle {
+    /// 默认外观：Liquid Glass 外壳。
+    nonisolated static var glass: GlassSegmentedControlStyle { GlassSegmentedControlStyle() }
+}
+
+public extension SegmentedControlStyle where Self == PlainSegmentedControlStyle {
+    /// 纯色外壳外观。
+    nonisolated static var plain: PlainSegmentedControlStyle { PlainSegmentedControlStyle() }
+}
+
+public extension SegmentedControlStyle where Self == InkSegmentedControlStyle {
+    /// 墨色外观：实心 accent 胶囊 + 反色文字。
+    nonisolated static var ink: InkSegmentedControlStyle { InkSegmentedControlStyle() }
 }
 
 // MARK: - Environment entry

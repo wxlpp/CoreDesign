@@ -25,7 +25,7 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 | `CoreControlMetrics.{horizontal,vertical}Padding` | 贴近系统按钮的视觉密度，全部落在 `CoreSpacing.*` 命名档位上 |
 | `CoreElevation` | HIG 的分层原则——层级优先靠 material（毛玻璃）与 separator 表达，阴影只用于真正悬浮的内容（popover / 菜单） |
 | `SurfaceColors` / `ContentColors` / `BorderColors` / `FillColors` | 直接改指系统语义色 API（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观与对比度设置自动更新 —— ⚠️ **本行已失真**（PR #262 第 3 轮终审 I-1）：`FillColors` 现含三个**非系统色**的派生 / 定值 token —— `skeletonBase` / `skeletonHighlight`（#162）与 `specularHighlight`（#262）。 |
-| `InteractionColors.accent` 及衍生族 | 改指宿主 App 的 `Color.accentColor`，衍生态用 `Color.mix(with:by:in:)` / `.opacity()` 对 `accent` 本身做调制，见下节 |
+| `InteractionColors.accent` 及衍生族 | 改指 `Color.inkPrimary`（墨色），衍生态用 `Color.mix(with: .surfaceBase)` / `.opacity()` 对 `accent` 本身调制，见下节 |
 | `StatusColors` / `secondaryAccent` / `neutralAccent` | **显式定案：不改指系统色**——Apple HIG 没有"5 态状态色板"或"第二强调色"的系统概念，继续由 `ColorGrade`（第 1 层资源调色板）供色 |
 
 ## 各 token 家族的取值理由
@@ -55,8 +55,8 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 绝大多数 token 直接改指系统语义色 API，随系统外观、对比度设置自动更新，不再由 CoreDesign 自建 colorset 供色：
 
 - `SurfaceColors`：`surfaceCanvas` / `surfaceRaised` / `surfaceElevated` 三档统一走 `systemGroupedBackground` 族（`systemGroupedBackground` / `secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground`），`surfaceCanvasInset` 改指 `FillColors.tertiaryFill`——其官方 HIG 语义（输入字段/搜索栏/按钮）与实际消费点（头像环、进度条轨道）精确对应。
-- `ContentColors`：全部指向系统 `label` 族（`label` / `secondaryLabel` / `tertiaryLabel` / `quaternaryLabel` / `placeholderText` / `link`）；`contentInverse` / `contentOnAccent` / `contentOnDanger` / `contentOnEmphasis` 固定为 `.white`——Apple 没有"保证与当前外观相反"的系统色 API，且这些 token 的消费点均为固定饱和色背景，白字对比度可靠。
-- `BorderColors`：`separator` / `opaqueSeparator` 两族。`borderFocus` / `borderSelected` **在 `0.2.0` 就已指向 `accent`**（各自独立的固定蓝 colorset 是更早的 Issue #93 删的，不是本次改造）；本次它们的指向不变，但因 `accent` 改指宿主 `AccentColor`，实际取值随之变化。 `borderSubtle` 取 `separator.opacity(0.28)` 而非直接等于 `opaqueSeparator`，是为了保持 `subtle(0.28) < muted(0.42) < default(1.0) < strong` 的既有强弱梯度，避免与字面顺序倒挂。
+- `ContentColors`：全部指向系统 `label` 族（`label` / `secondaryLabel` / `tertiaryLabel` / `quaternaryLabel` / `placeholderText` / `link`）；`contentInverse` / `contentOnDanger` / `contentOnEmphasis` **仍**固定为 `.white`——它们的消费点均为**固定饱和色**背景（状态色 emphasis、调用方传入的 tile 底色），白字对比度可靠。⚠️ **`contentOnAccent` 已于 2026-09-08 改为 `.systemBackground`**（随主题反转）：accent 墨色化后它压在墨底上，白字在浅色模式下不可读。⇒ 这四个 token **不再同值**，按消费点区分：坐在 `accent` 上的走 `contentOnAccent`，坐在固定饱和色上的走 `contentOnEmphasis`。
+- `BorderColors`：`separator` / `opaqueSeparator` 两族。`borderFocus` / `borderSelected` **在 `0.2.0` 就已指向 `accent`**（各自独立的固定蓝 colorset 是更早的 Issue #93 删的，不是本次改造）；它们的指向始终不变，但实际取值随 `accent` 走——⚠️ 2026-09-08 起 `accent` 是**墨色**（`inkPrimary`），不再是宿主 `AccentColor`；`focusRing` 与 Sidebar 选中态因此读环境 `\.coreAccent`。 `borderSubtle` 取 `separator.opacity(0.28)` 而非直接等于 `opaqueSeparator`，是为了保持 `subtle(0.28) < muted(0.42) < default(1.0) < strong` 的既有强弱梯度，避免与字面顺序倒挂。
 - `FillColors`：`systemFill` 族四档（`systemFill` / `secondarySystemFill` / `tertiarySystemFill` / `quaternarySystemFill`），本就是系统色，未改动。
 
 ⚠️ **`MaskColors` 不属于本节（`#276` 新增，一个 token）**：`Color.maskOpaque` 是给 `.mask { … }` 用的**不透明基色**，唯一契约是 **α = 1**。它**不是一个颜色决定**——`mask` 只吃 alpha 通道，RGB 不参与合成（实测 `.mask { Color.black }` 与 `.mask { Color.white }` 逐字节相同），取白是任意的。
@@ -163,6 +163,41 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 `border` / `cornerRadius` 两个 switch 对它们取值不同），只是**底色不承担区分职责**。
 
 ### accent 衍生族（Task #120 交接，本节是承诺落盘的取值理由）
+
+⚠️ **本节已被 2026-09-08 的设计系统配色回灌改写。** 下面先记新裁决，`#120` 的原文作为
+历史记账保留在小节末尾——它解释了「为什么衍生态不能各取固定色阶」，那半仍然成立。
+
+**现状：`accent` = `Color.inkPrimary`（墨色）。** 第 2 层新增该桥接：iOS `UIColor.label` /
+macOS `NSColor.textColor`。⚠️ macOS 取 `textColor` **而不是** `labelColor`——本机实测前者
+两种外观 α 均为 `1.0000`、后者均为 `0.8471`，RGB 相同。用 `labelColor` 会让下面每个比例都
+落不准（`.opacity(0.22)` 实得 `0.1864`）并让实心按钮在 macOS 上透底。
+`AccentDerivationTests.derivationPreservesOpacity`（α > 0.95）是这个选择的机器验证点。
+
+**不再跟随宿主 `AccentColor`。** 宿主换色走 `View.coreAccent(_:)`（`@Entry var coreAccent`），
+四个衍生态自动跟随；静态 `Color.accent` 是环境不可达时的回退值。
+⚠️ **主题色应为近单色（黑 / 白极性）**：`contentOnAccent` 取 `systemBackground`，
+传入饱和色时深色模式下前景会是近黑色压在该饱和色上。本版本不提供 on-accent 环境钩子——后续处置见 `#357`。
+
+**衍生态混合目标改为 `surfaceBase`（朝向背景），方向与 `#120` 相反。** 墨色处在明度极值，
+「更远离背景」不可能成立（实测用 `.primary` 作基色时明度**零位移**，只剩 α 衰减）。
+比例：hover `0.18` / pressed `0.30` / disabled `.opacity(0.22)` / subtle `.opacity(0.08)`。
+公式收成 `Color.accentHover(from:)` 等四个 internal `static func`——静态 token 与
+`ButtonRoleStyleRole` 都调它，两处各写一遍必然漂而且不会报错。
+
+**新增 `dataAccent`（系统蓝）与 `dataAccentSubtle`。** 图表环、tag 这类**靠色相携带含义**
+的东西跟着墨色 accent 走会读成**禁用** ⇒ 单开一个不跟随 accent 的数据色，
+`CoreDesignCharts` 四个图表的 `tint` 默认实参指向它。
+
+**`secondaryAccent` 族改为 `grey7/8/9/2`**（原 `lightBlue5/6/7/2`）。
+附带：`DotSphere` / `CharSphere` 的**预览**把 `secondaryAccent` 当第二色用，
+配色从「墨 + 浅蓝」变成「墨 + 灰」——仅预览，不影响 API。
+⚠️ 这让它与 `neutralAccent`（`grey5/6/7/2`）在两个档位上**结构相等**
+（`secondaryAccent` == `neutralAccentPressed`、两族 disabled 同为 `grey2`）——
+**有意接受**，下面那段「避免库内两套灰阶互不对应」的原理由已因此失真。
+
+---
+
+以下为 `#120` 原文（历史记账）：
 
 `accent` 从固定的 CoreDesign 品牌蓝（`Color.brand5`）改为 `Color.accentColor`——库跟随宿主 App 在 Asset Catalog 里设置的 `AccentColor`，而不是自带一套固定品牌色。衍生态（`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground`）因此不能再各取固定色阶（宿主可以把 `AccentColor` 设成任意色相，一个固定色阶不再是"它更亮一档的样子"），改为对 `accent` 本身做明度 / 不透明度调制：
 

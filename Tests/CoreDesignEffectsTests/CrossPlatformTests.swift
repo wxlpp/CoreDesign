@@ -182,7 +182,10 @@ struct SphereFieldTests {
     func toneMixesInPerceptualSpace() throws {
         let env = EnvironmentValues()
         let wave = SphereField.Wave(base: 0, next: 1, timeInCycle: 0)
-        let palette: [Color] = [.accent, .contentSecondary]
+        // ⚠️ 不能用 `.accent`：它现在是墨色（inkPrimary），与 `.contentSecondary` 同为消色，
+        // perceptual 与 device 插值在灰阶上重合 ⇒ 判据挑不出差别（实测两边都是 #000000BF）。
+        // 必须取**有色相**且在 macOS native 腿可解析的一对（系统色，不是 ColorGrade 资源色）。
+        let palette: [Color] = [.dataAccent, .success]
         let tone = try #require(SphereField.tone(palette: palette, wave: wave, progress: 0.5))
 
         let perceptual = palette[0].mix(with: palette[1], by: 0.5, in: .perceptual).resolve(in: env)

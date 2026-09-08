@@ -19,7 +19,7 @@ public struct RingChart<Value: ChartValue>: View {
         _ values: [Value],
         goal: Double,
         title: LocalizedStringResource? = nil,
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         colors: [Color] = []
     ) {
         self.values = values

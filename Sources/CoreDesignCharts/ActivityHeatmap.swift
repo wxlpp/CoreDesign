@@ -15,7 +15,7 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     public init(
         _ days: [Day],
         title: LocalizedStringResource? = nil,
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         calendar: Calendar = .current
     ) {
         self.days = days

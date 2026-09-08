@@ -10,6 +10,7 @@ public struct ProgressBar: View {
     let label: String?
 
     @Environment(\.locale) private var locale
+    @Environment(\.coreAccent) private var resolvedAccent
 
     public init(value: Double, tint: Color? = nil, label: String? = nil) {
         let sanitized = value.isFinite ? value : 0
@@ -32,7 +33,7 @@ public struct ProgressBar: View {
                     CoreShape.rounded(CoreRadius.small)
                         .fill(Color.surfaceCanvasInset)
                     CoreShape.rounded(CoreRadius.small)
-                        .fill(self.tint ?? Color.accent)
+                        .fill(self.tint ?? self.resolvedAccent)
                         .frame(width: geometry.size.width * CGFloat(self.value))
                 }
             }

@@ -77,7 +77,7 @@ PinCode(value: $code, length: 6)
 
 - 格子背景：`Color.surfaceInteractive`
 - 焦点格边框：`.tint`（`TintShapeStyle`，响应环境 `.tint(_:)`，未显式设置时解析为宿主
-  App 的 `Color.accentColor`），`CoreBorderWidth.thick`
+  SwiftUI 的默认 tint），`CoreBorderWidth.thick`
 - 非焦点格边框：`Color.borderMuted`，`CoreBorderWidth.thin`
 - 禁用态文字：`Color.contentDisabled`；正常态：`Color.contentPrimary`
 - 圆角：`CoreRadius.medium`

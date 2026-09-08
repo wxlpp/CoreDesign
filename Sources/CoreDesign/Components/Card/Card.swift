@@ -25,6 +25,7 @@ public struct Card<Content: View>: View {
     private let padding: CGFloat
     private let alignment: Alignment
     private let kind: CardKind
+    private let elevation: CoreElevation.Level
     private let content: Content
 
     /// - Parameters:
@@ -33,16 +34,24 @@ public struct Card<Content: View>: View {
     ///   - kind: 容器观感，默认 `.content`（背景 + 描边 + 圆角）。`.grouped` 只保留
     ///     背景 + 圆角、**去掉描边**——贴近 iOS 系统分组容器
     ///     （`secondarySystemGroupedBackground` 靠填充色对比定界、无描边）。
+    ///   - elevation: 投影档位，默认 `.small`（一层很浅的抬升）。传 `.none` 即退回无投影。
+    ///     ⚠️ **本参数背离本仓的 surface 分层规则**（`docs/DESIGN-FOUNDATION.md`
+    ///     「层级交给 material + separator」，静置内容不浮起）。这是逐条确认过的
+    ///     单点越界，只作用在 `Card` 这一层——`.surface(_:)` 本身不受影响。
+    ///     ⚠️ 用 `CoreElevation.Level` 而非 `Bool`：本仓有 Bool 参数纪律
+    ///     （`BoolExemptionGuard`），且档位比布尔更能表达「浮多高」。
     ///   - content: 卡片内容。
     public init(
         padding: CGFloat = CoreSpacing.lg,
         alignment: Alignment = .leading,
         kind: CardKind = .content,
+        elevation: CoreElevation.Level = .small,
         @ViewBuilder content: () -> Content
     ) {
         self.padding = padding
         self.alignment = alignment
         self.kind = kind
+        self.elevation = elevation
         self.content = content()
     }
 
@@ -51,6 +60,7 @@ public struct Card<Content: View>: View {
             .padding(self.padding)
             .frame(maxWidth: .infinity, alignment: self.alignment)
             .surface(self.kind.surfaceKind)
+            .coreShadow(self.elevation)
     }
 }
 

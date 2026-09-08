@@ -163,7 +163,7 @@
       "customStyleProtocol": null,
       "needsExtensionPoint": false,
       "textParams": [],
-      "notes": "步骤 1 无。步骤 2/3：文档自述『Card 不引入平行的容器体系』——是 `.surface(.content)` / `.surface(.grouped)` 的具名薄封装，本身无独立视觉身份可换皮；已有的外观变化（有/无描边）在 #41 裁决 1 里由 `bordered: Bool` 收成了取值域恰为两个 case 的 `CardKind` 语义枚举（公约第 3 节替代路径 3.1），不是样式扩展点。视觉即含义 ⇒ 步骤 3 规定性，不给扩展点。 ⚠️ #53 改判（段 1「直接改判」档，`D-53-2` / `R-17`）：`decidedBy` 由 `step3` 改判为 `tiebreaker`。可核验理由（引 `53-survey.md` 条目 2 + `53-triage.md` #2）：(A) 不成立——枚举候选 0 个、零 elaboration（notes 唯一提到的『外观变化』有/无描边是 Card **自己已有**的历史变体，已被 `CardKind` 枚举吸收，不是被排除的外部候选形态），属公约明令的『没写候选≠真的举不出』常见失效模式；(B) 不成立——`notes` 全篇只有『本身无独立视觉身份可换皮』『视觉即含义』两句消极描述/结论复述，无一句『换成 X 就读成 Y』的反事实句。关键不是『没写好』：`notes` 自陈 Card 是 `.surface(.content)` / `.surface(.grouped)` 的具名薄封装，本身无独立视觉身份——这是组件文档自己承认的架构事实（调用方可直接用 `.surface(.content)` 达到同样效果），无需段 2 读源码即可判定实质也不满足 ⇒ 直接改判。回路：`D-53-2` / `R-17`。"
+      "notes": "步骤 1 无。步骤 2/3：文档自述『Card 不引入平行的容器体系』——是 `.surface(.content)` / `.surface(.grouped)` 的具名薄封装，本身无独立视觉身份可换皮；已有的外观变化（有/无描边）在 #41 裁决 1 里由 `bordered: Bool` 收成了取值域恰为两个 case 的 `CardKind` 语义枚举（公约第 3 节替代路径 3.1），不是样式扩展点。视觉即含义 ⇒ 步骤 3 规定性，不给扩展点。 ⚠️ #53 改判（段 1「直接改判」档，`D-53-2` / `R-17`）：`decidedBy` 由 `step3` 改判为 `tiebreaker`。可核验理由（引 `53-survey.md` 条目 2 + `53-triage.md` #2）：(A) 不成立——枚举候选 0 个、零 elaboration（notes 唯一提到的『外观变化』有/无描边是 Card **自己已有**的历史变体，已被 `CardKind` 枚举吸收，不是被排除的外部候选形态），属公约明令的『没写候选≠真的举不出』常见失效模式；(B) 不成立——`notes` 全篇只有『本身无独立视觉身份可换皮』『视觉即含义』两句消极描述/结论复述，无一句『换成 X 就读成 Y』的反事实句。关键不是『没写好』：`notes` 自陈 Card 是 `.surface(.content)` / `.surface(.grouped)` 的具名薄封装，本身无独立视觉身份——这是组件文档自己承认的架构事实（调用方可直接用 `.surface(.content)` 达到同样效果），无需段 2 读源码即可判定实质也不满足 ⇒ 直接改判。回路：`D-53-2` / `R-17`。 ⚠️ 2026-09-08：`init` 新增 `elevation: CoreElevation.Level = .small`，Card 默认带一层浅投影。这**背离**本仓「静置内容不浮起、层级交给 material + separator」的规则，是逐条确认过的单点越界，只作用在 Card 这一层（`.surface(_:)` 本身不变），`elevation: .none` 一行退回。用档位枚举而非 Bool 是为 Bool 参数纪律（`BoolExemptionGuard`）。"
     },
     {
       "component": "Carousel",
@@ -691,7 +691,7 @@
           "category": "C"
         }
       ],
-      "notes": "⚠️ 同类陷阱（任务书明确点名）：本组件是『包着系统 TextField、加了行为（焦点管理/清除按钮/frame 策略）的 wrapper』，不因套壳就当作 step1——TextField 无可用样式协议覆盖这整套复合行为，本身也不是纯样式关系。步骤 1 无。步骤 2：候选（前置图标+清除按钮现状 / 系统 `.searchable()` 提升到 toolbar 的形态）因交互位置/生命周期不同不算『同含义』替代；纯外观候选（pill/方角、图标位置）是皮肤变体 ⇒ 举得犹豫，落 tiebreaker，规定性组件不给扩展点。textParams：placeholder 类型为裸 String（无 LocalizedStringKey 重载），文档未给出迁移意图；比照同款处理的 TagInput.placeholder（该文件注释明确『运行期任意占位文案场景，调用方可能传入分类名等动态字符串』）判定为 C 类（有意保持 verbatim 动态内容，不是待迁移的界面 chrome）。"
+      "notes": "⚠️ 同类陷阱（任务书明确点名）：本组件是『包着**平台原生搜索框**（iOS `UISearchTextField` / macOS `NSSearchField`）、加了 44pt 命中区与聚焦转发的 wrapper』——2026-09-08 由手搓 SwiftUI 实现改为原生控件，清除按钮与其 a11y 名改由系统提供，不因套壳就当作 step1——TextField 无可用样式协议覆盖这整套复合行为，本身也不是纯样式关系。步骤 1 无。步骤 2：候选（前置图标+清除按钮现状 / 系统 `.searchable()` 提升到 toolbar 的形态）因交互位置/生命周期不同不算『同含义』替代；纯外观候选（pill/方角、图标位置）是皮肤变体 ⇒ 举得犹豫，落 tiebreaker，规定性组件不给扩展点。textParams：placeholder 类型为裸 String（无 LocalizedStringKey 重载），文档未给出迁移意图；比照同款处理的 TagInput.placeholder（该文件注释明确『运行期任意占位文案场景，调用方可能传入分类名等动态字符串』）判定为 C 类（有意保持 verbatim 动态内容，不是待迁移的界面 chrome）。 ⚠️ 2026-09-08 复核：改用原生控件**不改变本条裁决**——`kind` 仍 prescriptive、`decidedBy` 仍 tiebreaker、仍不给扩展点。当时否决 `.searchable()` 的理由（交互位置/生命周期不同，不算同含义替代）在本次改动中被再次援引且仍然成立：本组件是可内联摆放的独立控件，`.searchable` 是 navigation 作用域的。"
     },
     {
       "component": "SectionFooter",
@@ -739,7 +739,7 @@
           "category": "B"
         }
       ],
-      "notes": "祖父条款：已发布公开样式协议，不走判定法——删它是破坏性变更，判定法推翻不了既成事实。 textParams：title 由 `(Item) -> String` 闭包解出的分段标签文本，形态与 UnderlinedTabBar 的 `title` 闭包完全相同（App 固定定义的分类导航标签，非用户自由输入）⇒ 对齐 UnderlinedTabBar 判 B 类（终审 I3）。`SegmentedControlStyleConfiguration.Segment.title` 是同一份文本经组件内部转交给 style 实现者的镜像字段（类比 ButtonStyleConfiguration 上下文透传），不是调用方另一处可独立填写的文案入口，不重复计入 textParams。"
+      "notes": "祖父条款：已发布公开样式协议，不走判定法——删它是破坏性变更，判定法推翻不了既成事实。 textParams：title 由 `(Item) -> String` 闭包解出的分段标签文本，形态与 UnderlinedTabBar 的 `title` 闭包完全相同（App 固定定义的分类导航标签，非用户自由输入）⇒ 对齐 UnderlinedTabBar 判 B 类（终审 I3）。`SegmentedControlStyleConfiguration.Segment.title` 是同一份文本经组件内部转交给 style 实现者的镜像字段（类比 ButtonStyleConfiguration 上下文透传），不是调用方另一处可独立填写的文案入口，不重复计入 textParams。 ⚠️ 2026-09-08：新增第三个内置 style `InkSegmentedControlStyle`（实心 accent 胶囊 + 反色文字）与 `.glass` / `.plain` / `.ink` 三个静态入口。**默认仍是 `GlassSegmentedControlStyle`**——web 版设计系统的墨色胶囊是渲染基座代偿（浏览器画不出 Liquid Glass），不是升级。Ink 走 SwiftUI 回退路径，不走 iOS 的 `NativeGlassSegmentedControl`（后者选中态只有 `selectedSegmentTintColor` 一个入口）。"
     },
     {
       "component": "Separator",

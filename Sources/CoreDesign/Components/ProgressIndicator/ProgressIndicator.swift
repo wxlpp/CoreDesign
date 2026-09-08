@@ -6,35 +6,36 @@ import SwiftUI
 public struct ProgressIndicator: View {
     let text: Text?
 
-    let tint: Color
+    let tint: Color?
 
     /// 创建无文案的进度指示器。
-    public init(tint: Color = .accent) {
+    public init(tint: Color? = nil) {
         self.text = nil
         self.tint = tint
     }
 
     /// 静态文案——字面量在 `Bundle.main` 本地化（对 App 调用方即其自身 bundle），
     /// 渲染于 spinner 下方。
-    public init(text: LocalizedStringKey, tint: Color = .accent) {
+    public init(text: LocalizedStringKey, tint: Color? = nil) {
         self.text = Text(text)
         self.tint = tint
     }
 
     /// 运行期字符串文案，verbatim 显示、不走本地化查表。
     @_disfavoredOverload
-    public init<S: StringProtocol>(text: S, tint: Color = .accent) {
+    public init<S: StringProtocol>(text: S, tint: Color? = nil) {
         self.text = Text(text)
         self.tint = tint
     }
 
     @Environment(\.controlSize) private var controlSize
+    @Environment(\.coreAccent) private var resolvedAccent
 
     public var body: some View {
         VStack(spacing: CoreSpacing.sm) {
             ProgressView()
                 .progressViewStyle(.circular)
-                .tint(self.tint)
+                .tint(self.tint ?? self.resolvedAccent)
                 .controlSize(self.controlSize)
                 .accessibilityLabel(self.text ?? Text("Loading", bundle: .module))
 

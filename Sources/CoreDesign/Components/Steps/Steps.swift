@@ -363,13 +363,13 @@ public struct Steps: View {
                     Text("\(index + 1)")
                         .coreFont(.footnote)
                         .fontWeight(.semibold)
-                        .foregroundStyle(Color.contentOnAccent)
+                        .foregroundStyle(Color.contentOnEmphasis)
                 case .done:
                     Circle().fill(.tint)
                     Image(systemName: "checkmark")
                         .coreFont(.footnote)
                         .fontWeight(.semibold)
-                        .foregroundStyle(Color.contentOnAccent)
+                        .foregroundStyle(Color.contentOnEmphasis)
                 }
             }
         }

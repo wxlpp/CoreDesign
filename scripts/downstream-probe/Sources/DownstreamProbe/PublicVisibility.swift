@@ -440,7 +440,7 @@ func consumeProgressIndicatorVerbatimText(_ status: String) -> some View {
 // probe 照常绿。这三个 consume 各钉一处。
 
 @MainActor
-func consumeSpinningModifierTint() -> Color {
+func consumeSpinningModifierTint() -> Color? {
     SpinningModifier(isActive: true, presentation: .topBar, tint: .green).tint
 }
 

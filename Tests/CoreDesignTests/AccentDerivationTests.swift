@@ -16,16 +16,16 @@ struct AccentDerivationTests {
         return e
     }
 
-    @Test("pressed 在浅色下变暗、在深色下变亮——即始终远离背景")
-    func pressedMovesAwayFromBackground() {
+    @Test("pressed 在浅色下变亮、在深色下变暗——即始终朝向背景")
+    func pressedMovesTowardBackground() {
         let light = Self.env(.light), dark = Self.env(.dark)
         let accentLight = Self.luminance(Color.accent.resolve(in: light))
         let pressedLight = Self.luminance(Color.accentPressed.resolve(in: light))
         let accentDark = Self.luminance(Color.accent.resolve(in: dark))
         let pressedDark = Self.luminance(Color.accentPressed.resolve(in: dark))
 
-        #expect(pressedLight < accentLight, "浅色模式按下应变暗，实测 \(pressedLight) 未低于 \(accentLight)")
-        #expect(pressedDark > accentDark, "深色模式按下应变亮以远离黑画布，实测 \(pressedDark) 未高于 \(accentDark)")
+        #expect(pressedLight > accentLight, "浅色模式按下应朝白背景变亮，实测 \(pressedLight) 未高于 \(accentLight)")
+        #expect(pressedDark < accentDark, "深色模式按下应朝黑背景变暗，实测 \(pressedDark) 未低于 \(accentDark)")
     }
 
     @Test("hover 与 pressed 同向，且 pressed 走得更远")

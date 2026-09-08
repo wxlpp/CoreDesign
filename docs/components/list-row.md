@@ -53,5 +53,8 @@ ListRow {
 
 - 背景：`View.surface(.canvas)`，hover 态 `Color.surfaceCanvasSubtle`
 - 布局：HStack，leading ↔ label 间距 `CoreSpacing.md`，label ↔ trailing 间距 `CoreSpacing.md`
-- 字号 / padding / 高度：`CoreControlMetrics` for `.regular`（`frame(minHeight:)`）
+- 字号 / 横向 padding / 最小高度：`CoreControlMetrics` for `.regular`（`frame(minHeight:)` = 44pt）
+- **竖向 padding：`CoreSpacing.sm`（8pt）**，刻意比 `CoreControlMetrics.verticalPadding(.regular)`（12pt）紧一档。
+  ⚠️ 不要把这一档改回共享 metric——同一函数还喂着 `ButtonChromeModifier`，改它会动全库按钮高度。
+  ⚠️ 44pt 下限仍由 `minHeight` 守着 ⇒ **单行行观感不变**，只有多行 / 带副标题的行真的收紧。
 - 多行 label 自然撑开，不固定 height

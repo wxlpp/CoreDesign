@@ -47,9 +47,10 @@ struct ProgressBarL10nTests {
         #expect(v.contains("%"), "百分号丢失：\(v)")
     }
 
-    @Test("四个新 key 确实注册进 catalog——而不是靠 key 回退看起来对")
+    @Test("两个新 key 确实注册进 catalog——而不是靠 key 回退看起来对")
     func newKeysExistInCatalog() {
-        for key in ["%@ complete", "Clear %@", "Search", "search"] {
+        // "Clear %@" 已随 SearchField 改用原生控件移除——清除按钮的可访问名由系统提供。
+        for key in ["%@ complete", "Search"] {
             let resolved = Bundle.module.localizedString(forKey: key, value: "__MISSING__", table: nil)
             #expect(resolved != "__MISSING__", "键 \(key) 未注册进 Localizable.strings")
         }

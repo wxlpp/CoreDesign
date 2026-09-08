@@ -37,6 +37,20 @@ public extension Color {
         #endif
     }
 
+    /// **不透明**的主要墨色：浅色下黑、深色下白，两种外观 α 恒为 1.0。
+    ///
+    /// ⚠️ 两端桥的是**不同**系统色，这是刻意的：iOS 用 `UIColor.label`（实测 α = 1.0），
+    /// macOS 用 `NSColor.textColor` 而**不是** `labelColor`——后者实测 α = 0.8471，
+    /// 会让所有以本色为基的比例落不准（`.opacity(0.22)` 实得 0.186）并让实心填充透底。
+    /// 两者 RGB 相同，只差 α。
+    static var inkPrimary: Color {
+        #if canImport(UIKit)
+            Color(uiColor: .label)
+        #else
+            Color(nsColor: .textColor)
+        #endif
+    }
+
     /// 浅色背景上文本的固定深色（`UIColor.darkText`）。
     /// ⚠️ macOS 无对应 API，退化为**随外观切换**的 `NSColor.textColor`，且与 `lightText` 同值。
     static var darkText: Color {

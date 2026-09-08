@@ -1,7 +1,6 @@
 /* Component internal UI strings (source language = en). */
 "%@ complete" = "%@ complete";
 "%@ of %@" = "%@ of %@";
-"Clear %@" = "Clear %@";
 "Alert" = "Alert";
 "Collapsed" = "Collapsed";
 "Error" = "Error";
@@ -22,4 +21,3 @@
 "Untitled" = "Untitled";
 "Verification code" = "Verification code";
 "Warning" = "Warning";
-"search" = "search";
