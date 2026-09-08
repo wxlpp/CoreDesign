@@ -87,6 +87,11 @@ private struct NativeSearchField: UIViewRepresentable {
     func updateUIView(_ field: UISearchTextField, context: Context) {
         context.coordinator.parent = self
         field.placeholder = self.placeholder
+        // ⚠️ `#222` 的一半：placeholder 为空时系统没有可读的名字，补一个本地化回退。
+        // 非空时留 `nil`，让 placeholder 自己充当可访问名（别覆盖调用方的文案）。
+        field.accessibilityLabel = self.placeholder.isEmpty
+            ? String(localized: "Search", bundle: .module)
+            : nil
         if field.text != self.text {
             field.text = self.text
         }
@@ -138,6 +143,10 @@ private struct NativeSearchField: NSViewRepresentable {
     func updateNSView(_ field: NSSearchField, context: Context) {
         context.coordinator.parent = self
         field.placeholderString = self.placeholder
+        // 见 iOS 侧同名处置（`#222`）。
+        field.setAccessibilityLabel(
+            self.placeholder.isEmpty ? String(localized: "Search", bundle: .module) : nil
+        )
         if field.stringValue != self.text {
             field.stringValue = self.text
         }

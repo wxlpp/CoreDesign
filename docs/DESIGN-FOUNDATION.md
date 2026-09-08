@@ -176,7 +176,7 @@ macOS `NSColor.textColor`。⚠️ macOS 取 `textColor` **而不是** `labelCol
 **不再跟随宿主 `AccentColor`。** 宿主换色走 `View.coreAccent(_:)`（`@Entry var coreAccent`），
 四个衍生态自动跟随；静态 `Color.accent` 是环境不可达时的回退值。
 ⚠️ **主题色应为近单色（黑 / 白极性）**：`contentOnAccent` 取 `systemBackground`，
-传入饱和色时深色模式下前景会是近黑色压在该饱和色上。本版本不提供 on-accent 环境钩子。
+传入饱和色时深色模式下前景会是近黑色压在该饱和色上。本版本不提供 on-accent 环境钩子——后续处置见 `#357`。
 
 **衍生态混合目标改为 `surfaceBase`（朝向背景），方向与 `#120` 相反。** 墨色处在明度极值，
 「更远离背景」不可能成立（实测用 `.primary` 作基色时明度**零位移**，只剩 α 衰减）。
@@ -189,6 +189,8 @@ macOS `NSColor.textColor`。⚠️ macOS 取 `textColor` **而不是** `labelCol
 `CoreDesignCharts` 四个图表的 `tint` 默认实参指向它。
 
 **`secondaryAccent` 族改为 `grey7/8/9/2`**（原 `lightBlue5/6/7/2`）。
+附带：`DotSphere` / `CharSphere` 的**预览**把 `secondaryAccent` 当第二色用，
+配色从「墨 + 浅蓝」变成「墨 + 灰」——仅预览，不影响 API。
 ⚠️ 这让它与 `neutralAccent`（`grey5/6/7/2`）在两个档位上**结构相等**
 （`secondaryAccent` == `neutralAccentPressed`、两族 disabled 同为 `grey2`）——
 **有意接受**，下面那段「避免库内两套灰阶互不对应」的原理由已因此失真。

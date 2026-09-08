@@ -23,7 +23,7 @@ public extension View {
     ///
     /// ⚠️ **主题色应为近单色（黑 / 白极性）**。`contentOnAccent` 取 `systemBackground`，
     /// 在墨色 accent 上正确；若传入饱和色，深色模式下前景会是近黑色压在该饱和色上。
-    /// 本版本不提供 on-accent 的环境钩子。
+    /// 本版本不提供 on-accent 的环境钩子——后续处置见 `#357`。
     ///
     /// - Parameter color: 新的强调色。
     func coreAccent(_ color: Color) -> some View {

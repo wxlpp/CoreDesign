@@ -76,7 +76,7 @@
 ⚠️ **`coreAccent(_:)` 的主题色应为近单色（黑 / 白极性）。** `contentOnAccent` 取
 `systemBackground`，只在墨色 accent 上正确；传入**饱和色**时深色模式下前景会是近黑色
 压在该饱和色上。本版本**不提供** on-accent 的环境钩子（要修需加 `coreAccent(_:on:)`
-或按亮度派生 `onColor`，是独立的 API 决定）。
+或按亮度派生 `onColor`，是独立的 API 决定）——已登记为 `#357`。
 
 ⚠️ **`SearchField.onSubmit` 在 macOS 上的触发时机**：走 `NSSearchField` 后仅在**回车**
 触发，与 iOS 及旧的 SwiftUI `.onSubmit` 一致。⚠️ 实现上**不得**改用 `target` / `action`
