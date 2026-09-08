@@ -105,3 +105,58 @@ nonisolated func bitmapExpectationMessage<Bytes: Collection>(
     let summary = bitmapDifferenceSummary(a, b)
     return comment.isEmpty ? summary : "\(comment)\n\(summary)"
 }
+
+// MARK: - 容差相等（Issue #358）
+
+/// 逐通道最大偏差 —— `a` 与 `b` 长度须相同，返回 `nil` 表示任一侧未渲染。
+nonisolated func bitmapMaxChannelDelta<Bytes: Collection>(_ a: Bytes?, _ b: Bytes?) -> Int?
+where Bytes.Element == UInt8 {
+    guard let a, let b, a.count == b.count else { return nil }
+    var maxDelta = 0
+    for (lhs, rhs) in zip(a, b) {
+        let delta = Int(lhs) > Int(rhs) ? Int(lhs) - Int(rhs) : Int(rhs) - Int(lhs)
+        if delta > maxDelta { maxDelta = delta }
+    }
+    return maxDelta
+}
+
+/// 断言两张位图**在光栅化噪声以内**相同：逐通道偏差不超过 `maxChannelDelta`。
+///
+/// ⚠️ **不要拿它替换 `expectBitmapsEqual`**。只用在「两张图按构造应当逐像素同值、
+/// 但画面里含抗锯齿的字形 / 曲线边缘」的地方——那种边缘的量化舍入在**同一份输入**上
+/// 都不稳定（`#358` 实测：同参数连渲两次，3/20000 像素差 ±1）。
+///
+/// 判据强度未被削弱：本函数钉的是**逐通道最大偏差**，不是「差异像素数」。
+/// 真正的图层渗透会以饱和色按 α 合成上来，偏差是几十到上百，`maxChannelDelta: 1` 照样判红。
+nonisolated func expectBitmapsEquivalent<Bytes: Collection & Equatable>(
+    _ a: Bytes?,
+    _ b: Bytes?,
+    maxChannelDelta: Int,
+    _ comment: @autoclosure () -> String = "",
+    sourceLocation: SourceLocation = #_sourceLocation
+) where Bytes.Element == UInt8 {
+    let bothRendered = bitmapRenderFailure(a, b) == nil
+    guard bothRendered else {
+        #expect(
+            bothRendered,
+            Comment(rawValue: bitmapExpectationMessage(comment(), a, b)),
+            sourceLocation: sourceLocation
+        )
+        return
+    }
+    guard let delta = bitmapMaxChannelDelta(a, b) else {
+        #expect(
+            Bool(false),
+            Comment(rawValue: bitmapExpectationMessage("两张位图长度不同，无法逐通道比较。" + comment(), a, b)),
+            sourceLocation: sourceLocation
+        )
+        return
+    }
+    #expect(
+        delta <= maxChannelDelta,
+        Comment(rawValue: bitmapExpectationMessage(
+            "逐通道最大偏差 \(delta) > 容差 \(maxChannelDelta)。" + comment(), a, b
+        )),
+        sourceLocation: sourceLocation
+    )
+}

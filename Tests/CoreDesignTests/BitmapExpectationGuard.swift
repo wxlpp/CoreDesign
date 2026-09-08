@@ -858,3 +858,37 @@ private nonisolated final class XCTAssertFinder: SyntaxVisitor {
         return nil
     }
 }
+
+// MARK: - J5：容差入口自证（Issue #358）
+
+@Suite("J5：expectBitmapsEquivalent 的容差不吞真实差异")
+struct BitmapEquivalenceToleranceGuard {
+    /// ⚠️ 本组判据的存在理由：`#358` 把两条 `expectBitmapsEqual` 换成了
+    /// `expectBitmapsEquivalent(maxChannelDelta: 1)`。**放宽判据必须自证没放宽过头**
+    /// ——否则「测试变绿」只说明阈值调软了，不说明缺陷不在。
+    /// 这里直接测底层的纯函数 `bitmapMaxChannelDelta`，不经 `#expect` 副作用。
+
+    @Test("光栅化噪声（逐通道 ±1）落在容差内")
+    func rasterNoiseIsWithinTolerance() {
+        let a: [UInt8] = [51, 51, 51, 255, 170, 170, 170, 255]
+        let b: [UInt8] = [52, 52, 52, 255, 171, 171, 171, 255]
+        #expect(bitmapMaxChannelDelta(a, b) == 1, "±1 噪声的最大偏差应为 1")
+    }
+
+    @Test("真实图层渗透（饱和色按 α 合成）远超容差 —— 容差抓得住它")
+    func realBleedExceedsTolerance() {
+        // 白底上以 84.7% 合成 systemBlue（`#276` 登记的 macOS 遮罩 α）：
+        // 蓝通道几乎不变、红绿通道掉到 ~39 ⇒ 逐通道偏差 ~216，远大于 1。
+        let clean: [UInt8] = [255, 255, 255, 255]
+        let bled: [UInt8] = [39, 39, 255, 255]
+        let delta = bitmapMaxChannelDelta(clean, bled)
+        #expect(delta != nil && delta! > 1, "真实渗透的偏差 \(delta as Any) 未超过容差 1 —— 容差把缺陷吞了")
+        #expect(delta == 216, "偏差实得 \(delta as Any)，期望 216（255 − 39）")
+    }
+
+    @Test("长度不同返回 nil —— 不得被读成「偏差为 0」")
+    func mismatchedLengthIsNotZeroDelta() {
+        #expect(bitmapMaxChannelDelta([1, 2, 3] as [UInt8], [1, 2] as [UInt8]) == nil)
+        #expect(bitmapMaxChannelDelta(nil as [UInt8]?, [1] as [UInt8]) == nil)
+    }
+}

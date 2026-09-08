@@ -807,10 +807,18 @@ struct BeforeAfterSliderTests {
         // 在 **iOS 上与 `.contentPrimary` 同为 `UIColor.label`**，两者位图逐字节相同 ⇒
         // 下面的 `expectBitmapsDiffer` 会恒红，而 macOS 上因 textColor/labelColor 的 α 差
         // 仍差几字节、照绿——典型的「macOS 绿、iOS 红」。探针色必须与 label 族无关。
+        //
+        // ⚠️⚠️ 两条相等断言走**容差**入口（`#358`）。原来的逐字节 `expectBitmapsEqual`
+        // 在单独跑这一条时**失败 8/10**（被其它测试预热后才多数通过，所以全量跑里只有
+        // 5–10%）。实测差异是 **3/20000 像素、逐通道 ±1**，位置在 x=197…199 / y=49…51
+        // ——`fraction = 1` 时旋钮正落在右边缘，那是它的 SF Symbol 字形抗锯齿边。
+        // 决定性证据：**同参数连渲两次也不相同** ⇒ 与 `after` 的取值无关，
+        // 是光栅化量化舍入，不是本判据下面消息里说的「遮罩不满不透明」。
+        // 该 flake 在 `dd72ff6`（`#356` 之前）同样 3/3 复现，**不是本次改动引入的**。
         let fullyBefore = Self.probe(fraction: 1, before: .surfaceRaised, after: .dataAccent)
         let fullyBeforeOtherAfter = Self.probe(fraction: 1, before: .surfaceRaised, after: .contentPrimary)
-        expectBitmapsEqual(fullyBefore, fullyBeforeOtherAfter, """
-        `fraction = 1`（完全揭示 `before`）时换掉 `after` 的颜色，位图变了 ——
+        expectBitmapsEquivalent(fullyBefore, fullyBeforeOtherAfter, maxChannelDelta: 1, """
+        `fraction = 1`（完全揭示 `before`）时换掉 `after` 的颜色，位图**逐通道偏差超过 1** ——
         说明 `after` 那一层**透上来了**：揭示遮罩不是满不透明的
         （Issue #276：`Color.primary` **macOS 实测 α = 0.8471**、**iOS 实测 1.0**
         ⇒ 露出的那半在 macOS 上以 84.7% 合成，对比越强的两张图 ghosting 越明显）。
@@ -820,8 +828,8 @@ struct BeforeAfterSliderTests {
 
         let fullyAfter = Self.probe(fraction: 0, before: .surfaceRaised, after: .dataAccent)
         let fullyAfterOtherBefore = Self.probe(fraction: 0, before: .contentPrimary, after: .dataAccent)
-        expectBitmapsEqual(fullyAfter, fullyAfterOtherBefore, """
-        `fraction = 0`（完全揭示 `after`）时换掉 `before` 的颜色，位图变了 ——
+        expectBitmapsEquivalent(fullyAfter, fullyAfterOtherBefore, maxChannelDelta: 1, """
+        `fraction = 0`（完全揭示 `after`）时换掉 `before` 的颜色，位图**逐通道偏差超过 1** ——
         `before` 那一层在完全不该出现的位置上仍有像素。
         """)
 
