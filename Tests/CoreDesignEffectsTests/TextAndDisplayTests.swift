@@ -803,7 +803,11 @@ struct BeforeAfterSliderTests {
 
     @Test("端点上被盖住的那一层完全不参与合成（换它的颜色，位图一个字节都不变）")
     func endpointRenderIsIndependentOfTheHiddenLayer() {
-        let fullyBefore = Self.probe(fraction: 1, before: .surfaceRaised, after: .accent)
+        // ⚠️ 探针色用 `.dataAccent`（系统蓝）而不是 `.accent`：后者自 accent 墨色化后
+        // 在 **iOS 上与 `.contentPrimary` 同为 `UIColor.label`**，两者位图逐字节相同 ⇒
+        // 下面的 `expectBitmapsDiffer` 会恒红，而 macOS 上因 textColor/labelColor 的 α 差
+        // 仍差几字节、照绿——典型的「macOS 绿、iOS 红」。探针色必须与 label 族无关。
+        let fullyBefore = Self.probe(fraction: 1, before: .surfaceRaised, after: .dataAccent)
         let fullyBeforeOtherAfter = Self.probe(fraction: 1, before: .surfaceRaised, after: .contentPrimary)
         expectBitmapsEqual(fullyBefore, fullyBeforeOtherAfter, """
         `fraction = 1`（完全揭示 `before`）时换掉 `after` 的颜色，位图变了 ——
@@ -814,14 +818,14 @@ struct BeforeAfterSliderTests {
         裁剪不涉及 alpha，不存在"揭示到 85%"这种状态。
         """)
 
-        let fullyAfter = Self.probe(fraction: 0, before: .surfaceRaised, after: .accent)
-        let fullyAfterOtherBefore = Self.probe(fraction: 0, before: .contentPrimary, after: .accent)
+        let fullyAfter = Self.probe(fraction: 0, before: .surfaceRaised, after: .dataAccent)
+        let fullyAfterOtherBefore = Self.probe(fraction: 0, before: .contentPrimary, after: .dataAccent)
         expectBitmapsEqual(fullyAfter, fullyAfterOtherBefore, """
         `fraction = 0`（完全揭示 `after`）时换掉 `before` 的颜色，位图变了 ——
         `before` 那一层在完全不该出现的位置上仍有像素。
         """)
 
-        let halfA = Self.probe(fraction: 0.5, before: .surfaceRaised, after: .accent)
+        let halfA = Self.probe(fraction: 0.5, before: .surfaceRaised, after: .dataAccent)
         let halfB = Self.probe(fraction: 0.5, before: .surfaceRaised, after: .contentPrimary)
         expectBitmapsDiffer(halfA, halfB, """
         `fraction = 0.5` 上换掉 `after` 的颜色位图没变 —— 那说明本用例此刻根本分辨不出

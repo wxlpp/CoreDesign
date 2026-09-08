@@ -482,7 +482,9 @@ struct MaskRevealRenderTests {
     }
 
     static func framed(_ view: some View) -> some View {
-        view.frame(width: 200, height: 200).background(Color.accent)
+        // ⚠️ 底色用 `dataAccent` 而非 `accent`：accent 墨色化后在 iOS 上与本用例
+        // overlay 用的 `contentPrimary` 同为 `UIColor.label`，逐字节相同会让断言恒红。
+        view.frame(width: 200, height: 200).background(Color.dataAccent)
     }
 
     static func chrome(progress: Double, kind: MaskRevealKind) -> some View {
@@ -646,10 +648,10 @@ struct MaskRevealRenderTests {
         func band(_ travel: Double) -> some View {
             MaskRevealGlareBand(glare: MaskRevealGlare(radians: radians, travel: travel))
                 .frame(width: 160, height: 120)
-                .background(Color.accent)
+                .background(Color.dataAccent)
         }
         let blank = try #require(
-            Self.pixels(Color.clear.frame(width: 160, height: 120).background(Color.accent)),
+            Self.pixels(Color.clear.frame(width: 160, height: 120).background(Color.dataAccent)),
             "基线渲染失败"
         )
         #expect(blank.contains(where: { $0 != 0 }), "基线位图全 0 —— 相等断言恒真")
