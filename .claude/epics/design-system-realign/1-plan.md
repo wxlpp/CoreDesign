@@ -20,13 +20,35 @@ Spec：`.claude/epics/design-system-realign/1-spec.md`（v6，评审 5 轮跑满
 
 阻塞后续形态选择，必须最先做。
 
-- **P0-1　iOS 腿探针：`UISearchTextField` 在 44pt frame 下是否撑满。**
-  写一次性 iOS 单元测试（或 App/ 里的临时视图）用 `UIGraphicsImageRenderer` +
-  `layer.render(in:)` 量非透明带。
-  - 撑满 ⇒ §5.1 走 iOS = 44pt 主路径。
-  - 不撑满 ⇒ 走 spec 更正后的退路：**44pt 包装层作命中区**（`contentShape` 撑满）
-    + 视觉带留控件自然高；判据拆两半（包装层 ≥ 44 / 非透明带 == 自然高）。
-  - **产出**：读数写进 plan 本文件，探针代码不入库。
+- **P0-1　iOS 探针 —— 已完成 ✅，结论是「不撑满」，且**顺带否掉了 iOS 侧的判据机制**。
+  一次性测试放进 `UIWindow` 后用 `UIGraphicsImageRenderer` + `layer.render(in:)` 量
+  （iPhone 17 Pro，scale=3.0，探针已删除、不入库）：
+
+  ```
+  frame 200x28  intrinsic=28.0  非透明行=50（16…65）  带高=16.67pt
+  frame 200x36  intrinsic=28.0  非透明行=50（28…77）  带高=16.67pt
+  frame 200x44  intrinsic=28.0  非透明行=50（40…89）  带高=16.67pt
+  ```
+
+  **结论 1（决定形态）：`UISearchTextField` 不撑满。** 非透明带在 28/36/44 三档
+  **完全相同且始终居中** ⇒ 与 `NSSearchField` 同形，塞进 44pt frame 只会产生空带。
+  ⇒ **走退路分支**：视觉给控件自然高、44pt 由包装层承担命中区。
+
+  **结论 2（否掉判据）：`layer.render(in:)` 量不到它的圆角底衬。**
+  带高 16.67pt **小于** 控件自己的 `intrinsicContentSize.height = 28`
+  ——渲染出来的只有图标+文字那一行，底衬由不被 `layer.render` 捕获的层绘制
+  （与 glass 同族的问题）。⇒ 「非透明带 == 控件自然高」这条判据在 iOS 上会**恒假红**，
+  **机制不可用**，不是阈值问题。
+
+  ⇒ **FR-5a 的判据形态最终定案（覆盖 spec §5.1 与 plan P5 的两分支写法）**：
+  - **iOS**：只保留现成的 `TouchTargetTests:70-74`（`renderedHeight` 量布局盒 ≥ 44）
+    ——它守的正是**命中区**，是本条真正要保的东西。
+    **不新增像素带判据**，并**如实登记「iOS 侧无法在进程内量到搜索框视觉带」**。
+  - **macOS**：`cacheDisplay` 可用（spec §5.1 实测过 26/30/38 行），
+    保留「非透明带 == 控件自然高」以抓空带回归。**先由 P0-3 证明装置能在 `swift test` 里跑。**
+
+  **两端自然高度一致**：iOS `UISearchTextField.intrinsicContentSize.height = 28`、
+  macOS `NSSearchField(.large).intrinsic = 28` ⇒ 视觉高度统一取 **28pt**。
 - **P0-2　iOS 腿基线 —— 已完成 ✅**（iPhone 17 Pro `02F33AA8-…`，`** TEST SUCCEEDED **`）：
 
   ```
@@ -165,14 +187,12 @@ Spec：`.claude/epics/design-system-realign/1-spec.md`（v6，评审 5 轮跑满
   ⚠️ 重点：`TextAndDisplayTests:824-826`、`MaskRevealTests:479-486`、`CrossPlatformTests:464`
   ——FR-1 后 iOS 腿上 `accent == contentPrimary`，位图逐字节相同 ⇒ **macOS 绿、iOS 红**。
 - **FR-5a 判据**：**不得用 `ImageRenderer` 量控件像素**（它画的是占位块）。
-  形态**随 P0-1 结果分两支**（评审 I-3，v1 只写了一套）：
-  - **撑满分支**：iOS `layer.render(in:)` 断言非透明带 ≥ 44；macOS `cacheDisplay`
-    断言非透明带 == 包装层高度。
-  - **不撑满分支**：判据拆两半——
-    ① 「包装层 ≥ 44」**已由现成的 `TouchTargetTests:70-74` 承担**
-      （`renderedHeight` 用的正是 `ImageRenderer(...).uiImage.size.height`，即**布局**盒
-      ——在这一支里它恰好就是要量的那一半，**不要再写一条重复的**）；
-    ② 新增「非透明带 == 控件自然高」（无额外空带），iOS `layer.render(in:)` / macOS `cacheDisplay`。
+  **P0-1 已定案为「不撑满」分支**，且 iOS 侧的像素判据被实测否掉（见 P0-1 结论 2）：
+  - **iOS**：只保留现成的 `TouchTargetTests:70-74`（布局盒 ≥ 44 = 命中区）。
+    **不新增像素带判据**——`layer.render(in:)` 捕获不到底衬，写了会恒假红。
+    如实登记这个覆盖缺口。
+  - **macOS**：新增 `cacheDisplay` 判据「非透明带 == 控件自然高」抓空带回归
+    （先过 P0-3 装置 spike）。
 - **图表位图判据**：有/无 `.coreAccent(.red)` 下位图相等。**如实登记它今天天然绿**。
 
 ⚠️ **补齐 P7 抓不住的改动（评审 I-8，v1 有 5 处改完没有任何判据能抓）**：
