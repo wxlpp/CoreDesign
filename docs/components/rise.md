@@ -2,12 +2,12 @@
 
 从视图上方浮起并淡出的一小段文字（"+1" 那种）/ A small label floating up and fading out.
 
-`View.rise(trigger:text:strength:color:)`（`CoreDesignEffects/Rise.swift`，Issue #250）。
+`View.rise(trigger:text:strength:color:)`（`OhMyDesignEffects/Rise.swift`，Issue #250）。
 
-⚠️ **本 API 在 `CoreDesignEffects` 里，不在 `CoreDesign`**：
+⚠️ **本 API 在 `OhMyDesignEffects` 里，不在 `OhMyDesign`**：
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 ```
 
 ## API
@@ -103,7 +103,7 @@ FR-11 约束的是运动而非静态摆位。而 `.overlay(alignment: .top)` 下
 ⚠️ 本节示例**没有任何机器校验**（同 [`confetti.md`](confetti.md) 记的限度）。
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 import SwiftUI
 
 struct ScoreView: View {

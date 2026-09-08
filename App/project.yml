@@ -1,46 +1,52 @@
-# ⚠️ 不要在 git worktree 里跑 `xcodegen generate`：
-# 它会把本地 package 引用的 `name` 字段按**当前目录名**写死（例如写成
-# "issue-118-remove-blossom" 而非 "CoreDesign"），并顺带清空
-# xcshareddata/xcschemes/CoreDesignPreview.xcscheme。
-# 若必须在 worktree 里生成，事后手动把 **两处**都改回 CoreDesign——
-#   (1) `name = "..."` 字段
-#   (2) `/* ... */` 注释标记（Task #125 就漏了这处：只查 name= 字段的 grep
-#       报告「已修回」，而注释里的目录名还在，评审才发现）
-# 验证要查全部形态：`grep -c "<worktree 目录名>" project.pbxproj` 应为 0，
-# 另注：即便命名都对，不同 worktree 路径下 xcodegen 生成的 file-reference
-# UUID 也会与 main 上的不同（属已知噪声、非代码问题），不必当成新发现。
-# 并 `git checkout HEAD -- App/CoreDesignPreview.xcodeproj/xcshareddata`。
-name: CoreDesignPreview
+# ⚠️ `xcodegen generate` 的两个副作用，**与在不在 git worktree 无关**（旧注释把两条都
+# 写成了 worktree 专属，实测不成立）：
+#
+# (1) local package 引用的 `name` 取的是 **checkout 目录的基名**，不是下面 `packages:`
+#     的键。实测同一份 `packages: OhMyDesign:` 在目录 `CoreDesign/` 下生成
+#     `name = CoreDesign`、在 `oh-my-design/` 下生成 `name = "oh-my-design"`
+#     ⇒ 规范 checkout（目录名 `oh-my-design`）生成的就是提交态那个值，不必改；
+#     在 worktree 或改过名的目录里生成会写进那个目录名，必须改回来。
+#     验证要查**两种形态**：`name = "..."` 字段与 `/* ... */` 注释标记
+#     （Task #125 只查了 name= 字段，注释里的目录名还在，评审才发现）。
+#
+# (2) 它**每次**都删掉 `xcshareddata/xcschemes/` 下的共享 scheme（实测 5/5，
+#     与 worktree、`xcuserdata` 存否、scheme 文件名都无关）。生成后必须
+#     `git checkout HEAD -- App/OhMyDesignPreview.xcodeproj/xcshareddata`。
+#     ⚠️ 判「删没删」要查 **scheme 文件**：父目录 `xcshareddata/` 可能还在，
+#     照它判会读成「存活」（本条第一版就是这么判错的）。
+#
+# 另注：不同路径下生成的 file-reference UUID 必然与提交态不同（已知噪声，非代码问题）。
+name: OhMyDesignPreview
 options:
-  bundleIdPrefix: com.coredesign
+  bundleIdPrefix: com.ohmydesign
   deploymentTarget:
     iOS: "26.0"
   xcodeVersion: "26.0"
 
 packages:
-  CoreDesign:
+  OhMyDesign:
     path: ../
   SnapshotPreviews:
     url: https://github.com/EmergeTools/SnapshotPreviews
     exactVersion: "0.14.0"
 
 targets:
-  CoreDesignPreview:
+  OhMyDesignPreview:
     type: application
     platform: iOS
     sources:
       - path: Sources
     dependencies:
-      # ⚠️ 包变成多 product 后，`- package: CoreDesign` 这种不带 `product:` 的写法
-      # 只会链同名的 `CoreDesign` 产品——新增的 Effects / Charts 不会进来，
+      # ⚠️ 包变成多 product 后，`- package: OhMyDesign` 这种不带 `product:` 的写法
+      # 只会链同名的 `OhMyDesign` 产品——新增的 Effects / Charts 不会进来，
       # 而失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」（#245）。
       # ⇒ 多 product 下必须逐条写 `product:`。
-      - package: CoreDesign
-        product: CoreDesign
-      - package: CoreDesign
-        product: CoreDesignEffects
-      - package: CoreDesign
-        product: CoreDesignCharts
+      - package: OhMyDesign
+        product: OhMyDesign
+      - package: OhMyDesign
+        product: OhMyDesignEffects
+      - package: OhMyDesign
+        product: OhMyDesignCharts
     settings:
       base:
         SWIFT_VERSION: "6.0"
@@ -58,7 +64,7 @@ targets:
     sources:
       - path: Tests
     dependencies:
-      - target: CoreDesignPreview
+      - target: OhMyDesignPreview
       - package: SnapshotPreviews
         product: SnapshottingTests
     settings:

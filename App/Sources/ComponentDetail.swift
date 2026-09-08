@@ -1,5 +1,5 @@
 import SwiftUI
-import CoreDesign
+import OhMyDesign
 
 struct ComponentDetail: View {
     let component: ComponentMeta

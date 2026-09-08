@@ -26,7 +26,7 @@
 
 ## 预览 / Preview
 
-运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `CoreDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
+运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `OhMyDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
 
 ## 使用示例 / Usage
 
@@ -76,4 +76,4 @@ RadioGroup(
 
 SwiftUI 在 macOS 上原生提供 `Picker` + `.pickerStyle(.radioGroup)`，是 Apple 官方更推荐的 radio 实现路径。但该 style **仅 macOS 可用**，iOS/iPadOS 没有对应渲染，且其视觉（系统原生单选圆钮）与本仓库已有的 `CheckBoxToggleStyle`（手写方框 + SF Symbol）语汇不一致。
 
-CoreDesign 的 Semi 组件集里 Radio 与 CheckBox 是并列的表单控件——为保持跨端（iOS/macOS 同一套视觉）一致，以及与既有 CheckBox 语汇（icon-swap 手法、`Color.contentPrimary`/`Color.contentSecondary` 取色、44pt 命中区手法）延续，`RadioGroup` 复刻 `CheckBoxToggleStyle` 的手写实现，只把方框图标换成 Semi 风格的圆点图标（`circle` / `largecircle.fill.circle`），而不采用 `.pickerStyle(.radioGroup)`。
+OhMyDesign 的 Semi 组件集里 Radio 与 CheckBox 是并列的表单控件——为保持跨端（iOS/macOS 同一套视觉）一致，以及与既有 CheckBox 语汇（icon-swap 手法、`Color.contentPrimary`/`Color.contentSecondary` 取色、44pt 命中区手法）延续，`RadioGroup` 复刻 `CheckBoxToggleStyle` 的手写实现，只把方框图标换成 Semi 风格的圆点图标（`circle` / `largecircle.fill.circle`），而不采用 `.pickerStyle(.radioGroup)`。

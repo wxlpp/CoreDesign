@@ -2,11 +2,11 @@
 
 卡片放大成整屏的按钮 / A card that expands into a full-screen destination.
 
-`FullScreenButton`（`CoreDesignEffects/FullScreenButton.swift`，Issue #254）。
+`FullScreenButton`（`OhMyDesignEffects/FullScreenButton.swift`，Issue #254）。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0。

@@ -14,13 +14,13 @@
 
 ## File Structure
 
-- **Create**: `Sources/CoreDesign/Components/Button/AsyncButton.swift`
+- **Create**: `Sources/OhMyDesign/Components/Button/AsyncButton.swift`
   - 公开 `struct AsyncButton<Label: View>: View`
   - 两个核心 init(非抛错 / 抛错 + onError)
   - 四个文本便捷 init(`where Label == Text` 扩展)
   - 内部 `wrapThrowingAction(_:onError:)` 辅助
   - 三个开发用 `#Preview`(全 style / 抛错 + onError / disabled 与 running 并存)
-- **Create**: `Tests/CoreDesignTests/AsyncButtonTests.swift`
+- **Create**: `Tests/OhMyDesignTests/AsyncButtonTests.swift`
   - 5 个 `@Test`:wrapping 业务错误路径 / CancellationError 静默 / onError nil 安全 / 非抛错路径 / 重载解析编译期检查
 - **Modify**: `App/Sources/Previews.swift`
   - 末尾追加 `#Preview("AsyncButton")` 一项,展示 4 个 style 的 idle-state AsyncButton
@@ -30,17 +30,17 @@
 ## 任务 1:AsyncButton 骨架 + 非抛错 init + 状态机渲染
 
 **Files:**
-- Create: `Sources/CoreDesign/Components/Button/AsyncButton.swift`
-- Test: `Tests/CoreDesignTests/AsyncButtonTests.swift`
+- Create: `Sources/OhMyDesign/Components/Button/AsyncButton.swift`
+- Test: `Tests/OhMyDesignTests/AsyncButtonTests.swift`
 
 - [ ] **步骤 1.1:写第一个失败测试 —— 实例化烟雾测试**
 
-创建 `Tests/CoreDesignTests/AsyncButtonTests.swift`:
+创建 `Tests/OhMyDesignTests/AsyncButtonTests.swift`:
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("AsyncButton")
 @MainActor
@@ -58,19 +58,19 @@ struct AsyncButtonTests {
 - [ ] **步骤 1.2:跑测试确认失败**
 
 ```bash
-swift test --filter CoreDesignTests.AsyncButton
+swift test --filter OhMyDesignTests.AsyncButton
 ```
 
 预期:`error: cannot find 'AsyncButton' in scope`(或类似未定义错误)。
 
 - [ ] **步骤 1.3:创建 AsyncButton.swift 最小实现**
 
-创建 `Sources/CoreDesign/Components/Button/AsyncButton.swift`:
+创建 `Sources/OhMyDesign/Components/Button/AsyncButton.swift`:
 
 ```swift
 //
 //  AsyncButton.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -159,7 +159,7 @@ private struct LoadingAccessibilityModifier: ViewModifier {
 - [ ] **步骤 1.4:跑测试确认通过**
 
 ```bash
-swift test --filter CoreDesignTests.AsyncButton
+swift test --filter OhMyDesignTests.AsyncButton
 ```
 
 预期:1 passed。
@@ -175,8 +175,8 @@ swift test
 - [ ] **步骤 1.6:Commit**
 
 ```bash
-git add Sources/CoreDesign/Components/Button/AsyncButton.swift \
-        Tests/CoreDesignTests/AsyncButtonTests.swift
+git add Sources/OhMyDesign/Components/Button/AsyncButton.swift \
+        Tests/OhMyDesignTests/AsyncButtonTests.swift
 git commit -m "$(cat <<'EOF'
 feat(AsyncButton): 基础骨架,非抛错 init + 状态机渲染
 
@@ -193,8 +193,8 @@ EOF
 ## 任务 2:抛错 init + onError + CancellationError 静默
 
 **Files:**
-- Modify: `Sources/CoreDesign/Components/Button/AsyncButton.swift`
-- Modify: `Tests/CoreDesignTests/AsyncButtonTests.swift`
+- Modify: `Sources/OhMyDesign/Components/Button/AsyncButton.swift`
+- Modify: `Tests/OhMyDesignTests/AsyncButtonTests.swift`
 
 > **Plan amendment(R4+,2026-05-13)**:任务 2 在 PR #71 review 过程中演进 ——
 > 原方案在 init 里同步把 throwing closure 包装成 non-throwing,函数名
@@ -210,7 +210,7 @@ EOF
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("AsyncButton")
 @MainActor
@@ -282,7 +282,7 @@ struct AsyncButtonTests {
 - [ ] **步骤 2.2:跑测试确认失败**
 
 ```bash
-swift test --filter CoreDesignTests.AsyncButton
+swift test --filter OhMyDesignTests.AsyncButton
 ```
 
 预期:`error: type 'AsyncButton<Text>' has no member '_runThrowing'`。
@@ -351,7 +351,7 @@ private enum ActionKind {
 - [ ] **步骤 2.4:跑测试确认通过**
 
 ```bash
-swift test --filter CoreDesignTests.AsyncButton
+swift test --filter OhMyDesignTests.AsyncButton
 ```
 
 预期:5 passed(原 1 + 新增 4 个:onError 透传、toast fallback、双 nil 静默、Cancellation 静默)。
@@ -359,8 +359,8 @@ swift test --filter CoreDesignTests.AsyncButton
 - [ ] **步骤 2.5:Commit**
 
 ```bash
-git add Sources/CoreDesign/Components/Button/AsyncButton.swift \
-        Tests/CoreDesignTests/AsyncButtonTests.swift
+git add Sources/OhMyDesign/Components/Button/AsyncButton.swift \
+        Tests/OhMyDesignTests/AsyncButtonTests.swift
 git commit -m "$(cat <<'EOF'
 feat(AsyncButton): 抛错 init + 错误三级兜底(onError → toastHost → silent)
 
@@ -380,8 +380,8 @@ EOF
 ## 任务 3:文本便捷 init + 重载解析编译期检查
 
 **Files:**
-- Modify: `Sources/CoreDesign/Components/Button/AsyncButton.swift`
-- Modify: `Tests/CoreDesignTests/AsyncButtonTests.swift`
+- Modify: `Sources/OhMyDesign/Components/Button/AsyncButton.swift`
+- Modify: `Tests/OhMyDesignTests/AsyncButtonTests.swift`
 
 - [ ] **步骤 3.1:写失败测试 —— 重载解析(编译即通过)**
 
@@ -415,7 +415,7 @@ EOF
 - [ ] **步骤 3.2:跑测试确认失败**
 
 ```bash
-swift test --filter CoreDesignTests.AsyncButton
+swift test --filter OhMyDesignTests.AsyncButton
 ```
 
 预期:`error: extra argument 'action' in call`(或类似 —— 文本 init 还没实现)。
@@ -468,7 +468,7 @@ public extension AsyncButton where Label == Text {
 - [ ] **步骤 3.4:跑测试确认通过**
 
 ```bash
-swift test --filter CoreDesignTests.AsyncButton
+swift test --filter OhMyDesignTests.AsyncButton
 ```
 
 预期:6 passed。**若编译报 "ambiguous use of init"**,按 spec §7 的降级路径处理:首选给抛错重载的 `action` / `onError` 改成具名标签 `throwing:` / `catch:`,把 plan 的后续 step 也对齐修订。这是 spec §10 风险 2 的兜底。
@@ -476,8 +476,8 @@ swift test --filter CoreDesignTests.AsyncButton
 - [ ] **步骤 3.5:Commit**
 
 ```bash
-git add Sources/CoreDesign/Components/Button/AsyncButton.swift \
-        Tests/CoreDesignTests/AsyncButtonTests.swift
+git add Sources/OhMyDesign/Components/Button/AsyncButton.swift \
+        Tests/OhMyDesignTests/AsyncButtonTests.swift
 git commit -m "$(cat <<'EOF'
 feat(AsyncButton): 文本便捷 init + 重载解析编译期检查
 
@@ -496,14 +496,14 @@ EOF
 ## 任务 4:库内 `#Preview` 块(开发可视化)
 
 **Files:**
-- Modify: `Sources/CoreDesign/Components/Button/AsyncButton.swift`
+- Modify: `Sources/OhMyDesign/Components/Button/AsyncButton.swift`
 
-库文件内的 `#Preview` 用于开发期在 Xcode Canvas 实测视觉与交互。snapshot 脚本会删除 `CoreDesign_*.png`,这些 preview 不入库。
+库文件内的 `#Preview` 用于开发期在 Xcode Canvas 实测视觉与交互。snapshot 脚本会删除 `OhMyDesign_*.png`,这些 preview 不入库。
 
 - [ ] **步骤 4.1:追加三个 `#Preview` 块到 AsyncButton.swift 末尾**
 
 ```swift
-// MARK: - Previews (development only — snapshot 脚本会删除 CoreDesign_*.png)
+// MARK: - Previews (development only — snapshot 脚本会删除 OhMyDesign_*.png)
 
 #Preview("AsyncButton — 全部 ButtonStyle") {
     VStack(spacing: 12) {
@@ -577,7 +577,7 @@ EOF
 
 - [ ] **步骤 4.2:在 Xcode 中打开 AsyncButton.swift,启动 Canvas Preview**
 
-打开 `Sources/CoreDesign/Components/Button/AsyncButton.swift` 在 Xcode 中,激活 Canvas(Cmd-Option-Return),勾选 Live Preview(Cmd-Option-P 或 Resume)。
+打开 `Sources/OhMyDesign/Components/Button/AsyncButton.swift` 在 Xcode 中,激活 Canvas(Cmd-Option-Return),勾选 Live Preview(Cmd-Option-P 或 Resume)。
 
 **手动验证清单**(每条都要在 Canvas 里点一下确认):
 - [ ] **Preview 1 全部 style**:点 Solid 按钮 → spinner 出现在 "Solid" 文字左侧,白色;0.16s 内 label 不抖动;1.5s 后回到 idle。
@@ -598,7 +598,7 @@ swift build
 - [ ] **步骤 4.4:Commit**
 
 ```bash
-git add Sources/CoreDesign/Components/Button/AsyncButton.swift
+git add Sources/OhMyDesign/Components/Button/AsyncButton.swift
 git commit -m "$(cat <<'EOF'
 feat(AsyncButton): 库内 #Preview 块(开发可视化)
 
@@ -617,7 +617,7 @@ EOF
 
 **Files:**
 - Modify: `App/Sources/Previews.swift`
-- Create (regenerated): `docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.png` 及对应 `.json` sidecar(实际 EmergeTools SnapshotPreviews 产出的命名,与既有所有组件一致;**plan 早期版本误写为 `_Light/_Dark.png` 后缀,以本节为准**)
+- Create (regenerated): `docs/snapshots/OhMyDesignPreview_Previews.swift_AsyncButton.png` 及对应 `.json` sidecar(实际 EmergeTools SnapshotPreviews 产出的命名,与既有所有组件一致;**plan 早期版本误写为 `_Light/_Dark.png` 后缀,以本节为准**)
 
 - [ ] **步骤 5.1:在 `App/Sources/Previews.swift` 追加 `#Preview("AsyncButton")`**
 
@@ -648,12 +648,12 @@ EOF
 ./scripts/run-snapshots.sh
 ```
 
-预期:`X PNGs generated`(应比上次多 1 张:`CoreDesignPreview_Previews.swift_AsyncButton.png`,加上 1 个对应的 `.json` sidecar)。
+预期:`X PNGs generated`(应比上次多 1 张:`OhMyDesignPreview_Previews.swift_AsyncButton.png`,加上 1 个对应的 `.json` sidecar)。
 
 - [ ] **步骤 5.3:视觉抽查新生成的 PNG**
 
 ```bash
-open docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.png
+open docs/snapshots/OhMyDesignPreview_Previews.swift_AsyncButton.png
 ```
 
 **核对清单**:
@@ -666,16 +666,16 @@ open docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.png
 
 ```bash
 git add App/Sources/Previews.swift \
-        docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.png \
-        docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.json
+        docs/snapshots/OhMyDesignPreview_Previews.swift_AsyncButton.png \
+        docs/snapshots/OhMyDesignPreview_Previews.swift_AsyncButton.json
 git commit -m "$(cat <<'EOF'
 test(AsyncButton): 增加 App snapshot preview(idle 态)
 
 App/Sources/Previews.swift 增加一个 AsyncButton entry,产出
-docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.png(+.json
+docs/snapshots/OhMyDesignPreview_Previews.swift_AsyncButton.png(+.json
 sidecar)用于锁住 idle 态布局。Running 态 snapshot 暂缓——需要扩张
 公共 API 才能强制进入 running 态,与 spec §2 minimal API 目标冲突。
-Running 态由任务 4 的 Xcode Canvas 手动验证 + Tests/CoreDesignTests 的 Swift Testing
+Running 态由任务 4 的 Xcode Canvas 手动验证 + Tests/OhMyDesignTests 的 Swift Testing
 单测覆盖。
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
@@ -708,7 +708,7 @@ swift test
 - [ ] **步骤 6.3:单独跑 AsyncButton 测试看明细**
 
 ```bash
-swift test --filter CoreDesignTests.AsyncButton
+swift test --filter OhMyDesignTests.AsyncButton
 ```
 
 预期:6 passed in N seconds。
@@ -732,7 +732,7 @@ git status
 
 ```bash
 # 示例:若修订
-git add Sources/CoreDesign/Components/Button/AsyncButton.swift
+git add Sources/OhMyDesign/Components/Button/AsyncButton.swift
 git commit -m "fix(AsyncButton): <具体修订>"
 ```
 

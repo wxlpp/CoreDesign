@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a compile-time selectable theme to CoreDesign via a Swift Package Trait named `Blossom`, landing a coral-pink candy-gradient feminine palette (inspired by the 暖悦 app) while keeping the default (no-trait) build byte-for-byte identical to today.
+**Goal:** Add a compile-time selectable theme to OhMyDesign via a Swift Package Trait named `Blossom`, landing a coral-pink candy-gradient feminine palette (inspired by the 暖悦 app) while keeping the default (no-trait) build byte-for-byte identical to today.
 
 **Architecture:** A single `Package.swift` trait `Blossom` gates `#if Blossom` branches in the lowest color layers only. The resource layer (`ColorGrade.brand0…9`) and canvas surfaces swap to new `blossom-*` asset-catalog colorsets; two semantic aliases (`secondary`, `secondaryAccent`) repoint from blue to violet; everything downstream (components) inherits automatically because it reads semantic names. A new `CoreGradient` token layer returns real `LinearGradient`s under Blossom and degrades to flat color otherwise. Status colors are untouched.
 
@@ -18,7 +18,7 @@
 - **Two build modes you must both keep green:**
   - Default: `swift build`, `swift test` (trait OFF — current behavior, zero regression).
   - Blossom: `swift build --traits Blossom`, `swift test --traits Blossom` (trait ON).
-- **Test framework:** Apple Swift Testing (`import Testing`, `@Test`, `#expect`). Not XCTest. Existing test file is `Tests/CoreDesignTests/CoreDesignTests.swift` (currently a one-line stub).
+- **Test framework:** Apple Swift Testing (`import Testing`, `@Test`, `#expect`). Not XCTest. Existing test file is `Tests/OhMyDesignTests/OhMyDesignTests.swift` (currently a one-line stub).
 - **Repo style:** explicit `self.`, bilingual `// MARK: -` comments, public API explicitly marked `public`.
 
 ### Colorset `Contents.json` format (the exact template)
@@ -61,15 +61,15 @@ Insert a `traits:` array into the `Package(...)` call. SwiftPM enforces argument
 
 ```swift
 let package = Package(
-    name: "CoreDesign",
+    name: "OhMyDesign",
     platforms: [
         .iOS("26.0"),
         .macOS("26.0"),
     ],
     products: [
         .library(
-            name: "CoreDesign",
-            targets: ["CoreDesign"]
+            name: "OhMyDesign",
+            targets: ["OhMyDesign"]
         ),
     ],
     traits: [
@@ -78,12 +78,12 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "CoreDesign",
+            name: "OhMyDesign",
             resources: [.process("Resources")]
         ),
         .testTarget(
-            name: "CoreDesignTests",
-            dependencies: ["CoreDesign"]
+            name: "OhMyDesignTests",
+            dependencies: ["OhMyDesign"]
         ),
     ],
     swiftLanguageModes: [.v6]
@@ -121,7 +121,7 @@ This task creates 13 colorsets (10 brand + 3 canvas) as data files. Because they
 **Files:**
 - Create: `Resources.xcassets/blossom-brand/blossom-brand-0.colorset/Contents.json` … `blossom-brand-9.colorset/Contents.json` (10)
 - Create: `Resources.xcassets/blossom-canvas/blossom-canvas-default.colorset/Contents.json`, `…-subtle…`, `…-inset…` (3)
-- (All under `Sources/CoreDesign/Resources/Resources.xcassets/`)
+- (All under `Sources/OhMyDesign/Resources/Resources.xcassets/`)
 
 - [ ] **Step 1: Write the generator script**
 
@@ -131,7 +131,7 @@ Create a throwaway script at repo root, `scripts/gen-blossom-colorsets.py`:
 #!/usr/bin/env python3
 import json, os
 
-ROOT = "Sources/CoreDesign/Resources/Resources.xcassets"
+ROOT = "Sources/OhMyDesign/Resources/Resources.xcassets"
 
 # (colorset_name, light_hex, dark_hex)
 BRAND = [
@@ -198,7 +198,7 @@ Expected output: `wrote 13 colorsets`
 
 - [ ] **Step 3: Verify the files and one sample's content**
 
-Run: `find Sources/CoreDesign/Resources/Resources.xcassets/blossom-brand Sources/CoreDesign/Resources/Resources.xcassets/blossom-canvas -name Contents.json | sort && echo "---" && cat Sources/CoreDesign/Resources/Resources.xcassets/blossom-brand/blossom-brand-5.colorset/Contents.json`
+Run: `find Sources/OhMyDesign/Resources/Resources.xcassets/blossom-brand Sources/OhMyDesign/Resources/Resources.xcassets/blossom-canvas -name Contents.json | sort && echo "---" && cat Sources/OhMyDesign/Resources/Resources.xcassets/blossom-brand/blossom-brand-5.colorset/Contents.json`
 Expected: 13 `Contents.json` paths listed; the `blossom-brand-5` JSON shows light `red 0xFF green 0x6F blue 0x8E` and dark `red 0xD1 green 0x5F blue 0x82`.
 
 - [ ] **Step 4: Remove the throwaway script and verify assets ship in both build modes**
@@ -214,7 +214,7 @@ Expected: both succeed (assets are processed into the module bundle regardless o
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/CoreDesign/Resources/Resources.xcassets/blossom-brand Sources/CoreDesign/Resources/Resources.xcassets/blossom-canvas
+git add Sources/OhMyDesign/Resources/Resources.xcassets/blossom-brand Sources/OhMyDesign/Resources/Resources.xcassets/blossom-canvas
 git commit -m "Add Blossom coral-pink brand and canvas colorsets"
 ```
 
@@ -225,17 +225,17 @@ git commit -m "Add Blossom coral-pink brand and canvas colorsets"
 Asset presence is testable in *any* trait mode (the colorsets always ship), so we TDD it here. Then we branch `ColorGrade`.
 
 **Files:**
-- Modify: `Tests/CoreDesignTests/CoreDesignTests.swift`
-- Modify: `Sources/CoreDesign/Colors/ColorGrade.swift:11-23` (the `brand` extension)
+- Modify: `Tests/OhMyDesignTests/OhMyDesignTests.swift`
+- Modify: `Sources/OhMyDesign/Colors/ColorGrade.swift:11-23` (the `brand` extension)
 
 - [ ] **Step 1: Write the failing test for asset presence**
 
-Replace the contents of `Tests/CoreDesignTests/CoreDesignTests.swift` with:
+Replace the contents of `Tests/OhMyDesignTests/OhMyDesignTests.swift` with:
 
 ```swift
 import Testing
 import SwiftUI
-@testable import CoreDesign
+@testable import OhMyDesign
 
 #if canImport(UIKit)
 import UIKit
@@ -281,7 +281,7 @@ Expected: PASS — both tests green. (This is a guard test; it confirms Task 2 s
 
 - [ ] **Step 3: Branch the brand ramp in ColorGrade**
 
-In `Sources/CoreDesign/Colors/ColorGrade.swift`, replace the `brand` extension (currently lines 11-23) with a `#if Blossom` branch. Both branches list all ten:
+In `Sources/OhMyDesign/Colors/ColorGrade.swift`, replace the `brand` extension (currently lines 11-23) with a `#if Blossom` branch. Both branches list all ten:
 
 ```swift
 /// brand
@@ -329,7 +329,7 @@ Expected: both runs PASS (asset-presence tests are trait-independent and stay gr
 - [ ] **Step 6: Commit**
 
 ```bash
-git add Tests/CoreDesignTests/CoreDesignTests.swift Sources/CoreDesign/Colors/ColorGrade.swift
+git add Tests/OhMyDesignTests/OhMyDesignTests.swift Sources/OhMyDesign/Colors/ColorGrade.swift
 git commit -m "Swap brand ramp to Blossom colorsets under #if Blossom"
 ```
 
@@ -340,11 +340,11 @@ git commit -m "Swap brand ramp to Blossom colorsets under #if Blossom"
 `surfaceCanvas` / `surfaceCanvasSubtle` / `surfaceCanvasInset` are the three computed properties that load `canvas-*` assets directly. The dependent surfaces (`surfacePanel`, `surfaceSidebar`, `surfaceCard`) reference these three, so they inherit automatically and need no change.
 
 **Files:**
-- Modify: `Sources/CoreDesign/Colors/SurfaceColors.swift:49-67` (the three `surfaceCanvas*` computed vars)
+- Modify: `Sources/OhMyDesign/Colors/SurfaceColors.swift:49-67` (the three `surfaceCanvas*` computed vars)
 
 - [ ] **Step 1: Branch the three canvas tokens**
 
-In `Sources/CoreDesign/Colors/SurfaceColors.swift`, replace the three computed properties `surfaceCanvas`, `surfaceCanvasSubtle`, `surfaceCanvasInset` (keep their existing doc comments above each) so each returns the Blossom colorset under the trait. The bodies become:
+In `Sources/OhMyDesign/Colors/SurfaceColors.swift`, replace the three computed properties `surfaceCanvas`, `surfaceCanvasSubtle`, `surfaceCanvasInset` (keep their existing doc comments above each) so each returns the Blossom colorset under the trait. The bodies become:
 
 ```swift
     static var surfaceCanvas: Color {
@@ -391,7 +391,7 @@ Expected: both PASS.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add Sources/CoreDesign/Colors/SurfaceColors.swift
+git add Sources/OhMyDesign/Colors/SurfaceColors.swift
 git commit -m "Swap canvas surfaces to Blossom warm-pink under #if Blossom"
 ```
 
@@ -402,12 +402,12 @@ git commit -m "Swap canvas surfaces to Blossom warm-pink under #if Blossom"
 In Blossom, the second accent becomes candy violet (matching the 暖悦 ovulation/AI purple). Two files hold the secondary aliases. `accent`/`primary` already point at `brand5` and inherit the coral swap from Task 3, so they need no change.
 
 **Files:**
-- Modify: `Sources/CoreDesign/Colors/FunctionalColor.swift:17-20` (the `secondary*` group)
-- Modify: `Sources/CoreDesign/Colors/InteractionColors.swift:10-13` (the `secondaryAccent*` group)
+- Modify: `Sources/OhMyDesign/Colors/FunctionalColor.swift:17-20` (the `secondary*` group)
+- Modify: `Sources/OhMyDesign/Colors/InteractionColors.swift:10-13` (the `secondaryAccent*` group)
 
 - [ ] **Step 1: Branch the `secondary*` group in FunctionalColor**
 
-In `Sources/CoreDesign/Colors/FunctionalColor.swift`, replace these four lines:
+In `Sources/OhMyDesign/Colors/FunctionalColor.swift`, replace these four lines:
 
 ```swift
     static let secondary: Color = .lightBlue5
@@ -434,7 +434,7 @@ with:
 
 - [ ] **Step 2: Branch the `secondaryAccent*` group in InteractionColors**
 
-In `Sources/CoreDesign/Colors/InteractionColors.swift`, replace these four lines:
+In `Sources/OhMyDesign/Colors/InteractionColors.swift`, replace these four lines:
 
 ```swift
     static let secondaryAccent = Color.lightBlue5
@@ -472,7 +472,7 @@ Expected: both PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/CoreDesign/Colors/FunctionalColor.swift Sources/CoreDesign/Colors/InteractionColors.swift
+git add Sources/OhMyDesign/Colors/FunctionalColor.swift Sources/OhMyDesign/Colors/InteractionColors.swift
 git commit -m "Repoint secondary accent to violet under #if Blossom"
 ```
 
@@ -483,12 +483,12 @@ git commit -m "Repoint secondary accent to violet under #if Blossom"
 A new public `CoreGradient` enum exposes three `AnyShapeStyle` tokens. Under Blossom they are real gradients; otherwise they degrade to the matching flat color so the default look is unchanged and callers can always use `.background(CoreGradient.canvas)` / `.fill(CoreGradient.cta)`.
 
 **Files:**
-- Create: `Sources/CoreDesign/Colors/CoreGradient.swift`
-- Modify: `Tests/CoreDesignTests/CoreDesignTests.swift` (add a suite)
+- Create: `Sources/OhMyDesign/Colors/CoreGradient.swift`
+- Modify: `Tests/OhMyDesignTests/OhMyDesignTests.swift` (add a suite)
 
 - [ ] **Step 1: Write the failing test referencing the tokens**
 
-Append this suite to `Tests/CoreDesignTests/CoreDesignTests.swift` (after the existing `BlossomAssetTests`):
+Append this suite to `Tests/OhMyDesignTests/OhMyDesignTests.swift` (after the existing `BlossomAssetTests`):
 
 ```swift
 @Suite("CoreGradient tokens")
@@ -513,12 +513,12 @@ Expected: FAIL — compile error "cannot find 'CoreGradient' in scope".
 
 - [ ] **Step 3: Create the CoreGradient file**
 
-Create `Sources/CoreDesign/Colors/CoreGradient.swift`:
+Create `Sources/OhMyDesign/Colors/CoreGradient.swift`:
 
 ```swift
 //
 //  CoreGradient.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -597,7 +597,7 @@ Expected: all four succeed.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add Sources/CoreDesign/Colors/CoreGradient.swift Tests/CoreDesignTests/CoreDesignTests.swift
+git add Sources/OhMyDesign/Colors/CoreGradient.swift Tests/OhMyDesignTests/OhMyDesignTests.swift
 git commit -m "Add CoreGradient token layer (real gradients under Blossom)"
 ```
 
@@ -608,16 +608,16 @@ git commit -m "Add CoreGradient token layer (real gradients under Blossom)"
 Per repo convention, `#Preview` blocks are the primary visual smoke check and live alongside components. Add a self-contained preview file that exercises coral brand, violet secondary, and the three gradients so a developer can eyeball Blossom in Xcode (select the `Blossom` trait in the scheme, or it shows the default flat fallback otherwise).
 
 **Files:**
-- Create: `Sources/CoreDesign/Colors/CoreGradient+Preview.swift`
+- Create: `Sources/OhMyDesign/Colors/CoreGradient+Preview.swift`
 
 - [ ] **Step 1: Create the preview file**
 
-Create `Sources/CoreDesign/Colors/CoreGradient+Preview.swift`:
+Create `Sources/OhMyDesign/Colors/CoreGradient+Preview.swift`:
 
 ```swift
 //
 //  CoreGradient+Preview.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -654,7 +654,7 @@ Expected: both succeed. (`#Preview` compiles into the module; it is not run by `
 - [ ] **Step 3: Commit**
 
 ```bash
-git add Sources/CoreDesign/Colors/CoreGradient+Preview.swift
+git add Sources/OhMyDesign/Colors/CoreGradient+Preview.swift
 git commit -m "Add Blossom theme visual smoke Preview"
 ```
 
@@ -672,7 +672,7 @@ In `CLAUDE.md`, locate the end of the `### 分层色彩系统` section (just bef
 ```markdown
 ### 主题系统（Package Traits）
 
-CoreDesign 通过 SwiftPM **Package Trait** 在编译期切换风格方案，调用方"导入即主题"，组件代码零改动。
+OhMyDesign 通过 SwiftPM **Package Trait** 在编译期切换风格方案，调用方"导入即主题"，组件代码零改动。
 
 - `Package.swift` 声明 trait：默认 `.default(enabledTraits: [])`（= Craft 蓝色主题，零变化）；当前唯一非默认 trait 是 `Blossom`（暖悦风格 · 珊瑚粉糖果渐变女性向）。
 - 调用方启用：`.package(url: "...", traits: ["Blossom"])`，或在 Xcode package 依赖的 trait 勾选 UI 中开启。
@@ -716,7 +716,7 @@ Expected: build succeeds; all tests PASS.
 
 - [ ] **Step 3: Confirm zero default-mode regression in the diff**
 
-Run: `git diff main...HEAD -- Sources/CoreDesign/Colors/ColorGrade.swift Sources/CoreDesign/Colors/SurfaceColors.swift Sources/CoreDesign/Colors/FunctionalColor.swift Sources/CoreDesign/Colors/InteractionColors.swift`
+Run: `git diff main...HEAD -- Sources/OhMyDesign/Colors/ColorGrade.swift Sources/OhMyDesign/Colors/SurfaceColors.swift Sources/OhMyDesign/Colors/FunctionalColor.swift Sources/OhMyDesign/Colors/InteractionColors.swift`
 Expected: every change is inside a `#if Blossom` / `#else` / `#endif` block; the `#else` branches are byte-identical to the original code (i.e. the default path is unchanged).
 
 - [ ] **Step 4 (optional): Capture a Blossom preview screenshot**

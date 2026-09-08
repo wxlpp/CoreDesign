@@ -1,6 +1,6 @@
 # Acknowledgements
 
-CoreDesign 的部分实现衍生自第三方开源项目。按各自许可的要求，原始版权与许可声明
+OhMyDesign 的部分实现衍生自第三方开源项目。按各自许可的要求，原始版权与许可声明
 转载于下。
 
 > **本文件与 [`docs/shader-provenance.md`](docs/shader-provenance.md) 的分工**：
@@ -21,7 +21,7 @@ CoreDesign 的部分实现衍生自第三方开源项目。按各自许可的要
 | **参考算法思路** | 对照上游或公开文献**重写**，未复制其代码 | 指明参考实现与其许可，说明是重写 |
 | **未知（上游未指认）** | ⚠️ **未定档，不是第三种结论**：已判定它有外部谱系（故不作原创声称），但**具体上游尚未指认到**，因而无法判断复制了多少 | **不得作原创声称**；落地前须按 `docs/shader-provenance.md`《方法论教训》追一轮，**追到后必须改判为上面两档之一**；追不到 ⇒ 该件不落地 |
 
-⚠️ **第三档是本文件《`CoreDesignShaders` 的共享原语与公开配方》一节的实际需要**
+⚠️ **第三档是本文件《`OhMyDesignShaders` 的共享原语与公开配方》一节的实际需要**
 （`ramp3` 与 `coreDesignRefractiveGlass` 的位移 + 通道色散主体两行）：**「指认不到具体上游」既不是「移植了一大段」、
 也不是「对照某个参考实现重写」**——上一版只有前两档，于是这两行在 `复制程度` 列里
 不属于本表任何一档（PR #259 review round-2 指出）。⇒ 补设本档并写明它是**待定态**，
@@ -43,16 +43,16 @@ CoreDesign 的部分实现衍生自第三方开源项目。按各自许可的要
 
 ## ShipSwift
 
-CoreDesign 的表达性视觉层（`CoreDesignEffects`，以及**计划中、尚未合入本仓**的
-`CoreDesignShaders`）与图表层（`CoreDesignCharts`）的**点子与算法**来自
+OhMyDesign 的表达性视觉层（`OhMyDesignEffects`，以及**计划中、尚未合入本仓**的
+`OhMyDesignShaders`）与图表层（`OhMyDesignCharts`）的**点子与算法**来自
 [ShipSwift](https://github.com/signerlabs/ShipSwift)（SignerLabs）。
-⚠️ **`CoreDesignShaders` 的状态**：本仓 `Package.swift` **有意不预留**该 product/target
+⚠️ **`OhMyDesignShaders` 的状态**：本仓 `Package.swift` **有意不预留**该 product/target
 （见其 `products:` 处注释），它由 `shipswift-shaders` 在两闸通过后单独引入，
-当前只存在于**未合入**的 PR #261。⇒ 本文件凡提到 `CoreDesignShaders` 的小节
-（下方《Inferno》《Star Nest》《paper-design/shaders》《`CoreDesignShaders` 的共享原语
+当前只存在于**未合入**的 PR #261。⇒ 本文件凡提到 `OhMyDesignShaders` 的小节
+（下方《Inferno》《Star Nest》《paper-design/shaders》《`OhMyDesignShaders` 的共享原语
 与公开配方》）**一律是预登记的占位，不是已生效的对外声明**。
 
-⚠️ **归档义务（不是既成陈述）**：CoreDesign 的实现**须**按自身 API 公约与色彩地基重做；
+⚠️ **归档义务（不是既成陈述）**：OhMyDesign 的实现**须**按自身 API 公约与色彩地基重做；
 逐组件属于哪一档见其 `docs/components/*.md`。
 ⚠️ 第 1 版在此断言"是重写的，不是拷贝"——**当时两个 target 还是空骨架，那是预判**，
 已改为义务描述。
@@ -132,7 +132,7 @@ SOFTWARE.
 
 ## Inferno — Warping Loupe（待 `GlassOrb` 落地时启用）
 
-> ⚠️ 占位。`CoreDesignShaders` 的 `GlassOrb` 落地时（`shipswift-shaders` B-3）填入，
+> ⚠️ 占位。`OhMyDesignShaders` 的 `GlassOrb` 落地时（`shipswift-shaders` B-3）填入，
 > 并转载 Inferno 的完整 MIT 正文。
 
 裁定依据（`docs/shader-provenance.md`《统一裁定表》的 `GlassOrb` 行，论证见同文
@@ -182,7 +182,7 @@ Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie）
 
 ---
 
-## `CoreDesignShaders` 的共享原语与公开配方
+## `OhMyDesignShaders` 的共享原语与公开配方
 
 > ⚠️ **占位（与上面三节同一规则）**：本节描述的代码只存在于**未合并**的
 > `shaders-plasma` 分支（PR #261）。从 `epic/shipswift-foundation` 的角度看，
@@ -272,5 +272,5 @@ website or project.
 
 ## 图片与其他资源
 
-> ⚠️ 占位。CoreDesign 目前未引入第三方图片资源。若将来引入，须在此逐条声明——
+> ⚠️ 占位。OhMyDesign 目前未引入第三方图片资源。若将来引入，须在此逐条声明——
 > 特别注意 CC BY-SA 类资源带传染性条款，与本库的 MIT 分发不兼容。

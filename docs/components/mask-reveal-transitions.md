@@ -3,13 +3,13 @@
 `iris` / `wipe` / `blinds` / `clock` / `glare` / `dissolve` 六种「揭示型」转场 /
 Six mask-reveal transitions.
 
-`.transition(.iris)`（`CoreDesignEffects/MaskReveal.swift` +
-`CoreDesignEffects/MaskRevealTransitions.swift`，Issue #268）。
+`.transition(.iris)`（`OhMyDesignEffects/MaskReveal.swift` +
+`OhMyDesignEffects/MaskRevealTransitions.swift`，Issue #268）。
 ⚠️ **`Transition` 形态**——不是容器视图，也不是 `View` 上的 modifier。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0。
@@ -102,12 +102,12 @@ content.transition(.dissolve(cellSize: 12))
    - `ColorGrade` 资源色在 macOS `swift test` 下全部解析为透明（issue #275）。
 
    ⚠️⚠️ **上一版这里把本条写成"三条路全堵死"，那是错的，照录更正**（终审 S-1）：
-   `EffectsColorLiteralGuard` 的扫描根**有意不含** `Sources/CoreDesign`
+   `EffectsColorLiteralGuard` 的扫描根**有意不含** `Sources/OhMyDesign`
    （它扫的是 `GuardScanRoots.newTargetRoots`，只有 Effects / Charts）⇒ 在
-   `Sources/CoreDesign/Colors/` 加一个不透明基色 token（**不在四层色彩之内**）
+   `Sources/OhMyDesign/Colors/` 加一个不透明基色 token（**不在四层色彩之内**）
    再从 Effects 引用
    **不会命中该守卫**。本仓已有现成先例：`glare` 用的 `Color.specularHighlight`
-   就是 `Sources/CoreDesign/Colors/FillColors.swift` 里的 `Color.white.opacity(0.45)`,
+   就是 `Sources/OhMyDesign/Colors/FillColors.swift` 里的 `Color.white.opacity(0.45)`,
    `CLAUDE.md` 也明写「缺少需要的语义 token，应在对应文件中补充新名称」；#275
    对这类字面量派生 token 同样不适用（它说的是资源色）。
    ⇒ **正确的记账是：遮罩路线可行，只是代价更高**（要新开一个遮罩基色 token，
@@ -115,7 +115,7 @@ content.transition(.dissolve(cellSize: 12))
    且"α 恒为 1"这件事本身还得有判据守着）；**选裁剪的真正理由是下面第 2 条。**
 
    ⚠️⚠️ **那个"更高的代价"现在已经付过了，本条第一句因此要重读**（#276）：
-   `Color.maskOpaque`（`Sources/CoreDesign/Colors/MaskColors.swift`）已经存在，
+   `Color.maskOpaque`（`Sources/OhMyDesign/Colors/MaskColors.swift`）已经存在，
    契约就是 α = 1，由 `MaskOpaqueTokenTests` 在明暗两端守着。⇒ 本仓**现在有**一个
    "保证 α = 1"的可用颜色，上面那句「本仓没有」只对 #276 之前的树成立。
    本簇**仍然选裁剪**，但理由只剩下面第 2 条与"硬边是可接受代价"，

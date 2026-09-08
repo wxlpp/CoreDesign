@@ -70,7 +70,7 @@ Carousel(items, autoAdvance: false) { item in
   两段：前者是 `.task(id:)` 里的运行时副作用（不可脱离 SwiftUI 运行时单测），后者
   抽成 `static func nextID(after:in:) -> ID?` 纯函数，覆盖空集合 / `nil` 当前值 /
   当前值不在集合中（防御式处理数据源变化）/ 末尾回绕 / 单元素恒返回自身五种边界，
-  见 `Tests/CoreDesignTests/CarouselTests.swift`。
+  见 `Tests/OhMyDesignTests/CarouselTests.swift`。
 
 ## 页点指示器
 
@@ -99,7 +99,7 @@ Carousel(items, autoAdvance: false) { item in
 ## 预览 / Preview
 
 `#Preview` 覆盖：3–5 张卡片自动轮播态、`autoAdvance: false` 手动态、单张边界态
-（无页点指示器）、`.tint(.red)` 覆盖态，均含 Light / Dark。运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `CoreDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
+（无页点指示器）、`.tint(.red)` 覆盖态，均含 Light / Dark。运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `OhMyDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
 
 ## 已知局限 / Known limitations
 

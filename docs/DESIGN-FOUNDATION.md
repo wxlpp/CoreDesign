@@ -8,7 +8,7 @@
 
 ## Why this exists
 
-CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.com/primer/primitives) 为视觉北极星，`docs/PRIMER_VERSION.md` 锁定具体 tag 作为 token 取值的单一依据。`0.3.0` 把这套地基整体换成 **Apple Human Interface Guidelines**：字号交还系统文本样式、圆角与控件尺寸对齐 HIG 的触控与容器标度、语义色尽量改指系统色 API，而不是维护一套自有色板。
+OhMyDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.com/primer/primitives) 为视觉北极星，`docs/PRIMER_VERSION.md` 锁定具体 tag 作为 token 取值的单一依据。`0.3.0` 把这套地基整体换成 **Apple Human Interface Guidelines**：字号交还系统文本样式、圆角与控件尺寸对齐 HIG 的触控与容器标度、语义色尽量改指系统色 API，而不是维护一套自有色板。
 
 与 Primer 版本锁定不同，Apple HIG 不是一个可钉版本号的 git tag——它是一套持续演进的设计原则 + 一批稳定的系统 API（`Font.TextStyle`、`UIColor`/`NSColor` 语义色族、`ControlSize`）。本文件因此不记录"锁定到哪个版本"，而是记录**每个 token 与哪条 HIG 原则 / 哪个系统 API 对应，以及取值背后的理由**——这是下游评估升级影响、以及未来维护者理解"这个数字为什么是这个数字"的依据。
 
@@ -17,7 +17,7 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 
 ## Token 源映射表
 
-| CoreDesign token | Apple HIG / 系统 API 依据 |
+| OhMyDesign token | Apple HIG / 系统 API 依据 |
 |---|---|
 | `CoreTypography` | 直接取 `Font.TextStyle`（`largeTitle` … `caption2`），字号 / 行高 / 字重 / Dynamic Type 缩放全部交给系统，不再手写字号表 |
 | `CoreRadius` | HIG 圆角标度惯例（squircle / continuous corner），4 档 + `CoreShape` 统一 `.continuous` 出口 |
@@ -36,7 +36,7 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 
 ### 圆角（`CoreRadius` + `CoreShape`）
 
-`none 0 / small 6 / medium 10 / large 16 / xLarge 22`。HIG 没有 `.none` 档（直角通常靠省略圆角实现），`.none` 是 CoreDesign 扩展，方便在统一类型签名下表达"无圆角"。`xLarge`(22) 当前零消费，是为 Dialog / Modal / Sheet 类容器预留的标度，不是缺陷——库内目前没有这类容器，也没有发现现有场景本该用 22pt 却被迫停在 16pt。
+`none 0 / small 6 / medium 10 / large 16 / xLarge 22`。HIG 没有 `.none` 档（直角通常靠省略圆角实现），`.none` 是 OhMyDesign 扩展，方便在统一类型签名下表达"无圆角"。`xLarge`(22) 当前零消费，是为 Dialog / Modal / Sheet 类容器预留的标度，不是缺陷——库内目前没有这类容器，也没有发现现有场景本该用 22pt 却被迫停在 16pt。
 
 **`.continuous` 角样式必须经 `CoreShape.rounded(_:)` 统一出口**：只改半径数值拿不到 Apple 的 squircle 观感，角样式要在每个 `RoundedRectangle` 构造点显式指定，漏一处就是一处风格不一致的元素。`Sources` 内裸 `RoundedRectangle(` 调用已收敛为 0（唯一例外是 `CoreShape.rounded` 自身的实现）。`ConcentricRectangle`（iOS 26+）为嵌套于已知容器的元素预留，容器侧配合 `.containerShape(_:)` 声明——当前零采纳，同样是"标度先于需求"而非遗漏。
 
@@ -44,7 +44,7 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 
 高度 `mini 28 / small 32 / regular 44 / large 50 / extraLarge 56`。核心判断是把 `regular` 抬到 HIG 的 **44pt 最小触控目标**——这不是某个调用点选错档，而是整个 token 族的设计意图：把全部主要交互控件（`ListRow`、`SearchField`、`SegmentedControl` 容器）统一到 44pt 下限，`SegmentedControl` 因此会把原生 `UISegmentedControl` 包装成高于其固有高度的外框，这是有意的。
 
-横向 padding `mini=8 / small=12 / regular=16 / large=16 / extraLarge=24`：`regular` 起给出更舒展的横向留白，贴近 Apple 系统按钮的视觉密度。纵向 padding `mini=4 / small=4 / regular=12 / large=16 / extraLarge=16`：具体哪些档位由 `frame(minHeight:)` 地板决定、哪些由 padding 撑高决定，取决于平台与 Dynamic Type 档位——iOS 默认档下 `mini`/`small` 由地板决定，`regular` 及以上由 padding 决定；macOS 因系统文本样式明显更小，五档全部由地板决定。详细算式见 `Sources/CoreDesign/Tokens/CoreControlMetrics.swift` 的文档注释。
+横向 padding `mini=8 / small=12 / regular=16 / large=16 / extraLarge=24`：`regular` 起给出更舒展的横向留白，贴近 Apple 系统按钮的视觉密度。纵向 padding `mini=4 / small=4 / regular=12 / large=16 / extraLarge=16`：具体哪些档位由 `frame(minHeight:)` 地板决定、哪些由 padding 撑高决定，取决于平台与 Dynamic Type 档位——iOS 默认档下 `mini`/`small` 由地板决定，`regular` 及以上由 padding 决定；macOS 因系统文本样式明显更小，五档全部由地板决定。详细算式见 `Sources/OhMyDesign/Tokens/CoreControlMetrics.swift` 的文档注释。
 
 ### 阴影（`CoreElevation`）
 
@@ -52,7 +52,7 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 
 ### 语义色（`SurfaceColors` / `ContentColors` / `BorderColors` / `FillColors`）
 
-绝大多数 token 直接改指系统语义色 API，随系统外观、对比度设置自动更新，不再由 CoreDesign 自建 colorset 供色：
+绝大多数 token 直接改指系统语义色 API，随系统外观、对比度设置自动更新，不再由 OhMyDesign 自建 colorset 供色：
 
 - `SurfaceColors`：`surfaceCanvas` / `surfaceRaised` / `surfaceElevated` 三档统一走 `systemGroupedBackground` 族（`systemGroupedBackground` / `secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground`），`surfaceCanvasInset` 改指 `FillColors.tertiaryFill`——其官方 HIG 语义（输入字段/搜索栏/按钮）与实际消费点（头像环、进度条轨道）精确对应。
 - `ContentColors`：全部指向系统 `label` 族（`label` / `secondaryLabel` / `tertiaryLabel` / `quaternaryLabel` / `placeholderText` / `link`）；`contentInverse` / `contentOnDanger` / `contentOnEmphasis` **仍**固定为 `.white`——它们的消费点均为**固定饱和色**背景（状态色 emphasis、调用方传入的 tile 底色），白字对比度可靠。⚠️ **`contentOnAccent` 已于 2026-09-08 改为 `.systemBackground`**（随主题反转）：accent 墨色化后它压在墨底上，白字在浅色模式下不可读。⇒ 这四个 token **不再同值**，按消费点区分：坐在 `accent` 上的走 `contentOnAccent`，坐在固定饱和色上的走 `contentOnEmphasis`。
@@ -124,7 +124,7 @@ CoreDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 是**观感**问题，需要 macOS 截图链路，本仓仍然没有
 （`scripts/run-snapshots.sh` 硬绑 `platform=iOS Simulator`，`App/project.yml` 两个 target
 都是 `platform: iOS`）⇒ **已按 `#239` owner 的书面指示改写为独立工作项
-[#341](https://github.com/wxlpp/CoreDesign/issues/341)**，不是就地丢掉。
+[#341](https://github.com/wxlpp/oh-my-design/issues/341)**，不是就地丢掉。
 
 #### ⚠️ `#237` 裁决：三档填充**不靠底色区分**——如实承认，不拉阶梯
 
@@ -186,7 +186,7 @@ macOS `NSColor.textColor`。⚠️ macOS 取 `textColor` **而不是** `labelCol
 
 **新增 `dataAccent`（系统蓝）与 `dataAccentSubtle`。** 图表环、tag 这类**靠色相携带含义**
 的东西跟着墨色 accent 走会读成**禁用** ⇒ 单开一个不跟随 accent 的数据色，
-`CoreDesignCharts` 四个图表的 `tint` 默认实参指向它。
+`OhMyDesignCharts` 四个图表的 `tint` 默认实参指向它。
 
 **`secondaryAccent` 族改为 `grey7/8/9/2`**（原 `lightBlue5/6/7/2`）。
 附带：`DotSphere` / `CharSphere` 的**预览**把 `secondaryAccent` 当第二色用，
@@ -199,14 +199,14 @@ macOS `NSColor.textColor`。⚠️ macOS 取 `textColor` **而不是** `labelCol
 
 以下为 `#120` 原文（历史记账）：
 
-`accent` 从固定的 CoreDesign 品牌蓝（`Color.brand5`）改为 `Color.accentColor`——库跟随宿主 App 在 Asset Catalog 里设置的 `AccentColor`，而不是自带一套固定品牌色。衍生态（`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground`）因此不能再各取固定色阶（宿主可以把 `AccentColor` 设成任意色相，一个固定色阶不再是"它更亮一档的样子"），改为对 `accent` 本身做明度 / 不透明度调制：
+`accent` 从固定的 OhMyDesign 品牌蓝（`Color.brand5`）改为 `Color.accentColor`——库跟随宿主 App 在 Asset Catalog 里设置的 `AccentColor`，而不是自带一套固定品牌色。衍生态（`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground`）因此不能再各取固定色阶（宿主可以把 `AccentColor` 设成任意色相，一个固定色阶不再是"它更亮一档的样子"），改为对 `accent` 本身做明度 / 不透明度调制：
 
 - **`accentHover` = `accent.mix(with: .primary, by: 0.15)`，`accentPressed` = `accent.mix(with: .primary, by: 0.25)`**——混合基色取 `.primary`（浅色模式≈黑、深色模式≈白）而非固定的黑或白，是为了复现旧 `brand` 色阶**外观自适应反转**的双向行为：实测旧 `brand6`（hover）浅色 `#0062D6` 比 `brand5` 深、深色 `#65B2FC` 比 `brand5` 浅——也就是"朝远离背景的方向走一档"，而不是恒定变亮或恒定变暗。用固定的白/黑混合会在其中一个外观模式下把 accent 推向背景色、收窄对比度；`.primary` 一个基色即可复现这一双向行为。`pressed` 比 `hover` 混合比例更高（0.25 vs 0.15），复现"按下态离背景更远一档"。
 - **`accentDisabled` = `accent.opacity(0.35)`**——对 accent 本身降低不透明度，与 Apple 系统控件的禁用惯例一致：保持色相、只降低存在感，而不像 pressed 那样改变明度方向。
 - **`accentSubtleBackground` = `accent.opacity(0.12)`**——同样走不透明度调制而非明度混合：不透明度会让底层背景透出来，在浅色与深色画布上都能读出"淡淡的强调色调"；若改用与 `accentHover` 一致的白混合调制，会在深色背景上变成一块突兀的发亮浅色色块。
 - **`selectionBackgroundEmphasis` 改指实心 `accent`**（此前借道 `accentDisabled`）——"强调选中"与"禁用"是两种不同语义，借道禁用色的淡出效果会造成语义倒挂。
 
-**显式定案：`secondaryAccent` / `neutralAccent` 两族保留品牌色阶，不随 accent 动态化。** Apple HIG 没有"第二强调色"或独立的中性强调色系统概念——只有单一的 `AccentColor`。`secondaryAccent` 服务于 `ButtonRoleStyleRole.secondary`（次要按钮角色），是 CoreDesign 自有的一套品牌色阶，语义上独立于宿主 App 的强调色：即使宿主把 `AccentColor` 换成任意颜色，"次要按钮"仍应保持库自身统一的视觉身份。`neutralAccent` 同理保留 `ColorGrade.grey` 一系而非改指系统灰，是为了避免库内出现两套灰阶互不对应。`light-blue-5` / `grey-5` 等 colorset 本身已带 light/dark 双值，明暗自适应链路与系统色等价，只是取值来自 CoreDesign 自己的调色板。
+**显式定案：`secondaryAccent` / `neutralAccent` 两族保留品牌色阶，不随 accent 动态化。** Apple HIG 没有"第二强调色"或独立的中性强调色系统概念——只有单一的 `AccentColor`。`secondaryAccent` 服务于 `ButtonRoleStyleRole.secondary`（次要按钮角色），是 OhMyDesign 自有的一套品牌色阶，语义上独立于宿主 App 的强调色：即使宿主把 `AccentColor` 换成任意颜色，"次要按钮"仍应保持库自身统一的视觉身份。`neutralAccent` 同理保留 `ColorGrade.grey` 一系而非改指系统灰，是为了避免库内出现两套灰阶互不对应。`light-blue-5` / `grey-5` 等 colorset 本身已带 light/dark 双值，明暗自适应链路与系统色等价，只是取值来自 OhMyDesign 自己的调色板。
 
 ### 状态色（`StatusColors`）
 

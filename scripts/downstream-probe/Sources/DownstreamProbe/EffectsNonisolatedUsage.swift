@@ -1,10 +1,10 @@
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 import SwiftUI
 
-// `CoreDesignEffects` 的 nonisolated 消费面（#247 建结构）。
+// `OhMyDesignEffects` 的 nonisolated 消费面（#247 建结构）。
 //
-// ⚠️ **本文件目前只有模块标识这一条**——`CoreDesignEffects` 现在是**骨架 target**
+// ⚠️ **本文件目前只有模块标识这一条**——`OhMyDesignEffects` 现在是**骨架 target**
 // （#245 建，不含任何组件）。36 个动效 API 落地后，**由 `shipswift-effects` 的 A-7
 // 按 API 单位清单逐个补齐调用点**。
 //
@@ -29,22 +29,22 @@ import SwiftUI
 //  那一条靠 `scripts/api-surface-diff.sh` 或别的守卫。
 
 nonisolated func readEffectsModuleName() -> String {
-    CoreDesignEffects.moduleName
+    OhMyDesignEffects.moduleName
 }
 
 // MARK: - NFR-7 里 **effects 专用**的那两个旋钮（Issue #252 / `#271` 下沉后）
 //
-// ⚠️ **`#271` 起本节只剩 effects 侧的两个旋钮**：通用那部分已下沉进 `CoreDesign`
-//（旧名对照见 `docs/BREAKING-CHANGES.md`），它们「只链 `CoreDesign` 也拿得到」这半
-// 必须在 `Sources/CoreDesignOnlyProbe/EnergyPolicy.swift` 证 —— **本 target 链着
-// `CoreDesignEffects`，在这里取证不了**。
+// ⚠️ **`#271` 起本节只剩 effects 侧的两个旋钮**：通用那部分已下沉进 `OhMyDesign`
+//（旧名对照见 `docs/BREAKING-CHANGES.md`），它们「只链 `OhMyDesign` 也拿得到」这半
+// 必须在 `Sources/OhMyDesignOnlyProbe/EnergyPolicy.swift` 证 —— **本 target 链着
+// `OhMyDesignEffects`，在这里取证不了**。
 //
 // ⚠️⚠️ **别把本文件读成这两个成员 `nonisolated` 契约的判据**：`defaultIsolation` 卷进来的
 // 隔离跨模块看不见，拿掉 `usesGlow` 的 `nonisolated` 本文件照绿。那条契约由
 // `ExtensionIsolationGuard.pinnedExtensionMembersAreExplicitlyNonisolated` 守。
 // 本文件在这两个成员上守的只是**可见性**：从模块外取不到时会红。
 //
-// ⚠️ B-2（`shipswift-shaders` 的 17 个 `colorEffect`）现在只 `import CoreDesign`
+// ⚠️ B-2（`shipswift-shaders` 的 17 个 `colorEffect`）现在只 `import OhMyDesign`
 // 就能同时拿到那两个键与那张通用策略表 —— 不必碰本 target。
 
 nonisolated func readEffectsPolicyKnobs() -> (Bool, Double) {
@@ -116,7 +116,7 @@ nonisolated func readFilterTransitionDefaults() -> (Double, Double, Double, Int)
 //
 // ⚠️⚠️ **这四个常量是本 probe 在 #268 上唯一看得见、而库自身四条验证命令结构上
 // 看不见的东西**（#268 终审 I-3）：本包开了 `.defaultIsolation(MainActor.self)`,
-// 而 `CoreDesignEffects` 也开了 —— 不给它们标 `nonisolated` 时，从**本文件这样的
+// 而 `OhMyDesignEffects` 也开了 —— 不给它们标 `nonisolated` 时，从**本文件这样的
 // `nonisolated` 上下文**读一个默认值会拿到：
 //
 //     warning: main actor-isolated static property 'defaultWipeAngle'

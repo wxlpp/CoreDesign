@@ -22,29 +22,29 @@
 
 Modify:
 
-- `Sources/CoreDesign/Modifier/SurfaceModifier.swift`
+- `Sources/OhMyDesign/Modifier/SurfaceModifier.swift`
   - 新增 Native Primer surface 角色,同时把旧 case 保留为兼容别名。
   - 保持 `View.surface(_:)` 作为单一 surface 入口。
-- `Sources/CoreDesign/Modifier/FloatingGlassModifier.swift`
+- `Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift`
   - 新文件,封装共享的浮层 Liquid Glass 行为。
-- `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
+- `Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift`
   - 把 `glass` 默认值改为 `false`。
   - 更新文档 / preview,使默认示例为非玻璃形态。
-- `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
+- `Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift`
   - 把 `glass` 默认值改为 `false`。
   - 更新文档 / preview,使默认示例为非玻璃形态。
-- `Sources/CoreDesign/Components/EmptyState/EmptyState.swift`
+- `Sources/OhMyDesign/Components/EmptyState/EmptyState.swift`
   - 增加弃用注解,并提供迁移到 `ContentUnavailableView` 的指引。
-- `Tests/CoreDesignTests/SurfaceKindTests.swift`
+- `Tests/OhMyDesignTests/SurfaceKindTests.swift`
   - 新增测试,验证兼容性以及新 surface 角色的构造。
-- `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`
+- `Tests/OhMyDesignTests/ButtonStyleDefaultTests.swift`
   - 新增测试,验证按钮 style 默认 `glass` 取值。
-- `Tests/CoreDesignTests/EmptyStateDeprecationTests.swift`
+- `Tests/OhMyDesignTests/EmptyStateDeprecationTests.swift`
   - 新增编译期构造测试,确保弃用 API 在过渡期内仍然可用。
 
 只读参考:
 
-- `Sources/CoreDesign/Modifier/TelegramGlassButtonModifier.swift`
+- `Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift`
   - 旧版显式玻璃按钮视觉的兼容性参考。
 
 本计划不修改第二阶段的组件视觉:`SegmentedControl`、`SearchField`、`ListRow`、`SidebarRow`、`UnderlinedTabBar`、`Badge`、`Tag`、`StateLabel`。
@@ -54,16 +54,16 @@ Modify:
 ## 任务 1:新增 Native Primer surface 角色
 
 **Files:**
-- Modify: `Sources/CoreDesign/Modifier/SurfaceModifier.swift`
-- Create: `Tests/CoreDesignTests/SurfaceKindTests.swift`
+- Modify: `Sources/OhMyDesign/Modifier/SurfaceModifier.swift`
+- Create: `Tests/OhMyDesignTests/SurfaceKindTests.swift`
 
 - [ ] **步骤 1:先写失败测试**
 
-创建 `Tests/CoreDesignTests/SurfaceKindTests.swift`:
+创建 `Tests/OhMyDesignTests/SurfaceKindTests.swift`:
 
 ```swift
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("SurfaceKind")
 struct SurfaceKindTests {
@@ -106,7 +106,7 @@ swift test --filter SurfaceKind
 
 - [ ] **步骤 3:新增 surface 角色与映射**
 
-编辑 `Sources/CoreDesign/Modifier/SurfaceModifier.swift`。
+编辑 `Sources/OhMyDesign/Modifier/SurfaceModifier.swift`。
 
 把 `SurfaceKind` 的 case 替换为:
 
@@ -251,7 +251,7 @@ swift test --filter SurfaceKind
 - [ ] **步骤 5:Commit**
 
 ```bash
-git add Sources/CoreDesign/Modifier/SurfaceModifier.swift Tests/CoreDesignTests/SurfaceKindTests.swift
+git add Sources/OhMyDesign/Modifier/SurfaceModifier.swift Tests/OhMyDesignTests/SurfaceKindTests.swift
 git commit -m "feat: add native primer surface roles"
 ```
 
@@ -260,17 +260,17 @@ git commit -m "feat: add native primer surface roles"
 ## 任务 2:新增浮层玻璃原语
 
 **Files:**
-- Create: `Sources/CoreDesign/Modifier/FloatingGlassModifier.swift`
-- Create: `Tests/CoreDesignTests/FloatingGlassModifierTests.swift`
+- Create: `Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift`
+- Create: `Tests/OhMyDesignTests/FloatingGlassModifierTests.swift`
 
 - [ ] **步骤 1:先写失败的编译测试**
 
-创建 `Tests/CoreDesignTests/FloatingGlassModifierTests.swift`:
+创建 `Tests/OhMyDesignTests/FloatingGlassModifierTests.swift`:
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("FloatingGlassModifier")
 struct FloatingGlassModifierTests {
@@ -295,12 +295,12 @@ swift test --filter FloatingGlassModifier
 
 - [ ] **步骤 3:实现 modifier**
 
-创建 `Sources/CoreDesign/Modifier/FloatingGlassModifier.swift`:
+创建 `Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift`:
 
 ```swift
 //
 //  FloatingGlassModifier.swift
-//  CoreDesign
+//  OhMyDesign
 //
 
 import SwiftUI
@@ -368,7 +368,7 @@ swift build
 - [ ] **步骤 6:Commit**
 
 ```bash
-git add Sources/CoreDesign/Modifier/FloatingGlassModifier.swift Tests/CoreDesignTests/FloatingGlassModifierTests.swift
+git add Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift Tests/OhMyDesignTests/FloatingGlassModifierTests.swift
 git commit -m "feat: add floating glass primitive"
 ```
 
@@ -377,17 +377,17 @@ git commit -m "feat: add floating glass primitive"
 ## 任务 3:把普通按钮 style 默认改为非玻璃
 
 **Files:**
-- Modify: `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
-- Modify: `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
-- Create: `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`
+- Modify: `Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift`
+- Modify: `Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift`
+- Create: `Tests/OhMyDesignTests/ButtonStyleDefaultTests.swift`
 
 - [ ] **步骤 1:为默认值写失败测试**
 
-创建 `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`:
+创建 `Tests/OhMyDesignTests/ButtonStyleDefaultTests.swift`:
 
 ```swift
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("Button style defaults")
 struct ButtonStyleDefaultTests {
@@ -423,7 +423,7 @@ swift test --filter "Button style defaults"
 
 - [ ] **步骤 3:修改 SolidButtonStyle 默认值与文档**
 
-在 `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift` 中,把:
+在 `Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift` 中,把:
 
 ```swift
 public init(role: ButtonRoleStyleRole = .primary, glass: Bool = true) {
@@ -488,7 +488,7 @@ static func solid(role: ButtonRoleStyleRole = .primary, glass: Bool = false) -> 
 
 - [ ] **步骤 4:修改 LightButtonStyle 默认值与文档**
 
-在 `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift` 中,把:
+在 `Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift` 中,把:
 
 ```swift
 public init(role: ButtonRoleStyleRole = .primary, glass: Bool = true) {
@@ -567,7 +567,7 @@ swift test --filter AsyncButton
 - [ ] **步骤 7:Commit**
 
 ```bash
-git add Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift Tests/CoreDesignTests/ButtonStyleDefaultTests.swift
+git add Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift Tests/OhMyDesignTests/ButtonStyleDefaultTests.swift
 git commit -m "feat: make button glass opt-in"
 ```
 
@@ -576,17 +576,17 @@ git commit -m "feat: make button glass opt-in"
 ## 任务 4:弃用 EmptyState 并指引迁移到原生方案
 
 **Files:**
-- Modify: `Sources/CoreDesign/Components/EmptyState/EmptyState.swift`
-- Create: `Tests/CoreDesignTests/EmptyStateDeprecationTests.swift`
+- Modify: `Sources/OhMyDesign/Components/EmptyState/EmptyState.swift`
+- Create: `Tests/OhMyDesignTests/EmptyStateDeprecationTests.swift`
 
 - [ ] **步骤 1:写编译保持测试**
 
-创建 `Tests/CoreDesignTests/EmptyStateDeprecationTests.swift`:
+创建 `Tests/OhMyDesignTests/EmptyStateDeprecationTests.swift`:
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("EmptyState deprecation")
 struct EmptyStateDeprecationTests {
@@ -611,7 +611,7 @@ swift test --filter "EmptyState deprecation"
 
 - [ ] **步骤 3:添加弃用注解**
 
-编辑 `Sources/CoreDesign/Components/EmptyState/EmptyState.swift`。
+编辑 `Sources/OhMyDesign/Components/EmptyState/EmptyState.swift`。
 
 给 public struct 加上这条弃用注解:
 
@@ -619,7 +619,7 @@ swift test --filter "EmptyState deprecation"
 @available(
     *,
     deprecated,
-    message: "Use SwiftUI ContentUnavailableView for empty states. Compose CoreDesign buttons inside ContentUnavailableView actions when needed."
+    message: "Use SwiftUI ContentUnavailableView for empty states. Compose OhMyDesign buttons inside ContentUnavailableView actions when needed."
 )
 public struct EmptyState<Action: View>: View {
 ```
@@ -687,7 +687,7 @@ swift test
 - [ ] **步骤 6:Commit**
 
 ```bash
-git add Sources/CoreDesign/Components/EmptyState/EmptyState.swift Tests/CoreDesignTests/EmptyStateDeprecationTests.swift
+git add Sources/OhMyDesign/Components/EmptyState/EmptyState.swift Tests/OhMyDesignTests/EmptyStateDeprecationTests.swift
 git commit -m "docs: deprecate empty state component"
 ```
 
@@ -714,7 +714,7 @@ swift test
 执行:
 
 ```bash
-rg "glass: Bool = true|\\.buttonStyle\\(\\.solid\\(|\\.buttonStyle\\(\\.light\\(" Sources/CoreDesign App/Sources Tests/CoreDesignTests
+rg "glass: Bool = true|\\.buttonStyle\\(\\.solid\\(|\\.buttonStyle\\(\\.light\\(" Sources/OhMyDesign App/Sources Tests/OhMyDesignTests
 ```
 
 预期:
@@ -727,7 +727,7 @@ rg "glass: Bool = true|\\.buttonStyle\\(\\.solid\\(|\\.buttonStyle\\(\\.light\\(
 执行:
 
 ```bash
-rg "deprecated.*ContentUnavailableView|public struct EmptyState|ContentUnavailableView" Sources/CoreDesign/Components/EmptyState/EmptyState.swift
+rg "deprecated.*ContentUnavailableView|public struct EmptyState|ContentUnavailableView" Sources/OhMyDesign/Components/EmptyState/EmptyState.swift
 ```
 
 预期:输出应包含 `@available(... deprecated ...)` 注解、`public struct EmptyState`,以及 `ContentUnavailableView` 迁移指引。
@@ -737,7 +737,7 @@ rg "deprecated.*ContentUnavailableView|public struct EmptyState|ContentUnavailab
 执行:
 
 ```bash
-rg "case content|case control|case floating|case overlay" Sources/CoreDesign/Modifier/SurfaceModifier.swift
+rg "case content|case control|case floating|case overlay" Sources/OhMyDesign/Modifier/SurfaceModifier.swift
 ```
 
 预期:四个 case 都在。

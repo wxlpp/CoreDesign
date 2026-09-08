@@ -6,14 +6,14 @@
 
 ## 项目概述
 
-CoreDesign 是一个以 Swift Package 形式分发的 SwiftUI 设计系统库。目标平台为 iOS 26+ / macOS 26+，采用 Swift 6 语言模式（`swiftLanguageModes: [.v6]`，开启完整严格并发检查。
+OhMyDesign 是一个以 Swift Package 形式分发的 SwiftUI 设计系统库。目标平台为 iOS 26+ / macOS 26+，采用 Swift 6 语言模式（`swiftLanguageModes: [.v6]`，开启完整严格并发检查。
 
 ## 常用命令
 
 ```bash
 swift build                                  # 构建库
 swift test                                   # 运行所有测试（使用 Swift Testing，而非 XCTest）
-swift test --filter CoreDesignTests.example  # 按完整名称运行单个测试
+swift test --filter OhMyDesignTests.example  # 按完整名称运行单个测试
 swift package resolve                        # 修改 Package.swift 后刷新依赖
 swift package clean                          # 缓存出问题时清除 .build/ 目录
 ```
@@ -45,25 +45,25 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 | product | 内容 | 备注 |
 |---|---|---|
-| `CoreDesign` | 系统原生观感的组件、四层色彩、token、modifier | 主体，**不依赖**下面两个 |
-| `CoreDesignEffects` | 表达性视觉层：微交互 / 转场 / 庆祝与处理中动效 | 依赖 `CoreDesign` |
-| `CoreDesignCharts` | Swift Charts 原生画不出来的四类图表（雷达图 / 活动环 / 贡献热力图 / 力导向网络图） | 依赖 `CoreDesign`；**有意不 `import Charts`** |
+| `OhMyDesign` | 系统原生观感的组件、四层色彩、token、modifier | 主体，**不依赖**下面两个 |
+| `OhMyDesignEffects` | 表达性视觉层：微交互 / 转场 / 庆祝与处理中动效 | 依赖 `OhMyDesign` |
+| `OhMyDesignCharts` | Swift Charts 原生画不出来的四类图表（雷达图 / 活动环 / 贡献热力图 / 力导向网络图） | 依赖 `OhMyDesign`；**有意不 `import Charts`** |
 
 拆开的理由：只想要系统原生观感的消费者不必背上动效与图表。依赖是**单向**的
-（`CoreDesign` 的 `target_dependencies` 必须恒为 `[]`），两条 `swift package describe`
+（`OhMyDesign` 的 `target_dependencies` 必须恒为 `[]`），两条 `swift package describe`
 判据守着它，见下方《验证边界与常见坑》。
 
-⚠️ **新 target 各有独立的 test target**（`CoreDesignEffectsTests` / `CoreDesignChartsTests`），
-**不并进 `CoreDesignTests`**——并进去需要 `@testable import`，会让 `CoreDesignTests` 的
+⚠️ **新 target 各有独立的 test target**（`OhMyDesignEffectsTests` / `OhMyDesignChartsTests`），
+**不并进 `OhMyDesignTests`**——并进去需要 `@testable import`，会让 `OhMyDesignTests` 的
 依赖图包含新 target，破坏上面那条隔离判据。
 
 ⚠️ **源码守卫的扫描根有三个入口，不要混为一谈**（`#246` 落地、`#270` 收口后）：
 
 | 根列表 | 谁在用 | 覆盖 |
 |---|---|---|
-| `GuardScanRoots.allRoots`（`Tests/CoreDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep | 三个 target 全覆盖 |
-| `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 CoreDesign 现状 |
-| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，三 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/CoreDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count`（**实测 16**，本行此前写 11，是更早的失真）在三根下照样成立 |
+| `GuardScanRoots.allRoots`（`Tests/OhMyDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep | 三个 target 全覆盖 |
+| `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 OhMyDesign 现状 |
+| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，三 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/OhMyDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count`（**实测 16**，本行此前写 11，是更早的失真）在三根下照样成立 |
 
 ⚠️ 新增 library target 时**必须**把它加进 `GuardScanRoots.targetNames`——该表与
 `Package.swift` 声明的 library target 做双向差集，忘了扩根会当场判红（这是刻意的
@@ -74,7 +74,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 所有按钮样式遵循统一形态：`*ButtonStyle: ButtonStyle` + 在 `ButtonStyle where Self == ...` 上扩展 `static func *Button(role:) -> Self`，通过单个 `ButtonRoleStyleRole` 枚举（`Components/Button/ButtonRoleStyleRole.swift`）参数化。该枚举是 `color` / `activeColor` / `disabledColor` 的唯一来源——新增 role 时应扩展此枚举，而不是为每个样式各自定义调色板。样式从 `@Environment(\.controlSize)` 读取尺寸、从 `\.isEnabled` 决定禁用配色。
 
-⚠️ 本节曾写「重度使用 iOS 26 的 `.glassEffect()`；`LightButtonStyle` 会按 `colorScheme` 分支：暗色用 `glassEffect`，亮色用柔和阴影代替」——**后半句实测为假**（#41 收尾时发现）：`Sources/CoreDesign/Components/Button/styles/` 下**没有任何按钮样式**直接调用 `.glassEffect`，也**没有任何一个读 `colorScheme`**；`LightButtonStyle.makeBody` 走的是 `buttonChrome` + `buttonBackground(fill: .surfaceInteractive, border: .borderSubtle)` + 链尾 `.opacity`，明暗差异全部来自系统语义色 token 的自动适配，不是代码分支。（该句在 #41 之前的 `95c29cf` 上就已失真，不是 #41 删 `glass` 簇造成的。）
+⚠️ 本节曾写「重度使用 iOS 26 的 `.glassEffect()`；`LightButtonStyle` 会按 `colorScheme` 分支：暗色用 `glassEffect`，亮色用柔和阴影代替」——**后半句实测为假**（#41 收尾时发现）：`Sources/OhMyDesign/Components/Button/styles/` 下**没有任何按钮样式**直接调用 `.glassEffect`，也**没有任何一个读 `colorScheme`**；`LightButtonStyle.makeBody` 走的是 `buttonChrome` + `buttonBackground(fill: .surfaceInteractive, border: .borderSubtle)` + 链尾 `.opacity`，明暗差异全部来自系统语义色 token 的自动适配，不是代码分支。（该句在 #41 之前的 `95c29cf` 上就已失真，不是 #41 删 `glass` 簇造成的。）
 
 `.glassEffect` 的真实调用面在组件与 modifier 层：`BottomInputBar`、`Carousel`、`SegmentedControl`、`FloatingGlassModifier`、`TelegramGlassButtonModifier`。按钮样式经 `TelegramGlassButtonModifier` 等间接使用。
 
@@ -100,7 +100,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 ### 资源加载
 
-所有资源查找都必须传入 `bundle: .module`——包通过 `.process("Resources")` 处理 `Sources/CoreDesign/Resources`，SwiftUI 默认的 main bundle 查找方式找不到这些资源。
+所有资源查找都必须传入 `bundle: .module`——包通过 `.process("Resources")` 处理 `Sources/OhMyDesign/Resources`，SwiftUI 默认的 main bundle 查找方式找不到这些资源。
 
 ### 公开 API 表面
 
@@ -114,21 +114,24 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 - **`swift build` 不编译 `Tests/`**，`swift test` 才编译并跑测试；但 `Tests/` 下 `#if
   os(iOS)` 的 suite（如 `DynamicTypeLayoutTests`）在 macOS 上是**空 suite**——`swift
   test` 通过在这类 suite 上是假绿，必须看 CI 的 **xcodebuild iOS Simulator 腿**（或本地跑
-  `xcodebuild test -scheme CoreDesign-Package -destination 'platform=iOS Simulator,...'`）才作数。
-  ⚠️ scheme 必须是 `CoreDesign-Package`——理由见下方《多 target 结构》。
+  `xcodebuild test -scheme OhMyDesign-Package -destination 'platform=iOS Simulator,...'`）才作数。
+  ⚠️ scheme 必须是 `OhMyDesign-Package`——理由见下方《多 target 结构》。
 - **`App/`（预览宿主）不受 `swift build` / `swift test` 覆盖，CI 也不构建它**——它是独立的
   `xcodegen` 生成的 `.xcodeproj`，只能用 `scripts/run-preview.sh` 或直接
-  `xcodebuild -project App/CoreDesignPreview.xcodeproj` 手动验证。删除或改名公开符号后
+  `xcodebuild -project App/OhMyDesignPreview.xcodeproj` 手动验证。删除或改名公开符号后
   务必手动确认它仍能构建，否则预览宿主可能已经无法编译却没人发现（trait 删除这类
   manifest 层变更尤其如此——报错发生在依赖解析期，不会在库自身的编译期出现）。
 - **`scripts/downstream-probe` 是独立 SwiftPM 包**（自带 `Package.swift`），只有 CI 的
   `downstream-probe` job（`cd scripts/downstream-probe && swift build`）覆盖它。任何
   删除/改名公开符号都必须同步这个包，否则本地 `swift build` 全绿而这个 job 会红。
-- **在 git worktree 里跑 `xcodegen generate` 有坑**：会把 `App/project.yml` 里 local
-  package 的 `name` 按当前目录名（而非 `CoreDesign`）写死，并清空
-  `xcshareddata/xcschemes/CoreDesignPreview.xcscheme`。完整警告与恢复步骤见
-  `App/project.yml` 顶部注释；验证要覆盖 `name=` 字段与文件内注释两种形态的目录名
-  残留，只查一种会漏。
+- **`xcodegen generate` 的两个副作用与 worktree 无关**（本条上一版写成 worktree 专属，
+  实测两条都不成立）：local package 的 `name` 取 **checkout 目录基名**——规范 checkout
+  （目录名 `oh-my-design`）生成的就是提交态那个值，在 worktree 或改过名的目录里生成才要
+  改回来，验证要覆盖 `name=` 字段与文件内注释两种形态，只查一种会漏；共享 scheme
+  **每次**都被删（实测 5/5），生成后必须
+  `git checkout HEAD -- App/OhMyDesignPreview.xcodeproj/xcshareddata`。
+  ⚠️ 判「scheme 删没删」要查 scheme **文件**，父目录 `xcshareddata/` 可能还在。
+  完整警告见 `App/project.yml` 顶部注释。
 - **走 asset catalog 查找的那 198 个颜色常量，在 macOS `swift test` 下全部解析为透明
   ——颜色断言在这条腿上抓不到**（`#275`。⚠️ 本条**推翻**了这里原来那句「新增 / 修改
   colorset 后必须 `swift package clean` 再构建/测试；增量构建不会拷贝新加的目录」
@@ -168,7 +171,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     新目录当场进 bundle，删除同理（Swift 6.3 / Xcode 26.4）。
     ⚠️ **「删除同理」只在 `.xcassets` 内部（colorset 粒度）成立**，
     删掉 / 改名**一整个顶层 resource item** 时不成立：实测把
-    `Sources/CoreDesign/Resources/Resources.xcassets` 整个改名成 `Renamed.xcassets`
+    `Sources/OhMyDesign/Resources/Resources.xcassets` 整个改名成 `Renamed.xcassets`
     后裸跑 `swift test`，产物 bundle 里**新旧两个目录同时存在**、
     本次跑的三个 suite（`ColorGradeResolutionGuard` / `ResourceBundleCanaryTests` /
     `ColorAssetGuardTests`）共 9 条全绿 `EXIT=0`；改回来之后 `Renamed.xcassets`
@@ -176,7 +179,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     **那一格 `clean` 确实是补救**。
     clean 仍然是缓存出问题时的通用手段，但**不是**上面那条结构性盲区的补救
     ——⚠️ 别把本条读成「clean 对资源验证一律无用」：分两格看。
-  - 机器判据：`ColorGradeResolutionGuard`（`Tests/CoreDesignTests/`）**五条**——
+  - 机器判据：`ColorGradeResolutionGuard`（`Tests/OhMyDesignTests/`）**五条**——
     两条按 bundle 形态**分叉**：有 `Assets.car` 时由
     `ColorGradeResolutionGuard.catalogColorsResolveOpaqueOnCompiledCatalog` 正向断言抽样
     token 非全透明；只有目录形态时由
@@ -230,18 +233,18 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
        （本机注记、仅供复现对照，不是判据：light `#0088FFFF` / dark `#0091FFFF`）。
        照绿的**理由**是「三态解析后仍互异」，不是某个具体色值。
 
-- **多 product 之后，CI 的 iOS 腿必须用 `-scheme CoreDesign-Package`**：包只有一个
-  product 时 Xcode 把包 scheme 合并进同名 scheme，于是 `-scheme CoreDesign` 恰好能跑测试；
-  多 product 后 scheme 列表变成 `CoreDesign` / `CoreDesign-Package` / 各 product 一个，
-  而 `xcodebuild test -scheme CoreDesign` 会**硬红**（不是静默跳过）：
-  `error: Scheme CoreDesign is not currently configured for the test action`。
+- **多 product 之后，CI 的 iOS 腿必须用 `-scheme OhMyDesign-Package`**：包只有一个
+  product 时 Xcode 把包 scheme 合并进同名 scheme，于是 `-scheme OhMyDesign` 恰好能跑测试；
+  多 product 后 scheme 列表变成 `OhMyDesign` / `OhMyDesign-Package` / 各 product 一个，
+  而 `xcodebuild test -scheme OhMyDesign` 会**硬红**（不是静默跳过）：
+  `error: Scheme OhMyDesign is not currently configured for the test action`。
 - **两条隔离判据**（改 `Package.swift` 后必跑）：
-  `swift package describe --type json | jq '.targets[] | select(.name=="CoreDesignTests") | .target_dependencies'`
-  须恰为 `["CoreDesign"]`；同样的查询对 `CoreDesign` 自身须输出 **`null`**（禁反向依赖）。
+  `swift package describe --type json | jq '.targets[] | select(.name=="OhMyDesignTests") | .target_dependencies'`
+  须恰为 `["OhMyDesign"]`；同样的查询对 `OhMyDesign` 自身须输出 **`null`**（禁反向依赖）。
   ⚠️ **是 `null` 不是 `[]`**：无依赖的 target 在 SwiftPM 的 JSON 里该字段**直接缺席**，
   jq 取到的是 `null`。照 `[]` 写判据会永远判红。
 - **`App/project.yml` 在多 product 下必须逐条写 `product:`**：不写只会链同名的
-  `CoreDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
+  `OhMyDesign` 产品，失效形态是「预览宿主编译得过、但画廊里的新组件 import 不到」。
 - **checkout 落在 `/tmp` 这类符号链接下时，多条源码守卫会集体假红**（`#311`）：`#filePath` 是
   **编译期**路径（`xcodebuild` 腿上不解析符号链接），`FileManager.enumerator(at:)` 是**运行期**
   枚举、**会**解析根里的符号链接 ⇒ 两端分叉，台账键被污染成 `/privateSources/…` 这类畸形串。
@@ -260,7 +263,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   这个推断不成立。**权威值取 result bundle**：
 
     ```bash
-    xcodebuild test -scheme CoreDesign-Package \
+    xcodebuild test -scheme OhMyDesign-Package \
       -destination 'platform=iOS Simulator,id=<UDID>' \
       -resultBundlePath <path>.xcresult
     xcrun xcresulttool get test-results summary --path <path>.xcresult
@@ -298,8 +301,13 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   做双向差集），挂在 `ci.yml` 的 `swiftpm` job 里 `swift test` 之后那一步
   ——**本地 `swift test` 全绿不代表这条过了**，改公开 static 后请手动跑一次
   （本机热 `.build` 上**实测约 4 s**，写出约 265 MB JSON；这里曾写「约 100s」，
-  是失真的数，`#314` 终审实测推翻）。看着这一步不被静默拆掉的是无条件树内判据
-  `Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift`。
+  是失真的数，`#314` 终审实测推翻）。
+  ⚠️ **手动跑之前先构建测试模块**（`swift build --build-tests` 或 `swift test`）：dump 会给
+  `OhMyDesignPackageTests` 也出图，只跑过 `swift build` 时它加载不了 ⇒ 三个 library target
+  的图其实**都写出来了**，整条命令仍退非零、脚本报「dump-symbol-graph 失败」。CI 里这一步
+  排在 `swift test` 之后，所以那条腿不触发。
+  看着这一步不被静默拆掉的是无条件树内判据
+  `Tests/OhMyDesignTests/MainActorStaticRatchetGuard.swift`。
   ⚠️ **只有第三方模块的扩展块成员不在射程内**：脚本扫「各 target 的主 symbols 文件」
   **加**「本包内跨 target 的 `<Target>@<本包另一个 target>.symbols.json`」，只放过
   `@SwiftUI` / `@SwiftUICore` 那一类（有意的取舍，逐字代价登记在那个脚本的
@@ -321,7 +329,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    `SurfaceContrastTests`）。整跑与 `--filter` 到这类类型名都是零条 + `EXIT=0`。
    ⚠️ 这一条与构建系统无关：native 与 swiftbuild 表现一致。
 3. **`xcodebuild` 的 `-only-testing:` / `-skip-testing:` 传了不存在的标识符 ⇒ 静默 no-op**。
-   实测 `-only-testing:CoreDesignTests/NoSuchSuiteTests` → `** TEST SUCCEEDED **`、`EXIT=0`、
+   实测 `-only-testing:OhMyDesignTests/NoSuchSuiteTests` → `** TEST SUCCEEDED **`、`EXIT=0`、
    日志里**连一行 `Test run with …` 都没有**。⇒ `ci.yml` 里那几行 skip 标识符写错了不会报错，
    只会静默失效（这也是那里反复强调「用类型名不用显示名」的原因）。
    ⚠️ **回指本节之前那条「`xcodebuild` 的 console 输出会漏行」**：本条的判据是 `Test run with` 行数，
@@ -331,7 +339,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    ⚠️ 上一版这里写的复现障碍（「要复现需要一台『存在但不合格』的设备，本机凑不出」）
    **是错的**：本机装了 iOS 18.0 / 18.1 / 18.2 / 18.4 四个 runtime、共 44 台设备，
    对 iOS 26+ 的包**全部不合格**，正是所需器材。实测（`rtk proxy xcodebuild test
-   -scheme CoreDesign-Package -destination …`，Xcode 26.4）：
+   -scheme OhMyDesign-Package -destination …`，Xcode 26.4）：
 
    | `-destination` | 情形 | EXIT | `Test run with` 行数 |
    |---|---|---|---|
@@ -369,7 +377,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 ⚠️ **`#302` 把第 5 条记成了「`--build-system swiftbuild --filter` 静默跑零个测试」——
 复现不出来**（本次在 `main` 与 `epic/shipswift-shaders` 各测一遍）：后者上
-`swift test --build-system swiftbuild --filter CoreDesignShadersTests` **真跑了 27 条**
+`swift test --build-system swiftbuild --filter OhMyDesignShadersTests` **真跑了 27 条**
 （4 行汇总里的一行），只是末行为 `0 tests`；它同时举的 `--filter RenderProofTests` 确实零条，
 但那是上面第 2 条（那个文件整包在 `#if os(iOS)` 里），在 native 构建下同样零条，与 swiftbuild 无关。
 ⇒ 第 5 条是**读日志的方式**问题，不是 `--filter` 语义问题。
@@ -379,16 +387,16 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 互相引用时用形态的描述，不要用序号。
 
 ⚠️ **那道 fail-closed 的 grep 网只在 `epic/shipswift-shaders` 上**（`ci.yml` 的
-「Test (swiftbuild) — CoreDesignShaders」步骤末尾），`main` 的 `ci.yml` 里既没有它、
+「Test (swiftbuild) — OhMyDesignShaders」步骤末尾），`main` 的 `ci.yml` 里既没有它、
 也没有 shader 那一步。它扫全文而非取末行，**对第 5 条免疫**——实测在
-`--filter CoreDesignShadersTests` 上判绿、在 `--filter RenderProofTests` 上判红，方向正确。
+`--filter OhMyDesignShadersTests` 上判绿、在 `--filter RenderProofTests` 上判红，方向正确。
 ⚠️ 但它只兜第 5 条与第 1 条：第 3 条（`-only-testing:` 打错）根本不产生
 `Test run with` 行，第 4 条发生在 `xcodebuild` 腿上而那条腿没有同类的网。
 
 ### 「更正传播」约定（`#287`）
 
 ⚠️ **判据引用不再有机器兜底**：核对「文档里写的『类型 + 点 + 成员』引用真的存在」的
-那条判据（原 `Tests/CoreDesignTests/JudgementReferenceGuard.swift`）已随注释精简一并
+那条判据（原 `Tests/OhMyDesignTests/JudgementReferenceGuard.swift`）已随注释精简一并
 删除。`docs/` 与本文件里的判据引用现在**全靠人工**——引一条之前先 grep 确认它还在。
 
 - ⚠️ **更正 / 撤回一处声称时，必须 grep 该判据名或该理由的关键词，确认三处落点同步**：

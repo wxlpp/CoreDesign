@@ -1,7 +1,7 @@
 # SwooshTransition（`.swoosh`）
 
 带动态模糊的穿行转场 / A directional swoosh with motion blur。
-`CoreDesignEffects/SwooshTransition.swift`，Issue #267。
+`OhMyDesignEffects/SwooshTransition.swift`，Issue #267。
 
 > 六条转场共用的形态与契约见
 > [`transition-cluster-3d-elastic.md`](transition-cluster-3d-elastic.md)。

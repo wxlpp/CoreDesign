@@ -2,17 +2,17 @@
 
 一次性高光扫过，**遮罩到内容形状** / A one-shot specular sweep masked to the content.
 
-两种形态，同一套实现（`CoreDesignEffects/Shine.swift`，Issue #250）：
+两种形态，同一套实现（`OhMyDesignEffects/Shine.swift`，Issue #250）：
 
 - `View.shine(trigger:highlight:)` —— **「这件事刚发生」**，由 `trigger` 值变化驱动，
   可重复触发，与其余七个微交互同形态、可自由叠加。
 - `Shine { }` —— **「这块内容刚出现」**，容器视图形态，出现时扫一次，无需调用方持有状态。
   ⚠️ 它是 #250 的 AC 里**唯一大写**的一项，大小写不是笔误、是形态。
 
-⚠️ **本 API 在 `CoreDesignEffects` 里，不在 `CoreDesign`**：
+⚠️ **本 API 在 `OhMyDesignEffects` 里，不在 `OhMyDesign`**：
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 ```
 
 ## API
@@ -125,8 +125,8 @@ Reduce Motion 下**不画光带**，降级为一次透明度脉冲
 ⚠️ 本节示例**没有任何机器校验**（同 [`confetti.md`](confetti.md) 记的限度）。
 
 ```swift
-import CoreDesign        // `Color.accent`（墨色）/ `Color.contentOnAccent`（随主题反转）来自这里
-import CoreDesignEffects
+import OhMyDesign        // `Color.accent`（墨色）/ `Color.contentOnAccent`（随主题反转）来自这里
+import OhMyDesignEffects
 import SwiftUI
 
 struct ProBadge: View {
@@ -153,8 +153,8 @@ Shine {
 }
 ```
 
-⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`CoreDesignEffects` 不会把
-`CoreDesign` 的符号带出来。
+⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`OhMyDesignEffects` 不会把
+`OhMyDesign` 的符号带出来。
 
 ## 相关
 

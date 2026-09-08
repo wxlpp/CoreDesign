@@ -1,13 +1,13 @@
 # AsyncButton 设计文档
 
-- **状态**：已实现（PR [#71](https://github.com/wxlpp/CoreDesign/pull/71)）
+- **状态**：已实现（PR [#71](https://github.com/wxlpp/oh-my-design/pull/71)）
 - **日期**：2026-05-13
 - **作者**：Evan / Claude
-- **位置**：`Sources/CoreDesign/Components/Button/AsyncButton.swift`
+- **位置**：`Sources/OhMyDesign/Components/Button/AsyncButton.swift`
 
 ## 1. 背景与目标
 
-CoreDesign 的 4 个 `ButtonStyle`（`.solid` / `.light` / `.borderless` / `.circularGlass`）只解决"外观"，所有业务侧执行异步任务（提交表单、调用 API）时都得自己写 `Task { ... }` 并在外部维护 `@State isLoading`、手动 `disabled`、外挂 `ProgressView`。模板重复且容易遗漏防双击或视图消失时的取消。
+OhMyDesign 的 4 个 `ButtonStyle`（`.solid` / `.light` / `.borderless` / `.circularGlass`）只解决"外观"，所有业务侧执行异步任务（提交表单、调用 API）时都得自己写 `Task { ... }` 并在外部维护 `@State isLoading`、手动 `disabled`、外挂 `ProgressView`。模板重复且容易遗漏防双击或视图消失时的取消。
 
 `AsyncButton` 的目标是把这套模板内聚到组件里，**调用方只需提供一个 async 闭包**，无需关心 loading 状态、取消、防双击。
 
@@ -73,7 +73,7 @@ public struct AsyncButton<Label: View>: View {
 }
 ```
 
-`LocalizedStringKey`（而非 `LocalizedStringResource`）选择依据：`rg LocalizedStringResource Sources/CoreDesign/` 当前 0 匹配，项目尚未迁移到 String Catalog 体系，沿用 `LocalizedStringKey` 保持与既有 API（例如 `Text("...")` 调用点）一致。
+`LocalizedStringKey`（而非 `LocalizedStringResource`）选择依据：`rg LocalizedStringResource Sources/OhMyDesign/` 当前 0 匹配，项目尚未迁移到 String Catalog 体系，沿用 `LocalizedStringKey` 保持与既有 API（例如 `Text("...")` 调用点）一致。
 
 ### 调用示例
 
@@ -269,7 +269,7 @@ action 内部若有长循环，应自行 `try Task.checkCancellation()`；`URLSe
 
 ## 8. 测试
 
-文件：`Tests/CoreDesignTests/AsyncButtonTests.swift`，使用 Swift Testing。
+文件：`Tests/OhMyDesignTests/AsyncButtonTests.swift`，使用 Swift Testing。
 
 测试用例（以实际入库为准）：
 
@@ -284,7 +284,7 @@ action 内部若有长循环，应自行 `try Task.checkCancellation()`；`URLSe
 
 ### Snapshot
 
-项目已有 SnapshotTests target（`b4d9137`、`97a6241` 引入）。实际入库的是 **`docs/snapshots/CoreDesignPreview_Previews.swift_AsyncButton.{png,json}`，仅 idle 态一张**——running 态 snapshot 暂缓：`#Preview` 内的 `try await Task.sleep(...)` 无法在 snapshot 渲染那一帧把 `isRunning` 锁在 `true`，需要扩张公共 API（例如暴露 `initialIsRunning:` 测试钩子）才能稳定捕捉，代价大于收益，留待后续视觉回归发现问题时再补。spinner 颜色继承的验证由 §10 风险 1 的 Xcode Canvas 人工验收兜底。
+项目已有 SnapshotTests target（`b4d9137`、`97a6241` 引入）。实际入库的是 **`docs/snapshots/OhMyDesignPreview_Previews.swift_AsyncButton.{png,json}`，仅 idle 态一张**——running 态 snapshot 暂缓：`#Preview` 内的 `try await Task.sleep(...)` 无法在 snapshot 渲染那一帧把 `isRunning` 锁在 `true`，需要扩张公共 API（例如暴露 `initialIsRunning:` 测试钩子）才能稳定捕捉，代价大于收益，留待后续视觉回归发现问题时再补。spinner 颜色继承的验证由 §10 风险 1 的 Xcode Canvas 人工验收兜底。
 
 ## 9. Preview
 

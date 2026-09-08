@@ -15,7 +15,7 @@
 
 ## 预览 / Preview
 
-运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `CoreDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
+运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `OhMyDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
 
 ## 使用示例 / Usage
 
@@ -123,7 +123,7 @@ VStack {
   ⚠️ **这句在启用态上未经运行期证实**：`#234` 的 a11y 冒烟里，挂了
   `.accessibilityAdjustableAction` 的那个 `Rating` 在 a11y 树的 `AXValue` 投影里**不是字符串而是 `nan`**；
   只有 `.disabled(true)` 与 `RatingDisplay`（都不挂该 action）读得到 `4 of 5`。
-  逐条见 `docs/issues/234-a11y-smoke.md` 结论 3，承接 [#332](https://github.com/wxlpp/CoreDesign/issues/332)。
+  逐条见 `docs/issues/234-a11y-smoke.md` 结论 3，承接 [#332](https://github.com/wxlpp/oh-my-design/issues/332)。
 - `.accessibilityAdjustableAction`：VoiceOver increment / decrement 按 `step` 调整 `value`，
   clamp 在 `0...count`；外层 `.disabled(true)` 时不挂载该 action（只读展示态请用 `RatingDisplay`，它根本不挂 adjust action）
 - Phase 0 同时预登记了复数摘要键 `"%lld stars"`（如「5 stars」），供未来「满分摘要」类用法

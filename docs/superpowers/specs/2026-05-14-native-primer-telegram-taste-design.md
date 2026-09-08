@@ -4,7 +4,7 @@
 
 ## 背景
 
-CoreDesign 当前把 GitHub Primer 当作视觉北极星，但实现出来的组件并没有贴近 GitHub 在线产品的 UI 观感。同时一些部分在系统底座还没打好的情况下，就过早走向了自定义玻璃风格。
+OhMyDesign 当前把 GitHub Primer 当作视觉北极星，但实现出来的组件并没有贴近 GitHub 在线产品的 UI 观感。同时一些部分在系统底座还没打好的情况下，就过早走向了自定义玻璃风格。
 
 新的方向是一次完整的视觉重置：
 
@@ -18,7 +18,7 @@ CoreDesign 当前把 GitHub Primer 当作视觉北极星，但实现出来的组
 
 ### 1. 分层材质规则
 
-CoreDesign 把 UI 切成三个材质层（material layer）。
+OhMyDesign 把 UI 切成三个材质层（material layer）。
 
 **内容层（Content layer）**
 
@@ -94,7 +94,7 @@ Phase 1 验收标准：
 
 ### 3. 圆角与密度
 
-CoreDesign 要避免统一过圆、玩具化的观感。
+OhMyDesign 要避免统一过圆、玩具化的观感。
 
 - 内容行保持紧凑，默认不卡片化。
 - 普通卡片、Banner、评论容器使用接近 8 pt 的克制圆角。
@@ -107,7 +107,7 @@ CoreDesign 要避免统一过圆、玩具化的观感。
 
 Primer 拥有语义命名；Apple 拥有平台渲染。
 
-CoreDesign 应保留 primary、muted、border、canvas、success、warning、danger、selected、disabled 等语义，实际渲染应在合适的地方走平台原生，而不是机械地照搬网页 hex 值。
+OhMyDesign 应保留 primary、muted、border、canvas、success、warning、danger、selected、disabled 等语义，实际渲染应在合适的地方走平台原生，而不是机械地照搬网页 hex 值。
 
 规则：
 
@@ -229,7 +229,7 @@ CoreDesign 应保留 primary、muted、border、canvas、success、warning、dan
 - UIKit `UIContentUnavailableView`
 - UIKit `UIContentUnavailableConfiguration`
 
-CoreDesign 应停止在自定义 empty-state 视觉上投入。既有调用方应迁移到系统 unavailable-content API。如需为操作做样式，可在原生 unavailable view 中组合 CoreDesign 按钮。
+OhMyDesign 应停止在自定义 empty-state 视觉上投入。既有调用方应迁移到系统 unavailable-content API。如需为操作做样式，可在原生 unavailable view 中组合 OhMyDesign 按钮。
 
 弃用计划：
 

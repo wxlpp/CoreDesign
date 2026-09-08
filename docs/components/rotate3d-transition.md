@@ -1,6 +1,6 @@
 # Rotate3DTransition（`.rotate3D`）
 
-空间翻滚转场 / A free-axis 3D tumble。`CoreDesignEffects/Rotate3DTransition.swift`，Issue #267。
+空间翻滚转场 / A free-axis 3D tumble。`OhMyDesignEffects/Rotate3DTransition.swift`，Issue #267。
 
 > 六条转场共用的形态与契约见
 > [`transition-cluster-3d-elastic.md`](transition-cluster-3d-elastic.md)。

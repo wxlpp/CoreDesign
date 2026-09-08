@@ -28,27 +28,27 @@
 
 修改：
 
-- `Sources/CoreDesign/Components/Toast/Toast.swift`
+- `Sources/OhMyDesign/Components/Toast/Toast.swift`
   - 把 `ToastView` 容器 chrome（`.surface(.card) + .coreShadow(.medium)`）替换为 `View.floatingGlass(in:isInteractive:)`。
   - 更新文档注释抬头，声明浮动层材质。
   - 保持 `ToastItem` / `ToastHost` 公开 API 不变；`ToastHostTests` 中的队列状态机测试必须仍然全绿。
-- `Sources/CoreDesign/Components/Banner.swift`
+- `Sources/OhMyDesign/Components/Banner.swift`
   - 更新顶部文档注释，显式声明内容层/控件层材质，并解释"刻意不走 glass"的取舍。
   - 保持 `BannerStyle` 协议、`BannerStyleConfiguration`、以及 Plain / Bordered 两个具体 style 不变。
-- `Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift`
+- `Sources/OhMyDesign/Components/BottomInputBar/BottomInputBar.swift`
   - 调整文档注释抬头，显式声明浮动层材质。
   - 保持 `BottomInputBarGlassModifier`（Phase 2A 的 `InsettableShape` + `strokeBorder` 重构）不变。
 
 新建：
 
-- `Tests/CoreDesignTests/BannerTests.swift`
-- `Tests/CoreDesignTests/BottomInputBarTests.swift`
+- `Tests/OhMyDesignTests/BannerTests.swift`
+- `Tests/OhMyDesignTests/BottomInputBarTests.swift`
 
 只读参考：
 
-- `Sources/CoreDesign/Modifier/FloatingGlassModifier.swift`
+- `Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift`
   - `View.floatingGlass(in:isInteractive:)` 的来源。
-- `Tests/CoreDesignTests/ToastHostTests.swift`
+- `Tests/OhMyDesignTests/ToastHostTests.swift`
   - 已有的队列状态机覆盖；视觉变更过程中必须保持全绿。
 
 ---
@@ -56,7 +56,7 @@
 ## 任务 1：Toast 升级到浮动 Liquid Glass 层
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/Toast/Toast.swift`
+- 修改：`Sources/OhMyDesign/Components/Toast/Toast.swift`
 
 - [ ] **步骤 1：基线现有测试**
 
@@ -70,7 +70,7 @@ swift test --filter ToastHostTests
 
 - [ ] **步骤 2：更新 `ToastView` 容器 chrome**
 
-在 `Sources/CoreDesign/Components/Toast/Toast.swift` 中定位 `ToastView` 的 `body`（大约 397–432 行 —— 以 `.surface(.card)` 与 `.coreShadow(.medium)` 结尾的那一块），把尾部 chrome 替换为浮动 glass 胶囊。使用 `Capsule(style: .continuous)` 让形状契合 Telegram 风格的 pill 几何：
+在 `Sources/OhMyDesign/Components/Toast/Toast.swift` 中定位 `ToastView` 的 `body`（大约 397–432 行 —— 以 `.surface(.card)` 与 `.coreShadow(.medium)` 结尾的那一块），把尾部 chrome 替换为浮动 glass 胶囊。使用 `Capsule(style: .continuous)` 让形状契合 Telegram 风格的 pill 几何：
 
 ```swift
 .floatingGlass(
@@ -137,7 +137,7 @@ swift build
 - [ ] **步骤 7：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/Toast/Toast.swift
+git add Sources/OhMyDesign/Components/Toast/Toast.swift
 git commit -m "feat(Toast): promote to floating Liquid Glass surface"
 ```
 
@@ -146,17 +146,17 @@ git commit -m "feat(Toast): promote to floating Liquid Glass surface"
 ## 任务 2：Banner Native Primer 文档化
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/Banner.swift`
-- 新建：`Tests/CoreDesignTests/BannerTests.swift`
+- 修改：`Sources/OhMyDesign/Components/Banner.swift`
+- 新建：`Tests/OhMyDesignTests/BannerTests.swift`
 
 - [ ] **步骤 1：编写编译/行为测试**
 
-新建 `Tests/CoreDesignTests/BannerTests.swift`：
+新建 `Tests/OhMyDesignTests/BannerTests.swift`：
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("Banner")
 struct BannerTests {
@@ -196,7 +196,7 @@ swift test --filter BannerTests
 
 - [ ] **步骤 3：更新顶部文档注释抬头**
 
-在 `Sources/CoreDesign/Components/Banner.swift` 中，找到 `public struct Banner` 上方的顶部文档注释，前置一段 Native Primer 抬头。保留全部现有 `BannerStyle` / `BannerPalette` / `MessageLevel` 映射文档不变：
+在 `Sources/OhMyDesign/Components/Banner.swift` 中，找到 `public struct Banner` 上方的顶部文档注释，前置一段 Native Primer 抬头。保留全部现有 `BannerStyle` / `BannerPalette` / `MessageLevel` 映射文档不变：
 
 ```swift
 /// Native Primer status banner.
@@ -221,7 +221,7 @@ swift test --filter BannerTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Banner.swift
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/Banner.swift
 ```
 
 预期：零匹配。
@@ -240,7 +240,7 @@ swift build
 - [ ] **步骤 6：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/Banner.swift Tests/CoreDesignTests/BannerTests.swift
+git add Sources/OhMyDesign/Components/Banner.swift Tests/OhMyDesignTests/BannerTests.swift
 git commit -m "test(Banner): add compile tests; declare Native Primer role"
 ```
 
@@ -249,17 +249,17 @@ git commit -m "test(Banner): add compile tests; declare Native Primer role"
 ## 任务 3：BottomInputBar Native Primer 锚点
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift`
-- 新建：`Tests/CoreDesignTests/BottomInputBarTests.swift`
+- 修改：`Sources/OhMyDesign/Components/BottomInputBar/BottomInputBar.swift`
+- 新建：`Tests/OhMyDesignTests/BottomInputBarTests.swift`
 
 - [ ] **步骤 1：编写编译/行为测试**
 
-新建 `Tests/CoreDesignTests/BottomInputBarTests.swift`：
+新建 `Tests/OhMyDesignTests/BottomInputBarTests.swift`：
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("BottomInputBar")
 struct BottomInputBarTests {
@@ -306,7 +306,7 @@ swift test --filter BottomInputBarTests
 
 - [ ] **步骤 3：更新顶部文档注释抬头**
 
-在 `Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift` 中，找到 `struct BottomInputBar` 上方的顶部文档注释，前置一段 Native Primer / 浮动层声明。保留 `autoFocus` 的设计说明段（那段刻意解释了为何 focus 是在 `onAppear` 里抓取、而不是 `task` 里）：
+在 `Sources/OhMyDesign/Components/BottomInputBar/BottomInputBar.swift` 中，找到 `struct BottomInputBar` 上方的顶部文档注释，前置一段 Native Primer / 浮动层声明。保留 `autoFocus` 的设计说明段（那段刻意解释了为何 focus 是在 `onAppear` 里抓取、而不是 `task` 里）：
 
 ```swift
 /// Native Primer floating input bar.
@@ -328,7 +328,7 @@ swift test --filter BottomInputBarTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/BottomInputBar
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/BottomInputBar
 ```
 
 预期：至少一个匹配，且**仅出现在** `BottomInputBarGlassModifier` 内部。glass 用法对这个浮动表面来说是有意为之的。
@@ -347,7 +347,7 @@ swift build
 - [ ] **步骤 6：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/BottomInputBar/BottomInputBar.swift Tests/CoreDesignTests/BottomInputBarTests.swift
+git add Sources/OhMyDesign/Components/BottomInputBar/BottomInputBar.swift Tests/OhMyDesignTests/BottomInputBarTests.swift
 git commit -m "test(BottomInputBar): add compile tests; declare Native Primer role"
 ```
 
@@ -383,7 +383,7 @@ swift build
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Toast Sources/CoreDesign/Components/Banner.swift Sources/CoreDesign/Components/BottomInputBar
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/Toast Sources/OhMyDesign/Components/Banner.swift Sources/OhMyDesign/Components/BottomInputBar
 ```
 
 预期：
@@ -397,7 +397,7 @@ rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Toast
 运行：
 
 ```bash
-rg "#Preview" Sources/CoreDesign/Components/Toast Sources/CoreDesign/Components/Banner.swift Sources/CoreDesign/Components/BottomInputBar
+rg "#Preview" Sources/OhMyDesign/Components/Toast Sources/OhMyDesign/Components/Banner.swift Sources/OhMyDesign/Components/BottomInputBar
 ```
 
 预期：每个组件文件至少一个 `#Preview`。

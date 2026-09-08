@@ -2,15 +2,15 @@
 
 一道斜向光带在内容表面左右掠过，表示「正在等待 / 正在传输」/ A light band sweeping across the surface.
 
-`LightSweep { }`（`CoreDesignEffects/LightSweep.swift`，Issue #252）。**容器视图形态**。
+`LightSweep { }`（`OhMyDesignEffects/LightSweep.swift`，Issue #252）。**容器视图形态**。
 
 ```swift
-import CoreDesign        // 下面示例里的 `ListRow` / `CoreSpacing` / `Color.contentSecondary` 来自 `CoreDesign`
-import CoreDesignEffects
+import OhMyDesign        // 下面示例里的 `ListRow` / `CoreSpacing` / `Color.contentSecondary` 来自 `OhMyDesign`
+import OhMyDesignEffects
 ```
 
-⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`CoreDesignEffects` 不会把
-`CoreDesign` 的符号带出来。只写一个，下面的示例照抄进项目**编译不过**
+⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`OhMyDesignEffects` 不会把
+`OhMyDesign` 的符号带出来。只写一个，下面的示例照抄进项目**编译不过**
 （#252 PR #269 第 2 轮终审 S-b）。
 
 ## API
@@ -25,9 +25,9 @@ public struct LightSweep<Content: View>: View {
 
 | API | 触发 | 遮罩 | 表达 |
 |---|---|---|---|
-| `View.shine(trigger:)`（`CoreDesignEffects`） | 一次性，由 `trigger` 驱动 | 遮罩到**内容形状** | 「这件事刚发生」 |
+| `View.shine(trigger:)`（`OhMyDesignEffects`） | 一次性，由 `trigger` 驱动 | 遮罩到**内容形状** | 「这件事刚发生」 |
 | `LightSweep { }` | 常驻，无 trigger | 裁到内容**外接矩形** | 「这件事正在进行」 |
-| `View.skeletonShimmer()`（`CoreDesign`） | 常驻 | 骨架块自身 | 骨架屏占位，扫的不是真内容 |
+| `View.skeletonShimmer()`（`OhMyDesign`） | 常驻 | 骨架块自身 | 骨架屏占位，扫的不是真内容 |
 
 ⚠️ **裁矩形而不是 `.mask(content)` 是有意的**：后者会把被包裹的内容**实例化两次**
 （`.shine(trigger:)` 逐字记着这条限度——内容里带副作用的 modifier 会跑两遍：

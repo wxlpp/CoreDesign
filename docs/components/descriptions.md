@@ -7,7 +7,7 @@
 
 `Descriptions` 不是一个独立实现的容器组件——它是**换皮组合**：分组卡片背景 / 圆角 /
 分隔线视觉全部来自既有 `InsetGroupedSection`，行内 label/value 的配色来自新增的
-`CoreLabeledContentStyle`（系统 `LabeledContent` 的 CoreDesign 皮肤，与
+`CoreLabeledContentStyle`（系统 `LabeledContent` 的 OhMyDesign 皮肤，与
 `CoreLabelStyle` / `CoreProgressViewStyle` / `CoreDisclosureGroupStyle` 同一形态）。
 `Descriptions` 自身只做一件事：把调用方传入的若干 `LabeledContent` 行，按 1/2 列
 重新分组，再交给 `InsetGroupedSection` 渲染。
@@ -46,7 +46,7 @@
 `columns == .two` 时，相邻两行配成一组、用 `Grid` 排布；行数为奇数时最后一行单独
 成组、`.gridCellColumns(2)` 占满整行。`columns == .one` 时每行单独纵向排布，不套
 `Grid`。列切分是纯函数（`DescriptionsLayout.rowGroups(rowCount:columns:)`），见
-`Tests/CoreDesignTests/DescriptionsTests.swift`。
+`Tests/OhMyDesignTests/DescriptionsTests.swift`。
 
 ### 大字号塌列
 
@@ -63,7 +63,7 @@
 
 ## 预览 / Preview
 
-运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `CoreDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
+运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `OhMyDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
 
 ## 使用示例 / Usage
 

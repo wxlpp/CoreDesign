@@ -1,8 +1,8 @@
-# 设计 Spec：CoreDesign 三合一（Apple + GitHub + Telegram）
+# 设计 Spec：OhMyDesign 三合一（Apple + GitHub + Telegram）
 
 ## 执行摘要
 
-CoreDesign 当前的 v2 路线图完全对齐 GitHub Primer。本 spec 替代现有 `coredesign-v2-tokens` 和 `coredesign-v2-components` 两个 PRD，引入**三合一设计语言**：Apple 系统底层 + GitHub Primer 结构骨架 + Telegram 玻璃按钮皮肤。按页面区域分 5 个 Zone 分阶段交付，目标是能用这套组件拼出完整的 GitHub PR 页面。
+OhMyDesign 当前的 v2 路线图完全对齐 GitHub Primer。本 spec 替代现有 `coredesign-v2-tokens` 和 `coredesign-v2-components` 两个 PRD，引入**三合一设计语言**：Apple 系统底层 + GitHub Primer 结构骨架 + Telegram 玻璃按钮皮肤。按页面区域分 5 个 Zone 分阶段交付，目标是能用这套组件拼出完整的 GitHub PR 页面。
 
 ## 设计哲学
 

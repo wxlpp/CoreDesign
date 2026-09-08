@@ -1,8 +1,8 @@
-import CoreDesignCharts
+import OhMyDesignCharts
 import Foundation
 import SwiftUI
 
-// `CoreDesignCharts` 的 nonisolated 消费面（#247 建结构）。
+// `OhMyDesignCharts` 的 nonisolated 消费面（#247 建结构）。
 //
 // ⚠️ 同 `EffectsNonisolatedUsage.swift`：本文件目前只有模块标识这一条，
 // 四个图表（RadarChart / RingChart / ActivityHeatmap / NetworkGraph）落地后
@@ -15,14 +15,14 @@ import SwiftUI
 // `EffectsNonisolatedUsage.swift` 里的分流表（#260 终审 Important-2）。
 
 nonisolated func readChartsModuleName() -> String {
-    CoreDesignCharts.moduleName
+    OhMyDesignCharts.moduleName
 }
 
 // MARK: - #255 的四个图表：数据契约与规模上限（`shipswift-effects` A-7 补齐）
 
 // MARK: 数据入参：三个协议 + 一个 struct
 //
-// ⚠️⚠️ **这一节是本 probe 在整个 `CoreDesignCharts` 上唯一看得见、而库自身四条验证
+// ⚠️⚠️ **这一节是本 probe 在整个 `OhMyDesignCharts` 上唯一看得见、而库自身四条验证
 // 命令结构上看不见的东西**：本 target 开了 `.defaultIsolation(MainActor.self)`，
 // 而 `ChartValue` / `HeatmapDay` / `GraphNode` 三个协议都要求 `Sendable`
 // ——`ChartSupport.swift` 的类型文档逐字写着「**解法是给该类型标 `nonisolated`**」，

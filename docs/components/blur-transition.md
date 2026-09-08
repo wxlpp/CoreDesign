@@ -2,12 +2,12 @@
 
 失焦转场 / A defocus (blur) transition.
 
-`.transition(.blur)`（`CoreDesignEffects/BlurTransition.swift`，Issue #266）。
+`.transition(.blur)`（`OhMyDesignEffects/BlurTransition.swift`，Issue #266）。
 ⚠️ **`Transition` 形态**——不是容器视图，也不是 `View` 上的 modifier。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0。
@@ -106,11 +106,11 @@ SDK 对该位的原文：
 静态成员 `Transition.blur` 是一个**公开入口点**：它不是类型，
 `ComponentRegistryGuard` 的组件条目结构上覆盖不到它 ⇒ 已登记进
 `docs/component-registry.json` 的 `entryPoints`
-（`target` = `CoreDesignEffects`、`host` = `Transition`、`member` = `blur` + `notes`），
+（`target` = `OhMyDesignEffects`、`host` = `Transition`、`member` = `blur` + `notes`），
 由 `ExtensionEntryPointGuard` 做双向差集（漏登记与幽灵条目两个方向都判红）。
 
 ⚠️ `public struct BlurTransition` 本身**不**进 `components` 数组，但 `#270` 起**理由变了**：
-`ComponentRegistryGuard` 的扫描根已由单根 `Sources/CoreDesign` 扩成
+`ComponentRegistryGuard` 的扫描根已由单根 `Sources/OhMyDesign` 扩成
 `GuardScanRoots.allRoots`（三个 target），**扫描根不再是理由**；
 真正的理由是 `PublicTypeCollector` 只采 `public struct: View / ViewModifier`，
 而它是 `public struct: Transition` ⇒ 结构上仍不进 `components`。

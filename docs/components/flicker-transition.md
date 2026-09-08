@@ -2,12 +2,12 @@
 
 闪烁转场 / A flicker (faulty-tube) transition.
 
-`.transition(.flicker)`（`CoreDesignEffects/FlickerTransition.swift`，Issue #266）。
+`.transition(.flicker)`（`OhMyDesignEffects/FlickerTransition.swift`，Issue #266）。
 ⚠️ **`Transition` 形态**——不是容器视图，也不是 `View` 上的 modifier。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ## API

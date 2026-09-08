@@ -1,7 +1,7 @@
 // swift-tools-version: 6.3
-// 下游消费者 probe：从 **nonisolated 上下文**使用 CoreDesign 的公开值类型。
+// 下游消费者 probe：从 **nonisolated 上下文**使用 OhMyDesign 的公开值类型。
 //
-// 存在理由：CoreDesign 的 target 启用了 `defaultIsolation(MainActor.self)`，
+// 存在理由：OhMyDesign 的 target 启用了 `defaultIsolation(MainActor.self)`，
 // 这会改变公开 API 的隔离契约——而库自身的四条验证命令全都跑在被隔离的
 // target *内部*，结构上不可能发现「下游 nonisolated 代码用不了这些类型」。
 // 本 probe 是唯一能看见该问题的地方。
@@ -14,46 +14,48 @@ let package = Package(
     platforms: [.iOS(.v26), .macOS(.v26)],
     products: [
         .library(name: "DownstreamProbe", targets: ["DownstreamProbe"]),
-        .library(name: "CoreDesignOnlyProbe", targets: ["CoreDesignOnlyProbe"]),
+        .library(name: "OhMyDesignOnlyProbe", targets: ["OhMyDesignOnlyProbe"]),
     ],
     dependencies: [
         // 必须显式写 name:——SwiftPM 对 path 依赖的 identity 取目录 basename,
-        // 而本仓库可能在 worktree 中检出(目录名如 issue-92-build-config)。
-        .package(name: "CoreDesign", path: "../.."),
+        // 而规范 checkout 下 basename 与包名不相等(目录 oh-my-design、包名
+        // OhMyDesign),worktree 里更是任意名(如 issue-92-build-config)。
+        // ⇒ 删掉这个 name: 会让下面 package: "OhMyDesign" 解析不到。
+        .package(name: "OhMyDesign", path: "../.."),
     ],
     targets: [
         // ⚠️ 三个 product 都要接（#247）：本 probe 验的是「下游从 **nonisolated 上下文**
         // 能不能用这些类型」，而 `.defaultIsolation(MainActor.self)` 是**逐 target** 生效的
-        // ——只接 `CoreDesign` 的话，Effects / Charts 的隔离契约在结构上无人验证。
+        // ——只接 `OhMyDesign` 的话，Effects / Charts 的隔离契约在结构上无人验证。
         //
-        // ⚠️ **`CoreDesignShaders` 有意未接**：它还不存在（`shipswift-foundation` AD-A：
+        // ⚠️ **`OhMyDesignShaders` 有意未接**：它还不存在（`shipswift-foundation` AD-A：
         // 该 target 归 `shipswift-shaders` 的 B-1 建，闸不过就不该留一个空 product）。
         // **manifest 接线与实质调用点都归 B-4**——B-1 那时只有 target 骨架、没有 shader
         // 类型可调。与根 `Package.swift` 里"有意不预留 Shaders product"那段对称。
         .target(
             name: "DownstreamProbe",
             dependencies: [
-                .product(name: "CoreDesign", package: "CoreDesign"),
-                .product(name: "CoreDesignEffects", package: "CoreDesign"),
-                .product(name: "CoreDesignCharts", package: "CoreDesign"),
+                .product(name: "OhMyDesign", package: "OhMyDesign"),
+                .product(name: "OhMyDesignEffects", package: "OhMyDesign"),
+                .product(name: "OhMyDesignCharts", package: "OhMyDesign"),
             ]
         ),
-        // ⚠️⚠️ **独立 target，只接 `CoreDesign` 一个 product——这是承重的，别给它加依赖。**
+        // ⚠️⚠️ **独立 target，只接 `OhMyDesign` 一个 product——这是承重的，别给它加依赖。**
         //
-        // 它证的是 #252 终审 S-2 下沉要换来的那句话：「**`import CoreDesign` 就够**」
+        // 它证的是 #252 终审 S-2 下沉要换来的那句话：「**`import OhMyDesign` 就够**」
         //（`shipswift-shaders` 的 B-2 不必为两个能耗键链上整个 Effects product）。
         //
         // ⚠️ **为什么必须是独立 target，而不是 `DownstreamProbe` 里一个"只写
-        // `import CoreDesign`"的文件**——这条是**变异实证现场抓到的**，不是预防性设计：
-        // 初版就是那个形态，而把两个键搬回 `CoreDesignEffects` 之后 probe **照样全绿**。
+        // `import OhMyDesign`"的文件**——这条是**变异实证现场抓到的**，不是预防性设计：
+        // 初版就是那个形态，而把两个键搬回 `OhMyDesignEffects` 之后 probe **照样全绿**。
         // 原因是 Swift 对**扩展成员**的名字查找是**逐模块**而不是逐文件的：只要同一个
-        // target 里**任何一个文件** `import CoreDesignEffects`，该模块在 `EnvironmentValues`
+        // target 里**任何一个文件** `import OhMyDesignEffects`，该模块在 `EnvironmentValues`
         // 上挂的成员在**同 target 的其它文件里也可见**，哪怕那个文件自己没 import 它。
         // ⇒ 文件级的 import 隔离对扩展成员**不成立**，只有 target 边界才成立。
         .target(
-            name: "CoreDesignOnlyProbe",
+            name: "OhMyDesignOnlyProbe",
             dependencies: [
-                .product(name: "CoreDesign", package: "CoreDesign"),
+                .product(name: "OhMyDesign", package: "OhMyDesign"),
             ]
         ),
     ],

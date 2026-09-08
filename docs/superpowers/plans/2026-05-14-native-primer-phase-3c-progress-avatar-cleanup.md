@@ -26,37 +26,37 @@
 
 修改（仅 doc-comment 头部，不涉及行为变更）：
 
-- `Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift`
-- `Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift`
-- `Sources/CoreDesign/Components/Avatar/Avatar.swift`
-- `Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift`
+- `Sources/OhMyDesign/Components/ProgressBar/ProgressBar.swift`
+- `Sources/OhMyDesign/Components/ProgressIndicator/ProgressIndicator.swift`
+- `Sources/OhMyDesign/Components/Avatar/Avatar.swift`
+- `Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift`
 
 修改（把 EmptyState 从推荐面下线——源文件保留）：
 
 - `App/Sources/ComponentData.swift`——把 `EmptyState` 条目从 storybook 注册表中移除，同时删掉 `EmptyStatePreview` 私有 wrapper。
 - `App/Sources/Previews.swift`——移除 `#Preview("EmptyState")` 块。
-- `Sources/CoreDesign/Components/EmptyState/EmptyState.swift`——删掉文件末尾的四个 `#Preview` 块（它们目前会触发 deprecation 警告，破坏 `-Xswiftc -warnings-as-errors`）。按规格 §Deprecated Components 要求，保留 public 类型与 deprecation 注解作为兼容包装层。
+- `Sources/OhMyDesign/Components/EmptyState/EmptyState.swift`——删掉文件末尾的四个 `#Preview` 块（它们目前会触发 deprecation 警告，破坏 `-Xswiftc -warnings-as-errors`）。按规格 §Deprecated Components 要求，保留 public 类型与 deprecation 注解作为兼容包装层。
 - `docs/README.md`——把组件索引表中的 `EmptyState` 行从列表中移除；在原位置加上一行“已废弃——请改用 `ContentUnavailableView`”。
 - `docs/components/empty-state.md`——把内容替换成简短的废弃说明页，引导读者去 SwiftUI `ContentUnavailableView` / UIKit `UIContentUnavailableView`。
 
 新建：
 
-- `Tests/CoreDesignTests/AvatarTests.swift`（`AvatarGroupTests.swift` 已存在。）
+- `Tests/OhMyDesignTests/AvatarTests.swift`（`AvatarGroupTests.swift` 已存在。）
 
 只读：
 
-- `Tests/CoreDesignTests/EmptyStateDeprecationTests.swift`——Phase 1 留下的编译期 deprecation 测试，必须保持绿。
+- `Tests/OhMyDesignTests/EmptyStateDeprecationTests.swift`——Phase 1 留下的编译期 deprecation 测试，必须保持绿。
 
 不要删除：
 
-- `Sources/CoreDesign/Components/EmptyState/EmptyState.swift`——按规格 §Deprecated Components 第 3 条，在当前大版本期间须保留为兼容包装层。
+- `Sources/OhMyDesign/Components/EmptyState/EmptyState.swift`——按规格 §Deprecated Components 第 3 条，在当前大版本期间须保留为兼容包装层。
 
 ---
 
 ## 任务 1：ProgressBar Native Primer 声明
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift`
+- 修改：`Sources/OhMyDesign/Components/ProgressBar/ProgressBar.swift`
 
 - [ ] **Step 1：基线现有测试**
 
@@ -70,7 +70,7 @@ swift test --filter ProgressBarTests
 
 - [ ] **Step 2：更新顶部 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift` 中，找到 `public struct ProgressBar` 上方的 doc-comment，前置一段 Native Primer 头部。保留现有关于值截断（clamp）/ 非有限值（non-finite）规整的文档：
+在 `Sources/OhMyDesign/Components/ProgressBar/ProgressBar.swift` 中，找到 `public struct ProgressBar` 上方的 doc-comment，前置一段 Native Primer 头部。保留现有关于值截断（clamp）/ 非有限值（non-finite）规整的文档：
 
 ```swift
 /// Native Primer progress bar.
@@ -87,7 +87,7 @@ swift test --filter ProgressBarTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/ProgressBar
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/ProgressBar
 ```
 
 预期：零匹配。
@@ -106,7 +106,7 @@ swift build
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/ProgressBar/ProgressBar.swift
+git add Sources/OhMyDesign/Components/ProgressBar/ProgressBar.swift
 git commit -m "docs: declare ProgressBar Native Primer material/role"
 ```
 
@@ -115,7 +115,7 @@ git commit -m "docs: declare ProgressBar Native Primer material/role"
 ## 任务 2：ProgressIndicator Native Primer 声明
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift`
+- 修改：`Sources/OhMyDesign/Components/ProgressIndicator/ProgressIndicator.swift`
 
 - [ ] **Step 1：基线现有测试**
 
@@ -129,7 +129,7 @@ swift test --filter ProgressIndicatorTests
 
 - [ ] **Step 2：更新顶部 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift` 中，找到 `public struct ProgressIndicator` 上方的顶部 doc-comment，前置一段 Native Primer 头部：
+在 `Sources/OhMyDesign/Components/ProgressIndicator/ProgressIndicator.swift` 中，找到 `public struct ProgressIndicator` 上方的顶部 doc-comment，前置一段 Native Primer 头部：
 
 ```swift
 /// Native Primer progress indicator.
@@ -146,7 +146,7 @@ swift test --filter ProgressIndicatorTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/ProgressIndicator
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/ProgressIndicator
 ```
 
 预期：零匹配。
@@ -165,7 +165,7 @@ swift build
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/ProgressIndicator/ProgressIndicator.swift
+git add Sources/OhMyDesign/Components/ProgressIndicator/ProgressIndicator.swift
 git commit -m "docs: declare ProgressIndicator Native Primer material/role"
 ```
 
@@ -174,17 +174,17 @@ git commit -m "docs: declare ProgressIndicator Native Primer material/role"
 ## 任务 3：Avatar 覆盖率与声明
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/Avatar/Avatar.swift`
-- 新建：`Tests/CoreDesignTests/AvatarTests.swift`
+- 修改：`Sources/OhMyDesign/Components/Avatar/Avatar.swift`
+- 新建：`Tests/OhMyDesignTests/AvatarTests.swift`
 
 - [ ] **Step 1：写编译 / 行为测试**
 
-新建 `Tests/CoreDesignTests/AvatarTests.swift`：
+新建 `Tests/OhMyDesignTests/AvatarTests.swift`：
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("Avatar")
 struct AvatarTests {
@@ -220,7 +220,7 @@ swift test --filter AvatarTests
 
 - [ ] **Step 3：更新顶部 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/Avatar/Avatar.swift` 中，找到 `public struct Avatar` 上方的 doc-comment，前置一段 Native Primer 头部。保留现有关于 image / initials / 占位符的文档：
+在 `Sources/OhMyDesign/Components/Avatar/Avatar.swift` 中，找到 `public struct Avatar` 上方的 doc-comment，前置一段 Native Primer 头部。保留现有关于 image / initials / 占位符的文档：
 
 ```swift
 /// Native Primer avatar.
@@ -237,7 +237,7 @@ swift test --filter AvatarTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Avatar
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/Avatar
 ```
 
 预期：零匹配。
@@ -256,7 +256,7 @@ swift build
 - [ ] **Step 6：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/Avatar/Avatar.swift Tests/CoreDesignTests/AvatarTests.swift
+git add Sources/OhMyDesign/Components/Avatar/Avatar.swift Tests/OhMyDesignTests/AvatarTests.swift
 git commit -m "test(Avatar): add compile tests; declare Native Primer role"
 ```
 
@@ -265,7 +265,7 @@ git commit -m "test(Avatar): add compile tests; declare Native Primer role"
 ## 任务 4：AvatarGroup Native Primer 声明
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift`
+- 修改：`Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift`
 
 - [ ] **Step 1：基线现有测试**
 
@@ -279,7 +279,7 @@ swift test --filter AvatarGroupTests
 
 - [ ] **Step 2：更新顶部 doc-comment 头部**
 
-在 `Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift` 中，找到 `public struct AvatarGroup` 上方的 doc-comment，前置一段 Native Primer 头部。保留现有关于重叠（overlap）/ 最大数量 / 溢出的文档：
+在 `Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift` 中，找到 `public struct AvatarGroup` 上方的 doc-comment，前置一段 Native Primer 头部。保留现有关于重叠（overlap）/ 最大数量 / 溢出的文档：
 
 ```swift
 /// Native Primer avatar group.
@@ -296,7 +296,7 @@ swift test --filter AvatarGroupTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/AvatarGroup
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/AvatarGroup
 ```
 
 预期：零匹配。
@@ -315,7 +315,7 @@ swift build
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/AvatarGroup/AvatarGroup.swift
+git add Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift
 git commit -m "docs: declare AvatarGroup Native Primer material/role"
 ```
 
@@ -372,7 +372,7 @@ git commit -m "chore(storybook): remove EmptyState from registry + previews"
 ## 任务 6：移除 EmptyState 源文件内 Preview
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/EmptyState/EmptyState.swift`
+- 修改：`Sources/OhMyDesign/Components/EmptyState/EmptyState.swift`
 
 - [ ] **Step 1：基线构建标记现有警告**
 
@@ -386,7 +386,7 @@ swift build -Xswiftc -warnings-as-errors 2>&1 | grep -A1 "EmptyState" | head -20
 
 - [ ] **Step 2：删除文件末尾的 `#Preview` 块**
 
-在 `Sources/CoreDesign/Components/EmptyState/EmptyState.swift` 中，滚到文件末尾。删除四个 `#Preview("Light - icon + title only")`、`#Preview("Dark - icon + title only")`、`#Preview("Light - icon + title + description")`、`#Preview("Dark - icon + title + description")` 块。按规格 §Deprecated Components 第 3 条，源代码继续作为兼容包装层存在——不引入新的视觉样式——但推荐组件 preview 面要被移除。
+在 `Sources/OhMyDesign/Components/EmptyState/EmptyState.swift` 中，滚到文件末尾。删除四个 `#Preview("Light - icon + title only")`、`#Preview("Dark - icon + title only")`、`#Preview("Light - icon + title + description")`、`#Preview("Dark - icon + title + description")` 块。按规格 §Deprecated Components 第 3 条，源代码继续作为兼容包装层存在——不引入新的视觉样式——但推荐组件 preview 面要被移除。
 
 > 保留 `public struct EmptyState` 和 `public init(...)` 声明完整不动，
 > 包括 Phase 1 加上的 `@available(*, deprecated, ...)` 注解。
@@ -415,7 +415,7 @@ swift test --filter EmptyStateDeprecationTests
 - [ ] **Step 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/EmptyState/EmptyState.swift
+git add Sources/OhMyDesign/Components/EmptyState/EmptyState.swift
 git commit -m "chore(EmptyState): remove in-file previews from deprecated compat wrapper"
 ```
 
@@ -450,7 +450,7 @@ git commit -m "chore(EmptyState): remove in-file previews from deprecated compat
 - UIKit：[`UIContentUnavailableView`](https://developer.apple.com/documentation/uikit/uicontentunavailableview)、
   [`UIContentUnavailableConfiguration`](https://developer.apple.com/documentation/uikit/uicontentunavailableconfiguration)
 
-如果需要带操作按钮的样式，可把 `ContentUnavailableView` 与 CoreDesign 的按钮组合使用：
+如果需要带操作按钮的样式，可把 `ContentUnavailableView` 与 OhMyDesign 的按钮组合使用：
 
 ```swift
 ContentUnavailableView {
@@ -520,7 +520,7 @@ swift build -Xswiftc -warnings-as-errors
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/ProgressBar Sources/CoreDesign/Components/ProgressIndicator Sources/CoreDesign/Components/Avatar Sources/CoreDesign/Components/AvatarGroup
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/ProgressBar Sources/OhMyDesign/Components/ProgressIndicator Sources/OhMyDesign/Components/Avatar Sources/OhMyDesign/Components/AvatarGroup
 ```
 
 预期：零匹配。

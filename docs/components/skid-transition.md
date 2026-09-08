@@ -1,6 +1,6 @@
 # SkidTransition（`.skid`）
 
-刹车打滑转场 / A skidding slide-in。`CoreDesignEffects/SkidTransition.swift`，Issue #267。
+刹车打滑转场 / A skidding slide-in。`OhMyDesignEffects/SkidTransition.swift`，Issue #267。
 
 > 六条转场共用的形态与契约见
 > [`transition-cluster-3d-elastic.md`](transition-cluster-3d-elastic.md)。

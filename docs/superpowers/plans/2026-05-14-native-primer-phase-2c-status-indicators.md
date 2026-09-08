@@ -28,31 +28,31 @@
 
 修改：
 
-- `Sources/CoreDesign/Components/Badge/Badge.swift`
+- `Sources/OhMyDesign/Components/Badge/Badge.swift`
   - 调整文档注释，显式声明 Native Primer 的 material/role。
   - 保持 `BadgeVariant` 映射、公开 API 与视觉 token 不变。
-- `Sources/CoreDesign/Components/Tag/Tag.swift`
+- `Sources/OhMyDesign/Components/Tag/Tag.swift`
   - 调整文档注释，显式声明 Native Primer 的 material/role。
   - 保持公开 API 与调用方着色 chip 的行为不变。
-- `Sources/CoreDesign/Components/StateLabel/StateLabel.swift`
+- `Sources/OhMyDesign/Components/StateLabel/StateLabel.swift`
   - 调整文档注释，显式声明 Native Primer 的 material/role。
   - 保持 `StateLabelStyle` 映射与视觉 token 不变。
 
 新建：
 
-- `Tests/CoreDesignTests/TagTests.swift`
+- `Tests/OhMyDesignTests/TagTests.swift`
 
 只读参考：
 
-- `Tests/CoreDesignTests/BadgeTests.swift`（已有测试覆盖参考）
-- `Tests/CoreDesignTests/StateLabelTests.swift`（已有测试覆盖参考）
+- `Tests/OhMyDesignTests/BadgeTests.swift`（已有测试覆盖参考）
+- `Tests/OhMyDesignTests/StateLabelTests.swift`（已有测试覆盖参考）
 
 ---
 
 ## 任务 1：Badge Native Primer 文档化
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/Badge/Badge.swift`
+- 修改：`Sources/OhMyDesign/Components/Badge/Badge.swift`
 
 - [ ] **步骤 1：跑现有 Badge 测试**
 
@@ -66,7 +66,7 @@ swift test --filter BadgeTests
 
 - [ ] **步骤 2：更新顶部文档注释抬头**
 
-在 `Sources/CoreDesign/Components/Badge/Badge.swift` 中，找到 `public struct Badge` 上方的文档注释，前置一段 Native Primer 抬头。保留全部现有正文（BadgeVariant 表格、Tag ↔ Badge 边界段、token 规格段）—— 只在开头加上 material/role 声明：
+在 `Sources/OhMyDesign/Components/Badge/Badge.swift` 中，找到 `public struct Badge` 上方的文档注释，前置一段 Native Primer 抬头。保留全部现有正文（BadgeVariant 表格、Tag ↔ Badge 边界段、token 规格段）—— 只在开头加上 material/role 声明：
 
 ```swift
 /// Native Primer status badge.
@@ -86,7 +86,7 @@ swift test --filter BadgeTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Badge
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/Badge
 ```
 
 预期：零匹配。
@@ -105,7 +105,7 @@ swift build
 - [ ] **步骤 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/Badge/Badge.swift
+git add Sources/OhMyDesign/Components/Badge/Badge.swift
 git commit -m "docs: declare Badge Native Primer material/role"
 ```
 
@@ -114,17 +114,17 @@ git commit -m "docs: declare Badge Native Primer material/role"
 ## 任务 2：Tag Native Primer 补齐
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/Tag/Tag.swift`
-- 新建：`Tests/CoreDesignTests/TagTests.swift`
+- 修改：`Sources/OhMyDesign/Components/Tag/Tag.swift`
+- 新建：`Tests/OhMyDesignTests/TagTests.swift`
 
 - [ ] **步骤 1：编写编译/行为测试**
 
-新建 `Tests/CoreDesignTests/TagTests.swift`：
+新建 `Tests/OhMyDesignTests/TagTests.swift`：
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("Tag")
 struct TagTests {
@@ -162,7 +162,7 @@ swift test --filter TagTests
 
 - [ ] **步骤 3：更新顶部文档注释抬头**
 
-在 `Sources/CoreDesign/Components/Tag/Tag.swift` 中，找到 `public struct Tag` 上方的文档注释，前置一段 Native Primer 抬头。保留现有的 Tag ↔ Badge 边界段以及视觉规格段不变：
+在 `Sources/OhMyDesign/Components/Tag/Tag.swift` 中，找到 `public struct Tag` 上方的文档注释，前置一段 Native Primer 抬头。保留现有的 Tag ↔ Badge 边界段以及视觉规格段不变：
 
 ```swift
 /// Native Primer category tag.
@@ -183,7 +183,7 @@ swift test --filter TagTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Tag
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/Tag
 ```
 
 预期：零匹配。
@@ -202,7 +202,7 @@ swift build
 - [ ] **步骤 6：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/Tag/Tag.swift Tests/CoreDesignTests/TagTests.swift
+git add Sources/OhMyDesign/Components/Tag/Tag.swift Tests/OhMyDesignTests/TagTests.swift
 git commit -m "test(Tag): add compile tests; align doc to Native Primer"
 ```
 
@@ -211,7 +211,7 @@ git commit -m "test(Tag): add compile tests; align doc to Native Primer"
 ## 任务 3：StateLabel Native Primer 文档化
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/StateLabel/StateLabel.swift`
+- 修改：`Sources/OhMyDesign/Components/StateLabel/StateLabel.swift`
 
 - [ ] **步骤 1：跑现有 StateLabel 测试**
 
@@ -225,7 +225,7 @@ swift test --filter StateLabelTests
 
 - [ ] **步骤 2：更新顶部文档注释抬头**
 
-在 `Sources/CoreDesign/Components/StateLabel/StateLabel.swift` 中，找到 `public struct StateLabel` 上方的文档注释，前置一段 Native Primer 抬头。保留现有 `StateLabelStyle` 枚举文档、配色映射段、以及 pill 几何形态的设计说明不变：
+在 `Sources/OhMyDesign/Components/StateLabel/StateLabel.swift` 中，找到 `public struct StateLabel` 上方的文档注释，前置一段 Native Primer 抬头。保留现有 `StateLabelStyle` 枚举文档、配色映射段、以及 pill 几何形态的设计说明不变：
 
 ```swift
 /// Native Primer lifecycle state label.
@@ -246,7 +246,7 @@ swift test --filter StateLabelTests
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/StateLabel
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/StateLabel
 ```
 
 预期：零匹配。
@@ -265,7 +265,7 @@ swift build
 - [ ] **步骤 5：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/StateLabel/StateLabel.swift
+git add Sources/OhMyDesign/Components/StateLabel/StateLabel.swift
 git commit -m "docs: declare StateLabel Native Primer material/role"
 ```
 
@@ -301,7 +301,7 @@ swift build
 运行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Badge Sources/CoreDesign/Components/Tag Sources/CoreDesign/Components/StateLabel
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/Badge Sources/OhMyDesign/Components/Tag Sources/OhMyDesign/Components/StateLabel
 ```
 
 预期：零匹配。
@@ -311,7 +311,7 @@ rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Badge
 运行：
 
 ```bash
-rg "#Preview" Sources/CoreDesign/Components/Badge Sources/CoreDesign/Components/Tag Sources/CoreDesign/Components/StateLabel
+rg "#Preview" Sources/OhMyDesign/Components/Badge Sources/OhMyDesign/Components/Tag Sources/OhMyDesign/Components/StateLabel
 ```
 
 预期：每个组件文件至少一个 `#Preview`。

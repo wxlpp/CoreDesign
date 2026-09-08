@@ -2,10 +2,10 @@
 
 一道横向光束在内容上上下往复扫描，表示「正在识别 / 正在处理」/ A scanning beam sweeping over content.
 
-`ScanningOverlay { }`（`CoreDesignEffects/ScanningOverlay.swift`，Issue #252）。**容器视图形态**（大写、尾随闭包），不是 modifier。
+`ScanningOverlay { }`（`OhMyDesignEffects/ScanningOverlay.swift`，Issue #252）。**容器视图形态**（大写、尾随闭包），不是 modifier。
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 ```
 
 ## API

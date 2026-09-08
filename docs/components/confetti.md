@@ -2,12 +2,12 @@
 
 任务完成时喷发一次彩纸 / A one-shot confetti burst on completion.
 
-`View.confetti(trigger:strength:colors:)`（`CoreDesignEffects/Confetti.swift`，Issue #252）。
+`View.confetti(trigger:strength:colors:)`（`OhMyDesignEffects/Confetti.swift`，Issue #252）。
 
-⚠️ **本 API 在 `CoreDesignEffects` 里，不在 `CoreDesign`**：
+⚠️ **本 API 在 `OhMyDesignEffects` 里，不在 `OhMyDesign`**：
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 ```
 
 ## API
@@ -119,14 +119,14 @@ burst 恰在 `.inactive` / `.background`（来电、通知横幅、切走再切�
 ⚠️ **注入的默认值是 `nil`（＝"没有人注入"），不是 `false`**：`nil` 时才会去读
 `ProcessInfo`；注入 `false` 的语义是宿主明确说"按常规供电渲染"，不该被系统读数覆盖。
 
-⚠️ **这两个键住在 `CoreDesign`，不在 `CoreDesignEffects`**（PR #269 终审 S-2 的裁决）：
+⚠️ **这两个键住在 `OhMyDesign`，不在 `OhMyDesignEffects`**（PR #269 终审 S-2 的裁决）：
 它们是任何常驻渲染件都要的通用能耗信号，`shipswift-shaders` 的 `colorEffect` 背景同样按它们
 降级——键留在 Effects 会逼「只想要 shader 的消费者」链上整个 Effects product。
-⇒ 只想注入这两个键的宿主 `import CoreDesign` 就够。低电量键的类型也因此是**通用的 `Bool?`**
+⇒ 只想注入这两个键的宿主 `import OhMyDesign` 就够。低电量键的类型也因此是**通用的 `Bool?`**
 （它是 `ProcessInfo.processInfo.isLowPowerModeEnabled` 的可注入镜像）。
 ⚠️ **`#271` 起由它们派生的通用策略表（`RenderPolicy` / `EnergyState` /
-`MotionPresentation`）也在 `CoreDesign`**；此前这里说的「动效层的语义档位」是
-`CoreDesignEffects` 里那个二态枚举，实测已无人读其 case、**已随 `#271` 删除**
+`MotionPresentation`）也在 `OhMyDesign`**；此前这里说的「动效层的语义档位」是
+`OhMyDesignEffects` 里那个二态枚举，实测已无人读其 case、**已随 `#271` 删除**
 （见 `docs/BREAKING-CHANGES.md`）。留在动效层的是 `usesGlow` / `particleScale` /
 `frozenIfPeriodIsDegenerate(_:)` 三个 effects 专用旋钮。
 
@@ -139,7 +139,7 @@ burst 恰在 `.inactive` / `.background`（来电、通知横幅、切走再切�
 宿主得自己订阅那条通知：
 
 ```swift
-import CoreDesign
+import OhMyDesign
 import Foundation
 import SwiftUI
 
@@ -228,11 +228,11 @@ CI 的任何一条腿都不会因为它们过期而变红。第 4 轮修掉的�
 片段与脚手架之间还会各自漂移。`.build/` 里能看到一个
 `__DocExampleCompileCheck.swift.o`——那是一次这样的尝试留下的**陈旧产物，
 树里已经没有对应源文件**，别把它当成"其实有覆盖"的证据。
-⇒ 现状按**人工**记账：改动 `CoreDesignEffects` 的公开 API 时，四份文档的示例需人工过一遍。
+⇒ 现状按**人工**记账：改动 `OhMyDesignEffects` 的公开 API 时，四份文档的示例需人工过一遍。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 import SwiftUI
 
 struct GoalView: View {
@@ -251,5 +251,5 @@ struct GoalView: View {
 
 ## 相关
 
-- [`.spray`](../../Sources/CoreDesignEffects/Spray.swift) —— 同族的粒子效果，规模更小、贴着被点的元素
+- [`.spray`](../../Sources/OhMyDesignEffects/Spray.swift) —— 同族的粒子效果，规模更小、贴着被点的元素
 - [`scanning-overlay.md`](scanning-overlay.md) / [`glow-sweep.md`](glow-sweep.md) / [`light-sweep.md`](light-sweep.md) —— 同批落地的三个"处理中"常驻效果，共用同一套 NFR-7 能耗键

@@ -1,7 +1,7 @@
-# CoreDesign 设计系统摘要
+# OhMyDesign 设计系统摘要
 
 > **这份文件是给设计 agent 读的**，不是给人读的参考手册。用途：让 agent 在出原型 /
-> 界面草图时，用 CoreDesign 的**真实名字**标注每一个元素，使产出能被逐条翻译回
+> 界面草图时，用 OhMyDesign 的**真实名字**标注每一个元素，使产出能被逐条翻译回
 > SwiftUI，而不是翻译成一套它自己发明的词汇。
 >
 > ⚠️ **正文的每一个条目由 `scripts/design-digest.py` 从 `Sources/` 派生**，但**各节段首的
@@ -10,7 +10,7 @@
 
 ## 与 `docs/component-registry.json` 的口径差
 
-两份台账射程不同，**名字对不上是正常的**：registry 里 `repo=coredesign` 的 62 条（全表 87 条，另 25 条属别的仓）是「组件**契约**」射程，
+两份台账射程不同，**名字对不上是正常的**：registry 里 `repo=ohmydesign` 的 62 条（全表 87 条，另 25 条属别的仓）是「组件**契约**」射程，
 本文件的 90 条是「所有 `View` / `Shape` / `*Style` / `Transition` / `Layout` / `ViewModifier`
 遵从者」。⚠️ 其中 `ViewModifier` 类型（`FloatingGlassModifier` / `SpinningModifier` /
 `TelegramGlassButtonModifier`）**不要直接标注**——走它们对应的 `.floatingGlass` /
@@ -28,9 +28,9 @@
 
 | target | 内容 | 依赖 |
 |---|---|---|
-| `CoreDesign` | 系统原生观感的组件、四层色彩、token、modifier | 无（恒为空） |
-| `CoreDesignEffects` | 微交互 / 转场 / 常驻动效 | → `CoreDesign` |
-| `CoreDesignCharts` | Swift Charts 画不出来的四类图表 | → `CoreDesign` |
+| `OhMyDesign` | 系统原生观感的组件、四层色彩、token、modifier | 无（恒为空） |
+| `OhMyDesignEffects` | 微交互 / 转场 / 常驻动效 | → `OhMyDesign` |
+| `OhMyDesignCharts` | Swift Charts 画不出来的四类图表 | → `OhMyDesign` |
 
 标注元素时**写明它来自哪个 target**——只要系统原生观感的消费者不会引入后两个。
 
@@ -67,7 +67,7 @@
    `.floatingGlass`、`TelegramGlassButtonModifier`。⚠️ 两个悬浮按钮样式**走的不是同一条**：
    `.circularGlass` 经 `TelegramGlassButtonModifier`，`.extendedFloat` 经 `.floatingGlass`。
    别处不要描述玻璃材质。
-9. **动效不在原型里定案**：`CoreDesignEffects` 的微交互与转场手感只能在真机上判。
+9. **动效不在原型里定案**：`OhMyDesignEffects` 的微交互与转场手感只能在真机上判。
    原型里最多标注「此处用 `.confetti` / `.iris` 转场」，不要据此下视觉结论。
 10. **标不出名字的地方，明写「缺组件」**，不要用近似的名字凑。那一处就是设计系统的缺口，
     是有价值的产出，不是失败。

@@ -75,7 +75,7 @@ jobs:
         # 放进独立 job 会多起一台 macOS runner（按 10× 计费，见本文件顶部 push 触发器
         # 那段的同一考量）。
         #
-        # ⚠️ 这条 `run:` 被**树内**判据 `Tests/CoreDesignTests/MainActorStaticRatchetGuard.swift`
+        # ⚠️ 这条 `run:` 被**树内**判据 `Tests/OhMyDesignTests/MainActorStaticRatchetGuard.swift`
         # **逐字**钉住；那条判据还给**这一步的直接子键**上了一份**正面允许清单**
         # （`name` / `run` / `env` / `working-directory` / `uses` / `with`），清单外的键
         # 一律判红——`if:` / `continue-on-error:` / `shell:` 连同它们的同义拼法
@@ -96,7 +96,7 @@ jobs:
         # 重跑生成器再与已提交产物比对：`docs/design-digest.md` 是台账，改了组件不重跑
         # 就会静默落后，而它的**唯一价值**是名字与源码同真——漂掉比不存在更坏（下游
         # 设计 agent 会自信地标注已改名/删除的组件，且失效方向向绿）。
-        # ⚠️ 这条 `run:` 被树内判据 `Tests/CoreDesignTests/DesignDigestSyncGuard.swift`
+        # ⚠️ 这条 `run:` 被树内判据 `Tests/OhMyDesignTests/DesignDigestSyncGuard.swift`
         # 逐字钉住，要改先改那条判据。生成器基数不符时返回 1、`&&` 短路，所以这一步
         # 同时兜住「基数变了没人看一眼」。
         run: python3 scripts/design-digest.py && git diff --exit-code -- docs/design-digest.md
@@ -200,22 +200,22 @@ jobs:
         # 现在本 job 真正守护它。**切勿**把 DynamicTypeLayoutTests 加进下面的
         # -skip-testing 列表，否则该层在 CI 上空转（macOS 侧本就不编它）。
         #
-        # ⚠️ **scheme 必须是 `CoreDesign-Package`，不能是 `CoreDesign`**（#245）：
+        # ⚠️ **scheme 必须是 `OhMyDesign-Package`，不能是 `OhMyDesign`**（#245）：
         # 包只有**一个** product 时，Xcode 把包 scheme 合并进同名 scheme，于是
-        # `-scheme CoreDesign` 恰好能跑测试。`#245` 新增了 CoreDesignEffects /
-        # CoreDesignCharts 两个 product 之后，scheme 列表变成
-        # CoreDesign / CoreDesign-Package / CoreDesignEffects / CoreDesignCharts，
-        # 而 `-scheme CoreDesign` 会**硬红**（不是静默跳过）：
-        #   xcodebuild: error: Scheme CoreDesign is not currently configured
+        # `-scheme OhMyDesign` 恰好能跑测试。`#245` 新增了 OhMyDesignEffects /
+        # OhMyDesignCharts 两个 product 之后，scheme 列表变成
+        # OhMyDesign / OhMyDesign-Package / OhMyDesignEffects / OhMyDesignCharts，
+        # 而 `-scheme OhMyDesign` 会**硬红**（不是静默跳过）：
+        #   xcodebuild: error: Scheme OhMyDesign is not currently configured
         #   for the test action.
         # 本仓实测记录见 #245 的验证留证。
         # `-skip-testing:` 用的是 target/类型名标识符，在包 scheme 下语法不变。
         run: |
           set -o pipefail
           xcodebuild test \
-            -scheme CoreDesign-Package \
+            -scheme OhMyDesign-Package \
             -destination "id=${{ steps.sim.outputs.udid }}" \
-            -skip-testing:CoreDesignTests/ToastHostTests \
+            -skip-testing:OhMyDesignTests/ToastHostTests \
             CODE_SIGNING_ALLOWED=NO 2>&1 | tee ios-first.log
 
       - name: Upload test logs
@@ -245,7 +245,7 @@ jobs:
     #
     # ⚠️ 而「selftest 绿」也不等于「CI 跑的是这条命令」——selftest 自己硬编码这个
     # 标志。把下面那步改回裸 `swift build`，selftest 照样绿、整道闸静默消失。
-    # 钉住它的是**树内**判据 `Tests/CoreDesignTests/DownstreamProbeGateGuard.swift`
+    # 钉住它的是**树内**判据 `Tests/OhMyDesignTests/DownstreamProbeGateGuard.swift`
     # （读本文件，断言下面这条 `run:` 逐字含该标志）⇒ 随 `swift test` 在每个事件上跑。
     #
     # ⚠️ 那条判据还会拦一批「标志还在、但红点传不到 job 结论 / 这个 job 压根没跑」的
@@ -272,7 +272,7 @@ jobs:
     #
     # ⚠️⚠️ **副作用：这个标志顺带给了库自身一道零警告闸**（PR #304 终审 S-2）。
     # `-Xswiftc` 会传给**依赖图里所有** Swift 编译，而 probe 的依赖图包含
-    # `CoreDesign` / `CoreDesignEffects` / `CoreDesignCharts` 三个 target 的源码。
+    # `OhMyDesign` / `OhMyDesignEffects` / `OhMyDesignCharts` 三个 target 的源码。
     # ⇒ 从此 `Sources/` 里**任何一条** warning 都会让**这个 job** 变红，而同一个 PR 的
     # `swift build` job 是绿的（那条不带标志）。方向是 fail-closed（好事），
     # 但失效形态会认错人：工具链升级引入一条 deprecation 时，**红点出现在

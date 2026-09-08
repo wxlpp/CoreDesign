@@ -56,7 +56,7 @@ cd "$(dirname "$0")/.."
 PERF_PLATFORM="${PERF_PLATFORM:-simulator}"      # simulator | device
 PERF_DEVICE_ID="${PERF_DEVICE_ID:-}"
 PERF_DEVICE_NAME="${PERF_DEVICE_NAME:-iPhone 17 Pro}"
-BUNDLE_ID="com.coredesign.CoreDesignPreview"
+BUNDLE_ID="com.ohmydesign.OhMyDesignPreview"
 DERIVED_DATA="$(pwd)/App/.derivedData"
 LOG="$(pwd)/perf-benchmark.log"
 
@@ -84,16 +84,16 @@ case "${PERF_PLATFORM}" in
     echo "run-perf-benchmark: ⚠️ Simulator 模式（${SIM_ID}）—— 数值仅作趋势参考，**不构成 NFR-1 达标证据**"
 
     xcodebuild build \
-      -project App/CoreDesignPreview.xcodeproj \
-      -scheme CoreDesignPreview \
+      -project App/OhMyDesignPreview.xcodeproj \
+      -scheme OhMyDesignPreview \
       -destination "platform=iOS Simulator,id=${SIM_ID}" \
       -derivedDataPath "${DERIVED_DATA}" \
       CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
       -quiet
 
-    APP_PATH=$(/usr/bin/find "${DERIVED_DATA}" -name "CoreDesignPreview.app" -path "*/Debug-iphonesimulator/*" | head -1)
+    APP_PATH=$(/usr/bin/find "${DERIVED_DATA}" -name "OhMyDesignPreview.app" -path "*/Debug-iphonesimulator/*" | head -1)
     if [ -z "${APP_PATH}" ]; then
-      echo "ERROR: 构建产物里找不到 CoreDesignPreview.app" >&2
+      echo "ERROR: 构建产物里找不到 OhMyDesignPreview.app" >&2
       exit 2
     fi
 
@@ -118,17 +118,17 @@ case "${PERF_PLATFORM}" in
       SIGN_ARGS+=("DEVELOPMENT_TEAM=${DEVELOPMENT_TEAM}")
     fi
     xcodebuild build \
-      -project App/CoreDesignPreview.xcodeproj \
-      -scheme CoreDesignPreview \
+      -project App/OhMyDesignPreview.xcodeproj \
+      -scheme OhMyDesignPreview \
       -destination "platform=iOS,id=${PERF_DEVICE_ID}" \
       -derivedDataPath "${DERIVED_DATA}" \
       -allowProvisioningUpdates \
       "${SIGN_ARGS[@]}" \
       -quiet
 
-    APP_PATH=$(/usr/bin/find "${DERIVED_DATA}" -name "CoreDesignPreview.app" -path "*/Debug-iphoneos/*" | head -1)
+    APP_PATH=$(/usr/bin/find "${DERIVED_DATA}" -name "OhMyDesignPreview.app" -path "*/Debug-iphoneos/*" | head -1)
     if [ -z "${APP_PATH}" ]; then
-      echo "ERROR: 构建产物里找不到真机版 CoreDesignPreview.app" >&2
+      echo "ERROR: 构建产物里找不到真机版 OhMyDesignPreview.app" >&2
       exit 2
     fi
 

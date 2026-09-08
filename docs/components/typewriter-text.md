@@ -2,16 +2,16 @@
 
 逐字揭示的打字机文本 / Text revealed one grapheme at a time.
 
-`TypewriterText`（`CoreDesignEffects/TypewriterText.swift`，Issue #253）。**容器视图形态**
+`TypewriterText`（`OhMyDesignEffects/TypewriterText.swift`，Issue #253）。**容器视图形态**
 （一个独立的 `View`，不是 modifier）。
 
 ```swift
-import CoreDesign        // 下面示例里的 token 来自 `CoreDesign`
-import CoreDesignEffects
+import OhMyDesign        // 下面示例里的 token 来自 `OhMyDesign`
+import OhMyDesignEffects
 ```
 
-⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`CoreDesignEffects` 不会把
-`CoreDesign` 的符号带出来。只写一个，下面的示例照抄进项目**编译不过**。
+⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`OhMyDesignEffects` 不会把
+`OhMyDesign` 的符号带出来。只写一个，下面的示例照抄进项目**编译不过**。
 
 ## API
 
@@ -123,7 +123,7 @@ let plan = TypewriterReveal.plan(total: total, typed: self.typed, reduceMotion: 
 三个计数**全部原样为 1**、`reads == fed` 也成立 ⇒ **Reduce Motion 在渲染路径上完全失效
 而 665 全绿**。⇒ `TypewriterTextTests.planIsOnlyEverBuiltByTheGate` 补上性质那一面：
 **`TypewriterPlan` 只许在 `TypewriterReveal.plan` 的函数体里被构造**，任何重算 / 覆盖 /
-后处理都必须造出第二个 `TypewriterPlan`。扫描面是**整个 `Sources/CoreDesignEffects`**
+后处理都必须造出第二个 `TypewriterPlan`。扫描面是**整个 `Sources/OhMyDesignEffects`**
 （把 `recomputed` 定义到另一个文件是同一枚变异的等价形态，只扫单个文件抓不到）。
 
 ## 打字任务的重启条件（`.task(id:)`）
@@ -166,8 +166,8 @@ let plan = TypewriterReveal.plan(total: total, typed: self.typed, reduceMotion: 
 ## 使用示例 / Usage
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 import SwiftUI
 
 struct OnboardingHeadline: View {

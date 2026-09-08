@@ -28,27 +28,27 @@
 
 修改：
 
-- `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
+- `Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift`
   - 把非 glass 默认背景调成符合 Native Primer 的实用控件外观。
   - 显式 `glass: true` 分支保持不变。
-- `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
+- `Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift`
   - 把非 glass 默认背景调成符合次级控件的实用外观。
   - 显式 `glass: true` 分支保持不变。
-- `Sources/CoreDesign/Components/Button/AsyncButton.swift`
+- `Sources/OhMyDesign/Components/Button/AsyncButton.swift`
   - 仅当 preview/文档文案需要反映非 glass 默认样式时再更新。
   - 不修改 async 行为。
-- `Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift`
+- `Sources/OhMyDesign/Components/SegmentedControl/SegmentedControl.swift`
   - 把旧的 "no glass" Primer 文案改成 Native Primer 措辞。
   - 使用安静的 control surface + 略微抬升的选中 thumb。
   - 公开 API 保持不变。
-- `Sources/CoreDesign/Components/SearchField/SearchField.swift`
+- `Sources/OhMyDesign/Components/SearchField/SearchField.swift`
   - 让容器对齐 `.surface(.control)` / 内嵌式控件处理。
   - 公开 API 保持不变，不加 glass。
-- `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`
+- `Tests/OhMyDesignTests/ButtonStyleDefaultTests.swift`
   - 视需要扩展已有的默认值测试。
-- `Tests/CoreDesignTests/SegmentedControlTests.swift`
+- `Tests/OhMyDesignTests/SegmentedControlTests.swift`
   - 新增针对 2 项 / 3 项构造的编译测试。
-- `Tests/CoreDesignTests/SearchFieldTests.swift`
+- `Tests/OhMyDesignTests/SearchFieldTests.swift`
   - 新增针对构造的编译 / 行为测试。
 
 ---
@@ -56,13 +56,13 @@
 ## 任务 1：调整非 glass 按钮的默认外观
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift`
-- 修改：`Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift`
-- 修改：`Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`
+- 修改：`Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift`
+- 修改：`Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift`
+- 修改：`Tests/OhMyDesignTests/ButtonStyleDefaultTests.swift`
 
 - [ ] **步骤 1：为非 glass 默认语义写具体测试**
 
-扩展 `Tests/CoreDesignTests/ButtonStyleDefaultTests.swift`：
+扩展 `Tests/OhMyDesignTests/ButtonStyleDefaultTests.swift`：
 
 ```swift
 @Test("solid button style defaults to non-glass")
@@ -101,7 +101,7 @@ swift test --filter ButtonStyleDefaultTests
 
 - [ ] **步骤 3：调整 SolidButtonStyle 的非 glass modifier**
 
-在 `Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift` 中，把 `SolidButtonBackgroundModifier.body` 更新为：
+在 `Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift` 中，把 `SolidButtonBackgroundModifier.body` 更新为：
 
 ```swift
 func body(content: Content) -> some View {
@@ -124,7 +124,7 @@ func body(content: Content) -> some View {
 
 - [ ] **步骤 4：调整 LightButtonStyle 的非 glass modifier**
 
-在 `Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift` 中，把 `LightButtonBackgroundModifier.body` 更新为：
+在 `Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift` 中，把 `LightButtonBackgroundModifier.body` 更新为：
 
 ```swift
 func body(content: Content) -> some View {
@@ -159,7 +159,7 @@ swift test --filter CoreButtonMetrics
 - [ ] **步骤 6：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/Button/styles/SolidButtonStyle.swift Sources/CoreDesign/Components/Button/styles/LightButtonStyle.swift Tests/CoreDesignTests/ButtonStyleDefaultTests.swift
+git add Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift Sources/OhMyDesign/Components/Button/styles/LightButtonStyle.swift Tests/OhMyDesignTests/ButtonStyleDefaultTests.swift
 git commit -m "refactor: quiet default button surfaces"
 ```
 
@@ -168,8 +168,8 @@ git commit -m "refactor: quiet default button surfaces"
 ## 任务 2：把 SegmentedControl 回归 Native Primer 控件外观
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift`
-- 新建：`Tests/CoreDesignTests/SegmentedControlTests.swift`
+- 修改：`Sources/OhMyDesign/Components/SegmentedControl/SegmentedControl.swift`
+- 新建：`Tests/OhMyDesignTests/SegmentedControlTests.swift`
 
 > **计划修订（2026-05-14，第 2A 阶段复盘）：** 实际落地的实现引入了一个可选启用的
 > `glass: Bool = true` 参数，以及一条针对 iOS 26 的原生 UIKit Glass 路径
@@ -181,12 +181,12 @@ git commit -m "refactor: quiet default button surfaces"
 
 - [ ] **步骤 1：写编译 / 行为测试**
 
-创建 `Tests/CoreDesignTests/SegmentedControlTests.swift`：
+创建 `Tests/OhMyDesignTests/SegmentedControlTests.swift`：
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("SegmentedControl")
 struct SegmentedControlTests {
@@ -230,7 +230,7 @@ swift test --filter SegmentedControlTests
 
 - [ ] **步骤 3：更新文档注释**
 
-在 `Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift` 中，把旧注释里 "复刻 Primer thumb" 和 "不使用 `.glassEffect`" 的措辞换成 Native Primer 语言：
+在 `Sources/OhMyDesign/Components/SegmentedControl/SegmentedControl.swift` 中，把旧注释里 "复刻 Primer thumb" 和 "不使用 `.glassEffect`" 的措辞换成 Native Primer 语言：
 
 ```swift
 /// Native Primer segmented control.
@@ -299,7 +299,7 @@ swift test
 - [ ] **步骤 7：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/SegmentedControl/SegmentedControl.swift Tests/CoreDesignTests/SegmentedControlTests.swift
+git add Sources/OhMyDesign/Components/SegmentedControl/SegmentedControl.swift Tests/OhMyDesignTests/SegmentedControlTests.swift
 git commit -m "refactor: reset segmented control surface"
 ```
 
@@ -308,17 +308,17 @@ git commit -m "refactor: reset segmented control surface"
 ## 任务 3：让 SearchField 对齐 control surface 规则
 
 **文件：**
-- 修改：`Sources/CoreDesign/Components/SearchField/SearchField.swift`
-- 新建：`Tests/CoreDesignTests/SearchFieldTests.swift`
+- 修改：`Sources/OhMyDesign/Components/SearchField/SearchField.swift`
+- 新建：`Tests/OhMyDesignTests/SearchFieldTests.swift`
 
 - [ ] **步骤 1：写编译测试**
 
-创建 `Tests/CoreDesignTests/SearchFieldTests.swift`：
+创建 `Tests/OhMyDesignTests/SearchFieldTests.swift`：
 
 ```swift
 import SwiftUI
 import Testing
-@testable import CoreDesign
+@testable import OhMyDesign
 
 @Suite("SearchField")
 struct SearchFieldTests {
@@ -351,7 +351,7 @@ swift test --filter SearchFieldTests
 
 - [ ] **步骤 3：更新文档注释**
 
-在 `Sources/CoreDesign/Components/SearchField/SearchField.swift` 中，把顶部注释由 "GitHub Primer 风格" 改为 Native Primer 措辞：
+在 `Sources/OhMyDesign/Components/SearchField/SearchField.swift` 中，把顶部注释由 "GitHub Primer 风格" 改为 Native Primer 措辞：
 
 ```swift
 /// Native Primer search field.
@@ -407,7 +407,7 @@ swift test
 - [ ] **步骤 6：提交**
 
 ```bash
-git add Sources/CoreDesign/Components/SearchField/SearchField.swift Tests/CoreDesignTests/SearchFieldTests.swift
+git add Sources/OhMyDesign/Components/SearchField/SearchField.swift Tests/OhMyDesignTests/SearchFieldTests.swift
 git commit -m "refactor: align search field control surface"
 ```
 
@@ -443,7 +443,7 @@ swift build
 执行：
 
 ```bash
-rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/SegmentedControl Sources/CoreDesign/Components/SearchField Sources/CoreDesign/Components/Button/styles
+rg "glassEffect|floatingGlass|circularGlass" Sources/OhMyDesign/Components/SegmentedControl Sources/OhMyDesign/Components/SearchField Sources/OhMyDesign/Components/Button/styles
 ```
 
 预期：
@@ -460,7 +460,7 @@ rg "glassEffect|floatingGlass|circularGlass" Sources/CoreDesign/Components/Segme
 执行：
 
 ```bash
-rg "#Preview|Solid — default|Light — default|SegmentedControl|SearchField" Sources/CoreDesign/Components/Button Sources/CoreDesign/Components/SegmentedControl Sources/CoreDesign/Components/SearchField
+rg "#Preview|Solid — default|Light — default|SegmentedControl|SearchField" Sources/OhMyDesign/Components/Button Sources/OhMyDesign/Components/SegmentedControl Sources/OhMyDesign/Components/SearchField
 ```
 
 预期：按钮样式、segmented control、search field 的 preview 仍在。

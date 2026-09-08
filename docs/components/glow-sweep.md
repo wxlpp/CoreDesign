@@ -2,15 +2,15 @@
 
 一段辉光沿内容边框转圈，表示「正在生成 / 正在思考」/ A glow travelling around the content border.
 
-`GlowSweep { }`（`CoreDesignEffects/GlowSweep.swift`，Issue #252）。**容器视图形态**。
+`GlowSweep { }`（`OhMyDesignEffects/GlowSweep.swift`，Issue #252）。**容器视图形态**。
 
 ```swift
-import CoreDesign        // 下面示例里的 `Card` 来自 `CoreDesign`
-import CoreDesignEffects
+import OhMyDesign        // 下面示例里的 `Card` 来自 `OhMyDesign`
+import OhMyDesignEffects
 ```
 
-⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`CoreDesignEffects` 不会把
-`CoreDesign` 的符号带出来。只写一个，下面的示例照抄进项目**编译不过**
+⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`OhMyDesignEffects` 不会把
+`OhMyDesign` 的符号带出来。只写一个，下面的示例照抄进项目**编译不过**
 （#252 PR #269 第 2 轮终审 S-b）。
 
 ## API

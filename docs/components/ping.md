@@ -2,13 +2,13 @@
 
 从视图背后扩散的同心圆环 / Concentric rings radiating from behind the view.
 
-`View.ping(trigger:strength:color:)`（`CoreDesignEffects/Ping.swift`，Issue #250）。
+`View.ping(trigger:strength:color:)`（`OhMyDesignEffects/Ping.swift`，Issue #250）。
 典型用途：新消息、实时状态、位置定位。
 
-⚠️ **本 API 在 `CoreDesignEffects` 里，不在 `CoreDesign`**：
+⚠️ **本 API 在 `OhMyDesignEffects` 里，不在 `OhMyDesign`**：
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 ```
 
 ## API
@@ -55,15 +55,15 @@ public extension View {
 无法单独调环色而不影响内容色 ⇒ 仍取参数、默认语义 token（源码入口注释逐字记着这条裁决）。
 
 ```swift
-import CoreDesign        // `Color.statusSuccessForeground` 来自这里
-import CoreDesignEffects
+import OhMyDesign        // `Color.statusSuccessForeground` 来自这里
+import OhMyDesignEffects
 
 StatusDot()
     .ping(trigger: unreadCount, color: .statusSuccessForeground)
 ```
 
-⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`CoreDesignEffects` 不会把
-`CoreDesign` 的符号带出来（默认实参 `.accent` 由库内部解析，不需要调用方 import；
+⚠️ **两个 import 一个都不能少**：全仓 `@_exported` 为 0，`OhMyDesignEffects` 不会把
+`OhMyDesign` 的符号带出来（默认实参 `.accent` 由库内部解析，不需要调用方 import；
 **显式**写第 3 层 token 就需要）。
 
 ## Reduce Motion
@@ -99,7 +99,7 @@ scale 1（几何完全重合）、各自在 50 ms 内阶跃变亮再衰减 ⇒ *
 ⚠️ 本节示例**没有任何机器校验**（同 [`confetti.md`](confetti.md) 记的限度）。
 
 ```swift
-import CoreDesignEffects
+import OhMyDesignEffects
 import SwiftUI
 
 struct NotificationBell: View {

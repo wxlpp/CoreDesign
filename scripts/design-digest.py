@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-TARGETS = ["CoreDesign", "CoreDesignEffects", "CoreDesignCharts"]
+TARGETS = ["OhMyDesign", "OhMyDesignEffects", "OhMyDesignCharts"]
 
 # 当前钉法是**精确值**，不是留有余量的下界：任何删除即判红，任何新增也判红并要求
 # 有人看一眼再改数。随源码变动时连同 PR 正文写明增减理由。
@@ -209,7 +209,7 @@ def enum_cases(lines, start):
 
 
 def scalar_tokens(root, filename, enum_name):
-    src = read(os.path.join(root, "Sources/CoreDesign/Tokens", filename))
+    src = read(os.path.join(root, "Sources/OhMyDesign/Tokens", filename))
     lines = src.split("\n")
     rows = []
     for index, line in enumerate(lines):
@@ -222,13 +222,13 @@ def scalar_tokens(root, filename, enum_name):
 
 
 def typography_tokens(root):
-    src = read(os.path.join(root, "Sources/CoreDesign/Tokens/CoreTypography.swift"))
+    src = read(os.path.join(root, "Sources/OhMyDesign/Tokens/CoreTypography.swift"))
     body = src.split("public enum Token")[1].split("public var textStyle")[0]
     return re.findall(r"case\s+(\w+)", body)
 
 
 def elevation_specs(root):
-    src = read(os.path.join(root, "Sources/CoreDesign/Tokens/CoreElevation.swift"))
+    src = read(os.path.join(root, "Sources/OhMyDesign/Tokens/CoreElevation.swift"))
     body = src.split("public static func spec(for level: Level) -> Spec")[1]
     rows = []
     for chunk in re.split(r"case\s+\.", body)[1:]:
@@ -241,7 +241,7 @@ def elevation_specs(root):
 
 
 def control_metrics(root):
-    src = read(os.path.join(root, "Sources/CoreDesign/Tokens/CoreControlMetrics.swift"))
+    src = read(os.path.join(root, "Sources/OhMyDesign/Tokens/CoreControlMetrics.swift"))
     order = ["mini", "small", "regular", "large", "extraLarge"]
     table = {}
     for func in ["height", "horizontalPadding", "verticalPadding", "fontToken", "iconSize"]:
@@ -282,7 +282,7 @@ def semantic_colors(root):
     可见性判定按所在块，不按行内有没有 private 字样——private 换行写时行内查不到。
     """
     groups = []
-    for path in sorted(glob.glob(os.path.join(root, "Sources/CoreDesign/Colors/*.swift"))):
+    for path in sorted(glob.glob(os.path.join(root, "Sources/OhMyDesign/Colors/*.swift"))):
         base = os.path.basename(path)
         if base == "ColorGrade.swift":
             continue

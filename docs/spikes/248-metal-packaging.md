@@ -12,7 +12,7 @@
 
 ⚠️ **这不只是"前提被推翻"，而是一次 PRD 层的裁决变更，需要 PRD owner 拍板**
 （#258 终审 I-4）：PRD FR-2 把 α 的可选条件写死为「**所有**已知消费路径都能切 swiftbuild」
-并点名 StoryUI CI。本 spike 证明的是 **CoreDesign 自己的 CI 能切**；
+并点名 StoryUI CI。本 spike 证明的是 **OhMyDesign 自己的 CI 能切**；
 **StoryUI 的包能否在 swiftbuild 下构建没有测**。
 ⇒ 本 spike 实际建议的是把该条件**从「全部可切」改为「Xcode 消费者不命中 + CLI 消费者
 按文档自担并有响亮失败兜底」**。**请连同下方《α 的残余风险》一并裁决 FR-2 的改写。**
@@ -37,7 +37,7 @@
 
 **处理矩阵**（实测，**Xcode 26.4 / Swift 6.3，本机 Apple Silicon**）：
 
-⚠️ **可复现性声明**（#258 终审 I-6）：下方引用的 `CoreDesignEffects / Charts smoke passed`
+⚠️ **可复现性声明**（#258 终审 I-6）：下方引用的 `OhMyDesignEffects / Charts smoke passed`
 只在 **`epic/shipswift-foundation` 的 `7384ccd`**（含 #257）上存在——本 spike 分支基于
 更早的 commit，在其上复跑得到的是 **474 个通过的测试**而非 476（差的 2 个正是那两个新 target 的 smoke 测试）。
 ⚠️ **CI runner 用的是 Xcode 26.5**（`ci.yml`），**swiftbuild 在 26.5 上的行为本 spike 未验证**。
@@ -56,8 +56,8 @@ target 里必须至少有一个 `.swift` 文件。
 **α 的前提被实测证伪了「不成立」这一判断**：
 
 ```
-$ cd <CoreDesign worktree> && swift test --build-system swiftbuild
-… CoreDesignEffects 模块 smoke / CoreDesignCharts 模块 smoke 均 passed
+$ cd <OhMyDesign worktree> && swift test --build-system swiftbuild
+… OhMyDesignEffects 模块 smoke / OhMyDesignCharts 模块 smoke 均 passed
 ```
 
 ⇒ CI 的 SwiftPM 腿**切得动**（⚠️ 但**不能整腿切**，见问②）。PRD C-1 与 epic AD-B 写的「α 等于把构建系统约束转嫁给下游」
@@ -76,7 +76,7 @@ native:      Suite "Colorset 资源存在性守卫" passed      （17 色相×10
 swiftbuild:  该 suite 在输出里整个消失
 ```
 
-**原因**：`Tests/CoreDesignTests/ColorAssetGuardTests.swift:70` 的
+**原因**：`Tests/OhMyDesignTests/ColorAssetGuardTests.swift:70` 的
 `.enabled(if: rawXcassetsAvailable)` 只在 `Resources.xcassets/` **以目录形式**存在时启用。
 swiftbuild 调 `actool` 把它编成 `Assets.car` ⇒ 判据 false ⇒ 整个 suite 跳过。
 而 xcodebuild iOS 腿本来就是 `.car` 形态、同样跳过 ⇒ **整腿切换后，
@@ -89,14 +89,14 @@ swiftbuild 调 `actool` 把它编成 `Assets.car` ⇒ 判据 false ⇒ 整个 su
 
 | 腿 | 改动 |
 |---|---|
-| **SwiftPM** | **保留 native** `swift build` / `swift test`（colorset 守卫继续生效）；**另加一步** `swift test --build-system swiftbuild --filter CoreDesignShadersTests`，只让 shader 加载测试走 swiftbuild。⚠️ **该 `--filter` 组合本 spike 未实跑**（②只实测了「整腿切会跳过 colorset suite」）⇒ **B-1 须先验它** |
+| **SwiftPM** | **保留 native** `swift build` / `swift test`（colorset 守卫继续生效）；**另加一步** `swift test --build-system swiftbuild --filter OhMyDesignShadersTests`，只让 shader 加载测试走 swiftbuild。⚠️ **该 `--filter` 组合本 spike 未实跑**（②只实测了「整腿切会跳过 colorset suite」）⇒ **B-1 须先验它** |
 | **iOS Simulator** | 已是 `xcodebuild`，天然编译 `.metal` ⇒ **零改动** |
-| **downstream-probe** | build-only，且只依赖 `CoreDesign` product ⇒ **零改动** |
+| **downstream-probe** | build-only，且只依赖 `OhMyDesign` product ⇒ **零改动** |
 | **Bool 棘轮** | 不读 `Sources` ⇒ **零改动** |
 
 ⚠️ **被否决的改法**：整腿切 swiftbuild + 把 `ColorAssetGuardTests` 改成能读 `.car`
 ——CoreUI 的 `.car` 格式不公开，实际做不到；改为按 `#filePath` 直接断言源码树的
-`Sources/CoreDesign/Resources.xcassets` 也可行，但那是一个独立的守卫重构，
+`Sources/OhMyDesign/Resources.xcassets` 也可行，但那是一个独立的守卫重构，
 不该塞进 Metal 这条线。
 
 ### ③ metallib 定位 + fail-closed 加载测试
@@ -205,18 +205,18 @@ LiquidMetal 之一；实验包里的 `spikeFoil` 是 6 行的条纹 mix，与上
 
 ---
 
-## α 的残余风险（必须写进 `CoreDesignShaders` 的 README 与 CLAUDE.md）
+## α 的残余风险（必须写进 `OhMyDesignShaders` 的 README 与 CLAUDE.md）
 
 α 的失败形态是**运行时静默无渲染**，触发条件收窄为**同时满足**：
 
-1. 下游 import 了 `CoreDesignShaders`（不是 `CoreDesign`）；**且**
+1. 下游 import 了 `OhMyDesignShaders`（不是 `OhMyDesign`）；**且**
 2. 下游用**原生 `swift build` / `swift test`** 构建（不是 Xcode、不是 `--build-system swiftbuild`）。
 
 真实消费者（Xcode 里的 App）**不命中** ——Xcode 用的就是编译 `.metal` 的那套构建系统。
 命中的是「用 SwiftPM 命令行跑测试、且测试触到 shader」的下游，例如 StoryUI 的 CI。
 
 **缓解**（B-1 必须一并落地，缺一不可）：
-- `CoreDesignShaders` 的公开入口在**首次使用时**跑一次 ③ 的 fail-closed 检查，
+- `OhMyDesignShaders` 的公开入口在**首次使用时**跑一次 ③ 的 fail-closed 检查，
   查不到就 `assertionFailure` / 抛错，**把静默无渲染变成响亮失败**；
 - README 与 CLAUDE.md 明写「用原生 `swift build` 消费本 product 时须加
   `--build-system swiftbuild`」；
@@ -280,7 +280,7 @@ LiquidMetal 之一；实验包里的 `spikeFoil` 是 6 行的条纹 mix，与上
 ⚠️ 由于 ⑤ 未按 AC 取样、边际成本是估算，**取值偏保守对闸②更安全**）。
 
 ⚠️ **被否决的兜底方案**：初稿写「低于 `N_B` 就把少数几个 shader 直接放进
-`CoreDesignEffects`」——**与 PRD 冲突**（PRD `:34-38` 否决单 target 的理由之一正是
+`OhMyDesignEffects`」——**与 PRD 冲突**（PRD `:34-38` 否决单 target 的理由之一正是
 构建系统约束不该污染 Effects）。α 下这样做会把「native 构建静默无渲染」带进
 **StoryUI CI 正在消费的 Effects** ⇒ 该兜底作废；低于 `N_B` 就是**不做**。
 

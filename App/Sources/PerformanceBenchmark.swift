@@ -1,5 +1,5 @@
-@_spi(CoreDesignBenchmark) import CoreDesignCharts
-@_spi(CoreDesignBenchmark) import CoreDesignEffects
+@_spi(OhMyDesignBenchmark) import OhMyDesignCharts
+@_spi(OhMyDesignBenchmark) import OhMyDesignEffects
 import SwiftUI
 import UIKit
 
@@ -52,7 +52,7 @@ import UIKit
 // · **Confetti**：`ConfettiBurst.duration = 2.0`，宿主只在 `onAppear` 触发一次；
 //   采样窗口是 `[warmUp, warmUp+duration] = [1.0, 4.0]` ⇒ burst 的第一秒（最重的那段）
 //   从没被采样，采样的三秒里两秒是**空屏**。
-// · **NetworkGraph**：`grep -c TimelineView Sources/CoreDesignCharts/NetworkGraph.swift`
+// · **NetworkGraph**：`grep -c TimelineView Sources/OhMyDesignCharts/NetworkGraph.swift`
 //   = **0**。布局是一次性 `.task(id:)` 派到 `Task.detached`（**主线程之外**），落定后
 //   视图完全静止、逐帧零工作 ⇒ 三秒窗口量的是**空闲主线程**；而唯一可能掉帧的时刻
 //   （初始求解 + 首帧绘制）落在 1 秒预热里。
@@ -61,7 +61,7 @@ import UIKit
 //   1. **每条腿都有存活读数**（`liveness`），形态照搬对照组原有的 `bodyEvaluations`：
 //      confetti 取 `ConfettiRenderProbe.drawnFrames`（画出粒子的帧数）、
 //      networkGraph 取 `NetworkGraphRenderProbe.drawnFrames`（真的落笔画了边的帧数），
-//      两者都是 `@_spi(CoreDesignBenchmark)` 的库内观测点。
+//      两者都是 `@_spi(OhMyDesignBenchmark)` 的库内观测点。
 //      `Verdict.passed` **要求窗口内的增量 > `minimumLiveness`**，与既有的
 //      `intervals.count > 30` 前置同形 ⇒ 「什么都不画」再也不能判绿。
 //   2. **每条腿有各自的窗口**：confetti 由宿主**定时重触发**，让 burst 铺满整个窗口；
@@ -460,7 +460,7 @@ struct PerformanceBenchmarkRunner: View {
 
     @MainActor
     private static func run(advance: @escaping (Int) -> Void) async {
-        print("[perf] --- CoreDesign NFR-1 frame-rate benchmark ---")
+        print("[perf] --- OhMyDesign NFR-1 frame-rate benchmark ---")
         print("[perf] allowedDroppedRatio=\(PerformanceBenchmark.allowedDroppedRatio) "
             + "minimumLiveness=\(PerformanceBenchmark.minimumLiveness)")
         // ⚠️ 帧预算**逐条腿实测**（见 `FrameStats.frameBudget`）；这里额外把屏幕报的

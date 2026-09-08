@@ -2,12 +2,12 @@
 
 快门 / 显影转场 / A shutter-and-develop (instant photo) transition.
 
-`.transition(.snapshot)`（`CoreDesignEffects/SnapshotTransition.swift`，Issue #266）。
+`.transition(.snapshot)`（`OhMyDesignEffects/SnapshotTransition.swift`，Issue #266）。
 ⚠️ **`Transition` 形态**——不是容器视图，也不是 `View` 上的 modifier。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ## API

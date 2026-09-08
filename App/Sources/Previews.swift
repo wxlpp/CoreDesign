@@ -1,5 +1,5 @@
 import SwiftUI
-import CoreDesign
+import OhMyDesign
 
 // MARK: - Snapshot Previews
 // 每个组件至少一个 #Preview 宏，供 SnapshotTest 自动收编生成 PNG。
@@ -66,7 +66,7 @@ import CoreDesign
 #Preview("Avatar") {
     HStack(spacing: CoreSpacing.md) {
         Avatar(name: "Evan")
-        Avatar(name: "CoreDesign")
+        Avatar(name: "OhMyDesign")
     }
     .padding()
 }
@@ -125,7 +125,7 @@ import CoreDesign
 }
 
 // ⚠️ `#65` 形态 D2 的三种呈现各注册一条 —— **只往组件源文件加 `#Preview` 进不了快照
-// 流水线**，脚本默认模式只保留 `Previews.swift` 驱动的 `CoreDesignPreview_*`。
+// 流水线**，脚本默认模式只保留 `Previews.swift` 驱动的 `OhMyDesignPreview_*`。
 #Preview("Toast · fullWidthBanner") {
     ToastSnapshotHarness()
         .toastHost(edge: .top, presentation: .fullWidthBanner)
@@ -214,8 +214,8 @@ private struct ToastSnapshotHarness: View {
             Circle().fill(.red).frame(width: 24, height: 24)
         }
         // `#60` 形态 D2 新增的三种排布。⚠️ 注册在**本文件**才会进 `docs/snapshots/` ——
-        // `run-snapshots.sh` 默认模式只保留 `CoreDesignPreview_*`（本文件驱动），库内
-        // `#Preview` 产出的 `CoreDesign_*` 会被 `find -delete` 删掉（PR #206 第 2 轮
+        // `run-snapshots.sh` 默认模式只保留 `OhMyDesignPreview_*`（本文件驱动），库内
+        // `#Preview` 产出的 `OhMyDesign_*` 会被 `find -delete` 删掉（PR #206 第 2 轮
         // Copilot review 抓到：只往库内加 `#Preview` 进不了快照流水线）。
         AvatarGroup(max: 3, layout: .spaced) {
             Circle().fill(.blue).frame(width: 32, height: 32)

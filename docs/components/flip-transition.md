@@ -1,6 +1,6 @@
 # FlipTransition（`.flip`）
 
-卡片翻面转场 / A card-flip transition。`CoreDesignEffects/FlipTransition.swift`，Issue #267。
+卡片翻面转场 / A card-flip transition。`OhMyDesignEffects/FlipTransition.swift`，Issue #267。
 
 > 三层形态、相位契约、Reduce Motion 与登记口径是**六条转场共用**的，写在
 > [`transition-cluster-3d-elastic.md`](transition-cluster-3d-elastic.md)，本文不重复。

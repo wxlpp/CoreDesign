@@ -2,12 +2,12 @@
 
 胶片过曝转场 / A film over-exposure transition.
 
-`.transition(.filmExposure)`（`CoreDesignEffects/FilmExposureTransition.swift`，Issue #266）。
+`.transition(.filmExposure)`（`OhMyDesignEffects/FilmExposureTransition.swift`，Issue #266）。
 ⚠️ **`Transition` 形态**——不是容器视图，也不是 `View` 上的 modifier。
 
 ```swift
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 ```
 
 ## API

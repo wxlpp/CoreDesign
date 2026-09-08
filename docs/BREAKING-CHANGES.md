@@ -15,6 +15,44 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.9.0`）——仓库与模块改名为 OhMyDesign
+
+**含破坏性变更，且是本轮影响面最大的一条：所有 `import` 都要改。** 版本意图：下一个 **minor**。
+
+| 旧 | 新 |
+|---|---|
+| 仓库 `github.com/wxlpp/CoreDesign` | `github.com/wxlpp/oh-my-design` |
+| 包名 `CoreDesign` | `OhMyDesign` |
+| product / module `CoreDesign` | `OhMyDesign` |
+| product / module `CoreDesignEffects` | `OhMyDesignEffects` |
+| product / module `CoreDesignCharts` | `OhMyDesignCharts` |
+| 预览宿主 `CoreDesignPreview` | `OhMyDesignPreview` |
+| bundle id 前缀 `com.coredesign` | `com.ohmydesign` |
+| `docs/component-registry.json` 的 `repo` 字段 `"coredesign"` | `"ohmydesign"` |
+| SwiftPM checkout 目录名 / 包 identity `CoreDesign` | `oh-my-design` |
+
+下游改法：
+
+```diff
+- .package(url: "https://github.com/wxlpp/CoreDesign", from: "0.9.0"),
++ .package(url: "https://github.com/wxlpp/oh-my-design", from: "0.10.0"),
+
+- import CoreDesign
++ import OhMyDesign
+```
+
+⚠️ **`Core` 前缀的公开符号一律未改**（`CoreElevation` / `CoreTypography` /
+`CoreControlMetrics` / `CoreMenuButton` / `.coreAccent(_:)` / `.core` 系列 control style
+……）。它们表达的是「核心 / 内建」语义，不是仓库名 ⇒ 改名不波及，下游这部分调用点零改动。
+
+⚠️ 后两行是**跨仓契约**，本仓 CI 只 checkout 本仓 ⇒ 对面仓（`wxlpp/oh-my-story` 的
+`CrossRepoRegistryGuard` 按 `repo` 值筛条目、按 checkout 目录名定位本仓登记表）在这条
+分叉上**零信号**，须人工去对面仓核一次。
+
+⚠️ 旧仓库名在 GitHub 上的重定向是**会过期的外部状态**（截至 2026-09-09 有效；任何人新建
+一个 `wxlpp/CoreDesign` 就会打断它），不要当长期契约。而 `import CoreDesign` **没有**任何
+兼容垫片，不改就编译不过。
+
 ## 未发布（相对 `v0.9.0`）——设计系统配色 / 样式回灌
 
 **含破坏性变更。** 版本意图：下一个 **minor**。
@@ -166,25 +204,25 @@ bash scripts/api-surface-diff.sh 42a872a
 
 ## 未发布（相对 `v0.9.0`）——Issue #271：NFR-7 通用能耗策略表下沉
 
-**含破坏性变更** —— `CoreDesignEffects` **删除 31 条** public 声明、新增 5 条；
-`CoreDesign` 删除 **0** 条、新增 28 条。两侧数字由 `scripts/api-surface-diff.sh` 各跑一次得出：
+**含破坏性变更** —— `OhMyDesignEffects` **删除 31 条** public 声明、新增 5 条；
+`OhMyDesign` 删除 **0** 条、新增 28 条。两侧数字由 `scripts/api-surface-diff.sh` 各跑一次得出：
 
 ```bash
-MODULE=CoreDesignEffects bash scripts/api-surface-diff.sh <base>   # 删除侧
-bash scripts/api-surface-diff.sh <base>                            # 新增侧（默认 MODULE=CoreDesign）
+MODULE=OhMyDesignEffects bash scripts/api-surface-diff.sh <base>   # 删除侧
+bash scripts/api-surface-diff.sh <base>                            # 新增侧（默认 MODULE=OhMyDesign）
 ```
 
-⚠️ **必须跑两次**：脚本的 `MODULE` 默认是 `CoreDesign`，只跑默认那次**看不到任何删除**
-——本次的删除全在 `CoreDesignEffects`。
+⚠️ **必须跑两次**：脚本的 `MODULE` 默认是 `OhMyDesign`，只跑默认那次**看不到任何删除**
+——本次的删除全在 `OhMyDesignEffects`。
 
 ### 主题：把「任何常驻渲染件都要」的那半张表移出动效层
 
-原裁决（`#252`）逐字：「别让只想要 shader 的消费者链上整个 `CoreDesignEffects` product」。
+原裁决（`#252`）逐字：「别让只想要 shader 的消费者链上整个 `OhMyDesignEffects` product」。
 当时只下沉了两个**信号键**，而从信号推出「画不画 / 降不降帧」的策略表仍在 Effects
-⇒ `shipswift-shaders` 的 B-2 只有两条路：`import CoreDesignEffects`（推翻下沉的全部理由），
+⇒ `shipswift-shaders` 的 B-2 只有两条路：`import OhMyDesignEffects`（推翻下沉的全部理由），
 或自己把同一条映射再写一遍（本仓反复在堵的「两处各写一遍必然漂」）。
 
-| 删除（`CoreDesignEffects` 的 **public** 声明） | 替代（`CoreDesign`） |
+| 删除（`OhMyDesignEffects` 的 **public** 声明） | 替代（`OhMyDesign`） |
 |---|---|
 | `EffectsEnergyState` | `EnergyState` |
 | `EffectsEnergyState.init(scenePhase:powerMode:)` | `EnergyState.init(scenePhase:isLowPower:)` |
@@ -208,7 +246,7 @@ bash scripts/api-surface-diff.sh <base>                            # 新增侧�
 1. **`powerMode:` → `isLowPower:`**：`EffectsPowerMode` 已删除，边界改用 `Bool`。
    读 `EffectsPowerMode.current` 的调用点改读 `ProcessInfo.processInfo.isLowPowerModeEnabled`；
    环境键 `\.lowPowerModeOverride` 本身就是 `Bool?`，直接传即可。
-2. **`import`**：只用通用策略表的消费者现在**只需 `import CoreDesign`**
+2. **`import`**：只用通用策略表的消费者现在**只需 `import OhMyDesign`**
    —— 这正是本次改动的全部目的。
 
 ### 为什么不留 typealias 兼容层
@@ -218,7 +256,7 @@ bash scripts/api-surface-diff.sh <base>                            # 新增侧�
 
 ### 一并付出的代价
 
-`CoreDesign` 新增 **3 条** Bool 豁免（`EnergyState.init#isLowPower` /
+`OhMyDesign` 新增 **3 条** Bool 豁免（`EnergyState.init#isLowPower` /
 `resolve#lowPowerModeOverride` / `presentation#reduceMotion`），棘轮基线 32 → 35。
 ⚠️ **本仓惯例是每轮把棘轮压小，本次是反向抬 3**，逐条理由见 `docs/bool-exemptions.json`。
 
@@ -341,10 +379,10 @@ git worktree remove --force /tmp/cd-v090                      # worktree 记录�
 
 （`api-surface-diff.sh` 是 `#245` 之后才加的，v0.9.0 的树上没有该文件，需拷进去。）
 
-⚠️ **本块只覆盖 `CoreDesign` 一个模块**（脚本的 `MODULE` 默认值）。对 v0.9.0 是完整的
+⚠️ **本块只覆盖 `OhMyDesign` 一个模块**（脚本的 `MODULE` 默认值）。对 v0.9.0 是完整的
 ——`v0.8.0` 与 `v0.9.0` 的 `Package.swift` **都只有一个 library product**，多 target 是
 v0.9.0 之后才拆的。⇒ **下一个版本照抄本块会静默只测三分之一**，多 product 之后须
-`MODULE=CoreDesignEffects bash …` 之类对每个 module 各跑一次。
+`MODULE=OhMyDesignEffects bash …` 之类对每个 module 各跑一次。
 
 ### 本次无同名换值 / 行为变更
 
@@ -491,7 +529,7 @@ func surface(_ kind: SurfaceKind) -> some View
 **在新 API 下没有等价替代**。之所以只补 `.grouped` 一个 case 而不铺满 9×2 的积空间：
 **本仓 + 跨仓（StoryUI）实测 7 处产品调用点 100% 落在 `.content` 上**——按用到的点建模、
 不按可能的组合建模。（口径：**产品代码**的显式调用点，不含测试与 `#Preview`；
-其中 CoreDesign 侧 1 处、StoryUI 侧 6 处。）
+其中 OhMyDesign 侧 1 处、StoryUI 侧 6 处。）
 若你在用其他 kind 的无描边组合，请提 issue——那会是一个新的容器角色，需要单独命名。
 
 #### B2. `Card(bordered:)` → `Card(kind:)`
@@ -624,7 +662,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 }
 ```
 
-`SurfaceKind` 是 public、非 `@frozen` 的 enum，且 CoreDesign 以 SwiftPM 源码分发、
+`SurfaceKind` 是 public、非 `@frozen` 的 enum，且 OhMyDesign 以 SwiftPM 源码分发、
 **不开 library evolution** ⇒ **下游若对它做穷尽 `switch`，加一个 case 就编译不过**
 （`switch must be exhaustive`）。
 
@@ -730,7 +768,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 
 ### 新增（非破坏）
 
-- `SettingsRowMetrics` 从 `internal` 改为 **`public`**——让调用方把自定义行/内容对齐到 `SettingsRow` 的网格（图标列宽 `iconSquareSize`、分隔线 inset `iconAlignedDividerInset` / `textAlignedDividerInset` 等），不必抄魔数（SC#10「不写 CoreDesign 之外样式代码」对自定义行的支撑）。
+- `SettingsRowMetrics` 从 `internal` 改为 **`public`**——让调用方把自定义行/内容对齐到 `SettingsRow` 的网格（图标列宽 `iconSquareSize`、分隔线 inset `iconAlignedDividerInset` / `textAlignedDividerInset` 等），不必抄魔数（SC#10「不写 OhMyDesign 之外样式代码」对自定义行的支撑）。
 
 ## `0.5.0`（文本入参统一，2026-07-24）
 
@@ -782,7 +820,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 
 ### 改名的 token
 
-`CoreTypography.Token` 9 个改名档位，映射逐字沿用 `.claude/epics/coredesign-native-foundation/119.md` 定案（不做二次判断）：
+`CoreTypography.Token` 9 个改名档位，映射逐字沿用 `.claude/epics/archived/coredesign-native-foundation/119.md` 定案（不做二次判断）：
 
 | 旧名 | 新名 |
 |---|---|
@@ -854,7 +892,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 
 | Token | 旧实现 | 新实现 |
 |---|---|---|
-| `Color.accent` | `Color.brand5`（CoreDesign 固定品牌蓝） | `Color.accentColor`（跟随宿主 App 的 `AccentColor` 资源） |
+| `Color.accent` | `Color.brand5`（OhMyDesign 固定品牌蓝） | `Color.accentColor`（跟随宿主 App 的 `AccentColor` 资源） |
 | `Color.accentHover` | `Color.brand6`（固定色阶） | `accent.mix(with: .primary, by: 0.15)`（对宿主 accent 动态调制） |
 | `Color.accentPressed` | `Color.brand7`（固定色阶） | `accent.mix(with: .primary, by: 0.25)` |
 | `Color.accentDisabled` | `Color.brand2`（固定色阶） | `accent.opacity(0.35)` |
@@ -901,7 +939,7 @@ Phase 1 视觉终审（#125）与 #136 查明 `.surface(.content)` → `surfaceC
 | 删除 | 替代 |
 |---|---|
 | `EmptyState`（组件） | SwiftUI `ContentUnavailableView` / UIKit `UIContentUnavailableView`（见 [components/empty-state.md](components/empty-state.md)） |
-| `KeyboardReadable` 协议及其默认实现 | 无 CoreDesign 替代；键盘高度用 `keyboardLayoutGuide` 或自建 publisher |
+| `KeyboardReadable` 协议及其默认实现 | 无 OhMyDesign 替代；键盘高度用 `keyboardLayoutGuide` 或自建 publisher |
 | `View.dismissKeyboardOnTap(enabled:onKeyboardDismissed:)` | 同上 |
 | `HideKeyboardOnTapGesture` | 同上 |
 | `View.resignFirstResponder()` / `View.becomeFirstResponder()` | 直接用 UIKit/AppKit 的 first responder API |
@@ -915,4 +953,4 @@ Phase 1 视觉终审（#125）与 #136 查明 `.surface(.content)` → `surfaceC
 |---|---|
 | `bordered(style:width:)` → `bordered(style:width:shape:)` | 新增 `shape` 参数（默认 `Rectangle()`）；同时描边从 `stroke` 改 `strokeBorder`，边框向内收 `width/2` |
 
-> **零引用验证**：上述删除的符号已在真实下游 `any-writer` 实测零引用（排除其 vendored CoreDesign 副本）。唯一无法用 grep 覆盖的是 `anyWriterFirstResponderNotification` 的**字符串键**——已单独在上表标注。
+> **零引用验证**：上述删除的符号已在真实下游 `any-writer` 实测零引用（排除其 vendored OhMyDesign 副本）。唯一无法用 grep 覆盖的是 `anyWriterFirstResponderNotification` 的**字符串键**——已单独在上表标注。

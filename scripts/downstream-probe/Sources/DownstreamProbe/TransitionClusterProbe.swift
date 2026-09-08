@@ -1,5 +1,5 @@
-import CoreDesign
-import CoreDesignEffects
+import OhMyDesign
+import OhMyDesignEffects
 import SwiftUI
 
 // MARK: - 转场簇 B（3D 与弹性 6 种，Issue #267）的下游消费面
@@ -25,7 +25,7 @@ import SwiftUI
 //
 // ① `TransitionClusterTests.systemMoveEdgeStillResolvesToSwiftUI` 写的是
 //    `let system: MoveTransition = .move(edge: .top)` —— **显式结果类型标注按返回类型
-//    消歧了**。把回归注进去（给 `CoreDesignEffects` 加一条
+//    消歧了**。把回归注进去（给 `OhMyDesignEffects` 加一条
 //    `static func move(edge: Edge) -> PolarMoveTransition`）：
 //    `swift build` ⇒ `Build complete!`、那条判据 ⇒ **绿**；
 //    而真实外部消费者 ⇒ `error: ambiguous use of 'move(edge:)'`。
@@ -39,7 +39,7 @@ import SwiftUI
 /// 守**类型名**冲突（上面的失效 ②）：`MoveTransition` 出现在返回类型位置。
 ///
 /// 若哪天本仓把 `PolarMoveTransition` 改名成 `MoveTransition`，这里的类型查找
-/// 在**同时 import SwiftUI 与 CoreDesignEffects 的下游**变成歧义，本函数编译红。
+/// 在**同时 import SwiftUI 与 OhMyDesignEffects 的下游**变成歧义，本函数编译红。
 @MainActor
 func systemMoveEdgeKeepsResolvingToSwiftUI() -> MoveTransition {
     .move(edge: .top)
@@ -47,7 +47,7 @@ func systemMoveEdgeKeepsResolvingToSwiftUI() -> MoveTransition {
 
 /// 守**实参标签**冲突（上面的失效 ①）：**没有任何类型标注**的真实调用点形态。
 ///
-/// 这正是下游会写的那一行。若 `CoreDesignEffects` 哪天也提供了
+/// 这正是下游会写的那一行。若 `OhMyDesignEffects` 哪天也提供了
 /// `move(edge:)`，重载解析在这里无从消歧，本函数编译红
 /// ——而库内那条带 `let system: MoveTransition =` 的判据照样绿。
 @MainActor

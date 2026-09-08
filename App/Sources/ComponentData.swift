@@ -1,10 +1,10 @@
 import SwiftUI
-import CoreDesign
+import OhMyDesign
 // ⚠️ **多 product 之后必须逐条 import**（#245 的失效形态：`App/project.yml` 只写
-// `- package: CoreDesign` 时预览宿主编译得过、但画廊里的新组件 import 不到）。
+// `- package: OhMyDesign` 时预览宿主编译得过、但画廊里的新组件 import 不到）。
 // `project.yml` 那侧的三条 `product:` 与这两行是**一对**，改一边必须改另一边。
-import CoreDesignCharts
-import CoreDesignEffects
+import OhMyDesignCharts
+import OhMyDesignEffects
 
 // MARK: - ComponentCategory
 
@@ -16,10 +16,10 @@ enum ComponentCategory: String, CaseIterable, Identifiable {
     case container = "Container"
     case navigation = "Navigation"
     case feedback = "Feedback"
-    /// `CoreDesignEffects` 的 36 个 API 单位（微交互 8 + 转场 16 + 庆祝与处理中 4
+    /// `OhMyDesignEffects` 的 36 个 API 单位（微交互 8 + 转场 16 + 庆祝与处理中 4
     /// + 文本与展示 4 + 跨平台改造 4）。
     case effect = "Effect"
-    /// `CoreDesignCharts` 的 4 个图表。
+    /// `OhMyDesignCharts` 的 4 个图表。
     case chart = "Chart"
 
     var id: String { self.rawValue }
@@ -131,7 +131,7 @@ extension ComponentMeta {
         },
 
         // Container（Phase 2）
-        ComponentMeta(id: "settings-screen", name: "Settings Screen", description: "SC#10：仅用 CoreDesign 复刻一屏 iOS 设置页（InsetGroupedSection + SettingsRow）", category: .container) {
+        ComponentMeta(id: "settings-screen", name: "Settings Screen", description: "SC#10：仅用 OhMyDesign 复刻一屏 iOS 设置页（InsetGroupedSection + SettingsRow）", category: .container) {
             SettingsScreenDemo()
         },
         ComponentMeta(id: "inset-grouped-section", name: "InsetGroupedSection", description: "iOS .insetGrouped 分组容器 + 自动分隔线 inset + 页眉页脚", category: .container) {
@@ -201,15 +201,15 @@ extension ComponentMeta {
 // 且合并冲突面会从「本节」扩大到「整个 all」。
 //
 // ⚠️ **"可用"的第 ③ 条（有 `#Preview` 且进画廊）在本仓分两处兑现**：`#Preview` 在
-// 各自的 `Sources/CoreDesign*/…` 源文件里（库内视觉冒烟），画廊条目在这里。
+// 各自的 `Sources/OhMyDesign*/…` 源文件里（库内视觉冒烟），画廊条目在这里。
 //
 // ⚠️ **本节有意不补 `App/Sources/Previews.swift` 的宿主 `#Preview`**，两条理由：
 // ① 这批 API 单位绝大多数是**只在值变化 / 进出那一瞬间**才有东西可看的动效，
 //    静止帧与未加修饰的内容像素级相同，收进 `docs/snapshots` 只是噪声；
-// ② 提交态的快照按**产地**收（只收 `CoreDesignPreview_*`），而库内 `#Preview`
+// ② 提交态的快照按**产地**收（只收 `OhMyDesignPreview_*`），而库内 `#Preview`
 //    一律不入库 —— 规则与三次全量渲染的实测证据写在
 //    `scripts/run-snapshots.sh` 默认模式那段注释里，判据在
-//    `Tests/CoreDesignTests/SnapshotArtifactGuard.swift`。
+//    `Tests/OhMyDesignTests/SnapshotArtifactGuard.swift`。
 extension ComponentMeta {
 
     @MainActor static let shipSwiftEntries: [ComponentMeta] = [
@@ -518,7 +518,7 @@ private struct AvatarPreview: View {
     var body: some View {
         HStack(spacing: CoreSpacing.md) {
             Avatar(name: "Evan")
-            Avatar(name: "CoreDesign")
+            Avatar(name: "OhMyDesign")
         }
     }
 }
@@ -729,7 +729,7 @@ private struct SettingsRowInListDemo: View {
 
 // MARK: - Settings Screen Demo（Success Criteria #10）
 
-/// 仅用 CoreDesign 组件复刻一屏 iOS 设置页——不写任何 CoreDesign 之外的样式代码。
+/// 仅用 OhMyDesign 组件复刻一屏 iOS 设置页——不写任何 OhMyDesign 之外的样式代码。
 private struct SettingsScreenDemo: View {
     @State private var airplane = false
     @State private var wifiOn = true
@@ -909,7 +909,7 @@ private struct SkeletonPreview: View {
                     Circle().fill(Color.accent).frame(width: 40, height: 40)
                     VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                         Text("王晓龙").coreFont(.subheadline)
-                        Text("CoreDesign 维护者").coreFont(.footnote).foregroundStyle(.secondary)
+                        Text("OhMyDesign 维护者").coreFont(.footnote).foregroundStyle(.secondary)
                     }
                 }
             }

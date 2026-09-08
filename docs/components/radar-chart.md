@@ -2,11 +2,11 @@
 
 多维评分的形状对比（蛛网图）/ A radar (spider) chart comparing multi-dimensional scores.
 
-`RadarChart(values)`（`CoreDesignCharts/RadarChart.swift`，Issue #255）。**泛型视图**——
+`RadarChart(values)`（`OhMyDesignCharts/RadarChart.swift`，Issue #255）。**泛型视图**——
 数据类型由调用方提供，本库**不发货**具体的数据 struct。
 
 ```swift
-import CoreDesignCharts
+import OhMyDesignCharts
 ```
 
 ⚠️ 本 target **有意不 `import Charts`**：它只收容 Swift Charts 原生画不出来的四类图表。
@@ -96,7 +96,7 @@ FR-20 的原则本身仍然成立并被本 target 全线遵守：**超限行为�
 - **组件自带的 chrome 才本地化**：`title` 是 `LocalizedStringResource`，缺省值走
   `.chart("Radar chart")`；三条空态文案（`"No data"` / `"A radar chart needs at least 3 dimensions"` /
   `"Data contains values that are not finite"`）同样是 `LocalizedStringResource`，
-  译文在 `Sources/CoreDesignCharts/Resources/en.lproj/Localizable.strings`。
+  译文在 `Sources/OhMyDesignCharts/Resources/en.lproj/Localizable.strings`。
 
 ⚠️ `LocalizedStringResource.chart(_:)` 是 **`internal`**，下游拿不到、也不该拿——它把 key 绑死在
 本 target 的 `Bundle.module`，下游传自己的 key 必然查不到，而查不到时 Foundation
@@ -155,7 +155,7 @@ for a 'Sendable' type parameter
 ## 使用示例 / Usage
 
 ```swift
-import CoreDesignCharts
+import OhMyDesignCharts
 import SwiftUI
 
 // ⚠️ 调用方定义自己的模型 —— 本库**不发货**具体数据 struct，四个图表都是泛型的。

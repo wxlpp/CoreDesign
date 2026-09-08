@@ -2,20 +2,20 @@
   "maxEntries": 35,
   "sourceSites": 40,
   "perTarget": {
-    "CoreDesign": {
+    "OhMyDesign": {
       "exemptions": 35,
       "sourceSites": 40
     },
-    "CoreDesignEffects": {
+    "OhMyDesignEffects": {
       "exemptions": 0,
       "sourceSites": 0
     },
-    "CoreDesignCharts": {
+    "OhMyDesignCharts": {
       "exemptions": 0,
       "sourceSites": 0
     }
   },
   "raisedBy": "wxlpp",
   "raisedOn": "2026-09-08",
-  "rationale": "设计系统配色回灌（accent 可主题化）在 `CoreDesign` 的 `ButtonRoleStyleRole` 上新增重载 `resolvedColor(accent:isEnabled:isPressed:)`，让按钮样式把 `@Environment(\\.coreAccent)` 传进来现场派生 primary role 三态。⚠️ **这是键碰撞，不是新豁免**：新重载的两个 Bool 参数与既有 `resolvedColor(isEnabled:isPressed:)` **同名同语义**，沿用同两条豁免键 （`ButtonRoleStyleRole.resolvedColor#isEnabled` / `#isPressed`，2026-08-13 已定为永久豁免）⇒ `maxEntries` 保持 35 不变，只有源码位置数 `sourceSites` 38 → 40。旧签名保留并委托新重载（`accent: .accent`），否则 `scripts/downstream-probe` 与 `ButtonStyleDefaultTests` 会编译失败。`CoreDesignEffects` / `CoreDesignCharts` 两个 target 不受影响，各自仍为 0。"
+  "rationale": "设计系统配色回灌（accent 可主题化）在 `OhMyDesign` 的 `ButtonRoleStyleRole` 上新增重载 `resolvedColor(accent:isEnabled:isPressed:)`，让按钮样式把 `@Environment(\\.coreAccent)` 传进来现场派生 primary role 三态。⚠️ **这是键碰撞，不是新豁免**：新重载的两个 Bool 参数与既有 `resolvedColor(isEnabled:isPressed:)` **同名同语义**，沿用同两条豁免键 （`ButtonRoleStyleRole.resolvedColor#isEnabled` / `#isPressed`，2026-08-13 已定为永久豁免）⇒ `maxEntries` 保持 35 不变，只有源码位置数 `sourceSites` 38 → 40。旧签名保留并委托新重载（`accent: .accent`），否则 `scripts/downstream-probe` 与 `ButtonStyleDefaultTests` 会编译失败。`OhMyDesignEffects` / `OhMyDesignCharts` 两个 target 不受影响，各自仍为 0。"
 }
