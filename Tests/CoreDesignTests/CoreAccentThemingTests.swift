@@ -20,7 +20,7 @@ struct CoreAccentThemingTests {
         let role = ButtonRoleStyleRole.primary
         #expect(
             role.resolvedColor(accent: .accent, isEnabled: true, isPressed: true) == Color.accentPressed,
-            "primary 的按下态与 Color.accentPressed 不等——派生公式写了第二遍"
+            "primary 的按下态与 Color.accentPressed 不等——两处派生已经漂了（本条抓漂移，不抓重复：把公式逐字抄一遍它照绿）"
         )
         #expect(
             role.resolvedColor(accent: .accent, isEnabled: false, isPressed: false) == Color.accentDisabled,
@@ -57,31 +57,50 @@ struct CoreAccentThemingTests {
         }
     }
 
-    @Test("onColor 只有 primary 随主题反转，其余四 role 保持白")
-    func onColorSplitsByRole() {
-        #expect(
-            ButtonRoleStyleRole.primary.onColor == Color.contentOnAccent,
-            "primary 的前景色应是随主题反转的 contentOnAccent"
-        )
+    /// 五个 role 的底色都随外观镜像（primary 是墨色，其余取自明暗镜像的 `ColorGrade`）
+    /// ⇒ 前景必须一律跟着翻转。iOS 腿实测：白字压 `secondaryAccent` 深色只有 1.65:1、
+    /// 压 `warning` 1.84:1，反转后分别是 12.73:1 / 11.39:1。
+    @Test("五个 role 的 onColor 都随主题反转——白字在深色下压不住镜像色阶")
+    func everyRoleOnColorInverts() {
         for role in [
-            ButtonRoleStyleRole.secondary, .tertiary, .warning, .danger,
+            ButtonRoleStyleRole.primary, .secondary, .tertiary, .warning, .danger,
         ] {
             #expect(
-                role.onColor == Color.contentOnEmphasis,
-                "\(role) 的底色是固定饱和色，前景必须保持白（contentOnEmphasis）——用 contentOnAccent 会让它在深色下变成黑字压彩色底"
+                role.onColor == Color.contentOnAccent,
+                "\(role) 的前景不是随主题反转的 contentOnAccent —— 底色是镜像色阶，固定白字在深色下压不住"
             )
         }
+        #expect(
+            Color.contentOnEmphasis != Color.contentOnAccent,
+            "contentOnEmphasis 与 contentOnAccent 已同值 —— 那 onColor 这个接缝就失去意义了；前者服务固定饱和色底（StateLabel / Form）"
+        )
     }
 
-    @Test("contentOnAccent 在明暗两档取值不同——写死白字会判红")
-    func contentOnAccentInvertsWithAppearance() {
+    /// ⚠️ 只断言「明暗取值不同」**不够**（终审 I-2 用变异证明）：把 `contentOnAccent`
+    /// 改成 `.label`——与 accent **同极性**，正是「字与底同色」这个要防的 bug——
+    /// 明暗两档取值照样不同，那条判据照绿。⇒ 必须断言**极性相反**。
+    @Test("contentOnAccent 与 accent 极性相反——同色会让字压在同色底上看不见")
+    func contentOnAccentIsOppositePolarityToAccent() {
+        func luminance(_ c: Color.Resolved) -> Float {
+            0.2126 * c.red + 0.7152 * c.green + 0.0722 * c.blue
+        }
+        for scheme in [ColorScheme.light, .dark] {
+            var env = EnvironmentValues()
+            env.colorScheme = scheme
+            let onAccent = luminance(Color.contentOnAccent.resolve(in: env))
+            let accent = luminance(Color.accent.resolve(in: env))
+            #expect(
+                abs(onAccent - accent) > 0.5,
+                "\(scheme)：contentOnAccent 亮度 \(onAccent) 与 accent \(accent) 差不足 0.5——两者极性相同，文字会压在同色底上"
+            )
+        }
         var light = EnvironmentValues()
         light.colorScheme = .light
         var dark = EnvironmentValues()
         dark.colorScheme = .dark
         #expect(
             Color.contentOnAccent.resolve(in: light) != Color.contentOnAccent.resolve(in: dark),
-            "contentOnAccent 在明暗下取值相同——它被写死成固定色了，无法与墨色 accent 配对"
+            "contentOnAccent 在明暗下取值相同——它被写死成固定色了"
         )
     }
 
@@ -98,6 +117,18 @@ struct CoreAccentThemingTests {
         #expect(
             data.red != data.green || data.green != data.blue,
             "dataAccent 是消色（\(data)）——靠色相携带含义的场景需要一个有色相的值"
+        )
+        // ⚠️ 钉死取值（终审 S-4）：`Color.blue` 与 `Color(nsColor/uiColor: .systemBlue)`
+        // 不是同一个值，spec §4.1 定的是后者。只断言「有色相」时改成 `.blue` 会照绿。
+        #expect(
+            Color.dataAccent == {
+                #if canImport(UIKit)
+                    Color(uiColor: .systemBlue)
+                #else
+                    Color(nsColor: .systemBlue)
+                #endif
+            }(),
+            "dataAccent 不是平台的 systemBlue —— 别用 Color.blue，两者取值不同"
         )
     }
 }

@@ -60,7 +60,7 @@ private struct PingCore: ViewModifier {
 public extension View {
     /// `trigger` 变化时，从视图背后扩散一组圆环。
     ///
-    /// - Parameter color: 环的颜色。默认 `Color.accent`（第 3 层语义 token）。
+    /// - Parameter color: 环的颜色。默认 `nil` —— 取环境 `\.coreAccent`。
     ///   ⚠️ 与 shader 不同，这里**可以**走 `.tint`（`strokeBorder(.tint)`）——
     ///   但那样调用方就无法单独调环色而不影响内容色，故仍取参数、默认语义 token。
     func ping(

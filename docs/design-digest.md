@@ -564,7 +564,7 @@
 
 ### `Components/TabBar/UnderlinedTabBar.swift`
 
-- **`UnderlinedTabBar`** *<Item: Hashable, Trailing: View>: View* — 主导航 chrome：选中项以一条 `Color.accent` 下划线加字重标记，背景由宿主 scene 提供。
+- **`UnderlinedTabBar`** *<Item: Hashable, Trailing: View>: View* — 主导航 chrome：选中项以一条下划线加字重标记（下划线色取环境 `\.coreAccent`），背景由宿主 scene 提供。
 
 ### `Components/Tag/Tag.swift`
 

@@ -131,8 +131,6 @@ private struct NativeSearchField: NSViewRepresentable {
         let field = NSSearchField()
         field.controlSize = .large
         field.delegate = context.coordinator
-        field.target = context.coordinator
-        field.action = #selector(Coordinator.submitted(_:))
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
         return field
     }
@@ -164,8 +162,21 @@ private struct NativeSearchField: NSViewRepresentable {
             self.parent.text = field.stringValue
         }
 
-        @objc func submitted(_ field: NSSearchField) {
-            self.parent.onSubmit?(field.stringValue)
+        /// ⚠️ **不要改回 `target` / `action`**：`NSSearchField` 的 `sendsWholeSearchString`
+        /// 默认为 `false`（`NSSearchField.h`：「if clear, send action on each key stroke」）
+        /// ⇒ action 会**逐键触发**，点清除按钮还会再触发两次空串。
+        /// 而 iOS 侧 `textFieldShouldReturn` 只在回车触发，旧的 SwiftUI 实现走 `.onSubmit`
+        /// 也是回车 ⇒ 用 action 通路会让 `onSubmit` 的语义两端分叉、且相对旧版是行为回归。
+        /// 只设 `sendsWholeSearchString = true` **不够**：实测打字确实不再触发，
+        /// 但清除按钮仍触发两次空串。⇒ 只认回车。
+        func control(
+            _ control: NSControl,
+            textView: NSTextView,
+            doCommandBy commandSelector: Selector
+        ) -> Bool {
+            guard commandSelector == #selector(NSResponder.insertNewline(_:)) else { return false }
+            self.parent.onSubmit?(control.stringValue)
+            return true
         }
     }
 }

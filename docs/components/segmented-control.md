@@ -10,7 +10,19 @@ Token 化的分段控件 / Token-styled segmented control.
 | selection | Binding<Item> | - | 当前选中项的双向绑定 |
 | title | (Item) -> String | - | 选项到显示文字的映射 |
 
-支持 `View.segmentedControlStyle(_:)` 注入外观，内置 `GlassSegmentedControlStyle`（默认）与 `PlainSegmentedControlStyle`。
+支持 `View.segmentedControlStyle(_:)` 注入外观，内置**三个** style，各有静态入口：
+
+| 入口 | style | 外观 |
+|---|---|---|
+| `.glass`（默认） | `GlassSegmentedControlStyle` | Liquid Glass 外壳；iOS 走原生 `UISegmentedControl` + `UIGlassEffect` |
+| `.plain` | `PlainSegmentedControlStyle` | 纯色外壳 |
+| `.ink` | `InkSegmentedControlStyle` | 选中段是实心 `coreAccent` 胶囊 + 反色文字 |
+
+⚠️ **`.ink` 不是默认**：web 版设计系统用墨色胶囊是因为浏览器渲染不了 Liquid Glass，
+那是渲染基座的代偿而非升级。⚠️ `.ink` 走 SwiftUI 回退路径，**不走** iOS 的原生控件
+——后者选中态只有 `selectedSegmentTintColor` 一个入口，塞不进「实心填充 + 反色文字」。
+⚠️ 三个静态入口与三个 style 的 `public init()` 都标了 `nonisolated`（本包开了
+`.defaultIsolation(MainActor.self)`，只加在 static 上编译不过）。
 
 ## 预览 / Preview
 

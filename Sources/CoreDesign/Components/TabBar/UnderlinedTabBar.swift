@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - UnderlinedTabBar
 
-/// 主导航 chrome：选中项以一条 `Color.accent` 下划线加字重标记，背景由宿主 scene 提供。
+/// 主导航 chrome：选中项以一条下划线加字重标记（下划线色取环境 `\.coreAccent`），背景由宿主 scene 提供。
 public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
     /// 创建带 trailing 视图的下划线 tab 栏。
     ///

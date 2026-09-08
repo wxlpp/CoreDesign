@@ -155,7 +155,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   （`Colors/ColorGrade.swift` 170 个色阶 + `Colors/StatusColors.swift` 24 个 status token
   + `Tokens/CoreElevation.swift` 4 个 shadow token）**以及原样转手它们的别名**
   （`InteractionColors` 的 `secondaryAccent` / `neutralAccent` 两族共 8 个、
-  `FunctionalColor` 全部 10 个）**一律 `resolve(in:)` 出 `(0, 0, 0, 0)`**。
+  `FunctionalColor` 的 8 个（⚠️ `success` / `info` 已于 2026-09-08 改指系统色 / `label`，**不再**是资源色别名，可在 macOS 腿解析））**一律 `resolve(in:)` 出 `(0, 0, 0, 0)`**。
   两条腿的实测对照（同一份探针、同一个 commit）：`statusDangerForeground` 在 macOS 腿是
   `a=0.0`、在 iOS 腿是 `r=0.812 g=0.133 b=0.180 a=1.0`；同一次运行里
   `accent` / `contentPrimary` / `surfaceRaised` 这些系统语义色**两条腿都正常**。
