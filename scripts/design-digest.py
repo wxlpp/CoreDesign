@@ -20,7 +20,7 @@ TARGETS = ["CoreDesign", "CoreDesignEffects", "CoreDesignCharts"]
 FLOORS = {
     "spacing": 11, "radius": 5, "border": 5, "typography": 12,
     "elevation": 4, "controlsize": 5,
-    "colors": 115, "components": 90, "enums": 28, "enumcases": 104,
+    "colors": 115, "components": 90, "enums": 29, "enumcases": 108,
     "protocols": 6, "viewext": 40, "styleext": 9, "others": 29,
 }
 

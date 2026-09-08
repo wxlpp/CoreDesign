@@ -15,6 +15,20 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.9.0`）——Issue #312：`NetworkGraph` 的布局形态扩展点
+
+**含破坏性变更（与 `v0.9.0` 那 7 处同形）** —— `NetworkGraph.init` 新增
+`layout: NetworkGraphLayout = .force`。
+
+- **对已应用的调用点零影响**：参数带默认值，`NetworkGraph(nodes:edges:)` 照常编译。
+- **对未应用的函数引用是破坏性变更**：把 `NetworkGraph.init` 当函数值取（`let f = NetworkGraph.init`）
+  或写死 `(nodes:edges:title:tint:)` 的完整签名时，类型变了。
+- **新增 public 类型** `NetworkGraphLayout`（`.force` / `.circular` / `.grid` / `.layered`）。
+  ⚠️ **非 `@frozen`** ⇒ **将来加 case 也是破坏性变更**（下游穷举 `switch` 不写
+  `@unknown default` 就编译红），届时要在本文件另起一条。
+
+理由与判定过程见 `docs/components/network-graph.md` 与登记表 `NetworkGraph.notes`。
+
 ## 未发布（相对 `v0.9.0`）——Issue #238：删除 `SurfaceKind.overlay`
 
 **含破坏性变更** —— `SurfaceKind` 删除 **1** 个 public case：`.overlay`。

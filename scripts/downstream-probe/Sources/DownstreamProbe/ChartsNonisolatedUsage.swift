@@ -116,6 +116,26 @@ nonisolated func readChartScaleLimits() -> [Int] {
     ]
 }
 
+// MARK: NetworkGraphLayout（#312 形态 D2）
+//
+// ⚠️ 这个枚举写了 `nonisolated`：三个 target 都开了 `.defaultIsolation(MainActor.self)`，
+// 不写它会被卷进 MainActor。⇒ **判据必须是一个 `nonisolated` 函数**，在 MainActor 上
+// 读它证明不了任何事。
+// ⚠️ **但本函数不是这条的第一道网**：实测把 `nonisolated` 去掉，**库自己的 `swift build`
+// 就硬红**（`main actor-isolated conformance of 'NetworkGraphLayout' to 'Equatable'
+// cannot be used in nonisolated context`，因为 `layout()` 是 `nonisolated static` 且
+// 比较 `layout == .force`）。本函数守的是**将来那条库内用法被拿掉之后**的缺口。
+nonisolated func readNetworkGraphLayouts() -> [String] {
+    NetworkGraphLayout.allCases.map { layout in
+        switch layout {
+        case .force: "force"
+        case .circular: "circular"
+        case .grid: "grid"
+        case .layered: "layered"
+        }
+    }
+}
+
 // MARK: RingChart(colors:)（画廊场景化配色 PR）
 //
 // 逐环取色是新增的公开参数；没有 probe 引用时，删掉它或改签名 probe 照常绿。

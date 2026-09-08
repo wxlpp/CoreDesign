@@ -2682,7 +2682,7 @@ of the ellipse on Y-axis in percentage, relative to the container.”）、`tilt
 当主理由，实核下来它是**最弱**的一条，而且有一个前提**直接是错的**（见 ③）。
 
 - **① 下游连锁应当单独过一次评审（这是主理由）**：翻转会顶动 J-2 的 `inspected.count`
-  （实测 16 → 17）、`knownMissingExtensionPoints`（实测 5 条 → 6 条）、`withKnownIssue`
+  （实测 16 → 17）、`knownMissingExtensionPoints`（实测 5 条 → 6 条 —— ⚠️ **`#312` 之后这两个数各减一**：`NetworkGraph` 已补上扩展点移出红名单 ⇒ 翻转是 **4 条 → 5 条**，`withKnownIssue` 文案现为逐字「4 条待补的扩展点」。）、`withKnownIssue`
   的文案（逐字「5 条待补的扩展点」）、`R-48` 的判定表与 `#312` 的范围 —— 这一整条链
   应当单独过一次评审，不应挟在一次「修终审反馈」的提交里悄悄落地。
   ⚠️ 上一版这里还写着「这条证据还没有任何人独立看过它」——**该句已到期**
