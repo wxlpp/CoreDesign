@@ -301,7 +301,12 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   做双向差集），挂在 `ci.yml` 的 `swiftpm` job 里 `swift test` 之后那一步
   ——**本地 `swift test` 全绿不代表这条过了**，改公开 static 后请手动跑一次
   （本机热 `.build` 上**实测约 4 s**，写出约 265 MB JSON；这里曾写「约 100s」，
-  是失真的数，`#314` 终审实测推翻）。看着这一步不被静默拆掉的是无条件树内判据
+  是失真的数，`#314` 终审实测推翻）。
+  ⚠️ **手动跑之前先构建测试模块**（`swift build --build-tests` 或 `swift test`）：dump 会给
+  `OhMyDesignPackageTests` 也出图，只跑过 `swift build` 时它加载不了 ⇒ 三个 library target
+  的图其实**都写出来了**，整条命令仍退非零、脚本报「dump-symbol-graph 失败」。CI 里这一步
+  排在 `swift test` 之后，所以那条腿不触发。
+  看着这一步不被静默拆掉的是无条件树内判据
   `Tests/OhMyDesignTests/MainActorStaticRatchetGuard.swift`。
   ⚠️ **只有第三方模块的扩展块成员不在射程内**：脚本扫「各 target 的主 symbols 文件」
   **加**「本包内跨 target 的 `<Target>@<本包另一个 target>.symbols.json`」，只放过

@@ -71,10 +71,11 @@
 #   | OhMyDesignEffects@SwiftUICore.symbols.json | 34             | 34             | 34              |
 #   | 合计                                   | 470                | 410            | 51              |
 #
-#   ⚠️ 表里**没有** `<Target>@<本包另一个 target>.symbols.json` 那一族（如
-#     `OhMyDesignEffects@OhMyDesign.symbols.json`）——不是漏掉了，是**今天一个都不存在**
-#     （本包内还没有跨 target 的扩展）。本脚本照样扫它们，理由见下面那段。
-#     ⇒ 光看这张 6 行表**推不出**那一族的存在，所以这里点明。
+#   ⚠️ 表里**没有** `<Target>@<本包另一个 target>.symbols.json` 那一族——那是这张表
+#     成表时的快照，今天已失真：`OhMyDesignEffects@OhMyDesign.symbols.json` 存在，
+#     里面 3 个符号（`RenderPolicy.usesGlow` / `.particleScale` /
+#     `MotionPresentation.frozenIfPeriodIsDegenerate(_:)`），均非 static 型 ⇒ 不进候选面，
+#     所以上表那三列的数没变。本脚本一直扫这一族，理由见下面那段。
 #
 # 上表里那三个 `@` 文件的扩展目标**全都是第三方模块**（`SwiftUI` / `SwiftUICore`），
 # 排除掉的就是它们那 46 条 `@MainActor`：`Transition.blur` / `.particle` / … 那一排
@@ -215,7 +216,18 @@ else
   DUMP_LOG="$(mktemp -t mainactor-ratchet-dump)"
   # ⚠️ 不用 `| tee`：pipefail + 上游 SIGPIPE 会把失败洗成别的码（本仓 ci.yml 栽过一次）。
   if ! swift package dump-symbol-graph --minimum-access-level public > "$DUMP_LOG" 2>&1; then
-    echo "❌ dump-symbol-graph 失败 —— 判据无法工作。最后 40 行：" >&2
+    echo "❌ dump-symbol-graph 失败 —— 判据无法工作。" >&2
+    # ⚠️ 先单拎 error: 行：dump 失败时会把「当前可见模块」整张表（400+ 行，每行一个
+    #   模块名）打在后面，`tail` 到的全是那张表，真正的 error: 在最前面、看不见。
+    echo "-- error: 行 --" >&2
+    grep -n '^error:' "$DUMP_LOG" >&2 || echo "（无 error: 行）" >&2
+    # 最常见的一种：dump 会给**测试模块**也出图，而 `swift build` 不构建它 ⇒ 三个
+    # library target 其实都写出来了，整条命令仍退非零。跑 `swift build --build-tests`
+    # （或 `swift test`）之后重跑即可；CI 里这一步排在 swift test 之后，所以不触发。
+    if grep -q "Couldn't load module 'OhMyDesignPackageTests'" "$DUMP_LOG"; then
+      echo "⇒ 测试模块未构建。先跑 swift build --build-tests，再重跑本脚本。" >&2
+    fi
+    echo "-- 最后 40 行 --" >&2
     tail -40 "$DUMP_LOG" >&2
     rm -f "$DUMP_LOG"
     exit 1
