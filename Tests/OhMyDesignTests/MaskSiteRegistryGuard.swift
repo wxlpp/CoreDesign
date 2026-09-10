@@ -14,6 +14,8 @@ struct MaskSiteRegistryGuard {
             基色走 `Color.maskOpaque`；量程由 `tintAlphaMaskSpansItsDeclaredRange` 钉住。
             ⚠️ 遮罩是**必要**的——这里要的是空间上变化的 alpha 场，裁剪替代不了。
             """,
+        "Sources/OhMyDesignEffects/DissolveProgress.swift#body":
+            "受控消散的 Canvas alpha 遮罩，使用已有有界网格几何与满不透明 token；减少动态效果退化为整体 alpha。保持内容和布局身份。",
         "Sources/OhMyDesignEffects/GlowSweep.swift#GlowSweep":
             "自定义形状通过路径等弧长 alpha 光尾遮罩描边；PerimeterGlowTrail 负责接缝拆分和渐隐，裁剪无法表达沿路径的亮度变化。",
         "Sources/OhMyDesignEffects/ProcessingSweep.swift#outline":
