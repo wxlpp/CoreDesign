@@ -16,9 +16,12 @@ import OhMyDesignEffects
 ## API
 
 ```swift
+public nonisolated enum GlowSweepActivity: Sendable { case active, inactive }
+
 public struct GlowSweep<Content: View>: View {
     public init(activity: GlowSweepActivity = .active, @ViewBuilder content: () -> Content)
     public init<S: InsettableShape>(in shape: S, activity: GlowSweepActivity = .active, @ViewBuilder content: () -> Content)
+    public init<S: InsettableShape, Stroke: ShapeStyle>(in shape: S, stroke: Stroke, activity: GlowSweepActivity = .active, @ViewBuilder content: () -> Content)
 }
 ```
 
@@ -34,7 +37,7 @@ public struct GlowSweep<Content: View>: View {
 
 ## 取色（FR-8）
 
-辉光色**取调用方的 `.tint`**，组件不自带颜色。边框圆角跟随 `CoreRadius.large`，
+省略 `stroke:` 时，辉光色**取调用方的 `.tint`**；显式传入时使用指定颜色或渐变。省略 `in:` 时边框圆角跟随 `CoreRadius.large`，
 并自动收敛到短边的一半（小尺寸内容上不会画歪）。
 
 ## Reduce Motion
