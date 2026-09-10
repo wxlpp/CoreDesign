@@ -8,13 +8,21 @@ import Testing
 struct GlowSweepShapeTests {
     private func pixels<S: InsettableShape>(_ shape: S, active: Bool = true) -> Data? {
         MicroInteractionAPITests.stablePixels(
-            GlowSweep(in: shape, isActive: active) {
+            GlowSweep(in: shape, activity: active ? .active : .inactive) {
                 Color.black.frame(width: 180, height: 60)
             }
             .tint(.white)
             .environment(\.scenePhaseOverride, .active)
             .environment(\.lowPowerModeOverride, true)
         )
+    }
+
+    @Test func customGradientChangesVisibleStroke() {
+        let view: GlowSweep<Color> = GlowSweep(in: Capsule(), stroke: LinearGradient(
+            colors: [.cyan, .purple], startPoint: .leading, endPoint: .trailing)) { Color.black }
+        let pixels = MicroInteractionAPITests.stablePixels(view.frame(width: 180, height: 60)
+            .environment(\.scenePhaseOverride, .active))
+        expectBitmapsDiffer(pixels, self.pixels(Capsule()), "渐变描边不能仍使用白色 tint")
     }
 
     @Test func customShapesAffectBorder() {

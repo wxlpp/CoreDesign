@@ -410,7 +410,7 @@
       "styleEnum": null,
       "needsExtensionPoint": false,
       "textParams": [],
-      "notes": "`#252` 落地的处理中容器（`OhMyDesignEffects`）：一段辉光弧沿内容边界环行。步骤 1：Apple 无对应原生样式协议。步骤 2 先过作用域条款——「横向光带往复扫描」由已登记的兄弟条目 `ScanningOverlay` 真实承担、「斜向光带掠过表面」由已登记的兄弟条目 `LightSweep` 真实承担 ⇒ 两个候选不计入；剩下的（辉光弧多宽、多亮、几段）是同一条弧换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。 新增 in: InsettableShape 与 isActive: Bool 配置：匹配宿主几何及控制生命周期，默认调用与 GlowSweep<Content> 类型元数兼容；停用隐藏装饰且保留内容。"
+      "notes": "`#252` 落地的处理中容器（`OhMyDesignEffects`）：一段辉光弧沿内容边界环行。步骤 1：Apple 无对应原生样式协议。步骤 2 先过作用域条款——「横向光带往复扫描」由已登记的兄弟条目 `ScanningOverlay` 真实承担、「斜向光带掠过表面」由已登记的兄弟条目 `LightSweep` 真实承担 ⇒ 两个候选不计入；剩下的（辉光弧多宽、多亮、几段）是同一条弧换画法 ⇒ 装饰 ⇒ 不计入 ≥2 ⇒ 举得犹豫。落点为公约第 1 节步骤 4（tiebreaker）：默认判规定性、不给扩展点。公约自陈这一侧是**可逆**的（后续按需补，不破坏 API），而多给扩展点不可逆（public 协议一旦发布，删它是破坏性变更）—— 本条若日后要改判 semantic，入口是补一份满足公约步骤 2 停止规则的候选枚举，不是改判据。 新增 in: InsettableShape 与 activity: GlowSweepActivity 生命周期与 stroke: ShapeStyle 配置：匹配宿主几何及控制生命周期，默认调用与 GlowSweep<Content> 类型元数兼容；停用隐藏装饰且保留内容。"
     },
     {
       "component": "InsetGroupedSection",

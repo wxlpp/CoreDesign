@@ -17,8 +17,8 @@ import OhMyDesignEffects
 
 ```swift
 public struct GlowSweep<Content: View>: View {
-    public init(isActive: Bool = true, @ViewBuilder content: () -> Content)
-    public init<S: InsettableShape>(in shape: S, isActive: Bool = true, @ViewBuilder content: () -> Content)
+    public init(activity: GlowSweepActivity = .active, @ViewBuilder content: () -> Content)
+    public init<S: InsettableShape>(in shape: S, activity: GlowSweepActivity = .active, @ViewBuilder content: () -> Content)
 }
 ```
 
@@ -82,7 +82,8 @@ GlowSweep {
 ## 自定义形状与启停
 
 ```swift
-GlowSweep(in: Capsule(), isActive: isVisible && isRunning) {
+GlowSweep(in: Capsule(), stroke: LinearGradient(colors: [.cyan, .indigo, .pink], startPoint: .leading, endPoint: .trailing),
+    activity: isVisible && isRunning ? .active : .inactive) {
     actionBar.glassEffect(.regular, in: .capsule)
 }
 .tint(Color.contentPrimary)
@@ -90,4 +91,6 @@ GlowSweep(in: Capsule(), isActive: isVisible && isRunning) {
 
 `in:` 接收 `InsettableShape`，使用内描边沿实际路径绘制；不裁剪内容，内容背景与流光应使用相同形状。省略形状保持原来的自适应圆角矩形。`GlowSweep<Content>` 类型参数不变，已有显式类型引用继续有效。
 
-`isActive == false` 完全隐藏装饰层，不建立 `ProcessingSweepDriver` / `TimelineView`；内容仍保持同一结构身份。它优先于减少动态效果：停用不保留静态弧。启用后沿用系统后台/低电量/减少动态效果策略。宿主应在页面被覆盖或离屏时传入 false，组件不会自动判断遮挡。
+`activity == .inactive` 完全隐藏装饰层，不建立 `ProcessingSweepDriver` / `TimelineView`；内容仍保持同一结构身份。它优先于减少动态效果：停用不保留静态弧。启用后沿用系统后台/低电量/减少动态效果策略。宿主应在页面被覆盖或离屏时传入 .inactive，组件不会自动判断遮挡。
+
+`stroke:` 接受任意 ShapeStyle，包括颜色和渐变；省略时沿用 `.tint`。生命周期使用 `GlowSweepActivity` 语义参数，避免为局部动效新增布尔配置豁免。
