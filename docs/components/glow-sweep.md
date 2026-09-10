@@ -17,7 +17,8 @@ import OhMyDesignEffects
 
 ```swift
 public struct GlowSweep<Content: View>: View {
-    public init(@ViewBuilder content: () -> Content)
+    public init(isActive: Bool = true, @ViewBuilder content: () -> Content)
+    public init<S: InsettableShape>(in shape: S, isActive: Bool = true, @ViewBuilder content: () -> Content)
 }
 ```
 
@@ -77,3 +78,16 @@ GlowSweep {
 落 tiebreaker 的理由：作用域条款排除了 `ScanningOverlay` / `LightSweep` 各自承担的候选形态，
 其余（弧多宽 / 多亮 / 几段）是同一条弧换画法 ⇒ 装饰 ⇒ 不计入 ≥2。
 逐字理由见该条目的 `notes`；扫描根由单根扩成 `GuardScanRoots.allRoots` 的经过见 issue #270。
+
+## 自定义形状与启停
+
+```swift
+GlowSweep(in: Capsule(), isActive: isVisible && isRunning) {
+    actionBar.glassEffect(.regular, in: .capsule)
+}
+.tint(Color.contentPrimary)
+```
+
+`in:` 接收 `InsettableShape`，使用内描边沿实际路径绘制；不裁剪内容，内容背景与流光应使用相同形状。省略形状保持原来的自适应圆角矩形。`GlowSweep<Content>` 类型参数不变，已有显式类型引用继续有效。
+
+`isActive == false` 完全隐藏装饰层，不建立 `ProcessingSweepDriver` / `TimelineView`；内容仍保持同一结构身份。它优先于减少动态效果：停用不保留静态弧。启用后沿用系统后台/低电量/减少动态效果策略。宿主应在页面被覆盖或离屏时传入 false，组件不会自动判断遮挡。

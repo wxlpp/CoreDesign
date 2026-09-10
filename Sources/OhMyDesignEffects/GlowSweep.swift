@@ -4,13 +4,31 @@ import SwiftUI
 /// `GlowSweep { }` —— 一段辉光**沿内容边框转圈**，表示"正在生成 / 正在思考"。
 public struct GlowSweep<Content: View>: View {
     private let content: Content
+    private let isActive: Bool
+    private var ring: (() -> AnyView)?
 
-    public init(@ViewBuilder content: () -> Content) {
+    public init(isActive: Bool = true, @ViewBuilder content: () -> Content) {
         self.content = content()
+        self.isActive = isActive
+    }
+
+    /// 沿指定形状的内边框绘制流光；停用时保留内容且不建立动画驱动。
+    public init<S: InsettableShape>(
+        in shape: S, isActive: Bool = true, @ViewBuilder content: () -> Content
+    ) {
+        self.content = content()
+        self.isActive = isActive
+        self.ring = {
+            AnyView(shape.strokeBorder(.tint, lineWidth: ProcessingSweep.ringLineWidth))
+        }
     }
 
     public var body: some View {
-        self.content.overlay { ProcessingSweepDriver(kind: .glow) }
+        self.content.overlay {
+            if self.isActive {
+                ProcessingSweepDriver(kind: .glow, ring: self.ring)
+            }
+        }
     }
 }
 

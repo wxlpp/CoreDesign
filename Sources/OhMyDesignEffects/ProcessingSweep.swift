@@ -13,6 +13,7 @@ enum ProcessingSweepKind: CaseIterable {
 
 struct ProcessingSweepDriver: View {
     let kind: ProcessingSweepKind
+    var ring: (() -> AnyView)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
@@ -31,13 +32,13 @@ struct ProcessingSweepDriver: View {
 
         let isReduced = presentation == .resting
         guard !isReduced else {
-            return AnyView(ProcessingSweepBody(kind: self.kind, phase: ProcessingSweep.restingPhase))
+            return AnyView(ProcessingSweepBody(kind: self.kind, ring: self.ring, phase: ProcessingSweep.restingPhase))
         }
 
         return AnyView(
             TimelineView(.animation(minimumInterval: state.policy.minimumInterval)) { context in
                 ProcessingSweepBody(
-                    kind: self.kind,
+                    kind: self.kind, ring: self.ring,
                     phase: ProcessingSweep.phase(at: context.date)
                 )
             }
@@ -49,6 +50,7 @@ struct ProcessingSweepDriver: View {
 
 struct ProcessingSweepBody: View {
     let kind: ProcessingSweepKind
+    var ring: (() -> AnyView)? = nil
     let phase: CGFloat
 
     @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
@@ -93,11 +95,17 @@ struct ProcessingSweepBody: View {
     @ViewBuilder
     private func glowRing(glow: Bool) -> some View {
         GeometryReader { proxy in
-            RoundedRectangle(
-                cornerRadius: ProcessingSweep.ringRadius(for: proxy.size),
-                style: .continuous
-            )
-            .strokeBorder(.tint, lineWidth: ProcessingSweep.ringLineWidth)
+            Group {
+                if let ring = self.ring {
+                    ring()
+                } else {
+                    RoundedRectangle(
+                        cornerRadius: ProcessingSweep.ringRadius(for: proxy.size),
+                        style: .continuous
+                    )
+                    .strokeBorder(.tint, lineWidth: ProcessingSweep.ringLineWidth)
+                }
+            }
             .mask {
                 AngularGradient(
                     gradient: Gradient(colors: ProcessingSweep.ringMaskStops),
