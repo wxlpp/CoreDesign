@@ -308,7 +308,15 @@ nonisolated enum MaskReveal {
 // MARK: - 绘制 / Drawing
 
 struct MaskRevealShape: Shape {
-    let plan: MaskRevealPlan
+    var plan: MaskRevealPlan
+
+    var animatableData: Double {
+        get { self.plan.progress }
+        set {
+            self.plan = MaskRevealPlan(progress: newValue, kind: self.plan.kind,
+                                       contentOpacity: self.plan.contentOpacity, glare: self.plan.glare)
+        }
+    }
 
     func path(in rect: CGRect) -> Path {
         MaskReveal.path(for: self.plan, in: rect)

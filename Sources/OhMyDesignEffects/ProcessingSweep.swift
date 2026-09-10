@@ -36,7 +36,7 @@ struct ProcessingSweepDriver: View {
         }
 
         return AnyView(
-            TimelineView(.animation(minimumInterval: state.policy.minimumInterval)) { context in
+            TimelineView(.animation(minimumInterval: self.ring == nil ? state.policy.minimumInterval : max(state.policy.minimumInterval ?? 0, 1.0 / 30))) { context in
                 ProcessingSweepBody(
                     kind: self.kind, ring: self.ring,
                     phase: ProcessingSweep.phase(at: context.date, period: self.ring == nil ? ProcessingSweep.period : 3)
