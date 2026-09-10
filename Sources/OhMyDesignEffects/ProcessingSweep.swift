@@ -13,7 +13,7 @@ enum ProcessingSweepKind: CaseIterable {
 
 struct ProcessingSweepDriver: View {
     let kind: ProcessingSweepKind
-    var ring: (() -> AnyView)? = nil
+    var ring: ((CGFloat) -> AnyView)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
@@ -39,7 +39,7 @@ struct ProcessingSweepDriver: View {
             TimelineView(.animation(minimumInterval: state.policy.minimumInterval)) { context in
                 ProcessingSweepBody(
                     kind: self.kind, ring: self.ring,
-                    phase: ProcessingSweep.phase(at: context.date)
+                    phase: ProcessingSweep.phase(at: context.date, period: self.ring == nil ? ProcessingSweep.period : 3)
                 )
             }
         )
@@ -50,7 +50,7 @@ struct ProcessingSweepDriver: View {
 
 struct ProcessingSweepBody: View {
     let kind: ProcessingSweepKind
-    var ring: (() -> AnyView)? = nil
+    var ring: ((CGFloat) -> AnyView)? = nil
     let phase: CGFloat
 
     @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
@@ -97,21 +97,21 @@ struct ProcessingSweepBody: View {
         GeometryReader { proxy in
             let outline = Group {
                 if let ring = self.ring {
-                    ring()
+                    ring(self.phase)
                 } else {
                     RoundedRectangle(
                         cornerRadius: ProcessingSweep.ringRadius(for: proxy.size),
                         style: .continuous
                     )
                     .strokeBorder(.tint, lineWidth: ProcessingSweep.ringLineWidth)
+                    .mask {
+                        AngularGradient(
+                            gradient: Gradient(colors: ProcessingSweep.ringMaskStops),
+                            center: .center
+                        )
+                        .rotationEffect(ProcessingSweep.ringAngle(phase: self.phase))
+                    }
                 }
-            }
-            .mask {
-                AngularGradient(
-                    gradient: Gradient(colors: ProcessingSweep.ringMaskStops),
-                    center: .center
-                )
-                .rotationEffect(ProcessingSweep.ringAngle(phase: self.phase))
             }
             if self.ring != nil {
                 outline.background {

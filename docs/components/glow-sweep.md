@@ -97,3 +97,7 @@ GlowSweep(in: Capsule(), stroke: LinearGradient(colors: [.cyan, .indigo, .pink],
 `activity == .inactive` 完全隐藏装饰层，不建立 `ProcessingSweepDriver` / `TimelineView`；内容仍保持同一结构身份。它优先于减少动态效果：停用不保留静态弧。启用后沿用系统后台/低电量/减少动态效果策略。宿主应在页面被覆盖或离屏时传入 .inactive，组件不会自动判断遮挡。
 
 `stroke:` 接受任意 ShapeStyle，包括颜色和渐变；省略时沿用 `.tint`。生命周期使用 `GlowSweepActivity` 语义参数，避免为局部动效新增布尔配置豁免。
+
+## 长条形状的速度
+
+自定义形状入口按真实路径的归一化弧长推进，每周 3 秒；光尾占周长的 18%，首尾拆分衔接。长胶囊不再使用匀角速度遮罩，避免长边上加速、圆角处减速。无形状参数的旧入口保持原角向行为和周期。

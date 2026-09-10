@@ -17,6 +17,16 @@ struct GlowSweepShapeTests {
         )
     }
 
+    @Test func perimeterTrailWrapsWithoutChangingLength() {
+        for phase in stride(from: CGFloat(0), through: 1, by: 0.025) {
+            let ranges = PerimeterGlowTrail<Capsule>.ranges(endingAt: phase, length: 0.18)
+            #expect(abs(ranges.reduce(0) { $0 + $1.upperBound - $1.lowerBound } - 0.18) < 0.00001)
+            #expect(ranges.allSatisfy { $0.lowerBound >= 0 && $0.upperBound <= 1 })
+        }
+        #expect(PerimeterGlowTrail<Capsule>.ranges(endingAt: 0, length: 0.18)
+            == PerimeterGlowTrail<Capsule>.ranges(endingAt: 1, length: 0.18))
+    }
+
     @Test func customGradientChangesVisibleStroke() {
         let view: GlowSweep<Color> = GlowSweep(in: Capsule(), stroke: LinearGradient(
             colors: [.cyan, .purple], startPoint: .leading, endPoint: .trailing)) { Color.black }

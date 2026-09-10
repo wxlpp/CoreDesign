@@ -10,7 +10,7 @@ public nonisolated enum GlowSweepActivity: Sendable {
 public struct GlowSweep<Content: View>: View {
     private let content: Content
     private let activity: GlowSweepActivity
-    private var ring: (() -> AnyView)?
+    private var ring: ((CGFloat) -> AnyView)?
 
     public init(activity: GlowSweepActivity = .active, @ViewBuilder content: () -> Content) {
         self.content = content()
@@ -21,11 +21,7 @@ public struct GlowSweep<Content: View>: View {
     public init<S: InsettableShape>(
         in shape: S, activity: GlowSweepActivity = .active, @ViewBuilder content: () -> Content
     ) {
-        self.content = content()
-        self.activity = activity
-        self.ring = {
-            AnyView(shape.strokeBorder(.tint, lineWidth: ProcessingSweep.ringLineWidth))
-        }
+        self.init(in: shape, stroke: .tint, activity: activity, content: content)
     }
 
     /// 沿指定形状绘制自定义颜色或渐变的流光。
@@ -35,8 +31,9 @@ public struct GlowSweep<Content: View>: View {
     ) {
         self.content = content()
         self.activity = activity
-        self.ring = {
-            AnyView(shape.strokeBorder(stroke, lineWidth: ProcessingSweep.ringLineWidth))
+        self.ring = { phase in
+            AnyView(shape.strokeBorder(stroke, lineWidth: ProcessingSweep.ringLineWidth)
+                .mask { PerimeterGlowTrail(shape: shape, phase: phase) })
         }
     }
 
