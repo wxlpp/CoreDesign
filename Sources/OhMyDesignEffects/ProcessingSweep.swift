@@ -95,7 +95,7 @@ struct ProcessingSweepBody: View {
     @ViewBuilder
     private func glowRing(glow: Bool) -> some View {
         GeometryReader { proxy in
-            Group {
+            let outline = Group {
                 if let ring = self.ring {
                     ring()
                 } else {
@@ -113,7 +113,13 @@ struct ProcessingSweepBody: View {
                 )
                 .rotationEffect(ProcessingSweep.ringAngle(phase: self.phase))
             }
-            .blur(radius: glow ? ProcessingSweep.ringBlur : 0)
+            if self.ring != nil {
+                outline.background {
+                    if glow { outline.blur(radius: ProcessingSweep.ringBlur).opacity(0.6) }
+                }
+            } else {
+                outline.blur(radius: glow ? ProcessingSweep.ringBlur : 0)
+            }
         }
     }
 
