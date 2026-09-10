@@ -8,8 +8,8 @@ struct PerimeterGlowTrail<S: InsettableShape>: View {
 
     var body: some View {
         Canvas { context, size in
-            // 相邻片段轻微重叠并替换 alpha，避免圆头叠加产生一串亮点。
-            context.blendMode = .copy
+            // 先以不透明灰度绘制光尾，再转成 alpha；避免分段边缘相互擦除。
+            context.blendMode = .lighten
             let path = self.shape.inset(by: ProcessingSweep.ringLineWidth / 2)
                 .path(in: CGRect(origin: .zero, size: size))
             let count = 24
@@ -20,13 +20,14 @@ struct PerimeterGlowTrail<S: InsettableShape>: View {
                 for range in Self.ranges(endingAt: end, length: step * 1.08) {
                     context.stroke(
                         path.trimmedPath(from: range.lowerBound, to: range.upperBound),
-                        with: .color(Color.maskOpaque.opacity(brightness * brightness)),
+                        with: .color(Color(white: brightness * brightness)),
                         style: StrokeStyle(lineWidth: ProcessingSweep.ringLineWidth + 1,
                                            lineCap: .butt)
                     )
                 }
             }
         }
+        .luminanceToAlpha()
     }
 
     static func ranges(endingAt phase: CGFloat, length: CGFloat) -> [ClosedRange<CGFloat>] {
