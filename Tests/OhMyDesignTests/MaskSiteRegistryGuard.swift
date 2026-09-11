@@ -14,9 +14,11 @@ struct MaskSiteRegistryGuard {
             基色走 `Color.maskOpaque`；量程由 `tintAlphaMaskSpansItsDeclaredRange` 钉住。
             ⚠️ 遮罩是**必要**的——这里要的是空间上变化的 alpha 场，裁剪替代不了。
             """,
-        "Sources/OhMyDesignEffects/ProcessingSweep.swift#glowRing":
+        "Sources/OhMyDesignEffects/GlowSweep.swift#GlowSweep":
+            "自定义形状通过路径等弧长 alpha 光尾遮罩描边；PerimeterGlowTrail 负责接缝拆分和渐隐，裁剪无法表达沿路径的亮度变化。",
+        "Sources/OhMyDesignEffects/ProcessingSweep.swift#outline":
             """
-            边框辉光：`.strokeBorder(.tint)` + 角向 alpha 渐变遮罩。
+            边框辉光：默认 tint 描边 + 角向 alpha 渐变遮罩。outline 同时用于清晰描边和柔和光晕。
             色标走 `ProcessingSweep.ringMaskStops`（基色 `Color.maskOpaque`）；
             峰值由 `maskStopsAreFullyOpaqueAtTheirPeak` 钉住。同样是"变化的 alpha 场"。
             """,

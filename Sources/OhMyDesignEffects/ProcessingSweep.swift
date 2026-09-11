@@ -13,6 +13,7 @@ enum ProcessingSweepKind: CaseIterable {
 
 struct ProcessingSweepDriver: View {
     let kind: ProcessingSweepKind
+    var ring: ((CGFloat) -> AnyView)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
@@ -31,14 +32,14 @@ struct ProcessingSweepDriver: View {
 
         let isReduced = presentation == .resting
         guard !isReduced else {
-            return AnyView(ProcessingSweepBody(kind: self.kind, phase: ProcessingSweep.restingPhase))
+            return AnyView(ProcessingSweepBody(kind: self.kind, ring: self.ring, phase: ProcessingSweep.restingPhase))
         }
 
         return AnyView(
-            TimelineView(.animation(minimumInterval: state.policy.minimumInterval)) { context in
+            TimelineView(.animation(minimumInterval: self.ring == nil ? state.policy.minimumInterval : max(state.policy.minimumInterval ?? 0, 1.0 / 30))) { context in
                 ProcessingSweepBody(
-                    kind: self.kind,
-                    phase: ProcessingSweep.phase(at: context.date)
+                    kind: self.kind, ring: self.ring,
+                    phase: ProcessingSweep.phase(at: context.date, period: self.ring == nil ? ProcessingSweep.period : 3)
                 )
             }
         )
@@ -49,6 +50,7 @@ struct ProcessingSweepDriver: View {
 
 struct ProcessingSweepBody: View {
     let kind: ProcessingSweepKind
+    var ring: ((CGFloat) -> AnyView)? = nil
     let phase: CGFloat
 
     @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
@@ -93,19 +95,31 @@ struct ProcessingSweepBody: View {
     @ViewBuilder
     private func glowRing(glow: Bool) -> some View {
         GeometryReader { proxy in
-            RoundedRectangle(
-                cornerRadius: ProcessingSweep.ringRadius(for: proxy.size),
-                style: .continuous
-            )
-            .strokeBorder(.tint, lineWidth: ProcessingSweep.ringLineWidth)
-            .mask {
-                AngularGradient(
-                    gradient: Gradient(colors: ProcessingSweep.ringMaskStops),
-                    center: .center
-                )
-                .rotationEffect(ProcessingSweep.ringAngle(phase: self.phase))
+            let outline = Group {
+                if let ring = self.ring {
+                    ring(self.phase)
+                } else {
+                    RoundedRectangle(
+                        cornerRadius: ProcessingSweep.ringRadius(for: proxy.size),
+                        style: .continuous
+                    )
+                    .strokeBorder(.tint, lineWidth: ProcessingSweep.ringLineWidth)
+                    .mask {
+                        AngularGradient(
+                            gradient: Gradient(colors: ProcessingSweep.ringMaskStops),
+                            center: .center
+                        )
+                        .rotationEffect(ProcessingSweep.ringAngle(phase: self.phase))
+                    }
+                }
             }
-            .blur(radius: glow ? ProcessingSweep.ringBlur : 0)
+            if self.ring != nil {
+                outline.background {
+                    if glow { outline.blur(radius: ProcessingSweep.ringBlur).opacity(0.6) }
+                }
+            } else {
+                outline.blur(radius: glow ? ProcessingSweep.ringBlur : 0)
+            }
         }
     }
 
