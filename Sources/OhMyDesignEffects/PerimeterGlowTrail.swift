@@ -20,7 +20,7 @@ struct PerimeterGlowTrail<S: InsettableShape>: View {
                 for range in Self.ranges(endingAt: end, length: step * 1.08) {
                     context.stroke(
                         path.trimmedPath(from: range.lowerBound, to: range.upperBound),
-                        with: .color(Color(white: brightness * brightness)),
+                        with: .color(Color.maskLuminance(brightness * brightness)),
                         style: StrokeStyle(lineWidth: ProcessingSweep.ringLineWidth + 1,
                                            lineCap: .butt)
                     )

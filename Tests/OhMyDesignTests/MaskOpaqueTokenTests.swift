@@ -56,6 +56,19 @@ struct MaskOpaqueTokenTests {
 
     // MARK: - 1. token 自身的契约
 
+    @Test("亮度遮罩保持不透明且与原灰度绘制一致")
+    func luminanceMaskMatchesGrayscale() {
+        for (_, scheme) in Self.schemes {
+            for value in [0.0, 0.25, 0.5, 1.0] {
+                let environment = Self.environment(scheme)
+                let actual = Color.maskLuminance(value).resolve(in: environment)
+                let expected = Color(white: value).resolve(in: environment)
+                #expect(actual == expected)
+                #expect(actual.opacity == 1)
+            }
+        }
+    }
+
     @Test("Color.maskOpaque 在明暗两端都恰好 α = 1")
     func maskOpaqueIsFullyOpaqueInBothSchemes() {
         for (name, scheme) in Self.schemes {

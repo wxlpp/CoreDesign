@@ -35,6 +35,7 @@ struct MicroInteractionReduceMotionGuard {
         "EffectsEnergy.swift",
         "ScanningOverlay.swift",
         "GlowSweep.swift",
+        "PerimeterGlowTrail.swift", // 纯相位绘制；计时及减少动态效果由 ProcessingSweep 管理。
         "LightSweep.swift",
         "TypewriterText.swift",
         "BeforeAfterSlider.swift",
